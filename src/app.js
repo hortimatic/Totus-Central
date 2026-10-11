@@ -1,7 +1,7 @@
 import {ROUTES} from './config.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
-import {renderers,invoiceLineRow,invoicePreview,productModal} from './pages/main.js';
+import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc} from './utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook} from './excel.js';
@@ -121,17 +121,79 @@ async function deleteExpenseSupplier(id){
  await remove('ops_suppliers',id);closeModal();await refresh('Proveedor eliminado.');
 }
 
+function safeSegment(v){return String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80)||'sin_dato'}
+async function fileSha256(file){const buf=await file.arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+function quarterFromDate(date){const m=Number(String(date).slice(5,7));return 'T'+Math.ceil(m/3)}
+async function createStoredDocument(file,{storeId=null,date,docType='otro',status='pendiente',party='',taxId='',number='',category='',notes='',linkedType=null,linkedId=null}={}){
+ const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
+ if(file.size>max)throw new Error('El archivo supera el máximo de '+Math.round(max/1024/1024)+' MB.');
+ const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0);
+ if(used+file.size>limit)throw new Error('No hay espacio suficiente en Storage para este archivo.');
+ const y=String(date).slice(0,4),m=String(date).slice(5,7),storeNameValue=state.data.stores.find(s=>s.id===storeId)?.name||'General';
+ const path=`${y}/${quarterFromDate(date)}/${m}/${safeSegment(storeNameValue)}/${safeSegment(docType)}/${safeSegment(party)}/${crypto.randomUUID()}_${safeSegment(file.name)}`;
+ await upload('business-documents',path,file);
+ let doc;
+ try{
+   doc=await insert('ops_documents',{store_id:storeId||null,doc_type:docType,document_date:date,supplier_or_customer:party,tax_id:taxId,invoice_number:number,category_code:category,status,storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file),linked_entity_type:linkedType,linked_entity_id:linkedId,notes,uploaded_by:state.session?.user?.id||null});
+ }catch(e){await removeFile('business-documents',path).catch(()=>{});throw e}
+ return doc;
+}
+async function destroyDocument(doc){
+ if(!doc)return;
+ await remove('ops_documents',doc.id);
+ if(doc.storage_path)await removeFile('business-documents',doc.storage_path).catch(()=>{});
+}
+
 async function saveExpense(id=''){
- const base=num('exBase'),vatRate=Math.max(0,num('exVatRate')),reRate=Math.max(0,num('exReRate')),whRate=Math.max(0,num('exWhRate'));
- const vat=base*vatRate/100,re=base*reRate/100,wh=base*whRate/100,total=base+vat+re-wh;
- const paidStatus=val('exPaidStatus')||'pagado';
- const expense={id:id||null,store_id:required('exStore','Tienda'),expense_date:required('exDate','Fecha'),supplier_id:val('exSupplierId')||null,supplier_name:required('exSupplier','Proveedor'),supplier_tax_id:val('exTax').trim(),invoice_number:val('exInvoice').trim(),category_id:val('exCategory')||null,description:val('exDesc').trim(),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:val('exPaidDate')||null,base_amount:base,vat_rate:vatRate,vat_amount:vat,re_rate:reRate,re_amount:re,withholding_rate:whRate,withholding_amount:wh,withholding_model:val('exWhModel')||null,gross_expense:total,amount_paid:paidStatus==='pagado'?total:0,deductible_irpf:!!input('exDeductible')?.checked,deductible_pct:Math.min(100,Math.max(0,num('exDedPct'))),fixed_asset:!!input('exFixed')?.checked,amortization_years:val('exAmortYears')===''?null:num('exAmortYears'),notes:val('exNotes').trim(),document_kind:val('exDocKind')||'factura',source:'manual',fiscal_reviewed:false,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
- const lines=[{sort_order:10,category_id:expense.category_id,description:expense.description||expense.supplier_name,base_amount:base,vat_rate:vatRate,vat_amount:0,re_base:0,re_rate:reRate,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:whRate,withholding_amount:0,withholding_model:expense.withholding_model,deductible_irpf:expense.deductible_irpf,deductible_pct:expense.deductible_pct,fixed_asset:expense.fixed_asset,amortization_years:expense.amortization_years,notes:''}];
- await rpc('totus_save_expense',{p_expense:expense,p_lines:lines});closeModal();await refresh('Gasto guardado.');
+ const storeId=required('exStore','Tienda'),date=required('exDate','Fecha'),supplier=required('exSupplier','Proveedor');
+ if(date>isoToday())throw new Error('La fecha del gasto no puede ser futura.');
+ const invoiceNumber=val('exInvoice').trim(),taxId=val('exTax').trim();
+ if(invoiceNumber){
+   const duplicate=state.data.expenses.find(x=>x.id!==id&&String(x.invoice_number||'').trim().toLowerCase()===invoiceNumber.toLowerCase()&&((taxId&&String(x.supplier_tax_id||'').trim().toLowerCase()===taxId.toLowerCase())||(!taxId&&String(x.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase())));
+   if(duplicate)throw new Error('Ya existe un gasto con esta factura para el mismo proveedor.');
+ }
+ const paidStatus=val('exPaidStatus')||'pagado',paidDate=val('exPaidDate')||null;
+ if(paidDate&&paidDate>isoToday())throw new Error('La fecha de pago no puede ser futura.');
+ const lineEls=[...document.querySelectorAll('.expense-line')];
+ if(!lineEls.length)throw new Error('Añade al menos un concepto.');
+ const lines=lineEls.map((el,i)=>{
+   const ix=el.dataset.lineIndex,base=Math.max(0,n(val(`exLineBase_${ix}`))),vat=Math.max(0,n(val(`exLineVat_${ix}`))),re=Math.max(0,n(val(`exLineRe_${ix}`))),wh=Math.max(0,n(val(`exLineWh_${ix}`))),dedPct=Math.min(100,Math.max(0,n(val(`exLineDedPct_${ix}`))));
+   const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
+   return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!!input(`exLineDed_${ix}`)?.checked,deductible_pct:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
+ });
+ const current=id?state.data.expenses.find(x=>x.id===id):null,oldDoc=current?.document_id?state.data.documents.find(x=>x.id===current.document_id):null;
+ const file=input('exFile')?.files?.[0]||null;
+ let newDoc=null,documentId=oldDoc?.id||null;
+ if(file){
+   newDoc=await createStoredDocument(file,{storeId,date,docType:'factura_recibida',status:paidStatus==='pagado'?'pagada':'pendiente',party:supplier,taxId,number:invoiceNumber,category:'gasto',notes:'Justificante de gasto',linkedType:'expense'});
+   documentId=newDoc.id;
+ }
+ const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
+ const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):Math.max(0,num('exPaidAmount'));
+ if(paidStatus==='pagado'&&Math.abs(amountPaid-total)>.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
+ if(paidStatus==='pendiente'&&amountPaid>0)throw new Error('Un gasto pendiente no puede tener importe pagado.');
+ const first=lines[0];
+ const expense={id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')||'factura',source:'manual',fiscal_reviewed:false,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
+ let savedId;
+ try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
+ catch(e){if(newDoc)await destroyDocument(newDoc).catch(()=>{});throw e}
+ if(newDoc){await update('ops_documents',newDoc.id,{linked_entity_id:savedId});if(oldDoc&&oldDoc.id!==newDoc.id)await destroyDocument(oldDoc).catch(()=>{})}
+ setView('gastos',{mode:'record',id:savedId});await refresh('Gasto guardado.');
+}
+async function unlinkExpenseDocument(expenseId,documentId){
+ if(!confirm('¿Quitar el justificante de este gasto?'))return;
+ const doc=state.data.documents.find(x=>x.id===documentId);
+ await update('ops_expenses',expenseId,{document_id:null});
+ if(doc)await destroyDocument(doc);
+ await refresh('Justificante eliminado.');
 }
 async function deleteExpense(id){
- if(!confirm('¿Eliminar este gasto?'))return;const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
- await rpc('totus_delete_expense',{p_id:id,p_reason:reason.trim()});closeModal();await refresh('Gasto eliminado.');
+ if(!confirm('¿Eliminar este gasto?'))return;
+ const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
+ const row=state.data.expenses.find(x=>x.id===id),doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
+ await rpc('totus_delete_expense',{p_id:id,p_reason:reason.trim()});
+ if(doc)await destroyDocument(doc).catch(()=>{});
+ resetView('gastos');await refresh('Gasto eliminado.');
 }
 
 async function saveInvoice(id='',type='factura'){
