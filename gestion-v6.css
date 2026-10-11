@@ -250,6 +250,29 @@
 
 
 
+
+/* Informes · exportaciones */
+.reports-workspace{display:flex;flex-direction:column;gap:18px}
+.report-period-card{padding:18px}
+.report-period-grid{display:grid;grid-template-columns:minmax(170px,.35fr) minmax(170px,.35fr) minmax(320px,1.3fr);gap:12px;align-items:end;margin-top:14px}
+.report-period-grid label{display:block;margin-bottom:5px;font-size:11px;font-weight:850;color:#aeb9c4}
+.report-period-grid input{width:100%}
+.report-period-summary{min-height:42px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.02)}
+.report-period-summary span{padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.03);font-size:10px;color:#91a0ad;white-space:nowrap}
+.report-period-summary b{color:#e7f2fa;font-size:12px}
+.report-section{display:flex;flex-direction:column;gap:10px}
+.report-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.report-section-head h3{margin:2px 0 0}
+.report-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.report-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;min-height:180px;padding:16px}
+.report-card h4{margin:8px 0 6px;font-size:15px}
+.report-card p{flex:1;margin:0 0 15px}
+.report-card>button{width:100%;margin-top:auto}
+.report-card.featured{border-color:rgba(75,217,255,.25);background:linear-gradient(145deg,rgba(75,217,255,.055),rgba(255,255,255,.018))}
+.report-format{display:inline-flex;min-height:23px;align-items:center;padding:3px 7px;border:1px solid rgba(75,217,255,.18);border-radius:999px;background:rgba(75,217,255,.045);color:#9ceeff;font-size:9px;font-weight:950;letter-spacing:.055em}
+@media(max-width:1050px){.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-period-grid{grid-template-columns:1fr 1fr}.report-period-summary{grid-column:1/-1}}
+@media(max-width:700px){.report-grid{grid-template-columns:1fr}.report-period-card{padding:14px}.report-period-card>.section-head{align-items:flex-start;flex-direction:column}.report-period-grid{grid-template-columns:1fr}.report-period-summary{grid-column:auto}.report-card{min-height:0}}
+
 /* Fiscalidad · navegación y lectura */
 .fiscal-workspace{display:flex;flex-direction:column;gap:14px}
 .fiscal-nav{position:sticky;top:72px;z-index:11;display:flex;gap:6px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:13px;background:rgba(7,17,25,.94);backdrop-filter:blur(12px);box-shadow:0 10px 28px rgba(0,0,0,.14)}
