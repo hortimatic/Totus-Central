@@ -1,9 +1,9 @@
-import {ROUTES,STORAGE_LIMIT_BYTES} from './config.js';
+import {ROUTES} from './config.js';
 import {state,isAdmin,isManager,patchFilters,setRoute} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,closingModal,expenseModal,invoiceModal,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
-import {$,$$,monthRange,n,isoToday,fmtDate,download,csv,money,esc} from './utils.js';
+import {$,monthRange,n,isoToday,fmtDate,download,csv,esc} from './utils.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
