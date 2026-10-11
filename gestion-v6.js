@@ -362,74 +362,108 @@ function closingsHtml(){
   const pb=periodBounds(O.year,O.quarter,false),rows=filteredClosings(pb.start,pb.end,O.storeId).slice(0,100);
   const locked=!!(d.id&&d.status==='cerrado'&&!manager()),dis=locked?'disabled':'';
   const stateLabel=d.id?(d.status==='cerrado'?'Cerrado':'Borrador'):'Nuevo';
-  return `<div class="ops-card ops-closing-editor">
-   <div class="ops-closing-toolbar">
-    <div>
-     <div class="eyebrow">${d.id?'Cierre registrado':'Nuevo cierre'}</div>
-     <div class="ops-title-line"><h3>Cierre diario</h3>${infoButton('cajas','Cómo funciona el cierre de cajas')}</div>
-     <div class="small">Trabaja por caja física y comprueba al final el total de ventas de la tienda.</div>
+  const diffClass=c.diff==null?'neutral':Math.abs(c.diff)<=.01?'ok':'bad';
+  const diffText=c.diff==null?'Pendiente de comprobar':Math.abs(c.diff)<=.01?'CUADRA · '+eur(c.diff):'NO CUADRA · '+eur(c.diff);
+  return `<div class="closing-shell">
+   <section class="closing-command">
+    <div class="closing-command-copy">
+     <div class="eyebrow">${d.id?'Cierre registrado':'Trabajo diario'}</div>
+     <div class="ops-title-line"><h2>Cierre de caja</h2>${infoButton('cajas','Cómo funciona el cierre de cajas')}</div>
+     <p>Introduce únicamente lo ocurrido hoy. Totus hereda la apertura, calcula el efectivo vendido y comprueba el total contra tu cierre/TPV.</p>
     </div>
-    <div class="ops-closing-actions">
+    <div class="closing-command-actions">
      <span class="ops-status-chip ${d.status==='cerrado'?'closed':'draft'}">${stateLabel}</span>
-     ${d.id?'<button class="ghost" onclick="opsNewClosing()">Nuevo cierre</button>':''}
+     ${d.id?'<button class="ghost" onclick="opsNewClosing()">Nuevo</button>':''}
      ${manager()&&d.id&&d.status==='cerrado'?'<button class="ghost" onclick="opsReopenClosing()">Reabrir</button>':''}
-     ${manager()&&d.id?'<button class="danger" onclick="opsDeleteClosing()">Eliminar</button>':''}
      <button class="secondary" onclick="opsSaveClosing('borrador')" ${dis}>Guardar borrador</button>
-     <button class="primary" onclick="opsSaveClosing('cerrado')" ${dis}>${d.id?'Cerrar / guardar':'Cerrar día'}</button>
+     <button class="primary" onclick="opsSaveClosing('cerrado')" ${dis}>${d.id?'Guardar cierre':'Cerrar día'}</button>
     </div>
+   </section>
+
+   ${locked?'<div class="ops-note warn">Este cierre está cerrado. Puedes consultarlo; administración o gerencia pueden reabrirlo con trazabilidad.</div>':''}
+   ${d.legacyAllocation?'<div class="ops-note warn"><b>Cierre histórico anterior al desglose por caja.</b> Los cobros no efectivos se conservan asignados a la primera caja para mantener el total original.</div>':''}
+
+   <div class="closing-workspace">
+    <main class="closing-editor">
+     <section class="closing-context-card">
+      <div class="closing-section-head">
+       <div><span>Contexto</span><h3>¿Qué día y qué tienda estás cerrando?</h3></div>
+       <small>Cambiar cualquiera de estos datos reinicia los importes introducidos.</small>
+      </div>
+      <div class="ops-form closing-context-form">
+       <div><label>Establecimiento</label><select aria-label="Establecimiento del cierre" onchange="opsCloseContextField('storeId',this.value)" ${dis}>${O.stores.map(st=>`<option value="${st.id}" ${d.storeId===st.id?'selected':''}>${h(st.name)}</option>`).join('')}</select></div>
+       <div><label>Fecha</label><input aria-label="Fecha del cierre" type="date" max="${isoToday()}" value="${h(d.date)}" onchange="opsCloseContextField('date',this.value)" ${dis}></div>
+      </div>
+     </section>
+
+     <section class="closing-drawers-section">
+      <div class="closing-section-head">
+       <div><span>Cajas físicas</span><h3>${h(storeName(d.storeId))}</h3></div>
+       <small>${drawers.length} ${drawers.length===1?'caja configurada':'cajas configuradas'}</small>
+      </div>
+      ${drawers.length?`<div class="ops-drawers-grid">${drawers.map(dr=>drawerClosingHtml(d,dr,dis)).join('')}</div>`:'<div class="ops-note bad">Este establecimiento no tiene ninguna caja física configurada. Un administrador debe crearla antes de cerrar el día.</div>'}
+     </section>
+
+     <section class="closing-notes-card">
+      <div class="closing-section-head"><div><span>Observaciones</span><h3>Incidencias del día</h3></div><small>Opcional</small></div>
+      <textarea aria-label="Observaciones del cierre" placeholder="Solo si necesitas dejar constancia de una incidencia o aclaración" oninput="opsCloseField('notes',this.value)" ${dis}>${h(d.notes)}</textarea>
+     </section>
+    </main>
+
+    <aside class="closing-review">
+     <div class="closing-review-card">
+      <div class="closing-review-head">
+       <div><span>Resumen en vivo</span><h3>Ventas calculadas</h3></div>
+       <strong id="ops_close_total">${eur(c.total)}</strong>
+      </div>
+      <div class="closing-review-grid">
+       <div><span>Efectivo vendido</span><b id="ops_close_cashsales">${eur(c.cashSales)}</b></div>
+       <div><span>Tarjeta</span><b id="ops_close_card">${eur(c.card)}</b></div>
+       <div><span>Bizum</span><b id="ops_close_bizum">${eur(c.bizum)}</b></div>
+       <div><span>Online</span><b id="ops_close_online">${eur(c.online)}</b></div>
+       <div><span>Otros</span><b id="ops_close_other">${eur(c.other)}</b></div>
+       <div><span>Metálico final</span><b id="ops_close_end">${eur(c.closing)}</b></div>
+      </div>
+      <details class="closing-review-detail">
+       <summary>Ver movimientos de efectivo</summary>
+       <div class="closing-review-grid compact">
+        <div><span>Apertura</span><b id="ops_close_open">${eur(c.opening)}</b></div>
+        <div><span>Retiradas</span><b id="ops_close_withdrawals">${eur(c.withdrawals)}</b></div>
+        <div><span>Gastos caja</span><b id="ops_close_cash_expenses">${eur(c.cashExpenses)}</b></div>
+        <div><span>Entradas extra</span><b id="ops_close_extra_in">${eur(c.extraIn)}</b></div>
+        <div><span>Salidas extra</span><b id="ops_close_extra_out">${eur(c.extraOut)}</b></div>
+       </div>
+      </details>
+     </div>
+
+     <div class="closing-check-card ${diffClass}">
+      <div class="closing-section-head">
+       <div><span>Comprobación final</span><h3>¿Cuadra el día?</h3></div>
+       ${infoButton('cajas.cuadre','Cómo comprobar que el cierre cuadra')}
+      </div>
+      <label>Total ventas según TPV / cierre</label>
+      <input aria-label="Total ventas según TPV / cierre" inputmode="decimal" value="${h(d.controlTotal??'')}" oninput="opsCloseField('controlTotal',this.value)" ${dis}>
+      <div class="closing-check-comparison">
+       <div><span>Totus calcula</span><strong id="ops_close_control_total">${eur(c.total)}</strong></div>
+       <div><span>Diferencia</span><strong class="${diffClass}" id="ops_close_diff">${diffText}</strong></div>
+      </div>
+      <div class="closing-check-help">${c.diff==null?'Introduce el total del TPV para comprobar el cierre.':Math.abs(c.diff)<=.01?'Todo correcto. Ya puedes cerrar el día.':'Revisa efectivo, tarjeta y movimientos antes de cerrar. Puedes guardar como borrador y continuar después.'}</div>
+     </div>
+
+     <div class="closing-formula-card">
+      <b>Cómo calcula el efectivo vendido</b>
+      <span>Metálico final + retiradas + gastos pagados desde caja + salidas extra − apertura − entradas extra.</span>
+     </div>
+    </aside>
    </div>
-   ${locked?'<div class="ops-note warn">Cierre cerrado. Puedes consultarlo; administración o gerencia pueden reabrirlo o corregirlo con trazabilidad.</div>':''}
-   ${d.legacyAllocation?'<div class="ops-note warn"><b>Cierre histórico anterior al desglose por caja.</b> Los cobros no efectivos se muestran asignados a la primera caja únicamente para conservar el total original.</div>':''}
 
-   <section class="ops-closing-step">
-    <div class="ops-step-head"><span>1</span><div><b>Día y establecimiento</b><small>Selecciona dónde y cuándo estás cerrando.</small></div></div>
-    <div class="ops-form ops-context-form">
-     <div><label>Establecimiento</label><select aria-label="Establecimiento del cierre" onchange="opsCloseContextField('storeId',this.value)" ${dis}>${O.stores.map(st=>`<option value="${st.id}" ${d.storeId===st.id?'selected':''}>${h(st.name)}</option>`).join('')}</select></div>
-     <div><label>Fecha</label><input aria-label="Fecha del cierre" type="date" max="${isoToday()}" value="${h(d.date)}" onchange="opsCloseContextField('date',this.value)" ${dis}></div>
+   <section class="closing-history-card">
+    <div class="section-head">
+     <div><div class="eyebrow">T${O.quarter}</div><h3>Histórico de cierres</h3><div class="small">Consulta cierres anteriores sin mezclarlo con el trabajo del día actual.</div></div>
+     <div class="ops-actions"><button class="secondary" onclick="opsExportClosings()">Exportar CSV</button>${manager()&&d.id?'<button class="danger" onclick="opsDeleteClosing()">Eliminar cierre abierto</button>':''}</div>
     </div>
+    ${rows.length?`<div class="ops-table-wrap closing-history-wrap"><table class="ops-table closing-history-table"><thead><tr><th>Fecha</th><th>Tienda</th><th>Efectivo</th><th>Tarjeta</th><th>Otros cobros</th><th>Metálico final</th><th>Total</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const total=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),other=n(row.bizum_sales)+n(row.online_sales)+n(row.other_income);return `<tr><td>${dmy(row.business_date)}</td><td><b>${h(storeName(row.store_id))}</b><div class="ops-tiny">Apertura ${eur(row.opening_cash)}</div></td><td class="num"><b>${eur(row.cash_sales)}</b><div class="ops-tiny">Ret. ${eur(row.cash_withdrawals)} · gastos ${eur(row.cash_expenses_declared)}</div></td><td class="num">${eur(row.card_sales)}</td><td class="num">${eur(other)}<div class="ops-tiny">Bizum ${eur(row.bizum_sales)} · online ${eur(row.online_sales)}</div></td><td class="num"><b>${eur(row.actual_cash)}</b><div class="ops-tiny">Extra +${eur(row.cash_extra_in||0)} / -${eur(row.cash_extra_out||0)}</div></td><td class="num"><b>${eur(total)}</b></td><td class="num">${row.reported_total_sales==null?'—':`<b>${eur(row.reported_total_sales)}</b><div class="ops-tiny ${Math.abs(n(row.difference))<=.01?'good-text':'bad-text'}">${Math.abs(n(row.difference))<=.01?'Cuadra':'Dif. '+eur(row.difference)}</div>`}</td><td>${statusBadge(row.status)}</td><td><button class="ghost" onclick="opsEditClosing('${row.id}')">${row.status==='cerrado'&&!manager()?'Ver':'Abrir'}</button></td></tr>`}).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay cierres en este periodo.</div>'}
    </section>
-
-   <section class="ops-closing-step">
-    <div class="ops-step-head"><span>2</span><div><b>Cajas físicas</b><small>${h(storeName(d.storeId))} · ${drawers.length} ${drawers.length===1?'caja':'cajas'} configuradas.</small></div></div>
-    ${drawers.length?`<div class="ops-drawers-grid">${drawers.map(dr=>drawerClosingHtml(d,dr,dis)).join('')}</div>`:'<div class="ops-note bad">Este establecimiento no tiene ninguna caja física configurada. Un administrador debe crearla antes de cerrar el día.</div>'}
-   </section>
-
-   <section class="ops-closing-step">
-    <div class="ops-step-head"><span>3</span><div><b>Resumen de tienda</b><small>Totus suma automáticamente todas las cajas.</small></div></div>
-    <div class="ops-close-summary ops-store-summary">
-     <div><small>Apertura total</small><b id="ops_close_open">${eur(c.opening)}</b></div>
-     <div class="emphasis"><small>Efectivo vendido</small><b id="ops_close_cashsales">${eur(c.cashSales)}</b></div>
-     <div><small>Tarjeta total</small><b id="ops_close_card">${eur(c.card)}</b></div>
-     <div><small>Bizum total</small><b id="ops_close_bizum">${eur(c.bizum)}</b></div>
-     <div><small>Online total</small><b id="ops_close_online">${eur(c.online)}</b></div>
-     <div><small>Otros pagos</small><b id="ops_close_other">${eur(c.other)}</b></div>
-     <div><small>Retiradas</small><b id="ops_close_withdrawals">${eur(c.withdrawals)}</b></div>
-     <div><small>Gastos caja</small><b id="ops_close_cash_expenses">${eur(c.cashExpenses)}</b></div>
-     <div><small>Entradas extra</small><b id="ops_close_extra_in">${eur(c.extraIn)}</b></div>
-     <div><small>Salidas extra</small><b id="ops_close_extra_out">${eur(c.extraOut)}</b></div>
-     <div><small>Metálico final</small><b id="ops_close_end">${eur(c.closing)}</b></div>
-     <div class="total"><small>Ventas calculadas</small><b id="ops_close_total">${eur(c.total)}</b></div>
-    </div>
-    <div class="ops-note ops-formula-note">Efectivo vendido = metálico final + retiradas + gastos desde caja + salidas extra − apertura − entradas extra.</div>
-   </section>
-
-   <section class="ops-closing-step ops-control-step">
-    <div class="ops-step-head"><span>4</span><div><b>Comprobación final</b><small>El cierre solo se bloquea cuando Totus y tu TPV coinciden.</small></div>${infoButton('cajas.cuadre','Cómo comprobar que el cierre cuadra')}</div>
-    <div class="ops-closing-control">
-     <div class="ops-control-input"><label>Total ventas según TPV / cierre</label><input aria-label="Total ventas según TPV / cierre" inputmode="decimal" value="${h(d.controlTotal??'')}" oninput="opsCloseField('controlTotal',this.value)" ${dis}></div>
-     <div class="ops-control-calculated"><small>Totus calcula</small><strong id="ops_close_control_total">${eur(c.total)}</strong></div>
-     <div><label>Diferencia</label><div class="ops-control-result ${c.diff==null?'neutral':Math.abs(c.diff)<=.01?'ok':'bad'}" id="ops_close_diff">${c.diff==null?'Pendiente de comprobar':Math.abs(c.diff)<=.01?'CUADRA · '+eur(c.diff):'NO CUADRA · '+eur(c.diff)}</div></div>
-    </div>
-   </section>
-
-   <section class="ops-closing-step">
-    <div class="ops-step-head"><span>5</span><div><b>Observaciones</b><small>Solo si necesitas dejar constancia de una incidencia o aclaración.</small></div></div>
-    <textarea aria-label="Observaciones del cierre" placeholder="Opcional" oninput="opsCloseField('notes',this.value)" ${dis}>${h(d.notes)}</textarea>
-   </section>
-  </div>
-
-  <div class="ops-card"><div class="section-head"><div><div class="eyebrow">T${O.quarter}</div><h3>Histórico de cierres</h3><div class="small">Totales diarios por tienda. Usa “Abrir” para revisar el detalle de cada caja.</div></div><button class="secondary" onclick="opsExportClosings()">Exportar CSV</button></div>
-  ${rows.length?`<div class="ops-table-wrap closing-history-wrap"><table class="ops-table closing-history-table"><thead><tr><th>Fecha</th><th>Tienda</th><th>Efectivo</th><th>Tarjeta</th><th>Otros cobros</th><th>Metálico final</th><th>Total</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const total=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),other=n(row.bizum_sales)+n(row.online_sales)+n(row.other_income);return `<tr><td>${dmy(row.business_date)}</td><td><b>${h(storeName(row.store_id))}</b><div class="ops-tiny">Apertura ${eur(row.opening_cash)}</div></td><td class="num"><b>${eur(row.cash_sales)}</b><div class="ops-tiny">Ret. ${eur(row.cash_withdrawals)} · gastos ${eur(row.cash_expenses_declared)}</div></td><td class="num">${eur(row.card_sales)}</td><td class="num">${eur(other)}<div class="ops-tiny">Bizum ${eur(row.bizum_sales)} · online ${eur(row.online_sales)}</div></td><td class="num"><b>${eur(row.actual_cash)}</b><div class="ops-tiny">Extra +${eur(row.cash_extra_in||0)} / -${eur(row.cash_extra_out||0)}</div></td><td class="num"><b>${eur(total)}</b></td><td class="num">${row.reported_total_sales==null?'—':`<b>${eur(row.reported_total_sales)}</b><div class="ops-tiny ${Math.abs(n(row.difference))<=.01?'good-text':'bad-text'}">${Math.abs(n(row.difference))<=.01?'Cuadra':'Dif. '+eur(row.difference)}</div>`}</td><td>${statusBadge(row.status)}</td><td><button class="ghost" onclick="opsEditClosing('${row.id}')">${row.status==='cerrado'&&!manager()?'Ver':'Abrir'}</button></td></tr>`}).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay cierres en este periodo.</div>'}
   </div>`;
 }
 window.opsCloseField=function(k,v){
