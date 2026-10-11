@@ -1,7 +1,7 @@
 name: Totus Clean QA
 on:
   push:
-    branches: [reconstruccion-limpia]
+    branches: [reconstruccion-limpia, main]
   workflow_dispatch:
 jobs:
   qa:
