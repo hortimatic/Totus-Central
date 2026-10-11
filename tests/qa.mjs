@@ -10,6 +10,8 @@ const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
 const text=f=>fs.readFileSync(path.join(root,f),'utf8');
 const all=must.map(text).join('\n');
+const appSource=text('src/app.js');
+const pageSource=text('src/pages/main.js');
 
 for(const forbidden of ['gestion-v6.js','gestion-v6-features.js','app-shell-v6.css','legacyAllocation','ops_legacy_daily_rows','ops_historical_income_periods','ops_gestor_source_rows','ops_gestor_quarter_summary','ops_reconciliation_notes','ops_backup_archives']){
  if(all.includes(forbidden))errors.push('Residuo prohibido: '+forbidden);
@@ -67,8 +69,6 @@ for(const name of ['inicio','pricing','cajas','gastos','facturacion','documentos
 for(const fn of ['saveClosing','saveExpense','saveInvoice','saveProduct','saveDocument','saveUser','saveConfig']){
  if(!text('src/app.js').includes('function '+fn)&&!text('src/app.js').includes('async function '+fn))errors.push('Falta flujo '+fn);
 }
-const appSource=text('src/app.js');
-const pageSource=text('src/pages/main.js');
 if(appSource.includes("status:'archivado'"))errors.push('Documentos usa estado inválido archivado');
 for(const requiredDocValue of ['factura_recibida','factura_emitida','factura_rectificativa','impuesto','informe','archivada']){
  if(!appSource.includes(requiredDocValue)&&!pageSource.includes(requiredDocValue))errors.push('Falta valor válido de documentos: '+requiredDocValue);
