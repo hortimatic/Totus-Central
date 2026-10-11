@@ -496,7 +496,15 @@ function closingListHtml(){
     <select aria-label="Filtrar cierres por estado" onchange="opsCloseStatus(this.value)"><option value="all">Todos los estados</option><option value="cerrado" ${status==='cerrado'?'selected':''}>Cerrados</option><option value="borrador" ${status==='borrador'?'selected':''}>Borradores</option></select>
     <button class="secondary" onclick="opsExportClosings()">Exportar CSV</button>
    </div>
-   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table closing-list-table"><thead><tr><th>Fecha</th><th>Establecimiento</th><th>Total</th><th>Metálico final</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const t=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),ok=row.reported_total_sales!=null&&Math.abs(n(row.difference))<=.01;return`<tr><td><b>${dmy(row.business_date)}</b></td><td>${h(storeName(row.store_id))}</td><td class="num"><b>${eur(t)}</b></td><td class="num">${eur(row.actual_cash)}</td><td>${row.reported_total_sales==null?'<span class="badge warnb">Sin comprobar</span>':ok?'<span class="badge ok">Cuadra</span>':'<span class="badge badb">Dif. '+eur(row.difference)+'</span>'}</td><td>${statusBadge(row.status)}</td><td><button class="ghost" onclick="opsEditClosing('${row.id}')">${row.status==='cerrado'&&!manager()?'Ver':'Abrir'}</button></td></tr>`}).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay cierres que coincidan con los filtros.</div>'}
+   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table closing-list-table"><thead><tr><th>Fecha</th><th>Establecimiento</th><th>Total</th><th>Metálico final</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const t=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),ok=row.reported_total_sales!=null&&Math.abs(n(row.difference))<=.01;return`<tr>
+ <td><b>${dmy(row.business_date)}</b><div class="ops-tiny">Apertura ${eur(row.opening_cash)}</div></td>
+ <td><b>${h(storeName(row.store_id))}</b><div class="ops-tiny">${row.notes?h(row.notes):'Sin observaciones'}</div></td>
+ <td class="num"><b>${eur(t)}</b><div class="ops-tiny">Efectivo ${eur(row.cash_sales)} · Tarjeta ${eur(row.card_sales)}</div><div class="ops-tiny">Bizum ${eur(row.bizum_sales)} · Online ${eur(row.online_sales)} · Otros ${eur(row.other_income)}</div></td>
+ <td class="num"><b>${eur(row.actual_cash)}</b><div class="ops-tiny">Ret. ${eur(row.cash_withdrawals)} · Gastos ${eur(row.cash_expenses_declared)}</div><div class="ops-tiny">Extra +${eur(row.cash_extra_in||0)} / −${eur(row.cash_extra_out||0)}</div></td>
+ <td>${row.reported_total_sales==null?'<span class="badge warnb">Sin comprobar</span>':ok?'<span class="badge ok">Cuadra</span>':'<span class="badge badb">Dif. '+eur(row.difference)+'</span>'}${row.reported_total_sales!=null?'<div class="ops-tiny">TPV '+eur(row.reported_total_sales)+'</div>':''}</td>
+ <td>${statusBadge(row.status)}</td>
+ <td><button class="ghost" onclick="opsEditClosing('${row.id}')">${row.status==='cerrado'&&!manager()?'Ver':'Abrir'}</button></td>
+</tr>`}).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay cierres que coincidan con los filtros.</div>'}
   </section>
  </div>`;
 }
