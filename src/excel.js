@@ -114,7 +114,7 @@ function setCell(ws,addr,value,style,formula=null){
 }
 function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
  const monthName=MONTHS[month],ws={};
- ws['!ref']='B1:F80';ws['!cols']=[{wch:2},{wch:11.71},{wch:33},{wch:9.14},{wch:9.14},{wch:12.14}];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
+ ws['!ref']='A1:I80';ws['!cols']=[{wch:2},{wch:11.71},{wch:33},{wch:9.14},{wch:9.14},{wch:12.14},{wch:9.14},{wch:9.14},{wch:9.14}];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  setCell(ws,'B1',`${monthName} ${year}`,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
  for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
@@ -145,16 +145,16 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  const firstData=3,lastData=summaryStart-3;setCell(ws,`E${row}`,0,moneyStyle(LEGACY_COLORS.stripe),`SUM(E${firstData}:E${lastData})`);setCell(ws,`F${row}`,0,moneyStyle(LEGACY_COLORS.stripe),`SUM(F${firstData}:F${lastData})`);
  row+=2;const internalRefs=expMonth.filter(x=>x.management_only).map(ex=>{const ix=expMonth.indexOf(ex);return null}).filter(Boolean);
  const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
- ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,monthName,{font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}});row++;
- const recalc=`SUM(E${totalRow},F${totalRow})`;ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;
- ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total recaudado: "&TEXT(${recalc},"0.00")&"€"`);row++;
- ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}},`"Gastos: "&TEXT(D${totalRow},"0.00")&"€"`);row++;
- if(internalTotal>0){ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,`Menos gastos internos: ${internalTotal.toFixed(2).replace('.',',')}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}});row++}
+ setCell(ws,`C${row}`,monthName,{font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}});row++;
+ const recalc=`SUM(E${totalRow},F${totalRow})`;setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total recaudado: "&TEXT(${recalc},"0.00")&"€"`);row++;
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}},`"Gastos: "&TEXT(D${totalRow},"0.00")&"€"`);row++;
+ if(internalTotal>0){setCell(ws,`C${row}`,`Menos gastos internos: ${internalTotal.toFixed(2).replace('.',',')}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}});row++}
  const fiscalFormula=internalTotal>0?`D${totalRow}-${internalTotal}`:`D${totalRow}`;
- ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
- ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);row++;
- ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);
- ws['!ref']=`B1:F${Math.max(row,totalRow)}`;
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);row++;
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);
+ ws['!ref']=`A1:I${Math.max(row,totalRow)}`;
  XLSX.utils.book_append_sheet(wb,ws,monthName);
 }
 export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories}){
