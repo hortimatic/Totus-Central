@@ -1236,7 +1236,7 @@ await page.reload({waitUntil:'networkidle'});
 await fs.mkdir('qa-screenshots',{recursive:true});
 const visualModules=[
   ['inicio',null,'Totus Central'],
-  ['pricing','Pricing','Precio rápido'],
+  ['pricing','Pricing','Haz números primero'],
   ['cajas','Cajas','Cajas'],
   ['gastos','Gastos','Gastos'],
   ['facturacion','Facturación','Facturación'],
