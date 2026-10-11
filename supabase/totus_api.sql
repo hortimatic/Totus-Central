@@ -291,10 +291,10 @@ begin
     coalesce((j->>'fixed_asset')::boolean,false),nullif(j->>'amortization_years','')::numeric,coalesce(j->>'notes','')
   from jsonb_array_elements(p_lines) j;
 
-  if v_paid_status='pagado' and abs(coalesce((select accounting_amount from public.ops_expenses where id=v_id),0)-v_amount_paid)>.02 then
-    raise exception 'El importe pagado no coincide con el total del gasto';
+  if v_paid_status='pagado' and abs(coalesce((select accounting_amount-withholding_amount from public.ops_expenses where id=v_id),0)-v_amount_paid)>.02 then
+    raise exception 'El importe pagado no coincide con el neto a pagar del gasto';
   end if;
-  if v_paid_status='parcial' and v_amount_paid>=coalesce((select accounting_amount from public.ops_expenses where id=v_id),0) then
+  if v_paid_status='parcial' and v_amount_paid>=coalesce((select accounting_amount-withholding_amount from public.ops_expenses where id=v_id),0) then
     raise exception 'Un pago parcial debe ser menor que el total';
   end if;
 
