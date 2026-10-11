@@ -585,10 +585,23 @@ function templateForm(row=null){
  <div class="form-actions">${btn('Guardar plantilla','template-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar plantilla':'Nueva plantilla',body);
 }
+async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=false}={}){
+ if(!invoice&&!proforma)return;
+ let q=sb.from('ops_document_templates').update({
+  ...(invoice?{default_invoice:false}:{}),
+  ...(proforma?{default_proforma:false}:{})
+ });
+ q=storeId?q.eq('store_id',storeId):q.is('store_id',null);
+ if(id)q=q.neq('id',id);
+ const r=await q;if(r.error)throw new Error('No se pudieron actualizar las plantillas predeterminadas: '+r.error.message);
+}
 async function saveTemplate(id=''){
  const current=id?state.data.templates.find(x=>x.id===id):null;
  const file=input('tpLogo')?.files?.[0]||null;
- if(file&&file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
+ if(file){
+   const allowed=['image/png','image/jpeg','image/webp'];if(!allowed.includes(file.type))throw new Error('El logo debe ser PNG, JPG o WEBP.');
+   if(file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
+ }
  let logoPath=current?.logo_path||null,logoName=current?.logo_name||null,logoMime=current?.logo_mime||null,logoSize=Number(current?.logo_size_bytes||0),uploadedPath=null;
  if(file){
    const ext=(file.name.split('.').pop()||'img').replace(/[^a-z0-9]/gi,'');
@@ -596,16 +609,21 @@ async function saveTemplate(id=''){
    await upload('business-assets',uploadedPath,file);
    logoPath=uploadedPath;logoName=file.name;logoMime=file.type;logoSize=file.size;
  }
- const row={name:required('tpName','Nombre'),code:required('tpCode','Código'),store_id:val('tpStore')||null,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),logo_position:val('tpLogoPos'),logo_width_mm:n(val('tpLogoWidth')),show_logo:input('tpShowLogo')?.checked!==false,default_invoice:!!input('tpDefaultInvoice')?.checked,default_proforma:!!input('tpDefaultProforma')?.checked,invoice_title:val('tpInvoiceTitle').trim(),proforma_title:val('tpProformaTitle').trim(),header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),payment_terms_default:val('tpTerms').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
+ const storeId=val('tpStore')||null,defaultInvoice=!!input('tpDefaultInvoice')?.checked,defaultProforma=!!input('tpDefaultProforma')?.checked;
+ const code=required('tpCode','Código').trim().toUpperCase(),name=required('tpName','Nombre');
+ const duplicate=state.data.templates.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code&&String(x.store_id||'')===String(storeId||''));
+ if(duplicate){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw new Error('Ya existe una plantilla con ese código para la misma tienda.')}
+ const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),payment_terms_default:val('tpTerms').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
  try{
+   await clearOtherTemplateDefaults(id,storeId,{invoice:defaultInvoice,proforma:defaultProforma});
    if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
  }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
- // No se elimina automáticamente el logo anterior: una factura emitida puede tenerlo congelado en su snapshot.
  closeModal();await refresh('Plantilla guardada.');
 }
 async function deleteTemplate(id){
  if(!isAdmin())throw new Error('Solo el administrador puede eliminar plantillas.');
  const row=state.data.templates.find(x=>x.id===id);if(!row)return;
+ const drafts=state.data.invoices.filter(x=>x.template_id===id&&x.status==='borrador').length;if(drafts)throw new Error('No se puede eliminar: hay '+drafts+' borrador(es) usando esta plantilla.');
  if(!confirm('¿Eliminar esta plantilla?'))return;
  await remove('ops_document_templates',id);
  const logoUsed=row.logo_path&&state.data.invoices.some(x=>x.status!=='borrador'&&(x.template_snapshot?.logo_path===row.logo_path||x.design_snapshot?.logo_path===row.logo_path));
