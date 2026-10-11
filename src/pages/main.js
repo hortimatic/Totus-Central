@@ -204,6 +204,7 @@ export function configuracion(){
  </div>
  <section class="card card-pad"><div class="section-head"><div><h2>Plantillas de facturación</h2><p>Logo, colores y textos se administran aquí, no en otras pantallas.</p></div>${btn('Nueva plantilla','template-new','primary')}</div><div style="margin-top:12px">${templateRows}</div></section>
  <section class="card card-pad"><div class="section-head"><div><h2>Series</h2><p>Numeración de facturas, rectificativas y proformas.</p></div></div><div style="margin-top:12px">${seriesRows}</div></section>
+ ${isAdmin()?`<section class="card card-pad"><div class="section-head"><div><h2>Copias de seguridad</h2><p>Copia completa de datos, documentos y logos. Los usuarios/Auth se conservan fuera de la copia.</p></div>${btn('Descargar copia','backup-create','primary')}</div><div class="form-grid" style="margin-top:14px"><label class="wide">Cargar copia<input id="backupFile" type="file" accept=".totusbackup,application/zip"></label></div><div class="note warn" style="margin-top:12px">Restaurar sustituye los datos de negocio actuales. Requiere tres confirmaciones y un motivo.</div><div class="form-actions">${btn('Restaurar copia','backup-restore','danger')}</div></section>`:''}
  </div>`;
 }
 
