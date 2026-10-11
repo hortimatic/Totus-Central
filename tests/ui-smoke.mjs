@@ -799,7 +799,7 @@ await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).cl
 // Validación de tipos/tamaño documental.
 const validationQa=await page.evaluate(()=>{
  const ok=[];
- for(const [name,type] of [['a.pdf','application/pdf'],['a.jpg','image/jpeg'],['a.png','image/png'],['a.webp','image/webp'],['a.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],['a.xls','application/vnd.ms-excel'],['a.csv','text/csv']]){
+ for(const [name,type] of [['a.pdf','application/pdf'],['a.jpg','image/jpeg'],['a.jpeg','image/jpeg'],['a.png','image/png'],['a.webp','image/webp'],['a.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],['a.xls','application/vnd.ms-excel'],['a.csv','text/csv']]){
   try{window.__opsValidateDocumentFile(new File(['x'],name,{type}));ok.push(name)}catch(e){}
  }
  let badExt=false,badMime=false,big=false,empty=false;
@@ -809,7 +809,7 @@ const validationQa=await page.evaluate(()=>{
  try{window.__opsValidateDocumentFile(new File([],'empty.pdf',{type:'application/pdf'}))}catch(e){empty=true}
  return{ok,badExt,badMime,big,empty};
 });
-assert(validationQa.ok.length===9,'No se aceptan todos los formatos documentales previstos');
+assert(validationQa.ok.length===8,'No se aceptan todos los formatos documentales previstos');
 assert(validationQa.badExt&&validationQa.badMime&&validationQa.big&&validationQa.empty,'Validación documental no bloquea extensión, MIME, tamaño o vacío');
 
 // Documentos: UI completo subir -> recargar -> descargar.
