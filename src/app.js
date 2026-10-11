@@ -803,6 +803,34 @@ function applyFilter(prefix){
  patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
+function updateHomePrice(){
+ const parse=v=>{let s=String(v??'').trim().replace(/\s/g,'');if(!s)return 0;if(s.includes(',')&&s.includes('.')){if(s.lastIndexOf(',')>s.lastIndexOf('.'))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'')}else s=s.replace(',','.');const n=Number.parseFloat(s);return Number.isFinite(n)?n:0};
+ const cost=parse(val('homePriceCost')),pvp=parse(val('homePricePvp')),competitor=parse(val('homePriceCompetitor')),discount=Math.min(100,Math.max(0,parse(val('homePriceDiscount'))));
+ const vat=Number(state.data.settings?.default_sales_vat_rate||21),re=Number(state.data.settings?.purchase_re_rate||5.2);
+ const costReal=cost*(1+vat/100+re/100),sale=pvp*(1-discount/100),net=sale/(1+vat/100),margin=net-cost,marginPct=net>0?margin/net*100:0,vs=competitor>0?sale-competitor:null;
+ const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
+ set('homePriceReal',money(costReal));
+ set('homePriceSale',money(sale));
+ set('homePriceMargin',money(margin),margin<0?'danger-text':marginPct<18?'warn-text':'good-text');
+ set('homePriceMarginPct',marginPct.toFixed(1).replace('.',',')+' %',margin<0?'danger-text':marginPct<18?'warn-text':'good-text');
+ set('homePriceCompetition',vs==null?'—':((vs>0?'+':'')+money(vs)),vs==null?'':vs>0?'warn-text':'good-text');
+}
+async function saveHomePrice(){
+ const query=required('homePriceQuery','Producto / referencia'),cost=num('homePriceCost'),pvp=num('homePricePvp'),competitor=num('homePriceCompetitor'),discount=Math.min(100,Math.max(0,num('homePriceDiscount')));
+ const vat=Number(state.data.settings?.default_sales_vat_rate||21),re=Number(state.data.settings?.purchase_re_rate||5.2);
+ const finalSale=pvp*(1-discount/100),net=finalSale/(1+vat/100),costReal=cost*(1+vat/100+re/100),margin=net-cost,marginPct=net>0?margin/net*100:0;
+ const row=await insert('consultations',{query,cost_net:cost,pvp,competitor,discount,cost_real:costReal,final_sale:finalSale,margin,margin_pct:marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
+ await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO_DESDE_INICIO',consultation_query:query,snapshot:row}).catch(()=>{});
+ await refresh('Consulta guardada.');
+}
+function homeReport(kind){
+ const now=isoToday(),year=Number(now.slice(0,4)),month=Number(now.slice(5,7)),q=Math.ceil(month/3);
+ if(kind==='quarter'){const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=new Date(year,q*3,0).toISOString().slice(0,10);patchFilters('informes',{from,to,year});}
+ else patchFilters('informes',{from:`${year}-01-01`,to:`${year}-12-31`,year});
+ setRoute('informes');render();
+}
+function openAdminSection(section){setView('administracion',{section});setRoute('administracion');render();}
+
 function reportArgs(year){
  return {year,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
 }
@@ -854,6 +882,11 @@ document.addEventListener('click',async e=>{
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
+  if(a==='home-price-save'){await saveHomePrice();return}
+  if(a==='home-report-quarter'){homeReport('quarter');return}
+  if(a==='home-report-year'){homeReport('year');return}
+  if(a==='admin-storage-home'){openAdminSection('storage');return}
+  if(a==='admin-users-home'){openAdminSection('usuarios');return}
   if(a==='closing-new'){setView('cajas',{mode:'record',id:null,storeId:el.dataset.store||null});setRoute('cajas');render();return}
   if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id});render();return}
   if(a==='closing-save-draft'){await saveClosing(el.dataset.id||'','borrador');return}
@@ -974,6 +1007,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('input',e=>{
  const id=e.target?.id||'';
  if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
+ if(id.startsWith('homePrice'))updateHomePrice();
  if(id.startsWith('exLine'))updateExpenseSummary();
  if(id.startsWith('ivQty_')||id.startsWith('ivUnit_')||id.startsWith('ivDisc_')||id.startsWith('ivVat_'))updateInvoiceSummary();
 });
