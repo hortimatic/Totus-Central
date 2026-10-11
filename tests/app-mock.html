@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>Totus Central • Simulación sin datos reales</title>
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="../src/styles.css">
+</head>
+<body>
+<div id="login" class="login-screen">
+  <form id="loginForm" class="login-card">
+    <div class="brand large"><span class="brand-mark">T</span><div><b>Totus Central</b><small>Gestión diaria</small></div></div>
+    <h1>Acceso</h1>
+    <p>Entra con tu correo y contraseña.</p>
+    <label>Correo<input id="loginEmail" type="email" autocomplete="email" required></label>
+    <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit">Entrar</button>
+    <button class="btn link" id="recoverBtn" type="button">He olvidado mi contraseña</button>
+    <div id="loginMessage" class="message"></div>
+  </form>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">T</span><div><b>Totus Central</b><small>Gestión diaria</small></div></div>
+    <nav id="nav"></nav>
+    <div class="sidebar-foot">
+      <div id="userCard" class="user-card"></div>
+      <button class="btn ghost full" data-action="logout">Cerrar sesión</button>
+    </div>
+  </aside>
+  <header class="topbar">
+    <button class="icon-btn mobile-only" data-action="toggle-menu" aria-label="Abrir menú">☰</button>
+    <div>
+      <div id="pageEyebrow" class="eyebrow"></div>
+      <h1 id="pageTitle"></h1>
+    </div>
+    <div id="topActions" class="top-actions"></div>
+  </header>
+  <main id="content" class="content"></main>
+</div>
+
+<div id="toastHost" class="toast-host"></div>
+<div id="modalHost"></div>
+
+<script src="mock-supabase.js"></script>
+
+
+<script type="module" src="../src/app.js"></script>
+</body>
+</html>
