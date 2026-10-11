@@ -93,7 +93,7 @@ function documentModal(){
  const body=`<div class="form-grid">
   ${selectField('Tienda','docStore',stores,stores[0]?.value||'')}
   ${formField('Fecha','docDate',isoToday(),'date')}
-  ${selectField('Tipo','docType',[{value:'factura_compra',label:'Factura de compra'},{value:'factura_venta',label:'Factura de venta'},{value:'fiscal',label:'Fiscal'},{value:'otro',label:'Otro'}],'factura_compra')}
+  ${selectField('Tipo','docType',[{value:'factura_recibida',label:'Factura recibida'},{value:'factura_emitida',label:'Factura emitida'},{value:'factura_rectificativa',label:'Factura rectificativa'},{value:'proforma',label:'Proforma'},{value:'ticket',label:'Ticket'},{value:'contrato',label:'Contrato'},{value:'impuesto',label:'Impuesto'},{value:'informe',label:'Informe'},{value:'otro',label:'Otro'}],'factura_compra')}
   ${formField('Proveedor / cliente','docParty','')}
   ${formField('Nº documento','docNumber','')}
   <label class="wide">Archivo<input id="docFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv"></label>
@@ -107,7 +107,7 @@ async function saveDocument(){
  const store=required('docStore','Tienda'),date=required('docDate','Fecha'),path=`${date.slice(0,4)}/${crypto.randomUUID()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
  await upload('business-documents',path,file);
  try{
-   await insert('ops_documents',{store_id:store,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),invoice_number:val('docNumber').trim(),status:'archivado',storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,notes:val('docNotes').trim(),uploaded_by:state.session?.user?.id||null});
+   await insert('ops_documents',{store_id:store,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),invoice_number:val('docNumber').trim(),status:'archivada',storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,notes:val('docNotes').trim(),uploaded_by:state.session?.user?.id||null});
  }catch(e){await removeFile('business-documents',path).catch(()=>{});throw e}
  closeModal();await refresh('Documento archivado.');
 }
