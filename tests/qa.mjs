@@ -30,6 +30,7 @@ for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/ut
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
 
+try{execFileSync(process.execPath,['--check',path.join(root,'tests/mock-supabase.js')],{stdio:'pipe'})}catch(e){errors.push('Mock de navegador con error de sintaxis: '+String(e.stderr||e.message))}
 const stateSource=text('src/state.js'),apiSource=text('src/api.js');
 const stateDataMatch=stateSource.match(/data:\{([\s\S]*?)\}\n\};/);
 const declaredData=new Set([...(stateDataMatch?.[1]||'').matchAll(/([A-Za-z0-9_]+)\s*:/g)].map(m=>m[1]));
