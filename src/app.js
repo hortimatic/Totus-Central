@@ -5,6 +5,7 @@ import {renderers,closingModal,expenseModal,invoiceModal,invoiceLineRow,invoiceP
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc} from './utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook} from './excel.js';
+import {createBackup,inspectBackup,restoreBackup} from './backup.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
@@ -478,6 +479,25 @@ async function deleteUser(email){
  await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
 }
 
+async function downloadBackup(){
+ if(!isAdmin())throw new Error('Solo el administrador puede crear copias completas.');
+ toast('Preparando copia completa…');
+ const out=await createBackup();
+ toast('Copia creada: '+(out.size/1024/1024).toFixed(1).replace('.',',')+' MB','ok');
+}
+async function restoreBackupFromInput(){
+ if(!isAdmin())throw new Error('Solo el administrador puede restaurar copias.');
+ const file=input('backupFile')?.files?.[0];if(!file)throw new Error('Selecciona primero un archivo .totusbackup.');
+ const inspected=await inspectBackup(file);
+ if(!confirm('1/3 · La copia es del '+new Date(inspected.manifest.created_at).toLocaleString('es-ES')+'. ¿Continuar?'))return;
+ if(!confirm('2/3 · Se sustituirán los datos de negocio actuales. Los usuarios Diego/Davinia y Auth NO se tocarán. ¿Continuar?'))return;
+ const check=prompt('3/3 · Escribe RESTAURAR TOTUS para confirmar:');if(check!=='RESTAURAR TOTUS')return;
+ const reason=prompt('Motivo de la restauración:');if(!reason?.trim())throw new Error('El motivo es obligatorio.');
+ toast('Restaurando copia…');
+ await restoreBackup(file,reason.trim());
+ await refresh('Copia restaurada correctamente.');
+}
+
 async function saveConfig(){
  const row={business_name:val('cfgBusiness').trim(),tax_id:val('cfgTax').trim(),business_address:val('cfgAddress').trim(),business_email:val('cfgEmail').trim(),business_phone:val('cfgPhone').trim(),storage_limit_bytes:Math.max(1,num('cfgStorage'))*1024*1024,default_sales_vat_rate:num('cfgVat'),irpf_prepayment_rate:num('cfgIrpf'),actual_reta_monthly:num('cfgReta')||null,target_operating_margin_pct:num('cfgMargin'),updated_at:new Date().toISOString()};
  const id=state.data.settings?.id||1;await update('ops_business_settings',id,row);await refresh('Configuración guardada.');
@@ -578,6 +598,8 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
+  if(a==='backup-create'){await downloadBackup();return}
+  if(a==='backup-restore'){await restoreBackupFromInput();return}
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
