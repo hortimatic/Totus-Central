@@ -51,6 +51,19 @@ function val(id){return input(id)?.value??''}
 function required(id,label){const v=val(id).trim();if(!v)throw new Error(`${label} es obligatorio.`);return v}
 function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
+function validateDecimalFields(){
+ for(const field of document.querySelectorAll('input[data-decimal="true"]')){
+  if(field.disabled)continue;
+  const raw=String(field.value||'').trim().replace(/\s/g,'');
+  if(!raw)continue;
+  // Signo opcional, agrupación de miles ES/EN y decimales con coma o punto.
+  const valid=/^-?\d+(?:[.,]\d+)?$/.test(raw)
+   ||/^-?\d{1,3}(?:\.\d{3})+[,]\d+$/.test(raw)
+   ||/^-?\d{1,3}(?:,\d{3})+[.]\d+$/.test(raw);
+  if(!valid){field.focus();throw new Error('El campo "'+(field.closest('label')?.textContent||field.id).trim()+'" contiene un importe no válido.')}
+ }
+}
+
 
 async function saveClosing(id='',status='borrador'){
  const store=required('clStore','Tienda'),date=required('clDate','Fecha');
@@ -1070,6 +1083,7 @@ document.addEventListener('click',async e=>{
  const route=el.dataset.route;if(route){setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  try{
+  if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
   if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
