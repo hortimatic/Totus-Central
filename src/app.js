@@ -567,9 +567,11 @@ function templateForm(row=null){
   ${formField('Nombre','tpName',row?.name||'')}
   ${formField('Código','tpCode',row?.code||'')}
   ${selectField('Tienda','tpStore',stores,row?.store_id||'')}
-  ${selectField('Estilo','tpStyle',[{value:'clean',label:'Limpio'},{value:'brand',label:'Corporativo'},{value:'compact',label:'Compacto'}],row?.style||'clean')}
-  ${formField('Color principal','tpPrimary',row?.primary_color||'#142231','color')}
-  ${formField('Color secundario','tpSecondary',row?.secondary_color||'#3B82F6','color')}
+  ${selectField('Estilo','tpStyle',[{value:'modern',label:'Moderna'},{value:'minimal',label:'Minimal'},{value:'classic',label:'Clásica'}],row?.style==='brand'?'modern':row?.style==='clean'?'minimal':row?.style==='compact'?'classic':(row?.style||'modern'))}
+  ${formField('Color principal','tpPrimary',row?.primary_color||'#17365D','color')}
+  ${formField('Color secundario','tpSecondary',row?.secondary_color||'#4472C4','color')}
+  ${formField('Color de texto','tpTextColor',row?.text_color||'#17202A','color')}
+  ${selectField('Tipografía','tpFont',[{value:'helvetica',label:'Helvetica / Arial'},{value:'georgia',label:'Georgia'},{value:'times',label:'Times'}],row?.font_family||'helvetica')}
   ${selectField('Posición logo','tpLogoPos',[{value:'left',label:'Izquierda'},{value:'center',label:'Centro'},{value:'right',label:'Derecha'}],row?.logo_position||'left')}
   ${formField('Ancho logo (mm)','tpLogoWidth',row?.logo_width_mm??34,'number','min="10" max="70"')}
   ${formField('Título factura','tpInvoiceTitle',row?.invoice_title||'FACTURA')}
@@ -577,12 +579,17 @@ function templateForm(row=null){
   <label class="wide">Logo<input id="tpLogo" type="file" accept="image/png,image/jpeg,image/webp"></label>
   <label class="wide">Cabecera<textarea id="tpHeader" rows="2">${esc(row?.header_text||'')}</textarea></label>
   <label class="wide">Pie<textarea id="tpFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label>
+  <label class="wide">Notas por defecto<textarea id="tpNotes" rows="2">${esc(row?.notes_default||'')}</textarea></label>
   <label class="wide">Condiciones de pago<textarea id="tpTerms" rows="2">${esc(row?.payment_terms_default||'')}</textarea></label>
-  <label><input id="tpShowLogo" type="checkbox" ${row?.show_logo===false?'':'checked'}> Mostrar logo</label>
-  <label><input id="tpDefaultInvoice" type="checkbox" ${row?.default_invoice?'checked':''}> Predeterminada factura</label>
-  <label><input id="tpDefaultProforma" type="checkbox" ${row?.default_proforma?'checked':''}> Predeterminada proforma</label>
+  <label class="wide">Datos bancarios<textarea id="tpBank" rows="2">${esc(row?.bank_details||'')}</textarea></label>
+  <label class="check-field"><input id="tpShowLogo" type="checkbox" ${row?.show_logo===false?'':'checked'}> Mostrar logo</label>
+  <label class="check-field"><input id="tpShowPayment" type="checkbox" ${row?.show_payment_details===false?'':'checked'}> Mostrar detalles de pago</label>
+  <label class="check-field"><input id="tpShowEmail" type="checkbox" ${row?.show_company_email===false?'':'checked'}> Mostrar email</label>
+  <label class="check-field"><input id="tpShowPhone" type="checkbox" ${row?.show_company_phone===false?'':'checked'}> Mostrar teléfono</label>
+  <label class="check-field"><input id="tpDefaultInvoice" type="checkbox" ${row?.default_invoice?'checked':''}> Predeterminada factura</label>
+  <label class="check-field"><input id="tpDefaultProforma" type="checkbox" ${row?.default_proforma?'checked':''}> Predeterminada proforma</label>
  </div>${row?.logo_name?`<div class="note" style="margin-top:12px">Logo actual: ${esc(row.logo_name)}</div>`:''}
- <div class="form-actions">${btn('Guardar plantilla','template-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ <div class="form-actions">${row?btn('Duplicar','template-duplicate','secondary',`data-id="${row.id}"`):''}${btn('Guardar plantilla','template-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar plantilla':'Nueva plantilla',body);
 }
 async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=false}={}){
@@ -625,13 +632,20 @@ async function saveTemplate(id=''){
  const code=required('tpCode','Código').trim().toUpperCase(),name=required('tpName','Nombre');
  const duplicate=state.data.templates.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code&&String(x.store_id||'')===String(storeId||''));
  if(duplicate){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw new Error('Ya existe una plantilla con ese código para la misma tienda.')}
- const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),payment_terms_default:val('tpTerms').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
+ const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),text_color:val('tpTextColor'),font_family:val('tpFont'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,show_payment_details:input('tpShowPayment')?.checked!==false,show_company_email:input('tpShowEmail')?.checked!==false,show_company_phone:input('tpShowPhone')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),notes_default:val('tpNotes').trim(),payment_terms_default:val('tpTerms').trim(),bank_details:val('tpBank').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
  try{
    await clearOtherTemplateDefaults(id,storeId,{invoice:defaultInvoice,proforma:defaultProforma});
    if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
  }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
  closeModal();await refresh('Plantilla guardada.');
+}async function duplicateTemplate(id){
+ const src=state.data.templates.find(x=>x.id===id);if(!src)return;
+ const copy={...src};delete copy.id;delete copy.created_at;delete copy.updated_at;
+ copy.name=src.name+' · copia';copy.code=(src.code+'-COPIA').slice(0,50);copy.default_invoice=false;copy.default_proforma=false;copy.active=true;
+ let suffix=2;while(state.data.templates.some(x=>x.code===copy.code&&String(x.store_id||'')===String(copy.store_id||''))){copy.code=(src.code+'-COPIA-'+suffix++).slice(0,50)}
+ await insert('ops_document_templates',copy);closeModal();await refresh('Plantilla duplicada.');
 }
+
 async function deleteTemplate(id){
  if(!isAdmin())throw new Error('Solo el administrador puede eliminar plantillas.');
  const row=state.data.templates.find(x=>x.id===id);if(!row)return;
@@ -1111,6 +1125,7 @@ document.addEventListener('click',async e=>{
   if(a==='customer-save'){await saveCustomer(el.dataset.id||'');return}
   if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
   if(a==='template-preview'){await previewTemplate(el.dataset.id);return}
+  if(a==='template-duplicate'){await duplicateTemplate(el.dataset.id);return}
   if(a==='template-new'){templateForm();return}
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
