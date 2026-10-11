@@ -129,14 +129,12 @@ async function deleteExpenseSupplier(id){
  await remove('ops_suppliers',id);closeModal();await refresh('Proveedor eliminado.');
 }
 
-function safeFileSegment(v){return String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80)||'sin_dato'}
 async function fileSha256(file){const buf=await file.arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function quarterFromDate(date){const m=Number(String(date).slice(5,7));return 'T'+Math.ceil(m/3)}
 async function createStoredDocument(file,{storeId=null,date,docType='otro',status='pendiente',party='',taxId='',number='',category='',notes='',linkedType=null,linkedId=null}={}){
  const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
- if(file.size>max)throw new Error('El archivo supera el máximo de '+Math.round(max/1024/1024)+' MB.');
  const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0);
- if(used+file.size>limit)throw new Error('No hay espacio suficiente en Storage para este archivo.');
+ validateDocumentFile(file,{maxBytes:max,usedBytes:used,limitBytes:limit});
  const y=String(date).slice(0,4),m=String(date).slice(5,7),storeNameValue=state.data.stores.find(s=>s.id===storeId)?.name||'General';
  const path=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(docType)}/${safeFileSegment(party)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;
  await upload('business-documents',path,file);
@@ -588,9 +586,8 @@ async function saveDocument(id=''){
  if(!current){
    row=await createStoredDocument(file,{storeId,date,docType:meta.doc_type,status:meta.status,party:meta.supplier_or_customer,taxId:meta.tax_id,number:meta.invoice_number,category:meta.category_code,notes:meta.notes});
  }else if(file){
-   const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);if(file.size>max)throw new Error('El archivo supera el tamaño máximo permitido.');
-   const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0)-Number(current.size_bytes||0);
-   if(used+file.size>limit)throw new Error('No hay espacio suficiente en Storage.');
+   const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0);
+   validateDocumentFile(file,{maxBytes:max,usedBytes:used,limitBytes:limit,replacingBytes:Number(current.size_bytes||0)});
    const y=date.slice(0,4),m=date.slice(5,7),storeNameValue=state.data.stores.find(x=>x.id===storeId)?.name||'General';
    newPath=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(meta.doc_type)}/${safeFileSegment(meta.supplier_or_customer)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;
    await upload('business-documents',newPath,file);
