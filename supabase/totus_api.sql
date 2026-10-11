@@ -1,3 +1,6 @@
+-- Clean schema additions required by Totus Central
+alter table public.ops_sales_invoices add column if not exists paid_amount numeric(14,2) not null default 0 check (paid_amount >= 0);
+
 -- Totus Central · clean application API
 -- Additive rewrite: no business data is created, changed or deleted by this migration.
 
@@ -303,6 +306,10 @@ begin
   if v_origin not in ('totus','externa') then raise exception 'Origen no válido'; end if;
   if v_type not in ('factura','proforma') then raise exception 'Tipo de documento no válido'; end if;
   if v_kind not in ('invoice','rectifying') then raise exception 'Tipo de factura no válido'; end if;
+  if coalesce(nullif(p_document->>'paid_status',''),'pendiente') not in ('pendiente','pagada','parcial') then raise exception 'Estado de cobro no válido'; end if;
+  if coalesce((p_document->>'paid_amount')::numeric,0)<0 then raise exception 'El importe cobrado no puede ser negativo'; end if;
+  if coalesce(nullif(p_document->>'paid_status',''),'pendiente')='pendiente' and coalesce((p_document->>'paid_amount')::numeric,0)>0 then raise exception 'Un documento pendiente no puede tener importe cobrado'; end if;
+  if coalesce(nullif(p_document->>'paid_status',''),'pendiente')='pagada' and v_paid is null then raise exception 'Indica la fecha de cobro de una factura pagada'; end if;
   if v_type='proforma' then v_kind:='invoice'; end if;
   if v_origin='externa' and nullif(btrim(coalesce(p_document->>'external_number_text','')),'') is null then raise exception 'Indica el número de la factura externa'; end if;
   if v_origin='externa' and nullif(p_document->>'source_document_id','') is null then raise exception 'La factura externa exige el archivo original'; end if;
@@ -321,7 +328,7 @@ begin
       series_id,store_id,issue_date,due_date,operation_date,origin,status,document_type,invoice_kind,
       customer_id,customer_name,customer_tax_id,customer_address,customer_email,concept,payment_method,
       paid_status,paid_date,include_in_income,template_id,terms_text,footer_text,purchase_order_ref,currency,
-      notes,created_by,source_document_id,external_number_text
+      notes,created_by,source_document_id,external_number_text,paid_amount
     ) values(
       nullif(p_document->>'series_id','')::uuid,nullif(p_document->>'store_id','')::uuid,
       v_issue,v_due,v_operation,v_origin,'borrador',v_type,v_kind,nullif(p_document->>'customer_id','')::uuid,
@@ -332,7 +339,8 @@ begin
       case when v_type='proforma' then false else coalesce((p_document->>'include_in_income')::boolean,true) end,
       nullif(p_document->>'template_id','')::uuid,coalesce(p_document->>'terms_text',''),coalesce(p_document->>'footer_text',''),
       coalesce(p_document->>'purchase_order_ref',''),coalesce(nullif(p_document->>'currency',''),'EUR'),coalesce(p_document->>'notes',''),
-      auth.uid(),nullif(p_document->>'source_document_id','')::uuid,coalesce(p_document->>'external_number_text','')
+      auth.uid(),nullif(p_document->>'source_document_id','')::uuid,coalesce(p_document->>'external_number_text',''),
+      case when v_type='proforma' then 0 else coalesce((p_document->>'paid_amount')::numeric,0) end
     ) returning id into v_id;
   else
     select status into v_status from public.ops_sales_invoices where id=v_id for update;
@@ -351,7 +359,8 @@ begin
       template_id=nullif(p_document->>'template_id','')::uuid,terms_text=coalesce(p_document->>'terms_text',''),
       footer_text=coalesce(p_document->>'footer_text',''),purchase_order_ref=coalesce(p_document->>'purchase_order_ref',''),
       currency=coalesce(nullif(p_document->>'currency',''),'EUR'),notes=coalesce(p_document->>'notes',''),
-      source_document_id=nullif(p_document->>'source_document_id','')::uuid,external_number_text=coalesce(p_document->>'external_number_text','')
+      source_document_id=nullif(p_document->>'source_document_id','')::uuid,external_number_text=coalesce(p_document->>'external_number_text',''),
+      paid_amount=case when v_type='proforma' then 0 else coalesce((p_document->>'paid_amount')::numeric,0) end
     where id=v_id;
     delete from public.ops_sales_invoice_lines where invoice_id=v_id;
   end if;
