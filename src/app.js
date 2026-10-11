@@ -921,7 +921,7 @@ async function saveFiscalAdjustment(id=''){
 }
 async function deleteFiscalAdjustment(id){if(!confirm('¿Eliminar este ajuste fiscal?'))return;await remove('ops_fiscal_adjustments',id);closeModal();await refresh('Ajuste eliminado.')}
 function setFiscalQuarter(year,q){
- const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=new Date(year,q*3,0).toISOString().slice(0,10);patchFilters('fiscalidad',{from,to});render();
+ const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;patchFilters('fiscalidad',{from,to});render();
 }
 
 async function downloadBackup(){
@@ -982,7 +982,7 @@ async function saveHomePrice(){
 }
 function homeReport(kind){
  const now=isoToday(),year=Number(now.slice(0,4)),month=Number(now.slice(5,7)),q=Math.ceil(month/3);
- if(kind==='quarter'){const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=new Date(year,q*3,0).toISOString().slice(0,10);patchFilters('informes',{from,to,year});}
+ if(kind==='quarter'){const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;patchFilters('informes',{from,to,year});}
  else patchFilters('informes',{from:`${year}-01-01`,to:`${year}-12-31`,year});
  setRoute('informes');render();
 }
@@ -992,7 +992,7 @@ function reportStorePreview(storeId,year){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)return;
  const rows=[];
  for(let m=1;m<=12;m++){
-  const from=`${year}-${String(m).padStart(2,'0')}-01`,to=new Date(year,m,0).toISOString().slice(0,10);
+  const from=`${year}-${String(m).padStart(2,'0')}-01`,to=`${year}-${String(m).padStart(2,'0')}-${String(new Date(year,m,0).getDate()).padStart(2,'0')}`;
   const closings=state.data.closings.filter(x=>x.store_id===storeId&&x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to);
   const sales=closings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
     +state.data.invoices.filter(x=>x.store_id===storeId&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
@@ -1006,7 +1006,7 @@ function reportStorePreview(storeId,year){
 }
 function reportGestorPreview(year){
  const rows=[1,2,3,4].map(q=>{
-  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=new Date(year,q*3,0).toISOString().slice(0,10);
+  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;
   const income=state.data.closings.filter(x=>x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to).reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
     +state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
     +state.data.incomeAdjustments.filter(x=>x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0);
