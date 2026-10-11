@@ -5,6 +5,7 @@ import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/ma
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download} from './utils.js';
 import {quickPriceStudy} from './calculations.js';
+import {validateDocumentFile,previewKind,safeFileSegment} from './file-utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup,restoreBackup} from './backup.js';
 
@@ -128,7 +129,7 @@ async function deleteExpenseSupplier(id){
  await remove('ops_suppliers',id);closeModal();await refresh('Proveedor eliminado.');
 }
 
-function safeSegment(v){return String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80)||'sin_dato'}
+function safeFileSegment(v){return String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80)||'sin_dato'}
 async function fileSha256(file){const buf=await file.arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function quarterFromDate(date){const m=Number(String(date).slice(5,7));return 'T'+Math.ceil(m/3)}
 async function createStoredDocument(file,{storeId=null,date,docType='otro',status='pendiente',party='',taxId='',number='',category='',notes='',linkedType=null,linkedId=null}={}){
@@ -137,7 +138,7 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
  const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0);
  if(used+file.size>limit)throw new Error('No hay espacio suficiente en Storage para este archivo.');
  const y=String(date).slice(0,4),m=String(date).slice(5,7),storeNameValue=state.data.stores.find(s=>s.id===storeId)?.name||'General';
- const path=`${y}/${quarterFromDate(date)}/${m}/${safeSegment(storeNameValue)}/${safeSegment(docType)}/${safeSegment(party)}/${crypto.randomUUID()}_${safeSegment(file.name)}`;
+ const path=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(docType)}/${safeFileSegment(party)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;
  await upload('business-documents',path,file);
  let doc;
  try{
@@ -591,7 +592,7 @@ async function saveDocument(id=''){
    const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0)-Number(current.size_bytes||0);
    if(used+file.size>limit)throw new Error('No hay espacio suficiente en Storage.');
    const y=date.slice(0,4),m=date.slice(5,7),storeNameValue=state.data.stores.find(x=>x.id===storeId)?.name||'General';
-   newPath=`${y}/${quarterFromDate(date)}/${m}/${safeSegment(storeNameValue)}/${safeSegment(meta.doc_type)}/${safeSegment(meta.supplier_or_customer)}/${crypto.randomUUID()}_${safeSegment(file.name)}`;
+   newPath=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(meta.doc_type)}/${safeFileSegment(meta.supplier_or_customer)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;
    await upload('business-documents',newPath,file);
    try{
      row=await update('ops_documents',id,{...meta,storage_path:newPath,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file)});
@@ -646,7 +647,7 @@ async function zipFilteredDocuments(){
  const rows=state.data.documents.filter(x=>(!f.from||String(x.document_date||x.created_at).slice(0,10)>=f.from)&&(!f.to||String(x.document_date||x.created_at).slice(0,10)<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
  const zip=new window.JSZip();
- for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeSegment(d.doc_type)}/${safeSegment(d.original_name)}`,blob)}
+ for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.original_name)}`,blob)}
  const out=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
  download(out,`documentos_${f.from||'inicio'}_${f.to||'fin'}.zip`);
 }
@@ -845,14 +846,14 @@ async function exportGestorPackage(year){
  ].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
  const incomeCsv=['Fecha;Tienda;Origen;Importe;Detalle',...incomeRows.map(r=>r.map(v=>String(v??'').replaceAll(';',',')).join(';'))].join('\n');ingresos.file(`Ingresos_${year}.csv`,incomeCsv);
  const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
- for(const store of stores){const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`Gastos y ventas ${safeSegment(store.name)} ${year}.xlsx`,workbookBlob(wb))}
+ for(const store of stores){const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`Gastos y ventas ${safeFileSegment(store.name)} ${year}.xlsx`,workbookBlob(wb))}
  const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
  const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
  const yearAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year)));
  const sales=yearClosings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
  resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos contables;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
  const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
- for(const d of yearDocs){try{const blob=await getDocumentBlob(d);docs.file(`${safeSegment(d.doc_type)}/${safeSegment(d.supplier_or_customer||'Sin_parte')}/${safeSegment(d.original_name)}`,blob)}catch(e){throw new Error('No se pudo incluir '+(d.original_name||'documento')+' en el ZIP: '+e.message)}}
+ for(const d of yearDocs){try{const blob=await getDocumentBlob(d);docs.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.supplier_or_customer||'Sin_parte')}/${safeFileSegment(d.original_name)}`,blob)}catch(e){throw new Error('No se pudo incluir '+(d.original_name||'documento')+' en el ZIP: '+e.message)}}
  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});download(blob,`Paquete_gestor_${year}.zip`);
 }
 function exportRows(type){
