@@ -232,6 +232,8 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
    const master=state.data.customers.find(x=>x.id===customerId);
    if(master&&(String(master.name||'').trim()!==customerName.trim()||String(master.tax_id||'').trim()!==customerTax))customerId=null;
  }
+ const isProforma=type==='proforma';
+ const paidStatus=isProforma?'pendiente':(val('ivPaidStatus')||'pendiente'),paidAmount=isProforma?0:Math.max(0,num('ivPaidAmount'));if(paidStatus==='pendiente'&&paidAmount>0)throw new Error('Un documento pendiente no puede tener importe cobrado.');if(paidStatus==='pagada'&&!paidDate)throw new Error('Indica la fecha de cobro.');
  const current=id?state.data.invoices.find(x=>x.id===id):null;
  const oldSource=current?.source_document_id?state.data.documents.find(x=>x.id===current.source_document_id):null;
  let sourceDoc=oldSource||null,newSource=null;
@@ -243,8 +245,7 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
    if(!sourceDoc)throw new Error('La factura externa exige el archivo original.');
    if(!val('ivExternalNumber').trim())throw new Error('Indica el número de la factura externa.');
  }
- const isProforma=type==='proforma';
- const paidStatus=isProforma?'pendiente':(val('ivPaidStatus')||'pendiente'),paidAmount=isProforma?0:Math.max(0,num('ivPaidAmount'));if(paidStatus==='pendiente'&&paidAmount>0)throw new Error('Un documento pendiente no puede tener importe cobrado.');if(paidStatus==='pagada'&&!paidDate)throw new Error('Indica la fecha de cobro.');
+
  const doc={id:id||null,series_id:required('ivSeries','Serie'),store_id:required('ivStore','Tienda'),issue_date:issue,due_date:due,operation_date:operation,origin,document_type:type,invoice_kind:isProforma?'invoice':invoiceKind,customer_id:customerId,customer_name:customerName,customer_tax_id:customerTax,customer_address:val('ivAddress').trim(),customer_email:val('ivEmail').trim(),concept:val('ivConcept').trim(),payment_method:val('ivPayment'),paid_status:paidStatus,paid_date:isProforma?null:paidDate,paid_amount:paidAmount,include_in_income:isProforma?false:!!input('ivIncludeIncome')?.checked,template_id:val('ivTemplate')||null,purchase_order_ref:val('ivPO').trim(),terms_text:val('ivTerms').trim(),footer_text:val('ivFooter').trim(),notes:val('ivNotes').trim(),source_document_id:sourceDoc?.id||null,external_number_text:origin==='externa'?val('ivExternalNumber').trim():''};
  let savedId;
  try{savedId=await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines})}
