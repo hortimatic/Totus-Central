@@ -642,6 +642,57 @@ async function deleteTemplate(id){
  if(row.logo_path&&!logoUsed)await removeFile('business-assets',row.logo_path).catch(()=>{});
  await refresh('Plantilla eliminada.');
 }
+function seriesForm(row=null){
+ const used=row?state.data.invoices.filter(x=>x.series_id===row.id).length:0,locked=used?'disabled':'';
+ const stores=[{value:'',label:'General'},...state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}))];
+ const body=`<div class="form-grid">
+  ${selectField('Tienda','srStore',stores,row?.store_id||'',locked)}
+  ${formField('Año','srYear',row?.year??new Date().getFullYear(),'number',locked+' min="2020" max="2100"')}
+  ${formField('Código','srCode',row?.code||'','text',locked)}
+  ${formField('Prefijo','srPrefix',row?.prefix||'','text',locked)}
+  ${selectField('Documento','srDocType',[{value:'factura',label:'Factura'},{value:'proforma',label:'Proforma'}],row?.document_type||'factura',locked)}
+  ${selectField('Tipo de serie','srKind',[{value:'invoice',label:'Ordinaria'},{value:'rectifying',label:'Rectificativa'}],row?.series_kind||'invoice',locked)}
+  ${formField('Dígitos','srPadding',row?.padding??4,'number',locked+' min="1" max="10"')}
+  ${formField('Siguiente número','srNext',row?.next_number??1,'number','min="1"')}
+  <label class="check-field"><input id="srActive" type="checkbox" ${row?.active===false?'':'checked'}> Activa</label>
+ </div>${used?`<div class="note warn" style="margin-top:12px">Serie usada en ${used} documento(s): identidad, año, prefijo y formato quedan bloqueados. Solo puedes cambiar estado y siguiente número.</div>`:''}
+ <div class="form-actions">${btn('Guardar serie','series-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar serie':'Nueva serie',body,{small:true});
+}
+async function saveSeries(id=''){
+ if(!isAdmin())throw new Error('Solo el administrador puede gestionar series.');
+ const current=id?state.data.series.find(x=>x.id===id):null,used=current?state.data.invoices.filter(x=>x.series_id===id).length:0;
+ const row={active:!!input('srActive')?.checked,next_number:Math.max(1,Math.round(num('srNext')))};
+ if(!used){
+   row.store_id=val('srStore')||null;row.year=Math.round(num('srYear'));row.code=required('srCode','Código').trim().toUpperCase();row.prefix=required('srPrefix','Prefijo').trim();row.document_type=val('srDocType');row.series_kind=row.document_type==='proforma'?'invoice':val('srKind');row.padding=Math.min(10,Math.max(1,Math.round(num('srPadding'))));
+   if(row.year<2020||row.year>2100)throw new Error('Año de serie no válido.');
+   const dup=state.data.series.find(x=>x.id!==id&&Number(x.year)===row.year&&String(x.code).toUpperCase()===row.code);if(dup)throw new Error('Ya existe ese código de serie para el mismo año.');
+ }
+ if(id)await update('ops_invoice_series',id,row);else await insert('ops_invoice_series',row);
+ closeModal();await refresh('Serie guardada.');
+}
+function expenseCategoryForm(row=null){
+ const body=`<div class="form-grid">
+  ${formField('Código','ecCode',row?.code||'')}
+  ${formField('Nombre','ecName',row?.name||'')}
+  ${formField('Grupo AEAT','ecAeat',row?.aeat_group||'')}
+  ${formField('Código gestor','ecManager',row?.manager_code||'')}
+  ${formField('Orden','ecSort',row?.sort_order??0,'number','min="0"')}
+  <label class="check-field"><input id="ecDeductible" type="checkbox" ${row?.deductible_default===false?'':'checked'}> Deducible por defecto</label>
+  <label class="check-field"><input id="ecFixed" type="checkbox" ${row?.fixed_asset_default?'checked':''}> Inmovilizado por defecto</label>
+  <label class="check-field"><input id="ecActive" type="checkbox" ${row?.active===false?'':'checked'}> Activa</label>
+ </div><div class="form-actions">${btn('Guardar categoría','expense-category-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar categoría':'Nueva categoría',body,{small:true});
+}
+async function saveExpenseCategory(id=''){
+ if(!isAdmin())throw new Error('Solo el administrador puede gestionar categorías.');
+ const code=required('ecCode','Código').trim().toUpperCase(),name=required('ecName','Nombre');
+ const dup=state.data.categories.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code);if(dup)throw new Error('Ya existe una categoría con ese código.');
+ const row={code,name,aeat_group:val('ecAeat').trim(),manager_code:val('ecManager').trim(),sort_order:Math.max(0,Math.round(num('ecSort'))),deductible_default:!!input('ecDeductible')?.checked,fixed_asset_default:!!input('ecFixed')?.checked,active:!!input('ecActive')?.checked};
+ if(id)await update('ops_expense_categories',id,row);else await insert('ops_expense_categories',row);
+ closeModal();await refresh('Categoría guardada.');
+}
+
 async function toggleSeries(id,active){
  if(!isAdmin())throw new Error('Solo el administrador puede cambiar series.');
  await update('ops_invoice_series',id,{active});
@@ -1064,7 +1115,13 @@ document.addEventListener('click',async e=>{
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
   if(a==='template-delete'){await deleteTemplate(el.dataset.id);return}
+  if(a==='series-new'){seriesForm();return}
+  if(a==='series-edit'){seriesForm(state.data.series.find(x=>x.id===el.dataset.id));return}
+  if(a==='series-save'){await saveSeries(el.dataset.id||'');return}
   if(a==='series-toggle'){await toggleSeries(el.dataset.id,el.dataset.active==='true');return}
+  if(a==='expense-category-new'){expenseCategoryForm();return}
+  if(a==='expense-category-edit'){expenseCategoryForm(state.data.categories.find(x=>x.id===el.dataset.id));return}
+  if(a==='expense-category-save'){await saveExpenseCategory(el.dataset.id||'');return}
   if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
   if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='document-back'){resetView('documentos');render();return}
