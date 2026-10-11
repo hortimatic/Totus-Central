@@ -553,9 +553,9 @@ async function persistDocumentDraft({keepOpen=true}={}){if(!manager())return ale
   }
   await audit('facturas',d.id?'actualizar_borrador':external?'registrar_externa':'crear_borrador',id,{tipo:d.documentType,cliente:d.customer,total:draftTotals().total});
   await window.opsLoadData(true);await featureLoad(true);
-  if(external){O.invoiceDraft=null;render()}
+  if(external){O.invoiceDraft=null;O.invoiceDraftLines=[];E.invoiceRecordView='list';render()}
   else if(keepOpen)window.opsEditDocument(id);
-  else window.opsNewDocument(d.documentType);
+  else {O.invoiceDraft=null;O.invoiceDraftLines=[];E.invoiceRecordView='list';render()};
   return id;
  }catch(e){alert('No se pudo guardar: '+e.message);return null}
 }
@@ -566,15 +566,15 @@ window.opsSaveAndFinalizeDocument=async function(){
  const id=await persistDocumentDraft({keepOpen:true});if(!id)return;
  await window.opsFinalizeDocument(id);
 };
-window.opsEditDocument=function(id){if(!manager())return alert('Facturación en modo consulta.');if(!confirmDiscardInvoiceDraft('Abrir otro documento'))return;E.billingPanel='documents';const row=O.invoices.find(x=>x.id===id);if(!row||row.status!=='borrador')return;E.invoiceMode=row.document_type==='proforma'?'proforma':(row.invoice_kind==='rectifying'?'rectificativa':'factura');O.invoiceDraft={id:row.id,mode:E.invoiceMode,documentType:row.document_type||'factura',invoiceKind:row.invoice_kind||'invoice',origin:row.origin||'totus',seriesId:row.series_id,storeId:row.store_id||'',date:row.issue_date,dueDate:row.due_date||'',operationDate:row.operation_date||'',externalNumber:row.external_number_text||'',customerId:row.customer_id||'',customer:row.customer_name||'',taxId:row.customer_tax_id||'',address:row.customer_address||'',email:row.customer_email||'',concept:row.concept||'',payment:row.payment_method||'transferencia',paidStatus:row.paid_status||'pendiente',paidDate:row.paid_date||'',includeIncome:!!row.include_in_income,notes:row.notes||'',terms:row.terms_text||'',footer:row.footer_text||'',poRef:row.purchase_order_ref||'',templateId:row.template_id||''};O.invoiceDraftLines=O.invoiceLines.filter(l=>l.invoice_id===id).sort((a,b)=>a.sort_order-b.sort_order).map(l=>({description:l.description,qty:String(l.quantity),unit:String(l.unit_price_base),discount:String(l.discount_pct),vat:String(l.vat_rate)}));render();window.scrollTo({top:0,behavior:'smooth'})};
-window.opsFinalizeDocument=async function(id){if(!manager())return alert('Facturación en modo consulta.');const row=O.invoices.find(x=>x.id===id);if(!row)return;if(!confirm(`¿Emitir ${documentLabel(row.document_type||'factura',row.invoice_kind||'invoice').toLowerCase()}? Se asignará número definitivo y quedará bloqueado.`))return;try{const {error}=await sb.rpc('ops_finalize_document',{p_document_id:id});if(error)throw error;await audit('facturas','emitir',id,{tipo:row.document_type});await window.opsLoadData(true);await featureLoad(true);render();setTimeout(()=>opsDocumentPdf(id,true),100)}catch(e){alert('No se pudo emitir: '+e.message)}};
+window.opsEditDocument=function(id){if(!manager())return alert('Facturación en modo consulta.');if(!confirmDiscardInvoiceDraft('Abrir otro documento'))return;E.billingPanel='documents';E.invoiceRecordView='form';const row=O.invoices.find(x=>x.id===id);if(!row||row.status!=='borrador')return;E.invoiceMode=row.document_type==='proforma'?'proforma':(row.invoice_kind==='rectifying'?'rectificativa':'factura');O.invoiceDraft={id:row.id,mode:E.invoiceMode,documentType:row.document_type||'factura',invoiceKind:row.invoice_kind||'invoice',origin:row.origin||'totus',seriesId:row.series_id,storeId:row.store_id||'',date:row.issue_date,dueDate:row.due_date||'',operationDate:row.operation_date||'',externalNumber:row.external_number_text||'',customerId:row.customer_id||'',customer:row.customer_name||'',taxId:row.customer_tax_id||'',address:row.customer_address||'',email:row.customer_email||'',concept:row.concept||'',payment:row.payment_method||'transferencia',paidStatus:row.paid_status||'pendiente',paidDate:row.paid_date||'',includeIncome:!!row.include_in_income,notes:row.notes||'',terms:row.terms_text||'',footer:row.footer_text||'',poRef:row.purchase_order_ref||'',templateId:row.template_id||''};O.invoiceDraftLines=O.invoiceLines.filter(l=>l.invoice_id===id).sort((a,b)=>a.sort_order-b.sort_order).map(l=>({description:l.description,qty:String(l.quantity),unit:String(l.unit_price_base),discount:String(l.discount_pct),vat:String(l.vat_rate)}));render();window.scrollTo({top:0,behavior:'smooth'})};
+window.opsFinalizeDocument=async function(id){if(!manager())return alert('Facturación en modo consulta.');const row=O.invoices.find(x=>x.id===id);if(!row)return;if(!confirm(`¿Emitir ${documentLabel(row.document_type||'factura',row.invoice_kind||'invoice').toLowerCase()}? Se asignará número definitivo y quedará bloqueado.`))return;try{const {error}=await sb.rpc('ops_finalize_document',{p_document_id:id});if(error)throw error;await audit('facturas','emitir',id,{tipo:row.document_type});await window.opsLoadData(true);await featureLoad(true);O.invoiceDraft=null;O.invoiceDraftLines=[];E.invoiceRecordView='list';render();setTimeout(()=>opsDocumentPdf(id,true),100)}catch(e){alert('No se pudo emitir: '+e.message)}};
 window.opsCreateRectifying=function(id){if(!manager())return alert('Facturación en modo consulta.');
  if(!confirmDiscardInvoiceDraft('Crear la rectificativa'))return;
  const src=O.invoices.find(x=>x.id===id);if(!src||src.document_type!=='factura'||src.status!=='emitida')return;
  const rectSeries=O.series.find(x=>x.store_id===src.store_id&&x.year===O.year&&x.document_type==='factura'&&x.series_kind==='rectifying'&&x.active)
    ||O.series.find(x=>x.year===O.year&&x.document_type==='factura'&&x.series_kind==='rectifying'&&x.active);
  if(!rectSeries)return alert('No hay una serie rectificativa activa para este año.');
- E.invoiceMode='rectificativa';O.tab='facturas';
+ E.invoiceMode='rectificativa';E.invoiceRecordView='form';O.tab='facturas';
  O.invoiceDraft={
   id:null,mode:'rectificativa',documentType:'factura',invoiceKind:'rectifying',origin:'totus',
   seriesId:rectSeries.id,storeId:src.store_id||'',date:today(),dueDate:'',operationDate:src.operation_date||src.issue_date||'',
@@ -758,7 +758,7 @@ window.opsDuplicateInvoice=function(id){
  if(!manager())return alert('Facturación en modo consulta.');
  if(!confirmDiscardInvoiceDraft('Duplicar otro documento'))return;
  const src=O.invoices.find(x=>x.id===id);if(!src)return;
- E.billingPanel='documents';E.invoiceMode=src.document_type==='proforma'?'proforma':(src.invoice_kind==='rectifying'?'rectificativa':'factura');O.tab='facturas';
+ E.billingPanel='documents';E.invoiceMode=src.document_type==='proforma'?'proforma':(src.invoice_kind==='rectifying'?'rectificativa':'factura');E.invoiceRecordView='form';O.tab='facturas';
  const compatible=O.series.find(x=>x.year===O.year&&x.store_id===src.store_id&&x.document_type===src.document_type&&x.series_kind===(src.invoice_kind==='rectifying'?'rectifying':'invoice')&&x.active)
   ||O.series.find(x=>x.year===O.year&&x.document_type===src.document_type&&x.series_kind===(src.invoice_kind==='rectifying'?'rectifying':'invoice')&&x.active);
  O.invoiceDraft={id:null,mode:E.invoiceMode,documentType:src.document_type||'factura',invoiceKind:src.invoice_kind||'invoice',origin:'totus',seriesId:compatible?.id||src.series_id||'',storeId:src.store_id||'',date:today(),dueDate:'',operationDate:today(),externalNumber:'',customerId:src.customer_id||'',customer:src.customer_name||'',taxId:src.customer_tax_id||'',address:src.customer_address||'',email:src.customer_email||'',concept:src.concept||'',payment:src.payment_method||'transferencia',paidStatus:'pendiente',paidDate:'',includeIncome:false,notes:'Copia de '+(src.display_number||'documento'),terms:src.terms_text||'',footer:src.footer_text||'',poRef:'',templateId:src.template_id||''};
