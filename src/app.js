@@ -365,6 +365,48 @@ async function convertProforma(id){
  await refresh('Proforma convertida en factura.');
 }
 
+function familiesManager(){
+ const brands=[...state.data.brands].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const families=[...state.data.families].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const brandName=id=>brands.find(x=>x.id===id)?.name||'—';
+ const body=`<div class="split">
+  <section><div class="section-head"><div><h3>Marcas</h3><p>Maestro usado por las familias.</p></div>${btn('+ Marca','brand-new','primary')}</div><div class="stack" style="margin-top:12px">${brands.length?brands.map(b=>`<div class="summary-row"><div><b>${esc(b.name)}</b><div class="small muted">${families.filter(f=>f.brand_id===b.id).length} familias</div></div><div class="inline-actions">${btn('Editar','brand-edit','secondary',`data-id="${b.id}"`)}${btn('Eliminar','brand-delete','danger',`data-id="${b.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin marcas</strong></div>'}</div></section>
+  <section><div class="section-head"><div><h3>Familias</h3><p>Agrupa productos y margen objetivo.</p></div>${btn('+ Familia','family-new','primary')}</div><div class="stack" style="margin-top:12px">${families.length?families.map(f=>`<div class="summary-row"><div><b>${esc(f.name)}</b><div class="small muted">${esc(brandName(f.brand_id))} · ${esc(f.category||'')} · margen ${Number(f.default_margin||0).toFixed(1).replace('.',',')} %</div></div><div class="inline-actions">${btn('Editar','family-edit','secondary',`data-id="${f.id}"`)}${btn('Eliminar','family-delete','danger',`data-id="${f.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin familias</strong></div>'}</div></section>
+ </div>`;
+ modal('Marcas y familias',body);
+}
+function brandForm(row=null){
+ const body=`<div class="form-grid">${formField('Nombre','brName',row?.name||'')}</div><div class="form-actions">${btn('Guardar marca','brand-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar marca':'Nueva marca',body,{small:true});
+}
+async function saveBrand(id=''){
+ const name=required('brName','Nombre');
+ const dup=state.data.brands.find(x=>x.id!==id&&String(x.name||'').trim().toLowerCase()===name.toLowerCase());if(dup)throw new Error('Ya existe una marca con ese nombre.');
+ if(id)await update('brands',id,{name});else await insert('brands',{name});
+ closeModal();await refresh('Marca guardada.');
+}
+async function deleteBrand(id){
+ const linked=state.data.families.filter(x=>x.brand_id===id).length;if(linked)throw new Error('No se puede eliminar: la marca tiene '+linked+' familias vinculadas.');
+ if(!confirm('¿Eliminar esta marca?'))return;await remove('brands',id);closeModal();await refresh('Marca eliminada.');
+}
+function familyForm(row=null){
+ if(!state.data.brands.length){toast('Crea primero una marca.','bad');brandForm();return}
+ const brands=state.data.brands.map(x=>({value:x.id,label:x.name}));
+ const body=`<div class="form-grid">${selectField('Marca','fmBrand',brands,row?.brand_id||brands[0]?.value||'')}${formField('Nombre','fmName',row?.name||'')}${formField('Categoría','fmCategory',row?.category||'General')}${formField('Margen objetivo (%)','fmMargin',row?.default_margin??30,'number','step="0.1" min="0" max="100"')}</div><div class="form-actions">${btn('Guardar familia','family-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar familia':'Nueva familia',body,{small:true});
+}
+async function saveFamily(id=''){
+ const brandId=required('fmBrand','Marca'),name=required('fmName','Nombre'),category=required('fmCategory','Categoría'),default_margin=Math.min(100,Math.max(0,num('fmMargin')));
+ const dup=state.data.families.find(x=>x.id!==id&&x.brand_id===brandId&&String(x.name||'').trim().toLowerCase()===name.toLowerCase());if(dup)throw new Error('Ya existe esa familia para la misma marca.');
+ const row={brand_id:brandId,name,category,default_margin};
+ if(id)await update('families',id,row);else await insert('families',row);
+ closeModal();await refresh('Familia guardada.');
+}
+async function deleteFamily(id){
+ const linked=state.data.products.filter(x=>x.family_id===id).length;if(linked)throw new Error('No se puede eliminar: la familia tiene '+linked+' productos vinculados.');
+ if(!confirm('¿Eliminar esta familia?'))return;await remove('families',id);closeModal();await refresh('Familia eliminada.');
+}
+
 function providersManager(){
  const rows=state.data.providers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
  const body=`<div class="section-head"><div><p>Directorio único de proveedores para Pricing.</p></div>${btn('Nuevo proveedor','provider-new','primary')}</div>
@@ -923,6 +965,15 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-preview'){await showInvoicePreview(el.dataset.id);return}
   if(a==='invoice-print'){await printInvoice(el.dataset.id);return}
   if(a==='proforma-convert'){await convertProforma(el.dataset.id);return}
+  if(a==='families-manage'){familiesManager();return}
+  if(a==='brand-new'){brandForm();return}
+  if(a==='brand-edit'){brandForm(state.data.brands.find(x=>x.id===el.dataset.id));return}
+  if(a==='brand-save'){await saveBrand(el.dataset.id||'');return}
+  if(a==='brand-delete'){await deleteBrand(el.dataset.id);return}
+  if(a==='family-new'){familyForm();return}
+  if(a==='family-edit'){familyForm(state.data.families.find(x=>x.id===el.dataset.id));return}
+  if(a==='family-save'){await saveFamily(el.dataset.id||'');return}
+  if(a==='family-delete'){await deleteFamily(el.dataset.id);return}
   if(a==='providers-manage'){providersManager();return}
   if(a==='provider-new'){providerForm();return}
   if(a==='provider-edit'){providerForm(state.data.providers.find(x=>x.id===el.dataset.id));return}
