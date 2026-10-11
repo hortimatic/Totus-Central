@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const must=[
- 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','src/calculations.js','supabase/totus_api.sql','supabase/backup.sql'
+ 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','src/calculations.js','src/file-utils.js','supabase/totus_api.sql','supabase/backup.sql'
 ];
 const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
@@ -25,7 +25,7 @@ if(text('index.html').length>8000)errors.push('index.html vuelve a ser monolíti
 if(!text('src/styles.css').includes('@media(max-width:800px)'))errors.push('Falta responsive tablet/móvil');
 if(!text('src/styles.css').includes('@media(max-width:520px)'))errors.push('Falta responsive móvil estrecho');
 
-for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js','src/backup.js','src/calculations.js']){
+for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js','src/backup.js','src/calculations.js','src/file-utils.js']){
  try{execFileSync(process.execPath,['--check',path.join(root,f)],{stdio:'pipe'})}
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
@@ -150,6 +150,18 @@ for(const action of ['document-save','document-back'])if(!newDocument.includes('
 
 setView('administracion',{section:'backups'});const backupHtml=pages.administracion();
 for(const term of ['Descargar copia completa','Cargar copia','Restaurar copia'])if(!backupHtml.includes(term))errors.push('Administración copias incompleta: '+term);
+const fileUtils=await import(path.resolve(root,'src/file-utils.js'));
+const fake=(name,type,size=1024)=>({name,type,size});
+for(const [name,type,kind] of [
+ ['a.pdf','application/pdf','pdf'],['a.jpg','image/jpeg','image'],['a.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','excel'],
+ ['a.xls','application/vnd.ms-excel','excel'],['a.csv','text/csv','text'],['a.txt','text/plain','text'],['a.md','text/markdown','text']
+]){
+ const f=fake(name,type);const v=fileUtils.validateDocumentFile(f,{maxBytes:20*1024*1024,usedBytes:0,limitBytes:500*1024*1024});
+ if(v.kind!==kind)errors.push('Vista previa incorrecta para '+name);
+}
+try{fileUtils.validateDocumentFile(fake('mal.exe','application/octet-stream'),{});errors.push('Documentos permite extensión no soportada')}catch{}
+try{fileUtils.validateDocumentFile(fake('grande.pdf','application/pdf',21*1024*1024),{});errors.push('Documentos permite archivo >20 MB')}catch{}
+try{fileUtils.validateDocumentFile(fake('sin-espacio.pdf','application/pdf',2*1024*1024),{usedBytes:499*1024*1024,limitBytes:500*1024*1024});errors.push('Documentos no respeta límite de Storage')}catch{}
 
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');
