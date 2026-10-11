@@ -30,6 +30,16 @@ for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/ut
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
 
+const stateSource=text('src/state.js'),apiSource=text('src/api.js');
+const stateDataMatch=stateSource.match(/data:\{([\s\S]*?)\}\n\};/);
+const declaredData=new Set([...(stateDataMatch?.[1]||'').matchAll(/([A-Za-z0-9_]+)\s*:/g)].map(m=>m[1]));
+const loadedData=new Set([...apiSource.matchAll(/\['([A-Za-z0-9_]+)','[^']+'/g)].map(m=>m[1]));
+const usedData=new Set([...(appSource+'\n'+pageSource+'\n'+text('src/excel.js')+'\n'+text('src/backup.js')).matchAll(/state\.data\.([A-Za-z0-9_]+)/g)].map(m=>m[1]));
+for(const key of usedData){
+ if(!declaredData.has(key))errors.push('state.data usado pero no inicializado: '+key);
+ if(!loadedData.has(key)&&!['audit','storageUsage'].includes(key))errors.push('state.data usado pero no cargado por loadCore: '+key);
+}
+
 const {state,setView}=await import(path.resolve(root,'src/state.js'));
 const pages=await import(path.resolve(root,'src/pages/main.js'));
 state.user={role:'admin',email:'test@example.com',full_name:'Test'};
