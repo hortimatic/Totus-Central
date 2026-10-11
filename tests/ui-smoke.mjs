@@ -793,6 +793,26 @@ assert(validationQa.badExt&&validationQa.badMime&&validationQa.big&&validationQa
 
 // Documentos: UI completo subir -> recargar -> descargar.
 await page.locator('.app-nav').getByRole('button',{name:'Documentos',exact:true}).click();await heading('Documentos');await auditCurrentUi('Documentos');
+assert(await page.getByLabel('Fecha del documento archivado').getAttribute('max'),'Documentos no limita visualmente la fecha futura');
+assert(await page.getByRole('option',{name:'Factura recibida',exact:true}).count()>=1,'Documentos sigue mostrando tipos técnicos al usuario');
+assert(await page.getByRole('option',{name:'Preparada para gestoría',exact:true}).count()>=1,'Documentos sigue mostrando estados técnicos al usuario');
+
+// Las facturas archivadas manualmente requieren fecha válida, proveedor/cliente y número.
+const docsBeforeInvalid=fixtures.ops_documents.length;
+await page.getByLabel('Fecha del documento archivado').fill('2099-01-01');
+await page.locator('#ops_doc_file').setInputFiles({name:'future.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nFUTURE\n%%EOF')});
+await page.getByRole('button',{name:'Subir',exact:true}).click();
+await page.waitForTimeout(70);
+assert(fixtures.ops_documents.length===docsBeforeInvalid,'Documentos permitió archivar una fecha futura');
+assert(dialogs.some(x=>/fecha futura/i.test(x)),'Documentos no avisa al bloquear una fecha futura');
+await page.getByLabel('Fecha del documento archivado').fill('2026-10-11');
+await page.locator('#ops_doc_party').fill('');
+await field('Nº documento').fill('');
+await page.getByRole('button',{name:'Subir',exact:true}).click();
+await page.waitForTimeout(70);
+assert(fixtures.ops_documents.length===docsBeforeInvalid,'Documentos permitió una factura recibida sin proveedor ni número');
+assert(dialogs.some(x=>/proveedor o cliente/i.test(x)),'Documentos no exige proveedor/cliente en una factura archivada');
+
 await page.locator('#ops_doc_party').fill('Proveedor QA');
 await field('Nº documento').fill('QA-2026-001');
 await page.locator('#ops_doc_file').setInputFiles({name:'qa.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nQA\n%%EOF')});
@@ -817,6 +837,27 @@ assert(await qaRow.getByRole('button',{name:'Vista previa',exact:true}).count()=
 await qaRow.getByRole('combobox',{name:'Estado de qa.pdf',exact:true}).selectOption('revisada');
 await page.waitForTimeout(120);
 assert(qaDoc.status==='revisada','Cambiar estado documental no persistió');
+
+// Los documentos vinculados se consultan aquí, pero no se rompen desde Archivo.
+const linkedDoc=fixtures.ops_documents.find(x=>x.linked_entity_type==='sales_invoice_source');
+assert(linkedDoc,'No existe documento vinculado de factura externa para probar protección');
+const linkedRow=page.locator('tr').filter({hasText:linkedDoc.original_name}).first();
+assert(await linkedRow.getByText('Original de factura externa',{exact:true}).count()===1,'Archivo no identifica el origen de un documento vinculado');
+assert(await linkedRow.getByRole('button',{name:'Eliminar',exact:true}).count()===0,'Archivo permite borrar individualmente un original vinculado a factura');
+await linkedRow.getByRole('checkbox').check();
+const linkedCountBefore=fixtures.ops_documents.length;
+await page.getByRole('button',{name:'Eliminar selección',exact:true}).click();
+await page.waitForTimeout(70);
+assert(fixtures.ops_documents.length===linkedCountBefore,'El borrado masivo eliminó un documento vinculado');
+assert(dialogs.some(x=>/documento\(s\) vinculados/i.test(x)),'El borrado masivo no explica por qué protege documentos vinculados');
+await linkedRow.getByRole('checkbox').uncheck();
+
+// La búsqueda alcanza también NIF y tipo, no solo nombre/archivo.
+qaDoc.tax_id='BQA000001';
+await page.locator('#ops_doc_search').fill('BQA000001');
+await page.waitForTimeout(60);
+assert(await page.locator('tr[data-doc-row="1"]:visible').filter({hasText:'qa.pdf'}).count()===1,'La búsqueda documental no localiza por NIF/CIF');
+await page.locator('#ops_doc_search').fill('');
 
 // CSV/Excel también deben abrirse dentro de Totus, nunca descargar automáticamente al pulsar Vista previa.
 await page.locator('#ops_doc_party').fill('Proveedor CSV QA');
