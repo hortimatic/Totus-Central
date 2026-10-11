@@ -421,15 +421,16 @@ export function providerCost(row){
 
 export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
 
-export function openingDrawerCash(storeId,drawerId){
- const previous=state.data.closings.filter(x=>x.store_id===storeId&&x.status==='cerrado').sort((a,b)=>String(b.business_date).localeCompare(String(a.business_date)))[0];
+export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
+ const previous=state.data.closings.filter(x=>x.store_id===storeId&&x.status==='cerrado'&&String(x.business_date)<String(targetDate)).sort((a,b)=>String(b.business_date).localeCompare(String(a.business_date)))[0];
  if(!previous)return 0;
  return Number(state.data.closingDrawers.find(x=>x.closing_id===previous.id&&x.drawer_id===drawerId)?.closing_cash||0);
 }
 
 function drawerEditor(drawer,row,locked=false){
  const saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
- const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id);
+ const targetDate=row?.business_date||isoToday();
+ const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id,targetDate);
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>Importes de esta caja.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
