@@ -859,7 +859,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-supplier-save'){await saveExpenseSupplier(el.dataset.id||'');return}
   if(a==='expense-supplier-delete'){await deleteExpenseSupplier(el.dataset.id);return}
-  if(a==='expense-new'){setView('gastos',{mode:'record',id:null});render();return}
+  if(a==='expense-new'){setView('gastos',{mode:'record',id:null});setRoute('gastos');render();return}
   if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
   if(a==='expense-back'){resetView('gastos');render();return}
@@ -870,7 +870,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-document-unlink'){await unlinkExpenseDocument(el.dataset.expense,el.dataset.document);return}
   if(a==='export-expenses-current'){exportCurrentModule('gastos');return}
   if(a==='expense-delete'){await deleteExpense(el.dataset.id);return}
-  if(a==='invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});render();return}
+  if(a==='invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});setRoute('facturacion');render();return}
   if(a==='proforma-new'){setView('facturacion',{mode:'record',id:null,docType:'proforma',invoiceKind:'invoice',origin:'totus'});render();return}
   if(a==='rectifying-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus'});render();return}
   if(a==='external-invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'externa'});render();return}
@@ -917,7 +917,7 @@ document.addEventListener('click',async e=>{
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
   if(a==='template-delete'){await deleteTemplate(el.dataset.id);return}
   if(a==='series-toggle'){await toggleSeries(el.dataset.id,el.dataset.active==='true');return}
-  if(a==='document-new'){setView('documentos',{mode:'record',id:null});render();return}
+  if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
   if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='document-back'){resetView('documentos');render();return}
   if(a==='document-save'){await saveDocument(el.dataset.id||'');return}
