@@ -153,17 +153,61 @@ function seriesSectionHtml(){
 }
 
 export function documentos(){
+ const view=getView('documentos');
+ if(view.mode==='record'){
+   const row=view.id?state.data.documents.find(x=>x.id===view.id):null;
+   return documentRecordHtml(row);
+ }
  const f=getFilters('documentos');
  const usage=state.data.storageUsage||{};
  const used=Number(usage.total_bytes||0),limit=Number(usage.limit_bytes||500*1024*1024),usagePct=limit?Math.min(100,used/limit*100):0;
- const rows=state.data.documents.filter(x=>inRange(x.document_date||x.created_at,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const status=f.status||'all',type=f.type||'all';
+ const rows=state.data.documents.filter(x=>inRange(x.document_date||x.created_at,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
+  &&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)
+  &&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type,x.category_code,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
-  {label:'Fecha',html:r=>dateCell(r.document_date||r.created_at)},{label:'Archivo',html:r=>esc(r.original_name||'—')},{label:'Tipo',html:r=>esc(r.doc_type||'—')},
-  {label:'Proveedor / cliente',html:r=>esc(r.supplier_or_customer||'—')},{label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>`<div class="inline-actions">${btn('Ver','document-preview','secondary',`data-id="${r.id}"`)}</div>`}
+  {label:'Documento',html:r=>`<b>${esc(r.original_name||'Documento')}</b><div class="small muted">${fmtDate(r.document_date||r.created_at)} · ${esc(storeName(r.store_id))}</div>`},
+  {label:'Clasificación',html:r=>`<b>${esc(r.doc_type||'—')}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
+  {label:'Tamaño',num:true,html:r=>`${(Number(r.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB`},
+  {label:'Estado',html:r=>stateBadge(r.status)},
+  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}</div>`}
  ];
- return `<div class="page"><div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Uso de almacenamiento',(used/1024/1024).toFixed(1).replace('.',',')+' MB',usagePct.toFixed(1).replace('.',',')+' % de 500 MB')}${kpi('Archivos guardados',String(Number(usage.documents_count||0)+Number(usage.assets_count||0)))}</div><section class="card table-card"><div class="section-head card-pad"><div><h2>Documentos</h2><p>Archivo documental centralizado.</p></div>${btn('Subir documento','document-new','primary')}</div>
- ${dateFilters({...f,stores:stores()},'documentos')}
- ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para estas fechas.'})}</section></div>`;
+ const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
+ return `<div class="page">
+  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',(used/1024/1024).toFixed(1).replace('.',',')+' MB',usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB')}${kpi('Archivos en Storage',String(Number(usage.documents_count||0)+Number(usage.assets_count||0)))}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
+  <section class="card table-card">
+   <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Subida, clasificación, vista previa, descarga y paquetes.</p></div><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('+ Subir documento','document-new','primary')}</div></div>
+   <div class="filters">${dateFilters({...f,stores:stores()},'documentos').replace(/^<div class="filters">|<\/div>$/g,'')}${extra}</div>
+   ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para los filtros seleccionados.'})}
+  </section>
+ </div>`;
+}
+
+export function documentRecordHtml(row=null){
+ const storeOptions=[{value:'',label:'Sin tienda'},...stores().map(s=>({value:s.id,label:s.name}))];
+ return `<div class="page record-page">
+  <div class="record-toolbar"><div><button class="btn link" data-action="document-back">← Volver a documentos</button><div class="eyebrow">Documentos · ${row?'Ficha':'Nuevo'}</div><h2>${row?esc(row.original_name||'Documento'):'Subir documento'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
+  <div class="record-layout">
+   <div class="record-main stack">
+    <section class="card card-pad"><div class="section-head"><div><h3>Archivo</h3><p>Máximo 20 MB. PDF, imagen, Excel, CSV, TXT o MD.</p></div></div>
+     ${row?`<div class="attachment-box" style="margin-top:14px"><div><b>${esc(row.original_name)}</b><div class="small muted">${(Number(row.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB · ${esc(row.mime_type||'')}</div></div><div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${row.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${row.id}"`)}</div></div>`:''}
+     <label class="file-picker wide" style="margin-top:14px">${row?'Sustituir archivo':'Seleccionar archivo'}<input id="docFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
+    </section>
+    <section class="card card-pad"><div class="section-head"><div><h3>Clasificación</h3></div></div><div class="form-grid" style="margin-top:14px">
+      ${selectField('Tienda','docStore',storeOptions,row?.store_id||'')}
+      ${formField('Fecha','docDate',row?.document_date||isoToday(),'date')}
+      ${selectField('Tipo','docType',[{value:'factura_recibida',label:'Factura recibida'},{value:'factura_emitida',label:'Factura emitida'},{value:'factura_rectificativa',label:'Factura rectificativa'},{value:'proforma',label:'Proforma'},{value:'ticket',label:'Ticket'},{value:'contrato',label:'Contrato'},{value:'impuesto',label:'Impuesto'},{value:'informe',label:'Informe'},{value:'otro',label:'Otro'}],row?.doc_type||'factura_recibida')}
+      ${selectField('Estado','docStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:'Pagada'},{value:'revisada',label:'Revisada'},{value:'preparada_gestor',label:'Preparada gestor'},{value:'entregada_gestor',label:'Entregada gestor'},{value:'archivada',label:'Archivada'}],row?.status||'pendiente')}
+      ${formField('Proveedor / cliente','docParty',row?.supplier_or_customer||'')}
+      ${formField('NIF/CIF','docTax',row?.tax_id||'')}
+      ${formField('Nº documento','docNumber',row?.invoice_number||'')}
+      ${formField('Código / categoría','docCategory',row?.category_code||'')}
+      <label class="wide">Notas<textarea id="docNotes" rows="4">${esc(row?.notes||'')}</textarea></label>
+     </div></section>
+   </div>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Acciones</h3><div class="stack">${row?btn('Eliminar documento','document-delete','danger',`data-id="${row.id}"`):''}${btn(row?'Guardar cambios':'Subir y guardar','document-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','document-back','secondary')}</div></section></aside>
+  </div>
+ </div>`;
 }
 
 export function fiscalidad(){
