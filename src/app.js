@@ -1036,7 +1036,7 @@ async function exportGestorPackage(year){
   ...state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))).map(x=>[fmtDate(x.business_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Cierre',n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),x.notes||'']),
   ...state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year))).map(x=>[fmtDate(x.issue_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Factura adicional',n(x.total_amount),x.display_number||x.external_number_text||'']),
   ...state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year))).map(x=>[fmtDate(x.adjustment_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'General','Ajuste de ingreso',n(x.amount),x.description||''])
- ].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+ ].sort((a,b)=>{const key=d=>String(d||'').split('/').reverse().join('-');return key(a[0]).localeCompare(key(b[0]))});
  const incomeCsv=['Fecha;Tienda;Origen;Importe;Detalle',...incomeRows.map(r=>r.map(v=>String(v??'').replaceAll(';',',')).join(';'))].join('\n');ingresos.file(`Ingresos_${year}.csv`,incomeCsv);
  const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
  for(const store of stores){const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`Gastos y ventas ${safeFileSegment(store.name)} ${year}.xlsx`,workbookBlob(wb))}
