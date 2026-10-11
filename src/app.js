@@ -4,7 +4,7 @@ import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upl
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download} from './utils.js';
-import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook} from './excel.js';
+import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup,restoreBackup} from './backup.js';
 
 const titles={
@@ -746,9 +746,31 @@ function applyFilter(prefix){
  const patch={from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()};
  if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all'}
  if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
+ if(prefix==='informes'){patch.year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())))}
  patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
+function reportArgs(year){
+ return {year,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,incomeAdjustments:state.data.incomeAdjustments,fiscalAdjustments:state.data.fiscalAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
+}
+function exportStoreBook(storeId,year){
+ const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
+ exportStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+}
+async function exportGestorPackage(year){
+ const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
+ const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
+ const incomeRows=state.data.closings.filter(x=>String(x.business_date).startsWith(String(year))).map(x=>[fmtDate(x.business_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'',n(x.cash_sales),n(x.card_sales),n(x.bizum_sales),n(x.online_sales),n(x.other_income),n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income)]);
+ const incomeCsv=['Fecha;Tienda;Efectivo;Tarjeta;Bizum;Online;Otros;Total',...incomeRows.map(r=>r.join(';'))].join('\n');ingresos.file(`Ingresos_${year}.csv`,incomeCsv);
+ const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
+ for(const store of stores){const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`Gastos y ventas ${safeSegment(store.name)} ${year}.xlsx`,workbookBlob(wb))}
+ const yearClosings=state.data.closings.filter(x=>String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
+ const sales=yearClosings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0),accounting=yearExpenses.filter(x=>!x.management_only).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+ resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos contables;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
+ const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
+ for(const d of yearDocs){try{const blob=await getDocumentBlob(d);docs.file(`${safeSegment(d.doc_type)}/${safeSegment(d.supplier_or_customer||'Sin_parte')}/${safeSegment(d.original_name)}`,blob)}catch(e){throw new Error('No se pudo incluir '+(d.original_name||'documento')+' en el ZIP: '+e.message)}}
+ const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});download(blob,`Paquete_gestor_${year}.zip`);
+}
 function exportRows(type){
  const f=getFilters('informes');
  if(!f.from||!f.to)throw new Error('Selecciona Desde y Hasta.');
@@ -872,6 +894,9 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
+  if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year));return}
+  if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
+  if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){console.error(err);toast(err.message||String(err),'bad')}
 });
 
