@@ -173,6 +173,12 @@ try{fileUtils.validateDocumentFile(fake('mal.exe','application/octet-stream'),{}
 try{fileUtils.validateDocumentFile(fake('grande.pdf','application/pdf',21*1024*1024),{});errors.push('Documentos permite archivo >20 MB')}catch{}
 try{fileUtils.validateDocumentFile(fake('sin-espacio.pdf','application/pdf',2*1024*1024),{usedBytes:499*1024*1024,limitBytes:500*1024*1024});errors.push('Documentos no respeta límite de Storage')}catch{}
 
+setView('facturacion',{mode:'list',id:null,section:'series'});const seriesHtml=pages.facturacion();
+for(const term of ['Nueva serie','series-new','series-edit'])if(!seriesHtml.includes(term))errors.push('Gestión de series incompleta: '+term);
+setView('administracion',{section:'fiscal'});const adminFiscal=pages.administracion();
+for(const term of ['Categorías de gastos','expense-category-new','expense-category-edit'])if(!adminFiscal.includes(term))errors.push('Gestión de categorías incompleta: '+term);
+for(const action of ['series-new','series-edit','series-save','expense-category-new','expense-category-edit','expense-category-save','template-preview','report-store-preview','report-gestor-preview'])if(!appSource.includes("a==='"+action+"'"))errors.push('Falta handler: '+action);
+
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');
 if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
