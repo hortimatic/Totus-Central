@@ -437,8 +437,11 @@ function invoiceFormHtml(){
  <section class="invoice-design-panel">
   <div class="eyebrow">Diseño</div><div class="ops-title-line"><h3>Plantilla aplicada</h3>${infoButton('facturas','Ayuda sobre plantillas')}</div>
   ${templateCards(d)}
-  <div class="invoice-mini-preview" id="ops_invoice_live_preview">${miniPreview(d,tot)}</div>
-  ${manager()?`<button type="button" class="secondary" style="width:100%;margin-top:12px" onclick="opsBillingPanel('templates')">Gestionar plantillas y logo</button>`:''}
+  <details class="invoice-design-details">
+   <summary>Ver diseño aplicado</summary>
+   <div class="invoice-mini-preview" id="ops_invoice_live_preview">${miniPreview(d,tot)}</div>
+  </details>
+  ${manager()?`<button type="button" class="secondary invoice-template-manage" onclick="opsBillingPanel('templates')">Gestionar plantillas y logo</button>`:''}
   <div class="small invoice-freeze-note">El diseño queda congelado al emitir para que los documentos antiguos no cambien después.</div>
  </section>
 </aside></div></div>`;
