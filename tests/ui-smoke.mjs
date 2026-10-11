@@ -1239,7 +1239,7 @@ assert(await page.getByRole('button',{name:'Guardar borrador',exact:true}).count
 assert(await page.getByRole('button',{name:'+ Nuevo',exact:true}).count()===0,'El encargado no debe poder crear facturas');
 assert(await page.getByRole('button',{name:'Facturas',exact:true}).count()===1,'El encargado debe poder consultar facturas');
 assert(await page.getByRole('button',{name:'Proformas',exact:true}).count()===1,'El encargado debe poder consultar proformas');
-await page.getByRole('button',{name:'Cajas',exact:true}).click();await heading('Cajas');assert(await page.getByRole('button',{name:'Cerrar día',exact:true}).count()===1,'El encargado debe poder cerrar caja');
+await page.getByRole('button',{name:'Cajas',exact:true}).click();await heading('Cajas');assert(await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).count()===1,'El encargado debe poder crear un cierre');await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).click();assert(await page.getByRole('button',{name:'Cerrar día',exact:true}).count()===1,'El encargado debe poder cerrar caja');
 await page.getByRole('button',{name:'Gastos',exact:true}).click();await heading('Gastos');assert(await page.getByRole('button',{name:'Guardar gasto',exact:true}).count()===1,'El encargado debe poder registrar gastos');
 
 // Pasada visual: restaurar Admin y capturar cada módulo en escritorio y móvil.
