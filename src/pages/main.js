@@ -554,6 +554,8 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
       ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
       ${!isProforma?selectField('Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
       ${!isProforma?formField('Fecha de cobro','ivPaidDate',row?.paid_date||'','date'):''}
+      ${!isProforma?formField('Importe cobrado','ivPaidAmount',row?.paid_amount??0,'number','step="0.01" min="0"'):''}
+      ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${row?.include_in_income?'checked':''}> Ingreso adicional NO incluido en los cierres diarios</label>`:''}
       <label class="wide">Notas internas<textarea id="ivNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
      </div></section>
     <details class="card card-pad design-details"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'')}<label class="wide">Términos<textarea id="ivTerms" rows="2">${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label></div></details>
