@@ -32,10 +32,9 @@
  .home-dashboard{grid-template-columns:1fr}
  .top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;flex-wrap:initial}
  .app-home-logo{grid-column:1;grid-row:1;position:relative;z-index:3}
- .top .search{grid-column:2;grid-row:1;width:100%;max-width:100%;min-width:0}
+ .app-nav{grid-column:2;grid-row:1;order:initial;position:relative;z-index:1;max-width:100%;width:100%}
  .top .userpill{grid-column:3;grid-row:1;position:relative;z-index:3}
  .top .spacer{display:none}
- .app-nav{grid-column:1/-1;grid-row:2;order:initial;position:relative;z-index:1;max-width:100%;width:100%}
 }
 
 @media(max-width:800px){
@@ -53,8 +52,7 @@
  .app-home-logo{grid-column:1;grid-row:1}
  .top .userpill{grid-column:2;grid-row:1}
  .top .userpill>div:nth-child(2){display:none}
- .top .search{grid-column:1/-1;grid-row:2}
- .app-nav{grid-column:1/-1;grid-row:3;margin-top:4px}
+ .app-nav{grid-column:1/-1;grid-row:2;margin-top:4px}
  .module-strip{padding:6px 7px;margin-bottom:10px}
  .module-strip-main{display:none}
  .module-tabs{gap:5px}
