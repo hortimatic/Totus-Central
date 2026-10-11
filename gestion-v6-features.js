@@ -20,8 +20,8 @@ const E=O.features={
  invoiceDraft:null,
  invoiceQuery:'',
  invoiceStatus:'all',
- reportFrom:`${O.year}-01-01`,
- reportTo:`${O.year}-12-31`
+ invoiceFrom:`${O.year}-01-01`,
+ invoiceTo:`${O.year}-12-31`
 };
 
 const euro=v=>eur(Number(v)||0);
@@ -49,6 +49,8 @@ async function load(force=false){
   total_bytes:sum(O.documents,d=>N(d.size_bytes))+sum(templates,t=>N(t.logo_size_bytes))
  };
  O.storageUsage=E.storageUsage;
+ if(!O.reportFrom)O.reportFrom=`${O.year}-01-01`;
+ if(!O.reportTo)O.reportTo=`${O.year}-12-31`;
  E.loaded=true;
 }
 
@@ -136,12 +138,13 @@ function summaryHtml(){
 }
 
 function invoiceRows(){
+ const from=E.invoiceFrom||`${O.year}-01-01`,to=E.invoiceTo||`${O.year}-12-31`;
  return O.invoices.filter(x=>{
   const mode=x.document_type==='proforma'?'proforma':(x.invoice_kind==='rectifying'?'rectificativa':'factura');
   const q=String(E.invoiceQuery||'').toLowerCase();
-  const matches=!q||[x.display_number,x.customer_name,x.customer_tax_id,x.status].join(' ').toLowerCase().includes(q);
+  const matches=!q||[x.issue_date,x.display_number,x.customer_name,x.customer_tax_id,x.status].join(' ').toLowerCase().includes(q);
   const status=E.invoiceStatus==='all'||x.status===E.invoiceStatus;
-  return mode===E.invoiceMode&&String(x.issue_date||'').startsWith(String(O.year))&&status&&matches&&(O.storeId==='all'||x.store_id===O.storeId);
+  return mode===E.invoiceMode&&inRange(x.issue_date,from,to)&&status&&matches&&(O.storeId==='all'||x.store_id===O.storeId);
  });
 }
 function invoiceListHtml(){
@@ -149,7 +152,9 @@ function invoiceListHtml(){
  return `<div class="ops-card">
   <div class="section-head"><div><div class="eyebrow">Facturación</div><h3>Documentos de venta</h3><div class="small">Base limpia: borradores, facturas, rectificativas y proformas sin capas históricas.</div></div>${manager()?'<button class="primary" onclick="opsNewDocument(\'factura\')">+ Nueva factura</button>':''}</div>
   <div class="ops-list-toolbar">
-   <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar documentos de facturación" placeholder="Número, cliente o NIF/CIF" value="${H(E.invoiceQuery)}" oninput="opsInvoiceSearch(this.value)"></div>
+   <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar documentos de facturación" placeholder="Número, cliente, fecha o NIF/CIF" value="${H(E.invoiceQuery)}" oninput="opsInvoiceSearch(this.value)"></div>
+   <input aria-label="Facturación desde" type="date" value="${H(E.invoiceFrom||`${O.year}-01-01`)}" onchange="opsInvoiceDate('from',this.value)">
+   <input aria-label="Facturación hasta" type="date" value="${H(E.invoiceTo||`${O.year}-12-31`)}" onchange="opsInvoiceDate('to',this.value)">
    <select aria-label="Tipo de documento" onchange="opsInvoiceMode(this.value)"><option value="factura" ${E.invoiceMode==='factura'?'selected':''}>Facturas</option><option value="rectificativa" ${E.invoiceMode==='rectificativa'?'selected':''}>Rectificativas</option><option value="proforma" ${E.invoiceMode==='proforma'?'selected':''}>Proformas</option></select>
    <select aria-label="Estado de documento" onchange="opsInvoiceStatus(this.value)"><option value="all">Todos</option>${['borrador','emitida','aceptada','rechazada','convertida','anulada'].map(x=>`<option value="${x}" ${E.invoiceStatus===x?'selected':''}>${x}</option>`).join('')}</select>
   </div>
@@ -185,6 +190,12 @@ function invoiceFormHtml(){
 window.opsInvoiceMode=v=>{E.invoiceMode=v;E.invoiceView='list';E.invoiceDraft=null;render()};
 window.opsInvoiceSearch=v=>{E.invoiceQuery=v;render()};
 window.opsInvoiceStatus=v=>{E.invoiceStatus=v;render()};
+window.opsInvoiceDate=function(k,v){
+ const next=String(v||'');
+ if(k==='from')E.invoiceFrom=next;else E.invoiceTo=next;
+ if(E.invoiceFrom>E.invoiceTo){if(k==='from')E.invoiceTo=E.invoiceFrom;else E.invoiceFrom=E.invoiceTo}
+ render();
+};
 window.opsNewDocument=function(type='factura'){if(!manager())return;E.invoiceMode=type;E.invoiceView='form';E.invoiceDraft=blankInvoice(type);render()};
 window.opsInvoiceCancel=function(){E.invoiceView='list';E.invoiceDraft=null;render()};
 window.opsInvoiceField=function(k,v,re=false){if(!E.invoiceDraft)E.invoiceDraft=blankInvoice(E.invoiceMode);E.invoiceDraft[k]=v;if(re)render()};
@@ -234,9 +245,13 @@ function csvBlob(rows){
  const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';')).join('\n');
  return new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
 }
-window.opsReportField=function(k,v){if(k==='from')E.reportFrom=v;else E.reportTo=v;if(E.reportFrom>E.reportTo){if(k==='from')E.reportTo=v;else E.reportFrom=v}render()};
+window.opsReportField=function(k,v){
+ if(k==='from')O.reportFrom=v;else O.reportTo=v;
+ if(O.reportFrom>O.reportTo){if(k==='from')O.reportTo=O.reportFrom;else O.reportFrom=O.reportTo}
+ render();
+};
 window.opsExportCleanReport=function(kind){
- const from=E.reportFrom,to=E.reportTo;
+ const from=O.reportFrom,to=O.reportTo;
  if(kind==='cajas'){
   const rows=[['Fecha','Tienda','Efectivo','Tarjeta','Bizum','Online','Otros','Total']];
   O.closings.filter(x=>inRange(x.business_date,from,to)).forEach(x=>rows.push([x.business_date,storeName(x.store_id),N(x.cash_sales),N(x.card_sales),N(x.bizum_sales),N(x.online_sales),N(x.other_income),N(x.cash_sales)+N(x.card_sales)+N(x.bizum_sales)+N(x.online_sales)+N(x.other_income)]));
@@ -252,7 +267,7 @@ window.opsExportCleanReport=function(kind){
  }
 };
 function reportsHtml(){
- return `<div class="ops-card"><div class="section-head"><div><div class="eyebrow">Periodo</div><h3>Informes</h3><div class="small">Exportación directa de los datos actuales. Sin fuentes históricas mezcladas.</div></div></div><div class="ops-form"><div><label>Desde</label><input aria-label="Informe desde" type="date" value="${H(E.reportFrom)}" onchange="opsReportField('from',this.value)"></div><div><label>Hasta</label><input aria-label="Informe hasta" type="date" value="${H(E.reportTo)}" onchange="opsReportField('to',this.value)"></div></div><div class="ops-actions" style="margin-top:14px"><button class="secondary" onclick="opsExportCleanReport('cajas')">Cajas CSV</button><button class="secondary" onclick="opsExportCleanReport('gastos')">Gastos CSV</button><button class="secondary" onclick="opsExportCleanReport('facturas')">Facturas CSV</button></div></div>`;
+ return `<div class="ops-card"><div class="section-head"><div><div class="eyebrow">Periodo</div><h3>Informes</h3><div class="small">Exportación directa de los datos actuales. Sin fuentes históricas mezcladas.</div></div></div><div class="ops-form"><div><label>Desde</label><input aria-label="Informe desde" type="date" value="${H(O.reportFrom)}" onchange="opsReportField('from',this.value)"></div><div><label>Hasta</label><input aria-label="Informe hasta" type="date" value="${H(O.reportTo)}" onchange="opsReportField('to',this.value)"></div></div><div class="ops-actions" style="margin-top:14px"><button class="secondary" onclick="opsExportCleanReport('cajas')">Cajas CSV</button><button class="secondary" onclick="opsExportCleanReport('gastos')">Gastos CSV</button><button class="secondary" onclick="opsExportCleanReport('facturas')">Facturas CSV</button></div></div>`;
 }
 
 function configHtml(){
