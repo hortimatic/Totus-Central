@@ -644,11 +644,7 @@ async function deleteTemplate(id){
 }
 async function toggleSeries(id,active){
  if(!isAdmin())throw new Error('Solo el administrador puede cambiar series.');
- await update('ops_invoice_series',id,{active,updated_at:new Date().toISOString()}).catch(async e=>{
-   // La tabla de series puede no tener updated_at en instalaciones antiguas.
-   if(String(e.message).includes('updated_at'))return update('ops_invoice_series',id,{active});
-   throw e;
- });
+ await update('ops_invoice_series',id,{active});
  await refresh('Serie actualizada.');
 }
 
