@@ -52,14 +52,14 @@ export function exportExpensesWorkbook({expenses,stores,from,to}){
  const wb=book();
  const rows=expenses.map(x=>[
    fmtDate(x.expense_date),storeName(stores,x.store_id),x.supplier_name||'',x.supplier_tax_id||'',x.invoice_number||'',x.description||'',
-   n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense||x.accounting_amount||x.amount_paid),x.payment_method||'',x.paid_status||'',x.notes||''
+   n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense||x.accounting_amount||x.amount_paid),x.management_only?'Interno':'Contable',x.payment_method||'',x.paid_status||'',x.notes||''
  ]);
- const aoa=[['GASTOS'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Proveedor','NIF','Factura','Descripción','Base','IVA','RE','Retención','Total','Pago','Estado','Observaciones'],...rows];
+ const aoa=[['GASTOS'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Proveedor','NIF','Factura','Descripción','Base','IVA','RE','Retención','Total','Tipo','Pago','Estado','Observaciones'],...rows];
  const end=aoa.length;aoa.push(['','','','','','','','','','','TOTAL','','','']);
- const ws=XLSX.utils.aoa_to_sheet(aoa);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,14);
+ const ws=XLSX.utils.aoa_to_sheet(aoa);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,15);
  ws[`K${end+1}`]={t:'n',f:`SUM(K5:K${end})`,s:totalStyle,z:euro};
  for(let r=5;r<=end;r++)for(const col of ['G','H','I','J','K'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
- autoWidths(ws,[12,18,22,16,16,32,13,13,13,13,15,15,13,35]);ws['!autofilter']={ref:`A4:N${end}`};ws['!freeze']={ySplit:4};
+ autoWidths(ws,[12,18,22,16,16,32,13,13,13,13,15,13,15,13,35]);ws['!autofilter']={ref:`A4:O${end}`};ws['!freeze']={ySplit:4};
  XLSX.utils.book_append_sheet(wb,ws,'Gastos');
  write(wb,`gastos_${from}_${to}.xlsx`);
 }
@@ -67,20 +67,23 @@ export function exportExpensesWorkbook({expenses,stores,from,to}){
 export function exportSummaryWorkbook({closings,expenses,stores,from,to}){
  const wb=book();
  const sales=closings.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
- const costs=expenses.reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+ const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+ const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+ const costs=accounting+internal;
  const summary=[
   ['RESUMEN DE GESTIÓN'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],
-  ['Concepto','Importe'],['Ventas',sales],['Gastos',costs],['Resultado',sales-costs]
+  ['Concepto','Importe'],['Ventas',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs]
  ];
- const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(const r of [5,6,7])if(ws[`B${r}`])ws[`B${r}`].z=euro;
- ws['A7'].s=totalStyle;ws['B7'].s={...totalStyle};ws['B7'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
+ const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(const r of [5,6,7,8,9])if(ws[`B${r}`])ws[`B${r}`].z=euro;
+ ws['A9'].s=totalStyle;ws['B9'].s={...totalStyle};ws['B9'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
 
  const perStore=stores.map(s=>{
   const cs=closings.filter(x=>x.store_id===s.id),es=expenses.filter(x=>x.store_id===s.id);
   const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
   const ex=es.reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
-  return [s.name,sv,ex,sv-ex];
+  const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+  return [s.name,sv,ex-internal,internal,sv-ex];
  });
- const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos','Resultado'],...perStore]);styleHeader(ws2,0,4);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,16,16]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
+ const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos contables','Gastos internos','Resultado'],...perStore]);styleHeader(ws2,0,5);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
  write(wb,`resumen_${from}_${to}.xlsx`);
 }
