@@ -1007,10 +1007,13 @@ function documentUploadHasUserInput(){
  const val=id=>document.getElementById(id)?.value||'';
  return !!file||val('ops_doc_date')&&val('ops_doc_date')!==isoToday()||!!val('ops_doc_store')||val('ops_doc_type')&&val('ops_doc_type')!=='factura_recibida'||val('ops_doc_status')&&val('ops_doc_status')!=='pendiente'||['ops_doc_party','ops_doc_tax','ops_doc_invoice','ops_doc_notes'].some(id=>String(val(id)).trim());
 }
-window.opsTab=function(tab){if(tab!==O.tab&&documentUploadHasUserInput()&&!confirm('Hay un documento preparado para subir. ¿Cambiar de pestaña y descartar esos datos?'))return;O.tab=tab;if(tab==='cajas'&&!O.closeDraft)O.closeDraft=newClosingDraft();if(tab==='gastos'&&!O.expenseDraft){O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()]}render();window.scrollTo({top:0,behavior:'smooth'})};
-window.opsSetYear=function(v){O.year=+v;O.reportFrom=`${O.year}-01-01`;O.reportTo=`${O.year}-12-31`;O.invoiceDraft=null;render()};
-window.opsSetQuarter=function(v){O.quarter=+v;render()};
-window.opsSetStore=function(v){O.storeId=v;O.closeDraft=null;O.expenseDraft=null;O.invoiceDraft=null;render()};
+function confirmDiscardPreparedDocument(action='continuar'){
+ return !documentUploadHasUserInput()||confirm('Hay un documento preparado para subir. ¿'+action+' y descartar esos datos?');
+}
+window.opsTab=function(tab){if(tab!==O.tab&&!confirmDiscardPreparedDocument('Cambiar de pestaña'))return;O.tab=tab;if(tab==='cajas'&&!O.closeDraft)O.closeDraft=newClosingDraft();if(tab==='gastos'&&!O.expenseDraft){O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()]}render();window.scrollTo({top:0,behavior:'smooth'})};
+window.opsSetYear=function(v){if(!confirmDiscardPreparedDocument('Cambiar de año'))return;O.year=+v;O.reportFrom=`${O.year}-01-01`;O.reportTo=`${O.year}-12-31`;O.invoiceDraft=null;render()};
+window.opsSetQuarter=function(v){if(!confirmDiscardPreparedDocument('Cambiar de trimestre'))return;O.quarter=+v;render()};
+window.opsSetStore=function(v){if(!confirmDiscardPreparedDocument('Cambiar de establecimiento'))return;O.storeId=v;O.closeDraft=null;O.expenseDraft=null;O.invoiceDraft=null;render()};
 
 window.opsEnsurePortalData=async function(){
  if(O.loaded||O.loading)return;
@@ -1022,6 +1025,7 @@ window.opsEnsurePortalData=async function(){
 };
 
 window.goOps=async function(tab='resumen'){
+ if((tab||'resumen')!==O.tab&&!confirmDiscardPreparedDocument('Cambiar de módulo'))return;
  O.tab=tab||'resumen';
  state.page='management';state.familyId=null;state.productId=null;state.dirty=false;
  render();
