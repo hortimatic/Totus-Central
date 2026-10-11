@@ -117,6 +117,10 @@ async function restoreStorage(zip,manifest){
 }
 export async function restoreBackup(file,reason){
  const {zip,manifest,database}=await inspectBackup(file);
+ let contract;
+ try{contract=await rpc('totus_backup_contract',{})}
+ catch{throw new Error('El servidor aún no tiene la versión segura del restaurador (v2). No se han modificado datos.')}
+ if(Number(contract?.version)!==2||contract?.income_adjustments!==true||contract?.storage!==true)throw new Error('Restaurador incompatible; no se han modificado datos.');
  await rpc('totus_restore_backup',{p_payload:database,p_reason:reason});
  await restoreStorage(zip,manifest);
  return manifest;
