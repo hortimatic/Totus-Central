@@ -142,6 +142,11 @@ await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await page.waitForTimeout(100);
  const d=await db();
  assert(d.team.some(x=>x.email==='empleado-qa@example.com'&&x.role==='encargado'),'Usuario no creado');
+ await page.locator('[data-action="user-edit"][data-email="empleado-qa@example.com"]').click();
+ await page.locator('#usJob').fill('Encargado de simulación');
+ await page.locator('[data-action="user-save"]').click();
+ await page.waitForTimeout(100);
+ assert((await db()).team.some(x=>x.email==='empleado-qa@example.com'&&x.job_title==='Encargado de simulación'),'No se actualizó la ficha de usuario');
 });
 await check('Navegación de todas las pestañas tras operaciones',async()=>{
  for(const route of ['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion']){
