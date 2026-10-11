@@ -357,9 +357,10 @@ async function showInvoicePreview(id){
 }
 async function printInvoice(id){
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
+ const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
+ try{w.opener=null}catch{}
  const logo=await invoiceLogoUrl(row);
  const html=invoicePreview(row,logo).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
- const w=window.open('','_blank','noopener,noreferrer');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${row.display_number||'Documento'}</title><link rel="stylesheet" href="src/styles.css"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 async function convertProforma(id){
