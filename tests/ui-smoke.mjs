@@ -798,6 +798,23 @@ assert(await page.getByRole('option',{name:'Factura recibida',exact:true}).count
 assert(await page.getByRole('option',{name:'Preparada para gestoría',exact:true}).count()>=1,'Documentos sigue mostrando estados técnicos al usuario');
 assert(await page.getByRole('button',{name:'Limpiar filtros',exact:true}).count()===1,'Documentos no ofrece una forma clara de restablecer filtros');
 
+// Las altas rápidas de cliente/proveedor no deben borrar el documento ya preparado.
+await page.locator('#ops_doc_file').setInputFiles({name:'preservar.txt',mimeType:'text/plain',buffer:Buffer.from('preservar formulario')});
+await page.getByRole('button',{name:'+ Cliente',exact:true}).click();
+await page.getByRole('dialog').getByLabel('Nombre / razón social').fill('Cliente Doc QA');
+await page.getByRole('dialog').getByLabel('NIF/CIF').fill('B22223333');
+await page.getByRole('dialog').getByRole('button',{name:'Guardar cliente',exact:true}).click();
+await page.waitForTimeout(120);
+assert((await page.locator('#ops_doc_file').inputValue()).includes('preservar.txt'),'Crear cliente desde Documentos borró el archivo preparado');
+assert(await page.locator('#ops_doc_party').inputValue()==='Cliente Doc QA','Crear cliente desde Documentos no devolvió el cliente al formulario');
+await page.getByRole('button',{name:'+ Proveedor',exact:true}).click();
+await page.getByRole('dialog').getByLabel('Nombre / razón social').fill('Proveedor Doc QA');
+await page.getByRole('dialog').getByLabel('NIF/CIF').fill('B33334444');
+await page.getByRole('dialog').getByRole('button',{name:'Guardar proveedor',exact:true}).click();
+await page.waitForTimeout(120);
+assert((await page.locator('#ops_doc_file').inputValue()).includes('preservar.txt'),'Crear proveedor desde Documentos borró el archivo preparado');
+assert(await page.locator('#ops_doc_party').inputValue()==='Proveedor Doc QA','Crear proveedor desde Documentos no devolvió el proveedor al formulario');
+
 // Un archivo preparado no debe perderse al cambiar de pestaña sin aviso.
 await page.locator('#ops_doc_file').setInputFiles({name:'sin-guardar.txt',mimeType:'text/plain',buffer:Buffer.from('pendiente')});
 const dialogsBeforeDocLeave=dialogs.length;
