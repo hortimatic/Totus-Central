@@ -585,9 +585,10 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const view=getView('facturacion');
  const selectedStore=row?.store_id||view.storeId||storeOptions[0]?.value||'';
  const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===selectedStore)&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
- const activeTemplates=state.data.templates.filter(x=>x.active!==false);
- const defaultTemplate=activeTemplates.find(x=>isProforma?x.default_proforma:x.default_invoice);
- const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name}))];
+ const activeTemplates=state.data.templates.filter(x=>x.active!==false&&(!x.store_id||x.store_id===selectedStore));
+ const defaultTemplate=activeTemplates.find(x=>x.store_id===selectedStore&&(isProforma?x.default_proforma:x.default_invoice))
+   ||activeTemplates.find(x=>!x.store_id&&(isProforma?x.default_proforma:x.default_invoice));
+ const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name+(x.store_id?' · '+storeName(x.store_id):' · General')}))];
  const customers=[{value:'',label:'Cliente nuevo / manual'},...state.data.customers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
  const original=row?.source_document_id?state.data.documents.find(x=>x.id===row.source_document_id):null;
