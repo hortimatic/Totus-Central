@@ -3,7 +3,7 @@ import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
-import {$,monthRange,n,isoToday,fmtDate,esc} from './utils.js';
+import {$,monthRange,n,isoToday,fmtDate,esc,download} from './utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook} from './excel.js';
 import {createBackup,inspectBackup,restoreBackup} from './backup.js';
 
@@ -516,34 +516,80 @@ async function toggleSeries(id,active){
  await refresh('Serie actualizada.');
 }
 
-function documentModal(){
- const stores=state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}));
- const body=`<div class="form-grid">
-  ${selectField('Tienda','docStore',stores,stores[0]?.value||'')}
-  ${formField('Fecha','docDate',isoToday(),'date')}
-  ${selectField('Tipo','docType',[{value:'factura_recibida',label:'Factura recibida'},{value:'factura_emitida',label:'Factura emitida'},{value:'factura_rectificativa',label:'Factura rectificativa'},{value:'proforma',label:'Proforma'},{value:'ticket',label:'Ticket'},{value:'contrato',label:'Contrato'},{value:'impuesto',label:'Impuesto'},{value:'informe',label:'Informe'},{value:'otro',label:'Otro'}],'factura_compra')}
-  ${formField('Proveedor / cliente','docParty','')}
-  ${formField('Nº documento','docNumber','')}
-  <label class="wide">Archivo<input id="docFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv"></label>
-  <label class="wide">Notas<textarea id="docNotes" rows="3"></textarea></label>
- </div><div class="form-actions">${btn('Guardar documento','document-save','primary')}</div>`;
- modal('Subir documento',body);
+async function saveDocument(id=''){
+ const current=id?state.data.documents.find(x=>x.id===id):null;
+ const date=required('docDate','Fecha');if(date>isoToday())throw new Error('La fecha del documento no puede ser futura.');
+ const storeId=val('docStore')||null,file=input('docFile')?.files?.[0]||null;
+ const meta={store_id:storeId,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),tax_id:val('docTax').trim(),invoice_number:val('docNumber').trim(),category_code:val('docCategory').trim(),status:val('docStatus'),notes:val('docNotes').trim()};
+ if(!current&&!file)throw new Error('Selecciona un archivo.');
+ let row=current,newPath=null;
+ if(!current){
+   row=await createStoredDocument(file,{storeId,date,docType:meta.doc_type,status:meta.status,party:meta.supplier_or_customer,taxId:meta.tax_id,number:meta.invoice_number,category:meta.category_code,notes:meta.notes});
+ }else if(file){
+   const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);if(file.size>max)throw new Error('El archivo supera el tamaño máximo permitido.');
+   const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0)-Number(current.size_bytes||0);
+   if(used+file.size>limit)throw new Error('No hay espacio suficiente en Storage.');
+   const y=date.slice(0,4),m=date.slice(5,7),storeNameValue=state.data.stores.find(x=>x.id===storeId)?.name||'General';
+   newPath=`${y}/${quarterFromDate(date)}/${m}/${safeSegment(storeNameValue)}/${safeSegment(meta.doc_type)}/${safeSegment(meta.supplier_or_customer)}/${crypto.randomUUID()}_${safeSegment(file.name)}`;
+   await upload('business-documents',newPath,file);
+   try{
+     row=await update('ops_documents',id,{...meta,storage_path:newPath,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file)});
+   }catch(err){await removeFile('business-documents',newPath).catch(()=>{});throw err}
+   if(current.storage_path&&current.storage_path!==newPath)await removeFile('business-documents',current.storage_path).catch(()=>{});
+ }else{
+   row=await update('ops_documents',id,meta);
+ }
+ setView('documentos',{mode:'record',id:row.id});await refresh(current?'Documento actualizado.':'Documento archivado.');
 }
-async function saveDocument(){
- const file=input('docFile')?.files?.[0];if(!file)throw new Error('Selecciona un archivo.');
- const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);if(file.size>max)throw new Error('El archivo supera el tamaño máximo permitido.');
- const store=required('docStore','Tienda'),date=required('docDate','Fecha'),path=`${date.slice(0,4)}/${crypto.randomUUID()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
- await upload('business-documents',path,file);
- try{
-   await insert('ops_documents',{store_id:store,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),invoice_number:val('docNumber').trim(),status:'archivada',storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,notes:val('docNotes').trim(),uploaded_by:state.session?.user?.id||null});
- }catch(e){await removeFile('business-documents',path).catch(()=>{});throw e}
- closeModal();await refresh('Documento archivado.');
+async function getDocumentBlob(doc){
+ const {data,error}=await sb.storage.from('business-documents').download(doc.storage_path);
+ if(error)throw new Error('No se pudo leer el archivo: '+error.message);
+ return data;
+}
+async function downloadDocument(id){
+ const d=state.data.documents.find(x=>x.id===id);if(!d)return;
+ const blob=await getDocumentBlob(d);download(blob,d.original_name||'documento');
 }
 async function previewDocument(id){
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
- const url=await signedUrl('business-documents',d.storage_path,180);
- modal(d.original_name||'Documento',`<div class="stack"><div class="summary-row"><span>Fecha</span><strong>${fmtDate(d.document_date)}</strong></div><div class="summary-row"><span>Proveedor / cliente</span><strong>${esc(d.supplier_or_customer||'—')}</strong></div><div class="summary-row"><span>Tipo</span><strong>${esc(d.doc_type||'—')}</strong></div><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Abrir archivo</a></div>`,{small:true});
+ const blob=await getDocumentBlob(d),mime=String(d.mime_type||blob.type||'').toLowerCase(),name=String(d.original_name||'').toLowerCase();
+ let body='';
+ if(mime.includes('pdf')||name.endsWith('.pdf')){
+   const url=URL.createObjectURL(blob);body=`<iframe class="document-frame" src="${url}" title="${esc(d.original_name||'PDF')}"></iframe>`;
+   setTimeout(()=>URL.revokeObjectURL(url),180000);
+ }else if(mime.startsWith('image/')||/\.(png|jpe?g|webp)$/i.test(name)){
+   const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
+   setTimeout(()=>URL.revokeObjectURL(url),180000);
+ }else if(/\.(xlsx|xls)$/i.test(name)){
+   const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});const sheet=wb.Sheets[wb.SheetNames[0]];
+   body=`<div class="note">Hoja: ${esc(wb.SheetNames[0]||'')}</div><div class="excel-preview">${window.XLSX.utils.sheet_to_html(sheet)}</div>`;
+ }else if(/\.(csv|txt|md)$/i.test(name)||mime.startsWith('text/')){
+   const txt=await blob.text();body=`<pre class="text-preview">${esc(txt.slice(0,200000))}</pre>`;
+ }else{
+   body='<div class="note">Este formato no admite vista previa integrada, pero sí descarga.</div>';
+ }
+ modal(d.original_name||'Documento',`<div class="stack">${body}<div class="form-actions">${btn('Descargar','document-download','primary',`data-id="${d.id}"`)}</div></div>`);
 }
+function documentIsLinked(id){
+ return state.data.expenses.some(x=>x.document_id===id)||state.data.invoices.some(x=>x.source_document_id===id||x.generated_document_id===id)||state.data.documents.some(x=>x.id===id&&x.linked_entity_id);
+}
+async function deleteDocument(id){
+ const d=state.data.documents.find(x=>x.id===id);if(!d)return;
+ if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
+ if(!confirm('¿Eliminar definitivamente este documento?'))return;
+ await remove('ops_documents',id);if(d.storage_path)await removeFile('business-documents',d.storage_path).catch(()=>{});
+ resetView('documentos');await refresh('Documento eliminado.');
+}
+async function zipFilteredDocuments(){
+ const f=getFilters('documentos'),status=f.status||'all',type=f.type||'all';
+ const rows=state.data.documents.filter(x=>(!f.from||String(x.document_date||x.created_at).slice(0,10)>=f.from)&&(!f.to||String(x.document_date||x.created_at).slice(0,10)<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
+ const zip=new window.JSZip();
+ for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeSegment(d.doc_type)}/${safeSegment(d.original_name)}`,blob)}
+ const out=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+ download(out,`documentos_${f.from||'inicio'}_${f.to||'fin'}.zip`);
+}
+
 
 function userModal(row=null){
  const self=row&&row.email?.toLowerCase()===state.user?.email?.toLowerCase();
