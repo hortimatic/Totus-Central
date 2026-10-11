@@ -1073,7 +1073,7 @@ document.addEventListener('click',async e=>{
   if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
-  if(a==='close-modal'){closeModal();return}
+  if(a==='close-modal'){if(el.classList.contains('modal-backdrop')&&e.target!==el)return;closeModal();return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
