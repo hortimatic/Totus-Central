@@ -18,6 +18,8 @@ for(const tz of ['Europe/Madrid','America/Los_Angeles','Pacific/Auckland','UTC']
  execFileSync(process.execPath,['--input-type=module','-e',script],{cwd:process.cwd(),env:{...process.env,TZ:tz}});
 }
 const app=fs.readFileSync('src/app.js','utf8');
+assert.match(app,/import \{[^}]*\bmoney\b[^}]*\} from '\.\/utils\.js'/,'El panel necesita el formato de importes');
+assert.match(app,/import \{[^}]*\btable\b[^}]*\} from '\.\/components\.js'/,'El panel necesita la tabla de informes');
 const backup=fs.readFileSync('src/backup.js','utf8');
 const sql=fs.readFileSync('supabase/backup.sql','utf8');
 for(const token of ["x.notes,state.data.stores.find","x.supplier_name,x.invoice_number,x.description,x.payment_method"]){
