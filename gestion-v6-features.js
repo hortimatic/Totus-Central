@@ -1325,9 +1325,30 @@ function managementClosingRows(from,to){
   ])
  ];
 }
+function reportSummaryRows(from,to){
+ const operationalIncome=operationalIncomeTotal(from,to,'all'),fiscalIncome=incomeTotal(from,to,'all');
+ const realExp=realExpense(from,to,'all'),fiscalExp=deductibleExpenseTotal(from,to,'all'),internal=internalExpense(from,to,'all');
+ const closures=O.closings.filter(c=>inRange(c.business_date,from,to)).length;
+ const invoices=O.invoices.filter(i=>inRange(i.issue_date,from,to)).length;
+ const docs=O.documents.filter(d=>inRange(d.document_date,from,to)).length;
+ return [['Concepto','Importe / dato'],
+  ['Periodo',from+' → '+to],
+  ['Ingresos operativos',operationalIncome],
+  ['Ingresos fiscales',fiscalIncome],
+  ['Gastos reales',realExp],
+  ['Gastos fiscales',fiscalExp],
+  ['Gastos solo control interno',internal],
+  ['Resultado operativo',operationalIncome-realExp],
+  ['Resultado fiscal antes de ajustes',fiscalIncome-fiscalExp],
+  ['Cierres incluidos',closures],
+  ['Facturas / proformas registradas',invoices],
+  ['Documentos archivados',docs]
+ ];
+}
+function reportYears(from,to){const a=Number(String(from).slice(0,4)),b=Number(String(to).slice(0,4));if(!a||!b||b<a)return[];return Array.from({length:b-a+1},(_,i)=>a+i)}
 window.opsDownloadDailyExcel=function(storeId){try{dlBlob(dailyWorkbook(storeId,O.year),`Gastos_y_ventas_${storeName(storeId).replace(/\s+/g,'_')}_${O.year}.xlsx`)}catch(e){alert(e.message)}};
-window.opsDownloadManagerExpenses=function(){try{dlBlob(wbBlob({'GASTOS':managerExpenseRows(O.reportFrom,O.reportTo),'DESGLOSE CONCEPTOS':managerExpenseSummaryRows(O.reportFrom,O.reportTo)}),`GASTOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`)}catch(e){alert(e.message)}};
-window.opsDownloadManagerIncome=function(){try{dlBlob(wbBlob({'INGRESOS':managerIncomeRows(O.reportFrom,O.reportTo)}),`INGRESOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`)}catch(e){alert(e.message)}};
+window.opsDownloadManagerExpenses=function(){if(!reportRangeValid())return;try{dlBlob(wbBlob({'GASTOS':managerExpenseRows(O.reportFrom,O.reportTo),'DESGLOSE CONCEPTOS':managerExpenseSummaryRows(O.reportFrom,O.reportTo)}),`GASTOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`)}catch(e){alert(e.message)}};
+window.opsDownloadManagerIncome=function(){if(!reportRangeValid())return;try{dlBlob(wbBlob({'INGRESOS':managerIncomeRows(O.reportFrom,O.reportTo)}),`INGRESOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`)}catch(e){alert(e.message)}};
 function fiscalRows(){const f=fiscalProjection();const r=retaProjection();return[['Concepto','Importe'],['Ingresos acumulados',f.income],['Gastos deducibles',f.raw],['Difícil justificación',f.diff],['Rendimiento neto',f.net],['Modelo 130 estimado',f.payable],['Modelo 111',f.m111],['Modelo 115',f.m115],['Reserva total',f.reserve],['Rendimiento mensual RETA',r.monthly]]}
 window.opsManagementWorkbook=function(){const close=managementClosingRows(O.reportFrom,O.reportTo);const inv=[['Fecha','Tipo','Número','Cliente','NIF/CIF','Estado','Cobro','Base','IVA','Total','Serie'],...O.invoices.filter(i=>inRange(i.issue_date,O.reportFrom,O.reportTo)).sort((a,b)=>String(a.issue_date||'').localeCompare(String(b.issue_date||''))).map(i=>[i.issue_date,i.invoice_kind==='rectifying'?'rectificativa':i.document_type,i.display_number||'',i.customer_name,i.customer_tax_id||'',i.status,i.paid_status||'',N(i.base_amount),N(i.vat_amount),N(i.total_amount),O.series.find(s=>s.id===i.series_id)?.code||''])];dlBlob(wbBlob({Resumen:fiscalRows(),Cierres:close,Gastos:managerExpenseRows(O.reportFrom,O.reportTo),'Desglose conceptos':managerExpenseSummaryRows(O.reportFrom,O.reportTo),Facturas:inv}),`Totus_Gestion_${O.reportFrom}_${O.reportTo}.xlsx`)};
 window.opsFiscalPdf=function(){if(!window.jspdf?.jsPDF)return alert('PDF no disponible');const {jsPDF}=window.jspdf,d=new jsPDF(),f=fiscalProjection(),r=retaProjection();d.setFontSize(18);d.text(`Totus Central · Fiscal T${O.quarter} ${O.year}`,15,18);d.setFontSize(10);let y=32;[['Ingresos acumulados',f.income],['Gastos deducibles',f.raw+f.diff],['Rendimiento neto',f.net],['Modelo 130 estimado',f.payable],['Modelo 111',f.m111],['Modelo 115',f.m115],['Reserva fiscal',f.reserve],['RETA mensual proyectado',r.monthly]].forEach(x=>{d.text(x[0],15,y);d.text(euro(x[1]),195,y,{align:'right'});y+=8});d.setFontSize(8);d.text('Control interno basado en los datos de Totus y los cierres de gestoría importados. Validar antes de presentar modelos oficiales.',15,y+8,{maxWidth:180});dlBlob(d.output('blob'),`Fiscal_T${O.quarter}_${O.year}.pdf`)};
