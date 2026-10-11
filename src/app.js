@@ -408,11 +408,11 @@ async function saveProviderPrice(productId,id=''){
  const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
  if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
  if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
- closeModal();await refresh('Coste de proveedor guardado.');productModal(state.data.products.find(x=>x.id===productId));
+ closeModal();await refresh('Coste de proveedor guardado.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 async function deleteProviderPrice(productId,id){
  if(!confirm('¿Eliminar este coste de proveedor?'))return;
- await remove('product_provider_prices',id);closeModal();await refresh('Coste eliminado.');productModal(state.data.products.find(x=>x.id===productId));
+ await remove('product_provider_prices',id);closeModal();await refresh('Coste eliminado.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 function competitorForm(productId,row=null){
  const body=`<div class="form-grid">
@@ -430,11 +430,11 @@ function competitorForm(productId,row=null){
 async function saveCompetitor(productId,id=''){
  const row={product_id:productId,variant_id:null,competitor_name:required('cpName','Competidor'),url:val('cpUrl').trim(),price:num('cpPrice'),discount:Math.min(100,Math.max(0,num('cpDiscount'))),shipping:Math.max(0,num('cpShipping')),stock_status:val('cpStock').trim()||'Sí',promo_type:val('cpPromo').trim(),capture_date:isoToday(),notes:val('cpNotes').trim()};
  if(id)await update('product_competitor_prices',id,row);else await insert('product_competitor_prices',row);
- closeModal();await refresh('Competencia guardada.');productModal(state.data.products.find(x=>x.id===productId));
+ closeModal();await refresh('Competencia guardada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 async function deleteCompetitor(productId,id){
  if(!confirm('¿Eliminar este precio de competencia?'))return;
- await remove('product_competitor_prices',id);closeModal();await refresh('Competencia eliminada.');productModal(state.data.products.find(x=>x.id===productId));
+ await remove('product_competitor_prices',id);closeModal();await refresh('Competencia eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 function variantForm(productId,row=null){
  const body=`<div class="form-grid">
@@ -453,11 +453,11 @@ function variantForm(productId,row=null){
 async function saveVariant(productId,id=''){
  const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:id?(state.data.variants.find(x=>x.id===id)?.attributes||{}):{},nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:true};
  if(id)await update('product_variants',id,row);else await insert('product_variants',row);
- closeModal();await refresh('Variante guardada.');productModal(state.data.products.find(x=>x.id===productId));
+ closeModal();await refresh('Variante guardada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 async function deleteVariant(productId,id){
  if(!confirm('¿Eliminar esta variante?'))return;
- await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');productModal(state.data.products.find(x=>x.id===productId));
+ await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 async function saveConsultation(){
  const query=required('pqQuery','Consulta'),cost=num('pqCost'),pvp=num('pqPvp'),competitor=num('pqCompetitor'),discount=Math.min(100,Math.max(0,num('pqDiscount')));
