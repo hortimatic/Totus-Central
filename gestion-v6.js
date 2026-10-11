@@ -927,8 +927,8 @@ function validateDocFile(file){
  if(!file)return true;
  const max=n(O.settings?.document_max_bytes||20971520);
  const ext='.'+String(file.name||'').split('.').pop().toLowerCase();
- const allowedExt=new Set(['.pdf','.jpg','.jpeg','.png','.webp','.xlsx','.xls','.csv','.txt','.md']);
- const allowedMime=new Set(['application/pdf','image/jpeg','image/png','image/webp','text/csv','text/plain','text/markdown','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel']);
+ const allowedExt=new Set(['.pdf','.jpg','.jpeg','.png','.webp','.xlsx','.xls','.csv']);
+ const allowedMime=new Set(['application/pdf','image/jpeg','image/png','image/webp','text/csv','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel']);
  if(file.size<=0)throw new Error('El archivo está vacío.');
  if(file.size>max)throw new Error('El archivo supera el límite de '+Math.round(max/1048576)+' MB.');
  if(!allowedExt.has(ext))throw new Error('Tipo de archivo no permitido. Usa PDF, imagen, Excel, CSV o texto.');
