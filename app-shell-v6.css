@@ -55,6 +55,10 @@
  .top .userpill>div:nth-child(2){display:none}
  .top .search{grid-column:1/-1;grid-row:2}
  .app-nav{grid-column:1/-1;grid-row:3;margin-top:4px}
+ .module-strip{padding:6px 7px;margin-bottom:10px}
+ .module-strip-main{display:none}
+ .module-tabs{gap:5px}
+ .module-tabs button{flex:1 0 auto;min-height:38px;padding:7px 10px}
 }
 
 
