@@ -126,14 +126,14 @@ begin
     customer_address,customer_email,concept,payment_method,paid_status,paid_date,base_amount,vat_amount,total_amount,
     source_document_id,generated_document_id,notes,created_by,created_at,updated_at,external_number_text,include_in_income,
     document_type,due_date,operation_date,customer_id,template_id,terms_text,footer_text,purchase_order_ref,currency,
-    converted_invoice_id,design_snapshot,record_hash,previous_hash,issued_at,invoice_kind,template_snapshot,source_proforma_document_id
+    converted_invoice_id,design_snapshot,record_hash,previous_hash,issued_at,invoice_kind,template_snapshot,source_proforma_document_id,paid_amount
   )
   select
     id,series_id,store_id,issue_date,number,display_number,origin,'borrador',customer_name,customer_tax_id,
     customer_address,customer_email,concept,payment_method,paid_status,paid_date,base_amount,vat_amount,total_amount,
     source_document_id,generated_document_id,notes,null,created_at,updated_at,external_number_text,include_in_income,
     document_type,due_date,operation_date,customer_id,template_id,terms_text,footer_text,purchase_order_ref,currency,
-    null,design_snapshot,record_hash,previous_hash,issued_at,invoice_kind,template_snapshot,null
+    null,design_snapshot,record_hash,previous_hash,issued_at,invoice_kind,template_snapshot,null,paid_amount
   from src;
 
   insert into public.ops_sales_invoice_lines
@@ -144,7 +144,7 @@ begin
     status=s.status,base_amount=s.base_amount,vat_amount=s.vat_amount,total_amount=s.total_amount,
     converted_invoice_id=s.converted_invoice_id,source_proforma_document_id=s.source_proforma_document_id,
     design_snapshot=s.design_snapshot,record_hash=s.record_hash,previous_hash=s.previous_hash,
-    issued_at=s.issued_at,template_snapshot=s.template_snapshot,updated_at=s.updated_at
+    issued_at=s.issued_at,template_snapshot=s.template_snapshot,paid_amount=s.paid_amount,updated_at=s.updated_at
   from src s where d.id=s.id;
 
   insert into public.ops_tax_payments select * from jsonb_populate_recordset(null::public.ops_tax_payments,p_payload->'ops_tax_payments');
