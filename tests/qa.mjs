@@ -14,7 +14,7 @@ const all=must.map(text).join('\n');
 for(const forbidden of ['gestion-v6.js','gestion-v6-features.js','app-shell-v6.css','legacyAllocation','ops_legacy_daily_rows','ops_historical_income_periods','ops_gestor_source_rows','ops_gestor_quarter_summary','ops_reconciliation_notes','ops_backup_archives']){
  if(all.includes(forbidden))errors.push('Residuo prohibido: '+forbidden);
 }
-for(const required of ['Inicio','Pricing','Cajas','Gastos','Facturación','Documentos','Fiscalidad','Informes','Usuarios','Configuración','Log','Desde','Hasta']){
+for(const required of ['Inicio','Pricing','Cajas','Gastos','Facturación','Documentos','Fiscalidad','Informes','Administración','Usuarios','Log','Desde','Hasta']){
  if(!all.includes(required))errors.push('Falta concepto obligatorio: '+required);
 }
 if(!text('src/config.js').includes('500*1024*1024'))errors.push('El límite configurado debe ser 500 MB');
@@ -31,18 +31,18 @@ for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/ut
 const {state}=await import(path.resolve(root,'src/state.js'));
 const pages=await import(path.resolve(root,'src/pages/main.js'));
 state.user={role:'admin',email:'test@example.com',full_name:'Test'};
-state.data.settings={irpf_prepayment_rate:20,default_sales_vat_rate:21,storage_limit_bytes:500*1024*1024};
+state.data.settings={id:1,irpf_prepayment_rate:20,default_sales_vat_rate:21,storage_limit_bytes:500*1024*1024,difficult_expense_pct:5,difficult_expense_annual_cap:2000};state.data.storageUsage={total_bytes:0,limit_bytes:500*1024*1024,documents_count:0,assets_count:0};
 state.data.stores=[{id:'s1',name:'Hortimatic',active:true},{id:'s2',name:'NewOldSmok',active:true}];
 state.data.drawers=[{id:'d1',store_id:'s1',active:true},{id:'d2',store_id:'s2',active:true}];
 state.data.categories=[];state.data.suppliers=[];state.data.closings=[];state.data.closingDrawers=[];
 state.data.expenses=[];state.data.expenseLines=[];state.data.customers=[];
-state.data.series=[{id:'i1',code:'H-2026',document_type:'factura',active:true},{id:'p1',code:'HPF-2026',document_type:'proforma',active:true}];
+state.data.series=[{id:'i1',code:'H-2026',prefix:'H-',padding:4,year:2026,next_number:1,document_type:'factura',series_kind:'invoice',active:true,store_id:'s1'},{id:'r1',code:'RH-2026',prefix:'RH-',padding:4,year:2026,next_number:1,document_type:'factura',series_kind:'rectifying',active:true,store_id:'s1'},{id:'p1',code:'HPF-2026',prefix:'HPF-',padding:4,year:2026,next_number:1,document_type:'proforma',series_kind:'invoice',active:true,store_id:'s1'}];
 state.data.invoices=[];state.data.invoiceLines=[];state.data.documents=[];state.data.taxPayments=[];state.data.reta=[];
 state.data.fiscalAdjustments=[];state.data.incomeAdjustments=[];state.data.audit=[];state.data.templates=[];
 state.data.brands=[];state.data.families=[];state.data.products=[];state.data.variants=[];state.data.providers=[];
 state.data.providerPrices=[];state.data.competitors=[];state.data.consultations=[];state.data.team=[];
 
-for(const name of ['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','usuarios','configuracion','log']){
+for(const name of ['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion']){
  try{
    const html=pages[name]();
    if(typeof html!=='string'||html.length<20)errors.push('Render vacío: '+name);
@@ -64,7 +64,7 @@ for(const requiredDocValue of ['factura_recibida','factura_emitida','factura_rec
 }
 if(appSource.includes('patchFilters({'))errors.push('Persisten filtros globales antiguos');
 if(!appSource.includes("patchFilters('pricing'"))errors.push('Pricing no tiene filtro independiente');
-if(!pageSource.includes("s.series_kind==='invoice'"))errors.push('Facturación ordinaria puede mezclar series rectificativas');
+if(!pageSource.includes("series_kind==='invoice'")&&!pageSource.includes("series_kind==='rectifying'"))errors.push('Facturación no separa series ordinarias y rectificativas');
 
 for(const rpc of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma']){
  if(!text('src/app.js').includes(rpc))errors.push('Falta integración '+rpc);
@@ -74,8 +74,11 @@ for(const oldRpc of ['ops_save_closing','ops_save_expense','ops_save_document_dr
  if(text('src/app.js').includes(oldRpc))errors.push('RPC antiguo todavía usado: '+oldRpc);
 }
 if(!text('src/app.js').includes('invoice-line-add')||!text('src/app.js').includes('invoice-line-remove'))errors.push('Facturación no soporta múltiples líneas');
-if(!text('src/pages/main.js').includes('drawer-entry'))errors.push('Cajas no está desglosado por caja');
-if(!text('src/pages/main.js').includes('invoicePreview'))errors.push('Falta vista previa de facturación');
+if(!pageSource.includes('closingRecordHtml')||!pageSource.includes('drawer-entry'))errors.push('Cajas no usa listado → ficha por caja');
+if(!pageSource.includes('expenseRecordHtml')||!pageSource.includes('expenseLineRow'))errors.push('Gastos no usa ficha con múltiples líneas');
+if(!pageSource.includes('invoiceRecordHtml')||!pageSource.includes('invoicePreview'))errors.push('Facturación no usa ficha y vista previa');
+if(!pageSource.includes('documentRecordHtml'))errors.push('Documentos no usa listado → ficha');
+if(!pageSource.includes('administracion()'))errors.push('Falta Administración consolidada');
 if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
 if(!text('index.html').includes('xlsx-js-style'))errors.push('Falta motor Excel');
 if(/download\([^\n]*\.csv|text\/csv|cierres_[^\n]*\.csv|gastos_[^\n]*\.csv|resumen_[^\n]*\.csv/.test(appSource))errors.push('Persisten exportaciones CSV en Informes');
@@ -84,6 +87,13 @@ for(const term of ['provider-price-new','competitor-new','variant-new','consulta
 if(!/apply_special_tax\s*\?\s*Number\([^\n]*special_tax_amount[^\n]*\)\s*:\s*0/.test(pageSource))errors.push('Pricing puede duplicar impuesto especial');
 for(const term of ['management_only','withholding_model','deductible_pct','fixed_asset'])if(!text('src/pages/main.js').includes(term)&&!text('src/app.js').includes(term))errors.push('Gastos/fiscalidad incompleto: '+term);
 for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma'])if(!text('supabase/totus_api.sql').includes(fn))errors.push('API SQL incompleta: '+fn);
+
+for(const term of ['closing-save-draft','closing-save-close','closing-reopen','reported_total_sales'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Cajas incompleto: '+term);
+for(const term of ['expense-document-preview','expense-document-download','expense-line-add','management_only'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Gastos incompleto: '+term);
+for(const term of ['external-invoice-new','rectification-new','billing-section','invoice-source-preview','totus_register_external_document'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Facturación incompleta: '+term);
+for(const term of ['documents-zip','document-download','document-delete','sheet_to_html','document-frame'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('src/styles.css').includes(term))errors.push('Documentos incompleto: '+term);
+for(const term of ['record-layout','sticky-summary','module-tabs','@media(max-width:800px)'])if(!text('src/styles.css').includes(term))errors.push('Interfaz responsive incompleta: '+term);
+if(/\b(usuarios|configuracion|log)\s*:\s*\[/.test(text('src/config.js')))errors.push('Persisten rutas administrativas duplicadas');
 
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');
