@@ -13,7 +13,6 @@ drop table if exists public.ops_personnel cascade;
 drop function if exists private.ops_log_revision() cascade;
 drop table if exists public.ops_entity_revisions cascade;
 
-drop table if exists public.ops_income_adjustments cascade;
 
 -- RPC CRUD antiguos sustituidos por la API totus_*.
 drop function if exists public.ops_convert_proforma(uuid,uuid);
@@ -54,3 +53,5 @@ drop function if exists private.ops_storage_usage_internal();
 drop function if exists private.ops_log_revision(text,uuid,text,text,jsonb,jsonb,jsonb);
 
 alter table public.ops_daily_closings drop column if exists legacy_cash_method;
+
+-- ops_income_adjustments is functional and required by loadCore, fiscal calculations and backup restore. Do not drop it.
