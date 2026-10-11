@@ -25,6 +25,7 @@ try{
  const zip=await JSZip.loadAsync(bytes);
  const manifest=JSON.parse(await zip.file('manifest.json').async('string'));
  const database=JSON.parse(await zip.file('database.json').async('string'));
+ if(manifest.version!==2||!manifest.integrity?.database)throw Error('Falta control de integridad v2');
  if(!Array.isArray(database.ops_income_adjustments))throw Error('Falta tabla de ajustes manuales');
  if(!manifest.storage['business-documents'].length)throw Error('Faltan archivos almacenados');
  for(const bucket of ['business-documents','business-assets'])for(const path of manifest.storage[bucket])if(!zip.file('storage/'+bucket+'/'+path))throw Error('Archivo ausente '+path);
@@ -48,6 +49,18 @@ try{
   try{await mod.inspectBackup(f);return false}catch(e){return String(e.message).includes('Falta el archivo')}
  },[...tampered]);
  if(!declined)throw Error('No se rechaza una copia con documento faltante');
+ const altered=await JSZip.loadAsync(bytes);
+ const alteredDatabase=JSON.parse(await altered.file('database.json').async('string'));
+ alteredDatabase.ops_expenses.push({id:'forged'});
+ altered.file('database.json',JSON.stringify(alteredDatabase));
+ const modifiedBytes=await altered.generateAsync({type:'uint8array'});
+ const tamperRejected=await page.evaluate(async arr=>{
+  const file=new File([new Uint8Array(arr)],'database-alterada.totusbackup');
+  const mod=await import('../src/backup.js');
+  try{await mod.inspectBackup(file);return false}catch(e){return String(e.message).includes('integridad')}
+ },[...modifiedBytes]);
+ if(!tamperRejected)throw Error('No se detecta alteración de la base de datos archivada');
+
  const restored=await page.evaluate(async arr=>{
   const bytes=new Uint8Array(arr);
   window.__mockContractVersion=2;
