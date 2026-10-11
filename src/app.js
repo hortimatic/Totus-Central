@@ -874,8 +874,8 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',e=>{
- if(e.target?.id==='clStore'&&getView('cajas').mode==='record'){setView('cajas',{mode:'record',id:null});render();return}
- if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){render();return}
+ if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value});render();return}
+ if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){setView('facturacion',{storeId:e.target.value});render();return}
  if(e.target?.id==='exSupplierId'){
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
