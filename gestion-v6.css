@@ -699,30 +699,35 @@
 .expense-command h2{margin:3px 0 5px;font-size:clamp(24px,3vw,32px);letter-spacing:-.035em}
 .expense-command p{margin:0;max-width:760px;color:var(--muted);line-height:1.5}
 .expense-command-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
-.expense-workspace{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.55fr);gap:14px;align-items:start}
-.expense-editor{display:flex;flex-direction:column;gap:14px;min-width:0}
-.expense-review{position:sticky;top:86px;display:flex;flex-direction:column;gap:12px}
-.expense-document-card,.expense-lines-card,.expense-notes-card,.expense-summary-card,.expense-treatment-card,.expense-payment-card,.expense-history-card{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018)}
-.expense-document-card,.expense-lines-card,.expense-notes-card,.expense-summary-card,.expense-treatment-card,.expense-payment-card{padding:16px}
+.expense-workspace{display:grid;grid-template-columns:minmax(0,1.48fr) minmax(330px,.52fr);gap:14px;align-items:start}
+.expense-editor{min-width:0}
+.expense-main-card{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018);overflow:hidden}
+.expense-block{padding:17px}
+.expense-block+.expense-block{border-top:1px solid rgba(255,255,255,.065)}
+.expense-document-card,.expense-lines-card,.expense-notes-card{border:0;border-radius:0;background:transparent}
+.expense-review{position:sticky;top:86px;min-width:0}
+.expense-review-card{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018);overflow:hidden}
+.expense-review-card.internal{border-color:rgba(255,184,72,.18);background:rgba(255,184,72,.018)}
+.expense-summary-card,.expense-treatment-card,.expense-payment-card{border:0;border-radius:0;background:transparent}
+.expense-summary-card{padding:0}
+.expense-review-section{padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)}
 .expense-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
 .expense-section-head span{display:block;color:#9eabb8;font-size:10px;font-weight:950;letter-spacing:.055em;text-transform:uppercase}
 .expense-section-head h3{margin:2px 0 3px;font-size:18px}
-.expense-section-head p{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+.expense-section-head p{margin:0;max-width:680px;color:var(--muted);font-size:11px;line-height:1.45}
 .expense-section-head small{color:var(--muted)}
 .expense-document-form{grid-template-columns:1fr 1fr}
-.expense-file-box{display:grid;gap:8px;padding:11px;border:1px dashed rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.014)}
+.expense-file-box{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:11px;border:1px dashed rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.014)}
 .expense-lines-heading{align-items:center}
 .expense-notes-card textarea{min-height:82px;resize:vertical}
-.expense-summary-card{padding:0;overflow:hidden}
-.expense-summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.055)}
+.expense-summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:16px;border-bottom:1px solid rgba(255,255,255,.055)}
 .expense-summary-head span{display:block;color:#9eabb8;font-size:10px;text-transform:uppercase;font-weight:900}
-.expense-summary-head strong{display:block;margin-top:3px;font-size:28px;letter-spacing:-.035em;color:#aeefff}
-.expense-summary-grid{display:grid;grid-template-columns:1fr;gap:0;padding:0 14px}
+.expense-summary-head strong{display:block;margin-top:3px;font-size:31px;letter-spacing:-.04em;color:#aeefff}
+.expense-summary-grid{display:grid;grid-template-columns:1fr;padding:0 16px}
 .expense-summary-grid>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .expense-summary-grid>div:last-child{border-bottom:0}
 .expense-summary-grid span{color:#9eabb8;font-size:11px}
 .expense-summary-grid b{font-size:15px}
-.expense-treatment-card.internal{border-color:rgba(255,184,72,.18);background:rgba(255,184,72,.025)}
 .expense-mode-toggle{display:flex;gap:10px;align-items:flex-start;padding:11px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:rgba(0,0,0,.1);cursor:pointer}
 .expense-mode-toggle input{margin-top:3px}
 .expense-mode-toggle b,.expense-mode-toggle small{display:block}
@@ -730,30 +735,47 @@
 .expense-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
 .expense-shortcuts>span{grid-column:1/-1;color:#9eabb8;font-size:10px;text-transform:uppercase;font-weight:900}
 .expense-payment-form{grid-template-columns:1fr 1fr}
-.expense-history-card{overflow:hidden}
-.expense-history-card>.section-head{padding:16px;margin:0;border-bottom:1px solid rgba(255,255,255,.055)}
-.expense-history-card>.ops-table-wrap,.expense-history-card>.ops-empty{margin:0}
+.expense-history-card{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018);overflow:hidden}
+.expense-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px;border-bottom:1px solid rgba(255,255,255,.055)}
+.expense-history-head h3{margin:2px 0 4px}
+.expense-history-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.expense-history-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 190px;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.08)}
+.expense-history-search{position:relative}
+.expense-history-search>span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6f8594;font-size:17px}
+.expense-history-search input{padding-left:35px}
+.expense-history-card>.ops-table-wrap,.expense-history-card>.ops-empty{margin:0;border:0;border-radius:0}
 .expense-history-table{min-width:1060px}
 @media(max-width:1120px){
  .expense-workspace{grid-template-columns:1fr}
- .expense-review{position:static;display:grid;grid-template-columns:repeat(3,1fr)}
+ .expense-review{position:static}
+ .expense-review-card{display:grid;grid-template-columns:minmax(260px,.7fr) minmax(0,1fr) minmax(0,1fr);align-items:start}
+ .expense-review-card>.expense-summary-card{height:100%}
+ .expense-review-section{border-top:0;border-left:1px solid rgba(255,255,255,.06);height:100%}
 }
 @media(max-width:820px){
  .expense-command{grid-template-columns:1fr;padding:16px}
  .expense-command-actions{justify-content:flex-start}
- .expense-review{grid-template-columns:1fr}
+ .expense-review-card{display:block}
+ .expense-review-section{border-left:0;border-top:1px solid rgba(255,255,255,.06)}
  .expense-document-form,.expense-payment-form{grid-template-columns:1fr}
- .expense-shortcuts{grid-template-columns:1fr}
- .expense-shortcuts>span{grid-column:auto}
+ .expense-shortcuts{grid-template-columns:1fr 1fr}
+ .expense-history-head{flex-direction:column}
+ .expense-history-actions{justify-content:flex-start;width:100%}
+ .expense-history-toolbar{grid-template-columns:1fr}
 }
 @media(max-width:460px){
  .expense-command-actions{display:grid;grid-template-columns:1fr}
  .expense-command-actions .ops-status-chip{justify-self:start}
- .expense-document-card,.expense-lines-card,.expense-notes-card,.expense-summary-card,.expense-treatment-card,.expense-payment-card{padding:13px}
- .expense-summary-card{padding:0}
+ .expense-block{padding:13px}
+ .expense-summary-head,.expense-review-section{padding:13px}
+ .expense-summary-grid{padding:0 13px}
+ .expense-shortcuts{grid-template-columns:1fr}
+ .expense-shortcuts>span{grid-column:auto}
+ .expense-history-head{padding:13px}
+ .expense-history-actions{display:grid;grid-template-columns:1fr 1fr}
+ .expense-history-actions .badge{grid-column:1/-1;justify-self:start}
+ .expense-history-toolbar{padding:9px 13px}
 }
-
-
 
 /* Facturación · documento y resumen operativo */
 .invoice-documents-shell{display:flex;flex-direction:column;gap:14px}
