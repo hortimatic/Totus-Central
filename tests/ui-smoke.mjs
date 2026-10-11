@@ -444,7 +444,11 @@ await page.waitForTimeout(100);
 
 // Gastos: atajos internos, maestros, deducibilidad, factura adjunta y selección masiva.
 await page.getByRole('button',{name:'Gastos',exact:true}).click();await heading('Gastos');await auditCurrentUi('Gastos');
-assert(await page.locator('.ops-expense-step').count()===4,'Gastos debe presentar el registro en cuatro pasos claros');
+assert(await page.locator('.expense-workspace').count()===1,'Gastos no usa un espacio de trabajo único');
+assert(await page.locator('.expense-editor').count()===1&&await page.locator('.expense-review').count()===1,'Gastos debe separar edición y revisión en dos zonas claras');
+assert(await page.getByRole('heading',{name:'Registrar gasto',exact:true}).count()===1,'Gastos no presenta una cabecera operativa clara');
+assert(await page.getByRole('heading',{name:'Proveedor y factura',exact:true}).count()===1,'El documento del gasto no está agrupado correctamente');
+assert(await page.getByRole('heading',{name:'Fiscal o interno',exact:true}).count()===1,'El tratamiento del gasto no permanece visible');
 assert(await page.getByLabel('Fecha del gasto').getAttribute('max'),'La fecha de gasto no bloquea visualmente días futuros');
 await page.getByRole('button',{name:/almacén.*300/i}).click();
 assert(await page.locator('#ops_management_only').isChecked(),'Almacén debe quedar como solo control interno');
