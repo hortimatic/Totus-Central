@@ -1,7 +1,7 @@
 import {ROUTES} from './config.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
-import {renderers,closingModal,expenseModal,invoiceModal,productModal} from './pages/main.js';
+import {renderers,closingModal,expenseModal,invoiceModal,invoiceLineRow,invoicePreview,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,download,csv,esc} from './utils.js';
 
@@ -45,17 +45,22 @@ function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
 
 async function saveClosing(id=''){
- const store=required('clStore','Tienda'),date=required('clDate','Fecha'),opening=num('clOpening'),actual=num('clActual');
- const activeDrawers=state.data.drawers.filter(x=>x.store_id===store&&x.active!==false);
- if(!activeDrawers.length)throw new Error('La tienda no tiene una caja activa configurada.');
- const payload={id:id||null,store_id:store,business_date:date,opening_cash:opening,actual_cash:actual,card_sales:num('clCard'),bizum_sales:num('clBizum'),online_sales:num('clOnline'),other_income:num('clOther'),cash_withdrawals:num('clWithdraw'),cash_expenses_declared:0,notes:val('clNotes').trim(),status:'cerrado'};
- const drawers=activeDrawers.map((d,i)=>({drawer_id:d.id,opening_cash:i===0?opening:0,closing_cash:i===0?actual:0,card_sales:i===0?payload.card_sales:0,bizum_sales:i===0?payload.bizum_sales:0,online_sales:i===0?payload.online_sales:0,other_income:i===0?payload.other_income:0,cash_withdrawals:i===0?payload.cash_withdrawals:0,cash_expenses_declared:0,notes:''}));
- await rpc('ops_save_closing',{p_closing:payload,p_drawers:drawers});closeModal();await refresh('Cierre guardado.');
+ const store=required('clStore','Tienda'),date=required('clDate','Fecha');
+ const drawerEls=[...document.querySelectorAll('.drawer-entry')];
+ if(!drawerEls.length)throw new Error('La tienda no tiene cajas activas configuradas.');
+ const drawers=drawerEls.map(el=>{
+   const d=el.dataset.drawerId;
+   const read=suffix=>n(document.getElementById(`dr${suffix}_${d}`)?.value||0);
+   return {drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:''};
+ });
+ const payload={id:id||null,store_id:store,business_date:date,notes:val('clNotes').trim(),status:'cerrado'};
+ await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
+ closeModal();await refresh('Cierre guardado.');
 }
 async function deleteClosing(id){
  if(!confirm('¿Eliminar este cierre?'))return;
  const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
- await rpc('ops_delete_closing_controlled',{p_closing_id:id,p_reason:reason.trim()});closeModal();await refresh('Cierre eliminado.');
+ await rpc('totus_delete_closing',{p_id:id,p_reason:reason.trim()});closeModal();await refresh('Cierre eliminado.');
 }
 
 async function saveExpense(id=''){
@@ -63,22 +68,32 @@ async function saveExpense(id=''){
  const vat=base*vatRate/100,re=base*reRate/100,wh=base*whRate/100,total=base+vat+re-wh;
  const expense={id:id||null,store_id:required('exStore','Tienda'),expense_date:required('exDate','Fecha'),supplier_name:required('exSupplier','Proveedor'),supplier_tax_id:val('exTax').trim(),invoice_number:val('exInvoice').trim(),description:val('exDesc').trim(),payment_method:val('exPayment'),paid_status:'pagado',base_amount:base,vat_rate:vatRate,vat_amount:vat,re_rate:reRate,re_amount:re,withholding_rate:whRate,withholding_amount:wh,gross_expense:total,amount_paid:total,deductible_irpf:true,deductible_pct:100,notes:val('exNotes').trim(),document_kind:'factura',source:'manual',management_only:false};
  const lines=[{sort_order:10,description:expense.description||expense.supplier_name,base_amount:base,vat_rate:vatRate,re_rate:reRate,withholding_rate:whRate,deductible_irpf:true,deductible_pct:100,notes:''}];
- await rpc('ops_save_expense',{p_expense:expense,p_lines:lines});closeModal();await refresh('Gasto guardado.');
+ await rpc('totus_save_expense',{p_expense:expense,p_lines:lines});closeModal();await refresh('Gasto guardado.');
 }
 async function deleteExpense(id){
  if(!confirm('¿Eliminar este gasto?'))return;const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
- await rpc('ops_delete_expense_controlled',{p_expense_id:id,p_reason:reason.trim()});closeModal();await refresh('Gasto eliminado.');
+ await rpc('totus_delete_expense',{p_id:id,p_reason:reason.trim()});closeModal();await refresh('Gasto eliminado.');
 }
 
 async function saveInvoice(id='',type='factura'){
- const qty=Math.max(.01,num('ivQty')),unit=num('ivUnit'),vatRate=num('ivVat'),base=qty*unit,vat=base*vatRate/100;
- const doc={id:id||null,series_id:required('ivSeries','Serie'),store_id:required('ivStore','Tienda'),issue_date:required('ivDate','Fecha'),origin:'totus',document_type:type,invoice_kind:type==='factura'?'invoice':'invoice',customer_name:required('ivCustomer','Cliente'),customer_tax_id:val('ivTax').trim(),customer_address:val('ivAddress').trim(),customer_email:val('ivEmail').trim(),concept:val('ivConcept').trim(),payment_method:val('ivPayment'),paid_status:'pendiente',include_in_income:type==='factura',notes:''};
- const lines=[{sort_order:10,description:required('ivLineDesc','Descripción'),quantity:qty,unit_price_base:unit,discount_pct:0,vat_rate:vatRate,base_amount:base,vat_amount:vat,total_amount:base+vat}];
- await rpc('ops_save_document_draft',{p_document:doc,p_lines:lines});closeModal();await refresh(type==='proforma'?'Proforma guardada.':'Factura guardada.');
+ const lineEls=[...document.querySelectorAll('.invoice-line')];
+ if(!lineEls.length)throw new Error('Añade al menos una línea.');
+ const lines=lineEls.map((el,i)=>{
+   const idx=el.dataset.lineIndex;
+   const description=required(`ivDesc_${idx}`,`Descripción de la línea ${i+1}`);
+   const quantity=Math.max(.01,n(val(`ivQty_${idx}`)));
+   const unit_price_base=n(val(`ivUnit_${idx}`));
+   const discount_pct=Math.min(100,Math.max(0,n(val(`ivDisc_${idx}`))));
+   const vat_rate=Math.max(0,n(val(`ivVat_${idx}`)));
+   return {sort_order:(i+1)*10,description,quantity,unit_price_base,discount_pct,vat_rate};
+ });
+ const doc={id:id||null,series_id:required('ivSeries','Serie'),store_id:required('ivStore','Tienda'),issue_date:required('ivDate','Fecha'),due_date:val('ivDue')||null,origin:'totus',document_type:type,invoice_kind:'invoice',customer_id:val('ivCustomerId')||null,customer_name:required('ivCustomer','Cliente'),customer_tax_id:val('ivTax').trim(),customer_address:val('ivAddress').trim(),customer_email:val('ivEmail').trim(),concept:val('ivConcept').trim(),payment_method:val('ivPayment'),paid_status:'pendiente',include_in_income:type==='factura',template_id:val('ivTemplate')||null,purchase_order_ref:val('ivPO').trim(),notes:''};
+ await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines});
+ closeModal();await refresh(type==='proforma'?'Proforma guardada.':'Factura guardada.');
 }
 async function finalizeInvoice(id){
  if(!confirm('¿Emitir este documento? Una vez emitido no debe editarse como borrador.'))return;
- await rpc('ops_finalize_document',{p_document_id:id});closeModal();await refresh('Documento emitido.');
+ await rpc('totus_finalize_sales_document',{p_id:id});closeModal();await refresh('Documento emitido.');
 }
 
 async function saveProduct(id=''){
@@ -87,6 +102,36 @@ async function saveProduct(id=''){
  closeModal();await refresh('Producto guardado.');
 }
 async function deleteProduct(id){if(!confirm('¿Eliminar definitivamente este producto?'))return;await remove('products',id);closeModal();await refresh('Producto eliminado.')}
+
+function addInvoiceLine(){
+ const host=document.getElementById('invoiceLines');if(!host)return;
+ const indexes=[...host.querySelectorAll('.invoice-line')].map(x=>Number(x.dataset.lineIndex)||0);
+ const next=indexes.length?Math.max(...indexes)+1:0;
+ host.insertAdjacentHTML('beforeend',invoiceLineRow({},next));
+}
+function removeInvoiceLine(index){
+ const rows=[...document.querySelectorAll('.invoice-line')];
+ if(rows.length<=1){toast('Debe quedar al menos una línea.','bad');return}
+ document.querySelector(`.invoice-line[data-line-index="${index}"]`)?.remove();
+}
+function showInvoicePreview(id){
+ const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
+ modal('Vista previa',invoicePreview(row));
+}
+function printInvoice(id){
+ const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
+ const html=invoicePreview(row).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
+ const w=window.open('','_blank','noopener,noreferrer');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${row.display_number||'Documento'}</title><link rel="stylesheet" href="src/styles.css"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+}
+async function convertProforma(id){
+ const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
+ const series=state.data.series.filter(s=>s.active!==false&&s.document_type==='factura'&&s.series_kind==='invoice'&&(!s.store_id||s.store_id===row.store_id));
+ if(!series.length)throw new Error('No hay serie ordinaria de factura para esta tienda.');
+ if(!confirm('¿Convertir esta proforma en factura?'))return;
+ await rpc('totus_convert_proforma',{p_id:id,p_invoice_series:series[0].id});
+ await refresh('Proforma convertida en factura.');
+}
 
 function documentModal(){
  const stores=state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}));
@@ -177,6 +222,11 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-edit'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);invoiceModal(row,row?.document_type||'factura');return}
   if(a==='invoice-save'){await saveInvoice(el.dataset.id||'',el.dataset.type||'factura');return}
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
+  if(a==='invoice-line-add'){addInvoiceLine();return}
+  if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
+  if(a==='invoice-preview'){showInvoicePreview(el.dataset.id);return}
+  if(a==='invoice-print'){printInvoice(el.dataset.id);return}
+  if(a==='proforma-convert'){await convertProforma(el.dataset.id);return}
   if(a==='document-new'){documentModal();return}
   if(a==='document-save'){await saveDocument();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
