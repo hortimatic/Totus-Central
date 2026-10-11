@@ -284,29 +284,55 @@ as $$
 declare
   v_id uuid := nullif(p_document->>'id','')::uuid;
   v_status text;
+  v_issue date := nullif(p_document->>'issue_date','')::date;
+  v_due date := nullif(p_document->>'due_date','')::date;
+  v_operation date := nullif(p_document->>'operation_date','')::date;
+  v_paid date := nullif(p_document->>'paid_date','')::date;
+  v_origin text := coalesce(nullif(p_document->>'origin',''),'totus');
+  v_type text := coalesce(nullif(p_document->>'document_type',''),'factura');
+  v_kind text := coalesce(nullif(p_document->>'invoice_kind',''),'invoice');
 begin
   if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede guardar documentos de venta'; end if;
-  if nullif(p_document->>'series_id','') is null or nullif(p_document->>'issue_date','') is null then raise exception 'Serie y fecha son obligatorias'; end if;
+  if nullif(p_document->>'series_id','') is null or v_issue is null then raise exception 'Serie y fecha son obligatorias'; end if;
+  if v_issue>current_date then raise exception 'La fecha de emisión no puede ser futura'; end if;
+  if v_operation is not null and v_operation>current_date then raise exception 'La fecha de operación no puede ser futura'; end if;
+  if v_due is not null and v_due<v_issue then raise exception 'El vencimiento no puede ser anterior a la emisión'; end if;
+  if v_paid is not null and v_paid>current_date then raise exception 'La fecha de cobro no puede ser futura'; end if;
   if nullif(btrim(coalesce(p_document->>'customer_name','')),'') is null then raise exception 'Cliente obligatorio'; end if;
   if jsonb_typeof(p_lines)<>'array' or jsonb_array_length(p_lines)=0 then raise exception 'Incluye al menos una línea'; end if;
+  if v_origin not in ('totus','externa') then raise exception 'Origen no válido'; end if;
+  if v_type not in ('factura','proforma') then raise exception 'Tipo de documento no válido'; end if;
+  if v_kind not in ('invoice','rectifying') then raise exception 'Tipo de factura no válido'; end if;
+  if v_type='proforma' then v_kind:='invoice'; end if;
+  if v_origin='externa' and nullif(btrim(coalesce(p_document->>'external_number_text','')),'') is null then raise exception 'Indica el número de la factura externa'; end if;
+  if v_origin='externa' and nullif(p_document->>'source_document_id','') is null then raise exception 'La factura externa exige el archivo original'; end if;
+
+  if exists(
+    select 1 from jsonb_array_elements(p_lines) j
+    where nullif(btrim(coalesce(j->>'description','')),'') is null
+       or coalesce((j->>'quantity')::numeric,0)=0
+       or coalesce((j->>'discount_pct')::numeric,0)<0
+       or coalesce((j->>'discount_pct')::numeric,0)>100
+       or coalesce((j->>'vat_rate')::numeric,0)<0
+  ) then raise exception 'Hay líneas con valores no válidos'; end if;
 
   if v_id is null then
     insert into public.ops_sales_invoices(
       series_id,store_id,issue_date,due_date,operation_date,origin,status,document_type,invoice_kind,
       customer_id,customer_name,customer_tax_id,customer_address,customer_email,concept,payment_method,
       paid_status,paid_date,include_in_income,template_id,terms_text,footer_text,purchase_order_ref,currency,
-      notes,created_by
+      notes,created_by,source_document_id,external_number_text
     ) values(
       nullif(p_document->>'series_id','')::uuid,nullif(p_document->>'store_id','')::uuid,
-      (p_document->>'issue_date')::date,nullif(p_document->>'due_date','')::date,nullif(p_document->>'operation_date','')::date,
-      coalesce(nullif(p_document->>'origin',''),'totus'),'borrador',coalesce(nullif(p_document->>'document_type',''),'factura'),
-      coalesce(nullif(p_document->>'invoice_kind',''),'invoice'),nullif(p_document->>'customer_id','')::uuid,
+      v_issue,v_due,v_operation,v_origin,'borrador',v_type,v_kind,nullif(p_document->>'customer_id','')::uuid,
       btrim(p_document->>'customer_name'),coalesce(p_document->>'customer_tax_id',''),coalesce(p_document->>'customer_address',''),
       coalesce(p_document->>'customer_email',''),coalesce(p_document->>'concept',''),coalesce(nullif(p_document->>'payment_method',''),'transferencia'),
-      coalesce(nullif(p_document->>'paid_status',''),'pendiente'),nullif(p_document->>'paid_date','')::date,
-      coalesce((p_document->>'include_in_income')::boolean,false),nullif(p_document->>'template_id','')::uuid,
-      coalesce(p_document->>'terms_text',''),coalesce(p_document->>'footer_text',''),coalesce(p_document->>'purchase_order_ref',''),
-      coalesce(nullif(p_document->>'currency',''),'EUR'),coalesce(p_document->>'notes',''),auth.uid()
+      case when v_type='proforma' then 'pendiente' else coalesce(nullif(p_document->>'paid_status',''),'pendiente') end,
+      case when v_type='proforma' then null else v_paid end,
+      case when v_type='proforma' then false else coalesce((p_document->>'include_in_income')::boolean,true) end,
+      nullif(p_document->>'template_id','')::uuid,coalesce(p_document->>'terms_text',''),coalesce(p_document->>'footer_text',''),
+      coalesce(p_document->>'purchase_order_ref',''),coalesce(nullif(p_document->>'currency',''),'EUR'),coalesce(p_document->>'notes',''),
+      auth.uid(),nullif(p_document->>'source_document_id','')::uuid,coalesce(p_document->>'external_number_text','')
     ) returning id into v_id;
   else
     select status into v_status from public.ops_sales_invoices where id=v_id for update;
@@ -314,18 +340,18 @@ begin
     if v_status<>'borrador' then raise exception 'Solo se pueden editar documentos en borrador'; end if;
     update public.ops_sales_invoices set
       series_id=nullif(p_document->>'series_id','')::uuid,store_id=nullif(p_document->>'store_id','')::uuid,
-      issue_date=(p_document->>'issue_date')::date,due_date=nullif(p_document->>'due_date','')::date,
-      operation_date=nullif(p_document->>'operation_date','')::date,origin=coalesce(nullif(p_document->>'origin',''),'totus'),
-      document_type=coalesce(nullif(p_document->>'document_type',''),'factura'),
-      invoice_kind=coalesce(nullif(p_document->>'invoice_kind',''),'invoice'),customer_id=nullif(p_document->>'customer_id','')::uuid,
-      customer_name=btrim(p_document->>'customer_name'),customer_tax_id=coalesce(p_document->>'customer_tax_id',''),
-      customer_address=coalesce(p_document->>'customer_address',''),customer_email=coalesce(p_document->>'customer_email',''),
-      concept=coalesce(p_document->>'concept',''),payment_method=coalesce(nullif(p_document->>'payment_method',''),'transferencia'),
-      paid_status=coalesce(nullif(p_document->>'paid_status',''),'pendiente'),paid_date=nullif(p_document->>'paid_date','')::date,
-      include_in_income=coalesce((p_document->>'include_in_income')::boolean,false),template_id=nullif(p_document->>'template_id','')::uuid,
-      terms_text=coalesce(p_document->>'terms_text',''),footer_text=coalesce(p_document->>'footer_text',''),
-      purchase_order_ref=coalesce(p_document->>'purchase_order_ref',''),currency=coalesce(nullif(p_document->>'currency',''),'EUR'),
-      notes=coalesce(p_document->>'notes','')
+      issue_date=v_issue,due_date=v_due,operation_date=v_operation,origin=v_origin,document_type=v_type,invoice_kind=v_kind,
+      customer_id=nullif(p_document->>'customer_id','')::uuid,customer_name=btrim(p_document->>'customer_name'),
+      customer_tax_id=coalesce(p_document->>'customer_tax_id',''),customer_address=coalesce(p_document->>'customer_address',''),
+      customer_email=coalesce(p_document->>'customer_email',''),concept=coalesce(p_document->>'concept',''),
+      payment_method=coalesce(nullif(p_document->>'payment_method',''),'transferencia'),
+      paid_status=case when v_type='proforma' then 'pendiente' else coalesce(nullif(p_document->>'paid_status',''),'pendiente') end,
+      paid_date=case when v_type='proforma' then null else v_paid end,
+      include_in_income=case when v_type='proforma' then false else coalesce((p_document->>'include_in_income')::boolean,true) end,
+      template_id=nullif(p_document->>'template_id','')::uuid,terms_text=coalesce(p_document->>'terms_text',''),
+      footer_text=coalesce(p_document->>'footer_text',''),purchase_order_ref=coalesce(p_document->>'purchase_order_ref',''),
+      currency=coalesce(nullif(p_document->>'currency',''),'EUR'),notes=coalesce(p_document->>'notes',''),
+      source_document_id=nullif(p_document->>'source_document_id','')::uuid,external_number_text=coalesce(p_document->>'external_number_text','')
     where id=v_id;
     delete from public.ops_sales_invoice_lines where invoice_id=v_id;
   end if;
@@ -337,10 +363,50 @@ begin
   from jsonb_array_elements(p_lines) j;
 
   perform private.totus_audit('facturacion',case when nullif(p_document->>'id','') is null then 'crear' else 'actualizar' end,v_id,
-    jsonb_build_object('tipo',coalesce(p_document->>'document_type','factura'),'fecha',p_document->>'issue_date'));
+    jsonb_build_object('tipo',v_type,'kind',v_kind,'origen',v_origin,'fecha',v_issue));
   return v_id;
 end;
 $$;
+
+create or replace function public.totus_register_external_document(p_id uuid,p_number integer)
+returns public.ops_sales_invoices
+language plpgsql
+security definer
+set search_path='public,private,extensions'
+as $$
+declare d public.ops_sales_invoices; s public.ops_invoice_series; tpl jsonb; prev_hash text; new_hash text;
+begin
+  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede registrar documentos externos'; end if;
+  if p_number is null or p_number<1 then raise exception 'Número externo no válido'; end if;
+  select * into d from public.ops_sales_invoices where id=p_id for update;
+  if not found then raise exception 'Documento no encontrado'; end if;
+  if d.origin<>'externa' then raise exception 'El documento no está marcado como externo'; end if;
+  if d.source_document_id is null then raise exception 'La factura externa exige el archivo original'; end if;
+  if d.status<>'borrador' then return d; end if;
+  if not exists(select 1 from public.ops_sales_invoice_lines where invoice_id=p_id) then raise exception 'El documento no tiene líneas'; end if;
+  select * into s from public.ops_invoice_series where id=d.series_id for update;
+  if not found or not s.active then raise exception 'Serie no disponible'; end if;
+  if s.document_type<>d.document_type or (d.document_type='factura' and s.series_kind<>d.invoice_kind) then raise exception 'La serie no corresponde al documento'; end if;
+  if exists(select 1 from public.ops_sales_invoices x where x.series_id=d.series_id and x.number=p_number and x.id<>d.id) then raise exception 'Ese número ya existe en la serie'; end if;
+  update public.ops_invoice_series set next_number=greatest(next_number,p_number+1) where id=s.id;
+  select to_jsonb(t) into tpl from public.ops_document_templates t where t.id=d.template_id; tpl:=coalesce(tpl,'{}'::jsonb);
+  if d.document_type='factura' then
+    select record_hash into prev_hash from public.ops_sales_invoices
+    where document_type='factura' and status in ('emitida','anulada') and series_id=d.series_id and record_hash is not null
+    order by issued_at desc nulls last,created_at desc limit 1;
+  end if;
+  new_hash=encode(extensions.digest(concat_ws('|',d.id::text,d.document_type,s.code,p_number::text,d.issue_date::text,d.customer_tax_id,d.customer_name,d.base_amount::text,d.vat_amount::text,d.total_amount::text,coalesce(prev_hash,'')),'sha256'),'hex');
+  update public.ops_sales_invoices set number=p_number,display_number=s.prefix||lpad(p_number::text,s.padding,'0'),
+    external_number_text=coalesce(nullif(external_number_text,''),p_number::text),status='emitida',issued_at=now(),
+    design_snapshot=tpl,template_snapshot=tpl,previous_hash=prev_hash,record_hash=new_hash,updated_at=now()
+  where id=d.id returning * into d;
+  perform private.totus_audit('facturacion','registrar_externa',p_id,jsonb_build_object('numero',p_number));
+  return d;
+end;
+$$;
+
+revoke all on function public.totus_register_external_document(uuid,integer) from public,anon;
+grant execute on function public.totus_register_external_document(uuid,integer) to authenticated;
 
 create or replace function public.totus_finalize_sales_document(p_id uuid)
 returns public.ops_sales_invoices
