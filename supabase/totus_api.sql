@@ -1,6 +1,9 @@
 -- Clean schema additions required by Totus Central
 alter table public.ops_sales_invoices add column if not exists paid_amount numeric(14,2) not null default 0 check (paid_amount >= 0);
 
+create unique index if not exists ops_suppliers_tax_id_unique_ci on public.ops_suppliers (lower(trim(tax_id))) where trim(coalesce(tax_id,''))<>'';
+create unique index if not exists ops_customers_tax_id_unique_ci on public.ops_customers (lower(trim(tax_id))) where trim(coalesce(tax_id,''))<>'';
+
 -- Totus Central · clean application API
 -- Additive rewrite: no business data is created, changed or deleted by this migration.
 
