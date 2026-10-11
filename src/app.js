@@ -1,7 +1,7 @@
 import {ROUTES} from './config.js';
-import {state,isAdmin,isManager,getFilters,patchFilters,setRoute} from './state.js';
+import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
-import {renderers,closingModal,expenseModal,invoiceModal,invoiceLineRow,invoicePreview,productModal} from './pages/main.js';
+import {renderers,invoiceLineRow,invoicePreview,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc} from './utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook} from './excel.js';
@@ -10,7 +10,7 @@ import {createBackup,inspectBackup,restoreBackup} from './backup.js';
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
- informes:['Control','Informes'],usuarios:['Administración','Usuarios'],configuracion:['Administración','Configuración'],log:['Administración','Log']
+ informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
 function routeAllowed(r){
