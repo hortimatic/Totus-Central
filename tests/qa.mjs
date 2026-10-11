@@ -182,6 +182,15 @@ for(const action of ['series-new','series-edit','series-save','expense-category-
 
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');
+// Las tablas leídas por la app deben quedar cubiertas por la copia y por su restauración.
+for(const table of ['ops_income_adjustments']){
+ if(!backupSource.includes("'"+table+"'"))errors.push('La copia omite tabla activa: '+table);
+ if(!backupSql.includes("'"+table+"'"))errors.push('Restauración no valida tabla activa: '+table);
+ if(!backupSql.includes('delete from public.'+table))errors.push('Restauración no limpia tabla: '+table);
+ if(!backupSql.includes('insert into public.'+table))errors.push('Restauración no recupera tabla: '+table);
+}
+const dateUtils=text('src/utils.js');
+if(/isoToday\s*=\s*\(\)\s*=>\s*new Date\(\)\.toISOString\(\)\.slice/.test(dateUtils))errors.push('Fecha actual calculada en UTC y no hora local');
 if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
 for(const term of ['business-documents','business-assets','database.json','manifest.json','totus-clean-backup','totus_restore_backup'])if(!backupSource.includes(term))errors.push('Backup incompleto: '+term);
 for(const term of ['backup-create','backup-restore','RESTAURAR TOTUS'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Control de backup incompleto: '+term);
