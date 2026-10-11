@@ -77,7 +77,7 @@ export function facturacion(){
  const headers=[
   {label:'Fecha',html:r=>dateCell(r.issue_date)},{label:'Número',html:r=>esc(r.display_number||'Borrador')},{label:'Tipo',html:r=>esc(r.document_type||'factura')},
   {label:'Cliente',html:r=>esc(r.customer_name||'—')},{label:'Total',num:true,html:r=>moneyCell(r.total_amount)},{label:'Estado',html:r=>stateBadge(r.status)},
-  {label:'',html:r=>btn('Ver','invoice-edit','secondary',`data-id="${r.id}"`)}
+  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${r.id}"`)}${r.status==='borrador'?btn('Editar','invoice-edit','secondary',`data-id="${r.id}"`):''}${r.document_type==='proforma'&&['emitida','aceptada'].includes(r.status)?btn('Convertir','proforma-convert','primary',`data-id="${r.id}"`):''}</div>`}
  ];
  return `<div class="page"><div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Total',money(sum(rows,x=>x.total_amount)))}${kpi('Emitidas',String(rows.filter(x=>x.status==='emitida').length))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas y proformas en una lista clara.</p></div><div class="inline-actions">${btn('Nueva factura','invoice-new','primary')}${btn('Nueva proforma','proforma-new','secondary')}</div></div>
@@ -167,26 +167,44 @@ export function pricing(){
 
 export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,usuarios,configuracion,log};
 
-export function openingCash(storeId){
+export function openingDrawerCash(storeId,drawerId){
  const previous=state.data.closings.filter(x=>x.store_id===storeId&&x.status==='cerrado').sort((a,b)=>String(b.business_date).localeCompare(String(a.business_date)))[0];
- return Number(previous?.actual_cash||0);
+ if(!previous)return 0;
+ return Number(state.data.closingDrawers.find(x=>x.closing_id===previous.id&&x.drawer_id===drawerId)?.closing_cash||0);
+}
+
+function drawerEditor(drawer,row){
+ const saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
+ const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id);
+ return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
+  <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>Importes de esta caja.</p></div></div>
+  <div class="form-grid" style="margin-top:12px">
+   ${formField('Apertura efectivo',`drOpen_${drawer.id}`,open,'number','step="0.01"')}
+   ${formField('Efectivo final',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01"')}
+   ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01"')}
+   ${formField('Bizum',`drBizum_${drawer.id}`,saved?.bizum_sales??'','number','step="0.01"')}
+   ${formField('Pedidos online',`drOnline_${drawer.id}`,saved?.online_sales??'','number','step="0.01"')}
+   ${formField('Otros ingresos',`drOther_${drawer.id}`,saved?.other_income??'','number','step="0.01"')}
+   ${formField('Salidas de efectivo',`drWithdraw_${drawer.id}`,saved?.cash_withdrawals??'','number','step="0.01"')}
+   ${formField('Gastos pagados en caja',`drCashExpense_${drawer.id}`,saved?.cash_expenses_declared??'','number','step="0.01"')}
+   ${formField('Entradas extraordinarias',`drExtraIn_${drawer.id}`,saved?.cash_extra_in??'','number','step="0.01"')}
+   ${formField('Salidas extraordinarias',`drExtraOut_${drawer.id}`,saved?.cash_extra_out??'','number','step="0.01"')}
+  </div>
+ </section>`;
 }
 
 export function closingModal(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const sid=row?.store_id||storeOptions[0]?.value||'';
+ const drawers=state.data.drawers.filter(x=>x.store_id===sid&&x.active!==false);
  const body=`<div class="form-grid">
  ${selectField('Tienda','clStore',storeOptions,sid)}
  ${formField('Fecha','clDate',row?.business_date||isoToday(),'date')}
- ${formField('Apertura efectivo','clOpening',row?.opening_cash??openingCash(sid),'number','step="0.01"')}
- ${formField('Efectivo final','clActual',row?.actual_cash??'','number','step="0.01"')}
- ${formField('Tarjeta','clCard',row?.card_sales??'','number','step="0.01"')}
- ${formField('Bizum','clBizum',row?.bizum_sales??'','number','step="0.01"')}
- ${formField('Pedidos online','clOnline',row?.online_sales??'','number','step="0.01"')}
- ${formField('Otros ingresos','clOther',row?.other_income??'','number','step="0.01"')}
- ${formField('Salidas de efectivo','clWithdraw',row?.cash_withdrawals??'','number','step="0.01"')}
  <label class="wide">Observaciones<textarea id="clNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
- </div><div class="note">El efectivo vendido se calcula automáticamente: efectivo final + salidas − apertura.</div><div class="form-actions">${row?btn('Eliminar','closing-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar cierre','closing-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ </div>
+ <div id="closingDrawers" class="stack" style="margin-top:16px">${drawers.map(d=>drawerEditor(d,row)).join('')||'<div class="note bad">Esta tienda no tiene cajas activas configuradas.</div>'}</div>
+ <div class="note" style="margin-top:14px">Cada caja mantiene su propia apertura, cobros y efectivo final. Totus calcula el cierre general sumando todas las cajas.</div>
+ <div class="form-actions">${row?btn('Eliminar','closing-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar cierre','closing-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar cierre':'Nuevo cierre',body);
 }
 
@@ -209,22 +227,63 @@ export function expenseModal(row=null){
  modal(row?'Editar gasto':'Nuevo gasto',body);
 }
 
+export function invoiceLineRow(line={},index=0){
+ return `<div class="invoice-line" data-line-index="${index}">
+  <div class="form-grid">
+   ${formField('Descripción',`ivDesc_${index}`,line.description||'')}
+   ${formField('Cantidad',`ivQty_${index}`,line.quantity??1,'number','step="0.01" min="0.01"')}
+   ${formField('Precio sin IVA',`ivUnit_${index}`,line.unit_price_base??'','number','step="0.01"')}
+   ${formField('Descuento (%)',`ivDisc_${index}`,line.discount_pct??0,'number','step="0.1" min="0" max="100"')}
+   ${formField('IVA (%)',`ivVat_${index}`,line.vat_rate??21,'number','step="0.1" min="0"')}
+  </div>
+  <div class="inline-actions" style="justify-content:flex-end;margin-top:8px">${btn('Quitar línea','invoice-line-remove','danger',`data-index="${index}"`)}</div>
+ </div>`;
+}
+
 export function invoiceModal(row=null,type='factura'){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const series=state.data.series.filter(s=>s.active!==false&&s.document_type===type&&(type!=='factura'||s.series_kind==='invoice')).map(s=>({value:s.id,label:s.code}));
+ const templates=[{value:'',label:'Sin plantilla'},...state.data.templates.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
+ const customers=[{value:'',label:'Cliente nuevo / manual'},...state.data.customers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
+ const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
  const body=`<div class="form-grid">
  ${selectField('Tienda','ivStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
  ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'')}
- ${formField('Fecha','ivDate',row?.issue_date||isoToday(),'date')}
+ ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date')}
+ ${formField('Fecha vencimiento','ivDue',row?.due_date||'','date')}
+ ${selectField('Cliente guardado','ivCustomerId',customers,row?.customer_id||'')}
  ${formField('Cliente','ivCustomer',row?.customer_name||'')}
  ${formField('NIF/CIF','ivTax',row?.customer_tax_id||'')}
  ${formField('Email','ivEmail',row?.customer_email||'','email')}
  <label class="wide">Dirección<textarea id="ivAddress" rows="2">${esc(row?.customer_address||'')}</textarea></label>
  ${formField('Concepto','ivConcept',row?.concept||'')}
  ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
- </div><div class="card" style="margin-top:16px"><div class="card-pad"><h3>Línea</h3><div class="form-grid" style="margin-top:12px">${formField('Descripción','ivLineDesc',state.data.invoiceLines.find(x=>x.invoice_id===row?.id)?.description||'')}${formField('Cantidad','ivQty',state.data.invoiceLines.find(x=>x.invoice_id===row?.id)?.quantity||1,'number','step="0.01"')}${formField('Precio sin IVA','ivUnit',state.data.invoiceLines.find(x=>x.invoice_id===row?.id)?.unit_price_base||'','number','step="0.01"')}${formField('IVA (%)','ivVat',state.data.invoiceLines.find(x=>x.invoice_id===row?.id)?.vat_rate||21,'number','step="0.1"')}</div></div></div>
+ ${selectField('Plantilla','ivTemplate',templates,row?.template_id||'')}
+ ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'')}
+ </div>
+ <div class="card" style="margin-top:16px"><div class="card-pad">
+  <div class="section-head"><div><h3>Líneas</h3><p>Una o varias líneas por documento.</p></div>${btn('Añadir línea','invoice-line-add','secondary')}</div>
+  <div id="invoiceLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>invoiceLineRow(l,i)).join('')}</div>
+ </div></div>
  <div class="form-actions">${btn('Guardar borrador','invoice-save','primary',row?`data-id="${row.id}" data-type="${type}"`:`data-type="${type}"`)}${row?.status==='borrador'?btn(type==='proforma'?'Emitir proforma':'Emitir factura','invoice-finalize','secondary',`data-id="${row.id}"`):''}</div>`;
  modal(row?'Editar documento':(type==='proforma'?'Nueva proforma':'Nueva factura'),body);
+}
+
+export function invoicePreview(row){
+ const lines=state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order);
+ return `<div class="stack">
+  <div class="section-head"><div><div class="eyebrow">${esc(row.document_type||'Documento')}</div><h2>${esc(row.display_number||'BORRADOR')}</h2></div>${stateBadge(row.status)}</div>
+  <div class="split">
+   <div><div class="small muted">Cliente</div><b>${esc(row.customer_name||'—')}</b><div class="small">${esc(row.customer_tax_id||'')}</div><div class="small">${esc(row.customer_address||'')}</div></div>
+   <div><div class="summary-row"><span>Fecha</span><strong>${fmtDate(row.issue_date)}</strong></div><div class="summary-row"><span>Vencimiento</span><strong>${fmtDate(row.due_date)}</strong></div></div>
+  </div>
+  ${table([
+   {label:'Descripción',html:l=>esc(l.description)},{label:'Cant.',num:true,html:l=>String(l.quantity)},{label:'Precio',num:true,html:l=>moneyCell(l.unit_price_base)},
+   {label:'Dto.',num:true,html:l=>`${Number(l.discount_pct||0).toFixed(1).replace('.',',')} %`},{label:'IVA',num:true,html:l=>`${Number(l.vat_rate||0).toFixed(1).replace('.',',')} %`},{label:'Total',num:true,html:l=>moneyCell(l.total_amount)}
+  ],lines,{emptyTitle:'Sin líneas'})}
+  <div class="metric-list"><div class="metric-box"><span>Base</span><b>${money(row.base_amount)}</b></div><div class="metric-box"><span>IVA</span><b>${money(row.vat_amount)}</b></div><div class="metric-box"><span>Total</span><b>${money(row.total_amount)}</b></div></div>
+  <div class="form-actions">${btn('Imprimir / PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>
+ </div>`;
 }
 
 export function productModal(row=null){
