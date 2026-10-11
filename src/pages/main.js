@@ -7,8 +7,11 @@ const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
 
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
+ const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=new Date(year,quarter*3,0).toISOString().slice(0,10);
+ const activeStores=stores();
  const monthClosings=state.data.closings.filter(x=>inRange(x.business_date,month.from,month.to));
  const monthExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,month.from,month.to));
+ const quarterExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,qFrom,qTo));
  const monthInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&inRange(x.issue_date,month.from,month.to));
  const salesFromClosings=sum(monthClosings.filter(x=>x.include_in_income!==false),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
  const extraInvoices=sum(monthInvoices.filter(x=>x.include_in_income===true),x=>x.total_amount);
@@ -18,20 +21,20 @@ export function inicio(){
  const internalExpenses=sum(monthExpenses.filter(x=>x.management_only),x=>x.accounting_amount||x.gross_expense||x.amount_paid||0);
  const realResult=sales-accountingExpenses-internalExpenses;
  const todays=state.data.closings.filter(x=>x.business_date===today);
- const missingStores=stores().filter(s=>!todays.some(x=>x.store_id===s.id&&x.status==='cerrado'));
+ const missingStores=activeStores.filter(s=>!todays.some(x=>x.store_id===s.id&&x.status==='cerrado'));
  const draftClosings=state.data.closings.filter(x=>x.status==='borrador').length;
  const mismatches=state.data.closings.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
  const pendingExpenses=state.data.expenses.filter(x=>x.paid_status&&x.paid_status!=='pagado');
  const pendingExpenseAmount=sum(pendingExpenses,x=>Math.max(0,Number(x.accounting_amount||x.gross_expense||0)-Number(x.amount_paid||0)));
- const pendingInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada');
+ const pendingInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada').sort((a,b)=>String(a.due_date||a.issue_date||'').localeCompare(String(b.due_date||b.issue_date||'')));
  const pendingInvoiceAmount=sum(pendingInvoices,x=>Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)));
  const draftInvoices=state.data.invoices.filter(x=>x.status==='borrador').length;
+ const recentDocs=[...state.data.documents].sort((a,b)=>String(b.created_at||b.document_date||'').localeCompare(String(a.created_at||a.document_date||''))).slice(0,4);
  const pendingDocs=state.data.documents.filter(x=>['pendiente','revisada'].includes(x.status)).length;
  const usage=state.data.storageUsage||{},used=Number(usage.total_bytes||0),limit=Number(usage.limit_bytes||500*1024*1024),storagePct=limit?used/limit*100:0;
- const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=new Date(year,quarter*3,0).toISOString().slice(0,10);
  const qIncome=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,qFrom,qTo)),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))
-   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,qFrom,qTo)),x=>x.total_amount)
-   +sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,qFrom,qTo)),x=>x.amount);
+  +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,qFrom,qTo)),x=>x.total_amount)
+  +sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,qFrom,qTo)),x=>x.amount);
  const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo));
  const qExpenseIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qExpenseIds.has(x.expense_id)),qWithLines=new Set(qLines.map(x=>x.expense_id));
  const qDed=sum(qLines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0))+sum(qExpenses.filter(x=>!qWithLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount||x.gross_expense||0)*(Number(x.deductible_pct??100)/100));
@@ -46,64 +49,39 @@ export function inicio(){
  if(draftInvoices)alerts.push({level:'info',title:'Facturas/proformas en borrador',text:`${draftInvoices} por terminar`,route:'facturacion'});
  if(pendingDocs)alerts.push({level:'info',title:'Documentos por revisar',text:`${pendingDocs} pendientes`,route:'documentos'});
  if(storagePct>=85)alerts.push({level:storagePct>=95?'bad':'warn',title:'Almacenamiento',text:`${storagePct.toFixed(1).replace('.',',')} % utilizado`,route:'administracion'});
- const recent=[...state.data.audit].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,7);
- const storeCards=stores().map(store=>{
-   const close=todays.find(x=>x.store_id===store.id);
-   const storeMonth=monthClosings.filter(x=>x.store_id===store.id);
-   const monthSales=sum(storeMonth,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
-   const todaySales=close?Number(close.cash_sales||0)+Number(close.card_sales||0)+Number(close.bizum_sales||0)+Number(close.online_sales||0)+Number(close.other_income||0):0;
-   return `<article class="store-status-card">
-    <div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div>
-    <div class="metric-list" style="margin-top:12px">
-      <div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div>
-      <div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div>
-      <div class="metric-box"><span>Efectivo final</span><b>${close?money(close.actual_cash):'—'}</b></div>
-      <div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div>
-    </div>
-    <div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div>
-   </article>`;
+ const storeCards=activeStores.map(store=>{
+  const close=todays.find(x=>x.store_id===store.id),storeMonth=monthClosings.filter(x=>x.store_id===store.id);
+  const monthSales=sum(storeMonth,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+  const todaySales=close?Number(close.cash_sales||0)+Number(close.card_sales||0)+Number(close.bizum_sales||0)+Number(close.online_sales||0)+Number(close.other_income||0):0;
+  return `<article class="store-status-card"><div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div><div class="metric-list" style="margin-top:12px"><div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div><div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div><div class="metric-box"><span>Efectivo final</span><b>${close?money(close.actual_cash):'—'}</b></div><div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div></div><div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div></article>`;
  }).join('');
+ const expenseByStore=activeStores.map(store=>{const rows=quarterExpenses.filter(x=>x.store_id===store.id),regular=rows.filter(x=>!x.management_only),internal=rows.filter(x=>x.management_only);return `<div class="summary-row"><div><b>${esc(store.name)}</b><div class="small muted">${regular.length} contabilizados · ${internal.length} internos</div></div><strong>${money(sum(rows,x=>x.accounting_amount||x.gross_expense||x.amount_paid||0))}</strong></div>`}).join('');
+ const invoiceRows=pendingInvoices.slice(0,4).map(x=>`<div class="summary-row"><div><b>${esc(x.display_number||x.external_number_text||'Factura')}</b><div class="small muted">${esc(x.customer_name||'Cliente')} · ${money(Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)))} pendientes${x.due_date?' · vence '+fmtDate(x.due_date):''}</div></div><div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${x.id}"`)}</div></div>`).join('');
+ const docRows=recentDocs.map(d=>`<div class="summary-row"><div><b>${esc(d.original_name||'Documento')}</b><div class="small muted">${esc(d.supplier_or_customer||d.doc_type||'')} · ${fmtDate(d.document_date||d.created_at)}</div></div><div class="inline-actions">${btn('Ver','document-preview','secondary',`data-id="${d.id}"`)}</div></div>`).join('');
+ const activeUsers=state.data.team.filter(x=>x.active!==false).length;
  return `<div class="page dashboard-page">
-  <div class="dashboard-hero card card-pad">
-   <div><div class="eyebrow">Resumen operativo · ${fmtDate(today)}</div><h2>Lo importante de hoy</h2><p>Ventas, caja, gastos, cobros, fiscalidad y pendientes en una sola vista.</p></div>
-   <div class="dashboard-hero-actions">${btn('Nuevo cierre','closing-new','primary')}${btn('Registrar gasto','expense-new','secondary')}${btn('Nueva factura','invoice-new','secondary')}${btn('Subir documento','document-new','secondary')}</div>
-  </div>
-  <div class="kpis">
-   ${kpi('Ingresos del mes',money(sales),`${fmtDate(month.from)} → ${fmtDate(month.to)}`)}
-   ${kpi('Gastos contables',money(accountingExpenses),internalExpenses?('+'+money(internalExpenses)+' internos'):'Sin gasto interno')}
-   ${kpi('Resultado real',money(realResult),realResult>=0?'Ingresos − todos los gastos':'Mes en negativo')}
-   ${kpi('Pendiente de cobro',money(pendingInvoiceAmount),`${pendingInvoices.length} factura${pendingInvoices.length===1?'':'s'}`)}
-  </div>
-  <section class="dashboard-store-grid">${storeCards}</section>
-  <div class="dashboard-grid">
-   <section class="card card-pad">
-    <div class="section-head"><div><h2>Pendientes y avisos</h2><p>Solo cosas que requieren atención.</p></div><button class="btn secondary" data-route="informes">Ver informes</button></div>
-    <div class="dashboard-alerts" style="margin-top:12px">${alerts.length?alerts.map(a=>`<button class="dashboard-alert ${a.level}" data-route="${a.route}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span>→</span></button>`).join(''):'<div class="empty compact-empty"><strong>Todo al día</strong><span>No hay avisos operativos pendientes.</span></div>'}</div>
-   </section>
-   <section class="card card-pad">
-    <div class="section-head"><div><h2>Control fiscal · ${quarter}T ${year}</h2><p>Indicador interno del trimestre actual.</p></div><button class="btn secondary" data-route="fiscalidad">Abrir fiscalidad</button></div>
-    <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(qIncome)}</strong></div>
-    <div class="summary-row"><span>Gasto deducible registrado</span><strong>− ${money(qDed)}</strong></div>
-    <div class="summary-row"><span>Base previa estimada</span><strong>${money(qNet)}</strong></div>
-    <div class="summary-row"><span>IRPF ${Number(state.data.settings?.irpf_prepayment_rate||20).toFixed(1).replace('.',',')} % orientativo</span><strong>${money(qIrpf)}</strong></div>
-    <div class="summary-row"><span>Modelo 130 registrado</span><strong>${current130?money(current130.amount):'—'}</strong></div>
-    <div class="note warn" style="margin-top:12px">Indicador de control interno; el cálculo detallado está en Fiscalidad.</div>
-   </section>
-  </div>
-  <div class="dashboard-grid">
-   <section class="card card-pad">
-    <div class="section-head"><div><h2>Cobros y pagos pendientes</h2><p>Importes todavía abiertos.</p></div></div>
-    <div class="summary-row"><span>Facturas por cobrar</span><strong>${money(pendingInvoiceAmount)}</strong></div>
-    <div class="summary-row"><span>Gastos por pagar</span><strong>${money(pendingExpenseAmount)}</strong></div>
-    <div class="summary-row"><span>Facturas/proformas en borrador</span><strong>${draftInvoices}</strong></div>
-    <div class="summary-row"><span>Documentos por revisar</span><strong>${pendingDocs}</strong></div>
-    <div class="dashboard-links"><button class="btn secondary" data-route="facturacion">Facturación</button><button class="btn secondary" data-route="gastos">Gastos</button><button class="btn secondary" data-route="documentos">Documentos</button></div>
-   </section>
-   <section class="card card-pad">
-    <div class="section-head"><div><h2>Actividad reciente</h2><p>Últimos cambios registrados.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div>
-    <div class="stack" style="margin-top:10px">${recent.length?recent.map(r=>`<div class="summary-row"><div><b>${esc(r.action||'Actividad')}</b><div class="small muted">${esc(r.area||'')} · ${new Date(r.created_at).toLocaleString('es-ES')}</div></div><span class="small muted">${esc(r.user_email||'')}</span></div>`).join(''):'<div class="empty compact-empty"><strong>Sin actividad</strong><span>Todavía no hay movimientos registrados.</span></div>'}</div>
-   </section>
-  </div>
+  <div class="dashboard-hero card card-pad"><div><div class="eyebrow">Inicio · ${fmtDate(today)}</div><h2>Totus Central</h2><p>Mesa de trabajo para consultar, registrar, revisar y decidir sin saltar entre pantallas innecesariamente.</p></div><div class="dashboard-hero-actions">${btn('Nuevo cierre','closing-new','primary')}${btn('Registrar gasto','expense-new','secondary')}${btn('Nueva factura','invoice-new','secondary')}${btn('Subir documento','document-new','secondary')}</div></div>
+  <div class="kpis">${kpi('Ingresos del mes',money(sales),`${fmtDate(month.from)} → ${fmtDate(month.to)}`)}${kpi('Gastos contables',money(accountingExpenses),internalExpenses?('+'+money(internalExpenses)+' internos'):'Sin gasto interno')}${kpi('Resultado real',money(realResult),realResult>=0?'Ingresos − todos los gastos':'Mes en negativo')}${kpi('Pendiente de cobro',money(pendingInvoiceAmount),`${pendingInvoices.length} factura${pendingInvoices.length===1?'':'s'}`)}</div>
+
+  <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Operativa de hoy</h2><p>Cierres y control de gasto del trimestre.</p></div></div><div class="dashboard-store-grid">${storeCards}</div><div class="dashboard-grid">
+   <article class="card card-pad"><div class="section-head"><div><h3>Gastos del ${quarter}T</h3><p>Total contabilizado e interno por establecimiento.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div><div class="home-big-number">${money(sum(quarterExpenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid||0))}</div><div class="stack">${expenseByStore}</div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Pendientes y avisos</h3><p>Solo incidencias que requieren atención.</p></div></div><div class="dashboard-alerts">${alerts.length?alerts.map(a=>`<button class="dashboard-alert ${a.level}" data-route="${a.route}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span>→</span></button>`).join(''):'<div class="empty compact-empty"><strong>Todo al día</strong><span>No hay avisos operativos pendientes.</span></div>'}</div></article>
+  </div></section>
+
+  <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Precios y ventas</h2><p>Consulta un precio al vuelo y controla los cobros abiertos.</p></div></div><div class="dashboard-grid">
+   <article class="card card-pad"><div class="section-head"><div><h3>Consulta rápida de precio</h3><p>Admite punto o coma decimal.</p></div><button class="btn secondary" data-route="pricing">Abrir Pricing</button></div><div class="home-quick-grid"><input id="homePriceQuery" placeholder="Producto / referencia"><input id="homePriceCost" inputmode="decimal" placeholder="Coste sin impuestos"><input id="homePricePvp" inputmode="decimal" placeholder="PVP final"><input id="homePriceCompetitor" inputmode="decimal" placeholder="Competencia"><input id="homePriceDiscount" inputmode="decimal" placeholder="Descuento %"></div><div class="home-price-metrics"><div><span>Coste real</span><b id="homePriceReal">0,00 €</b></div><div><span>Venta final</span><b id="homePriceSale">0,00 €</b></div><div><span>Margen €</span><b id="homePriceMargin">0,00 €</b></div><div><span>Margen %</span><b id="homePriceMarginPct">0,00 %</b></div><div><span>Vs competencia</span><b id="homePriceCompetition">—</b></div></div><div class="form-actions">${btn('Guardar consulta','home-price-save','primary')}</div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Facturación y cobros</h3><p>${pendingInvoices.length} factura${pendingInvoices.length===1?'':'s'} pendientes · ${money(pendingInvoiceAmount)}</p></div>${btn('Nueva factura','invoice-new','primary')}</div><div class="stack">${invoiceRows||'<div class="empty compact-empty"><strong>Sin cobros pendientes</strong><span>No hay facturas emitidas pendientes de cobro.</span></div>'}</div><div class="dashboard-links"><button class="btn secondary" data-route="facturacion">Abrir facturación</button>${btn('Nueva proforma','proforma-new','secondary')}</div></article>
+  </div></section>
+
+  <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Documentos y fiscalidad</h2><p>Acceso rápido a archivo documental y previsión fiscal.</p></div></div><div class="dashboard-grid">
+   <article class="card card-pad"><div class="section-head"><div><h3>Documentos recientes</h3><p>${pendingDocs} pendientes de revisar.</p></div>${btn('Subir documento','document-new','primary')}</div><div class="stack">${docRows||'<div class="empty compact-empty"><strong>Sin documentos</strong><span>Todavía no hay documentos archivados.</span></div>'}</div><div class="dashboard-links"><button class="btn secondary" data-route="documentos">Buscar documentos</button></div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Fiscalidad · ${quarter}T ${year}</h3><p>Indicador interno del trimestre.</p></div><button class="btn secondary" data-route="fiscalidad">Abrir fiscalidad</button></div><div class="summary-row"><span>Ingresos acumulados</span><strong>${money(qIncome)}</strong></div><div class="summary-row"><span>Gasto deducible</span><strong>− ${money(qDed)}</strong></div><div class="summary-row"><span>Base previa estimada</span><strong>${money(qNet)}</strong></div><div class="summary-row"><span>IRPF orientativo</span><strong>${money(qIrpf)}</strong></div><div class="summary-row"><span>Modelo 130 registrado</span><strong>${current130?money(current130.amount):'—'}</strong></div><div class="note warn">Indicador de control interno; el cálculo detallado y ajustes están en Fiscalidad.</div></article>
+  </div></section>
+
+  <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Seguimiento y sistema</h2><p>Informes, usuarios y almacenamiento en un vistazo.</p></div></div><div class="dashboard-grid">
+   <article class="card card-pad"><div class="section-head"><div><h3>Informes y gestoría</h3><p>Prepara libros y paquetes con el periodo correcto.</p></div></div><div class="home-report-cards"><button class="report-shortcut" data-action="home-report-quarter"><span>Trimestre actual</span><b>${quarter}T ${year}</b><small>${fmtDate(qFrom)} → ${fmtDate(qTo)}</small></button><button class="report-shortcut" data-action="home-report-year"><span>Año actual</span><b>${year}</b><small>01/01/${year} → 31/12/${year}</small></button></div><div class="dashboard-links"><button class="btn secondary" data-route="informes">Abrir informes</button></div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Estado del sistema</h3><p>Control básico de la herramienta.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div><div class="summary-row"><span>Usuarios activos</span><strong>${activeUsers}</strong></div><div class="summary-row"><span>Documentos</span><strong>${state.data.documents.length}</strong></div><div class="summary-row"><span>Almacenamiento usado</span><strong>${(used/1048576).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Ocupación</span><strong class="${storagePct>=95?'danger-text':storagePct>=85?'warn-text':''}">${storagePct.toFixed(1).replace('.',',')} % de ${(limit/1048576).toFixed(0)} MB</strong></div><div class="dashboard-links">${isManager()?'<button class="btn secondary" data-action="admin-storage-home">Almacenamiento</button><button class="btn secondary" data-action="admin-users-home">Usuarios</button>':''}</div></article>
+  </div></section>
  </div>`;
 }
 
