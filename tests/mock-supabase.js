@@ -118,6 +118,7 @@ window.fetch=async (url,opts)=>{
   const p=JSON.parse(opts?.body||'{}');
   if(p.action==='create_user'){db.team_members.push({id:uuid(),email:p.email,full_name:p.full_name,role:p.role,active:true});return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   if(p.action==='update_member'){const row=db.team_members.find(x=>x.email===p.email);if(row)Object.assign(row,p);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
+  if(p.action==='hard_delete'){const ix=db.team_members.findIndex(x=>x.email===p.email);if(ix>=0)db.team_members.splice(ix,1);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}});
  }
  return originalFetch(url,opts);
