@@ -592,6 +592,14 @@ const masterCustomer=fixtures.ops_customers.find(x=>x.name==='Cliente Maestro QA
 assert(masterCustomer,'No se creó la ficha maestra de cliente · customers='+JSON.stringify(fixtures.ops_customers)+' · dialogs='+dialogs.slice(-8).join(' | '));
 assert(masterCustomer.city==='Alcalá de Henares'&&masterCustomer.postal_code==='28801'&&masterCustomer.phone==='600000000','La ficha de cliente no conserva dirección/contacto completos');
 assert(masterCustomer.default_payment_method==='domiciliado','La ficha de cliente no conserva forma de pago');
+const customerCountBeforeDuplicate=fixtures.ops_customers.length;
+await page.getByRole('button',{name:'Nuevo',exact:true}).click();
+await field('Nombre / razón social').fill('Cliente duplicado QA');
+await field('NIF/CIF').fill('B11112222');
+await page.getByRole('button',{name:'Crear cliente',exact:true}).click();
+await page.waitForTimeout(80);
+assert(fixtures.ops_customers.length===customerCountBeforeDuplicate,'El maestro permite duplicar clientes con el mismo NIF/CIF');
+assert(dialogs.some(x=>/ya existe un cliente con ese NIF\/CIF/i.test(x)),'No avisa al intentar duplicar NIF/CIF de cliente');
 
 // Al escribir un nombre manual después de elegir un cliente, la factura no debe conservar el vínculo anterior.
 await page.getByRole('button',{name:'Facturación',exact:true}).click();await heading('Facturación');
@@ -609,6 +617,9 @@ await auditCurrentUi('Facturación · Series');
 await page.locator('.billing-nav').getByRole('button',{name:'Documentos',exact:true}).click();
 await page.getByRole('button',{name:'Proformas',exact:true}).click();
 await page.getByRole('heading',{name:'Proforma',exact:true}).waitFor();
+assert(await page.getByRole('combobox',{name:'Estado de cobro'}).count()===0,'La proforma muestra controles de cobro que no corresponden');
+assert(await page.locator('#ops_doc_income').count()===0,'La proforma permite marcar ingreso antes de convertirse en factura');
+assert(await page.getByLabel('Notas internas del documento').count()===1,'Facturación no separa notas internas del pie impreso');
 
 await field('Cliente / razón social').fill('Cliente QA');
 await field('Descripción').fill('Servicio QA');
@@ -722,6 +733,17 @@ await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).cl
 await page.waitForTimeout(120);
 const directInvoice=fixtures.ops_sales_invoices.find(x=>x.customer_name==='Cliente Directa QA');
 assert(directInvoice?.status==='emitida'&&directInvoice.display_number,'Guardar y emitir no dejó la factura emitida y numerada');
+
+// Una serie usada conserva prefijo y dígitos; solo puede avanzar el siguiente número.
+await page.locator('.billing-nav').getByRole('button',{name:'Series',exact:true}).click();
+const seriesHRow=page.locator('tr').filter({hasText:'H-2026'}).first();
+await seriesHRow.getByLabel('Prefijo de H-2026').fill('CAMBIADO-');
+await seriesHRow.getByLabel('Siguiente número de H-2026').fill('99');
+await seriesHRow.getByRole('button',{name:'Guardar',exact:true}).click();
+await page.waitForTimeout(60);
+assert(fixtures.ops_invoice_series.find(x=>x.id===ids.seriesH).prefix==='H-2026-','Una serie usada permitió cambiar su prefijo');
+assert(dialogs.some(x=>/prefijo y número de dígitos quedan bloqueados/i.test(x)),'No avisa al intentar alterar una serie ya usada');
+await page.locator('.billing-nav').getByRole('button',{name:'Documentos',exact:true}).click();
 
 // Factura externa: documento original + numeración externa + registro emitido.
 await page.getByRole('button',{name:'Facturas',exact:true}).click();
