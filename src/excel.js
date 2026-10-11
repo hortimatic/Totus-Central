@@ -118,7 +118,14 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
  for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
  const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
- const byDateClose=new Map(closings.filter(x=>x.store_id===store.id&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).map(x=>[String(x.business_date).slice(0,10),x]));
+ const byDateClose=new Map();
+ for(const closing of closings.filter(x=>x.store_id===store.id&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`))){
+  const date=String(closing.business_date).slice(0,10);
+  const totals=byDateClose.get(date)||{card_sales:0,cash_withdrawals:0};
+  totals.card_sales+=n(closing.card_sales);
+  totals.cash_withdrawals+=n(closing.cash_withdrawals);
+  byDateClose.set(date,totals);
+ }
  const expMonth=expenses.filter(x=>x.store_id===store.id&&String(x.expense_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||String(a.created_at||'').localeCompare(String(b.created_at||'')));
  for(let d=1;d<=days;d++){
    const key=excelDateKey(year,month,d),close=byDateClose.get(key),dayExp=expMonth.filter(x=>String(x.expense_date).slice(0,10)===key);
@@ -142,7 +149,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  for(const [label,g] of groups){setCell(ws,`B${row}`,label,textStyle(LEGACY_COLORS[g],true));setCell(ws,`C${row}`,0,textStyle(row%2===1?LEGACY_COLORS.stripe:null,false,'center'),sumFormula(groupRefs[g]));row++}
  const totalRow=row;setCell(ws,`B${row}`,'Total',textStyle(LEGACY_COLORS.total,true));setCell(ws,`C${row}`,0,textStyle(LEGACY_COLORS.stripe,false,'center'),`SUM(C${summaryStart}:C${row-1})`);setCell(ws,`D${row}`,0,moneyStyle(LEGACY_COLORS.stripe),expenseRefs.length?`SUM(${expenseRefs.join(',')})`:'0');
  const firstData=3,lastData=summaryStart-3;setCell(ws,`E${row}`,0,moneyStyle(LEGACY_COLORS.stripe),`SUM(E${firstData}:E${lastData})`);setCell(ws,`F${row}`,0,moneyStyle(LEGACY_COLORS.stripe),`SUM(F${firstData}:F${lastData})`);
- row+=2;const internalRefs=expMonth.filter(x=>x.management_only).map(ex=>{const ix=expMonth.indexOf(ex);return null}).filter(Boolean);
+ row+=2;
  const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
  setCell(ws,`C${row}`,monthName,{font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}});row++;
  const recalc=`SUM(E${totalRow},F${totalRow})`;setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;
