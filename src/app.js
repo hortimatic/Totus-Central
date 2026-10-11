@@ -123,13 +123,20 @@ function removeInvoiceLine(index){
  if(rows.length<=1){toast('Debe quedar al menos una línea.','bad');return}
  document.querySelector(`.invoice-line[data-line-index="${index}"]`)?.remove();
 }
-function showInvoicePreview(id){
- const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
- modal('Vista previa',invoicePreview(row));
+async function invoiceLogoUrl(row){
+ const tpl=state.data.templates.find(x=>x.id===row.template_id);
+ if(!tpl?.logo_path||tpl.show_logo===false)return '';
+ try{return await signedUrl('business-assets',tpl.logo_path,300)}catch{return ''}
 }
-function printInvoice(id){
+async function showInvoicePreview(id){
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
- const html=invoicePreview(row).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
+ const logo=await invoiceLogoUrl(row);
+ modal('Vista previa',invoicePreview(row,logo));
+}
+async function printInvoice(id){
+ const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
+ const logo=await invoiceLogoUrl(row);
+ const html=invoicePreview(row,logo).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
  const w=window.open('','_blank','noopener,noreferrer');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${row.display_number||'Documento'}</title><link rel="stylesheet" href="src/styles.css"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
@@ -477,8 +484,8 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
-  if(a==='invoice-preview'){showInvoicePreview(el.dataset.id);return}
-  if(a==='invoice-print'){printInvoice(el.dataset.id);return}
+  if(a==='invoice-preview'){await showInvoicePreview(el.dataset.id);return}
+  if(a==='invoice-print'){await printInvoice(el.dataset.id);return}
   if(a==='proforma-convert'){await convertProforma(el.dataset.id);return}
   if(a==='providers-manage'){providersManager();return}
   if(a==='provider-new'){providerForm();return}
