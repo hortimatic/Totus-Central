@@ -87,12 +87,14 @@ export function facturacion(){
 
 export function documentos(){
  const f=getFilters('documentos');
+ const usage=state.data.storageUsage||{};
+ const used=Number(usage.total_bytes||0),limit=Number(usage.limit_bytes||500*1024*1024),usagePct=limit?Math.min(100,used/limit*100):0;
  const rows=state.data.documents.filter(x=>inRange(x.document_date||x.created_at,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
   {label:'Fecha',html:r=>dateCell(r.document_date||r.created_at)},{label:'Archivo',html:r=>esc(r.original_name||'—')},{label:'Tipo',html:r=>esc(r.doc_type||'—')},
   {label:'Proveedor / cliente',html:r=>esc(r.supplier_or_customer||'—')},{label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>`<div class="inline-actions">${btn('Ver','document-preview','secondary',`data-id="${r.id}"`)}</div>`}
  ];
- return `<div class="page"><section class="card table-card"><div class="section-head card-pad"><div><h2>Documentos</h2><p>Archivo documental centralizado.</p></div>${btn('Subir documento','document-new','primary')}</div>
+ return `<div class="page"><div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Uso de almacenamiento',(used/1024/1024).toFixed(1).replace('.',',')+' MB',usagePct.toFixed(1).replace('.',',')+' % de 500 MB')}${kpi('Archivos guardados',String(Number(usage.documents_count||0)+Number(usage.assets_count||0)))}</div><section class="card table-card"><div class="section-head card-pad"><div><h2>Documentos</h2><p>Archivo documental centralizado.</p></div>${btn('Subir documento','document-new','primary')}</div>
  ${dateFilters({...f,stores:stores()},'documentos')}
  ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para estas fechas.'})}</section></div>`;
 }
@@ -139,7 +141,7 @@ export function configuracion(){
  ${formField('Dirección','cfgAddress',s.business_address||'')}
  ${formField('Email','cfgEmail',s.business_email||'','email')}
  ${formField('Teléfono','cfgPhone',s.business_phone||'')}
- ${formField('Límite documental (MB)','cfgStorage',Math.round(Number(s.storage_limit_bytes||524288000)/1024/1024),'number')}
+ ${formField('Límite documental (MB)','cfgStorage',Math.round(Number(s.storage_limit_bytes||524288000)/1024/1024),'number')}<div class="wide note">Uso actual: ${((Number(state.data.storageUsage?.total_bytes||0))/1024/1024).toFixed(1).replace('.',',')} MB de 500 MB configurados.</div>
  </div><div class="form-actions">${btn('Guardar configuración','config-save','primary')}</div></section>
  <section class="card card-pad"><h2>Fiscalidad</h2><div class="form-grid" style="margin-top:14px">
  ${formField('IVA ventas (%)','cfgVat',s.default_sales_vat_rate??21,'number','step="0.1"')}
