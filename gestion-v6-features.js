@@ -1364,15 +1364,20 @@ function gestorDocFolder(doc,base){
 }
 window.opsGestorPack=async function(){
  if(!window.JSZip||!window.XLSX)return alert('ZIP/Excel no disponible');
+ if(!reportRangeValid())return;
  const z=new JSZip(),base=`GESTORIA_${O.reportFrom}_${O.reportTo}`;
  z.file(base+`/01_INGRESOS/INGRESOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`,wbBlob({'INGRESOS':managerIncomeRows(O.reportFrom,O.reportTo)}));
  z.file(base+`/02_GASTOS/GASTOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`,wbBlob({'GASTOS':managerExpenseRows(O.reportFrom,O.reportTo),'DESGLOSE CONCEPTOS':managerExpenseSummaryRows(O.reportFrom,O.reportTo)}));
  for(const st of O.stores){
-  z.file(base+`/03_DIARIOS/Diario_${storeName(st.id).replace(/\s+/g,'_')}_${O.year}.xlsx`,dailyWorkbook(st.id,O.year));
+  for(const year of reportYears(O.reportFrom,O.reportTo)){
+   const yf=`${year}-01-01`,yt=`${year}-12-31`;
+   const from=O.reportFrom>yf?O.reportFrom:yf,to=O.reportTo<yt?O.reportTo:yt;
+   z.file(base+`/03_DIARIOS/${year}/Diario_${storeName(st.id).replace(/\s+/g,'_')}_${from}_${to}.xlsx`,dailyWorkbook(st.id,year,from,to));
+  }
  }
  const close=managementClosingRows(O.reportFrom,O.reportTo);
  z.file(base+`/04_RESUMEN/Totus_Gestion_${O.reportFrom}_${O.reportTo}.xlsx`,wbBlob({
-   Resumen:fiscalRows(),
+   Resumen:reportSummaryRows(O.reportFrom,O.reportTo),
    Cierres:close,
    Gastos:managerExpenseRows(O.reportFrom,O.reportTo),
    Ingresos:managerIncomeRows(O.reportFrom,O.reportTo)
