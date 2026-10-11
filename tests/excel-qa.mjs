@@ -42,6 +42,13 @@ const gestorWb=buildGestorWorkbook({
  invoices:[],incomeAdjustments:[],fiscalAdjustments:[],taxPayments:[]
 });
 for(const name of ['Auditoría gestor','Conciliación 1T','Conciliación 2T','Conciliación 3T','Conciliación 4T','Libro gestor 1T','Libro gestor 2T','Libro gestor 3T','Libro gestor 4T'])if(!gestorWb.SheetNames.includes(name))throw new Error('Missing gestor sheet '+name);
+for(const sheetName of ['Conciliación 1T','Conciliación 2T','Conciliación 3T','Conciliación 4T']){
+ const ws=gestorWb.Sheets[sheetName];
+ for(const col of ['B','C','D','E','F','G','H','I','J','K','L']){
+  const expected='SUM('+col+'4:'+col+'6)';
+  if(ws[col+'7']?.f!==expected)throw new Error('Falta suma trazable de gestoría: '+sheetName+' '+col+'7');
+ }
+}
 const book=gestorWb.Sheets['Libro gestor 1T'];
 const expected=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
 for(let i=0;i<expected.length;i++){const cell=book[xlsx.utils.encode_cell({r:2,c:i})];if(cell?.v!==expected[i])throw new Error('Gestor header mismatch at '+expected[i])}
