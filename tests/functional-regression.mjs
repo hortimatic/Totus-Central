@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
-import {monthRange,yearRange,inRange,fmtDate,n} from '../src/utils.js';
+import {monthRange,yearRange,inRange,fmtDate,n,csv} from '../src/utils.js';
 
 for(const [input,expected] of [['1.234,56',1234.56],['1,234.56',1234.56],['12,50',12.5],['12.50',12.5],['0',0],['',0]])assert.equal(n(input),expected,'Importe mal interpretado: '+input);
+assert.equal(csv([['11/10/2026','Hortimatic','Gasto',10.2,'Proveedor; "especial"']],['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]}))).split('\\n')[1],'"11/10/2026";"Hortimatic";"Gasto";"10.2";"Proveedor; ""especial"""');
 assert.deepEqual(monthRange('2024-02-12'),{from:'2024-02-01',to:'2024-02-29'});
 assert.deepEqual(monthRange('2026-02-12'),{from:'2026-02-01',to:'2026-02-28'});
 assert.deepEqual(monthRange('2026-12-31'),{from:'2026-12-01',to:'2026-12-31'});
