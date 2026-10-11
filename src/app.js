@@ -196,25 +196,64 @@ async function deleteExpense(id){
  resetView('gastos');await refresh('Gasto eliminado.');
 }
 
-async function saveInvoice(id='',type='factura'){
+function externalSequenceNumber(text){
+ const m=String(text||'').match(/(\d+)\s*$/);return m?Number(m[1]):0;
+}
+async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='totus'){
+ const issue=required('ivDate','Fecha de emisión'),operation=val('ivOperation')||null,due=val('ivDue')||null,paidDate=val('ivPaidDate')||null;
+ if(issue>isoToday())throw new Error('La fecha de emisión no puede ser futura.');
+ if(operation&&operation>isoToday())throw new Error('La fecha de operación no puede ser futura.');
+ if(due&&due<issue)throw new Error('El vencimiento no puede ser anterior a la emisión.');
+ if(paidDate&&paidDate>isoToday())throw new Error('La fecha de cobro no puede ser futura.');
  const lineEls=[...document.querySelectorAll('.invoice-line')];
  if(!lineEls.length)throw new Error('Añade al menos una línea.');
  const lines=lineEls.map((el,i)=>{
    const idx=el.dataset.lineIndex;
    const description=required(`ivDesc_${idx}`,`Descripción de la línea ${i+1}`);
-   const quantity=Math.max(.01,n(val(`ivQty_${idx}`)));
+   const quantity=n(val(`ivQty_${idx}`));if(Math.abs(quantity)<0.000001)throw new Error('La cantidad de la línea '+(i+1)+' no puede ser cero.');
    const unit_price_base=n(val(`ivUnit_${idx}`));
    const discount_pct=Math.min(100,Math.max(0,n(val(`ivDisc_${idx}`))));
    const vat_rate=Math.max(0,n(val(`ivVat_${idx}`)));
    return {sort_order:(i+1)*10,description,quantity,unit_price_base,discount_pct,vat_rate};
  });
- const doc={id:id||null,series_id:required('ivSeries','Serie'),store_id:required('ivStore','Tienda'),issue_date:required('ivDate','Fecha'),due_date:val('ivDue')||null,origin:'totus',document_type:type,invoice_kind:'invoice',customer_id:val('ivCustomerId')||null,customer_name:required('ivCustomer','Cliente'),customer_tax_id:val('ivTax').trim(),customer_address:val('ivAddress').trim(),customer_email:val('ivEmail').trim(),concept:val('ivConcept').trim(),payment_method:val('ivPayment'),paid_status:'pendiente',include_in_income:type==='factura',template_id:val('ivTemplate')||null,purchase_order_ref:val('ivPO').trim(),notes:''};
- await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines});
- closeModal();await refresh(type==='proforma'?'Proforma guardada.':'Factura guardada.');
+ const customerName=required('ivCustomer','Cliente'),customerTax=val('ivTax').trim();
+ const customerId=val('ivCustomerId')||null;
+ if(customerId){
+   const master=state.data.customers.find(x=>x.id===customerId);
+   if(master&&String(master.name||'').trim()!==customerName.trim()) {
+     // Manual customer data intentionally breaks the master link.
+   }
+ }
+ const current=id?state.data.invoices.find(x=>x.id===id):null;
+ const oldSource=current?.source_document_id?state.data.documents.find(x=>x.id===current.source_document_id):null;
+ let sourceDoc=oldSource||null,newSource=null;
+ if(origin==='externa'){
+   const sourceFile=input('ivSourceFile')?.files?.[0]||null;
+   if(sourceFile)newSource=await createStoredDocument(sourceFile,{storeId:required('ivStore','Tienda'),date:issue,docType:'factura_emitida',status:'archivada',party:customerName,taxId:customerTax,number:val('ivExternalNumber').trim(),category:'facturacion',notes:'Original de factura externa',linkedType:'sales_invoice'});
+   sourceDoc=newSource||oldSource;
+   if(!sourceDoc)throw new Error('La factura externa exige el archivo original.');
+   if(!val('ivExternalNumber').trim())throw new Error('Indica el número de la factura externa.');
+ }
+ const isProforma=type==='proforma';
+ const doc={id:id||null,series_id:required('ivSeries','Serie'),store_id:required('ivStore','Tienda'),issue_date:issue,due_date:due,operation_date:operation,origin,document_type:type,invoice_kind:isProforma?'invoice':invoiceKind,customer_id:customerId,customer_name:customerName,customer_tax_id:customerTax,customer_address:val('ivAddress').trim(),customer_email:val('ivEmail').trim(),concept:val('ivConcept').trim(),payment_method:val('ivPayment'),paid_status:isProforma?'pendiente':(val('ivPaidStatus')||'pendiente'),paid_date:isProforma?null:paidDate,include_in_income:!isProforma,template_id:val('ivTemplate')||null,purchase_order_ref:val('ivPO').trim(),terms_text:val('ivTerms').trim(),footer_text:val('ivFooter').trim(),notes:val('ivNotes').trim(),source_document_id:sourceDoc?.id||null,external_number_text:origin==='externa'?val('ivExternalNumber').trim():''};
+ let savedId;
+ try{savedId=await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines})}
+ catch(e){if(newSource)await destroyDocument(newSource).catch(()=>{});throw e}
+ if(newSource){await update('ops_documents',newSource.id,{linked_entity_id:savedId});if(oldSource&&oldSource.id!==newSource.id)await destroyDocument(oldSource).catch(()=>{})}
+ setView('facturacion',{mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
+ await refresh(isProforma?'Proforma guardada.':'Documento guardado.');
 }
 async function finalizeInvoice(id){
- if(!confirm('¿Emitir este documento? Una vez emitido no debe editarse como borrador.'))return;
- await rpc('totus_finalize_sales_document',{p_id:id});closeModal();await refresh('Documento emitido.');
+ const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
+ if(!confirm(row.origin==='externa'?'¿Registrar definitivamente esta factura externa?':'¿Emitir este documento? Después quedará bloqueado.'))return;
+ if(row.origin==='externa'){
+   const seq=externalSequenceNumber(row.external_number_text);
+   if(!seq)throw new Error('No puedo obtener la parte numérica del número externo.');
+   await rpc('totus_register_external_document',{p_id:id,p_number:seq});
+ }else{
+   await rpc('totus_finalize_sales_document',{p_id:id});
+ }
+ await refresh('Documento emitido.');
 }
 
 async function saveProduct(id=''){
