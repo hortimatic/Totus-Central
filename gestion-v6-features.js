@@ -906,12 +906,12 @@ function taxPaymentsHtml(){
   <div class="ops-card">
    <div class="section-head"><div><div class="eyebrow">Registrar</div><div class="ops-title-line"><h3>Pago / modelo fiscal</h3>${infoButton('fiscal.pagos','Cómo registrar modelos presentados')}</div><div class="small">Añade aquí los importes realmente presentados o pagados para que las previsiones resten lo ya satisfecho.</div></div><button class="primary" type="button" onclick="opsSaveTaxPayment()">Guardar</button></div>
    <div class="ops-form">
-    <div><label>Modelo</label><select id="ops_tax_type" aria-label="Modelo fiscal"><option value="130">130 · IRPF autónomo</option><option value="111">111 · Retenciones trabajo/profesionales</option><option value="115">115 · Retenciones alquiler</option><option value="309">309 · IVA no periódico</option><option value="otro">Otro</option></select></div>
+    <div><label>Modelo / obligación</label><select id="ops_tax_type" aria-label="Modelo fiscal"><option value="130">130 · IRPF autónomo</option><option value="111">111 · Retenciones trabajo/profesionales</option><option value="115">115 · Retenciones alquiler</option><option value="309">309 · IVA no periódico</option><option value="RETA">RETA · Cuota autónomos</option><option value="OTRO">Otro pago fiscal</option></select></div>
     <div><label>Año</label><input id="ops_tax_year" aria-label="Año fiscal" inputmode="numeric" value="${O.year}"></div>
     <div><label>Trimestre</label><select id="ops_tax_quarter" aria-label="Trimestre fiscal">${[1,2,3,4].map(q=>`<option value="${q}" ${q===O.quarter?'selected':''}>T${q}</option>`).join('')}</select></div>
-    <div><label>Fecha pago / presentación</label><input id="ops_tax_date" aria-label="Fecha pago o presentación" type="date" value="${today()}"></div>
+    <div><label>Fecha pago / presentación</label><input id="ops_tax_date" aria-label="Fecha pago o presentación" type="date" max="${today()}" value="${today()}"></div>
     <div><label>Importe</label><input id="ops_tax_amount" aria-label="Importe del modelo" inputmode="decimal" placeholder="0,00"></div>
-    <div><label>Estado</label><select id="ops_tax_status" aria-label="Estado del modelo"><option value="pagado">Pagado</option><option value="pendiente">Pendiente</option></select></div>
+    <div><label>Estado</label><select id="ops_tax_status" aria-label="Estado del modelo" onchange="opsTaxStatusChanged(this.value)"><option value="pagado">Pagado / presentado</option><option value="previsto">Previsto · pendiente</option><option value="compensado">Compensado</option></select></div>
     <div class="span2"><label>Justificante</label><input id="ops_tax_file" aria-label="Justificante del modelo" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></div>
     <div class="span2"><label>Notas</label><textarea id="ops_tax_notes" aria-label="Notas del modelo"></textarea></div>
    </div>
@@ -922,12 +922,18 @@ function taxPaymentsHtml(){
   </div>
  </div>`;
 }
+window.opsTaxStatusChanged=function(status){
+ const date=document.getElementById('ops_tax_date');if(!date)return;
+ if(status==='previsto'){date.removeAttribute('max');date.value=''}
+ else {date.setAttribute('max',today());if(!date.value)date.value=today()}
+};
 window.opsSaveTaxPayment=async function(){
  if(!manager())return;
  const type=document.getElementById('ops_tax_type')?.value||'',year=parseInt(document.getElementById('ops_tax_year')?.value||'',10),quarter=parseInt(document.getElementById('ops_tax_quarter')?.value||'',10),date=document.getElementById('ops_tax_date')?.value||'',amount=N(document.getElementById('ops_tax_amount')?.value),status=document.getElementById('ops_tax_status')?.value||'pagado',notes=document.getElementById('ops_tax_notes')?.value?.trim()||'',file=document.getElementById('ops_tax_file')?.files?.[0]||null;
- if(!type||!year||quarter<1||quarter>4)return alert('Modelo, año y trimestre son obligatorios.');
+ if(!['130','111','115','309','RETA','OTRO'].includes(type)||!year||quarter<1||quarter>4)return alert('Modelo, año y trimestre son obligatorios.');
  if(amount<0)return alert('El importe no puede ser negativo.');
- if(status==='pagado'&&!date)return alert('Indica la fecha de pago o presentación.');
+ if(['pagado','compensado'].includes(status)&&!date)return alert('Indica la fecha de pago o presentación.');
+ if(['pagado','compensado'].includes(status)&&date>today())return alert('Un pago ya realizado no puede tener una fecha futura. Usa estado "Previsto" si aún no se ha presentado o pagado.');
  const dup=(O.taxPayments||[]).find(x=>x.tax_type===type&&N(x.fiscal_year)===year&&N(x.quarter)===quarter);
  if(dup&&!confirm(`Ya existe el modelo ${type} del T${quarter} ${year}. ¿Guardar otro registro igualmente?`))return;
  try{
@@ -936,7 +942,7 @@ window.opsSaveTaxPayment=async function(){
   if(file){
    try{
     O.core.validateDocFile(file);
-    const docId=await O.core.uploadDoc(file,{store_id:null,doc_type:'impuesto',document_date:date||today(),supplier_or_customer:'AEAT',tax_id:'',invoice_number:`Modelo ${type} · T${quarter} ${year}`,category_code:type,status:status==='pagado'?'archivada':'pendiente',notes},'tax_payment',data.id);
+    const docId=await O.core.uploadDoc(file,{store_id:null,doc_type:'impuesto',document_date:date||today(),supplier_or_customer:'AEAT',tax_id:'',invoice_number:`Modelo ${type} · T${quarter} ${year}`,category_code:type,status:['pagado','compensado'].includes(status)?'archivada':'pendiente',notes},'tax_payment',data.id);
     if(!docId)throw new Error('No se pudo crear el registro documental del justificante.');
     const up=await sb.from('ops_tax_payments').update({document_id:docId}).eq('id',data.id).select('id,document_id').single();
     if(up.error)throw up.error;
