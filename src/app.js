@@ -710,6 +710,45 @@ async function deleteUser(email){
  await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
 }
 
+function taxPaymentForm(model,year,quarter,row=null){
+ const body=`<div class="form-grid">
+  ${formField('Modelo','txModel',model,'text','disabled')}
+  ${formField('Año','txYear',year,'number','disabled')}
+  ${formField('Trimestre','txQuarter',quarter,'number','disabled')}
+  ${selectField('Estado','txStatus',[{value:'previsto',label:'Previsto'},{value:'pagado',label:'Pagado'},{value:'compensado',label:'Compensado'}],row?.status||'pagado')}
+  ${formField('Fecha de pago','txDate',row?.payment_date||isoToday(),'date')}
+  ${formField('Importe','txAmount',row?.amount??'','number','step="0.01" min="0"')}
+  <label class="wide">Notas<textarea id="txNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+ </div><div class="form-actions">${row?btn('Eliminar','tax-payment-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','tax-payment-save','primary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
+ modal(`Modelo ${model} · ${quarter}T ${year}`,body,{small:true});
+}
+async function saveTaxPayment(id='',model,year,quarter){
+ const date=val('txDate')||null;if(date&&date>isoToday())throw new Error('La fecha de pago no puede ser futura.');
+ const row={tax_type:model,fiscal_year:Number(year),quarter:Number(quarter),period_label:`${quarter}T ${year}`,payment_date:date,amount:Math.max(0,num('txAmount')),status:val('txStatus'),notes:val('txNotes').trim(),created_by:state.user?.id||null};
+ try{if(id)await update('ops_tax_payments',id,row);else await insert('ops_tax_payments',row)}
+ catch(e){if(String(e.message).toLowerCase().includes('unique'))throw new Error('Ya existe un registro para ese modelo, año y trimestre.');throw e}
+ closeModal();await refresh('Modelo actualizado.');
+}
+async function deleteTaxPayment(id){if(!confirm('¿Eliminar este registro fiscal?'))return;await remove('ops_tax_payments',id);closeModal();await refresh('Registro fiscal eliminado.')}
+function fiscalAdjustmentForm(row=null){
+ const body=`<div class="form-grid">
+  ${formField('Fecha','faDate',row?.adjustment_date||isoToday(),'date')}
+  ${selectField('Tipo','faKind',[{value:'ingreso_extra',label:'Ingreso extra'},{value:'gasto_deducible_extra',label:'Gasto deducible extra'},{value:'retencion_soportada',label:'Retención soportada'},{value:'amortizacion',label:'Amortización'},{value:'reduccion',label:'Reducción'},{value:'otro',label:'Otro'}],row?.kind||'otro')}
+  ${formField('Importe','faAmount',row?.amount??'','number','step="0.01" min="0"')}
+  <label class="wide">Descripción<textarea id="faDescription" rows="3">${esc(row?.description||'')}</textarea></label>
+ </div><div class="form-actions">${row?btn('Eliminar','fiscal-adjustment-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar ajuste','fiscal-adjustment-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar ajuste fiscal':'Nuevo ajuste fiscal',body,{small:true});
+}
+async function saveFiscalAdjustment(id=''){
+ const date=required('faDate','Fecha');if(date>isoToday())throw new Error('La fecha del ajuste no puede ser futura.');
+ const row={adjustment_date:date,kind:val('faKind'),amount:Math.max(0,num('faAmount')),description:required('faDescription','Descripción'),document_id:null,created_by:state.user?.id||null};
+ if(id)await update('ops_fiscal_adjustments',id,row);else await insert('ops_fiscal_adjustments',row);closeModal();await refresh('Ajuste fiscal guardado.');
+}
+async function deleteFiscalAdjustment(id){if(!confirm('¿Eliminar este ajuste fiscal?'))return;await remove('ops_fiscal_adjustments',id);closeModal();await refresh('Ajuste eliminado.')}
+function setFiscalQuarter(year,q){
+ const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=new Date(year,q*3,0).toISOString().slice(0,10);patchFilters('fiscalidad',{from,to});render();
+}
+
 async function downloadBackup(){
  if(!isAdmin())throw new Error('Solo el administrador puede crear copias completas.');
  toast('Preparando copia completa…');
@@ -891,6 +930,14 @@ document.addEventListener('click',async e=>{
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();return}
   if(a==='backup-create'){await downloadBackup();return}
   if(a==='backup-restore'){await restoreBackupFromInput();return}
+  if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));return}
+  if(a==='tax-payment-edit'){const row=el.dataset.id?state.data.taxPayments.find(x=>x.id===el.dataset.id):null;taxPaymentForm(el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter),row);return}
+  if(a==='tax-payment-save'){await saveTaxPayment(el.dataset.id||'',el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter));return}
+  if(a==='tax-payment-delete'){await deleteTaxPayment(el.dataset.id);return}
+  if(a==='fiscal-adjustment-new'){fiscalAdjustmentForm();return}
+  if(a==='fiscal-adjustment-edit'){fiscalAdjustmentForm(state.data.fiscalAdjustments.find(x=>x.id===el.dataset.id));return}
+  if(a==='fiscal-adjustment-save'){await saveFiscalAdjustment(el.dataset.id||'');return}
+  if(a==='fiscal-adjustment-delete'){await deleteFiscalAdjustment(el.dataset.id);return}
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
