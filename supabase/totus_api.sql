@@ -414,6 +414,14 @@ begin
     coalesce((j->>'discount_pct')::numeric,0),coalesce((j->>'vat_rate')::numeric,21)
   from jsonb_array_elements(p_lines) j;
 
+  if v_type='factura' and coalesce(nullif(p_document->>'paid_status',''),'pendiente')='pagada'
+     and abs(coalesce((select total_amount from public.ops_sales_invoices where id=v_id),0)-coalesce((p_document->>'paid_amount')::numeric,0))>.02
+  then raise exception 'Una factura pagada debe tener cobrado el total'; end if;
+  if v_type='factura' and coalesce(nullif(p_document->>'paid_status',''),'pendiente')='parcial'
+     and (coalesce((p_document->>'paid_amount')::numeric,0)<=0
+          or coalesce((p_document->>'paid_amount')::numeric,0)>=coalesce((select total_amount from public.ops_sales_invoices where id=v_id),0))
+  then raise exception 'Un cobro parcial debe ser mayor que 0 y menor que el total'; end if;
+
   perform private.totus_audit('facturacion',case when nullif(p_document->>'id','') is null then 'crear' else 'actualizar' end,v_id,
     jsonb_build_object('tipo',v_type,'kind',v_kind,'origen',v_origin,'fecha',v_issue));
   return v_id;
