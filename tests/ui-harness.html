@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../src/styles.css"><title>Totus UI QA</title></head>
+<body><main id="root" class="content"></main>
+<script type="module">
+import {state,setRoute,setView} from '../src/state.js';
+import {renderers} from '../src/pages/main.js';
+const q=new URLSearchParams(location.search),route=q.get('route')||'inicio',mode=q.get('mode')||'list';
+state.user={id:'u1',role:'admin',email:'qa@example.com',full_name:'QA'};
+state.session={user:{id:'u1',email:'qa@example.com'}};
+state.data.settings={id:1,business_name:'Totus QA',tax_id:'00000000X',business_address:'Calle QA 1',business_email:'qa@example.com',business_phone:'600000000',storage_limit_bytes:500*1024*1024,irpf_prepayment_rate:20,default_sales_vat_rate:21,difficult_expense_pct:5,difficult_expense_annual_cap:2000,difficult_expense_enabled:true,current_year:2026,target_operating_margin_pct:15};
+state.data.storageUsage={total_bytes:7340032,limit_bytes:500*1024*1024,documents_count:3,assets_count:1};
+state.data.stores=[{id:'s1',name:'Hortimatic',code:'HORTI',active:true,sort_order:10},{id:'s2',name:'NewOldSmok',code:'NOS',active:true,sort_order:20}];
+state.data.drawers=[{id:'d1',store_id:'s1',name:'Caja principal',code:'C1',active:true,sort_order:10},{id:'d2',store_id:'s2',name:'Caja vape',code:'C1',active:true,sort_order:10}];
+state.data.categories=[{id:'cat1',code:'MERCH',name:'Mercancía',active:true,sort_order:10},{id:'cat2',code:'RENT',name:'Alquiler',active:true,sort_order:20}];
+state.data.suppliers=[{id:'sup1',name:'Proveedor QA',tax_id:'B00000000',active:true,default_payment_method:'transferencia',default_vat_rate:21,default_re_rate:5.2,default_deductible_pct:100}];
+state.data.customers=[{id:'cu1',name:'Cliente QA',tax_id:'00000000T',email:'cliente@example.com',active:true,default_payment_method:'transferencia'}];
+state.data.closings=[{id:'cl1',store_id:'s1',business_date:'2026-10-10',opening_cash:100,cash_sales:250,card_sales:320,bizum_sales:45,online_sales:60,other_income:0,cash_withdrawals:200,cash_expenses_declared:0,actual_cash:150,difference:0,reported_total_sales:675,status:'cerrado',notes:'Cierre QA'}];
+state.data.closingDrawers=[{id:'cd1',closing_id:'cl1',drawer_id:'d1',opening_cash:100,closing_cash:150,card_sales:320,bizum_sales:45,online_sales:60,other_income:0,cash_withdrawals:200,cash_expenses_declared:0,cash_extra_in:0,cash_extra_out:0}];
+state.data.expenses=[{id:'ex1',store_id:'s1',expense_date:'2026-10-09',supplier_id:'sup1',supplier_name:'Proveedor QA',supplier_tax_id:'B00000000',invoice_number:'F-001',description:'Compra QA',payment_method:'transferencia',paid_status:'pagado',paid_date:'2026-10-09',base_amount:100,vat_amount:21,re_amount:5.2,withholding_amount:0,gross_expense:126.2,accounting_amount:126.2,amount_paid:126.2,deductible_irpf:true,deductible_pct:100,fixed_asset:false,management_only:false,document_kind:'factura',category_id:'cat1',document_id:'doc1'}];
+state.data.expenseLines=[{id:'el1',expense_id:'ex1',sort_order:10,category_id:'cat1',description:'Compra QA',base_amount:100,vat_rate:21,vat_amount:21,re_base:100,re_rate:5.2,re_amount:5.2,irpf_imputable:126.2,withholding_base:0,withholding_rate:0,withholding_amount:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
+state.data.series=[{id:'i1',code:'H-2026',prefix:'H-',padding:4,year:2026,next_number:2,document_type:'factura',series_kind:'invoice',active:true,store_id:'s1'},{id:'r1',code:'RH-2026',prefix:'RH-',padding:4,year:2026,next_number:1,document_type:'factura',series_kind:'rectifying',active:true,store_id:'s1'},{id:'p1',code:'HPF-2026',prefix:'HPF-',padding:4,year:2026,next_number:1,document_type:'proforma',series_kind:'invoice',active:true,store_id:'s1'}];
+state.data.templates=[{id:'tp1',name:'Plantilla QA',code:'QA',style:'clean',primary_color:'#172033',secondary_color:'#2367d1',show_logo:true,default_invoice:true,default_proforma:true,invoice_title:'FACTURA',proforma_title:'FACTURA PROFORMA',active:true}];
+state.data.invoices=[{id:'iv1',series_id:'i1',store_id:'s1',issue_date:'2026-10-08',display_number:'H-0001',origin:'totus',status:'emitida',document_type:'factura',invoice_kind:'invoice',customer_id:'cu1',customer_name:'Cliente QA',customer_tax_id:'00000000T',customer_email:'cliente@example.com',customer_address:'Calle Cliente 1',concept:'Servicios QA',payment_method:'transferencia',paid_status:'pagada',paid_date:'2026-10-08',paid_amount:121,include_in_income:false,template_id:'tp1',base_amount:100,vat_amount:21,total_amount:121,notes:''}];
+state.data.invoiceLines=[{id:'il1',invoice_id:'iv1',sort_order:10,description:'Servicio QA',quantity:1,unit_price_base:100,discount_pct:0,vat_rate:21,total_amount:121}];
+state.data.documents=[{id:'doc1',store_id:'s1',doc_type:'factura_recibida',document_date:'2026-10-09',supplier_or_customer:'Proveedor QA',tax_id:'B00000000',invoice_number:'F-001',status:'pagada',storage_path:'qa/factura.pdf',original_name:'factura.pdf',mime_type:'application/pdf',size_bytes:120000,notes:''}];
+state.data.taxPayments=[{id:'tx1',tax_type:'130',fiscal_year:2026,quarter:3,period_label:'3T 2026',payment_date:'2026-10-01',amount:500,status:'pagado',notes:''}];
+state.data.fiscalAdjustments=[];state.data.incomeAdjustments=[];state.data.audit=[{id:'a1',created_at:'2026-10-10T10:00:00Z',user_email:'qa@example.com',area:'qa',action:'probar',detail:{ok:true}}];
+state.data.reta=[];state.data.brands=[];state.data.families=[];state.data.products=[];state.data.variants=[];state.data.providers=[];state.data.providerPrices=[];state.data.competitors=[];state.data.consultations=[];state.data.team=[{email:'qa@example.com',full_name:'QA',role:'admin',active:true,job_title:'Admin'}];
+setRoute(route);
+if(mode==='record'){
+ if(route==='cajas')setView('cajas',{mode:'record',id:q.get('id')==='new'?null:'cl1'});
+ if(route==='gastos')setView('gastos',{mode:'record',id:q.get('id')==='new'?null:'ex1'});
+ if(route==='facturacion')setView('facturacion',{mode:'record',id:q.get('id')==='new'?null:'iv1',docType:q.get('type')||'factura',invoiceKind:q.get('kind')||'invoice',origin:q.get('origin')||'totus'});
+ if(route==='documentos')setView('documentos',{mode:'record',id:q.get('id')==='new'?null:'doc1'});
+}
+if(route==='administracion'&&q.get('section'))setView('administracion',{section:q.get('section')});
+document.getElementById('root').innerHTML=renderers[route]();
+</script></body></html>
