@@ -29,6 +29,14 @@ const expenseLines=[
 const storeWb=buildStoreAnnualWorkbook({store:stores[0],year:2026,closings,expenses,categories});
 if(storeWb.SheetNames.length!==12)throw new Error('Store workbook must have 12 monthly sheets');
 if(storeWb.SheetNames[0]!=='Enero'||storeWb.SheetNames[11]!=='Diciembre')throw new Error('Month sheet names are wrong');
+const multipleClosings=buildStoreAnnualWorkbook({
+ store:stores[0],year:2026,expenses,categories,
+ closings:[...closings,{id:'c3',store_id:'h',business_date:'2026-01-02',cash_sales:20,card_sales:33,bizum_sales:0,online_sales:0,other_income:0,cash_withdrawals:7,actual_cash:100,include_in_income:true}]
+});
+const matchingRow=Object.entries(multipleClosings.Sheets.Enero).find(([k,v])=>/^B\d+$/.test(k)&&String(v?.v||'').startsWith('2 Viernes'));
+if(!matchingRow)throw Error('No se localiza el día de prueba');
+const dayRow=matchingRow[0].slice(1);
+if(multipleClosings.Sheets.Enero['E'+dayRow]?.v!==483||multipleClosings.Sheets.Enero['F'+dayRow]?.v!==57)throw Error('Se han perdido importes de varias cajas cerradas el mismo día');
 const nosWb=buildStoreAnnualWorkbook({store:stores[1],year:2026,closings,expenses,categories});
 const nosJan=nosWb.Sheets.Enero;
 if(Math.abs(nosJan['!cols'][2]?.wch-(30.7109375-pad))>0.00001)throw new Error('NewOldSmok: original expense column width must be 30.71');
