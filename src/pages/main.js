@@ -423,10 +423,30 @@ export function closingRecordHtml(row=null){
  </div>`;
 }
 
+export function expenseLineRow(line={},index=0,categories=[]){
+ return `<div class="expense-line" data-line-index="${index}">
+  <div class="form-grid">
+   ${selectField('Categoría',`exLineCategory_${index}`,[{value:'',label:'Sin categoría'},...categories],line.category_id||'')}
+   ${formField('Descripción',`exLineDesc_${index}`,line.description||'')}
+   ${formField('Base',`exLineBase_${index}`,line.base_amount??'','number','step="0.01" min="0"')}
+   ${formField('IVA (%)',`exLineVat_${index}`,line.vat_rate??21,'number','step="0.1" min="0"')}
+   ${formField('Recargo (%)',`exLineRe_${index}`,line.re_rate??0,'number','step="0.1" min="0"')}
+   ${formField('Retención (%)',`exLineWh_${index}`,line.withholding_rate??0,'number','step="0.1" min="0"')}
+   ${selectField('Modelo',`exLineModel_${index}`,[{value:'',label:'Sin modelo'},{value:'111',label:'111'},{value:'115',label:'115'}],line.withholding_model||'')}
+   ${formField('% deducible',`exLineDedPct_${index}`,line.deductible_pct??100,'number','min="0" max="100"')}
+   <label class="check-field"><input id="exLineDed_${index}" type="checkbox" ${line.deductible_irpf===false?'':'checked'}> Deducible IRPF</label>
+   <label class="check-field"><input id="exLineFixed_${index}" type="checkbox" ${line.fixed_asset?'checked':''}> Inmovilizado</label>
+   ${formField('Años amortización',`exLineAmort_${index}`,line.amortization_years??'','number','step="0.1" min="0"')}
+  </div>
+  <div class="inline-actions" style="justify-content:flex-end;margin-top:8px">${btn('Quitar línea','expense-line-remove','danger',`data-index="${index}"`)}</div>
+ </div>`;
+}
+
 export function expenseRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const suppliers=[{value:'',label:'Proveedor manual'},...state.data.suppliers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
- const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
+ const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
+ const lines=row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  const total=Number(row?.gross_expense||row?.accounting_amount||row?.amount_paid||0);
  return `<div class="page record-page">
@@ -442,43 +462,27 @@ export function expenseRecordHtml(row=null){
       ${formField('NIF/CIF','exTax',row?.supplier_tax_id||'')}
       ${formField('Nº factura / justificante','exInvoice',row?.invoice_number||'')}
       ${selectField('Tipo documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.document_kind||'factura')}
-      ${selectField('Categoría','exCategory',categories,row?.category_id||'')}
      </div>
      <div class="attachment-box" style="margin-top:14px">
       <div><b>Justificante</b><div class="small muted">${doc?esc(doc.original_name):'Sin archivo vinculado'}</div></div>
       <div class="inline-actions">${doc?btn('Vista previa','expense-document-preview','secondary',`data-id="${doc.id}"`):''}${doc?btn('Descargar','expense-document-download','secondary',`data-id="${doc.id}"`):''}${doc?btn('Quitar','expense-document-unlink','danger',`data-expense="${row.id}" data-document="${doc.id}"`):''}</div>
-      <label class="file-picker">Seleccionar archivo<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
+      <label class="file-picker">Seleccionar o sustituir archivo<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
      </div>
     </section>
-    <section class="card card-pad"><div class="section-head"><div><h3>2 · Concepto</h3><p>Descripción y base económica.</p></div></div>
-     <div class="form-grid" style="margin-top:14px">
-      ${formField('Base imponible','exBase',row?.base_amount??'','number','step="0.01" min="0"')}
-      <label class="wide">Descripción<textarea id="exDesc" rows="3">${esc(row?.description||'')}</textarea></label>
-     </div>
+    <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
+     <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
     </section>
-    <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento fiscal</h3><p>IVA, recargo, retención y deducibilidad.</p></div></div>
+    <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${formField('IVA (%)','exVatRate',row?.vat_rate??21,'number','step="0.1" min="0"')}
-      ${formField('Recargo (%)','exReRate',row?.re_rate??0,'number','step="0.1" min="0"')}
-      ${formField('Retención (%)','exWhRate',row?.withholding_rate??0,'number','step="0.1" min="0"')}
-      ${selectField('Modelo retención','exWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'Modelo 111'},{value:'115',label:'Modelo 115'}],row?.withholding_model||'')}
-      ${formField('% deducible IRPF','exDedPct',row?.deductible_pct??100,'number','step="1" min="0" max="100"')}
-      <label class="check-field"><input id="exDeductible" type="checkbox" ${row?.deductible_irpf===false?'':'checked'}> Deducible en IRPF</label>
-      <label class="check-field"><input id="exFixed" type="checkbox" ${row?.fixed_asset?'checked':''}> Inmovilizado / amortizable</label>
-      ${formField('Años amortización','exAmortYears',row?.amortization_years??'','number','step="0.1" min="0"')}
       <label class="check-field wide emphasis-check"><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Solo control interno · no enviar a gestoría ni incluir en cálculo fiscal</label>
       ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
-     </div>
-    </section>
-    <section class="card card-pad"><div class="section-head"><div><h3>4 · Pago</h3></div></div>
-     <div class="form-grid" style="margin-top:14px">
       ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
       ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
       ${formField('Fecha de pago','exPaidDate',row?.paid_date||'','date')}
       ${formField('Importe pagado','exPaidAmount',row?.amount_paid??'','number','step="0.01" min="0"')}
+      <label class="wide">Observaciones<textarea id="exNotes" rows="4">${esc(row?.notes||'')}</textarea></label>
      </div>
     </section>
-    <section class="card card-pad"><div class="section-head"><div><h3>5 · Notas</h3></div></div><label>Observaciones<textarea id="exNotes" rows="4">${esc(row?.notes||'')}</textarea></label></section>
    </div>
    <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3>
     <div class="summary-row"><span>Base</span><strong id="exSumBase">${money(row?.base_amount||0)}</strong></div>
