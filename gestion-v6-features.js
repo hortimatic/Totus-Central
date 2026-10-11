@@ -1349,7 +1349,7 @@ function wbBlob(sheets){
  const dailyFills={Pedidos:'00B0F0',Fijos:'FFFF00',Personal:'FFC000',IRPF:'92D050',Interno:'0070C0',Otros:'00B050'};
  for(const [name,rows] of Object.entries(sheets)){
   const ws=XLSX.utils.aoa_to_sheet(rows),upper=name.toUpperCase();
-  const isDaily=rows?.[1]?.[0]==='Dia'&&rows?.[1]?.[1]==='Gastos';
+  const isDaily=rows?.[1]?.[0]==='Dia'&&rows?.[1]?.[1]==='Gastos'&&rows?.[1]?.[4]==='Salida de caja';
   for(const addr of Object.keys(ws)){
    if(addr[0]==='!')continue;
    const cell=ws[addr];
@@ -1359,11 +1359,22 @@ function wbBlob(sheets){
   const ref=ws['!ref']?XLSX.utils.decode_range(ws['!ref']):{s:{r:0,c:0},e:{r:0,c:0}};
   const widthCount=Math.max(1,...rows.map(r=>r.length));
   if(isDaily){
-   ws['!merges']=[XLSX.utils.decode_range('A1:E1')];
-   ws['!cols']=[{wch:15},{wch:38},{wch:14},{wch:14},{wch:18}];
+   ws['!merges']=[XLSX.utils.decode_range('A1:G1')];
+   ws['!cols']=[{wch:15},{wch:38},{wch:14},{wch:14},{wch:18},{wch:12,hidden:true},{wch:48,hidden:true}];
    ws['!rows']=rows.map((_,i)=>({hpt:i===0?23:i===1?22:19}));
    ws['!freeze']={xSplit:0,ySplit:2,topLeftCell:'A3',activePane:'bottomLeft',state:'frozen'};
    ws['!autofilter']={ref:`A2:E${Math.max(2,rows.length)}`};
+   for(let r=2;r<rows.length;r++){
+    const note=String(rows[r]?.[6]||'').trim(),biz=N(rows[r]?.[5]);
+    if(note){
+      const cell=ws['B'+(r+1)]||(ws['B'+(r+1)]={t:'s',v:String(rows[r]?.[1]||'')});
+      cell.c=[{a:'Totus',t:note}];
+    }
+    if(biz){
+      const cell=ws['D'+(r+1)]||(ws['D'+(r+1)]={t:'n',v:N(rows[r]?.[3])});
+      cell.c=[{a:'Totus',t:'Bizum: '+biz.toFixed(2).replace('.',',')+' €'}];
+    }
+   }
    for(let r=ref.s.r;r<=ref.e.r;r++)for(let col=ref.s.c;col<=ref.e.c;col++){
     const addr=XLSX.utils.encode_cell({r,c:col}),cell=ws[addr];if(!cell)continue;
     const isTitle=r===0,isHeader=r===1,row=rows[r]||[],label=String(row[1]||''),group=dailyColorGroup(label);
@@ -1420,21 +1431,21 @@ function dailyWorkbook(storeId,year,rangeFrom='',rangeTo=''){
   const byDate=new Map();
   const add=(date,row)=>{if(!byDate.has(date))byDate.set(date,[]);byDate.get(date).push(row)};
   E.legacyRows.filter(r=>r.store_id===storeId&&inRange(r.row_date,first,last)).forEach(r=>{
-    add(r.row_date,{desc:r.description||'',price:N(r.expense_amount)||'',card:N(r.card_amount)||'',cash:N(r.cash_withdrawal)||'',source:'legacy'});
+    add(r.row_date,{desc:r.description||'',price:N(r.expense_amount)||'',card:N(r.card_amount)||'',cash:N(r.cash_withdrawal)||'',bizum:'',note:r.raw_note||'',source:'legacy'});
   });
   const maxLegacy=E.legacyRows.filter(r=>r.store_id===storeId&&r.row_date).reduce((x,r)=>r.row_date>x?r.row_date:x,'');
   O.expenses.filter(e=>e.store_id===storeId&&inRange(e.expense_date,first,last)&&(!maxLegacy||e.expense_date>maxLegacy)).forEach(e=>{
-    add(e.expense_date,{desc:e.supplier_name||e.description||'Gasto',price:N(e.accounting_amount||e.gross_expense),card:'',cash:'',source:'new'});
+    add(e.expense_date,{desc:e.supplier_name||e.description||'Gasto',price:N(e.accounting_amount||e.gross_expense),card:'',cash:'',bizum:'',note:e.notes||'',source:'new'});
   });
   O.closings.filter(c=>c.store_id===storeId&&inRange(c.business_date,first,last)&&(!maxLegacy||c.business_date>maxLegacy)).forEach(c=>{
-    add(c.business_date,{desc:'',price:'',card:N(c.card_sales)||'',cash:N(c.cash_withdrawals)||'',source:'new'});
+    add(c.business_date,{desc:'',price:'',card:N(c.card_sales)||'',cash:N(c.cash_withdrawals)||'',bizum:N(c.bizum_sales)||'',note:c.notes||'',source:'new'});
   });
-  const rows=[[`${monthName(m)} ${year}`,'','','',''],['Dia','Gastos','Precio','Tarjeta','Salida de caja']];
+  const rows=[[`${monthName(m)} ${year}`,'','','','','',''],['Dia','Gastos','Precio','Tarjeta','Salida de caja','Bizum','Nota origen']];
   const grouped={Otros:[],Personal:[],Pedidos:[],Fijos:[],IRPF:[]};
   [...byDate.keys()].sort().forEach(date=>{
     const entries=byDate.get(date),d=new Date(date+'T12:00:00'),label=`${Number(date.slice(8,10))} ${weekdays[d.getDay()]}`;
     entries.forEach((r,i)=>{
-      rows.push([i===0?label:'',r.desc,r.price,r.card,r.cash]);
+      rows.push([i===0?label:'',r.desc,r.price,r.card,r.cash,r.bizum||'',r.note||'']);
       const g=dailyColorGroup(r.desc);if(r.price!==''&&N(r.price)!==0){
         const key=g==='Personal'?'Personal':g==='Pedidos'?'Pedidos':g==='Fijos'||g==='Interno'?'Fijos':g==='IRPF'?'IRPF':'Otros';
         grouped[key].push(rows.length);
@@ -1443,13 +1454,13 @@ function dailyWorkbook(storeId,year,rangeFrom='',rangeTo=''){
   });
   const dataEnd=rows.length;
   const sumRefs=indexes=>indexes.length?`=SUM(${indexes.map(r=>'C'+r).join(',')})`:'=0';
-  rows.push(['','','','','']);
-  rows.push(['','Otros',sumRefs(grouped.Otros),'','']);
-  rows.push(['','SS y nóminas',sumRefs(grouped.Personal),'','']);
-  rows.push(['','Pedidos',sumRefs(grouped.Pedidos),'','']);
-  rows.push(['','Gastos fijos',sumRefs(grouped.Fijos),'','']);
-  rows.push(['','IRPF',sumRefs(grouped.IRPF),'','']);
-  rows.push(['','TOTAL',`=SUM(C3:C${dataEnd})`,`=SUM(D3:D${dataEnd})`,`=SUM(E3:E${dataEnd})`]);
+  rows.push(['','','','','','','']);
+  rows.push(['','Otros',sumRefs(grouped.Otros),'','','','']);
+  rows.push(['','SS y nóminas',sumRefs(grouped.Personal),'','','','']);
+  rows.push(['','Pedidos',sumRefs(grouped.Pedidos),'','','','']);
+  rows.push(['','Gastos fijos',sumRefs(grouped.Fijos),'','','','']);
+  rows.push(['','IRPF',sumRefs(grouped.IRPF),'','','','']);
+  rows.push(['','TOTAL',`=SUM(C3:C${dataEnd})`,`=SUM(D3:D${dataEnd})`,`=SUM(E3:E${dataEnd})`,`=SUM(F3:F${dataEnd})`,'']);
   sheets[monthName(m)[0]+monthName(m).slice(1).toLowerCase()]=rows;
  }
  return wbBlob(sheets);
