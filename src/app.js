@@ -133,6 +133,96 @@ async function convertProforma(id){
  await refresh('Proforma convertida en factura.');
 }
 
+function customerForm(row=null){
+ const body=`<div class="form-grid">
+  ${formField('Nombre / razón social','cuName',row?.name||'')}
+  ${formField('NIF/CIF','cuTax',row?.tax_id||'')}
+  ${formField('Email','cuEmail',row?.email||'','email')}
+  ${formField('Teléfono','cuPhone',row?.phone||'')}
+  ${formField('Dirección','cuAddress',row?.address||'')}
+  ${formField('Ciudad','cuCity',row?.city||'')}
+  ${formField('Código postal','cuPostal',row?.postal_code||'')}
+  ${formField('Provincia','cuProvince',row?.province||'')}
+  ${selectField('Forma de pago','cuPayment',[{value:'transferencia',label:'Transferencia'},{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.default_payment_method||'transferencia')}
+  <label class="wide">Notas<textarea id="cuNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+ </div><div class="form-actions">${row?btn('Eliminar','customer-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar cliente','customer-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar cliente':'Nuevo cliente',body);
+}
+function customersManager(){
+ const rows=state.data.customers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const body=`<div class="section-head"><div><p>Clientes guardados para facturación.</p></div>${btn('Nuevo cliente','customer-new','primary')}</div>
+ <div class="stack" style="margin-top:14px">${rows.length?rows.map(c=>`<div class="summary-row"><div><b>${esc(c.name)}</b><div class="small muted">${esc(c.tax_id||'')} ${c.email?'· '+esc(c.email):''}</div></div>${btn('Editar','customer-edit','secondary',`data-id="${c.id}"`)}</div>`).join(''):'<div class="empty"><strong>Sin clientes</strong><span>Todavía no hay clientes guardados.</span></div>'}</div>`;
+ modal('Clientes',body);
+}
+async function saveCustomer(id=''){
+ const row={name:required('cuName','Nombre'),tax_id:val('cuTax').trim(),email:val('cuEmail').trim(),phone:val('cuPhone').trim(),address:val('cuAddress').trim(),city:val('cuCity').trim(),postal_code:val('cuPostal').trim(),province:val('cuProvince').trim(),country:'España',default_payment_method:val('cuPayment'),notes:val('cuNotes').trim(),active:true,updated_at:new Date().toISOString()};
+ if(id)await update('ops_customers',id,row);else await insert('ops_customers',row);
+ closeModal();await refresh('Cliente guardado.');
+}
+async function deleteCustomer(id){
+ if(!confirm('¿Eliminar este cliente?'))return;
+ await remove('ops_customers',id);closeModal();await refresh('Cliente eliminado.');
+}
+function templateForm(row=null){
+ const stores=[{value:'',label:'General'},...state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}))];
+ const body=`<div class="form-grid">
+  ${formField('Nombre','tpName',row?.name||'')}
+  ${formField('Código','tpCode',row?.code||'')}
+  ${selectField('Tienda','tpStore',stores,row?.store_id||'')}
+  ${selectField('Estilo','tpStyle',[{value:'clean',label:'Limpio'},{value:'brand',label:'Corporativo'},{value:'compact',label:'Compacto'}],row?.style||'clean')}
+  ${formField('Color principal','tpPrimary',row?.primary_color||'#142231','color')}
+  ${formField('Color secundario','tpSecondary',row?.secondary_color||'#3B82F6','color')}
+  ${selectField('Posición logo','tpLogoPos',[{value:'left',label:'Izquierda'},{value:'center',label:'Centro'},{value:'right',label:'Derecha'}],row?.logo_position||'left')}
+  ${formField('Ancho logo (mm)','tpLogoWidth',row?.logo_width_mm??34,'number','min="10" max="70"')}
+  ${formField('Título factura','tpInvoiceTitle',row?.invoice_title||'FACTURA')}
+  ${formField('Título proforma','tpProformaTitle',row?.proforma_title||'FACTURA PROFORMA')}
+  <label class="wide">Logo<input id="tpLogo" type="file" accept="image/png,image/jpeg,image/webp"></label>
+  <label class="wide">Cabecera<textarea id="tpHeader" rows="2">${esc(row?.header_text||'')}</textarea></label>
+  <label class="wide">Pie<textarea id="tpFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label>
+  <label class="wide">Condiciones de pago<textarea id="tpTerms" rows="2">${esc(row?.payment_terms_default||'')}</textarea></label>
+  <label><input id="tpShowLogo" type="checkbox" ${row?.show_logo===false?'':'checked'}> Mostrar logo</label>
+  <label><input id="tpDefaultInvoice" type="checkbox" ${row?.default_invoice?'checked':''}> Predeterminada factura</label>
+  <label><input id="tpDefaultProforma" type="checkbox" ${row?.default_proforma?'checked':''}> Predeterminada proforma</label>
+ </div>${row?.logo_name?`<div class="note" style="margin-top:12px">Logo actual: ${esc(row.logo_name)}</div>`:''}
+ <div class="form-actions">${btn('Guardar plantilla','template-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar plantilla':'Nueva plantilla',body);
+}
+async function saveTemplate(id=''){
+ const current=id?state.data.templates.find(x=>x.id===id):null;
+ const file=input('tpLogo')?.files?.[0]||null;
+ if(file&&file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
+ let logoPath=current?.logo_path||null,logoName=current?.logo_name||null,logoMime=current?.logo_mime||null,logoSize=Number(current?.logo_size_bytes||0),uploadedPath=null;
+ if(file){
+   const ext=(file.name.split('.').pop()||'img').replace(/[^a-z0-9]/gi,'');
+   uploadedPath=`logos/${crypto.randomUUID()}.${ext}`;
+   await upload('business-assets',uploadedPath,file);
+   logoPath=uploadedPath;logoName=file.name;logoMime=file.type;logoSize=file.size;
+ }
+ const row={name:required('tpName','Nombre'),code:required('tpCode','Código'),store_id:val('tpStore')||null,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),logo_position:val('tpLogoPos'),logo_width_mm:n(val('tpLogoWidth')),show_logo:input('tpShowLogo')?.checked!==false,default_invoice:!!input('tpDefaultInvoice')?.checked,default_proforma:!!input('tpDefaultProforma')?.checked,invoice_title:val('tpInvoiceTitle').trim(),proforma_title:val('tpProformaTitle').trim(),header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),payment_terms_default:val('tpTerms').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
+ try{
+   if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
+ }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
+ if(file&&current?.logo_path&&current.logo_path!==uploadedPath)await removeFile('business-assets',current.logo_path).catch(()=>{});
+ closeModal();await refresh('Plantilla guardada.');
+}
+async function deleteTemplate(id){
+ if(!isAdmin())throw new Error('Solo el administrador puede eliminar plantillas.');
+ const row=state.data.templates.find(x=>x.id===id);if(!row)return;
+ if(!confirm('¿Eliminar esta plantilla?'))return;
+ await remove('ops_document_templates',id);
+ if(row.logo_path)await removeFile('business-assets',row.logo_path).catch(()=>{});
+ await refresh('Plantilla eliminada.');
+}
+async function toggleSeries(id,active){
+ if(!isAdmin())throw new Error('Solo el administrador puede cambiar series.');
+ await update('ops_invoice_series',id,{active,updated_at:new Date().toISOString()}).catch(async e=>{
+   // La tabla de series puede no tener updated_at en instalaciones antiguas.
+   if(String(e.message).includes('updated_at'))return update('ops_invoice_series',id,{active});
+   throw e;
+ });
+ await refresh('Serie actualizada.');
+}
+
 function documentModal(){
  const stores=state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}));
  const body=`<div class="form-grid">
@@ -227,6 +317,16 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-preview'){showInvoicePreview(el.dataset.id);return}
   if(a==='invoice-print'){printInvoice(el.dataset.id);return}
   if(a==='proforma-convert'){await convertProforma(el.dataset.id);return}
+  if(a==='customers-manage'){customersManager();return}
+  if(a==='customer-new'){customerForm();return}
+  if(a==='customer-edit'){customerForm(state.data.customers.find(x=>x.id===el.dataset.id));return}
+  if(a==='customer-save'){await saveCustomer(el.dataset.id||'');return}
+  if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
+  if(a==='template-new'){templateForm();return}
+  if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
+  if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
+  if(a==='template-delete'){await deleteTemplate(el.dataset.id);return}
+  if(a==='series-toggle'){await toggleSeries(el.dataset.id,el.dataset.active==='true');return}
   if(a==='document-new'){documentModal();return}
   if(a==='document-save'){await saveDocument();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
@@ -242,6 +342,14 @@ document.addEventListener('click',async e=>{
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
  }catch(err){console.error(err);toast(err.message||String(err),'bad')}
+});
+
+document.addEventListener('change',e=>{
+ if(e.target?.id==='ivCustomerId'){
+   const c=state.data.customers.find(x=>x.id===e.target.value);if(!c)return;
+   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||''};
+   set('ivCustomer',c.name);set('ivTax',c.tax_id);set('ivEmail',c.email);set('ivAddress',[c.address,c.postal_code,c.city,c.province].filter(Boolean).join(', '));set('ivPayment',c.default_payment_method||'transferencia');
+ }
 });
 
 $('#loginForm').addEventListener('submit',async e=>{
