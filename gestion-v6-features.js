@@ -24,6 +24,7 @@ async function featureLoad(force=false){
  ]);
  E.customers=customers;E.templates=templates;E.legacyRows=legacy;E.historicalIncome=hist;E.fiscalReference=fiscalReference;E.gestorRows=gestor;E.gestorSummary=summary;E.reconciliationNotes=reconciliationNotes;E.auditRows=auditRows;E.revisionRows=revisionRows;E.backupRows=backupRows;
  E.storageUsage=storage||{documents_count:O.documents.length,documents_bytes:sum(O.documents,d=>N(d.size_bytes)),assets_count:templates.filter(t=>N(t.logo_size_bytes)>0).length,assets_bytes:sum(templates,t=>N(t.logo_size_bytes)),total_bytes:sum(O.documents,d=>N(d.size_bytes))+sum(templates,t=>N(t.logo_size_bytes))};
+ O.storageUsage=E.storageUsage;
  E.loaded=true;
  if(!E.templateId)E.templateId=(templates.find(t=>t.default_invoice)||templates[0])?.id||null;
 }
