@@ -397,17 +397,15 @@ function providerPriceForm(productId,row=null){
   ${formField('Pedido mínimo','ppMoq',row?.moq??0,'number','min="0"')}
   ${formField('Stock / plazo','ppStock',row?.stock_status||'')}
   ${formField('Origen compra','ppOrigin',row?.purchase_origin||'España')}
-  ${formField('Impuesto especial adicional','ppTax',row?.special_tax_amount??0,'number','step="0.01" min="0"')}
-  <label><input id="ppApplyTax" type="checkbox" ${row?.apply_special_tax?'checked':''}> Sumar impuesto especial al coste</label>
   <label><input id="ppSelected" type="checkbox" ${row?.selected?'checked':''}> Proveedor seleccionado</label>
   <label class="wide">Notas<textarea id="ppNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
- </div><div class="note">Si el impuesto especial ya está incluido en la factura del proveedor, deja desmarcada la opción de sumarlo.</div>
+ </div><div class="note">El coste de proveedor debe ser el coste real de compra sin IVA/RE. El impuesto especial de sales ya viene incluido en ese coste y no se suma de nuevo.</div>
  <div class="form-actions">${btn('Guardar coste','provider-price-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
  modal(row?'Editar coste de proveedor':'Añadir proveedor al producto',body);
 }
 async function saveProviderPrice(productId,id=''){
  const selected=!!input('ppSelected')?.checked;
- const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:!!input('ppApplyTax')?.checked,special_tax_amount:Math.max(0,num('ppTax'))};
+ const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
  if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
  if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
  closeModal();await refresh('Coste de proveedor guardado.');productModal(state.data.products.find(x=>x.id===productId));
