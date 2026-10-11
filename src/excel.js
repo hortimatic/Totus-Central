@@ -8,9 +8,7 @@ const subStyle={font:{bold:true,color:{rgb:'475569'}},fill:{fgColor:{rgb:'F1F5F9
 const totalStyle={font:{bold:true},fill:{fgColor:{rgb:'E2E8F0'}},border:{top:{style:'thin',color:{rgb:'94A3B8'}}}};
 
 function styleHeader(ws,row,cols){for(let c=0;c<cols;c++){const cell=ws[XLSX.utils.encode_cell({r:row,c})];if(cell)cell.s=headerStyle}}
-function styleMoney(ws,range){for(const addr of range){if(ws[addr]){ws[addr].z=euro;ws[addr].s={alignment:{horizontal:'right'}}}}}
 function autoWidths(ws,widths){ws['!cols']=widths.map(w=>({wch:w}))}
-function addAutoFilter(ws,lastCol,lastRow){ws['!autofilter']={ref:`A1:${lastCol}${lastRow}`}}
 function book(){return XLSX.utils.book_new()}
 function write(wb,name){XLSX.writeFile(wb,name,{cellStyles:true})}
 function storeName(stores,id){return stores.find(s=>s.id===id)?.name||''}
@@ -225,9 +223,8 @@ function appendReconciliationSheet(wb,q,args){
  sheetCurrency(ws,4,7,['B','C','D','E','F','G','H','I','J','K','L']);for(let c=1;c<12;c++){const col=XLSX.utils.encode_col(c);const cell=ws[col+'7'];if(cell){cell.f=`SUM(${col}4:${col}6)`;cell.t='n';cell.z='#,##0.00 "€"'}}for(let c=0;c<12;c++){const a=XLSX.utils.encode_cell({r:6,c});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{bold:true},fill:{fgColor:{rgb:'D9EAD3'}}}}
  ws['!merges']=(ws['!merges']||[]).concat([XLSX.utils.decode_range('A9:L13')]);
  XLSX.utils.book_append_sheet(wb,ws,`Conciliación ${q}T`);
- return totals;
-}
-function appendAuditSheet(wb,args,quarterStats){
+ }
+function appendAuditSheet(wb,args){
  const {year,taxPayments=[],fiscalAdjustments=[]}=args,rows=[];
  for(let q=1;q<=4;q++){
    const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
@@ -237,6 +234,6 @@ function appendAuditSheet(wb,args,quarterStats){
  }
  const ws=XLSX.utils.aoa_to_sheet([['Auditoría y conciliación con la gestoría - Año '+year],[],['Periodo','Ventas correctas','Gastos gestor','Resultado antes 5 %','5 % difícil justificación','Base neta','20 % / Modelo 130','Estado'],...rows]);gestorTitle(ws,`Auditoría y conciliación con la gestoría - Año ${year}`,'H');gestorHeader(ws,2,8);ws['!cols']=[28,18,18,20,22,24,20,45].map(w=>({wch:w-XLSX_WCH_PAD}));sheetCurrency(ws,4,7,['B','C','D','E','F','G']);for(const [col,label] of [['A','Incidencia'],['B','Periodo'],['C','Importe incluido'],['D','Impacto en gasto'],['E','Impacto estimado en IRPF'],['F','Acción recomendada']])setCell(ws,col+'8',label,{font:{name:'Calibri',sz:10,bold:true},fill:{fgColor:{rgb:GESTOR_ALT}},alignment:{wrapText:true}});ws['!merges'].push(XLSX.utils.decode_range('A12:H17'));setCell(ws,'A12','Comprobación: contrastar ventas, gastos, regularizaciones y pagos registrados con los justificantes originales antes de presentar impuestos.',{font:{name:'Calibri',sz:11},alignment:{wrapText:true,vertical:'top'}});ws['!ref']='A1:H17';XLSX.utils.book_append_sheet(wb,ws,'Auditoría gestor');
 }
-export function buildGestorWorkbook(args){const wb=book(),quarterStats=[];appendAuditSheet(wb,args,quarterStats);for(let q=1;q<=4;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=4;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
+export function buildGestorWorkbook(args){const wb=book();appendAuditSheet(wb,args);for(let q=1;q<=4;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=4;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
 export function exportGestorWorkbook(args){const wb=buildGestorWorkbook(args);write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);}
 export function workbookBlob(wb){return new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx',cellStyles:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
