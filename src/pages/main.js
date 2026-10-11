@@ -6,37 +6,104 @@ const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
 
 export function inicio(){
- const today=isoToday();
- const todays=state.data.closings.filter(x=>x.business_date===today);
- const month=monthRange(today);
+ const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
  const monthClosings=state.data.closings.filter(x=>inRange(x.business_date,month.from,month.to));
  const monthExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,month.from,month.to));
- const sales=sum(monthClosings,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
- const expenses=sum(monthExpenses,x=>x.gross_expense||x.accounting_amount||x.amount_paid||0);
- const pendingInv=state.data.invoices.filter(x=>x.status==='borrador').length;
- const recent=[...state.data.documents].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,6);
- return `<div class="page">
-  <div class="kpis">
-   ${kpi('Ventas este mes',money(sales),`${month.from.split('-').reverse().join('/')} → ${month.to.split('-').reverse().join('/')}`)}
-   ${kpi('Gastos este mes',money(expenses))}
-   ${kpi('Resultado operativo',money(sales-expenses))}
-   ${kpi('Facturas en borrador',String(pendingInv))}
-  </div>
-  <div class="split">
-   <section class="card card-pad"><div class="section-head"><div><h2>Cierres de hoy</h2><p>Estado actual por establecimiento.</p></div>${btn('Nuevo cierre','closing-new','primary')}</div>
-    <div class="stack" style="margin-top:14px">${stores().map(s=>{const c=todays.find(x=>x.store_id===s.id);return `<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">${c?fmtDate(c.business_date):'Sin cierre registrado'}</div></div><div>${c?stateBadge(c.status):'<span class="badge warn">Pendiente</span>'}</div></div>`}).join('')}</div>
-   </section>
-   <section class="card card-pad"><div class="section-head"><div><h2>Acciones rápidas</h2><p>Lo más habitual, sin menús extra.</p></div></div>
-    <div class="stack" style="margin-top:14px">
-     ${btn('Registrar gasto','expense-new','primary')}
-     ${btn('Crear factura','invoice-new','secondary')}
-     ${btn('Subir documento','document-new','secondary')}
+ const monthInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&inRange(x.issue_date,month.from,month.to));
+ const salesFromClosings=sum(monthClosings.filter(x=>x.include_in_income!==false),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const extraInvoices=sum(monthInvoices.filter(x=>x.include_in_income===true),x=>x.total_amount);
+ const monthIncomeAdjustments=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,month.from,month.to)),x=>x.amount);
+ const sales=salesFromClosings+extraInvoices+monthIncomeAdjustments;
+ const accountingExpenses=sum(monthExpenses.filter(x=>!x.management_only),x=>x.accounting_amount||x.gross_expense||x.amount_paid||0);
+ const internalExpenses=sum(monthExpenses.filter(x=>x.management_only),x=>x.accounting_amount||x.gross_expense||x.amount_paid||0);
+ const realResult=sales-accountingExpenses-internalExpenses;
+ const todays=state.data.closings.filter(x=>x.business_date===today);
+ const missingStores=stores().filter(s=>!todays.some(x=>x.store_id===s.id&&x.status==='cerrado'));
+ const draftClosings=state.data.closings.filter(x=>x.status==='borrador').length;
+ const mismatches=state.data.closings.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
+ const pendingExpenses=state.data.expenses.filter(x=>x.paid_status&&x.paid_status!=='pagado');
+ const pendingExpenseAmount=sum(pendingExpenses,x=>Math.max(0,Number(x.accounting_amount||x.gross_expense||0)-Number(x.amount_paid||0)));
+ const pendingInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada');
+ const pendingInvoiceAmount=sum(pendingInvoices,x=>Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)));
+ const draftInvoices=state.data.invoices.filter(x=>x.status==='borrador').length;
+ const pendingDocs=state.data.documents.filter(x=>['pendiente','revisada'].includes(x.status)).length;
+ const usage=state.data.storageUsage||{},used=Number(usage.total_bytes||0),limit=Number(usage.limit_bytes||500*1024*1024),storagePct=limit?used/limit*100:0;
+ const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=new Date(year,quarter*3,0).toISOString().slice(0,10);
+ const qIncome=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,qFrom,qTo)),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))
+   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,qFrom,qTo)),x=>x.total_amount)
+   +sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,qFrom,qTo)),x=>x.amount);
+ const qExpenseIds=new Set(state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)).map(x=>x.id));
+ const qLines=state.data.expenseLines.filter(x=>qExpenseIds.has(x.expense_id));
+ const qDed=sum(qLines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0));
+ const qNet=Math.max(0,qIncome-qDed),qIrpf=Math.max(0,qNet*Number(state.data.settings?.irpf_prepayment_rate||20)/100);
+ const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
+ const alerts=[];
+ if(missingStores.length)alerts.push({level:'warn',title:'Cierres pendientes hoy',text:missingStores.map(x=>x.name).join(', '),route:'cajas'});
+ if(draftClosings)alerts.push({level:'warn',title:'Cierres en borrador',text:`${draftClosings} pendientes de cerrar`,route:'cajas'});
+ if(mismatches)alerts.push({level:'bad',title:'Descuadres de caja',text:`${mismatches} cierre${mismatches===1?'':'s'} con diferencia`,route:'cajas'});
+ if(pendingExpenses.length)alerts.push({level:'warn',title:'Gastos pendientes de pago',text:`${pendingExpenses.length} · ${money(pendingExpenseAmount)} pendientes`,route:'gastos'});
+ if(pendingInvoices.length)alerts.push({level:'warn',title:'Facturas pendientes de cobro',text:`${pendingInvoices.length} · ${money(pendingInvoiceAmount)} pendientes`,route:'facturacion'});
+ if(draftInvoices)alerts.push({level:'info',title:'Facturas/proformas en borrador',text:`${draftInvoices} por terminar`,route:'facturacion'});
+ if(pendingDocs)alerts.push({level:'info',title:'Documentos por revisar',text:`${pendingDocs} pendientes`,route:'documentos'});
+ if(storagePct>=85)alerts.push({level:storagePct>=95?'bad':'warn',title:'Almacenamiento',text:`${storagePct.toFixed(1).replace('.',',')} % utilizado`,route:'administracion'});
+ const recent=[...state.data.audit].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,7);
+ const storeCards=stores().map(store=>{
+   const close=todays.find(x=>x.store_id===store.id);
+   const storeMonth=monthClosings.filter(x=>x.store_id===store.id);
+   const monthSales=sum(storeMonth,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+   const todaySales=close?Number(close.cash_sales||0)+Number(close.card_sales||0)+Number(close.bizum_sales||0)+Number(close.online_sales||0)+Number(close.other_income||0):0;
+   return `<article class="store-status-card">
+    <div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div>
+    <div class="metric-list" style="margin-top:12px">
+      <div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div>
+      <div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div>
+      <div class="metric-box"><span>Efectivo final</span><b>${close?money(close.actual_cash):'—'}</b></div>
+      <div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div>
     </div>
+    <div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div>
+   </article>`;
+ }).join('');
+ return `<div class="page dashboard-page">
+  <div class="dashboard-hero card card-pad">
+   <div><div class="eyebrow">Resumen operativo · ${fmtDate(today)}</div><h2>Lo importante de hoy</h2><p>Ventas, caja, gastos, cobros, fiscalidad y pendientes en una sola vista.</p></div>
+   <div class="dashboard-hero-actions">${btn('Nuevo cierre','closing-new','primary')}${btn('Registrar gasto','expense-new','secondary')}${btn('Nueva factura','invoice-new','secondary')}${btn('Subir documento','document-new','secondary')}</div>
+  </div>
+  <div class="kpis">
+   ${kpi('Ingresos del mes',money(sales),`${fmtDate(month.from)} → ${fmtDate(month.to)}`)}
+   ${kpi('Gastos contables',money(accountingExpenses),internalExpenses?('+'+money(internalExpenses)+' internos'):'Sin gasto interno')}
+   ${kpi('Resultado real',money(realResult),realResult>=0?'Ingresos − todos los gastos':'Mes en negativo')}
+   ${kpi('Pendiente de cobro',money(pendingInvoiceAmount),`${pendingInvoices.length} factura${pendingInvoices.length===1?'':'s'}`)}
+  </div>
+  <section class="dashboard-store-grid">${storeCards}</section>
+  <div class="dashboard-grid">
+   <section class="card card-pad">
+    <div class="section-head"><div><h2>Pendientes y avisos</h2><p>Solo cosas que requieren atención.</p></div><button class="btn secondary" data-route="informes">Ver informes</button></div>
+    <div class="dashboard-alerts" style="margin-top:12px">${alerts.length?alerts.map(a=>`<button class="dashboard-alert ${a.level}" data-route="${a.route}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span>→</span></button>`).join(''):'<div class="empty compact-empty"><strong>Todo al día</strong><span>No hay avisos operativos pendientes.</span></div>'}</div>
+   </section>
+   <section class="card card-pad">
+    <div class="section-head"><div><h2>Control fiscal · ${quarter}T ${year}</h2><p>Indicador interno del trimestre actual.</p></div><button class="btn secondary" data-route="fiscalidad">Abrir fiscalidad</button></div>
+    <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(qIncome)}</strong></div>
+    <div class="summary-row"><span>Gasto deducible registrado</span><strong>− ${money(qDed)}</strong></div>
+    <div class="summary-row"><span>Base previa estimada</span><strong>${money(qNet)}</strong></div>
+    <div class="summary-row"><span>IRPF ${Number(state.data.settings?.irpf_prepayment_rate||20).toFixed(1).replace('.',',')} % orientativo</span><strong>${money(qIrpf)}</strong></div>
+    <div class="summary-row"><span>Modelo 130 registrado</span><strong>${current130?money(current130.amount):'—'}</strong></div>
+    <div class="note warn" style="margin-top:12px">Indicador de control interno; el cálculo detallado está en Fiscalidad.</div>
    </section>
   </div>
-  <section class="card card-pad"><div class="section-head"><div><h2>Documentos recientes</h2><p>Últimos archivos archivados.</p></div></div>
-   <div style="margin-top:12px">${recent.length?recent.map(d=>`<div class="summary-row"><div><b>${esc(d.original_name||'Documento')}</b><div class="small muted">${esc(d.supplier_or_customer||d.doc_type||'')} · ${fmtDate(d.document_date)}</div></div><div>${stateBadge(d.status)}</div></div>`).join(''):'<div class="empty"><strong>Sin documentos</strong><span>Todavía no has archivado documentos.</span></div>'}</div>
-  </section>
+  <div class="dashboard-grid">
+   <section class="card card-pad">
+    <div class="section-head"><div><h2>Cobros y pagos pendientes</h2><p>Importes todavía abiertos.</p></div></div>
+    <div class="summary-row"><span>Facturas por cobrar</span><strong>${money(pendingInvoiceAmount)}</strong></div>
+    <div class="summary-row"><span>Gastos por pagar</span><strong>${money(pendingExpenseAmount)}</strong></div>
+    <div class="summary-row"><span>Facturas/proformas en borrador</span><strong>${draftInvoices}</strong></div>
+    <div class="summary-row"><span>Documentos por revisar</span><strong>${pendingDocs}</strong></div>
+    <div class="dashboard-links"><button class="btn secondary" data-route="facturacion">Facturación</button><button class="btn secondary" data-route="gastos">Gastos</button><button class="btn secondary" data-route="documentos">Documentos</button></div>
+   </section>
+   <section class="card card-pad">
+    <div class="section-head"><div><h2>Actividad reciente</h2><p>Últimos cambios registrados.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div>
+    <div class="stack" style="margin-top:10px">${recent.length?recent.map(r=>`<div class="summary-row"><div><b>${esc(r.action||'Actividad')}</b><div class="small muted">${esc(r.area||'')} · ${new Date(r.created_at).toLocaleString('es-ES')}</div></div><span class="small muted">${esc(r.user_email||'')}</span></div>`).join(''):'<div class="empty compact-empty"><strong>Sin actividad</strong><span>Todavía no hay movimientos registrados.</span></div>'}</div>
+   </section>
+  </div>
  </div>`;
 }
 
