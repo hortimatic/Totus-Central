@@ -396,7 +396,7 @@ function portalHtml(){
  const invoices=ready?(O.invoices||[]):[],pending=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada').sort((a,b)=>String(a.due_date||a.issue_date||'').localeCompare(String(b.due_date||b.issue_date||'')));
  const docs=ready?(O.documents||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,3):[];
  const fiscal=ready&&typeof window.__opsHomeFiscalSnapshot==='function'?window.__opsHomeFiscalSnapshot():null;
- const storage=ready?Number(O.features?.storageUsage?.total_bytes||0):0,storageLimit=ready?Number(O.settings?.storage_limit_bytes||1073741824):1073741824,lastBackup=ready?(O.features?.backupRows||[])[0]:null;
+ const storage=ready?Number(O.features?.storageUsage?.total_bytes||0):0,storageLimit=ready?Number(O.settings?.storage_limit_bytes||1073741824):1073741824;
  const widget=(icon,title,body,actions='')=>`<article class="home-widget"><div class="home-widget-head"><span class="home-widget-icon" aria-hidden="true">${icon}</span><div class="home-widget-title">${esc(title)}</div></div><div class="home-widget-body">${body}</div>${actions?'<div class="home-widget-actions">'+actions+'</div>':''}</article>`;
  const section=(title,sub,a,b)=>`<section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>${esc(title)}</h2><div class="small">${esc(sub)}</div></div></div><div class="home-zone-grid">${a}${b}</div></section>`;
 
