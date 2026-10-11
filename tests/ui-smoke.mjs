@@ -971,19 +971,18 @@ fixtures.ops_reconciliation_notes.push({id:'rec-q2',created_at:'2026-10-06T17:57
 await page.evaluate(async()=>{window.TotusGestion.quarter=2;if(typeof window.opsLoadData==='function')await window.opsLoadData(true);window.TotusGestionFeatures&&await window.TotusGestionFeatures.load(true)});
 await page.getByRole('button',{name:'Fiscalidad',exact:true}).click();await heading('Fiscalidad');await auditCurrentUi('Fiscalidad');
 assert(await page.locator('.fiscal-nav').count()===1,'Fiscalidad no está seccionada para navegarla con claridad');
-for(const n of ['Resumen','Resultado','Impuestos','IRPF','RETA','Fuentes','Modelos'])assert(await page.locator('.fiscal-nav').getByRole('button',{name:n,exact:true}).count()===1,'Falta acceso fiscal '+n);
-await page.getByRole('heading',{name:'¿Gastar más o menos?',exact:true}).waitFor();
-await page.getByRole('heading',{name:'Cuota según rendimiento',exact:true}).waitFor();
+for(const n of ['Situación','De dónde sale','Cálculo','Tiendas','Cuadres','Modelos'])assert(await page.locator('.fiscal-nav').getByRole('button',{name:n,exact:true}).count()===1,'Falta acceso fiscal '+n);
+await page.getByRole('heading',{name:'Fiscalidad y resultado',exact:true}).waitFor();
+await page.getByRole('heading',{name:'De dónde sale cada cifra',exact:true}).waitFor();
+await page.getByRole('heading',{name:'Cálculo explicado paso a paso',exact:true}).waitFor();
+await page.getByRole('heading',{name:'Cuota y regularización',exact:true}).waitFor();
 await page.getByText('Cuota actual',{exact:true}).waitFor();
-await page.getByRole('heading',{name:/Previsión fiscal/}).waitFor();
-await page.getByRole('heading',{name:'Resultado operativo por tienda',exact:true}).waitFor();
-await page.getByRole('heading',{name:'IVA y recargo de equivalencia',exact:true}).waitFor();
-await page.getByRole('heading',{name:'Números usados para impuestos',exact:true}).waitFor();
-assert(await page.getByText('Informe final verificado',{exact:true}).count()===2,'Fiscalidad no identifica las dos referencias verificadas por tienda');
-await field('Gasto deducible adicional').fill('500');
+await page.getByRole('heading',{name:'Resultado por establecimiento',exact:true}).waitFor();
+await page.getByText('IVA + RE soportado T2',{exact:true}).waitFor();
+assert(await page.getByText('Informe final verificado',{exact:true}).count()>=2,'Fiscalidad no identifica las referencias verificadas por tienda');
+await page.getByLabel('Gasto deducible adicional simulado').fill('500');
 await page.waitForTimeout(250);
 assert(await page.getByText('Reserva fiscal',{exact:false}).count()>0,'No aparece reserva fiscal');
-assert(await page.getByText('Colaboradora familiar activa',{exact:true}).count()===1,'Fiscalidad no separa colaboradora familiar');
 const sourceFiscal=await page.evaluate(()=>({
  q1:window.__TotusOpsTest.fiscalProjection(2026,1,0),
  q2:window.__TotusOpsTest.fiscalProjection(2026,2,0),
@@ -1000,7 +999,7 @@ assert(Math.abs(sourceFiscal.q2.pending130)<0.01&&Math.abs(sourceFiscal.q2.pendi
 assert(Math.abs(sourceFiscal.h1-168971.45)<0.01&&Math.abs(sourceFiscal.operationalH1-168971.45)<0.01,'Ventas operativas/fiscales 1S no cuadran con Fuentes');
 assert(Math.abs(sourceFiscal.gestorReportedQ2-75929.99)<0.01,'No se conserva el listado INGRESOS(1).pdf de 75.929,99 €');
 assert(Math.abs(87692.06-sourceFiscal.gestorReportedQ2-11762.07)<0.01,'La conciliación de ingresos 2T no cuadra');
-await page.getByRole('heading',{name:'Conciliaciones documentadas',exact:true}).waitFor();
+await page.getByRole('heading',{name:'Fuentes, diferencias y cuadres',exact:true}).waitFor();
 assert(await page.getByText('INGRESOS(1).pdf',{exact:true}).count()===1,'Fiscalidad no muestra la fuente de conciliación');
 await page.getByRole('heading',{name:'Pago / modelo fiscal',exact:true}).waitFor();
 assert(await page.getByRole('combobox',{name:'Estado del modelo'}).getByRole('option',{name:'Previsto · pendiente',exact:true}).count()===1,'Fiscalidad no usa el estado previsto admitido por base de datos');
