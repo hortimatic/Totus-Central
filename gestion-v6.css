@@ -248,6 +248,50 @@
 
 
 
+
+/* Facturación · flujo documental */
+.invoice-editor{padding:0;overflow:hidden}
+.invoice-editor>.section-head{padding:16px 18px;margin:0;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.024),rgba(255,255,255,0))}
+.invoice-editor-head{align-items:flex-start}
+.invoice-editor-state{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.invoice-editor>.invoice-section-title{margin:0;padding:15px 18px 8px;border-top:1px solid rgba(255,255,255,.055);font-size:11px;text-transform:uppercase;letter-spacing:.055em;color:#9eabb8}
+.invoice-editor>.invoice-section-title:first-of-type{border-top:0;padding-top:16px}
+.invoice-editor>.ops-form,.invoice-editor>.ops-lines,.invoice-editor>.ops-note,.invoice-editor>.ops-actions,.invoice-editor>.ops-invoice-total{margin-left:18px;margin-right:18px}
+.invoice-editor>.ops-form{margin-bottom:16px}
+.invoice-editor>.ops-lines{margin-bottom:8px}
+.invoice-editor>.ops-note{margin-bottom:12px}
+.invoice-editor>.ops-invoice-total{margin-top:12px;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(105,230,177,.16);border-radius:12px;background:rgba(105,230,177,.04)}
+.invoice-editor>.ops-invoice-total span{color:#9eabb8}
+.invoice-editor>.ops-invoice-total span:last-child b{color:#8ef0c0}
+.invoice-design-panel{border-color:rgba(75,217,255,.12)}
+.invoice-design-panel>.ops-title-line{margin-bottom:10px}
+.invoice-toolbar{box-shadow:0 10px 28px rgba(0,0,0,.14)}
+.invoice-work-actions .primary{min-width:118px}
+.invoice-lines .ops-line{background:rgba(255,255,255,.022);border-color:rgba(255,255,255,.07)}
+.invoice-lines .ops-line:focus-within{border-color:rgba(75,217,255,.22);background:rgba(75,217,255,.025)}
+.invoice-line-actions button{height:36px;min-height:36px}
+.invoice-editor textarea{min-height:82px;resize:vertical}
+.invoice-workspace>.ops-card:last-child .section-head{align-items:flex-end}
+.invoice-row-actions .ops-pill{align-self:center}
+
+@media(max-width:1050px){
+ .invoice-editor-state{justify-content:flex-start}
+ .invoice-design-panel{order:2}
+}
+@media(max-width:720px){
+ .invoice-editor>.section-head{padding:14px}
+ .invoice-editor>.invoice-section-title{padding-left:14px;padding-right:14px}
+ .invoice-editor>.ops-form,.invoice-editor>.ops-lines,.invoice-editor>.ops-note,.invoice-editor>.ops-actions,.invoice-editor>.ops-invoice-total{margin-left:14px;margin-right:14px}
+ .invoice-editor-state{width:100%;justify-content:flex-start}
+ .invoice-work-actions{grid-template-columns:1fr 1fr}
+ .invoice-work-actions .primary{min-width:0}
+ .invoice-lines .ops-line{padding:10px}
+}
+@media(max-width:440px){
+ .invoice-work-actions{grid-template-columns:1fr}
+ .invoice-type-switch{display:grid;grid-template-columns:1fr}
+}
+
 /* Gastos · registro y revisión */
 .ops-expense-editor{padding:0;overflow:hidden}
 .ops-expense-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0))}
