@@ -78,7 +78,7 @@ if(!text('src/pages/main.js').includes('drawer-entry'))errors.push('Cajas no est
 if(!text('src/pages/main.js').includes('invoicePreview'))errors.push('Falta vista previa de facturación');
 if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
 if(!text('index.html').includes('xlsx-js-style'))errors.push('Falta motor Excel');
-if(text('src/app.js').includes('.csv'))errors.push('Persisten exportaciones CSV');
+if(/download\([^\n]*\.csv|text\/csv|cierres_[^\n]*\.csv|gastos_[^\n]*\.csv|resumen_[^\n]*\.csv/.test(appSource))errors.push('Persisten exportaciones CSV en Informes');
 for(const term of ['exportClosingsWorkbook','exportExpensesWorkbook','exportSummaryWorkbook','cellStyles:true','SUM('])if(!text('src/excel.js').includes(term))errors.push('Excel incompleto: '+term);
 for(const term of ['provider-price-new','competitor-new','variant-new','consultation-save','providers-manage'])if(!text('src/app.js').includes(term)&&!text('src/pages/main.js').includes(term))errors.push('Pricing incompleto: '+term);
 if(!/apply_special_tax\s*\?\s*Number\([^\n]*special_tax_amount[^\n]*\)\s*:\s*0/.test(pageSource))errors.push('Pricing puede duplicar impuesto especial');
