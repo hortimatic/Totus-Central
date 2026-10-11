@@ -118,9 +118,15 @@ function retainedModel(model,from,to){
    const legacyTo=to<'2026-07-01'?to:'2026-06-30';
    if(legacyTo>=from){
     const rows=E.gestorRows.filter(x=>x.fiscal_year===2026&&inRange(x.expense_date,from,legacyTo));
-    const legacy=model==='115'
-      ?sum(rows.filter(x=>x.concept_code==='621'),x=>N(x.withholding_amount))
-      :Math.max(0,sum(rows,x=>N(x.withholding_amount))-sum(rows.filter(x=>x.concept_code==='621'),x=>N(x.withholding_amount)));
+    const rentRows=rows.filter(x=>x.concept_code==='621'),hasBreakdown=rows.some(x=>String(x.concept_code||'').trim());
+    let legacy=model==='115'
+      ?sum(rentRows,x=>N(x.withholding_amount))
+      :Math.max(0,sum(rows,x=>N(x.withholding_amount))-sum(rentRows,x=>N(x.withholding_amount)));
+    if(!hasBreakdown){
+      const q=Math.ceil((new Date(legacyTo+'T00:00:00').getMonth()+1)/3);
+      const paidFallback=taxPaymentTotal(model,y,q);
+      if(paidFallback)legacy=paidFallback;
+    }
     if(to<='2026-06-30')return legacy;
     const modernFrom='2026-07-01';
     const ids=new Set(O.expenses.filter(e=>!e.management_only&&inRange(e.expense_date,modernFrom,to)).map(e=>e.id));
