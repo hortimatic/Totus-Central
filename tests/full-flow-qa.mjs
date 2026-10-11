@@ -128,7 +128,9 @@ await check('Roles: gerente y encargado con permisos de navegación',async()=>{
  for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
   const rolePage=await browser.newPage({viewport:{width:390,height:844}});
   await rolePage.goto(base+'?role='+role,{waitUntil:'networkidle'});
-  await rolePage.locator('#userCard').waitFor({state:'visible'});
+  try{await rolePage.locator('#userCard').waitFor({state:'visible',timeout:3000})}
+  catch(e){throw new Error(role+': acceso fallido. Mensaje='+await rolePage.locator('#loginMessage').innerText()+'; APP='+await rolePage.locator('#app').getAttribute('class')+'; contenido='+String(await rolePage.locator('#content').innerText()).slice(0,140))}
+
   const canSee=await rolePage.locator('#nav [data-route="administracion"]').count()>0;
   assert(canSee===adminVisible,'Permisos de navegación incorrectos: '+role);
   if(role==='gerente'){
