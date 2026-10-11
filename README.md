@@ -1,50 +1,31 @@
 # Totus Central
 
-Aplicación interna para Hortimatic y NewOldSmok.
+Aplicación interna de Hortimatic / NewOldSmok.
 
-## Ramas
-- Principal: `main`.
-- Desarrollo activo: `desarrollo-v6`.
-- Ambas ramas están sincronizadas con la misma base limpia.
+## Rama de trabajo
+- Producción: `main`
+- Desarrollo actual: `desarrollo-v6`
+- No fusionar en `main` hasta cerrar QA funcional y validación del usuario.
 
-## Estado limpio actual
-La rama de desarrollo trabaja únicamente con la arquitectura vigente. Se han retirado importaciones históricas, conciliaciones heredadas, restauradores de backup, datos de prueba operativos y migraciones-parche antiguas.
+## Estructura activa
+- `index.html` · aplicación y módulo Pricing existente
+- `app-shell-v6.css` · navegación y marco general
+- `gestion-v6.css` · estilos únicos de Gestión y Facturación
+- `gestion-v6.js` · núcleo de Gestión, Cajas, Gastos y servicios compartidos
+- `gestion-v6-features.js` · Resumen, Facturación, Documentos, Fiscalidad, Informes y Configuración
+- `migrations/2026-10-06_invoice_proforma_templates_v7.sql` · base documental/facturación
+- `migrations/2026-10-06_totus_central_management_hardening_v6.sql` · estado canónico de seguridad, permisos y guardados atómicos
+- `tests/ui-smoke.mjs` · recorrido automatizado
+- `QA_FINAL_V6.md` · estado de pruebas
 
-Usuarios activos previstos:
-- Diego Sequera · admin
-- Davinia Hidalgo · gerente
-
-## Archivos activos
-- `index.html` · acceso general, Inicio y Pricing.
-- `app-shell-v6.css` · navegación y estructura general.
-- `gestion-v6.css` · estilos operativos.
-- `gestion-v6.js` · núcleo de Cajas, Gastos y servicios compartidos.
-- `gestion-v6-features.js` · módulos operativos actuales: resumen, facturación, documentos, fiscalidad, informes, configuración y log.
-- `tests/ui-smoke.mjs` · comprobación de arquitectura limpia.
-- `.github/workflows/totus-central-qa.yml` · QA de la rama de desarrollo.
-
-## Base de datos
-Se conservan únicamente las tablas estructurales y funcionales necesarias para:
-- Pricing.
-- usuarios y perfiles.
-- establecimientos y cajas.
-- gastos.
-- cierres.
-- facturación.
-- documentos.
-- fiscalidad.
-- configuración y trazabilidad.
-
-Los datos operativos se encuentran vacíos para reconstruir y probar cada módulo desde una base limpia.
-
-## Reglas de trabajo
-- Pricing se conserva.
-- No se conectan Prestashop ni TPV.
-- No se reintroducen importaciones históricas sin una petición expresa.
-- No se añaden capas de compatibilidad con arquitecturas retiradas.
-- Cada módulo debe trabajar con una única fuente de datos actual.
-- Los listados que dependen de fechas deben disponer de un rango real Desde/Hasta.
-- `main` y `desarrollo-v6` deben mantenerse alineadas mientras dure esta fase de reconstrucción limpia.
+## Principios
+- Pricing no se modifica salvo petición expresa.
+- Cierres, gastos y documentos de venta se guardan de forma atómica.
+- Encargado: operativa diaria de cajas/gastos y consulta de facturación.
+- Admin/Gerente: facturación y administración.
+- Gastos internos (por ejemplo horas extra o almacén interno) no se exportan a gestoría.
+- Los informes de gestoría reproducen la estructura de los documentos de referencia facilitados.
+- Las pruebas de base usan transacciones con `ROLLBACK` cuando generan datos temporales.
 
 ## QA
-La QA comprueba sintaxis, navegación principal, ausencia de dependencias legacy y presencia de filtros de fecha reales. Se ejecuta en `desarrollo-v6`.
+GitHub Actions no se ejecuta en cada commit. Se lanza manualmente cuando existe un bloque listo para validar.
