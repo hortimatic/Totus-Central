@@ -127,7 +127,7 @@ export function facturacion(){
  ];
  return `<div class="page">
   ${tabs}
-  <div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Facturado',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'),x=>x.total_amount)))}${kpi('Pendiente de cobro',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagado'),x=>x.total_amount-Number(x.amount_paid||0))))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
+  <div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Facturado',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'),x=>x.total_amount)))}${kpi('Pendiente de cobro',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagado'),x=>x.total_amount)))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas, rectificativas, externas y proformas.</p></div><div class="inline-actions">${btn('Factura externa','external-invoice-new','secondary')}${btn('Rectificativa','rectifying-new','secondary')}${btn('Proforma','proforma-new','secondary')}${btn('+ Nueva factura','invoice-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'facturas')}
@@ -386,7 +386,8 @@ function drawerEditor(drawer,row){
 
 export function closingRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
- const sid=row?.store_id||storeOptions[0]?.value||'';
+ const view=getView('cajas');
+ const sid=row?.store_id||view.storeId||storeOptions[0]?.value||'';
  const drawers=state.data.drawers.filter(x=>x.store_id===sid&&x.active!==false);
  const calculated=Number(row?.cash_sales||0)+Number(row?.card_sales||0)+Number(row?.bizum_sales||0)+Number(row?.online_sales||0)+Number(row?.other_income||0);
  const locked=row?.status==='cerrado';
@@ -514,7 +515,9 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const isRect=invoiceKind==='rectifying';
  const isExternal=origin==='externa';
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
- const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===(row?.store_id||storeOptions[0]?.value))&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
+ const view=getView('facturacion');
+ const selectedStore=row?.store_id||view.storeId||storeOptions[0]?.value||'';
+ const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===selectedStore)&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
  const activeTemplates=state.data.templates.filter(x=>x.active!==false);
  const defaultTemplate=activeTemplates.find(x=>isProforma?x.default_proforma:x.default_invoice);
  const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name}))];
@@ -528,7 +531,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento</h3><p>Serie, fechas y referencia.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${selectField('Tienda','ivStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
+      ${selectField('Tienda','ivStore',storeOptions,selectedStore)}
       ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'')}
       ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date')}
       ${formField('Fecha operación','ivOperation',row?.operation_date||'','date')}
