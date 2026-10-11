@@ -332,9 +332,11 @@ export function fiscalidad(){
 
 export function informes(){
  const f=getFilters('informes'),year=Number(f.year||state.data.settings?.current_year||new Date().getFullYear());
- const c=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
+ const c=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&x.include_in_income!==false);
  const g=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const extraInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
+ const incomeAdj=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&(f.store==='all'||!x.store_id||x.store_id===f.store));
+ const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount);
  const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
  return `<div class="page">
  <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label>Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
@@ -374,7 +376,7 @@ function adminBusinessHtml(){
 function adminFiscalHtml(){
  const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
  return `<section class="card card-pad"><div class="section-head"><div><h2>Configuración fiscal</h2><p>Parámetros de previsión. No sustituye a la gestoría.</p></div></div><div class="form-grid" style="margin-top:14px">
- ${formField('IVA venta (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}${formField('Difícil justificación (%)','cfgDifficultPct',s.difficult_expense_pct??5,'number',locked+' step="0.1"')}${formField('Tope anual difícil justificación','cfgDifficultCap',s.difficult_expense_annual_cap??2000,'number',locked+' step="0.01"')}${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number',locked+' step="0.01"')}${formField('Tipo RETA referencia (%)','cfgRetaRate',s.reta_total_rate??31.5,'number',locked+' step="0.1"')}${formField('Deducción RETA genérica (%)','cfgRetaDeduction',s.reta_generic_deduction_pct??7,'number',locked+' step="0.1"')}${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number',locked+' step="0.1"')}
+ ${formField('IVA venta (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}${formField('Recargo equivalencia compra (%)','cfgPurchaseRe',s.purchase_re_rate??5.2,'number',locked+' step="0.1"')}${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}${formField('Difícil justificación (%)','cfgDifficultPct',s.difficult_expense_pct??5,'number',locked+' step="0.1"')}${formField('Tope anual difícil justificación','cfgDifficultCap',s.difficult_expense_annual_cap??2000,'number',locked+' step="0.01"')}${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number',locked+' step="0.01"')}${formField('Tipo RETA referencia (%)','cfgRetaRate',s.reta_total_rate??31.5,'number',locked+' step="0.1"')}${formField('Deducción RETA genérica (%)','cfgRetaDeduction',s.reta_generic_deduction_pct??7,'number',locked+' step="0.1"')}${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number',locked+' step="0.1"')}
  <label class="check-field wide"><input id="cfgDifficultEnabled" type="checkbox" ${s.difficult_expense_enabled===false?'':'checked'} ${locked}> Aplicar difícil justificación en previsión</label>
  <label class="wide">Notas fiscales<textarea id="cfgFiscalNotes" rows="4" ${locked}>${esc(s.fiscal_notes||'')}</textarea></label>
  </div>${isAdmin()?`<div class="form-actions">${btn('Guardar configuración fiscal','config-save','primary')}</div>`:''}</section>`;
@@ -412,7 +414,7 @@ export function pricing(){
   {label:'Familia',html:r=>esc(familyName(r.family_id))},
   {label:'Coste',num:true,html:r=>moneyCell(costOf(r))},
   {label:'PVP',num:true,html:r=>moneyCell(r.current_pvp||r.proposed_pvp)},
-  {label:'Margen',num:true,html:r=>{const price=Number(r.current_pvp||r.proposed_pvp||0),cost=costOf(r),net=price/1.21;return net>0?((net-cost)/net*100).toFixed(1).replace('.',',')+' %':'—'}},
+  {label:'Margen',num:true,html:r=>{const price=Number(r.current_pvp||r.proposed_pvp||0),cost=costOf(r),vat=Number(state.data.settings?.default_sales_vat_rate||21),net=price/(1+vat/100);return net>0?((net-cost)/net*100).toFixed(1).replace('.',',')+' %':'—'}},
   {label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>btn('Abrir','product-edit','secondary',`data-id="${r.id}"`)}
  ];
  const consultations=state.data.consultations.slice(0,20);
@@ -637,7 +639,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
       ${!isProforma?selectField('Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
       ${!isProforma?formField('Fecha de cobro','ivPaidDate',row?.paid_date||'','date'):''}
       ${!isProforma?formField('Importe cobrado','ivPaidAmount',row?.paid_amount??0,'number','step="0.01" min="0"'):''}
-      ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${row?.include_in_income?'checked':''}> Ingreso adicional NO incluido en los cierres diarios</label>`:''}
+      ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${row?.include_in_income?'checked':''}> Incluir esta factura como ingreso adicional fuera de los cierres diarios</label>`:''}
       <label class="wide">Notas internas<textarea id="ivNotes" rows="3" ${issued?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div></section>
     <details class="card card-pad design-details"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2">${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label></div></details>
@@ -682,7 +684,8 @@ export function productRecordHtml(row=null){
  const comps=row?state.data.competitors.filter(x=>x.product_id===row.id&&!x.variant_id):[];
  const variants=row?state.data.variants.filter(x=>x.product_id===row.id&&x.active!==false):[];
  const chosen=prices.find(x=>x.selected)||(prices.length?[...prices].sort((a,b)=>providerCost(a)-providerCost(b))[0]:null);
- const cost=providerCost(chosen),pvp=Number(row?.current_pvp||row?.proposed_pvp||0),net=pvp/1.21,margin=net-cost,marginPct=net>0?margin/net*100:0;
+ const vat=Number(state.data.settings?.default_sales_vat_rate||21),re=Number(state.data.settings?.purchase_re_rate||5.2);
+ const cost=providerCost(chosen),pvp=Number(row?.current_pvp||row?.proposed_pvp||0),net=pvp/(1+vat/100),fiscalCost=cost*(1+vat/100+re/100),grossMargin=pvp-fiscalCost,margin=net-cost,marginPct=net>0?margin/net*100:0;
  const providerName=id=>state.data.providers.find(x=>x.id===id)?.name||'Proveedor';
  const providerRows=prices.map(x=>`<div class="summary-row"><div><b>${esc(providerName(x.provider_id))}</b><div class="small muted">Coste final ${money(providerCost(x))} · base ${money(x.net_cost)} · dto ${Number(x.provider_discount||0).toFixed(1).replace('.',',')} %${x.apply_special_tax?' · + impuesto especial':''}</div></div><div class="inline-actions">${x.selected?'<span class="badge ok">Seleccionado</span>':''}${btn('Editar','provider-price-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','provider-price-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin proveedores</strong><span>Añade al menos un coste de compra.</span></div>';
  const compRows=comps.map(x=>`<div class="summary-row"><div><b>${esc(x.competitor_name)}</b><div class="small muted">${money(x.price)} · dto ${Number(x.discount||0).toFixed(1).replace('.',',')} % · envío ${money(x.shipping)}</div></div><div class="inline-actions">${btn('Editar','competitor-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','competitor-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin competencia</strong><span>Añade precios comparables si los necesitas.</span></div>';
@@ -706,7 +709,7 @@ export function productRecordHtml(row=null){
     <section class="card card-pad"><div class="section-head"><div><h3>Variantes</h3><p>Nicotina, formatos, colores u otros atributos.</p></div>${btn('+ Añadir variante','variant-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${variantRows}</div></section>`:''}
    </div>
    <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3>
-    <div class="summary-row"><span>Coste seleccionado</span><strong>${money(cost)}</strong></div><div class="summary-row"><span>PVP</span><strong>${money(pvp)}</strong></div><div class="summary-row"><span>Margen</span><strong>${money(margin)}</strong></div><div class="summary-row"><span>Margen %</span><strong>${marginPct.toFixed(1).replace('.',',')} %</strong></div>
+    <div class="summary-row"><span>Coste neto</span><strong>${money(cost)}</strong></div><div class="summary-row"><span>Coste con IVA + RE</span><strong>${money(fiscalCost)}</strong></div><div class="summary-row"><span>PVP final</span><strong>${money(pvp)}</strong></div><div class="summary-row"><span>Margen neto</span><strong>${money(margin)}</strong></div><div class="summary-row"><span>Margen neto %</span><strong>${marginPct.toFixed(1).replace('.',',')} %</strong></div><div class="summary-row"><span>Margen caja tras IVA + RE</span><strong>${money(grossMargin)}</strong></div>
     <div class="stack" style="margin-top:14px">${row?btn('Eliminar producto','product-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','product-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','product-back','secondary')}</div>
    </section></aside>
   </div>
