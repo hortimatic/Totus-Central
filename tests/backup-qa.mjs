@@ -14,6 +14,13 @@ try{
  await page.locator('[data-action="document-save"]').click();
  await page.waitForTimeout(90);
  if((await page.evaluate(()=>window.__mockDb.ops_documents.length))!==1)throw Error('Documento de prueba no creado');
+ await page.evaluate(()=>{
+  // Revertir el orden de inserción para detectar páginas no deterministas.
+  for(let i=1204;i>=0;i--)window.__mockDb.ops_expenses.push({
+   id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0'),
+   expense_date:'2026-10-11',supplier_name:'Prueba paginación',gross_expense:1
+  });
+ });
  await page.locator('#nav [data-route="administracion"]').click();
  const tab=page.locator('[data-action="admin-section"][data-section="backups"]');
  if(await tab.count())await tab.first().click();
@@ -27,6 +34,8 @@ try{
  const database=JSON.parse(await zip.file('database.json').async('string'));
  if(manifest.version!==2||!manifest.integrity?.database)throw Error('Falta control de integridad v2');
  if(!Array.isArray(database.ops_income_adjustments))throw Error('Falta tabla de ajustes manuales');
+ if(database.ops_expenses.length!==1205)throw Error('Paginación del backup pierde gastos');
+ if(database.ops_expenses[0].id!=='00000000-0000-4000-8000-000000000000'||database.ops_expenses.at(-1).id!=='00000000-0000-4000-8000-000000001204')throw Error('Paginación sin orden estable');
  if(!manifest.storage['business-documents'].length)throw Error('Faltan archivos almacenados');
  for(const bucket of ['business-documents','business-assets'])for(const path of manifest.storage[bucket])if(!zip.file('storage/'+bucket+'/'+path))throw Error('Archivo ausente '+path);
  const result=await page.evaluate(async arr=>{
