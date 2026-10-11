@@ -25,7 +25,7 @@ function sanitize(table,rows){
  const actorCols={
   products:['created_by'],consultations:['created_by'],consultation_history:['user_id'],price_history:['user_id'],
   ops_documents:['uploaded_by'],ops_daily_closings:['created_by','closed_by'],ops_expenses:['created_by'],
-  ops_sales_invoices:['created_by'],ops_tax_payments:['created_by'],ops_fiscal_adjustments:['created_by'],ops_audit_log:['user_id']
+  ops_sales_invoices:['created_by'],ops_tax_payments:['created_by'],ops_fiscal_adjustments:['created_by'],ops_income_adjustments:['created_by'],ops_audit_log:['user_id']
  };
  const cols=actorCols[table]||[];
  return rows.map(row=>{const x={...row};for(const c of cols)x[c]=null;return x});
