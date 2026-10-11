@@ -64,11 +64,11 @@ export function exportExpensesWorkbook({expenses,stores,from,to}){
  write(wb,`gastos_${from}_${to}.xlsx`);
 }
 
-export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],incomeAdjustments=[],from,to}){
+export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fiscalAdjustments=[],from,to}){
  const wb=book();
  const closeSales=closings.filter(x=>x.include_in_income!==false).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
- const adjustmentSales=incomeAdjustments.reduce((a,x)=>a+n(x.amount),0);
+ const adjustmentSales=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').reduce((a,x)=>a+n(x.amount),0);
  const sales=closeSales+extraInvoiceSales+adjustmentSales;
  const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
  const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
@@ -81,7 +81,7 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],inco
  ws['A9'].s=totalStyle;ws['B9'].s={...totalStyle};ws['B9'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
 
  const perStore=stores.map(s=>{
-  const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id),is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true),as=incomeAdjustments.filter(x=>!x.store_id||x.store_id===s.id);
+  const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id),is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true),as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
   const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0);
   const ex=es.reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
   const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
@@ -179,7 +179,7 @@ function categoryConcept(categories,id){const c=categories.find(x=>x.id===id);re
 function fiscalIncomeForPeriod({from,to,closings,invoices=[],incomeAdjustments=[]}){
  const close=closings.filter(x=>x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
  const inv=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
- const adj=incomeAdjustments.filter(x=>inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
+ const adj=(arguments[0].fiscalAdjustments||[]).filter(x=>x.kind==='ingreso_extra'&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
  return close+inv+adj;
 }
 function expenseLineRows({from,to,expenses,expenseLines,categories}){
@@ -202,11 +202,11 @@ function appendGestorBookSheet(wb,q,args){
  return rows;
 }
 function monthTotals(args,month){
- const {year,stores,closings,expenses,invoices=[],incomeAdjustments=[]}=args,from=excelDateKey(year,month,1),to=new Date(year,month+1,0).toISOString().slice(0,10);
+ const {year,stores,closings,expenses,invoices=[],fiscalAdjustments=[]}=args,from=excelDateKey(year,month,1),to=new Date(year,month+1,0).toISOString().slice(0,10);
  const sales=stores.map(s=>{
    const close=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
    const inv=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
-   const adj=incomeAdjustments.filter(x=>x.store_id===s.id&&inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
+   const adj=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
    return close+inv+adj;
  });
  const direct=stores.map(s=>expenses.filter(x=>x.store_id===s.id&&!x.management_only&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0));
