@@ -1398,5 +1398,5 @@ function bodyForTab(tab){
 }
 window.TotusGestionFeatures={load:featureLoad,body:bodyForTab};
 // Expose selected helpers for automated tests without changing production behaviour.
-window.__TotusOpsTest={incomeTotal,operationalIncomeTotal,deductibleExpenseTotal,fiscalProjection,managerExpenseRows,managerExpenseSummaryRows,managerIncomeRows,dailyWorkbook,makePdf,lineCalc,draftTotals};
+window.__TotusOpsTest={incomeTotal,operationalIncomeTotal,deductibleExpenseTotal,fiscalProjection,managerExpenseRows,managerExpenseSummaryRows,managerIncomeRows,dailyWorkbook,makePdf,lineCalc,draftTotals,expenseDraftSupplierId:()=>O.expenseDraft?.supplierId||''};
 })();
