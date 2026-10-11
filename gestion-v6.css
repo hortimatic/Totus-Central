@@ -740,3 +740,39 @@
  .expense-summary-card{padding:0}
 }
 
+
+
+/* Facturación · documento y resumen operativo */
+.invoice-documents-shell{display:flex;flex-direction:column;gap:14px}
+.invoice-command{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(7,17,25,.78)}
+.invoice-document-workspace{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.55fr);gap:14px;align-items:start}
+.invoice-review-panel{position:sticky;top:86px;display:flex;flex-direction:column;gap:12px}
+.invoice-summary-card,.invoice-review-panel .invoice-design-panel{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018)}
+.invoice-summary-card{overflow:hidden}
+.invoice-summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.055)}
+.invoice-summary-head span{display:block;color:#9eabb8;font-size:10px;text-transform:uppercase;font-weight:900}
+.invoice-summary-head strong{display:block;margin-top:3px;font-size:30px;letter-spacing:-.04em;color:#aeefff}
+.invoice-summary-grid{display:grid;grid-template-columns:1fr 1fr;padding:0 14px}
+.invoice-summary-grid>div{padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
+.invoice-summary-grid>div:nth-child(odd){padding-right:8px}
+.invoice-summary-grid>div:nth-child(even){padding-left:8px;border-left:1px solid rgba(255,255,255,.04)}
+.invoice-summary-grid>div:nth-last-child(-n+2){border-bottom:0}
+.invoice-summary-grid span{display:block;color:#9eabb8;font-size:10px}
+.invoice-summary-grid b{display:block;margin-top:2px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.invoice-review-panel .invoice-design-panel{padding:15px}
+.invoice-freeze-note{margin-top:10px;line-height:1.45}
+.invoice-documents-shell>.ops-card:last-child{border-radius:16px;overflow:hidden}
+.invoice-documents-shell>.ops-card:last-child>.section-head{padding:15px 16px;margin:0;border-bottom:1px solid rgba(255,255,255,.055)}
+@media(max-width:1120px){
+ .invoice-document-workspace{grid-template-columns:1fr}
+ .invoice-review-panel{position:static;display:grid;grid-template-columns:minmax(280px,.55fr) minmax(0,1.45fr)}
+}
+@media(max-width:760px){
+ .invoice-command{align-items:stretch;flex-direction:column}
+ .invoice-review-panel{grid-template-columns:1fr}
+ .invoice-summary-grid{grid-template-columns:1fr}
+ .invoice-summary-grid>div:nth-child(even){padding-left:2px;border-left:0}
+ .invoice-summary-grid>div:nth-last-child(-n+2){border-bottom:1px solid rgba(255,255,255,.05)}
+ .invoice-summary-grid>div:last-child{border-bottom:0}
+}
+
