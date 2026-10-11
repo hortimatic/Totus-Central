@@ -23,6 +23,7 @@ jobs:
       - run: node tests/browser-qa.mjs
       - run: node tests/layout-audit.mjs
       - run: node tests/full-flow-qa.mjs
+      - run: node tests/backup-qa.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: totus-excel-qa
