@@ -170,11 +170,34 @@ export function pricing(){
  const q=getFilters('pricing').query.toLowerCase();
  const rows=state.data.products.filter(x=>!q||[x.name,x.sku,x.status].join(' ').toLowerCase().includes(q));
  const familyName=id=>state.data.families.find(x=>x.id===id)?.name||'—';
- const costOf=p=>{const list=state.data.providerPrices.filter(x=>x.product_id===p.id);return list.length?Math.min(...list.map(x=>Number(x.net_cost||0)+Number(x.shipping_unit||0)+Number(x.special_tax_amount||0))):0};
- const headers=[{label:'Producto',html:r=>`<b>${esc(r.name)}</b><div class="small muted">${esc(r.sku)}</div>`},{label:'Familia',html:r=>esc(familyName(r.family_id))},{label:'Coste',num:true,html:r=>moneyCell(costOf(r))},{label:'PVP',num:true,html:r=>moneyCell(r.current_pvp||r.proposed_pvp)},{label:'Margen',num:true,html:r=>{const p=Number(r.current_pvp||r.proposed_pvp||0),c=costOf(r);return p?((p/1.21-c)/(p/1.21)*100).toFixed(1).replace('.',',')+' %':'—'}},{label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>btn('Editar','product-edit','secondary',`data-id="${r.id}"`)}];
- return `<div class="page"><div class="kpis">${kpi('Productos',String(rows.length))}${kpi('Familias',String(state.data.families.length))}${kpi('Proveedores',String(state.data.providers.length))}${kpi('Consultas',String(state.data.consultations.length))}</div>
- <section class="card table-card"><div class="section-head card-pad"><div><h2>Pricing</h2><p>Costes, PVP, margen, proveedores y competencia.</p></div>${btn('Nuevo producto','product-new','primary')}</div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section></div>`;
+ const costOf=prod=>{
+   const list=state.data.providerPrices.filter(x=>x.product_id===prod.id&&!x.variant_id);
+   if(!list.length)return 0;
+   const chosen=list.find(x=>x.selected)||list.sort((a,b)=>providerCost(a)-providerCost(b))[0];
+   return providerCost(chosen);
+ };
+ const headers=[{label:'Producto',html:r=>`<b>${esc(r.name)}</b><div class="small muted">${esc(r.sku)}</div>`},{label:'Familia',html:r=>esc(familyName(r.family_id))},{label:'Coste',num:true,html:r=>moneyCell(costOf(r))},{label:'PVP',num:true,html:r=>moneyCell(r.current_pvp||r.proposed_pvp)},{label:'Margen',num:true,html:r=>{const price=Number(r.current_pvp||r.proposed_pvp||0),cost=costOf(r),net=price/1.21;return net>0?((net-cost)/net*100).toFixed(1).replace('.',',')+' %':'—'}},{label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>btn('Abrir','product-edit','secondary',`data-id="${r.id}"`)}];
+ const consultations=state.data.consultations.slice(0,20);
+ return `<div class="page">
+ <div class="kpis">${kpi('Productos',String(rows.length))}${kpi('Familias',String(state.data.families.length))}${kpi('Proveedores',String(state.data.providers.length))}${kpi('Consultas',String(state.data.consultations.length))}</div>
+ <section class="card table-card"><div class="section-head card-pad"><div><h2>Pricing</h2><p>Costes, PVP, margen, proveedores, variantes y competencia.</p></div><div class="inline-actions">${btn('Nuevo producto','product-new','primary')}${btn('Proveedores','providers-manage','secondary')}</div></div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section>
+ <section class="card card-pad"><div class="section-head"><div><h2>Consulta rápida</h2><p>Calcula y guarda consultas reutilizables.</p></div></div><div class="form-grid" style="margin-top:14px">
+  ${formField('Consulta / producto','pqQuery','')}
+  ${formField('Coste neto','pqCost','','number','step="0.01"')}
+  ${formField('PVP','pqPvp','','number','step="0.01"')}
+  ${formField('Competencia','pqCompetitor','','number','step="0.01"')}
+  ${formField('Descuento (%)','pqDiscount',0,'number','step="0.1" min="0" max="100"')}
+ </div><div class="form-actions">${btn('Calcular y guardar','consultation-save','primary')}</div>
+ <div class="stack" style="margin-top:14px">${consultations.length?consultations.map(c=>`<div class="summary-row"><div><b>${esc(c.query)}</b><div class="small muted">PVP ${money(c.pvp)} · Margen ${Number(c.margin_pct||0).toFixed(1).replace('.',',')} %</div></div><div class="inline-actions">${btn('Reutilizar','consultation-reuse','secondary',`data-id="${c.id}"`)}${btn('Eliminar','consultation-delete','danger',`data-id="${c.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin consultas</strong><span>Las consultas guardadas aparecerán aquí.</span></div>'}</div>
+ </section>
+ </div>`;
 }
+
+export function providerCost(row){
+ const base=Number(row?.net_cost||0)*(1-Number(row?.provider_discount||0)/100);
+ return base+Number(row?.shipping_unit||0)+(row?.apply_special_tax?Number(row?.special_tax_amount||0):0);
+}
+
 
 export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,usuarios,configuracion,log};
 
@@ -299,14 +322,36 @@ export function invoicePreview(row){
 
 export function productModal(row=null){
  const families=state.data.families.map(x=>({value:x.id,label:x.name}));
- const body=`<div class="form-grid">
+ const baseForm=`<div class="form-grid">
  ${formField('Nombre','prName',row?.name||'')}
  ${formField('Referencia / SKU','prSku',row?.sku||'')}
  ${selectField('Familia','prFamily',[{value:'',label:'Sin familia'},...families],row?.family_id||'')}
  ${selectField('Tipo','prType',[{value:'simple',label:'Simple'},{value:'variants',label:'Con variantes'}],row?.product_type||'simple')}
  ${formField('PVP actual','prPvp',row?.current_pvp??'','number','step="0.01"')}
  ${formField('PVP propuesto','prProposed',row?.proposed_pvp??'','number','step="0.01"')}
+ ${formField('Unidades/mes','prUnits',row?.units_month??0,'number','min="0"')}
+ ${selectField('Estado','prStatus',[{value:'PENDIENTE',label:'Pendiente'},{value:'ACEPTADO',label:'Aceptado'}],row?.status||'PENDIENTE')}
  <label class="wide">Notas<textarea id="prNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
- </div><div class="form-actions">${row?btn('Eliminar','product-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar producto','product-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
- modal(row?'Editar producto':'Nuevo producto',body);
+ </div>`;
+ if(!row){
+   modal('Nuevo producto',baseForm+`<div class="form-actions">${btn('Guardar producto','product-save','primary')}</div>`);
+   return;
+ }
+ const prices=state.data.providerPrices.filter(x=>x.product_id===row.id&&!x.variant_id);
+ const comps=state.data.competitors.filter(x=>x.product_id===row.id&&!x.variant_id);
+ const variants=state.data.variants.filter(x=>x.product_id===row.id&&x.active!==false);
+ const chosen=prices.find(x=>x.selected)||(prices.length?[...prices].sort((a,b)=>providerCost(a)-providerCost(b))[0]:null);
+ const cost=providerCost(chosen),pvp=Number(row.current_pvp||row.proposed_pvp||0),net=pvp/1.21,margin=net-cost,marginPct=net>0?margin/net*100:0;
+ const providerName=id=>state.data.providers.find(x=>x.id===id)?.name||'Proveedor';
+ const providerRows=prices.map(x=>`<div class="summary-row"><div><b>${esc(providerName(x.provider_id))}</b><div class="small muted">Coste final ${money(providerCost(x))} · base ${money(x.net_cost)} · dto ${Number(x.provider_discount||0).toFixed(1).replace('.',',')} %${x.apply_special_tax?' · + impuesto especial':''}</div></div><div class="inline-actions">${x.selected?'<span class="badge ok">Seleccionado</span>':''}${btn('Editar','provider-price-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','provider-price-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin proveedores</strong><span>Añade al menos un coste de compra.</span></div>';
+ const compRows=comps.map(x=>`<div class="summary-row"><div><b>${esc(x.competitor_name)}</b><div class="small muted">${money(x.price)} · dto ${Number(x.discount||0).toFixed(1).replace('.',',')} % · envío ${money(x.shipping)}</div></div><div class="inline-actions">${btn('Editar','competitor-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','competitor-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin competencia</strong><span>Añade precios comparables si los necesitas.</span></div>';
+ const variantRows=variants.map(v=>`<div class="summary-row"><div><b>${esc(v.name)}</b><div class="small muted">${esc(v.sku)}${v.nicotine_mg_ml!=null?' · '+v.nicotine_mg_ml+' mg/ml':''}${v.pvp!=null?' · PVP '+money(v.pvp):''}</div></div><div class="inline-actions">${btn('Editar','variant-edit','secondary',`data-id="${v.id}" data-product="${row.id}"`)}${btn('Eliminar','variant-delete','danger',`data-id="${v.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin variantes</strong><span>Producto simple o sin variantes creadas.</span></div>';
+ const body=`${baseForm}
+ <div class="kpis" style="margin-top:16px">${kpi('Coste seleccionado',money(cost))}${kpi('PVP',money(pvp))}${kpi('Margen',money(margin))}${kpi('Margen %',marginPct.toFixed(1).replace('.',',')+' %')}</div>
+ <section class="card card-pad" style="margin-top:16px"><div class="section-head"><div><h3>Proveedores</h3><p>Comparativa real de coste de compra.</p></div>${btn('Añadir proveedor','provider-price-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${providerRows}</div></section>
+ <section class="card card-pad" style="margin-top:16px"><div class="section-head"><div><h3>Competencia</h3><p>Precios externos y promociones.</p></div>${btn('Añadir competencia','competitor-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${compRows}</div></section>
+ <section class="card card-pad" style="margin-top:16px"><div class="section-head"><div><h3>Variantes</h3><p>Nicotina, formatos, colores u otros atributos.</p></div>${btn('Añadir variante','variant-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${variantRows}</div></section>
+ <div class="form-actions">${btn('Eliminar producto','product-delete','danger',`data-id="${row.id}"`)}${btn('Guardar producto','product-save','primary',`data-id="${row.id}"`)}</div>`;
+ modal('Ficha de producto',body);
 }
+
