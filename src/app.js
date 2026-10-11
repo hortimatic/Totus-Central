@@ -612,17 +612,17 @@ async function downloadDocument(id){
 async function previewDocument(id){
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
  const blob=await getDocumentBlob(d),mime=String(d.mime_type||blob.type||'').toLowerCase(),name=String(d.original_name||'').toLowerCase();
- let body='';
- if(mime.includes('pdf')||name.endsWith('.pdf')){
+ let body='';const kind=previewKind(name,mime);
+ if(kind==='pdf'){
    const url=URL.createObjectURL(blob);body=`<iframe class="document-frame" src="${url}" title="${esc(d.original_name||'PDF')}"></iframe>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
- }else if(mime.startsWith('image/')||/\.(png|jpe?g|webp)$/i.test(name)){
+ }else if(kind==='image'){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
- }else if(/\.(xlsx|xls)$/i.test(name)){
+ }else if(kind==='excel'){
    const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});const sheet=wb.Sheets[wb.SheetNames[0]];
    body=`<div class="note">Hoja: ${esc(wb.SheetNames[0]||'')}</div><div class="excel-preview">${window.XLSX.utils.sheet_to_html(sheet)}</div>`;
- }else if(/\.(csv|txt|md)$/i.test(name)||mime.startsWith('text/')){
+ }else if(kind==='text'){
    const txt=await blob.text();body=`<pre class="text-preview">${esc(txt.slice(0,200000))}</pre>`;
  }else{
    body='<div class="note">Este formato no admite vista previa integrada, pero sí descarga.</div>';
