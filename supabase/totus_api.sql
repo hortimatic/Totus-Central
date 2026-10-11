@@ -468,6 +468,36 @@ $$;
 revoke all on function public.totus_register_external_document(uuid,integer) from public,anon;
 grant execute on function public.totus_register_external_document(uuid,integer) to authenticated;
 
+create or replace function public.totus_update_invoice_payment(p_id uuid,p_payment jsonb)
+returns void
+language plpgsql
+security definer
+set search_path='public,private'
+as $$
+declare
+  v_total numeric; v_type text; v_status text; v_amount numeric; v_date date; v_method text;
+begin
+  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede actualizar cobros'; end if;
+  select total_amount,document_type into v_total,v_type from public.ops_sales_invoices where id=p_id;
+  if not found then raise exception 'Factura no encontrada'; end if;
+  if v_type='proforma' then raise exception 'Una proforma no tiene cobro'; end if;
+  v_status:=coalesce(nullif(p_payment->>'paid_status',''),'pendiente');
+  v_amount:=coalesce((p_payment->>'paid_amount')::numeric,0);
+  v_date:=nullif(p_payment->>'paid_date','')::date;
+  v_method:=coalesce(nullif(p_payment->>'payment_method',''),'transferencia');
+  if v_status not in ('pendiente','pagada','parcial') then raise exception 'Estado de cobro no válido'; end if;
+  if v_amount<0 then raise exception 'El importe cobrado no puede ser negativo'; end if;
+  if v_date is not null and v_date>current_date then raise exception 'La fecha de cobro no puede ser futura'; end if;
+  if v_status='pendiente' and v_amount<>0 then raise exception 'Una factura pendiente no puede tener importe cobrado'; end if;
+  if v_status='pagada' and (v_date is null or abs(v_amount-v_total)>.02) then raise exception 'Una factura pagada debe tener fecha y el total cobrado'; end if;
+  if v_status='parcial' and (v_amount<=0 or v_amount>=v_total or v_date is null) then raise exception 'Un cobro parcial debe tener fecha e importe mayor que 0 y menor que el total'; end if;
+  update public.ops_sales_invoices set payment_method=v_method,paid_status=v_status,paid_date=v_date,paid_amount=v_amount,updated_at=now() where id=p_id;
+  perform private.totus_audit('facturacion','actualizar_cobro',p_id,jsonb_build_object('estado',v_status,'importe',v_amount,'fecha',v_date,'metodo',v_method));
+end;
+$$;
+
+grant execute on function public.totus_update_invoice_payment(uuid,jsonb) to authenticated;
+
 create or replace function public.totus_finalize_sales_document(p_id uuid)
 returns public.ops_sales_invoices
 language plpgsql
