@@ -1,4 +1,4 @@
-import {state,isAdmin,isManager,getFilters} from '../state.js';
+import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,dateCell,moneyCell,stateBadge,modal,formField,selectField} from '../components.js';
 
@@ -41,20 +41,32 @@ export function inicio(){
 }
 
 export function cajas(){
+ const view=getView('cajas');
+ if(view.mode==='record'){
+   const row=view.id?state.data.closings.find(x=>x.id===view.id):null;
+   return closingRecordHtml(row);
+ }
  const f=getFilters('cajas');
  const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.notes,storeName(x.store_id),x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const total=sum(rows,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const mismatches=rows.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
+ const drafts=rows.filter(x=>x.status==='borrador').length;
  const headers=[
-  {label:'Fecha',html:r=>dateCell(r.business_date)},{label:'Tienda',html:r=>esc(storeName(r.store_id))},
-  {label:'Efectivo',num:true,html:r=>moneyCell(r.cash_sales)},{label:'Tarjeta',num:true,html:r=>moneyCell(r.card_sales)},
-  {label:'Bizum',num:true,html:r=>moneyCell(r.bizum_sales)},{label:'Online',num:true,html:r=>moneyCell(r.online_sales)},
-  {label:'Total',num:true,html:r=>moneyCell(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))},
-  {label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>`<div class="inline-actions">${btn('Ver','closing-edit','secondary',`data-id="${r.id}"`)}</div>`}
+  {label:'Cierre',html:r=>`<b class="date-display">${fmtDate(r.business_date)}</b><div class="small muted">${esc(storeName(r.store_id))}</div>`},
+  {label:'Cobros',html:r=>`<div class="compact-detail"><span>Efectivo <b>${money(r.cash_sales)}</b></span><span>Tarjeta <b>${money(r.card_sales)}</b></span><span>Bizum <b>${money(r.bizum_sales)}</b></span><span>Online <b>${money(r.online_sales)}</b></span><span>Otros <b>${money(r.other_income)}</b></span></div>`},
+  {label:'Caja',html:r=>`<div class="compact-detail"><span>Apertura <b>${money(r.opening_cash)}</b></span><span>Final <b>${money(r.actual_cash)}</b></span><span>Retiradas <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
+  {label:'Control',html:r=>`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>TPV/control <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
+  {label:'Estado',html:r=>`${stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
+  {label:'',html:r=>btn(r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}
  ];
- return `<div class="page"><div class="kpis">${kpi('Cierres',String(rows.length))}${kpi('Ventas filtradas',money(total))}${kpi('Efectivo',money(sum(rows,x=>x.cash_sales)))}${kpi('Tarjeta + Bizum',money(sum(rows,x=>Number(x.card_sales||0)+Number(x.bizum_sales||0))))}</div>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Cajas</h2><p>Cierres diarios con fechas reales y filtros Desde/Hasta.</p></div>${btn('Nuevo cierre','closing-new','primary')}</div>
-  ${dateFilters({...f,stores:stores()},'cajas')}
-  ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.'})}</section></div>`;
+ return `<div class="page">
+  <div class="kpis">${kpi('Ventas del periodo',money(total))}${kpi('Cierres',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
+  <section class="card table-card">
+   <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>Histórico completo. Abre un cierre para ver o editar su ficha.</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
+   ${dateFilters({...f,stores:stores()},'cajas')}
+   ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.'})}
+  </section>
+ </div>`;
 }
 
 export function gastos(){
@@ -275,19 +287,43 @@ function drawerEditor(drawer,row){
  </section>`;
 }
 
-export function closingModal(row=null){
+export function closingRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const sid=row?.store_id||storeOptions[0]?.value||'';
  const drawers=state.data.drawers.filter(x=>x.store_id===sid&&x.active!==false);
- const body=`<div class="form-grid">
- ${selectField('Tienda','clStore',storeOptions,sid)}
- ${formField('Fecha','clDate',row?.business_date||isoToday(),'date')}
- <label class="wide">Observaciones<textarea id="clNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
- </div>
- <div id="closingDrawers" class="stack" style="margin-top:16px">${drawers.map(d=>drawerEditor(d,row)).join('')||'<div class="note bad">Esta tienda no tiene cajas activas configuradas.</div>'}</div>
- <div class="note" style="margin-top:14px">Cada caja mantiene su propia apertura, cobros y efectivo final. Totus calcula el cierre general sumando todas las cajas.</div>
- <div class="form-actions">${row?btn('Eliminar','closing-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar cierre','closing-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
- modal(row?'Editar cierre':'Nuevo cierre',body);
+ const calculated=Number(row?.cash_sales||0)+Number(row?.card_sales||0)+Number(row?.bizum_sales||0)+Number(row?.online_sales||0)+Number(row?.other_income||0);
+ const locked=row?.status==='cerrado';
+ return `<div class="page record-page">
+  <div class="record-toolbar"><div><button class="btn link" data-action="closing-back">← Volver a cierres</button><div class="eyebrow">Cajas · ${row?'Cierre '+fmtDate(row.business_date):'Nuevo cierre'}</div><h2>${row?esc(storeName(row.store_id)):'Nuevo cierre de caja'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
+  <div class="record-layout">
+   <div class="record-main stack">
+    <section class="card card-pad">
+     <div class="section-head"><div><h3>Datos del cierre</h3><p>Fecha, establecimiento y total de control.</p></div></div>
+     <div class="form-grid" style="margin-top:14px">
+      ${selectField('Tienda','clStore',storeOptions,sid)}
+      ${formField('Fecha','clDate',row?.business_date||isoToday(),'date')}
+      ${formField('Total TPV / control','clReported',row?.reported_total_sales??'','number','step="0.01" min="0"')}
+      <label class="wide">Observaciones<textarea id="clNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+     </div>
+    </section>
+    <section class="stack" id="closingDrawers">${drawers.map(d=>drawerEditor(d,row)).join('')||'<div class="note bad">Esta tienda no tiene cajas activas configuradas.</div>'}</section>
+   </div>
+   <aside class="record-side">
+    <section class="card card-pad sticky-summary">
+     <h3>Resumen</h3>
+     <div class="summary-row"><span>Total calculado</span><strong id="clCalcTotal">${money(calculated)}</strong></div>
+     <div class="summary-row"><span>Total TPV/control</span><strong id="clReportedTotal">${row?.reported_total_sales==null?'—':money(row.reported_total_sales)}</strong></div>
+     <div class="summary-row"><span>Diferencia</span><strong id="clDifference" class="${Math.abs(Number(row?.difference||0))>.01?'danger-text':'good-text'}">${money(row?.difference||0)}</strong></div>
+     <div class="note" style="margin-top:12px">El efectivo se calcula por caja: final + retiradas + gastos de caja + salidas extra − apertura − entradas extra.</div>
+     <div class="stack" style="margin-top:14px">
+      ${row&&locked?btn('Reabrir cierre','closing-reopen','secondary',`data-id="${row.id}"`):btn('Guardar borrador','closing-save-draft','secondary',row?`data-id="${row.id}"`:'')}
+      ${!locked?btn('Cerrar y validar','closing-save-close','primary',row?`data-id="${row.id}"`:''):''}
+      ${row?btn('Eliminar','closing-delete','danger',`data-id="${row.id}"`):''}
+     </div>
+    </section>
+   </aside>
+  </div>
+ </div>`;
 }
 
 export function expenseModal(row=null){
