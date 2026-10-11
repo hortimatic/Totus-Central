@@ -323,18 +323,18 @@ function removeExpenseLine(index){
 function updateExpenseSummary(){
  const rows=[...document.querySelectorAll('.expense-line')];let base=0,vat=0,re=0,wh=0;
  for(const el of rows){const ix=el.dataset.lineIndex,b=Math.max(0,n(val(`exLineBase_${ix}`))),v=Math.max(0,n(val(`exLineVat_${ix}`))),r=Math.max(0,n(val(`exLineRe_${ix}`))),w=Math.max(0,n(val(`exLineWh_${ix}`)));base+=b;vat+=b*v/100;re+=b*r/100;wh+=b*w/100}
- const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(v)};
+ const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
  set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',base+vat+re-wh);
 }
 function updateClosingSummary(){
  const rows=[...document.querySelectorAll('.drawer-entry')];let total=0;
  for(const el of rows){const d=el.dataset.drawerId,read=s=>n(document.getElementById(`dr${s}_${d}`)?.value||0);const cash=read('Close')+read('Withdraw')+read('CashExpense')+read('ExtraOut')-read('ExtraIn')-read('Open');total+=cash+read('Card')+read('Bizum')+read('Online')+read('Other')}
- const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:total-reported,fmt=v=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(v);
+ const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:total-reported,fmt=v=>money(v);
  const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=fmt(diff);d.className=Math.abs(diff)>.01?'danger-text':'good-text'}
 }
 function updateInvoiceSummary(){
  let base=0,vat=0;for(const el of document.querySelectorAll('.invoice-line')){const ix=el.dataset.lineIndex,q=n(val(`ivQty_${ix}`)),u=n(val(`ivUnit_${ix}`)),disc=Math.min(100,Math.max(0,n(val(`ivDisc_${ix}`)))),vr=Math.max(0,n(val(`ivVat_${ix}`)));const b=q*u*(1-disc/100);base+=b;vat+=b*vr/100}
- const fmt=v=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(v);for(const [id,v] of [['ivSumBase',base],['ivSumVat',vat],['ivSumTotal',base+vat]]){const el=document.getElementById(id);if(el)el.textContent=fmt(v)}
+ const fmt=v=>money(v);for(const [id,v] of [['ivSumBase',base],['ivSumVat',vat],['ivSumTotal',base+vat]]){const el=document.getElementById(id);if(el)el.textContent=fmt(v)}
 }
 function exportCurrentModule(module){
  const f=getFilters(module);
