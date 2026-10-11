@@ -65,10 +65,11 @@ async function deleteClosing(id){
 }
 
 async function saveExpense(id=''){
- const base=num('exBase'),vatRate=num('exVatRate'),reRate=num('exReRate'),whRate=num('exWhRate');
+ const base=num('exBase'),vatRate=Math.max(0,num('exVatRate')),reRate=Math.max(0,num('exReRate')),whRate=Math.max(0,num('exWhRate'));
  const vat=base*vatRate/100,re=base*reRate/100,wh=base*whRate/100,total=base+vat+re-wh;
- const expense={id:id||null,store_id:required('exStore','Tienda'),expense_date:required('exDate','Fecha'),supplier_name:required('exSupplier','Proveedor'),supplier_tax_id:val('exTax').trim(),invoice_number:val('exInvoice').trim(),description:val('exDesc').trim(),payment_method:val('exPayment'),paid_status:'pagado',base_amount:base,vat_rate:vatRate,vat_amount:vat,re_rate:reRate,re_amount:re,withholding_rate:whRate,withholding_amount:wh,gross_expense:total,amount_paid:total,deductible_irpf:true,deductible_pct:100,notes:val('exNotes').trim(),document_kind:'factura',source:'manual',management_only:false};
- const lines=[{sort_order:10,description:expense.description||expense.supplier_name,base_amount:base,vat_rate:vatRate,re_rate:reRate,withholding_rate:whRate,deductible_irpf:true,deductible_pct:100,notes:''}];
+ const paidStatus=val('exPaidStatus')||'pagado';
+ const expense={id:id||null,store_id:required('exStore','Tienda'),expense_date:required('exDate','Fecha'),supplier_id:val('exSupplierId')||null,supplier_name:required('exSupplier','Proveedor'),supplier_tax_id:val('exTax').trim(),invoice_number:val('exInvoice').trim(),category_id:val('exCategory')||null,description:val('exDesc').trim(),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:val('exPaidDate')||null,base_amount:base,vat_rate:vatRate,vat_amount:vat,re_rate:reRate,re_amount:re,withholding_rate:whRate,withholding_amount:wh,withholding_model:val('exWhModel')||null,gross_expense:total,amount_paid:paidStatus==='pagado'?total:0,deductible_irpf:!!input('exDeductible')?.checked,deductible_pct:Math.min(100,Math.max(0,num('exDedPct'))),fixed_asset:!!input('exFixed')?.checked,amortization_years:val('exAmortYears')===''?null:num('exAmortYears'),notes:val('exNotes').trim(),document_kind:val('exDocKind')||'factura',source:'manual',fiscal_reviewed:false,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
+ const lines=[{sort_order:10,category_id:expense.category_id,description:expense.description||expense.supplier_name,base_amount:base,vat_rate:vatRate,vat_amount:0,re_base:0,re_rate:reRate,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:whRate,withholding_amount:0,withholding_model:expense.withholding_model,deductible_irpf:expense.deductible_irpf,deductible_pct:expense.deductible_pct,fixed_asset:expense.fixed_asset,amortization_years:expense.amortization_years,notes:''}];
  await rpc('totus_save_expense',{p_expense:expense,p_lines:lines});closeModal();await refresh('Gasto guardado.');
 }
 async function deleteExpense(id){
@@ -485,6 +486,12 @@ document.addEventListener('click',async e=>{
 });
 
 document.addEventListener('change',e=>{
+ if(e.target?.id==='exSupplierId'){
+   const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
+   const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
+   set('exSupplier',s.name);set('exTax',s.tax_id);set('exPayment',s.default_payment_method||'tarjeta');set('exCategory',s.default_category_id||'');set('exVatRate',s.default_vat_rate??21);set('exReRate',s.default_re_rate??0);set('exWhRate',s.default_withholding_rate??0);set('exWhModel',s.default_withholding_model||'');set('exDedPct',s.default_deductible_pct??100);
+   const d=document.getElementById('exDeductible');if(d)d.checked=s.default_deductible_irpf!==false;
+ }
  if(e.target?.id==='ivCustomerId'){
    const c=state.data.customers.find(x=>x.id===e.target.value);if(!c)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||''};
