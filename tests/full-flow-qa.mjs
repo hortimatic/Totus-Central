@@ -77,6 +77,14 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  assert(Math.abs(d.invoices[0].total_amount-121)<0.01,'Factura total incorrecto');
  await page.locator('[data-action="invoice-preview"]').first().click();
  assert((await page.locator('#modalHost').innerText()).includes('Cliente ensayo'),'La vista previa de factura no muestra el cliente');
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.locator('#modalHost [data-action="invoice-print"]').first().click();
+ const printPopup=await popupReady;
+ await printPopup.locator('body').waitFor({state:'visible'});
+ await printPopup.waitForFunction(()=>document.body?.innerText?.includes('Cliente ensayo'),{timeout:5000});
+ const cssHref=await printPopup.locator('link[rel="stylesheet"]').getAttribute('href');
+ assert(cssHref?.includes('/src/styles.css'),'La impresión no carga la hoja de estilos');
+ await printPopup.close();
  await page.locator('#modalHost .close-btn').click();
  await page.locator('[data-action="invoice-finalize"]').first().click();
  await page.waitForTimeout(100);
