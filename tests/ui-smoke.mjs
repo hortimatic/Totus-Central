@@ -975,7 +975,8 @@ const reportQa=await page.evaluate(()=>{
   const g=window.__TotusOpsTest.managerExpenseRows('2026-01-01','2026-12-31');
   const s=window.__TotusOpsTest.managerExpenseSummaryRows('2026-01-01','2026-12-31');
   const i=window.__TotusOpsTest.managerIncomeRows('2026-01-01','2026-12-31');
-  return {g,s,i};
+  const r=window.__TotusOpsTest.reportSummaryRows('2026-04-01','2026-06-30');
+  return {g,s,i,r};
 });
 assert(reportQa.g[0].join('|')==='Orden|Fecha|Nº fra. recibida|Nº fra. proveedor|Rt|NIF/CIF|Razón social|Concepto|Base IVA|% IVA|Cuota IVA|Base R.E.|% R.E.|Cuota R.E.|Imputable a IRPF|Base retención|% retención|Cuota retenida|Total factura|Neto pagado','Cabecera de gastos no coincide con las 20 columnas reales de gestoría');
 assert(reportQa.g[0].length===20,'El libro de gastos debe conservar exactamente 20 columnas');
@@ -986,8 +987,17 @@ assert(reportQa.s[0][0]==='Código'&&reportQa.s[0][1]==='Descripción'&&reportQa
 assert(reportQa.i[0][0]==='Orden'&&reportQa.i[0][2]==='Nº factura'&&reportQa.i[0][4]==='Identificación del Cliente','Cabecera de ingresos no coincide con gestoría');
 assert(reportQa.i.at(-1)[5]==='TOTAL ACUMULADO','Falta total acumulado en ingresos');
 assert(reportQa.i.slice(1,-1).every(r=>/^\d{2}\/\d{2}\/\d{4}$/.test(String(r[1]))),'Fechas de ingresos no están en DD/MM/AAAA');
+const h1ExpenseRows=reportQa.g.slice(1,-1).filter(r=>{const p=String(r[1]||'').split('/');const iso=p.length===3?p[2]+'-'+p[1]+'-'+p[0]:'';return iso>='2026-01-01'&&iso<='2026-06-30'});
+const h1Imputable=h1ExpenseRows.reduce((a,r)=>a+Number(r[14]||0),0);
+assert(Math.abs(h1Imputable-139678.04)<0.01,'El detalle GASTOS no respeta el Imputable IRPF original de gestoría · '+h1Imputable);
+assert(reportQa.r[1][0]==='Periodo'&&reportQa.r[1][1]==='2026-04-01 → 2026-06-30','El resumen del libro completo no conserva el periodo solicitado');
+assert(!reportQa.r.some(r=>String(r[0]).includes('Modelo 130')),'El resumen por fechas mezcla indebidamente el trimestre fiscal global');
 
 await page.getByRole('button',{name:'Informes',exact:true}).click();await heading('Informes');await auditCurrentUi('Informes');
+assert(await page.getByRole('heading',{name:'Libros con estructura contable',exact:true}).count()===1,'Informes no separa claramente las exportaciones de gestoría');
+assert(await page.getByRole('heading',{name:'Libros de trabajo',exact:true}).count()===1,'Informes no separa los libros internos');
+assert(await page.getByRole('heading',{name:'Archivo y fiscalidad',exact:true}).count()===1,'Informes no separa documentación y fiscalidad');
+assert(await page.getByLabel('Informe desde').count()===1&&await page.getByLabel('Informe hasta').count()===1,'Informes no identifica claramente el periodo');
 const xlsxButtons=page.getByRole('button',{name:'Descargar XLSX'});
 
 let downloadPromise=page.waitForEvent('download');await xlsxButtons.nth(0).click();const expensesXlsx=await downloadPromise;
@@ -1033,6 +1043,9 @@ downloadPromise=page.waitForEvent('download');await xlsxButtons.nth(4).click();c
 const fullWb=XLSXNode.readFile(await fullXlsx.path(),{cellStyles:true});
 for(const name of ['Resumen','Cierres','Gastos','Desglose conceptos','Facturas'])assert(fullWb.SheetNames.includes(name),'Libro completo no contiene hoja '+name);
 for(const name of ['Resumen','Cierres','Gastos','Facturas'])assert(fullWb.Sheets[name]?.A1?.s,'Libro completo deja sin formato la hoja '+name);
+const fullSummary=XLSXNode.utils.sheet_to_json(fullWb.Sheets.Resumen,{header:1,raw:false});
+assert(fullSummary.some(r=>r[0]==='Periodo'&&String(r[1]).includes('2026-01-01')&&String(r[1]).includes('2026-12-31')),'Libro completo · Resumen no refleja el periodo exportado');
+assert(fullSummary.some(r=>r[0]==='Gastos solo control interno'),'Libro completo · Resumen no separa gastos internos');
 const closingRows=XLSXNode.utils.sheet_to_json(fullWb.Sheets.Cierres,{header:1,raw:false});
 for(const col of ['Entrada extra a caja','Salida extra de caja','Total control','Diferencia','Estado'])assert(closingRows[0].includes(col),'Libro completo · Cierres no incluye '+col);
 const fullExpenseRows=XLSXNode.utils.sheet_to_json(fullWb.Sheets.Gastos,{header:1,raw:false});
@@ -1042,12 +1055,21 @@ downloadPromise=page.waitForEvent('download');await page.getByRole('button',{nam
 const pdfBytes=await fs.readFile(await fiscalPdf.path());
 assert(pdfBytes.subarray(0,4).toString()==='%PDF'&&pdfBytes.length>800,'Informe fiscal PDF inválido o vacío');
 
+await page.getByRole('button',{name:/^T2 2026$/}).click();
+await page.waitForTimeout(80);
+assert(await page.getByLabel('Informe desde').inputValue()==='2026-04-01'&&await page.getByLabel('Informe hasta').inputValue()==='2026-06-30','El acceso rápido trimestral no ajusta el periodo');
 downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Preparar paquete'}).click();const pack=await downloadPromise;
 assert((await pack.suggestedFilename()).endsWith('.zip'),'Paquete gestor ZIP no generado');
 const zip=await JSZipNode.loadAsync(await fs.readFile(await pack.path()));
 const zipNames=Object.keys(zip.files);
 for(const folder of ['01_INGRESOS','02_GASTOS','03_DIARIOS','04_RESUMEN','05_DOCUMENTOS'])assert(zipNames.some(n=>n.includes('/'+folder+'/')),'Paquete gestor sin carpeta '+folder);
 assert(zipNames.some(n=>n.endsWith('/00_LEEME.txt')),'Paquete gestor sin LEEME');
+const diaryNames=zipNames.filter(n=>/\/03_DIARIOS\/.*\.xlsx$/.test(n));
+assert(diaryNames.length===2,'Paquete T2 debe contener un diario acotado por cada tienda, no libros anuales completos · '+JSON.stringify(diaryNames));
+assert(diaryNames.every(n=>n.includes('2026-04-01_2026-06-30')),'Los diarios del paquete no están nombrados con el periodo seleccionado');
+const packedDiary=await zip.file(diaryNames[0]).async('nodebuffer');
+const packedDiaryWb=XLSXNode.read(packedDiary,{type:'buffer',cellStyles:true});
+assert(packedDiaryWb.SheetNames.length===3&&packedDiaryWb.SheetNames.join('|')==='Abril|Mayo|Junio','El paquete T2 incluye meses fuera del periodo: '+packedDiaryWb.SheetNames.join('|'));
 
 // Administración: configuración, Log y Backup separados.
 await page.getByRole('button',{name:'Administración',exact:true}).click();await heading('Usuarios');await auditCurrentUi('Administración');
