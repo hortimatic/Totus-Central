@@ -844,3 +844,34 @@
  .closing-context-card .closing-section-head{display:block}
  .closing-context-card .closing-section-head small{display:block;margin-top:5px;max-width:520px}
 }
+
+/* Cajas · patrón ERP lista / ficha */
+.ops-page-command{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;border:1px solid rgba(75,217,255,.14);border-radius:18px;background:linear-gradient(135deg,rgba(75,217,255,.05),rgba(255,255,255,.015));box-shadow:0 14px 32px rgba(0,0,0,.14)}
+.ops-page-command h2{margin:3px 0 5px;font-size:clamp(24px,3vw,32px);letter-spacing:-.035em}
+.ops-page-command p{margin:0;color:var(--muted);line-height:1.45}
+.ops-list-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.ops-list-summary article{padding:13px 14px;border:1px solid rgba(255,255,255,.065);border-radius:13px;background:rgba(255,255,255,.018)}
+.ops-list-summary span,.ops-list-summary strong,.ops-list-summary small{display:block}
+.ops-list-summary span{font-size:10px;color:#93a3af;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.ops-list-summary strong{margin:4px 0;font-size:22px}
+.ops-list-summary small{color:var(--muted)}
+.ops-list-summary article.bad strong{color:#ff9eaf}
+.ops-list-card{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018);overflow:hidden}
+.ops-list-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 190px auto;gap:8px;align-items:center;padding:11px 13px;border-bottom:1px solid rgba(255,255,255,.055)}
+.ops-list-search{position:relative}
+.ops-list-search>span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6f8594;font-size:17px}
+.ops-list-search input{padding-left:35px}
+.ops-list-card>.ops-table-wrap,.ops-list-card>.ops-empty{margin:0;border:0;border-radius:0}
+.ops-record-view{display:flex;flex-direction:column;gap:10px}
+.ops-record-back{display:flex;align-items:center}
+.ops-record-view .closing-history-card{display:none}
+.closing-list-table{min-width:820px}
+@media(max-width:820px){
+ .ops-page-command{align-items:flex-start;flex-direction:column;padding:16px}
+ .ops-page-command>button{width:100%}
+ .ops-list-summary{grid-template-columns:1fr 1fr}
+ .ops-list-toolbar{grid-template-columns:1fr}
+}
+@media(max-width:460px){
+ .ops-list-summary{grid-template-columns:1fr}
+}
