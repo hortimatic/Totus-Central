@@ -930,7 +930,7 @@ window.opsUploadStandaloneDoc=async function(){
   const id=await uploadDoc(file,{store_id:document.getElementById('ops_doc_store').value||null,doc_type:type,document_date:date,supplier_or_customer:party,tax_id:document.getElementById('ops_doc_tax').value.trim(),invoice_number:number,status:document.getElementById('ops_doc_status').value,notes:document.getElementById('ops_doc_notes')?.value?.trim()||''},'standalone',null);
   if(!id)return;
   await audit('documentos','subir',id,{archivo:file.name,tipo:type,fecha:date});await load(true);render();
- }catch(e){alert('No se pudo subir: '+e.message)}
+ }catch(e){const msg=String(e?.message||e);alert(/espacio total disponible/i.test(msg)?msg:'No se pudo subir: '+msg)}
 };
 window.opsDownloadDoc=async function(id){
  const d=O.documents.find(x=>x.id===id);if(!d)return;const {data,error}=await sb.storage.from('business-documents').download(d.storage_path);if(error){alert(error.message);return}dlBlob(data,d.original_name);
