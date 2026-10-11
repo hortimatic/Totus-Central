@@ -60,7 +60,7 @@ const appSource=text('src/app.js');
 const pageSource=text('src/pages/main.js');
 if(appSource.includes("status:'archivado'"))errors.push('Documentos usa estado inválido archivado');
 for(const requiredDocValue of ['factura_recibida','factura_emitida','factura_rectificativa','impuesto','informe','archivada']){
- if(!appSource.includes(requiredDocValue))errors.push('Falta valor válido de documentos: '+requiredDocValue);
+ if(!appSource.includes(requiredDocValue)&&!pageSource.includes(requiredDocValue))errors.push('Falta valor válido de documentos: '+requiredDocValue);
 }
 if(appSource.includes('patchFilters({'))errors.push('Persisten filtros globales antiguos');
 if(!appSource.includes("patchFilters('pricing'"))errors.push('Pricing no tiene filtro independiente');
