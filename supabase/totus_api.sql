@@ -1,4 +1,5 @@
 -- Clean schema additions required by Totus Central
+alter table public.ops_business_settings add column if not exists purchase_re_rate numeric(6,3) not null default 5.2 check (purchase_re_rate>=0 and purchase_re_rate<=100);
 alter table public.ops_sales_invoices add column if not exists paid_amount numeric(14,2) not null default 0 check (paid_amount >= 0);
 
 create unique index if not exists ops_suppliers_tax_id_unique_ci on public.ops_suppliers (lower(trim(tax_id))) where trim(coalesce(tax_id,''))<>'';
