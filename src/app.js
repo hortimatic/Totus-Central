@@ -698,23 +698,40 @@ document.addEventListener('click',async e=>{
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
-  if(a==='closing-new'){closingModal();return}
-  if(a==='closing-edit'){closingModal(state.data.closings.find(x=>x.id===el.dataset.id));return}
-  if(a==='closing-save'){await saveClosing(el.dataset.id||'');return}
+  if(a==='closing-new'){setView('cajas',{mode:'record',id:null});render();return}
+  if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='closing-save-draft'){await saveClosing(el.dataset.id||'','borrador');return}
+  if(a==='closing-save-close'){await saveClosing(el.dataset.id||'','cerrado');return}
+  if(a==='closing-reopen'){await reopenClosing(el.dataset.id);return}
+  if(a==='closing-back'){resetView('cajas');render();return}
+  if(a==='export-closings-current'){exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
   if(a==='expense-suppliers'){expenseSuppliersManager();return}
   if(a==='expense-supplier-new'){expenseSupplierForm();return}
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-supplier-save'){await saveExpenseSupplier(el.dataset.id||'');return}
   if(a==='expense-supplier-delete'){await deleteExpenseSupplier(el.dataset.id);return}
-  if(a==='expense-new'){expenseModal();return}
-  if(a==='expense-edit'){expenseModal(state.data.expenses.find(x=>x.id===el.dataset.id));return}
+  if(a==='expense-new'){setView('gastos',{mode:'record',id:null});render();return}
+  if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
+  if(a==='expense-back'){resetView('gastos');render();return}
+  if(a==='expense-line-add'){addExpenseLine();return}
+  if(a==='expense-line-remove'){removeExpenseLine(el.dataset.index);return}
+  if(a==='expense-document-preview'){await previewDocument(el.dataset.id);return}
+  if(a==='expense-document-download'){await downloadDocument(el.dataset.id);return}
+  if(a==='expense-document-unlink'){await unlinkExpenseDocument(el.dataset.expense,el.dataset.document);return}
+  if(a==='export-expenses-current'){exportCurrentModule('gastos');return}
   if(a==='expense-delete'){await deleteExpense(el.dataset.id);return}
-  if(a==='invoice-new'){invoiceModal(null,'factura');return}
-  if(a==='proforma-new'){invoiceModal(null,'proforma');return}
-  if(a==='invoice-edit'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);invoiceModal(row,row?.document_type||'factura');return}
-  if(a==='invoice-save'){await saveInvoice(el.dataset.id||'',el.dataset.type||'factura');return}
+  if(a==='invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});render();return}
+  if(a==='proforma-new'){setView('facturacion',{mode:'record',id:null,docType:'proforma',invoiceKind:'invoice',origin:'totus'});render();return}
+  if(a==='rectification-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus'});render();return}
+  if(a==='external-invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'externa'});render();return}
+  if(a==='invoice-edit'||a==='invoice-open'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);if(row){setView('facturacion',{mode:'record',id:row.id,docType:row.document_type,invoiceKind:row.invoice_kind,origin:row.origin});render()}return}
+  if(a==='invoice-save'){await saveInvoice(el.dataset.id||'',el.dataset.type||'factura',el.dataset.kind||'invoice',el.dataset.origin||'totus');return}
+  if(a==='invoice-back'){setView('facturacion',{mode:'list',id:null});render();return}
+  if(a==='billing-section'){setView('facturacion',{mode:'list',id:null,section:el.dataset.section||'documentos'});render();return}
+  if(a==='invoice-source-preview'){await previewDocument(el.dataset.id);return}
+  if(a==='invoice-source-download'){await downloadDocument(el.dataset.id);return}
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
@@ -751,8 +768,13 @@ document.addEventListener('click',async e=>{
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
   if(a==='template-delete'){await deleteTemplate(el.dataset.id);return}
   if(a==='series-toggle'){await toggleSeries(el.dataset.id,el.dataset.active==='true');return}
-  if(a==='document-new'){documentModal();return}
-  if(a==='document-save'){await saveDocument();return}
+  if(a==='document-new'){setView('documentos',{mode:'record',id:null});render();return}
+  if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='document-back'){resetView('documentos');render();return}
+  if(a==='document-save'){await saveDocument(el.dataset.id||'');return}
+  if(a==='document-download'){await downloadDocument(el.dataset.id);return}
+  if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
+  if(a==='documents-zip'){await zipFilteredDocuments();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
   if(a==='product-new'){productModal();return}
   if(a==='product-edit'){productModal(state.data.products.find(x=>x.id===el.dataset.id));return}
@@ -765,6 +787,7 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
+  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();return}
   if(a==='backup-create'){await downloadBackup();return}
   if(a==='backup-restore'){await restoreBackupFromInput();return}
   if(a==='export-closings'){exportRows('closings');return}
