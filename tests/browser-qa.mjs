@@ -1,4 +1,6 @@
 import { chromium } from 'playwright';
+import fs from 'node:fs';
+fs.mkdirSync('artifacts',{recursive:true});
 
 const base='http://127.0.0.1:4173';
 const cases=[
@@ -55,6 +57,7 @@ for(const [vpName,viewport] of viewports){
      if(!onlyTables)errors.push(`${vpName}/${name}: desborde horizontal ${scrollWidth}px > ${viewport.width}px ${JSON.stringify(overflow)}`);
    }
    for(const pe of pageErrors)errors.push(`${vpName}/${name}: ${pe}`);
+   if(['inicio','pricing','cajas-list','gastos-list','facturas-list','documentos-list','fiscalidad','informes','admin-users'].includes(name))await page.screenshot({path:`artifacts/ui_${vpName}_${name}.png`,fullPage:true});
  }
  await page.close();
 }
