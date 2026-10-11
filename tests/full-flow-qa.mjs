@@ -1,4 +1,5 @@
 import {chromium} from 'playwright';
+import xlsx from 'xlsx-js-style';
 const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
@@ -112,6 +113,22 @@ await check('Documentos: subida, archivo y metadatos',async()=>{
  await page.locator('[data-action="document-download"]').first().click();
  const actualDownload=await download;
  assert(actualDownload.suggestedFilename()==='factura-qa.txt','El fichero descargado tiene otro nombre');
+});
+await check('Documentos Excel: carga y vista previa',async()=>{
+ await nav('documentos');
+ await page.locator('[data-action="document-new"]').click();
+ const wb=xlsx.utils.book_new();
+ xlsx.utils.book_append_sheet(wb,xlsx.utils.aoa_to_sheet([['Concepto','Importe'],['Factura prueba',126.2]]),'Ensayo');
+ const buffer=Buffer.from(xlsx.write(wb,{bookType:'xlsx',type:'buffer'}));
+ await page.locator('#docFile').setInputFiles({name:'qa-factura.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer});
+ await page.locator('#docParty').fill('Prueba XLSX');
+ await page.locator('[data-action="document-save"]').click();
+ await page.waitForTimeout(120);
+ assert((await db()).documents.length===2,'El Excel no quedó guardado');
+ await page.locator('[data-action="document-preview"]').first().click();
+ await page.locator('#modalHost .excel-preview').waitFor({state:'visible'});
+ assert((await page.locator('#modalHost .excel-preview').innerText()).includes('Factura prueba'),'Contenido Excel perdido en vista previa');
+ await page.locator('#modalHost .close-btn').click();
 });
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
