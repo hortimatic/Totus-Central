@@ -44,6 +44,12 @@ await check('Cajas: creación, cálculo, guardado y lectura',async()=>{
  assert(d.closings[0].status==='cerrado','El cierre no quedó cerrado');
  assert(Math.abs(d.closings[0].card_sales-20)<0.01,'Tarjetas mal sumadas');
  assert(Math.abs(d.closings[0].cash_sales-50)<0.01,'Efectivo mal sumado');
+ await page.locator('[data-action="closing-reopen"]').click();
+ await page.waitForTimeout(100);
+ assert((await db()).closings[0].status==='borrador','No se puede reabrir un cierre');
+ await page.locator('[data-action="closing-save-close"]').click();
+ await page.waitForTimeout(100);
+ assert((await db()).closings[0].status==='cerrado','No se puede volver a cerrar una caja reabierta');
 });
 await check('Gastos: creación, importe decimal y líneas fiscales',async()=>{
  await nav('gastos');
