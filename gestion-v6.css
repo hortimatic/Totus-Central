@@ -607,3 +607,74 @@
  .document-filter-head .ghost{width:auto}
  .document-filters{padding:8px}
 }
+
+/* Cajas · espacio operativo diario */
+.closing-shell{display:flex;flex-direction:column;gap:16px}
+.closing-command{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:18px 20px;border:1px solid rgba(75,217,255,.14);border-radius:18px;background:linear-gradient(135deg,rgba(75,217,255,.05),rgba(255,255,255,.015));box-shadow:0 14px 32px rgba(0,0,0,.14)}
+.closing-command h2{margin:3px 0 5px;font-size:clamp(24px,3vw,32px);letter-spacing:-.035em}
+.closing-command p{margin:0;max-width:760px;color:var(--muted);line-height:1.5}
+.closing-command-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.closing-workspace{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.55fr);gap:14px;align-items:start}
+.closing-editor{display:flex;flex-direction:column;gap:14px;min-width:0}
+.closing-context-card,.closing-drawers-section,.closing-notes-card,.closing-review-card,.closing-check-card,.closing-formula-card,.closing-history-card{border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(255,255,255,.018)}
+.closing-context-card,.closing-drawers-section,.closing-notes-card,.closing-history-card{padding:16px}
+.closing-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.closing-section-head span{display:block;color:#9eabb8;font-size:10px;font-weight:950;letter-spacing:.055em;text-transform:uppercase}
+.closing-section-head h3{margin:2px 0 0;font-size:18px}
+.closing-section-head small{color:var(--muted);line-height:1.35}
+.closing-context-form{grid-template-columns:1fr 1fr}
+.closing-notes-card textarea{min-height:82px;resize:vertical}
+.closing-review{position:sticky;top:86px;display:flex;flex-direction:column;gap:12px}
+.closing-review-card{overflow:hidden}
+.closing-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.06)}
+.closing-review-head span{display:block;color:#9eabb8;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.closing-review-head h3{margin:2px 0 0}
+.closing-review-head>strong{font-size:26px;letter-spacing:-.035em;color:#aeefff}
+.closing-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:0 12px}
+.closing-review-grid>div{padding:11px 4px;border-bottom:1px solid rgba(255,255,255,.045)}
+.closing-review-grid>div:nth-last-child(-n+2){border-bottom:0}
+.closing-review-grid span{display:block;color:#9eabb8;font-size:10px}
+.closing-review-grid b{display:block;margin-top:2px;font-size:15px}
+.closing-review-detail{border-top:1px solid rgba(255,255,255,.055)}
+.closing-review-detail>summary{padding:11px 14px;cursor:pointer;color:#aeb9c4;font-size:11px;font-weight:850;list-style:none}
+.closing-review-detail>summary::-webkit-details-marker{display:none}
+.closing-review-detail .compact{border-top:1px solid rgba(255,255,255,.045)}
+.closing-check-card{padding:15px 16px}
+.closing-check-card.ok{border-color:rgba(105,230,177,.2);background:rgba(105,230,177,.025)}
+.closing-check-card.bad{border-color:rgba(255,100,120,.22);background:rgba(255,100,120,.025)}
+.closing-check-card label{display:block;margin-bottom:5px;color:#b8c1cc;font-size:11px;font-weight:850}
+.closing-check-comparison{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.closing-check-comparison>div{padding:10px;border-radius:11px;background:rgba(255,255,255,.026)}
+.closing-check-comparison span{display:block;color:#9eabb8;font-size:10px}
+.closing-check-comparison strong{display:block;margin-top:2px;font-size:15px}
+.closing-check-comparison strong.ok{color:#8ef0c0}
+.closing-check-comparison strong.bad{color:#ff9faf}
+.closing-check-help{margin-top:10px;padding:10px 11px;border-radius:10px;background:rgba(255,255,255,.025);color:#aeb9c4;font-size:11px;line-height:1.4}
+.closing-formula-card{padding:12px 14px}
+.closing-formula-card b,.closing-formula-card span{display:block}
+.closing-formula-card span{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.45}
+.closing-history-card{overflow:hidden}
+.closing-history-card>.section-head{padding:16px;margin:0;border-bottom:1px solid rgba(255,255,255,.055)}
+.closing-history-card>.ops-table-wrap,.closing-history-card>.ops-empty{margin:0}
+.closing-history-table{min-width:1020px}
+@media(max-width:1120px){
+ .closing-workspace{grid-template-columns:1fr}
+ .closing-review{position:static;display:grid;grid-template-columns:1fr 1fr}
+ .closing-formula-card{grid-column:1/-1}
+}
+@media(max-width:760px){
+ .closing-command{grid-template-columns:1fr;padding:16px}
+ .closing-command-actions{justify-content:flex-start}
+ .closing-context-form{grid-template-columns:1fr}
+ .closing-review{grid-template-columns:1fr}
+ .closing-formula-card{grid-column:auto}
+ .closing-review-grid,.closing-check-comparison{grid-template-columns:1fr}
+ .closing-review-grid>div:nth-last-child(-n+2){border-bottom:1px solid rgba(255,255,255,.045)}
+ .closing-review-grid>div:last-child{border-bottom:0}
+}
+@media(max-width:460px){
+ .closing-command-actions{display:grid;grid-template-columns:1fr}
+ .closing-command-actions .ops-status-chip{justify-self:start}
+ .closing-context-card,.closing-drawers-section,.closing-notes-card{padding:13px}
+}
+
