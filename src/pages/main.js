@@ -317,7 +317,7 @@ export function informes(){
  const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount);
  const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
  return `<div class="page">
- <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label>Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
+ <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos contables',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
  <div class="split">
   <section class="card card-pad"><div class="section-head"><div><h2>Libros como los Excel originales</h2><p>Doce hojas mensuales, mismos bloques, fórmulas, códigos de color y estructura de ventas/gastos.</p></div></div>
