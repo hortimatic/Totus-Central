@@ -120,6 +120,37 @@ for(const action of new Set(literalActions)){
  if(!handled)errors.push('Botón sin acción conectada: '+action);
 }
 
+const uiMatrix=[
+ ['cajas',pages.cajas(),['Desde','Hasta','Nuevo cierre','Exportar']],
+ ['gastos',pages.gastos(),['Desde','Hasta','Nuevo gasto','Proveedores','Exportar']],
+ ['facturacion',pages.facturacion(),['Desde','Hasta','Nueva factura','Proforma','Factura externa','Rectificativa']],
+ ['documentos',pages.documentos(),['Desde','Hasta','Subir documento','Descargar ZIP filtrado']],
+ ['fiscalidad',pages.fiscalidad(),['Desde','Hasta','Modelo 130','Ajuste fiscal']],
+ ['informes',pages.informes(),['Desde','Hasta','Libros como los Excel originales','Gestoría y auditoría']]
+];
+for(const [name,html,terms] of uiMatrix){
+ for(const term of terms)if(!html.includes(term))errors.push(name+' incompleto: '+term);
+ if(!html.includes('type="date"')&&['cajas','gastos','facturacion','documentos','fiscalidad','informes'].includes(name))errors.push(name+' no usa fechas completas');
+}
+setView('cajas',{mode:'record',id:null});const newClosing=pages.cajas();
+for(const id of ['clStore','clDate','clReported','clNotes'])if(!newClosing.includes('id="'+id+'"'))errors.push('Cajas ficha falta '+id);
+for(const action of ['closing-save-draft','closing-save-close','closing-back'])if(!newClosing.includes('data-action="'+action+'"'))errors.push('Cajas ficha falta acción '+action);
+
+setView('gastos',{mode:'record',id:null});const newExpense=pages.gastos();
+for(const id of ['exStore','exDate','exSupplier','exInvoice','exFile','exPaidStatus','exNotes'])if(!newExpense.includes('id="'+id+'"'))errors.push('Gastos ficha falta '+id);
+for(const action of ['expense-line-add','expense-save','expense-back'])if(!newExpense.includes('data-action="'+action+'"'))errors.push('Gastos ficha falta acción '+action);
+
+setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});const newInvoice=pages.facturacion();
+for(const id of ['ivStore','ivSeries','ivDate','ivCustomer','ivPayment','ivPaidStatus','ivPaidAmount','ivIncludeIncome'])if(!newInvoice.includes('id="'+id+'"'))errors.push('Facturación ficha falta '+id);
+for(const action of ['invoice-line-add','invoice-save','invoice-back'])if(!newInvoice.includes('data-action="'+action+'"'))errors.push('Facturación ficha falta acción '+action);
+
+setView('documentos',{mode:'record',id:null});const newDocument=pages.documentos();
+for(const id of ['docFile','docStore','docDate','docType','docStatus','docParty','docNumber','docNotes'])if(!newDocument.includes('id="'+id+'"'))errors.push('Documentos ficha falta '+id);
+for(const action of ['document-save','document-back'])if(!newDocument.includes('data-action="'+action+'"'))errors.push('Documentos ficha falta acción '+action);
+
+setView('administracion',{section:'backups'});const backupHtml=pages.administracion();
+for(const term of ['Descargar copia completa','Cargar copia','Restaurar copia'])if(!backupHtml.includes(term))errors.push('Administración copias incompleta: '+term);
+
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');
 if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
