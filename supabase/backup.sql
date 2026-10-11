@@ -49,7 +49,7 @@ declare
   v_required text[] := array[
     'ops_business_settings','ops_stores','ops_expense_categories','ops_cash_drawers','ops_invoice_series',
     'ops_suppliers','ops_customers','ops_document_templates','ops_documents','ops_daily_closings','ops_daily_closing_drawers',
-    'ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_tax_payments','ops_fiscal_adjustments','ops_reta_brackets','ops_audit_log',
+    'ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_tax_payments','ops_fiscal_adjustments','ops_income_adjustments','ops_reta_brackets','ops_audit_log',
     'brands','families','providers','products','product_variants','product_provider_prices','product_competitor_prices',
     'price_history','consultations','consultation_history'
   ];
@@ -86,6 +86,7 @@ begin
   delete from public.ops_audit_log;
   delete from public.ops_tax_payments;
   delete from public.ops_fiscal_adjustments;
+  delete from public.ops_income_adjustments;
   delete from public.ops_reta_brackets;
   delete from public.ops_documents;
   delete from public.ops_document_templates;
@@ -150,6 +151,7 @@ begin
 
   insert into public.ops_tax_payments select * from jsonb_populate_recordset(null::public.ops_tax_payments,p_payload->'ops_tax_payments');
   insert into public.ops_fiscal_adjustments select * from jsonb_populate_recordset(null::public.ops_fiscal_adjustments,p_payload->'ops_fiscal_adjustments');
+  insert into public.ops_income_adjustments select * from jsonb_populate_recordset(null::public.ops_income_adjustments,p_payload->'ops_income_adjustments');
   insert into public.ops_reta_brackets select * from jsonb_populate_recordset(null::public.ops_reta_brackets,p_payload->'ops_reta_brackets');
   insert into public.ops_audit_log select * from jsonb_populate_recordset(null::public.ops_audit_log,p_payload->'ops_audit_log');
   perform setval(pg_get_serial_sequence('public.ops_reta_brackets','id'),greatest(coalesce((select max(id) from public.ops_reta_brackets),1),1),true);
