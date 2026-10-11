@@ -313,48 +313,53 @@ function closeCalc(){
   t.diff=t.control==null?null:Math.round((t.total-t.control)*100)/100;
   return t;
 }
-function drawerClosingHtml(d,dr,dis){
+function drawerClosingHtml(d,dr,dis,index=0){
   const x=closingDrawerState(d,dr),c=drawerCalc(d,dr),prev=previousClosedForDrawer(d,dr);
   const openingNote=prev
     ? `Apertura heredada del ${dmy(prev.closing.business_date)} · ${eur(prev.row.closing_cash)}`
     : 'Sin cierre anterior: revisa la apertura inicial';
-  return `<section class="ops-drawer-card" aria-label="${h(dr.name)}">
-   <div class="ops-drawer-head">
+  const hasValues=['closing','card','bizum','online','other','withdrawals','cashExpenses','extraIn','extraOut'].some(k=>String(x[k]??'').trim()!=='');
+  const mobile=window.matchMedia?.('(max-width:760px)').matches;
+  const open=!mobile||index===0||hasValues;
+  return `<details class="ops-drawer-card" aria-label="${h(dr.name)}" ${open?'open':''}>
+   <summary class="ops-drawer-head">
     <div><div class="eyebrow">Caja física</div><h4>${h(dr.name)}</h4><div class="ops-opening-source">${h(openingNote)}</div></div>
     <div class="ops-drawer-total"><small>Ventas de esta caja</small><b id="ops_drawer_total_${dr.id}">${eur(c.total)}</b></div>
-   </div>
-   <div class="ops-drawer-section">
-    <div class="ops-drawer-section-title">Efectivo</div>
-    <div class="ops-drawer-fields">
-     <div><label>Apertura</label><input aria-label="Apertura" inputmode="decimal" value="${h(x.opening)}" oninput="opsDrawerField('${dr.id}','opening',this.value)" ${dis}></div>
-     <div><label>Queda en caja</label><input aria-label="Queda en caja" inputmode="decimal" value="${h(x.closing)}" oninput="opsDrawerField('${dr.id}','closing',this.value)" ${dis}></div>
-     <div><label>Salida / retirada</label><input aria-label="Salida / retirada" inputmode="decimal" value="${h(x.withdrawals)}" oninput="opsDrawerField('${dr.id}','withdrawals',this.value)" ${dis}></div>
-     <div><label>Gastos pagados desde caja</label><input aria-label="Gastos pagados desde caja" inputmode="decimal" value="${h(x.cashExpenses)}" oninput="opsDrawerField('${dr.id}','cashExpenses',this.value)" ${dis}></div>
+   </summary>
+   <div class="ops-drawer-body">
+    <div class="ops-drawer-section">
+     <div class="ops-drawer-section-title">Efectivo</div>
+     <div class="ops-drawer-fields">
+      <div><label>Apertura</label><input aria-label="Apertura" inputmode="decimal" value="${h(x.opening)}" oninput="opsDrawerField('${dr.id}','opening',this.value)" ${dis}></div>
+      <div><label>Queda en caja</label><input aria-label="Queda en caja" inputmode="decimal" value="${h(x.closing)}" oninput="opsDrawerField('${dr.id}','closing',this.value)" ${dis}></div>
+      <div><label>Salida / retirada</label><input aria-label="Salida / retirada" inputmode="decimal" value="${h(x.withdrawals)}" oninput="opsDrawerField('${dr.id}','withdrawals',this.value)" ${dis}></div>
+      <div><label>Gastos pagados desde caja</label><input aria-label="Gastos pagados desde caja" inputmode="decimal" value="${h(x.cashExpenses)}" oninput="opsDrawerField('${dr.id}','cashExpenses',this.value)" ${dis}></div>
+     </div>
+    </div>
+    <div class="ops-drawer-section">
+     <div class="ops-drawer-section-title">Cobros no efectivos</div>
+     <div class="ops-drawer-fields">
+      <div><label>Tarjeta</label><input aria-label="Tarjeta" inputmode="decimal" value="${h(x.card)}" oninput="opsDrawerField('${dr.id}','card',this.value)" ${dis}></div>
+      <div><label>Bizum</label><input aria-label="Bizum" inputmode="decimal" value="${h(x.bizum)}" oninput="opsDrawerField('${dr.id}','bizum',this.value)" ${dis}></div>
+      <div><label>Pedidos online</label><input aria-label="Pedidos online" inputmode="decimal" value="${h(x.online)}" oninput="opsDrawerField('${dr.id}','online',this.value)" ${dis}></div>
+      <div><label>Otros cobros</label><input aria-label="Otros cobros" inputmode="decimal" value="${h(x.other)}" oninput="opsDrawerField('${dr.id}','other',this.value)" ${dis}></div>
+     </div>
+    </div>
+    <details class="ops-drawer-advanced" ${(String(x.extraIn).trim()||String(x.extraOut).trim())?'open':''}>
+     <summary>Movimientos extraordinarios <span>solo si existen</span></summary>
+     <div class="ops-drawer-fields">
+      <div><label>Entrada extra a caja</label><input aria-label="Entrada extra a caja" inputmode="decimal" value="${h(x.extraIn)}" oninput="opsDrawerField('${dr.id}','extraIn',this.value)" ${dis}></div>
+      <div><label>Salida extra de caja</label><input aria-label="Salida extra de caja" inputmode="decimal" value="${h(x.extraOut)}" oninput="opsDrawerField('${dr.id}','extraOut',this.value)" ${dis}></div>
+     </div>
+    </details>
+    <div class="ops-close-summary compact">
+     <div><small>Efectivo vendido</small><b id="ops_drawer_cash_${dr.id}">${eur(c.cashSales)}</b></div>
+     <div><small>Tarjeta</small><b id="ops_drawer_card_${dr.id}">${eur(c.card)}</b></div>
+     <div><small>Otros cobros</small><b id="ops_drawer_other_${dr.id}">${eur(c.bizum+c.online+c.other)}</b></div>
+     <div><small>Metálico final</small><b id="ops_drawer_close_${dr.id}">${eur(c.closing)}</b></div>
     </div>
    </div>
-   <div class="ops-drawer-section">
-    <div class="ops-drawer-section-title">Cobros no efectivos</div>
-    <div class="ops-drawer-fields">
-     <div><label>Tarjeta</label><input aria-label="Tarjeta" inputmode="decimal" value="${h(x.card)}" oninput="opsDrawerField('${dr.id}','card',this.value)" ${dis}></div>
-     <div><label>Bizum</label><input aria-label="Bizum" inputmode="decimal" value="${h(x.bizum)}" oninput="opsDrawerField('${dr.id}','bizum',this.value)" ${dis}></div>
-     <div><label>Pedidos online</label><input aria-label="Pedidos online" inputmode="decimal" value="${h(x.online)}" oninput="opsDrawerField('${dr.id}','online',this.value)" ${dis}></div>
-     <div><label>Otros cobros</label><input aria-label="Otros cobros" inputmode="decimal" value="${h(x.other)}" oninput="opsDrawerField('${dr.id}','other',this.value)" ${dis}></div>
-    </div>
-   </div>
-   <details class="ops-drawer-advanced" ${(String(x.extraIn).trim()||String(x.extraOut).trim())?'open':''}>
-    <summary>Movimientos extraordinarios <span>solo si existen</span></summary>
-    <div class="ops-drawer-fields">
-     <div><label>Entrada extra a caja</label><input aria-label="Entrada extra a caja" inputmode="decimal" value="${h(x.extraIn)}" oninput="opsDrawerField('${dr.id}','extraIn',this.value)" ${dis}></div>
-     <div><label>Salida extra de caja</label><input aria-label="Salida extra de caja" inputmode="decimal" value="${h(x.extraOut)}" oninput="opsDrawerField('${dr.id}','extraOut',this.value)" ${dis}></div>
-    </div>
-   </details>
-   <div class="ops-close-summary compact">
-    <div><small>Efectivo vendido</small><b id="ops_drawer_cash_${dr.id}">${eur(c.cashSales)}</b></div>
-    <div><small>Tarjeta</small><b id="ops_drawer_card_${dr.id}">${eur(c.card)}</b></div>
-    <div><small>Otros cobros</small><b id="ops_drawer_other_${dr.id}">${eur(c.bizum+c.online+c.other)}</b></div>
-    <div><small>Metálico final</small><b id="ops_drawer_close_${dr.id}">${eur(c.closing)}</b></div>
-   </div>
-  </section>`;
+  </details>`;
 }
 function closingsHtml(){
   if(!O.closeDraft)O.closeDraft=newClosingDraft();
@@ -401,7 +406,7 @@ function closingsHtml(){
        <div><span>Cajas físicas</span><h3>${h(storeName(d.storeId))}</h3></div>
        <small>${drawers.length} ${drawers.length===1?'caja configurada':'cajas configuradas'}</small>
       </div>
-      ${drawers.length?`<div class="ops-drawers-grid">${drawers.map(dr=>drawerClosingHtml(d,dr,dis)).join('')}</div>`:'<div class="ops-note bad">Este establecimiento no tiene ninguna caja física configurada. Un administrador debe crearla antes de cerrar el día.</div>'}
+      ${drawers.length?`<div class="ops-drawers-grid">${drawers.map((dr,i)=>drawerClosingHtml(d,dr,dis,i)).join('')}</div>`:'<div class="ops-note bad">Este establecimiento no tiene ninguna caja física configurada. Un administrador debe crearla antes de cerrar el día.</div>'}
      </section>
 
      <section class="closing-notes-card">
