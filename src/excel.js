@@ -157,3 +157,79 @@ export function exportStoreAnnualWorkbook({store,year,closings,expenses,categori
  wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
  write(wb,`Gastos y ventas ${store.name} ${year}.xlsx`);
 }
+
+
+const GESTOR_NAVY='17365D',GESTOR_BLUE='4472C4',GESTOR_ALT='D9EAF7',GESTOR_LINE='5B9BD5',GESTOR_WARN='FFF2CC',GESTOR_OK='E2F0D9';
+function gestorHeader(ws,row,cols){
+ for(let i=0;i<cols;i++){const a=XLSX.utils.encode_cell({r:row,c:i});if(ws[a])ws[a].s={fill:{fgColor:{rgb:GESTOR_BLUE}},font:{bold:true,color:{rgb:'FFFFFF'},name:'Calibri',sz:10},alignment:{horizontal:'center',vertical:'center'},border:{bottom:{style:'thin',color:{rgb:GESTOR_LINE}}}}}
+}
+function gestorTitle(ws,title,lastCol){
+ ws['A1']={t:'s',v:title,s:{fill:{fgColor:{rgb:GESTOR_NAVY}},font:{bold:true,color:{rgb:'FFFFFF'},name:'Calibri',sz:14},alignment:{horizontal:'left',vertical:'center'}}};
+ ws['!merges']=(ws['!merges']||[]).concat([XLSX.utils.decode_range(`A1:${lastCol}1`)]);
+}
+function sheetCurrency(ws,start,end,cols){
+ for(let r=start;r<=end;r++)for(const col of cols){const a=`${col}${r}`;if(ws[a]){ws[a].z='#,##0.00 "€"';ws[a].s={...(ws[a].s||{}),alignment:{horizontal:'right'},fill:{fgColor:{rgb:r%2?GESTOR_ALT:'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:GESTOR_LINE}}}}}}
+}
+function quarterRange(year,q){const sm=(q-1)*3+1,em=q*3;return {from:`${year}-${String(sm).padStart(2,'0')}-01`,to:new Date(year,em,0).toISOString().slice(0,10),months:[sm-1,sm,sm+1]}}
+function inDate(v,from,to){const d=String(v||'').slice(0,10);return d>=from&&d<=to}
+function categoryConcept(categories,id){const c=categories.find(x=>x.id===id);return (c?.name||c?.code||'OTROS').toUpperCase().slice(0,28)}
+function fiscalIncomeForPeriod({from,to,closings,invoices=[],incomeAdjustments=[]}){
+ const close=closings.filter(x=>x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
+ const inv=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
+ const adj=incomeAdjustments.filter(x=>inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
+ return close+inv+adj;
+}
+function expenseLineRows({from,to,expenses,expenseLines,categories}){
+ const valid=expenses.filter(x=>!x.management_only&&inDate(x.expense_date,from,to));
+ const byExpense=new Map(valid.map(x=>[x.id,x]));const out=[];let order=1;
+ for(const line of expenseLines.filter(x=>byExpense.has(x.expense_id)).sort((a,b)=>String(byExpense.get(a.expense_id).expense_date).localeCompare(String(byExpense.get(b.expense_id).expense_date))||(a.sort_order||0)-(b.sort_order||0))){
+   const e=byExpense.get(line.expense_id),base=n(line.base_amount),vat=n(line.vat_amount),re=n(line.re_amount),wh=n(line.withholding_amount),total=base+vat+re,net=total-wh;
+   out.push([order++,fmtDate(e.expense_date),'',e.invoice_number||'', '',e.supplier_tax_id||'',e.supplier_name||'',categoryConcept(categories,line.category_id||e.category_id),base,n(line.vat_rate),vat,n(line.re_base),n(line.re_rate),re,n(line.irpf_imputable),n(line.withholding_base),n(line.withholding_rate),wh,total,net]);
+ }
+ return out;
+}
+function appendGestorBookSheet(wb,q,args){
+ const {year,expenses,expenseLines,categories}=args,rng=quarterRange(year,q),rows=expenseLineRows({from:rng.from,to:rng.to,expenses,expenseLines,categories});
+ const headers=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
+ const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows]);gestorTitle(ws,`Compras y gastos / Facturas recibidas - Libro gestor ${q}T`,'T');gestorHeader(ws,2,20);
+ ws['!cols']=[7,12,15,18,5,13,28,25,12,8,12,12,8,12,14,13,10,13,13,13].map(w=>({wch:w}));ws['!freeze']={ySplit:3};ws['!autofilter']={ref:`A3:T${rows.length+3}`};
+ for(let r=4;r<=rows.length+3;r++){for(let col=0;col<20;col++){const a=XLSX.utils.encode_cell({r:r-1,c:col});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{name:'Calibri',sz:9},fill:{fgColor:{rgb:r%2?GESTOR_ALT:'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:GESTOR_LINE}}}}}}
+ sheetCurrency(ws,4,rows.length+3,['I','J','K','L','M','N','O','P','Q','R','S','T']);
+ XLSX.utils.book_append_sheet(wb,ws,`Libro gestor ${q}T`);
+ return rows;
+}
+function monthTotals(args,month){
+ const {year,stores,closings,expenses,invoices=[],incomeAdjustments=[]}=args,from=excelDateKey(year,month,1),to=new Date(year,month+1,0).toISOString().slice(0,10);
+ const sales=stores.map(s=>{
+   const close=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
+   const inv=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
+   const adj=incomeAdjustments.filter(x=>x.store_id===s.id&&inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
+   return close+inv+adj;
+ });
+ const direct=stores.map(s=>expenses.filter(x=>x.store_id===s.id&&!x.management_only&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0));
+ const common=expenses.filter(x=>!x.store_id&&!x.management_only&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+ return {from,to,sales,direct,common};
+}
+function appendReconciliationSheet(wb,q,args){
+ const {year,stores,fiscalAdjustments=[]}=args,rng=quarterRange(year,q);const months=rng.months.map(m=>monthTotals(args,m));
+ const rows=months.map((x,i)=>{const adjustment=fiscalAdjustments.filter(a=>inDate(a.adjustment_date,x.from,x.to)&&a.kind!=='retencion_soportada').reduce((s,a)=>s+n(a.amount),0);const sales=x.sales.reduce((a,b)=>a+b,0),direct=x.direct.reduce((a,b)=>a+b,0),gestor=direct+x.common+adjustment;return [MONTHS[rng.months[i]],x.sales[0]||0,x.sales[1]||0,sales,-(x.direct[0]||0),-(x.direct[1]||0),-x.common,adjustment,-gestor,sales-gestor,0,sales-gestor]});
+ const totals=new Array(12).fill(0);totals[0]='TOTAL';for(let c=1;c<12;c++)totals[c]=rows.reduce((a,r)=>a+n(r[c]),0);
+ const headers=['Mes','Ventas Hortimatic','Ventas NewOldSmok','Ventas totales','Gasto directo Horti','Gasto directo NewOld','Gastos comunes','Ajuste / diferencia gestor','Gastos gestor','Resultado fiscal','Luz almacén incluida','Resultado corregido sin luz almacén'];
+ const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows,totals,[],['Fórmula visible: Ventas totales - Gastos del gestor = Resultado fiscal. Los gastos del gestor se forman con gastos directos de las dos tiendas + gastos comunes + ajustes de conciliación.']]);gestorTitle(ws,`Conciliación fiscal trazable - ${q}T ${year}`,'L');gestorHeader(ws,2,12);ws['!cols']=[14,16,18,16,18,20,16,21,16,16,17,26].map(w=>({wch:w}));ws['!freeze']={ySplit:3};
+ sheetCurrency(ws,4,7,['B','C','D','E','F','G','H','I','J','K','L']);for(let c=0;c<12;c++){const a=XLSX.utils.encode_cell({r:6,c});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{bold:true},fill:{fgColor:{rgb:'D9EAD3'}}}}
+ XLSX.utils.book_append_sheet(wb,ws,`Conciliación ${q}T`);
+ return totals;
+}
+function appendAuditSheet(wb,args,quarterStats){
+ const {year,taxPayments=[],fiscalAdjustments=[]}=args,rows=[];
+ for(let q=1;q<=4;q++){
+   const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+   const extraDed=fiscalAdjustments.filter(x=>x.kind==='gasto_deducible_extra'&&inDate(x.adjustment_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.amount),0),result=income-expense-extraDed,diff=Math.max(0,result*n(args.settings?.difficult_expense_pct||5)/100),base=Math.max(0,result-diff),calc=base*n(args.settings?.irpf_prepayment_rate||20)/100;
+   const paid=taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===q&&x.status==='pagado'),status=paid?(Math.abs(n(paid.amount)-calc)<.02?'Coincide al céntimo':'Diferencia '+(n(paid.amount)-calc).toFixed(2)+' €'):'Sin pago registrado';
+   rows.push([`${q}T`,income,-expense,result,-diff,base,-calc,status]);
+ }
+ const ws=XLSX.utils.aoa_to_sheet([['Auditoría y conciliación con la gestoría - Año '+year],[],['Periodo','Ventas correctas','Gastos gestor','Resultado antes 5 %','5 % difícil justificación','Base neta','20 % / Modelo 130','Estado'],...rows]);gestorTitle(ws,`Auditoría y conciliación con la gestoría - Año ${year}`,'H');gestorHeader(ws,2,8);ws['!cols']=[12,16,16,19,19,16,18,48].map(w=>({wch:w}));sheetCurrency(ws,4,7,['B','C','D','E','F','G']);XLSX.utils.book_append_sheet(wb,ws,'Auditoría gestor');
+}
+export function exportGestorWorkbook(args){
+ const wb=book(),quarterStats=[];appendAuditSheet(wb,args,quarterStats);for(let q=1;q<=4;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=4;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);
+}
