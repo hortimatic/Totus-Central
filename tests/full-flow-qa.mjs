@@ -6,7 +6,7 @@ page.setDefaultTimeout(5000);
 const errors=[];
 page.on('pageerror',e=>errors.push('JS '+e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push('Consola '+m.text())});
-const check=async (label,fn)=>{try{await fn();console.log('OK '+label)}catch(e){errors.push(label+': '+e.message);console.error('ERROR '+label+': '+e.message)}};
+const check=async (label,fn)=>{try{await fn();console.log('OK '+label)}catch(e){errors.push(label+': '+e.message);console.error('ERROR '+label+': '+e.message);await page.locator('#modalHost .close-btn').click().catch(()=>{});}};
 const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
 const db=()=>page.evaluate(()=>({
  closings:window.__mockDb.ops_daily_closings,
@@ -87,7 +87,8 @@ await check('Documentos: subida, archivo y metadatos',async()=>{
  assert(d.uploads===1,'Archivo no subido a storage simulado');
  assert(d.documents[0].original_name==='factura-qa.txt','Nombre de archivo erróneo');
  await page.locator('[data-action="document-preview"]').first().click();
- assert((await page.locator('#modalHost').innerText()).includes('Importe: 121 euros'),'El texto de la factura no aparece en vista previa');
+ await page.locator('#modalHost .text-preview').waitFor({state:'visible'});
+ assert((await page.locator('#modalHost .text-preview').innerText()).includes('Importe: 121 euros'),'El texto de la factura no aparece en vista previa');
  await page.locator('#modalHost .close-btn').click();
  const download=page.waitForEvent('download');
  await page.locator('[data-action="document-download"]').first().click();
