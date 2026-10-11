@@ -886,3 +886,28 @@
 .document-capacity-estimate{display:flex;flex-direction:column;gap:3px;margin-top:10px;padding:10px 11px;border:1px solid rgba(75,217,255,.12);border-radius:11px;background:rgba(75,217,255,.025)}
 .document-capacity-estimate b{font-size:11px}
 .document-capacity-estimate span{color:#9fb0bc;font-size:10px;line-height:1.4}
+
+/* Facturación · patrón lista / ficha */
+.invoice-list-switch{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.invoice-list-summary{margin-top:0}
+.invoice-list-table{min-width:960px}
+.invoice-record-nav{align-items:center}
+.invoice-design-details{margin-top:10px;border-top:1px solid rgba(255,255,255,.055)}
+.invoice-design-details>summary{list-style:none;cursor:pointer;padding:10px 0 2px;color:#aeb9c4;font-size:11px;font-weight:900}
+.invoice-design-details>summary::-webkit-details-marker{display:none}
+.invoice-design-details>summary:after{content:'+';float:right;color:#7f95a5;font-size:15px}
+.invoice-design-details[open]>summary:after{content:'−'}
+.invoice-template-manage{width:100%;margin-top:10px}
+@media(max-width:720px){
+ .invoice-list-switch{align-items:stretch;flex-direction:column}
+ .invoice-record-nav{width:100%;justify-content:space-between}
+ .invoice-record-nav .ops-pill{margin-left:auto}
+ .invoice-review-panel .invoice-design-panel{padding:13px}
+ .invoice-design-panel .invoice-template-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .invoice-design-panel .invoice-template-card{padding:7px}
+ .invoice-design-panel .template-swatch{height:24px}
+}
+@media(max-width:460px){
+ .invoice-design-panel .invoice-template-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .invoice-design-panel .invoice-template-card small{display:none}
+}
