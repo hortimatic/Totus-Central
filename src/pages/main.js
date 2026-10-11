@@ -104,17 +104,52 @@ export function gastos(){
 }
 
 export function facturacion(){
+ const view=getView('facturacion');
+ if(view.mode==='record'){
+   const row=view.id?state.data.invoices.find(x=>x.id===view.id):null;
+   return invoiceRecordHtml(row,view.docType||row?.document_type||'factura',view.invoiceKind||row?.invoice_kind||'invoice',view.origin||row?.origin||'totus');
+ }
+ const section=view.section||'documentos';
+ const tabs=`<div class="tabs module-tabs"><button class="tab ${section==='documentos'?'active':''}" data-action="billing-section" data-section="documentos">Documentos</button><button class="tab ${section==='clientes'?'active':''}" data-action="billing-section" data-section="clientes">Clientes</button><button class="tab ${section==='plantillas'?'active':''}" data-action="billing-section" data-section="plantillas">Plantillas y marca</button><button class="tab ${section==='series'?'active':''}" data-action="billing-section" data-section="series">Series</button></div>`;
+ if(section==='clientes') return `<div class="page">${tabs}${customersSectionHtml()}</div>`;
+ if(section==='plantillas') return `<div class="page">${tabs}${templatesSectionHtml()}</div>`;
+ if(section==='series') return `<div class="page">${tabs}${seriesSectionHtml()}</div>`;
+
  const f=getFilters('facturacion');
- const rows=state.data.invoices.filter(x=>inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.display_number,x.customer_name,x.customer_tax_id,x.concept,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const rows=state.data.invoices.filter(x=>inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.display_number,x.external_number_text,x.customer_name,x.customer_tax_id,x.concept,x.status,x.document_type,x.invoice_kind].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
-  {label:'Fecha',html:r=>dateCell(r.issue_date)},{label:'Número',html:r=>esc(r.display_number||'Borrador')},{label:'Tipo',html:r=>esc(r.document_type||'factura')},
-  {label:'Cliente',html:r=>esc(r.customer_name||'—')},{label:'Total',num:true,html:r=>moneyCell(r.total_amount)},{label:'Estado',html:r=>stateBadge(r.status)},
-  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${r.id}"`)}${r.status==='borrador'?btn('Editar','invoice-edit','secondary',`data-id="${r.id}"`):''}${r.document_type==='proforma'&&['emitida','aceptada'].includes(r.status)?btn('Convertir','proforma-convert','primary',`data-id="${r.id}"`):''}</div>`}
+  {label:'Documento',html:r=>`<b>${esc(r.display_number||r.external_number_text||'Borrador')}</b><div class="small muted">${fmtDate(r.issue_date)} · ${r.document_type==='proforma'?'Proforma':r.invoice_kind==='rectification'?'Rectificativa':r.origin==='externa'?'Factura externa':'Factura'}</div>`},
+  {label:'Cliente',html:r=>`<b>${esc(r.customer_name||'—')}</b><div class="small muted">${esc(r.customer_tax_id||'')}</div>`},
+  {label:'Cobro',html:r=>r.document_type==='proforma'?'<span class="muted">No aplica</span>':stateBadge(r.paid_status||'pendiente')},
+  {label:'Total',num:true,html:r=>`<b>${money(r.total_amount)}</b>`},
+  {label:'Estado',html:r=>stateBadge(r.status)},
+  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${r.id}"`)}${r.status==='borrador'?btn('Editar','invoice-edit','secondary',`data-id="${r.id}"`):btn('Abrir','invoice-open','secondary',`data-id="${r.id}"`)}${r.document_type==='proforma'&&['emitida','aceptada'].includes(r.status)?btn('Convertir','proforma-convert','primary',`data-id="${r.id}"`):''}</div>`}
  ];
- return `<div class="page"><div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Total',money(sum(rows,x=>x.total_amount)))}${kpi('Emitidas',String(rows.filter(x=>x.status==='emitida').length))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas y proformas en una lista clara.</p></div><div class="inline-actions">${btn('Nueva factura','invoice-new','primary')}${btn('Nueva proforma','proforma-new','secondary')}${btn('Clientes','customers-manage','secondary')}</div></div>
-  ${dateFilters({...f,stores:stores()},'facturas')}
-  ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen facturas o proformas para estas fechas.'})}</section></div>`;
+ return `<div class="page">
+  ${tabs}
+  <div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Facturado',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'),x=>x.total_amount)))}${kpi('Pendiente de cobro',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagado'),x=>x.total_amount-Number(x.amount_paid||0))))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
+  <section class="card table-card">
+   <div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas, rectificativas, externas y proformas.</p></div><div class="inline-actions">${btn('Factura externa','external-invoice-new','secondary')}${btn('Rectificativa','rectification-new','secondary')}${btn('Proforma','proforma-new','secondary')}${btn('+ Nueva factura','invoice-new','primary')}</div></div>
+   ${dateFilters({...f,stores:stores()},'facturas')}
+   ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para estas fechas.'})}
+  </section>
+ </div>`;
+}
+
+function customersSectionHtml(){
+ const rows=state.data.customers.filter(x=>x.active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name),'es'));
+ const headers=[{label:'Cliente',html:r=>`<b>${esc(r.name)}</b><div class="small muted">${esc(r.tax_id||'Sin NIF/CIF')}</div>`},{label:'Contacto',html:r=>`${esc(r.email||'—')}<div class="small muted">${esc(r.phone||'')}</div>`},{label:'Dirección',html:r=>esc([r.address,r.postal_code,r.city,r.province].filter(Boolean).join(', ')||'—')},{label:'Pago',html:r=>esc(r.default_payment_method||'—')},{label:'',html:r=>btn('Editar','customer-edit','secondary',`data-id="${r.id}"`)}];
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Clientes</h2><p>Maestro reutilizable para facturación.</p></div>${btn('+ Nuevo cliente','customer-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin clientes'})}</section>`;
+}
+function templatesSectionHtml(){
+ const rows=state.data.templates.filter(x=>x.active!==false);
+ const headers=[{label:'Plantilla',html:r=>`<b>${esc(r.name)}</b><div class="small muted">${esc(r.code)} · ${esc(r.style)}</div>`},{label:'Marca',html:r=>`<span class="brand-swatch" style="background:${esc(r.primary_color||'#172033')}"></span> ${r.logo_name?esc(r.logo_name):'Sin logo'}`},{label:'Uso',html:r=>`${r.default_invoice?'<span class="badge info">Factura</span>':''} ${r.default_proforma?'<span class="badge info">Proforma</span>':''}`},{label:'',html:r=>`<div class="inline-actions">${btn('Editar','template-edit','secondary',`data-id="${r.id}"`)}${isAdmin()?btn('Eliminar','template-delete','danger',`data-id="${r.id}"`):''}</div>`}];
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Plantillas y marca</h2><p>El logo se configura únicamente aquí y se congela al emitir.</p></div>${btn('+ Nueva plantilla','template-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin plantillas',emptyText:'Crea una plantilla para facturas y proformas.'})}</section>`;
+}
+function seriesSectionHtml(){
+ const rows=[...state.data.series].sort((a,b)=>String(a.code).localeCompare(String(b.code),'es'));
+ const headers=[{label:'Serie',html:r=>`<b>${esc(r.code)}</b><div class="small muted">${r.document_type==='proforma'?'Proforma':r.series_kind==='rectification'?'Rectificativa':'Factura'} · ${r.year}</div>`},{label:'Tienda',html:r=>esc(r.store_id?storeName(r.store_id):'General')},{label:'Formato',html:r=>`${esc(r.prefix)} · ${r.padding} dígitos`},{label:'Siguiente',num:true,html:r=>String(r.next_number)},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>isAdmin()?btn(r.active?'Desactivar':'Activar','series-toggle','secondary',`data-id="${r.id}" data-active="${r.active?'false':'true'}"`):''}];
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Series</h2><p>Numeración anual protegida. Prefijo y padding no se cambian después de usarse.</p></div></div>${table(headers,rows,{emptyTitle:'Sin series'})}</section>`;
 }
 
 export function documentos(){
@@ -428,35 +463,55 @@ export function invoiceLineRow(line={},index=0){
  </div>`;
 }
 
-export function invoiceModal(row=null,type='factura'){
+export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoice',origin='totus'){
+ const isProforma=docType==='proforma';
+ const isRect=invoiceKind==='rectification';
+ const isExternal=origin==='externa';
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
- const series=state.data.series.filter(s=>s.active!==false&&s.document_type===type&&(type!=='factura'||s.series_kind==='invoice')).map(s=>({value:s.id,label:s.code}));
+ const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===(row?.store_id||storeOptions[0]?.value))&&(!isProforma?s.series_kind===(isRect?'rectification':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
  const activeTemplates=state.data.templates.filter(x=>x.active!==false);
- const defaultTemplate=activeTemplates.find(x=>type==='proforma'?x.default_proforma:x.default_invoice);
+ const defaultTemplate=activeTemplates.find(x=>isProforma?x.default_proforma:x.default_invoice);
  const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name}))];
  const customers=[{value:'',label:'Cliente nuevo / manual'},...state.data.customers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
- const body=`<div class="form-grid">
- ${selectField('Tienda','ivStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
- ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'')}
- ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date')}
- ${formField('Fecha vencimiento','ivDue',row?.due_date||'','date')}
- ${selectField('Cliente guardado','ivCustomerId',customers,row?.customer_id||'')}
- ${formField('Cliente','ivCustomer',row?.customer_name||'')}
- ${formField('NIF/CIF','ivTax',row?.customer_tax_id||'')}
- ${formField('Email','ivEmail',row?.customer_email||'','email')}
- <label class="wide">Dirección<textarea id="ivAddress" rows="2">${esc(row?.customer_address||'')}</textarea></label>
- ${formField('Concepto','ivConcept',row?.concept||'')}
- ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
- ${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'')}
- ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'')}
- </div>
- <div class="card" style="margin-top:16px"><div class="card-pad">
-  <div class="section-head"><div><h3>Líneas</h3><p>Una o varias líneas por documento.</p></div>${btn('Añadir línea','invoice-line-add','secondary')}</div>
-  <div id="invoiceLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>invoiceLineRow(l,i)).join('')}</div>
- </div></div>
- <div class="form-actions">${btn('Guardar borrador','invoice-save','primary',row?`data-id="${row.id}" data-type="${type}"`:`data-type="${type}"`)}${row?.status==='borrador'?btn(type==='proforma'?'Emitir proforma':'Emitir factura','invoice-finalize','secondary',`data-id="${row.id}"`):''}</div>`;
- modal(row?'Editar documento':(type==='proforma'?'Nueva proforma':'Nueva factura'),body);
+ const original=row?.source_document_id?state.data.documents.find(x=>x.id===row.source_document_id):null;
+ const title=isProforma?'Proforma':isRect?'Factura rectificativa':isExternal?'Factura externa':'Factura';
+ return `<div class="page record-page">
+  <div class="record-toolbar"><div><button class="btn link" data-action="invoice-back">← Volver a facturación</button><div class="eyebrow">Facturación · ${title}</div><h2>${row?esc(row.display_number||row.external_number_text||'Borrador'):'Nueva '+title.toLowerCase()}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
+  <div class="record-layout">
+   <div class="record-main stack">
+    <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento</h3><p>Serie, fechas y referencia.</p></div></div>
+     <div class="form-grid" style="margin-top:14px">
+      ${selectField('Tienda','ivStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
+      ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'')}
+      ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date')}
+      ${formField('Fecha operación','ivOperation',row?.operation_date||'','date')}
+      ${formField('Fecha vencimiento','ivDue',row?.due_date||'','date')}
+      ${isExternal?formField('Número externo','ivExternalNumber',row?.external_number_text||''):''}
+      ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'')}
+     </div>
+     ${isExternal?`<div class="attachment-box" style="margin-top:14px"><div><b>Original obligatorio</b><div class="small muted">${original?esc(original.original_name):'Sin archivo original'}</div></div><div class="inline-actions">${original?btn('Vista previa','invoice-source-preview','secondary',`data-id="${original.id}"`):''}${original?btn('Descargar','invoice-source-download','secondary',`data-id="${original.id}"`):''}</div><label class="file-picker">Seleccionar original<input id="ivSourceFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label></div>`:''}
+    </section>
+    <section class="card card-pad"><div class="section-head"><div><h3>2 · Cliente</h3></div></div><div class="form-grid" style="margin-top:14px">
+      ${selectField('Cliente guardado','ivCustomerId',customers,row?.customer_id||'')}
+      ${formField('Cliente','ivCustomer',row?.customer_name||'')}
+      ${formField('NIF/CIF','ivTax',row?.customer_tax_id||'')}
+      ${formField('Email','ivEmail',row?.customer_email||'','email')}
+      <label class="wide">Dirección<textarea id="ivAddress" rows="2">${esc(row?.customer_address||'')}</textarea></label>
+     </div></section>
+    <section class="card card-pad"><div class="section-head"><div><h3>3 · Líneas</h3><p>Conceptos facturados.</p></div>${btn('+ Añadir línea','invoice-line-add','secondary')}</div><div id="invoiceLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>invoiceLineRow(l,i)).join('')}</div></section>
+    <section class="card card-pad"><div class="section-head"><div><h3>4 · Cobro y notas</h3></div></div><div class="form-grid" style="margin-top:14px">
+      ${formField('Concepto general','ivConcept',row?.concept||'')}
+      ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
+      ${!isProforma?selectField('Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagado',label:'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
+      ${!isProforma?formField('Fecha de cobro','ivPaidDate',row?.paid_date||'','date'):''}
+      <label class="wide">Notas internas<textarea id="ivNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+     </div></section>
+    <details class="card card-pad design-details"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'')}<label class="wide">Términos<textarea id="ivTerms" rows="2">${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label></div></details>
+   </div>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3><div class="summary-row"><span>Base</span><strong id="ivSumBase">${money(row?.base_amount||0)}</strong></div><div class="summary-row"><span>IVA</span><strong id="ivSumVat">${money(row?.vat_amount||0)}</strong></div><div class="summary-row"><span>Total</span><strong id="ivSumTotal">${money(row?.total_amount||0)}</strong></div><div class="stack" style="margin-top:14px">${row?btn('Vista previa','invoice-preview','secondary',`data-id="${row.id}"`):''}${row?.status==='borrador'||!row?btn('Guardar borrador','invoice-save','secondary',`${row?`data-id="${row.id}" `:''}data-type="${docType}" data-kind="${invoiceKind}" data-origin="${origin}"`):''}${row?.status==='borrador'?btn(isProforma?'Emitir proforma':'Emitir documento','invoice-finalize','primary',`data-id="${row.id}"`):''}${row&&isProforma&&['emitida','aceptada'].includes(row.status)?btn('Convertir en factura','proforma-convert','primary',`data-id="${row.id}"`):''}${btn('Volver','invoice-back','secondary')}</div></section></aside>
+  </div>
+ </div>`;
 }
 
 export function invoicePreview(row,logoUrl=''){
