@@ -3,6 +3,7 @@ const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
 page.setDefaultTimeout(5000);
+page.on('dialog',async d=>{await d.accept();});
 const errors=[];
 page.on('pageerror',e=>errors.push('JS '+e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push('Consola '+m.text())});
@@ -73,6 +74,11 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  await page.locator('[data-action="invoice-preview"]').first().click();
  assert((await page.locator('#modalHost').innerText()).includes('Cliente ensayo'),'La vista previa de factura no muestra el cliente');
  await page.locator('#modalHost .close-btn').click();
+ await page.locator('[data-action="invoice-finalize"]').first().click();
+ await page.waitForTimeout(100);
+ const issued=await db();
+ assert(issued.invoices[0].status==='emitida','La factura no se ha emitido');
+ assert(/^H-0001$/.test(issued.invoices[0].display_number),'La numeración emitida no coincide');
 });
 await check('Documentos: subida, archivo y metadatos',async()=>{
  await nav('documentos');
