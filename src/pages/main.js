@@ -244,20 +244,36 @@ export function closingModal(row=null){
 
 export function expenseModal(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
+ const suppliers=[{value:'',label:'Proveedor manual'},...state.data.suppliers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
+ const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
  const body=`<div class="form-grid">
  ${selectField('Tienda','exStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
  ${formField('Fecha','exDate',row?.expense_date||isoToday(),'date')}
+ ${selectField('Proveedor guardado','exSupplierId',suppliers,row?.supplier_id||'')}
  ${formField('Proveedor','exSupplier',row?.supplier_name||'')}
  ${formField('NIF proveedor','exTax',row?.supplier_tax_id||'')}
  ${formField('Nº factura / justificante','exInvoice',row?.invoice_number||'')}
+ ${selectField('Categoría','exCategory',categories,row?.category_id||'')}
+ ${selectField('Documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.document_kind||'factura')}
  ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
+ ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
+ ${formField('Fecha de pago','exPaidDate',row?.paid_date||'','date')}
  ${formField('Base imponible','exBase',row?.base_amount??'','number','step="0.01"')}
- ${formField('IVA (%)','exVatRate',row?.vat_rate??21,'number','step="0.1"')}
- ${formField('Recargo (%)','exReRate',row?.re_rate??0,'number','step="0.1"')}
- ${formField('Retención (%)','exWhRate',row?.withholding_rate??0,'number','step="0.1"')}
+ ${formField('IVA (%)','exVatRate',row?.vat_rate??21,'number','step="0.1" min="0"')}
+ ${formField('Recargo (%)','exReRate',row?.re_rate??0,'number','step="0.1" min="0"')}
+ ${formField('Retención (%)','exWhRate',row?.withholding_rate??0,'number','step="0.1" min="0"')}
+ ${selectField('Modelo retención','exWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'Modelo 111'},{value:'115',label:'Modelo 115'}],row?.withholding_model||'')}
+ ${formField('% deducible IRPF','exDedPct',row?.deductible_pct??100,'number','step="1" min="0" max="100"')}
+ <label><input id="exDeductible" type="checkbox" ${row?.deductible_irpf===false?'':'checked'}> Deducible en IRPF</label>
+ <label><input id="exFixed" type="checkbox" ${row?.fixed_asset?'checked':''}> Inmovilizado / amortizable</label>
+ ${formField('Años amortización','exAmortYears',row?.amortization_years??'','number','step="0.1" min="0"')}
+ <label><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Gasto interno de gestión (no contable)</label>
+ ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
  <label class="wide">Descripción<textarea id="exDesc" rows="3">${esc(row?.description||'')}</textarea></label>
  <label class="wide">Observaciones<textarea id="exNotes" rows="2">${esc(row?.notes||'')}</textarea></label>
- </div><div class="form-actions">${row?btn('Eliminar','expense-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar gasto','expense-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ </div>
+ <div class="note">Los importes fiscales se calculan a partir de la base y los porcentajes. Marca “gasto interno” para costes de gestión que quieres controlar sin mezclarlos con la contabilidad oficial.</div>
+ <div class="form-actions">${row?btn('Eliminar','expense-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar gasto','expense-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar gasto':'Nuevo gasto',body);
 }
 
