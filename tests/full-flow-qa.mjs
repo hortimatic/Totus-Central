@@ -137,6 +137,10 @@ await check('Documentos Excel: carga y vista previa',async()=>{
  const download=page.waitForEvent('download');
  await page.locator('[data-action="document-download"]').first().click();
  assert((await download).suggestedFilename()==='qa-factura.xlsx','El archivo XLSX descargado no coincide con el original');
+ await page.locator('[data-action="document-delete"]').click();
+ await page.waitForTimeout(100);
+ assert(!(await db()).documents.some(x=>x.original_name==='qa-factura.xlsx'),'No se ha eliminado el documento de prueba');
+
 });
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
