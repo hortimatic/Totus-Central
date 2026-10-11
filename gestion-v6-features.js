@@ -2,7 +2,7 @@
 'use strict';
 const O=window.TotusGestion;
 if(!O) return;
-O.features=O.features||{loaded:false,customers:[],templates:[],legacyRows:[],historicalIncome:[],fiscalReference:[],gestorRows:[],gestorSummary:[],reconciliationNotes:[],auditRows:[],revisionRows:[],backupRows:[],storageUsage:{documents_count:0,documents_bytes:0,assets_count:0,assets_bytes:0,total_bytes:0},billingPanel:'documents',customerDraft:null,invoiceMode:'factura',templateId:null,invoiceStatus:'all'};
+O.features=O.features||{loaded:false,customers:[],templates:[],legacyRows:[],historicalIncome:[],fiscalReference:[],gestorRows:[],gestorSummary:[],reconciliationNotes:[],auditRows:[],revisionRows:[],backupRows:[],storageUsage:{documents_count:0,documents_bytes:0,assets_count:0,assets_bytes:0,total_bytes:0},billingPanel:'documents',customerDraft:null,invoiceMode:'factura',invoiceRecordView:'list',invoiceQuery:'',templateId:null,invoiceStatus:'all'};
 const E=O.features;
 const STORAGE_REFERENCE_1S_2026_BYTES=57360165;
 const STORAGE_REFERENCE_1S_2026_FILES=293;
@@ -241,7 +241,14 @@ function confirmDiscardInvoiceDraft(action='continuar'){
  return !invoiceDraftHasUserInput()||confirm('Hay datos sin guardar en el documento actual. ¿'+action+' y descartarlos?');
 }
 window.opsInvoiceStatus=function(v){E.invoiceStatus=v;render()};
-window.opsBillingPanel=function(v){if(!manager()&&v!=='documents')return;E.billingPanel=v;if(v==='customers'&&!E.customerDraft)E.customerDraft=blankCustomerDraft();render()};
+window.opsBillingPanel=function(v){
+ if(!manager()&&v!=='documents')return;
+ if(v!=='documents'&&E.billingPanel==='documents'&&E.invoiceRecordView==='form'&&!confirmDiscardInvoiceDraft('Cambiar de sección'))return;
+ E.billingPanel=v;
+ if(v==='documents'){E.invoiceRecordView='list';O.invoiceDraft=null}
+ if(v==='customers'&&!E.customerDraft)E.customerDraft=blankCustomerDraft();
+ render();
+};
 window.opsNewCustomerPanel=function(){if(!confirmDiscardCustomerDraft('Crear un cliente nuevo'))return;E.customerDraft=blankCustomerDraft();render()};
 window.opsCustomerField=function(k,v){if(!E.customerDraft)E.customerDraft=blankCustomerDraft();E.customerDraft[k]=v};
 window.opsEditCustomerPanel=function(id){const c=E.customers.find(x=>x.id===id);if(!c)return;if(!confirmDiscardCustomerDraft('Abrir otro cliente'))return;E.customerDraft={id:c.id,name:c.name||'',tax_id:c.tax_id||'',email:c.email||'',phone:c.phone||'',address:c.address||'',postal_code:c.postal_code||'',city:c.city||'',province:c.province||'',country:c.country||'España',default_payment_method:c.default_payment_method||'transferencia',notes:c.notes||'',active:c.active!==false};render()};
@@ -277,8 +284,8 @@ window.opsReportField=function(k,v){
  if(k==='to'&&O.reportFrom&&next<O.reportFrom)return alert('La fecha Hasta no puede ser anterior a Desde.');
  if(k==='from')O.reportFrom=next;else O.reportTo=next;render();
 };
-window.opsInvoiceView=function(type='factura'){E.billingPanel='documents';E.invoiceMode=type;O.invoiceDraft=null;render();};
-window.opsNewDocument=function(type='factura'){if(!manager())return alert('Facturación en modo consulta. Solo administración o gerencia puede crear documentos.');if(!confirmDiscardInvoiceDraft(type===E.invoiceMode?'Crear un documento nuevo':'Cambiar de tipo de documento'))return;O.tab='facturas';E.billingPanel='documents';E.invoiceMode=type;O.invoiceDraft=newDocDraft(type);O.invoiceDraftLines=[{description:'',qty:'1',unit:'',discount:'0',vat:'21'}];render();};
+window.opsInvoiceView=function(type='factura'){if(E.invoiceRecordView==='form'&&!confirmDiscardInvoiceDraft('Cambiar de tipo de documento'))return;E.billingPanel='documents';E.invoiceMode=type;E.invoiceRecordView='list';O.invoiceDraft=null;render();};
+window.opsNewDocument=function(type='factura'){if(!manager())return alert('Facturación en modo consulta. Solo administración o gerencia puede crear documentos.');if(!confirmDiscardInvoiceDraft(type===E.invoiceMode?'Crear un documento nuevo':'Cambiar de tipo de documento'))return;O.tab='facturas';E.billingPanel='documents';E.invoiceMode=type;E.invoiceRecordView='form';O.invoiceDraft=newDocDraft(type);O.invoiceDraftLines=[{description:'',qty:'1',unit:'',discount:'0',vat:'21'}];render();};
 function ensureDraft(){if(!O.invoiceDraft||!O.invoiceDraft.documentType){O.invoiceDraft=newDocDraft(E.invoiceMode);O.invoiceDraftLines=[{description:'',qty:'1',unit:'',discount:'0',vat:'21'}];}return O.invoiceDraft;}
 function lineCalc(l){const q=N(l.qty),u=N(l.unit),d=N(l.discount),base=q*u*(1-d/100),vat=base*N(l.vat)/100;return{base,vat,total:base+vat}}
 function draftTotals(){return O.invoiceDraftLines.reduce((a,l)=>{const x=lineCalc(l);a.base+=x.base;a.vat+=x.vat;a.total+=x.total;return a},{base:0,vat:0,total:0})}
