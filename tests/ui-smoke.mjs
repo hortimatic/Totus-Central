@@ -918,6 +918,7 @@ await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).cl
 
 // El límite total configurado debe bloquear nuevas subidas, no ser solo un indicador visual.
 await page.evaluate(()=>{window.TotusGestion.storageUsage={total_bytes:1073741824,documents_count:0,documents_bytes:1073741824,assets_count:0,assets_bytes:0}});
+await page.locator('#ops_doc_type').selectOption('otro');
 await page.locator('#ops_doc_file').setInputFiles({name:'sin-espacio.txt',mimeType:'text/plain',buffer:Buffer.from('x')});
 const docsBeforeNoSpace=fixtures.ops_documents.length;
 await page.getByRole('button',{name:'Subir',exact:true}).click();
