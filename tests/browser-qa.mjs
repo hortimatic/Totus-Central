@@ -34,7 +34,7 @@ const viewports=[
 const browser=await chromium.launch({headless:true});
 const errors=[];
 for(const [vpName,viewport] of viewports){
- const page=await browser.newPage({viewportSize:viewport});
+ const page=await browser.newPage({viewport});
  const pageErrors=[];
  page.on('pageerror',e=>pageErrors.push('pageerror: '+e.message));
  page.on('console',m=>{if(m.type()==='error')pageErrors.push('console: '+m.text())});
