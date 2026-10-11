@@ -116,7 +116,7 @@ await check('Documentos: subida, archivo y metadatos',async()=>{
 });
 await check('Documentos Excel: carga y vista previa',async()=>{
  await nav('documentos');
- if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').click();
+ if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').first().click();
  await page.locator('[data-action="document-new"]').click();
  const wb=xlsx.utils.book_new();
  xlsx.utils.book_append_sheet(wb,xlsx.utils.aoa_to_sheet([['Concepto','Importe'],['Factura prueba',126.2]]),'Ensayo');
