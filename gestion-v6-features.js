@@ -1082,7 +1082,7 @@ function closedFiscalPeriodsHtml(){
   const fiscal=incomeTotal(b.start,b.end,'all');
   const gestorIncome=sum(E.historicalIncome.filter(x=>x.period_start>=b.start&&x.period_end<=b.end),x=>N(x.gestor_reported_income??x.fiscal_basis_income??x.total_income));
   const expense=deductibleExpenseTotal(b.start,b.end,'all');
-  const before= fiscal-expense,gdj=difficult(Math.max(0,before)),theoretical=Math.max(0,(before-gdj)*N(O.settings?.irpf_prepayment_rate||20)/100);
+  const before=fiscal-expense,theoretical=fiscalProjection(O.year,q,0).payable;
   const issues=(E.reconciliationNotes||[]).filter(x=>x.active!==false&&x.fiscal_year===O.year&&N(x.quarter)===q);
   const incomeIssue=issues.find(x=>x.issue_type==='ingresos_excel_vs_gestoria');
   const diff=Math.abs(theoretical-N(t.amount));
@@ -1159,6 +1159,11 @@ function fiscalProjectionHtml(){
     <article><span>Gastos deducibles acumulados</span><strong>${euro(f.raw)}</strong><small>No incluye ${euro(src.internalExpenseAmount)} de control interno del trimestre</small></article>
     <article><span>Rendimiento acumulado</span><strong>${euro(f.net)}</strong><small>Después de difícil justificación</small></article>
     <article><span>IVA + RE soportado T${O.quarter}</span><strong>${euro(taxQ.total)}</strong><small>IVA ${euro(taxQ.vat)} · RE ${euro(taxQ.re)} · solo informativo en RE</small></article>
+   </div>
+   <div class="fiscal-action-strip">
+    <article class="${f.reserve>.01?'attention':'ok'}"><span>1 · Reserva</span><b>${f.reserve>.01?'Aparta '+euro(f.reserve):'Sin reserva pendiente'}</b><small>${f.reserve>.01?'Según 130 + 111 + 115 pendientes.':'Los modelos registrados cubren la obligación estimada del trimestre.'}</small></article>
+    <article class="${src.pendingReviewCount?'attention':'ok'}"><span>2 · Gastos</span><b>${src.pendingReviewCount?src.pendingReviewCount+' por revisar':'Gastos al día'}</b><small>${src.pendingReviewCount?'No entran todavía como deducibles.':'No hay importaciones pendientes de validación fiscal.'}</small>${src.pendingReviewCount?'<button class="ghost" type="button" onclick="opsTab(\'gastos\')">Revisar gastos</button>':''}</article>
+    <article class="${issues.length?'info':'ok'}"><span>3 · Cuadres</span><b>${issues.length?issues.length+' diferencia(s) documentada(s)':'Fuentes sin incidencias'}</b><small>${issues.length?'Están explicadas y conservan la fuente original.':'No hay discrepancias documentadas hasta este trimestre.'}</small>${issues.length?'<button class="ghost" type="button" onclick="document.getElementById(\'fiscal_fuentes\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">Ver cuadres</button>':''}</article>
    </div>
   </section>
 
