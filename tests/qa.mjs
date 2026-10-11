@@ -42,6 +42,13 @@ state.data.fiscalAdjustments=[];state.data.incomeAdjustments=[];state.data.audit
 state.data.brands=[];state.data.families=[];state.data.products=[];state.data.variants=[];state.data.providers=[];
 state.data.providerPrices=[];state.data.competitors=[];state.data.consultations=[];state.data.team=[];
 
+const inicioHtml=pages.inicio();
+for(const term of ['Lo importante de hoy','Pendientes y avisos','Control fiscal','Cobros y pagos pendientes','Actividad reciente','Hortimatic','NewOldSmok']){
+ if(!inicioHtml.includes(term))errors.push('Inicio incompleto: '+term);
+}
+if(!inicioHtml.includes('data-route="fiscalidad"')||!inicioHtml.includes('data-route="facturacion"'))errors.push('Inicio sin accesos directos funcionales');
+if(!inicioHtml.includes('data-store="s1"')&&!inicioHtml.includes('data-id='))errors.push('Inicio no permite actuar sobre cierres por tienda');
+
 for(const name of ['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion']){
  try{
    const html=pages[name]();
