@@ -595,6 +595,7 @@ assert(masterCustomer.default_payment_method==='domiciliado','La ficha de client
 
 // Al escribir un nombre manual después de elegir un cliente, la factura no debe conservar el vínculo anterior.
 await page.getByRole('button',{name:'Facturación',exact:true}).click();await heading('Facturación');
+await page.locator('.billing-nav').getByRole('button',{name:'Documentos',exact:true}).click();
 await page.getByRole('combobox',{name:'Cliente guardado'}).selectOption(masterCustomer.id);
 await page.waitForTimeout(50);
 assert(await page.evaluate(()=>window.__TotusOpsTest.invoiceDraftCustomerId())===masterCustomer.id,'Seleccionar cliente no enlaza la factura con el maestro');
