@@ -136,11 +136,11 @@ begin
     insert into public.ops_daily_closings(
       store_id,business_date,opening_cash,cash_sales,card_sales,bizum_sales,online_sales,other_income,
       cash_withdrawals,cash_expenses_declared,expected_cash,actual_cash,difference,notes,status,
-      created_by,closed_by,source,legacy_cash_method,include_in_income,reported_total_sales,entry_mode,cash_extra_in,cash_extra_out
+      created_by,closed_by,source,include_in_income,reported_total_sales,entry_mode,cash_extra_in,cash_extra_out
     ) values(
       v_store,v_date,v_open,v_cash_sales,v_card,v_bizum,v_online,v_other,
       v_withdraw,v_cash_exp,v_close,v_close,v_diff,coalesce(p_closing->>'notes',''),v_status,
-      auth.uid(),case when v_status='cerrado' then auth.uid() else null end,'manual',false,true,v_reported,'manual',
+      auth.uid(),case when v_status='cerrado' then auth.uid() else null end,'manual',true,v_reported,'manual',
       v_extra_in,v_extra_out
     ) returning id into v_id;
   else
@@ -151,7 +151,7 @@ begin
       cash_withdrawals=v_withdraw,cash_expenses_declared=v_cash_exp,expected_cash=v_close,
       actual_cash=v_close,difference=v_diff,notes=coalesce(p_closing->>'notes',''),status=v_status,
       closed_by=case when v_status='cerrado' then auth.uid() else null end,
-      source='manual',legacy_cash_method=false,include_in_income=true,reported_total_sales=v_reported,entry_mode='manual',
+      source='manual',include_in_income=true,reported_total_sales=v_reported,entry_mode='manual',
       cash_extra_in=v_extra_in,cash_extra_out=v_extra_out
     where id=v_id;
     delete from public.ops_daily_closing_drawers where closing_id=v_id;
