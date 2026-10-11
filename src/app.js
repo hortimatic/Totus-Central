@@ -1009,7 +1009,8 @@ async function boot(){
   sb.from('team_members').select('*').eq('email',session.user.email.toLowerCase()).maybeSingle(),
   sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle()
  ]);
- if(team.error)throw team.error;
+ if(team.error)throw new Error('No se pudo comprobar el acceso: '+team.error.message);
+ if(profiles.error)throw new Error('No se pudo cargar el perfil: '+profiles.error.message);
  const member=team.data;if(!member||member.active===false){await logout();throw new Error('Tu usuario no tiene acceso activo.')}
  state.user={...member,id:profiles.data?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
