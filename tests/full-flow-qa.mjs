@@ -1,5 +1,6 @@
 import {chromium} from 'playwright';
 import xlsx from 'xlsx-js-style';
+import {PDFDocument} from 'pdf-lib';
 const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
@@ -141,6 +142,24 @@ await check('Documentos Excel: carga y vista previa',async()=>{
  await page.waitForTimeout(100);
  assert(!(await db()).documents.some(x=>x.original_name==='qa-factura.xlsx'),'No se ha eliminado el documento de prueba');
 
+});
+await check('Documentos PDF: subir, mostrar y descargar',async()=>{
+ await nav('documentos');
+ if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').first().click();
+ await page.locator('[data-action="document-new"]').click();
+ const pdf=await PDFDocument.create();pdf.addPage([350,240]);
+ const buffer=Buffer.from(await pdf.save());
+ await page.locator('#docFile').setInputFiles({name:'factura-simulada.pdf',mimeType:'application/pdf',buffer});
+ await page.locator('#docParty').fill('Proveedor PDF QA');
+ await page.locator('[data-action="document-save"]').click();
+ await page.waitForTimeout(100);
+ assert((await db()).documents.some(x=>x.original_name==='factura-simulada.pdf'),'No se ha guardado el PDF');
+ await page.locator('[data-action="document-preview"]').first().click();
+ await page.locator('#modalHost .document-frame').waitFor({state:'visible'});
+ await page.locator('#modalHost .close-btn').click();
+ const ready=page.waitForEvent('download');
+ await page.locator('[data-action="document-download"]').first().click();
+ assert((await ready).suggestedFilename()==='factura-simulada.pdf','Descarga PDF incorrecta');
 });
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
