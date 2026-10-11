@@ -235,6 +235,24 @@ await check('Descargas desde los botones reales de Cajas, Gastos e Informes',asy
   assert(exported.suggestedFilename().endsWith(expected),'Descarga incorrecta de '+route+': '+exported.suggestedFilename());
  }
 });
+await check('Pricing: guardar consulta con histórico y producto independiente',async()=>{
+ await nav('pricing');
+ await page.locator('#pqQuery').fill('Líquido de prueba QA');
+ await page.locator('#pqCost').fill('2,50');
+ await page.locator('#pqPvp').fill('6,30');
+ await page.locator('[data-action="consultation-save"]').click();
+ await page.waitForTimeout(100);
+ const history=await page.evaluate(()=>({consultations:window.__mockDb.consultations,actions:window.__mockDb.consultation_history}));
+ assert(history.consultations.length===1&&history.actions.length===1,'La consulta no guardó su histórico');
+ await page.locator('[data-action="product-new"]').first().click();
+ await page.locator('#prSku').fill('SKU-QA-001');
+ await page.locator('#prName').fill('Producto de prueba independiente');
+ await page.locator('#prPvp').fill('6,30');
+ await page.locator('[data-action="product-save"]').click();
+ await page.waitForTimeout(100);
+ const products=await page.evaluate(()=>window.__mockDb.products);
+ assert(products.some(x=>x.sku==='SKU-QA-001'),'Producto sin guardar');
+});
 await check('Roles: gerente y encargado con permisos de navegación',async()=>{
  for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
   const rolePage=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
