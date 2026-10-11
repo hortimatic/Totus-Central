@@ -87,3 +87,73 @@ export function exportSummaryWorkbook({closings,expenses,stores,from,to}){
  const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos contables','Gastos internos','Resultado'],...perStore]);styleHeader(ws2,0,5);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
  write(wb,`resumen_${from}_${to}.xlsx`);
 }
+
+
+const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const WEEKDAYS=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+const LEGACY_COLORS={other:'00B050',payroll:'FFC000',orders:'00B0F0',fixed:'FFFF00',irpf:'92D050',total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
+function legacyGroup(expense,categories){
+ const code=categories.find(x=>x.id===expense.category_id)?.code||'';
+ if(code==='MERCH')return'orders';
+ if(['PAYROLL','SOCIAL','RETA','FAMILY_COLLAB'].includes(code))return'payroll';
+ if(code==='TAX'||['111','115'].includes(String(expense.withholding_model||'')))return'irpf';
+ if(code==='OTHER'||code.startsWith('INTERNAL_'))return'other';
+ return'fixed';
+}
+function excelDateKey(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function moneyStyle(fill){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11},alignment:{horizontal:'right'},numFmt:'#,##0.00',border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
+function textStyle(fill,bold=false,align='left'){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11,bold},alignment:{horizontal:align,vertical:'center'},border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
+function sumFormula(refs){return refs.length?`SUM(${refs.join(',')})`:'0'}
+function setCell(ws,addr,value,style,formula=null){
+ const t=typeof value==='number'?'n':'s';ws[addr]={t,v:value,s:style};if(formula)ws[addr].f=formula;
+}
+function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
+ const monthName=MONTHS[month],ws={};
+ ws['!ref']='B1:F80';ws['!cols']=[{wch:2},{wch:11.71},{wch:33},{wch:9.14},{wch:9.14},{wch:12.14}];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
+ setCell(ws,'B1',`${monthName} ${year}`,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
+ const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
+ for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{fill:{fgColor:{rgb:LEGACY_COLORS.header}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'},border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}});
+ const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
+ const byDateClose=new Map(closings.filter(x=>x.store_id===store.id&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).map(x=>[String(x.business_date).slice(0,10),x]));
+ const expMonth=expenses.filter(x=>x.store_id===store.id&&String(x.expense_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||String(a.created_at||'').localeCompare(String(b.created_at||'')));
+ for(let d=1;d<=days;d++){
+   const key=excelDateKey(year,month,d),close=byDateClose.get(key),dayExp=expMonth.filter(x=>String(x.expense_date).slice(0,10)===key);
+   const count=Math.max(1,dayExp.length);
+   for(let k=0;k<count;k++,row++){
+     const stripe=row%2===1?LEGACY_COLORS.stripe:null,ex=dayExp[k]||null;
+     if(k===0)setCell(ws,`B${row}`,`${d} ${WEEKDAYS[new Date(year,month,d).getDay()]}`,textStyle(stripe,true));
+     else setCell(ws,`B${row}`,'',textStyle(stripe,true));
+     if(ex){
+       const g=legacyGroup(ex,categories),amount=n(ex.gross_expense||ex.accounting_amount||ex.amount_paid);
+       setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(LEGACY_COLORS[g],false));
+       setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
+     }else{setCell(ws,`C${row}`,'',textStyle(stripe));setCell(ws,`D${row}`,'',moneyStyle(stripe))}
+     if(k===0&&close){
+       setCell(ws,`E${row}`,n(close.card_sales),moneyStyle(stripe));setCell(ws,`F${row}`,n(close.cash_withdrawals),moneyStyle(stripe));
+     }else{setCell(ws,`E${row}`,'',moneyStyle(stripe));setCell(ws,`F${row}`,'',moneyStyle(stripe))}
+   }
+ }
+ row+=2;const summaryStart=row;
+ const groups=[['Otros','other'],['SS y nominas','payroll'],['Pedidos ','orders'],['Gastos fijos','fixed'],['IRPF','irpf']];
+ for(const [label,g] of groups){setCell(ws,`B${row}`,label,textStyle(LEGACY_COLORS[g],true));setCell(ws,`C${row}`,0,textStyle(row%2===1?LEGACY_COLORS.stripe:null,false,'center'),sumFormula(groupRefs[g]));row++}
+ const totalRow=row;setCell(ws,`B${row}`,'Total',textStyle(LEGACY_COLORS.total,true));setCell(ws,`C${row}`,0,textStyle(LEGACY_COLORS.stripe,false,'center'),`SUM(C${summaryStart}:C${row-1})`);setCell(ws,`D${row}`,0,moneyStyle(LEGACY_COLORS.stripe),expenseRefs.length?`SUM(${expenseRefs.join(',')})`:'0');
+ const firstData=3,lastData=summaryStart-3;setCell(ws,`E${row}`,0,moneyStyle(LEGACY_COLORS.stripe),`SUM(E${firstData}:E${lastData})`);setCell(ws,`F${row}`,0,moneyStyle(LEGACY_COLORS.stripe),`SUM(F${firstData}:F${lastData})`);
+ row+=2;const internalRefs=expMonth.filter(x=>x.management_only).map(ex=>{const ix=expMonth.indexOf(ex);return null}).filter(Boolean);
+ const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+ ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,monthName,{font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}});row++;
+ const recalc=`SUM(E${totalRow},F${totalRow})`;ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;
+ ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total recaudado: "&TEXT(${recalc},"0.00")&"€"`);row++;
+ ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}},`"Gastos: "&TEXT(D${totalRow},"0.00")&"€"`);row++;
+ if(internalTotal>0){ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,`Menos gastos internos: ${internalTotal.toFixed(2).replace('.',',')}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}});row++}
+ const fiscalFormula=internalTotal>0?`D${totalRow}-${internalTotal}`:`D${totalRow}`;
+ ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
+ ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);row++;
+ ws['!merges'].push(XLSX.utils.decode_range(`C${row}:D${row}`));setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);
+ ws['!ref']=`B1:F${Math.max(row,totalRow)}`;
+ XLSX.utils.book_append_sheet(wb,ws,monthName);
+}
+export function exportStoreAnnualWorkbook({store,year,closings,expenses,categories}){
+ const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories});
+ wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
+ write(wb,`Gastos y ventas ${store.name} ${year}.xlsx`);
+}
