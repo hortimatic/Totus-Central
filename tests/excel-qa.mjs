@@ -29,6 +29,10 @@ const storeWb=buildStoreAnnualWorkbook({store:stores[0],year:2026,closings,expen
 if(storeWb.SheetNames.length!==12)throw new Error('Store workbook must have 12 monthly sheets');
 if(storeWb.SheetNames[0]!=='Enero'||storeWb.SheetNames[11]!=='Diciembre')throw new Error('Month sheet names are wrong');
 const jan=storeWb.Sheets.Enero;
+if(jan['!merges']?.length!==1)throw new Error('Original shop workbook must have only its B1:F1 merge');
+if(jan['!cols']?.length!==9)throw new Error('Original shop workbook A:I widths must be preserved');
+if(!/^A1:I/.test(jan['!ref']||''))throw new Error('Shop workbook must preserve A:I grid');
+
 if(jan.B1?.v!=='Enero 2026')throw new Error('Original month title layout missing');
 if(jan.B2?.v!=='Dia'||jan.C2?.v!=='Gastos'||jan.D2?.v!=='Precio'||jan.E2?.v!=='Tarjeta'||jan.F2?.v!=='Salida de caja')throw new Error('Original headers do not match');
 const merchCell=Object.entries(jan).find(([k,v])=>/^C\d+$/.test(k)&&v?.v==='Pedido');if(!merchCell||merchCell[1]?.s?.fill?.fgColor?.rgb!=='00B0F0')throw new Error('Original merchandise color missing');
