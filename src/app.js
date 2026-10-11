@@ -595,6 +595,18 @@ async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=fal
  if(id)q=q.neq('id',id);
  const r=await q;if(r.error)throw new Error('No se pudieron actualizar las plantillas predeterminadas: '+r.error.message);
 }
+async function previewTemplate(id){
+ const tpl=state.data.templates.find(x=>x.id===id);if(!tpl)return;
+ let logo='';if(tpl.logo_path&&tpl.show_logo!==false){try{logo=await signedUrl('business-assets',tpl.logo_path,300)}catch{}}
+ const fakeId='__template_preview__'+id;
+ const line={id:'__preview_line__',invoice_id:fakeId,sort_order:10,description:'Ejemplo de concepto o producto',quantity:2,unit_price_base:50,discount_pct:0,vat_rate:21,total_amount:121};
+ state.data.invoiceLines.push(line);
+ try{
+   const row={id:fakeId,template_id:id,status:'borrador',document_type:'factura',invoice_kind:'invoice',display_number:'EJEMPLO-0001',issue_date:isoToday(),customer_name:'Cliente de ejemplo',customer_tax_id:'12345678Z',customer_address:'Dirección del cliente',customer_email:'cliente@ejemplo.es',concept:'Vista previa de plantilla',payment_method:'transferencia',paid_status:'pendiente',paid_amount:0,base_amount:100,vat_amount:21,total_amount:121};
+   modal('Vista previa · '+tpl.name,invoicePreview(row,logo));
+ }finally{state.data.invoiceLines=state.data.invoiceLines.filter(x=>x.id!=='__preview_line__')}
+}
+
 async function saveTemplate(id=''){
  const current=id?state.data.templates.find(x=>x.id===id):null;
  const file=input('tpLogo')?.files?.[0]||null;
@@ -1021,6 +1033,7 @@ document.addEventListener('click',async e=>{
   if(a==='customer-edit'){customerForm(state.data.customers.find(x=>x.id===el.dataset.id));return}
   if(a==='customer-save'){await saveCustomer(el.dataset.id||'');return}
   if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
+  if(a==='template-preview'){await previewTemplate(el.dataset.id);return}
   if(a==='template-new'){templateForm();return}
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
