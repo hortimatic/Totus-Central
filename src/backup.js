@@ -18,7 +18,7 @@ async function sha256(bytes){
 async function allRows(table){
  const rows=[];let from=0;
  while(true){
-  const {data,error}=await sb.from(table).select('*').range(from,from+999);
+  const {data,error}=await sb.from(table).select('*').order('id',{ascending:true}).range(from,from+999);
   if(error)throw new Error(table+': '+error.message);
   rows.push(...(data||[]));
   if(!data||data.length<1000)break;
