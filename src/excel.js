@@ -175,7 +175,7 @@ function gestorTitle(ws,title,lastCol){
 function sheetCurrency(ws,start,end,cols){
  for(let r=start;r<=end;r++)for(const col of cols){const a=`${col}${r}`;if(ws[a]){ws[a].z='#,##0.00 "€"';ws[a].s={...(ws[a].s||{}),alignment:{horizontal:'right'},fill:{fgColor:{rgb:r%2?GESTOR_ALT:'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:GESTOR_LINE}}}}}}
 }
-function quarterRange(year,q){const sm=(q-1)*3+1,em=q*3;return {from:`${year}-${String(sm).padStart(2,'0')}-01`,to:new Date(year,em,0).toISOString().slice(0,10),months:[sm-1,sm,sm+1]}}
+function quarterRange(year,q){const sm=(q-1)*3+1,em=q*3;return {from:`${year}-${String(sm).padStart(2,'0')}-01`,to:`${year}-${String(em).padStart(2,'0')}-${String(new Date(year,em,0).getDate()).padStart(2,'0')}`,months:[sm-1,sm,sm+1]}}
 function inDate(v,from,to){const d=String(v||'').slice(0,10);return d>=from&&d<=to}
 function categoryConcept(categories,id){const c=categories.find(x=>x.id===id);return (c?.name||c?.code||'OTROS').toUpperCase().slice(0,28)}
 function fiscalIncomeForPeriod({from,to,closings,invoices=[],fiscalAdjustments=[]}){
@@ -204,7 +204,7 @@ function appendGestorBookSheet(wb,q,args){
  return rows;
 }
 function monthTotals(args,month){
- const {year,stores,closings,expenses,invoices=[],fiscalAdjustments=[]}=args,from=excelDateKey(year,month,1),to=new Date(year,month+1,0).toISOString().slice(0,10);
+ const {year,stores,closings,expenses,invoices=[],fiscalAdjustments=[]}=args,from=excelDateKey(year,month,1),to=`${year}-${String(month+1).padStart(2,'0')}-${String(new Date(year,month+1,0).getDate()).padStart(2,'0')}`;
  const sales=stores.map(s=>{
    const close=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
    const inv=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
