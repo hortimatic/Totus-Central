@@ -142,7 +142,6 @@ await check('Roles: gerente y encargado con permisos de navegación',async()=>{
   const canSee=await rolePage.locator('#nav [data-route="administracion"]').count()>0;
   assert(canSee===adminVisible,'Permisos de navegación incorrectos: '+role);
   if(role==='gerente'){
-   await rolePage.locator('[data-action="toggle-menu"]').click();
    await rolePage.locator('#nav [data-route="administracion"]').click();
    assert(!(await rolePage.locator('#content').innerText()).includes('Nuevo usuario'),'Gerente no debe dar de alta usuarios');
   }
