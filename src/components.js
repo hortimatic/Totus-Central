@@ -22,7 +22,7 @@ export const table=(headers,rows,{emptyTitle='Sin datos',emptyText='Todavía no 
  if(!rows.length)return empty(emptyTitle,emptyText);
  return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th class="${h.num?'num':''}">${esc(h.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td class="${h.num?'num':''}">${h.html?h.html(r):esc(h.get?r[h.get]:h.value?.(r)??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
 };
-export const formField=(label,id,value='',type='text',extra='')=>`<label>${esc(label)}<input id="${esc(id)}" type="${esc(type)}" value="${esc(value??'')}" ${extra}></label>`;
+export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label>${esc(label)}<input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
 export const selectField=(label,id,options,value='',extra='')=>`<label>${esc(label)}<select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
