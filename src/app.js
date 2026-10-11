@@ -501,11 +501,15 @@ async function deleteVariant(productId,id){
  if(!confirm('¿Eliminar esta variante?'))return;
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
+function updatePricingQuick(){
+ const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate||21,re:state.data.settings?.purchase_re_rate||5.2});
+ const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
+ set('pqReal',money(r.costReal));set('pqSale',money(r.finalSale));set('pqMargin',money(r.margin),r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqMarginPct',r.marginPct.toFixed(1).replace('.',',')+' %',r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqCompetition',r.competitorDiff==null?'—':((r.competitorDiff>0?'+':'')+money(r.competitorDiff)),r.competitorDiff==null?'':r.competitorDiff>0?'warn-text':'good-text');
+}
 async function saveConsultation(){
- const query=required('pqQuery','Consulta'),cost=num('pqCost'),pvp=num('pqPvp'),competitor=num('pqCompetitor'),discount=Math.min(100,Math.max(0,num('pqDiscount')));
- const vat=Number(state.data.settings?.default_sales_vat_rate||21),re=Number(state.data.settings?.purchase_re_rate||5.2);
- const finalSale=pvp*(1-discount/100),net=finalSale/(1+vat/100),costReal=cost*(1+vat/100+re/100),margin=net-cost,marginPct=net>0?margin/net*100:0;
- const row=await insert('consultations',{query,cost_net:cost,pvp,competitor,discount,cost_real:costReal,final_sale:finalSale,margin,margin_pct:marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
+ const query=required('pqQuery','Consulta');
+ const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate||21,re:state.data.settings?.purchase_re_rate||5.2});
+ const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
  await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO',consultation_query:query,snapshot:row}).catch(()=>{});
  await refresh('Consulta guardada.');
 }
@@ -1054,6 +1058,7 @@ document.addEventListener('input',e=>{
  const id=e.target?.id||'';
  if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
  if(id.startsWith('homePrice'))updateHomePrice();
+ if(id.startsWith('pq'))updatePricingQuick();
  if(id.startsWith('exLine'))updateExpenseSummary();
  if(id.startsWith('ivQty_')||id.startsWith('ivUnit_')||id.startsWith('ivDisc_')||id.startsWith('ivVat_'))updateInvoiceSummary();
 });
