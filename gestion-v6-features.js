@@ -114,12 +114,18 @@ const taxSettledStatus=s=>['pagado','compensado'].includes(String(s||''));
 function taxPaymentTotal(model,y,q){return sum(O.taxPayments.filter(t=>t.fiscal_year===y&&t.tax_type===model&&N(t.quarter)===q&&taxSettledStatus(t.status)),t=>N(t.amount))}
 function retainedModel(model,from,to){
  const y=+from.slice(0,4);
- const paid=sum(O.taxPayments.filter(t=>t.fiscal_year===y&&t.tax_type===model&&taxSettledStatus(t.status)&&t.quarter&&qBounds(y,N(t.quarter)).start>=from&&qBounds(y,N(t.quarter)).end<=to),t=>N(t.amount));
- if(paid)return paid;
- if(y===2026){
-   const rows=E.gestorRows.filter(x=>x.fiscal_year===2026&&inRange(x.expense_date,from,to));
-   if(model==='115')return sum(rows.filter(x=>x.concept_code==='621'),x=>N(x.withholding_amount));
-   if(model==='111')return Math.max(0,sum(rows,x=>N(x.withholding_amount))-sum(rows.filter(x=>x.concept_code==='621'),x=>N(x.withholding_amount)));
+ if(y===2026&&from<='2026-06-30'){
+   const legacyTo=to<'2026-07-01'?to:'2026-06-30';
+   if(legacyTo>=from){
+    const rows=E.gestorRows.filter(x=>x.fiscal_year===2026&&inRange(x.expense_date,from,legacyTo));
+    const legacy=model==='115'
+      ?sum(rows.filter(x=>x.concept_code==='621'),x=>N(x.withholding_amount))
+      :Math.max(0,sum(rows,x=>N(x.withholding_amount))-sum(rows.filter(x=>x.concept_code==='621'),x=>N(x.withholding_amount)));
+    if(to<='2026-06-30')return legacy;
+    const modernFrom='2026-07-01';
+    const ids=new Set(O.expenses.filter(e=>!e.management_only&&inRange(e.expense_date,modernFrom,to)).map(e=>e.id));
+    return legacy+sum(O.expenseLines.filter(l=>ids.has(l.expense_id)&&l.withholding_model===model),l=>N(l.withholding_amount));
+   }
  }
  const ids=new Set(O.expenses.filter(e=>!e.management_only&&inRange(e.expense_date,from,to)).map(e=>e.id));
  return sum(O.expenseLines.filter(l=>ids.has(l.expense_id)&&l.withholding_model===model),l=>N(l.withholding_amount));
@@ -131,6 +137,45 @@ function fiscalProjection(y=O.year,q=O.quarter,planned=0){
  const settled130=taxPaymentTotal('130',y,q),m111=retainedModel('111',qb.start,qb.end),m115=retainedModel('115',qb.start,qb.end),settled111=taxPaymentTotal('111',y,q),settled115=taxPaymentTotal('115',y,q);
  const pending130=Math.max(0,payable-settled130),pending111=Math.max(0,m111-settled111),pending115=Math.max(0,m115-settled115);
  return{from,end,qb,income,raw,diff,net,gross,prev,ret,payable,settled130,pending130,m111,m115,settled111,settled115,pending111,pending115,reserve:pending130+pending111+pending115,qIncome:incomeTotal(qb.start,qb.end,'all'),qExpense:deductibleExpenseTotal(qb.start,qb.end,'all')};
+}
+function fiscalSourceSnapshot(y=O.year,q=O.quarter){
+ const b=qBounds(y,q);
+ const historical=E.historicalIncome.filter(x=>x.period_start>=b.start&&x.period_end<=b.end);
+ const closures=O.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,b.start,b.end));
+ const closuresUsed=closures.filter(x=>!coveredByHistoricalIncome(x));
+ const invoices=O.invoices.filter(x=>x.document_type!=='proforma'&&x.status==='emitida'&&inRange(x.issue_date,b.start,b.end));
+ const invoiceExtra=invoices.filter(x=>x.include_in_income);
+ const fiscalExpenses=O.expenses.filter(e=>!e.management_only&&inRange(e.expense_date,b.start,b.end));
+ const internalExpenses=O.expenses.filter(e=>e.management_only&&inRange(e.expense_date,b.start,b.end));
+ const pendingReview=fiscalExpenses.filter(e=>e.source==='importacion_excel'&&!e.fiscal_reviewed);
+ const adjustments=O.incomeAdjustments.filter(x=>inRange(x.income_date,b.start,b.end));
+ const models=(O.taxPayments||[]).filter(t=>t.fiscal_year===y&&N(t.quarter)===q);
+ const settled=models.filter(t=>taxSettledStatus(t.status));
+ return{
+  bounds:b,
+  historicalCount:historical.length,
+  historicalFiscal:sum(historical,x=>N(x.fiscal_basis_income??x.total_income)),
+  historicalOperational:sum(historical,x=>N(x.total_income)),
+  historicalGestor:sum(historical,x=>N(x.gestor_reported_income||0)),
+  closingCount:closures.length,
+  closingUsedCount:closuresUsed.length,
+  closingIncome:sum(closuresUsed,x=>N(x.cash_sales)+N(x.card_sales)+N(x.bizum_sales)+N(x.online_sales)+N(x.other_income)),
+  invoiceCount:invoices.length,
+  invoiceExtraCount:invoiceExtra.length,
+  invoiceIncome:sum(invoiceExtra,x=>N(x.total_amount)),
+  adjustmentCount:adjustments.length,
+  adjustmentIncome:sum(adjustments,x=>N(x.amount)),
+  fiscalExpenseCount:fiscalExpenses.length,
+  internalExpenseCount:internalExpenses.length,
+  pendingReviewCount:pendingReview.length,
+  fiscalExpenseAmount:deductibleExpenseTotal(b.start,b.end,'all'),
+  internalExpenseAmount:internalExpense(b.start,b.end,'all'),
+  modelCount:models.length,
+  settledModelCount:settled.length,
+  settledModelAmount:sum(settled,x=>N(x.amount)),
+  lastClosing:closures.reduce((m,x)=>String(x.business_date||'')>m?String(x.business_date):m,''),
+  lastExpense:fiscalExpenses.reduce((m,x)=>String(x.expense_date||'')>m?String(x.expense_date):m,'')
+ };
 }
 window.__opsUpdateFiscalSimulation=function(){
  const actual=fiscalProjection(O.year,O.quarter,0),sim=fiscalProjection(O.year,O.quarter,N(O.plannedSpend));
@@ -957,8 +1002,10 @@ window.opsSaveTaxPayment=async function(){
  if(amount<0)return alert('El importe no puede ser negativo.');
  if(['pagado','compensado'].includes(status)&&!date)return alert('Indica la fecha de pago o presentación.');
  if(['pagado','compensado'].includes(status)&&date>today())return alert('Un pago ya realizado no puede tener una fecha futura. Usa estado "Previsto" si aún no se ha presentado o pagado.');
- const dup=(O.taxPayments||[]).find(x=>x.tax_type===type&&N(x.fiscal_year)===year&&N(x.quarter)===quarter);
- if(dup&&!confirm(`Ya existe el modelo ${type} del T${quarter} ${year}. ¿Guardar otro registro igualmente?`))return;
+ const samePeriod=(O.taxPayments||[]).filter(x=>x.tax_type===type&&N(x.fiscal_year)===year&&N(x.quarter)===quarter);
+ const settledDuplicate=samePeriod.find(x=>taxSettledStatus(x.status)&&taxSettledStatus(status));
+ if(settledDuplicate&&['130','111','115','309'].includes(type))return alert('Ya existe un modelo '+type+' del T'+quarter+' '+year+' registrado como pagado o compensado. No se permite duplicarlo porque falsearía la previsión fiscal. Elimina o corrige el registro anterior si fuera necesario.');
+ if(samePeriod.length&&type!=='OTRO'&&!confirm(`Ya existe un registro ${type} del T${quarter} ${year}. ¿Guardar además este estado ${status}?`))return;
  try{
   const row={tax_type:type,fiscal_year:year,quarter,period_label:`${quarter}T ${year}`,payment_date:date||null,amount,status,notes,created_by:authSession?.user?.id||null};
   const {data,error}=await sb.from('ops_tax_payments').insert(row).select().single();if(error)throw error;
