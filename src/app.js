@@ -754,7 +754,7 @@ function fiscalAdjustmentForm(row=null){
 }
 async function saveFiscalAdjustment(id=''){
  const date=required('faDate','Fecha');if(date>isoToday())throw new Error('La fecha del ajuste no puede ser futura.');
- const row={adjustment_date:date,kind:val('faKind'),amount:Math.max(0,num('faAmount')),description:required('faDescription','Descripción'),document_id:null,created_by:state.user?.id||null};
+ const row={store_id:val('faStore')||null,adjustment_date:date,kind:val('faKind'),amount:Math.max(0,num('faAmount')),description:required('faDescription','Descripción'),document_id:null,created_by:state.user?.id||null};
  if(id)await update('ops_fiscal_adjustments',id,row);else await insert('ops_fiscal_adjustments',row);closeModal();await refresh('Ajuste fiscal guardado.');
 }
 async function deleteFiscalAdjustment(id){if(!confirm('¿Eliminar este ajuste fiscal?'))return;await remove('ops_fiscal_adjustments',id);closeModal();await refresh('Ajuste eliminado.')}
@@ -803,7 +803,7 @@ function applyFilter(prefix){
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
 function reportArgs(year){
- return {year,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,incomeAdjustments:state.data.incomeAdjustments,fiscalAdjustments:state.data.fiscalAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
+ return {year,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
 }
 function exportStoreBook(storeId,year){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
@@ -832,8 +832,8 @@ function exportRows(type){
  if(type==='closings')return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  if(type==='expenses')return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
  const invoices=state.data.invoices.filter(x=>x.issue_date>=f.from&&x.issue_date<=f.to&&(f.store==='all'||x.store_id===f.store));
- const incomeAdjustments=state.data.incomeAdjustments.filter(x=>x.income_date>=f.from&&x.income_date<=f.to&&(f.store==='all'||!x.store_id||x.store_id===f.store));
- return exportSummaryWorkbook({closings,expenses,stores,invoices,incomeAdjustments,from:f.from,to:f.to});
+ const fiscalAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.adjustment_date>=f.from&&x.adjustment_date<=f.to&&(f.store==='all'||!x.store_id||x.store_id===f.store));
+ return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,from:f.from,to:f.to});
 }
 
 document.addEventListener('click',async e=>{
