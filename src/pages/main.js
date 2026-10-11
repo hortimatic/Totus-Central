@@ -80,7 +80,7 @@ export function facturacion(){
   {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${r.id}"`)}${r.status==='borrador'?btn('Editar','invoice-edit','secondary',`data-id="${r.id}"`):''}${r.document_type==='proforma'&&['emitida','aceptada'].includes(r.status)?btn('Convertir','proforma-convert','primary',`data-id="${r.id}"`):''}</div>`}
  ];
  return `<div class="page"><div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Total',money(sum(rows,x=>x.total_amount)))}${kpi('Emitidas',String(rows.filter(x=>x.status==='emitida').length))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas y proformas en una lista clara.</p></div><div class="inline-actions">${btn('Nueva factura','invoice-new','primary')}${btn('Nueva proforma','proforma-new','secondary')}</div></div>
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas y proformas en una lista clara.</p></div><div class="inline-actions">${btn('Nueva factura','invoice-new','primary')}${btn('Nueva proforma','proforma-new','secondary')}${btn('Clientes','customers-manage','secondary')}</div></div>
   ${dateFilters({...f,stores:stores()},'facturas')}
   ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen facturas o proformas para estas fechas.'})}</section></div>`;
 }
@@ -134,21 +134,30 @@ export function usuarios(){
 export function configuracion(){
  if(!isManager())return '<div class="page"><div class="card card-pad"><h2>Sin acceso</h2></div></div>';
  const s=state.data.settings||{};
- return `<div class="page"><div class="split">
- <section class="card card-pad"><h2>Negocio</h2><div class="form-grid" style="margin-top:14px">
- ${formField('Nombre / razón fiscal','cfgBusiness',s.business_name||'')}
- ${formField('NIF','cfgTax',s.tax_id||'')}
- ${formField('Dirección','cfgAddress',s.business_address||'')}
- ${formField('Email','cfgEmail',s.business_email||'','email')}
- ${formField('Teléfono','cfgPhone',s.business_phone||'')}
- ${formField('Límite documental (MB)','cfgStorage',Math.round(Number(s.storage_limit_bytes||524288000)/1024/1024),'number')}<div class="wide note">Uso actual: ${((Number(state.data.storageUsage?.total_bytes||0))/1024/1024).toFixed(1).replace('.',',')} MB de 500 MB configurados.</div>
- </div><div class="form-actions">${btn('Guardar configuración','config-save','primary')}</div></section>
- <section class="card card-pad"><h2>Fiscalidad</h2><div class="form-grid" style="margin-top:14px">
- ${formField('IVA ventas (%)','cfgVat',s.default_sales_vat_rate??21,'number','step="0.1"')}
- ${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number','step="0.1"')}
- ${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number','step="0.01"')}
- ${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number','step="0.1"')}
- </div></section></div></div>`;
+ const locked=isAdmin()?'':'disabled';
+ const templateRows=state.data.templates.map(t=>`<div class="summary-row"><div><b>${esc(t.name)}</b><div class="small muted">${esc(t.code)} · ${esc(t.style)}${t.logo_name?' · logo '+esc(t.logo_name):''}</div></div><div class="inline-actions">${btn('Editar','template-edit','secondary',`data-id="${t.id}"`)}${isAdmin()?btn('Eliminar','template-delete','danger',`data-id="${t.id}"`):''}</div></div>`).join('')||'<div class="empty"><strong>Sin plantillas</strong><span>Crea una plantilla para facturas y proformas.</span></div>';
+ const seriesRows=state.data.series.map(sr=>`<div class="summary-row"><div><b>${esc(sr.code)}</b><div class="small muted">${esc(sr.document_type)} · ${esc(sr.series_kind)} · año ${sr.year}</div></div><div class="inline-actions"><span class="badge ${sr.active?'ok':'bad'}">${sr.active?'Activa':'Inactiva'}</span><span class="badge info">Siguiente ${sr.next_number}</span>${isAdmin()?btn(sr.active?'Desactivar':'Activar','series-toggle','secondary',`data-id="${sr.id}" data-active="${sr.active?'false':'true'}"`):''}</div></div>`).join('');
+ return `<div class="page">
+ <div class="split">
+  <section class="card card-pad"><div class="section-head"><div><h2>Datos del negocio</h2><p>Una única ubicación para datos fiscales y de contacto.</p></div></div><div class="form-grid" style="margin-top:14px">
+   ${formField('Nombre / razón fiscal','cfgBusiness',s.business_name||'','text',locked)}
+   ${formField('NIF','cfgTax',s.tax_id||'','text',locked)}
+   ${formField('Dirección','cfgAddress',s.business_address||'','text',locked)}
+   ${formField('Email','cfgEmail',s.business_email||'','email',locked)}
+   ${formField('Teléfono','cfgPhone',s.business_phone||'','text',locked)}
+   ${formField('Límite documental (MB)','cfgStorage',Math.round(Number(s.storage_limit_bytes||524288000)/1024/1024),'number',locked)}
+   <div class="wide note">Uso actual: ${((Number(state.data.storageUsage?.total_bytes||0))/1024/1024).toFixed(1).replace('.',',')} MB de 500 MB configurados.</div>
+  </div>${isAdmin()?`<div class="form-actions">${btn('Guardar configuración','config-save','primary')}</div>`:'<div class="note" style="margin-top:14px">Solo el administrador puede cambiar los datos generales del negocio.</div>'}</section>
+  <section class="card card-pad"><h2>Fiscalidad</h2><div class="form-grid" style="margin-top:14px">
+   ${formField('IVA ventas (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}
+   ${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}
+   ${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number',locked+' step="0.01"')}
+   ${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number',locked+' step="0.1"')}
+  </div></section>
+ </div>
+ <section class="card card-pad"><div class="section-head"><div><h2>Plantillas de facturación</h2><p>Logo, colores y textos se administran aquí, no en otras pantallas.</p></div>${btn('Nueva plantilla','template-new','primary')}</div><div style="margin-top:12px">${templateRows}</div></section>
+ <section class="card card-pad"><div class="section-head"><div><h2>Series</h2><p>Numeración de facturas, rectificativas y proformas.</p></div></div><div style="margin-top:12px">${seriesRows}</div></section>
+ </div>`;
 }
 
 export function log(){
