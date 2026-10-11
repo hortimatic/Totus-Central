@@ -152,11 +152,11 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  ws['!ref']=`B1:F${Math.max(row,totalRow)}`;
  XLSX.utils.book_append_sheet(wb,ws,monthName);
 }
-export function exportStoreAnnualWorkbook({store,year,closings,expenses,categories}){
+export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories}){
  const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories});
- wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
- write(wb,`Gastos y ventas ${store.name} ${year}.xlsx`);
+ wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
 }
+export function exportStoreAnnualWorkbook(args){const wb=buildStoreAnnualWorkbook(args);write(wb,`Gastos y ventas ${args.store.name} ${args.year}.xlsx`);}
 
 
 const GESTOR_NAVY='17365D',GESTOR_BLUE='4472C4',GESTOR_ALT='D9EAF7',GESTOR_LINE='5B9BD5',GESTOR_WARN='FFF2CC',GESTOR_OK='E2F0D9';
@@ -230,6 +230,6 @@ function appendAuditSheet(wb,args,quarterStats){
  }
  const ws=XLSX.utils.aoa_to_sheet([['Auditoría y conciliación con la gestoría - Año '+year],[],['Periodo','Ventas correctas','Gastos gestor','Resultado antes 5 %','5 % difícil justificación','Base neta','20 % / Modelo 130','Estado'],...rows]);gestorTitle(ws,`Auditoría y conciliación con la gestoría - Año ${year}`,'H');gestorHeader(ws,2,8);ws['!cols']=[12,16,16,19,19,16,18,48].map(w=>({wch:w}));sheetCurrency(ws,4,7,['B','C','D','E','F','G']);XLSX.utils.book_append_sheet(wb,ws,'Auditoría gestor');
 }
-export function exportGestorWorkbook(args){
- const wb=book(),quarterStats=[];appendAuditSheet(wb,args,quarterStats);for(let q=1;q<=4;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=4;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);
-}
+export function buildGestorWorkbook(args){const wb=book(),quarterStats=[];appendAuditSheet(wb,args,quarterStats);for(let q=1;q<=4;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=4;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
+export function exportGestorWorkbook(args){const wb=buildGestorWorkbook(args);write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);}
+export function workbookBlob(wb){return new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx',cellStyles:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
