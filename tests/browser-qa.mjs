@@ -108,6 +108,21 @@ for(const [vpName,viewport] of viewports){
  }
  await page.close();
 }
+
+{
+ const page=await browser.newPage({viewport:{width:390,height:844}});
+ for(const [route,mode,id] of [['pricing','list','pqCost'],['gastos','record','exLineBase_0'],['facturacion','record','ivUnit_0']]){
+  const q=route==='pricing'?'?route=pricing':'?route='+route+'&mode='+mode+'&id=new';
+  await page.goto(base+'/tests/ui-harness.html'+q,{waitUntil:'networkidle'});
+  const input=page.locator('#'+id);
+  if(await input.count()!==1){errors.push('Decimal: no existe '+id+' en '+route);continue}
+  const type=await input.getAttribute('type');
+  if(type!=='text')errors.push('Decimal: '+id+' aún usa '+type);
+  await input.fill('1.234,56');
+  if(await input.inputValue()!=='1.234,56')errors.push('Decimal: coma o separador de miles rechazado en '+route);
+ }
+ await page.close();
+}
 await browser.close();
 if(errors.length){console.error('BROWSER QA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('Browser QA desktop + mobile: OK');
