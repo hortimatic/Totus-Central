@@ -5,10 +5,10 @@
 const O=window.TotusGestion={
   loaded:false,loading:false,tab:'resumen',
   year:new Date().getFullYear(),quarter:Math.floor(new Date().getMonth()/3)+1,storeId:'all',
-  settings:null,stores:[],categories:[],suppliers:[],documents:[],expenses:[],expenseLines:[],
+  settings:null,stores:[],categories:[],suppliers:[],personnel:[],documents:[],expenses:[],expenseLines:[],
   closings:[],drawers:[],closingDrawers:[],series:[],invoices:[],invoiceLines:[],
-  taxPayments:[],retaBrackets:[],fiscalAdjustments:[],incomeAdjustments:[],
-  closeDraft:null,closeView:'list',closeSearch:'',closeStatus:'all',closeFrom:'',closeTo:'',expenseDraft:null,expenseDraftLines:[],expenseSelected:[],expenseView:'list',expenseSearch:'',expenseMode:'all',expenseFrom:'',expenseTo:'',invoiceDraft:null,invoiceDraftLines:[],
+  taxPayments:[],retaBrackets:[],fiscalAdjustments:[],incomeAdjustments:[],gestorQuarterSummary:[],reconciliationNotes:[],
+  closeDraft:null,closeView:'list',closeSearch:'',closeStatus:'all',expenseDraft:null,expenseDraftLines:[],expenseSelected:[],expenseView:'list',expenseSearch:'',expenseMode:'all',invoiceDraft:null,invoiceDraftLines:[],
   docFilter:{from:'',to:'',store:'all',status:'all',type:'all',q:''},
   reportFrom:'',reportTo:'',plannedSpend:'',
   saving:false
@@ -166,11 +166,12 @@ async function load(force=false){
   if(O.loaded&&!force)return;
   O.loading=true;
   try{
-    const [settings,stores,categories,suppliers,documents,expenses,expenseLines,closings,drawers,closingDrawers,series,invoices,invoiceLines,taxPayments,retaBrackets,fiscalAdjustments,incomeAdjustments]=await Promise.all([
+    const [settings,stores,categories,suppliers,personnel,documents,expenses,expenseLines,closings,drawers,closingDrawers,series,invoices,invoiceLines,taxPayments,retaBrackets,fiscalAdjustments,incomeAdjustments,gestorQuarterSummary,reconciliationNotes]=await Promise.all([
       selectAll('ops_business_settings'),
       selectAll('ops_stores','sort_order',true),
       selectAll('ops_expense_categories','sort_order',true),
       selectAll('ops_suppliers','name',true),
+      selectAll('ops_personnel','full_name',true),
       selectAll('ops_documents','created_at',false),
       selectAll('ops_expenses','expense_date',false),
       selectAll('ops_expense_lines','sort_order',true),
@@ -184,6 +185,8 @@ async function load(force=false){
       selectAll('ops_reta_brackets','bracket_order',true),
       selectAll('ops_fiscal_adjustments','adjustment_date',false),
       selectAll('ops_income_adjustments','income_date',false),
+      selectAll('ops_gestor_quarter_summary','quarter',true),
+      selectAll('ops_reconciliation_notes','created_at',false)
     ]);
     O.settings=settings[0]||{};
     O.stores=stores.filter(x=>x.active!==false);
@@ -192,7 +195,7 @@ async function load(force=false){
     O.documents=documents; O.expenses=expenses; O.expenseLines=expenseLines;
     O.closings=closings; O.drawers=drawers.filter(x=>x.active!==false); O.closingDrawers=closingDrawers;
     O.series=series; O.invoices=invoices; O.invoiceLines=invoiceLines; O.taxPayments=taxPayments;
-    O.retaBrackets=retaBrackets; O.fiscalAdjustments=fiscalAdjustments; O.incomeAdjustments=incomeAdjustments;
+    O.retaBrackets=retaBrackets; O.fiscalAdjustments=fiscalAdjustments; O.incomeAdjustments=incomeAdjustments; O.gestorQuarterSummary=gestorQuarterSummary; O.reconciliationNotes=reconciliationNotes.filter(x=>x.active!==false);
     if(!O.year)O.year=O.settings.current_year||new Date().getFullYear();
     if(!O.reportFrom)O.reportFrom=`${O.year}-01-01`;
     if(!O.reportTo)O.reportTo=`${O.year}-12-31`;
@@ -242,7 +245,8 @@ function sectionMeta(tab=O.tab){
   fiscal:['Fiscalidad','Control trimestral','IRPF, retenciones, previsiones y tramo RETA.'],
   informes:['Informes','Descargas','Informes por fechas y paquete preparado para gestoría.'],
   config:['Configuración','Administración','Empresa, criterios fiscales, RETA y almacenamiento.'],
-  log:['Log','Administración','Historial de actividad de la versión actual.']
+  log:['Log','Administración','Historial de actividad y revisiones administrativas.'],
+  backup:['Backup','Administración','Copias portátiles, validación y recuperación.']
  })[tab]||['Gestión','',''];
 }
 function headerHtml(){
@@ -264,7 +268,7 @@ function managementHtml(){
 
 function newClosingDraft(){
   const sid=O.storeId!=='all'?O.storeId:(O.stores[0]?.id||'');
-  return {id:null,storeId:sid,date:isoToday(),notes:'',status:'borrador',controlTotal:'',drawers:{}};
+  return {id:null,storeId:sid,date:isoToday(),notes:'',status:'borrador',controlTotal:'',drawers:{},legacyAllocation:false};
 }
 function previousClosedForDrawer(draft,drawer){
   const previous=O.closings
@@ -382,6 +386,7 @@ function closingFormHtml(){
    </section>
 
    ${locked?'<div class="ops-note warn">Este cierre está cerrado. Puedes consultarlo; administración o gerencia pueden reabrirlo con trazabilidad.</div>':''}
+   ${d.legacyAllocation?'<div class="ops-note warn"><b>Cierre histórico anterior al desglose por caja.</b> Los cobros no efectivos se conservan asignados a la primera caja para mantener el total original.</div>':''}
 
    <div class="closing-workspace">
     <main class="closing-editor">
@@ -461,9 +466,9 @@ function closingFormHtml(){
   </div>`;
 }
 function closingListHtml(){
- const pb=periodBounds(O.year,O.quarter,false),from=O.closeFrom||pb.start,to=O.closeTo||pb.end;
+ const pb=periodBounds(O.year,O.quarter,false);
  const q=String(O.closeSearch||'').trim().toLowerCase(),status=O.closeStatus||'all';
- const all=filteredClosings(from,to,O.storeId);
+ const all=filteredClosings(pb.start,pb.end,O.storeId);
  const rows=all.filter(x=>(status==='all'||x.status===status)&&(!q||[storeName(x.store_id),x.business_date,x.status].join(' ').toLowerCase().includes(q))).slice(0,200);
  const total=sum(all,x=>n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income));
  const open=all.filter(x=>x.status!=='cerrado').length;
@@ -478,8 +483,6 @@ function closingListHtml(){
   <section class="ops-list-card">
    <div class="ops-list-toolbar">
     <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar cierres" placeholder="Buscar tienda, fecha o estado…" value="${h(O.closeSearch||'')}" oninput="opsCloseSearch(this.value)"></div>
-    <input aria-label="Cierres desde" type="date" value="${h(O.closeFrom||pb.start)}" onchange="opsCloseDate('from',this.value)">
-    <input aria-label="Cierres hasta" type="date" value="${h(O.closeTo||pb.end)}" onchange="opsCloseDate('to',this.value)">
     <select aria-label="Filtrar cierres por estado" onchange="opsCloseStatus(this.value)"><option value="all">Todos los estados</option><option value="cerrado" ${status==='cerrado'?'selected':''}>Cerrados</option><option value="borrador" ${status==='borrador'?'selected':''}>Borradores</option></select>
     <button class="secondary" onclick="opsExportClosings()">Exportar CSV</button>
     <button class="primary" onclick="opsNewClosing()">+ Nuevo cierre</button>
@@ -502,13 +505,6 @@ function closingsHtml(){
 }
 window.opsCloseSearch=function(v){O.closeSearch=v;render()};
 window.opsCloseStatus=function(v){O.closeStatus=v;render()};
-window.opsCloseDate=function(k,v){
- const pb=periodBounds(O.year,O.quarter,false),next=String(v||'');
- if(k==='from')O.closeFrom=next;else O.closeTo=next;
- const from=O.closeFrom||pb.start,to=O.closeTo||pb.end;
- if(from>to){if(k==='from')O.closeTo=from;else O.closeFrom=to}
- render();
-};
 window.opsCloseCancel=function(){
  if(closingHasUserInput()&&!confirm('Hay datos sin guardar. ¿Salir del cierre y descartarlos?'))return;
  O.closeDraft=newClosingDraft();O.closeView='list';render();
@@ -526,7 +522,7 @@ window.opsCloseContextField=function(k,v){
     render();
     return;
   }
-  d[k]=v;d.drawers={};d.controlTotal='';d.notes='';
+  d[k]=v;d.drawers={};d.controlTotal='';d.notes='';d.legacyAllocation=false;
   render();
 };
 window.opsDrawerField=function(id,k,v){
@@ -549,7 +545,10 @@ window.opsEditClosing=function(id){
   const c=O.closings.find(x=>x.id===id);if(!c)return;
   if(closingHasUserInput()&&O.closeDraft?.id!==id&&!confirm('Hay datos sin guardar en el cierre actual. ¿Abrir otro cierre y descartarlos?'))return;
   const rows=O.closingDrawers.filter(x=>x.closing_id===id),drawers={};
+  let hasBreakdown=false;
   rows.forEach(x=>{
+    const broken=[x.card_sales,x.bizum_sales,x.online_sales,x.other_income,x.cash_withdrawals,x.cash_expenses_declared].some(v=>v!==null&&v!==undefined);
+    if(broken)hasBreakdown=true;
     drawers[x.drawer_id]={
       opening:String(x.opening_cash??''),closing:String(x.closing_cash??''),
       card:String(x.card_sales??''),bizum:String(x.bizum_sales??''),online:String(x.online_sales??''),other:String(x.other_income??''),
@@ -557,8 +556,17 @@ window.opsEditClosing=function(id){
       extraIn:String(x.cash_extra_in??''),extraOut:String(x.cash_extra_out??'')
     };
   });
-  O.closeDraft={id:c.id,storeId:c.store_id,date:c.business_date,notes:c.notes||'',status:c.status,controlTotal:c.reported_total_sales==null?'':String(c.reported_total_sales),drawers};
-  O.closeView='form';render();window.scrollTo({top:0,behavior:'smooth'});
+  let legacyAllocation=false;
+  if(rows.length&&!hasBreakdown){
+    const first=drawers[rows[0].drawer_id];
+    if(first){
+      first.card=String(c.card_sales||'');first.bizum=String(c.bizum_sales||'');first.online=String(c.online_sales||'');first.other=String(c.other_income||'');
+      first.withdrawals=String(c.cash_withdrawals||'');first.cashExpenses=String(c.cash_expenses_declared||'');
+      first.extraIn=String(c.cash_extra_in||'');first.extraOut=String(c.cash_extra_out||'');
+      legacyAllocation=!!(n(c.card_sales)+n(c.bizum_sales)+n(c.online_sales)+n(c.other_income)+n(c.cash_withdrawals)+n(c.cash_expenses_declared)+n(c.cash_extra_in)+n(c.cash_extra_out));
+    }
+  }
+  O.closeDraft={id:c.id,storeId:c.store_id,date:c.business_date,notes:c.notes||'',status:c.status,controlTotal:c.reported_total_sales==null?'':String(c.reported_total_sales),drawers,legacyAllocation};O.closeView='form';render();window.scrollTo({top:0,behavior:'smooth'});
 };
 window.opsReopenClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Reabrir cierre','El cierre volverá a borrador para poder corregirlo.','Reabrir');if(!reason)return;const {error}=await sb.rpc('ops_set_closing_status_controlled',{p_closing_id:d.id,p_status:'borrador',p_reason:reason});if(error)return alert(error.message);await load(true);window.opsEditClosing(d.id)};
 window.opsDeleteClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Eliminar cierre',`Eliminarás el cierre de ${storeName(d.storeId)} del ${dmy(d.date)}. Se conservará snapshot administrativo.`,'Eliminar cierre');if(!reason)return;const {error}=await sb.rpc('ops_delete_closing_controlled',{p_closing_id:d.id,p_reason:reason});if(error)return alert(error.message);await load(true);O.closeDraft=newClosingDraft();O.closeView='list';render()};
@@ -714,8 +722,8 @@ function expenseFormHtml(){
  </div>`;
 }
 function expenseListHtml(){
- const pb=periodBounds(O.year,O.quarter,false),from=O.expenseFrom||pb.start,to=O.expenseTo||pb.end,mode=O.expenseMode||'all',q=String(O.expenseSearch||'').trim().toLowerCase();
- const all=O.expenses.filter(e=>inRange(e.expense_date,from,to)&&(O.storeId==='all'||e.store_id===O.storeId));
+ const pb=periodBounds(O.year,O.quarter,false),mode=O.expenseMode||'all',q=String(O.expenseSearch||'').trim().toLowerCase();
+ const all=O.expenses.filter(e=>inRange(e.expense_date,pb.start,pb.end)&&(O.storeId==='all'||e.store_id===O.storeId));
  const filtered=all.filter(e=>{
    if(mode==='fiscal'&&e.management_only)return false;
    if(mode==='internal'&&!e.management_only)return false;
@@ -737,8 +745,6 @@ function expenseListHtml(){
   <section class="ops-list-card">
    <div class="ops-list-toolbar expense-list-toolbar">
     <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar gastos registrados" placeholder="Proveedor, NIF, factura, tienda…" value="${h(O.expenseSearch||'')}" oninput="opsExpenseHistorySearch(this.value)"></div>
-    <input aria-label="Gastos desde" type="date" value="${h(O.expenseFrom||pb.start)}" onchange="opsExpenseHistoryDate('from',this.value)">
-    <input aria-label="Gastos hasta" type="date" value="${h(O.expenseTo||pb.end)}" onchange="opsExpenseHistoryDate('to',this.value)">
     <select aria-label="Filtrar gastos por tratamiento" onchange="opsExpenseHistoryMode(this.value)"><option value="all" ${mode==='all'?'selected':''}>Todos</option><option value="fiscal" ${mode==='fiscal'?'selected':''}>Solo fiscales</option><option value="internal" ${mode==='internal'?'selected':''}>Solo internos</option></select>
     <button class="secondary" onclick="opsExportExpenses()">Exportar CSV</button>
     <button class="secondary" onclick="opsNewInternalExpense()">+ Gasto interno</button>
@@ -748,7 +754,7 @@ function expenseListHtml(){
     <span class="badge" id="ops_exp_selected_count">${O.expenseSelected.length} seleccionados</span>
     <div class="ops-actions"><button class="ghost" onclick="opsExpenseClearSelection()" ${O.expenseSelected.length?'':'disabled'}>Limpiar</button><button class="secondary" id="ops_exp_download_selected" onclick="opsDownloadSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Descargar facturas</button>${manager()?`<button class="danger" id="ops_exp_delete_selected" onclick="opsDeleteSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Eliminar selección</button>`:''}</div>
    </div>
-   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table expense-history-table"><thead><tr><th><input type="checkbox" aria-label="Seleccionar todos los gastos visibles" onchange='opsExpenseSelectAll(${JSON.stringify(rows.map(x=>x.id))},this.checked)'></th><th>Fecha</th><th>Tienda</th><th>Proveedor</th><th>Factura</th><th>Tipo</th><th>Contable</th><th>Pagado</th><th>Documento</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td><input type="checkbox" aria-label="Seleccionar gasto ${h(e.supplier_name)}" ${O.expenseSelected.includes(e.id)?'checked':''} onchange="opsExpenseSelect('${e.id}',this.checked)"></td><td><b>${dmy(e.expense_date)}</b></td><td>${h(storeName(e.store_id))}</td><td><b>${h(e.supplier_name)}</b><div class="ops-tiny">${h(e.supplier_tax_id||'')}</div></td><td>${h(e.invoice_number||'—')}</td><td>${h(e.document_kind||'factura')}${e.management_only?'<div><span class="badge warnb">Interno</span></div>':''}</td><td class="num"><b>${eur(e.accounting_amount||e.gross_expense)}</b></td><td class="num">${eur(e.amount_paid)}<div class="ops-tiny">${h(e.paid_status||'')}</div></td><td>${e.document_id?'<span class="badge ok">Adjunta</span>':'<span class="badge warnb">Sin archivo</span>'}</td><td><div class="ops-actions">${e.document_id?`<button class="ghost" onclick="opsPreviewDoc('${e.document_id}')">Vista previa</button>`:''}<button class="ghost" onclick="opsEditExpense('${e.id}')">Abrir</button>${manager()?`<button class="danger" onclick="opsDeleteExpense('${e.id}')">Eliminar</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay gastos que coincidan con los filtros.</div>'}
+   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table expense-history-table"><thead><tr><th><input type="checkbox" aria-label="Seleccionar todos los gastos visibles" onchange='opsExpenseSelectAll(${JSON.stringify(rows.map(x=>x.id))},this.checked)'></th><th>Fecha</th><th>Tienda</th><th>Proveedor</th><th>Factura</th><th>Tipo</th><th>Contable</th><th>Pagado</th><th>Documento</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td><input type="checkbox" aria-label="Seleccionar gasto ${h(e.supplier_name)}" ${O.expenseSelected.includes(e.id)?'checked':''} onchange="opsExpenseSelect('${e.id}',this.checked)"></td><td><b>${dmy(e.expense_date)}</b></td><td>${h(storeName(e.store_id))}</td><td><b>${h(e.supplier_name)}</b><div class="ops-tiny">${h(e.supplier_tax_id||'')}</div></td><td>${h(e.invoice_number||'—')}</td><td>${h(e.document_kind||'factura')}${e.management_only?'<div><span class="badge warnb">Interno</span></div>':''}${e.source!=='manual'?'<div><span class="badge">Importado</span></div>':''}${e.source==='importacion_excel'&&!e.fiscal_reviewed&&!e.management_only?'<div><span class="badge warnb">Fiscal pendiente</span></div>':''}</td><td class="num"><b>${eur(e.accounting_amount||e.gross_expense)}</b></td><td class="num">${eur(e.amount_paid)}<div class="ops-tiny">${h(e.paid_status||'')}</div></td><td>${e.document_id?'<span class="badge ok">Adjunta</span>':'<span class="badge warnb">Sin archivo</span>'}</td><td><div class="ops-actions">${e.document_id?`<button class="ghost" onclick="opsPreviewDoc('${e.document_id}')">Vista previa</button>`:''}<button class="ghost" onclick="opsEditExpense('${e.id}')">Abrir</button>${manager()?`<button class="danger" onclick="opsDeleteExpense('${e.id}')">Eliminar</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay gastos que coincidan con los filtros.</div>'}
   </section>
  </div>`;
 }
@@ -762,13 +768,6 @@ window.opsExpenseCancel=function(){
 };
 window.opsExpenseHistorySearch=function(v){O.expenseSearch=v;render()};
 window.opsExpenseHistoryMode=function(v){O.expenseMode=v;render()};
-window.opsExpenseHistoryDate=function(k,v){
- const pb=periodBounds(O.year,O.quarter,false),next=String(v||'');
- if(k==='from')O.expenseFrom=next;else O.expenseTo=next;
- const from=O.expenseFrom||pb.start,to=O.expenseTo||pb.end;
- if(from>to){if(k==='from')O.expenseTo=from;else O.expenseFrom=to}
- render();
-};
 
 function expenseLineHtml(l,i){
  const x=expenseLineCalc(l),cat=category(l.categoryId),pct=Math.min(100,Math.max(0,n(l.deductiblePct??100)));
