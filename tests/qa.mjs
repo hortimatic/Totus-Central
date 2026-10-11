@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const must=[
- 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','supabase/totus_api.sql'
+ 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','supabase/totus_api.sql','supabase/backup.sql'
 ];
 const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
@@ -23,7 +23,7 @@ if(text('index.html').length>8000)errors.push('index.html vuelve a ser monolíti
 if(!text('src/styles.css').includes('@media(max-width:800px)'))errors.push('Falta responsive tablet/móvil');
 if(!text('src/styles.css').includes('@media(max-width:520px)'))errors.push('Falta responsive móvil estrecho');
 
-for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js']){
+for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js','src/backup.js']){
  try{execFileSync(process.execPath,['--check',path.join(root,f)],{stdio:'pipe'})}
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
@@ -84,6 +84,15 @@ for(const term of ['provider-price-new','competitor-new','variant-new','consulta
 if(!/apply_special_tax\s*\?\s*Number\([^\n]*special_tax_amount[^\n]*\)\s*:\s*0/.test(pageSource))errors.push('Pricing puede duplicar impuesto especial');
 for(const term of ['management_only','withholding_model','deductible_pct','fixed_asset'])if(!text('src/pages/main.js').includes(term)&&!text('src/app.js').includes(term))errors.push('Gastos/fiscalidad incompleto: '+term);
 for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma'])if(!text('supabase/totus_api.sql').includes(fn))errors.push('API SQL incompleta: '+fn);
+
+const backupSource=text('src/backup.js');
+const backupSql=text('supabase/backup.sql');
+if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
+for(const term of ['business-documents','business-assets','database.json','manifest.json','totus-clean-backup','totus_restore_backup'])if(!backupSource.includes(term))errors.push('Backup incompleto: '+term);
+for(const term of ['backup-create','backup-restore','RESTAURAR TOTUS'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Control de backup incompleto: '+term);
+if(backupSource.includes("'team_members'")||backupSource.includes("'profiles'"))errors.push('El backup no debe restaurar usuarios/Auth');
+if(/delete\s+from\s+public\.(team_members|profiles)/i.test(backupSql))errors.push('Restaurar backup podría borrar usuarios');
+for(const term of ['totus_restore_backup','totus_is_admin','totus_storage_usage'])if(!backupSql.includes(term))errors.push('SQL backup no versionado: '+term);
 
 if(errors.length){console.error('\nQA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('QA estructural, sintaxis y render: OK');
