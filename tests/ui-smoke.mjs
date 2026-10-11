@@ -814,6 +814,8 @@ assert(validationQa.badExt&&validationQa.badMime&&validationQa.big&&validationQa
 
 // Documentos: UI completo subir -> recargar -> descargar.
 await page.locator('.app-nav').getByRole('button',{name:'Documentos',exact:true}).click();await heading('Documentos');await auditCurrentUi('Documentos');
+assert(await page.getByText('Referencia real 1S 2026',{exact:true}).count()===1,'Documentos no muestra la referencia real de consumo del semestre');
+assert(await page.getByText(/293 archivos/).count()===1,'La estimación de almacenamiento no usa el volumen real del semestre');
 assert(await page.getByLabel('Fecha del documento archivado').getAttribute('max'),'Documentos no limita visualmente la fecha futura');
 assert(await page.getByRole('option',{name:'Factura recibida',exact:true}).count()>=1,'Documentos sigue mostrando tipos técnicos al usuario');
 assert(await page.getByRole('option',{name:'Preparada para gestoría',exact:true}).count()>=1,'Documentos sigue mostrando estados técnicos al usuario');
@@ -1101,9 +1103,11 @@ for(const idx of [2,3]){
  assert(wb.SheetNames.length===12,'El diario no contiene 12 hojas mensuales');
  const firstSheet=wb.Sheets[wb.SheetNames[0]],firstRows=XLSXNode.utils.sheet_to_json(firstSheet,{header:1,raw:false});
  assert(/^ENERO 2026$/.test(String(firstRows[0]?.[0]||'')),'El diario no conserva el título mensual de referencia · hoja='+wb.SheetNames[0]+' · fila0='+JSON.stringify(firstRows[0]||null)+' · A1='+JSON.stringify(firstSheet.A1||null));
- assert(firstRows[1].slice(0,5).join('|')==='Dia|Gastos|Precio|Tarjeta|Salida de caja','Cabecera del diario no coincide con el formato esperado');
+ assert(firstRows[1].slice(0,5).join('|')==='Dia|Gastos|Precio|Tarjeta|Salida de caja','Cabecera visible del diario no coincide con el formato histórico');
+ assert(firstRows[1][5]==='Bizum'&&firstRows[1][6]==='Nota origen','El diario no conserva Bizum y nota de origen como trazabilidad auxiliar');
+ assert(firstSheet['!cols']?.[5]?.hidden===true&&firstSheet['!cols']?.[6]?.hidden===true,'Bizum y nota origen deben quedar ocultos para respetar el formato visible original');
  assert(firstRows.at(-1)[1]==='TOTAL','El diario no termina con fila TOTAL');
- const totalRow=firstRows.length;assert(firstSheet['C'+totalRow].f&&firstSheet['D'+totalRow].f&&firstSheet['E'+totalRow].f,'Los totales mensuales del diario no son fórmulas reales');
+ const totalRow=firstRows.length;assert(firstSheet['C'+totalRow].f&&firstSheet['D'+totalRow].f&&firstSheet['E'+totalRow].f&&firstSheet['F'+totalRow].f,'Los totales mensuales del diario no son fórmulas reales');
  const titleXmlStyle=await xlsxXmlStyle(dailyPath,1,'A1');
  assert(fillRgb(firstSheet.A1)==='000000'&&titleXmlStyle.hasYellowFont,'El título mensual no conserva negro/amarillo del Excel original · cell='+JSON.stringify(firstSheet.A1?.s||null)+' · xml='+JSON.stringify(titleXmlStyle));
  assert(fillRgb(firstSheet.A2)==='4F81BD','La cabecera diaria no conserva el azul del Excel original');
