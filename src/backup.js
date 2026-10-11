@@ -79,6 +79,16 @@ export async function inspectBackup(file){
  if(manifest.format!=='totus-clean-backup'||manifest.version!==1)throw new Error('Formato de copia no compatible.');
  const database=JSON.parse(await dbf.async('string'));
  for(const table of BACKUP_TABLES)if(!Array.isArray(database[table]))throw new Error('Falta la tabla '+table+' en la copia.');
+ // Rechazar copias incompletas antes de iniciar cualquier cambio en base de datos.
+ for(const bucket of STORAGE_BUCKETS){
+  const paths=manifest.storage?.[bucket];
+  if(!Array.isArray(paths))throw new Error('Falta inventario de archivos de '+bucket);
+  for(const path of paths){
+   if(typeof path!=='string'||!path||path.includes('..')||path.startsWith('/'))throw new Error('Ruta inválida en copia: '+path);
+   const entry=zip.file('storage/'+bucket+'/'+path);
+   if(!entry||entry.dir)throw new Error('Falta el archivo '+bucket+'/'+path+' en la copia.');
+  }
+ }
  return {zip,manifest,database};
 }
 async function restoreStorage(zip,manifest){
