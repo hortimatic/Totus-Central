@@ -846,10 +846,10 @@ assert(await linkedRow.getByText('Original de factura externa',{exact:true}).cou
 assert(await linkedRow.getByRole('button',{name:'Eliminar',exact:true}).count()===0,'Archivo permite borrar individualmente un original vinculado a factura');
 await linkedRow.getByRole('checkbox').check();
 const linkedCountBefore=fixtures.ops_documents.length;
-await page.getByRole('button',{name:'Eliminar selección',exact:true}).click();
-await page.waitForTimeout(70);
-assert(fixtures.ops_documents.length===linkedCountBefore,'El borrado masivo eliminó un documento vinculado');
-assert(dialogs.some(x=>/documento\(s\) vinculados/i.test(x)),'El borrado masivo no explica por qué protege documentos vinculados');
+const bulkDelete=page.getByRole('button',{name:'Eliminar selección',exact:true});
+assert(await bulkDelete.isDisabled(),'Eliminar selección debería desactivarse cuando hay documentos vinculados');
+assert((await page.locator('#ops_doc_selected_count').innerText()).includes('vinculados'),'La selección no informa cuántos documentos están vinculados');
+assert(fixtures.ops_documents.length===linkedCountBefore,'Seleccionar un documento vinculado alteró el archivo');
 await linkedRow.getByRole('checkbox').uncheck();
 
 // La búsqueda alcanza también NIF y tipo, no solo nombre/archivo.
