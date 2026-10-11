@@ -368,10 +368,17 @@ export function invoiceModal(row=null,type='factura'){
  modal(row?'Editar documento':(type==='proforma'?'Nueva proforma':'Nueva factura'),body);
 }
 
-export function invoicePreview(row){
+export function invoicePreview(row,logoUrl=''){
  const lines=state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order);
- return `<div class="stack">
-  <div class="section-head"><div><div class="eyebrow">${esc(row.document_type||'Documento')}</div><h2>${esc(row.display_number||'BORRADOR')}</h2></div>${stateBadge(row.status)}</div>
+ const tpl=state.data.templates.find(x=>x.id===row.template_id)||{};
+ const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(tpl.invoice_title||'FACTURA');
+ const primary=tpl.primary_color||'#172033',secondary=tpl.secondary_color||'#2367d1';
+ return `<div class="stack invoice-preview" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)}">
+  <div class="section-head invoice-preview-head"><div>
+   ${logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo">`:''}
+   <div class="eyebrow">${esc(title)}</div><h2>${esc(row.display_number||'BORRADOR')}</h2>
+   ${tpl.header_text?`<div class="small muted">${esc(tpl.header_text)}</div>`:''}
+  </div>${stateBadge(row.status)}</div>
   <div class="split">
    <div><div class="small muted">Cliente</div><b>${esc(row.customer_name||'—')}</b><div class="small">${esc(row.customer_tax_id||'')}</div><div class="small">${esc(row.customer_address||'')}</div></div>
    <div><div class="summary-row"><span>Fecha</span><strong>${fmtDate(row.issue_date)}</strong></div><div class="summary-row"><span>Vencimiento</span><strong>${fmtDate(row.due_date)}</strong></div></div>
@@ -381,6 +388,8 @@ export function invoicePreview(row){
    {label:'Dto.',num:true,html:l=>`${Number(l.discount_pct||0).toFixed(1).replace('.',',')} %`},{label:'IVA',num:true,html:l=>`${Number(l.vat_rate||0).toFixed(1).replace('.',',')} %`},{label:'Total',num:true,html:l=>moneyCell(l.total_amount)}
   ],lines,{emptyTitle:'Sin líneas'})}
   <div class="metric-list"><div class="metric-box"><span>Base</span><b>${money(row.base_amount)}</b></div><div class="metric-box"><span>IVA</span><b>${money(row.vat_amount)}</b></div><div class="metric-box"><span>Total</span><b>${money(row.total_amount)}</b></div></div>
+  ${tpl.payment_terms_default?`<div class="note">${esc(tpl.payment_terms_default)}</div>`:''}
+  ${tpl.footer_text?`<div class="small muted">${esc(tpl.footer_text)}</div>`:''}
   <div class="form-actions">${btn('Imprimir / PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>
  </div>`;
 }
