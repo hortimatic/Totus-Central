@@ -1,7 +1,7 @@
 import {ROUTES} from './config.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
-import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,productModal} from './pages/main.js';
+import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download} from './utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
@@ -262,17 +262,19 @@ async function finalizeInvoice(id){
 }
 
 async function saveProduct(id=''){
- const row={name:required('prName','Nombre'),sku:required('prSku','Referencia'),family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
+ const sku=required('prSku','Referencia'),name=required('prName','Nombre');
+ const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
+ if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
+ const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
  let saved;
  if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
- closeModal();await refresh('Producto guardado.');
- if(!id&&saved?.id)productModal(state.data.products.find(x=>x.id===saved.id)||saved);
+ setView('pricing',{mode:'record',id:saved.id});await refresh('Producto guardado.');
 }
 async function deleteProduct(id){
  const p=state.data.products.find(x=>x.id===id);if(!p)return;
  if(!confirm('¿Eliminar el producto '+p.name+' y todos sus precios, variantes e histórico?'))return;
  const check=prompt('Escribe ELIMINAR PRODUCTO para confirmar:');if(check!=='ELIMINAR PRODUCTO')return;
- await remove('products',id);closeModal();await refresh('Producto eliminado.');
+ await remove('products',id);resetView('pricing');await refresh('Producto eliminado.');
 }
 
 function addExpenseLine(){
@@ -910,9 +912,10 @@ document.addEventListener('click',async e=>{
   if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
   if(a==='documents-zip'){await zipFilteredDocuments();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
-  if(a==='product-new'){productModal();return}
-  if(a==='product-edit'){productModal(state.data.products.find(x=>x.id===el.dataset.id));return}
+  if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
+  if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
+  if(a==='product-back'){resetView('pricing');render();return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
   if(a==='store-new'){storeForm();return}
   if(a==='store-edit'){storeForm(state.data.stores.find(x=>x.id===el.dataset.id));return}
