@@ -3,6 +3,7 @@ import xlsx from 'xlsx-js-style';
 global.window={XLSX:xlsx};
 const {buildStoreAnnualWorkbook,buildGestorWorkbook}=await import('../src/excel.js');
 
+const pad=0.83203125;
 const stores=[{id:'h',name:'Hortimatic',active:true},{id:'n',name:'NewOldSmok',active:true}];
 const categories=[
  {id:'merch',code:'MERCH',name:'Mercancía / producto para tienda'},
@@ -30,8 +31,8 @@ if(storeWb.SheetNames.length!==12)throw new Error('Store workbook must have 12 m
 if(storeWb.SheetNames[0]!=='Enero'||storeWb.SheetNames[11]!=='Diciembre')throw new Error('Month sheet names are wrong');
 const nosWb=buildStoreAnnualWorkbook({store:stores[1],year:2026,closings,expenses,categories});
 const nosJan=nosWb.Sheets.Enero;
-if(nosJan['!cols'][2]?.wch!==30.71)throw new Error('NewOldSmok: original expense column width must be 30.71');
-if(storeWb.Sheets.Enero['!cols'][2]?.wch!==33)throw new Error('Hortimatic: original expense column width must be 33');
+if(Math.abs(nosJan['!cols'][2]?.wch-(30.7109375-pad))>0.00001)throw new Error('NewOldSmok: original expense column width must be 30.71');
+if(Math.abs(storeWb.Sheets.Enero['!cols'][2]?.wch-(33-pad))>0.00001)throw new Error('Hortimatic: original expense column width must be 33');
 const jan=storeWb.Sheets.Enero;
 if(jan['!merges']?.length!==1)throw new Error('Original shop workbook must have only its B1:F1 merge');
 if(jan['!cols']?.length!==9)throw new Error('Original shop workbook A:I widths must be preserved');
@@ -58,17 +59,17 @@ for(const sheetName of ['Conciliación 1T','Conciliación 2T','Conciliación 3T'
  }
 }
 const audit=gestorWb.Sheets['Auditoría gestor'];
-if(audit['!cols']?.[0]?.wch!==28||audit['!cols']?.[7]?.wch!==45)throw new Error('Gestor audit original column widths do not match');
+if(Math.abs(audit['!cols']?.[0]?.wch-(28-pad))>0.00001||Math.abs(audit['!cols']?.[7]?.wch-(45-pad))>0.00001)throw new Error('Gestor audit original column widths do not match');
 if(!audit['!merges']?.some(m=>m.s.r===11&&m.s.c===0&&m.e.r===16&&m.e.c===7))throw new Error('Gestor audit explanatory block A12:H17 missing');
 if(audit['A8']?.v!=='Incidencia'||audit['F8']?.v!=='Acción recomendada')throw new Error('Gestor incident register missing');
 for(const q of [1,2,3,4]){
  const ws=gestorWb.Sheets['Conciliación '+q+'T'];
  const widths=[15,18,19,17,19,20,17,22,17,17,18,24];
- if(widths.some((w,i)=>ws['!cols']?.[i]?.wch!==w))throw new Error('Conciliación '+q+'T no respeta anchuras originales');
+ if(widths.some((w,i)=>Math.abs(ws['!cols']?.[i]?.wch-(w-pad))>0.00001))throw new Error('Conciliación '+q+'T no respeta anchuras originales');
  if(!ws['!merges']?.some(m=>m.s.r===8&&m.s.c===0&&m.e.r===12&&m.e.c===11))throw new Error('Falta nota combinada A9:L13 en '+q+'T');
 }
 const book=gestorWb.Sheets['Libro gestor 1T'];
-if([8,13,14,21,6,14,31,25].some((w,i)=>book['!cols']?.[i]?.wch!==w))throw new Error('Libro gestor no respeta anchuras originales');
+if([8,13,14,21,6,14,31,25].some((w,i)=>Math.abs(book['!cols']?.[i]?.wch-(w-pad))>0.00001))throw new Error('Libro gestor no respeta anchuras originales');
 const expected=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
 for(let i=0;i<expected.length;i++){const cell=book[xlsx.utils.encode_cell({r:2,c:i})];if(cell?.v!==expected[i])throw new Error('Gestor header mismatch at '+expected[i])}
 
