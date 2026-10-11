@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const must=[
- 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css'
+ 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','supabase/totus_api.sql'
 ];
 const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
@@ -23,7 +23,7 @@ if(text('index.html').length>8000)errors.push('index.html vuelve a ser monolíti
 if(!text('src/styles.css').includes('@media(max-width:800px)'))errors.push('Falta responsive tablet/móvil');
 if(!text('src/styles.css').includes('@media(max-width:520px)'))errors.push('Falta responsive móvil estrecho');
 
-for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js']){
+for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js']){
  try{execFileSync(process.execPath,['--check',path.join(root,f)],{stdio:'pipe'})}
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
@@ -77,6 +77,13 @@ if(!text('src/app.js').includes('invoice-line-add')||!text('src/app.js').include
 if(!text('src/pages/main.js').includes('drawer-entry'))errors.push('Cajas no está desglosado por caja');
 if(!text('src/pages/main.js').includes('invoicePreview'))errors.push('Falta vista previa de facturación');
 if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
+if(!text('index.html').includes('xlsx-js-style'))errors.push('Falta motor Excel');
+if(text('src/app.js').includes('.csv'))errors.push('Persisten exportaciones CSV');
+for(const term of ['exportClosingsWorkbook','exportExpensesWorkbook','exportSummaryWorkbook','cellStyles:true','SUM('])if(!text('src/excel.js').includes(term))errors.push('Excel incompleto: '+term);
+for(const term of ['provider-price-new','competitor-new','variant-new','consultation-save','providers-manage'])if(!text('src/app.js').includes(term)&&!text('src/pages/main.js').includes(term))errors.push('Pricing incompleto: '+term);
+if(!text('src/pages/main.js').includes('apply_special_tax?Number(row?.special_tax_amount||0):0'))errors.push('Pricing puede duplicar impuesto especial');
+for(const term of ['management_only','withholding_model','deductible_pct','fixed_asset'])if(!text('src/pages/main.js').includes(term)&&!text('src/app.js').includes(term))errors.push('Gastos/fiscalidad incompleto: '+term);
+for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma'])if(!text('supabase/totus_api.sql').includes(fn))errors.push('API SQL incompleta: '+fn);
 
 if(errors.length){console.error('\nQA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('QA estructural, sintaxis y render: OK');
