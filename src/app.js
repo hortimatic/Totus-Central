@@ -39,7 +39,11 @@ function render(){
 async function refresh(message=''){
  state.loading=true;
  try{await loadCore();if(message)toast(message,'ok');render()}
- catch(e){console.error(e);toast(e.message,'bad')}
+ catch(e){
+  console.error(e);toast(e.message,'bad');
+  const content=$('#content');
+  if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
+ }
  finally{state.loading=false}
 }
 function input(id){return document.getElementById(id)}
@@ -1063,6 +1067,7 @@ document.addEventListener('click',async e=>{
  const route=el.dataset.route;if(route){setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  try{
+  if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
   if(a==='close-modal'){closeModal();return}
