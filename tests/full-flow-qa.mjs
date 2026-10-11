@@ -130,6 +130,13 @@ await check('Documentos Excel: carga y vista previa',async()=>{
  await page.locator('#modalHost .excel-preview').waitFor({state:'visible'});
  assert((await page.locator('#modalHost .excel-preview').innerText()).includes('Factura prueba'),'Contenido Excel perdido en vista previa');
  await page.locator('#modalHost .close-btn').click();
+ await page.locator('#docNotes').fill('Archivado y revisado en QA');
+ await page.locator('[data-action="document-save"]').click();
+ await page.waitForTimeout(100);
+ assert((await db()).documents.some(x=>x.original_name==='qa-factura.xlsx'&&x.notes==='Archivado y revisado en QA'),'La edición de metadatos no persiste');
+ const download=page.waitForEvent('download');
+ await page.locator('[data-action="document-download"]').first().click();
+ assert((await download).suggestedFilename()==='qa-factura.xlsx','El archivo XLSX descargado no coincide con el original');
 });
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
