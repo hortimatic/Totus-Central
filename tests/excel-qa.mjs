@@ -31,7 +31,7 @@ if(storeWb.SheetNames[0]!=='Enero'||storeWb.SheetNames[11]!=='Diciembre')throw n
 const jan=storeWb.Sheets.Enero;
 if(jan.B1?.v!=='Enero 2026')throw new Error('Original month title layout missing');
 if(jan.B2?.v!=='Dia'||jan.C2?.v!=='Gastos'||jan.D2?.v!=='Precio'||jan.E2?.v!=='Tarjeta'||jan.F2?.v!=='Salida de caja')throw new Error('Original headers do not match');
-if(jan.C3?.s?.fill?.fgColor?.rgb!=='00B0F0')throw new Error('Original merchandise color missing');
+const merchCell=Object.entries(jan).find(([k,v])=>/^C\\d+$/.test(k)&&v?.v==='Pedido');if(!merchCell||merchCell[1]?.s?.fill?.fgColor?.rgb!=='00B0F0')throw new Error('Original merchandise color missing');
 const totalCell=Object.entries(jan).find(([k,v])=>!k.startsWith('!')&&v?.v==='Total');
 if(!totalCell)throw new Error('Monthly Total row missing');
 const totalRow=Number(totalCell[0].match(/\d+/)[0]);
