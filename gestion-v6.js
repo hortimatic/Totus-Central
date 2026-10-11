@@ -474,10 +474,6 @@ function closingListHtml(){
  const open=all.filter(x=>x.status!=='cerrado').length;
  const bad=all.filter(x=>x.reported_total_sales!=null&&Math.abs(n(x.difference))>.01).length;
  return `<div class="closing-list-shell">
-  <section class="ops-page-command">
-   <div><div class="eyebrow">Cajas · T${O.quarter} ${O.year}</div><h2>Cierres de caja</h2><p>Consulta lo ya registrado y abre un cierre solo cuando necesites crearlo o corregirlo.</p></div>
-   <button class="primary" onclick="opsNewClosing()">+ Nuevo cierre</button>
-  </section>
   <section class="ops-list-summary">
    <article><span>Cierres</span><strong>${all.length}</strong><small>en el periodo</small></article>
    <article><span>Ventas registradas</span><strong>${eur(total)}</strong><small>suma de cierres</small></article>
@@ -489,6 +485,7 @@ function closingListHtml(){
     <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar cierres" placeholder="Buscar tienda, fecha o estado…" value="${h(O.closeSearch||'')}" oninput="opsCloseSearch(this.value)"></div>
     <select aria-label="Filtrar cierres por estado" onchange="opsCloseStatus(this.value)"><option value="all">Todos los estados</option><option value="cerrado" ${status==='cerrado'?'selected':''}>Cerrados</option><option value="borrador" ${status==='borrador'?'selected':''}>Borradores</option></select>
     <button class="secondary" onclick="opsExportClosings()">Exportar CSV</button>
+    <button class="primary" onclick="opsNewClosing()">+ Nuevo cierre</button>
    </div>
    ${rows.length?`<div class="ops-table-wrap"><table class="ops-table closing-list-table"><thead><tr><th>Fecha</th><th>Establecimiento</th><th>Total</th><th>Metálico final</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const t=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),ok=row.reported_total_sales!=null&&Math.abs(n(row.difference))<=.01;return`<tr>
  <td><b>${dmy(row.business_date)}</b><div class="ops-tiny">Apertura ${eur(row.opening_cash)}</div></td>
@@ -739,10 +736,6 @@ function expenseListHtml(){
  const internal=sum(all.filter(e=>e.management_only),e=>n(e.accounting_amount||e.gross_expense));
  const pending=all.filter(e=>e.paid_status==='pendiente'||e.paid_status==='parcial').length;
  return `<div class="expense-list-shell">
-  <section class="ops-page-command">
-   <div><div class="eyebrow">Gastos · T${O.quarter} ${O.year}</div><h2>Gastos registrados</h2><p>Consulta todo el histórico, filtra y abre una ficha solo cuando necesites crear o corregir un gasto.</p></div>
-   <div class="ops-actions"><button class="secondary" onclick="opsNewInternalExpense()">+ Gasto interno</button><button class="primary" onclick="opsNewExpense()">+ Nuevo gasto</button></div>
-  </section>
   <section class="ops-list-summary expense-list-summary">
    <article><span>Total registrado</span><strong>${eur(total)}</strong><small>${all.length} gastos</small></article>
    <article><span>Fiscal</span><strong>${eur(fiscal)}</strong><small>entra en control fiscal</small></article>
@@ -754,6 +747,8 @@ function expenseListHtml(){
     <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar gastos registrados" placeholder="Proveedor, NIF, factura, tienda…" value="${h(O.expenseSearch||'')}" oninput="opsExpenseHistorySearch(this.value)"></div>
     <select aria-label="Filtrar gastos por tratamiento" onchange="opsExpenseHistoryMode(this.value)"><option value="all" ${mode==='all'?'selected':''}>Todos</option><option value="fiscal" ${mode==='fiscal'?'selected':''}>Solo fiscales</option><option value="internal" ${mode==='internal'?'selected':''}>Solo internos</option></select>
     <button class="secondary" onclick="opsExportExpenses()">Exportar CSV</button>
+    <button class="secondary" onclick="opsNewInternalExpense()">+ Gasto interno</button>
+    <button class="primary" onclick="opsNewExpense()">+ Nuevo gasto</button>
    </div>
    <div class="ops-list-selection">
     <span class="badge" id="ops_exp_selected_count">${O.expenseSelected.length} seleccionados</span>
