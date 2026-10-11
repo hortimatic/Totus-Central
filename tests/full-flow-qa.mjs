@@ -5,7 +5,7 @@ const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
 page.setDefaultTimeout(5000);
-page.on('dialog',async d=>{await d.accept();});
+page.on('dialog',async d=>{await d.accept(d.type()==='prompt'?'ELIMINAR USUARIO':undefined);});
 const errors=[];
 page.on('pageerror',e=>errors.push('JS '+e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push('Consola '+m.text())});
@@ -177,6 +177,11 @@ await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await page.locator('[data-action="user-save"]').click();
  await page.waitForTimeout(100);
  assert((await db()).team.some(x=>x.email==='empleado-qa@example.com'&&x.job_title==='Encargado de simulación'),'No se actualizó la ficha de usuario');
+ await page.locator('[data-action="user-edit"][data-email="empleado-qa@example.com"]').click();
+ await page.locator('[data-action="user-delete"]').click();
+ await page.waitForTimeout(100);
+ assert(!(await db()).team.some(x=>x.email==='empleado-qa@example.com'),'No se eliminó el usuario de prueba');
+
 });
 await check('Navegación de todas las pestañas tras operaciones',async()=>{
  for(const route of ['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion']){
