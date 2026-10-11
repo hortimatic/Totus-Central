@@ -90,7 +90,7 @@ for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_doc
 
 for(const term of ['closing-save-draft','closing-save-close','closing-reopen','reported_total_sales'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Cajas incompleto: '+term);
 for(const term of ['expense-document-preview','expense-document-download','expense-line-add','management_only'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Gastos incompleto: '+term);
-for(const term of ['external-invoice-new','rectification-new','billing-section','invoice-source-preview','totus_register_external_document'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Facturación incompleta: '+term);
+for(const term of ['external-invoice-new','rectifying-new','billing-section','invoice-source-preview','totus_register_external_document'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Facturación incompleta: '+term);
 for(const term of ['documents-zip','document-download','document-delete','sheet_to_html','document-frame'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('src/styles.css').includes(term))errors.push('Documentos incompleto: '+term);
 for(const term of ['record-layout','sticky-summary','module-tabs','@media(max-width:800px)'])if(!text('src/styles.css').includes(term))errors.push('Interfaz responsive incompleta: '+term);
 if(/\b(usuarios|configuracion|log)\s*:\s*\[/.test(text('src/config.js')))errors.push('Persisten rutas administrativas duplicadas');
