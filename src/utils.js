@@ -4,7 +4,7 @@ export const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;'
 export const n=v=>{const x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:0};
 export const money=v=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n(v));
 export const pct=v=>new Intl.NumberFormat('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1}).format(n(v))+' %';
-export const isoToday=()=>new Date().toISOString().slice(0,10);
+export const isoToday=()=>{const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;};
 export const fmtDate=v=>{if(!v)return'—';const s=String(v).slice(0,10),[y,m,d]=s.split('-');return y&&m&&d?`${d}/${m}/${y}`:String(v)};
 export const fmtDateTime=v=>v?new Date(v).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}):'—';
 export const inRange=(v,from,to)=>{const d=String(v||'').slice(0,10);return(!from||d>=from)&&(!to||d<=to)};
