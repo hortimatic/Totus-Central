@@ -47,6 +47,10 @@ for(const term of ['Lo importante de hoy','Pendientes y avisos','Control fiscal'
  if(!inicioHtml.includes(term))errors.push('Inicio incompleto: '+term);
 }
 if(!inicioHtml.includes('data-route="fiscalidad"')||!inicioHtml.includes('data-route="facturacion"'))errors.push('Inicio sin accesos directos funcionales');
+for(const [action,route] of [['closing-new','cajas'],['expense-new','gastos'],['invoice-new','facturacion'],['document-new','documentos']]){
+ const re=new RegExp("if\\(a==='"+action+"'\\)[\\s\\S]{0,220}setRoute\\('"+route+"'\\)");
+ if(!re.test(appSource))errors.push('Acción rápida de Inicio no navega: '+action+' → '+route);
+}
 if(!inicioHtml.includes('data-store="s1"')&&!inicioHtml.includes('data-id='))errors.push('Inicio no permite actuar sobre cierres por tienda');
 
 for(const name of ['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion']){
