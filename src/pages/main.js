@@ -32,9 +32,9 @@ export function inicio(){
  const qIncome=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,qFrom,qTo)),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))
    +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,qFrom,qTo)),x=>x.total_amount)
    +sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,qFrom,qTo)),x=>x.amount);
- const qExpenseIds=new Set(state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)).map(x=>x.id));
- const qLines=state.data.expenseLines.filter(x=>qExpenseIds.has(x.expense_id));
- const qDed=sum(qLines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0));
+ const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo));
+ const qExpenseIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qExpenseIds.has(x.expense_id)),qWithLines=new Set(qLines.map(x=>x.expense_id));
+ const qDed=sum(qLines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0))+sum(qExpenses.filter(x=>!qWithLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount||x.gross_expense||0)*(Number(x.deductible_pct??100)/100));
  const qNet=Math.max(0,qIncome-qDed),qIrpf=Math.max(0,qNet*Number(state.data.settings?.irpf_prepayment_rate||20)/100);
  const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
  const alerts=[];
