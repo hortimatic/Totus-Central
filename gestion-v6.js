@@ -606,9 +606,9 @@ function expensesHtml(){
  return `<div class="expense-shell">
   <section class="expense-command">
    <div class="expense-command-copy">
-    <div class="eyebrow">${d.id?'Gasto registrado':'Trabajo diario'}</div>
+    <div class="eyebrow">${d.id?'Gasto registrado':'Compras y pagos'}</div>
     <div class="ops-title-line"><h2>${d.id?'Editar gasto':'Registrar gasto'}</h2>${infoButton('gastos','Cómo registrar correctamente un gasto')}</div>
-    <p>Proveedor, documento y líneas en el área principal. A la derecha tienes siempre visibles tratamiento, pago y totales.</p>
+    <p>Registra proveedor, factura y conceptos en un único recorrido. Totus calcula impuestos, deducibilidad y pago sin repetir datos.</p>
    </div>
    <div class="expense-command-actions">
     <span class="ops-status-chip ${d.managementOnly?'internal':'fiscal'}">${fiscalLabel}</span>
@@ -619,70 +619,90 @@ function expensesHtml(){
 
   <div class="expense-workspace">
    <main class="expense-editor">
-    <section class="expense-document-card">
-     <div class="expense-section-head">
-      <div><span>Documento</span><h3>Proveedor y factura</h3><p>Identifica el gasto una sola vez; los datos habituales del proveedor se reutilizan automáticamente.</p></div>
+    <section class="expense-main-card">
+     <div class="expense-block expense-document-card">
+      <div class="expense-section-head">
+       <div><span>1 · Documento</span><h3>Proveedor y factura</h3><p>Selecciona un proveedor guardado o escribe uno nuevo. Sus valores habituales se reutilizan automáticamente.</p></div>
+      </div>
+      <div class="ops-form expense-document-form">
+       <div><label>Fecha</label><input aria-label="Fecha del gasto" type="date" max="${isoToday()}" value="${h(d.date)}" oninput="opsExpenseField('date',this.value)"></div>
+       <div><label>Establecimiento</label><select aria-label="Establecimiento del gasto" oninput="opsExpenseField('storeId',this.value)"><option value="">General / común</option>${O.stores.map(st=>`<option value="${st.id}" ${d.storeId===st.id?'selected':''}>${h(st.name)}</option>`).join('')}</select></div>
+       <div class="span2"><label>Proveedor / distribuidor</label><div class="ops-inline-field ops-supplier-picker"><select aria-label="Proveedor del gasto" onchange="opsSelectSupplier(this.value)"><option value="">— Escribir manualmente —</option>${O.suppliers.filter(x=>x.active!==false).map(x=>`<option value="${x.id}" ${d.supplierId===x.id?'selected':''}>${h(x.name)}${x.tax_id?' · '+h(x.tax_id):''}</option>`).join('')}</select><button type="button" class="ghost" onclick="opsOpenSupplierEditor()">+ Nuevo</button><button type="button" class="ghost" onclick="opsOpenSupplierManager()">Gestionar</button></div><input aria-label="Nombre manual del proveedor" class="ops-supplier-manual" value="${h(d.supplier)}" placeholder="Nombre del proveedor" oninput="opsExpenseManualSupplier(this.value)"></div>
+       <div><label>NIF / CIF proveedor</label><input value="${h(d.taxId)}" oninput="opsExpenseField('taxId',this.value)"></div>
+       <div><label>Nº factura proveedor</label><input value="${h(d.invoice)}" placeholder="${['factura','rectificativa'].includes(d.documentKind)?'Obligatorio':'Opcional'}" oninput="opsExpenseField('invoice',this.value)"></div>
+       <div><label>Tipo de documento</label><select aria-label="Tipo de documento del gasto" onchange="opsExpenseField('documentKind',this.value,true)">${[['factura','Factura'],['rectificativa','Rectificativa / abono'],['ticket','Ticket'],['nomina','Nómina'],['seguridad_social','Seguridad Social'],['recibo','Recibo'],['otro','Otro']].map(x=>`<option value="${x[0]}" ${d.documentKind===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div>
+       <div class="span2 expense-file-box"><div><label>Factura / documento adjunto</label><div class="ops-file-state">${attached?'<span class="badge ok">Documento guardado</span><span>Puedes sustituirlo seleccionando un archivo nuevo.</span>':'<span class="badge warnb">Sin documento</span><span>PDF, imagen, Excel o CSV.</span>'}</div></div><input id="ops_exp_file" aria-label="Factura o documento adjunto del gasto" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv"><div class="ops-actions"><button type="button" class="ghost" onclick="opsPreviewSelectedFile('ops_exp_file')">Vista previa seleccionada</button>${attached?`<button type="button" class="ghost" onclick="opsPreviewDoc('${attached}')">Vista previa guardada</button><button type="button" class="ghost" onclick="opsDownloadDoc('${attached}')">Descargar</button>${manager()?`<button type="button" class="danger" onclick="opsRemoveExpenseDocument('${attached}')">Quitar factura</button>`:''}`:''}</div></div>
+      </div>
      </div>
-     <div class="ops-form expense-document-form">
-      <div><label>Fecha</label><input aria-label="Fecha del gasto" type="date" max="${isoToday()}" value="${h(d.date)}" oninput="opsExpenseField('date',this.value)"></div>
-      <div><label>Establecimiento</label><select aria-label="Establecimiento del gasto" oninput="opsExpenseField('storeId',this.value)"><option value="">General / común</option>${O.stores.map(st=>`<option value="${st.id}" ${d.storeId===st.id?'selected':''}>${h(st.name)}</option>`).join('')}</select></div>
-      <div class="span2"><label>Proveedor / distribuidor</label><div class="ops-inline-field ops-supplier-picker"><select aria-label="Proveedor del gasto" onchange="opsSelectSupplier(this.value)"><option value="">— Escribir manualmente —</option>${O.suppliers.filter(x=>x.active!==false).map(x=>`<option value="${x.id}" ${d.supplierId===x.id?'selected':''}>${h(x.name)}${x.tax_id?' · '+h(x.tax_id):''}</option>`).join('')}</select><button type="button" class="ghost" onclick="opsOpenSupplierEditor()">+ Nuevo</button><button type="button" class="ghost" onclick="opsOpenSupplierManager()">Gestionar</button></div><input aria-label="Nombre manual del proveedor" class="ops-supplier-manual" value="${h(d.supplier)}" placeholder="Nombre del proveedor" oninput="opsExpenseManualSupplier(this.value)"></div>
-      <div><label>NIF / CIF proveedor</label><input value="${h(d.taxId)}" oninput="opsExpenseField('taxId',this.value)"></div>
-      <div><label>Nº factura proveedor</label><input value="${h(d.invoice)}" placeholder="${['factura','rectificativa'].includes(d.documentKind)?'Obligatorio':'Opcional'}" oninput="opsExpenseField('invoice',this.value)"></div>
-      <div><label>Tipo de documento</label><select aria-label="Tipo de documento del gasto" onchange="opsExpenseField('documentKind',this.value,true)">${[['factura','Factura'],['rectificativa','Rectificativa / abono'],['ticket','Ticket'],['nomina','Nómina'],['seguridad_social','Seguridad Social'],['recibo','Recibo'],['otro','Otro']].map(x=>`<option value="${x[0]}" ${d.documentKind===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div>
-      <div class="span2 expense-file-box"><div><label>Factura / documento adjunto</label><div class="ops-file-state">${attached?'<span class="badge ok">Documento guardado</span><span>Puedes sustituirlo seleccionando un archivo nuevo.</span>':'<span class="badge warnb">Sin documento</span><span>PDF, imagen, Excel o CSV.</span>'}</div></div><input id="ops_exp_file" aria-label="Factura o documento adjunto del gasto" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv"><div class="ops-actions"><button type="button" class="ghost" onclick="opsPreviewSelectedFile('ops_exp_file')">Vista previa seleccionada</button>${attached?`<button type="button" class="ghost" onclick="opsPreviewDoc('${attached}')">Vista previa guardada</button><button type="button" class="ghost" onclick="opsDownloadDoc('${attached}')">Descargar</button>${manager()?`<button type="button" class="danger" onclick="opsRemoveExpenseDocument('${attached}')">Quitar factura</button>`:''}`:''}</div></div>
-     </div>
-    </section>
 
-    <section class="expense-lines-card">
-     <div class="expense-section-head expense-lines-heading">
-      <div><span>Conceptos</span><h3>${d.managementOnly?'Desglose interno':'Desglose fiscal'}</h3><p>${d.managementOnly?'Este gasto queda fuera de fiscalidad.':'Separa conceptos, IVA, recargo y retención solo cuando realmente sean distintos.'}</p></div>
-      <button class="secondary" onclick="opsAddExpenseLine()">+ Añadir línea</button>
+     <div class="expense-block expense-lines-card">
+      <div class="expense-section-head expense-lines-heading">
+       <div><span>2 · Conceptos</span><h3>${d.managementOnly?'Desglose interno':'Desglose fiscal'}</h3><p>${d.managementOnly?'Este gasto queda fuera de fiscalidad.':'Añade otra línea solo si cambian categoría, IVA, RE o retención.'}</p></div>
+       <button class="secondary" onclick="opsAddExpenseLine()">+ Añadir línea</button>
+      </div>
+      <div class="ops-lines expense-lines">${O.expenseDraftLines.map((l,i)=>expenseLineHtml(l,i)).join('')}</div>
      </div>
-     <div class="ops-lines expense-lines">${O.expenseDraftLines.map((l,i)=>expenseLineHtml(l,i)).join('')}</div>
-    </section>
 
-    <section class="expense-notes-card">
-     <div class="expense-section-head"><div><span>Observaciones</span><h3>Notas internas</h3></div><small>Opcional</small></div>
-     <textarea aria-label="Observaciones del gasto" placeholder="Incidencias, aclaraciones o información que necesites conservar" oninput="opsExpenseField('notes',this.value)">${h(d.notes)}</textarea>
+     <div class="expense-block expense-notes-card">
+      <div class="expense-section-head"><div><span>3 · Observaciones</span><h3>Notas internas</h3></div><small>Opcional</small></div>
+      <textarea aria-label="Observaciones del gasto" placeholder="Incidencias, aclaraciones o información que necesites conservar" oninput="opsExpenseField('notes',this.value)">${h(d.notes)}</textarea>
+     </div>
     </section>
    </main>
 
    <aside class="expense-review">
-    <section class="expense-summary-card">
-     <div class="expense-summary-head"><div><span>Total contabilizado</span><strong>${eur(t.accounting)}</strong></div><span class="ops-status-chip ${d.managementOnly?'internal':'fiscal'}">${fiscalLabel}</span></div>
-     <div class="expense-summary-grid">
-      <div><span>Retenciones</span><b>${eur(t.withholding)}</b></div>
-      <div><span>A pagar proveedor</span><b>${eur(t.payable)}</b></div>
-      <div><span>Pagado indicado</span><b>${eur(paidShown)}</b></div>
+    <section class="expense-review-card ${d.managementOnly?'internal':''}">
+     <div class="expense-summary-card">
+      <div class="expense-summary-head"><div><span>Total contabilizado</span><strong>${eur(t.accounting)}</strong></div><span class="ops-status-chip ${d.managementOnly?'internal':'fiscal'}">${fiscalLabel}</span></div>
+      <div class="expense-summary-grid">
+       <div><span>Retenciones</span><b>${eur(t.withholding)}</b></div>
+       <div><span>A pagar proveedor</span><b>${eur(t.payable)}</b></div>
+       <div><span>Pagado indicado</span><b>${eur(paidShown)}</b></div>
+      </div>
      </div>
-    </section>
 
-    <section class="expense-treatment-card ${d.managementOnly?'internal':''}">
-     <div class="expense-section-head"><div><span>Tratamiento</span><div class="ops-title-line"><h3>Fiscal o interno</h3>${infoButton('gastos.internal','Diferencia entre gasto fiscal e interno')}</div></div></div>
-     <label class="expense-mode-toggle"><input id="ops_management_only" type="checkbox" ${d.managementOnly?'checked':''} onchange="opsExpenseField('managementOnly',this.checked,true)"><span><b>Solo control interno</b><small>No va a gestoría ni al cálculo fiscal; sí afecta al resultado real.</small></span></label>
-     <div class="expense-shortcuts"><span>Atajos internos</span><button class="ghost" onclick="opsQuickInternal('warehouse')">Almacén · 300 €</button><button class="ghost" onclick="opsQuickInternal('overtime')">Horas extra</button></div>
-     ${importedNeedsReview?`<div class="ops-note warn"><div class="checkline"><input id="ops_fiscal_reviewed" type="checkbox" ${d.fiscalReviewed?'checked':''} onchange="opsExpenseField('fiscalReviewed',this.checked)"><label for="ops_fiscal_reviewed">Importación revisada y válida para fiscalidad</label></div><div class="small">Hasta confirmarlo, no entra como gasto fiscal validado.</div></div>`:''}
-    </section>
+     <div class="expense-review-section expense-treatment-card">
+      <div class="expense-section-head"><div><span>Tratamiento</span><div class="ops-title-line"><h3>Fiscal o interno</h3>${infoButton('gastos.internal','Diferencia entre gasto fiscal e interno')}</div></div></div>
+      <label class="expense-mode-toggle"><input id="ops_management_only" type="checkbox" ${d.managementOnly?'checked':''} onchange="opsExpenseField('managementOnly',this.checked,true)"><span><b>Solo control interno</b><small>No va a gestoría ni al cálculo fiscal; sí afecta al resultado real.</small></span></label>
+      <div class="expense-shortcuts"><span>Atajos internos</span><button class="ghost" onclick="opsQuickInternal('warehouse')">Almacén · 300 €</button><button class="ghost" onclick="opsQuickInternal('overtime')">Horas extra</button></div>
+      ${importedNeedsReview?`<div class="ops-note warn"><div class="checkline"><input id="ops_fiscal_reviewed" type="checkbox" ${d.fiscalReviewed?'checked':''} onchange="opsExpenseField('fiscalReviewed',this.checked)"><label for="ops_fiscal_reviewed">Importación revisada y válida para fiscalidad</label></div><div class="small">Hasta confirmarlo, no entra como gasto fiscal validado.</div></div>`:''}
+     </div>
 
-    <section class="expense-payment-card">
-     <div class="expense-section-head"><div><span>Pago</span><h3>Estado del proveedor</h3></div></div>
-     <div class="ops-form expense-payment-form">
-      <div><label>Forma de pago</label><select aria-label="Forma de pago del gasto" oninput="opsExpenseField('payment',this.value)">${['efectivo','tarjeta','transferencia','bizum','domiciliado','otro'].map(x=>`<option ${d.payment===x?'selected':''}>${x}</option>`).join('')}</select></div>
-      <div><label>Estado</label><select aria-label="Estado de pago del gasto" onchange="opsExpenseField('paidStatus',this.value,true)">${[['pagado','Pagado'],['pendiente','Pendiente'],['parcial','Pago parcial']].map(x=>`<option value="${x[0]}" ${d.paidStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div>
-      <div><label>Fecha pago</label><input aria-label="Fecha de pago del gasto" type="date" max="${isoToday()}" value="${h(d.paidDate)}" oninput="opsExpenseField('paidDate',this.value)" ${d.paidStatus==='pendiente'?'disabled':''}></div>
-      <div><label>Importe pagado</label><input inputmode="decimal" placeholder="${String(t.payable.toFixed(2)).replace('.',',')}" value="${h(d.amountPaid)}" oninput="opsExpenseField('amountPaid',this.value)" ${d.paidStatus==='pendiente'?'disabled':''}></div>
+     <div class="expense-review-section expense-payment-card">
+      <div class="expense-section-head"><div><span>Pago</span><h3>Estado del proveedor</h3></div></div>
+      <div class="ops-form expense-payment-form">
+       <div><label>Forma de pago</label><select aria-label="Forma de pago del gasto" oninput="opsExpenseField('payment',this.value)">${['efectivo','tarjeta','transferencia','bizum','domiciliado','otro'].map(x=>`<option ${d.payment===x?'selected':''}>${x}</option>`).join('')}</select></div>
+       <div><label>Estado</label><select aria-label="Estado de pago del gasto" onchange="opsExpenseField('paidStatus',this.value,true)">${[['pagado','Pagado'],['pendiente','Pendiente'],['parcial','Pago parcial']].map(x=>`<option value="${x[0]}" ${d.paidStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div>
+       <div><label>Fecha pago</label><input aria-label="Fecha de pago del gasto" type="date" max="${isoToday()}" value="${h(d.paidDate)}" oninput="opsExpenseField('paidDate',this.value)" ${d.paidStatus==='pendiente'?'disabled':''}></div>
+       <div><label>Importe pagado</label><input inputmode="decimal" placeholder="${String(t.payable.toFixed(2)).replace('.',',')}" value="${h(d.amountPaid)}" oninput="opsExpenseField('amountPaid',this.value)" ${d.paidStatus==='pendiente'?'disabled':''}></div>
+      </div>
      </div>
     </section>
    </aside>
   </div>
 
   <section class="expense-history-card">
-   <div class="section-head"><div><div class="eyebrow">T${O.quarter}</div><h3>Gastos registrados</h3><div class="small">Busca y trabaja sobre registros existentes sin mezclar el histórico con el alta actual.</div></div><div class="ops-actions"><span class="badge" id="ops_exp_selected_count">${O.expenseSelected.length} seleccionados</span><button class="ghost" onclick="opsExpenseClearSelection()" ${O.expenseSelected.length?'':'disabled'}>Limpiar selección</button><button class="secondary" id="ops_exp_download_selected" onclick="opsDownloadSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Descargar facturas</button>${manager()?`<button class="danger" id="ops_exp_delete_selected" onclick="opsDeleteSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Eliminar selección</button>`:''}<button class="secondary" onclick="opsExportExpenses()">Exportar CSV</button></div></div>
-   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table expense-history-table"><thead><tr><th><input type="checkbox" aria-label="Seleccionar todos los gastos visibles" onchange='opsExpenseSelectAll(${JSON.stringify(rows.map(x=>x.id))},this.checked)'></th><th>Fecha</th><th>Tienda</th><th>Proveedor</th><th>Factura</th><th>Tipo</th><th>Contable</th><th>Pagado</th><th>Documento</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td><input type="checkbox" aria-label="Seleccionar gasto ${h(e.supplier_name)}" ${O.expenseSelected.includes(e.id)?'checked':''} onchange="opsExpenseSelect('${e.id}',this.checked)"></td><td>${dmy(e.expense_date)}</td><td>${h(storeName(e.store_id))}</td><td><b>${h(e.supplier_name)}</b><div class="ops-tiny">${h(e.supplier_tax_id)}</div></td><td>${h(e.invoice_number||'—')}</td><td>${h(e.document_kind||'factura')}${e.management_only?'<div><span class="badge warnb">Interno</span></div>':''}${e.source!=='manual'?'<div><span class="badge">Importado</span></div>':''}${e.source==='importacion_excel'&&!e.fiscal_reviewed&&!e.management_only?'<div><span class="badge warnb">Fiscal pendiente</span></div>':''}</td><td class="num">${eur(e.accounting_amount||e.gross_expense)}</td><td class="num">${eur(e.amount_paid)}</td><td>${e.document_id?'<span class="badge ok">Adjunta</span>':'<span class="badge warnb">Sin archivo</span>'}</td><td><div class="ops-actions">${e.document_id?`<button class="ghost" onclick="opsPreviewDoc('${e.document_id}')">Vista previa</button>`:''}<button class="ghost" onclick="opsEditExpense('${e.id}')">Editar</button>${manager()?`<button class="danger" onclick="opsDeleteExpense('${e.id}')">Eliminar</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay gastos en este trimestre.</div>'}
+   <div class="expense-history-head">
+    <div><div class="eyebrow">T${O.quarter}</div><h3>Gastos registrados</h3><div class="small">Busca, revisa o descarga gastos existentes sin mezclarlos con el alta actual.</div></div>
+    <div class="expense-history-actions"><span class="badge" id="ops_exp_selected_count">${O.expenseSelected.length} seleccionados</span><button class="ghost" onclick="opsExpenseClearSelection()" ${O.expenseSelected.length?'':'disabled'}>Limpiar selección</button><button class="secondary" id="ops_exp_download_selected" onclick="opsDownloadSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Descargar facturas</button>${manager()?`<button class="danger" id="ops_exp_delete_selected" onclick="opsDeleteSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Eliminar selección</button>`:''}<button class="secondary" onclick="opsExportExpenses()">Exportar CSV</button></div>
+   </div>
+   <div class="expense-history-toolbar">
+    <div class="expense-history-search"><span>⌕</span><input aria-label="Buscar gastos registrados" placeholder="Proveedor, NIF, factura, tienda…" oninput="opsExpenseHistorySearch(this.value)"></div>
+    <select aria-label="Filtrar gastos por tratamiento" onchange="opsExpenseHistoryMode(this.value)"><option value="all">Todos</option><option value="fiscal">Solo fiscales</option><option value="internal">Solo internos</option></select>
+   </div>
+   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table expense-history-table"><thead><tr><th><input type="checkbox" aria-label="Seleccionar todos los gastos visibles" onchange='opsExpenseSelectAll(${JSON.stringify(rows.map(x=>x.id))},this.checked)'></th><th>Fecha</th><th>Tienda</th><th>Proveedor</th><th>Factura</th><th>Tipo</th><th>Contable</th><th>Pagado</th><th>Documento</th><th></th></tr></thead><tbody>${rows.map(e=>{const search=[e.supplier_name,e.supplier_tax_id,e.invoice_number,storeName(e.store_id),e.document_kind].join(' ').toLowerCase();return`<tr data-expense-row="1" data-mode="${e.management_only?'internal':'fiscal'}" data-search="${h(search)}"><td><input type="checkbox" aria-label="Seleccionar gasto ${h(e.supplier_name)}" ${O.expenseSelected.includes(e.id)?'checked':''} onchange="opsExpenseSelect('${e.id}',this.checked)"></td><td>${dmy(e.expense_date)}</td><td>${h(storeName(e.store_id))}</td><td><b>${h(e.supplier_name)}</b><div class="ops-tiny">${h(e.supplier_tax_id)}</div></td><td>${h(e.invoice_number||'—')}</td><td>${h(e.document_kind||'factura')}${e.management_only?'<div><span class="badge warnb">Interno</span></div>':''}${e.source!=='manual'?'<div><span class="badge">Importado</span></div>':''}${e.source==='importacion_excel'&&!e.fiscal_reviewed&&!e.management_only?'<div><span class="badge warnb">Fiscal pendiente</span></div>':''}</td><td class="num">${eur(e.accounting_amount||e.gross_expense)}</td><td class="num">${eur(e.amount_paid)}</td><td>${e.document_id?'<span class="badge ok">Adjunta</span>':'<span class="badge warnb">Sin archivo</span>'}</td><td><div class="ops-actions">${e.document_id?`<button class="ghost" onclick="opsPreviewDoc('${e.document_id}')">Vista previa</button>`:''}<button class="ghost" onclick="opsEditExpense('${e.id}')">Editar</button>${manager()?`<button class="danger" onclick="opsDeleteExpense('${e.id}')">Eliminar</button>`:''}</div></td></tr>`}).join('')}</tbody></table></div><div id="ops_exp_history_empty" class="ops-empty" hidden>No hay gastos que coincidan con esos filtros.</div>`:'<div class="ops-empty">No hay gastos en este trimestre.</div>'}
   </section>
  </div>`;
 }
+window.__expenseHistoryQuery='';
+window.__expenseHistoryMode='all';
+function applyExpenseHistoryFilter(){
+ const q=String(window.__expenseHistoryQuery||'').trim().toLowerCase(),mode=window.__expenseHistoryMode||'all';let visible=0;
+ document.querySelectorAll('tr[data-expense-row="1"]').forEach(r=>{const show=(!q||String(r.dataset.search||'').includes(q))&&(mode==='all'||r.dataset.mode===mode);r.hidden=!show;if(show)visible++});
+ const empty=document.getElementById('ops_exp_history_empty');if(empty)empty.hidden=visible>0;
+}
+window.opsExpenseHistorySearch=function(v){window.__expenseHistoryQuery=v;applyExpenseHistoryFilter()};
+window.opsExpenseHistoryMode=function(v){window.__expenseHistoryMode=v;applyExpenseHistoryFilter()};
 function expenseLineHtml(l,i){
  const x=expenseLineCalc(l),cat=category(l.categoryId),pct=Math.min(100,Math.max(0,n(l.deductiblePct??100)));
  const treatment=l.fixed?'fixed':!l.deductible?'none':pct<100?'partial':'full';
