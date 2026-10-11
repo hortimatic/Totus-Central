@@ -220,6 +220,19 @@ await check('Navegación de todas las pestañas tras operaciones',async()=>{
   assert(t.length>20,route+' está vacía');
  }
 });
+await check('Descargas desde los botones reales de Cajas, Gastos e Informes',async()=>{
+ for(const [route,action,expected] of [
+  ['cajas','export-closings-current','.xlsx'],
+  ['gastos','export-expenses-current','.xlsx'],
+  ['informes','export-gestor-book','.xlsx']
+ ]){
+  await nav(route);
+  const started=page.waitForEvent('download',{timeout:7000});
+  await page.locator('[data-action="'+action+'"]').first().click();
+  const exported=await started;
+  assert(exported.suggestedFilename().endsWith(expected),'Descarga incorrecta de '+route+': '+exported.suggestedFilename());
+ }
+});
 await check('Roles: gerente y encargado con permisos de navegación',async()=>{
  for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
   const rolePage=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
