@@ -1,5 +1,6 @@
 -- Clean schema additions required by Totus Central
 alter table public.ops_fiscal_adjustments add column if not exists store_id uuid references public.ops_stores(id) on delete set null;
+create index if not exists ops_fiscal_adjustments_store_idx on public.ops_fiscal_adjustments(store_id);
 drop table if exists public.ops_income_adjustments cascade;
 alter table public.ops_business_settings add column if not exists purchase_re_rate numeric(6,3) not null default 5.2 check (purchase_re_rate>=0 and purchase_re_rate<=100);
 alter table public.ops_sales_invoices add column if not exists paid_amount numeric(14,2) not null default 0 check (paid_amount >= 0);
