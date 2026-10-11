@@ -95,6 +95,15 @@ for(const term of ['documents-zip','document-download','document-delete','sheet_
 for(const term of ['record-layout','sticky-summary','module-tabs','@media(max-width:800px)'])if(!text('src/styles.css').includes(term))errors.push('Interfaz responsive incompleta: '+term);
 if(/\b(usuarios|configuracion|log)\s*:\s*\[/.test(text('src/config.js')))errors.push('Persisten rutas administrativas duplicadas');
 
+const actionSources=pageSource+'\n'+text('src/components.js');
+const literalActions=[...actionSources.matchAll(/btn\([^,]+,\s*['"]([^'"]+)['"]/g)].map(m=>m[1]);
+const ignoredActionPrefixes=['cajas-','gastos-','facturas-','documentos-','fiscal-','informes-'];
+for(const action of new Set(literalActions)){
+ if(action.includes('${'))continue;
+ const handled=appSource.includes("a==='"+action+"'")||appSource.includes('a==="'+action+'"')||ignoredActionPrefixes.some(p=>action.startsWith(p));
+ if(!handled)errors.push('Botón sin acción conectada: '+action);
+}
+
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');
 if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
