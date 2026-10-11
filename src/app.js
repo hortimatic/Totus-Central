@@ -268,6 +268,45 @@ async function deleteProduct(id){
  await remove('products',id);closeModal();await refresh('Producto eliminado.');
 }
 
+function addExpenseLine(){
+ const host=document.getElementById('expenseLines');if(!host)return;
+ const indexes=[...host.querySelectorAll('.expense-line')].map(x=>Number(x.dataset.lineIndex)||0);
+ const next=indexes.length?Math.max(...indexes)+1:0;
+ const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
+ host.insertAdjacentHTML('beforeend',expenseLineRow({},next,categories));
+ updateExpenseSummary();
+}
+function removeExpenseLine(index){
+ const rows=[...document.querySelectorAll('.expense-line')];
+ if(rows.length<=1){toast('Debe quedar al menos una línea.','bad');return}
+ document.querySelector(`.expense-line[data-line-index="${index}"]`)?.remove();updateExpenseSummary();
+}
+function updateExpenseSummary(){
+ const rows=[...document.querySelectorAll('.expense-line')];let base=0,vat=0,re=0,wh=0;
+ for(const el of rows){const ix=el.dataset.lineIndex,b=Math.max(0,n(val(`exLineBase_${ix}`))),v=Math.max(0,n(val(`exLineVat_${ix}`))),r=Math.max(0,n(val(`exLineRe_${ix}`))),w=Math.max(0,n(val(`exLineWh_${ix}`)));base+=b;vat+=b*v/100;re+=b*r/100;wh+=b*w/100}
+ const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(v)};
+ set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',base+vat+re-wh);
+}
+function updateClosingSummary(){
+ const rows=[...document.querySelectorAll('.drawer-entry')];let total=0;
+ for(const el of rows){const d=el.dataset.drawerId,read=s=>n(document.getElementById(`dr${s}_${d}`)?.value||0);const cash=read('Close')+read('Withdraw')+read('CashExpense')+read('ExtraOut')-read('ExtraIn')-read('Open');total+=cash+read('Card')+read('Bizum')+read('Online')+read('Other')}
+ const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:total-reported,fmt=v=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(v);
+ const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=fmt(diff);d.className=Math.abs(diff)>.01?'danger-text':'good-text'}
+}
+function updateInvoiceSummary(){
+ let base=0,vat=0;for(const el of document.querySelectorAll('.invoice-line')){const ix=el.dataset.lineIndex,q=n(val(`ivQty_${ix}`)),u=n(val(`ivUnit_${ix}`)),disc=Math.min(100,Math.max(0,n(val(`ivDisc_${ix}`)))),vr=Math.max(0,n(val(`ivVat_${ix}`)));const b=q*u*(1-disc/100);base+=b;vat+=b*vr/100}
+ const fmt=v=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(v);for(const [id,v] of [['ivSumBase',base],['ivSumVat',vat],['ivSumTotal',base+vat]]){const el=document.getElementById(id);if(el)el.textContent=fmt(v)}
+}
+function exportCurrentModule(module){
+ const f=getFilters(module);
+ if(module==='cajas'){
+   const closings=state.data.closings.filter(x=>(!f.from||x.business_date>=f.from)&&(!f.to||x.business_date<=f.to)&&(f.store==='all'||x.store_id===f.store));
+   return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
+ }
+ const expenses=state.data.expenses.filter(x=>(!f.from||x.expense_date>=f.from)&&(!f.to||x.expense_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(f.kind==='all'||!f.kind||(f.kind==='internal'?x.management_only:!x.management_only))&&(f.paid==='all'||!f.paid||x.paid_status===f.paid));
+ return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
+}
+
 function addInvoiceLine(){
  const host=document.getElementById('invoiceLines');if(!host)return;
  const indexes=[...host.querySelectorAll('.invoice-line')].map(x=>Number(x.dataset.lineIndex)||0);
@@ -591,6 +630,25 @@ async function zipFilteredDocuments(){
 }
 
 
+function storeForm(row=null){
+ const body=`<div class="form-grid">${formField('Nombre','stName',row?.name||'')}${formField('Código','stCode',row?.code||'')}${formField('Dirección','stAddress',row?.address||'')}${formField('Teléfono','stPhone',row?.phone||'')}${formField('Orden','stSort',row?.sort_order??10,'number','min="0"')}<label class="check-field"><input id="stActive" type="checkbox" ${row?.active===false?'':'checked'}> Activo</label></div><div class="form-actions">${btn('Guardar','store-save','primary',row?`data-id="${row.id}"`:'')}</div>`;modal(row?'Editar establecimiento':'Nuevo establecimiento',body,{small:true});
+}
+async function saveStore(id=''){
+ const code=required('stCode','Código').toUpperCase(),name=required('stName','Nombre');
+ const dup=state.data.stores.find(x=>x.id!==id&&String(x.code||'').toUpperCase()===code);if(dup)throw new Error('Ya existe un establecimiento con ese código.');
+ const row={code,name,address:val('stAddress').trim(),phone:val('stPhone').trim(),sort_order:Math.max(0,Math.round(num('stSort'))),active:!!input('stActive')?.checked};
+ if(id)await update('ops_stores',id,row);else await insert('ops_stores',row);closeModal();await refresh('Establecimiento guardado.');
+}
+function drawerForm(storeId,row=null){
+ const body=`<div class="form-grid">${formField('Nombre de caja','drName',row?.name||'')}${formField('Código','drCode',row?.code||'')}${formField('Orden','drSort',row?.sort_order??10,'number','min="0"')}<label class="check-field"><input id="drActive" type="checkbox" ${row?.active===false?'':'checked'}> Activa</label></div><div class="form-actions">${btn('Guardar','drawer-save','primary',`data-store="${storeId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;modal(row?'Editar caja':'Nueva caja',body,{small:true});
+}
+async function saveDrawer(storeId,id=''){
+ const name=required('drName','Nombre'),code=required('drCode','Código').toUpperCase();
+ const dup=state.data.drawers.find(x=>x.id!==id&&x.store_id===storeId&&String(x.code||'').toUpperCase()===code);if(dup)throw new Error('Ya existe una caja con ese código en el establecimiento.');
+ const row={store_id:storeId,name,code,sort_order:Math.max(0,Math.round(num('drSort'))),active:!!input('drActive')?.checked};
+ if(id)await update('ops_cash_drawers',id,row);else await insert('ops_cash_drawers',row);closeModal();await refresh('Caja guardada.');
+}
+
 function userModal(row=null){
  const self=row&&row.email?.toLowerCase()===state.user?.email?.toLowerCase();
  const body=`<div class="form-grid">
@@ -663,9 +721,15 @@ async function restoreBackupFromInput(){
 }
 
 async function saveConfig(){
- const row={business_name:val('cfgBusiness').trim(),tax_id:val('cfgTax').trim(),business_address:val('cfgAddress').trim(),business_email:val('cfgEmail').trim(),business_phone:val('cfgPhone').trim(),storage_limit_bytes:Math.max(1,num('cfgStorage'))*1024*1024,default_sales_vat_rate:num('cfgVat'),irpf_prepayment_rate:num('cfgIrpf'),actual_reta_monthly:num('cfgReta')||null,target_operating_margin_pct:num('cfgMargin'),updated_at:new Date().toISOString()};
- const id=state.data.settings?.id||1;await update('ops_business_settings',id,row);await refresh('Configuración guardada.');
+ if(!isAdmin())throw new Error('Solo el administrador puede cambiar la configuración.');
+ const current={...(state.data.settings||{})},patch={updated_at:new Date().toISOString()};
+ const setIf=(id,key,transform=v=>v)=>{const el=input(id);if(el)patch[key]=transform(el.value)};
+ setIf('cfgBusiness','business_name',v=>v.trim());setIf('cfgTax','tax_id',v=>v.trim());setIf('cfgAddress','business_address',v=>v.trim());setIf('cfgEmail','business_email',v=>v.trim());setIf('cfgPhone','business_phone',v=>v.trim());
+ setIf('cfgVat','default_sales_vat_rate',n);setIf('cfgIrpf','irpf_prepayment_rate',n);setIf('cfgDifficultPct','difficult_expense_pct',n);setIf('cfgDifficultCap','difficult_expense_annual_cap',n);setIf('cfgReta','actual_reta_monthly',v=>v===''?null:n(v));setIf('cfgRetaRate','reta_total_rate',n);setIf('cfgRetaDeduction','reta_generic_deduction_pct',n);setIf('cfgMargin','target_operating_margin_pct',n);
+ if(input('cfgDifficultEnabled'))patch.difficult_expense_enabled=!!input('cfgDifficultEnabled').checked;if(input('cfgFiscalNotes'))patch.fiscal_notes=val('cfgFiscalNotes').trim();
+ await update('ops_business_settings',current.id||1,patch);await refresh('Configuración guardada.');
 }
+
 const filterRoute={cajas:'cajas',gastos:'gastos',facturas:'facturacion',documentos:'documentos',fiscal:'fiscalidad',informes:'informes'};
 function applyFilter(prefix){
  const route=filterRoute[prefix];if(!route)return;
