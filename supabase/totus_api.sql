@@ -499,6 +499,7 @@ begin
 end;
 $$;
 
+revoke all on function public.totus_update_invoice_payment(uuid,jsonb) from public,anon;
 grant execute on function public.totus_update_invoice_payment(uuid,jsonb) to authenticated;
 
 create or replace function public.totus_finalize_sales_document(p_id uuid)
