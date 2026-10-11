@@ -1066,80 +1066,129 @@ function closedFiscalPeriodsHtml(){
  </div>`;
 }
 function fiscalProjectionHtml(){
- const f=fiscalProjection(O.year,O.quarter,0),sim=fiscalProjection(O.year,O.quarter,N(O.plannedSpend)),r=retaProjection(),g=spendingSignal(),actual=N(O.settings?.actual_reta_monthly||0);
- const operationalYtd=operationalIncomeTotal(f.from,f.end,'all'),incomeGap=operationalYtd-f.income;
- const retaDelta=r.bracket?actual-r.minQuota:0,people=O.personnel||[],activeFamily=people.filter(x=>x.active&&x.person_type==='family_collaborator');
+ const f=fiscalProjection(O.year,O.quarter,0),sim=fiscalProjection(O.year,O.quarter,N(O.plannedSpend)),r=retaProjection(),actual=N(O.settings?.actual_reta_monthly||0);
+ const src=fiscalSourceSnapshot(O.year,O.quarter),taxQ=supportedTaxCosts(f.qb.start,f.qb.end),taxYtd=supportedTaxCosts(f.from,f.end);
+ const qResult=f.qIncome-f.qExpense,operationalYtd=operationalIncomeTotal(f.from,f.end,'all'),incomeGap=operationalYtd-f.income;
  const storeRows=storeOperatingRows(f.qb.start,f.qb.end),storeIncome=sum(storeRows,x=>x.income),storeExpense=sum(storeRows,x=>x.expense),storeResult=storeIncome-storeExpense;
- const taxQ=supportedTaxCosts(f.qb.start,f.qb.end),taxYtd=supportedTaxCosts(f.from,f.end);
- return `<div class="fiscal-workspace">
- <nav class="fiscal-nav" aria-label="Secciones de fiscalidad">
-  <button type="button" onclick="document.getElementById('fiscal_resumen')?.scrollIntoView({behavior:'smooth',block:'start'})">Resumen</button>
-  <button type="button" onclick="document.getElementById('fiscal_resultado')?.scrollIntoView({behavior:'smooth',block:'start'})">Resultado</button>
-  <button type="button" onclick="document.getElementById('fiscal_impuestos')?.scrollIntoView({behavior:'smooth',block:'start'})">Impuestos</button>
-  <button type="button" onclick="document.getElementById('fiscal_irpf')?.scrollIntoView({behavior:'smooth',block:'start'})">IRPF</button>
-  <button type="button" onclick="document.getElementById('fiscal_reta')?.scrollIntoView({behavior:'smooth',block:'start'})">RETA</button>
-  <button type="button" onclick="document.getElementById('fiscal_fuentes')?.scrollIntoView({behavior:'smooth',block:'start'})">Fuentes</button>
-  <button type="button" onclick="document.getElementById('fiscal_modelos')?.scrollIntoView({behavior:'smooth',block:'start'})">Modelos</button>
- </nav>
- ${importedStatusHtml()}
- ${closedFiscalPeriodsHtml()}
- <div class="ops-note fiscal-regime-note" style="margin-top:14px"><b>Régimen configurado:</b> ${H(O.settings?.fiscal_regime||'recargo_equivalencia')} · ${H(O.settings?.estimation_method||'directa_simplificada')}. Control interno y previsión; las declaraciones oficiales se contrastan con gestoría.</div>
- <div class="ops-kpis fiscal-summary-kpis" id="fiscal_resumen" style="margin-top:14px">
-  <div class="ops-kpi"><small>Ingresos fiscales acumulados</small><strong>${euro(f.income)}</strong><div class="sub">Base usada para previsión fiscal</div></div>
-  <div class="ops-kpi"><small>Ingresos operativos acumulados</small><strong>${euro(operationalYtd)}</strong><div class="sub">${Math.abs(incomeGap)>.01?'Diferencia documentada '+euro(incomeGap):'Coinciden con la base fiscal'}</div></div>
-  <div class="ops-kpi"><small>Gastos deducibles validados</small><strong>${euro(f.raw)}</strong></div>
-  <div class="ops-kpi ${f.net>=0?'good':'bad'}"><small>Rendimiento neto</small><strong>${euro(f.net)}</strong></div>
-  <div class="ops-kpi warn"><small>Reserva fiscal</small><strong>${euro(f.reserve)}</strong></div>
-  <div class="ops-kpi ${g.state==='tight'?'bad':g.state==='room'?'good':'warn'}"><small>${H(g.title)}</small><strong>${euro(g.result)}</strong><div class="sub">Objetivo ${g.targetPct.toFixed(1).replace('.',',')} % = ${euro(g.target)}</div></div>
- </div>
- <div class="ops-card" id="fiscal_resultado">
-  <div class="section-head"><div><div class="eyebrow">T${O.quarter} · visión de negocio</div><div class="ops-title-line"><h3>Resultado operativo por tienda</h3>${infoButton('fiscal.tiendas','Cómo leer el resultado por tienda')}</div><div class="small">Ventas y gastos registrados en vuestra operativa. Sirve para comparar establecimientos; no reparte artificialmente los gastos fiscales comunes.</div></div></div>
-  <div class="ops-table-wrap"><table class="ops-table"><thead><tr><th>Establecimiento</th><th>Ventas</th><th>Gastos</th><th>Resultado</th><th>Margen</th><th>Fuente gasto</th></tr></thead><tbody>
-   ${storeRows.map(x=>`<tr><td><b>${H(x.store.name)}</b></td><td class="num">${euro(x.income)}</td><td class="num">${euro(x.expense)}</td><td class="num"><b>${euro(x.result)}</b></td><td class="num">${x.margin.toFixed(2).replace('.',',')} %</td><td><span class="badge ${x.expenseSource==='Informe final verificado'?'ok':'warnb'}">${H(x.expenseSource)}</span></td></tr>`).join('')}
-   <tr class="total-row"><td><b>TOTAL NEGOCIO</b></td><td class="num"><b>${euro(storeIncome)}</b></td><td class="num"><b>${euro(storeExpense)}</b></td><td class="num"><b>${euro(storeResult)}</b></td><td class="num"><b>${storeIncome?(storeResult/storeIncome*100).toFixed(2).replace('.',','):'0,00'} %</b></td><td>Consolidado</td></tr>
-  </tbody></table></div>
-  <div class="ops-note" style="margin-top:10px">La fiscalidad exacta se calcula consolidada porque los libros del gestor no asignan de forma fiable todos los gastos a una tienda. Totus no inventa ese reparto.</div>
- </div>
- <div class="ops-grid">
-  <div class="ops-card" id="fiscal_impuestos">
-   <div class="section-head"><div><div class="eyebrow">Impuestos soportados</div><div class="ops-title-line"><h3>IVA y recargo de equivalencia</h3>${infoButton('fiscal.iva_re','Qué significan estas cifras')}</div><div class="small">Información de coste soportado en compras. Estás configurado en recargo de equivalencia: Totus no lo presenta como liquidación periódica de IVA.</div></div></div>
-   <div class="ops-metric-line"><span>IVA soportado T${O.quarter}</span><b>${euro(taxQ.vat)}</b></div>
-   <div class="ops-metric-line"><span>Recargo equivalencia T${O.quarter}</span><b>${euro(taxQ.re)}</b></div>
-   <div class="ops-metric-line"><span>IVA + RE soportado T${O.quarter}</span><b>${euro(taxQ.total)}</b></div>
-   <div class="ops-metric-line"><span>IVA + RE acumulado ${O.year}</span><b>${euro(taxYtd.total)}</b></div>
-  </div>
-  <div class="ops-card">
-   <div class="section-head"><div><div class="eyebrow">Fiscal consolidado</div><h3>Números usados para impuestos</h3><div class="small">Estos son los importes que alimentan la previsión del modelo 130.</div></div></div>
-   <div class="ops-metric-line"><span>Ventas fiscales T${O.quarter}</span><b>${euro(f.qIncome)}</b></div>
-   <div class="ops-metric-line"><span>Gastos fiscales T${O.quarter}</span><b>${euro(f.qExpense)}</b></div>
-   <div class="ops-metric-line"><span>Resultado antes de difícil justificación</span><b>${euro(f.qIncome-f.qExpense)}</b></div>
-   <div class="small">Para 1T/2T 2026, Totus contrasta estas cifras con las fuentes de gestoría y los modelos presentados.</div>
-  </div>
- </div>
- <div class="ops-grid">
-  <div class="ops-card"><div class="section-head"><div><div class="eyebrow">Gestión</div><h3>¿Gastar más o menos?</h3></div></div><div class="ops-note ${g.state==='tight'?'bad':g.state==='room'?'ok':'warn'}"><b>${H(g.title)}</b><br>${H(g.text)}</div><div class="ops-metric-line"><span>Resultado real acumulado</span><b>${euro(g.result)}</b></div><div class="ops-metric-line"><span>Margen objetivo</span><b>${euro(g.target)}</b></div><div class="ops-metric-line"><span>Colchón sobre objetivo</span><b>${euro(g.headroom)}</b></div><div class="small">No recomienda gastar por gastar: solo ayuda a decidir sobre compras necesarias, inversión o gastos reales que ya tengas previstos.</div></div>
-  <div class="ops-card" id="fiscal_reta"><div class="section-head"><div><div class="eyebrow">RETA ${O.year}</div><div class="ops-title-line"><h3>Cuota según rendimiento</h3>${infoButton('fiscal.reta','Cómo se estima el tramo RETA')}</div></div></div>
-   <div class="ops-metric-line"><span>Rendimiento mensual proyectado</span><b>${euro(r.monthly)}</b></div>
-   <div class="ops-metric-line"><span>Base permitida</span><b>${r.bracket?euro(r.bracket.min_base)+' – '+euro(r.bracket.max_base):'—'}</b></div>
-   <div class="ops-metric-line"><span>Cuota orientativa del tramo</span><b>${r.bracket?euro(r.minQuota)+' – '+euro(r.maxQuota):'—'}</b></div>
-   <div class="ops-metric-line"><span>Cuota actual</span><b>${euro(actual)}</b></div>
-   <div class="ops-note ${!r.bracket?'warn':retaDelta<0?'warn':'ok'}">${!r.bracket?'No se ha podido ubicar el rendimiento en un tramo.':retaDelta<0?`La cuota actual está aproximadamente ${euro(Math.abs(retaDelta))}/mes por debajo de la referencia mínima del tramo. Conviene revisarlo antes de una regularización.`:`La cuota actual está dentro o por encima de la referencia mínima del tramo proyectado.`}</div>
-  </div>
- </div>
- <div class="ops-grid">
-  <div class="ops-card" id="fiscal_irpf"><div class="section-head"><div><div class="eyebrow">IRPF y retenciones</div><h3>Previsión fiscal T${O.quarter}</h3><div class="small">Distingue lo calculado de lo que ya consta como satisfecho.</div></div></div><div class="ops-metric-line"><span>Ingresos acumulados</span><b>${euro(f.income)}</b></div><div class="ops-metric-line"><span>Gastos + difícil justificación</span><b>${euro(f.raw+f.diff)}</b></div><div class="ops-metric-line"><span>Rendimiento</span><b>${euro(f.net)}</b></div><div class="ops-metric-line"><span>130 calculado T${O.quarter}</span><b>${euro(f.payable)}</b></div><div class="ops-metric-line"><span>130 ya satisfecho</span><b>${euro(f.settled130)}</b></div><div class="ops-metric-line"><span>130 pendiente estimado</span><b>${euro(f.pending130)}</b></div><div class="ops-metric-line"><span>111 pendiente</span><b>${euro(f.pending111)}</b></div><div class="ops-metric-line"><span>115 pendiente</span><b>${euro(f.pending115)}</b></div></div>
-  <div class="ops-card"><div class="section-head"><div><div class="eyebrow">Simulador</div><h3>Gasto real previsto</h3></div></div><label>Gasto deducible adicional</label><input inputmode="decimal" value="${H(O.plannedSpend||'')}" oninput="opsPlannedSpend(this.value)" placeholder="0,00"><div class="ops-metric-line"><span>130 pendiente con simulación</span><b id="ops_sim_130">${euro(sim.pending130)}</b></div><div class="ops-metric-line"><span>Reserva con simulación</span><b id="ops_sim_reserve">${euro(sim.reserve)}</b></div><div class="ops-metric-line"><span>Diferencia frente a situación actual</span><b id="ops_sim_delta">${euro(f.pending130-sim.pending130)}</b></div><div class="small">No guarda nada. Sirve para probar una compra/gasto real antes de registrarlo.</div></div>
- </div>
- <div class="ops-grid">
-  <div class="ops-card"><div class="section-head"><div><div class="eyebrow">Personal</div><h3>Costes laborales y colaboradores</h3></div></div><div class="ops-metric-line"><span>Empleados históricos registrados</span><b>${people.filter(x=>x.person_type==='employee').length}</b></div><div class="ops-metric-line"><span>Colaboradora familiar activa</span><b>${activeFamily.length?H(activeFamily.map(x=>x.full_name).join(', ')):'—'}</b></div><div class="small">Nóminas y Seguridad Social empresa se mantienen separadas del RETA titular y de la colaboradora familiar. La aportación a colaboradora solo se contabiliza cuando se registra realmente como gasto.</div></div>
- </div>
- <div class="ops-card" id="fiscal_fuentes">
-  <div class="section-head"><div><div class="eyebrow">Fuentes y cuadre</div><div class="ops-title-line"><h3>Conciliaciones documentadas</h3>${infoButton('fiscal.conciliacion','Por qué pueden existir diferencias con una fuente')}</div><div class="small">Totus conserva la fuente original y explica cualquier diferencia aplicada al cálculo. No se corrigen datos históricos inventando.</div></div></div>
-  ${(()=>{const rows=(E.reconciliationNotes||[]).filter(x=>x.active!==false&&x.fiscal_year===O.year&&(x.quarter==null||N(x.quarter)<=O.quarter));return rows.length?`<div class="ops-table-wrap"><table class="ops-table"><thead><tr><th>Periodo</th><th>Fuente</th><th>Incidencia</th><th>Diferencia</th><th>Criterio aplicado</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.quarter?'T'+H(String(x.quarter))+' · ':''}${H(String(x.fiscal_year||''))}</td><td>${H(x.source_name||'—')}</td><td><b>${H(String(x.issue_type||'').replaceAll('_',' '))}</b><div class="small">${H(x.detail||'')}</div></td><td class="num">${x.amount_difference==null?'—':euro(x.amount_difference)}</td><td>${H(x.resolution||'—')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay diferencias documentadas para este periodo.</div>'})()}
- </div>
- ${taxPaymentsHtml()}
+ const retaDelta=r.bracket?actual-r.minQuota:0;
+ const selected130=(O.taxPayments||[]).find(x=>x.tax_type==='130'&&x.fiscal_year===O.year&&N(x.quarter)===O.quarter&&taxSettledStatus(x.status));
+ const sourceThrough=[src.lastClosing,src.lastExpense].filter(Boolean).sort().pop()||'';
+ const issues=(E.reconciliationNotes||[]).filter(x=>x.active!==false&&x.fiscal_year===O.year&&(x.quarter==null||N(x.quarter)<=O.quarter));
+ const rate=N(O.settings?.irpf_prepayment_rate||20);
+ const resultBeforeDiff=f.income-f.raw;
+ const calculation=[
+  ['Ingresos acumulados hasta T'+O.quarter,f.income,'Cajas / histórico validado + facturas extra + ajustes'],
+  ['− Gastos deducibles',-f.raw,'Gastos fiscales validados'],
+  ['− Difícil justificación',-f.diff,(O.settings?.difficult_expense_pct||5)+' % con límite anual'],
+  ['= Rendimiento acumulado',f.net,'Base de cálculo'],
+  ['× '+rate.toFixed(0)+' %',f.gross,'Pago fraccionado teórico'],
+  ['− 130 anteriores',-f.prev,'Modelos ya satisfechos de trimestres anteriores'],
+  ['− Retenciones soportadas',-f.ret,'Retenciones que reducen el pago'],
+  ['= 130 calculado T'+O.quarter,f.payable,'Obligación calculada'],
+  ['− 130 ya satisfecho T'+O.quarter,-f.settled130,'Modelo registrado como pagado/compensado'],
+  ['= 130 pendiente',f.pending130,'Importe que Totus reserva ahora']
+ ];
+ return `<div class="fiscal-shell">
+  <section class="fiscal-command">
+   <div class="fiscal-command-copy">
+    <div class="eyebrow">Economía · ${O.year}</div>
+    <h2>Fiscalidad y resultado</h2>
+    <p>Cajas, Gastos, Facturación y modelos fiscales alimentan esta pantalla automáticamente. Aquí no se vuelven a escribir ventas ni gastos ya registrados.</p>
+   </div>
+   <div class="fiscal-command-side">
+    <div class="fiscal-quarter-switch" aria-label="Trimestre fiscal">${[1,2,3,4].map(q=>`<button type="button" class="${O.quarter===q?'active':''}" onclick="opsFiscalQuarter(${q})">T${q}</button>`).join('')}</div>
+    <div class="fiscal-period-state">
+     <span class="badge ${selected130?'ok':'warnb'}">${selected130?'T'+O.quarter+' presentado':'T'+O.quarter+' en curso / previsión'}</span>
+     ${sourceThrough?`<small>Último dato operativo: ${reportDate(sourceThrough)}</small>`:''}
+    </div>
+   </div>
+  </section>
+
+  <nav class="fiscal-nav" aria-label="Secciones de fiscalidad">
+   <button type="button" onclick="document.getElementById('fiscal_resumen')?.scrollIntoView({behavior:'smooth',block:'start'})">Situación</button>
+   <button type="button" onclick="document.getElementById('fiscal_origen')?.scrollIntoView({behavior:'smooth',block:'start'})">De dónde sale</button>
+   <button type="button" onclick="document.getElementById('fiscal_calculo')?.scrollIntoView({behavior:'smooth',block:'start'})">Cálculo</button>
+   <button type="button" onclick="document.getElementById('fiscal_tiendas')?.scrollIntoView({behavior:'smooth',block:'start'})">Tiendas</button>
+   <button type="button" onclick="document.getElementById('fiscal_fuentes')?.scrollIntoView({behavior:'smooth',block:'start'})">Cuadres</button>
+   <button type="button" onclick="document.getElementById('fiscal_modelos')?.scrollIntoView({behavior:'smooth',block:'start'})">Modelos</button>
+  </nav>
+
+  <section class="fiscal-overview" id="fiscal_resumen">
+   <div class="fiscal-result-panel ${qResult>=0?'positive':'negative'}">
+    <div class="fiscal-result-copy"><span>Resultado fiscal T${O.quarter}</span><strong>${euro(qResult)}</strong><small>Ingresos ${euro(f.qIncome)} − gastos fiscales ${euro(f.qExpense)}</small></div>
+    <div class="fiscal-reserve-box"><span>Reserva fiscal ahora</span><strong>${euro(f.reserve)}</strong><small>130 ${euro(f.pending130)} · 111 ${euro(f.pending111)} · 115 ${euro(f.pending115)}</small></div>
+   </div>
+   <div class="fiscal-overview-grid">
+    <article><span>Ingresos fiscales acumulados</span><strong>${euro(f.income)}</strong><small>${Math.abs(incomeGap)>.01?'Operativa '+euro(operationalYtd)+' · diferencia documentada '+euro(incomeGap):'Coinciden con la operativa acumulada'}</small></article>
+    <article><span>Gastos deducibles acumulados</span><strong>${euro(f.raw)}</strong><small>No incluye ${euro(src.internalExpenseAmount)} de control interno del trimestre</small></article>
+    <article><span>Rendimiento acumulado</span><strong>${euro(f.net)}</strong><small>Después de difícil justificación</small></article>
+    <article><span>IVA + RE soportado T${O.quarter}</span><strong>${euro(taxQ.total)}</strong><small>IVA ${euro(taxQ.vat)} · RE ${euro(taxQ.re)} · solo informativo en RE</small></article>
+   </div>
+  </section>
+
+  <section class="fiscal-section" id="fiscal_origen">
+   <div class="fiscal-section-head">
+    <div><div class="eyebrow">Automático y trazable</div><div class="ops-title-line"><h3>De dónde sale cada cifra</h3>${infoButton('fiscal.conciliacion','Cómo se forman las cifras de Fiscalidad')}</div><p>Si algo cambia en Cajas, Gastos o Facturación, Fiscalidad se recalcula. Los periodos históricos ya verificados tienen prioridad para evitar duplicar información.</p></div>
+   </div>
+   <div class="fiscal-source-flow">
+    <article><div class="fiscal-source-icon">C</div><div class="fiscal-source-copy"><b>Cajas</b><strong>${euro(src.closingIncome)}</strong><small>${src.closingUsedCount} cierres aportan directamente${src.historicalCount?' · '+src.closingCount+' cierres están cubiertos por histórico validado':''}</small></div><button class="ghost" type="button" onclick="opsTab('cajas')">Revisar</button></article>
+    <article><div class="fiscal-source-icon">G</div><div class="fiscal-source-copy"><b>Gastos</b><strong>${euro(src.fiscalExpenseAmount)}</strong><small>${src.fiscalExpenseCount} fiscales · ${src.internalExpenseCount} internos fuera · ${src.pendingReviewCount} pendientes de revisión</small></div><button class="ghost" type="button" onclick="opsTab('gastos')">Revisar</button></article>
+    <article><div class="fiscal-source-icon">F</div><div class="fiscal-source-copy"><b>Facturación</b><strong>${euro(src.invoiceIncome)}</strong><small>${src.invoiceCount} emitidas · ${src.invoiceExtraCount} marcadas como ingreso no incluido en cajas</small></div><button class="ghost" type="button" onclick="opsTab('facturas')">Revisar</button></article>
+    <article><div class="fiscal-source-icon">M</div><div class="fiscal-source-copy"><b>Modelos</b><strong>${euro(src.settledModelAmount)}</strong><small>${src.settledModelCount} satisfechos de ${src.modelCount} registros en T${O.quarter}</small></div><button class="ghost" type="button" onclick="document.getElementById('fiscal_modelos')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver</button></article>
+   </div>
+   ${src.historicalCount?`<div class="fiscal-source-explainer"><b>Periodo histórico validado:</b> ${euro(src.historicalFiscal)} de base fiscal verificada. Los cierres diarios ya incluidos en ese periodo no vuelven a sumarse.</div>`:''}
+   ${src.adjustmentCount?`<div class="ops-note warn"><b>Ajustes manuales de ingresos:</b> ${src.adjustmentCount} · ${euro(src.adjustmentIncome)} añadidos aparte de cajas/facturación.</div>`:''}
+   ${src.pendingReviewCount?`<div class="ops-note warn"><b>Pendiente de revisión:</b> ${src.pendingReviewCount} gasto(s) importado(s) de Excel todavía no entran como deducibles.</div>`:''}
+  </section>
+
+  <section class="fiscal-workbench" id="fiscal_calculo">
+   <div class="fiscal-calculation-panel">
+    <div class="fiscal-section-head"><div><div class="eyebrow">Modelo 130</div><div class="ops-title-line"><h3>Cálculo explicado paso a paso</h3>${infoButton('fiscal.pagos','Cómo se calcula y descuenta lo ya pagado')}</div><p>El 130 es acumulativo. T2 incluye T1 y descuenta el 130 ya satisfecho; por eso no debe calcularse como un trimestre aislado.</p></div></div>
+    <div class="fiscal-waterfall">${calculation.map((x,i)=>`<div class="fiscal-calc-row ${i===7||i===9?'total':''}"><span><b>${H(x[0])}</b><small>${H(x[2])}</small></span><strong class="${N(x[1])<0?'negative':''}">${N(x[1])<0?'− ':''}${euro(Math.abs(N(x[1])))}</strong></div>`).join('')}</div>
+    <div class="fiscal-retention-grid">
+     <article><span>Modelo 111</span><strong>${euro(f.m111)}</strong><small>Calculado desde retenciones · pagado ${euro(f.settled111)} · pendiente ${euro(f.pending111)}</small></article>
+     <article><span>Modelo 115</span><strong>${euro(f.m115)}</strong><small>Retención alquiler · pagado ${euro(f.settled115)} · pendiente ${euro(f.pending115)}</small></article>
+    </div>
+   </div>
+   <aside class="fiscal-side-stack">
+    <div class="fiscal-simulator">
+     <div class="eyebrow">Simulador</div><h3>¿Qué pasa si registro un gasto?</h3><p>Prueba una compra o gasto deducible real antes de registrarlo. No modifica ningún dato.</p>
+     <label>Gasto deducible adicional</label><input aria-label="Gasto deducible adicional simulado" inputmode="decimal" value="${H(O.plannedSpend||'')}" oninput="opsPlannedSpend(this.value)" placeholder="0,00">
+     <div class="fiscal-sim-result"><span>130 pendiente</span><strong id="ops_sim_130">${euro(sim.pending130)}</strong></div>
+     <div class="fiscal-sim-result"><span>Reserva total</span><strong id="ops_sim_reserve">${euro(sim.reserve)}</strong></div>
+     <div class="fiscal-sim-result benefit"><span>Reducción estimada del 130</span><strong id="ops_sim_delta">${euro(f.pending130-sim.pending130)}</strong></div>
+    </div>
+    <div class="fiscal-reta-panel">
+     <div class="eyebrow">RETA ${O.year}</div><div class="ops-title-line"><h3>Cuota y regularización</h3>${infoButton('fiscal.reta','Cómo se estima el tramo RETA')}</div>
+     <div class="ops-metric-line"><span>Rendimiento mensual proyectado</span><b>${euro(r.monthly)}</b></div>
+     <div class="ops-metric-line"><span>Cuota actual</span><b>${euro(actual)}</b></div>
+     <div class="ops-metric-line"><span>Referencia del tramo</span><b>${r.bracket?euro(r.minQuota)+' – '+euro(r.maxQuota):'—'}</b></div>
+     <div class="ops-note ${!r.bracket?'warn':retaDelta<0?'warn':'ok'}">${!r.bracket?'Sin tramo calculable con los datos actuales.':retaDelta<0?'La cuota actual está aprox. '+euro(Math.abs(retaDelta))+'/mes por debajo de la referencia mínima proyectada.':'La cuota actual está dentro o por encima de la referencia mínima proyectada.'}</div>
+    </div>
+   </aside>
+  </section>
+
+  <section class="fiscal-section" id="fiscal_tiendas">
+   <div class="fiscal-section-head"><div><div class="eyebrow">Negocio · T${O.quarter}</div><h3>Resultado por establecimiento</h3><p>Comparación operativa. Los gastos comunes que la fuente fiscal no asigna a una tienda no se reparten de forma inventada.</p></div></div>
+   <div class="fiscal-store-grid">
+    ${storeRows.map(x=>`<article class="${x.result>=0?'positive':'negative'}"><div><span>${H(x.store.name)}</span><strong>${euro(x.result)}</strong><small>${x.margin.toFixed(2).replace('.',',')} % margen</small></div><dl><div><dt>Ventas</dt><dd>${euro(x.income)}</dd></div><div><dt>Gastos</dt><dd>${euro(x.expense)}</dd></div><div><dt>Fuente</dt><dd>${H(x.expenseSource)}</dd></div></dl></article>`).join('')}
+    <article class="total ${storeResult>=0?'positive':'negative'}"><div><span>Total negocio</span><strong>${euro(storeResult)}</strong><small>${storeIncome?(storeResult/storeIncome*100).toFixed(2).replace('.',','):'0,00'} % margen</small></div><dl><div><dt>Ventas</dt><dd>${euro(storeIncome)}</dd></div><div><dt>Gastos</dt><dd>${euro(storeExpense)}</dd></div><div><dt>Fuente</dt><dd>Consolidado</dd></div></dl></article>
+   </div>
+  </section>
+
+  <section class="fiscal-section" id="fiscal_fuentes">
+   <div class="fiscal-section-head"><div><div class="eyebrow">Control y auditoría</div><div class="ops-title-line"><h3>Fuentes, diferencias y cuadres</h3>${infoButton('fiscal.verificado','Cómo se contrastan los trimestres cerrados')}</div><p>Las diferencias no se corrigen a mano para que “cuadre”. Se conserva cada fuente y se documenta cuál manda en cada cálculo.</p></div></div>
+   ${closedFiscalPeriodsHtml()}
+   <div class="fiscal-reconciliation-list">
+    ${issues.length?issues.map(x=>`<article><div class="fiscal-reconciliation-head"><span>${x.quarter?'T'+H(String(x.quarter))+' · ':''}${H(String(x.fiscal_year||''))}</span><b>${H(x.source_name||'Fuente')}</b>${x.amount_difference!=null?`<strong>${euro(x.amount_difference)}</strong>`:''}</div><div class="fiscal-reconciliation-body"><p><b>Qué ocurre:</b> ${H(x.detail||String(x.issue_type||'').replaceAll('_',' '))}</p><p><b>Criterio aplicado:</b> ${H(x.resolution||'Pendiente de resolución')}</p></div></article>`).join(''):'<div class="ops-empty">No hay diferencias documentadas para este periodo.</div>'}
+   </div>
+   <div class="fiscal-tax-cost-note"><b>IVA + RE soportado acumulado ${O.year}:</b> ${euro(taxYtd.total)} <span>· IVA ${euro(taxYtd.vat)} · RE ${euro(taxYtd.re)}</span></div>
+  </section>
+
+  ${taxPaymentsHtml()}
  </div>`;
 }
+window.opsFiscalQuarter=function(q){O.quarter=N(q);O.plannedSpend='';render();window.scrollTo({top:0,behavior:'smooth'})};
 function managerExpenseRows(from,to){
   const headers=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
   const rows=[];
