@@ -217,12 +217,10 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
    return {sort_order:(i+1)*10,description,quantity,unit_price_base,discount_pct,vat_rate};
  });
  const customerName=required('ivCustomer','Cliente'),customerTax=val('ivTax').trim();
- const customerId=val('ivCustomerId')||null;
+ let customerId=val('ivCustomerId')||null;
  if(customerId){
    const master=state.data.customers.find(x=>x.id===customerId);
-   if(master&&String(master.name||'').trim()!==customerName.trim()) {
-     // Manual customer data intentionally breaks the master link.
-   }
+   if(master&&(String(master.name||'').trim()!==customerName.trim()||String(master.tax_id||'').trim()!==customerTax))customerId=null;
  }
  const current=id?state.data.invoices.find(x=>x.id===id):null;
  const oldSource=current?.source_document_id?state.data.documents.find(x=>x.id===current.source_document_id):null;
@@ -445,7 +443,12 @@ function customersManager(){
  modal('Clientes',body);
 }
 async function saveCustomer(id=''){
- const row={name:required('cuName','Nombre'),tax_id:val('cuTax').trim(),email:val('cuEmail').trim(),phone:val('cuPhone').trim(),address:val('cuAddress').trim(),city:val('cuCity').trim(),postal_code:val('cuPostal').trim(),province:val('cuProvince').trim(),country:'España',default_payment_method:val('cuPayment'),notes:val('cuNotes').trim(),active:true,updated_at:new Date().toISOString()};
+ const taxId=val('cuTax').trim();
+ if(taxId){
+   const dup=state.data.customers.find(x=>x.id!==id&&String(x.tax_id||'').trim().toLowerCase()===taxId.toLowerCase());
+   if(dup)throw new Error('Ya existe un cliente con ese NIF/CIF.');
+ }
+ const row={name:required('cuName','Nombre'),tax_id:taxId,email:val('cuEmail').trim(),phone:val('cuPhone').trim(),address:val('cuAddress').trim(),city:val('cuCity').trim(),postal_code:val('cuPostal').trim(),province:val('cuProvince').trim(),country:'España',default_payment_method:val('cuPayment'),notes:val('cuNotes').trim(),active:true,updated_at:new Date().toISOString()};
  if(id)await update('ops_customers',id,row);else await insert('ops_customers',row);
  closeModal();await refresh('Cliente guardado.');
 }
