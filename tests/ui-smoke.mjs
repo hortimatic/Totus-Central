@@ -361,13 +361,18 @@ await page.waitForTimeout(100);
 assert((await page.locator('#q_out_real').innerText()).includes('4,04'),'Cálculo de coste real incorrecto');
 assert((await page.locator('#q_out_sale').innerText()).includes('5,13'),'Cálculo de venta final incorrecto');
 
-// Cajas: cada caja física se abre/cierra por separado y la tienda suma sus cifras.
+// Cajas: patrón ERP lista -> ficha. Cada caja física se abre/cierra por separado y la tienda suma sus cifras.
 await page.getByRole('button',{name:'Cajas',exact:true}).click();await heading('Cajas');await auditCurrentUi('Cajas');
-assert(await page.locator('.closing-workspace').count()===1,'Cajas no usa un espacio de trabajo único');
+assert(await page.getByRole('heading',{name:'Cierres de caja',exact:true}).count()===1,'Cajas debe abrir en vista de listado');
+assert(await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).count()===1,'Cajas no ofrece una acción primaria clara para crear un cierre');
+assert(await page.getByLabel('Buscar cierres').count()===1,'El listado de Cajas no permite búsqueda directa');
+await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).click();
+assert(await page.locator('.closing-workspace').count()===1,'La ficha de cierre no usa un espacio de trabajo único');
+assert(await page.getByRole('button',{name:/Volver a cierres/}).count()===1,'La ficha de cierre no ofrece retorno claro al listado');
+assert(await page.locator('.closing-history-card').isHidden(),'La ficha de cierre sigue mezclando el histórico con la edición');
 assert(await page.locator('.closing-editor').count()===1&&await page.locator('.closing-review').count()===1,'Cajas debe separar edición y revisión en dos zonas claras');
-assert(await page.getByRole('heading',{name:'Cierre de caja',exact:true}).count()===1,'Falta una cabecera operativa clara en Cajas');
+assert(await page.getByRole('heading',{name:'Cierre de caja',exact:true}).count()===1,'Falta una cabecera operativa clara en la ficha de Cajas');
 assert(await page.getByRole('heading',{name:'¿Cuadra el día?',exact:true}).count()===1,'El cuadre no está visible como objetivo principal');
-assert(await page.getByRole('heading',{name:'Histórico de cierres',exact:true}).count()===1,'El histórico no está separado del cierre actual');
 assert(await page.locator('.ops-drawer-section-title').filter({hasText:'Efectivo'}).count()>=1,'Cajas no separa visualmente el efectivo');
 assert(await page.locator('.ops-drawer-section-title').filter({hasText:'Cobros no efectivos'}).count()>=1,'Cajas no separa visualmente los cobros no efectivos');
 assert(await page.getByLabel('Fecha del cierre').getAttribute('max'),'La fecha de cierre no bloquea visualmente días futuros');
