@@ -5,7 +5,7 @@ const JSZip=window.JSZip;
 export const BACKUP_TABLES=[
  'ops_business_settings','ops_stores','ops_expense_categories','ops_cash_drawers','ops_invoice_series',
  'ops_suppliers','ops_customers','ops_document_templates','ops_documents','ops_daily_closings','ops_daily_closing_drawers',
- 'ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_tax_payments','ops_fiscal_adjustments','ops_reta_brackets','ops_audit_log',
+ 'ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_tax_payments','ops_fiscal_adjustments','ops_income_adjustments','ops_reta_brackets','ops_audit_log',
  'brands','families','providers','products','product_variants','product_provider_prices','product_competitor_prices','price_history','consultations','consultation_history'
 ];
 const STORAGE_BUCKETS=['business-documents','business-assets'];
