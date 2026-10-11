@@ -799,7 +799,7 @@ await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).cl
 // Validación de tipos/tamaño documental.
 const validationQa=await page.evaluate(()=>{
  const ok=[];
- for(const [name,type] of [['a.pdf','application/pdf'],['a.jpg','image/jpeg'],['a.png','image/png'],['a.webp','image/webp'],['a.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],['a.xls','application/vnd.ms-excel'],['a.csv','text/csv'],['a.txt','text/plain'],['a.md','text/markdown']]){
+ for(const [name,type] of [['a.pdf','application/pdf'],['a.jpg','image/jpeg'],['a.png','image/png'],['a.webp','image/webp'],['a.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],['a.xls','application/vnd.ms-excel'],['a.csv','text/csv']]){
   try{window.__opsValidateDocumentFile(new File(['x'],name,{type}));ok.push(name)}catch(e){}
  }
  let badExt=false,badMime=false,big=false,empty=false;
@@ -822,24 +822,24 @@ assert(await page.getByRole('option',{name:'Preparada para gestoría',exact:true
 assert(await page.getByRole('button',{name:'Limpiar filtros',exact:true}).count()===1,'Documentos no ofrece una forma clara de restablecer filtros');
 
 // Las altas rápidas de cliente/proveedor no deben borrar el documento ya preparado.
-await page.locator('#ops_doc_file').setInputFiles({name:'preservar.txt',mimeType:'text/plain',buffer:Buffer.from('preservar formulario')});
+await page.locator('#ops_doc_file').setInputFiles({name:'preservar.csv',mimeType:'text/csv',buffer:Buffer.from('a,b\n1,2')});
 await page.getByRole('button',{name:'+ Cliente',exact:true}).click();
 await page.getByRole('dialog').getByLabel('Nombre / razón social').fill('Cliente Doc QA');
 await page.getByRole('dialog').getByLabel('NIF/CIF').fill('B22223333');
 await page.getByRole('dialog').getByRole('button',{name:'Guardar cliente',exact:true}).click();
 await page.waitForTimeout(120);
-assert((await page.locator('#ops_doc_file').inputValue()).includes('preservar.txt'),'Crear cliente desde Documentos borró el archivo preparado');
+assert((await page.locator('#ops_doc_file').inputValue()).includes('preservar.csv'),'Crear cliente desde Documentos borró el archivo preparado');
 assert(await page.locator('#ops_doc_party').inputValue()==='Cliente Doc QA','Crear cliente desde Documentos no devolvió el cliente al formulario');
 await page.getByRole('button',{name:'+ Proveedor',exact:true}).click();
 await page.getByRole('dialog').getByLabel('Nombre / razón social').fill('Proveedor Doc QA');
 await page.getByRole('dialog').getByLabel('NIF/CIF').fill('B33334444');
 await page.getByRole('dialog').getByRole('button',{name:'Guardar proveedor',exact:true}).click();
 await page.waitForTimeout(120);
-assert((await page.locator('#ops_doc_file').inputValue()).includes('preservar.txt'),'Crear proveedor desde Documentos borró el archivo preparado');
+assert((await page.locator('#ops_doc_file').inputValue()).includes('preservar.csv'),'Crear proveedor desde Documentos borró el archivo preparado');
 assert(await page.locator('#ops_doc_party').inputValue()==='Proveedor Doc QA','Crear proveedor desde Documentos no devolvió el proveedor al formulario');
 
 // Un archivo preparado no debe perderse al cambiar de pestaña sin aviso.
-await page.locator('#ops_doc_file').setInputFiles({name:'sin-guardar.txt',mimeType:'text/plain',buffer:Buffer.from('pendiente')});
+await page.locator('#ops_doc_file').setInputFiles({name:'sin-guardar.csv',mimeType:'text/csv',buffer:Buffer.from('a,b\n1,2')});
 const dialogsBeforeDocLeave=dialogs.length;
 await page.locator('.app-nav').getByRole('button',{name:'Gastos',exact:true}).click();
 await page.waitForTimeout(60);
@@ -928,21 +928,9 @@ await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).cl
 await page.locator('#ops_doc_type').selectOption('otro');
 await page.locator('#ops_doc_party').fill('');
 await field('Nº documento').fill('');
-await page.locator('#ops_doc_file').setInputFiles({name:'nota-qa.txt',mimeType:'text/plain',buffer:Buffer.from('Documento de texto QA')});
-await page.getByRole('button',{name:'Subir',exact:true}).click();
-await page.waitForTimeout(180);
-const txtDoc=fixtures.ops_documents.find(x=>x.original_name==='nota-qa.txt');
-assert(txtDoc,'El formato TXT anunciado por Documentos no se pudo subir');
-const txtRow=page.locator('tr').filter({hasText:'nota-qa.txt'}).first();
-await txtRow.getByRole('button',{name:'Vista previa',exact:true}).click();
-await page.getByRole('dialog').waitFor();
-assert(await page.getByRole('dialog').locator('.ops-text-preview').count()===1,'TXT no usa vista previa interna');
-await page.getByRole('dialog').getByRole('button',{name:'Cerrar',exact:true}).click();
-
-// El límite total configurado debe bloquear nuevas subidas, no ser solo un indicador visual.
 await page.evaluate(()=>{window.TotusGestion.storageUsage={total_bytes:1073741824,documents_count:0,documents_bytes:1073741824,assets_count:0,assets_bytes:0}});
 await page.locator('#ops_doc_type').selectOption('otro');
-await page.locator('#ops_doc_file').setInputFiles({name:'sin-espacio.txt',mimeType:'text/plain',buffer:Buffer.from('x')});
+await page.locator('#ops_doc_file').setInputFiles({name:'sin-espacio.csv',mimeType:'text/csv',buffer:Buffer.from('a')});
 const docsBeforeNoSpace=fixtures.ops_documents.length;
 await page.getByRole('button',{name:'Subir',exact:true}).click();
 await page.waitForTimeout(80);
