@@ -91,7 +91,7 @@ const rpc=async (name,args={})=>{
  }
  if(name==='totus_finalize_sales_document'){
   const row=get('ops_sales_invoices',args.p_id);if(!row)return {data:null,error:{message:'Factura no encontrada'}};
-  const series=get('ops_invoice_series',row.series_id);row.status='emitida';row.display_number=(series?.prefix||'QA-')+String(series?.next_number++||1).padStart(4,'0');return {data:row.id,error:null};
+  const series=get('ops_invoice_series',row.series_id);row.status='emitida';const next=series?.next_number||1;if(series)series.next_number=next+1;row.display_number=(series?.prefix||'QA-')+String(next).padStart(4,'0');return {data:row.id,error:null};
  }
  if(name==='totus_update_invoice_payment'){const row=get('ops_sales_invoices',args.p_id);if(row)Object.assign(row,args.p_payment);return {data:row?.id||null,error:null}}
  if(name==='totus_convert_proforma'){const row=get('ops_sales_invoices',args.p_id);return {data:row?.id||null,error:null}}
