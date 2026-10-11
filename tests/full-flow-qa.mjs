@@ -227,6 +227,8 @@ await check('Descargas desde los botones reales de Cajas, Gastos e Informes',asy
   ['informes','export-gestor-book','.xlsx']
  ]){
   await nav(route);
+  if(route==='cajas'&&await page.locator('[data-action="closing-back"]').count())await page.locator('[data-action="closing-back"]').first().click();
+  if(route==='gastos'&&await page.locator('[data-action="expense-back"]').count())await page.locator('[data-action="expense-back"]').first().click();
   const started=page.waitForEvent('download',{timeout:7000});
   await page.locator('[data-action="'+action+'"]').first().click();
   const exported=await started;
