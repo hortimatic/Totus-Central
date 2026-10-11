@@ -110,8 +110,14 @@ function expenseSupplierForm(row=null){
  modal(row?'Editar proveedor de gastos':'Nuevo proveedor de gastos',body);
 }
 async function saveExpenseSupplier(id=''){
- const row={name:required('esName','Nombre'),tax_id:val('esTax').trim(),email:val('esEmail').trim(),phone:val('esPhone').trim(),address:val('esAddress').trim(),city:val('esCity').trim(),postal_code:val('esPostal').trim(),province:val('esProvince').trim(),country:'España',default_category_id:val('esCategory')||null,default_payment_method:val('esPayment'),default_document_kind:val('esDocKind'),default_vat_rate:Math.max(0,num('esVat')),default_re_rate:Math.max(0,num('esRe')),default_withholding_rate:Math.max(0,num('esWh')),default_withholding_model:val('esWhModel')||null,default_deductible_irpf:!!input('esDeductible')?.checked,default_deductible_pct:Math.min(100,Math.max(0,num('esDedPct'))),notes:val('esNotes').trim(),active:true,source:'manual',updated_at:new Date().toISOString()};
- if(id)await update('ops_suppliers',id,row);else await insert('ops_suppliers',{...row,created_by:state.user?.id||null});
+ const taxId=val('esTax').trim();
+ if(taxId){
+   const dup=state.data.suppliers.find(x=>x.id!==id&&String(x.tax_id||'').trim().toLowerCase()===taxId.toLowerCase());
+   if(dup)throw new Error('Ya existe un proveedor con ese NIF/CIF.');
+ }
+ const row={name:required('esName','Nombre'),tax_id:taxId,email:val('esEmail').trim(),phone:val('esPhone').trim(),address:val('esAddress').trim(),city:val('esCity').trim(),postal_code:val('esPostal').trim(),province:val('esProvince').trim(),country:'España',default_category_id:val('esCategory')||null,default_payment_method:val('esPayment'),default_document_kind:val('esDocKind'),default_vat_rate:Math.max(0,num('esVat')),default_re_rate:Math.max(0,num('esRe')),default_withholding_rate:Math.max(0,num('esWh')),default_withholding_model:val('esWhModel')||null,default_deductible_irpf:!!input('esDeductible')?.checked,default_deductible_pct:Math.min(100,Math.max(0,num('esDedPct'))),notes:val('esNotes').trim(),active:true,source:'manual',updated_at:new Date().toISOString()};
+ try{if(id)await update('ops_suppliers',id,row);else await insert('ops_suppliers',{...row,created_by:state.user?.id||null})}
+ catch(e){if(String(e.message).toLowerCase().includes('unique'))throw new Error('Ya existe un proveedor con ese NIF/CIF.');throw e}
  closeModal();await refresh('Proveedor de gastos guardado.');
 }
 async function deleteExpenseSupplier(id){
