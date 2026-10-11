@@ -12,3 +12,4 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
+      - run: echo "QA cycle complete"
