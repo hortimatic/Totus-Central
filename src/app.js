@@ -320,7 +320,8 @@ function removeInvoiceLine(index){
  document.querySelector(`.invoice-line[data-line-index="${index}"]`)?.remove();
 }
 async function invoiceLogoUrl(row){
- const tpl=state.data.templates.find(x=>x.id===row.template_id);
+ const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
+ const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id));
  if(!tpl?.logo_path||tpl.show_logo===false)return '';
  try{return await signedUrl('business-assets',tpl.logo_path,300)}catch{return ''}
 }
@@ -535,7 +536,7 @@ async function saveTemplate(id=''){
  try{
    if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
  }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
- if(file&&current?.logo_path&&current.logo_path!==uploadedPath)await removeFile('business-assets',current.logo_path).catch(()=>{});
+ // No se elimina automáticamente el logo anterior: una factura emitida puede tenerlo congelado en su snapshot.
  closeModal();await refresh('Plantilla guardada.');
 }
 async function deleteTemplate(id){
@@ -543,7 +544,8 @@ async function deleteTemplate(id){
  const row=state.data.templates.find(x=>x.id===id);if(!row)return;
  if(!confirm('¿Eliminar esta plantilla?'))return;
  await remove('ops_document_templates',id);
- if(row.logo_path)await removeFile('business-assets',row.logo_path).catch(()=>{});
+ const logoUsed=row.logo_path&&state.data.invoices.some(x=>x.status!=='borrador'&&(x.template_snapshot?.logo_path===row.logo_path||x.design_snapshot?.logo_path===row.logo_path));
+ if(row.logo_path&&!logoUsed)await removeFile('business-assets',row.logo_path).catch(()=>{});
  await refresh('Plantilla eliminada.');
 }
 async function toggleSeries(id,active){
