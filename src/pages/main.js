@@ -118,7 +118,7 @@ export function facturacion(){
  const f=getFilters('facturacion');
  const rows=state.data.invoices.filter(x=>inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.display_number,x.external_number_text,x.customer_name,x.customer_tax_id,x.concept,x.status,x.document_type,x.invoice_kind].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
-  {label:'Documento',html:r=>`<b>${esc(r.display_number||r.external_number_text||'Borrador')}</b><div class="small muted">${fmtDate(r.issue_date)} · ${r.document_type==='proforma'?'Proforma':r.invoice_kind==='rectification'?'Rectificativa':r.origin==='externa'?'Factura externa':'Factura'}</div>`},
+  {label:'Documento',html:r=>`<b>${esc(r.display_number||r.external_number_text||'Borrador')}</b><div class="small muted">${fmtDate(r.issue_date)} · ${r.document_type==='proforma'?'Proforma':r.invoice_kind==='rectifying'?'Rectificativa':r.origin==='externa'?'Factura externa':'Factura'}</div>`},
   {label:'Cliente',html:r=>`<b>${esc(r.customer_name||'—')}</b><div class="small muted">${esc(r.customer_tax_id||'')}</div>`},
   {label:'Cobro',html:r=>r.document_type==='proforma'?'<span class="muted">No aplica</span>':stateBadge(r.paid_status||'pendiente')},
   {label:'Total',num:true,html:r=>`<b>${money(r.total_amount)}</b>`},
@@ -129,7 +129,7 @@ export function facturacion(){
   ${tabs}
   <div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Facturado',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'),x=>x.total_amount)))}${kpi('Pendiente de cobro',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagado'),x=>x.total_amount-Number(x.amount_paid||0))))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
   <section class="card table-card">
-   <div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas, rectificativas, externas y proformas.</p></div><div class="inline-actions">${btn('Factura externa','external-invoice-new','secondary')}${btn('Rectificativa','rectification-new','secondary')}${btn('Proforma','proforma-new','secondary')}${btn('+ Nueva factura','invoice-new','primary')}</div></div>
+   <div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas, rectificativas, externas y proformas.</p></div><div class="inline-actions">${btn('Factura externa','external-invoice-new','secondary')}${btn('Rectificativa','rectifying-new','secondary')}${btn('Proforma','proforma-new','secondary')}${btn('+ Nueva factura','invoice-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'facturas')}
    ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para estas fechas.'})}
   </section>
@@ -148,7 +148,7 @@ function templatesSectionHtml(){
 }
 function seriesSectionHtml(){
  const rows=[...state.data.series].sort((a,b)=>String(a.code).localeCompare(String(b.code),'es'));
- const headers=[{label:'Serie',html:r=>`<b>${esc(r.code)}</b><div class="small muted">${r.document_type==='proforma'?'Proforma':r.series_kind==='rectification'?'Rectificativa':'Factura'} · ${r.year}</div>`},{label:'Tienda',html:r=>esc(r.store_id?storeName(r.store_id):'General')},{label:'Formato',html:r=>`${esc(r.prefix)} · ${r.padding} dígitos`},{label:'Siguiente',num:true,html:r=>String(r.next_number)},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>isAdmin()?btn(r.active?'Desactivar':'Activar','series-toggle','secondary',`data-id="${r.id}" data-active="${r.active?'false':'true'}"`):''}];
+ const headers=[{label:'Serie',html:r=>`<b>${esc(r.code)}</b><div class="small muted">${r.document_type==='proforma'?'Proforma':r.series_kind==='rectifying'?'Rectificativa':'Factura'} · ${r.year}</div>`},{label:'Tienda',html:r=>esc(r.store_id?storeName(r.store_id):'General')},{label:'Formato',html:r=>`${esc(r.prefix)} · ${r.padding} dígitos`},{label:'Siguiente',num:true,html:r=>String(r.next_number)},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>isAdmin()?btn(r.active?'Desactivar':'Activar','series-toggle','secondary',`data-id="${r.id}" data-active="${r.active?'false':'true'}"`):''}];
  return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Series</h2><p>Numeración anual protegida. Prefijo y padding no se cambian después de usarse.</p></div></div>${table(headers,rows,{emptyTitle:'Sin series'})}</section>`;
 }
 
@@ -511,10 +511,10 @@ export function invoiceLineRow(line={},index=0){
 
 export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoice',origin='totus'){
  const isProforma=docType==='proforma';
- const isRect=invoiceKind==='rectification';
+ const isRect=invoiceKind==='rectifying';
  const isExternal=origin==='externa';
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
- const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===(row?.store_id||storeOptions[0]?.value))&&(!isProforma?s.series_kind===(isRect?'rectification':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
+ const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===(row?.store_id||storeOptions[0]?.value))&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
  const activeTemplates=state.data.templates.filter(x=>x.active!==false);
  const defaultTemplate=activeTemplates.find(x=>isProforma?x.default_proforma:x.default_invoice);
  const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name}))];
@@ -549,7 +549,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
     <section class="card card-pad"><div class="section-head"><div><h3>4 · Cobro y notas</h3></div></div><div class="form-grid" style="margin-top:14px">
       ${formField('Concepto general','ivConcept',row?.concept||'')}
       ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
-      ${!isProforma?selectField('Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagado',label:'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
+      ${!isProforma?selectField('Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
       ${!isProforma?formField('Fecha de cobro','ivPaidDate',row?.paid_date||'','date'):''}
       <label class="wide">Notas internas<textarea id="ivNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
      </div></section>
