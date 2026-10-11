@@ -26,5 +26,6 @@ export async function loadCore(){
  const results=await Promise.all(tasks.map(([,table,order])=>select(table,{order,ascending:false}).catch(e=>{console.error(e);throw e})));
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
  state.data.settings=state.data.settings[0]||null;
+ state.data.storageUsage=await rpc('totus_storage_usage').catch(()=>({documents_bytes:0,documents_count:0,assets_bytes:0,assets_count:0,total_bytes:0,limit_bytes:Number(state.data.settings?.storage_limit_bytes||500*1024*1024)}));
  if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000}).catch(()=>[])}
 }
