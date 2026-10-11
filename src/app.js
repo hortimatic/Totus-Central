@@ -3,7 +3,8 @@ import {state,isAdmin,isManager,getFilters,patchFilters,setRoute} from './state.
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,closingModal,expenseModal,invoiceModal,invoiceLineRow,invoicePreview,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
-import {$,monthRange,n,isoToday,fmtDate,download,csv,esc} from './utils.js';
+import {$,monthRange,n,isoToday,fmtDate,esc} from './utils.js';
+import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook} from './excel.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
@@ -275,17 +276,13 @@ function applyFilter(prefix){
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
 function exportRows(type){
  const f=getFilters('informes');
- if(type==='closings'){
-  const rows=state.data.closings.filter(x=>x.business_date>=f.from&&x.business_date<=f.to&&(f.store==='all'||x.store_id===f.store));
-  download(new Blob(['\ufeff'+csv(rows,[{label:'Fecha',get:r=>fmtDate(r.business_date)},{label:'Tienda',get:r=>state.data.stores.find(s=>s.id===r.store_id)?.name||''},{label:'Efectivo',get:r=>r.cash_sales},{label:'Tarjeta',get:r=>r.card_sales},{label:'Bizum',get:r=>r.bizum_sales},{label:'Online',get:r=>r.online_sales},{label:'Efectivo final',get:r=>r.actual_cash}])],{type:'text/csv;charset=utf-8'}),`cierres_${f.from}_${f.to}.csv`);
- }else if(type==='expenses'){
-  const rows=state.data.expenses.filter(x=>x.expense_date>=f.from&&x.expense_date<=f.to&&(f.store==='all'||x.store_id===f.store));
-  download(new Blob(['\ufeff'+csv(rows,[{label:'Fecha',get:r=>fmtDate(r.expense_date)},{label:'Proveedor',get:r=>r.supplier_name},{label:'Factura',get:r=>r.invoice_number},{label:'Descripción',get:r=>r.description},{label:'Importe',get:r=>r.gross_expense||r.amount_paid}])],{type:'text/csv;charset=utf-8'}),`gastos_${f.from}_${f.to}.csv`);
- }else{
-  const closings=state.data.closings.filter(x=>x.business_date>=f.from&&x.business_date<=f.to),expenses=state.data.expenses.filter(x=>x.expense_date>=f.from&&x.expense_date<=f.to);
-  const sales=closings.reduce((a,x)=>a+Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0),0),cost=expenses.reduce((a,x)=>a+Number(x.gross_expense||x.amount_paid||0),0);
-  download(new Blob([`Periodo;${fmtDate(f.from)} - ${fmtDate(f.to)}\nVentas;${sales.toFixed(2)}\nGastos;${cost.toFixed(2)}\nResultado;${(sales-cost).toFixed(2)}\n`],{type:'text/csv;charset=utf-8'}),`resumen_${f.from}_${f.to}.csv`);
- }
+ if(!f.from||!f.to)throw new Error('Selecciona Desde y Hasta.');
+ const closings=state.data.closings.filter(x=>x.business_date>=f.from&&x.business_date<=f.to&&(f.store==='all'||x.store_id===f.store));
+ const expenses=state.data.expenses.filter(x=>x.expense_date>=f.from&&x.expense_date<=f.to&&(f.store==='all'||x.store_id===f.store));
+ const stores=state.data.stores.filter(x=>f.store==='all'||x.id===f.store);
+ if(type==='closings')return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
+ if(type==='expenses')return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
+ return exportSummaryWorkbook({closings,expenses,stores,from:f.from,to:f.to});
 }
 
 document.addEventListener('click',async e=>{
