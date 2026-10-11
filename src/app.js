@@ -844,6 +844,12 @@ document.addEventListener('click',async e=>{
   if(a==='product-edit'){productModal(state.data.products.find(x=>x.id===el.dataset.id));return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
+  if(a==='store-new'){storeForm();return}
+  if(a==='store-edit'){storeForm(state.data.stores.find(x=>x.id===el.dataset.id));return}
+  if(a==='store-save'){await saveStore(el.dataset.id||'');return}
+  if(a==='drawer-new'){drawerForm(el.dataset.store);return}
+  if(a==='drawer-edit'){drawerForm(el.dataset.store,state.data.drawers.find(x=>x.id===el.dataset.id));return}
+  if(a==='drawer-save'){await saveDrawer(el.dataset.store,el.dataset.id||'');return}
   if(a==='user-new'){userModal();return}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}
   if(a==='user-save'){await saveUser(el.dataset.email||'');return}
@@ -860,12 +866,21 @@ document.addEventListener('click',async e=>{
  }catch(err){console.error(err);toast(err.message||String(err),'bad')}
 });
 
+document.addEventListener('input',e=>{
+ const id=e.target?.id||'';
+ if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
+ if(id.startsWith('exLine'))updateExpenseSummary();
+ if(id.startsWith('ivQty_')||id.startsWith('ivUnit_')||id.startsWith('ivDisc_')||id.startsWith('ivVat_'))updateInvoiceSummary();
+});
+
 document.addEventListener('change',e=>{
+ if(e.target?.id==='clStore'&&getView('cajas').mode==='record'){setView('cajas',{mode:'record',id:null});render();return}
+ if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){render();return}
  if(e.target?.id==='exSupplierId'){
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
-   set('exSupplier',s.name);set('exTax',s.tax_id);set('exPayment',s.default_payment_method||'tarjeta');set('exCategory',s.default_category_id||'');set('exVatRate',s.default_vat_rate??21);set('exReRate',s.default_re_rate??0);set('exWhRate',s.default_withholding_rate??0);set('exWhModel',s.default_withholding_model||'');set('exDedPct',s.default_deductible_pct??100);
-   const d=document.getElementById('exDeductible');if(d)d.checked=s.default_deductible_irpf!==false;
+   set('exSupplier',s.name);set('exTax',s.tax_id);set('exPayment',s.default_payment_method||'tarjeta');
+   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;updateExpenseSummary()}
  }
  if(e.target?.id==='ivCustomerId'){
    const c=state.data.customers.find(x=>x.id===e.target.value);if(!c)return;
