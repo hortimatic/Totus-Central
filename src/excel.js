@@ -117,7 +117,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  ws['!ref']='B1:F80';ws['!cols']=[{wch:2},{wch:11.71},{wch:33},{wch:9.14},{wch:9.14},{wch:12.14}];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  setCell(ws,'B1',`${monthName} ${year}`,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
- for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{fill:{fgColor:{rgb:LEGACY_COLORS.header}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'},border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}});
+ for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
  const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
  const byDateClose=new Map(closings.filter(x=>x.store_id===store.id&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).map(x=>[String(x.business_date).slice(0,10),x]));
  const expMonth=expenses.filter(x=>x.store_id===store.id&&String(x.expense_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||String(a.created_at||'').localeCompare(String(b.created_at||'')));
