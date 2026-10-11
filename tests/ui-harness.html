@@ -36,5 +36,6 @@ if(mode==='record'){
 }
 if(route==='administracion'&&q.get('section'))setView('administracion',{section:q.get('section')});
 document.getElementById('root').innerHTML=renderers[route]();
+window.__totusQa={state,render:()=>{document.getElementById('root').innerHTML=renderers[state.route]()},setRoute,setView};
 if(route==='inicio')document.addEventListener('input',e=>{if(!(e.target?.id||'').startsWith('homePrice'))return;const r=quickPriceStudy({cost:document.getElementById('homePriceCost')?.value,pvp:document.getElementById('homePricePvp')?.value,competitor:document.getElementById('homePriceCompetitor')?.value,discount:document.getElementById('homePriceDiscount')?.value,vat:21,re:5.2});const m=document.getElementById('homePriceMarginPct');if(m)m.textContent=r.marginPct.toFixed(1).replace('.',',')+' %';});
 </script></body></html>
