@@ -49,6 +49,10 @@ await check('Gastos: creación, importe decimal y líneas fiscales',async()=>{
  await page.locator('#exSupplier').fill('Proveedor de ensayo');
  await page.locator('#exInvoice').fill('QA-F-1');
  await page.locator('#exLineDesc_0').fill('Compra simulada');
+ await page.locator('#exLineBase_0').fill('importe no válido');
+ await page.locator('[data-action="expense-save"]').click();
+ assert((await db()).expenses.length===0,'No debe guardar importes con letras');
+ assert((await page.locator('#toastHost').innerText()).includes('importe no válido'),'Debe explicar qué importe corregir');
  await page.locator('#exLineBase_0').fill('100,00');
  await page.locator('#exLineVat_0').fill('21');
  await page.locator('#exLineRe_0').fill('5,2');
