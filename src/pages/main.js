@@ -70,17 +70,37 @@ export function cajas(){
 }
 
 export function gastos(){
+ const view=getView('gastos');
+ if(view.mode==='record'){
+   const row=view.id?state.data.expenses.find(x=>x.id===view.id):null;
+   return expenseRecordHtml(row);
+ }
  const f=getFilters('gastos');
- const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const kind=f.kind||'all',paid=f.paid||'all';
+ const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
+   &&(kind==='all'||(kind==='internal'?x.management_only:!x.management_only))
+   &&(paid==='all'||x.paid_status===paid)
+   &&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const total=sum(rows,x=>x.gross_expense||x.accounting_amount||x.amount_paid);
+ const internal=sum(rows.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
+ const pending=rows.filter(x=>x.paid_status!=='pagado').length;
  const headers=[
-  {label:'Fecha',html:r=>dateCell(r.expense_date)},{label:'Proveedor',html:r=>esc(r.supplier_name||'—')},{label:'Factura',html:r=>esc(r.invoice_number||'—')},
-  {label:'Descripción',html:r=>esc(r.description||'—')},{label:'Importe',num:true,html:r=>moneyCell(r.gross_expense||r.amount_paid||r.accounting_amount)},
-  {label:'Pago',html:r=>esc(r.payment_method||'—')},{label:'Estado',html:r=>stateBadge(r.paid_status||'registrado')},{label:'',html:r=>btn('Ver','expense-edit','secondary',`data-id="${r.id}"`)}
+  {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${r.management_only?'<span class="badge warn">Interno</span>':'<span class="badge info">Fiscal</span>'}</div>`},
+  {label:'Documento / proveedor',html:r=>`<b>${esc(r.supplier_name||'—')}</b><div class="small muted">${esc(r.invoice_number||r.document_kind||'Sin número')}</div>`},
+  {label:'Concepto',html:r=>`<div>${esc(r.description||'—')}</div><div class="small muted">${esc(r.payment_method||'')} · ${esc(r.withholding_model?('Modelo '+r.withholding_model):'Sin retención')}</div>`},
+  {label:'Fiscal',html:r=>`<div class="compact-detail"><span>Base <b>${money(r.base_amount)}</b></span><span>IVA <b>${money(r.vat_amount)}</b></span><span>RE <b>${money(r.re_amount)}</b></span><span>Ret. <b>${money(r.withholding_amount)}</b></span></div>`},
+  {label:'Total',num:true,html:r=>`<b>${money(r.gross_expense||r.accounting_amount||r.amount_paid)}</b><div class="small">${stateBadge(r.paid_status||'pendiente')}</div>`},
+  {label:'',html:r=>btn('Abrir','expense-edit','secondary',`data-id="${r.id}"`)}
  ];
- return `<div class="page"><div class="kpis">${kpi('Gastos',String(rows.length))}${kpi('Total filtrado',money(sum(rows,x=>x.gross_expense||x.amount_paid||x.accounting_amount)))}${kpi('Pagados',String(rows.filter(x=>x.paid_status==='pagado').length))}${kpi('Pendientes',String(rows.filter(x=>x.paid_status!=='pagado').length))}</div>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Gastos</h2><p>Registro único, ordenado y sin formularios duplicados.</p></div><div class="inline-actions">${btn('Nuevo gasto','expense-new','primary')}${btn('Proveedores','expense-suppliers','secondary')}</div></div>
-  ${dateFilters({...f,stores:stores()},'gastos')}
-  ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para las fechas seleccionadas.'})}</section></div>`;
+ const extras=`<div class="field"><label>Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Solo interno</option></select></div><div class="field"><label>Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>`;
+ return `<div class="page">
+  <div class="kpis">${kpi('Gasto del periodo',money(total))}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pendientes de pago',String(pending))}</div>
+  <section class="card table-card">
+   <div class="section-head card-pad"><div><h2>Gastos</h2><p>Listado completo. La ficha concentra documento, fiscalidad, pago y notas.</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
+   <div class="filters">${dateFilters({...f,stores:stores()},'gastos').replace(/^<div class="filters">|<\/div>$/g,'')}${extras}</div>
+   ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para los filtros seleccionados.'})}
+  </section>
+ </div>`;
 }
 
 export function facturacion(){
@@ -326,39 +346,73 @@ export function closingRecordHtml(row=null){
  </div>`;
 }
 
-export function expenseModal(row=null){
+export function expenseRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const suppliers=[{value:'',label:'Proveedor manual'},...state.data.suppliers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
- const body=`<div class="form-grid">
- ${selectField('Tienda','exStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
- ${formField('Fecha','exDate',row?.expense_date||isoToday(),'date')}
- ${selectField('Proveedor guardado','exSupplierId',suppliers,row?.supplier_id||'')}
- ${formField('Proveedor','exSupplier',row?.supplier_name||'')}
- ${formField('NIF proveedor','exTax',row?.supplier_tax_id||'')}
- ${formField('Nº factura / justificante','exInvoice',row?.invoice_number||'')}
- ${selectField('Categoría','exCategory',categories,row?.category_id||'')}
- ${selectField('Documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.document_kind||'factura')}
- ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
- ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
- ${formField('Fecha de pago','exPaidDate',row?.paid_date||'','date')}
- ${formField('Base imponible','exBase',row?.base_amount??'','number','step="0.01"')}
- ${formField('IVA (%)','exVatRate',row?.vat_rate??21,'number','step="0.1" min="0"')}
- ${formField('Recargo (%)','exReRate',row?.re_rate??0,'number','step="0.1" min="0"')}
- ${formField('Retención (%)','exWhRate',row?.withholding_rate??0,'number','step="0.1" min="0"')}
- ${selectField('Modelo retención','exWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'Modelo 111'},{value:'115',label:'Modelo 115'}],row?.withholding_model||'')}
- ${formField('% deducible IRPF','exDedPct',row?.deductible_pct??100,'number','step="1" min="0" max="100"')}
- <label><input id="exDeductible" type="checkbox" ${row?.deductible_irpf===false?'':'checked'}> Deducible en IRPF</label>
- <label><input id="exFixed" type="checkbox" ${row?.fixed_asset?'checked':''}> Inmovilizado / amortizable</label>
- ${formField('Años amortización','exAmortYears',row?.amortization_years??'','number','step="0.1" min="0"')}
- <label><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Gasto interno de gestión (no contable)</label>
- ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
- <label class="wide">Descripción<textarea id="exDesc" rows="3">${esc(row?.description||'')}</textarea></label>
- <label class="wide">Observaciones<textarea id="exNotes" rows="2">${esc(row?.notes||'')}</textarea></label>
- </div>
- <div class="note">Los importes fiscales se calculan a partir de la base y los porcentajes. Marca “gasto interno” para costes de gestión que quieres controlar sin mezclarlos con la contabilidad oficial.</div>
- <div class="form-actions">${row?btn('Eliminar','expense-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar gasto','expense-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
- modal(row?'Editar gasto':'Nuevo gasto',body);
+ const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
+ const total=Number(row?.gross_expense||row?.accounting_amount||row?.amount_paid||0);
+ return `<div class="page record-page">
+  <div class="record-toolbar"><div><button class="btn link" data-action="expense-back">← Volver a gastos</button><div class="eyebrow">Gastos · ${row?'Registro':'Nuevo'}</div><h2>${row?esc(row.supplier_name||'Gasto'):'Nuevo gasto'}</h2></div><div>${row?(row.management_only?'<span class="badge warn">Solo control interno</span>':'<span class="badge info">Fiscal</span>'):'<span class="badge info">Nuevo</span>'}</div></div>
+  <div class="record-layout">
+   <div class="record-main stack">
+    <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento y proveedor</h3><p>Identificación del gasto y justificante.</p></div></div>
+     <div class="form-grid" style="margin-top:14px">
+      ${selectField('Tienda','exStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
+      ${formField('Fecha','exDate',row?.expense_date||isoToday(),'date')}
+      ${selectField('Proveedor guardado','exSupplierId',suppliers,row?.supplier_id||'')}
+      ${formField('Proveedor','exSupplier',row?.supplier_name||'')}
+      ${formField('NIF/CIF','exTax',row?.supplier_tax_id||'')}
+      ${formField('Nº factura / justificante','exInvoice',row?.invoice_number||'')}
+      ${selectField('Tipo documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.document_kind||'factura')}
+      ${selectField('Categoría','exCategory',categories,row?.category_id||'')}
+     </div>
+     <div class="attachment-box" style="margin-top:14px">
+      <div><b>Justificante</b><div class="small muted">${doc?esc(doc.original_name):'Sin archivo vinculado'}</div></div>
+      <div class="inline-actions">${doc?btn('Vista previa','expense-document-preview','secondary',`data-id="${doc.id}"`):''}${doc?btn('Descargar','expense-document-download','secondary',`data-id="${doc.id}"`):''}${doc?btn('Quitar','expense-document-unlink','danger',`data-expense="${row.id}" data-document="${doc.id}"`):''}</div>
+      <label class="file-picker">Seleccionar archivo<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
+     </div>
+    </section>
+    <section class="card card-pad"><div class="section-head"><div><h3>2 · Concepto</h3><p>Descripción y base económica.</p></div></div>
+     <div class="form-grid" style="margin-top:14px">
+      ${formField('Base imponible','exBase',row?.base_amount??'','number','step="0.01" min="0"')}
+      <label class="wide">Descripción<textarea id="exDesc" rows="3">${esc(row?.description||'')}</textarea></label>
+     </div>
+    </section>
+    <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento fiscal</h3><p>IVA, recargo, retención y deducibilidad.</p></div></div>
+     <div class="form-grid" style="margin-top:14px">
+      ${formField('IVA (%)','exVatRate',row?.vat_rate??21,'number','step="0.1" min="0"')}
+      ${formField('Recargo (%)','exReRate',row?.re_rate??0,'number','step="0.1" min="0"')}
+      ${formField('Retención (%)','exWhRate',row?.withholding_rate??0,'number','step="0.1" min="0"')}
+      ${selectField('Modelo retención','exWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'Modelo 111'},{value:'115',label:'Modelo 115'}],row?.withholding_model||'')}
+      ${formField('% deducible IRPF','exDedPct',row?.deductible_pct??100,'number','step="1" min="0" max="100"')}
+      <label class="check-field"><input id="exDeductible" type="checkbox" ${row?.deductible_irpf===false?'':'checked'}> Deducible en IRPF</label>
+      <label class="check-field"><input id="exFixed" type="checkbox" ${row?.fixed_asset?'checked':''}> Inmovilizado / amortizable</label>
+      ${formField('Años amortización','exAmortYears',row?.amortization_years??'','number','step="0.1" min="0"')}
+      <label class="check-field wide emphasis-check"><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Solo control interno · no enviar a gestoría ni incluir en cálculo fiscal</label>
+      ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
+     </div>
+    </section>
+    <section class="card card-pad"><div class="section-head"><div><h3>4 · Pago</h3></div></div>
+     <div class="form-grid" style="margin-top:14px">
+      ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
+      ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
+      ${formField('Fecha de pago','exPaidDate',row?.paid_date||'','date')}
+      ${formField('Importe pagado','exPaidAmount',row?.amount_paid??'','number','step="0.01" min="0"')}
+     </div>
+    </section>
+    <section class="card card-pad"><div class="section-head"><div><h3>5 · Notas</h3></div></div><label>Observaciones<textarea id="exNotes" rows="4">${esc(row?.notes||'')}</textarea></label></section>
+   </div>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3>
+    <div class="summary-row"><span>Base</span><strong id="exSumBase">${money(row?.base_amount||0)}</strong></div>
+    <div class="summary-row"><span>IVA</span><strong id="exSumVat">${money(row?.vat_amount||0)}</strong></div>
+    <div class="summary-row"><span>Recargo</span><strong id="exSumRe">${money(row?.re_amount||0)}</strong></div>
+    <div class="summary-row"><span>Retención</span><strong id="exSumWh">${money(row?.withholding_amount||0)}</strong></div>
+    <div class="summary-row"><span>Total gasto</span><strong id="exSumTotal">${money(total)}</strong></div>
+    <div class="stack" style="margin-top:14px">${row?btn('Eliminar gasto','expense-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','expense-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','expense-back','secondary')}</div>
+   </section></aside>
+  </div>
+ </div>`;
 }
 
 export function invoiceLineRow(line={},index=0){
