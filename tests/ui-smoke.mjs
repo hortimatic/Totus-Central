@@ -453,6 +453,10 @@ assert(await page.locator('.expense-editor').count()===1&&await page.locator('.e
 assert(await page.getByRole('heading',{name:'Registrar gasto',exact:true}).count()===1,'Gastos no presenta una cabecera operativa clara');
 assert(await page.getByRole('heading',{name:'Proveedor y factura',exact:true}).count()===1,'El documento del gasto no está agrupado correctamente');
 assert(await page.getByRole('heading',{name:'Fiscal o interno',exact:true}).count()===1,'El tratamiento del gasto no permanece visible');
+assert(await page.locator('.expense-main-card').count()===1,'Gastos debe agrupar documento, conceptos y notas en una única superficie');
+assert(await page.locator('.expense-review-card').count()===1,'Gastos debe agrupar total, tratamiento y pago en un único panel de revisión');
+assert(await page.getByLabel('Buscar gastos registrados').count()===1,'El histórico de Gastos no permite búsqueda directa');
+assert(await page.getByLabel('Filtrar gastos por tratamiento').count()===1,'El histórico de Gastos no permite separar fiscales e internos');
 assert(await page.getByLabel('Fecha del gasto').getAttribute('max'),'La fecha de gasto no bloquea visualmente días futuros');
 await page.getByRole('button',{name:/almacén.*300/i}).click();
 assert(await page.locator('#ops_management_only').isChecked(),'Almacén debe quedar como solo control interno');
