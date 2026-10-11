@@ -183,6 +183,14 @@ await check('Documentos PDF: subir, mostrar y descargar',async()=>{
  await page.locator('[data-action="document-download"]').first().click();
  assert((await ready).suggestedFilename()==='factura-simulada.pdf','Descarga PDF incorrecta');
 });
+await check('Descarga conjunta de documentos archivados',async()=>{
+ await nav('documentos');
+ if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').first().click();
+ const promise=page.waitForEvent('download',{timeout:5000});
+ await page.locator('[data-action="documents-zip"]').click();
+ const exportFile=await promise;
+ assert(exportFile.suggestedFilename().endsWith('.zip'),'La descarga conjunta debe ser ZIP');
+});
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
  await page.locator('[data-action="user-new"]').first().click();
