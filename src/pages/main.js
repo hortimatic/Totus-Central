@@ -606,42 +606,43 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
  const original=row?.source_document_id?state.data.documents.find(x=>x.id===row.source_document_id):null;
  const title=isProforma?'Proforma':isRect?'Factura rectificativa':isExternal?'Factura externa':'Factura';
+ const issued=!!row&&row.status!=='borrador',lock=issued?'disabled':'';
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="invoice-back">← Volver a facturación</button><div class="eyebrow">Facturación · ${title}</div><h2>${row?esc(row.display_number||row.external_number_text||'Borrador'):'Nueva '+title.toLowerCase()}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento</h3><p>Serie, fechas y referencia.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${selectField('Tienda','ivStore',storeOptions,selectedStore)}
-      ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'')}
-      ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date')}
-      ${formField('Fecha operación','ivOperation',row?.operation_date||'','date')}
-      ${formField('Fecha vencimiento','ivDue',row?.due_date||'','date')}
-      ${isExternal?formField('Número externo','ivExternalNumber',row?.external_number_text||''):''}
-      ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'')}
+      ${selectField('Tienda','ivStore',storeOptions,selectedStore,lock)}
+      ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'',lock)}
+      ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date',lock)}
+      ${formField('Fecha operación','ivOperation',row?.operation_date||'','date',lock)}
+      ${formField('Fecha vencimiento','ivDue',row?.due_date||'','date',lock)}
+      ${isExternal?formField('Número externo','ivExternalNumber',row?.external_number_text||'','text',lock):''}
+      ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'','text',lock)}
      </div>
-     ${isExternal?`<div class="attachment-box" style="margin-top:14px"><div><b>Original obligatorio</b><div class="small muted">${original?esc(original.original_name):'Sin archivo original'}</div></div><div class="inline-actions">${original?btn('Vista previa','invoice-source-preview','secondary',`data-id="${original.id}"`):''}${original?btn('Descargar','invoice-source-download','secondary',`data-id="${original.id}"`):''}</div><label class="file-picker">Seleccionar original<input id="ivSourceFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label></div>`:''}
+     ${isExternal?`<div class="attachment-box" style="margin-top:14px"><div><b>Original obligatorio</b><div class="small muted">${original?esc(original.original_name):'Sin archivo original'}</div></div><div class="inline-actions">${original?btn('Vista previa','invoice-source-preview','secondary',`data-id="${original.id}"`):''}${original?btn('Descargar','invoice-source-download','secondary',`data-id="${original.id}"`):''}</div>${!issued?'<label class="file-picker">Seleccionar original<input id="ivSourceFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label>':''}</div>`:''}
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Cliente</h3></div></div><div class="form-grid" style="margin-top:14px">
-      ${selectField('Cliente guardado','ivCustomerId',customers,row?.customer_id||'')}
-      ${formField('Cliente','ivCustomer',row?.customer_name||'')}
-      ${formField('NIF/CIF','ivTax',row?.customer_tax_id||'')}
-      ${formField('Email','ivEmail',row?.customer_email||'','email')}
-      <label class="wide">Dirección<textarea id="ivAddress" rows="2">${esc(row?.customer_address||'')}</textarea></label>
+      ${selectField('Cliente guardado','ivCustomerId',customers,row?.customer_id||'',lock)}
+      ${formField('Cliente','ivCustomer',row?.customer_name||'','text',lock)}
+      ${formField('NIF/CIF','ivTax',row?.customer_tax_id||'','text',lock)}
+      ${formField('Email','ivEmail',row?.customer_email||'','email',lock)}
+      <label class="wide">Dirección<textarea id="ivAddress" rows="2" ${lock}>${esc(row?.customer_address||'')}</textarea></label>
      </div></section>
-    <section class="card card-pad"><div class="section-head"><div><h3>3 · Líneas</h3><p>Conceptos facturados.</p></div>${btn('+ Añadir línea','invoice-line-add','secondary')}</div><div id="invoiceLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>invoiceLineRow(l,i)).join('')}</div></section>
+    <section class="card card-pad"><div class="section-head"><div><h3>3 · Líneas</h3><p>Conceptos facturados.</p></div>${!issued?btn('+ Añadir línea','invoice-line-add','secondary'):''}</div><div id="invoiceLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>issued?invoiceLineRow(l,i).replaceAll('<input ','<input disabled ').replaceAll('data-action="invoice-line-remove"','disabled data-action="invoice-line-remove"'):invoiceLineRow(l,i)).join('')}</div></section>
     <section class="card card-pad"><div class="section-head"><div><h3>4 · Cobro y notas</h3></div></div><div class="form-grid" style="margin-top:14px">
-      ${formField('Concepto general','ivConcept',row?.concept||'')}
+      ${formField('Concepto general','ivConcept',row?.concept||'','text',lock)}
       ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
       ${!isProforma?selectField('Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
       ${!isProforma?formField('Fecha de cobro','ivPaidDate',row?.paid_date||'','date'):''}
       ${!isProforma?formField('Importe cobrado','ivPaidAmount',row?.paid_amount??0,'number','step="0.01" min="0"'):''}
       ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${row?.include_in_income?'checked':''}> Ingreso adicional NO incluido en los cierres diarios</label>`:''}
-      <label class="wide">Notas internas<textarea id="ivNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" ${issued?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div></section>
-    <details class="card card-pad design-details"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'')}<label class="wide">Términos<textarea id="ivTerms" rows="2">${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label></div></details>
+    <details class="card card-pad design-details"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2">${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label></div></details>
    </div>
-   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3><div class="summary-row"><span>Base</span><strong id="ivSumBase">${money(row?.base_amount||0)}</strong></div><div class="summary-row"><span>IVA</span><strong id="ivSumVat">${money(row?.vat_amount||0)}</strong></div><div class="summary-row"><span>Total</span><strong id="ivSumTotal">${money(row?.total_amount||0)}</strong></div><div class="stack" style="margin-top:14px">${row?btn('Vista previa','invoice-preview','secondary',`data-id="${row.id}"`):''}${row?.status==='borrador'||!row?btn('Guardar borrador','invoice-save','secondary',`${row?`data-id="${row.id}" `:''}data-type="${docType}" data-kind="${invoiceKind}" data-origin="${origin}"`):''}${row?.status==='borrador'?btn(isProforma?'Emitir proforma':'Emitir documento','invoice-finalize','primary',`data-id="${row.id}"`):''}${row&&isProforma&&['emitida','aceptada'].includes(row.status)?btn('Convertir en factura','proforma-convert','primary',`data-id="${row.id}"`):''}${btn('Volver','invoice-back','secondary')}</div></section></aside>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3><div class="summary-row"><span>Base</span><strong id="ivSumBase">${money(row?.base_amount||0)}</strong></div><div class="summary-row"><span>IVA</span><strong id="ivSumVat">${money(row?.vat_amount||0)}</strong></div><div class="summary-row"><span>Total</span><strong id="ivSumTotal">${money(row?.total_amount||0)}</strong></div><div class="stack" style="margin-top:14px">${row?btn('Vista previa','invoice-preview','secondary',`data-id="${row.id}"`):''}${row?.status==='borrador'||!row?btn('Guardar borrador','invoice-save','secondary',`${row?`data-id="${row.id}" `:''}data-type="${docType}" data-kind="${invoiceKind}" data-origin="${origin}"`):''}${row?.status==='borrador'?btn(isProforma?'Emitir proforma':'Emitir documento','invoice-finalize','primary',`data-id="${row.id}"`):''}${row&&issued&&!isProforma?btn('Guardar cobro','invoice-payment-save','primary',`data-id="${row.id}"`):''}${row&&isProforma&&['emitida','aceptada'].includes(row.status)?btn('Convertir en factura','proforma-convert','primary',`data-id="${row.id}"`):''}${btn('Volver','invoice-back','secondary')}</div></section></aside>
   </div>
  </div>`;
 }
