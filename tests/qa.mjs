@@ -95,7 +95,7 @@ for(const term of ['documents-zip','document-download','document-delete','sheet_
 for(const term of ['record-layout','sticky-summary','module-tabs','@media(max-width:800px)'])if(!text('src/styles.css').includes(term))errors.push('Interfaz responsive incompleta: '+term);
 if(/\b(usuarios|configuracion|log)\s*:\s*\[/.test(text('src/config.js')))errors.push('Persisten rutas administrativas duplicadas');
 
-const actionSources=pageSource+'\n'+text('src/components.js');
+const actionSources=pageSource+'\n'+text('src/components.js')+'\n'+appSource;
 const literalActions=[...actionSources.matchAll(/btn\([^,]+,\s*['"]([^'"]+)['"]/g)].map(m=>m[1]);
 const ignoredActionPrefixes=['cajas-','gastos-','facturas-','documentos-','fiscal-','informes-'];
 for(const action of new Set(literalActions)){
