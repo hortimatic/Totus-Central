@@ -1,5 +1,5 @@
 import {ROUTES} from './config.js';
-import {state,isAdmin,isManager,patchFilters,setRoute} from './state.js';
+import {state,isAdmin,isManager,getFilters,patchFilters,setRoute} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,closingModal,expenseModal,invoiceModal,productModal} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField} from './components.js';
@@ -131,12 +131,15 @@ async function saveConfig(){
  const row={business_name:val('cfgBusiness').trim(),tax_id:val('cfgTax').trim(),business_address:val('cfgAddress').trim(),business_email:val('cfgEmail').trim(),business_phone:val('cfgPhone').trim(),storage_limit_bytes:Math.max(1,num('cfgStorage'))*1024*1024,default_sales_vat_rate:num('cfgVat'),irpf_prepayment_rate:num('cfgIrpf'),actual_reta_monthly:num('cfgReta')||null,target_operating_margin_pct:num('cfgMargin'),updated_at:new Date().toISOString()};
  const id=state.data.settings?.id||1;await update('ops_business_settings',id,row);await refresh('Configuración guardada.');
 }
+const filterRoute={cajas:'cajas',gastos:'gastos',facturas:'facturacion',documentos:'documentos',fiscal:'fiscalidad',informes:'informes'};
 function applyFilter(prefix){
- patchFilters({from:val(prefix+'From'),to:val(prefix+'To'),store:val(prefix+'Store'),query:val(prefix+'Query').trim()});render();
+ const route=filterRoute[prefix];if(!route)return;
+ const from=val(prefix+'From'),to=val(prefix+'To');if(from&&to&&from>to)throw new Error('La fecha Desde no puede ser posterior a Hasta.');
+ patchFilters(route,{from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()});render();
 }
-function thisMonth(prefix){const r=monthRange();patchFilters({from:r.from,to:r.to});render()}
+function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
 function exportRows(type){
- const f=state.filters;
+ const f=getFilters('informes');
  if(type==='closings'){
   const rows=state.data.closings.filter(x=>x.business_date>=f.from&&x.business_date<=f.to&&(f.store==='all'||x.store_id===f.store));
   download(new Blob(['\ufeff'+csv(rows,[{label:'Fecha',get:r=>fmtDate(r.business_date)},{label:'Tienda',get:r=>state.data.stores.find(s=>s.id===r.store_id)?.name||''},{label:'Efectivo',get:r=>r.cash_sales},{label:'Tarjeta',get:r=>r.card_sales},{label:'Bizum',get:r=>r.bizum_sales},{label:'Online',get:r=>r.online_sales},{label:'Efectivo final',get:r=>r.actual_cash}])],{type:'text/csv;charset=utf-8'}),`cierres_${f.from}_${f.to}.csv`);
@@ -160,7 +163,7 @@ document.addEventListener('click',async e=>{
   if(a==='close-modal'){closeModal();return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
-  if(a==='pricing-search'){patchFilters({query:val('pricingQuery').trim()});render();return}
+  if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
   if(a==='closing-new'){closingModal();return}
   if(a==='closing-edit'){closingModal(state.data.closings.find(x=>x.id===el.dataset.id));return}
   if(a==='closing-save'){await saveClosing(el.dataset.id||'');return}
