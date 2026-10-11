@@ -100,6 +100,22 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  assert(issued.invoices[0].status==='emitida','La factura no se ha emitido');
  assert(/^H-0001$/.test(issued.invoices[0].display_number),'La numeración emitida no coincide');
 });
+await check('Facturación externa: archivo PDF original obligatorio y vinculado',async()=>{
+ await nav('facturacion');
+ if(await page.locator('[data-action="invoice-back"]').count())await page.locator('[data-action="invoice-back"]').first().click();
+ await page.locator('[data-action="external-invoice-new"]').click();
+ await page.locator('#ivExternalNumber').fill('EXT-0092');
+ await page.locator('#ivCustomer').fill('Cliente externo simulado');
+ await page.locator('#ivDesc_0').fill('Factura de prueba externa');
+ await page.locator('#ivUnit_0').fill('80,00');
+ const pdf=await PDFDocument.create();pdf.addPage([300,200]);
+ await page.locator('#ivSourceFile').setInputFiles({name:'original-externa.pdf',mimeType:'application/pdf',buffer:Buffer.from(await pdf.save())});
+ await page.locator('[data-action="invoice-save"]').click();
+ await page.waitForTimeout(120);
+ const snap=await db();
+ assert(snap.invoices.some(x=>x.origin==='externa'&&x.source_document_id),'Factura externa sin documento original vinculado');
+ assert(snap.documents.some(x=>x.original_name==='original-externa.pdf'),'No se archivó el justificante de factura externa');
+});
 await check('Documentos: subida, archivo y metadatos',async()=>{
  await nav('documentos');
  await page.locator('[data-action="document-new"]').click();
