@@ -12,3 +12,5 @@ drop table if exists public.ops_personnel cascade;
 
 drop function if exists private.ops_log_revision() cascade;
 drop table if exists public.ops_entity_revisions cascade;
+
+drop table if exists public.ops_income_adjustments cascade;
