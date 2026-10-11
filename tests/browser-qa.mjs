@@ -58,6 +58,31 @@ for(const [vpName,viewport] of viewports){
  }
  await page.close();
 }
+
+{
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ const errs=[];page.on('pageerror',e=>errs.push(e.message));page.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+ await page.goto(base+'/tests/ui-harness.html?route=inicio',{waitUntil:'networkidle'});
+ for(const id of ['homePriceQuery','homePriceCost','homePricePvp','homePriceCompetitor','homePriceDiscount']){
+   if(await page.locator('#'+id).count()!==1)errors.push('inicio: falta '+id);
+ }
+ await page.locator('#homePriceQuery').fill('Producto QA');
+ await page.locator('#homePriceCost').fill('10');
+ await page.locator('#homePricePvp').fill('24,20');
+ await page.locator('#homePriceCompetitor').fill('25');
+ await page.locator('#homePriceDiscount').fill('10');
+ await page.locator('#homePriceDiscount').dispatchEvent('input');
+ const mp=(await page.locator('#homePriceMarginPct').innerText()).trim();
+ if(!mp.includes('%')||mp==='0,00 %')errors.push('inicio: calculadora rápida no actualiza margen');
+ for(const action of ['home-price-save','home-report-quarter','home-report-year','admin-storage-home','admin-users-home']){
+   if(await page.locator(`[data-action="${action}"]`).count()!==1)errors.push('inicio: falta acción '+action);
+ }
+ for(const textNeedle of ['Operativa de hoy','Precios y ventas','Documentos y fiscalidad','Seguimiento y sistema','Gastos del','Facturación y cobros','Documentos recientes','Estado del sistema']){
+   if(!(await page.locator('#root').innerText()).includes(textNeedle))errors.push('inicio incompleto: '+textNeedle);
+ }
+ for(const e of errs)errors.push('inicio interacción: '+e);
+ await page.close();
+}
 await browser.close();
 if(errors.length){console.error('BROWSER QA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('Browser QA desktop + mobile: OK');
