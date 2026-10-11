@@ -378,13 +378,6 @@
 .fiscal-store-grid dt{color:var(--muted)}
 .fiscal-store-grid dd{margin:0;text-align:right}
 
-.fiscal-reconciliation-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.fiscal-reconciliation-list article{border:1px solid rgba(255,255,255,.06);border-radius:12px;overflow:hidden;background:rgba(0,0,0,.1)}
-.fiscal-reconciliation-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;background:rgba(255,255,255,.02)}
-.fiscal-reconciliation-head span{font-size:10px;color:#9eabb8;font-weight:900}
-.fiscal-reconciliation-head strong{color:#ffd38a}
-.fiscal-reconciliation-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:11px 12px}
-.fiscal-reconciliation-body p{margin:0;color:var(--muted);line-height:1.45}
 .fiscal-verified-card{margin-top:12px}
 #fiscal_modelos{align-items:start}
 
@@ -404,7 +397,6 @@
  .fiscal-result-panel{grid-template-columns:1fr}
  .fiscal-live-reserve{border-left:0;border-top:1px solid rgba(255,255,255,.07)}
  .fiscal-source-flow,.fiscal-overview-grid,.fiscal-store-grid,.fiscal-retention-grid,.fiscal-action-strip{grid-template-columns:1fr}
- .fiscal-reconciliation-body{grid-template-columns:1fr}
 }
 @media(max-width:440px){
  .fiscal-command h2{font-size:26px}
