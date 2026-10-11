@@ -23,7 +23,7 @@ export const table=(headers,rows,{emptyTitle='Sin datos',emptyText='Todavía no 
  return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th class="${h.num?'num':''}">${esc(h.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td class="${h.num?'num':''}">${h.html?h.html(r):esc(h.get?r[h.get]:h.value?.(r)??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
 };
 export const formField=(label,id,value='',type='text',extra='')=>`<label>${esc(label)}<input id="${esc(id)}" type="${esc(type)}" value="${esc(value??'')}" ${extra}></label>`;
-export const selectField=(label,id,options,value='')=>`<label>${esc(label)}<select id="${esc(id)}">${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
+export const selectField=(label,id,options,value='',extra='')=>`<label>${esc(label)}<select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" onclick="event.stopPropagation()"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;
