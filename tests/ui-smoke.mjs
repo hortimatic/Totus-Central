@@ -814,6 +814,7 @@ assert(fixtures.ops_documents.length===docsBeforeInvalid,'Documentos permitió u
 assert(dialogs.some(x=>/proveedor o cliente/i.test(x)),'Documentos no exige proveedor/cliente en una factura archivada');
 
 await page.locator('#ops_doc_party').fill('Proveedor QA');
+await page.locator('#ops_doc_tax').fill('BQA000001');
 await field('Nº documento').fill('QA-2026-001');
 await page.locator('#ops_doc_file').setInputFiles({name:'qa.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nQA\n%%EOF')});
 assert((await page.locator('#ops_doc_file').inputValue()).includes('qa.pdf'),'Selector documental no cargó archivo');
@@ -853,7 +854,6 @@ assert(fixtures.ops_documents.length===linkedCountBefore,'Seleccionar un documen
 await linkedRow.getByRole('checkbox').uncheck();
 
 // La búsqueda alcanza también NIF y tipo, no solo nombre/archivo.
-qaDoc.tax_id='BQA000001';
 await page.locator('#ops_doc_search').fill('BQA000001');
 await page.waitForTimeout(60);
 assert(await page.locator('tr[data-doc-row="1"]:visible').filter({hasText:'qa.pdf'}).count()===1,'La búsqueda documental no localiza por NIF/CIF');
