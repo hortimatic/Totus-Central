@@ -3,8 +3,9 @@
 Aplicación interna para Hortimatic y NewOldSmok.
 
 ## Ramas
-- Producción: `main` — no se modifica sin aprobación expresa.
-- Desarrollo: `desarrollo-v6`.
+- Principal: `main`.
+- Desarrollo activo: `desarrollo-v6`.
+- Ambas ramas están sincronizadas con la misma base limpia.
 
 ## Estado limpio actual
 La rama de desarrollo trabaja únicamente con la arquitectura vigente. Se han retirado importaciones históricas, conciliaciones heredadas, restauradores de backup, datos de prueba operativos y migraciones-parche antiguas.
@@ -43,7 +44,7 @@ Los datos operativos se encuentran vacíos para reconstruir y probar cada módul
 - No se añaden capas de compatibilidad con arquitecturas retiradas.
 - Cada módulo debe trabajar con una única fuente de datos actual.
 - Los listados que dependen de fechas deben disponer de un rango real Desde/Hasta.
-- No se promueve `desarrollo-v6` a `main` sin aprobación.
+- `main` y `desarrollo-v6` deben mantenerse alineadas mientras dure esta fase de reconstrucción limpia.
 
 ## QA
 La QA comprueba sintaxis, navegación principal, ausencia de dependencias legacy y presencia de filtros de fecha reales. Se ejecuta en `desarrollo-v6`.
