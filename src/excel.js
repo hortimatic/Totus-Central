@@ -114,7 +114,7 @@ function setCell(ws,addr,value,style,formula=null){
 }
 function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
  const monthName=MONTHS[month],ws={};
- ws['!ref']='A1:I80';ws['!cols']=[{wch:2},{wch:11.71},{wch:33},{wch:9.14},{wch:9.14},{wch:12.14},{wch:9.14},{wch:9.14},{wch:9.14}];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
+ ws['!ref']='A1:I80';ws['!cols']=[{wch:2},{wch:11.71},{wch:/newold|smok/i.test(store.name||'')?30.71:33},{wch:9.14},{wch:9.14},{wch:12.14},{wch:9.14},{wch:9.14},{wch:9.14}];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  setCell(ws,'B1',`${monthName} ${year}`,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
  for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
