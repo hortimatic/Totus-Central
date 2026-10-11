@@ -513,6 +513,31 @@ async function saveConsultation(){
  await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO',consultation_query:query,snapshot:row}).catch(()=>{});
  await refresh('Consulta guardada.');
 }
+function consultationConvertForm(id){
+ const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
+ const families=[{value:'',label:'Sin familia'},...state.data.families.map(x=>({value:x.id,label:x.name}))];
+ const providers=[{value:'',label:'Sin proveedor'},...state.data.providers.map(x=>({value:x.id,label:x.name}))];
+ const body=`<div class="form-grid">
+  ${formField('Nombre producto','ccName',c.query||'')}
+  ${formField('Referencia / SKU','ccSku','')}
+  ${selectField('Familia','ccFamily',families,'')}
+  ${selectField('Proveedor opcional','ccProvider',providers,'')}
+  ${formField('Coste neto','ccCost',c.cost_net??0,'number','step="0.01" min="0"')}
+  ${formField('PVP','ccPvp',c.pvp??0,'number','step="0.01" min="0"')}
+ </div><div class="note" style="margin-top:12px">El impuesto especial de sales no se vuelve a sumar: el coste introducido se conserva como coste de compra.</div><div class="form-actions">${btn('Crear producto','consultation-convert-save','primary',`data-id="${id}"`)}</div>`;
+ modal('Convertir consulta en producto',body,{small:true});
+}
+async function convertConsultation(id){
+ const c=state.data.consultations.find(x=>x.id===id);if(!c)throw new Error('Consulta no encontrada.');
+ const sku=required('ccSku','Referencia / SKU').trim(),name=required('ccName','Nombre');
+ const dup=state.data.products.find(x=>String(x.sku||'').trim().toLowerCase()===sku.toLowerCase());if(dup)throw new Error('Ya existe un producto con esa referencia.');
+ const product=await insert('products',{name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:Math.max(0,num('ccPvp')),proposed_pvp:null,units_month:0,status:'ACTIVO',notes:'Creado desde consulta: '+c.query,created_by:state.user?.id||null,updated_at:new Date().toISOString()});
+ const providerId=val('ccProvider')||null,cost=Math.max(0,num('ccCost'));
+ if(providerId)await insert('product_provider_prices',{product_id:product.id,variant_id:null,provider_id:providerId,net_cost:cost,provider_discount:0,shipping_unit:0,moq:0,stock_status:'',price_date:isoToday(),notes:'Coste trasladado desde consulta',selected:true,purchase_origin:'España',apply_special_tax:false,special_tax_amount:0});
+ await insert('consultation_history',{consultation_id:id,user_id:state.user?.id||null,action:'CONVERTIDO_A_PRODUCTO',consultation_query:c.query,snapshot:{...c,product_id:product.id}}).catch(()=>{});
+ closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
+}
+
 async function reuseConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
@@ -1118,6 +1143,8 @@ document.addEventListener('click',async e=>{
   if(a==='variant-delete'){await deleteVariant(el.dataset.product,el.dataset.id);return}
   if(a==='consultation-save'){await saveConsultation();return}
   if(a==='consultation-reuse'){await reuseConsultation(el.dataset.id);return}
+  if(a==='consultation-convert'){consultationConvertForm(el.dataset.id);return}
+  if(a==='consultation-convert-save'){await convertConsultation(el.dataset.id);return}
   if(a==='consultation-delete'){await deleteConsultation(el.dataset.id);return}
   if(a==='customers-manage'){customersManager();return}
   if(a==='customer-new'){customerForm();return}
