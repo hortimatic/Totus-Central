@@ -81,3 +81,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .invoice-style-modern .invoice-document-head{border-bottom:4px solid var(--invoice-secondary);padding-bottom:18px}.invoice-style-modern .invoice-client-box{border-left:4px solid var(--invoice-secondary);background:#f8fbff}
 .invoice-style-minimal .invoice-document-head{border-bottom:1px solid #dfe4ec;padding-bottom:14px}.invoice-style-minimal .invoice-title{letter-spacing:.12em}.invoice-style-minimal .invoice-client-box{background:#fff;border:1px solid #e5e7eb}
 .invoice-style-classic{font-family:Georgia,serif}.invoice-style-classic .invoice-document-head{border-top:3px double var(--invoice-primary);border-bottom:3px double var(--invoice-primary);padding:16px 0}.invoice-style-classic .invoice-client-box{border:1px solid var(--invoice-primary);background:#fff}.invoice-style-classic .invoice-grand-total{border-top:3px double var(--invoice-primary)}
+
+/* Auditoría de tablas: ocupar el ancho disponible y explicar el deslizamiento en móvil. */
+.table-wrap{width:100%;min-width:0;max-width:100%}
+@media(max-width:800px){
+ .table-wrap::before{content:"Desliza horizontalmente para consultar todas las columnas y acciones →";display:block;position:sticky;left:0;padding:7px 12px;font-size:11px;font-weight:600;color:var(--muted);background:#f6f8fb;border-bottom:1px solid var(--line)}
+}
