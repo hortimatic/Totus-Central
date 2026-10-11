@@ -530,6 +530,8 @@ assert((await expenseZip.suggestedFilename()).endsWith('.zip'),'Descarga masiva 
 // Facturación: navegación, plantilla/logo único, cálculo y vista previa modal.
 await page.getByRole('button',{name:'Facturación',exact:true}).click();await heading('Facturación');await auditCurrentUi('Facturación');
 await page.getByRole('heading',{name:'Factura',exact:true}).waitFor();
+assert(await page.getByLabel('Fecha del documento').getAttribute('max'),'La fecha de factura no bloquea visualmente días futuros');
+assert(await page.locator('.invoice-editor-state').count()===1,'Facturación no muestra el estado/origen del documento de forma visible');
 await page.getByRole('button',{name:'Rectificativas',exact:true}).click();
 await page.getByRole('heading',{name:'Factura rectificativa',exact:true}).waitFor();
 await page.getByRole('button',{name:'Proformas',exact:true}).click();
@@ -590,6 +592,14 @@ const masterCustomer=fixtures.ops_customers.find(x=>x.name==='Cliente Maestro QA
 assert(masterCustomer,'No se creó la ficha maestra de cliente · customers='+JSON.stringify(fixtures.ops_customers)+' · dialogs='+dialogs.slice(-8).join(' | '));
 assert(masterCustomer.city==='Alcalá de Henares'&&masterCustomer.postal_code==='28801'&&masterCustomer.phone==='600000000','La ficha de cliente no conserva dirección/contacto completos');
 assert(masterCustomer.default_payment_method==='domiciliado','La ficha de cliente no conserva forma de pago');
+
+// Al escribir un nombre manual después de elegir un cliente, la factura no debe conservar el vínculo anterior.
+await page.getByRole('button',{name:'Facturación',exact:true}).click();await heading('Facturación');
+await page.getByRole('combobox',{name:'Cliente guardado'}).selectOption(masterCustomer.id);
+await page.waitForTimeout(50);
+assert(await page.evaluate(()=>window.__TotusOpsTest.invoiceDraftCustomerId())===masterCustomer.id,'Seleccionar cliente no enlaza la factura con el maestro');
+await field('Cliente / razón social').fill('Cliente manual distinto');
+assert(await page.evaluate(()=>window.__TotusOpsTest.invoiceDraftCustomerId())==='','Editar manualmente el cliente conserva por error el customerId anterior');
 
 // Series también están dentro de Facturación.
 await page.locator('.billing-nav').getByRole('button',{name:'Series',exact:true}).click();
