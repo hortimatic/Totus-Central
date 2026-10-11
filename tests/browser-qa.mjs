@@ -36,7 +36,7 @@ const viewports=[
 const browser=await chromium.launch({headless:true});
 const errors=[];
 for(const [vpName,viewport] of viewports){
- const page=await browser.newPage({viewport});
+ const page=await browser.newPage({locale:'es-ES',viewport});
  const pageErrors=[];
  page.on('pageerror',e=>pageErrors.push('pageerror: '+e.message));
  page.on('console',m=>{if(m.type()==='error')pageErrors.push('console: '+m.text())});
@@ -63,7 +63,7 @@ for(const [vpName,viewport] of viewports){
 }
 
 {
- const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ const page=await browser.newPage({locale:'es-ES',viewport:{width:1440,height:1000}});
  const errs=[];page.on('pageerror',e=>errs.push(e.message));page.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
  await page.goto(base+'/tests/ui-harness.html?route=inicio',{waitUntil:'networkidle'});
  for(const id of ['homePriceQuery','homePriceCost','homePricePvp','homePriceCompetitor','homePriceDiscount']){
@@ -87,7 +87,7 @@ for(const [vpName,viewport] of viewports){
  await page.close();
 }
 {
- const page=await browser.newPage({viewport:{width:1440,height:900}});
+ const page=await browser.newPage({locale:'es-ES',viewport:{width:1440,height:900}});
  for(const [route,dateKey,needle] of [
   ['cajas','business_date','Cierre QA'],
   ['gastos','expense_date','Proveedor QA'],
@@ -113,7 +113,7 @@ for(const [vpName,viewport] of viewports){
 }
 
 {
- const page=await browser.newPage({viewport:{width:390,height:844}});
+ const page=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
  for(const [route,mode,id] of [['pricing','list','pqCost'],['gastos','record','exLineBase_0'],['facturacion','record','ivUnit_0']]){
   const q=route==='pricing'?'?route=pricing':'?route='+route+'&mode='+mode+'&id=new';
   await page.goto(base+'/tests/ui-harness.html'+q,{waitUntil:'networkidle'});
