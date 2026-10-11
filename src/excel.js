@@ -221,7 +221,7 @@ function appendReconciliationSheet(wb,q,args){
  const totals=new Array(12).fill(0);totals[0]='TOTAL';for(let c=1;c<12;c++)totals[c]=rows.reduce((a,r)=>a+n(r[c]),0);
  const headers=['Mes','Ventas Hortimatic','Ventas NewOldSmok','Ventas totales','Gasto directo Horti','Gasto directo NewOld','Gastos comunes','Ajuste / diferencia gestor','Gastos gestor','Resultado fiscal','Luz almacén incluida','Resultado corregido sin luz almacén'];
  const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows,totals,[],['Fórmula visible: Ventas totales - Gastos del gestor = Resultado fiscal. Los gastos del gestor se forman con gastos directos de las dos tiendas + gastos comunes + ajustes de conciliación.']]);gestorTitle(ws,`Conciliación fiscal trazable - ${q}T ${year}`,'L');gestorHeader(ws,2,12);ws['!cols']=[14,16,18,16,18,20,16,21,16,16,17,26].map(w=>({wch:w}));ws['!freeze']={ySplit:3};
- sheetCurrency(ws,4,7,['B','C','D','E','F','G','H','I','J','K','L']);for(let c=0;c<12;c++){const a=XLSX.utils.encode_cell({r:6,c});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{bold:true},fill:{fgColor:{rgb:'D9EAD3'}}}}
+ sheetCurrency(ws,4,7,['B','C','D','E','F','G','H','I','J','K','L']);for(let c=1;c<12;c++){const col=XLSX.utils.encode_col(c);const cell=ws[col+'7'];if(cell){cell.f=`SUM(${col}4:${col}6)`;cell.t='n';cell.z='#,##0.00 "€"'}}for(let c=0;c<12;c++){const a=XLSX.utils.encode_cell({r:6,c});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{bold:true},fill:{fgColor:{rgb:'D9EAD3'}}}}
  XLSX.utils.book_append_sheet(wb,ws,`Conciliación ${q}T`);
  return totals;
 }
