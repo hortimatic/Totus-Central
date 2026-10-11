@@ -429,7 +429,7 @@ export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
 
 function drawerEditor(drawer,row,locked=false){
  const saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
- const targetDate=row?.business_date||isoToday();
+ const targetDate=row?.business_date||getView('cajas').date||isoToday();
  const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id,targetDate);
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>Importes de esta caja.</p></div></div>
@@ -452,6 +452,7 @@ export function closingRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const view=getView('cajas');
  const sid=row?.store_id||view.storeId||storeOptions[0]?.value||'';
+ const recordDate=row?.business_date||view.date||isoToday();
  const drawers=state.data.drawers.filter(x=>x.store_id===sid&&x.active!==false);
  const calculated=Number(row?.cash_sales||0)+Number(row?.card_sales||0)+Number(row?.bizum_sales||0)+Number(row?.online_sales||0)+Number(row?.other_income||0);
  const locked=row?.status==='cerrado';
@@ -463,7 +464,7 @@ export function closingRecordHtml(row=null){
      <div class="section-head"><div><h3>Datos del cierre</h3><p>Fecha, establecimiento y total de control.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
       ${selectField('Tienda','clStore',storeOptions,sid,locked?'disabled':'')}
-      ${formField('Fecha','clDate',row?.business_date||isoToday(),'date',locked?'disabled':'')}
+      ${formField('Fecha','clDate',recordDate,'date',locked?'disabled':'')}
       ${formField('Total TPV / control','clReported',row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
       <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>
