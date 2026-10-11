@@ -211,7 +211,7 @@ export function expenseModal(row=null){
 
 export function invoiceModal(row=null,type='factura'){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
- const series=state.data.series.filter(s=>s.active!==false&&s.document_type===type).map(s=>({value:s.id,label:s.code}));
+ const series=state.data.series.filter(s=>s.active!==false&&s.document_type===type&&(type!=='factura'||s.series_kind==='invoice')).map(s=>({value:s.id,label:s.code}));
  const body=`<div class="form-grid">
  ${selectField('Tienda','ivStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
  ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'')}
