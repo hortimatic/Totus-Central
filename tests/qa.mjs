@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const must=[
- 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','supabase/totus_api.sql','supabase/backup.sql'
+ 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','src/calculations.js','supabase/totus_api.sql','supabase/backup.sql'
 ];
 const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
@@ -25,7 +25,7 @@ if(text('index.html').length>8000)errors.push('index.html vuelve a ser monolíti
 if(!text('src/styles.css').includes('@media(max-width:800px)'))errors.push('Falta responsive tablet/móvil');
 if(!text('src/styles.css').includes('@media(max-width:520px)'))errors.push('Falta responsive móvil estrecho');
 
-for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js','src/backup.js']){
+for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/excel.js','src/backup.js','src/calculations.js']){
  try{execFileSync(process.execPath,['--check',path.join(root,f)],{stdio:'pipe'})}
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
