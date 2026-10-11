@@ -211,65 +211,55 @@ export function documentRecordHtml(row=null){
 }
 
 export function fiscalidad(){
- const f=getFilters('fiscalidad');
- const closings=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&x.include_in_income!==false);
- const expenses=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const officialExpenses=expenses.filter(x=>!x.management_only);
- const internalExpenses=expenses.filter(x=>x.management_only);
- const issuedInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const closingIncome=sum(closings,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
- const invoicedIncome=sum(issuedInvoices,x=>x.total_amount);
- const adjustedIncome=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&(f.store==='all'||!x.store_id||x.store_id===f.store)),x=>x.amount);
- const fiscalIncome=closingIncome+invoicedIncome+adjustedIncome;
- const officialIds=new Set(officialExpenses.map(x=>x.id));
- const lines=state.data.expenseLines.filter(x=>officialIds.has(x.expense_id));
- const idsWithLines=new Set(lines.map(x=>x.expense_id));
- const deductibleFromLines=sum(lines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0));
- const deductibleFallback=sum(officialExpenses.filter(x=>!idsWithLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount||x.gross_expense||0)*(Number(x.deductible_pct??100)/100));
- const deductible=deductibleFromLines+deductibleFallback;
- const accountingExpense=sum(officialExpenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid);
- const internalExpense=sum(internalExpenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid);
- const netBeforeDifficult=fiscalIncome-deductible;
- const difficultEnabled=state.data.settings?.difficult_expense_enabled!==false;
- const difficultPct=Number(state.data.settings?.difficult_expense_pct||5);
- const annualCap=Number(state.data.settings?.difficult_expense_annual_cap||2000);
- const difficult=difficultEnabled?Math.min(Math.max(0,netBeforeDifficult*difficultPct/100),annualCap):0;
- const taxableBase=Math.max(0,netBeforeDifficult-difficult);
- const rate=Number(state.data.settings?.irpf_prepayment_rate||20);
- const prepay=taxableBase*rate/100;
- const realResult=fiscalIncome-accountingExpense-internalExpense;
- const ret111=sum(lines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount);
- const ret115=sum(lines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
+ const f=getFilters('fiscalidad'),to=f.to||isoToday(),year=Number(String(to).slice(0,4)),quarter=Math.max(1,Math.min(4,Math.ceil(Number(String(to).slice(5,7))/3)));
+ const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=new Date(year,quarter*3,0).toISOString().slice(0,10),yFrom=`${year}-01-01`;
+ const storeOk=x=>f.store==='all'||!x.store_id||x.store_id===f.store;
+ const periodClose=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&storeOk(x)&&x.include_in_income!==false);
+ const ytdClose=state.data.closings.filter(x=>inRange(x.business_date,yFrom,qTo)&&storeOk(x)&&x.include_in_income!==false);
+ const periodInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&storeOk(x));
+ const ytdInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)&&storeOk(x));
+ const periodAdj=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&storeOk(x));
+ const ytdAdj=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)&&storeOk(x));
+ const sumIncome=(cs,is,as)=>sum(cs,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
+ const periodIncome=sumIncome(periodClose,periodInv,periodAdj),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj);
+ const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,yFrom,qTo)&&storeOk(x));
+ const internalPeriod=state.data.expenses.filter(x=>x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x));
+ const deductibleFor=expenses=>{const ids=new Set(expenses.map(x=>x.id)),lines=state.data.expenseLines.filter(x=>ids.has(x.expense_id)),withLines=new Set(lines.map(x=>x.expense_id));return sum(lines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0))+sum(expenses.filter(x=>!withLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount||x.gross_expense||0)*(Number(x.deductible_pct??100)/100))};
+ const periodDed=deductibleFor(periodExpenses),ytdDedBase=deductibleFor(ytdExpenses);
+ const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to));
+ const extraIncomeYtd=sum(fiscalYtd.filter(x=>x.kind==='ingreso_extra'),x=>x.amount),extraDedYtd=sum(fiscalYtd.filter(x=>['gasto_deducible_extra','amortizacion'].includes(x.kind)),x=>x.amount),reductionsYtd=sum(fiscalYtd.filter(x=>x.kind==='reduccion'),x=>x.amount),withheldYtd=sum(fiscalYtd.filter(x=>x.kind==='retencion_soportada'),x=>x.amount);
+ const netBeforeDiff=Math.max(0,ytdIncome+extraIncomeYtd-ytdDedBase-extraDedYtd-reductionsYtd),dPct=Number(state.data.settings?.difficult_expense_pct||5),dCap=Number(state.data.settings?.difficult_expense_annual_cap||2000),difficult=state.data.settings?.difficult_expense_enabled===false?0:Math.min(netBeforeDiff*dPct/100,dCap),base=Math.max(0,netBeforeDiff-difficult),rate=Number(state.data.settings?.irpf_prepayment_rate||20),gross130=base*rate/100;
+ const previous130=sum(state.data.taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<quarter&&x.status==='pagado'),x=>x.amount),calc130=Math.max(0,gross130-previous130-withheldYtd);
+ const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),paid130=current130?.status==='pagado'?Number(current130.amount||0):0,diff130=paid130-calc130;
+ const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
+ const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
+ const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
+ const accountingPeriod=sum(periodExpenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid),internal=sum(internalPeriod,x=>x.accounting_amount||x.gross_expense||x.amount_paid);
+ const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
+ const paymentRows=[['130',calc130,current130],['111',calc111,pay111],['115',calc115,pay115]].map(([model,calc,pay])=>{const paid=pay?Number(pay.amount||0):0,diff=paid-Number(calc||0);return `<div class="summary-row"><div><b>Modelo ${model}</b><div class="small muted">${pay?`${esc(pay.status)} · ${fmtDate(pay.payment_date)}`:'Sin registro'}</div></div><div class="compact-detail"><span>Calculado <b>${money(calc)}</b></span><span>Registrado <b>${money(paid)}</b></span><span>Diferencia <b class="${Math.abs(diff)<.02?'good-text':'warn-text'}">${money(diff)}</b></span></div><div class="inline-actions">${btn(pay?'Editar':'Registrar','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></div>`}).join('');
  return `<div class="page">
-  <section class="card">${dateFilters({...f,stores:stores()},'fiscal')}</section>
-  <div class="kpis">
-   ${kpi('Ingresos fiscales',money(fiscalIncome))}
-   ${kpi('Gasto deducible IRPF',money(deductible))}
-   ${kpi('Resultado real',money(realResult),internalExpense?'Incluye '+money(internalExpense)+' internos':'Sin gastos internos')}
-   ${kpi('Modelo 130 estimado',money(prepay),'Estimación según configuración')}
-  </div>
+  <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'fiscal').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div></div></section>
+  <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gasto deducible',money(periodDed))}${kpi('Gasto interno',money(internal))}${kpi('Resultado real',money(periodIncome-accountingPeriod-internal))}</div>
   <div class="split">
-   <section class="card card-pad"><h2>Modelo 130 · estimación</h2>
-    <div class="summary-row"><span>Periodo</span><strong>${fmtDate(f.from)} → ${fmtDate(f.to)}</strong></div>
-    <div class="summary-row"><span>Ingresos por cierres</span><strong>${money(closingIncome)}</strong></div>
-    <div class="summary-row"><span>Facturas incluidas aparte</span><strong>${money(invoicedIncome)}</strong></div>
-    <div class="summary-row"><span>Ajustes de ingresos</span><strong>${money(adjustedIncome)}</strong></div>
-    <div class="summary-row"><span>Gasto deducible</span><strong>− ${money(deductible)}</strong></div>
-    <div class="summary-row"><span>Difícil justificación (${difficultPct} %, tope anual ${money(annualCap)})</span><strong>− ${money(difficult)}</strong></div>
-    <div class="summary-row"><span>Base estimada</span><strong>${money(taxableBase)}</strong></div>
-    <div class="summary-row"><span>Tipo configurado</span><strong>${rate.toFixed(1).replace('.',',')} %</strong></div>
-    <div class="summary-row"><span>Pago fraccionado estimado</span><strong>${money(prepay)}</strong></div>
-    <div class="note warn" style="margin-top:12px">Es una herramienta de control. El cálculo presentado por gestoría puede incluir regularizaciones, pagos previos y ajustes fiscales adicionales.</div>
+   <section class="card card-pad"><div class="section-head"><div><h2>Modelo 130 · ${quarter}T ${year}</h2><p>Cálculo acumulado del 01/01/${year} al ${fmtDate(qTo)}.</p></div>${btn('Ajuste fiscal','fiscal-adjustment-new','secondary')}</div>
+    <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(ytdIncome)}</strong></div>
+    <div class="summary-row"><span>Ajustes de ingreso</span><strong>${money(extraIncomeYtd)}</strong></div>
+    <div class="summary-row"><span>Gasto deducible acumulado</span><strong>− ${money(ytdDedBase)}</strong></div>
+    <div class="summary-row"><span>Gastos/amortizaciones extra</span><strong>− ${money(extraDedYtd)}</strong></div>
+    <div class="summary-row"><span>Reducciones</span><strong>− ${money(reductionsYtd)}</strong></div>
+    <div class="summary-row"><span>Difícil justificación (${dPct} %, tope ${money(dCap)})</span><strong>− ${money(difficult)}</strong></div>
+    <div class="summary-row"><span>Base acumulada</span><strong>${money(base)}</strong></div>
+    <div class="summary-row"><span>${rate.toFixed(1).replace('.',',')} %</span><strong>${money(gross130)}</strong></div>
+    <div class="summary-row"><span>Pagos 130 anteriores</span><strong>− ${money(previous130)}</strong></div>
+    <div class="summary-row"><span>Retenciones soportadas</span><strong>− ${money(withheldYtd)}</strong></div>
+    <div class="summary-row"><span>130 calculado del trimestre</span><strong>${money(calc130)}</strong></div>
+    <div class="summary-row"><span>130 registrado/pagado</span><strong>${money(paid130)}</strong></div>
+    <div class="summary-row"><span>Diferencia</span><strong class="${Math.abs(diff130)<.02?'good-text':'warn-text'}">${money(diff130)}</strong></div>
+    <div class="note warn" style="margin-top:12px">Control interno basado en registros Totus y ajustes explícitos. No sustituye el cálculo definitivo de la gestoría.</div>
    </section>
-   <section class="card card-pad"><h2>Control de gastos y retenciones</h2>
-    <div class="summary-row"><span>Gasto contable registrado</span><strong>${money(accountingExpense)}</strong></div>
-    <div class="summary-row"><span>Gasto interno de gestión</span><strong>${money(internalExpense)}</strong></div>
-    <div class="summary-row"><span>Retenciones modelo 111</span><strong>${money(ret111)}</strong></div>
-    <div class="summary-row"><span>Retenciones modelo 115</span><strong>${money(ret115)}</strong></div>
-    <h3 style="margin-top:18px">Pagos fiscales registrados</h3>
-    ${state.data.taxPayments.length?state.data.taxPayments.filter(x=>!x.payment_date||inRange(x.payment_date,f.from,f.to)).slice(0,12).map(x=>`<div class="summary-row"><div><b>${esc(x.tax_type)}</b><div class="small muted">${esc(x.period_label||'')} · ${fmtDate(x.payment_date)}</div></div><strong>${money(x.amount)}</strong></div>`).join(''):'<div class="empty"><strong>Sin pagos fiscales</strong><span>No hay registros en este periodo.</span></div>'}
-   </section>
+   <section class="card card-pad"><div class="section-head"><div><h2>Modelos y pagos · ${quarter}T</h2><p>Calculado frente a lo registrado.</p></div></div><div class="stack" style="margin-top:12px">${paymentRows}</div></section>
   </div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Ajustes fiscales del periodo</h2><p>Ninguna diferencia se corrige de forma silenciosa.</p></div>${btn('+ Nuevo ajuste','fiscal-adjustment-new','primary')}</div><div class="stack" style="margin-top:12px">${fiscalPeriod.length?fiscalPeriod.map(x=>`<div class="summary-row"><div><b>${esc(x.kind.replaceAll('_',' '))}</b><div class="small muted">${fmtDate(x.adjustment_date)} · ${esc(x.description||'')}</div></div><strong>${money(x.amount)}</strong><div class="inline-actions">${btn('Editar','fiscal-adjustment-edit','secondary',`data-id="${x.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin ajustes</strong><span>No hay ajustes fiscales explícitos en este periodo.</span></div>'}</div></section>
  </div>`;
 }
 
