@@ -197,7 +197,7 @@ function appendGestorBookSheet(wb,q,args){
  const {year,expenses,expenseLines,categories}=args,rng=quarterRange(year,q),rows=expenseLineRows({from:rng.from,to:rng.to,expenses,expenseLines,categories});
  const headers=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
  const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows]);gestorTitle(ws,`Compras y gastos / Facturas recibidas - Libro gestor ${q}T`,'T');gestorHeader(ws,2,20);
- ws['!cols']=[7,12,15,18,5,13,28,25,12,8,12,12,8,12,14,13,10,13,13,13].map(w=>({wch:w}));ws['!freeze']={ySplit:3};ws['!autofilter']={ref:`A3:T${rows.length+3}`};
+ ws['!cols']=[8,13,14,21,6,14,31,25,14,10,13,14,10,13,17,16,11,15,15,15].map(w=>({wch:w}));ws['!freeze']={ySplit:3};ws['!autofilter']={ref:`A3:T${rows.length+3}`};
  for(let r=4;r<=rows.length+3;r++){for(let col=0;col<20;col++){const a=XLSX.utils.encode_cell({r:r-1,c:col});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{name:'Calibri',sz:9},fill:{fgColor:{rgb:r%2?GESTOR_ALT:'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:GESTOR_LINE}}}}}}
  sheetCurrency(ws,4,rows.length+3,['I','J','K','L','M','N','O','P','Q','R','S','T']);
  XLSX.utils.book_append_sheet(wb,ws,`Libro gestor ${q}T`);
@@ -220,8 +220,9 @@ function appendReconciliationSheet(wb,q,args){
  const rows=months.map((x,i)=>{const adjustment=fiscalAdjustments.filter(a=>inDate(a.adjustment_date,x.from,x.to)&&a.kind!=='retencion_soportada').reduce((s,a)=>s+n(a.amount),0);const sales=x.sales.reduce((a,b)=>a+b,0),direct=x.direct.reduce((a,b)=>a+b,0),gestor=direct+x.common+adjustment;return [MONTHS[rng.months[i]],x.sales[0]||0,x.sales[1]||0,sales,-(x.direct[0]||0),-(x.direct[1]||0),-x.common,adjustment,-gestor,sales-gestor,0,sales-gestor]});
  const totals=new Array(12).fill(0);totals[0]='TOTAL';for(let c=1;c<12;c++)totals[c]=rows.reduce((a,r)=>a+n(r[c]),0);
  const headers=['Mes','Ventas Hortimatic','Ventas NewOldSmok','Ventas totales','Gasto directo Horti','Gasto directo NewOld','Gastos comunes','Ajuste / diferencia gestor','Gastos gestor','Resultado fiscal','Luz almacén incluida','Resultado corregido sin luz almacén'];
- const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows,totals,[],['Fórmula visible: Ventas totales - Gastos del gestor = Resultado fiscal. Los gastos del gestor se forman con gastos directos de las dos tiendas + gastos comunes + ajustes de conciliación.']]);gestorTitle(ws,`Conciliación fiscal trazable - ${q}T ${year}`,'L');gestorHeader(ws,2,12);ws['!cols']=[14,16,18,16,18,20,16,21,16,16,17,26].map(w=>({wch:w}));ws['!freeze']={ySplit:3};
+ const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows,totals,[],['Fórmula visible: Ventas totales - Gastos del gestor = Resultado fiscal. Los gastos del gestor se forman con gastos directos de las dos tiendas + gastos comunes + ajustes de conciliación.']]);gestorTitle(ws,`Conciliación fiscal trazable - ${q}T ${year}`,'L');gestorHeader(ws,2,12);ws['!cols']=[15,18,19,17,19,20,17,22,17,17,18,24].map(w=>({wch:w}));ws['!freeze']={ySplit:3};
  sheetCurrency(ws,4,7,['B','C','D','E','F','G','H','I','J','K','L']);for(let c=1;c<12;c++){const col=XLSX.utils.encode_col(c);const cell=ws[col+'7'];if(cell){cell.f=`SUM(${col}4:${col}6)`;cell.t='n';cell.z='#,##0.00 "€"'}}for(let c=0;c<12;c++){const a=XLSX.utils.encode_cell({r:6,c});if(ws[a])ws[a].s={...(ws[a].s||{}),font:{bold:true},fill:{fgColor:{rgb:'D9EAD3'}}}}
+ ws['!merges']=(ws['!merges']||[]).concat([XLSX.utils.decode_range('A9:L13')]);
  XLSX.utils.book_append_sheet(wb,ws,`Conciliación ${q}T`);
  return totals;
 }
