@@ -834,7 +834,7 @@ document.addEventListener('click',async e=>{
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
-  if(a==='closing-new'){setView('cajas',{mode:'record',id:null});render();return}
+  if(a==='closing-new'){setView('cajas',{mode:'record',id:null,storeId:el.dataset.store||null});setRoute('cajas');render();return}
   if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id});render();return}
   if(a==='closing-save-draft'){await saveClosing(el.dataset.id||'','borrador');return}
   if(a==='closing-save-close'){await saveClosing(el.dataset.id||'','cerrado');return}
