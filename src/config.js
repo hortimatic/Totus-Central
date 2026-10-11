@@ -12,7 +12,5 @@ export const ROUTES=[
  {id:'documentos',label:'Documentos',icon:'▥',group:'Trabajo'},
  {id:'fiscalidad',label:'Fiscalidad',icon:'%',group:'Control'},
  {id:'informes',label:'Informes',icon:'▦',group:'Control'},
- {id:'usuarios',label:'Usuarios',icon:'♙',group:'Administración',admin:true},
- {id:'configuracion',label:'Configuración',icon:'⚙',group:'Administración',manager:true},
- {id:'log',label:'Log',icon:'≡',group:'Administración',manager:true}
+ {id:'administracion',label:'Administración',icon:'⚙',group:'Sistema',manager:true}
 ];
