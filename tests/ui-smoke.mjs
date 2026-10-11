@@ -369,7 +369,7 @@ assert(await page.getByLabel('Buscar cierres').count()===1,'El listado de Cajas 
 await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).click();
 assert(await page.locator('.closing-workspace').count()===1,'La ficha de cierre no usa un espacio de trabajo único');
 assert(await page.getByRole('button',{name:/Volver a cierres/}).count()===1,'La ficha de cierre no ofrece retorno claro al listado');
-assert(await page.locator('.closing-history-card').isHidden(),'La ficha de cierre sigue mezclando el histórico con la edición');
+assert(await page.locator('.closing-history-card').count()===0,'La ficha de cierre sigue mezclando una copia del histórico con la edición');
 assert(await page.locator('.closing-editor').count()===1&&await page.locator('.closing-review').count()===1,'Cajas debe separar edición y revisión en dos zonas claras');
 assert(await page.getByRole('heading',{name:'Cierre de caja',exact:true}).count()===1,'Falta una cabecera operativa clara en la ficha de Cajas');
 assert(await page.getByRole('heading',{name:'¿Cuadra el día?',exact:true}).count()===1,'El cuadre no está visible como objetivo principal');
