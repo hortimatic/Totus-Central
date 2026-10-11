@@ -242,8 +242,7 @@ function sectionMeta(tab=O.tab){
   fiscal:['Fiscalidad','Control trimestral','IRPF, retenciones, previsiones y tramo RETA.'],
   informes:['Informes','Descargas','Informes por fechas y paquete preparado para gestoría.'],
   config:['Configuración','Administración','Empresa, criterios fiscales, RETA y almacenamiento.'],
-  log:['Log','Administración','Historial de actividad y revisiones administrativas.'],
-  backup:['Backup','Administración','Copias portátiles, validación y recuperación.']
+  log:['Log','Administración','Historial de actividad de la versión actual.']
  })[tab]||['Gestión','',''];
 }
 function headerHtml(){
@@ -265,7 +264,7 @@ function managementHtml(){
 
 function newClosingDraft(){
   const sid=O.storeId!=='all'?O.storeId:(O.stores[0]?.id||'');
-  return {id:null,storeId:sid,date:isoToday(),notes:'',status:'borrador',controlTotal:'',drawers:{},legacyAllocation:false};
+  return {id:null,storeId:sid,date:isoToday(),notes:'',status:'borrador',controlTotal:'',drawers:{}};
 }
 function previousClosedForDrawer(draft,drawer){
   const previous=O.closings
@@ -383,7 +382,6 @@ function closingFormHtml(){
    </section>
 
    ${locked?'<div class="ops-note warn">Este cierre está cerrado. Puedes consultarlo; administración o gerencia pueden reabrirlo con trazabilidad.</div>':''}
-   ${d.legacyAllocation?'<div class="ops-note warn"><b>Cierre histórico anterior al desglose por caja.</b> Los cobros no efectivos se conservan asignados a la primera caja para mantener el total original.</div>':''}
 
    <div class="closing-workspace">
     <main class="closing-editor">
@@ -519,7 +517,7 @@ window.opsCloseContextField=function(k,v){
     render();
     return;
   }
-  d[k]=v;d.drawers={};d.controlTotal='';d.notes='';d.legacyAllocation=false;
+  d[k]=v;d.drawers={};d.controlTotal='';d.notes='';
   render();
 };
 window.opsDrawerField=function(id,k,v){
@@ -542,10 +540,7 @@ window.opsEditClosing=function(id){
   const c=O.closings.find(x=>x.id===id);if(!c)return;
   if(closingHasUserInput()&&O.closeDraft?.id!==id&&!confirm('Hay datos sin guardar en el cierre actual. ¿Abrir otro cierre y descartarlos?'))return;
   const rows=O.closingDrawers.filter(x=>x.closing_id===id),drawers={};
-  let hasBreakdown=false;
   rows.forEach(x=>{
-    const broken=[x.card_sales,x.bizum_sales,x.online_sales,x.other_income,x.cash_withdrawals,x.cash_expenses_declared].some(v=>v!==null&&v!==undefined);
-    if(broken)hasBreakdown=true;
     drawers[x.drawer_id]={
       opening:String(x.opening_cash??''),closing:String(x.closing_cash??''),
       card:String(x.card_sales??''),bizum:String(x.bizum_sales??''),online:String(x.online_sales??''),other:String(x.other_income??''),
@@ -553,17 +548,8 @@ window.opsEditClosing=function(id){
       extraIn:String(x.cash_extra_in??''),extraOut:String(x.cash_extra_out??'')
     };
   });
-  let legacyAllocation=false;
-  if(rows.length&&!hasBreakdown){
-    const first=drawers[rows[0].drawer_id];
-    if(first){
-      first.card=String(c.card_sales||'');first.bizum=String(c.bizum_sales||'');first.online=String(c.online_sales||'');first.other=String(c.other_income||'');
-      first.withdrawals=String(c.cash_withdrawals||'');first.cashExpenses=String(c.cash_expenses_declared||'');
-      first.extraIn=String(c.cash_extra_in||'');first.extraOut=String(c.cash_extra_out||'');
-      legacyAllocation=!!(n(c.card_sales)+n(c.bizum_sales)+n(c.online_sales)+n(c.other_income)+n(c.cash_withdrawals)+n(c.cash_expenses_declared)+n(c.cash_extra_in)+n(c.cash_extra_out));
-    }
-  }
-  O.closeDraft={id:c.id,storeId:c.store_id,date:c.business_date,notes:c.notes||'',status:c.status,controlTotal:c.reported_total_sales==null?'':String(c.reported_total_sales),drawers,legacyAllocation};O.closeView='form';render();window.scrollTo({top:0,behavior:'smooth'});
+  O.closeDraft={id:c.id,storeId:c.store_id,date:c.business_date,notes:c.notes||'',status:c.status,controlTotal:c.reported_total_sales==null?'':String(c.reported_total_sales),drawers};
+  O.closeView='form';render();window.scrollTo({top:0,behavior:'smooth'});
 };
 window.opsReopenClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Reabrir cierre','El cierre volverá a borrador para poder corregirlo.','Reabrir');if(!reason)return;const {error}=await sb.rpc('ops_set_closing_status_controlled',{p_closing_id:d.id,p_status:'borrador',p_reason:reason});if(error)return alert(error.message);await load(true);window.opsEditClosing(d.id)};
 window.opsDeleteClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Eliminar cierre',`Eliminarás el cierre de ${storeName(d.storeId)} del ${dmy(d.date)}. Se conservará snapshot administrativo.`,'Eliminar cierre');if(!reason)return;const {error}=await sb.rpc('ops_delete_closing_controlled',{p_closing_id:d.id,p_reason:reason});if(error)return alert(error.message);await load(true);O.closeDraft=newClosingDraft();O.closeView='list';render()};
