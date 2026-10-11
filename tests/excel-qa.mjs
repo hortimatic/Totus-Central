@@ -61,7 +61,14 @@ const audit=gestorWb.Sheets['Auditoría gestor'];
 if(audit['!cols']?.[0]?.wch!==28||audit['!cols']?.[7]?.wch!==45)throw new Error('Gestor audit original column widths do not match');
 if(!audit['!merges']?.some(m=>m.s.r===11&&m.s.c===0&&m.e.r===16&&m.e.c===7))throw new Error('Gestor audit explanatory block A12:H17 missing');
 if(audit['A8']?.v!=='Incidencia'||audit['F8']?.v!=='Acción recomendada')throw new Error('Gestor incident register missing');
+for(const q of [1,2,3,4]){
+ const ws=gestorWb.Sheets['Conciliación '+q+'T'];
+ const widths=[15,18,19,17,19,20,17,22,17,17,18,24];
+ if(widths.some((w,i)=>ws['!cols']?.[i]?.wch!==w))throw new Error('Conciliación '+q+'T no respeta anchuras originales');
+ if(!ws['!merges']?.some(m=>m.s.r===8&&m.s.c===0&&m.e.r===12&&m.e.c===11))throw new Error('Falta nota combinada A9:L13 en '+q+'T');
+}
 const book=gestorWb.Sheets['Libro gestor 1T'];
+if([8,13,14,21,6,14,31,25].some((w,i)=>book['!cols']?.[i]?.wch!==w))throw new Error('Libro gestor no respeta anchuras originales');
 const expected=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
 for(let i=0;i<expected.length;i++){const cell=book[xlsx.utils.encode_cell({r:2,c:i})];if(cell?.v!==expected[i])throw new Error('Gestor header mismatch at '+expected[i])}
 
