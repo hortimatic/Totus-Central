@@ -462,13 +462,7 @@ function closingFormHtml(){
     </aside>
    </div>
 
-   <section class="closing-history-card">
-    <div class="section-head">
-     <div><div class="eyebrow">T${O.quarter}</div><h3>Histórico de cierres</h3><div class="small">Consulta cierres anteriores sin mezclarlo con el trabajo del día actual.</div></div>
-     <div class="ops-actions"><button class="secondary" onclick="opsExportClosings()">Exportar CSV</button>${manager()&&d.id?'<button class="danger" onclick="opsDeleteClosing()">Eliminar cierre abierto</button>':''}</div>
-    </div>
-    ${rows.length?`<div class="ops-table-wrap closing-history-wrap"><table class="ops-table closing-history-table"><thead><tr><th>Fecha</th><th>Tienda</th><th>Efectivo</th><th>Tarjeta</th><th>Otros cobros</th><th>Metálico final</th><th>Total</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const total=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),other=n(row.bizum_sales)+n(row.online_sales)+n(row.other_income);return `<tr><td>${dmy(row.business_date)}</td><td><b>${h(storeName(row.store_id))}</b><div class="ops-tiny">Apertura ${eur(row.opening_cash)}</div></td><td class="num"><b>${eur(row.cash_sales)}</b><div class="ops-tiny">Ret. ${eur(row.cash_withdrawals)} · gastos ${eur(row.cash_expenses_declared)}</div></td><td class="num">${eur(row.card_sales)}</td><td class="num">${eur(other)}<div class="ops-tiny">Bizum ${eur(row.bizum_sales)} · online ${eur(row.online_sales)}</div></td><td class="num"><b>${eur(row.actual_cash)}</b><div class="ops-tiny">Extra +${eur(row.cash_extra_in||0)} / -${eur(row.cash_extra_out||0)}</div></td><td class="num"><b>${eur(total)}</b></td><td class="num">${row.reported_total_sales==null?'—':`<b>${eur(row.reported_total_sales)}</b><div class="ops-tiny ${Math.abs(n(row.difference))<=.01?'good-text':'bad-text'}">${Math.abs(n(row.difference))<=.01?'Cuadra':'Dif. '+eur(row.difference)}</div>`}</td><td>${statusBadge(row.status)}</td><td><button class="ghost" onclick="opsEditClosing('${row.id}')">${row.status==='cerrado'&&!manager()?'Ver':'Abrir'}</button></td></tr>`}).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay cierres en este periodo.</div>'}
-   </section>
+   
   </div>`;
 }
 function closingListHtml(){
