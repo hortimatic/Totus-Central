@@ -124,6 +124,20 @@ await check('Navegación de todas las pestañas tras operaciones',async()=>{
   assert(t.length>20,route+' está vacía');
  }
 });
+await check('Roles: gerente y encargado con permisos de navegación',async()=>{
+ for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
+  const rolePage=await browser.newPage({viewport:{width:390,height:844}});
+  await rolePage.goto(base+'?role='+role,{waitUntil:'networkidle'});
+  await rolePage.locator('#userCard').waitFor({state:'visible'});
+  const canSee=await rolePage.locator('#nav [data-route="administracion"]').count()>0;
+  assert(canSee===adminVisible,'Permisos de navegación incorrectos: '+role);
+  if(role==='gerente'){
+   await rolePage.locator('#nav [data-route="administracion"]').click();
+   assert(!(await rolePage.locator('#content').innerText()).includes('Nuevo usuario'),'Gerente no debe dar de alta usuarios');
+  }
+  await rolePage.close();
+ }
+});
 await browser.close();
 if(errors.length){console.error('E2E MOCK QA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('E2E MOCK QA: operaciones y pestañas correctas');
