@@ -28,9 +28,9 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobi
   });
   if(audit.duplicate.length)failures.push(label+' duplicate visible element IDs: '+JSON.stringify(audit.duplicate));
   if(audit.links.length)failures.push(label+' labels for missing controls: '+JSON.stringify(audit.links));
-  if(audit.blank.length)notices.push(label+' tall empty blocks: '+JSON.stringify(audit.blank));
-  if(audit.unlabeled.length)notices.push(label+' unlabeled controls: '+JSON.stringify(audit.unlabeled));
-  if(audit.outOfBounds.length)notices.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
+  if(audit.blank.length)failures.push(label+' tall empty blocks: '+JSON.stringify(audit.blank));
+  if(audit.unlabeled.length)failures.push(label+' unlabeled controls: '+JSON.stringify(audit.unlabeled));
+  if(audit.outOfBounds.length)failures.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
  }
  await page.close();
 }
