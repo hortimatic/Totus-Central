@@ -73,7 +73,7 @@ if(appSource.includes('patchFilters({'))errors.push('Persisten filtros globales 
 if(!appSource.includes("patchFilters('pricing'"))errors.push('Pricing no tiene filtro independiente');
 if(!pageSource.includes("series_kind==='invoice'")&&!pageSource.includes("series_kind==='rectifying'"))errors.push('Facturación no separa series ordinarias y rectificativas');
 
-for(const rpc of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma']){
+for(const rpc of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma','totus_update_invoice_payment']){
  if(!text('src/app.js').includes(rpc))errors.push('Falta integración '+rpc);
 }
 
@@ -84,6 +84,7 @@ if(!text('src/app.js').includes('invoice-line-add')||!text('src/app.js').include
 if(!pageSource.includes('closingRecordHtml')||!pageSource.includes('drawer-entry'))errors.push('Cajas no usa listado → ficha por caja');
 if(!pageSource.includes('expenseRecordHtml')||!pageSource.includes('expenseLineRow'))errors.push('Gastos no usa ficha con múltiples líneas');
 if(!pageSource.includes('invoiceRecordHtml')||!pageSource.includes('invoicePreview'))errors.push('Facturación no usa ficha y vista previa');
+if(!pageSource.includes('invoice-payment-save')||!appSource.includes('saveInvoicePayment'))errors.push('Facturación emitida no permite registrar cobros de forma segura');
 if(!pageSource.includes('documentRecordHtml'))errors.push('Documentos no usa listado → ficha');
 if(!pageSource.includes('administracion()'))errors.push('Falta Administración consolidada');
 if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
@@ -93,7 +94,7 @@ for(const term of ['exportClosingsWorkbook','exportExpensesWorkbook','exportSumm
 for(const term of ['provider-price-new','competitor-new','variant-new','consultation-save','providers-manage'])if(!text('src/app.js').includes(term)&&!text('src/pages/main.js').includes(term))errors.push('Pricing incompleto: '+term);
 if(!/apply_special_tax\s*\?\s*Number\([^\n]*special_tax_amount[^\n]*\)\s*:\s*0/.test(pageSource))errors.push('Pricing puede duplicar impuesto especial');
 for(const term of ['management_only','withholding_model','deductible_pct','fixed_asset'])if(!text('src/pages/main.js').includes(term)&&!text('src/app.js').includes(term))errors.push('Gastos/fiscalidad incompleto: '+term);
-for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma'])if(!text('supabase/totus_api.sql').includes(fn))errors.push('API SQL incompleta: '+fn);
+for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma','totus_update_invoice_payment'])if(!text('supabase/totus_api.sql').includes(fn))errors.push('API SQL incompleta: '+fn);
 
 for(const term of ['closing-save-draft','closing-save-close','closing-reopen','reported_total_sales'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Cajas incompleto: '+term);
 for(const term of ['expense-document-preview','expense-document-download','expense-line-add','management_only'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Gastos incompleto: '+term);
