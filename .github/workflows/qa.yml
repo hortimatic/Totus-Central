@@ -12,6 +12,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
+      - run: node tests/functional-regression.mjs
       - run: npm install --no-save xlsx-js-style playwright
       - run: npx playwright install --with-deps chromium
       - run: node tests/excel-qa.mjs
