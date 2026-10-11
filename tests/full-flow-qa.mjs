@@ -253,6 +253,17 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  const products=await page.evaluate(()=>window.__mockDb.products);
  assert(products.some(x=>x.sku==='SKU-QA-001'),'Producto sin guardar');
 });
+await check('Fiscalidad: alta y edición de ajuste fiscal',async()=>{
+ await nav('fiscalidad');
+ await page.locator('[data-action="fiscal-adjustment-new"]').first().click();
+ await page.locator('#faDescription').fill('Regularización simulada');
+ await page.locator('#faAmount').fill('25,50');
+ await page.locator('#faKind').selectOption('ingreso_extra');
+ await page.locator('[data-action="fiscal-adjustment-save"]').click();
+ await page.waitForTimeout(100);
+ const values=await page.evaluate(()=>window.__mockDb.ops_fiscal_adjustments);
+ assert(values.some(x=>x.description==='Regularización simulada'&&Math.abs(x.amount-25.5)<.001),'Ajuste fiscal no guardado');
+});
 await check('Roles: gerente y encargado con permisos de navegación',async()=>{
  for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
   const rolePage=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
