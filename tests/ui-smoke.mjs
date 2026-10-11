@@ -347,7 +347,11 @@ await page.locator('.home-widget').first().waitFor();
 
 // Pricing and decimal-focus regression.
 await page.getByRole('button',{name:'Pricing',exact:true}).first().click();
-await page.getByRole('heading',{name:'Precio rápido',exact:true}).waitFor();await auditCurrentUi('Pricing');
+await page.getByRole('heading',{name:'Haz números primero',exact:true}).waitFor();await auditCurrentUi('Pricing');
+assert(await page.locator('.pricing-workbench').count()===1,'Pricing no presenta una mesa de trabajo única');
+assert(await page.locator('.pricing-entry-panel').count()===1&&await page.locator('.pricing-result-panel').count()===1,'Pricing no separa entrada y resultado en vivo');
+assert(await page.getByRole('heading',{name:'Productos por revisar',exact:true}).count()===1,'Pricing no muestra la cola de trabajo');
+assert(await page.getByRole('heading',{name:'Consultas guardadas',exact:true}).count()===1,'Pricing no muestra actividad reutilizable');
 const cost=page.locator('#q_cost');await cost.click();await cost.type('3.20');
 assert(await cost.inputValue()==='3,20','El coste no normalizó punto a coma');
 assert(await page.evaluate(()=>document.activeElement?.id)==='q_cost','El campo de coste perdió el foco');
@@ -986,7 +990,7 @@ await page.getByText('IVA + RE soportado T2',{exact:true}).waitFor();
 assert(await page.getByText('Informe final verificado',{exact:true}).count()>=2,'Fiscalidad no identifica las referencias verificadas por tienda');
 await page.getByLabel('Gasto deducible adicional simulado').fill('500');
 await page.waitForTimeout(250);
-assert(await page.getByText('Reserva fiscal',{exact:false}).count()>0,'No aparece reserva fiscal');
+assert(await page.getByText('Reserva fiscal ahora',{exact:true}).count()===1,'No aparece la reserva fiscal principal');
 const sourceFiscal=await page.evaluate(()=>({
  q1:window.__TotusOpsTest.fiscalProjection(2026,1,0),
  q2:window.__TotusOpsTest.fiscalProjection(2026,2,0),
