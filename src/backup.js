@@ -9,6 +9,11 @@ export const BACKUP_TABLES=[
  'brands','families','providers','products','product_variants','product_provider_prices','product_competitor_prices','price_history','consultations','consultation_history'
 ];
 const STORAGE_BUCKETS=['business-documents','business-assets'];
+async function sha256(bytes){
+ const buffer=typeof bytes==='string'?new TextEncoder().encode(bytes):bytes instanceof Blob?await bytes.arrayBuffer():bytes;
+ const digest=await crypto.subtle.digest('SHA-256',buffer);
+ return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 
 async function allRows(table){
  const rows=[];let from=0;
@@ -46,26 +51,28 @@ async function listFiles(bucket,prefix=''){
  return out;
 }
 async function addStorage(zip){
- const manifest={};
+ const manifest={},hashes={};
  for(const bucket of STORAGE_BUCKETS){
   const paths=await listFiles(bucket);
-  manifest[bucket]=paths;
+  manifest[bucket]=paths;hashes[bucket]={};
   for(const path of paths){
    const {data,error}=await sb.storage.from(bucket).download(path);
    if(error)throw new Error('No se pudo incluir '+bucket+'/'+path+': '+error.message);
    zip.file('storage/'+bucket+'/'+path,data);
+   hashes[bucket][path]=await sha256(data);
   }
  }
- return manifest;
+ return {manifest,hashes};
 }
 export async function createBackup(){
  if(!JSZip)throw new Error('No está disponible el motor ZIP.');
  const zip=new JSZip(),database={};
  for(const table of BACKUP_TABLES)database[table]=sanitize(table,await allRows(table));
- const storage=await addStorage(zip);
- const manifest={format:'totus-clean-backup',version:1,created_at:new Date().toISOString(),tables:BACKUP_TABLES,storage};
+ const {manifest:storage,hashes}=await addStorage(zip);
+ const databaseJson=JSON.stringify(database);
+ const manifest={format:'totus-clean-backup',version:2,created_at:new Date().toISOString(),tables:BACKUP_TABLES,storage,integrity:{database:await sha256(databaseJson),storage:hashes}};
  zip.file('manifest.json',JSON.stringify(manifest,null,2));
- zip.file('database.json',JSON.stringify(database));
+ zip.file('database.json',databaseJson);
  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
  download(blob,`Totus_Central_${stamp}.totusbackup`);
@@ -76,8 +83,12 @@ export async function inspectBackup(file){
  const zip=await JSZip.loadAsync(file),mf=zip.file('manifest.json'),dbf=zip.file('database.json');
  if(!mf||!dbf)throw new Error('La copia no contiene manifest.json y database.json.');
  const manifest=JSON.parse(await mf.async('string'));
- if(manifest.format!=='totus-clean-backup'||manifest.version!==1)throw new Error('Formato de copia no compatible.');
- const database=JSON.parse(await dbf.async('string'));
+ if(manifest.format!=='totus-clean-backup'||![1,2].includes(manifest.version))throw new Error('Formato de copia no compatible.');
+ const databaseJson=await dbf.async('string');
+ if(manifest.version===2){
+  if(!manifest.integrity?.database||await sha256(databaseJson)!==manifest.integrity.database)throw new Error('Copia dañada: datos sin integridad.');
+ }
+ const database=JSON.parse(databaseJson);
  for(const table of BACKUP_TABLES)if(!Array.isArray(database[table]))throw new Error('Falta la tabla '+table+' en la copia.');
  // Rechazar copias incompletas antes de iniciar cualquier cambio en base de datos.
  for(const bucket of STORAGE_BUCKETS){
@@ -87,6 +98,10 @@ export async function inspectBackup(file){
    if(typeof path!=='string'||!path||path.includes('..')||path.startsWith('/'))throw new Error('Ruta inválida en copia: '+path);
    const entry=zip.file('storage/'+bucket+'/'+path);
    if(!entry||entry.dir)throw new Error('Falta el archivo '+bucket+'/'+path+' en la copia.');
+   if(manifest.version===2){
+    const expected=manifest.integrity?.storage?.[bucket]?.[path];
+    if(!expected||await sha256(await entry.async('uint8array'))!==expected)throw new Error('Copia dañada: archivo sin integridad '+bucket+'/'+path);
+   }
   }
  }
  return {zip,manifest,database};
