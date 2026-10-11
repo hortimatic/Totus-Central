@@ -171,6 +171,10 @@ async function saveExpense(id=''){
    const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
    return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!!input(`exLineDed_${ix}`)?.checked,deductible_pct:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
  });
+ const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
+ const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):Math.max(0,num('exPaidAmount'));
+ if(paidStatus==='pagado'&&Math.abs(amountPaid-total)>.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
+ if(paidStatus==='pendiente'&&amountPaid>0)throw new Error('Un gasto pendiente no puede tener importe pagado.');
  const current=id?state.data.expenses.find(x=>x.id===id):null,oldDoc=current?.document_id?state.data.documents.find(x=>x.id===current.document_id):null;
  const file=input('exFile')?.files?.[0]||null;
  let newDoc=null,documentId=oldDoc?.id||null;
@@ -178,10 +182,6 @@ async function saveExpense(id=''){
    newDoc=await createStoredDocument(file,{storeId,date,docType:'factura_recibida',status:paidStatus==='pagado'?'pagada':'pendiente',party:supplier,taxId,number:invoiceNumber,category:'gasto',notes:'Justificante de gasto',linkedType:'expense'});
    documentId=newDoc.id;
  }
- const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
- const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):Math.max(0,num('exPaidAmount'));
- if(paidStatus==='pagado'&&Math.abs(amountPaid-total)>.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
- if(paidStatus==='pendiente'&&amountPaid>0)throw new Error('Un gasto pendiente no puede tener importe pagado.');
  const first=lines[0];
  const expense={id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')||'factura',source:'manual',fiscal_reviewed:false,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
  let savedId;
@@ -236,6 +236,7 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  const oldSource=current?.source_document_id?state.data.documents.find(x=>x.id===current.source_document_id):null;
  let sourceDoc=oldSource||null,newSource=null;
  if(origin==='externa'){
+   if(!val('ivExternalNumber').trim())throw new Error('Indica el número de la factura externa.');
    const sourceFile=input('ivSourceFile')?.files?.[0]||null;
    if(sourceFile)newSource=await createStoredDocument(sourceFile,{storeId:required('ivStore','Tienda'),date:issue,docType:'factura_emitida',status:'archivada',party:customerName,taxId:customerTax,number:val('ivExternalNumber').trim(),category:'facturacion',notes:'Original de factura externa',linkedType:'sales_invoice'});
    sourceDoc=newSource||oldSource;
