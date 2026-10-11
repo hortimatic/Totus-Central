@@ -274,12 +274,24 @@ export function fiscalidad(){
 }
 
 export function informes(){
- const f=getFilters('informes');
+ const f=getFilters('informes'),year=Number(f.year||state.data.settings?.current_year||new Date().getFullYear());
  const c=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const g=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- return `<div class="page"><section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
- <div class="kpis">${kpi('Cierres',String(c.length))}${kpi('Gastos',String(g.length))}${kpi('Ventas',money(sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))))}${kpi('Gastos',money(sum(g,x=>x.gross_expense||x.amount_paid||x.accounting_amount)))}</div>
- <section class="card card-pad"><div class="section-head"><div><h2>Exportaciones</h2><p>Genera informes usando el periodo exacto seleccionado.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Excel de cierres','export-closings','primary')}${btn('Excel de gastos','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section></div>`;
+ const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
+ return `<div class="page">
+ <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label>Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
+ <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos contables',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
+ <div class="split">
+  <section class="card card-pad"><div class="section-head"><div><h2>Libros como los Excel originales</h2><p>Doce hojas mensuales, mismos bloques, fórmulas, códigos de color y estructura de ventas/gastos.</p></div></div>
+   <div class="stack" style="margin-top:14px">${stores().map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">Gastos y ventas · ${year}</div></div>${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${year}"`)}</div>`).join('')}</div>
+  </section>
+  <section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Libro de gastos, conciliación por trimestre y auditoría del Modelo 130.</p></div></div>
+   <div class="stack" style="margin-top:14px">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar paquete gestor ZIP','export-gestor-package','secondary',`data-year="${year}"`)}</div>
+  </section>
+ </div>
+ <section class="card card-pad"><div class="section-head"><div><h2>Exportaciones de trabajo</h2><p>Para análisis puntual con las fechas exactas seleccionadas.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Cierres detallados','export-closings','secondary')}${btn('Gastos detallados','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section>
+ </div>`;
 }
 
 export function administracion(){
