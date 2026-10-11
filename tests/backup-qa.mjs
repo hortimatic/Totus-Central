@@ -48,6 +48,22 @@ try{
   try{await mod.inspectBackup(f);return false}catch(e){return String(e.message).includes('Falta el archivo')}
  },[...tampered]);
  if(!declined)throw Error('No se rechaza una copia con documento faltante');
+ const restored=await page.evaluate(async arr=>{
+  const bytes=new Uint8Array(arr);
+  window.__mockContractVersion=2;
+  window.__mockDb.ops_expenses.push({id:'fake-expense',supplier_name:'Sobras de prueba'});
+  window.__mockUploads.set('business-documents/extra.txt',new Blob(['no debe persistir']));
+  const f=new File([bytes],'backup.totusbackup',{type:'application/octet-stream'});
+  const mod=await import('../src/backup.js');
+  await mod.restoreBackup(f,'Simulación de restauración aislada');
+  return {
+   restored:window.__mockDb.ops_expenses.every(x=>x.id!=='fake-expense'),
+   original:window.__mockDb.ops_documents.some(x=>x.original_name==='backup-comprobante.txt'),
+   extraRemoved:!window.__mockUploads.has('business-documents/extra.txt'),
+   originalRestored:window.__mockUploads.size>=1
+  };
+ },[...bytes]);
+ if(Object.values(restored).some(x=>!x))throw Error('Restauración simulada incompleta '+JSON.stringify(restored));
  if(errors.length)throw Error('Errores JS: '+errors.join('; '));
- console.log('BACKUP QA: archivo real, tablas, documentos, rechazo de archivo roto y contrato SQL incompatible: OK');
+ console.log('BACKUP QA: archivo, documentos, rechazo de corrupción y restauración aislada reversible: OK');
 }finally{await browser.close()}
