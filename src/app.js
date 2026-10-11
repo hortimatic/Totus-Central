@@ -463,8 +463,9 @@ async function deleteVariant(productId,id){
 }
 async function saveConsultation(){
  const query=required('pqQuery','Consulta'),cost=num('pqCost'),pvp=num('pqPvp'),competitor=num('pqCompetitor'),discount=Math.min(100,Math.max(0,num('pqDiscount')));
- const finalSale=pvp*(1-discount/100),net=finalSale/1.21,margin=net-cost,marginPct=net>0?margin/net*100:0;
- const row=await insert('consultations',{query,cost_net:cost,pvp,competitor,discount,cost_real:cost,final_sale:finalSale,margin,margin_pct:marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
+ const vat=Number(state.data.settings?.default_sales_vat_rate||21),re=Number(state.data.settings?.purchase_re_rate||5.2);
+ const finalSale=pvp*(1-discount/100),net=finalSale/(1+vat/100),costReal=cost*(1+vat/100+re/100),margin=net-cost,marginPct=net>0?margin/net*100:0;
+ const row=await insert('consultations',{query,cost_net:cost,pvp,competitor,discount,cost_real:costReal,final_sale:finalSale,margin,margin_pct:marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
  await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO',consultation_query:query,snapshot:row}).catch(()=>{});
  await refresh('Consulta guardada.');
 }
