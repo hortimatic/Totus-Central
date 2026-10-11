@@ -899,21 +899,29 @@ window.opsSaveExpense=async function(){
 
 function docMatches(d){
  const f=O.docFilter;
- return (!f.from||d.document_date>=f.from)&&(!f.to||d.document_date<=f.to)&&(f.store==='all'||d.store_id===f.store)&&(f.status==='all'||d.status===f.status)&&(f.type==='all'||d.doc_type===f.type)&&(!f.q||[d.supplier_or_customer,d.invoice_number,d.original_name,d.notes].join(' ').toLowerCase().includes(f.q.toLowerCase()));
+ return (!f.from||d.document_date>=f.from)&&(!f.to||d.document_date<=f.to)&&(f.store==='all'||d.store_id===f.store)&&(f.status==='all'||d.status===f.status)&&(f.type==='all'||d.doc_type===f.type)&&(!f.q||[d.supplier_or_customer,d.tax_id,d.invoice_number,d.original_name,d.notes,d.doc_type,d.category_code].join(' ').toLowerCase().includes(f.q.toLowerCase()));
 }
-window.opsDocFilter=function(k,v,soft=false){O.docFilter[k]=v;if(!soft)render();else{clearTimeout(window.__opsDocTimer);window.__opsDocTimer=setTimeout(render,200)}};
+window.opsDocFilter=function(k,v,soft=false){
+ const prev=O.docFilter[k];O.docFilter[k]=v;
+ if(O.docFilter.from&&O.docFilter.to&&O.docFilter.from>O.docFilter.to){O.docFilter[k]=prev;alert('La fecha "Desde" no puede ser posterior a "Hasta".');return render()}
+ if(!soft)render();else{clearTimeout(window.__opsDocTimer);window.__opsDocTimer=setTimeout(render,200)}
+};
 window.opsUploadStandaloneDoc=async function(){
  const file=document.getElementById('ops_doc_file')?.files?.[0];if(!file){alert('Selecciona un archivo.');return}
+ const date=document.getElementById('ops_doc_date')?.value||isoToday(),type=document.getElementById('ops_doc_type')?.value||'otro',party=document.getElementById('ops_doc_party')?.value?.trim()||'',number=document.getElementById('ops_doc_invoice')?.value?.trim()||'';
+ if(date>isoToday())return alert('No puedes archivar un documento con fecha futura.');
+ if(['factura_recibida','factura_emitida','factura_rectificativa','proforma'].includes(type)&&!party)return alert('Indica el proveedor o cliente del documento.');
+ if(['factura_recibida','factura_emitida','factura_rectificativa','proforma'].includes(type)&&!number)return alert('Indica el número del documento.');
  try{
-  const id=await uploadDoc(file,{store_id:document.getElementById('ops_doc_store').value||null,doc_type:document.getElementById('ops_doc_type').value,document_date:document.getElementById('ops_doc_date').value||isoToday(),supplier_or_customer:document.getElementById('ops_doc_party').value,tax_id:document.getElementById('ops_doc_tax').value,invoice_number:document.getElementById('ops_doc_invoice').value,status:document.getElementById('ops_doc_status').value},'standalone',null);
+  const id=await uploadDoc(file,{store_id:document.getElementById('ops_doc_store').value||null,doc_type:type,document_date:date,supplier_or_customer:party,tax_id:document.getElementById('ops_doc_tax').value.trim(),invoice_number:number,status:document.getElementById('ops_doc_status').value,notes:document.getElementById('ops_doc_notes')?.value?.trim()||''},'standalone',null);
   if(!id)return;
-  await audit('documentos','subir',id,{archivo:file.name});await load(true);render();
+  await audit('documentos','subir',id,{archivo:file.name,tipo:type,fecha:date});await load(true);render();
  }catch(e){alert('No se pudo subir: '+e.message)}
 };
 window.opsDownloadDoc=async function(id){
  const d=O.documents.find(x=>x.id===id);if(!d)return;const {data,error}=await sb.storage.from('business-documents').download(d.storage_path);if(error){alert(error.message);return}dlBlob(data,d.original_name);
 };
-window.opsSetDocStatus=async function(id,status){const {error}=await sb.from('ops_documents').update({status}).eq('id',id);if(error){alert(error.message);return}const d=O.documents.find(x=>x.id===id);if(d)d.status=status;await audit('documentos','estado',id,{status});};
+window.opsSetDocStatus=async function(id,status){if(!manager())return alert('Solo administración o gerencia puede cambiar el estado documental.');const {error}=await sb.from('ops_documents').update({status}).eq('id',id);if(error){alert(error.message);return}const d=O.documents.find(x=>x.id===id);if(d)d.status=status;await audit('documentos','estado',id,{status});};
 
 window.opsPlannedSpend=function(v){O.plannedSpend=v;if(typeof window.__opsUpdateFiscalSimulation==='function')window.__opsUpdateFiscalSimulation()};
 function docArchiveFolder(d,root='04_DOCUMENTOS'){
