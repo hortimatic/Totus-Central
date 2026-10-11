@@ -571,27 +571,29 @@ export function invoicePreview(row,logoUrl=''){
  const lines=state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order);
  const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
  const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id)||{});
- const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(tpl.invoice_title||'FACTURA');
- const primary=tpl.primary_color||'#172033',secondary=tpl.secondary_color||'#2367d1';
- return `<div class="stack invoice-preview" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)}">
-  <div class="section-head invoice-preview-head"><div>
-   ${logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo">`:''}
-   <div class="eyebrow">${esc(title)}</div><h2>${esc(row.display_number||'BORRADOR')}</h2>
-   ${tpl.header_text?`<div class="small muted">${esc(tpl.header_text)}</div>`:''}
-  </div>${stateBadge(row.status)}</div>
-  <div class="split">
-   <div><div class="small muted">Cliente</div><b>${esc(row.customer_name||'—')}</b><div class="small">${esc(row.customer_tax_id||'')}</div><div class="small">${esc(row.customer_address||'')}</div></div>
-   <div><div class="summary-row"><span>Fecha</span><strong>${fmtDate(row.issue_date)}</strong></div><div class="summary-row"><span>Vencimiento</span><strong>${fmtDate(row.due_date)}</strong></div></div>
-  </div>
-  ${table([
-   {label:'Descripción',html:l=>esc(l.description)},{label:'Cant.',num:true,html:l=>String(l.quantity)},{label:'Precio',num:true,html:l=>moneyCell(l.unit_price_base)},
+ const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
+ const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=state.data.settings||{};
+ const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',tpl.payment_terms_default||''].filter(Boolean).join(' · ');
+ return `<article class="invoice-preview" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)}">
+  <header class="invoice-document-head">
+   <div class="invoice-company">
+    ${logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo" style="max-width:${Math.max(70,Math.min(260,Number(tpl.logo_width_mm||34)*4))}px">`:''}
+    <div><b class="invoice-company-name">${esc(biz.business_name||'')}</b><div>${esc(biz.tax_id||'')}</div><div>${esc(biz.business_address||'')}</div>${tpl.show_company_email!==false&&biz.business_email?`<div>${esc(biz.business_email)}</div>`:''}${tpl.show_company_phone!==false&&biz.business_phone?`<div>${esc(biz.business_phone)}</div>`:''}</div>
+   </div>
+   <div class="invoice-identity"><div class="invoice-title">${esc(title)}</div><div class="invoice-number">${esc(row.display_number||row.external_number_text||'BORRADOR')}</div><div>Emisión: <b>${fmtDate(row.issue_date)}</b></div>${row.operation_date?`<div>Operación: <b>${fmtDate(row.operation_date)}</b></div>`:''}${row.due_date?`<div>Vencimiento: <b>${fmtDate(row.due_date)}</b></div>`:''}</div>
+  </header>
+  ${tpl.header_text?`<div class="invoice-header-text">${esc(tpl.header_text)}</div>`:''}
+  <section class="invoice-client-box"><div class="eyebrow">Cliente</div><b>${esc(row.customer_name||'—')}</b><div>${esc(row.customer_tax_id||'')}</div><div>${esc(row.customer_address||'')}</div>${row.customer_email?`<div>${esc(row.customer_email)}</div>`:''}</section>
+  ${row.concept?`<div class="invoice-concept"><b>Concepto:</b> ${esc(row.concept)}</div>`:''}
+  <div class="invoice-lines-wrap">${table([
+   {label:'Descripción',html:l=>esc(l.description)},{label:'Cantidad',num:true,html:l=>String(l.quantity)},{label:'Precio',num:true,html:l=>moneyCell(l.unit_price_base)},
    {label:'Dto.',num:true,html:l=>`${Number(l.discount_pct||0).toFixed(1).replace('.',',')} %`},{label:'IVA',num:true,html:l=>`${Number(l.vat_rate||0).toFixed(1).replace('.',',')} %`},{label:'Total',num:true,html:l=>moneyCell(l.total_amount)}
-  ],lines,{emptyTitle:'Sin líneas'})}
-  <div class="metric-list"><div class="metric-box"><span>Base</span><b>${money(row.base_amount)}</b></div><div class="metric-box"><span>IVA</span><b>${money(row.vat_amount)}</b></div><div class="metric-box"><span>Total</span><b>${money(row.total_amount)}</b></div></div>
-  ${tpl.payment_terms_default?`<div class="note">${esc(tpl.payment_terms_default)}</div>`:''}
-  ${tpl.footer_text?`<div class="small muted">${esc(tpl.footer_text)}</div>`:''}
-  <div class="form-actions">${btn('Imprimir / PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>
- </div>`;
+  ],lines,{emptyTitle:'Sin líneas'})}</div>
+  <div class="invoice-totals"><div class="summary-row"><span>Base imponible</span><strong>${money(row.base_amount)}</strong></div><div class="summary-row"><span>IVA</span><strong>${money(row.vat_amount)}</strong></div><div class="summary-row invoice-grand-total"><span>Total</span><strong>${money(row.total_amount)}</strong></div>${row.document_type!=='proforma'&&Number(row.paid_amount||0)>0?`<div class="summary-row"><span>Cobrado</span><strong>${money(row.paid_amount)}</strong></div><div class="summary-row"><span>Pendiente</span><strong>${money(Math.max(0,Number(row.total_amount||0)-Number(row.paid_amount||0)))}</strong></div>`:''}</div>
+  ${paymentText?`<section class="invoice-payment-box"><b>Pago</b><div>${esc(paymentText)}</div></section>`:''}
+  ${tpl.footer_text?`<footer class="invoice-footer">${esc(tpl.footer_text)}</footer>`:''}
+  <div class="form-actions no-print">${btn('Imprimir / Guardar PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>
+ </article>`;
 }
 
 export function productModal(row=null){
