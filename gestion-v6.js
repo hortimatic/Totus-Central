@@ -789,11 +789,11 @@ function validateDocFile(file){
  if(!file)return true;
  const max=n(O.settings?.document_max_bytes||20971520);
  const ext='.'+String(file.name||'').split('.').pop().toLowerCase();
- const allowedExt=new Set(['.pdf','.jpg','.jpeg','.png','.webp','.xlsx','.xls','.csv']);
- const allowedMime=new Set(['application/pdf','image/jpeg','image/png','image/webp','text/csv','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel']);
+ const allowedExt=new Set(['.pdf','.jpg','.jpeg','.png','.webp','.xlsx','.xls','.csv','.txt','.md']);
+ const allowedMime=new Set(['application/pdf','image/jpeg','image/png','image/webp','text/csv','text/plain','text/markdown','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel']);
  if(file.size<=0)throw new Error('El archivo está vacío.');
  if(file.size>max)throw new Error('El archivo supera el límite de '+Math.round(max/1048576)+' MB.');
- if(!allowedExt.has(ext))throw new Error('Tipo de archivo no permitido. Usa PDF, imagen, Excel o CSV.');
+ if(!allowedExt.has(ext))throw new Error('Tipo de archivo no permitido. Usa PDF, imagen, Excel, CSV o texto.');
  if(file.type&&!allowedMime.has(file.type))throw new Error('El contenido del archivo no coincide con un formato permitido.');
  return true;
 }
@@ -801,6 +801,8 @@ window.__opsValidateDocumentFile=validateDocFile;
 async function uploadDoc(file,meta,linkedType='',linkedId=null){
  if(!file)return null;
  validateDocFile(file);
+ const storageLimit=n(O.settings?.storage_limit_bytes||1073741824),used=n(O.storageUsage?.total_bytes||sum(O.documents,d=>n(d.size_bytes)));
+ if(storageLimit&&used+file.size>storageLimit)throw new Error('El archivo supera el espacio total disponible. Libera espacio o aumenta el límite antes de subirlo.');
  const sha=await fileSha256(file);
  const dup=O.documents.find(d=>d.sha256&&d.sha256===sha);
  if(dup&&!confirm('Este archivo ya existe como "'+dup.original_name+'". ¿Quieres guardar otra copia vinculada a este registro?'))return null;
@@ -906,12 +908,15 @@ window.opsDocFilter=function(k,v,soft=false){
  if(O.docFilter.from&&O.docFilter.to&&O.docFilter.from>O.docFilter.to){O.docFilter[k]=prev;alert('La fecha "Desde" no puede ser posterior a "Hasta".');return render()}
  if(!soft)render();else{clearTimeout(window.__opsDocTimer);window.__opsDocTimer=setTimeout(render,200)}
 };
+window.opsResetDocFilters=function(){O.docFilter={from:'',to:'',store:'all',status:'all',type:'all',q:''};O.docSelected=[];render()};
 window.opsUploadStandaloneDoc=async function(){
  const file=document.getElementById('ops_doc_file')?.files?.[0];if(!file){alert('Selecciona un archivo.');return}
  const date=document.getElementById('ops_doc_date')?.value||isoToday(),type=document.getElementById('ops_doc_type')?.value||'otro',party=document.getElementById('ops_doc_party')?.value?.trim()||'',number=document.getElementById('ops_doc_invoice')?.value?.trim()||'';
  if(date>isoToday())return alert('No puedes archivar un documento con fecha futura.');
  if(['factura_recibida','factura_emitida','factura_rectificativa','proforma'].includes(type)&&!party)return alert('Indica el proveedor o cliente del documento.');
  if(['factura_recibida','factura_emitida','factura_rectificativa','proforma'].includes(type)&&!number)return alert('Indica el número del documento.');
+ const duplicateMeta=party&&number&&O.documents.find(d=>String(d.supplier_or_customer||'').trim().toLowerCase()===party.toLowerCase()&&String(d.invoice_number||'').trim().toLowerCase()===number.toLowerCase());
+ if(duplicateMeta&&!confirm('Ya existe un documento de "'+duplicateMeta.supplier_or_customer+'" con el número "'+duplicateMeta.invoice_number+'". ¿Quieres archivarlo igualmente?'))return;
  try{
   const id=await uploadDoc(file,{store_id:document.getElementById('ops_doc_store').value||null,doc_type:type,document_date:date,supplier_or_customer:party,tax_id:document.getElementById('ops_doc_tax').value.trim(),invoice_number:number,status:document.getElementById('ops_doc_status').value,notes:document.getElementById('ops_doc_notes')?.value?.trim()||''},'standalone',null);
   if(!id)return;
@@ -921,7 +926,7 @@ window.opsUploadStandaloneDoc=async function(){
 window.opsDownloadDoc=async function(id){
  const d=O.documents.find(x=>x.id===id);if(!d)return;const {data,error}=await sb.storage.from('business-documents').download(d.storage_path);if(error){alert(error.message);return}dlBlob(data,d.original_name);
 };
-window.opsSetDocStatus=async function(id,status){if(!manager())return alert('Solo administración o gerencia puede cambiar el estado documental.');const {error}=await sb.from('ops_documents').update({status}).eq('id',id);if(error){alert(error.message);return}const d=O.documents.find(x=>x.id===id);if(d)d.status=status;await audit('documentos','estado',id,{status});};
+window.opsSetDocStatus=async function(id,status){if(!manager())return alert('Solo administración o gerencia puede cambiar el estado documental.');const d=O.documents.find(x=>x.id===id),previous=d?.status||'pendiente';const {error}=await sb.from('ops_documents').update({status}).eq('id',id);if(error){if(d)d.status=previous;render();alert('No se pudo cambiar el estado: '+error.message);return}if(d)d.status=status;await audit('documentos','estado',id,{status});};
 
 window.opsPlannedSpend=function(v){O.plannedSpend=v;if(typeof window.__opsUpdateFiscalSimulation==='function')window.__opsUpdateFiscalSimulation()};
 function docArchiveFolder(d,root='04_DOCUMENTOS'){
@@ -987,7 +992,13 @@ window.opsSaveSettings=async function(){
  await audit('config','actualizar',null,{campos:Object.keys(row)});await load(true);render();alert('Configuración guardada.');
 };
 
-window.opsTab=function(tab){O.tab=tab;if(tab==='cajas'&&!O.closeDraft)O.closeDraft=newClosingDraft();if(tab==='gastos'&&!O.expenseDraft){O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()]}render();window.scrollTo({top:0,behavior:'smooth'})};
+function documentUploadHasUserInput(){
+ if(O.tab!=='documentos')return false;
+ const file=document.getElementById('ops_doc_file')?.files?.[0];
+ const val=id=>document.getElementById(id)?.value||'';
+ return !!file||val('ops_doc_date')&&val('ops_doc_date')!==isoToday()||!!val('ops_doc_store')||val('ops_doc_type')&&val('ops_doc_type')!=='factura_recibida'||val('ops_doc_status')&&val('ops_doc_status')!=='pendiente'||['ops_doc_party','ops_doc_tax','ops_doc_invoice','ops_doc_notes'].some(id=>String(val(id)).trim());
+}
+window.opsTab=function(tab){if(tab!==O.tab&&documentUploadHasUserInput()&&!confirm('Hay un documento preparado para subir. ¿Cambiar de pestaña y descartar esos datos?'))return;O.tab=tab;if(tab==='cajas'&&!O.closeDraft)O.closeDraft=newClosingDraft();if(tab==='gastos'&&!O.expenseDraft){O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()]}render();window.scrollTo({top:0,behavior:'smooth'})};
 window.opsSetYear=function(v){O.year=+v;O.reportFrom=`${O.year}-01-01`;O.reportTo=`${O.year}-12-31`;O.invoiceDraft=null;render()};
 window.opsSetQuarter=function(v){O.quarter=+v;render()};
 window.opsSetStore=function(v){O.storeId=v;O.closeDraft=null;O.expenseDraft=null;O.invoiceDraft=null;render()};
