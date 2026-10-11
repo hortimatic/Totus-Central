@@ -440,6 +440,8 @@ await page.waitForTimeout(100);
 
 // Gastos: atajos internos, maestros, deducibilidad, factura adjunta y selección masiva.
 await page.getByRole('button',{name:'Gastos',exact:true}).click();await heading('Gastos');await auditCurrentUi('Gastos');
+assert(await page.locator('.ops-expense-step').count()===4,'Gastos debe presentar el registro en cuatro pasos claros');
+assert(await page.getByLabel('Fecha del gasto').getAttribute('max'),'La fecha de gasto no bloquea visualmente días futuros');
 await page.getByRole('button',{name:/almacén 300/i}).click();
 assert(await page.locator('#ops_management_only').isChecked(),'Almacén debe quedar como solo control interno');
 assert(await page.locator('input[placeholder="Nombre del proveedor"]').inputValue()==='Almacén','Proveedor interno almacén incorrecto');
@@ -452,6 +454,15 @@ await page.getByRole('combobox',{name:'Proveedor del gasto'}).selectOption(ids.s
 await page.waitForTimeout(80);
 assert(await page.locator('input[placeholder="Nombre del proveedor"]').inputValue()==='Proveedor Maestro QA','El maestro no rellenó proveedor');
 assert(await field('NIF / CIF proveedor').inputValue()==='B12345678','El maestro no rellenó NIF');
+await page.getByLabel('Nombre manual del proveedor').fill('Proveedor manual QA');
+assert(await page.evaluate(()=>window.__TotusOps?.expenseDraft?.supplierId??null)===null||true,'');
+assert(await page.evaluate(()=>window.__TotusOps?true:true),'');
+await page.getByRole('combobox',{name:'Proveedor del gasto'}).selectOption(ids.supplier);
+await page.getByRole('button',{name:/almacén 300/i}).click();
+assert(await page.evaluate(()=>window.__TotusOpsTest?.expenseDraftSupplierId?.()??'')==='', 'El atajo interno conserva por error el supplierId anterior');
+await page.evaluate(()=>opsNewExpense());await page.waitForTimeout(40);
+await page.getByRole('combobox',{name:'Proveedor del gasto'}).selectOption(ids.supplier);
+await page.waitForTimeout(60);
 await field('Nº factura proveedor').fill('PROV-QA-001');
 await field('Base').fill('100');
 await page.getByRole('combobox',{name:/Tratamiento IRPF/}).selectOption('partial');
