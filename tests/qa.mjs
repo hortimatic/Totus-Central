@@ -30,7 +30,7 @@ for(const f of ['src/app.js','src/api.js','src/state.js','src/config.js','src/ut
  catch(e){errors.push('Error de sintaxis en '+f+': '+String(e.stderr||e.message))}
 }
 
-const {state}=await import(path.resolve(root,'src/state.js'));
+const {state,setView}=await import(path.resolve(root,'src/state.js'));
 const pages=await import(path.resolve(root,'src/pages/main.js'));
 state.user={role:'admin',email:'test@example.com',full_name:'Test'};
 state.data.settings={id:1,irpf_prepayment_rate:20,default_sales_vat_rate:21,storage_limit_bytes:500*1024*1024,difficult_expense_pct:5,difficult_expense_annual_cap:2000};state.data.storageUsage={total_bytes:0,limit_bytes:500*1024*1024,documents_count:0,assets_count:0};
