@@ -681,9 +681,18 @@ window.opsOpenSupplierEditor=function(id=''){
  m.querySelector('#ops_sup_save').onclick=async()=>{
   const row={name:m.querySelector('#ops_sup_name').value.trim(),tax_id:m.querySelector('#ops_sup_tax').value.trim(),email:m.querySelector('#ops_sup_email').value.trim(),phone:m.querySelector('#ops_sup_phone').value.trim(),address:m.querySelector('#ops_sup_address').value.trim(),postal_code:m.querySelector('#ops_sup_postal').value.trim(),city:m.querySelector('#ops_sup_city').value.trim(),province:m.querySelector('#ops_sup_province').value.trim(),country:m.querySelector('#ops_sup_country').value.trim()||'España',default_payment_method:m.querySelector('#ops_sup_payment').value,default_document_kind:m.querySelector('#ops_sup_doc_kind').value,default_category_id:m.querySelector('#ops_sup_category').value||null,default_vat_rate:n(m.querySelector('#ops_sup_vat').value),default_re_rate:n(m.querySelector('#ops_sup_re').value),default_withholding_rate:n(m.querySelector('#ops_sup_wh').value),default_withholding_model:m.querySelector('#ops_sup_wh_model').value||null,default_deductible_irpf:m.querySelector('#ops_sup_deductible').checked,default_deductible_pct:n(m.querySelector('#ops_sup_deduct_pct').value),notes:m.querySelector('#ops_sup_notes').value,active:true,updated_at:new Date().toISOString()};
   if(!row.name)return m.querySelector('#ops_sup_name').focus();
+  const duplicateTax=row.tax_id&&O.suppliers.find(x=>x.id!==id&&String(x.tax_id||'').trim().toLowerCase()===row.tax_id.toLowerCase());
+  if(duplicateTax)return alert('Ya existe un proveedor con ese NIF/CIF: '+duplicateTax.name+'.');
+  const fromDocuments=O.tab==='documentos';
   const res=id?await sb.from('ops_suppliers').update(row).eq('id',id).select().single():await sb.from('ops_suppliers').insert({...row,source:'manual',created_by:authSession?.user?.id||null}).select().single();
   if(res.error){alert('No se pudo guardar el proveedor: '+res.error.message);return}
-  closeOpsModal();await load(true);window.opsSelectSupplier(res.data.id);
+  closeOpsModal();await load(true);
+  if(fromDocuments){
+   const party=document.getElementById('ops_doc_party'),tax=document.getElementById('ops_doc_tax');
+   if(party)party.value=res.data.name||'';if(tax)tax.value=res.data.tax_id||'';
+   return;
+  }
+  window.opsSelectSupplier(res.data.id);
  };
 };
 window.opsOpenSupplierManager=function(){
