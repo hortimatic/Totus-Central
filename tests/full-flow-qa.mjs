@@ -264,6 +264,15 @@ await check('Fiscalidad: alta y edición de ajuste fiscal',async()=>{
  const values=await page.evaluate(()=>window.__mockDb.ops_fiscal_adjustments);
  assert(values.some(x=>x.description==='Regularización simulada'&&Math.abs(x.amount-25.5)<.001),'Ajuste fiscal no guardado');
 });
+await check('Backup integral: descarga de base de datos y archivos simulados',async()=>{
+ await nav('administracion');
+ const section=page.locator('[data-action="admin-section"][data-section="backups"]');
+ if(await section.count())await section.first().click();
+ const filePromise=page.waitForEvent('download',{timeout:15000});
+ await page.locator('[data-action="backup-create"]').click();
+ const exported=await filePromise;
+ assert(exported.suggestedFilename().endsWith('.totusbackup'),'La copia no tiene formato .totusbackup');
+});
 await check('Roles: gerente y encargado con permisos de navegación',async()=>{
  for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
   const rolePage=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
