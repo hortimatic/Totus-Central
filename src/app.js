@@ -833,7 +833,7 @@ function exportRows(type){
  if(type==='closings')return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  if(type==='expenses')return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
  const invoices=state.data.invoices.filter(x=>x.issue_date>=f.from&&x.issue_date<=f.to&&(f.store==='all'||x.store_id===f.store));
- const fiscalAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.adjustment_date>=f.from&&x.adjustment_date<=f.to&&(f.store==='all'||!x.store_id||x.store_id===f.store));
+ const fiscalAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.adjustment_date>=f.from&&x.adjustment_date<=f.to&&(f.store==='all'||x.store_id===f.store));
  return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,from:f.from,to:f.to});
 }
 
