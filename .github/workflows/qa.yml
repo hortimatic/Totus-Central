@@ -12,4 +12,10 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
-      - run: echo "QA cycle complete"
+      - run: npm install --no-save xlsx-js-style
+      - run: node tests/excel-qa.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: totus-excel-qa
+          path: artifacts/*.xlsx
+          retention-days: 3
