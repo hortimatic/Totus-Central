@@ -1,6 +1,6 @@
 import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
-import {kpi,table,dateFilters,btn,dateCell,moneyCell,stateBadge,modal,formField,selectField} from '../components.js';
+import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
