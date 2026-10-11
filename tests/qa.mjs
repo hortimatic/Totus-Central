@@ -38,7 +38,7 @@ state.data.categories=[];state.data.suppliers=[];state.data.closings=[];state.da
 state.data.expenses=[];state.data.expenseLines=[];state.data.customers=[];
 state.data.series=[{id:'i1',code:'H-2026',prefix:'H-',padding:4,year:2026,next_number:1,document_type:'factura',series_kind:'invoice',active:true,store_id:'s1'},{id:'r1',code:'RH-2026',prefix:'RH-',padding:4,year:2026,next_number:1,document_type:'factura',series_kind:'rectifying',active:true,store_id:'s1'},{id:'p1',code:'HPF-2026',prefix:'HPF-',padding:4,year:2026,next_number:1,document_type:'proforma',series_kind:'invoice',active:true,store_id:'s1'}];
 state.data.invoices=[];state.data.invoiceLines=[];state.data.documents=[];state.data.taxPayments=[];state.data.reta=[];
-state.data.fiscalAdjustments=[];state.data.incomeAdjustments=[];state.data.audit=[];state.data.templates=[];
+state.data.fiscalAdjustments=[];state.data.audit=[];state.data.templates=[];
 state.data.brands=[];state.data.families=[];state.data.products=[];state.data.variants=[];state.data.providers=[];
 state.data.providerPrices=[];state.data.competitors=[];state.data.consultations=[];state.data.team=[];
 
