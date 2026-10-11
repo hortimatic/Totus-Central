@@ -98,11 +98,18 @@ async function finalizeInvoice(id){
 }
 
 async function saveProduct(id=''){
- const row={name:required('prName','Nombre'),sku:required('prSku','Referencia'),family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,notes:val('prNotes').trim(),status:'PENDIENTE',updated_at:new Date().toISOString()};
- if(id)await update('products',id,row);else await insert('products',row);
+ const row={name:required('prName','Nombre'),sku:required('prSku','Referencia'),family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
+ let saved;
+ if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
  closeModal();await refresh('Producto guardado.');
+ if(!id&&saved?.id)productModal(state.data.products.find(x=>x.id===saved.id)||saved);
 }
-async function deleteProduct(id){if(!confirm('¿Eliminar definitivamente este producto?'))return;await remove('products',id);closeModal();await refresh('Producto eliminado.')}
+async function deleteProduct(id){
+ const p=state.data.products.find(x=>x.id===id);if(!p)return;
+ if(!confirm('¿Eliminar el producto '+p.name+' y todos sus precios, variantes e histórico?'))return;
+ const check=prompt('Escribe ELIMINAR PRODUCTO para confirmar:');if(check!=='ELIMINAR PRODUCTO')return;
+ await remove('products',id);closeModal();await refresh('Producto eliminado.');
+}
 
 function addInvoiceLine(){
  const host=document.getElementById('invoiceLines');if(!host)return;
@@ -132,6 +139,122 @@ async function convertProforma(id){
  if(!confirm('¿Convertir esta proforma en factura?'))return;
  await rpc('totus_convert_proforma',{p_id:id,p_invoice_series:series[0].id});
  await refresh('Proforma convertida en factura.');
+}
+
+function providersManager(){
+ const rows=state.data.providers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const body=`<div class="section-head"><div><p>Directorio único de proveedores para Pricing.</p></div>${btn('Nuevo proveedor','provider-new','primary')}</div>
+ <div class="stack" style="margin-top:14px">${rows.length?rows.map(p=>`<div class="summary-row"><div><b>${esc(p.name)}</b><div class="small muted">${state.data.providerPrices.filter(x=>x.provider_id===p.id).length} precios vinculados</div></div><div class="inline-actions">${btn('Editar','provider-edit','secondary',`data-id="${p.id}"`)}${btn('Eliminar','provider-delete','danger',`data-id="${p.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin proveedores</strong><span>Añade el primero.</span></div>'}</div>`;
+ modal('Proveedores',body);
+}
+function providerForm(row=null){
+ const body=`<div class="form-grid">${formField('Nombre','pvName',row?.name||'')}</div><div class="form-actions">${btn('Guardar proveedor','provider-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar proveedor':'Nuevo proveedor',body,{small:true});
+}
+async function saveProvider(id=''){
+ const row={name:required('pvName','Nombre'),active:true};
+ if(id)await update('providers',id,row);else await insert('providers',row);
+ closeModal();await refresh('Proveedor guardado.');
+}
+async function deleteProvider(id){
+ const linked=state.data.providerPrices.filter(x=>x.provider_id===id).length;
+ if(linked)throw new Error('No se puede eliminar: el proveedor tiene '+linked+' precios vinculados.');
+ if(!confirm('¿Eliminar este proveedor?'))return;
+ await remove('providers',id);closeModal();await refresh('Proveedor eliminado.');
+}
+function providerPriceForm(productId,row=null){
+ if(!state.data.providers.length){toast('Crea primero un proveedor.','bad');providersManager();return}
+ const providers=state.data.providers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}));
+ const body=`<div class="form-grid">
+  ${selectField('Proveedor','ppProvider',providers,row?.provider_id||providers[0]?.value||'')}
+  ${formField('Coste proveedor','ppNet',row?.net_cost??'','number','step="0.01"')}
+  ${formField('Descuento proveedor (%)','ppDiscount',row?.provider_discount??0,'number','step="0.1" min="0" max="100"')}
+  ${formField('Transporte por unidad','ppShipping',row?.shipping_unit??0,'number','step="0.01"')}
+  ${formField('Pedido mínimo','ppMoq',row?.moq??0,'number','min="0"')}
+  ${formField('Stock / plazo','ppStock',row?.stock_status||'')}
+  ${formField('Origen compra','ppOrigin',row?.purchase_origin||'España')}
+  ${formField('Impuesto especial adicional','ppTax',row?.special_tax_amount??0,'number','step="0.01" min="0"')}
+  <label><input id="ppApplyTax" type="checkbox" ${row?.apply_special_tax?'checked':''}> Sumar impuesto especial al coste</label>
+  <label><input id="ppSelected" type="checkbox" ${row?.selected?'checked':''}> Proveedor seleccionado</label>
+  <label class="wide">Notas<textarea id="ppNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+ </div><div class="note">Si el impuesto especial ya está incluido en la factura del proveedor, deja desmarcada la opción de sumarlo.</div>
+ <div class="form-actions">${btn('Guardar coste','provider-price-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
+ modal(row?'Editar coste de proveedor':'Añadir proveedor al producto',body);
+}
+async function saveProviderPrice(productId,id=''){
+ const selected=!!input('ppSelected')?.checked;
+ const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:!!input('ppApplyTax')?.checked,special_tax_amount:Math.max(0,num('ppTax'))};
+ if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
+ if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
+ closeModal();await refresh('Coste de proveedor guardado.');productModal(state.data.products.find(x=>x.id===productId));
+}
+async function deleteProviderPrice(productId,id){
+ if(!confirm('¿Eliminar este coste de proveedor?'))return;
+ await remove('product_provider_prices',id);closeModal();await refresh('Coste eliminado.');productModal(state.data.products.find(x=>x.id===productId));
+}
+function competitorForm(productId,row=null){
+ const body=`<div class="form-grid">
+  ${formField('Competidor','cpName',row?.competitor_name||'')}
+  ${formField('Precio','cpPrice',row?.price??'','number','step="0.01"')}
+  ${formField('Descuento (%)','cpDiscount',row?.discount??0,'number','step="0.1" min="0" max="100"')}
+  ${formField('Envío','cpShipping',row?.shipping??0,'number','step="0.01"')}
+  ${formField('Stock','cpStock',row?.stock_status||'Sí')}
+  ${formField('Promoción','cpPromo',row?.promo_type||'')}
+  ${formField('URL','cpUrl',row?.url||'','url')}
+  <label class="wide">Notas<textarea id="cpNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+ </div><div class="form-actions">${btn('Guardar competencia','competitor-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
+ modal(row?'Editar competencia':'Añadir competencia',body);
+}
+async function saveCompetitor(productId,id=''){
+ const row={product_id:productId,variant_id:null,competitor_name:required('cpName','Competidor'),url:val('cpUrl').trim(),price:num('cpPrice'),discount:Math.min(100,Math.max(0,num('cpDiscount'))),shipping:Math.max(0,num('cpShipping')),stock_status:val('cpStock').trim()||'Sí',promo_type:val('cpPromo').trim(),capture_date:isoToday(),notes:val('cpNotes').trim()};
+ if(id)await update('product_competitor_prices',id,row);else await insert('product_competitor_prices',row);
+ closeModal();await refresh('Competencia guardada.');productModal(state.data.products.find(x=>x.id===productId));
+}
+async function deleteCompetitor(productId,id){
+ if(!confirm('¿Eliminar este precio de competencia?'))return;
+ await remove('product_competitor_prices',id);closeModal();await refresh('Competencia eliminada.');productModal(state.data.products.find(x=>x.id===productId));
+}
+function variantForm(productId,row=null){
+ const body=`<div class="form-grid">
+  ${formField('Nombre variante','vrName',row?.name||'')}
+  ${formField('Referencia / SKU','vrSku',row?.sku||'')}
+  ${formField('Nicotina mg/ml','vrNic',row?.nicotine_mg_ml??'','number','step="0.1" min="0"')}
+  ${formField('Volumen ml','vrVol',row?.volume_ml??'','number','step="0.1" min="0"')}
+  ${formField('Impuesto €/ml (informativo)','vrTaxRate',row?.special_tax_rate_ml??'','number','step="0.01" min="0"')}
+  ${formField('Impuesto total (informativo)','vrTaxAmount',row?.special_tax_amount??'','number','step="0.01" min="0"')}
+  ${formField('Coste neto final','vrCost',row?.cost_net??'','number','step="0.01"')}
+  ${formField('PVP','vrPvp',row?.pvp??'','number','step="0.01"')}
+ </div><div class="note">El coste neto final debe ser el coste real de compra. El impuesto se guarda como información y no se suma de nuevo automáticamente.</div>
+ <div class="form-actions">${btn('Guardar variante','variant-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
+ modal(row?'Editar variante':'Nueva variante',body);
+}
+async function saveVariant(productId,id=''){
+ const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:id?(state.data.variants.find(x=>x.id===id)?.attributes||{}):{},nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:true};
+ if(id)await update('product_variants',id,row);else await insert('product_variants',row);
+ closeModal();await refresh('Variante guardada.');productModal(state.data.products.find(x=>x.id===productId));
+}
+async function deleteVariant(productId,id){
+ if(!confirm('¿Eliminar esta variante?'))return;
+ await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');productModal(state.data.products.find(x=>x.id===productId));
+}
+async function saveConsultation(){
+ const query=required('pqQuery','Consulta'),cost=num('pqCost'),pvp=num('pqPvp'),competitor=num('pqCompetitor'),discount=Math.min(100,Math.max(0,num('pqDiscount')));
+ const finalSale=pvp*(1-discount/100),net=finalSale/1.21,margin=net-cost,marginPct=net>0?margin/net*100:0;
+ const row=await insert('consultations',{query,cost_net:cost,pvp,competitor,discount,cost_real:cost,final_sale:finalSale,margin,margin_pct:marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
+ await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO',consultation_query:query,snapshot:row}).catch(()=>{});
+ await refresh('Consulta guardada.');
+}
+async function reuseConsultation(id){
+ const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
+ const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
+ set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);
+ await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()}).catch(()=>{});
+ await insert('consultation_history',{consultation_id:id,user_id:state.user?.id||null,action:'REABIERTO',consultation_query:c.query,snapshot:c}).catch(()=>{});
+ toast('Consulta cargada.','ok');
+}
+async function deleteConsultation(id){
+ if(!confirm('¿Eliminar esta consulta guardada?'))return;
+ await remove('consultations',id);await refresh('Consulta eliminada.');
 }
 
 function customerForm(row=null){
@@ -314,6 +437,26 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-preview'){showInvoicePreview(el.dataset.id);return}
   if(a==='invoice-print'){printInvoice(el.dataset.id);return}
   if(a==='proforma-convert'){await convertProforma(el.dataset.id);return}
+  if(a==='providers-manage'){providersManager();return}
+  if(a==='provider-new'){providerForm();return}
+  if(a==='provider-edit'){providerForm(state.data.providers.find(x=>x.id===el.dataset.id));return}
+  if(a==='provider-save'){await saveProvider(el.dataset.id||'');return}
+  if(a==='provider-delete'){await deleteProvider(el.dataset.id);return}
+  if(a==='provider-price-new'){providerPriceForm(el.dataset.product);return}
+  if(a==='provider-price-edit'){providerPriceForm(el.dataset.product,state.data.providerPrices.find(x=>x.id===el.dataset.id));return}
+  if(a==='provider-price-save'){await saveProviderPrice(el.dataset.product,el.dataset.id||'');return}
+  if(a==='provider-price-delete'){await deleteProviderPrice(el.dataset.product,el.dataset.id);return}
+  if(a==='competitor-new'){competitorForm(el.dataset.product);return}
+  if(a==='competitor-edit'){competitorForm(el.dataset.product,state.data.competitors.find(x=>x.id===el.dataset.id));return}
+  if(a==='competitor-save'){await saveCompetitor(el.dataset.product,el.dataset.id||'');return}
+  if(a==='competitor-delete'){await deleteCompetitor(el.dataset.product,el.dataset.id);return}
+  if(a==='variant-new'){variantForm(el.dataset.product);return}
+  if(a==='variant-edit'){variantForm(el.dataset.product,state.data.variants.find(x=>x.id===el.dataset.id));return}
+  if(a==='variant-save'){await saveVariant(el.dataset.product,el.dataset.id||'');return}
+  if(a==='variant-delete'){await deleteVariant(el.dataset.product,el.dataset.id);return}
+  if(a==='consultation-save'){await saveConsultation();return}
+  if(a==='consultation-reuse'){await reuseConsultation(el.dataset.id);return}
+  if(a==='consultation-delete'){await deleteConsultation(el.dataset.id);return}
   if(a==='customers-manage'){customersManager();return}
   if(a==='customer-new'){customerForm();return}
   if(a==='customer-edit'){customerForm(state.data.customers.find(x=>x.id===el.dataset.id));return}
