@@ -1,4 +1,4 @@
-import {state,isAdmin,isManager} from '../state.js';
+import {state,isAdmin,isManager,getFilters} from '../state.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,dateCell,moneyCell,stateBadge,modal,formField,selectField} from '../components.js';
 
@@ -41,7 +41,7 @@ export function inicio(){
 }
 
 export function cajas(){
- const f=state.filters;
+ const f=getFilters('cajas');
  const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.notes,storeName(x.store_id),x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const total=sum(rows,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
  const headers=[
@@ -58,7 +58,7 @@ export function cajas(){
 }
 
 export function gastos(){
- const f=state.filters;
+ const f=getFilters('gastos');
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
   {label:'Fecha',html:r=>dateCell(r.expense_date)},{label:'Proveedor',html:r=>esc(r.supplier_name||'—')},{label:'Factura',html:r=>esc(r.invoice_number||'—')},
@@ -72,7 +72,7 @@ export function gastos(){
 }
 
 export function facturacion(){
- const f=state.filters;
+ const f=getFilters('facturacion');
  const rows=state.data.invoices.filter(x=>inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.display_number,x.customer_name,x.customer_tax_id,x.concept,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
   {label:'Fecha',html:r=>dateCell(r.issue_date)},{label:'Número',html:r=>esc(r.display_number||'Borrador')},{label:'Tipo',html:r=>esc(r.document_type||'factura')},
@@ -86,7 +86,7 @@ export function facturacion(){
 }
 
 export function documentos(){
- const f=state.filters;
+ const f=getFilters('documentos');
  const rows=state.data.documents.filter(x=>inRange(x.document_date||x.created_at,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
   {label:'Fecha',html:r=>dateCell(r.document_date||r.created_at)},{label:'Archivo',html:r=>esc(r.original_name||'—')},{label:'Tipo',html:r=>esc(r.doc_type||'—')},
@@ -98,7 +98,7 @@ export function documentos(){
 }
 
 export function fiscalidad(){
- const f=state.filters;
+ const f=getFilters('fiscalidad');
  const closings=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const expenses=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const income=sum(closings,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)),x=>x.amount);
@@ -114,7 +114,7 @@ export function fiscalidad(){
 }
 
 export function informes(){
- const f=state.filters;
+ const f=getFilters('informes');
  const c=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const g=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  return `<div class="page"><section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
@@ -156,13 +156,13 @@ export function log(){
 }
 
 export function pricing(){
- const q=state.filters.query.toLowerCase();
+ const q=getFilters('pricing').query.toLowerCase();
  const rows=state.data.products.filter(x=>!q||[x.name,x.sku,x.status].join(' ').toLowerCase().includes(q));
  const familyName=id=>state.data.families.find(x=>x.id===id)?.name||'—';
  const costOf=p=>{const list=state.data.providerPrices.filter(x=>x.product_id===p.id);return list.length?Math.min(...list.map(x=>Number(x.net_cost||0)+Number(x.shipping_unit||0)+Number(x.special_tax_amount||0))):0};
  const headers=[{label:'Producto',html:r=>`<b>${esc(r.name)}</b><div class="small muted">${esc(r.sku)}</div>`},{label:'Familia',html:r=>esc(familyName(r.family_id))},{label:'Coste',num:true,html:r=>moneyCell(costOf(r))},{label:'PVP',num:true,html:r=>moneyCell(r.current_pvp||r.proposed_pvp)},{label:'Margen',num:true,html:r=>{const p=Number(r.current_pvp||r.proposed_pvp||0),c=costOf(r);return p?((p/1.21-c)/(p/1.21)*100).toFixed(1).replace('.',',')+' %':'—'}},{label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>btn('Editar','product-edit','secondary',`data-id="${r.id}"`)}];
  return `<div class="page"><div class="kpis">${kpi('Productos',String(rows.length))}${kpi('Familias',String(state.data.families.length))}${kpi('Proveedores',String(state.data.providers.length))}${kpi('Consultas',String(state.data.consultations.length))}</div>
- <section class="card table-card"><div class="section-head card-pad"><div><h2>Pricing</h2><p>Costes, PVP, margen, proveedores y competencia.</p></div>${btn('Nuevo producto','product-new','primary')}</div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" value="${esc(state.filters.query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section></div>`;
+ <section class="card table-card"><div class="section-head card-pad"><div><h2>Pricing</h2><p>Costes, PVP, margen, proveedores y competencia.</p></div>${btn('Nuevo producto','product-new','primary')}</div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section></div>`;
 }
 
 export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,usuarios,configuracion,log};
