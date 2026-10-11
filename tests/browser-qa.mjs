@@ -83,6 +83,31 @@ for(const [vpName,viewport] of viewports){
  for(const e of errs)errors.push('inicio interacción: '+e);
  await page.close();
 }
+{
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ for(const [route,dateKey,needle] of [
+  ['cajas','business_date','Cierre QA'],
+  ['gastos','expense_date','Proveedor QA'],
+  ['documentos','document_date','factura.pdf'],
+  ['facturacion','issue_date','H-0001']
+ ]){
+  await page.goto(base+'/tests/ui-harness.html?route='+route,{waitUntil:'networkidle'});
+  const outcome=await page.evaluate(({route,dateKey,needle})=>{
+    const qa=window.__totusQa;
+    if(!qa)throw new Error('Harness aislado no disponible');
+    const f=qa.state.filters[route];
+    f.from='2026-10-11';f.to='2026-10-31';qa.render();
+    const hidden=!document.getElementById('root').innerText.includes(needle);
+    f.from='2026-10-01';f.to='2026-10-31';qa.render();
+    const visible=document.getElementById('root').innerText.includes(needle);
+    f.from='2026-10-12';f.to='2026-10-01';qa.render();
+    const invalidShouldNotReturn=document.getElementById('root').innerText.includes(needle);
+    return {hidden,visible,invalidShouldNotReturn};
+  },{route,dateKey,needle});
+  if(!outcome.hidden||!outcome.visible||outcome.invalidShouldNotReturn)errors.push('Fechas '+route+': '+JSON.stringify(outcome));
+ }
+ await page.close();
+}
 await browser.close();
 if(errors.length){console.error('BROWSER QA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('Browser QA desktop + mobile: OK');
