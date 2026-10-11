@@ -448,6 +448,10 @@ assert(await page.locator('input[placeholder="Nombre del proveedor"]').inputValu
 await page.getByRole('button',{name:/horas extra/i}).click();
 assert(await page.locator('#ops_management_only').isChecked(),'Horas extra debe quedar fuera de fiscalidad');
 await page.evaluate(()=>opsNewExpense());
+await page.locator('#ops_management_only').check();
+assert(await page.getByLabel('IVA %').first().inputValue()==='0'&&await page.getByLabel('RE %').first().inputValue()==='0','Modo interno no limpia impuestos');
+await page.locator('#ops_management_only').uncheck();
+assert(await page.getByLabel('IVA %').first().inputValue()==='21'&&await page.getByLabel('RE %').first().inputValue()==='5,2','Volver de interno a fiscal no restaura impuestos de la categoría');
 
 // Selección desde maestro rellena NIF y defaults.
 await page.getByRole('combobox',{name:'Proveedor del gasto'}).selectOption(ids.supplier);
