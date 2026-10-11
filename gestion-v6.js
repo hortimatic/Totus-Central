@@ -5,9 +5,9 @@
 const O=window.TotusGestion={
   loaded:false,loading:false,tab:'resumen',
   year:new Date().getFullYear(),quarter:Math.floor(new Date().getMonth()/3)+1,storeId:'all',
-  settings:null,stores:[],categories:[],suppliers:[],personnel:[],documents:[],expenses:[],expenseLines:[],
+  settings:null,stores:[],categories:[],suppliers:[],documents:[],expenses:[],expenseLines:[],
   closings:[],drawers:[],closingDrawers:[],series:[],invoices:[],invoiceLines:[],
-  taxPayments:[],retaBrackets:[],fiscalAdjustments:[],incomeAdjustments:[],gestorQuarterSummary:[],reconciliationNotes:[],
+  taxPayments:[],retaBrackets:[],fiscalAdjustments:[],incomeAdjustments:[],
   closeDraft:null,closeView:'list',closeSearch:'',closeStatus:'all',expenseDraft:null,expenseDraftLines:[],expenseSelected:[],expenseView:'list',expenseSearch:'',expenseMode:'all',invoiceDraft:null,invoiceDraftLines:[],
   docFilter:{from:'',to:'',store:'all',status:'all',type:'all',q:''},
   reportFrom:'',reportTo:'',plannedSpend:'',
@@ -166,12 +166,11 @@ async function load(force=false){
   if(O.loaded&&!force)return;
   O.loading=true;
   try{
-    const [settings,stores,categories,suppliers,personnel,documents,expenses,expenseLines,closings,drawers,closingDrawers,series,invoices,invoiceLines,taxPayments,retaBrackets,fiscalAdjustments,incomeAdjustments,gestorQuarterSummary,reconciliationNotes]=await Promise.all([
+    const [settings,stores,categories,suppliers,documents,expenses,expenseLines,closings,drawers,closingDrawers,series,invoices,invoiceLines,taxPayments,retaBrackets,fiscalAdjustments,incomeAdjustments]=await Promise.all([
       selectAll('ops_business_settings'),
       selectAll('ops_stores','sort_order',true),
       selectAll('ops_expense_categories','sort_order',true),
       selectAll('ops_suppliers','name',true),
-      selectAll('ops_personnel','full_name',true),
       selectAll('ops_documents','created_at',false),
       selectAll('ops_expenses','expense_date',false),
       selectAll('ops_expense_lines','sort_order',true),
@@ -185,8 +184,6 @@ async function load(force=false){
       selectAll('ops_reta_brackets','bracket_order',true),
       selectAll('ops_fiscal_adjustments','adjustment_date',false),
       selectAll('ops_income_adjustments','income_date',false),
-      selectAll('ops_gestor_quarter_summary','quarter',true),
-      selectAll('ops_reconciliation_notes','created_at',false)
     ]);
     O.settings=settings[0]||{};
     O.stores=stores.filter(x=>x.active!==false);
@@ -195,7 +192,7 @@ async function load(force=false){
     O.documents=documents; O.expenses=expenses; O.expenseLines=expenseLines;
     O.closings=closings; O.drawers=drawers.filter(x=>x.active!==false); O.closingDrawers=closingDrawers;
     O.series=series; O.invoices=invoices; O.invoiceLines=invoiceLines; O.taxPayments=taxPayments;
-    O.retaBrackets=retaBrackets; O.fiscalAdjustments=fiscalAdjustments; O.incomeAdjustments=incomeAdjustments; O.gestorQuarterSummary=gestorQuarterSummary; O.reconciliationNotes=reconciliationNotes.filter(x=>x.active!==false);
+    O.retaBrackets=retaBrackets; O.fiscalAdjustments=fiscalAdjustments; O.incomeAdjustments=incomeAdjustments;
     if(!O.year)O.year=O.settings.current_year||new Date().getFullYear();
     if(!O.reportFrom)O.reportFrom=`${O.year}-01-01`;
     if(!O.reportTo)O.reportTo=`${O.year}-12-31`;
