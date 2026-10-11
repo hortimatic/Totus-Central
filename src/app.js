@@ -743,7 +743,9 @@ async function saveTaxPayment(id='',model,year,quarter){
 }
 async function deleteTaxPayment(id){if(!confirm('¿Eliminar este registro fiscal?'))return;await remove('ops_tax_payments',id);closeModal();await refresh('Registro fiscal eliminado.')}
 function fiscalAdjustmentForm(row=null){
+ const fiscalStores=[{value:'',label:'General / todas'},...state.data.stores.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const body=`<div class="form-grid">
+  ${selectField('Tienda','faStore',fiscalStores,row?.store_id||'')}
   ${formField('Fecha','faDate',row?.adjustment_date||isoToday(),'date')}
   ${selectField('Tipo','faKind',[{value:'ingreso_extra',label:'Ingreso extra'},{value:'gasto_deducible_extra',label:'Gasto deducible extra'},{value:'retencion_soportada',label:'Retención soportada'},{value:'amortizacion',label:'Amortización'},{value:'reduccion',label:'Reducción'},{value:'otro',label:'Otro'}],row?.kind||'otro')}
   ${formField('Importe','faAmount',row?.amount??'','number','step="0.01" min="0"')}
