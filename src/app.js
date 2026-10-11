@@ -60,7 +60,7 @@ function validateDecimalFields(){
   const valid=/^-?\d+(?:[.,]\d+)?$/.test(raw)
    ||/^-?\d{1,3}(?:\.\d{3})+[,]\d+$/.test(raw)
    ||/^-?\d{1,3}(?:,\d{3})+[.]\d+$/.test(raw);
-  if(!valid){field.focus();throw new Error('El campo "'+(field.closest('label')?.textContent||field.id).trim()+'" contiene un importe no válido.')}
+  if(!valid){field.focus();const err=new Error('El campo "'+(field.closest('label')?.textContent||field.id).trim()+'" contiene un importe no válido.');err.name='ValidationError';throw err}
  }
 }
 
@@ -1231,7 +1231,7 @@ document.addEventListener('click',async e=>{
   if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year));return}
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
- }catch(err){console.error(err);toast(err.message||String(err),'bad')}
+ }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
 });
 
 document.addEventListener('input',e=>{
