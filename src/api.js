@@ -5,7 +5,21 @@ const assert=({error},ctx)=>{if(error)throw new Error(`${ctx}: ${error.message}`
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
 export async function logout(){await sb.auth.signOut()}
 export async function recover(email){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});assert(r,'Recuperación')}
-export async function select(table,{order,ascending=false,limit=5000,filter}={}){let q=sb.from(table).select('*');if(filter)q=filter(q);if(order)q=q.order(order,{ascending});if(limit)q=q.limit(limit);const r=await q;assert(r,table);return r.data||[]}
+export async function select(table,{order,ascending=false,limit=20000,filter}={}){
+ const rows=[],pageSize=1000;let from=0;
+ while(from<limit){
+  let q=sb.from(table).select('*');
+  if(filter)q=filter(q);
+  if(order)q=q.order(order,{ascending});
+  const size=Math.min(pageSize,limit-from);
+  q=q.range(from,from+size-1);
+  const r=await q;assert(r,table);
+  const batch=r.data||[];rows.push(...batch);
+  if(batch.length<size)break;
+  from+=size;
+ }
+ return rows;
+}
 export async function insert(table,row){const r=await sb.from(table).insert(row).select().single();assert(r,`Crear ${table}`);return r.data}
 export async function update(table,id,row){const r=await sb.from(table).update(row).eq('id',id).select().single();assert(r,`Actualizar ${table}`);return r.data}
 export async function remove(table,id){const r=await sb.from(table).delete().eq('id',id);assert(r,`Eliminar ${table}`)}
