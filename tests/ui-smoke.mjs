@@ -453,15 +453,19 @@ await page.waitForTimeout(100);
 
 // Gastos: atajos internos, maestros, deducibilidad, factura adjunta y selección masiva.
 await page.getByRole('button',{name:'Gastos',exact:true}).click();await heading('Gastos');await auditCurrentUi('Gastos');
-assert(await page.locator('.expense-workspace').count()===1,'Gastos no usa un espacio de trabajo único');
+assert(await page.getByLabel('Buscar gastos registrados').count()===1,'El histórico de Gastos no permite búsqueda directa');
+assert(await page.getByLabel('Filtrar gastos por tratamiento').count()===1,'El histórico de Gastos no permite separar fiscales e internos');
+assert(await page.getByRole('button',{name:'+ Nuevo gasto',exact:true}).count()===1,'Gastos no ofrece una acción clara para crear un registro');
+assert(await page.getByRole('button',{name:'+ Gasto interno',exact:true}).count()===1,'Gastos no ofrece el alta rápida de control interno');
+await page.getByRole('button',{name:'+ Nuevo gasto',exact:true}).click();
+assert(await page.locator('.expense-workspace').count()===1,'La ficha de gasto no usa un espacio de trabajo único');
+assert(await page.getByRole('button',{name:/Volver a gastos/}).count()===1,'La ficha de gasto no ofrece retorno claro al histórico');
 assert(await page.locator('.expense-editor').count()===1&&await page.locator('.expense-review').count()===1,'Gastos debe separar edición y revisión en dos zonas claras');
 assert(await page.getByRole('heading',{name:'Registrar gasto',exact:true}).count()===1,'Gastos no presenta una cabecera operativa clara');
 assert(await page.getByRole('heading',{name:'Proveedor y factura',exact:true}).count()===1,'El documento del gasto no está agrupado correctamente');
 assert(await page.getByRole('heading',{name:'Fiscal o interno',exact:true}).count()===1,'El tratamiento del gasto no permanece visible');
 assert(await page.locator('.expense-main-card').count()===1,'Gastos debe agrupar documento, conceptos y notas en una única superficie');
 assert(await page.locator('.expense-review-card').count()===1,'Gastos debe agrupar total, tratamiento y pago en un único panel de revisión');
-assert(await page.getByLabel('Buscar gastos registrados').count()===1,'El histórico de Gastos no permite búsqueda directa');
-assert(await page.getByLabel('Filtrar gastos por tratamiento').count()===1,'El histórico de Gastos no permite separar fiscales e internos');
 assert(await page.getByLabel('Fecha del gasto').getAttribute('max'),'La fecha de gasto no bloquea visualmente días futuros');
 await page.getByRole('button',{name:/almacén.*300/i}).click();
 assert(await page.locator('#ops_management_only').isChecked(),'Almacén debe quedar como solo control interno');
@@ -510,7 +514,7 @@ assert(Math.abs(Number(savedLine.irpf_imputable)-63.10)<0.02,'La deducibilidad p
 // Abrir gasto y comprobar gestión directa del adjunto.
 let savedExpenseRow=page.locator('tr').filter({hasText:'PROV-QA-001'}).first();
 assert(await savedExpenseRow.getByRole('button',{name:'Vista previa',exact:true}).count()===1,'La lista de gastos no ofrece vista previa directa');
-await savedExpenseRow.getByRole('button',{name:'Editar',exact:true}).click();
+await savedExpenseRow.getByRole('button',{name:'Abrir',exact:true}).click();
 assert(await page.getByRole('button',{name:'Vista previa',exact:true}).count()>=1,'La ficha del gasto no permite previsualizar la factura adjunta');
 assert(await page.getByRole('button',{name:'Quitar factura',exact:true}).count()===1,'La ficha del gasto no permite quitar el adjunto');
 
@@ -1228,7 +1232,7 @@ assert(await page.getByRole('button',{name:'+ Nuevo',exact:true}).count()===0,'E
 assert(await page.getByRole('button',{name:'Facturas',exact:true}).count()===1,'El encargado debe poder consultar facturas');
 assert(await page.getByRole('button',{name:'Proformas',exact:true}).count()===1,'El encargado debe poder consultar proformas');
 await page.getByRole('button',{name:'Cajas',exact:true}).click();await heading('Cajas');assert(await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).count()===1,'El encargado debe poder crear un cierre');await page.getByRole('button',{name:'+ Nuevo cierre',exact:true}).click();assert(await page.getByRole('button',{name:'Cerrar día',exact:true}).count()===1,'El encargado debe poder cerrar caja');
-await page.getByRole('button',{name:'Gastos',exact:true}).click();await heading('Gastos');assert(await page.getByRole('button',{name:'Guardar gasto',exact:true}).count()===1,'El encargado debe poder registrar gastos');
+await page.getByRole('button',{name:'Gastos',exact:true}).click();await heading('Gastos');assert(await page.getByRole('button',{name:'+ Nuevo gasto',exact:true}).count()===1,'El encargado debe poder iniciar un gasto');await page.getByRole('button',{name:'+ Nuevo gasto',exact:true}).click();assert(await page.getByRole('button',{name:'Guardar gasto',exact:true}).count()===1,'El encargado debe poder registrar gastos');
 
 // Pasada visual: restaurar Admin y capturar cada módulo en escritorio y móvil.
 fixtures.team_members[0].role='admin';
