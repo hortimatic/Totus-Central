@@ -554,15 +554,24 @@ assert((await expenseZip.suggestedFilename()).endsWith('.zip'),'Descarga masiva 
 
 // Facturación: navegación, plantilla/logo único, cálculo y vista previa modal.
 await page.getByRole('button',{name:'Facturación',exact:true}).click();await heading('Facturación');await auditCurrentUi('Facturación');
+assert(await page.getByLabel('Buscar documentos de facturación').count()===1,'Facturación debe abrir en listado con búsqueda');
+assert(await page.getByRole('button',{name:'+ Nuevo',exact:true}).count()===1,'Facturación no ofrece una acción primaria clara');
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await page.getByRole('heading',{name:'Factura',exact:true}).waitFor();
+assert(await page.getByRole('button',{name:/Volver a documentos/}).count()===1,'La ficha de factura no ofrece retorno al listado');
 assert(await page.getByLabel('Fecha del documento').getAttribute('max'),'La fecha de factura no bloquea visualmente días futuros');
 assert(await page.locator('.invoice-editor-state').count()===1,'Facturación no muestra el estado/origen del documento de forma visible');
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 await page.getByRole('button',{name:'Rectificativas',exact:true}).click();
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await page.getByRole('heading',{name:'Factura rectificativa',exact:true}).waitFor();
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 await page.getByRole('button',{name:'Proformas',exact:true}).click();
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await page.getByRole('heading',{name:'Proforma',exact:true}).waitFor();
 
 // Plantillas y logo viven únicamente en Facturación.
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 await page.locator('.billing-nav').getByRole('button',{name:'Plantillas y marca',exact:true}).click();
 await page.getByRole('heading',{name:'Plantillas y marca',exact:true}).waitFor();
 await auditCurrentUi('Facturación · Plantillas y marca');
@@ -629,6 +638,7 @@ assert(dialogs.some(x=>/ya existe un cliente con ese NIF\/CIF/i.test(x)),'No avi
 // Al escribir un nombre manual después de elegir un cliente, la factura no debe conservar el vínculo anterior.
 await page.getByRole('button',{name:'Facturación',exact:true}).click();await heading('Facturación');
 await page.locator('.billing-nav').getByRole('button',{name:'Documentos',exact:true}).click();
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await page.getByRole('combobox',{name:'Cliente guardado'}).selectOption(masterCustomer.id);
 await page.waitForTimeout(50);
 assert(await page.evaluate(()=>window.__TotusOpsTest.invoiceDraftCustomerId())===masterCustomer.id,'Seleccionar cliente no enlaza la factura con el maestro');
@@ -636,11 +646,13 @@ await field('Cliente / razón social').fill('Cliente manual distinto');
 assert(await page.evaluate(()=>window.__TotusOpsTest.invoiceDraftCustomerId())==='','Editar manualmente el cliente conserva por error el customerId anterior');
 
 // Series también están dentro de Facturación.
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 await page.locator('.billing-nav').getByRole('button',{name:'Series',exact:true}).click();
 await page.getByRole('heading',{name:'Series 2026',exact:true}).waitFor();
 await auditCurrentUi('Facturación · Series');
 await page.locator('.billing-nav').getByRole('button',{name:'Documentos',exact:true}).click();
 await page.getByRole('button',{name:'Proformas',exact:true}).click();
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await page.getByRole('heading',{name:'Proforma',exact:true}).waitFor();
 assert(await page.getByRole('combobox',{name:'Estado de cobro'}).count()===0,'La proforma muestra controles de cobro que no corresponden');
 assert(await page.locator('#ops_doc_income').count()===0,'La proforma permite marcar ingreso antes de convertirse en factura');
@@ -672,7 +684,7 @@ const savedProforma=fixtures.ops_sales_invoices.find(x=>x.document_type==='profo
 assert(savedProforma,'La proforma no se guardó');
 assert(fixtures.ops_sales_invoice_lines.some(x=>x.invoice_id===savedProforma.id),'La proforma no guardó sus líneas');
 assert(Math.abs(Number(savedProforma.total_amount)-217.8)<0.01,'Total persistido de proforma incorrecto');
-await page.getByRole('button',{name:'Proformas',exact:true}).click();
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 const row=page.locator('tr').filter({hasText:'Cliente QA'}).first();
 await row.getByRole('button',{name:'Emitir',exact:true}).click();
 await page.getByRole('dialog').waitFor();
@@ -697,7 +709,9 @@ assert(savedProforma.status==='convertida'&&savedProforma.converted_invoice_id,'
 assert(fixtures.ops_sales_invoices.some(x=>x.id===savedProforma.converted_invoice_id&&x.document_type==='factura'&&x.status==='borrador'),'La conversión no creó factura borrador');
 
 // Factura normal: guardar, emitir, cobrar y crear rectificativa.
+if(await page.getByRole('button',{name:/Volver a documentos/}).count())await page.getByRole('button',{name:/Volver a documentos/}).click();
 await page.getByRole('button',{name:'Facturas',exact:true}).click();
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await page.getByRole('heading',{name:'Factura',exact:true}).waitFor();
 await field('Cliente / razón social').fill('Cliente Factura QA');
 await field('Descripción').fill('Venta QA');
@@ -720,6 +734,7 @@ await page.getByRole('button',{name:'Guardar borrador',exact:true}).click();
 await page.waitForTimeout(180);
 const normalInvoice=fixtures.ops_sales_invoices.find(x=>x.customer_name==='Cliente Factura QA'&&x.document_type==='factura'&&x.invoice_kind==='invoice');
 assert(normalInvoice&&normalInvoice.status==='borrador','Factura normal no guardada como borrador');
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 let invoiceRow=page.locator('tr').filter({hasText:'Cliente Factura QA'}).first();
 await invoiceRow.getByRole('button',{name:'Emitir',exact:true}).click();
 await page.getByRole('dialog').waitFor();
@@ -747,7 +762,9 @@ const rectInvoice=fixtures.ops_sales_invoices.find(x=>x.customer_name==='Cliente
 assert(rectInvoice&&rectInvoice.series_id===ids.seriesHR,'Rectificativa no usa su serie independiente');
 
 // Flujo tipo editor: crear y emitir sin salir del documento.
+await page.getByRole('button',{name:/Volver a documentos/}).click();
 await page.getByRole('button',{name:'Facturas',exact:true}).click();
+await page.getByRole('button',{name:'+ Nuevo',exact:true}).click();
 await field('Cliente / razón social').fill('Cliente Directa QA');
 await field('Descripción').fill('Factura directa QA');
 await field('Precio base').fill('25');
