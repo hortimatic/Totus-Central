@@ -2,7 +2,7 @@ import {monthRange} from './utils.js';
 const range=monthRange();
 const dateFilter=()=>({from:range.from,to:range.to,store:'all',query:''});
 export const state={
- session:null,user:null,route:'cajas',loading:false,
+ session:null,user:null,route:'inicio',loading:false,
  views:{
    cajas:{mode:'list',id:null},
    gastos:{mode:'list',id:null},
