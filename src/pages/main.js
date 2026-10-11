@@ -445,22 +445,22 @@ export function openingDrawerCash(storeId,drawerId){
  return Number(state.data.closingDrawers.find(x=>x.closing_id===previous.id&&x.drawer_id===drawerId)?.closing_cash||0);
 }
 
-function drawerEditor(drawer,row){
+function drawerEditor(drawer,row,locked=false){
  const saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
  const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id);
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>Importes de esta caja.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
-   ${formField('Apertura efectivo',`drOpen_${drawer.id}`,open,'number','step="0.01"')}
-   ${formField('Efectivo final',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01"')}
-   ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01"')}
-   ${formField('Bizum',`drBizum_${drawer.id}`,saved?.bizum_sales??'','number','step="0.01"')}
-   ${formField('Pedidos online',`drOnline_${drawer.id}`,saved?.online_sales??'','number','step="0.01"')}
-   ${formField('Otros ingresos',`drOther_${drawer.id}`,saved?.other_income??'','number','step="0.01"')}
-   ${formField('Salidas de efectivo',`drWithdraw_${drawer.id}`,saved?.cash_withdrawals??'','number','step="0.01"')}
-   ${formField('Gastos pagados en caja',`drCashExpense_${drawer.id}`,saved?.cash_expenses_declared??'','number','step="0.01"')}
-   ${formField('Entradas extraordinarias',`drExtraIn_${drawer.id}`,saved?.cash_extra_in??'','number','step="0.01"')}
-   ${formField('Salidas extraordinarias',`drExtraOut_${drawer.id}`,saved?.cash_extra_out??'','number','step="0.01"')}
+   ${formField('Apertura efectivo',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Efectivo final',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Bizum',`drBizum_${drawer.id}`,saved?.bizum_sales??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Pedidos online',`drOnline_${drawer.id}`,saved?.online_sales??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Otros ingresos',`drOther_${drawer.id}`,saved?.other_income??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Salidas de efectivo',`drWithdraw_${drawer.id}`,saved?.cash_withdrawals??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Gastos pagados en caja',`drCashExpense_${drawer.id}`,saved?.cash_expenses_declared??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Entradas extraordinarias',`drExtraIn_${drawer.id}`,saved?.cash_extra_in??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Salidas extraordinarias',`drExtraOut_${drawer.id}`,saved?.cash_extra_out??'','number','step="0.01" '+(locked?'disabled':''))}
   </div>
  </section>`;
 }
@@ -479,10 +479,10 @@ export function closingRecordHtml(row=null){
     <section class="card card-pad">
      <div class="section-head"><div><h3>Datos del cierre</h3><p>Fecha, establecimiento y total de control.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${selectField('Tienda','clStore',storeOptions,sid)}
-      ${formField('Fecha','clDate',row?.business_date||isoToday(),'date')}
-      ${formField('Total TPV / control','clReported',row?.reported_total_sales??'','number','step="0.01" min="0"')}
-      <label class="wide">Observaciones<textarea id="clNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+      ${selectField('Tienda','clStore',storeOptions,sid,locked?'disabled':'')}
+      ${formField('Fecha','clDate',row?.business_date||isoToday(),'date',locked?'disabled':'')}
+      ${formField('Total TPV / control','clReported',row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
+      <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>
     </section>
     <section class="stack" id="closingDrawers">${drawers.map(d=>drawerEditor(d,row)).join('')||'<div class="note bad">Esta tienda no tiene cajas activas configuradas.</div>'}</section>
@@ -530,7 +530,7 @@ export function expenseRecordHtml(row=null){
  const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
  const lines=row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
- const total=Number(row?.gross_expense||row?.accounting_amount||row?.amount_paid||0);
+ const total=Number(row?.gross_expense||row?.accounting_amount||row?.amount_paid||0),paid=Number(row?.amount_paid||0),pending=Math.max(0,total-paid);
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="expense-back">← Volver a gastos</button><div class="eyebrow">Gastos · ${row?'Registro':'Nuevo'}</div><h2>${row?esc(row.supplier_name||'Gasto'):'Nuevo gasto'}</h2></div><div>${row?(row.management_only?'<span class="badge warn">Solo control interno</span>':'<span class="badge info">Fiscal</span>'):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
