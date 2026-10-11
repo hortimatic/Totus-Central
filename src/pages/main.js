@@ -567,7 +567,8 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
 
 export function invoicePreview(row,logoUrl=''){
  const lines=state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order);
- const tpl=state.data.templates.find(x=>x.id===row.template_id)||{};
+ const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
+ const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id)||{});
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(tpl.invoice_title||'FACTURA');
  const primary=tpl.primary_color||'#172033',secondary=tpl.secondary_color||'#2367d1';
  return `<div class="stack invoice-preview" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)}">
