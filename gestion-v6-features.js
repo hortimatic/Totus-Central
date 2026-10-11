@@ -211,7 +211,18 @@ window.opsToggleCustomerPanel=async function(id,active){
  if(error)return alert('No se pudo cambiar el estado: '+error.message);
  await audit('facturas',active?'cliente_reactivar':'cliente_archivar',id,{cliente:c.name});await featureLoad(true);render();
 };
-window.opsReportField=function(k,v){if(k==='from')O.reportFrom=v;else O.reportTo=v};
+function reportRangeValid({silent=false}={}){
+ const from=String(O.reportFrom||''),to=String(O.reportTo||'');
+ if(!from||!to){if(!silent)alert('Indica las fechas Desde y Hasta.');return false}
+ if(from>to){if(!silent)alert('La fecha Desde no puede ser posterior a Hasta.');return false}
+ return true;
+}
+window.opsReportField=function(k,v){
+ const next=String(v||'');if(!next)return;
+ if(k==='from'&&O.reportTo&&next>O.reportTo)return alert('La fecha Desde no puede ser posterior a Hasta.');
+ if(k==='to'&&O.reportFrom&&next<O.reportFrom)return alert('La fecha Hasta no puede ser anterior a Desde.');
+ if(k==='from')O.reportFrom=next;else O.reportTo=next;render();
+};
 window.opsInvoiceView=function(type='factura'){E.billingPanel='documents';E.invoiceMode=type;O.invoiceDraft=null;render();};
 window.opsNewDocument=function(type='factura'){if(!manager())return alert('Facturación en modo consulta. Solo administración o gerencia puede crear documentos.');if(!confirmDiscardInvoiceDraft(type===E.invoiceMode?'Crear un documento nuevo':'Cambiar de tipo de documento'))return;O.tab='facturas';E.billingPanel='documents';E.invoiceMode=type;O.invoiceDraft=newDocDraft(type);O.invoiceDraftLines=[{description:'',qty:'1',unit:'',discount:'0',vat:'21'}];render();};
 function ensureDraft(){if(!O.invoiceDraft||!O.invoiceDraft.documentType){O.invoiceDraft=newDocDraft(E.invoiceMode);O.invoiceDraftLines=[{description:'',qty:'1',unit:'',discount:'0',vat:'21'}];}return O.invoiceDraft;}
