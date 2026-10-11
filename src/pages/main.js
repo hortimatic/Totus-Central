@@ -435,7 +435,7 @@ export function pricing(){
 
 export function providerCost(row){
  const base=Number(row?.net_cost||0)*(1-Number(row?.provider_discount||0)/100);
- return base+Number(row?.shipping_unit||0)+(row?.apply_special_tax?Number(row?.special_tax_amount||0):0);
+ return base+Number(row?.shipping_unit||0);
 }
 
 
