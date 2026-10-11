@@ -70,6 +70,9 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  assert(d.invoices.length===1,'Factura no guardada');
  assert(d.invoices[0].status==='borrador','Factura debe quedar en borrador');
  assert(Math.abs(d.invoices[0].total_amount-121)<0.01,'Factura total incorrecto');
+ await page.locator('[data-action="invoice-preview"]').first().click();
+ assert((await page.locator('#modalHost').innerText()).includes('Cliente ensayo'),'La vista previa de factura no muestra el cliente');
+ await page.locator('#modalHost [data-action="close-modal"]').first().click();
 });
 await check('Documentos: subida, archivo y metadatos',async()=>{
  await nav('documentos');
@@ -83,6 +86,13 @@ await check('Documentos: subida, archivo y metadatos',async()=>{
  assert(d.documents.length===1,'Documento no archivado');
  assert(d.uploads===1,'Archivo no subido a storage simulado');
  assert(d.documents[0].original_name==='factura-qa.txt','Nombre de archivo erróneo');
+ await page.locator('[data-action="document-preview"]').first().click();
+ assert((await page.locator('#modalHost').innerText()).includes('Importe: 121 euros'),'El texto de la factura no aparece en vista previa');
+ await page.locator('#modalHost [data-action="close-modal"]').first().click();
+ const download=page.waitForEvent('download');
+ await page.locator('[data-action="document-download"]').first().click();
+ const actualDownload=await download;
+ assert(actualDownload.suggestedFilename()==='factura-qa.txt','El fichero descargado tiene otro nombre');
 });
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
