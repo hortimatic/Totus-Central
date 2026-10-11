@@ -215,6 +215,13 @@
 
 /* Refinado visual tras QA renderizada */
 .document-upload-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,.45fr);gap:14px;align-items:start}
+.document-upload-card,.document-library-card{overflow:hidden}
+.document-upload-card>.section-head,.document-library-card>.section-head{margin-bottom:14px}
+.document-filter-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:2px;margin-bottom:8px}
+.document-filter-head b{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#9eabb8}
+.document-filters{padding:10px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:rgba(255,255,255,.018)}
+.document-table td[data-label="Archivo"]{max-width:240px;word-break:break-word}
+.document-table td[data-label="Acciones"] .ops-actions{justify-content:flex-end}
 .document-storage-card{align-self:start}
 .document-storage-card .ops-metric-line{padding:7px 0}
 .ops-file-box{padding:12px;border:1px dashed rgba(75,217,255,.22);border-radius:12px;background:rgba(75,217,255,.025)}
@@ -483,4 +490,10 @@
  .ops-responsive-table tbody td .ops-tiny{white-space:normal}
  .ops-responsive-table tbody td select{width:100%;min-width:0}
  .closing-history-table{min-width:0!important}
+}
+
+@media(max-width:720px){
+ .document-filter-head{align-items:stretch}
+ .document-filter-head .ghost{width:auto}
+ .document-filters{padding:8px}
 }
