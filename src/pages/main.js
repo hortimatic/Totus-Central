@@ -641,7 +641,8 @@ export function invoicePreview(row,logoUrl=''){
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
  const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=state.data.settings||{};
  const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',tpl.payment_terms_default||''].filter(Boolean).join(' · ');
- return `<article class="invoice-preview" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)}">
+ const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=tpl.style||'modern';
+ return `<article class="invoice-preview invoice-style-${esc(style)}" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)};--invoice-text:${esc(textColor)};--invoice-font:${esc(font)}">
   <header class="invoice-document-head">
    <div class="invoice-company">
     ${logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo" style="max-width:${Math.max(70,Math.min(260,Number(tpl.logo_width_mm||34)*4))}px">`:''}
@@ -657,7 +658,7 @@ export function invoicePreview(row,logoUrl=''){
    {label:'Dto.',num:true,html:l=>`${Number(l.discount_pct||0).toFixed(1).replace('.',',')} %`},{label:'IVA',num:true,html:l=>`${Number(l.vat_rate||0).toFixed(1).replace('.',',')} %`},{label:'Total',num:true,html:l=>moneyCell(l.total_amount)}
   ],lines,{emptyTitle:'Sin líneas'})}</div>
   <div class="invoice-totals"><div class="summary-row"><span>Base imponible</span><strong>${money(row.base_amount)}</strong></div><div class="summary-row"><span>IVA</span><strong>${money(row.vat_amount)}</strong></div><div class="summary-row invoice-grand-total"><span>Total</span><strong>${money(row.total_amount)}</strong></div>${row.document_type!=='proforma'&&Number(row.paid_amount||0)>0?`<div class="summary-row"><span>Cobrado</span><strong>${money(row.paid_amount)}</strong></div><div class="summary-row"><span>Pendiente</span><strong>${money(Math.max(0,Number(row.total_amount||0)-Number(row.paid_amount||0)))}</strong></div>`:''}</div>
-  ${paymentText?`<section class="invoice-payment-box"><b>Pago</b><div>${esc(paymentText)}</div></section>`:''}
+  ${paymentText&&tpl.show_payment_details!==false?`<section class="invoice-payment-box"><b>Pago</b><div>${esc(paymentText)}</div></section>`:''}
   ${tpl.footer_text?`<footer class="invoice-footer">${esc(tpl.footer_text)}</footer>`:''}
   <div class="form-actions no-print">${btn('Imprimir / Guardar PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>
  </article>`;
