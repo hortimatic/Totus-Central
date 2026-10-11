@@ -6,7 +6,7 @@ const failures=[],notices=[];
 const routes=['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion'];
 const pages=['?route=inicio','?route=pricing','?route=cajas','?route=cajas&mode=record&id=new','?route=gastos','?route=gastos&mode=record&id=new','?route=facturacion','?route=facturacion&mode=record&id=new','?route=documentos','?route=documentos&mode=record&id=new','?route=fiscalidad','?route=informes','?route=administracion&section=usuarios','?route=administracion&section=negocio','?route=administracion&section=fiscal','?route=administracion&section=storage','?route=administracion&section=backups','?route=administracion&section=log'];
 for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobile',{width:390,height:844}]]){
- const page=await browser.newPage({viewport});
+ const page=await browser.newPage({locale:'es-ES',viewport});
  for(const query of pages){
   const label=viewportName+'/'+query;
   await page.goto('http://127.0.0.1:4173/tests/ui-harness.html'+query,{waitUntil:'networkidle'});
