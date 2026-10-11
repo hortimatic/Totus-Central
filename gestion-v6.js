@@ -8,7 +8,7 @@ const O=window.TotusGestion={
   settings:null,stores:[],categories:[],suppliers:[],personnel:[],documents:[],expenses:[],expenseLines:[],
   closings:[],drawers:[],closingDrawers:[],series:[],invoices:[],invoiceLines:[],
   taxPayments:[],retaBrackets:[],fiscalAdjustments:[],incomeAdjustments:[],gestorQuarterSummary:[],reconciliationNotes:[],
-  closeDraft:null,expenseDraft:null,expenseDraftLines:[],expenseSelected:[],invoiceDraft:null,invoiceDraftLines:[],
+  closeDraft:null,closeView:'list',closeSearch:'',closeStatus:'all',expenseDraft:null,expenseDraftLines:[],expenseSelected:[],invoiceDraft:null,invoiceDraftLines:[],
   docFilter:{from:'',to:'',store:'all',status:'all',type:'all',q:''},
   reportFrom:'',reportTo:'',plannedSpend:'',
   saving:false
@@ -361,7 +361,7 @@ function drawerClosingHtml(d,dr,dis,index=0){
    </div>
   </details>`;
 }
-function closingsHtml(){
+function closingFormHtml(){
   if(!O.closeDraft)O.closeDraft=newClosingDraft();
   const d=O.closeDraft,c=closeCalc(),drawers=O.drawers.filter(x=>x.store_id===d.storeId);
   const pb=periodBounds(O.year,O.quarter,false),rows=filteredClosings(pb.start,pb.end,O.storeId).slice(0,100);
@@ -471,6 +471,45 @@ function closingsHtml(){
    </section>
   </div>`;
 }
+function closingListHtml(){
+ const pb=periodBounds(O.year,O.quarter,false);
+ const q=String(O.closeSearch||'').trim().toLowerCase(),status=O.closeStatus||'all';
+ const all=filteredClosings(pb.start,pb.end,O.storeId);
+ const rows=all.filter(x=>(status==='all'||x.status===status)&&(!q||[storeName(x.store_id),x.business_date,x.status].join(' ').toLowerCase().includes(q))).slice(0,200);
+ const total=sum(all,x=>n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income));
+ const open=all.filter(x=>x.status!=='cerrado').length;
+ const bad=all.filter(x=>x.reported_total_sales!=null&&Math.abs(n(x.difference))>.01).length;
+ return `<div class="closing-list-shell">
+  <section class="ops-page-command">
+   <div><div class="eyebrow">Cajas · T${O.quarter} ${O.year}</div><h2>Cierres de caja</h2><p>Consulta lo ya registrado y abre un cierre solo cuando necesites crearlo o corregirlo.</p></div>
+   <button class="primary" onclick="opsNewClosing()">+ Nuevo cierre</button>
+  </section>
+  <section class="ops-list-summary">
+   <article><span>Cierres</span><strong>${all.length}</strong><small>en el periodo</small></article>
+   <article><span>Ventas registradas</span><strong>${eur(total)}</strong><small>suma de cierres</small></article>
+   <article><span>Borradores</span><strong>${open}</strong><small>pendientes de cerrar</small></article>
+   <article class="${bad?'bad':''}"><span>Descuadres</span><strong>${bad}</strong><small>${bad?'requieren revisión':'todo correcto'}</small></article>
+  </section>
+  <section class="ops-list-card">
+   <div class="ops-list-toolbar">
+    <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar cierres" placeholder="Buscar tienda, fecha o estado…" value="${h(O.closeSearch||'')}" oninput="opsCloseSearch(this.value)"></div>
+    <select aria-label="Filtrar cierres por estado" onchange="opsCloseStatus(this.value)"><option value="all">Todos los estados</option><option value="cerrado" ${status==='cerrado'?'selected':''}>Cerrados</option><option value="borrador" ${status==='borrador'?'selected':''}>Borradores</option></select>
+    <button class="secondary" onclick="opsExportClosings()">Exportar CSV</button>
+   </div>
+   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table closing-list-table"><thead><tr><th>Fecha</th><th>Establecimiento</th><th>Total</th><th>Metálico final</th><th>Cuadre</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(row=>{const t=n(row.cash_sales)+n(row.card_sales)+n(row.bizum_sales)+n(row.online_sales)+n(row.other_income),ok=row.reported_total_sales!=null&&Math.abs(n(row.difference))<=.01;return`<tr><td><b>${dmy(row.business_date)}</b></td><td>${h(storeName(row.store_id))}</td><td class="num"><b>${eur(t)}</b></td><td class="num">${eur(row.actual_cash)}</td><td>${row.reported_total_sales==null?'<span class="badge warnb">Sin comprobar</span>':ok?'<span class="badge ok">Cuadra</span>':'<span class="badge badb">Dif. '+eur(row.difference)+'</span>'}</td><td>${statusBadge(row.status)}</td><td><button class="ghost" onclick="opsEditClosing('${row.id}')">${row.status==='cerrado'&&!manager()?'Ver':'Abrir'}</button></td></tr>`}).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay cierres que coincidan con los filtros.</div>'}
+  </section>
+ </div>`;
+}
+function closingsHtml(){
+ if(O.closeView==='form')return `<div class="ops-record-view"><div class="ops-record-back"><button class="ghost" onclick="opsCloseCancel()">← Volver a cierres</button></div>${closingFormHtml()}</div>`;
+ return closingListHtml();
+}
+window.opsCloseSearch=function(v){O.closeSearch=v;render()};
+window.opsCloseStatus=function(v){O.closeStatus=v;render()};
+window.opsCloseCancel=function(){
+ if(closingHasUserInput()&&!confirm('Hay datos sin guardar. ¿Salir del cierre y descartarlos?'))return;
+ O.closeDraft=newClosingDraft();O.closeView='list';render();
+};
 window.opsCloseField=function(k,v){
   if(!O.closeDraft)O.closeDraft=newClosingDraft();
   O.closeDraft[k]=v;
@@ -501,7 +540,7 @@ function updateCloseSummary(){
 }
 window.opsNewClosing=function(){
   if(closingHasUserInput()&&!confirm('Hay datos sin guardar en el cierre actual. ¿Crear un cierre nuevo y descartarlos?'))return;
-  O.closeDraft=newClosingDraft();render();
+  O.closeDraft=newClosingDraft();O.closeView='form';render();
 };
 window.opsEditClosing=function(id){
   const c=O.closings.find(x=>x.id===id);if(!c)return;
@@ -528,10 +567,10 @@ window.opsEditClosing=function(id){
       legacyAllocation=!!(n(c.card_sales)+n(c.bizum_sales)+n(c.online_sales)+n(c.other_income)+n(c.cash_withdrawals)+n(c.cash_expenses_declared)+n(c.cash_extra_in)+n(c.cash_extra_out));
     }
   }
-  O.closeDraft={id:c.id,storeId:c.store_id,date:c.business_date,notes:c.notes||'',status:c.status,controlTotal:c.reported_total_sales==null?'':String(c.reported_total_sales),drawers,legacyAllocation};render();window.scrollTo({top:0,behavior:'smooth'});
+  O.closeDraft={id:c.id,storeId:c.store_id,date:c.business_date,notes:c.notes||'',status:c.status,controlTotal:c.reported_total_sales==null?'':String(c.reported_total_sales),drawers,legacyAllocation};O.closeView='form';render();window.scrollTo({top:0,behavior:'smooth'});
 };
 window.opsReopenClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Reabrir cierre','El cierre volverá a borrador para poder corregirlo.','Reabrir');if(!reason)return;const {error}=await sb.rpc('ops_set_closing_status_controlled',{p_closing_id:d.id,p_status:'borrador',p_reason:reason});if(error)return alert(error.message);await load(true);window.opsEditClosing(d.id)};
-window.opsDeleteClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Eliminar cierre',`Eliminarás el cierre de ${storeName(d.storeId)} del ${dmy(d.date)}. Se conservará snapshot administrativo.`,'Eliminar cierre');if(!reason)return;const {error}=await sb.rpc('ops_delete_closing_controlled',{p_closing_id:d.id,p_reason:reason});if(error)return alert(error.message);await load(true);O.closeDraft=newClosingDraft();render()};
+window.opsDeleteClosing=async function(){const d=O.closeDraft;if(!manager()||!d?.id)return;const reason=await askReason('Eliminar cierre',`Eliminarás el cierre de ${storeName(d.storeId)} del ${dmy(d.date)}. Se conservará snapshot administrativo.`,'Eliminar cierre');if(!reason)return;const {error}=await sb.rpc('ops_delete_closing_controlled',{p_closing_id:d.id,p_reason:reason});if(error)return alert(error.message);await load(true);O.closeDraft=newClosingDraft();O.closeView='list';render()};
 window.opsSaveClosing=async function(status='cerrado'){
   if(O.saving)return;
   const d=O.closeDraft,c=closeCalc();
@@ -564,7 +603,7 @@ window.opsSaveClosing=async function(status='cerrado'){
     await audit('cajas',d.id?'actualizar':'crear',id,{fecha:d.date,tienda:storeName(d.storeId),ventas:c.total,control:c.control,diferencia:c.diff,cajas:drawerRows.length,estado:status});
     focusPeriodForDate(d.date);await load(true);
     if(status==='borrador')window.opsEditClosing(id);
-    else{O.closeDraft=newClosingDraft();render()}
+    else{O.closeDraft=newClosingDraft();O.closeView='list';render()}
   }catch(e){alert('No se pudo guardar el cierre: '+e.message)}finally{O.saving=false}
 };
 
