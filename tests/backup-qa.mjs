@@ -7,6 +7,13 @@ const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.locator('#nav [data-route="documentos"]').click();
+ await page.locator('[data-action="document-new"]').click();
+ await page.locator('#docParty').fill('Backup QA');
+ await page.locator('#docFile').setInputFiles({name:'backup-comprobante.txt',mimeType:'text/plain',buffer:Buffer.from('Documento de restauración')});
+ await page.locator('[data-action="document-save"]').click();
+ await page.waitForTimeout(90);
+ if((await page.evaluate(()=>window.__mockDb.ops_documents.length))!==1)throw Error('Documento de prueba no creado');
  await page.locator('#nav [data-route="administracion"]').click();
  const tab=page.locator('[data-action="admin-section"][data-section="backups"]');
  if(await tab.count())await tab.first().click();
@@ -32,7 +39,6 @@ try{
  },[...bytes]);
  if(!result.rejected||!result.unchanged||!result.reason.includes('versión segura'))throw Error('El restaurador antiguo no se ha bloqueado antes de tocar los datos: '+JSON.stringify(result));
  const invalid=await JSZip.loadAsync(bytes);
- const remove='storage/'+manifest.storage['business-documents'][0].split('/').length; // only used to build an invalid archive below
  const target='storage/business-documents/'+manifest.storage['business-documents'][0];
  invalid.remove(target);
  const tampered=await invalid.generateAsync({type:'uint8array'});
