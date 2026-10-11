@@ -46,23 +46,37 @@ function required(id,label){const v=val(id).trim();if(!v)throw new Error(`${labe
 function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
 
-async function saveClosing(id=''){
+async function saveClosing(id='',status='borrador'){
  const store=required('clStore','Tienda'),date=required('clDate','Fecha');
+ if(date>isoToday())throw new Error('La fecha del cierre no puede ser futura.');
  const drawerEls=[...document.querySelectorAll('.drawer-entry')];
  if(!drawerEls.length)throw new Error('La tienda no tiene cajas activas configuradas.');
  const drawers=drawerEls.map(el=>{
    const d=el.dataset.drawerId;
-   const read=suffix=>n(document.getElementById(`dr${suffix}_${d}`)?.value||0);
-   return {drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:''};
+   const raw=suffix=>document.getElementById(`dr${suffix}_${d}`)?.value??'';
+   const read=suffix=>n(raw(suffix));
+   if(status==='cerrado'&&raw('Close')==='')throw new Error('Falta el efectivo final de una caja.');
+   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:''};
+   if(Object.entries(row).some(([k,v])=>k!=='drawer_id'&&k!=='notes'&&Number(v)<0))throw new Error('No se admiten importes negativos en Cajas.');
+   return row;
  });
- const payload={id:id||null,store_id:store,business_date:date,notes:val('clNotes').trim(),status:'cerrado'};
- await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
- closeModal();await refresh('Cierre guardado.');
+ const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status};
+ const savedId=await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
+ setView('cajas',{mode:'record',id:savedId});
+ await refresh(status==='cerrado'?'Cierre cerrado y cuadrado.':'Borrador guardado.');
+}
+async function reopenClosing(id){
+ if(!confirm('¿Reabrir este cierre para corregirlo? La acción quedará registrada.'))return;
+ const row=state.data.closings.find(x=>x.id===id);if(!row)return;
+ const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,notes:x.notes||''}));
+ await rpc('totus_save_closing',{p_closing:{id,store_id:row.store_id,business_date:row.business_date,reported_total_sales:row.reported_total_sales,notes:row.notes||'',status:'borrador'},p_drawers:drawers});
+ await refresh('Cierre reabierto.');
 }
 async function deleteClosing(id){
  if(!confirm('¿Eliminar este cierre?'))return;
  const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
- await rpc('totus_delete_closing',{p_id:id,p_reason:reason.trim()});closeModal();await refresh('Cierre eliminado.');
+ await rpc('totus_delete_closing',{p_id:id,p_reason:reason.trim()});
+ resetView('cajas');await refresh('Cierre eliminado.');
 }
 
 function expenseSuppliersManager(){
@@ -506,7 +520,10 @@ const filterRoute={cajas:'cajas',gastos:'gastos',facturas:'facturacion',document
 function applyFilter(prefix){
  const route=filterRoute[prefix];if(!route)return;
  const from=val(prefix+'From'),to=val(prefix+'To');if(from&&to&&from>to)throw new Error('La fecha Desde no puede ser posterior a Hasta.');
- patchFilters(route,{from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()});render();
+ const patch={from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()};
+ if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all'}
+ if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
+ patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
 function exportRows(type){
