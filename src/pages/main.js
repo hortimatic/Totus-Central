@@ -101,17 +101,64 @@ export function documentos(){
 
 export function fiscalidad(){
  const f=getFilters('fiscalidad');
- const closings=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
+ const closings=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&x.include_in_income!==false);
  const expenses=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const income=sum(closings,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)),x=>x.amount);
- const expense=sum(expenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid);
- const result=income-expense;
- const prepay=Math.max(0,result*Number(state.data.settings?.irpf_prepayment_rate||20)/100);
+ const officialExpenses=expenses.filter(x=>!x.management_only);
+ const internalExpenses=expenses.filter(x=>x.management_only);
+ const issuedInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
+ const closingIncome=sum(closings,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const invoicedIncome=sum(issuedInvoices,x=>x.total_amount);
+ const adjustedIncome=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&(f.store==='all'||!x.store_id||x.store_id===f.store)),x=>x.amount);
+ const fiscalIncome=closingIncome+invoicedIncome+adjustedIncome;
+ const officialIds=new Set(officialExpenses.map(x=>x.id));
+ const lines=state.data.expenseLines.filter(x=>officialIds.has(x.expense_id));
+ const idsWithLines=new Set(lines.map(x=>x.expense_id));
+ const deductibleFromLines=sum(lines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0));
+ const deductibleFallback=sum(officialExpenses.filter(x=>!idsWithLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount||x.gross_expense||0)*(Number(x.deductible_pct??100)/100));
+ const deductible=deductibleFromLines+deductibleFallback;
+ const accountingExpense=sum(officialExpenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid);
+ const internalExpense=sum(internalExpenses,x=>x.accounting_amount||x.gross_expense||x.amount_paid);
+ const netBeforeDifficult=fiscalIncome-deductible;
+ const difficultEnabled=state.data.settings?.difficult_expense_enabled!==false;
+ const difficultPct=Number(state.data.settings?.difficult_expense_pct||5);
+ const annualCap=Number(state.data.settings?.difficult_expense_annual_cap||2000);
+ const difficult=difficultEnabled?Math.min(Math.max(0,netBeforeDifficult*difficultPct/100),annualCap):0;
+ const taxableBase=Math.max(0,netBeforeDifficult-difficult);
+ const rate=Number(state.data.settings?.irpf_prepayment_rate||20);
+ const prepay=taxableBase*rate/100;
+ const realResult=fiscalIncome-accountingExpense-internalExpense;
+ const ret111=sum(lines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount);
+ const ret115=sum(lines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
  return `<div class="page">
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal')}</section>
-  <div class="kpis">${kpi('Ingresos',money(income))}${kpi('Gastos',money(expense))}${kpi('Resultado',money(result))}${kpi('IRPF estimado',money(prepay),'Estimación orientativa')}</div>
-  <div class="split"><section class="card card-pad"><h2>Resumen fiscal</h2><div class="summary-row"><span>Periodo</span><strong>${fmtDate(f.from)} → ${fmtDate(f.to)}</strong></div><div class="summary-row"><span>Ingresos registrados</span><strong>${money(income)}</strong></div><div class="summary-row"><span>Gastos registrados</span><strong>${money(expense)}</strong></div><div class="summary-row"><span>Resultado previo</span><strong>${money(result)}</strong></div><div class="summary-row"><span>Tipo configurado modelo 130</span><strong>${Number(state.data.settings?.irpf_prepayment_rate||20)} %</strong></div></section>
-  <section class="card card-pad"><h2>Modelos y pagos</h2>${state.data.taxPayments.length?state.data.taxPayments.slice(0,10).map(x=>`<div class="summary-row"><div><b>${esc(x.tax_type)}</b><div class="small muted">${esc(x.period_label||'')} · ${fmtDate(x.payment_date)}</div></div><strong>${money(x.amount)}</strong></div>`).join(''):'<div class="empty"><strong>Sin pagos fiscales</strong><span>No hay registros.</span></div>'}</section></div>
+  <div class="kpis">
+   ${kpi('Ingresos fiscales',money(fiscalIncome))}
+   ${kpi('Gasto deducible IRPF',money(deductible))}
+   ${kpi('Resultado real',money(realResult),internalExpense?'Incluye '+money(internalExpense)+' internos':'Sin gastos internos')}
+   ${kpi('Modelo 130 estimado',money(prepay),'Estimación según configuración')}
+  </div>
+  <div class="split">
+   <section class="card card-pad"><h2>Modelo 130 · estimación</h2>
+    <div class="summary-row"><span>Periodo</span><strong>${fmtDate(f.from)} → ${fmtDate(f.to)}</strong></div>
+    <div class="summary-row"><span>Ingresos por cierres</span><strong>${money(closingIncome)}</strong></div>
+    <div class="summary-row"><span>Facturas incluidas aparte</span><strong>${money(invoicedIncome)}</strong></div>
+    <div class="summary-row"><span>Ajustes de ingresos</span><strong>${money(adjustedIncome)}</strong></div>
+    <div class="summary-row"><span>Gasto deducible</span><strong>− ${money(deductible)}</strong></div>
+    <div class="summary-row"><span>Difícil justificación (${difficultPct} %, tope anual ${money(annualCap)})</span><strong>− ${money(difficult)}</strong></div>
+    <div class="summary-row"><span>Base estimada</span><strong>${money(taxableBase)}</strong></div>
+    <div class="summary-row"><span>Tipo configurado</span><strong>${rate.toFixed(1).replace('.',',')} %</strong></div>
+    <div class="summary-row"><span>Pago fraccionado estimado</span><strong>${money(prepay)}</strong></div>
+    <div class="note warn" style="margin-top:12px">Es una herramienta de control. El cálculo presentado por gestoría puede incluir regularizaciones, pagos previos y ajustes fiscales adicionales.</div>
+   </section>
+   <section class="card card-pad"><h2>Control de gastos y retenciones</h2>
+    <div class="summary-row"><span>Gasto contable registrado</span><strong>${money(accountingExpense)}</strong></div>
+    <div class="summary-row"><span>Gasto interno de gestión</span><strong>${money(internalExpense)}</strong></div>
+    <div class="summary-row"><span>Retenciones modelo 111</span><strong>${money(ret111)}</strong></div>
+    <div class="summary-row"><span>Retenciones modelo 115</span><strong>${money(ret115)}</strong></div>
+    <h3 style="margin-top:18px">Pagos fiscales registrados</h3>
+    ${state.data.taxPayments.length?state.data.taxPayments.filter(x=>!x.payment_date||inRange(x.payment_date,f.from,f.to)).slice(0,12).map(x=>`<div class="summary-row"><div><b>${esc(x.tax_type)}</b><div class="small muted">${esc(x.period_label||'')} · ${fmtDate(x.payment_date)}</div></div><strong>${money(x.amount)}</strong></div>`).join(''):'<div class="empty"><strong>Sin pagos fiscales</strong><span>No hay registros en este periodo.</span></div>'}
+   </section>
+  </div>
  </div>`;
 }
 
