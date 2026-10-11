@@ -66,9 +66,17 @@ if(appSource.includes('patchFilters({'))errors.push('Persisten filtros globales 
 if(!appSource.includes("patchFilters('pricing'"))errors.push('Pricing no tiene filtro independiente');
 if(!pageSource.includes("s.series_kind==='invoice'"))errors.push('Facturación ordinaria puede mezclar series rectificativas');
 
-for(const rpc of ['ops_save_closing','ops_save_expense','ops_save_document_draft','ops_finalize_document']){
+for(const rpc of ['totus_save_closing','totus_save_expense','totus_save_sales_document','totus_finalize_sales_document','totus_convert_proforma']){
  if(!text('src/app.js').includes(rpc))errors.push('Falta integración '+rpc);
 }
+
+for(const oldRpc of ['ops_save_closing','ops_save_expense','ops_save_document_draft','ops_finalize_document','ops_delete_closing_controlled','ops_delete_expense_controlled']){
+ if(text('src/app.js').includes(oldRpc))errors.push('RPC antiguo todavía usado: '+oldRpc);
+}
+if(!text('src/app.js').includes('invoice-line-add')||!text('src/app.js').includes('invoice-line-remove'))errors.push('Facturación no soporta múltiples líneas');
+if(!text('src/pages/main.js').includes('drawer-entry'))errors.push('Cajas no está desglosado por caja');
+if(!text('src/pages/main.js').includes('invoicePreview'))errors.push('Falta vista previa de facturación');
+if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
 
 if(errors.length){console.error('\nQA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
 console.log('QA estructural, sintaxis y render: OK');
