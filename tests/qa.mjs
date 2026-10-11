@@ -45,7 +45,7 @@ state.data.brands=[];state.data.families=[];state.data.products=[];state.data.va
 state.data.providerPrices=[];state.data.competitors=[];state.data.consultations=[];state.data.team=[];
 
 const inicioHtml=pages.inicio();
-for(const term of ['Lo importante de hoy','Pendientes y avisos','Control fiscal','Cobros y pagos pendientes','Actividad reciente','Hortimatic','NewOldSmok']){
+for(const term of ['Operativa de hoy','Gastos del','Pendientes y avisos','Precios y ventas','Consulta rápida de precio','Facturación y cobros','Documentos recientes','Fiscalidad','Seguimiento y sistema','Informes y gestoría','Estado del sistema','Hortimatic','NewOldSmok']){
  if(!inicioHtml.includes(term))errors.push('Inicio incompleto: '+term);
 }
 if(!inicioHtml.includes('data-route="fiscalidad"')||!inicioHtml.includes('data-route="facturacion"'))errors.push('Inicio sin accesos directos funcionales');
