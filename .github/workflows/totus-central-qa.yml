@@ -3,6 +3,8 @@ name: Totus Central QA
 
 on:
   workflow_dispatch:
+  push:
+    branches: [desarrollo-v6]
 
 concurrency:
   group: totus-central-qa-${{ github.ref }}
