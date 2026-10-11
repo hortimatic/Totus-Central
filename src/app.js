@@ -64,6 +64,48 @@ async function deleteClosing(id){
  await rpc('totus_delete_closing',{p_id:id,p_reason:reason.trim()});closeModal();await refresh('Cierre eliminado.');
 }
 
+function expenseSuppliersManager(){
+ const rows=state.data.suppliers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const body=`<div class="section-head"><div><p>Proveedores de gastos con valores fiscales predeterminados.</p></div>${btn('Nuevo proveedor','expense-supplier-new','primary')}</div>
+ <div class="stack" style="margin-top:14px">${rows.length?rows.map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">${esc(s.tax_id||'')}${s.default_payment_method?' · '+esc(s.default_payment_method):''}</div></div><div class="inline-actions">${btn('Editar','expense-supplier-edit','secondary',`data-id="${s.id}"`)}${btn('Eliminar','expense-supplier-delete','danger',`data-id="${s.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin proveedores</strong><span>Crea el primero para reutilizar sus datos en Gastos.</span></div>'}</div>`;
+ modal('Proveedores de gastos',body);
+}
+function expenseSupplierForm(row=null){
+ const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
+ const body=`<div class="form-grid">
+  ${formField('Nombre','esName',row?.name||'')}
+  ${formField('NIF/CIF','esTax',row?.tax_id||'')}
+  ${formField('Email','esEmail',row?.email||'','email')}
+  ${formField('Teléfono','esPhone',row?.phone||'')}
+  ${formField('Dirección','esAddress',row?.address||'')}
+  ${formField('Ciudad','esCity',row?.city||'')}
+  ${formField('Código postal','esPostal',row?.postal_code||'')}
+  ${formField('Provincia','esProvince',row?.province||'')}
+  ${selectField('Categoría por defecto','esCategory',categories,row?.default_category_id||'')}
+  ${selectField('Pago por defecto','esPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.default_payment_method||'transferencia')}
+  ${selectField('Documento por defecto','esDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.default_document_kind||'factura')}
+  ${formField('IVA (%)','esVat',row?.default_vat_rate??21,'number','step="0.1" min="0"')}
+  ${formField('Recargo (%)','esRe',row?.default_re_rate??0,'number','step="0.1" min="0"')}
+  ${formField('Retención (%)','esWh',row?.default_withholding_rate??0,'number','step="0.1" min="0"')}
+  ${selectField('Modelo retención','esWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'111'},{value:'115',label:'115'}],row?.default_withholding_model||'')}
+  ${formField('% deducible','esDedPct',row?.default_deductible_pct??100,'number','min="0" max="100"')}
+  <label><input id="esDeductible" type="checkbox" ${row?.default_deductible_irpf===false?'':'checked'}> Deducible IRPF por defecto</label>
+  <label class="wide">Notas<textarea id="esNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+ </div><div class="form-actions">${btn('Guardar proveedor','expense-supplier-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar proveedor de gastos':'Nuevo proveedor de gastos',body);
+}
+async function saveExpenseSupplier(id=''){
+ const row={name:required('esName','Nombre'),tax_id:val('esTax').trim(),email:val('esEmail').trim(),phone:val('esPhone').trim(),address:val('esAddress').trim(),city:val('esCity').trim(),postal_code:val('esPostal').trim(),province:val('esProvince').trim(),country:'España',default_category_id:val('esCategory')||null,default_payment_method:val('esPayment'),default_document_kind:val('esDocKind'),default_vat_rate:Math.max(0,num('esVat')),default_re_rate:Math.max(0,num('esRe')),default_withholding_rate:Math.max(0,num('esWh')),default_withholding_model:val('esWhModel')||null,default_deductible_irpf:!!input('esDeductible')?.checked,default_deductible_pct:Math.min(100,Math.max(0,num('esDedPct'))),notes:val('esNotes').trim(),active:true,source:'manual',updated_at:new Date().toISOString()};
+ if(id)await update('ops_suppliers',id,row);else await insert('ops_suppliers',{...row,created_by:state.user?.id||null});
+ closeModal();await refresh('Proveedor de gastos guardado.');
+}
+async function deleteExpenseSupplier(id){
+ const linked=state.data.expenses.filter(x=>x.supplier_id===id).length;
+ if(linked)throw new Error('No se puede eliminar: hay '+linked+' gastos vinculados. Puedes dejar de usarlo sin borrar el histórico.');
+ if(!confirm('¿Eliminar este proveedor de gastos?'))return;
+ await remove('ops_suppliers',id);closeModal();await refresh('Proveedor eliminado.');
+}
+
 async function saveExpense(id=''){
  const base=num('exBase'),vatRate=Math.max(0,num('exVatRate')),reRate=Math.max(0,num('exReRate')),whRate=Math.max(0,num('exWhRate'));
  const vat=base*vatRate/100,re=base*reRate/100,wh=base*whRate/100,total=base+vat+re-wh;
@@ -473,6 +515,11 @@ document.addEventListener('click',async e=>{
   if(a==='closing-edit'){closingModal(state.data.closings.find(x=>x.id===el.dataset.id));return}
   if(a==='closing-save'){await saveClosing(el.dataset.id||'');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
+  if(a==='expense-suppliers'){expenseSuppliersManager();return}
+  if(a==='expense-supplier-new'){expenseSupplierForm();return}
+  if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
+  if(a==='expense-supplier-save'){await saveExpenseSupplier(el.dataset.id||'');return}
+  if(a==='expense-supplier-delete'){await deleteExpenseSupplier(el.dataset.id);return}
   if(a==='expense-new'){expenseModal();return}
   if(a==='expense-edit'){expenseModal(state.data.expenses.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
