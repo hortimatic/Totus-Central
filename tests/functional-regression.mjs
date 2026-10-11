@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import fs from 'node:fs';
+import {monthRange,yearRange,inRange,fmtDate} from '../src/utils.js';
+
+assert.deepEqual(monthRange('2024-02-12'),{from:'2024-02-01',to:'2024-02-29'});
+assert.deepEqual(monthRange('2026-02-12'),{from:'2026-02-01',to:'2026-02-28'});
+assert.deepEqual(monthRange('2026-12-31'),{from:'2026-12-01',to:'2026-12-31'});
+assert.deepEqual(yearRange(2026),{from:'2026-01-01',to:'2026-12-31'});
+assert.equal(inRange('2026-04-01','2026-01-01','2026-03-31'),false);
+assert.equal(inRange('2026-03-31','2026-01-01','2026-03-31'),true);
+assert.equal(fmtDate('2026-02-03'),'03/02/2026');
+
+const script="import {isoToday} from './src/utils.js'; const d=new Date(); const local=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-'); if(isoToday()!==local) process.exit(7)";
+for(const tz of ['Europe/Madrid','America/Los_Angeles','Pacific/Auckland','UTC']){
+ execFileSync(process.execPath,['--input-type=module','-e',script],{cwd:process.cwd(),env:{...process.env,TZ:tz}});
+}
+const app=fs.readFileSync('src/app.js','utf8');
+const backup=fs.readFileSync('src/backup.js','utf8');
+const sql=fs.readFileSync('supabase/backup.sql','utf8');
+for(const token of ["x.notes,state.data.stores.find","x.supplier_name,x.invoice_number,x.description,x.payment_method"]){
+ assert.ok(app.includes(token),'El Excel exportado debe respetar los filtros de búsqueda: '+token);
+}
+for(const required of ["'ops_income_adjustments'"]){
+ assert.ok(backup.includes(required),'Falta tabla en ZIP: '+required);
+ assert.ok(sql.includes(required),'Falta tabla en restauración: '+required);
+}
+assert.ok(sql.includes('delete from public.ops_income_adjustments;'));
+assert.ok(sql.includes('insert into public.ops_income_adjustments'));
+console.log('Fechas, límites, exportaciones filtradas y backup: OK');
