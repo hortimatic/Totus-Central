@@ -248,6 +248,17 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  setView('facturacion',{mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
  await refresh(isProforma?'Proforma guardada.':'Documento guardado.');
 }
+async function saveInvoicePayment(id){
+ const row=state.data.invoices.find(x=>x.id===id);if(!row)throw new Error('Factura no encontrada.');
+ const status=val('ivPaidStatus')||'pendiente',amount=Math.max(0,num('ivPaidAmount')),date=val('ivPaidDate')||null,method=val('ivPayment')||'transferencia';
+ if(date&&date>isoToday())throw new Error('La fecha de cobro no puede ser futura.');
+ if(status==='pendiente'&&amount>0)throw new Error('Una factura pendiente no puede tener importe cobrado.');
+ if(status==='pagada'&&(Math.abs(amount-Number(row.total_amount||0))>.02||!date))throw new Error('Una factura pagada debe tener fecha y el total cobrado.');
+ if(status==='parcial'&&(amount<=0||amount>=Number(row.total_amount||0)||!date))throw new Error('Un cobro parcial debe tener fecha e importe mayor que 0 y menor que el total.');
+ await rpc('totus_update_invoice_payment',{p_id:id,p_payment:{paid_status:status,paid_amount:amount,paid_date:date,payment_method:method}});
+ await refresh('Cobro actualizado.');
+}
+
 async function finalizeInvoice(id){
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
  if(!confirm(row.origin==='externa'?'¿Registrar definitivamente esta factura externa?':'¿Emitir este documento? Después quedará bloqueado.'))return;
@@ -869,6 +880,7 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-source-preview'){await previewDocument(el.dataset.id);return}
   if(a==='invoice-source-download'){await downloadDocument(el.dataset.id);return}
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
+  if(a==='invoice-payment-save'){await saveInvoicePayment(el.dataset.id);return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
   if(a==='invoice-preview'){await showInvoicePreview(el.dataset.id);return}
