@@ -786,7 +786,7 @@ async function saveConfig(){
  const current={...(state.data.settings||{})},patch={updated_at:new Date().toISOString()};
  const setIf=(id,key,transform=v=>v)=>{const el=input(id);if(el)patch[key]=transform(el.value)};
  setIf('cfgBusiness','business_name',v=>v.trim());setIf('cfgTax','tax_id',v=>v.trim());setIf('cfgAddress','business_address',v=>v.trim());setIf('cfgEmail','business_email',v=>v.trim());setIf('cfgPhone','business_phone',v=>v.trim());
- setIf('cfgVat','default_sales_vat_rate',n);setIf('cfgIrpf','irpf_prepayment_rate',n);setIf('cfgDifficultPct','difficult_expense_pct',n);setIf('cfgDifficultCap','difficult_expense_annual_cap',n);setIf('cfgReta','actual_reta_monthly',v=>v===''?null:n(v));setIf('cfgRetaRate','reta_total_rate',n);setIf('cfgRetaDeduction','reta_generic_deduction_pct',n);setIf('cfgMargin','target_operating_margin_pct',n);
+ setIf('cfgVat','default_sales_vat_rate',n);setIf('cfgPurchaseRe','purchase_re_rate',n);setIf('cfgIrpf','irpf_prepayment_rate',n);setIf('cfgDifficultPct','difficult_expense_pct',n);setIf('cfgDifficultCap','difficult_expense_annual_cap',n);setIf('cfgReta','actual_reta_monthly',v=>v===''?null:n(v));setIf('cfgRetaRate','reta_total_rate',n);setIf('cfgRetaDeduction','reta_generic_deduction_pct',n);setIf('cfgMargin','target_operating_margin_pct',n);
  if(input('cfgDifficultEnabled'))patch.difficult_expense_enabled=!!input('cfgDifficultEnabled').checked;if(input('cfgFiscalNotes'))patch.fiscal_notes=val('cfgFiscalNotes').trim();
  await update('ops_business_settings',current.id||1,patch);await refresh('Configuración guardada.');
 }
