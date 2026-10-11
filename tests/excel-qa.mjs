@@ -28,6 +28,10 @@ const expenseLines=[
 const storeWb=buildStoreAnnualWorkbook({store:stores[0],year:2026,closings,expenses,categories});
 if(storeWb.SheetNames.length!==12)throw new Error('Store workbook must have 12 monthly sheets');
 if(storeWb.SheetNames[0]!=='Enero'||storeWb.SheetNames[11]!=='Diciembre')throw new Error('Month sheet names are wrong');
+const nosWb=buildStoreAnnualWorkbook({store:stores[1],year:2026,closings,expenses,categories});
+const nosJan=nosWb.Sheets.Enero;
+if(nosJan['!cols'][2]?.wch!==30.71)throw new Error('NewOldSmok: original expense column width must be 30.71');
+if(storeWb.Sheets.Enero['!cols'][2]?.wch!==33)throw new Error('Hortimatic: original expense column width must be 33');
 const jan=storeWb.Sheets.Enero;
 if(jan['!merges']?.length!==1)throw new Error('Original shop workbook must have only its B1:F1 merge');
 if(jan['!cols']?.length!==9)throw new Error('Original shop workbook A:I widths must be preserved');
