@@ -898,6 +898,36 @@ function homeReport(kind){
 }
 function openAdminSection(section){setView('administracion',{section});setRoute('administracion');render();}
 
+function reportStorePreview(storeId,year){
+ const store=state.data.stores.find(x=>x.id===storeId);if(!store)return;
+ const rows=[];
+ for(let m=1;m<=12;m++){
+  const from=`${year}-${String(m).padStart(2,'0')}-01`,to=new Date(year,m,0).toISOString().slice(0,10);
+  const closings=state.data.closings.filter(x=>x.store_id===storeId&&x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to);
+  const sales=closings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
+    +state.data.invoices.filter(x=>x.store_id===storeId&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
+    +state.data.incomeAdjustments.filter(x=>(!x.store_id||x.store_id===storeId)&&x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0);
+  const expenses=state.data.expenses.filter(x=>x.store_id===storeId&&!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+  const internal=state.data.expenses.filter(x=>x.store_id===storeId&&x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+  rows.push({month:new Date(year,m-1,1).toLocaleDateString('es-ES',{month:'long'}),sales,expenses,internal,result:sales-expenses-internal});
+ }
+ const html=`<div class="stack"><div class="note">Vista previa del libro anual. La descarga conserva las 12 hojas mensuales, fórmulas y formato Excel.</div>${table([{label:'Mes',html:r=>esc(r.month)},{label:'Ventas',num:true,html:r=>money(r.sales)},{label:'Gastos contables',num:true,html:r=>money(r.expenses)},{label:'Internos',num:true,html:r=>money(r.internal)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`}],rows)}<div class="form-actions">${btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`)}</div></div>`;
+ modal(`${store.name} · ${year}`,html);
+}
+function reportGestorPreview(year){
+ const rows=[1,2,3,4].map(q=>{
+  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=new Date(year,q*3,0).toISOString().slice(0,10);
+  const income=state.data.closings.filter(x=>x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to).reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
+    +state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
+    +state.data.incomeAdjustments.filter(x=>x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0);
+  const expenses=state.data.expenses.filter(x=>!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+  const docs=state.data.documents.filter(x=>String(x.document_date||x.created_at).slice(0,10)>=from&&String(x.document_date||x.created_at).slice(0,10)<=to).length;
+  return {q:`${q}T`,from,to,income,expenses,result:income-expenses,docs};
+ });
+ const html=`<div class="stack"><div class="note">Vista previa de lo que entrará en el libro de gestoría y auditoría. Los ajustes fiscales se muestran en Fiscalidad y quedan trazados por separado.</div>${table([{label:'Periodo',html:r=>`<b>${r.q}</b><div class="small muted">${fmtDate(r.from)} → ${fmtDate(r.to)}</div>`},{label:'Ingresos',num:true,html:r=>money(r.income)},{label:'Gastos',num:true,html:r=>money(r.expenses)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`},{label:'Documentos',num:true,html:r=>String(r.docs)}],rows)}<div class="form-actions">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar ZIP gestor','export-gestor-package','secondary',`data-year="${year}"`)}</div></div>`;
+ modal(`Gestoría y auditoría · ${year}`,html);
+}
+
 function reportArgs(year){
  return {year,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
 }
@@ -1075,6 +1105,8 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
+  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(el.dataset.year));return}
+  if(a==='report-gestor-preview'){reportGestorPreview(Number(el.dataset.year));return}
   if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year));return}
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
