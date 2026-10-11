@@ -81,6 +81,10 @@ for(const rpc of ['totus_save_closing','totus_save_expense','totus_save_sales_do
  if(!text('src/app.js').includes(rpc))errors.push('Falta integración '+rpc);
 }
 
+for(const deadCall of ['productModal(','expenseModal(','invoiceModal(','closingModal(','documentModal(']){
+ if(appSource.includes(deadCall))errors.push('Llamada heredada inexistente: '+deadCall);
+}
+
 for(const oldRpc of ['ops_save_closing','ops_save_expense','ops_save_document_draft','ops_finalize_document','ops_delete_closing_controlled','ops_delete_expense_controlled']){
  if(text('src/app.js').includes(oldRpc))errors.push('RPC antiguo todavía usado: '+oldRpc);
 }
