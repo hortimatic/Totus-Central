@@ -56,6 +56,16 @@ for(const name of ['inicio','pricing','cajas','gastos','facturacion','documentos
 for(const fn of ['saveClosing','saveExpense','saveInvoice','saveProduct','saveDocument','saveUser','saveConfig']){
  if(!text('src/app.js').includes('function '+fn)&&!text('src/app.js').includes('async function '+fn))errors.push('Falta flujo '+fn);
 }
+const appSource=text('src/app.js');
+const pageSource=text('src/pages/main.js');
+if(appSource.includes("status:'archivado'"))errors.push('Documentos usa estado inválido archivado');
+for(const requiredDocValue of ['factura_recibida','factura_emitida','factura_rectificativa','impuesto','informe','archivada']){
+ if(!appSource.includes(requiredDocValue))errors.push('Falta valor válido de documentos: '+requiredDocValue);
+}
+if(appSource.includes('patchFilters({'))errors.push('Persisten filtros globales antiguos');
+if(!appSource.includes("patchFilters('pricing'"))errors.push('Pricing no tiene filtro independiente');
+if(!pageSource.includes("s.series_kind==='invoice'"))errors.push('Facturación ordinaria puede mezclar series rectificativas');
+
 for(const rpc of ['ops_save_closing','ops_save_expense','ops_save_document_draft','ops_finalize_document']){
  if(!text('src/app.js').includes(rpc))errors.push('Falta integración '+rpc);
 }
