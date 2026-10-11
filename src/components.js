@@ -7,12 +7,12 @@ export function setHeader(eyebrow,title,actions=''){
 }
 export const btn=(label,action,kind='secondary',attrs='')=>`<button class="btn ${kind}" data-action="${esc(action)}" ${attrs}>${esc(label)}</button>`;
 export const badge=(text,kind='info')=>`<span class="badge ${kind}">${esc(text)}</span>`;
-export const dateFilters=({from,to,store='all',stores=[]},prefix='filter')=>`
+export const dateFilters=({from,to,store='all',stores=[],query=''},prefix='filter')=>`
  <div class="filters">
   <div class="field"><label>Desde</label><input type="date" id="${prefix}From" value="${esc(from)}"></div>
   <div class="field"><label>Hasta</label><input type="date" id="${prefix}To" value="${esc(to)}"></div>
   <div class="field"><label>Tienda</label><select id="${prefix}Store"><option value="all">Todas</option>${stores.map(s=>`<option value="${s.id}" ${store===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
-  <div class="field search"><label>Buscar</label><input id="${prefix}Query" placeholder="Buscar por texto"></div>
+  <div class="field search"><label>Buscar</label><input id="${prefix}Query" value="${esc(query||'')}" placeholder="Buscar por texto"></div>
   ${btn('Aplicar',prefix+'-apply','primary')}
   ${btn('Este mes',prefix+'-month','secondary')}
  </div>`;
