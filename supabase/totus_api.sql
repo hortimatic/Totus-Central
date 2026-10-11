@@ -8,6 +8,8 @@ alter table public.ops_sales_invoices add column if not exists paid_amount numer
 create unique index if not exists ops_suppliers_tax_id_unique_ci on public.ops_suppliers (lower(trim(tax_id))) where trim(coalesce(tax_id,''))<>'';
 create unique index if not exists ops_customers_tax_id_unique_ci on public.ops_customers (lower(trim(tax_id))) where trim(coalesce(tax_id,''))<>'';
 create unique index if not exists ops_tax_payments_model_period_unique on public.ops_tax_payments(tax_type,fiscal_year,quarter) where tax_type in ('130','111','115','309');
+create unique index if not exists ops_document_templates_one_default_invoice on public.ops_document_templates (store_id) nulls not distinct where default_invoice=true and active=true;
+create unique index if not exists ops_document_templates_one_default_proforma on public.ops_document_templates (store_id) nulls not distinct where default_proforma=true and active=true;
 
 -- Totus Central · clean application API
 -- Additive rewrite: no business data is created, changed or deleted by this migration.
