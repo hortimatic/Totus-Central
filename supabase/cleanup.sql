@@ -9,3 +9,6 @@ drop table if exists public.ops_fiscal_reference_periods cascade;
 drop table if exists public.ops_legacy_daily_rows cascade;
 drop table if exists public.ops_historical_income_periods cascade;
 drop table if exists public.ops_personnel cascade;
+
+drop function if exists private.ops_log_revision() cascade;
+drop table if exists public.ops_entity_revisions cascade;
