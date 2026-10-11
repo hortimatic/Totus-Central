@@ -1365,6 +1365,7 @@ window.opsGestorPack=async function(){
  if(!window.JSZip||!window.XLSX)return alert('ZIP/Excel no disponible');
  if(!reportRangeValid())return;
  const z=new JSZip(),base=`GESTORIA_${O.reportFrom}_${O.reportTo}`;
+ ['01_INGRESOS','02_GASTOS','03_DIARIOS','04_RESUMEN','05_DOCUMENTOS'].forEach(name=>z.folder(base+'/'+name));
  z.file(base+`/01_INGRESOS/INGRESOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`,wbBlob({'INGRESOS':managerIncomeRows(O.reportFrom,O.reportTo)}));
  z.file(base+`/02_GASTOS/GASTOS_${O.reportFrom}_${O.reportTo}_gestoria.xlsx`,wbBlob({'GASTOS':managerExpenseRows(O.reportFrom,O.reportTo),'DESGLOSE CONCEPTOS':managerExpenseSummaryRows(O.reportFrom,O.reportTo)}));
  for(const st of O.stores){
@@ -1430,8 +1431,8 @@ function reportsHtml(){
     <div class="ops-actions"><button class="ghost" type="button" onclick="opsReportPreset('quarter')">T${O.quarter} ${O.year}</button><button class="ghost" type="button" onclick="opsReportPreset('year')">Año ${O.year}</button></div>
    </div>
    <div class="report-period-grid">
-    <div><label>Desde</label><input aria-label="Informe desde" type="date" max="${today()}" value="${H(O.reportFrom)}" onchange="opsReportField('from',this.value)"></div>
-    <div><label>Hasta</label><input aria-label="Informe hasta" type="date" max="${today()}" value="${H(O.reportTo)}" onchange="opsReportField('to',this.value)"></div>
+    <div><label>Desde</label><input aria-label="Informe desde" type="date" value="${H(O.reportFrom)}" onchange="opsReportField('from',this.value)"></div>
+    <div><label>Hasta</label><input aria-label="Informe hasta" type="date" value="${H(O.reportTo)}" onchange="opsReportField('to',this.value)"></div>
     <div class="report-period-summary"><span><b>${st.closings}</b> cierres</span><span><b>${st.fiscalExpenses}</b> gastos fiscales</span><span><b>${st.internalExpenses}</b> internos</span><span><b>${st.invoices}</b> facturas/proformas</span><span><b>${st.documents}</b> documentos</span></div>
    </div>
   </section>
