@@ -8,7 +8,7 @@ const O=window.TotusGestion={
   settings:null,stores:[],categories:[],suppliers:[],personnel:[],documents:[],expenses:[],expenseLines:[],
   closings:[],drawers:[],closingDrawers:[],series:[],invoices:[],invoiceLines:[],
   taxPayments:[],retaBrackets:[],fiscalAdjustments:[],incomeAdjustments:[],gestorQuarterSummary:[],reconciliationNotes:[],
-  closeDraft:null,closeView:'list',closeSearch:'',closeStatus:'all',expenseDraft:null,expenseDraftLines:[],expenseSelected:[],invoiceDraft:null,invoiceDraftLines:[],
+  closeDraft:null,closeView:'list',closeSearch:'',closeStatus:'all',expenseDraft:null,expenseDraftLines:[],expenseSelected:[],expenseView:'list',expenseSearch:'',expenseMode:'all',invoiceDraft:null,invoiceDraftLines:[],
   docFilter:{from:'',to:'',store:'all',status:'all',type:'all',q:''},
   reportFrom:'',reportTo:'',plannedSpend:'',
   saving:false
@@ -636,7 +636,7 @@ function draftExpenseTotals(){
  O.expenseDraftLines.forEach(l=>{const x=expenseLineCalc(l);accounting+=x.accounting;payable+=x.payable;withholding+=x.withholding});
  return {accounting,payable,withholding};
 }
-function expensesHtml(){
+function expenseFormHtml(){
  if(!O.expenseDraft){O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()]}
  const d=O.expenseDraft,t=draftExpenseTotals(),pb=periodBounds(O.year,O.quarter,false);
  const rows=O.expenses.filter(e=>inRange(e.expense_date,pb.start,pb.end)&&(O.storeId==='all'||e.store_id===O.storeId)).slice(0,120);
@@ -722,28 +722,58 @@ function expensesHtml(){
    </aside>
   </div>
 
-  <section class="expense-history-card">
-   <div class="expense-history-head">
-    <div><div class="eyebrow">T${O.quarter}</div><h3>Gastos registrados</h3><div class="small">Busca, revisa o descarga gastos existentes sin mezclarlos con el alta actual.</div></div>
-    <div class="expense-history-actions"><span class="badge" id="ops_exp_selected_count">${O.expenseSelected.length} seleccionados</span><button class="ghost" onclick="opsExpenseClearSelection()" ${O.expenseSelected.length?'':'disabled'}>Limpiar selección</button><button class="secondary" id="ops_exp_download_selected" onclick="opsDownloadSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Descargar facturas</button>${manager()?`<button class="danger" id="ops_exp_delete_selected" onclick="opsDeleteSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Eliminar selección</button>`:''}<button class="secondary" onclick="opsExportExpenses()">Exportar CSV</button></div>
+ </div>`;
+}
+function expenseListHtml(){
+ const pb=periodBounds(O.year,O.quarter,false),mode=O.expenseMode||'all',q=String(O.expenseSearch||'').trim().toLowerCase();
+ const all=O.expenses.filter(e=>inRange(e.expense_date,pb.start,pb.end)&&(O.storeId==='all'||e.store_id===O.storeId));
+ const filtered=all.filter(e=>{
+   if(mode==='fiscal'&&e.management_only)return false;
+   if(mode==='internal'&&!e.management_only)return false;
+   const hay=[e.supplier_name,e.supplier_tax_id,e.invoice_number,storeName(e.store_id),e.document_kind,e.description,e.notes].join(' ').toLowerCase();
+   return !q||hay.includes(q);
+ });
+ const rows=filtered.slice(0,250);
+ const total=sum(all,e=>n(e.accounting_amount||e.gross_expense));
+ const fiscal=sum(all.filter(e=>!e.management_only),e=>n(e.accounting_amount||e.gross_expense));
+ const internal=sum(all.filter(e=>e.management_only),e=>n(e.accounting_amount||e.gross_expense));
+ const pending=all.filter(e=>e.paid_status==='pendiente'||e.paid_status==='parcial').length;
+ return `<div class="expense-list-shell">
+  <section class="ops-page-command">
+   <div><div class="eyebrow">Gastos · T${O.quarter} ${O.year}</div><h2>Gastos registrados</h2><p>Consulta todo el histórico, filtra y abre una ficha solo cuando necesites crear o corregir un gasto.</p></div>
+   <div class="ops-actions"><button class="secondary" onclick="opsNewInternalExpense()">+ Gasto interno</button><button class="primary" onclick="opsNewExpense()">+ Nuevo gasto</button></div>
+  </section>
+  <section class="ops-list-summary expense-list-summary">
+   <article><span>Total registrado</span><strong>${eur(total)}</strong><small>${all.length} gastos</small></article>
+   <article><span>Fiscal</span><strong>${eur(fiscal)}</strong><small>entra en control fiscal</small></article>
+   <article><span>Solo interno</span><strong>${eur(internal)}</strong><small>fuera de gestoría</small></article>
+   <article class="${pending?'warn':''}"><span>Pendientes de pago</span><strong>${pending}</strong><small>${pending?'requieren seguimiento':'ninguno'}</small></article>
+  </section>
+  <section class="ops-list-card">
+   <div class="ops-list-toolbar expense-list-toolbar">
+    <div class="ops-list-search"><span>⌕</span><input aria-label="Buscar gastos registrados" placeholder="Proveedor, NIF, factura, tienda…" value="${h(O.expenseSearch||'')}" oninput="opsExpenseHistorySearch(this.value)"></div>
+    <select aria-label="Filtrar gastos por tratamiento" onchange="opsExpenseHistoryMode(this.value)"><option value="all" ${mode==='all'?'selected':''}>Todos</option><option value="fiscal" ${mode==='fiscal'?'selected':''}>Solo fiscales</option><option value="internal" ${mode==='internal'?'selected':''}>Solo internos</option></select>
+    <button class="secondary" onclick="opsExportExpenses()">Exportar CSV</button>
    </div>
-   <div class="expense-history-toolbar">
-    <div class="expense-history-search"><span>⌕</span><input aria-label="Buscar gastos registrados" placeholder="Proveedor, NIF, factura, tienda…" oninput="opsExpenseHistorySearch(this.value)"></div>
-    <select aria-label="Filtrar gastos por tratamiento" onchange="opsExpenseHistoryMode(this.value)"><option value="all">Todos</option><option value="fiscal">Solo fiscales</option><option value="internal">Solo internos</option></select>
+   <div class="ops-list-selection">
+    <span class="badge" id="ops_exp_selected_count">${O.expenseSelected.length} seleccionados</span>
+    <div class="ops-actions"><button class="ghost" onclick="opsExpenseClearSelection()" ${O.expenseSelected.length?'':'disabled'}>Limpiar</button><button class="secondary" id="ops_exp_download_selected" onclick="opsDownloadSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Descargar facturas</button>${manager()?`<button class="danger" id="ops_exp_delete_selected" onclick="opsDeleteSelectedExpenses()" ${O.expenseSelected.length?'':'disabled'}>Eliminar selección</button>`:''}</div>
    </div>
-   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table expense-history-table"><thead><tr><th><input type="checkbox" aria-label="Seleccionar todos los gastos visibles" onchange='opsExpenseSelectAll(${JSON.stringify(rows.map(x=>x.id))},this.checked)'></th><th>Fecha</th><th>Tienda</th><th>Proveedor</th><th>Factura</th><th>Tipo</th><th>Contable</th><th>Pagado</th><th>Documento</th><th></th></tr></thead><tbody>${rows.map(e=>{const search=[e.supplier_name,e.supplier_tax_id,e.invoice_number,storeName(e.store_id),e.document_kind].join(' ').toLowerCase();return`<tr data-expense-row="1" data-mode="${e.management_only?'internal':'fiscal'}" data-search="${h(search)}"><td><input type="checkbox" aria-label="Seleccionar gasto ${h(e.supplier_name)}" ${O.expenseSelected.includes(e.id)?'checked':''} onchange="opsExpenseSelect('${e.id}',this.checked)"></td><td>${dmy(e.expense_date)}</td><td>${h(storeName(e.store_id))}</td><td><b>${h(e.supplier_name)}</b><div class="ops-tiny">${h(e.supplier_tax_id)}</div></td><td>${h(e.invoice_number||'—')}</td><td>${h(e.document_kind||'factura')}${e.management_only?'<div><span class="badge warnb">Interno</span></div>':''}${e.source!=='manual'?'<div><span class="badge">Importado</span></div>':''}${e.source==='importacion_excel'&&!e.fiscal_reviewed&&!e.management_only?'<div><span class="badge warnb">Fiscal pendiente</span></div>':''}</td><td class="num">${eur(e.accounting_amount||e.gross_expense)}</td><td class="num">${eur(e.amount_paid)}</td><td>${e.document_id?'<span class="badge ok">Adjunta</span>':'<span class="badge warnb">Sin archivo</span>'}</td><td><div class="ops-actions">${e.document_id?`<button class="ghost" onclick="opsPreviewDoc('${e.document_id}')">Vista previa</button>`:''}<button class="ghost" onclick="opsEditExpense('${e.id}')">Editar</button>${manager()?`<button class="danger" onclick="opsDeleteExpense('${e.id}')">Eliminar</button>`:''}</div></td></tr>`}).join('')}</tbody></table></div><div id="ops_exp_history_empty" class="ops-empty" hidden>No hay gastos que coincidan con esos filtros.</div>`:'<div class="ops-empty">No hay gastos en este trimestre.</div>'}
+   ${rows.length?`<div class="ops-table-wrap"><table class="ops-table expense-history-table"><thead><tr><th><input type="checkbox" aria-label="Seleccionar todos los gastos visibles" onchange='opsExpenseSelectAll(${JSON.stringify(rows.map(x=>x.id))},this.checked)'></th><th>Fecha</th><th>Tienda</th><th>Proveedor</th><th>Factura</th><th>Tipo</th><th>Contable</th><th>Pagado</th><th>Documento</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td><input type="checkbox" aria-label="Seleccionar gasto ${h(e.supplier_name)}" ${O.expenseSelected.includes(e.id)?'checked':''} onchange="opsExpenseSelect('${e.id}',this.checked)"></td><td><b>${dmy(e.expense_date)}</b></td><td>${h(storeName(e.store_id))}</td><td><b>${h(e.supplier_name)}</b><div class="ops-tiny">${h(e.supplier_tax_id||'')}</div></td><td>${h(e.invoice_number||'—')}</td><td>${h(e.document_kind||'factura')}${e.management_only?'<div><span class="badge warnb">Interno</span></div>':''}${e.source!=='manual'?'<div><span class="badge">Importado</span></div>':''}${e.source==='importacion_excel'&&!e.fiscal_reviewed&&!e.management_only?'<div><span class="badge warnb">Fiscal pendiente</span></div>':''}</td><td class="num"><b>${eur(e.accounting_amount||e.gross_expense)}</b></td><td class="num">${eur(e.amount_paid)}<div class="ops-tiny">${h(e.paid_status||'')}</div></td><td>${e.document_id?'<span class="badge ok">Adjunta</span>':'<span class="badge warnb">Sin archivo</span>'}</td><td><div class="ops-actions">${e.document_id?`<button class="ghost" onclick="opsPreviewDoc('${e.document_id}')">Vista previa</button>`:''}<button class="ghost" onclick="opsEditExpense('${e.id}')">Abrir</button>${manager()?`<button class="danger" onclick="opsDeleteExpense('${e.id}')">Eliminar</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:'<div class="ops-empty">No hay gastos que coincidan con los filtros.</div>'}
   </section>
  </div>`;
 }
-window.__expenseHistoryQuery='';
-window.__expenseHistoryMode='all';
-function applyExpenseHistoryFilter(){
- const q=String(window.__expenseHistoryQuery||'').trim().toLowerCase(),mode=window.__expenseHistoryMode||'all';let visible=0;
- document.querySelectorAll('tr[data-expense-row="1"]').forEach(r=>{const show=(!q||String(r.dataset.search||'').includes(q))&&(mode==='all'||r.dataset.mode===mode);r.hidden=!show;if(show)visible++});
- const empty=document.getElementById('ops_exp_history_empty');if(empty)empty.hidden=visible>0;
+function expensesHtml(){
+ if(O.expenseView==='form')return `<div class="ops-record-view"><div class="ops-record-back"><button class="ghost" onclick="opsExpenseCancel()">← Volver a gastos</button></div>${expenseFormHtml()}</div>`;
+ return expenseListHtml();
 }
-window.opsExpenseHistorySearch=function(v){window.__expenseHistoryQuery=v;applyExpenseHistoryFilter()};
-window.opsExpenseHistoryMode=function(v){window.__expenseHistoryMode=v;applyExpenseHistoryFilter()};
+window.opsExpenseCancel=function(){
+ if(expenseHasUserInput()&&!confirm('Hay datos sin guardar. ¿Salir del gasto y descartarlos?'))return;
+ O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];O.expenseView='list';render();
+};
+window.opsExpenseHistorySearch=function(v){O.expenseSearch=v;render()};
+window.opsExpenseHistoryMode=function(v){O.expenseMode=v;render()};
+
 function expenseLineHtml(l,i){
  const x=expenseLineCalc(l),cat=category(l.categoryId),pct=Math.min(100,Math.max(0,n(l.deductiblePct??100)));
  const treatment=l.fixed?'fixed':!l.deductible?'none':pct<100?'partial':'full';
@@ -910,14 +940,14 @@ window.opsQuickInternal=function(kind){
  d.amountPaid=kind==='warehouse'?'300':'';
  render();
 };
-window.opsNewExpense=function(){if(expenseHasUserInput()&&!confirm('Hay datos sin guardar en el gasto actual. ¿Crear un gasto nuevo y descartarlos?'))return;O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];render()};
-window.opsNewInternalExpense=function(){O.expenseDraft=newExpenseDraft();O.expenseDraft.managementOnly=true;O.expenseDraft.documentKind='otro';O.expenseDraft.fiscalReviewed=false;O.expenseDraftLines=[defaultExpenseLine()];render();};
+window.opsNewExpense=function(){if(expenseHasUserInput()&&!confirm('Hay datos sin guardar en el gasto actual. ¿Crear un gasto nuevo y descartarlos?'))return;O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];O.expenseView='form';render()};
+window.opsNewInternalExpense=function(){if(expenseHasUserInput()&&!confirm('Hay datos sin guardar en el gasto actual. ¿Crear un gasto interno nuevo y descartarlos?'))return;O.expenseDraft=newExpenseDraft();O.expenseDraft.managementOnly=true;O.expenseDraft.documentKind='otro';O.expenseDraft.fiscalReviewed=false;O.expenseDraftLines=[defaultExpenseLine()];O.expenseView='form';render();};
 window.opsEditExpense=function(id){
  const e=O.expenses.find(x=>x.id===id);if(!e)return;
  if(expenseHasUserInput()&&!confirm('Hay datos sin guardar en el gasto actual. ¿Abrir otro gasto y descartarlos?'))return;
  O.expenseDraft={id:e.id,storeId:e.store_id||'',date:e.expense_date,supplierId:e.supplier_id||'',supplier:e.supplier_name||'',taxId:e.supplier_tax_id||'',invoice:e.invoice_number||'',documentKind:e.document_kind||'factura',payment:e.payment_method||'transferencia',paidStatus:e.paid_status||'pagado',paidDate:e.paid_date||'',amountPaid:String(e.amount_paid??''),notes:e.notes||'',fiscalReviewed:!!e.fiscal_reviewed,managementOnly:!!e.management_only};
  const lines=O.expenseLines.filter(x=>x.expense_id===id);O.expenseDraftLines=lines.length?lines.map(l=>({id:l.id,categoryId:l.category_id||'',description:l.description||'',base:String(l.base_amount??''),vat:String(l.vat_rate??0).replace('.',','),re:String(l.re_rate??0).replace('.',','),withholding:String(l.withholding_rate??0).replace('.',','),model:l.withholding_model||'',deductible:l.deductible_irpf!==false,deductiblePct:String(l.deductible_pct??(l.deductible_irpf!==false?100:0)).replace('.',','),fixed:!!l.fixed_asset})): [defaultExpenseLine()];
- render();window.scrollTo({top:0,behavior:'smooth'});
+ O.expenseView='form';render();window.scrollTo({top:0,behavior:'smooth'});
 };
 async function fileSha256(file){
  const buf=await file.arrayBuffer(); const hash=await crypto.subtle.digest('SHA-256',buf);
@@ -931,7 +961,7 @@ function validateDocFile(file){
  const allowedMime=new Set(['application/pdf','image/jpeg','image/png','image/webp','text/csv','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel']);
  if(file.size<=0)throw new Error('El archivo está vacío.');
  if(file.size>max)throw new Error('El archivo supera el límite de '+Math.round(max/1048576)+' MB.');
- if(!allowedExt.has(ext))throw new Error('Tipo de archivo no permitido. Usa PDF, imagen, Excel, CSV o texto.');
+ if(!allowedExt.has(ext))throw new Error('Tipo de archivo no permitido. Usa PDF, JPG/JPEG, PNG, WEBP, XLS/XLSX o CSV.');
  if(file.type&&!allowedMime.has(file.type))throw new Error('El contenido del archivo no coincide con un formato permitido.');
  return true;
 }
@@ -961,7 +991,7 @@ window.opsDeleteExpense=async function(id){
  try{
   const {data,error}=await sb.rpc('ops_delete_expense_controlled',{p_expense_id:id,p_reason:reason});if(error)throw error;
   for(const path of (data?.storage_paths||[])){const rm=await sb.storage.from('business-documents').remove([path]);if(rm.error)console.warn('Archivo físico pendiente de limpieza:',rm.error.message)}
-  await load(true);O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];render();
+  await load(true);O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];O.expenseView='list';render();
  }catch(err){alert('No se pudo eliminar el gasto: '+err.message)}
 };
 window.opsRemoveExpenseDocument=async function(docId){
@@ -1027,13 +1057,13 @@ window.opsSaveExpense=async function(){
       }
      }catch(uploadError){
       await audit('gastos',d.id?'actualizar':'crear',id,{fecha:d.date,proveedor:d.supplier,total:totals.accounting,adjunto:'fallido'});
-      focusPeriodForDate(d.date);await load(true);O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];render();
+      focusPeriodForDate(d.date);await load(true);O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];O.expenseView='list';render();
       alert('El gasto se ha guardado, pero el archivo adjunto no pudo subirse: '+uploadError.message+'\nPuedes abrir el gasto y adjuntarlo de nuevo.');
       return;
      }
    }
    await audit('gastos',d.id?'actualizar':'crear',id,{fecha:d.date,proveedor:d.supplier,total:totals.accounting});
-   focusPeriodForDate(d.date);await load(true);O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];render();
+   focusPeriodForDate(d.date);await load(true);O.expenseDraft=newExpenseDraft();O.expenseDraftLines=[defaultExpenseLine()];O.expenseView='list';render();
  }catch(e){alert('No se pudo guardar el gasto: '+e.message)}finally{O.saving=false}
 };
 
