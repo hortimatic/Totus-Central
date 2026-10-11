@@ -57,6 +57,10 @@ for(const sheetName of ['Conciliación 1T','Conciliación 2T','Conciliación 3T'
   if(ws[col+'7']?.f!==expected)throw new Error('Falta suma trazable de gestoría: '+sheetName+' '+col+'7');
  }
 }
+const audit=gestorWb.Sheets['Auditoría gestor'];
+if(audit['!cols']?.[0]?.wch!==28||audit['!cols']?.[7]?.wch!==45)throw new Error('Gestor audit original column widths do not match');
+if(!audit['!merges']?.some(m=>m.s.r===11&&m.s.c===0&&m.e.r===16&&m.e.c===7))throw new Error('Gestor audit explanatory block A12:H17 missing');
+if(audit['A8']?.v!=='Incidencia'||audit['F8']?.v!=='Acción recomendada')throw new Error('Gestor incident register missing');
 const book=gestorWb.Sheets['Libro gestor 1T'];
 const expected=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','NIF/CIF','Razón social','Concepto','Base IVA','% IVA','Cuota IVA','Base R.E.','% R.E.','Cuota R.E.','Imputable a IRPF','Base retención','% retención','Cuota retenida','Total factura','Neto pagado'];
 for(let i=0;i<expected.length;i++){const cell=book[xlsx.utils.encode_cell({r:2,c:i})];if(cell?.v!==expected[i])throw new Error('Gestor header mismatch at '+expected[i])}
