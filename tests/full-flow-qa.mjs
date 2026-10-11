@@ -2,6 +2,7 @@ import {chromium} from 'playwright';
 const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
+page.setDefaultTimeout(5000);
 const errors=[];
 page.on('pageerror',e=>errors.push('JS '+e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push('Consola '+m.text())});
