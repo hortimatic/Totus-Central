@@ -7,7 +7,7 @@ const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
 
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
- const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=new Date(year,quarter*3,0).toISOString().slice(0,10);
+ const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`;
  const activeStores=stores();
  const monthClosings=state.data.closings.filter(x=>inRange(x.business_date,month.from,month.to));
  const monthExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,month.from,month.to));
@@ -257,7 +257,7 @@ export function documentRecordHtml(row=null){
 
 export function fiscalidad(){
  const f=getFilters('fiscalidad'),to=f.to||isoToday(),year=Number(String(to).slice(0,4)),quarter=Math.max(1,Math.min(4,Math.ceil(Number(String(to).slice(5,7))/3)));
- const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=new Date(year,quarter*3,0).toISOString().slice(0,10),yFrom=`${year}-01-01`;
+ const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`,yFrom=`${year}-01-01`;
  const storeOk=x=>f.store==='all'||x.store_id===f.store;
  const periodClose=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&storeOk(x)&&x.include_in_income!==false);
  const ytdClose=state.data.closings.filter(x=>inRange(x.business_date,yFrom,qTo)&&storeOk(x)&&x.include_in_income!==false);
