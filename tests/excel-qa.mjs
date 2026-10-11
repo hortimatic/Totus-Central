@@ -47,6 +47,23 @@ const expected=['Orden','Fecha','Nº fra. recibida','Nº fra. proveedor','Rt','N
 for(let i=0;i<expected.length;i++){const cell=book[xlsx.utils.encode_cell({r:2,c:i})];if(cell?.v!==expected[i])throw new Error('Gestor header mismatch at '+expected[i])}
 
 fs.mkdirSync('artifacts',{recursive:true});
-xlsx.writeFile(storeWb,'artifacts/QA_Gastos_y_ventas_Hortimatic_2026.xlsx',{cellStyles:true});
-xlsx.writeFile(gestorWb,'artifacts/QA_Libros_gestor_2026.xlsx',{cellStyles:true});
+
+const roundtripStore='artifacts/QA_Gastos_y_ventas_Hortimatic_2026.xlsx';
+const roundtripGestor='artifacts/QA_Libros_gestor_2026.xlsx';
+xlsx.writeFile(storeWb,roundtripStore,{cellStyles:true});
+xlsx.writeFile(gestorWb,roundtripGestor,{cellStyles:true});
+for(const file of [roundtripStore,roundtripGestor]){
+ const reread=xlsx.readFile(file,{cellStyles:true,cellFormula:true});
+ if(!reread.SheetNames.length)throw new Error('Roundtrip workbook without sheets: '+file);
+ if(fs.statSync(file).size<5000)throw new Error('Exported workbook suspiciously small: '+file);
+}
+const rereadStore=xlsx.readFile(roundtripStore,{cellStyles:true,cellFormula:true});
+const rereadJan=rereadStore.Sheets.Enero;
+const rrTotal=Object.entries(rereadJan).find(([k,v])=>/^B\d+$/.test(k)&&v?.v==='Total');
+if(!rrTotal)throw new Error('Roundtrip store workbook lost Total row');
+const rrRow=Number(rrTotal[0].match(/\d+/)[0]);
+for(const col of ['D','E','F'])if(!rereadJan[`${col}${rrRow}`]?.f)throw new Error('Roundtrip workbook lost formula '+col+rrRow);
+const rereadGestor=xlsx.readFile(roundtripGestor,{cellStyles:true,cellFormula:true});
+if(!rereadGestor.SheetNames.includes('Auditoría gestor'))throw new Error('Roundtrip gestor workbook lost audit sheet');
+
 console.log('Excel QA OK');
