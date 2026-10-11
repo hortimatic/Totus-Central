@@ -66,7 +66,7 @@ export function gastos(){
   {label:'Pago',html:r=>esc(r.payment_method||'—')},{label:'Estado',html:r=>stateBadge(r.paid_status||'registrado')},{label:'',html:r=>btn('Ver','expense-edit','secondary',`data-id="${r.id}"`)}
  ];
  return `<div class="page"><div class="kpis">${kpi('Gastos',String(rows.length))}${kpi('Total filtrado',money(sum(rows,x=>x.gross_expense||x.amount_paid||x.accounting_amount)))}${kpi('Pagados',String(rows.filter(x=>x.paid_status==='pagado').length))}${kpi('Pendientes',String(rows.filter(x=>x.paid_status!=='pagado').length))}</div>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Gastos</h2><p>Registro único, ordenado y sin formularios duplicados.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div>
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Gastos</h2><p>Registro único, ordenado y sin formularios duplicados.</p></div><div class="inline-actions">${btn('Nuevo gasto','expense-new','primary')}${btn('Proveedores','expense-suppliers','secondary')}</div></div>
   ${dateFilters({...f,stores:stores()},'gastos')}
   ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para las fechas seleccionadas.'})}</section></div>`;
 }
@@ -340,7 +340,9 @@ export function invoiceLineRow(line={},index=0){
 export function invoiceModal(row=null,type='factura'){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const series=state.data.series.filter(s=>s.active!==false&&s.document_type===type&&(type!=='factura'||s.series_kind==='invoice')).map(s=>({value:s.id,label:s.code}));
- const templates=[{value:'',label:'Sin plantilla'},...state.data.templates.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
+ const activeTemplates=state.data.templates.filter(x=>x.active!==false);
+ const defaultTemplate=activeTemplates.find(x=>type==='proforma'?x.default_proforma:x.default_invoice);
+ const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name}))];
  const customers=[{value:'',label:'Cliente nuevo / manual'},...state.data.customers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
  const body=`<div class="form-grid">
@@ -355,7 +357,7 @@ export function invoiceModal(row=null,type='factura'){
  <label class="wide">Dirección<textarea id="ivAddress" rows="2">${esc(row?.customer_address||'')}</textarea></label>
  ${formField('Concepto','ivConcept',row?.concept||'')}
  ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
- ${selectField('Plantilla','ivTemplate',templates,row?.template_id||'')}
+ ${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'')}
  ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'')}
  </div>
  <div class="card" style="margin-top:16px"><div class="card-pad">
