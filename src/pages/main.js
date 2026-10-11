@@ -282,47 +282,45 @@ export function informes(){
  <section class="card card-pad"><div class="section-head"><div><h2>Exportaciones</h2><p>Genera informes usando el periodo exacto seleccionado.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Excel de cierres','export-closings','primary')}${btn('Excel de gastos','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section></div>`;
 }
 
-export function usuarios(){
- if(!isAdmin())return '<div class="page"><div class="card card-pad"><h2>Sin acceso</h2></div></div>';
- const rows=state.data.team;
- const headers=[{label:'Nombre',html:r=>esc(r.full_name)},{label:'Email',html:r=>esc(r.email)},{label:'Rol',html:r=>esc(r.role)},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}];
- return `<div class="page"><section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Accesos y permisos de Totus Central.</p></div>${btn('Nuevo usuario','user-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section></div>`;
-}
-
-export function configuracion(){
+export function administracion(){
  if(!isManager())return '<div class="page"><div class="card card-pad"><h2>Sin acceso</h2></div></div>';
- const s=state.data.settings||{};
- const locked=isAdmin()?'':'disabled';
- const templateRows=state.data.templates.map(t=>`<div class="summary-row"><div><b>${esc(t.name)}</b><div class="small muted">${esc(t.code)} · ${esc(t.style)}${t.logo_name?' · logo '+esc(t.logo_name):''}</div></div><div class="inline-actions">${btn('Editar','template-edit','secondary',`data-id="${t.id}"`)}${isAdmin()?btn('Eliminar','template-delete','danger',`data-id="${t.id}"`):''}</div></div>`).join('')||'<div class="empty"><strong>Sin plantillas</strong><span>Crea una plantilla para facturas y proformas.</span></div>';
- const seriesRows=state.data.series.map(sr=>`<div class="summary-row"><div><b>${esc(sr.code)}</b><div class="small muted">${esc(sr.document_type)} · ${esc(sr.series_kind)} · año ${sr.year}</div></div><div class="inline-actions"><span class="badge ${sr.active?'ok':'bad'}">${sr.active?'Activa':'Inactiva'}</span><span class="badge info">Siguiente ${sr.next_number}</span>${isAdmin()?btn(sr.active?'Desactivar':'Activar','series-toggle','secondary',`data-id="${sr.id}" data-active="${sr.active?'false':'true'}"`):''}</div></div>`).join('');
- return `<div class="page">
- <div class="split">
-  <section class="card card-pad"><div class="section-head"><div><h2>Datos del negocio</h2><p>Una única ubicación para datos fiscales y de contacto.</p></div></div><div class="form-grid" style="margin-top:14px">
-   ${formField('Nombre / razón fiscal','cfgBusiness',s.business_name||'','text',locked)}
-   ${formField('NIF','cfgTax',s.tax_id||'','text',locked)}
-   ${formField('Dirección','cfgAddress',s.business_address||'','text',locked)}
-   ${formField('Email','cfgEmail',s.business_email||'','email',locked)}
-   ${formField('Teléfono','cfgPhone',s.business_phone||'','text',locked)}
-   ${formField('Límite documental (MB)','cfgStorage',Math.round(Number(s.storage_limit_bytes||524288000)/1024/1024),'number',locked)}
-   <div class="wide note">Uso actual: ${((Number(state.data.storageUsage?.total_bytes||0))/1024/1024).toFixed(1).replace('.',',')} MB de 500 MB configurados.</div>
-  </div>${isAdmin()?`<div class="form-actions">${btn('Guardar configuración','config-save','primary')}</div>`:'<div class="note" style="margin-top:14px">Solo el administrador puede cambiar los datos generales del negocio.</div>'}</section>
-  <section class="card card-pad"><h2>Fiscalidad</h2><div class="form-grid" style="margin-top:14px">
-   ${formField('IVA ventas (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}
-   ${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}
-   ${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number',locked+' step="0.01"')}
-   ${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number',locked+' step="0.1"')}
-  </div></section>
- </div>
- <section class="card card-pad"><div class="section-head"><div><h2>Plantillas de facturación</h2><p>Logo, colores y textos se administran aquí, no en otras pantallas.</p></div>${btn('Nueva plantilla','template-new','primary')}</div><div style="margin-top:12px">${templateRows}</div></section>
- <section class="card card-pad"><div class="section-head"><div><h2>Series</h2><p>Numeración de facturas, rectificativas y proformas.</p></div></div><div style="margin-top:12px">${seriesRows}</div></section>
- ${isAdmin()?`<section class="card card-pad"><div class="section-head"><div><h2>Copias de seguridad</h2><p>Copia completa de datos, documentos y logos. Los usuarios/Auth se conservan fuera de la copia.</p></div>${btn('Descargar copia','backup-create','primary')}</div><div class="form-grid" style="margin-top:14px"><label class="wide">Cargar copia<input id="backupFile" type="file" accept=".totusbackup,application/zip"></label></div><div class="note warn" style="margin-top:12px">Restaurar sustituye los datos de negocio actuales. Requiere tres confirmaciones y un motivo.</div><div class="form-actions">${btn('Restaurar copia','backup-restore','danger')}</div></section>`:''}
+ const section=getView('administracion').section||'usuarios';
+ const tabs=`<div class="tabs module-tabs"><button class="tab ${section==='usuarios'?'active':''}" data-action="admin-section" data-section="usuarios">Usuarios</button><button class="tab ${section==='negocio'?'active':''}" data-action="admin-section" data-section="negocio">Negocio y cajas</button><button class="tab ${section==='fiscal'?'active':''}" data-action="admin-section" data-section="fiscal">Configuración fiscal</button><button class="tab ${section==='storage'?'active':''}" data-action="admin-section" data-section="storage">Almacenamiento</button><button class="tab ${section==='backups'?'active':''}" data-action="admin-section" data-section="backups">Copias</button><button class="tab ${section==='log'?'active':''}" data-action="admin-section" data-section="log">Log</button></div>`;
+ return `<div class="page">${tabs}${section==='usuarios'?adminUsersHtml():section==='negocio'?adminBusinessHtml():section==='fiscal'?adminFiscalHtml():section==='storage'?adminStorageHtml():section==='backups'?adminBackupHtml():adminLogHtml()}</div>`;
+}
+function adminUsersHtml(){
+ if(!isAdmin())return '<section class="card card-pad"><h2>Usuarios</h2><div class="note">Solo el administrador gestiona usuarios.</div></section>';
+ const rows=state.data.team;
+ const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}];
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Accesos, roles y contraseñas.</p></div>${btn('+ Nuevo usuario','user-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
+}
+function adminBusinessHtml(){
+ const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
+ const storeRows=state.data.stores.map(st=>`<div class="admin-entity"><div><b>${esc(st.name)}</b><div class="small muted">${esc(st.code||'')} · ${st.active?'Activo':'Inactivo'}</div></div><div class="inline-actions">${isAdmin()?btn('Editar','store-edit','secondary',`data-id="${st.id}"`):''}</div><div class="entity-children">${state.data.drawers.filter(d=>d.store_id===st.id).map(d=>`<div class="summary-row"><span>${esc(d.name)} ${d.active?'':'(inactiva)'}</span>${isAdmin()?btn('Editar caja','drawer-edit','secondary',`data-id="${d.id}" data-store="${st.id}"`):''}</div>`).join('')||'<div class="small muted">Sin cajas</div>'}${isAdmin()?btn('+ Añadir caja','drawer-new','secondary',`data-store="${st.id}"`):''}</div></div>`).join('');
+ return `<div class="split">
+  <section class="card card-pad"><div class="section-head"><div><h2>Datos del negocio</h2><p>Una sola ubicación para identidad fiscal y contacto.</p></div></div><div class="form-grid" style="margin-top:14px">${formField('Nombre / razón fiscal','cfgBusiness',s.business_name||'','text',locked)}${formField('NIF','cfgTax',s.tax_id||'','text',locked)}${formField('Dirección','cfgAddress',s.business_address||'','text',locked)}${formField('Email','cfgEmail',s.business_email||'','email',locked)}${formField('Teléfono','cfgPhone',s.business_phone||'','text',locked)}</div>${isAdmin()?`<div class="form-actions">${btn('Guardar datos','config-save','primary')}</div>`:''}</section>
+  <section class="card card-pad"><div class="section-head"><div><h2>Establecimientos y cajas</h2><p>Configuración física usada por Cajas.</p></div>${isAdmin()?btn('+ Establecimiento','store-new','primary'):''}</div><div class="stack" style="margin-top:14px">${storeRows}</div></section>
  </div>`;
 }
-
-export function log(){
- if(!isManager())return '<div class="page"><div class="card card-pad"><h2>Sin acceso</h2></div></div>';
+function adminFiscalHtml(){
+ const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
+ return `<section class="card card-pad"><div class="section-head"><div><h2>Configuración fiscal</h2><p>Parámetros de previsión. No sustituye a la gestoría.</p></div></div><div class="form-grid" style="margin-top:14px">
+ ${formField('IVA venta (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}${formField('Difícil justificación (%)','cfgDifficultPct',s.difficult_expense_pct??5,'number',locked+' step="0.1"')}${formField('Tope anual difícil justificación','cfgDifficultCap',s.difficult_expense_annual_cap??2000,'number',locked+' step="0.01"')}${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number',locked+' step="0.01"')}${formField('Tipo RETA referencia (%)','cfgRetaRate',s.reta_total_rate??31.5,'number',locked+' step="0.1"')}${formField('Deducción RETA genérica (%)','cfgRetaDeduction',s.reta_generic_deduction_pct??7,'number',locked+' step="0.1"')}${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number',locked+' step="0.1"')}
+ <label class="check-field wide"><input id="cfgDifficultEnabled" type="checkbox" ${s.difficult_expense_enabled===false?'':'checked'} ${locked}> Aplicar difícil justificación en previsión</label>
+ <label class="wide">Notas fiscales<textarea id="cfgFiscalNotes" rows="4" ${locked}>${esc(s.fiscal_notes||'')}</textarea></label>
+ </div>${isAdmin()?`<div class="form-actions">${btn('Guardar configuración fiscal','config-save','primary')}</div>`:''}</section>`;
+}
+function adminStorageHtml(){
+ const u=state.data.storageUsage||{},used=Number(u.total_bytes||0),limit=Number(u.limit_bytes||524288000);
+ return `<div class="kpis">${kpi('Uso total',(used/1024/1024).toFixed(1).replace('.',',')+' MB')}${kpi('Límite configurado',(limit/1024/1024).toFixed(0)+' MB')}${kpi('Documentos',String(u.documents_count||0))}${kpi('Assets',String(u.assets_count||0))}</div><section class="card card-pad"><h2>Almacenamiento</h2><div class="summary-row"><span>Documentos</span><strong>${(Number(u.documents_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Logos/assets</span><strong>${(Number(u.assets_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Disponible</span><strong>${(Math.max(0,limit-used)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="note" style="margin-top:12px">El contador usa bytes reales de Storage y el límite configurado de 500 MB.</div></section>`;
+}
+function adminBackupHtml(){
+ if(!isAdmin())return '<section class="card card-pad"><h2>Copias</h2><div class="note">Solo el administrador puede descargar o restaurar copias completas.</div></section>';
+ return `<section class="card card-pad"><div class="section-head"><div><h2>Copias de seguridad</h2><p>Incluye datos, documentos y logos. Auth/usuarios quedan fuera.</p></div>${btn('Descargar copia completa','backup-create','primary')}</div><div class="form-grid" style="margin-top:14px"><label class="wide">Cargar copia<input id="backupFile" type="file" accept=".totusbackup,application/zip"></label></div><div class="note warn" style="margin-top:12px">Restaurar sustituye los datos de negocio y exige tres confirmaciones.</div><div class="form-actions">${btn('Restaurar copia','backup-restore','danger')}</div></section>`;
+}
+function adminLogHtml(){
  const headers=[{label:'Fecha',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES'))},{label:'Usuario',html:r=>esc(r.user_email||'—')},{label:'Área',html:r=>esc(r.area)},{label:'Acción',html:r=>esc(r.action)},{label:'Detalle',html:r=>`<span class="small">${esc(JSON.stringify(r.detail||{}))}</span>`}];
- return `<div class="page"><section class="card table-card"><div class="section-head card-pad"><div><h2>Log</h2><p>Trazabilidad técnica y administrativa.</p></div></div>${table(headers,state.data.audit,{emptyTitle:'Sin registros'})}</section></div>`;
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Log</h2><p>Trazabilidad administrativa y cambios relevantes.</p></div></div>${table(headers,state.data.audit,{emptyTitle:'Sin registros'})}</section>`;
 }
 
 export function pricing(){
@@ -358,7 +356,7 @@ export function providerCost(row){
 }
 
 
-export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,usuarios,configuracion,log};
+export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
 
 export function openingDrawerCash(storeId,drawerId){
  const previous=state.data.closings.filter(x=>x.store_id===storeId&&x.status==='cerrado').sort((a,b)=>String(b.business_date).localeCompare(String(a.business_date)))[0];
