@@ -50,6 +50,12 @@ const gestorWb=buildGestorWorkbook({
  year:2026,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,
  invoices:[],incomeAdjustments:[],fiscalAdjustments:[],taxPayments:[]
 });
+const withManualIncome=buildGestorWorkbook({
+ year:2026,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,
+ invoices:[],incomeAdjustments:[{income_date:'2026-02-06',store_id:'h',amount:25,concept:'Ingreso complementario QA'}],fiscalAdjustments:[],taxPayments:[]
+});
+if(Math.abs(withManualIncome.Sheets['Auditoría gestor']['B4'].v-gestorWb.Sheets['Auditoría gestor']['B4'].v-25)>.001)throw new Error('Ingreso manual omitido en la auditoría fiscal');
+if(Math.abs(withManualIncome.Sheets['Conciliación 1T']['B5'].v-gestorWb.Sheets['Conciliación 1T']['B5'].v-25)>.001)throw new Error('Ingreso manual omitido en la conciliación de la tienda');
 for(const name of ['Auditoría gestor','Conciliación 1T','Conciliación 2T','Conciliación 3T','Conciliación 4T','Libro gestor 1T','Libro gestor 2T','Libro gestor 3T','Libro gestor 4T'])if(!gestorWb.SheetNames.includes(name))throw new Error('Missing gestor sheet '+name);
 for(const sheetName of ['Conciliación 1T','Conciliación 2T','Conciliación 3T','Conciliación 4T']){
  const ws=gestorWb.Sheets[sheetName];
