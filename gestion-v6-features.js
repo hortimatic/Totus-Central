@@ -1270,11 +1270,14 @@ function wbBlob(sheets){
  }
  return new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
-function dailyWorkbook(storeId,year){
+function dailyWorkbook(storeId,year,rangeFrom='',rangeTo=''){
  const sheets={};
  const weekdays=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
  for(let m=1;m<=12;m++){
-  const first=`${year}-${String(m).padStart(2,'0')}-01`,last=new Date(year,m,0).toISOString().slice(0,10);
+  const monthFirst=`${year}-${String(m).padStart(2,'0')}-01`,monthLast=new Date(year,m,0).toISOString().slice(0,10);
+  if(rangeFrom&&monthLast<rangeFrom)continue;
+  if(rangeTo&&monthFirst>rangeTo)continue;
+  const first=rangeFrom&&rangeFrom>monthFirst?rangeFrom:monthFirst,last=rangeTo&&rangeTo<monthLast?rangeTo:monthLast;
   const byDate=new Map();
   const add=(date,row)=>{if(!byDate.has(date))byDate.set(date,[]);byDate.get(date).push(row)};
   E.legacyRows.filter(r=>r.store_id===storeId&&inRange(r.row_date,first,last)).forEach(r=>{
