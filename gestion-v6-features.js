@@ -1400,7 +1400,7 @@ window.opsGestorPack=async function(){
    'PAQUETE DE GESTORIA GENERADO POR TOTUS CENTRAL\r\n\r\n'+
    '01_INGRESOS: estructura de ingresos facilitada por gestoría.\r\n'+
    '02_GASTOS: estructura de gastos facilitada por gestoría.\r\n'+
-   '03_DIARIOS: libros diarios de Hortimatic y NewOldSmok.\r\n'+
+   '03_DIARIOS: libros diarios de Hortimatic y NewOldSmok, limitados al periodo seleccionado.\r\n'+
    '04_RESUMEN: libro global de control.\r\n'+
    '05_DOCUMENTOS: año > trimestre > mes > establecimiento > tipo > proveedor/cliente.\r\n\r\n'+
    'Los gastos marcados como SOLO CONTROL INTERNO no se incluyen en los ficheros ni documentos para gestoría.\r\n'+
@@ -1408,7 +1408,62 @@ window.opsGestorPack=async function(){
  );
  dlBlob(await z.generateAsync({type:'blob'}),`PAQUETE_GESTOR_${O.reportFrom}_${O.reportTo}.zip`);
 };
-function reportsHtml(){return `<div class="ops-card"><div class="section-head"><div><div class="eyebrow">Descargas</div><div class="ops-title-line"><h3>Informes, Excel diario y gestoría</h3>${infoButton('informes','Ayuda sobre informes')}</div><div class="small">Orden cronológico y columnas alineadas con tus hojas y los informes de gestoría.</div></div></div><div class="ops-filters"><div><label>Desde</label><input type="date" value="${H(O.reportFrom)}" onchange="opsReportField('from',this.value)"></div><div><label>Hasta</label><input type="date" value="${H(O.reportTo)}" onchange="opsReportField('to',this.value)"></div></div><div class="ops-grid-3" style="margin-top:14px"><div class="ops-card"><h4>Gastos · formato gestoría</h4><p class="small">Orden, fecha, factura, identificación, concepto, IVA, RE, IRPF y retenciones.</p><button class="secondary" onclick="opsDownloadManagerExpenses()">Descargar XLSX</button></div><div class="ops-card"><h4>Ingresos · formato gestoría</h4><p class="small">Resumen mensual por Azuqueca/Hortimatic y Alcalá/NewOldSmok.</p><button class="secondary" onclick="opsDownloadManagerIncome()">Descargar XLSX</button></div><div class="ops-card"><h4>Excel diario Hortimatic</h4><p class="small">12 hojas: Día · Gastos · Precio · Tarjeta · Salida de caja.</p><button class="secondary" onclick="opsDownloadDailyExcel('${O.stores.find(s=>s.code==='HORTIMATIC')?.id||''}')">Descargar XLSX</button></div><div class="ops-card"><h4>Excel diario NewOldSmok</h4><p class="small">Misma estructura que tu libro actual.</p><button class="secondary" onclick="opsDownloadDailyExcel('${O.stores.find(s=>s.code==='NEWOLDSMOK')?.id||''}')">Descargar XLSX</button></div><div class="ops-card"><h4>Libro completo Totus</h4><p class="small">Resumen, cierres, gastos y facturación en un único Excel.</p><button class="secondary" onclick="opsManagementWorkbook()">Descargar XLSX</button></div><div class="ops-card"><h4>Informe fiscal</h4><p class="small">130, 111, 115, resultado y RETA orientativo.</p><button class="secondary" onclick="opsFiscalPdf()">Descargar PDF</button></div><div class="ops-card"><h4>Documentos</h4><p class="small">Archivos de la franja seleccionada ordenados por fecha.</p><button class="secondary" onclick="opsZipReportDocs()">Descargar ZIP</button></div><div class="ops-card report-card featured"><div class="ops-title-line"><h4>Paquete gestor</h4>${infoButton('informes.gestor','Qué incluye el paquete')}</div><p class="small">Carpetas 01_INGRESOS · 02_GASTOS · 03_DIARIOS · 04_RESUMEN · 05_DOCUMENTOS, con un LEEME y sin gastos internos.</p><button class="primary" onclick="opsGestorPack()">Preparar paquete gestor</button></div></div></div>`}
+function reportSnapshot(from=O.reportFrom,to=O.reportTo){
+ return{
+  closings:O.closings.filter(x=>inRange(x.business_date,from,to)).length,
+  fiscalExpenses:O.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,from,to)).length,
+  internalExpenses:O.expenses.filter(x=>x.management_only&&inRange(x.expense_date,from,to)).length,
+  invoices:O.invoices.filter(x=>inRange(x.issue_date,from,to)).length,
+  documents:O.documents.filter(x=>inRange(x.document_date,from,to)).length
+ };
+}
+window.opsReportPreset=function(kind){
+ if(kind==='year'){O.reportFrom=`${O.year}-01-01`;O.reportTo=`${O.year}-12-31`}
+ else if(kind==='quarter'){const b=qBounds(O.year,O.quarter);O.reportFrom=b.start;O.reportTo=b.end}
+ render();
+};
+window.opsReportDocsZip=function(){if(!reportRangeValid())return;return window.opsZipReportDocs()};
+function reportsHtml(){
+ const st=reportSnapshot();
+ return `<div class="reports-workspace">
+  <section class="ops-card report-period-card">
+   <div class="section-head"><div><div class="eyebrow">Periodo de trabajo</div><div class="ops-title-line"><h3>Informes y exportaciones</h3>${infoButton('informes','Ayuda sobre informes')}</div><div class="small">Las exportaciones de gestoría y el libro completo respetan exactamente este intervalo.</div></div>
+    <div class="ops-actions"><button class="ghost" type="button" onclick="opsReportPreset('quarter')">T${O.quarter} ${O.year}</button><button class="ghost" type="button" onclick="opsReportPreset('year')">Año ${O.year}</button></div>
+   </div>
+   <div class="report-period-grid">
+    <div><label>Desde</label><input aria-label="Informe desde" type="date" max="${today()}" value="${H(O.reportFrom)}" onchange="opsReportField('from',this.value)"></div>
+    <div><label>Hasta</label><input aria-label="Informe hasta" type="date" max="${today()}" value="${H(O.reportTo)}" onchange="opsReportField('to',this.value)"></div>
+    <div class="report-period-summary"><span><b>${st.closings}</b> cierres</span><span><b>${st.fiscalExpenses}</b> gastos fiscales</span><span><b>${st.internalExpenses}</b> internos</span><span><b>${st.invoices}</b> facturas/proformas</span><span><b>${st.documents}</b> documentos</span></div>
+   </div>
+  </section>
+
+  <section class="report-section">
+   <div class="report-section-head"><div><div class="eyebrow">Gestoría</div><h3>Libros con estructura contable</h3><div class="small">Sin gastos marcados como solo control interno.</div></div></div>
+   <div class="report-grid">
+    <article class="ops-card report-card"><span class="report-format">XLSX</span><h4>Gastos · formato gestoría</h4><p class="small">20 columnas, códigos, IVA, RE, imputable IRPF, retenciones, total factura y neto pagado.</p><button class="secondary" onclick="opsDownloadManagerExpenses()">Descargar XLSX</button></article>
+    <article class="ops-card report-card"><span class="report-format">XLSX</span><h4>Ingresos · formato gestoría</h4><p class="small">Resumen mensual de ventas por Azuqueca/Hortimatic y Alcalá/NewOldSmok.</p><button class="secondary" onclick="opsDownloadManagerIncome()">Descargar XLSX</button></article>
+    <article class="ops-card report-card featured"><span class="report-format">ZIP</span><div class="ops-title-line"><h4>Paquete gestor completo</h4>${infoButton('informes.gestor','Qué incluye el paquete')}</div><p class="small">01_INGRESOS · 02_GASTOS · 03_DIARIOS · 04_RESUMEN · 05_DOCUMENTOS + LEEME. Todo limitado al periodo elegido.</p><button class="primary" onclick="opsGestorPack()">Preparar paquete gestor</button></article>
+   </div>
+  </section>
+
+  <section class="report-section">
+   <div class="report-section-head"><div><div class="eyebrow">Control interno</div><h3>Libros de trabajo</h3></div></div>
+   <div class="report-grid">
+    <article class="ops-card report-card"><span class="report-format">XLSX · ANUAL</span><h4>Excel diario Hortimatic</h4><p class="small">12 hojas de ${O.year}: Día · Gastos · Precio · Tarjeta · Salida de caja, con fórmulas y colores.</p><button class="secondary" onclick="opsDownloadDailyExcel('${O.stores.find(s=>s.code==='HORTIMATIC')?.id||''}')">Descargar XLSX</button></article>
+    <article class="ops-card report-card"><span class="report-format">XLSX · ANUAL</span><h4>Excel diario NewOldSmok</h4><p class="small">12 hojas de ${O.year} con la misma estructura y resumen mensual por categorías.</p><button class="secondary" onclick="opsDownloadDailyExcel('${O.stores.find(s=>s.code==='NEWOLDSMOK')?.id||''}')">Descargar XLSX</button></article>
+    <article class="ops-card report-card"><span class="report-format">XLSX</span><h4>Libro completo Totus</h4><p class="small">Resumen del periodo, cierres, gastos, desglose de conceptos y facturación en un único libro.</p><button class="secondary" onclick="opsManagementWorkbook()">Descargar XLSX</button></article>
+   </div>
+  </section>
+
+  <section class="report-section">
+   <div class="report-section-head"><div><div class="eyebrow">Documentación</div><h3>Archivo y fiscalidad</h3></div></div>
+   <div class="report-grid">
+    <article class="ops-card report-card"><span class="report-format">ZIP</span><h4>Documentos del periodo</h4><p class="small">Archivos comprendidos entre Desde y Hasta, manteniendo la estructura documental.</p><button class="secondary" onclick="opsReportDocsZip()">Descargar ZIP</button></article>
+    <article class="ops-card report-card"><span class="report-format">PDF · T${O.quarter}</span><h4>Informe fiscal T${O.quarter} ${O.year}</h4><p class="small">130 calculado/pagado/pendiente, 111, 115, resultado y RETA. Usa el trimestre fiscal seleccionado, no el filtro de fechas superior.</p><button class="secondary" onclick="opsFiscalPdf()">Descargar PDF</button></article>
+   </div>
+  </section>
+ </div>`;
+}
 
 function adminLogHtml(){
  if(!manager())return '<div class="ops-card">Sin acceso.</div>';
