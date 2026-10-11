@@ -89,5 +89,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 }
 
 /* Zonas de pulsación más cómodas para los controles de selección. */
-.check-field input[type="checkbox"]{width:19px;height:19px;min-width:19px;min-height:19px;accent-color:var(--primary)}
+.check-field input[type="checkbox"]{width:21px;height:21px;min-width:21px;min-height:21px;accent-color:var(--primary)}
 .check-field{min-height:32px;align-items:center;gap:9px}
