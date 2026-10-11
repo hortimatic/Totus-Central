@@ -60,6 +60,12 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ if(name==='totus_backup_contract')return {data:{version:window.__mockContractVersion||1,income_adjustments:true,storage:true},error:null};
+ if(name==='totus_restore_backup'){
+  if(window.__mockContractVersion!==2)return {data:null,error:{message:'Contrato SQL antiguo'}};
+  for(const [table,rows] of Object.entries(args.p_payload||{}))if(Array.isArray(rows))db[table]=structuredClone(rows);
+  return {data:{restored:true},error:null};
+ }
  if(name==='totus_storage_usage'){return {data:{documents_count:db.ops_documents.length,documents_bytes:sum(db.ops_documents,x=>x.size_bytes),assets_bytes:0,assets_count:0,total_bytes:sum(db.ops_documents,x=>x.size_bytes),limit_bytes:524288000},error:null}}
  if(name==='totus_save_closing'){
   const p=args.p_closing,drawers=args.p_drawers||[];let row=p.id?get('ops_daily_closings',p.id):null;
