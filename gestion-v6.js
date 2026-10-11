@@ -718,9 +718,22 @@ window.opsDeleteSelectedExpenses=async function(){
  O.expenseSelected=[];await load(true);render();
 };
 
+function applyExpenseCategoryDefaults(l,c){
+ l.deductible=c?.deductible_default!==false;l.deductiblePct=l.deductible?'100':'0';
+ if(c?.code==='MERCH'){l.vat='21';l.re='5,2';l.withholding='0';l.model=''}
+ else if(c?.code==='RENT'){l.vat='21';l.re='0';l.withholding='19';l.model='115'}
+ else if(['BANK','INSURANCE','RETA','PAYROLL','SOCIAL','INTERNAL_OVERTIME','INTERNAL_WAREHOUSE'].includes(c?.code)){l.vat='0';l.re='0';l.withholding='0';l.model=''}
+ l.fixed=!!c?.fixed_asset_default;
+}
 window.opsExpenseField=(k,v,rer=false)=>{
  const d=O.expenseDraft;if(!d)return;d[k]=v;
- if(k==='managementOnly'&&v){O.expenseDraftLines.forEach(l=>{l.deductible=false;l.vat='0';l.re='0';l.withholding='0';l.model=''})}
+ if(k==='managementOnly'){
+  if(v){
+   O.expenseDraftLines.forEach(l=>{l.deductible=false;l.deductiblePct='0';l.fixed=false;l.vat='0';l.re='0';l.withholding='0';l.model=''})
+  }else{
+   O.expenseDraftLines.forEach(l=>applyExpenseCategoryDefaults(l,category(l.categoryId)));
+  }
+ }
  if(k==='paidStatus'){
   if(v==='pendiente'){d.amountPaid='';d.paidDate=''}
   else if(!d.paidDate)d.paidDate=d.date||isoToday();
@@ -731,12 +744,11 @@ window.opsExpenseLineField=function(i,k,v,recalc=false){
  const l=O.expenseDraftLines[i]; if(!l)return;l[k]=v;
  if(k==='categoryId'){
   const c=category(v);
-  l.deductible=c?.deductible_default!==false;l.deductiblePct=l.deductible?'100':'0';
-  if(c?.code==='MERCH'){l.vat='21';l.re='5,2';l.withholding='0';l.model=''}
-  else if(c?.code==='RENT'){l.vat='21';l.re='0';l.withholding='19';l.model='115'}
-  else if(['BANK','INSURANCE','RETA','PAYROLL','SOCIAL','INTERNAL_OVERTIME','INTERNAL_WAREHOUSE'].includes(c?.code)){l.vat='0';l.re='0';l.withholding='0';l.model=''}
-  if(['INTERNAL_OVERTIME','INTERNAL_WAREHOUSE'].includes(c?.code)) O.expenseDraft.managementOnly=true;
-  l.fixed=!!c?.fixed_asset_default;
+  applyExpenseCategoryDefaults(l,c);
+  if(['INTERNAL_OVERTIME','INTERNAL_WAREHOUSE'].includes(c?.code)){
+   O.expenseDraft.managementOnly=true;
+   O.expenseDraftLines.forEach(x=>{x.deductible=false;x.deductiblePct='0';x.fixed=false;x.vat='0';x.re='0';x.withholding='0';x.model=''});
+  }
  }
  if(recalc)render();
 };
