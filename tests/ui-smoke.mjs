@@ -919,7 +919,7 @@ for(const n of ['Resumen','Resultado','Impuestos','IRPF','RETA','Fuentes','Model
 await page.getByRole('heading',{name:'¿Gastar más o menos?',exact:true}).waitFor();
 await page.getByRole('heading',{name:'Cuota según rendimiento',exact:true}).waitFor();
 await page.getByText('Cuota actual',{exact:true}).waitFor();
-await page.getByRole('heading',{name:/Previsión IRPF/}).waitFor();
+await page.getByRole('heading',{name:/Previsión fiscal/}).waitFor();
 await page.getByRole('heading',{name:'Resultado operativo por tienda',exact:true}).waitFor();
 await page.getByRole('heading',{name:'IVA y recargo de equivalencia',exact:true}).waitFor();
 await page.getByRole('heading',{name:'Números usados para impuestos',exact:true}).waitFor();
