@@ -378,15 +378,57 @@ async function previewDocument(id){
 }
 
 function userModal(row=null){
- const body=`<div class="form-grid">${formField('Nombre completo','usName',row?.full_name||'')}${formField('Email','usEmail',row?.email||'','email',row?'disabled':'')}${selectField('Rol','usRole',[{value:'admin',label:'Administrador'},{value:'gerente',label:'Gerente'},{value:'encargado',label:'Encargado'}],row?.role||'gerente')}${formField('Teléfono','usPhone',row?.phone||'')}${formField('Puesto','usJob',row?.job_title||'')}${formField('Tienda / centro','usStore',row?.store||'')}<label class="wide">Notas<textarea id="usNotes" rows="3">${esc(row?.employee_notes||'')}</textarea></label>${row?'':formField('Contraseña inicial','usPassword','','password','minlength="8"')}</div><div class="form-actions">${btn('Guardar usuario','user-save','primary',row?`data-email="${esc(row.email)}"`:'')}</div>`;
+ const self=row&&row.email?.toLowerCase()===state.user?.email?.toLowerCase();
+ const body=`<div class="form-grid">
+  ${formField('Nombre completo','usName',row?.full_name||'')}
+  ${formField('Email','usEmail',row?.email||'','email',row?'disabled':'')}
+  ${selectField('Rol','usRole',[{value:'admin',label:'Administrador'},{value:'gerente',label:'Gerente'},{value:'encargado',label:'Encargado'}],row?.role||'gerente')}
+  ${formField('Teléfono','usPhone',row?.phone||'')}
+  ${formField('Puesto','usJob',row?.job_title||'')}
+  ${formField('Tienda / centro','usStore',row?.store||'')}
+  <label class="wide">Notas<textarea id="usNotes" rows="3">${esc(row?.employee_notes||'')}</textarea></label>
+  ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="8"'):formField('Contraseña inicial','usPassword','','password','minlength="8"')}
+ </div>
+ ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva.</div>`:''}
+ <div class="form-actions">
+  ${row&&!self?btn(row.active?'Desactivar':'Activar','user-toggle','secondary',`data-email="${esc(row.email)}" data-active="${row.active?'false':'true'}"`):''}
+  ${row?btn('Enviar recuperación','user-reset','secondary',`data-email="${esc(row.email)}"`):''}
+  ${row&&!self?btn('Eliminar usuario','user-delete','danger',`data-email="${esc(row.email)}"`):''}
+  ${btn('Guardar usuario','user-save','primary',row?`data-email="${esc(row.email)}"`:'')}
+ </div>`;
  modal(row?'Editar usuario':'Nuevo usuario',body);
 }
+
 async function saveUser(email=''){
  const payload={full_name:required('usName','Nombre'),email:email||required('usEmail','Email').toLowerCase(),role:val('usRole'),phone:val('usPhone').trim(),job_title:val('usJob').trim(),store:val('usStore').trim(),employee_notes:val('usNotes').trim()};
- if(email){await invokeTeam({action:'update_member',...payload,active:true})}
- else{const password=val('usPassword');if(password.length<8)throw new Error('La contraseña inicial debe tener al menos 8 caracteres.');await invokeTeam({action:'create_user',...payload,password})}
+ const password=val('usPassword');
+ if(email){
+   const current=state.data.team.find(x=>x.email===email);
+   await invokeTeam({action:'update_member',...payload,active:current?.active!==false});
+   if(password){if(password.length<8)throw new Error('La contraseña debe tener al menos 8 caracteres.');await invokeTeam({action:'set_password',email,password,full_name:payload.full_name,role:payload.role})}
+ }else{
+   if(password.length<8)throw new Error('La contraseña inicial debe tener al menos 8 caracteres.');
+   await invokeTeam({action:'create_user',...payload,password});
+ }
  closeModal();await refresh('Usuario guardado.');
 }
+async function toggleUser(email,active){
+ if(email.toLowerCase()===state.user?.email?.toLowerCase())throw new Error('No puedes desactivar tu propio usuario.');
+ if(!confirm((active?'¿Activar ':'¿Desactivar ')+email+'?'))return;
+ await invokeTeam({action:'set_active',email,active});closeModal();await refresh('Estado del usuario actualizado.');
+}
+async function resetUser(email){
+ if(!confirm('¿Enviar un correo de recuperación a '+email+'?'))return;
+ const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(r.error)throw r.error;
+ toast('Correo de recuperación solicitado.','ok');
+}
+async function deleteUser(email){
+ if(email.toLowerCase()===state.user?.email?.toLowerCase())throw new Error('No puedes eliminar tu propio usuario.');
+ if(!confirm('¿Eliminar definitivamente a '+email+'?'))return;
+ const check=prompt('Escribe ELIMINAR USUARIO para confirmar:');if(check!=='ELIMINAR USUARIO')return;
+ await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
+}
+
 async function saveConfig(){
  const row={business_name:val('cfgBusiness').trim(),tax_id:val('cfgTax').trim(),business_address:val('cfgAddress').trim(),business_email:val('cfgEmail').trim(),business_phone:val('cfgPhone').trim(),storage_limit_bytes:Math.max(1,num('cfgStorage'))*1024*1024,default_sales_vat_rate:num('cfgVat'),irpf_prepayment_rate:num('cfgIrpf'),actual_reta_monthly:num('cfgReta')||null,target_operating_margin_pct:num('cfgMargin'),updated_at:new Date().toISOString()};
  const id=state.data.settings?.id||1;await update('ops_business_settings',id,row);await refresh('Configuración guardada.');
@@ -478,6 +520,9 @@ document.addEventListener('click',async e=>{
   if(a==='user-new'){userModal();return}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}
   if(a==='user-save'){await saveUser(el.dataset.email||'');return}
+  if(a==='user-toggle'){await toggleUser(el.dataset.email,el.dataset.active==='true');return}
+  if(a==='user-reset'){await resetUser(el.dataset.email);return}
+  if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
