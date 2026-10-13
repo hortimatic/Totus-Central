@@ -70,6 +70,30 @@ await check('Gastos: creación, importe decimal y líneas fiscales',async()=>{
  assert(d.expenses.length===1,'El gasto no se guardó');
  assert(Math.abs(d.expenses[0].gross_expense-126.2)<0.01,'El importe IVA + RE no cuadra');
 });
+await check('Gastos: adjuntar factura PDF y recuperar el documento',async()=>{
+ await nav('gastos');
+ if(await page.locator('[data-action="expense-back"]').count())await page.locator('[data-action="expense-back"]').first().click();
+ await page.locator('[data-action="expense-new"]').click();
+ await page.locator('#exSupplier').fill('Proveedor QA PDF');
+ await page.locator('#exInvoice').fill('TEST-PDF-2026');
+ await page.locator('#exLineDesc_0').fill('Compra simulada con justificante');
+ await page.locator('#exLineBase_0').fill('200,00');
+ await page.locator('#exLineVat_0').fill('21');
+ await page.locator('#exLineRe_0').fill('5,2');
+ const pdf=await PDFDocument.create();pdf.addPage([300,200]);
+ await page.locator('#exFile').setInputFiles({name:'justificante-test.pdf',mimeType:'application/pdf',buffer:Buffer.from(await pdf.save())});
+ await page.locator('[data-action="expense-save"]').click();
+ await page.waitForTimeout(100);
+ const d=await db(),ex=d.expenses.find(x=>x.invoice_number==='TEST-PDF-2026');
+ assert(ex&&Math.abs(ex.gross_expense-252.4)<.01,'No cuadra factura con IVA y RE');
+ assert(d.documents.some(x=>x.id===ex.document_id&&x.original_name==='justificante-test.pdf'&&x.linked_entity_id===ex.id),'Factura PDF no asociada al gasto');
+ await page.locator('[data-action="expense-document-preview"]').first().click();
+ await page.locator('#modalHost .document-frame').waitFor({state:'visible'});
+ await page.locator('#modalHost .close-btn').click();
+ const ready=page.waitForEvent('download');
+ await page.locator('[data-action="expense-document-download"]').first().click();
+ assert((await ready).suggestedFilename()==='justificante-test.pdf','Descarga del justificante incorrecta');
+});
 await check('Facturación: crear borrador con líneas e importes',async()=>{
  await nav('facturacion');
  await page.locator('[data-action="invoice-new"]').first().click();
