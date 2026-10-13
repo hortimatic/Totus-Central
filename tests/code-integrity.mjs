@@ -22,6 +22,18 @@ for(const [file,content] of Object.entries(cache)){
   }
  }
 }
+// Evitar reincorporar enlaces y servicios pertenecientes a aplicaciones abandonadas.
+const deployable=['index.html',...source,'src/styles.css'];
+const forbidden=[
+ {pattern:/hortimatic\.github\.io\/totus-pricing-demo/i,label:'URL de la aplicación anterior'},
+ {pattern:/qgyufbjytcewuevbketz/i,label:'Supabase anterior'},
+ {pattern:/totus-pricing-demo/i,label:'Identificador anterior'}
+];
+for(const file of deployable){
+ const content=fs.readFileSync(file,'utf8');
+ for(const rule of forbidden)if(rule.pattern.test(content))problems.push(file+': '+rule.label);
+}
+if(!/https:\/\/zwkpmjjuurgjygcrejiw\.supabase\.co/.test(cache['src/config.js']))problems.push('Supabase: conexión no apunta al proyecto activo');
 for(const name of ['styleMoney','addAutoFilter','quarterStats'])if(new RegExp('\\b'+name+'\\b').test(cache['src/excel.js']))problems.push('Dead Excel helper still in use: '+name);
 if(problems.length){console.error('CODE INTEGRITY FAILED\n'+problems.join('\n'));process.exit(1)}
 console.log('CODE INTEGRITY: '+source.length+' JS modules and all named imports validated; no duplicate functions or dead Excel helpers');
