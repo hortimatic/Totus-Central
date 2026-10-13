@@ -1,7 +1,7 @@
 name: Totus Clean QA
 on:
   push:
-    branches: [totus-central-final-2026-10-13, main, auditoria-regresion-2026-10-13]
+    branches: [main, staging]
   pull_request:
     branches: [main]
   workflow_dispatch:
