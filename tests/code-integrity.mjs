@@ -35,9 +35,10 @@ for(const file of deployable){
 }
 if(!/https:\/\/zwkpmjjuurgjygcrejiw\.supabase\.co/.test(cache['src/config.js']))problems.push('Supabase: conexión no apunta al proyecto activo');
 // Hosting agnóstico: la interfaz debe funcionar como archivos estáticos contra Supabase.
-const externalHostingPattern=/\\b(?:vercel\\.app|vercel\\.com|\\.vercel\\/|@vercel\\/|process\\.env\\.VERCEL|import\\.meta\\.env\\.VERCEL)\\b/i;
+const hostingMarkers=['vercel.app','vercel.com','@vercel/','process.env.vercel','import.meta.env.vercel'];
 for(const file of deployable){
- if(externalHostingPattern.test(fs.readFileSync(file,'utf8')))problems.push(file+': dependencia de Vercel en código publicado');
+ const content=fs.readFileSync(file,'utf8').toLowerCase();
+ if(hostingMarkers.some(marker=>content.includes(marker)))problems.push(file+': dependencia de Vercel en código publicado');
 }
 for(const required of ['index.html','src/app.js','src/api.js','src/config.js','src/styles.css']){
  if(!fs.existsSync(required))problems.push('Falta archivo esencial para alojamiento estático: '+required);
