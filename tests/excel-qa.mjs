@@ -68,6 +68,17 @@ const withManualIncome=buildGestorWorkbook({
 });
 if(Math.abs(withManualIncome.Sheets['Auditoría gestor']['B4'].v-gestorWb.Sheets['Auditoría gestor']['B4'].v-25)>.001)throw new Error('Ingreso manual omitido en la auditoría fiscal');
 if(Math.abs(withManualIncome.Sheets['Conciliación 1T']['B5'].v-gestorWb.Sheets['Conciliación 1T']['B5'].v-25)>.001)throw new Error('Ingreso manual omitido en la conciliación de la tienda');
+const withUnassigned=buildGestorWorkbook({
+ year:2026,settings:{difficult_expense_pct:0,irpf_prepayment_rate:0},stores,closings,expenses,expenseLines,categories,
+ invoices:[],fiscalAdjustments:[],
+ incomeAdjustments:[{income_date:'2026-01-12',store_id:null,amount:40,concept:'Ajuste general de caja'}],taxPayments:[]
+});
+const zeroAudit=withUnassigned.Sheets['Auditoría gestor'];
+const commonRecon=withUnassigned.Sheets['Conciliación 1T'];
+if(Math.abs(zeroAudit.B4.v-gestorWb.Sheets['Auditoría gestor'].B4.v-40)>.001)throw new Error('Ingreso general omitido en Auditoría gestor');
+if(Math.abs(commonRecon.D4.v-gestorWb.Sheets['Conciliación 1T'].D4.v-40)>.001)throw new Error('Ingreso general omitido en conciliación');
+if(Math.abs(commonRecon.B4.v-gestorWb.Sheets['Conciliación 1T'].B4.v)>.001)throw new Error('Ingreso general asignado indebidamente a Hortimatic');
+if(zeroAudit.E4.v!==0||zeroAudit.G4.v!==0)throw new Error('La configuración fiscal con tipo cero fue ignorada');
 for(const name of ['Auditoría gestor','Conciliación 1T','Conciliación 2T','Conciliación 3T','Conciliación 4T','Libro gestor 1T','Libro gestor 2T','Libro gestor 3T','Libro gestor 4T'])if(!gestorWb.SheetNames.includes(name))throw new Error('Missing gestor sheet '+name);
 for(const sheetName of ['Conciliación 1T','Conciliación 2T','Conciliación 3T','Conciliación 4T']){
  const ws=gestorWb.Sheets[sheetName];
