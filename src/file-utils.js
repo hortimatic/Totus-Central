@@ -1,7 +1,7 @@
-export const DOCUMENT_EXTENSIONS=['pdf','jpg','jpeg','png','webp','xlsx','xls','csv','txt','md'];
+export const DOCUMENT_EXTENSIONS=['pdf','jpg','jpeg','png','webp','xlsx','xls','docx','csv','txt','md'];
 export const DOCUMENT_MIME_TYPES=[
  'application/pdf','image/jpeg','image/png','image/webp',
- 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel',
+ 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
  'text/csv','text/plain','text/markdown'
 ];
 export const DOCUMENT_ACCEPT=DOCUMENT_EXTENSIONS.map(x=>'.'+x).join(',');
