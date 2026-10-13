@@ -106,7 +106,7 @@ export function cajas(){
   {label:'',html:r=>btn(r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}
  ];
  return `<div class="page">
-  <div class="kpis">${kpi('Cobros registrados (sin históricos)',money(total))}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
+  <div class="kpis">${kpi('Cobros parciales registrados',money(total))}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos importados del Excel. Sus salidas de caja NO son retiradas verificadas; las aperturas y el efectivo final están pendientes. Estos registros no están incluidos en ingresos fiscales.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'cajas')}
