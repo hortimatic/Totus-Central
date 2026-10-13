@@ -782,6 +782,54 @@ async function saveDocument(id=''){
  }
  setView('documentos',{mode:'record',id:row.id});await refresh(current?'Documento actualizado.':'Documento archivado.');
 }
+
+// Importación documental por lote solo para staging.
+// Los PDF quedan sin tienda ni asociación fiscal hasta que se contraste la factura.
+async function importDocumentZip(zipFile){
+ if(!zipFile) return;
+ if(!window.JSZip) throw new Error('No está disponible el lector ZIP.');
+ if(zipFile.size>150*1024*1024) throw new Error('El archivo ZIP supera el máximo de 150 MB.');
+ const zip=await window.JSZip.loadAsync(zipFile);
+ const entries=Object.values(zip.files).filter(f=>!f.dir&&/\.pdf$/i.test(f.name)&&!f.name.startsWith('__MACOSX/'));
+ if(!entries.length)throw new Error('El ZIP no contiene documentos PDF.');
+ if(entries.length>500)throw new Error('Máximo 500 PDF por lote.');
+ const known=new Set(state.data.documents.map(d=>String(d.notes||'').match(/\[ORIGEN-ZIP:([^\]]+)\]/)?.[1]).filter(Boolean));
+ const missing=entries.filter(f=>!known.has(f.name));
+ const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
+ const used=Number(state.data.storageUsage?.total_bytes||0),limit=Number(state.data.storageUsage?.limit_bytes||500*1024*1024);
+ const estimated=missing.reduce((a,f)=>a+Number(f._data?.uncompressedSize||0),0);
+ if(used+estimated>limit)throw new Error('El lote supera el almacenamiento disponible. Elimina otros archivos o utiliza un lote menor.');
+ if(!confirm('Se van a importar '+missing.length+' PDF a STAGING como pendientes de clasificar, sin afectar a producción. ¿Continuar?'))return;
+ const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+ let ok=0,skipped=entries.length-missing.length;const errors=[];
+ modal('Importación de documentos',`<div class="stack"><p>Los archivos se guardan como <b>pendientes</b> y no se computan fiscalmente.</p><p id="bulkZipProgress" role="status">Preparando ${missing.length} PDF…</p></div>`);
+ const report=(message)=>{const el=document.getElementById('bulkZipProgress');if(el)el.textContent=message};
+ for(let i=0;i<missing.length;i++){
+  const e=missing[i],name=e.name.split('/').pop();
+  try{
+   const raw=await e.async('blob');
+   if(raw.size>max)throw new Error('Supera el límite de '+(max/1048576).toFixed(0)+' MB por archivo');
+   const file=new File([raw],name,{type:'application/pdf'});
+   const segments=e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+   const folder=Object.keys(months).find(m=>segments.includes(m));
+   const fm=folder?months[folder]:null;
+   const dm=name.match(/(?:^|[^\d])(\d{1,2})[-._](\d{1,2})[-._](20\d{2})(?:[^\d]|$)/);
+   let date=dm&&+dm[1]>=1&&+dm[1]<=31&&+dm[2]>=1&&+dm[2]<=12?`${dm[3]}-${String(dm[2]).padStart(2,'0')}-${String(dm[1]).padStart(2,'0')}`:null;
+   if(date&&!Number.isFinite(Date.parse(date)))date=null;
+   const provisional=!date;
+   date=date||`2026-${String(fm||1).padStart(2,'0')}-01`;
+   const reportFile=/gestoria|ingresos|gastos .*gestor|modelo 130|informe/i.test(name);
+   const party=name.replace(/\.pdf$/i,'').replace(/\b\d{1,2}[-._]\d{1,2}[-._]20\d\d\b/g,'').trim().slice(0,150);
+   const notes=`[ORIGEN-ZIP:${e.name}] ${provisional?'Fecha provisional tomada del mes de carpeta (o enero si no consta). ':''}DOCUMENTO SIN CONCILIAR: confirmar tienda, proveedor, fecha, número de factura, importe e impuestos antes de asociarlo.`;
+   const doc=await createStoredDocument(file,{storeId:null,date,docType:reportFile?'informe':'factura_recibida',status:'pendiente',party,notes});
+   state.data.documents.push(doc);known.add(e.name);ok++;
+  }catch(err){errors.push(name+': '+(err?.message||String(err)))}
+  if((i+1)%5===0||i===missing.length-1)report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);
+ }
+ await refresh();
+ modal('Resultado de importación ZIP',`<div class="stack"><p><b>${ok}</b> documentos guardados; <b>${skipped}</b> duplicados omitidos; <b>${errors.length}</b> errores.</p>${errors.length?'<div class="note">'+esc(errors.slice(0,20).join(' | '))+'</div>':''}<p>Todos los archivos siguen pendientes de revisar y no afectan a los informes fiscales.</p></div>`);
+}
+
 async function getDocumentBlob(doc){
  const {data,error}=await sb.storage.from('business-documents').download(doc.storage_path);
  if(error)throw new Error('No se pudo leer el archivo: '+error.message);
@@ -1188,7 +1236,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-category-new'){expenseCategoryForm();return}
   if(a==='expense-category-edit'){expenseCategoryForm(state.data.categories.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-category-save'){await saveExpenseCategory(el.dataset.id||'');return}
-  if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
+  if(a==='document-bulk-select'){input('documentBulkZip')?.click();return}\n  if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
   if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='document-back'){resetView('documentos');render();return}
   if(a==='document-save'){await saveDocument(el.dataset.id||'');return}
@@ -1245,7 +1293,7 @@ document.addEventListener('input',e=>{
  if(id.startsWith('ivQty_')||id.startsWith('ivUnit_')||id.startsWith('ivDisc_')||id.startsWith('ivVat_'))updateInvoiceSummary();
 });
 
-document.addEventListener('change',e=>{
+document.addEventListener('change',e=>{\n if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
  if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:val('clStore'),date:e.target.value||isoToday()});render();return}
  if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){setView('facturacion',{storeId:e.target.value});render();return}
