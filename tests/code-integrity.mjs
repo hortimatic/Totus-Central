@@ -34,6 +34,15 @@ for(const file of deployable){
  for(const rule of forbidden)if(rule.pattern.test(content))problems.push(file+': '+rule.label);
 }
 if(!/https:\/\/zwkpmjjuurgjygcrejiw\.supabase\.co/.test(cache['src/config.js']))problems.push('Supabase: conexión no apunta al proyecto activo');
+// Hosting agnóstico: la interfaz debe funcionar como archivos estáticos contra Supabase.
+const externalHostingPattern=/\\b(?:vercel\\.app|vercel\\.com|\\.vercel\\/|@vercel\\/|process\\.env\\.VERCEL|import\\.meta\\.env\\.VERCEL)\\b/i;
+for(const file of deployable){
+ if(externalHostingPattern.test(fs.readFileSync(file,'utf8')))problems.push(file+': dependencia de Vercel en código publicado');
+}
+for(const required of ['index.html','src/app.js','src/api.js','src/config.js','src/styles.css']){
+ if(!fs.existsSync(required))problems.push('Falta archivo esencial para alojamiento estático: '+required);
+}
+if(!cache['src/api.js'].includes('window.supabase.createClient('))problems.push('Supabase: falta conexión directa desde navegador');
 for(const name of ['styleMoney','addAutoFilter','quarterStats'])if(new RegExp('\\b'+name+'\\b').test(cache['src/excel.js']))problems.push('Dead Excel helper still in use: '+name);
 if(problems.length){console.error('CODE INTEGRITY FAILED\n'+problems.join('\n'));process.exit(1)}
 console.log('CODE INTEGRITY: '+source.length+' JS modules and all named imports validated; no duplicate functions or dead Excel helpers');
