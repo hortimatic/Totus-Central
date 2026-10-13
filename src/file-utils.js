@@ -15,6 +15,7 @@ export function previewKind(name='',mime=''){
  if(m.includes('pdf')||ext==='pdf')return 'pdf';
  if(m.startsWith('image/')||['jpg','jpeg','png','webp'].includes(ext))return 'image';
  if(['xlsx','xls'].includes(ext)||m.includes('spreadsheet')||m.includes('excel'))return 'excel';
+ if(ext==='docx'||m.includes('wordprocessingml.document'))return 'docx';
  if(['csv','txt','md'].includes(ext)||m.startsWith('text/'))return 'text';
  return 'download';
 }
