@@ -28,6 +28,10 @@ const expenseLines=[
 
 const storeWb=buildStoreAnnualWorkbook({store:stores[0],year:2026,closings,expenses,categories});
 if(storeWb.SheetNames.length!==12)throw new Error('Store workbook must have 12 monthly sheets');
+for(const [month,title] of [['Abril','Hortimatic Abril 2026'],['Mayo','Hortimatic Mayo 2026'],['Junio','Hortimatic Junio 2026'],['Julio','Hortimatic Julio 2026']]){
+ if(storeWb.Sheets[month].B1?.v!==title)throw new Error('Título Hortimatic no coincide con Excel original: '+month);
+}
+
 if(storeWb.SheetNames[0]!=='Enero'||storeWb.SheetNames[11]!=='Diciembre')throw new Error('Month sheet names are wrong');
 const multipleClosings=buildStoreAnnualWorkbook({
  store:stores[0],year:2026,expenses,categories,
@@ -38,6 +42,9 @@ if(!matchingRow)throw Error('No se localiza el día de prueba');
 const dayRow=matchingRow[0].slice(1);
 if(multipleClosings.Sheets.Enero['E'+dayRow]?.v!==483||multipleClosings.Sheets.Enero['F'+dayRow]?.v!==57)throw Error('Se han perdido importes de varias cajas cerradas el mismo día');
 const nosWb=buildStoreAnnualWorkbook({store:stores[1],year:2026,closings,expenses,categories});
+for(const [month,title] of [['Abril','NewOldSmok Abril 2026'],['Mayo','Newoldsmok Mayo 2026'],['Junio','Newoldsmok Junio 2026'],['Julio','Newoldsmok Julio 2026']]){
+ if(nosWb.Sheets[month].B1?.v!==title)throw new Error('Título NewOldSmok no coincide con Excel original: '+month);
+}
 const nosJan=nosWb.Sheets.Enero;
 if(Math.abs(nosJan['!cols'][2]?.wch-(30.7109375-pad))>0.00001)throw new Error('NewOldSmok: original expense column width must be 30.71');
 if(Math.abs(storeWb.Sheets.Enero['!cols'][2]?.wch-(33-pad))>0.00001)throw new Error('Hortimatic: original expense column width must be 33');
