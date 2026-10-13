@@ -1,5 +1,5 @@
-export const SUPABASE_URL='https://zwkpmjjuurgjygcrejiw.supabase.co';
-export const SUPABASE_KEY='sb_publishable_B913uj0k8MhO3VJTTldSBA_GSWJG5kx';
+export const SUPABASE_URL='https://staging-not-configured.supabase.co';
+export const SUPABASE_KEY='staging_disabled_no_production_access';
 export const APP_NAME='Totus Central';
 export const STORAGE_LIMIT_BYTES=500*1024*1024;
 export const PAGE_SIZE=50;
