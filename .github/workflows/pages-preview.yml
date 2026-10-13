@@ -1,5 +1,7 @@
 name: Totus Central Pages (manual, QA gated)
 on:
+  push:
+    branches: [auditoria-regresion-2026-10-13]
   workflow_dispatch:
 permissions:
   contents: read
