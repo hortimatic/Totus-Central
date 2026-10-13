@@ -1027,12 +1027,14 @@ function reportGestorPreview(year){
   const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;
   const income=state.data.closings.filter(x=>x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to).reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
     +state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
-    +state.data.incomeAdjustments.filter(x=>x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0);
-  const expenses=state.data.expenses.filter(x=>!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+    +state.data.incomeAdjustments.filter(x=>x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0)
+    +state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.adjustment_date>=from&&x.adjustment_date<=to).reduce((v,x)=>v+n(x.amount),0);
+  const expenses=state.data.expenses.filter(x=>!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0)
+    +state.data.fiscalAdjustments.filter(x=>x.kind==='gasto_deducible_extra'&&x.adjustment_date>=from&&x.adjustment_date<=to).reduce((v,x)=>v+n(x.amount),0);
   const docs=state.data.documents.filter(x=>String(x.document_date||x.created_at).slice(0,10)>=from&&String(x.document_date||x.created_at).slice(0,10)<=to).length;
   return {q:`${q}T`,from,to,income,expenses,result:income-expenses,docs};
  });
- const html=`<div class="stack"><div class="note">Vista previa de lo que entrará en el libro de gestoría y auditoría. Los ajustes fiscales se muestran en Fiscalidad y quedan trazados por separado.</div>${table([{label:'Periodo',html:r=>`<b>${r.q}</b><div class="small muted">${fmtDate(r.from)} → ${fmtDate(r.to)}</div>`},{label:'Ingresos',num:true,html:r=>money(r.income)},{label:'Gastos',num:true,html:r=>money(r.expenses)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`},{label:'Documentos',num:true,html:r=>String(r.docs)}],rows)}<div class="form-actions">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar ZIP gestor','export-gestor-package','secondary',`data-year="${year}"`)}</div></div>`;
+ const html=`<div class="stack"><div class="note">Vista previa de lo que entrará en el libro de gestoría y auditoría. Incluye los ingresos complementarios y los gastos deducibles adicionales registrados en Fiscalidad.</div>${table([{label:'Periodo',html:r=>`<b>${r.q}</b><div class="small muted">${fmtDate(r.from)} → ${fmtDate(r.to)}</div>`},{label:'Ingresos',num:true,html:r=>money(r.income)},{label:'Gastos',num:true,html:r=>money(r.expenses)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`},{label:'Documentos',num:true,html:r=>String(r.docs)}],rows)}<div class="form-actions">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar ZIP gestor','export-gestor-package','secondary',`data-year="${year}"`)}</div></div>`;
  modal(`Gestoría y auditoría · ${year}`,html);
 }
 
