@@ -1013,15 +1013,13 @@ function reportStorePreview(storeId,year){
  const rows=[];
  for(let m=1;m<=12;m++){
   const from=`${year}-${String(m).padStart(2,'0')}-01`,to=`${year}-${String(m).padStart(2,'0')}-${String(new Date(year,m,0).getDate()).padStart(2,'0')}`;
-  const closings=state.data.closings.filter(x=>x.store_id===storeId&&x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to);
-  const sales=closings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
-    +state.data.invoices.filter(x=>x.store_id===storeId&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
-    +state.data.incomeAdjustments.filter(x=>(!x.store_id||x.store_id===storeId)&&x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0);
-  const expenses=state.data.expenses.filter(x=>x.store_id===storeId&&!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
-  const internal=state.data.expenses.filter(x=>x.store_id===storeId&&x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
-  rows.push({month:new Date(year,m-1,1).toLocaleDateString('es-ES',{month:'long'}),sales,expenses,internal,result:sales-expenses-internal});
+  const closings=state.data.closings.filter(x=>x.store_id===storeId&&x.business_date>=from&&x.business_date<=to);
+  const sales=closings.reduce((v,x)=>v+n(x.card_sales)+n(x.cash_withdrawals),0);
+  const expenses=state.data.expenses.filter(x=>x.store_id===storeId&&!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+  const internal=state.data.expenses.filter(x=>x.store_id===storeId&&x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+  rows.push({month:new Date(year,m-1,1).toLocaleDateString('es-ES',{month:'long'}),sales,expenses,internal,result:sales-expenses});
  }
- const html=`<div class="stack"><div class="note">Vista previa del libro anual. La descarga conserva las 12 hojas mensuales, fórmulas y formato Excel.</div>${table([{label:'Mes',html:r=>esc(r.month)},{label:'Ventas',num:true,html:r=>money(r.sales)},{label:'Gastos contables',num:true,html:r=>money(r.expenses)},{label:'Internos',num:true,html:r=>money(r.internal)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`}],rows)}<div class="form-actions">${btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`)}</div></div>`;
+ const html=`<div class="stack"><div class="note">Vista del libro anual de caja: tarjeta + salidas de metálico, con gastos internos desglosados y excluidos del resultado. Facturas adicionales y ajustes generales se concilian en el libro del gestor. La descarga conserva las 12 hojas, colores y fórmulas.</div>${table([{label:'Mes',html:r=>esc(r.month)},{label:'Recaudado en libro',num:true,html:r=>money(r.sales)},{label:'Gastos contables',num:true,html:r=>money(r.expenses)},{label:'Internos',num:true,html:r=>money(r.internal)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`}],rows)}<div class="form-actions">${btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`)}</div></div>`;
  modal(`${store.name} · ${year}`,html);
 }
 function reportGestorPreview(year){
