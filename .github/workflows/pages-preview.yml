@@ -41,6 +41,11 @@ jobs:
           node tests/field-sweep-qa.mjs
           node tests/full-flow-qa.mjs
           node tests/backup-qa.mjs
+      - name: Checkout isolated staging source
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          path: _staging_source
       - name: Package ONLY static app assets
         run: |
           mkdir -p _site
@@ -50,6 +55,13 @@ jobs:
           test -f _site/src/api.js
           test ! -d _site/supabase
           test ! -d _site/tests
+          mkdir -p _site/staging
+          cp _staging_source/index.html _staging_source/favicon.svg _staging_source/fondo_original.png _site/staging/
+          cp -R _staging_source/src _site/staging/src
+          sed -i 's/<title>Totus Central<\/title>/<title>Totus Central - STAGING<\/title>/' _site/staging/index.html
+          sed -i 's/<h1>Acceso<\/h1>/<h1>STAGING - entorno de pruebas<\/h1><p style="font-weight:700;color:#b45309">No conectado a producción. Inicio de sesión deshabilitado hasta instalar Supabase de pruebas.<\/p>/' _site/staging/index.html
+          test -f _site/staging/src/config.js
+          ! grep -q 'zwkpmjjuurgjygcrejiw' _site/staging/src/config.js
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
