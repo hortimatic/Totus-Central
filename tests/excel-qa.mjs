@@ -55,7 +55,7 @@ const totalRow=Number(totalCell[0].match(/\d+/)[0]);
 if(!jan[`D${totalRow}`]?.f||!jan[`E${totalRow}`]?.f||!jan[`F${totalRow}`]?.f)throw new Error('Monthly total formulas missing');
 
 const closingTotal=Number(totalCell[0].slice(1));
-const summaryFormula=Object.entries(jan).filter(([address,cell])=>/^C\\d+$/.test(address)&&typeof cell?.f==='string'&&cell.f.startsWith('"Total  "')).map(x=>x[1].f)[0];
+const summaryFormula=Object.entries(jan).filter(([address,cell])=>/^C\d+$/.test(address)&&typeof cell?.f==='string'&&cell.f.startsWith('"Total  "')).map(x=>x[1].f)[0];
 if(!summaryFormula||!summaryFormula.includes('-(D'+closingTotal+'-300)'))throw new Error('Monthly result incorrectly subtracts internal expense twice');
 if(summaryFormula.includes('-D'+closingTotal+'-300'))throw new Error('Invalid monthly result order of operations');
 const gestorWb=buildGestorWorkbook({
