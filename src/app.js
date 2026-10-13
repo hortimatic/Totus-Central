@@ -1282,6 +1282,7 @@ async function boot(){
  if(team.error)throw new Error('No se pudo comprobar el acceso: '+team.error.message);
  if(profiles.error)throw new Error('No se pudo cargar el perfil: '+profiles.error.message);
  const member=team.data;if(!member||member.active===false){await logout();throw new Error('Tu usuario no tiene acceso activo.')}
+ if(!profiles.data&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profiles.data?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();
