@@ -260,6 +260,14 @@ await check('Descargas desde los botones reales de Cajas, Gastos e Informes',asy
   await page.locator('[data-action="'+action+'"]').first().click();
   const exported=await started;
   assert(exported.suggestedFilename().endsWith(expected),'Descarga incorrecta de '+route+': '+exported.suggestedFilename());
+  if(action==='export-summary'){
+   const wb=xlsx.read(await fs.readFile(await exported.path()),{type:'buffer',cellStyles:true});
+   const summary=wb.Sheets.Resumen,byStore=wb.Sheets['Por tienda'];
+   assert(summary?.A12?.v==='Resultado real','El resumen no refleja el resultado en su posición original');
+   assert(Number.isFinite(summary?.B12?.v),'El resultado del resumen no es un importe válido');
+   assert(Math.abs(summary.B8.v-summary.B9.v-summary.B10.v-summary.B12.v)<0.011,'Ingresos - gastos no coincide con resultado');
+   assert(byStore?.A1?.v==='Tienda'&&byStore?.E1?.v==='Resultado','La hoja por tienda no contiene todas las columnas');
+  }
  }
 });
 await check('Pricing: guardar consulta con histórico y producto independiente',async()=>{
