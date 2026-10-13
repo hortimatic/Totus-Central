@@ -61,6 +61,7 @@ jobs:
           sed -i 's/<title>Totus Central<\/title>/<title>Totus Central - STAGING<\/title>/' _site/staging/index.html
           sed -i 's/<h1>Acceso<\/h1>/<h1>STAGING - entorno de pruebas<\/h1><p style="font-weight:700;color:#b45309">Base de datos de pruebas aislada y preparada. Necesitas un usuario propio de este entorno; no uses contraseñas de producción.<\/p>/' _site/staging/index.html
           test -f _site/staging/src/config.js
+          grep -q 'stagingSignupBtn' _site/staging/index.html
           ! grep -q 'zwkpmjjuurgjygcrejiw' _site/staging/src/config.js
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
