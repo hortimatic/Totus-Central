@@ -1065,44 +1065,20 @@ function homeReport(kind){
 }
 function openAdminSection(section){setView('administracion',{section});setRoute('administracion');render();}
 
+function previewWorkbookExact(wb,title,downloadButton){
+ const sheets=wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[sheetName])}</div></details>`).join('');
+ modal(title,`<div class="stack"><div class="note">Vista de todas las hojas del mismo libro que genera la descarga. La representación web no conserva necesariamente colores, bordes o anchuras de Excel.</div><div class="excel-preview">${sheets}</div><div class="form-actions">${downloadButton}</div></div>`);
+}
 function reportStorePreview(storeId,year){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)return;
- const rows=[];
- for(let m=1;m<=12;m++){
-  const from=`${year}-${String(m).padStart(2,'0')}-01`,to=`${year}-${String(m).padStart(2,'0')}-${String(new Date(year,m,0).getDate()).padStart(2,'0')}`;
-  const closings=state.data.closings.filter(x=>x.store_id===storeId&&x.business_date>=from&&x.business_date<=to);
-  const sales=closings.reduce((v,x)=>v+n(x.card_sales)+n(x.cash_withdrawals),0);
-  const expenses=state.data.expenses.filter(x=>x.store_id===storeId&&!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
-  const internal=state.data.expenses.filter(x=>x.store_id===storeId&&x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
-  rows.push({month:new Date(year,m-1,1).toLocaleDateString('es-ES',{month:'long'}),sales,expenses,internal,result:sales-expenses});
- }
- const html=`<div class="stack"><div class="note">RESUMEN DE DATOS, NO VISTA EXACTA DEL EXCEL. Esta tabla no permite verificar por sí sola el formato, las fórmulas o las 12 hojas del archivo descargable.</div>${table([{label:'Mes',html:r=>esc(r.month)},{label:'Recaudado en libro',num:true,html:r=>money(r.sales)},{label:'Gastos contables',num:true,html:r=>money(r.expenses)},{label:'Internos',num:true,html:r=>money(r.internal)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`}],rows)}<div class="form-actions">${btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`)}</div></div>`;
- modal(`${store.name} · ${year}`,html);
+ const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+ previewWorkbookExact(wb,`${store.name} · ${year}`,btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`));
 }
 function reportGestorPreview(year){
- const rows=[1,2,3,4].map(q=>{
-  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;
-  const income=state.data.closings.filter(x=>x.include_in_income!==false&&x.business_date>=from&&x.business_date<=to).reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)
-    +state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&x.issue_date>=from&&x.issue_date<=to).reduce((v,x)=>v+n(x.total_amount),0)
-    +state.data.incomeAdjustments.filter(x=>x.income_date>=from&&x.income_date<=to).reduce((v,x)=>v+n(x.amount),0)
-    +state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.adjustment_date>=from&&x.adjustment_date<=to).reduce((v,x)=>v+n(x.amount),0);
-  const expenses=state.data.expenses.filter(x=>!x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0)
-    +state.data.fiscalAdjustments.filter(x=>x.kind==='gasto_deducible_extra'&&x.adjustment_date>=from&&x.adjustment_date<=to).reduce((v,x)=>v+n(x.amount),0);
-  const docs=state.data.documents.filter(x=>String(x.document_date||x.created_at).slice(0,10)>=from&&String(x.document_date||x.created_at).slice(0,10)<=to).length;
-  return {q:`${q}T`,from,to,income,expenses,result:income-expenses,docs};
- });
- const html=`<div class="stack"><div class="note">RESUMEN DE DATOS, NO VISTA EXACTA DEL LIBRO DE GESTORÍA. La estructura y las fórmulas del Excel descargable siguen pendientes de cotejo con el original.</div>${table([{label:'Periodo',html:r=>`<b>${r.q}</b><div class="small muted">${fmtDate(r.from)} → ${fmtDate(r.to)}</div>`},{label:'Ingresos',num:true,html:r=>money(r.income)},{label:'Gastos',num:true,html:r=>money(r.expenses)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`},{label:'Documentos',num:true,html:r=>String(r.docs)}],rows)}<div class="form-actions">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar ZIP gestor','export-gestor-package','secondary',`data-year="${year}"`)}</div></div>`;
- modal(`Gestoría y auditoría · ${year}`,html);
+ const wb=buildGestorWorkbook(reportArgs(year));
+ previewWorkbookExact(wb,`Libro de gestoría · ${year}`,btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`));
 }
-
-function reportArgs(year){
- return {year,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,incomeAdjustments:state.data.incomeAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
-}
-function exportStoreBook(storeId,year){
- const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
- exportStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
-}
-async function exportGestorPackage(year){
+function exportGestorPackage(year){
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
  const incomeRows=[
