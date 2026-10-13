@@ -1,6 +1,8 @@
 import {chromium} from 'playwright';
 import xlsx from 'xlsx-js-style';
 import {PDFDocument} from 'pdf-lib';
+import JSZip from 'jszip';
+import fs from 'node:fs/promises';
 const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
@@ -296,6 +298,30 @@ await check('Backup integral: descarga de base de datos y archivos simulados',as
  await page.locator('[data-action="backup-create"]').click();
  const exported=await filePromise;
  assert(exported.suggestedFilename().endsWith('.totusbackup'),'La copia no tiene formato .totusbackup');
+});
+await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF originales',async()=>{
+ await page.evaluate(()=>{
+  window.__mockDb.ops_income_adjustments.push({
+   id:crypto.randomUUID(),store_id:null,income_date:'2026-10-10',amount:31.40,concept:'Ingreso extra simulado para conciliación'
+  });
+ });
+ await nav('informes');
+ const ready=page.waitForEvent('download',{timeout:12000});
+ await page.locator('[data-action="export-gestor-package"]').first().click();
+ const download=await ready;
+ assert(download.suggestedFilename()==='Paquete_gestor_2026.zip','El paquete del gestor no tiene el nombre anual correcto');
+ const archive=await JSZip.loadAsync(await fs.readFile(await download.path()));
+ const names=Object.keys(archive.files);
+ for(const required of ['01_INGRESOS/Ingresos_2026.csv','02_GASTOS/Libros_gestor_y_auditoria_2026_Totus.xlsx','03_DIARIOS/Gastos y ventas Hortimatic 2026.xlsx','03_DIARIOS/Gastos y ventas NewOldSmok 2026.xlsx','04_RESUMEN/Resumen_2026.csv']){
+  assert(!!archive.file(required),'Falta fichero del gestor: '+required);
+ }
+ assert(names.some(x=>x.endsWith('/justificante-test.pdf')),'No se incluyó la factura PDF original de gastos en el ZIP');
+ const summary=await archive.file('04_RESUMEN/Resumen_2026.csv').async('string');
+ const incomes=await archive.file('01_INGRESOS/Ingresos_2026.csv').async('string');
+ const declared=Number(summary.match(/Ventas;([\d.]+)/)?.[1]);
+ const rows=incomes.trim().split(/\r?\n/).slice(1);
+ const included=rows.reduce((sum,line)=>sum+Number((line.split(';')[3]||'0').replaceAll('"','')),0);
+ assert(Number.isFinite(declared)&&Math.abs(declared-included)<.02,'El resumen del ZIP y sus ingresos detallados no cuadran');
 });
 await check('Roles: gerente y encargado con permisos de navegación',async()=>{
  for(const [role,adminVisible] of [['gerente',true],['encargado',false]]){
