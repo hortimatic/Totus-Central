@@ -1,7 +1,7 @@
-name: Totus Central Pages (manual, QA gated)
+name: Totus Central Production Pages (QA gated)
 on:
   push:
-    branches: [auditoria-regresion-2026-10-13]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify-and-publish:
-    if: github.ref == 'refs/heads/auditoria-regresion-2026-10-13'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
