@@ -165,6 +165,7 @@ await check('Documentos: subida, archivo y metadatos',async()=>{
 });
 await check('Documentos: importación ZIP por lote, vista previa y sin duplicados',async()=>{
  await nav('documentos');
+ if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').click();
  const zipped=new JSZip();
  zipped.file('Febrero 2026/Proveedor X 12-2-2026.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
  zipped.file('Marzo 2026/Proveedor Y.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
