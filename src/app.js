@@ -860,8 +860,7 @@ async function previewDocument(id){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
-   const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});const sheet=wb.Sheets[wb.SheetNames[0]];
-   body=`<div class="note">Hoja: ${esc(wb.SheetNames[0]||'')}</div><div class="excel-preview">${window.XLSX.utils.sheet_to_html(sheet)}</div>`;
+   const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});body=`<div class="note">Libro Excel: ${wb.SheetNames.length} hoja(s). Puedes abrir y revisar cada hoja sin descargarlo.</div><div class="excel-preview">${wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[sheetName])}</div></details>`).join('')}</div>`;
  }else if(kind==='text'){
    const txt=await blob.text();body=`<pre class="text-preview">${esc(txt.slice(0,200000))}</pre>`;
  }else{
@@ -1077,7 +1076,7 @@ function reportStorePreview(storeId,year){
   const internal=state.data.expenses.filter(x=>x.store_id===storeId&&x.management_only&&x.expense_date>=from&&x.expense_date<=to).reduce((v,x)=>v+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
   rows.push({month:new Date(year,m-1,1).toLocaleDateString('es-ES',{month:'long'}),sales,expenses,internal,result:sales-expenses});
  }
- const html=`<div class="stack"><div class="note">Vista del libro anual de caja: tarjeta + salidas de metálico, con gastos internos desglosados y excluidos del resultado. Facturas adicionales y ajustes generales se concilian en el libro del gestor. La descarga conserva las 12 hojas, colores y fórmulas.</div>${table([{label:'Mes',html:r=>esc(r.month)},{label:'Recaudado en libro',num:true,html:r=>money(r.sales)},{label:'Gastos contables',num:true,html:r=>money(r.expenses)},{label:'Internos',num:true,html:r=>money(r.internal)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`}],rows)}<div class="form-actions">${btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`)}</div></div>`;
+ const html=`<div class="stack"><div class="note">RESUMEN DE DATOS, NO VISTA EXACTA DEL EXCEL. Esta tabla no permite verificar por sí sola el formato, las fórmulas o las 12 hojas del archivo descargable.</div>${table([{label:'Mes',html:r=>esc(r.month)},{label:'Recaudado en libro',num:true,html:r=>money(r.sales)},{label:'Gastos contables',num:true,html:r=>money(r.expenses)},{label:'Internos',num:true,html:r=>money(r.internal)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`}],rows)}<div class="form-actions">${btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`)}</div></div>`;
  modal(`${store.name} · ${year}`,html);
 }
 function reportGestorPreview(year){
@@ -1092,7 +1091,7 @@ function reportGestorPreview(year){
   const docs=state.data.documents.filter(x=>String(x.document_date||x.created_at).slice(0,10)>=from&&String(x.document_date||x.created_at).slice(0,10)<=to).length;
   return {q:`${q}T`,from,to,income,expenses,result:income-expenses,docs};
  });
- const html=`<div class="stack"><div class="note">Vista previa de lo que entrará en el libro de gestoría y auditoría. Incluye los ingresos complementarios y los gastos deducibles adicionales registrados en Fiscalidad.</div>${table([{label:'Periodo',html:r=>`<b>${r.q}</b><div class="small muted">${fmtDate(r.from)} → ${fmtDate(r.to)}</div>`},{label:'Ingresos',num:true,html:r=>money(r.income)},{label:'Gastos',num:true,html:r=>money(r.expenses)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`},{label:'Documentos',num:true,html:r=>String(r.docs)}],rows)}<div class="form-actions">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar ZIP gestor','export-gestor-package','secondary',`data-year="${year}"`)}</div></div>`;
+ const html=`<div class="stack"><div class="note">RESUMEN DE DATOS, NO VISTA EXACTA DEL LIBRO DE GESTORÍA. La estructura y las fórmulas del Excel descargable siguen pendientes de cotejo con el original.</div>${table([{label:'Periodo',html:r=>`<b>${r.q}</b><div class="small muted">${fmtDate(r.from)} → ${fmtDate(r.to)}</div>`},{label:'Ingresos',num:true,html:r=>money(r.income)},{label:'Gastos',num:true,html:r=>money(r.expenses)},{label:'Resultado',num:true,html:r=>`<b class="${r.result<0?'danger-text':'good-text'}">${money(r.result)}</b>`},{label:'Documentos',num:true,html:r=>String(r.docs)}],rows)}<div class="form-actions">${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar ZIP gestor','export-gestor-package','secondary',`data-year="${year}"`)}</div></div>`;
  modal(`Gestoría y auditoría · ${year}`,html);
 }
 
