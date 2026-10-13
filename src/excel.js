@@ -114,7 +114,8 @@ function setCell(ws,addr,value,style,formula=null){
 function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
  const monthName=MONTHS[month],ws={};
  ws['!ref']='A1:I80';ws['!cols']=[null,...[11.7109375,/newold|smok/i.test(store.name||'')?30.7109375:33,9.140625,9.140625,12.140625,9.140625,9.140625,9.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
- setCell(ws,'B1',`${monthName} ${year}`,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
+ const legacyTitle=year===2026&&month>=3&&month<=6?`${/newold|smok/i.test(store.name||'')?(month===3?'NewOldSmok':'Newoldsmok'):'Hortimatic'} ${monthName} ${year}`:`${monthName} ${year}`;
+ setCell(ws,'B1',legacyTitle,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
  for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
  const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
