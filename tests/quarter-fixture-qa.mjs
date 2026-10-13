@@ -1,0 +1,61 @@
+import xlsx from 'xlsx-js-style';
+global.window={XLSX:xlsx};
+const {buildGestorWorkbook,buildStoreAnnualWorkbook}=await import('../src/excel.js');
+const stores=[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}];
+const closing=(id,store,date,cash,card)=>({id,store_id:store,business_date:date,cash_sales:cash,card_sales:card,bizum_sales:0,online_sales:0,other_income:0,cash_withdrawals:0,include_in_income:true});
+const expense=(id,store,date,amount,internal=false)=>({id,store_id:store,expense_date:date,accounting_amount:amount,gross_expense:amount,amount_paid:amount,management_only:internal,supplier_name:'Proveedor de simulación'});
+const data={
+ year:2026,stores,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},
+ categories:[],expenseLines:[],taxPayments:[],
+ closings:[
+  closing('h1','h','2026-01-05',100,50),closing('h2','h','2026-02-05',0,200),closing('n1','n','2026-01-05',75,0),
+  closing('h3','h','2026-04-05',500,0),closing('n2','n','2026-05-05',100,0),
+  closing('h4','h','2026-07-05',300,0),closing('n3','n','2026-08-05',500,0)
+ ],
+ expenses:[
+  expense('e1','h','2026-01-05',126.2),expense('e2','n','2026-01-10',65),expense('e3',null,'2026-01-12',100),expense('e4','h','2026-01-07',300,true),
+  expense('e5','h','2026-04-05',200),expense('e6','n','2026-05-05',50),
+  expense('e7','h','2026-07-05',300),expense('e8','n','2026-08-05',600)
+ ],
+ invoices:[
+  {store_id:'h',issue_date:'2026-01-05',document_type:'factura',status:'emitida',include_in_income:true,total_amount:121},
+  {store_id:'h',issue_date:'2026-04-05',document_type:'factura',status:'borrador',include_in_income:true,total_amount:999}
+ ],
+ fiscalAdjustments:[
+  {store_id:'h',adjustment_date:'2026-02-05',kind:'ingreso_extra',amount:20},
+  {store_id:null,adjustment_date:'2026-01-12',kind:'gasto_deducible_extra',amount:20}
+ ],
+ incomeAdjustments:[
+  {store_id:'h',income_date:'2026-01-05',amount:30},
+  {store_id:null,income_date:'2026-01-12',amount:40}
+ ]
+};
+const wb=buildGestorWorkbook(data),audit=wb.Sheets['Auditoría gestor'];
+const eq=(a,b,label)=>{if(Math.abs(Number(a)-b)>0.011)throw new Error(label+': '+a+' != '+b)};
+eq(audit.B4.v,636,'1T incomes');
+eq(audit.C4.v,-311.2,'1T gestor expenses (including extra deduction)');
+eq(audit.D4.v,324.8,'1T profit');
+eq(audit.E4.v,-16.24,'1T 5 percent');
+eq(audit.G4.v,-61.712,'1T Modelo 130');
+eq(audit.B5.v,600,'2T incomes');
+eq(audit.C5.v,-250,'2T expenses');
+eq(audit.D5.v,350,'2T profit');
+eq(audit.B6.v,800,'3T incomes');
+eq(audit.C6.v,-900,'3T expenses');
+eq(audit.D6.v,-100,'3T loss');
+eq(audit.E6.v,0,'3T no difficult-expense deduction on loss');
+for(const r of [4,5,6])eq(audit.B[r]?.v+audit.C[r]?.v,audit.D[r]?.v,r+'T arithmetic consistency');
+const q1=wb.Sheets['Conciliación 1T'],q2=wb.Sheets['Conciliación 2T'],q3=wb.Sheets['Conciliación 3T'];
+eq(q1.D4.v,150+75+121+30+40,'January income including general');
+eq(q1.D5.v,200+20,'February income');
+eq(q2.D4.v,500,'April income without draft invoice');
+eq(q3.D4.v,300,'July income');
+eq(q3.D5.v,500,'August income');
+for(const [name,amount] of [['Hortimatic',300],['NewOldSmok',600]]){
+ const store=stores.find(x=>x.name===name),book=buildStoreAnnualWorkbook({...data,store});
+ if(book.SheetNames.length!==12)throw Error('Store quarterly annual workbook incomplete');
+ const july=book.Sheets.Julio,august=book.Sheets.Agosto;
+ if(name==='Hortimatic'&&!Object.values(july).some(c=>c?.v===amount))throw Error('Q3 Horti expense not exported');
+ if(name==='NewOldSmok'&&!Object.values(august).some(c=>c?.v===amount))throw Error('Q3 NewOld expense not exported');
+}
+console.log('QUARTER QA: Q1/Q2/Q3, two stores, IVA/RE, internal expense, deductions, unassigned income, drafts, fiscal formulas: OK');
