@@ -268,7 +268,7 @@ export function fiscalidad(){
  const ytdAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x));
  const sumIncome=(cs,is,as)=>sum(cs,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
  const periodIncome=sumIncome(periodClose,periodInv,periodAdj),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj);
- const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,yFrom,qTo)&&storeOk(x));
+ const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,qTo)&&storeOk(x));
  const internalPeriod=state.data.expenses.filter(x=>x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x));
  const deductibleFor=expenses=>{const ids=new Set(expenses.map(x=>x.id)),lines=state.data.expenseLines.filter(x=>ids.has(x.expense_id)),withLines=new Set(lines.map(x=>x.expense_id));return sum(lines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0))+sum(expenses.filter(x=>!withLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount||x.gross_expense||0)*(Number(x.deductible_pct??100)/100))};
  const periodDed=deductibleFor(periodExpenses),ytdDedBase=deductibleFor(ytdExpenses);
@@ -316,10 +316,12 @@ export function informes(){
  const extraInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const incomeAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount);
- const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
+ const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
+ const accounting=sum(g.filter(x=>!x.management_only&&x.fiscal_reviewed!==false),x=>x.gross_expense||x.accounting_amount||x.amount_paid),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
  return `<div class="page">
  <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
- <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos contables',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
+ <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos fiscales revisados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
+ ${unreviewed?`<div class="note">${unreviewed} gastos sin revisión fiscal han sido excluidos de los importes de informes. Las descargas fiscales no deben considerarse completas hasta cotejar sus facturas.</div>`:'' }
  <div class="split">
   <section class="card card-pad"><div class="section-head"><div><h2>Libros como los Excel originales</h2><p>Doce hojas mensuales, mismos bloques, fórmulas, códigos de color y estructura de ventas/gastos.</p></div></div>
    <div class="stack" style="margin-top:14px">${stores().map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">Gastos y ventas · ${year}</div></div><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${year}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${year}"`)}</div></div>`).join('')}</div>
