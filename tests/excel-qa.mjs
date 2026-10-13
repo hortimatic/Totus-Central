@@ -69,6 +69,17 @@ const gestorWb=buildGestorWorkbook({
  year:2026,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,
  invoices:[],incomeAdjustments:[],fiscalAdjustments:[],taxPayments:[]
 });
+const firstSemesterWb=buildGestorWorkbook({
+ year:2026,onlyPeriodsWithData:true,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,
+ invoices:[],incomeAdjustments:[],fiscalAdjustments:[],taxPayments:[]
+});
+if(firstSemesterWb.SheetNames.length!==5)throw new Error('El libro enero-junio debe tener las cinco hojas del original de gestoría');
+for(const name of ['Auditoría gestor','Conciliación 1T','Conciliación 2T','Libro gestor 1T','Libro gestor 2T'])if(!firstSemesterWb.SheetNames.includes(name))throw new Error('Falta hoja original: '+name);
+const extendedSemesterWb=buildGestorWorkbook({
+ year:2026,onlyPeriodsWithData:true,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,
+ invoices:[],incomeAdjustments:[{income_date:'2026-07-06',store_id:'h',amount:25}],fiscalAdjustments:[],taxPayments:[]
+});
+if(extendedSemesterWb.SheetNames.length!==7||!extendedSemesterWb.SheetNames.includes('Libro gestor 3T'))throw new Error('El trimestre nuevo no se incorpora al libro');
 const withManualIncome=buildGestorWorkbook({
  year:2026,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,
  invoices:[],incomeAdjustments:[{income_date:'2026-02-06',store_id:'h',amount:25,concept:'Ingreso complementario QA'}],fiscalAdjustments:[],taxPayments:[]
