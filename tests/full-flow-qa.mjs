@@ -250,6 +250,7 @@ await check('Descargas desde los botones reales de Cajas, Gastos e Informes',asy
  for(const [route,action,expected] of [
   ['cajas','export-closings-current','.xlsx'],
   ['gastos','export-expenses-current','.xlsx'],
+  ['informes','export-summary','.xlsx'],
   ['informes','export-gestor-book','.xlsx']
  ]){
   await nav(route);
