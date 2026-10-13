@@ -221,7 +221,7 @@ export function documentos(){
  return `<div class="page">
   <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',(used/1024/1024).toFixed(1).replace('.',',')+' MB',usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB')}${kpi('Archivos en Storage',String(Number(usage.documents_count||0)+Number(usage.assets_count||0)))}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
-   <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Subida, clasificación, vista previa, descarga y paquetes.</p></div><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('+ Subir documento','document-new','primary')}</div></div>
+   <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Subida, clasificación, vista previa, descarga y paquetes.</p></div><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden>${btn('+ Subir documento','document-new','primary')}</div></div>
    <div class="filters">${dateFilters({...f,stores:stores()},'documentos').replace(/^<div class="filters">|<\/div>$/g,'')}${extra}</div>
    ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para los filtros seleccionados.'})}
   </section>
