@@ -192,7 +192,7 @@ function fiscalIncomeForPeriod({from,to,closings,invoices=[],fiscalAdjustments=[
  return close+inv+adj+incomeAdjustments.filter(x=>inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
 }
 function expenseLineRows({from,to,expenses,expenseLines,categories}){
- const valid=expenses.filter(x=>!x.management_only&&inDate(x.expense_date,from,to));
+ const valid=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to));
  const byExpense=new Map(valid.map(x=>[x.id,x]));const out=[];let order=1;
  for(const line of expenseLines.filter(x=>byExpense.has(x.expense_id)).sort((a,b)=>String(byExpense.get(a.expense_id).expense_date).localeCompare(String(byExpense.get(b.expense_id).expense_date))||(a.sort_order||0)-(b.sort_order||0))){
    const e=byExpense.get(line.expense_id),base=n(line.base_amount),vat=n(line.vat_amount),re=n(line.re_amount),wh=n(line.withholding_amount),total=base+vat+re,net=total-wh;
@@ -220,8 +220,8 @@ function monthTotals(args,month){
  });
  const commonIncome=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0)
    +incomeAdjustments.filter(x=>!x.store_id&&inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
- const direct=stores.map(s=>expenses.filter(x=>x.store_id===s.id&&!x.management_only&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0));
- const common=expenses.filter(x=>!x.store_id&&!x.management_only&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+ const direct=stores.map(s=>expenses.filter(x=>x.store_id===s.id&&!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0));
+ const common=expenses.filter(x=>!x.store_id&&!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
  return {from,to,sales,direct,common,commonIncome};
 }
 function appendReconciliationSheet(wb,q,args){
@@ -237,7 +237,7 @@ function appendReconciliationSheet(wb,q,args){
 function appendAuditSheet(wb,args){
  const {year,taxPayments=[],fiscalAdjustments=[]}=args,rows=[];
  for(let q=1;q<=4;q++){
-   const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+   const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
    const extraDed=fiscalAdjustments.filter(x=>x.kind==='gasto_deducible_extra'&&inDate(x.adjustment_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.amount),0),result=income-expense-extraDed,diff=Math.max(0,result*n(args.settings?.difficult_expense_pct??5)/100),base=Math.max(0,result-diff),calc=base*n(args.settings?.irpf_prepayment_rate??20)/100;
    const paid=taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===q&&x.status==='pagado'),status=paid?(Math.abs(n(paid.amount)-calc)<.02?'Coincide al céntimo':'Diferencia '+(n(paid.amount)-calc).toFixed(2)+' €'):'Sin pago registrado';
    rows.push([`${q}T`,income,-(expense+extraDed),result,-diff,base,-calc,status]);
