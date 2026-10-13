@@ -861,6 +861,14 @@ async function previewDocument(id){
    setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
    const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});body=`<div class="note">Libro Excel: ${wb.SheetNames.length} hoja(s). Puedes abrir y revisar cada hoja sin descargarlo.</div><div class="excel-preview">${wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[sheetName])}</div></details>`).join('')}</div>`;
+ }else if(kind==='docx'){
+   if(!window.JSZip)throw new Error('No está disponible el lector de documentos Word.');
+   const zip=await window.JSZip.loadAsync(blob),xml=await zip.file('word/document.xml')?.async('text');
+   if(!xml)throw new Error('El archivo Word no contiene un documento válido.');
+   const doc=new DOMParser().parseFromString(xml,'application/xml');
+   if(doc.querySelector('parsererror'))throw new Error('No se pudo interpretar el documento Word.');
+   const paragraphs=[...doc.getElementsByTagNameNS('*','p')].map(p=>[...p.getElementsByTagNameNS('*','t')].map(t=>t.textContent||'').join('')).filter(Boolean);
+   body=`<div class="note">Vista del texto del Word; puede diferir del diseño original.</div><div class="excel-preview">${paragraphs.map(p=>`<p>${esc(p)}</p>`).join('')||'<p>Documento sin texto visible.</p>'}</div>`;
  }else if(kind==='text'){
    const txt=await blob.text();body=`<pre class="text-preview">${esc(txt.slice(0,200000))}</pre>`;
  }else{
