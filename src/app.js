@@ -1078,6 +1078,13 @@ function reportGestorPreview(year){
  const wb=buildGestorWorkbook(reportArgs(year));
  previewWorkbookExact(wb,`Libro de gestoría · ${year}`,btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`));
 }
+function reportArgs(year){
+ return {year,onlyPeriodsWithData:year===2026,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,incomeAdjustments:state.data.incomeAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
+}
+function exportStoreBook(storeId,year){
+ const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
+ exportStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+}
 function exportGestorPackage(year){
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
