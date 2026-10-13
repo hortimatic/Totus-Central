@@ -59,7 +59,7 @@ jobs:
           cp _staging_source/index.html _staging_source/favicon.svg _staging_source/fondo_original.png _site/staging/
           cp -R _staging_source/src _site/staging/src
           sed -i 's/<title>Totus Central<\/title>/<title>Totus Central - STAGING<\/title>/' _site/staging/index.html
-          sed -i 's/<h1>Acceso<\/h1>/<h1>STAGING - entorno de pruebas<\/h1><p style="font-weight:700;color:#b45309">No conectado a producción. Inicio de sesión deshabilitado hasta instalar Supabase de pruebas.<\/p>/' _site/staging/index.html
+          sed -i 's/<h1>Acceso<\/h1>/<h1>STAGING - entorno de pruebas<\/h1><p style="font-weight:700;color:#b45309">Supabase de pruebas independiente. La base de datos está pendiente de configurar; no uses credenciales de producción.<\/p>/' _site/staging/index.html
           test -f _site/staging/src/config.js
           ! grep -q 'zwkpmjjuurgjygcrejiw' _site/staging/src/config.js
           touch _site/.nojekyll
