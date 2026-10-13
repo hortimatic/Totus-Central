@@ -169,7 +169,8 @@ await check('Documentos: importación ZIP por lote, vista previa y sin duplicado
  const zipped=new JSZip();
  zipped.file('Febrero 2026/Proveedor X 12-2-2026.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
  zipped.file('Marzo 2026/Proveedor Y.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
- zipped.file('Informes/Libro referencia.xlsx',Buffer.from(xlsx.write(xlsx.utils.book_new(),{bookType:'xlsx',type:'buffer'})));
+ const zipBook=xlsx.utils.book_new();xlsx.utils.book_append_sheet(zipBook,xlsx.utils.aoa_to_sheet([['Concepto','Euros'],['Prueba',1]]),'Datos');
+ zipped.file('Informes/Libro referencia.xlsx',Buffer.from(xlsx.write(zipBook,{bookType:'xlsx',type:'buffer'})));
  zipped.file('Informes/Resumen.docx',Buffer.from('Documento Word de prueba'));
  const buffer=await zipped.generateAsync({type:'nodebuffer'});
  const before=(await db()).documents.length;
