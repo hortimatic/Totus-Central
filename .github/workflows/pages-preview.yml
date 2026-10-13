@@ -63,6 +63,8 @@ jobs:
           test -f _site/staging/src/config.js
           grep -q 'stagingSignupBtn' _site/staging/index.html
           grep -q 'documentBulkZip' _site/staging/src/pages/main.js
+          grep -q "'docx'" _site/staging/src/file-utils.js
+          grep -q 'importDocumentZip' _site/staging/src/app.js
           node --check _site/staging/src/app.js
           node --check _site/staging/src/pages/main.js
           grep -q 'profiles.data' _site/staging/src/app.js
