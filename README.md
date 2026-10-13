@@ -1,42 +1,35 @@
-# Totus Central — Versión final pendiente de producción
+# Totus Central
 
-Aplicación de gestión interna de **Hortimatic y NewOldSmok**. La pestaña Pricing forma parte de Totus Central; no requiere una instalación independiente.
+Aplicación única de gestión interna para Hortimatic y NewOldSmok. Pricing está integrado en la navegación general.
 
-## Estado
+## Arquitectura
 
-- **Versión aprobada:** `totus-central-final-2026-10-13`.
-- **Rama publicada anterior:** `main`. No sustituirla sin la autorización expresa del responsable.
-- **Supabase definitivo:** ID `zwkpmjjuurgjygcrejiw` (la denominación visible del proyecto puede renombrarse sin alterar este ID).
-- **Datos de enero-junio 2026:** preparados en paquete privado externo; **no importados** en la base definitiva.
-- **Pruebas:** CI de código, vistas de escritorio y móvil, formularios, Excel, PDF, ZIP, permisos simulados y recuperación simulada. Sigue pendiente validación con sesiones reales y restauración en un entorno seguro.
-- **Coste adicional autorizado:** ninguno.
+- Código y versiones: GitHub (este repositorio).
+- Usuarios, autenticación, permisos, datos y documentos: Supabase, proyecto `zwkpmjjuurgjygcrejiw`.
+- Alojamiento definitivo previsto: GitHub Pages. El despliegue está pendiente de validación y autorización; no se ha activado.
+- Vercel no es una dependencia del código y debe retirarse solo después de verificar el nuevo acceso.
+
+## Estado del proyecto
+
+- Rama final aprobada: `totus-central-final-2026-10-13`.
+- Rama de revisión: `auditoria-regresion-2026-10-13`.
+- Rama `main`: no modificar ni desplegar sin aprobación.
+- Datos del primer semestre: NO importados; fuentes privadas, fuera de este repositorio.
+- Equipo actual: dos cuentas activas (administración y gerencia). Incorporar nuevos usuarios solo desde la administración verificada.
+- Producción: pendiente de pruebas autenticadas, enlaces de recuperación y revisión de seguridad.
 
 ## Módulos
 
-Inicio · Pricing · Cajas · Gastos · Facturación · Documentos · Fiscalidad · Informes · Administración.
+Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes y Administración.
 
-## Estructura
+## QA y publicación
 
-- `src/app.js`: navegación y acciones
-- `src/api.js`: conexión a Supabase
-- `src/state.js`: datos y estado
-- `src/components.js`: interfaz reutilizable
-- `src/pages/main.js`: vistas
-- `src/excel.js`: libros y documentos de gestoría
-- `src/backup.js`: copia de datos y documentos
-- `src/styles.css`: diseño
-- `supabase/`: definición SQL
-- `tests/`: validaciones y simulaciones
+- `.github/workflows/qa.yml`: prueba código, formularios, Excel, PDF, ZIP y vistas simuladas.
+- `.github/workflows/pages-preview.yml`: preparación de alojamiento estático GitHub Pages con ejecución manual y verificación previa.
+- El paquete web debe incluir únicamente `index.html`, `favicon.svg`, `fondo_original.png` y `src/`.
+- No se deben publicar `supabase/`, `tests/`, copias de seguridad, facturas, libros contables ni documentos personales.
+- No cambiar ajustes de Auth ni URL de correos hasta disponer de un dominio definitivo comprobado.
 
-## Seguridad y limpieza
+## Seguridad
 
-1. No publicar facturas reales, información personal, copias de seguridad ni ficheros del primer semestre en este repositorio: **actualmente es público**.
-2. No usar el repositorio antiguo `hortimatic/totus-central`, ya eliminado.
-3. No usar el proyecto Supabase antiguo `qgyufbjytcewuevbketz`, ya eliminado.
-4. Renombrar únicamente la denominación visible del repositorio y proyecto conservados; **no modificar la URL API ni el ID de Supabase**.
-5. No confundir un cambio de nombre de repositorio con una publicación: dejar `main` intacta hasta terminar las pruebas.
-6. Crear staging solo con aislamiento y coste cero verificado antes de introducir documentos reales.
-
-## Entrega íntegra
-
-La rama final mantiene todo el código aprobado y la batería de QA. Para recuperar la versión se utiliza su ZIP integral de GitHub Actions o la rama completa. No mezclar archivos de otras ramas.
+No incluir claves secretas ni service-role en el navegador; solo la clave pública de Supabase. La protección real de los datos depende de Auth y RLS, que requieren revisión autenticada antes de producción. Mantener fuera del repositorio los datos y documentos privados.
