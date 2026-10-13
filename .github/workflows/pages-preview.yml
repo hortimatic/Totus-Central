@@ -1,4 +1,5 @@
 name: Totus Central Production Pages (QA gated)
+# Republish the validated staging preview from the isolated staging branch.
 on:
   push:
     branches: [main]
