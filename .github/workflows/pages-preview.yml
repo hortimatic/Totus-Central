@@ -62,6 +62,9 @@ jobs:
           sed -i 's/<h1>Acceso<\/h1>/<h1>STAGING - entorno de pruebas<\/h1><p style="font-weight:700;color:#b45309">Base de datos de pruebas aislada y preparada. Necesitas un usuario propio de este entorno; no uses contraseñas de producción.<\/p>/' _site/staging/index.html
           test -f _site/staging/src/config.js
           grep -q 'stagingSignupBtn' _site/staging/index.html
+          grep -q 'documentBulkZip' _site/staging/src/pages/main.js
+          node --check _site/staging/src/app.js
+          node --check _site/staging/src/pages/main.js
           grep -q 'profiles.data' _site/staging/src/app.js
           ! grep -q 'zwkpmjjuurgjygcrejiw' _site/staging/src/config.js
           touch _site/.nojekyll
