@@ -158,8 +158,8 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  if(internalTotal>0){setCell(ws,`C${row}`,`Menos gastos internos: ${internalTotal.toFixed(2).replace('.',',')}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}});row++}
  const fiscalFormula=internalTotal>0?`D${totalRow}-${internalTotal}`:`D${totalRow}`;
  setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
- setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);row++;
- setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-${fiscalFormula},"0.00")&"€"`);
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);row++;
+ setCell(ws,`C${row}`,'',{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);
  ws['!ref']=`A1:I${Math.max(row,totalRow)}`;
  XLSX.utils.book_append_sheet(wb,ws,monthName);
 }
