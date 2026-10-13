@@ -300,10 +300,11 @@ await check('Backup integral: descarga de base de datos y archivos simulados',as
  assert(exported.suggestedFilename().endsWith('.totusbackup'),'La copia no tiene formato .totusbackup');
 });
 await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF originales',async()=>{
- await page.evaluate(()=>{
-  window.__mockDb.ops_income_adjustments.push({
-   id:crypto.randomUUID(),store_id:null,income_date:'2026-10-10',amount:31.40,concept:'Ingreso extra simulado para conciliación'
-  });
+ await page.evaluate(async()=>{
+  const row={id:crypto.randomUUID(),store_id:null,income_date:'2026-10-10',amount:31.40,concept:'Ingreso extra simulado para conciliación'};
+  window.__mockDb.ops_income_adjustments.push(row);
+  const state=(await import('../src/state.js')).state;
+  state.data.incomeAdjustments.push(row);
  });
  await nav('informes');
  const ready=page.waitForEvent('download',{timeout:12000});
