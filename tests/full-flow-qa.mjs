@@ -169,19 +169,21 @@ await check('Documentos: importación ZIP por lote, vista previa y sin duplicado
  const zipped=new JSZip();
  zipped.file('Febrero 2026/Proveedor X 12-2-2026.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
  zipped.file('Marzo 2026/Proveedor Y.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
+ zipped.file('Informes/Libro referencia.xlsx',Buffer.from(xlsx.write(xlsx.utils.book_new(),{bookType:'xlsx',type:'buffer'})));
+ zipped.file('Informes/Resumen.docx',Buffer.from('Documento Word de prueba'));
  const buffer=await zipped.generateAsync({type:'nodebuffer'});
  const before=(await db()).documents.length;
  await page.locator('#documentBulkZip').setInputFiles({name:'facturas-staging.zip',mimeType:'application/zip',buffer});
- await page.waitForFunction(n=>window.__mockDb.ops_documents.length>=n+2,before,{timeout:12000});
+ await page.waitForFunction(n=>window.__mockDb.ops_documents.length>=n+4,before,{timeout:12000});
  await page.waitForTimeout(250);
  const docs=(await db()).documents;
- assert(docs.length===before+2,'La importación ZIP no registró ambos PDF');
+ assert(docs.length===before+4,'La importación ZIP no registró los cuatro formatos del lote');
  assert(docs.filter(x=>x.original_name.endsWith('.pdf')).slice(-2).every(x=>x.status==='pendiente'),'Los PDF deben estar pendientes de conciliar');
  assert(docs.some(x=>x.original_name==='Proveedor X 12-2-2026.pdf'),'El nombre original se ha perdido');
  await nav('documentos');
  await page.locator('#documentBulkZip').setInputFiles({name:'facturas-staging.zip',mimeType:'application/zip',buffer});
  await page.waitForTimeout(300);
- assert((await db()).documents.length===before+2,'Se duplicaron PDF al reimportar el ZIP');
+ assert((await db()).documents.length===before+4,'Se duplicaron PDF al reimportar el ZIP');
 });
 await check('Documentos Excel: carga y vista previa',async()=>{
  await nav('documentos');
