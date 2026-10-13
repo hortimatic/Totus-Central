@@ -44,7 +44,7 @@ eq(audit.B6.v,800,'3T incomes');
 eq(audit.C6.v,-900,'3T expenses');
 eq(audit.D6.v,-100,'3T loss');
 eq(audit.E6.v,0,'3T no difficult-expense deduction on loss');
-for(const r of [4,5,6])eq(audit.B[r]?.v+audit.C[r]?.v,audit.D[r]?.v,r+'T arithmetic consistency');
+for(const r of [4,5,6])eq(audit['B'+r]?.v+audit['C'+r]?.v,audit['D'+r]?.v,r+'T arithmetic consistency');
 const q1=wb.Sheets['Conciliación 1T'],q2=wb.Sheets['Conciliación 2T'],q3=wb.Sheets['Conciliación 3T'];
 eq(q1.D4.v,150+75+121+30+40,'January income including general');
 eq(q1.D5.v,200+20,'February income');
