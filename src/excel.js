@@ -76,7 +76,7 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
   ['Concepto','Importe'],['Ventas de cierres',closeSales],['Facturas adicionales',extraInvoiceSales],['Ajustes de ingreso',adjustmentSales],['Ingresos totales',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs]
  ];
  const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(let r=5;r<=13;r++)if(ws[`B${r}`])ws[`B${r}`].z=euro;
- ws['A13'].s=totalStyle;ws['B13'].s={...totalStyle};ws['B13'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
+ ws['A12'].s=totalStyle;ws['B12'].s={...totalStyle};ws['B12'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
 
  const perStore=stores.map(s=>{
   const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id),is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true),as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
