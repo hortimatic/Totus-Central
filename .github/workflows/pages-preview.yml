@@ -25,6 +25,20 @@ jobs:
           node tests/qa.mjs
           node tests/functional-regression.mjs
           node tests/code-integrity.mjs
+      - name: Install QA browser and document dependencies
+        run: |
+          npm install --no-save xlsx-js-style playwright jszip pdf-lib
+          npx playwright install --with-deps chromium
+      - name: Full QA before publishing
+        run: |
+          node tests/excel-qa.mjs
+          node tests/quarter-fixture-qa.mjs
+          python3 -m http.server 4173 >/tmp/totus-pages-preview.log 2>&1 &
+          node tests/browser-qa.mjs
+          node tests/layout-audit.mjs
+          node tests/field-sweep-qa.mjs
+          node tests/full-flow-qa.mjs
+          node tests/backup-qa.mjs
       - name: Package ONLY static app assets
         run: |
           mkdir -p _site
