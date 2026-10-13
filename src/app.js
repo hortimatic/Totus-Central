@@ -1236,7 +1236,8 @@ document.addEventListener('click',async e=>{
   if(a==='expense-category-new'){expenseCategoryForm();return}
   if(a==='expense-category-edit'){expenseCategoryForm(state.data.categories.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-category-save'){await saveExpenseCategory(el.dataset.id||'');return}
-  if(a==='document-bulk-select'){input('documentBulkZip')?.click();return}\n  if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
+  if(a==='document-bulk-select'){input('documentBulkZip')?.click();return}
+  if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
   if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='document-back'){resetView('documentos');render();return}
   if(a==='document-save'){await saveDocument(el.dataset.id||'');return}
@@ -1293,7 +1294,8 @@ document.addEventListener('input',e=>{
  if(id.startsWith('ivQty_')||id.startsWith('ivUnit_')||id.startsWith('ivDisc_')||id.startsWith('ivVat_'))updateInvoiceSummary();
 });
 
-document.addEventListener('change',e=>{\n if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
+document.addEventListener('change',e=>{
+ if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
  if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:val('clStore'),date:e.target.value||isoToday()});render();return}
  if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){setView('facturacion',{storeId:e.target.value});render();return}
