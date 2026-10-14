@@ -147,3 +147,8 @@ assert.ok(expenseCalculations.includes('export function validateExpenseLineAmoun
 assert.ok(appSource.includes('validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct})'),'Saving expenses must use the fiscal line validator');
 const expenseLineConstraint=fs.readFileSync('supabase/review_patches/005_expense_line_validation.sql','utf8');
 assert.ok(expenseLineConstraint.includes('ops_expense_lines_valid_amounts_ck'),'Database expense constraint documentation missing');
+
+assert.ok(pagesSource.includes("row.uploaded_by===state.session?.user?.id"),'Document owner must retain edit access');
+assert.ok(pagesSource.includes("row&&isManager()?btn('Eliminar documento'"),'Document delete button must remain manager-only');
+assert.ok(appSource.includes("current.uploaded_by!==state.session?.user?.id"),'Document save action must verify owner');
+assert.ok(appSource.includes("if(!isManager())throw new Error('Solo administración o gerencia pueden eliminar documentos.')"),'Document deletion must require manager');
