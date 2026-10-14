@@ -230,6 +230,8 @@ export function documentos(){
 }
 
 export function documentRecordHtml(row=null){
+ const canEdit=!row||isManager()||(row.uploaded_by&&row.uploaded_by===state.session?.user?.id);
+ if(row&&!canEdit)return `<div class="page record-page"><div class="record-toolbar"><h2>${esc(row.original_name||'Documento')}</h2></div><section class="card card-pad"><p class="note">Puedes consultar y descargar este archivo. La edición corresponde a quien lo subió o a gerencia.</p><div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${row.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${row.id}"`)}${btn('Volver','document-back','secondary')}</div></section></div>`;
  const storeOptions=[{value:'',label:'Sin tienda'},...stores().map(s=>({value:s.id,label:s.name}))];
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="document-back">← Volver a documentos</button><div class="eyebrow">Documentos · ${row?'Ficha':'Nuevo'}</div><h2>${row?esc(row.original_name||'Documento'):'Subir documento'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
@@ -251,7 +253,7 @@ export function documentRecordHtml(row=null){
       <label class="wide">Notas<textarea id="docNotes" rows="4">${esc(row?.notes||'')}</textarea></label>
      </div></section>
    </div>
-   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Acciones</h3><div class="stack">${row?btn('Eliminar documento','document-delete','danger',`data-id="${row.id}"`):''}${btn(row?'Guardar cambios':'Subir y guardar','document-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','document-back','secondary')}</div></section></aside>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Acciones</h3><div class="stack">${row&&isManager()?btn('Eliminar documento','document-delete','danger',`data-id="${row.id}"`):''}${btn(row?'Guardar cambios':'Subir y guardar','document-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','document-back','secondary')}</div></section></aside>
   </div>
  </div>`;
 }
