@@ -30,5 +30,6 @@ export function validateDocumentFile(file,{maxBytes=20*1024*1024,usedBytes=0,lim
  return {extension:ext,kind:previewKind(file.name,file.type),projectedBytes:projected};
 }
 export function safeFileSegment(v){
- return String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80)||'sin_dato';
+ const segment=String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80);
+ return segment && segment!=='.' && segment!=='..' ? segment : 'sin_dato';
 }
