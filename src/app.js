@@ -4,7 +4,7 @@ import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upl
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {quickPriceStudy,validateExpensePayment} from './calculations.js';
+import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment} from './file-utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup,restoreBackup} from './backup.js';
@@ -189,7 +189,8 @@ async function saveExpense(id=''){
  const lineEls=[...document.querySelectorAll('.expense-line')];
  if(!lineEls.length)throw new Error('Añade al menos un concepto.');
  const lines=lineEls.map((el,i)=>{
-   const ix=el.dataset.lineIndex,base=Math.max(0,n(val(`exLineBase_${ix}`))),vat=Math.max(0,n(val(`exLineVat_${ix}`))),re=Math.max(0,n(val(`exLineRe_${ix}`))),wh=Math.max(0,n(val(`exLineWh_${ix}`))),dedPct=Math.min(100,Math.max(0,n(val(`exLineDedPct_${ix}`))));
+   const ix=el.dataset.lineIndex,base=n(val(`exLineBase_${ix}`)),vat=n(val(`exLineVat_${ix}`)),re=n(val(`exLineRe_${ix}`)),wh=n(val(`exLineWh_${ix}`)),dedPct=n(val(`exLineDedPct_${ix}`));
+   validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct});
    const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
    return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!!input(`exLineDed_${ix}`)?.checked,deductible_pct:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
  });
