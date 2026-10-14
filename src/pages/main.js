@@ -127,8 +127,8 @@ export function gastos(){
    &&(kind==='all'||(kind==='internal'?x.management_only:!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
    &&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
- const total=sum(rows,x=>x.gross_expense||x.accounting_amount||x.amount_paid);
- const internal=sum(rows.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
+ const total=sum(rows,x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
+ const internal=sum(rows.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  const pending=rows.filter(x=>x.paid_status!=='pagado').length;
  const headers=[
   {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
@@ -317,7 +317,7 @@ export function informes(){
  const incomeAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount);
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
- const accounting=sum(g.filter(x=>!x.management_only&&x.fiscal_reviewed!==false),x=>x.gross_expense||x.accounting_amount||x.amount_paid),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense||x.accounting_amount||x.amount_paid);
+ const accounting=sum(g.filter(x=>!x.management_only&&x.fiscal_reviewed!==false),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  return `<div class="page">
  <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos fiscales revisados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
