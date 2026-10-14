@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {monthRange,yearRange,inRange,fmtDate,n,csv} from '../src/utils.js';
+import {validateExpensePayment} from '../src/calculations.js';
 
 for(const [input,expected] of [['1.234,56',1234.56],['1,234.56',1234.56],['12,50',12.5],['12.50',12.5],['0',0],['',0]])assert.equal(n(input),expected,'Importe mal interpretado: '+input);
 assert.equal(csv([['11/10/2026','Hortimatic','Gasto',10.2,'Proveedor; "especial"']],['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]}))).split('\n')[1],'"11/10/2026";"Hortimatic";"Gasto";"10.2";"Proveedor; ""especial"""');
@@ -32,4 +33,12 @@ for(const required of ["'ops_income_adjustments'"]){
 }
 assert.ok(sql.includes('delete from public.ops_income_adjustments;'));
 assert.ok(sql.includes('insert into public.ops_income_adjustments'));
-console.log('Fechas, límites, exportaciones filtradas y backup: OK');
+
+for(const good of [[126.2,126.2,'pagado'],[126.2,0,'pendiente'],[126.2,30,'parcial'],[0,0,'pagado']]){
+ assert.equal(validateExpensePayment(...good),true,'Valid expense payment rejected: '+good);
+}
+for(const bad of [[126.2,130,'pagado'],[126.2,10,'pagado'],[126.2,10,'pendiente'],[126.2,0,'parcial'],[126.2,126.2,'parcial'],[126.2,-2,'parcial'],[0,1,'parcial'],[NaN,0,'pendiente']]){
+ assert.throws(()=>validateExpensePayment(...bad),Error,'Invalid expense payment accepted: '+bad);
+}
+
+console.log('Fechas, límites, exportaciones filtradas, pagos y backup: OK');
