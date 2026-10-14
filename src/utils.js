@@ -14,6 +14,6 @@ export const uid=()=>crypto.randomUUID();
 export const sum=(rows,fn=x=>x)=>rows.reduce((a,x)=>a+n(fn(x)),0);
 export const debounce=(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
 export const download=(blob,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)};
-export const csv=(rows,headers)=>{const q=v=>`"${String(v??'').replaceAll('"','""')}"`;return [headers.map(h=>q(h.label)).join(';'),...rows.map(r=>headers.map(h=>q(h.get(r))).join(';'))].join('\n')};
+export const csv=(rows,headers)=>{const q=v=>{const raw=String(v??'');const guarded=typeof v==='string'&&/^[\\s\\u0000-\\u001f]*[=+@-]/.test(raw)?"'"+raw:raw;return `"${guarded.replaceAll('"','""')}"`};return [headers.map(h=>q(h.label)).join(';'),...rows.map(r=>headers.map(h=>q(h.get(r))).join(';'))].join('\n')};
 export const statusClass=s=>['emitida','cerrado','pagado','aceptado','activo'].includes(String(s).toLowerCase())?'ok':['anulada','error','inactivo'].includes(String(s).toLowerCase())?'bad':'warn';
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
