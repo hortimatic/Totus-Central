@@ -1073,8 +1073,16 @@ function homeReport(kind){
 }
 function openAdminSection(section){setView('administracion',{section});setRoute('administracion');render();}
 
+function sheetPreviewTable(sheet){
+ const range=window.XLSX.utils.decode_range(sheet['!ref']||'A1');
+ const visible={s:range.s,e:{r:Math.min(range.e.r,range.s.r+199),c:Math.min(range.e.c,range.s.c+29)}};
+ const rows=window.XLSX.utils.sheet_to_json(sheet,{header:1,range:window.XLSX.utils.encode_range(visible),raw:false,defval:''});
+ const html=rows.map(row=>`<tr>${(Array.isArray(row)?row:[row]).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
+ const truncated=range.e.r>visible.e.r||range.e.c>visible.e.c;
+ return `<table class="data-table"><tbody>${html}</tbody></table>${truncated?'<div class="note">Vista parcial: se muestran hasta 200 filas y 30 columnas. Descarga el archivo para consultar todo.</div>':''}`;
+}
 function previewWorkbookExact(wb,title,downloadButton){
- const sheets=wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[sheetName])}</div></details>`).join('');
+ const sheets=wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${sheetPreviewTable(wb.Sheets[sheetName])}</div></details>`).join('');
  modal(title,`<div class="stack"><div class="note">Vista de todas las hojas del mismo libro que genera la descarga. La representación web no conserva necesariamente colores, bordes o anchuras de Excel.</div><div class="excel-preview">${sheets}</div><div class="form-actions">${downloadButton}</div></div>`);
 }
 function reportStorePreview(storeId,year){
