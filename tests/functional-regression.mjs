@@ -14,7 +14,7 @@ assert.equal(inRange('2026-04-01','2026-01-01','2026-03-31'),false);
 assert.equal(inRange('2026-03-31','2026-01-01','2026-03-31'),true);
 assert.equal(fmtDate('2026-02-03'),'03/02/2026');
 
-for(const [input,needle] of [['=1+1',"'=1+1"],['  =1+1',"'  =1+1"],['+CMD',"' +CMD"],['@SUM(A1)',"'@SUM(A1)"]]){
+for(const [input,needle] of [['=1+1',"'=1+1"],['  =1+1',"'  =1+1"],['+CMD',"'+CMD"],['@SUM(A1)',"'@SUM(A1)"]]){
  const value=csv([[input]],[{label:'Dato',get:r=>r[0]}]).split('\n')[1];
  assert.ok(value.includes(needle.trim()),'CSV formula protection missing for '+input);
 }
