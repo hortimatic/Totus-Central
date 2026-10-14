@@ -89,9 +89,25 @@ export async function inspectBackup(file){
   if(!manifest.integrity?.database||await sha256(databaseJson)!==manifest.integrity.database)throw new Error('Copia dañada: datos sin integridad.');
  }
  const database=JSON.parse(databaseJson);
+ if(!database||typeof database!=='object'||Array.isArray(database))throw new Error('Estructura de base de datos no válida.');
  for(const table of BACKUP_TABLES){
   if(manifest.version===1&&table==='ops_income_adjustments'&&database[table]===undefined)database[table]=[];
   if(!Array.isArray(database[table]))throw new Error('Falta la tabla '+table+' en la copia.');
+ }
+ // Evitar que una copia manipulada incluya rutas duplicadas, archivos ajenos o ZIPs inconsistentes.
+ const expectedEntries=new Set(['manifest.json','database.json']);
+ for(const bucket of STORAGE_BUCKETS){
+  const paths=manifest.storage?.[bucket];
+  if(!Array.isArray(paths))throw new Error('Falta inventario de archivos de '+bucket);
+  if(new Set(paths).size!==paths.length)throw new Error('La copia incluye rutas duplicadas en '+bucket);
+  for(const path of paths){
+   if(typeof path!=='string'||!path||path.includes('..')||path.includes('\\\\')||path.startsWith('/')||path.split('/').some(s=>!s||s==='.'||s==='..'))throw new Error('Ruta inválida en copia: '+path);
+   expectedEntries.add('storage/'+bucket+'/'+path);
+  }
+ }
+ for(const name of Object.keys(zip.files)){
+  if(zip.files[name].dir)continue;
+  if(!expectedEntries.has(name))throw new Error('Archivo inesperado en copia: '+name);
  }
  // Rechazar copias incompletas antes de iniciar cualquier cambio en base de datos.
  for(const bucket of STORAGE_BUCKETS){
