@@ -51,3 +51,15 @@ La revisión de GitHub y de los permisos RPC corresponde al estado real de stagi
 - No borrar información real de usuarios para probar reparaciones.
 - Una prueba estática no demuestra funcionalidad ni despliegue correcto.
 - Mantener `main`, su publicación y Supabase de producción sin modificaciones hasta autorización expresa.
+
+## Ampliación de pruebas — última sesión
+- Se renderizaron directamente con el código real de `staging` 19 pantallas y subpantallas con datos vacíos/sintéticos, sin errores de ejecución.
+- Se repitió con los datos del `tests/ui-harness.html` de la rama actual: 18 vistas pobladas, sin errores de ejecución.
+- Filtros reales de listado: Cajas, Gastos, Facturación y Documentos; para cada módulo se comprobaron inclusión en rango, exclusión fuera de rango, búsqueda sin coincidencias y exclusión de otra tienda (16 verificaciones superadas).
+- Auditoría de integridad repetida contra 17 archivos reales de staging: correcta.
+- Regresión funcional real de staging: correcta con ejecuciones auxiliares de zona horaria sustituidas; la comprobación de varias zonas horarias sí pasó previamente en Node sobre la copia ZIP local.
+- Nueva validación de gastos: fechas pagadas inicialmente precargadas; facturas pendientes sin fecha efectiva de pago; pagos parciales validados como función pura y con diez ejemplos.
+- Exportación CSV: se neutralizan fórmulas de celdas de texto, incluso tras espacios o tabulaciones iniciales; se preservan importes negativos numéricos. La primera prueba detectó un caso mal escrito del propio test y se corrigió antes de repetirla correctamente.
+- Persisten como **pendientes**, no aprobadas: interacción real con botones mediante navegador, integración Supabase Auth/Storage, descarga/visualización de documentos y publicación visible de staging.
+
+Estas pruebas de render se ejecutaron en un entorno JavaScript aislado, sin navegador, sin usuarios reales y sin modificaciones de datos. No equivalen a verificación visual, responsive ni E2E.
