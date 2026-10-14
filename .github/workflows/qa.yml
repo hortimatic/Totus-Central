@@ -36,3 +36,19 @@ jobs:
             artifacts/layout-audit.json
             artifacts/field-sweep.json
           retention-days: 3
+
+      - name: Package staging preview without publishing production
+        if: github.ref == 'refs/heads/staging'
+        run: |
+          mkdir -p artifacts/staging-preview/src
+          cp index.html favicon.svg fondo_original.png artifacts/staging-preview/
+          cp -R src/. artifacts/staging-preview/src/
+          test -f artifacts/staging-preview/src/app.js
+          test ! -d artifacts/staging-preview/supabase
+      - name: Upload QA-verified staging website artifact
+        if: github.ref == 'refs/heads/staging'
+        uses: actions/upload-artifact@v4
+        with:
+          name: totus-staging-site
+          path: artifacts/staging-preview/
+          retention-days: 7
