@@ -4,7 +4,7 @@ import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upl
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {quickPriceStudy} from './calculations.js';
+import {quickPriceStudy,validateExpensePayment} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment} from './file-utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup,restoreBackup} from './backup.js';
@@ -193,11 +193,8 @@ async function saveExpense(id=''){
    return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!!input(`exLineDed_${ix}`)?.checked,deductible_pct:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
  });
  const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
- const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):Math.max(0,num('exPaidAmount'));
- if(paidStatus==='pagado'&&Math.abs(amountPaid-total)>.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
- if(amountPaid>total+.02)throw new Error('El importe pagado no puede superar el total de la factura.');
- if(paidStatus==='parcial'&&(amountPaid<=0||amountPaid>=total-.02))throw new Error('Un pago parcial debe ser mayor que cero e inferior al total de la factura.');
- if(paidStatus==='pendiente'&&amountPaid>0)throw new Error('Un gasto pendiente no puede tener importe pagado.');
+ const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):num('exPaidAmount');
+ validateExpensePayment(total,amountPaid,paidStatus);
  const current=id?state.data.expenses.find(x=>x.id===id):null,oldDoc=current?.document_id?state.data.documents.find(x=>x.id===current.document_id):null;
  const file=input('exFile')?.files?.[0]||null;
  let newDoc=null,documentId=oldDoc?.id||null;
