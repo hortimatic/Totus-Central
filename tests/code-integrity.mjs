@@ -91,3 +91,7 @@ assert.ok(restoreSource.includes('!expectedEntries.has(name)'),'Unexpected ZIP m
 const componentSource=fs.readFileSync('src/components.js','utf8');
 for(const label of ['Importe pagado','% deducible','Gastos pagados en caja','Recargo (%)','Estado de pago'])assert.ok(componentSource.includes("'"+label+"':"),'Missing contextual help: '+label);
 assert.ok(componentSource.includes('fieldHelp(label)'), 'Common fields must display contextual help');
+
+// Field guidance must be usable on touchscreens and by keyboard, not title-only hover hints.
+assert.ok(componentSource.includes('<details class="field-help"'),'Contextual help needs native tap-to-open details');
+assert.ok(componentSource.includes('<summary aria-label='),'Contextual help needs keyboard-accessible summary');
