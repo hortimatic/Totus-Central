@@ -95,3 +95,8 @@ assert.ok(componentSource.includes('fieldHelp(label)'), 'Common fields must disp
 // Field guidance must be usable on touchscreens and by keyboard, not title-only hover hints.
 assert.ok(componentSource.includes('<details class="field-help"'),'Contextual help needs native tap-to-open details');
 assert.ok(componentSource.includes('<summary aria-label='),'Contextual help needs keyboard-accessible summary');
+
+// Reporting totals must preserve explicit zero values instead of falling back to paid amounts.
+const pagesSource=fs.readFileSync('src/pages/main.js','utf8');
+assert.ok(!pagesSource.includes('x.gross_expense||x.accounting_amount||x.amount_paid'),'Gastos total must not treat 0 as missing');
+assert.ok(pagesSource.includes('x.gross_expense??x.accounting_amount??x.amount_paid??0'),'Gastos total fallback should use nullish values');
