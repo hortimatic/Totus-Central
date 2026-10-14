@@ -195,6 +195,8 @@ async function saveExpense(id=''){
  const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
  const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):Math.max(0,num('exPaidAmount'));
  if(paidStatus==='pagado'&&Math.abs(amountPaid-total)>.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
+ if(amountPaid>total+.02)throw new Error('El importe pagado no puede superar el total de la factura.');
+ if(paidStatus==='parcial'&&(amountPaid<=0||amountPaid>=total-.02))throw new Error('Un pago parcial debe ser mayor que cero e inferior al total de la factura.');
  if(paidStatus==='pendiente'&&amountPaid>0)throw new Error('Un gasto pendiente no puede tener importe pagado.');
  const current=id?state.data.expenses.find(x=>x.id===id):null,oldDoc=current?.document_id?state.data.documents.find(x=>x.id===current.document_id):null;
  const file=input('exFile')?.files?.[0]||null;
@@ -891,7 +893,7 @@ async function zipFilteredDocuments(){
  const rows=state.data.documents.filter(x=>(!f.from||String(x.document_date||x.created_at).slice(0,10)>=f.from)&&(!f.to||String(x.document_date||x.created_at).slice(0,10)<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
  const zip=new window.JSZip();
- for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.original_name)}`,blob)}
+ for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.id)}_${safeFileSegment(d.original_name)}`,blob)}
  const out=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
  download(out,`documentos_${f.from||'inicio'}_${f.to||'fin'}.zip`);
 }
