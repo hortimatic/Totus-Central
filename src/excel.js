@@ -50,7 +50,7 @@ export function exportExpensesWorkbook({expenses,stores,from,to}){
  const wb=book();
  const rows=expenses.map(x=>[
    fmtDate(x.expense_date),storeName(stores,x.store_id),x.supplier_name||'',x.supplier_tax_id||'',x.invoice_number||'',x.description||'',
-   n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense||x.accounting_amount||x.amount_paid),x.management_only?'Interno':'Contable',x.payment_method||'',x.paid_status||'',x.notes||''
+   n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense??x.accounting_amount??x.amount_paid??0),x.management_only?'Interno':'Contable',x.payment_method||'',x.paid_status||'',x.notes||''
  ]);
  const aoa=[['GASTOS'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Proveedor','NIF','Factura','Descripción','Base','IVA','RE','Retención','Total','Tipo','Pago','Estado','Observaciones'],...rows];
  const end=aoa.length;aoa.push(['','','','','','','','','','','TOTAL','','','']);
@@ -68,8 +68,8 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
  const adjustmentSales=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.reduce((a,x)=>a+n(x.amount),0);
  const sales=closeSales+extraInvoiceSales+adjustmentSales;
- const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
- const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+ const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+ const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  const costs=accounting+internal;
  const summary=[
   ['RESUMEN DE GESTIÓN'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],
@@ -81,8 +81,8 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
  const perStore=stores.map(s=>{
   const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id),is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true),as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
   const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>x.store_id===s.id).reduce((a,x)=>a+n(x.amount),0);
-  const ex=es.reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
-  const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+  const ex=es.reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+  const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
   return [s.name,sv,ex-internal,internal,sv-ex];
  });
  const commonAdj=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id).reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>!x.store_id).reduce((a,x)=>a+n(x.amount),0);
@@ -136,7 +136,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
      if(k===0)setCell(ws,`B${row}`,`${d} ${WEEKDAYS[new Date(year,month,d).getDay()]}`,textStyle(stripe,true));
      else setCell(ws,`B${row}`,'',textStyle(stripe,true));
      if(ex){
-       const g=legacyGroup(ex,categories),amount=n(ex.gross_expense||ex.accounting_amount||ex.amount_paid);
+       const g=legacyGroup(ex,categories),amount=n(ex.gross_expense??ex.accounting_amount??ex.amount_paid??0);
        setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(LEGACY_COLORS[g],false));
        setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
      }else{setCell(ws,`C${row}`,'',textStyle(stripe));setCell(ws,`D${row}`,'',moneyStyle(stripe))}
@@ -152,7 +152,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  const totalRow=row;setCell(ws,`B${row}`,'Total',textStyle(LEGACY_COLORS.total,true));setCell(ws,`C${row}`,grossExpenses,textStyle(LEGACY_COLORS.stripe,false,'center'),`SUM(C${summaryStart}:C${row-1})`);setCell(ws,`D${row}`,grossExpenses,moneyStyle(LEGACY_COLORS.stripe),expenseRefs.length?`SUM(${expenseRefs.join(',')})`:'0');
  const firstData=3,lastData=summaryStart-3;setCell(ws,`E${row}`,cardTotal,moneyStyle(LEGACY_COLORS.stripe),`SUM(E${firstData}:E${lastData})`);setCell(ws,`F${row}`,cashTotal,moneyStyle(LEGACY_COLORS.stripe),`SUM(F${firstData}:F${lastData})`);
  row+=2;
- const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense||x.accounting_amount||x.amount_paid),0);
+ const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  setCell(ws,`C${row}`,monthName,{font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}});row++;
  const fmtEuro=value=>Number(value||0).toFixed(2).replace('.',',');
  const recalc=`SUM(E${totalRow},F${totalRow})`;setCell(ws,`C${row}`,`${fmtEuro(cardTotal)}€ Tarjeta + ${fmtEuro(cashTotal)}€ metalico`,{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;
@@ -222,8 +222,8 @@ function monthTotals(args,month){
  });
  const commonIncome=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0)
    +incomeAdjustments.filter(x=>!x.store_id&&inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
- const direct=stores.map(s=>expenses.filter(x=>x.store_id===s.id&&!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0));
- const common=expenses.filter(x=>!x.store_id&&!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+ const direct=stores.map(s=>expenses.filter(x=>x.store_id===s.id&&!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0));
+ const common=expenses.filter(x=>!x.store_id&&!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0);
  return {from,to,sales,direct,common,commonIncome};
 }
 function appendReconciliationSheet(wb,q,args){
@@ -239,7 +239,7 @@ function appendReconciliationSheet(wb,q,args){
 function appendAuditSheet(wb,args){
  const {year,taxPayments=[],fiscalAdjustments=[]}=args,rows=[];
  for(let q=1;q<=4;q++){
-   const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
+   const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0);
    const extraDed=fiscalAdjustments.filter(x=>x.kind==='gasto_deducible_extra'&&inDate(x.adjustment_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.amount),0),result=income-expense-extraDed,diff=Math.max(0,result*n(args.settings?.difficult_expense_pct??5)/100),base=Math.max(0,result-diff),calc=base*n(args.settings?.irpf_prepayment_rate??20)/100;
    const paid=taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===q&&x.status==='pagado'),status=paid?(Math.abs(n(paid.amount)-calc)<.02?'Coincide al céntimo':'Diferencia '+(n(paid.amount)-calc).toFixed(2)+' €'):'Sin pago registrado';
    rows.push([`${q}T`,income,-(expense+extraDed),result,-diff,base,-calc,status]);
