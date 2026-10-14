@@ -769,6 +769,8 @@ async function toggleSeries(id,active){
 
 async function saveDocument(id=''){
  const current=id?state.data.documents.find(x=>x.id===id):null;
+ if(id&&!current)throw new Error('Documento no encontrado. Actualiza el listado.');
+ if(current&&!isManager()&&current.uploaded_by!==state.session?.user?.id)throw new Error('Solo quien subió el documento o gerencia puede modificarlo.');
  const date=required('docDate','Fecha');if(date>isoToday())throw new Error('La fecha del documento no puede ser futura.');
  const storeId=val('docStore')||null,file=input('docFile')?.files?.[0]||null;
  const meta={store_id:storeId,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),tax_id:val('docTax').trim(),invoice_number:val('docNumber').trim(),category_code:val('docCategory').trim(),status:val('docStatus'),notes:val('docNotes').trim()};
@@ -881,6 +883,7 @@ function documentIsLinked(id){
  return state.data.expenses.some(x=>x.document_id===id)||state.data.invoices.some(x=>x.source_document_id===id||x.generated_document_id===id)||state.data.documents.some(x=>x.id===id&&x.linked_entity_id);
 }
 async function deleteDocument(id){
+ if(!isManager())throw new Error('Solo administración o gerencia pueden eliminar documentos.');
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
  if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
  if(!confirm('¿Eliminar definitivamente este documento?'))return;
