@@ -24,7 +24,7 @@ Hay una puerta de acceso temporal con cookie `totus_preview_session` antes de la
 9. Si falla algo, mantener producción intacta, registrar incidencia y preparar la siguiente corrección en `staging`.
 
 ## Situación al 14-10-2026
-- `totus-staging-preview` desplegada como **v2 ACTIVE** con puerta de acceso propia.
+- `totus-staging-preview` desplegada como **v3 ACTIVE** con puerta de acceso propia.
 - Las rutas y permisos del servidor de archivos superaron comprobaciones aisladas, pero las llamadas HTTP reales externas y un navegador autenticado no pudieron verificarse desde este entorno.
 - `tests/route-smoke.mjs` comprobó 39 estados de interfaz, 86 acciones y 12 filtros/tiendas con fixtures desde el código actual de staging.
 - Seguridad SQL: permisos anónimos de RPC privilegiadas revocados; gastos con restricciones numéricas; actualización de metadatos y contenido de documentos limitada por propiedad/rol.
