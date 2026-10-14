@@ -109,30 +109,6 @@ export async function inspectBackup(file){
  }
  return {zip,manifest,database};
 }
-async function restoreStorage(zip,manifest){
- const wanted=new Map();
- for(const bucket of STORAGE_BUCKETS){
-  const paths=manifest.storage?.[bucket]||[];
-  wanted.set(bucket,new Set(paths));
-  for(const path of paths){
-   const entry=zip.file('storage/'+bucket+'/'+path);
-   if(!entry)throw new Error('Falta el archivo '+bucket+'/'+path+' en la copia.');
-   const blob=await entry.async('blob');
-   const {error}=await sb.storage.from(bucket).upload(path,blob,{upsert:true});
-   if(error)throw new Error('No se pudo restaurar '+bucket+'/'+path+': '+error.message);
-  }
- }
- for(const bucket of STORAGE_BUCKETS){
-  const keep=wanted.get(bucket)||new Set(),existing=await listFiles(bucket);
-  const extra=existing.filter(p=>!keep.has(p));
-  for(let i=0;i<extra.length;i+=100){
-   const batch=extra.slice(i,i+100);
-   if(!batch.length)continue;
-   const {error}=await sb.storage.from(bucket).remove(batch);
-   if(error)throw new Error('Los datos se restauraron, pero no se pudieron limpiar archivos sobrantes de '+bucket+': '+error.message);
-  }
- }
-}
 // SAFETY LOCK: restoring SQL rows and storage objects in separate transactions is not atomic.
 // A partial failure could leave invoices and attachments inconsistent or delete newer files.
 // Keep validation/read-only inspection available; refuse all writes until a staged,
