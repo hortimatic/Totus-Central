@@ -75,3 +75,15 @@ Estas pruebas de render se ejecutaron en un entorno JavaScript aislado, sin nave
 
 ### Criterio obligatorio de cierre
 No afirmar estabilidad comercial al 100 % hasta aprobar las pruebas reales con navegador, autenticación de roles, Storage y documentos, cálculos fiscales comparados con contabilidad, restablecimiento recuperable y publicación verificada desde un dispositivo real. No modificar main/producción sin aprobación.
+
+## Cierre de verificación complementaria (staging, sin alterar producción)
+- **Exportaciones XLSX:** corregidos diez usos de `gross_expense || accounting_amount || amount_paid` y equivalentes que confundían un valor explícito de 0 € con un dato ausente. En libros mensuales y resúmenes se usan alternativas `??`.
+- **Excel sin registros:** `exportExpensesWorkbook` y `exportClosingsWorkbook` generaban rangos `SUM(K5:K4)` y `SUM(H5:H4)` cuando no existían filas, con riesgo de referencias circulares. Ahora la fórmula del total vacío es `0`.
+- **Comprobación directa de generadores XLSX reales:** cinco casos correctos con motor XLSX simulado: cero registros de gastos, cero cierres, gasto 0 € sin sustituir por otro campo, suma con una fila y contabilidad de resumen 0 €.
+- **Regresión automatizada:** `tests/excel-invariants.mjs` incorporado a `.github/workflows/qa.yml`, sin instalar dependencias externas. Aun así, la exportación real de un archivo XLSX con estilos precisa la prueba adicional de `tests/excel-qa.mjs` en un runner con librerías.
+- **Permisos documentales de interfaz:** el encargado ve únicamente lectura cuando no subió el documento; puede editar el propio sin borrarlo. Gerencia y administración pueden editar y borrar. Cuatro combinaciones reales de representación de código frontend pasan.
+- **Regresión por pestañas:** `tests/route-smoke.mjs` ahora cubre 39 pantallas y estados, 86 botones/acciones y 12 casos de filtros.
+- **Supabase Storage:** aplicada política adicional `totus_business_docs_owner_update_restrict` con `AS RESTRICTIVE` y `USING/WITH CHECK` por dueño o gerente. Verificada mediante `pg_policies`. Archivo de referencia `supabase/review_patches/007_storage_documents_owner_update.sql`.
+- **Vista web separada:** actualizada a Edge Function `totus-staging-preview` **v3 ACTIVE**, con archivos web vigentes de `staging` al último despliegue. Sigue pendiente su prueba con un navegador externo y cuenta de usuario autenticada.
+- **Seguridad restante:** Supabase Advisors sigue mostrando 10 advertencias sobre RPC `SECURITY DEFINER` ejecutables por usuarios autenticados (con validación de roles interna que requiere ensayos), y la protección de contraseñas filtradas está deshabilitada.
+No se declara la herramienta comercialmente lista hasta completar las pruebas de extremo a extremo, restauración recuperable, importación Excel, roles configurables y validación con contabilidad real.
