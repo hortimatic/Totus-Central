@@ -67,3 +67,12 @@ const contractEnd=backupSql.indexOf('revoke all on function public.totus_backup_
 const contractBody=backupSql.slice(contractStart,contractEnd);
 assert.ok(contractBody.includes('as '+String.fromCharCode(36,36)+'\n'+'begin'),'Backup contract opening delimiter invalid');
 assert.ok(contractBody.includes('end;\n'+String.fromCharCode(36,36)+';'),'Backup contract closing delimiter invalid');
+
+const restoreSource=fs.readFileSync('src/backup.js','utf8');
+const restoreStart=restoreSource.indexOf('export async function restoreBackup(');
+assert.ok(restoreStart>=0,'Restore entrypoint missing');
+const restoreBody=restoreSource.slice(restoreStart);
+assert.ok(restoreBody.includes('await inspectBackup(file)'),'Restore must validate backup before refusing unsafe operations');
+assert.ok(restoreBody.includes('throw new Error('),'Restore safety lock must be explicit');
+assert.ok(!restoreBody.includes("rpc('totus_restore_backup'"),'Unsafe database restoration must remain blocked');
+assert.ok(!restoreSource.includes('async function restoreStorage('),'Unsafe independent storage replacement must remain removed');
