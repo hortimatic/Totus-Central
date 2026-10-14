@@ -105,3 +105,8 @@ assert.ok(!pagesSource.includes('r.gross_expense||r.accounting_amount||r.amount_
 
 // Financial reports and detail screens must not treat an explicit 0 as an absent amount.
 for(const pattern of ['x.accounting_amount||x.gross_expense','row?.gross_expense||row?.accounting_amount'])assert.ok(!pagesSource.includes(pattern),'Zero amount incorrectly overridden: '+pattern);
+
+// Backup ZIP path validation must reject single backslash characters.
+const bs=String.fromCharCode(92);
+assert.ok(restoreSource.includes("path.includes('"+bs+bs+"')"),'Backup validator must reject a single backslash');
+assert.ok(!restoreSource.includes("path.includes('"+bs.repeat(4)+"')"),'Backup validator must not test only doubled backslashes');
