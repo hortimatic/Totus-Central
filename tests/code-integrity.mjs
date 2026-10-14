@@ -86,3 +86,8 @@ assert.equal(safeFileSegment('../factura.pdf'),'.._factura.pdf');
 assert.ok(restoreSource.includes("new Set(['manifest.json','database.json'])"),'Backup allowed file list is missing');
 assert.ok(restoreSource.includes('new Set(paths).size!==paths.length'),'Backup duplicate path validation is missing');
 assert.ok(restoreSource.includes('!expectedEntries.has(name)'),'Unexpected ZIP members must be rejected');
+
+// Contextual help markers must remain available on common financial fields.
+const componentSource=fs.readFileSync('src/components.js','utf8');
+for(const label of ['Importe pagado','% deducible','Gastos pagados en caja','Recargo (%)','Estado de pago'])assert.ok(componentSource.includes("'"+label+"':"),'Missing contextual help: '+label);
+assert.ok(componentSource.includes('fieldHelp(label)'), 'Common fields must display contextual help');
