@@ -48,3 +48,14 @@ if(!cache['src/api.js'].includes('window.supabase.createClient('))problems.push(
 for(const name of ['styleMoney','addAutoFilter','quarterStats'])if(new RegExp('\\b'+name+'\\b').test(cache['src/excel.js']))problems.push('Dead Excel helper still in use: '+name);
 if(problems.length){console.error('CODE INTEGRITY FAILED\n'+problems.join('\n'));process.exit(1)}
 console.log('CODE INTEGRITY: '+source.length+' JS modules and all named imports validated; no duplicate functions or dead Excel helpers');
+
+ 
+// Regression guard: cleanup must remain read-only and additive API must not drop tables.
+for(const sqlPath of ['supabase/cleanup.sql','supabase/totus_api.sql']){
+ const sqlText=fs.readFileSync(sqlPath,'utf8');
+ const active=sqlText.split(/\r?\n/).filter(line=>!/^\s*--/.test(line));
+ if(active.some(line=>/^\s*drop\s+table\b/i.test(line))) {
+  console.error('UNSAFE SQL detected in '+sqlPath+': DROP TABLE');
+  process.exit(1);
+ }
+}
