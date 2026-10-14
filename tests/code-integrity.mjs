@@ -137,3 +137,7 @@ for(const signature of guardedRpcs){
 }
 assert.ok(backupSql.includes('revoke all on function public.totus_storage_usage() from public,anon;'),'Anonymous storage usage access must be blocked');
 assert.ok(backupSql.includes('revoke all on function public.totus_restore_backup(jsonb,text) from authenticated;'),'Restore RPC must stay disabled');
+
+assert.ok(pagesSource.includes("row?.paid_date||(row?'':isoToday())"),'New paid expenses should have a usable payment date by default');
+assert.ok(appSource.includes("paidStatus==='pendiente'?null:"),'Unpaid invoices must not persist a payment date');
+assert.ok(appSource.includes('Indica la fecha en que se pagó el gasto.'),'Paid invoices must validate the payment date');
