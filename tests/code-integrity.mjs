@@ -102,3 +102,6 @@ assert.ok(!pagesSource.includes('x.gross_expense||x.accounting_amount||x.amount_
 assert.ok(pagesSource.includes('x.gross_expense??x.accounting_amount??x.amount_paid??0'),'Gastos total fallback should use nullish values');
 
 assert.ok(!pagesSource.includes('r.gross_expense||r.accounting_amount||r.amount_paid'),'Expense row must preserve zero-valued totals');
+
+// Financial reports and detail screens must not treat an explicit 0 as an absent amount.
+for(const pattern of ['x.accounting_amount||x.gross_expense','row?.gross_expense||row?.accounting_amount'])assert.ok(!pagesSource.includes(pattern),'Zero amount incorrectly overridden: '+pattern);
