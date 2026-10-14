@@ -116,6 +116,8 @@ const appSource=fs.readFileSync('src/app.js','utf8');
 assert.ok(!appSource.includes('XLSX.utils.sheet_to_html('),'Untrusted spreadsheet HTML cannot be inserted directly');
 assert.ok(appSource.includes('row.slice(0,30).map(cell=>`<td>${esc(cell)}</td>`)'),'Spreadsheet preview must escape cell text');
 
-assert.ok(appSource.includes('El importe pagado no puede superar el total de la factura.'),'Expense payments must not exceed invoice total');
-assert.ok(appSource.includes('Un pago parcial debe ser mayor que cero'),'Partial payments require a positive partial amount');
+const paymentSource=fs.readFileSync('src/calculations.js','utf8');
+assert.ok(appSource.includes('validateExpensePayment(total,amountPaid,paidStatus)'),'Expense form must use shared validator');
+assert.ok(paymentSource.includes('El importe pagado no puede superar el total de la factura.'),'Expense payments must not exceed invoice total');
+assert.ok(paymentSource.includes('Un pago parcial debe ser mayor que cero'),'Partial payments require a positive partial amount');
 assert.ok(appSource.includes('safeFileSegment(d.id)}_${safeFileSegment(d.original_name)'),'ZIP export must preserve duplicate named documents');
