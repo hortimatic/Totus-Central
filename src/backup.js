@@ -133,13 +133,11 @@ async function restoreStorage(zip,manifest){
   }
  }
 }
+// SAFETY LOCK: restoring SQL rows and storage objects in separate transactions is not atomic.
+// A partial failure could leave invoices and attachments inconsistent or delete newer files.
+// Keep validation/read-only inspection available; refuse all writes until a staged,
+// recoverable, server-coordinated restore procedure has passed end-to-end tests.
 export async function restoreBackup(file,reason){
- const {zip,manifest,database}=await inspectBackup(file);
- let contract;
- try{contract=await rpc('totus_backup_contract',{})}
- catch{throw new Error('El servidor aún no tiene la versión segura del restaurador (v2). No se han modificado datos.')}
- if(Number(contract?.version)!==2||contract?.income_adjustments!==true||contract?.storage!==true)throw new Error('Restaurador incompatible; no se han modificado datos.');
- await rpc('totus_restore_backup',{p_payload:database,p_reason:reason});
- await restoreStorage(zip,manifest);
- return manifest;
+ await inspectBackup(file);
+ throw new Error('Restauración deshabilitada por seguridad: primero hay que implementar y probar una restauración recuperable de base de datos y archivos. No se ha modificado ningún dato.');
 }
