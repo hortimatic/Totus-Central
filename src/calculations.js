@@ -32,3 +32,14 @@ export function validateExpensePayment(total,amountPaid,status){
  if(status==='parcial'&&(paid<=0||paid>=invoice-0.02))throw new Error('Un pago parcial debe ser mayor que cero e inferior al total de la factura.');
  return true;
 }
+
+/** Rejects invalid invoice line amounts instead of silently replacing negatives with zero. */
+export function validateExpenseLineAmounts({base,vat,re,withholding,deductiblePct}){
+ const fields=[['Base imponible',base,false],['IVA',vat,true],['Recargo de equivalencia',re,true],['Retención',withholding,true],['Porcentaje deducible',deductiblePct,true]];
+ for(const [label,value,isPercent] of fields){
+  if(typeof value!=='number'||!Number.isFinite(value)||value<0||(isPercent&&value>100)){
+   throw new Error(label+': introduce '+(isPercent?'un porcentaje entre 0 y 100':'un importe igual o superior a cero')+'.');
+  }
+ }
+ return {base,vat,re,withholding,deductiblePct};
+}
