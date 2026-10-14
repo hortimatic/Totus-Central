@@ -183,7 +183,8 @@ async function saveExpense(id=''){
    const duplicate=state.data.expenses.find(x=>x.id!==id&&String(x.invoice_number||'').trim().toLowerCase()===invoiceNumber.toLowerCase()&&((taxId&&String(x.supplier_tax_id||'').trim().toLowerCase()===taxId.toLowerCase())||(!taxId&&String(x.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase())));
    if(duplicate)throw new Error('Ya existe un gasto con esta factura para el mismo proveedor.');
  }
- const paidStatus=val('exPaidStatus')||'pagado',paidDate=val('exPaidDate')||null;
+ const paidStatus=val('exPaidStatus')||'pagado',paidDate=paidStatus==='pendiente'?null:(val('exPaidDate')||null);
+ if(paidStatus==='pagado'&&!paidDate)throw new Error('Indica la fecha en que se pagó el gasto.');
  if(paidDate&&paidDate>isoToday())throw new Error('La fecha de pago no puede ser futura.');
  const lineEls=[...document.querySelectorAll('.expense-line')];
  if(!lineEls.length)throw new Error('Añade al menos un concepto.');
