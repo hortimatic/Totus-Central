@@ -141,3 +141,9 @@ assert.ok(backupSql.includes('revoke all on function public.totus_restore_backup
 assert.ok(pagesSource.includes("row?.paid_date||(row?'':isoToday())"),'New paid expenses should have a usable payment date by default');
 assert.ok(appSource.includes("paidStatus==='pendiente'?null:"),'Unpaid invoices must not persist a payment date');
 assert.ok(appSource.includes('Indica la fecha en que se pagó el gasto.'),'Paid invoices must validate the payment date');
+
+const expenseCalculations=fs.readFileSync('src/calculations.js','utf8');
+assert.ok(expenseCalculations.includes('export function validateExpenseLineAmounts('),'Expense fiscal line validator missing');
+assert.ok(appSource.includes('validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct})'),'Saving expenses must use the fiscal line validator');
+const expenseLineConstraint=fs.readFileSync('supabase/review_patches/005_expense_line_validation.sql','utf8');
+assert.ok(expenseLineConstraint.includes('ops_expense_lines_valid_amounts_ck'),'Database expense constraint documentation missing');
