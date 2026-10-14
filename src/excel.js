@@ -25,7 +25,7 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  aoa.push(['','','','','','','','TOTAL','','','']);
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,11);
- ws[`H${totalRow+1}`]={t:'n',f:`SUM(H5:H${totalRow})`,s:totalStyle,z:euro};
+ ws[`H${totalRow+1}`]={t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',s:totalStyle,z:euro};
  for(let r=5;r<=totalRow;r++)for(const col of ['C','D','E','F','G','H','I'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,13,13,13,13,13,15,15,12,35]);
  ws['!freeze']={xSplit:0,ySplit:4};
@@ -55,7 +55,7 @@ export function exportExpensesWorkbook({expenses,stores,from,to}){
  const aoa=[['GASTOS'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Proveedor','NIF','Factura','Descripción','Base','IVA','RE','Retención','Total','Tipo','Pago','Estado','Observaciones'],...rows];
  const end=aoa.length;aoa.push(['','','','','','','','','','','TOTAL','','','']);
  const ws=XLSX.utils.aoa_to_sheet(aoa);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,15);
- ws[`K${end+1}`]={t:'n',f:`SUM(K5:K${end})`,s:totalStyle,z:euro};
+ ws[`K${end+1}`]={t:'n',f:rows.length?`SUM(K5:K${end})`:'0',s:totalStyle,z:euro};
  for(let r=5;r<=end;r++)for(const col of ['G','H','I','J','K'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,22,16,16,32,13,13,13,13,15,13,15,13,35]);ws['!autofilter']={ref:`A4:O${end}`};ws['!freeze']={ySplit:4};
  XLSX.utils.book_append_sheet(wb,ws,'Gastos');
