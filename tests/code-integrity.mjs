@@ -110,3 +110,8 @@ for(const pattern of ['x.accounting_amount||x.gross_expense','row?.gross_expense
 const bs=String.fromCharCode(92);
 assert.ok(restoreSource.includes("path.includes('"+bs+bs+"')"),'Backup validator must reject a single backslash');
 assert.ok(!restoreSource.includes("path.includes('"+bs.repeat(4)+"')"),'Backup validator must not test only doubled backslashes');
+
+// Spreadsheet previews are user-controlled file content: escape cells and limit DOM size.
+const appSource=fs.readFileSync('src/app.js','utf8');
+assert.ok(!appSource.includes('XLSX.utils.sheet_to_html('),'Untrusted spreadsheet HTML cannot be inserted directly');
+assert.ok(appSource.includes('row.slice(0,30).map(cell=>`<td>${esc(cell)}</td>`)'),'Spreadsheet preview must escape cell text');
