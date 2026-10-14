@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {monthRange,yearRange,inRange,fmtDate,n,csv} from '../src/utils.js';
-import {validateExpensePayment} from '../src/calculations.js';
+import {validateExpensePayment,validateExpenseLineAmounts} from '../src/calculations.js';
 
 for(const [input,expected] of [['1.234,56',1234.56],['1,234.56',1234.56],['12,50',12.5],['12.50',12.5],['0',0],['',0]])assert.equal(n(input),expected,'Importe mal interpretado: '+input);
 assert.equal(csv([['11/10/2026','Hortimatic','Gasto',10.2,'Proveedor; "especial"']],['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]}))).split('\n')[1],'"11/10/2026";"Hortimatic";"Gasto";"10.2";"Proveedor; ""especial"""');
@@ -48,4 +48,11 @@ for(const bad of [[126.2,130,'pagado'],[126.2,10,'pagado'],[126.2,10,'pendiente'
  assert.throws(()=>validateExpensePayment(...bad),Error,'Invalid expense payment accepted: '+bad);
 }
 
-console.log('Fechas, límites, exportaciones filtradas, pagos y backup: OK');
+
+const validLine={base:100,vat:21,re:5.2,withholding:0,deductiblePct:100};
+assert.deepEqual(validateExpenseLineAmounts(validLine),validLine);
+for(const patch of [{base:-1},{vat:-1},{vat:101},{re:110},{withholding:120},{deductiblePct:-1},{deductiblePct:101},{base:NaN}]){
+ assert.throws(()=>validateExpenseLineAmounts({...validLine,...patch}),Error,'Invoice line incorrectly accepted: '+JSON.stringify(patch));
+}
+
+console.log('Fechas, límites, exportaciones filtradas, líneas fiscales, pagos y backup: OK');
