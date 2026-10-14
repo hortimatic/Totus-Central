@@ -187,4 +187,5 @@ revoke all on function private.totus_is_admin() from public;
 revoke all on function public.totus_storage_usage() from public,anon;
 revoke all on function public.totus_restore_backup(jsonb,text) from public,anon;
 grant execute on function public.totus_storage_usage() to authenticated;
-grant execute on function public.totus_restore_backup(jsonb,text) to authenticated;
+-- SAFETY LOCK: do not grant restore EXECUTE until atomic recovery is independently verified.
+revoke all on function public.totus_restore_backup(jsonb,text) from authenticated;
