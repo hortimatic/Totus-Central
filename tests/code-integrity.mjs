@@ -121,3 +121,19 @@ assert.ok(appSource.includes('validateExpensePayment(total,amountPaid,paidStatus
 assert.ok(paymentSource.includes('El importe pagado no puede superar el total de la factura.'),'Expense payments must not exceed invoice total');
 assert.ok(paymentSource.includes('Un pago parcial debe ser mayor que cero'),'Partial payments require a positive partial amount');
 assert.ok(appSource.includes('safeFileSegment(d.id)}_${safeFileSegment(d.original_name)'),'ZIP export must preserve duplicate named documents');
+
+const apiSql=fs.readFileSync('supabase/totus_api.sql','utf8');
+const guardedRpcs=[
+ 'totus_convert_proforma(uuid,uuid)',
+ 'totus_delete_closing(uuid,text)',
+ 'totus_finalize_sales_document(uuid)',
+ 'totus_register_external_document(uuid,integer)',
+ 'totus_save_closing(jsonb,jsonb)',
+ 'totus_save_sales_document(jsonb,jsonb)',
+ 'totus_update_invoice_payment(uuid,jsonb)'
+];
+for(const signature of guardedRpcs){
+ assert.ok(apiSql.includes('revoke all on function public.'+signature+' from public,anon;'),'Anonymous RPC access missing safeguard: '+signature);
+}
+assert.ok(backupSql.includes('revoke all on function public.totus_storage_usage() from public,anon;'),'Anonymous storage usage access must be blocked');
+assert.ok(backupSql.includes('revoke all on function public.totus_restore_backup(jsonb,text) from authenticated;'),'Restore RPC must stay disabled');
