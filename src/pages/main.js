@@ -549,7 +549,7 @@ export function expenseRecordHtml(row=null){
       ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
       ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
       ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
-      ${formField('Fecha de pago','exPaidDate',row?.paid_date||'','date')}
+      ${formField('Fecha de pago','exPaidDate',row?.paid_date||(row?'':isoToday()),'date')}
       ${formField('Importe pagado','exPaidAmount',row?.amount_paid??'','number','step="0.01" min="0"')}
       <label class="wide">Observaciones<textarea id="exNotes" rows="4">${esc(row?.notes||'')}</textarea></label>
      </div>
