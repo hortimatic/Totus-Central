@@ -101,7 +101,7 @@ export async function inspectBackup(file){
   if(!Array.isArray(paths))throw new Error('Falta inventario de archivos de '+bucket);
   if(new Set(paths).size!==paths.length)throw new Error('La copia incluye rutas duplicadas en '+bucket);
   for(const path of paths){
-   if(typeof path!=='string'||!path||path.includes('..')||path.includes('\\\\')||path.startsWith('/')||path.split('/').some(s=>!s||s==='.'||s==='..'))throw new Error('Ruta inválida en copia: '+path);
+   if(typeof path!=='string'||!path||path.includes('..')||path.includes('\\')||path.startsWith('/')||path.split('/').some(s=>!s||s==='.'||s==='..'))throw new Error('Ruta inválida en copia: '+path);
    expectedEntries.add('storage/'+bucket+'/'+path);
   }
  }
