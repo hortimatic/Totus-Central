@@ -65,5 +65,5 @@ const contractStart=backupSql.indexOf('create or replace function public.totus_b
 assert.ok(contractStart>=0,'Backup contract missing from SQL source');
 const contractEnd=backupSql.indexOf('revoke all on function public.totus_backup_contract()',contractStart);
 const contractBody=backupSql.slice(contractStart,contractEnd);
-assert.ok(contractBody.includes('as '+String.fromCharCode(36,36)+'\\nbegin')===false ? contractBody.includes('as '+String.fromCharCode(36,36)+'\n'+'begin') : true,'Backup contract opening delimiter invalid');
+assert.ok(contractBody.includes('as '+String.fromCharCode(36,36)+'\n'+'begin'),'Backup contract opening delimiter invalid');
 assert.ok(contractBody.includes('end;\n'+String.fromCharCode(36,36)+';'),'Backup contract closing delimiter invalid');
