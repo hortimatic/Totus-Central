@@ -76,3 +76,8 @@ assert.ok(restoreBody.includes('await inspectBackup(file)'),'Restore must valida
 assert.ok(restoreBody.includes('throw new Error('),'Restore safety lock must be explicit');
 assert.ok(!restoreBody.includes("rpc('totus_restore_backup'"),'Unsafe database restoration must remain blocked');
 assert.ok(!restoreSource.includes('async function restoreStorage('),'Unsafe independent storage replacement must remain removed');
+
+// Document paths must never resolve to relative navigation segments.
+const {safeFileSegment}=await import('../src/file-utils.js');
+for(const input of ['.','..','  ..  '])assert.equal(safeFileSegment(input),'sin_dato','Unsafe document path segment');
+assert.equal(safeFileSegment('../factura.pdf'),'.._factura.pdf');
