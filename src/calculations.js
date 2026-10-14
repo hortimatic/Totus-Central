@@ -21,3 +21,14 @@ export function quickPriceStudy({cost=0,pvp=0,competitor=0,discount=0,vat=21,re=
  const competitorDiff=competitor>0?finalSale-competitor:null;
  return {cost,pvp,competitor,discount,vat,re,finalSale,saleNet,costReal,margin,marginPct,competitorDiff};
 }
+
+/** Validates a received invoice payment before allowing a database write. */
+export function validateExpensePayment(total,amountPaid,status){
+ const invoice=Number(total),paid=Number(amountPaid);
+ if(!Number.isFinite(invoice)||!Number.isFinite(paid)||invoice<0||paid<0)throw new Error('Introduce importes válidos, sin valores negativos.');
+ if(paid>invoice+0.02)throw new Error('El importe pagado no puede superar el total de la factura.');
+ if(status==='pagado'&&Math.abs(paid-invoice)>0.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
+ if(status==='pendiente'&&paid>0.02)throw new Error('Un gasto pendiente no puede tener importe pagado.');
+ if(status==='parcial'&&(paid<=0||paid>=invoice-0.02))throw new Error('Un pago parcial debe ser mayor que cero e inferior al total de la factura.');
+ return true;
+}
