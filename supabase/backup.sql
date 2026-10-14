@@ -173,12 +173,12 @@ create or replace function public.totus_backup_contract()
 returns jsonb
 language plpgsql security definer
 set search_path='public,private'
-as $
+as $$
 begin
   if not private.totus_is_admin() then raise exception 'Solo administración puede comprobar la restauración'; end if;
   return jsonb_build_object('version',2,'income_adjustments',true,'storage',true);
 end;
-$;
+$$;
 
 revoke all on function public.totus_backup_contract() from public,anon;
 grant execute on function public.totus_backup_contract() to authenticated;
