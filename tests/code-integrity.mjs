@@ -81,3 +81,8 @@ assert.ok(!restoreSource.includes('async function restoreStorage('),'Unsafe inde
 const {safeFileSegment}=await import('../src/file-utils.js');
 for(const input of ['.','..','  ..  '])assert.equal(safeFileSegment(input),'sin_dato','Unsafe document path segment');
 assert.equal(safeFileSegment('../factura.pdf'),'.._factura.pdf');
+
+// The backup validator must reject unexpected ZIP members and duplicate manifest paths.
+assert.ok(restoreSource.includes("new Set(['manifest.json','database.json'])"),'Backup allowed file list is missing');
+assert.ok(restoreSource.includes('new Set(paths).size!==paths.length'),'Backup duplicate path validation is missing');
+assert.ok(restoreSource.includes('!expectedEntries.has(name)'),'Unexpected ZIP members must be rejected');
