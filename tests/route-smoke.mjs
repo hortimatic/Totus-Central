@@ -37,6 +37,26 @@ for(const [route,needle] of [['cajas','Cierre QA'],['gastos','Proveedor QA'],['f
  assert.ok(!check(route,'other store').includes(needle),route+' must exclude other store');
  patchFilters(route,original);
 }
+// A staff member may edit their own upload but never another user's document.
+const savedUser=state.user,savedSession=state.session,savedDoc=state.data.documents[0];
+state.data.documents[0]={...savedDoc,uploaded_by:'qa-owner'};
+for(const [role,userId,mayEdit,mayDelete] of [
+ ['encargado','other-user',false,false],
+ ['encargado','qa-owner',true,false],
+ ['gerente','other-user',true,true],
+ ['admin','other-user',true,true]
+]){
+ state.user={...savedUser,role};
+ state.session={user:{id:userId}};
+ setView('documentos',{mode:'record',id:'doc1'});
+ const html=check('documentos','permission '+role);
+ assert.equal(html.includes('data-action="document-save"'),mayEdit,'Incorrect document edit permissions: '+role);
+ assert.equal(html.includes('data-action="document-delete"'),mayDelete,'Incorrect document delete permissions: '+role);
+ assert.ok(html.includes('data-action="document-preview"'),'Read-only users must be able to preview');
+}
+state.user=savedUser;state.session=savedSession;state.data.documents[0]=savedDoc;
+resetView('documentos');
+
 const app=fs.readFileSync('src/app.js','utf8');
 const handlers=new Set([...app.matchAll(/\ba==='([^']+)'/g)].map(x=>x[1]));
 const unhandled=[...actions].filter(x=>!handlers.has(x)&&!x.endsWith('-apply')&&!x.endsWith('-month'));
