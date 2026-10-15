@@ -67,7 +67,7 @@ BEGIN
  ('consultations','pricing')
  ) AS x(tbl,mod)
  LOOP
-  EXECUTE format('CREATE POLICY totus_mod_view ON public.%I AS RESTRICTIVE FOR SELECT TO authenticated USING (private.totus_can(%L,%L))',rec.tbl,rec.mod,'view');
+  EXECUTE format('CREATE POLICY totus_mod_view ON public.%I AS RESTRICTIVE FOR SELECT TO authenticated USING ((select private.totus_can(%L,%L)))',rec.tbl,rec.mod,'view');
   EXECUTE format('CREATE POLICY totus_mod_create ON public.%I AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (private.totus_can(%L,%L))',rec.tbl,rec.mod,'create');
   EXECUTE format('CREATE POLICY totus_mod_edit ON public.%I AS RESTRICTIVE FOR UPDATE TO authenticated USING (private.totus_can(%L,%L)) WITH CHECK (private.totus_can(%L,%L))',rec.tbl,rec.mod,'edit',rec.mod,'edit');
   EXECUTE format('CREATE POLICY totus_mod_delete ON public.%I AS RESTRICTIVE FOR DELETE TO authenticated USING (private.totus_can(%L,%L))',rec.tbl,rec.mod,'delete');
