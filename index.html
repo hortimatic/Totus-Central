@@ -7,12 +7,20 @@
 <title>Totus Central</title>
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="src/styles.css">
+<style>
+/* Identidad exclusiva del entorno staging. No existe en main. */
+.staging-indicator{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 14px;padding:8px 11px;border:1px solid #f0c48a;border-radius:8px;background:#fff7ed;color:#7c2d12;font-size:12px;line-height:1.4}
+.staging-indicator strong{font-size:12px;letter-spacing:.07em}
+.staging-indicator .staging-build{font-weight:500;opacity:.85}
+.sidebar-foot .staging-indicator{margin:0 0 12px}
+</style>
 </head>
 <body>
 <div id="login" class="login-screen">
   <form id="loginForm" class="login-card">
     <div class="brand large"><span class="brand-mark">T</span><div><b>Totus Central</b><small>Gestión diaria</small></div></div>
     <h1>Acceso</h1>
+    <div class="staging-indicator" role="status"><strong>ENTORNO DE PRUEBAS · STAGING</strong><span class="staging-build">· versión sin verificar</span></div>
     <p>Entra con tu correo y contraseña.</p>
     <label>Correo<input id="loginEmail" type="email" autocomplete="email" required></label>
     <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required></label>
@@ -35,6 +43,7 @@
     <div class="brand"><span class="brand-mark">T</span><div><b>Totus Central</b><small>Gestión diaria</small></div></div>
     <nav id="nav"></nav>
     <div class="sidebar-foot">
+      <div class="staging-indicator" role="status"><strong>ENTORNO DE PRUEBAS · STAGING</strong><span class="staging-build">· versión sin verificar</span></div>
       <div id="userCard" class="user-card"></div>
       <button class="btn ghost full" data-action="logout">Cerrar sesión</button>
     </div>
@@ -58,5 +67,19 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <script type="module" src="src/app.js"></script>
+<script>
+/* La versión se obtiene del artefacto realmente publicado, no de una rama local. */
+(async function(){
+  try{
+    const response=await fetch('./build-info.json?fresh='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw new Error('Publicación no verificada');
+    const build=await response.json();
+    if(build.environment!=='staging'||!/^[0-9a-f]{40}$/.test(build.commit))throw new Error('Sello inválido');
+    document.querySelectorAll('.staging-build').forEach(el=>{el.textContent='· versión '+build.commit.slice(0,8)});
+  }catch{
+    document.querySelectorAll('.staging-build').forEach(el=>{el.textContent='· publicación sin verificar'});
+  }
+})();
+</script>
 </body>
 </html>
