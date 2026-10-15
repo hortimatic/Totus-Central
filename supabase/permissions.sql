@@ -30,7 +30,7 @@ CREATE OR REPLACE FUNCTION private.totus_can(p_module text,p_action text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='public,private'
 AS $permissions$
  SELECT coalesce((
-  SELECT CASE WHEN tm.role='admin' THEN true ELSE coalesce(
+  SELECT CASE WHEN tm.role='admin' THEN true ELSE (coalesce(
    CASE p_action WHEN 'view' THEN perms.can_view WHEN 'create' THEN perms.can_create
       WHEN 'edit' THEN perms.can_edit WHEN 'delete' THEN perms.can_delete
       WHEN 'export' THEN perms.can_export ELSE false END,
@@ -38,7 +38,7 @@ AS $permissions$
          ((p_module<>'administracion' OR p_action='view') AND NOT(p_module='fiscalidad' AND p_action='delete'))
         WHEN tm.role='encargado' THEN
          (p_module<>'administracion' AND (p_action='view' OR (p_module='documentos' AND p_action IN ('create','edit'))))
-        ELSE false END)
+        ELSE false END) AND coalesce(perms.can_view,(tm.role='gerente' OR (tm.role='encargado' AND p_module<>'administracion'))))
    END
   FROM public.team_members tm
   LEFT JOIN public.ops_user_permissions perms ON lower(perms.email)=lower(tm.email) AND perms.module=p_module
