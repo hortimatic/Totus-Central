@@ -18,6 +18,44 @@ const titles={
 
 function can(module,action='view'){return canUser(state.user,module,action,state.data.userPermissions||[])}
 function routeAllowed(r){return can(r.id,'view')}
+function permissionForAction(action,el){
+ let module=null;
+ if(/^(closing-|export-closings-current)/.test(action))module='cajas';
+ else if(/^(expense-|export-expenses-current)/.test(action))module='gastos';
+ else if(/^(invoice-|proforma-|rectifying-|external-invoice-|customer-|customers-|template-|series-|billing-)/.test(action))module='facturacion';
+ else if(/^(document-|documents-)/.test(action))module='documentos';
+ else if(/^(tax-payment-|fiscal-|reta-|expense-category-)/.test(action))module='fiscalidad';
+ else if(/^(pricing-|product-|brand-|family-|families-|provider-|providers-|variant-|competitor-|consultation-|home-price-)/.test(action))module='pricing';
+ else if(/^(report-|export-gestor-|export-store-|export-summary)/.test(action))module='informes';
+ else if(/^(user-|store-|drawer-|config-|backup-|admin-)/.test(action))module='administracion';
+ else if(action.startsWith('export-'))module='informes';
+ if(!module)return null;
+ const a=action.toLowerCase();
+ let operation='view';
+ if(/(^export-|\-export|\-download$|\-zip$|\-print$)/.test(a))operation='export';
+ else if(/\-delete$/.test(a))operation='delete';
+ else if(/\-new$|\-add$|\-duplicate$/.test(a))operation='create';
+ else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
+ else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
+ if(a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='config-save'||a==='backup-create'||a==='backup-restore'||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
+ if(a==='proforma-convert')operation='create';
+ if(a==='closing-save-close'&&el?.dataset?.id)operation='edit';
+ return {module,operation};
+}
+function checkActionPermission(action,el){
+ const required=permissionForAction(action,el);
+ if(!required)return true;
+ if(required.adminOnly&&!isAdmin())return false;
+ return can(required.module,required.operation);
+}
+function hideForbiddenButtons(){
+ document.querySelectorAll('#content [data-action]').forEach(el=>{
+  if(!checkActionPermission(el.dataset.action,el))el.remove();
+ });
+}
+
 function renderNav(){
  const nav=$('#nav');let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
@@ -33,6 +71,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  $('#content').innerHTML=renderer();
+ hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
 }
 async function refresh(message=''){
@@ -1170,6 +1209,7 @@ document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  const route=el.dataset.route;if(route){if(!can(route,'view'))throw new Error('No tienes permiso para acceder a esta sección.');setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
+ if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
  try{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
   if(a==='retry-load'){await refresh();return}
