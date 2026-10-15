@@ -83,3 +83,15 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .invoice-style-classic{font-family:Georgia,serif}.invoice-style-classic .invoice-document-head{border-top:3px double var(--invoice-primary);border-bottom:3px double var(--invoice-primary);padding:16px 0}.invoice-style-classic .invoice-client-box{border:1px solid var(--invoice-primary);background:#fff}.invoice-style-classic .invoice-grand-total{border-top:3px double var(--invoice-primary)}
 
 
+
+
+/* Matriz de permisos: escritorio y móvil, lectura clara y controles táctiles. */
+.permissions-table{border-collapse:separate;border-spacing:0;width:100%;min-width:590px}
+.permissions-table th,.permissions-table td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:center}
+.permissions-table th:first-child,.permissions-table td:first-child{text-align:left;position:sticky;left:0;background:var(--panel,#fff)}
+.permissions-table thead th{font-weight:700;background:#f1f5f9}
+.permissions-table .permission-cell input{width:19px;height:19px;cursor:pointer;accent-color:#2563eb}
+.permissions-table .permission-cell label{display:inline-flex;justify-content:center;align-items:center;min-width:36px;min-height:36px;cursor:pointer}
+.permissions-table .permission-cell input:focus-visible{outline:3px solid #2563eb;outline-offset:4px}
+.table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+@media(max-width:640px){.permissions-table th,.permissions-table td{padding:9px 8px}}
