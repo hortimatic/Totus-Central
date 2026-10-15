@@ -371,8 +371,13 @@ function adminStorageHtml(){
  return `<div class="kpis">${kpi('Uso total',(used/1024/1024).toFixed(1).replace('.',',')+' MB')}${kpi('Límite configurado',(limit/1024/1024).toFixed(0)+' MB')}${kpi('Documentos',String(u.documents_count||0))}${kpi('Assets',String(u.assets_count||0))}</div><section class="card card-pad"><h2>Almacenamiento</h2><div class="summary-row"><span>Documentos</span><strong>${(Number(u.documents_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Logos/assets</span><strong>${(Number(u.assets_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Disponible</span><strong>${(Math.max(0,limit-used)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="note" style="margin-top:12px">El contador usa bytes reales de Storage y el límite configurado de 500 MB.</div></section>`;
 }
 function adminBackupHtml(){
- if(!isAdmin())return '<section class="card card-pad"><h2>Copias</h2><div class="note">Solo el administrador puede descargar o restaurar copias completas.</div></section>';
- return `<section class="card card-pad"><div class="section-head"><div><h2>Copias de seguridad</h2><p>Incluye datos, documentos y logos. Auth/usuarios quedan fuera.</p></div>${btn('Descargar copia completa','backup-create','primary')}</div><div class="form-grid" style="margin-top:14px"><label class="wide">Cargar copia<input id="backupFile" type="file" accept=".totusbackup,application/zip"></label></div><div class="note warn" style="margin-top:12px">Restaurar sustituye los datos de negocio y exige tres confirmaciones.</div><div class="form-actions">${btn('Restaurar copia','backup-restore','danger')}</div></section>`;
+ if(!isAdmin())return '<section class="card card-pad"><h2>Copias de seguridad</h2><div class="note">Solo administración puede revisar y descargar copias.</div></section>';
+ return `<section class="card card-pad">
+ <div class="section-head"><div><h2>Copias de seguridad</h2><p>Exporta datos y documentos de negocio. Las cuentas y contraseñas no están incluidas.</p></div>${btn('Descargar copia','backup-create','primary')}</div>
+ <div class="form-grid" style="margin-top:14px"><label class="wide">Comprobar una copia guardada<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></label></div>
+ <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}</div>
+ <div class="note warn" style="margin-top:12px">Restauración bloqueada: la recuperación completa de datos y archivos todavía no está verificada. Comprobar una copia no modifica ningún registro.</div>
+ </section>`;
 }
 function adminLogHtml(){
  const headers=[{label:'Fecha',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES'))},{label:'Usuario',html:r=>esc(r.user_email||'—')},{label:'Área',html:r=>esc(r.area)},{label:'Acción',html:r=>esc(r.action)},{label:'Detalle',html:r=>`<span class="small">${esc(JSON.stringify(r.detail||{}))}</span>`}];
