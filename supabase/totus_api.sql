@@ -17,32 +17,18 @@ create unique index if not exists ops_document_templates_one_default_proforma on
 
 create or replace function private.totus_is_team_member()
 returns boolean
-language sql
-stable
-security definer
-set search_path='public'
+language sql stable security definer
+set search_path='public,private'
 as $$
-  select exists(
-    select 1
-    from public.profiles p
-    join public.team_members t on lower(t.email)=lower(coalesce(p.email,''))
-    where p.id=auth.uid() and t.active=true
-  );
+  select private.is_team_member();
 $$;
 
 create or replace function private.totus_is_manager()
 returns boolean
-language sql
-stable
-security definer
-set search_path='public'
+language sql stable security definer
+set search_path='public,private'
 as $$
-  select exists(
-    select 1
-    from public.profiles p
-    join public.team_members t on lower(t.email)=lower(coalesce(p.email,''))
-    where p.id=auth.uid() and t.active=true and t.role in ('admin','gerente')
-  );
+  select private.is_manager();
 $$;
 
 create or replace function private.totus_audit(p_area text,p_action text,p_entity uuid,p_detail jsonb default '{}'::jsonb)
