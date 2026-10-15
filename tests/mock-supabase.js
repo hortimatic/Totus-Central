@@ -7,6 +7,7 @@ const userId='cccccccc-cccc-4ccc-cccc-cccccccccccc';
 const session={user:{id:userId,email:'qa@example.com'},access_token:'qa-sandbox'};
 const role=new URLSearchParams(location.search).get('role')||'admin';
 const db={
+ ops_user_permissions:[],
  team_members:[{id:userId,email:'qa@example.com',full_name:'Administración QA',role,active:true}],
  profiles:[{id:userId,email:'qa@example.com'}],
  ops_business_settings:[{id:1,business_name:'Totus QA',tax_id:'00000000X',business_address:'Calle Pruebas 1',business_email:'qa@example.com',document_max_bytes:20971520,storage_limit_bytes:524288000,default_sales_vat_rate:21,purchase_re_rate:5.2,irpf_prepayment_rate:20,difficult_expense_pct:5,difficult_expense_annual_cap:2000,current_year:2026}],
