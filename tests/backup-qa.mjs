@@ -70,22 +70,20 @@ try{
  },[...modifiedBytes]);
  if(!tamperRejected)throw Error('No se detecta alteración de la base de datos archivada');
 
- const restored=await page.evaluate(async arr=>{
-  const bytes=new Uint8Array(arr);
-  window.__mockContractVersion=2;
-  window.__mockDb.ops_expenses.push({id:'fake-expense',supplier_name:'Sobras de prueba'});
-  window.__mockUploads.set('business-documents/extra.txt',new Blob(['no debe persistir']));
-  const f=new File([bytes],'backup.totusbackup',{type:'application/octet-stream'});
+ // El restaurador no certificado debe seguir bloqueado incluso con un backup válido.
+ // Esta comprobación impide pérdidas y no autoriza escrituras en la BD ni Storage.
+ const rejectedRestore=await page.evaluate(async arr=>{
+  const file=new File([new Uint8Array(arr)],'backup.totusbackup',{type:'application/octet-stream'});
   const mod=await import('../src/backup.js');
-  await mod.restoreBackup(f,'Simulación de restauración aislada');
-  return {
-   restored:window.__mockDb.ops_expenses.every(x=>x.id!=='fake-expense'),
-   original:window.__mockDb.ops_documents.some(x=>x.original_name==='backup-comprobante.txt'),
-   extraRemoved:!window.__mockUploads.has('business-documents/extra.txt'),
-   originalRestored:window.__mockUploads.size>=1
-  };
+  const beforeRows=window.__mockDb.ops_expenses.length;
+  const beforeFiles=window.__mockUploads.size;
+  let rejected=false,reason='';
+  try{await mod.restoreBackup(file,'Prueba de bloqueo de restauración no certificada')}catch(e){rejected=true;reason=String(e.message)}
+  return {rejected,reason,rowsUnchanged:window.__mockDb.ops_expenses.length===beforeRows,filesUnchanged:window.__mockUploads.size===beforeFiles};
  },[...bytes]);
- if(Object.values(restored).some(x=>!x))throw Error('Restauración simulada incompleta '+JSON.stringify(restored));
+ if(!rejectedRestore.rejected||!rejectedRestore.rowsUnchanged||!rejectedRestore.filesUnchanged||
+    !/deshabilitada por seguridad/.test(rejectedRestore.reason))
+  throw Error('La restauración no certificada alteraría información: '+JSON.stringify(rejectedRestore));
  if(errors.length)throw Error('Errores JS: '+errors.join('; '));
- console.log('BACKUP QA: archivo, documentos, rechazo de corrupción y restauración aislada reversible: OK');
+ console.log('BACKUP QA: descarga, archivos, control de integridad y restauración bloqueada sin modificar datos: OK');
 }finally{await browser.close()}
