@@ -1403,6 +1403,38 @@ document.addEventListener('change',e=>{
  }
 });
 
+let recoveringPassword=false;
+function showPasswordRecovery(){
+ recoveringPassword=true;
+ $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
+ $('#loginEmail').closest('label')?.classList.add('hidden');
+ $('#loginPassword').closest('label')?.classList.add('hidden');
+ $('#loginForm').querySelector('button[type="submit"]')?.classList.add('hidden');
+ $('#recoverBtn').classList.add('hidden');
+ $('#passwordResetPanel').classList.remove('hidden');
+ $('#loginMessage').textContent='Elige una contraseña nueva y confírmala.';
+}
+$('#saveRecoveryPassword').addEventListener('click',async()=>{
+ const message=$('#loginMessage'),password=val('recoveryPassword'),confirmPassword=val('recoveryPasswordConfirm');
+ if(password.length<8){message.textContent='Utiliza al menos 8 caracteres.';return}
+ if(password!==confirmPassword){message.textContent='Las contraseñas no coinciden.';return}
+ const button=$('#saveRecoveryPassword');button.disabled=true;
+ try{
+  const {error}=await sb.auth.updateUser({password});
+  if(error)throw error;
+  recoveringPassword=false;
+  await sb.auth.signOut();
+  $('#passwordResetPanel').classList.add('hidden');
+  $('#loginEmail').closest('label')?.classList.remove('hidden');
+  $('#loginPassword').closest('label')?.classList.remove('hidden');
+  $('#loginForm').querySelector('button[type="submit"]')?.classList.remove('hidden');
+  $('#recoverBtn').classList.remove('hidden');
+  $('#recoveryPassword').value='';$('#recoveryPasswordConfirm').value='';
+  message.textContent='Contraseña actualizada. Ya puedes iniciar sesión.';
+ }catch(err){message.textContent=err.message||'No se pudo cambiar la contraseña.'}
+ finally{button.disabled=false}
+});
+
 $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();const m=$('#loginMessage');m.textContent='Comprobando acceso…';
  try{state.session=await login(val('loginEmail').trim().toLowerCase(),val('loginPassword'));await boot()}
@@ -1414,6 +1446,7 @@ $('#recoverBtn').addEventListener('click',async()=>{
 });
 
 async function boot(){
+ if(recoveringPassword){showPasswordRecovery();return}
  const session=(await sb.auth.getSession()).data.session;state.session=session;
  if(!session){$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
  const [team,profiles]=await Promise.all([
@@ -1428,6 +1461,6 @@ async function boot(){
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();
 }
-sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='SIGNED_OUT'){state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
+sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
 
 boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});
