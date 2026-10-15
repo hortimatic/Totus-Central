@@ -1,35 +1,34 @@
-# Totus Central
+# Totus Central — estado operativo
 
-Aplicación única de gestión interna para Hortimatic y NewOldSmok. Pricing está integrado en la navegación general.
+Aplicación interna de gestión para Hortimatic y NewOldSmok. Código JavaScript y CSS estático con Supabase, sin conexión con PrestaShop ni TPV.
 
-## Arquitectura
+## Entornos (obligatorio)
 
-- Código y versiones: GitHub (este repositorio).
-- Usuarios, autenticación, permisos, datos y documentos: Supabase, proyecto `zwkpmjjuurgjygcrejiw`.
-- Alojamiento definitivo previsto: GitHub Pages. El despliegue está pendiente de validación y autorización; no se ha activado.
-- Vercel no es una dependencia del código y debe retirarse solo después de verificar el nuevo acceso.
+| Rama | Uso | Backend |
+| --- | --- | --- |
+| `main` | Aplicación normal. No modificar sin autorización expresa. | Supabase producción `zwkpmjjuurgjygcrejiw` |
+| `staging` | Única rama de desarrollo, limpieza y pruebas. | Supabase staging `awmojepsasikxocoeqtu` |
 
-## Estado del proyecto
+**No crear otras ramas, sitios ni proyectos para pruebas. No promover cambios a main automáticamente.**
 
-- Rama final aprobada: `totus-central-final-2026-10-13`.
-- Rama de revisión: `auditoria-regresion-2026-10-13`.
-- Rama `main`: no modificar ni desplegar sin aprobación.
-- Datos del primer semestre: NO importados; fuentes privadas, fuera de este repositorio.
-- Equipo actual: dos cuentas activas (administración y gerencia). Incorporar nuevos usuarios solo desde la administración verificada.
-- Producción: pendiente de pruebas autenticadas, enlaces de recuperación y revisión de seguridad.
+## Estado real
 
-## Módulos
+- Módulos: Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes, Administración.
+- Código: `index.html` y `src/`. Datos y archivos: Supabase del entorno correspondiente.
+- Usuario, configuración y permisos deben revisarse también contra las políticas RLS, funciones SQL y funciones Edge.
+- Las correcciones en GitHub **no implican que la web de staging esté actualizada**. Es necesario confirmar el despliegue real y la URL original.
+- Los flujos de restauración de backup están bloqueados en staging hasta contar con recuperación transaccional segura; la descarga sigue permitida.
+- El primer semestre de 2026 no debe importarse sin conciliación de fuentes y aprobación explícita.
 
-Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes y Administración.
+## Pruebas
 
-## QA y publicación
+La rama `staging` ejecuta el workflow `.github/workflows/qa.yml`; cubre pruebas estáticas, funcionales, libros contables y simulaciones de interfaz. Estas pruebas **no reemplazan** un ensayo autenticado completo en el staging publicado con datos de prueba, roles y permisos RLS.
 
-- `.github/workflows/qa.yml`: prueba código, formularios, Excel, PDF, ZIP y vistas simuladas.
-- `.github/workflows/pages-preview.yml`: preparación de alojamiento estático GitHub Pages con ejecución manual y verificación previa.
-- El paquete web debe incluir únicamente `index.html`, `favicon.svg`, `fondo_original.png` y `src/`.
-- No se deben publicar `supabase/`, `tests/`, copias de seguridad, facturas, libros contables ni documentos personales.
-- No cambiar ajustes de Auth ni URL de correos hasta disponer de un dominio definitivo comprobado.
+No existe actualmente un workflow de publicación certificado para la URL original. No habilitar GitHub Pages sin confirmar que no modifica el despliegue de `main`.
 
-## Seguridad
+## Seguridad y revisión
 
-No incluir claves secretas ni service-role en el navegador; solo la clave pública de Supabase. La protección real de los datos depende de Auth y RLS, que requieren revisión autenticada antes de producción. Mantener fuera del repositorio los datos y documentos privados.
+- No incluir claves secretas en `index.html` ni `src/`; la publishable key del navegador no permite ignorar RLS.
+- Registrar cambios de base de datos mediante migraciones y contrastarlos con el esquema actual.
+- Ninguna limpieza puede borrar información histórica, registros fiscales, documentos o copias útiles sin inventario previo y recuperación verificada.
+- Documentación base: `TOTUS_CENTRAL_INSTRUCCIONES_AUDITORIA_STAGING_2026-10-14.txt` en fuentes privadas; revisar `docs/auditorias/` para hallazgos y pendientes.
