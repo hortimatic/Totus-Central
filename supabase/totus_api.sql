@@ -62,7 +62,7 @@ declare
   v_online numeric := 0; v_other numeric := 0; v_withdraw numeric := 0; v_cash_exp numeric := 0;
   v_extra_in numeric := 0; v_extra_out numeric := 0; v_cash_sales numeric := 0; v_total numeric := 0; v_diff numeric := 0;
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede guardar cierres'; end if;
+  if not (private.totus_can('cajas',case when nullif(p_closing->>'id','') is null then 'create' else 'edit' end)) then raise exception 'Solo administración o gerencia puede guardar cierres'; end if;
   if v_store is null or v_date is null then raise exception 'Tienda y fecha son obligatorias'; end if;
   if v_date>current_date then raise exception 'La fecha del cierre no puede ser futura'; end if;
   if v_status not in ('borrador','cerrado') then raise exception 'Estado de cierre no válido'; end if;
@@ -170,7 +170,7 @@ security definer
 set search_path='public,private'
 as $$
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede eliminar cierres'; end if;
+  if not (private.totus_can('cajas','delete')) then raise exception 'Solo administración o gerencia puede eliminar cierres'; end if;
   if nullif(btrim(coalesce(p_reason,'')),'') is null then raise exception 'Motivo obligatorio'; end if;
   if not exists(select 1 from public.ops_daily_closings where id=p_id) then raise exception 'Cierre no encontrado'; end if;
   perform private.totus_audit('cajas','eliminar',p_id,jsonb_build_object('motivo',p_reason));
@@ -197,7 +197,7 @@ declare
   v_paid_date date := nullif(p_expense->>'paid_date','')::date;
   v_amount_paid numeric := coalesce((p_expense->>'amount_paid')::numeric,0);
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede guardar gastos'; end if;
+  if not (private.totus_can('gastos',case when nullif(p_expense->>'id','') is null then 'create' else 'edit' end)) then raise exception 'Solo administración o gerencia puede guardar gastos'; end if;
   if v_store is null or v_date is null or v_supplier='' then raise exception 'Tienda, fecha y proveedor son obligatorios'; end if;
   if v_date>current_date then raise exception 'La fecha del gasto no puede ser futura'; end if;
   if v_paid_date is not null and v_paid_date>current_date then raise exception 'La fecha de pago no puede ser futura'; end if;
@@ -304,7 +304,7 @@ security definer
 set search_path='public,private'
 as $$
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede eliminar gastos'; end if;
+  if not (private.totus_can('gastos','delete')) then raise exception 'Solo administración o gerencia puede eliminar gastos'; end if;
   if nullif(btrim(coalesce(p_reason,'')),'') is null then raise exception 'Motivo obligatorio'; end if;
   if not exists(select 1 from public.ops_expenses where id=p_id) then raise exception 'Gasto no encontrado'; end if;
   perform private.totus_audit('gastos','eliminar',p_id,jsonb_build_object('motivo',p_reason));
@@ -331,7 +331,7 @@ declare
   v_type text := coalesce(nullif(p_document->>'document_type',''),'factura');
   v_kind text := coalesce(nullif(p_document->>'invoice_kind',''),'invoice');
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede guardar documentos de venta'; end if;
+  if not (private.totus_can('facturacion',case when nullif(p_document->>'id','') is null then 'create' else 'edit' end)) then raise exception 'Solo administración o gerencia puede guardar documentos de venta'; end if;
   if nullif(p_document->>'series_id','') is null or v_issue is null then raise exception 'Serie y fecha son obligatorias'; end if;
   if v_issue>current_date then raise exception 'La fecha de emisión no puede ser futura'; end if;
   if v_operation is not null and v_operation>current_date then raise exception 'La fecha de operación no puede ser futura'; end if;
@@ -429,7 +429,7 @@ set search_path='public,private,extensions'
 as $$
 declare d public.ops_sales_invoices; s public.ops_invoice_series; tpl jsonb; prev_hash text; new_hash text;
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede registrar documentos externos'; end if;
+  if not (private.totus_can('facturacion','edit')) then raise exception 'Solo administración o gerencia puede registrar documentos externos'; end if;
   if p_number is null or p_number<1 then raise exception 'Número externo no válido'; end if;
   select * into d from public.ops_sales_invoices where id=p_id for update;
   if not found then raise exception 'Documento no encontrado'; end if;
@@ -470,7 +470,7 @@ as $$
 declare
   v_total numeric; v_type text; v_status text; v_amount numeric; v_date date; v_method text;
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede actualizar cobros'; end if;
+  if not (private.totus_can('facturacion','edit')) then raise exception 'Solo administración o gerencia puede actualizar cobros'; end if;
   select total_amount,document_type into v_total,v_type from public.ops_sales_invoices where id=p_id;
   if not found then raise exception 'Factura no encontrada'; end if;
   if v_type='proforma' then raise exception 'Una proforma no tiene cobro'; end if;
@@ -506,7 +506,7 @@ declare
   v_hash text;
   v_tpl jsonb := '{}'::jsonb;
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede emitir documentos'; end if;
+  if not (private.totus_can('facturacion','edit')) then raise exception 'Solo administración o gerencia puede emitir documentos'; end if;
   select * into v_doc from public.ops_sales_invoices where id=p_id for update;
   if not found then raise exception 'Documento no encontrado'; end if;
   if v_doc.status='emitida' then return v_doc; end if;
@@ -552,7 +552,7 @@ set search_path='public,private'
 as $$
 declare v_p public.ops_sales_invoices; v_new uuid;
 begin
-  if not private.totus_is_manager() then raise exception 'Solo administración o gerencia puede convertir proformas'; end if;
+  if not ((private.totus_can('facturacion','create') and private.totus_can('facturacion','edit'))) then raise exception 'Solo administración o gerencia puede convertir proformas'; end if;
   select * into v_p from public.ops_sales_invoices where id=p_id for update;
   if not found or v_p.document_type<>'proforma' then raise exception 'Proforma no encontrada'; end if;
   if v_p.status='convertida' and v_p.converted_invoice_id is not null then return v_p.converted_invoice_id; end if;
