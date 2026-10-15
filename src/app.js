@@ -36,15 +36,10 @@ function render(){
  $('#content').innerHTML=renderer();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
 }
-let auditSemesterFiltersInitialized=false;
 async function refresh(message=''){
  state.loading=true;
  try{
   await loadCore();
-  if(!auditSemesterFiltersInitialized&&state.data.expenses.some(x=>String(x.import_ref||'').startsWith('EXCEL-EXP-'))){
-   for(const module of ['cajas','gastos','documentos','informes','fiscalidad'])patchFilters(module,{from:'2026-01-01',to:'2026-06-30'});
-   auditSemesterFiltersInitialized=true;
-  }
   if(message)toast(message,'ok');render()
  }
  catch(e){
