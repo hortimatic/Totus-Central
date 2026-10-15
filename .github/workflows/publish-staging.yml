@@ -1,0 +1,97 @@
+name: Publicar staging sin modificar main
+on:
+  push:
+    branches: [staging]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: totus-central-pages
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}staging/
+    steps:
+      - name: Obtain immutable production source (main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: production-source
+          persist-credentials: false
+      - name: Obtain exact staging commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: staging-source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify distinct and correct databases
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'zwkpmjjuurgjygcrejiw.supabase.co' production-source/src/config.js
+          grep -Fq 'awmojepsasikxocoeqtu.supabase.co' staging-source/src/config.js
+          if grep -Fq 'zwkpmjjuurgjygcrejiw.supabase.co' staging-source/src/config.js; then
+            echo 'ERROR: staging points at production' >&2; exit 1
+          fi
+          if grep -Fq 'awmojepsasikxocoeqtu.supabase.co' production-source/src/config.js; then
+            echo 'ERROR: main points at staging' >&2; exit 1
+          fi
+      - name: Check staging structure, permissions and calculations
+        working-directory: staging-source
+        run: |
+          node tests/qa.mjs
+          node tests/functional-regression.mjs
+          node tests/code-integrity.mjs
+          node tests/permissions-qa.mjs
+          node tests/route-smoke.mjs
+          node tests/excel-invariants.mjs
+      - name: Install browser and document testing dependencies
+        working-directory: staging-source
+        run: |
+          npm install --no-save xlsx-js-style playwright jszip pdf-lib
+          npx playwright install --with-deps chromium
+      - name: Check exports and real browser flows against isolated mock data
+        working-directory: staging-source
+        run: |
+          node tests/excel-qa.mjs
+          node tests/quarter-fixture-qa.mjs
+          python3 -m http.server 4173 >/tmp/totus-staging-qa-http.log 2>&1 &
+          node tests/browser-qa.mjs
+          node tests/layout-audit.mjs
+          node tests/field-sweep-qa.mjs
+          node tests/full-flow-qa.mjs
+          node tests/backup-qa.mjs
+      - name: Assemble single GitHub Pages site with untouched main and /staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site/staging
+          for file in index.html favicon.svg fondo_original.png; do
+            cp "production-source/$file" "_site/$file"
+            cp "staging-source/$file" "_site/staging/$file"
+            cmp "production-source/$file" "_site/$file"
+            cmp "staging-source/$file" "_site/staging/$file"
+          done
+          cp -R production-source/src _site/src
+          cp -R staging-source/src _site/staging/src
+          diff -qr production-source/src _site/src
+          diff -qr staging-source/src _site/staging/src
+          touch _site/.nojekyll
+          test -f _site/staging/src/app.js
+          test ! -e _site/supabase
+          test ! -e _site/staging/supabase
+          test ! -e _site/staging/tests
+          printf 'main %s | staging %s\n' "$(git -C production-source rev-parse HEAD)" "$(git -C staging-source rev-parse HEAD)"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
