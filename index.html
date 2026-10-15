@@ -19,7 +19,14 @@
     <button class="btn primary" type="submit">Entrar</button>
     
     <button class="btn link" id="recoverBtn" type="button">He olvidado mi contraseña</button>
-    <div id="loginMessage" class="message"></div>
+    <div id="passwordResetPanel" class="hidden" aria-live="polite">
+      <h2>Establecer nueva contraseña</h2>
+      <p>Escribe una contraseña distinta a la anterior.</p>
+      <label>Nueva contraseña<input id="recoveryPassword" type="password" autocomplete="new-password" minlength="8"></label>
+      <label>Repetir contraseña<input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="8"></label>
+      <button id="saveRecoveryPassword" class="btn primary" type="button">Guardar contraseña</button>
+    </div>
+    <div id="loginMessage" class="message" role="status"></div>
   </form>
 </div>
 
