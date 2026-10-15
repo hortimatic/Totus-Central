@@ -345,7 +345,7 @@ export function administracion(){
 function adminUsersHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Usuarios</h2><div class="note">Solo el administrador gestiona usuarios.</div></section>';
  const rows=state.data.team;
- const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}];
+ const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'Acciones',html:r=>`<div class="inline-actions">${btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}${r.role!=='admin'?btn('Permisos','user-permissions','secondary',`data-email="${esc(r.email)}"`):''}</div>`}];
  return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Accesos, roles y contraseñas.</p></div>${btn('+ Nuevo usuario','user-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
 }
 function adminBusinessHtml(){
