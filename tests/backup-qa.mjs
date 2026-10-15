@@ -47,7 +47,7 @@ try{
   try{await mod.restoreBackup(file,'Ensayo de incompatibilidad SQL')}catch(e){rejected=true;reason=String(e.message)}
   return {rejected,reason,unchanged:window.__mockDb.ops_documents.length===count,tableCount:inspected.manifest.tables.length};
  },[...bytes]);
- if(!result.rejected||!result.unchanged||!(/versión segura|incompatible/.test(result.reason)))throw Error('El restaurador antiguo no se ha bloqueado antes de tocar los datos: '+JSON.stringify(result));
+ if(!result.rejected||!result.unchanged||!(/versión segura|incompatible|deshabilitada por seguridad/.test(result.reason)))throw Error('El restaurador antiguo no se ha bloqueado antes de tocar los datos: '+JSON.stringify(result));
  const invalid=await JSZip.loadAsync(bytes);
  const target='storage/business-documents/'+manifest.storage['business-documents'][0];
  invalid.remove(target);
