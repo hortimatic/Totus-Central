@@ -28,6 +28,12 @@ await check('Arranque real y autenticación simulada',async()=>{
  assert((await page.locator('#content').innerText()).includes('Operativa de hoy'),'Pantalla Inicio vacía');
  assert((await page.locator('#nav .nav-btn').count())===9,'La navegación principal debe tener nueve pestañas');
 });
+// An unauthenticated or broken fixture must fail immediately; subsequent missing buttons are cascading errors.
+if(errors.length){
+ await browser.close();
+ console.error('E2E MOCK ARRANQUE FALLÓ\n- '+errors.join('\n- '));
+ process.exit(1);
+}
 await check('Cajas: creación, cálculo, guardado y lectura',async()=>{
  await nav('cajas');
  await page.locator('[data-action="closing-new"]').first().click();
