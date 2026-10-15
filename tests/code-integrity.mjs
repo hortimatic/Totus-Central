@@ -159,3 +159,8 @@ assert.ok(!htmlSource.includes('hortimatic.github.io/Totus-Central/staging/'),'L
 assert.ok(!appSource.includes('auditSemesterFiltersInitialized'),'Refresh must never overwrite selected filters with a fixed semester');
 assert.ok(!fs.existsSync('.github/workflows/entrega-codigo.yml'),'Retired release branch workflow must not return');
 assert.ok(!fs.existsSync('.github/workflows/pages-preview.yml'),'Obsolete Pages deployment workflow must not return');
+
+assert.ok(!pagesSource.includes("btn('Restaurar copia'"),'Staging must not offer a destructive restore button while restore is disabled');
+assert.ok(pagesSource.includes("btn('Verificar integridad','backup-verify'"),'Staging must offer safe backup integrity verification');
+assert.ok(appSource.includes("async function verifyBackupFromInput()"),'Safe inspection handler missing');
+assert.ok(!appSource.includes("async function restoreBackupFromInput()"),'Dead restore input handler must remain removed');
