@@ -4,14 +4,9 @@
 create or replace function private.totus_is_admin()
 returns boolean
 language sql stable security definer
-set search_path='public'
+set search_path='public,private'
 as $$
-  select exists(
-    select 1
-    from public.profiles p
-    join public.team_members t on lower(t.email)=lower(coalesce(p.email,''))
-    where p.id=auth.uid() and t.active=true and t.role='admin'
-  );
+  select private.is_admin();
 $$;
 
 create or replace function public.totus_storage_usage()
