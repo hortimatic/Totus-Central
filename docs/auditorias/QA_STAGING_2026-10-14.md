@@ -23,7 +23,7 @@ La revisión de GitHub y de los permisos RPC corresponde al estado real de stagi
 - Las pruebas Node `tests/qa.mjs`, `tests/functional-regression.mjs`, `tests/code-integrity.mjs` pasaron sobre la instantánea ZIP de 13-10-2026. No son un resultado de CI del commit actual.
 
 ## Bloqueos para comercialización
-**P0:** La dirección pública de staging no publica automáticamente el contenido de la rama staging. El workflow `pages-preview.yml` apunta a una rama ya inexistente y además el proyecto GitHub Pages tiene un único destino de publicación, por lo que no se debe activar de manera que reemplace producción. El artifact `totus-staging-site` generado por QA no constituye una URL pública.
+**P0:** La dirección pública de staging no publica automáticamente el contenido de la rama staging. El workflow `pages-preview.yml` apunta a una rama ya inexistente y además el proyecto GitHub Pages tiene un único destino de publicación, por lo que no se debe activar de manera que reemplace producción.
 
 **P0:** La restauración de backup está bloqueada preventivamente. Debe definirse una restauración recuperable, con pruebas de interrupción y de integridad de archivos.
 
@@ -36,7 +36,7 @@ La revisión de GitHub y de los permisos RPC corresponde al estado real de stagi
 **P2:** Mejoras estéticas y ayudas contextuales pendientes de comprobación en el sitio publicado.
 
 ## Procedimiento de QA previo a promoción
-1. Montar un sitio aislado de staging en un hosting propio, sin reemplazar el sitio GitHub Pages de producción; verificar la URL y la conexión a `awmojepsasikxocoeqtu`.
+1. Verificar el staging original del proyecto, sin crear ni publicar sitios alternativos; comprobar su conexión exclusiva al Supabase de staging.
 2. Instalar dependencias de las pruebas y ejecutar todos los comandos del workflow `.github/workflows/qa.yml` sobre el código exacto del commit a evaluar.
 3. Iniciar sesión con usuarios de prueba de los roles admin, gerente, encargado; verificar visibilidad y permisos reales en cada pestaña.
 4. Ensayar crear, editar, buscar por fecha, exportar, asociar archivo y eliminar con datos sintéticos, incluyendo errores y duplicados, en ambos establecimientos.
@@ -69,8 +69,6 @@ Estas pruebas de render se ejecutaron en un entorno JavaScript aislado, sin nave
 2. **Protección en base de datos**: migración `validate_expense_line_amounts_20261014` aplicada solo al proyecto `awmojepsasikxocoeqtu`. La restricción `ops_expense_lines_valid_amounts_ck` se verificó en `pg_constraint` con `convalidated=true`; tabla vacía antes del cambio. Documentada en `supabase/review_patches/005_expense_line_validation.sql`.
 3. **Permisos de documentos**: política de UPDATE `ops_documents_update` ajustada en staging mediante migración `scope_document_updates_to_uploader_20261014`: gerente/admin o miembro del equipo que subió ese documento, en USING y WITH CHECK. Comprobada con `pg_policies`. Documentada en `supabase/review_patches/006_document_update_owner_policy.sql`.
 4. **Auditoría de Storage**: se encontró que la política UPDATE de `storage.objects` para `business-documents` sigue siendo amplia (todos los miembros). **Pendiente** de endurecer y probar; un intento de modificarla fue bloqueado por controles de ejecución, no se aplicó. No se declara resuelta la seguridad documental completa.
-5. **Nueva publicación independiente**: Edge Function `totus-staging-preview` desplegada como ACTIVE v1 en el Supabase **de staging**, con puerta de acceso temporal propia y Auth/RLS de Supabase para los datos. Sirve HTML, CSS y JS obtenidos de la rama staging, sin sustituir GitHub Pages ni producción. Los controles de acceso/rutas pasaron ocho casos en una simulación del mismo código desplegado, pero **la apertura por navegador externo no se pudo verificar** debido a las restricciones del entorno.
-6. **Limitación del despliegue**: la Edge Function es una instantánea estática. Los cambios posteriores en la rama `staging` NO aparecen automáticamente: hay que volver a desplegar el contenido actualizado antes de anunciar al usuario que puede verlo. No publicar tokens de acceso en archivos del repositorio.
 7. **QA recurrente**: añadido `tests/route-smoke.mjs` y conectado al workflow `.github/workflows/qa.yml`. Sobre copia local de referencia, sus 35 pantallas/estados, 85 acciones y 12 comprobaciones de fecha/tienda pasaron; ejecución pendiente del workflow de GitHub con el HEAD definitivo.
 
 ### Criterio obligatorio de cierre
@@ -84,6 +82,9 @@ No afirmar estabilidad comercial al 100 % hasta aprobar las pruebas reales con n
 - **Permisos documentales de interfaz:** el encargado ve únicamente lectura cuando no subió el documento; puede editar el propio sin borrarlo. Gerencia y administración pueden editar y borrar. Cuatro combinaciones reales de representación de código frontend pasan.
 - **Regresión por pestañas:** `tests/route-smoke.mjs` ahora cubre 39 pantallas y estados, 86 botones/acciones y 12 casos de filtros.
 - **Supabase Storage:** aplicada política adicional `totus_business_docs_owner_update_restrict` con `AS RESTRICTIVE` y `USING/WITH CHECK` por dueño o gerente. Verificada mediante `pg_policies`. Archivo de referencia `supabase/review_patches/007_storage_documents_owner_update.sql`.
-- **Vista web separada:** actualizada a Edge Function `totus-staging-preview` **v3 ACTIVE**, con archivos web vigentes de `staging` al último despliegue. Sigue pendiente su prueba con un navegador externo y cuenta de usuario autenticada.
 - **Seguridad restante:** Supabase Advisors sigue mostrando 10 advertencias sobre RPC `SECURITY DEFINER` ejecutables por usuarios autenticados (con validación de roles interna que requiere ensayos), y la protección de contraseñas filtradas está deshabilitada.
 No se declara la herramienta comercialmente lista hasta completar las pruebas de extremo a extremo, restauración recuperable, importación Excel, roles configurables y validación con contabilidad real.
+
+
+## Rectificación de despliegue (15-10-2026)
+El usuario solicitó volver a utilizar exclusivamente el staging original. La publicación temporal `totus-staging-preview` se ha desactivado: versión 4 con `verify_jwt=true` y respuesta HTTP 410. Sigue existiendo como función deshabilitada hasta su eliminación definitiva desde Supabase (la conexión actual carece de acción de borrado). No se debe compartir ni reactivar. Se ha retirado el empaquetado de vista alternativa del workflow QA. Las correcciones funcionales permanecen en la rama existente `staging`; `main` y producción intactos.
