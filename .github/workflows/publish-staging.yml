@@ -83,6 +83,10 @@ jobs:
           cp -R staging-source/src _site/staging/src
           diff -qr production-source/src _site/src
           diff -qr staging-source/src _site/staging/src
+          # Sello de la versión publicada SOLO en /staging; main queda idéntico.
+          printf '{"environment":"staging","commit":"%s"}\n' "$GITHUB_SHA" > _site/staging/build-info.json
+          grep -Fq "$GITHUB_SHA" _site/staging/build-info.json
+          test ! -e _site/build-info.json
           touch _site/.nojekyll
           test -f _site/staging/src/app.js
           test ! -e _site/supabase
@@ -95,3 +99,22 @@ jobs:
           path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify original staging URL displays this commit
+        shell: bash
+        env:
+          PAGES_BASE: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          url="${PAGES_BASE%/}/staging/build-info.json"
+          echo "Checking the original staging publication: $url"
+          for attempt in {1..12}; do
+            body="$(curl --location --fail --silent --show-error --max-time 15 "$url?run=$GITHUB_RUN_ID" || true)"
+            if printf '%s' "$body" | grep -Fq "\"commit\":\"$GITHUB_SHA\""; then
+              echo "Verified: the original /staging/ path serves Git commit $GITHUB_SHA."
+              exit 0
+            fi
+            echo "Deployment not visible yet (attempt $attempt/12)."
+            sleep 5
+          done
+          echo "ERROR: The original staging URL does not serve this commit." >&2
+          exit 1
