@@ -17,6 +17,8 @@ assert.equal(canUser(manager,'fiscalidad','delete'),false);
 assert.equal(canUser(manager,'gastos','edit'),true);
 const override={email:'STAFF@EXAMPLE.INVALID',module:'gastos',can_view:true,can_create:true,can_edit:false,can_delete:false,can_export:false};
 assert.equal(canUser(staff,'gastos','create',[override]),true);
+assert.equal(canUser(staff,'gastos','create',[{...override,can_view:false}]),false,'Actions need module visibility');
+
 assert.equal(canUser(staff,'gastos','edit',[override]),false);
 assert.equal(canUser(staff,'gastos','view',[override]),true);
 assert.equal(canUser(admin,'gastos','delete',[{...override,email:admin.email}]),true);
