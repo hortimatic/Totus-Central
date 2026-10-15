@@ -1006,7 +1006,7 @@ function userModal(row=null){
   <label class="wide">Notas<textarea id="usNotes" rows="3">${esc(row?.employee_notes||'')}</textarea></label>
   ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="8"'):formField('Contraseña inicial','usPassword','','password','minlength="8"')}
  </div>
- ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva.</div>`:''}
+ ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva. Al cambiar de rol se restablecen los permisos individuales anteriores.</div>`:''}
  <div class="form-actions">
   ${row&&!self?btn(row.active?'Desactivar':'Activar','user-toggle','secondary',`data-email="${esc(row.email)}" data-active="${row.active?'false':'true'}"`):''}
   ${row?btn('Enviar recuperación','user-reset','secondary',`data-email="${esc(row.email)}"`):''}
@@ -1022,6 +1022,10 @@ async function saveUser(email=''){
  if(email){
    const current=state.data.team.find(x=>x.email===email);
    await invokeTeam({action:'update_member',...payload,active:current?.active!==false});
+   if(current&&current.role!==payload.role){
+    const {error:permissionError}=await sb.from('ops_user_permissions').delete().eq('email',email);
+    if(permissionError)throw new Error('Se cambió el rol, pero no se pudieron restablecer los permisos anteriores: '+permissionError.message);
+   }
    if(password){if(password.length<8)throw new Error('La contraseña debe tener al menos 8 caracteres.');await invokeTeam({action:'set_password',email,password,full_name:payload.full_name,role:payload.role})}
  }else{
    if(password.length<8)throw new Error('La contraseña inicial debe tener al menos 8 caracteres.');
