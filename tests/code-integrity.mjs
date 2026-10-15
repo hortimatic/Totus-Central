@@ -164,3 +164,16 @@ assert.ok(!pagesSource.includes("btn('Restaurar copia'"),'Staging must not offer
 assert.ok(pagesSource.includes("btn('Verificar integridad','backup-verify'"),'Staging must offer safe backup integrity verification');
 assert.ok(appSource.includes("async function verifyBackupFromInput()"),'Safe inspection handler missing');
 assert.ok(!appSource.includes("async function restoreBackupFromInput()"),'Dead restore input handler must remain removed');
+
+for(const [sqlFile,functionName,baseName] of [
+ ['supabase/totus_api.sql','totus_is_manager','is_manager'],
+ ['supabase/totus_api.sql','totus_is_team_member','is_team_member'],
+ ['supabase/backup.sql','totus_is_admin','is_admin']
+]){
+ const text=fs.readFileSync(sqlFile,'utf8');
+ const start=text.indexOf('create or replace function private.'+functionName+'()');
+ assert.ok(start>=0,'Missing role check: '+functionName);
+ const body=text.slice(start,text.indexOf('$$;',start)+3);
+ assert.ok(body.includes('select private.'+baseName+'();'),'Role check must reuse verified RLS helper: '+functionName);
+ assert.ok(!body.includes('join public.team_members'),'Duplicate profile-based role checks are prohibited');
+}
