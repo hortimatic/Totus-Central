@@ -118,7 +118,7 @@ for(const fn of ['totus_save_closing','totus_save_expense','totus_save_sales_doc
 for(const term of ['closing-save-draft','closing-save-close','closing-reopen','reported_total_sales'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Cajas incompleto: '+term);
 for(const term of ['expense-document-preview','expense-document-download','expense-line-add','management_only'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Gastos incompleto: '+term);
 for(const term of ['external-invoice-new','rectifying-new','billing-section','invoice-source-preview','totus_register_external_document'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('supabase/totus_api.sql').includes(term))errors.push('Facturación incompleta: '+term);
-for(const term of ['documents-zip','document-download','document-delete','sheet_to_html','document-frame'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('src/styles.css').includes(term))errors.push('Documentos incompleto: '+term);
+for(const term of ['documents-zip','document-download','document-delete','sheetPreviewTable','document-frame'])if(!appSource.includes(term)&&!pageSource.includes(term)&&!text('src/styles.css').includes(term))errors.push('Documentos incompleto: '+term);
 for(const term of ['record-layout','sticky-summary','module-tabs','@media(max-width:800px)'])if(!text('src/styles.css').includes(term))errors.push('Interfaz responsive incompleta: '+term);
 if(/\b(usuarios|configuracion|log)\s*:\s*\[/.test(text('src/config.js')))errors.push('Persisten rutas administrativas duplicadas');
 
@@ -160,7 +160,7 @@ for(const id of ['docFile','docStore','docDate','docType','docStatus','docParty'
 for(const action of ['document-save','document-back'])if(!newDocument.includes('data-action="'+action+'"'))errors.push('Documentos ficha falta acción '+action);
 
 setView('administracion',{section:'backups'});const backupHtml=pages.administracion();
-for(const term of ['Descargar copia completa','Cargar copia','Restaurar copia'])if(!backupHtml.includes(term))errors.push('Administración copias incompleta: '+term);
+for(const term of ['Descargar copia','Verificar integridad','Restauración bloqueada'])if(!backupHtml.includes(term))errors.push('Administración copias incompleta: '+term);
 const fileUtils=await import(path.resolve(root,'src/file-utils.js'));
 const fake=(name,type,size=1024)=>({name,type,size});
 for(const [name,type,kind] of [
@@ -193,8 +193,10 @@ for(const table of ['ops_income_adjustments']){
 const dateUtils=text('src/utils.js');
 if(/isoToday\s*=\s*\(\)\s*=>\s*new Date\(\)\.toISOString\(\)\.slice/.test(dateUtils))errors.push('Fecha actual calculada en UTC y no hora local');
 if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
-for(const term of ['business-documents','business-assets','database.json','manifest.json','totus-clean-backup','totus_restore_backup'])if(!backupSource.includes(term))errors.push('Backup incompleto: '+term);
-for(const term of ['backup-create','backup-restore','RESTAURAR TOTUS'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Control de backup incompleto: '+term);
+for(const term of ['business-documents','business-assets','database.json','manifest.json','totus-clean-backup'])if(!backupSource.includes(term))errors.push('Backup incompleto: '+term);
+for(const term of ['backup-create','backup-verify'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Control de backup incompleto: '+term);
+if(appSource.includes('window.XLSX.utils.sheet_to_html('))errors.push('Documentos vuelve a insertar HTML no confiable de Excel');
+if(backupHtml.includes('data-action="backup-restore"'))errors.push('Restauración no verificada vuelve a aparecer');
 if(backupSource.includes("'team_members'")||backupSource.includes("'profiles'"))errors.push('El backup no debe restaurar usuarios/Auth');
 if(/delete\s+from\s+public\.(team_members|profiles)/i.test(backupSql))errors.push('Restaurar backup podría borrar usuarios');
 for(const term of ['totus_restore_backup','totus_is_admin','totus_storage_usage'])if(!backupSql.includes(term))errors.push('SQL backup no versionado: '+term);
