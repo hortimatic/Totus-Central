@@ -7,7 +7,9 @@ export const PERMISSION_MODULES=[
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];
 export function rolePermissions(role,module){
  if(role==='admin')return {view:true,create:true,edit:true,delete:true,export:true};
- if(role==='gerente')return module==='administracion'
+ if(role==='gerente')return module==='fiscalidad'
+  ?{view:true,create:true,edit:true,delete:false,export:true}
+  :module==='administracion'
   ?{view:true,create:false,edit:false,delete:false,export:false}
   :{view:true,create:true,edit:true,delete:true,export:true};
  if(role==='encargado')return {
