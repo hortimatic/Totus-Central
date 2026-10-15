@@ -1,4 +1,5 @@
 import {ROUTES} from './config.js';
+import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
@@ -15,11 +16,8 @@ const titles={
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-function routeAllowed(r){
- if(r.admin&&!isAdmin())return false;
- if(r.manager&&!isManager())return false;
- return true;
-}
+function can(module,action='view'){return canUser(state.user,module,action,state.data.userPermissions||[])}
+function routeAllowed(r){return can(r.id,'view')}
 function renderNav(){
  const nav=$('#nav');let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
@@ -29,6 +27,7 @@ function renderNav(){
 }
 function render(){
  if(!state.user)return;
+ if(!can(state.route,'view'))state.route=ROUTES.find(routeAllowed)?.id||'inicio';
  renderNav();
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
@@ -915,6 +914,41 @@ async function saveDrawer(storeId,id=''){
  if(id)await update('ops_cash_drawers',id,row);else await insert('ops_cash_drawers',row);closeModal();await refresh('Caja guardada.');
 }
 
+function userPermissionsModal(email){
+ if(!isAdmin())throw new Error('Solo el administrador puede editar permisos.');
+ const member=state.data.team.find(x=>x.email?.toLowerCase()===String(email).toLowerCase());
+ if(!member)throw new Error('Usuario no encontrado.');
+ if(member.role==='admin')throw new Error('Los administradores conservan permisos completos por seguridad.');
+ const rows=PERMISSION_MODULES.map(([module,label])=>{
+  const values=permissionsFor(member,module,state.data.userPermissions||[]);
+  const cells=PERMISSION_ACTIONS.map(([action,actionLabel])=>`<td class="permission-cell"><label title="${esc(actionLabel)}: ${esc(label)}"><input type="checkbox" id="perm_${module}_${action}" ${values[action]?'checked':''} aria-label="${esc(actionLabel)} en ${esc(label)}"></label></td>`).join('');
+  return `<tr><th scope="row">${esc(label)}</th>${cells}</tr>`;
+ }).join('');
+ const head=PERMISSION_ACTIONS.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('');
+ const body=`<div class="stack"><p>Define los permisos de <b>${esc(member.full_name||member.email)}</b> (<b>${esc(member.role)}</b>). Los cambios se aplican también en el servidor. Para restablecer los permisos habituales del rol, utiliza el botón correspondiente.</p><div class="table-scroll"><table class="permissions-table"><thead><tr><th scope="col">Módulo</th>${head}</tr></thead><tbody>${rows}</tbody></table></div><div class="form-actions">${btn('Restablecer rol','user-permissions-reset','secondary',`data-email="${esc(email)}"`)}${btn('Guardar permisos','user-permissions-save','primary',`data-email="${esc(email)}"`)}</div></div>`;
+ modal('Permisos del usuario',body);
+}
+async function saveUserPermissions(email){
+ if(!isAdmin())throw new Error('Solo el administrador puede asignar permisos.');
+ const member=state.data.team.find(x=>x.email?.toLowerCase()===String(email).toLowerCase());
+ if(!member||member.role==='admin')throw new Error('No se pueden asignar permisos a esta cuenta.');
+ const list=PERMISSION_MODULES.map(([module])=>{
+  const row={email:member.email,module,updated_at:new Date().toISOString(),updated_by:state.session?.user?.id||null};
+  for(const [action] of PERMISSION_ACTIONS)row['can_'+action]=!!document.getElementById('perm_'+module+'_'+action)?.checked;
+  return row;
+ });
+ const {error}=await sb.from('ops_user_permissions').upsert(list,{onConflict:'email,module'});
+ if(error)throw new Error('No se pudieron guardar los permisos: '+error.message);
+ closeModal();await refresh('Permisos actualizados.');
+}
+async function resetUserPermissions(email){
+ if(!isAdmin())throw new Error('Solo el administrador puede restablecer permisos.');
+ if(!confirm('¿Restablecer todos los permisos de '+email+' a los valores de su rol?'))return;
+ const {error}=await sb.from('ops_user_permissions').delete().eq('email',email);
+ if(error)throw new Error('No se pudieron restablecer los permisos: '+error.message);
+ closeModal();await refresh('Permisos del rol restablecidos.');
+}
+
 function userModal(row=null){
  const self=row&&row.email?.toLowerCase()===state.user?.email?.toLowerCase();
  const body=`<div class="form-grid">
@@ -1134,7 +1168,7 @@ function exportRows(type){
 
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
- const route=el.dataset.route;if(route){setRoute(route);document.body.classList.remove('menu-open');render();return}
+ const route=el.dataset.route;if(route){if(!can(route,'view'))throw new Error('No tienes permiso para acceder a esta sección.');setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  try{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
@@ -1263,6 +1297,9 @@ document.addEventListener('click',async e=>{
   if(a==='user-new'){userModal();return}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}
   if(a==='user-save'){await saveUser(el.dataset.email||'');return}
+  if(a==='user-permissions'){userPermissionsModal(el.dataset.email);return}
+  if(a==='user-permissions-save'){await saveUserPermissions(el.dataset.email);return}
+  if(a==='user-permissions-reset'){await resetUserPermissions(el.dataset.email);return}
   if(a==='user-toggle'){await toggleUser(el.dataset.email,el.dataset.active==='true');return}
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
