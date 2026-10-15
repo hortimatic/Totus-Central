@@ -152,3 +152,10 @@ assert.ok(pagesSource.includes("row.uploaded_by===state.session?.user?.id"),'Doc
 assert.ok(pagesSource.includes("row&&isManager()?btn('Eliminar documento'"),'Document delete button must remain manager-only');
 assert.ok(appSource.includes("current.uploaded_by!==state.session?.user?.id"),'Document save action must verify owner');
 assert.ok(appSource.includes("if(!isManager())throw new Error('Solo administración o gerencia pueden eliminar documentos.')"),'Document deletion must require manager');
+
+const htmlSource=fs.readFileSync('index.html','utf8');
+assert.ok(!htmlSource.includes('stagingSignupBtn'),'Legacy self-registration shortcut must stay removed');
+assert.ok(!htmlSource.includes('hortimatic.github.io/Totus-Central/staging/'),'Legacy authentication callback must not return');
+assert.ok(!appSource.includes('auditSemesterFiltersInitialized'),'Refresh must never overwrite selected filters with a fixed semester');
+assert.ok(!fs.existsSync('.github/workflows/entrega-codigo.yml'),'Retired release branch workflow must not return');
+assert.ok(!fs.existsSync('.github/workflows/pages-preview.yml'),'Obsolete Pages deployment workflow must not return');
