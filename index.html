@@ -17,7 +17,7 @@
     <label>Correo<input id="loginEmail" type="email" autocomplete="email" required></label>
     <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required></label>
     <button class="btn primary" type="submit">Entrar</button>
-    <button class="btn secondary" id="stagingSignupBtn" type="button">Crear acceso Staging</button>
+    
     <button class="btn link" id="recoverBtn" type="button">He olvidado mi contraseña</button>
     <div id="loginMessage" class="message"></div>
   </form>
@@ -49,23 +49,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script>
-document.getElementById('stagingSignupBtn').addEventListener('click',async()=>{
- const email=document.getElementById('loginEmail').value.trim().toLowerCase();
- const password=document.getElementById('loginPassword').value;
- const msg=document.getElementById('loginMessage');
- if(email!=='hortimatic@gmail.com'){msg.textContent='Acceso inicial reservado a hortimatic@gmail.com.';return}
- if(password.length<8){msg.textContent='Escribe una contraseña nueva de al menos 8 caracteres. No uses la de producción.';return}
- const btn=document.getElementById('stagingSignupBtn');btn.disabled=true;msg.textContent='Creando acceso de pruebas...';
- try{
-  const client=window.supabase.createClient('https://awmojepsasikxocoeqtu.supabase.co','sb_publishable_6wPpKBQ75TOT5hrfedyd5w_KjbzH4MS',{auth:{persistSession:false}});
-  const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:'https://hortimatic.github.io/Totus-Central/staging/'}});
-  if(error)throw error;
-  msg.textContent=data.session?'Cuenta registrada. Ya puedes entrar.':'Cuenta solicitada. Confirma el correo recibido y después inicia sesión.';
- }catch(error){msg.textContent='No se pudo registrar: '+(error.message||String(error))}
- finally{btn.disabled=false}
-});
-</script>
+
 <script type="module" src="src/app.js"></script>
 </body>
 </html>
