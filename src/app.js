@@ -883,6 +883,7 @@ async function getDocumentBlob(doc){
 }
 async function downloadDocument(id){
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
+ if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo puedes eliminar documentos que hayas subido.');
  const blob=await getDocumentBlob(d);download(blob,d.original_name||'documento');
 }
 async function previewDocument(id){
@@ -916,7 +917,7 @@ function documentIsLinked(id){
  return state.data.expenses.some(x=>x.document_id===id)||state.data.invoices.some(x=>x.source_document_id===id||x.generated_document_id===id)||state.data.documents.some(x=>x.id===id&&x.linked_entity_id);
 }
 async function deleteDocument(id){
- if(!isManager())throw new Error('Solo administración o gerencia pueden eliminar documentos.');
+ if(!can('documentos','delete'))throw new Error('No tienes permiso para eliminar documentos.');
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
  if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
  if(!confirm('¿Eliminar definitivamente este documento?'))return;
