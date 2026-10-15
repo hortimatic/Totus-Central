@@ -65,7 +65,11 @@ function renderNav(){
 }
 function render(){
  if(!state.user)return;
- if(!can(state.route,'view'))state.route=ROUTES.find(routeAllowed)?.id||'inicio';
+ if(!can(state.route,'view')){
+  const first=ROUTES.find(routeAllowed);
+  if(!first){$('#nav').innerHTML='';setHeader('Acceso','Sin permisos');$('#content').innerHTML='<section class="card card-pad" role="alert"><h2>No tienes módulos asignados</h2><p>Solicita al administrador permiso para acceder a la herramienta.</p></section>';return}
+  state.route=first.id;
+ }
  renderNav();
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
