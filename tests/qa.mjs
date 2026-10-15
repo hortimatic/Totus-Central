@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const must=[
- 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','src/calculations.js','src/file-utils.js','supabase/totus_api.sql','supabase/backup.sql'
+ 'index.html','src/app.js','src/api.js','src/state.js','src/config.js','src/utils.js','src/components.js','src/permissions.js','src/pages/main.js','src/styles.css','src/excel.js','src/backup.js','src/calculations.js','src/file-utils.js','supabase/totus_api.sql','supabase/backup.sql'
 ];
 const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
