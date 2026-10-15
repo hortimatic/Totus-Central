@@ -130,3 +130,34 @@ CREATE POLICY totus_invoice_lines_draft_delete ON public.ops_sales_invoice_lines
 
 -- Las nueve RPC de negocio tienen su control private.totus_can en totus_api.sql.
 -- Las otras operaciones administrativas siguen teniendo protección propia.
+
+-- Vistas auxiliares, histórico y privacidad de perfiles (migración
+-- totus_secondary_tables_and_team_privacy_20261015).
+CREATE POLICY totus_team_directory_privacy ON public.team_members AS RESTRICTIVE FOR SELECT TO authenticated
+ USING(private.is_manager() OR lower(email)=lower(coalesce(auth.jwt()->>'email','')));
+CREATE POLICY totus_profile_directory_privacy ON public.profiles AS RESTRICTIVE FOR SELECT TO authenticated
+ USING(private.is_manager() OR id=(SELECT auth.uid()));
+CREATE POLICY totus_history_read ON public.price_history AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('pricing','view')));
+CREATE POLICY totus_history_create ON public.price_history AS RESTRICTIVE FOR INSERT TO authenticated
+ WITH CHECK((SELECT private.totus_can('pricing','create')));
+CREATE POLICY totus_history_edit ON public.price_history AS RESTRICTIVE FOR UPDATE TO authenticated
+ USING((SELECT private.totus_can('pricing','edit'))) WITH CHECK((SELECT private.totus_can('pricing','edit')));
+CREATE POLICY totus_history_delete ON public.price_history AS RESTRICTIVE FOR DELETE TO authenticated
+ USING((SELECT private.totus_can('pricing','delete')));
+CREATE POLICY totus_consultation_history_read ON public.consultation_history AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('pricing','view')));
+CREATE POLICY totus_consultation_history_create ON public.consultation_history AS RESTRICTIVE FOR INSERT TO authenticated
+ WITH CHECK((SELECT private.totus_can('pricing','create')));
+CREATE POLICY totus_customer_read ON public.ops_customers AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('facturacion','view')));
+CREATE POLICY totus_template_read ON public.ops_document_templates AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('facturacion','view')));
+CREATE POLICY totus_series_read ON public.ops_invoice_series AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('facturacion','view')));
+CREATE POLICY totus_drawer_read ON public.ops_cash_drawers AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('cajas','view')));
+CREATE POLICY totus_expense_categories_read ON public.ops_expense_categories AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('gastos','view')));
+CREATE POLICY totus_reta_read ON public.ops_reta_brackets AS RESTRICTIVE FOR SELECT TO authenticated
+ USING((SELECT private.totus_can('fiscalidad','view')));
