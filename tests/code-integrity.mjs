@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 const root=process.cwd();
-const source=['src/app.js','src/api.js','src/state.js','src/utils.js','src/config.js','src/components.js','src/calculations.js','src/file-utils.js','src/excel.js','src/backup.js','src/pages/main.js'];
+const source=['src/app.js','src/api.js','src/state.js','src/utils.js','src/config.js','src/components.js','src/permissions.js','src/calculations.js','src/file-utils.js','src/excel.js','src/backup.js','src/pages/main.js'];
 const cache=Object.fromEntries(source.map(file=>[file,fs.readFileSync(file,'utf8')]));
 const problems=[];
 for(const [file,content] of Object.entries(cache)){
@@ -149,9 +149,9 @@ const expenseLineConstraint=fs.readFileSync('supabase/review_patches/005_expense
 assert.ok(expenseLineConstraint.includes('ops_expense_lines_valid_amounts_ck'),'Database expense constraint documentation missing');
 
 assert.ok(pagesSource.includes("row.uploaded_by===state.session?.user?.id"),'Document owner must retain edit access');
-assert.ok(pagesSource.includes("row&&isManager()?btn('Eliminar documento'"),'Document delete button must remain manager-only');
+assert.ok(pagesSource.includes("canUser(state.user,'documentos','delete',state.data.userPermissions)"),'Document deletion visibility must reflect user permissions');
 assert.ok(appSource.includes("current.uploaded_by!==state.session?.user?.id"),'Document save action must verify owner');
-assert.ok(appSource.includes("if(!isManager())throw new Error('Solo administración o gerencia pueden eliminar documentos.')"),'Document deletion must require manager');
+assert.ok(appSource.includes("if(!can('documentos','delete'))"),'Document deletion must require module permission');
 
 const htmlSource=fs.readFileSync('index.html','utf8');
 assert.ok(!htmlSource.includes('stagingSignupBtn'),'Legacy self-registration shortcut must stay removed');
@@ -177,3 +177,6 @@ for(const [sqlFile,functionName,baseName] of [
  assert.ok(body.includes('select private.'+baseName+'();'),'Role check must reuse verified RLS helper: '+functionName);
  assert.ok(!body.includes('join public.team_members'),'Duplicate profile-based role checks are prohibited');
 }
+
+assert.ok(appSource.includes('hideForbiddenButtons()'),'Module permissions must hide unavailable actions');
+assert.ok(appSource.includes("if(!checkActionPermission(a,el))"),'Module actions must reject forbidden operations');
