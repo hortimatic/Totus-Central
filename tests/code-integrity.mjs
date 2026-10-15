@@ -180,3 +180,17 @@ for(const [sqlFile,functionName,baseName] of [
 
 assert.ok(appSource.includes('hideForbiddenButtons()'),'Module permissions must hide unavailable actions');
 assert.ok(appSource.includes("if(!checkActionPermission(a,el))"),'Module actions must reject forbidden operations');
+
+const permissionsSql=fs.readFileSync('supabase/permissions.sql','utf8');
+assert.ok(permissionsSql.includes('CREATE TABLE public.ops_user_permissions'),'User permissions table must be versioned');
+assert.ok(permissionsSql.includes('AS RESTRICTIVE'),'RLS permissions need restrictive safeguards');
+assert.ok(permissionsSql.includes('CREATE POLICY totus_storage_document_delete'),'Storage permissions must be declared');
+for(const functionName of ['totus_convert_proforma','totus_delete_closing','totus_delete_expense','totus_finalize_sales_document','totus_register_external_document','totus_save_closing','totus_save_expense','totus_save_sales_document','totus_update_invoice_payment']){
+ const start=apiSql.indexOf('create or replace function public.'+functionName+'(');
+ assert.ok(start>=0,'Missing privileged RPC '+functionName);
+ const end=apiSql.indexOf('$$;',start);
+ assert.ok(apiSql.slice(start,end).includes('private.totus_can('),'Privileged RPC without fine-grained permission: '+functionName);
+}
+assert.ok(appSource.includes("event==='PASSWORD_RECOVERY'"),'Recovery links must show password reset form');
+assert.ok(appSource.includes('sb.auth.updateUser({password})'),'Recovery must set a password through authenticated Supabase');
+assert.ok(htmlSource.includes('id="passwordResetPanel"'),'Recovery UI missing');
