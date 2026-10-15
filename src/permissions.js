@@ -28,4 +28,4 @@ export function permissionsFor(user,module,entries=[]){
  if(!row)return original;
  return Object.fromEntries(PERMISSION_ACTIONS.map(([action])=>[action,row['can_'+action]===true]));
 }
-export const canUser=(user,module,action,entries=[])=>permissionsFor(user,module,entries)[action]===true;
+export const canUser=(user,module,action,entries=[])=>{const p=permissionsFor(user,module,entries);return p.view===true&&p[action]===true};
