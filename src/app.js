@@ -7,7 +7,7 @@ import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js
 import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment} from './file-utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
-import {createBackup,inspectBackup,restoreBackup} from './backup.js';
+import {createBackup,inspectBackup} from './backup.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
@@ -1014,17 +1014,14 @@ async function downloadBackup(){
  const out=await createBackup();
  toast('Copia creada: '+(out.size/1024/1024).toFixed(1).replace('.',',')+' MB','ok');
 }
-async function restoreBackupFromInput(){
- if(!isAdmin())throw new Error('Solo el administrador puede restaurar copias.');
- const file=input('backupFile')?.files?.[0];if(!file)throw new Error('Selecciona primero un archivo .totusbackup.');
- const inspected=await inspectBackup(file);
- if(!confirm('1/3 · La copia es del '+new Date(inspected.manifest.created_at).toLocaleString('es-ES')+'. ¿Continuar?'))return;
- if(!confirm('2/3 · Se sustituirán los datos de negocio actuales. Los usuarios Diego/Davinia y Auth NO se tocarán. ¿Continuar?'))return;
- const check=prompt('3/3 · Escribe RESTAURAR TOTUS para confirmar:');if(check!=='RESTAURAR TOTUS')return;
- const reason=prompt('Motivo de la restauración:');if(!reason?.trim())throw new Error('El motivo es obligatorio.');
- toast('Restaurando copia…');
- await restoreBackup(file,reason.trim());
- await refresh('Copia restaurada correctamente.');
+async function verifyBackupFromInput(){
+ if(!isAdmin())throw new Error('Solo el administrador puede comprobar copias.');
+ const file=input('backupFile')?.files?.[0];
+ if(!file)throw new Error('Selecciona una copia antes de comprobarla.');
+ const result=await inspectBackup(file);
+ const rows=Object.values(result.database).reduce((a,entries)=>a+(Array.isArray(entries)?entries.length:0),0);
+ const files=Object.values(result.manifest.storage||{}).reduce((a,entries)=>a+(Array.isArray(entries)?entries.length:0),0);
+ modal('Comprobación de copia',`<div class="stack"><div class="note">Integridad validada. No se ha modificado ningún dato.</div><p>Versión: <b>${esc(result.manifest.version)}</b></p><p>Registros de negocio: <b>${rows}</b></p><p>Archivos: <b>${files}</b></p><div class="note warn">Validar la copia no significa que se pueda restaurar aún. La restauración sigue bloqueada por seguridad.</div></div>`);
 }
 
 async function saveConfig(){
@@ -1272,7 +1269,7 @@ document.addEventListener('click',async e=>{
   if(a==='config-save'){await saveConfig();return}
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();return}
   if(a==='backup-create'){await downloadBackup();return}
-  if(a==='backup-restore'){await restoreBackupFromInput();return}
+  if(a==='backup-verify'){await verifyBackupFromInput();return}
   if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));return}
   if(a==='tax-payment-edit'){const row=el.dataset.id?state.data.taxPayments.find(x=>x.id===el.dataset.id):null;taxPaymentForm(el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter),row);return}
   if(a==='tax-payment-save'){await saveTaxPayment(el.dataset.id||'',el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter));return}
