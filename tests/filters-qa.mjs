@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {dateFilters} from '../src/components.js';
-import {gastos} from '../src/pages/main.js';
+import {gastos,documentos,fiscalidad,informes} from '../src/pages/main.js';
 import {state} from '../src/state.js';
 import {inRange,monthRange} from '../src/utils.js';
 import {validateExpenseClassification} from '../src/calculations.js';
@@ -53,4 +53,16 @@ assert.throws(()=>validateExpenseClassification([{...internalLine,deductible_irp
 assert.throws(()=>validateExpenseClassification([internalLine,normalLine],[internalCategory,fiscalCategory],true),/No mezcles/);
 assert.equal(validateExpenseClassification([normalLine],[internalCategory,fiscalCategory],false),true);
 
+// Documentos, fiscalidad e informes deben conservar un único contenedor de filtros
+// incluso cuando incorporan selector de estado, trimestre o año.
+state.views.documentos={mode:'list',id:null};
+for(const [module,html,additional] of [
+ ['documentos',documentos(),'documentosStatus'],
+ ['fiscalidad',fiscalidad(),'fiscal-quarter'],
+ ['informes',informes(),'informesYear']
+]){
+ assert.equal((html.match(/class="filters"/g)||[]).length,1,module+': filtros duplicados o anidados');
+ assert.ok(html.includes(additional),module+': falta control complementario');
+ assert.ok(html.includes('id="'+(module==='fiscalidad'?'fiscalFrom':module+'From')+'"'),module+': falta control Desde');
+}
 console.log('FILTERS QA: estructura, fechas inclusivas, tiendas, gastos internos y pagos OK');
