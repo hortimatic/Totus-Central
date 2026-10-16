@@ -3,6 +3,7 @@ import {dateFilters} from '../src/components.js';
 import {gastos} from '../src/pages/main.js';
 import {state} from '../src/state.js';
 import {inRange,monthRange} from '../src/utils.js';
+import {validateExpenseClassification} from '../src/calculations.js';
 
 // Filtros de fecha, tienda, tipo y pago: entradas de usuario y límites inclusivos.
 assert.equal(inRange('2026-10-01','2026-10-01','2026-10-16'),true);
@@ -40,4 +41,16 @@ assert.ok(!html.includes('INICIO INCLUIDO')&&html.includes('FIN INCLUIDO'),'El f
 state.filters.gastos.paid='pagado';
 html=gastos();
 assert.ok(!html.includes('FIN INCLUIDO'),'El filtro de pago debe combinarse con el filtro interno');
+
+// Protección de gastos internos frente a imputación fiscal accidental.
+const internalCategory={id:'internal-overtime',code:'INTERNAL_OVERTIME'};
+const fiscalCategory={id:'normal-supply',code:'UTIL'};
+const internalLine={category_id:'internal-overtime',deductible_irpf:false,deductible_pct:0};
+const normalLine={category_id:'normal-supply',deductible_irpf:true,deductible_pct:100};
+assert.equal(validateExpenseClassification([internalLine],[internalCategory,fiscalCategory],true),true);
+assert.throws(()=>validateExpenseClassification([internalLine],[internalCategory,fiscalCategory],false),/Solo control interno|solo de control interno/);
+assert.throws(()=>validateExpenseClassification([{...internalLine,deductible_irpf:true}],[internalCategory],true),/deducible/);
+assert.throws(()=>validateExpenseClassification([internalLine,normalLine],[internalCategory,fiscalCategory],true),/No mezcles/);
+assert.equal(validateExpenseClassification([normalLine],[internalCategory,fiscalCategory],false),true);
+
 console.log('FILTERS QA: estructura, fechas inclusivas, tiendas, gastos internos y pagos OK');
