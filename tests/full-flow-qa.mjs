@@ -338,6 +338,30 @@ await check('Descarga conjunta de documentos archivados',async()=>{
  const exportFile=await promise;
  assert(exportFile.suggestedFilename().endsWith('.zip'),'La descarga conjunta debe ser ZIP');
 });
+await check('Documentos homónimos: dos subidas y descarga ZIP sin sobrescrituras',async()=>{
+ await nav('documentos');
+ if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').first().click();
+ for(const i of [1,2]){
+  await page.locator('[data-action="document-new"]').click();
+  await page.locator('#docParty').fill('Proveedor homonimo');
+  await page.locator('#docDate').fill('2026-10-10');
+  await page.locator('#docFile').setInputFiles({name:'justificante-repetido.txt',mimeType:'text/plain',buffer:Buffer.from('JUSTIFICANTE DISTINTO QA '+i)});
+  await page.locator('[data-action="document-save"]').click();
+  await page.waitForTimeout(120);
+  await page.locator('[data-action="document-back"]').first().click();
+ }
+ const repeated=(await db()).documents.filter(d=>d.original_name==='justificante-repetido.txt');
+ assert(repeated.length===2,'No se guardaron dos documentos homónimos');
+ assert(repeated[0].id!==repeated[1].id&&repeated[0].storage_path!==repeated[1].storage_path,'Documentos homónimos colisionan en Storage');
+ const started=page.waitForEvent('download',{timeout:12000});
+ await page.locator('[data-action="documents-zip"]').first().click();
+ const exported=await started;
+ const zip=await JSZip.loadAsync(await fs.readFile(await exported.path()));
+ const entries=Object.keys(zip.files).filter(n=>n.endsWith('_justificante-repetido.txt'));
+ assert(entries.length===2,'La descarga ZIP filtrada ha perdido un justificante por nombre repetido');
+ const bodies=await Promise.all(entries.map(n=>zip.file(n).async('string')));
+ assert(bodies.includes('JUSTIFICANTE DISTINTO QA 1')&&bodies.includes('JUSTIFICANTE DISTINTO QA 2'),'No se conservaron los dos contenidos distintos');
+});
 await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  await nav('administracion');
  await page.locator('[data-action="user-new"]').first().click();
@@ -447,6 +471,16 @@ await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF ori
   assert(!!archive.file(required),'Falta fichero del gestor: '+required);
  }
  assert(names.some(x=>x.endsWith('/justificante-test.pdf')),'No se incluyó la factura PDF original de gastos en el ZIP');
+ const index=archive.file('05_DOCUMENTOS/Indice_documentos_2026.csv');
+ assert(index,'El paquete no incluye el índice de documentos');
+ const indexText=await index.async('string');
+ const docs2026=(await db()).documents.filter(d=>String(d.document_date||d.created_at).startsWith('2026'));
+ assert(indexText.trim().split(/\\r?\\n/).length===docs2026.length+1,'El índice no contiene una fila por documento');
+ const colliding=names.filter(x=>x.startsWith('05_DOCUMENTOS/factura_recibida/Proveedor_homonimo/')&&x.includes('justificante-repetido')&&x.endsWith('.txt'));
+ assert(colliding.length===2,'El paquete de gestoría sobrescribió uno de los documentos homónimos');
+ const content=await Promise.all(colliding.map(n=>archive.file(n).async('string')));
+ assert(content.includes('JUSTIFICANTE DISTINTO QA 1')&&content.includes('JUSTIFICANTE DISTINTO QA 2'),'El paquete gestor no conserva los originales íntegros');
+
  const summary=await archive.file('04_RESUMEN/Resumen_2026.csv').async('string');
  const incomes=await archive.file('01_INGRESOS/Ingresos_2026.csv').async('string');
  const declared=Number(summary.match(/Ventas;([\d.]+)/)?.[1]);
