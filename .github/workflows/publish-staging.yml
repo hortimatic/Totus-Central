@@ -72,6 +72,7 @@ jobs:
           node tests/field-sweep-qa.mjs
           node tests/full-flow-qa.mjs
           node tests/backup-qa.mjs
+          node tests/admin-submenus-qa.mjs
       - name: Assemble single GitHub Pages site with untouched main and /staging
         shell: bash
         run: |
