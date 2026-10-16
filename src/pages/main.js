@@ -153,6 +153,54 @@ export function gastos(){
  </div>`;
 }
 
+
+function expenseTabs(section){
+ return `<div class="tabs module-tabs expense-tabs" role="group" aria-label="Secciones de gastos">
+  <button class="tab ${section==='registros'?'active':''}" data-action="expense-section" data-section="registros">Registros de gastos</button>
+  <button class="tab ${section==='facturas'?'active':''}" data-action="expense-section" data-section="facturas">Facturas y justificantes</button>
+ </div>`;
+}
+function expenseInvoiceSectionHtml(){
+ const f=getFilters('gastos'),kind=f.kind||'all',paid=f.paid||'all',attachment=f.attachment||'all';
+ const rows=expenseAttachedInvoices(state.data.expenses,state.data.documents)
+  .filter(({expense,document,date,searchable})=>
+   inRange(date,f.from,f.to)
+   &&(f.store==='all'||(expense?.store_id||document?.store_id)===f.store)
+   &&(kind==='all'||(expense&&(kind==='internal'?!!expense.management_only:!expense.management_only)))
+   &&(paid==='all'||expense?.paid_status===paid)
+   &&(attachment==='all'||(attachment==='attached'?!!document:!document))
+   &&(!f.query||searchable.includes(String(f.query).toLocaleLowerCase('es'))))
+  .sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(a.expense?.supplier_name||a.document?.supplier_or_customer||'').localeCompare(String(b.expense?.supplier_name||b.document?.supplier_or_customer||''),'es'));
+ const headers=[
+  {label:'Fecha / tienda',html:r=>`<b>${fmtDate(r.date)}</b><div class="small muted">${esc(storeName(r.expense?.store_id||r.document?.store_id))}</div>`},
+  {label:'Factura / proveedor',html:r=>`<b>${esc(r.expense?.invoice_number||r.document?.invoice_number||'Sin número')}</b><div>${esc(r.expense?.supplier_name||r.document?.supplier_or_customer||'Sin identificar')}</div><div class="small muted">${esc(r.expense?.supplier_tax_id||r.document?.tax_id||'Sin NIF/CIF')}</div>`},
+  {label:'Concepto / archivo',html:r=>`<span>${esc(r.expense?.description||r.document?.original_name||'—')}</span><div class="small muted">${esc(r.document?.original_name||'Sin justificante')}</div>`},
+  {label:'Importes',html:r=>r.expense?`<div class="expense-amounts"><span>Base <b>${money(r.expense.base_amount||0)}</b></span><span>IVA <b>${money(r.expense.vat_amount||0)}</b></span><span>RE <b>${money(r.expense.re_amount||0)}</b></span><span>Ret. <b>${money(r.expense.withholding_amount||0)}</b></span></div>`:'Pendiente de asociar'},
+  {label:'Total / pago',num:true,html:r=>r.expense?`<b>${money(r.expense.gross_expense??r.expense.accounting_amount??0)}</b><div class="small">${stateBadge(r.expense.paid_status||'pendiente')}</div>`:'—'},
+  {label:'Revisión',html:r=>r.unlinked?'<span class="badge warn">Sin asociar</span>':r.expense?.management_only?'<span class="badge warn">Interno, no gestoría</span>':r.expense?.fiscal_reviewed===false?'<span class="badge warn">Sin revisar</span>':'<span class="badge info">Revisado</span>'},
+  {label:'Acciones',html:r=>`<div class="expense-file-actions">
+   ${r.document?btn('Vista previa','expense-document-preview','secondary',`data-id="${esc(r.document.id)}"`):'<span class="small muted">Sin archivo</span>'}
+   ${r.document?btn('Descargar','expense-document-download','secondary',`data-id="${esc(r.document.id)}"`):''}
+   ${r.expense?btn('Datos gestoría','expense-gestor-detail','secondary',`data-id="${esc(r.expense.id)}"`):''}
+   ${r.expense?btn('Abrir gasto','expense-edit','secondary',`data-id="${esc(r.expense.id)}"`):btn('Abrir archivo','expense-unlinked-open','secondary',`data-id="${esc(r.document?.id||'')}"`)}
+   </div>`}
+ ];
+ const extras=`<div class="field"><label for="gastosKind">Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Interno</option></select></div>
+ <div class="field"><label for="gastosPaid">Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>
+ <div class="field"><label for="gastosAttachment">Archivo</label><select id="gastosAttachment"><option value="all" ${attachment==='all'?'selected':''}>Todos</option><option value="attached" ${attachment==='attached'?'selected':''}>Con archivo</option><option value="missing" ${attachment==='missing'?'selected':''}>Sin archivo</option></select></div>`;
+ return `<div class="page">
+  ${expenseTabs('facturas')}
+  <div class="kpis">${kpi('Facturas adjuntas',String(rows.filter(r=>r.document).length))}${kpi('Gastos sin justificante',String(rows.filter(r=>r.expense&&!r.document).length))}${kpi('Por asociar',String(rows.filter(r=>r.unlinked).length))}${kpi('Registros',String(rows.length))}</div>
+  <section class="card table-card">
+   <div class="section-head card-pad"><div><h2>Facturas y justificantes de gastos</h2><p>Listado con búsqueda por fechas, tienda, proveedor, NIF y número de factura. La vista previa no descarga el archivo. Los importes sin revisión fiscal son provisionales.</p></div>
+    <div class="inline-actions">${btn('Exportar gastos Excel','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
+   ${dateFilters({...f,stores:stores()},'gastos',extras)}
+   ${table(headers,rows,{emptyTitle:'No hay facturas para estos filtros',emptyText:'Revisa las fechas, el establecimiento o el filtro de archivo.'})}
+  </section>
+  <div class="note">«Datos gestoría» permite revisar el desglose completo de 20 columnas utilizado en el libro. Los documentos sin asociar se identifican claramente; nunca se asignan automáticamente por el nombre del archivo.</div>
+ </div>`;
+}
+
 export function facturacion(){
  const view=getView('facturacion');
  if(view.mode==='record'){
