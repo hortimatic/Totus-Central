@@ -6,7 +6,7 @@ import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/ma
 import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
 import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
-import {validateDocumentFile,previewKind,safeFileSegment} from './file-utils.js';
+import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
 
@@ -1312,7 +1312,17 @@ async function exportGestorPackage(year){
  const sales=yearClosings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0)+state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+n(x.accounting_amount||x.gross_expense||x.amount_paid),0);
  resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos fiscales revisados;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
  const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
- for(const d of yearDocs){try{const blob=await getDocumentBlob(d);docs.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.supplier_or_customer||'Sin_parte')}/${safeFileSegment(d.original_name)}`,blob)}catch(e){throw new Error('No se pudo incluir '+(d.original_name||'documento')+' en el ZIP: '+e.message)}}
+ const usedPaths=new Set(),manifest=[];
+ for(const d of yearDocs){
+  try{
+   const blob=await getDocumentBlob(d);
+   const archivePath=uniqueArchiveDocumentPath(d,usedPaths);
+   docs.file(archivePath,blob);
+   manifest.push([d.id,d.document_date||'',state.data.stores.find(x=>x.id===d.store_id)?.name||'General',d.doc_type||'',d.supplier_or_customer||'',d.original_name||'',archivePath,d.sha256||'',Number(d.size_bytes||blob.size||0)]);
+  }catch(e){throw new Error('No se pudo incluir '+(d.original_name||'documento')+' en el ZIP: '+e.message)}
+ }
+ if(manifest.length!==yearDocs.length||usedPaths.size!==yearDocs.length)throw new Error('Error de integridad: faltan documentos en el paquete.');
+ docs.file('Indice_documentos_'+year+'.csv',csv(manifest,['ID','Fecha','Tienda','Tipo','Proveedor / cliente','Archivo original','Ruta ZIP','SHA256','Tamaño bytes'].map((label,i)=>({label,get:r=>r[i]}))));
  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});download(blob,`Paquete_gestor_${year}.zip`);
 }
 function exportRows(type){
