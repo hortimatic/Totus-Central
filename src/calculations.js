@@ -43,3 +43,14 @@ export function validateExpenseLineAmounts({base,vat,re,withholding,deductiblePc
  }
  return {base,vat,re,withholding,deductiblePct};
 }
+
+/** Internal-only costs (overtime, warehouse) must never leak into fiscal expense data. */
+export function validateExpenseClassification(lines,categories,managementOnly){
+ const internalIds=new Set(categories.filter(c=>String(c.code||'').startsWith('INTERNAL_')).map(c=>String(c.id)));
+ const internalLines=lines.filter(l=>internalIds.has(String(l.category_id||'')));
+ if(!internalLines.length)return true;
+ if(!managementOnly)throw new Error('Este concepto es solo de control interno. Activa «Solo control interno» antes de guardar.');
+ if(lines.some(l=>l.category_id&&!internalIds.has(String(l.category_id))))throw new Error('No mezcles conceptos internos y fiscales en una misma factura. Regístralos por separado.');
+ if(internalLines.some(l=>l.deductible_irpf!==false||Number(l.deductible_pct||0)>0))throw new Error('Un concepto interno no puede marcarse como deducible en IRPF.');
+ return true;
+}
