@@ -153,8 +153,9 @@ await check('Gastos: índice de facturas, búsqueda, desglose gestor y PDF desca
  await page.locator('[data-action="expense-gestor-detail"]').first().click();
  const gestor=page.locator('#modalHost');
  assert(await gestor.locator('th').count()===20,'La ficha de gestoría no conserva las 20 columnas');
+ const headerTexts=(await gestor.locator('th').allTextContents()).map(s=>s.replace(/\\s+/g,' ').trim());
  for(const txt of ['NIF/CIF','Base IVA','Cuota IVA','Base R.E.','Cuota R.E.','Imputable a IRPF','Neto pagado']){
-  assert((await gestor.innerText()).includes(txt),'Falta columna gestoría: '+txt);
+  assert(headerTexts.includes(txt),'Falta columna gestoría: '+txt+'; detectadas: '+headerTexts.join(', '));
  }
  assert((await gestor.innerText()).includes('Sin revisar'),'Debe avisarse si el desglose fiscal no está cotejado');
  await gestor.locator('.close-btn').click();
