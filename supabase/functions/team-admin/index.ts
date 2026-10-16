@@ -27,7 +27,7 @@ Deno.serve(async(req:Request)=>{
   if(!caller?.active||caller.role!=='admin')return json({error:'Solo el administrador puede gestionar usuarios'},403)
 
   const body=await req.json(),action=String(body?.action||'')
-  const cleanEmail=(v:unknown)=>String(v||'').trim().toLowerCase(),cleanText=(v:unknown)=>String(v||'').trim(),const validRole=async (r:string)=>{if(!/^[a-z][a-z0-9_]{2,31}$/.test(r))return false;const {data,error}=await admin.from('ops_roles').select('code').eq('code',r).maybeSingle();if(error)throw error;return !!data}
+  const cleanEmail=(v:unknown)=>String(v||'').trim().toLowerCase(),cleanText=(v:unknown)=>String(v||'').trim();const validRole=async (r:string)=>{if(!/^[a-z][a-z0-9_]{2,31}$/.test(r))return false;const {data,error}=await admin.from('ops_roles').select('code').eq('code',r).maybeSingle();if(error)throw error;return !!data}
   const listAuthUsers=async()=>{const {data,error}=await admin.auth.admin.listUsers({page:1,perPage:1000});if(error)throw error;return data.users||[]}
   const findAuthUser=async(email:string)=>(await listAuthUsers()).find(u=>(u.email||'').toLowerCase()===email)||null
   const countActiveAdmins=async()=>{const {count,error}=await admin.from('team_members').select('*',{count:'exact',head:true}).eq('role','admin').eq('active',true);if(error)throw error;return count||0}
