@@ -243,6 +243,32 @@ await check('Facturación externa: archivo PDF original obligatorio y vinculado'
  assert(snap.invoices.some(x=>x.origin==='externa'&&x.source_document_id),'Factura externa sin documento original vinculado');
  assert(snap.documents.some(x=>x.original_name==='original-externa.pdf'),'No se archivó el justificante de factura externa');
 });
+await check('Proforma: emisión, conversión a factura y líneas sin duplicación',async()=>{
+ await nav('facturacion');
+ if(await page.locator('[data-action="invoice-back"]').count())await page.locator('[data-action="invoice-back"]').first().click();
+ await page.locator('[data-action="proforma-new"]').first().click();
+ await page.locator('#ivCustomer').fill('Cliente proforma QA');
+ await page.locator('#ivDesc_0').fill('Producto test proforma');
+ await page.locator('#ivQty_0').fill('3');
+ await page.locator('#ivUnit_0').fill('10,00');
+ await page.locator('[data-action="invoice-save"]').first().click();
+ await page.waitForTimeout(140);
+ const list1=(await db()).invoices;
+ const proforma=list1.find(x=>x.document_type==='proforma'&&x.customer_name==='Cliente proforma QA');
+ assert(proforma?.status==='borrador','La proforma no se guardó como borrador');
+ await page.locator('[data-action="invoice-finalize"]').first().click();
+ await page.waitForTimeout(140);
+ const now=(await db()).invoices.find(x=>x.id===proforma.id);
+ assert(now.status==='emitida'&&now.display_number.startsWith('PH-'),'Proforma no emitida con su numeración');
+ await page.locator('[data-action="proforma-convert"]').first().click();
+ await page.waitForTimeout(140);
+ const list2=(await db()).invoices;
+ const newInvoice=list2.find(x=>x.source_proforma_document_id===proforma.id);
+ assert(newInvoice?.status==='borrador'&&newInvoice.document_type==='factura','La conversión no creó borrador de factura');
+ assert(list2.find(x=>x.id===proforma.id).status==='convertida','La proforma de origen no quedó marcada como convertida');
+ const lines=await page.evaluate(id=>window.__mockDb.ops_sales_invoice_lines.filter(x=>x.invoice_id===id),newInvoice.id);
+ assert(lines.length===1&&lines[0].description==='Producto test proforma'&&lines[0].quantity===3,'La factura convertida perdió sus conceptos o cantidades');
+});
 await check('Documentos: subida, archivo y metadatos',async()=>{
  await nav('documentos');
  await page.locator('[data-action="document-new"]').click();
