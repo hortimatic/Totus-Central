@@ -524,10 +524,10 @@ function adminLogHtml(){
   <div class="filters">
    <div class="field"><label for="logFrom">Desde</label><input id="logFrom" type="date" value="${esc(from)}"></div>
    <div class="field"><label for="logTo">Hasta</label><input id="logTo" type="date" value="${esc(to)}"></div>
-   <div class="field"><label for="logActor">Usuario o email</label><input id="logActor" value="${esc(f.actor||'')" placeholder="Buscar usuario"></div>
+   <div class="field"><label for="logActor">Usuario o email</label><input id="logActor" value="${esc(f.actor||'')}" placeholder="Buscar usuario"></div>
    <div class="field"><label for="logArea">Área</label><select id="logArea"><option value="">Todas</option>${areas.map(v=>`<option value="${esc(v)}" ${f.area===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
    <div class="field"><label for="logAction">Acción</label><select id="logAction"><option value="">Todas</option>${actions.map(v=>`<option value="${esc(v)}" ${f.action===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
-   <div class="field search"><label for="logQuery">Texto en detalle</label><input id="logQuery" value="${esc(f.query||'')" placeholder="Buscar evento"></div>
+   <div class="field search"><label for="logQuery">Texto en detalle</label><input id="logQuery" value="${esc(f.query||'')}" placeholder="Buscar evento"></div>
    ${btn('Aplicar filtros','admin-log-filter','primary')}
    ${btn('Limpiar filtros','admin-log-clear','secondary')}
   </div>
