@@ -51,6 +51,7 @@ jobs:
           node tests/code-integrity.mjs
           node tests/permissions-qa.mjs
           node tests/route-smoke.mjs
+          node tests/filters-qa.mjs
           node tests/excel-invariants.mjs
       - name: Install browser and document testing dependencies
         working-directory: staging-source
