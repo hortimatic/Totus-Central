@@ -52,6 +52,7 @@ jobs:
           node tests/permissions-qa.mjs
           node tests/roles-and-help-qa.mjs
           node tests/route-smoke.mjs
+          node tests/action-inventory-qa.mjs
           node tests/filters-qa.mjs
            node tests/document-archive-qa.mjs
           node tests/expense-archive-qa.mjs
