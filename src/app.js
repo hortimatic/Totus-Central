@@ -1340,6 +1340,7 @@ document.addEventListener('click',async e=>{
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
   if(a==='close-modal'){if(el.classList.contains('modal-backdrop')&&e.target!==el)return;closeModal();return}
+  if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
@@ -1465,7 +1466,6 @@ document.addEventListener('click',async e=>{
   if(a==='role-rename'){roleForm(state.data.roles.find(r=>r.code===el.dataset.role));return}
   if(a==='role-save'){await saveRole(el.dataset.role||'');return}
   if(a==='role-delete'){await deleteRole(el.dataset.role);return}
-  if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
   if(a==='role-permissions'){rolePermissionsModal(el.dataset.role);return}
   if(a==='role-permissions-save'){await saveRolePermissions(el.dataset.role);return}
   if(a==='role-permissions-reset'){await resetRolePermissions(el.dataset.role);return}
