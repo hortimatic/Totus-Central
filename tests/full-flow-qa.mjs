@@ -192,6 +192,9 @@ await check('Gastos: control interno, clasificación y rechazo de factura duplic
  await page.locator('[data-action="expense-save"]').click();
  assert((await db()).expenses.length===before.length,'Se registró dos veces el mismo justificante');
  assert((await page.locator('#toastHost').innerText()).includes('Ya existe un gasto'),'Debe explicarse claramente el duplicado');
+ const expectedConsoleError=errors.findIndex(x=>x==='Consola Error: Ya existe un gasto con esta factura para el mismo proveedor.');
+ assert(expectedConsoleError>=0,'La aplicación debe registrar la operación rechazada');
+ errors.splice(expectedConsoleError,1);
  await page.locator('[data-action="expense-back"]').first().click();
 });
 await check('Facturación: crear borrador con líneas e importes',async()=>{
