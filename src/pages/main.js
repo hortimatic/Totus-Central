@@ -463,9 +463,46 @@ function adminBackupHtml(){
  </section>`;
 }
 function adminLogHtml(){
- const headers=[{label:'Fecha',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES'))},{label:'Usuario',html:r=>esc(r.user_email||'—')},{label:'Área',html:r=>esc(r.area)},{label:'Acción',html:r=>esc(r.action)},{label:'Detalle',html:r=>`<span class="small">${esc(JSON.stringify(r.detail||{}))}</span>`}];
- return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Log</h2><p>Trazabilidad administrativa y cambios relevantes.</p></div></div>${table(headers,state.data.audit,{emptyTitle:'Sin registros'})}</section>`;
+ const f=state.filters.adminLog||{},all=state.data.audit||[];
+ const from=f.from||'',to=f.to||'',query=String(f.query||'').toLocaleLowerCase('es'),actor=String(f.actor||'').toLocaleLowerCase('es');
+ const areas=[...new Set(all.map(x=>String(x.area||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+ const actions=[...new Set(all.map(x=>String(x.action||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+ const rows=all.filter(r=>{
+  const date=String(r.created_at||'').slice(0,10);
+  return (!from||date>=from)&&(!to||date<=to)
+   &&(!f.area||r.area===f.area)&&(!f.action||r.action===f.action)
+   &&(!actor||String(r.user_email||'').toLocaleLowerCase('es').includes(actor))
+   &&(!query||[r.area,r.action,r.user_email,JSON.stringify(r.detail||{})].join(' ').toLocaleLowerCase('es').includes(query));
+ }).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+ const headers=[
+  {label:'Fecha y hora',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES'))},
+  {label:'Usuario',html:r=>esc(r.user_email||'—')},
+  {label:'Área',html:r=>esc(r.area||'—')},
+  {label:'Acción',html:r=>esc(r.action||'—')},
+  {label:'Detalle',html:r=>`<span class="small muted">${esc(JSON.stringify(r.detail||{}).slice(0,130))}${JSON.stringify(r.detail||{}).length>130?'…':''}</span>`},
+  {label:'',html:r=>btn('Ver detalle','admin-log-detail','secondary',`data-id="${esc(r.id)}"`)}
+ ];
+ return `<div class="stack">
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Consulta los eventos y cambios registrados por la herramienta. La búsqueda se aplica a los últimos ${all.length} eventos cargados.</p></div><div class="inline-actions">
+  ${btn('Actualizar','admin-log-refresh','secondary')}
+  ${btn('Exportar CSV filtrado','admin-log-export','primary')}
+  </div></div>
+  <div class="filters">
+   <div class="field"><label for="logFrom">Desde</label><input id="logFrom" type="date" value="${esc(from)}"></div>
+   <div class="field"><label for="logTo">Hasta</label><input id="logTo" type="date" value="${esc(to)}"></div>
+   <div class="field"><label for="logActor">Usuario o email</label><input id="logActor" value="${esc(f.actor||'')" placeholder="Buscar usuario"></div>
+   <div class="field"><label for="logArea">Área</label><select id="logArea"><option value="">Todas</option>${areas.map(v=>`<option value="${esc(v)}" ${f.area===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
+   <div class="field"><label for="logAction">Acción</label><select id="logAction"><option value="">Todas</option>${actions.map(v=>`<option value="${esc(v)}" ${f.action===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
+   <div class="field search"><label for="logQuery">Texto en detalle</label><input id="logQuery" value="${esc(f.query||'')" placeholder="Buscar evento"></div>
+   ${btn('Aplicar filtros','admin-log-filter','primary')}
+   ${btn('Limpiar filtros','admin-log-clear','secondary')}
+  </div>
+  <div class="card-pad small muted">Resultados: ${rows.length} · Se conservan las trazas originales; esta pantalla no permite borrarlas.</div>
+  ${table(headers,rows,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
+  </section>
+ </div>`;
 }
+
 
 export function pricing(){
  const view=getView('pricing');
