@@ -187,3 +187,6 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .expense-attachment-picker{width:100%}
  .expense-attachment-picker button{align-self:stretch}
 }
+
+/* Submenús Copias: los selectores de día se ocultan realmente según frecuencia. */
+#backupWeekdayWrapper[hidden],#backupMonthdayWrapper[hidden]{display:none!important}
