@@ -5,7 +5,7 @@ import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upl
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts} from './calculations.js';
+import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment} from './file-utils.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
@@ -231,6 +231,7 @@ async function saveExpense(id=''){
    const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
    return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!!input(`exLineDed_${ix}`)?.checked,deductible_pct:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
  });
+ validateExpenseClassification(lines,state.data.categories,!!input('exManagement')?.checked);
  const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
  const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):num('exPaidAmount');
  validateExpensePayment(total,amountPaid,paidStatus);
@@ -1394,7 +1395,19 @@ document.addEventListener('change',e=>{
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
    set('exSupplier',s.name);set('exTax',s.tax_id);set('exPayment',s.default_payment_method||'tarjeta');
-   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;updateExpenseSummary()}
+   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');const category=state.data.categories.find(c=>c.id===s.default_category_id);if(String(category?.code||'').startsWith('INTERNAL_')){const m=input('exManagement'),d=input('exLineDed_'+ix),p=input('exLineDedPct_'+ix);if(m)m.checked=true;if(d)d.checked=false;if(p)p.value='0'}set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;updateExpenseSummary()}
+ }
+ if(/^exLineCategory_\\d+$/.test(e.target?.id||'')){
+   const category=state.data.categories.find(x=>String(x.id)===String(e.target.value));
+   if(String(category?.code||'').startsWith('INTERNAL_')){
+     const index=e.target.id.slice('exLineCategory_'.length);
+     const management=input('exManagement'),deductible=input('exLineDed_'+index),percentage=input('exLineDedPct_'+index);
+     if(management)management.checked=true;
+     if(deductible)deductible.checked=false;
+     if(percentage)percentage.value='0';
+     toast('Concepto interno: excluido de fiscalidad y gestoría.','ok');
+   }
+   updateExpenseSummary();
  }
  if(e.target?.id==='ivCustomerId'){
    const c=state.data.customers.find(x=>x.id===e.target.value);if(!c)return;
