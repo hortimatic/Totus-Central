@@ -97,7 +97,7 @@ jobs:
           html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"')
           html=html.replace('src="src/app.js"',f'src="src/app.js?v={sha}"')
           index.write_text(html)
-          pattern=re.compile(r"""(\\bfrom\\s*['"])(\\.[^'"]+\\.js)(['"])""")
+          pattern=re.compile(r"""(\bfrom\s*['"])(\.[^'"]+\.js)(['"])""")
           for file in (root/'src').rglob('*.js'):
               original=file.read_text()
               content=pattern.sub(lambda m:f'{m.group(1)}{m.group(2)}?v={sha}{m.group(3)}',original)
