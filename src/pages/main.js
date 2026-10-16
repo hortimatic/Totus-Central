@@ -224,7 +224,7 @@ export function documentos(){
   <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',(used/1024/1024).toFixed(1).replace('.',',')+' MB',usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB')}${kpi('Archivos en Storage',String(Number(usage.documents_count||0)+Number(usage.assets_count||0)))}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Subida, clasificación, vista previa, descarga y paquetes. Las facturas históricas aún no aparecen hasta que se importe el archivo original al almacenamiento.</p></div><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden>${btn('+ Subir documento','document-new','primary')}</div></div>
-   <div class="filters">${dateFilters({...f,stores:stores()},'documentos').replace(/^<div class="filters">|<\/div>$/g,'')}${extra}</div>
+   ${dateFilters({...f,stores:stores()},'documentos',extra)}
    ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para los filtros seleccionados.'})}
   </section>
  </div>`;
@@ -287,7 +287,7 @@ export function fiscalidad(){
  const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
  const paymentRows=[['130',calc130,current130],['111',calc111,pay111],['115',calc115,pay115]].map(([model,calc,pay])=>{const paid=pay?Number(pay.amount||0):0,diff=paid-Number(calc||0);return `<div class="summary-row"><div><b>Modelo ${model}</b><div class="small muted">${pay?`${esc(pay.status)} · ${fmtDate(pay.payment_date)}`:'Sin registro'}</div></div><div class="compact-detail"><span>Calculado <b>${money(calc)}</b></span><span>Registrado <b>${money(paid)}</b></span><span>Diferencia <b class="${Math.abs(diff)<.02?'good-text':'warn-text'}">${money(diff)}</b></span></div><div class="inline-actions">${btn(pay?'Editar':'Registrar','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></div>`}).join('');
  return `<div class="page">
-  <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'fiscal').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div></div></section>
+  <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gasto deducible',money(periodDed))}${kpi('Gasto interno',money(internal))}${kpi('Resultado real',money(periodIncome-accountingPeriod-internal))}</div>
   <div class="split">
    <section class="card card-pad"><div class="section-head"><div><h2>Modelo 130 · ${quarter}T ${year}</h2><p>Cálculo acumulado del 01/01/${year} al ${fmtDate(qTo)}.</p></div>${btn('Ajuste fiscal','fiscal-adjustment-new','secondary')}</div>
@@ -322,7 +322,7 @@ export function informes(){
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only&&x.fiscal_reviewed!==false),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  return `<div class="page">
- <section class="card"><div class="filters">${dateFilters({...f,stores:stores()},'informes').replace(/^<div class="filters">|<\/div>$/g,'')}<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div></div></section>
+ <section class="card">${dateFilters({...f,stores:stores()},'informes',`<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div>`)}</section>
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos fiscales revisados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos sin revisión fiscal han sido excluidos de los importes de informes. Las descargas fiscales no deben considerarse completas hasta cotejar sus facturas.</div>`:'' }
  <div class="split">
