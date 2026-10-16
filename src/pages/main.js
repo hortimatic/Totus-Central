@@ -347,7 +347,7 @@ function adminUsersHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Usuarios</h2><div class="note">Solo el administrador gestiona usuarios.</div></section>';
  const rows=state.data.team;
  const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'Acciones',html:r=>`<div class="inline-actions">${btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}${r.role!=='admin'?btn('Permisos','user-permissions','secondary',`data-email="${esc(r.email)}"`):''}</div>`}];
- return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Accesos, roles y contraseñas.</p></div>${btn('+ Nuevo usuario','user-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Los permisos generales se configuran en Roles y permisos. Las excepciones se editan en la fila de cada usuario. Administración siempre mantiene control total.</p></div><div class="inline-actions">${btn('Configurar roles','admin-section','secondary','data-section="roles"')}${btn('+ Nuevo usuario','user-new','primary')}</div></div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
 }
 function adminRolesHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Roles y permisos</h2><p>Solo el administrador puede editar permisos.</p></section>';
