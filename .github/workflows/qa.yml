@@ -19,6 +19,7 @@ jobs:
       - run: node tests/permissions-qa.mjs
       - run: node tests/roles-and-help-qa.mjs
       - run: node tests/route-smoke.mjs
+      - run: node tests/action-inventory-qa.mjs
       - run: node tests/filters-qa.mjs
       - run: node tests/document-archive-qa.mjs
       - run: node tests/expense-archive-qa.mjs
