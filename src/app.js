@@ -37,7 +37,7 @@ function permissionForAction(action,el){
  else if(/\-new$|\-add$|\-duplicate$/.test(a))operation='create';
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
- if(a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='config-save'||a==='backup-create'||a==='backup-restore'||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
@@ -1113,7 +1113,7 @@ function userModal(row=null){
  const body=`<div class="form-grid">
   ${formField('Nombre completo','usName',row?.full_name||'')}
   ${formField('Email','usEmail',row?.email||'','email',row?'disabled':'')}
-  ${selectField('Rol','usRole',[{value:'admin',label:'Administrador'},{value:'gerente',label:'Gerente'},{value:'encargado',label:'Encargado'}],row?.role||'gerente')}
+  ${selectField('Rol','usRole',(state.data.roles||[]).map(r=>({value:r.code,label:r.name})),row?.role||'gerente')}
   ${formField('Teléfono','usPhone',row?.phone||'')}
   ${formField('Puesto','usJob',row?.job_title||'')}
   ${formField('Tienda / centro','usStore',row?.store||'')}
@@ -1461,6 +1461,11 @@ document.addEventListener('click',async e=>{
   if(a==='user-new'){userModal();return}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}
   if(a==='user-save'){await saveUser(el.dataset.email||'');return}
+  if(a==='role-new'){roleForm();return}
+  if(a==='role-rename'){roleForm(state.data.roles.find(r=>r.code===el.dataset.role));return}
+  if(a==='role-save'){await saveRole(el.dataset.role||'');return}
+  if(a==='role-delete'){await deleteRole(el.dataset.role);return}
+  if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
   if(a==='role-permissions'){rolePermissionsModal(el.dataset.role);return}
   if(a==='role-permissions-save'){await saveRolePermissions(el.dataset.role);return}
   if(a==='role-permissions-reset'){await resetRolePermissions(el.dataset.role);return}
@@ -1494,6 +1499,13 @@ document.addEventListener('click',async e=>{
 });
 
 document.addEventListener('input',e=>{
+ if(e.target?.id==='roleCode')e.target.dataset.manual='1';
+ if(e.target?.id==='roleName'){
+  const code=input('roleCode');
+  if(code&&!code.disabled&&code.dataset.manual!=='1'){
+   code.value=String(e.target.value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,32);
+  }
+ }
  const id=e.target?.id||'';
  if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
  if(id.startsWith('homePrice'))updateHomePrice();
@@ -1503,6 +1515,18 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',e=>{
+ if(e.target?.classList?.contains('role-preset')){
+   setRoleModulePreset(e.target.dataset.module,e.target.value);
+   return;
+ }
+ if(e.target?.id?.startsWith('roleperm_')){
+   const parts=e.target.id.split('_');const action=parts.pop(),module=parts.slice(1).join('_');
+   if(action==='view'&&!e.target.checked){setRoleModulePreset(module,'none')}
+   else if(action!=='view'&&e.target.checked){const view=input('roleperm_'+module+'_view');if(view)view.checked=true}
+   const rights=Object.fromEntries(PERMISSION_ACTIONS.map(([a])=>[a,!!input('roleperm_'+module+'_'+a)?.checked]));
+   const preset=input('rolepreset_'+module);if(preset)preset.value=rolePresetFor(rights);
+   return;
+ }
  if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
  if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:val('clStore'),date:e.target.value||isoToday()});render();return}
