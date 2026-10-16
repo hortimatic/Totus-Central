@@ -51,6 +51,7 @@ await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
  await page.locator('[data-action="role-permissions-reset"]').click();
  await page.waitForTimeout(100);
  assert((await page.evaluate(()=>window.__mockDb.ops_role_permissions)).length===0,'No se restableció la matriz del rol');
+ await page.locator('[data-action="admin-section"][data-section="usuarios"]').click();
 });
 await check('Ayudas i: apertura, contenido y campos de un gasto',async()=>{
  await nav('gastos');
@@ -60,6 +61,7 @@ await check('Ayudas i: apertura, contenido y campos de un gasto',async()=>{
  await aids.first().click();
  assert(await page.locator('#content .field-help[open] [role="note"]').count()>=1,'Al pulsar i no aparece información');
  assert((await page.locator('#content .field-help[open] [role="note"]').first().innerText()).length>20,'La ayuda no explica el campo');
+ await page.locator('[data-action="expense-back"]').click();
 });
 await check('Cajas: creación, cálculo, guardado y lectura',async()=>{
  await nav('cajas');
