@@ -1,5 +1,5 @@
 import {ROUTES} from './config.js';
-import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,canUser} from './permissions.js';
+import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,defaultRolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
@@ -27,7 +27,7 @@ function permissionForAction(action,el){
  else if(/^(tax-payment-|fiscal-|reta-|expense-category-)/.test(action))module='fiscalidad';
  else if(/^(pricing-|product-|brand-|family-|families-|provider-|providers-|variant-|competitor-|consultation-|home-price-)/.test(action))module='pricing';
  else if(/^(report-|export-gestor-|export-store-|export-summary)/.test(action))module='informes';
- else if(/^(user-|store-|drawer-|config-|backup-|admin-)/.test(action))module='administracion';
+ else if(/^(user-|role-|store-|drawer-|config-|backup-|admin-)/.test(action))module='administracion';
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
@@ -37,7 +37,7 @@ function permissionForAction(action,el){
  else if(/\-new$|\-add$|\-duplicate$/.test(a))operation='create';
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
- if(a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='config-save'||a==='backup-create'||a==='backup-restore'||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
@@ -960,6 +960,37 @@ async function saveDrawer(storeId,id=''){
  if(id)await update('ops_cash_drawers',id,row);else await insert('ops_cash_drawers',row);closeModal();await refresh('Caja guardada.');
 }
 
+function rolePermissionsModal(role){
+ if(!isAdmin()||!['gerente','encargado'].includes(role))throw new Error('Rol no editable.');
+ const rows=PERMISSION_MODULES.map(([module,label])=>{
+  const rights=rolePermissions(role,module);
+  const cells=PERMISSION_ACTIONS.map(([action,actionLabel])=>`<td class="permission-cell"><label title="${esc(actionLabel)} en ${esc(label)}"><input type="checkbox" id="roleperm_${module}_${action}" ${rights[action]?'checked':''} aria-label="${esc(actionLabel)} en ${esc(label)}"></label></td>`).join('');
+  return `<tr><th scope="row">${esc(label)}</th>${cells}</tr>`;
+ }).join('');
+ const head=PERMISSION_ACTIONS.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('');
+ const body=`<div class="stack"><p>Permisos predeterminados de <b>${role==='gerente'?'Gerencia':'Encargado'}</b>. Afectan a los usuarios de este rol que no tienen una excepción individual. Administración conserva las operaciones críticas exclusivamente para el administrador.</p><div class="table-scroll"><table class="permissions-table"><thead><tr><th scope="col">Módulo</th>${head}</tr></thead><tbody>${rows}</tbody></table></div><div class="form-actions">${btn('Restablecer configuración inicial','role-permissions-reset','secondary',`data-role="${role}"`)}${btn('Guardar permisos del rol','role-permissions-save','primary',`data-role="${role}"`)}</div></div>`;
+ modal('Permisos por rol',body);
+}
+async function saveRolePermissions(role){
+ if(!isAdmin()||!['gerente','encargado'].includes(role))throw new Error('Rol no editable.');
+ const rows=PERMISSION_MODULES.map(([module])=>{
+  const row={role,module,updated_at:new Date().toISOString(),updated_by:state.session?.user?.id||null};
+  for(const [action] of PERMISSION_ACTIONS)row['can_'+action]=!!document.getElementById('roleperm_'+module+'_'+action)?.checked;
+  if(!row.can_view){for(const [action] of PERMISSION_ACTIONS)if(action!=='view')row['can_'+action]=false}
+  return row;
+ });
+ const {error}=await sb.from('ops_role_permissions').upsert(rows,{onConflict:'role,module'});
+ if(error)throw new Error('No se pudieron guardar los permisos por rol: '+error.message);
+ closeModal();await refresh('Permisos del rol actualizados.');
+}
+async function resetRolePermissions(role){
+ if(!isAdmin()||!['gerente','encargado'].includes(role))throw new Error('Rol no editable.');
+ if(!confirm('¿Restablecer los permisos iniciales del rol '+role+'?'))return;
+ const {error}=await sb.from('ops_role_permissions').delete().eq('role',role);
+ if(error)throw new Error('No se pudieron restablecer los permisos: '+error.message);
+ closeModal();await refresh('Permisos iniciales restablecidos.');
+}
+
 function userPermissionsModal(email){
  if(!isAdmin())throw new Error('Solo el administrador puede editar permisos.');
  const member=state.data.team.find(x=>x.email?.toLowerCase()===String(email).toLowerCase());
@@ -1348,6 +1379,9 @@ document.addEventListener('click',async e=>{
   if(a==='user-new'){userModal();return}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}
   if(a==='user-save'){await saveUser(el.dataset.email||'');return}
+  if(a==='role-permissions'){rolePermissionsModal(el.dataset.role);return}
+  if(a==='role-permissions-save'){await saveRolePermissions(el.dataset.role);return}
+  if(a==='role-permissions-reset'){await resetRolePermissions(el.dataset.role);return}
   if(a==='user-permissions'){userPermissionsModal(el.dataset.email);return}
   if(a==='user-permissions-save'){await saveUserPermissions(el.dataset.email);return}
   if(a==='user-permissions-reset'){await resetUserPermissions(el.dataset.email);return}
