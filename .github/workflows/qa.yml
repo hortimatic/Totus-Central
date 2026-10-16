@@ -21,6 +21,7 @@ jobs:
       - run: node tests/route-smoke.mjs
       - run: node tests/filters-qa.mjs
       - run: node tests/document-archive-qa.mjs
+      - run: node tests/expense-archive-qa.mjs
       - run: node tests/excel-invariants.mjs
       - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib
       - run: npx playwright install --with-deps chromium
