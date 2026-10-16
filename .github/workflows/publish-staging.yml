@@ -85,6 +85,27 @@ jobs:
           cp -R staging-source/src _site/staging/src
           diff -qr production-source/src _site/src
           diff -qr staging-source/src _site/staging/src
+          # Cache-bust published staging imports and CSS without altering main or source files.
+          python3 - <<'PY'
+          import os,re
+          from pathlib import Path
+          sha=os.environ['GITHUB_SHA']
+          root=Path('_site/staging')
+          index=root/'index.html'
+          html=index.read_text()
+          assert 'href="src/styles.css"' in html and 'src="src/app.js"' in html
+          html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"')
+          html=html.replace('src="src/app.js"',f'src="src/app.js?v={sha}"')
+          index.write_text(html)
+          pattern=re.compile(r"""(\\bfrom\\s*['"])(\\.[^'"]+\\.js)(['"])""")
+          for file in (root/'src').rglob('*.js'):
+              original=file.read_text()
+              content=pattern.sub(lambda m:f'{m.group(1)}{m.group(2)}?v={sha}{m.group(3)}',original)
+              file.write_text(content)
+          PY
+          grep -Fq "src/app.js?v=$GITHUB_SHA" _site/staging/index.html
+          grep -Fq "src/styles.css?v=$GITHUB_SHA" _site/staging/index.html
+          grep -Fq "./config.js?v=$GITHUB_SHA" _site/staging/src/app.js
           # Sello de la versión publicada SOLO en /staging; main queda idéntico.
           printf '{"environment":"staging","commit":"%s"}\n' "$GITHUB_SHA" > _site/staging/build-info.json
           grep -Fq "$GITHUB_SHA" _site/staging/build-info.json
