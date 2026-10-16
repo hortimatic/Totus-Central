@@ -28,6 +28,7 @@ for(const [module] of PERMISSION_MODULES){
 assert.match(selectField('IVA (%)','vat',[{value:21,label:'21 %'}],21),/<details class="field-help">/);
 assert.match(formField('Un campo nuevo','newField'),/<details class="field-help">/);
 state.user=admin;
+state.data.roles=[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}];
 state.data.team=[];
 state.data.rolePermissions=[];
 state.data.userPermissions=[];
