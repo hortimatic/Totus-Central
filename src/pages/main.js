@@ -502,7 +502,7 @@ function adminLogHtml(){
  const areas=[...new Set(all.map(x=>String(x.area||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const actions=[...new Set(all.map(x=>String(x.action||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const rows=all.filter(r=>{
-  const date=String(r.created_at||'').slice(0,10);
+  const date=r.created_at?new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}):'';
   return (!from||date>=from)&&(!to||date<=to)
    &&(!f.area||r.area===f.area)&&(!f.action||r.action===f.action)
    &&(!actor||String(r.user_email||'').toLocaleLowerCase('es').includes(actor))
