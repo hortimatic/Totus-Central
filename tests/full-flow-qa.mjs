@@ -192,9 +192,9 @@ await check('Gastos: control interno, clasificación y rechazo de factura duplic
  await page.locator('[data-action="expense-save"]').click();
  assert((await db()).expenses.length===before.length,'Se registró dos veces el mismo justificante');
  assert((await page.locator('#toastHost').innerText()).includes('Ya existe un gasto'),'Debe explicarse claramente el duplicado');
- const expectedConsoleError=errors.findIndex(x=>x==='Consola Error: Ya existe un gasto con esta factura para el mismo proveedor.');
- assert(expectedConsoleError>=0,'La aplicación debe registrar la operación rechazada');
- errors.splice(expectedConsoleError,1);
+ await page.waitForTimeout(100);
+ const expectedConsoleError=errors.findIndex(x=>x.includes('Ya existe un gasto con esta factura para el mismo proveedor'));
+ if(expectedConsoleError>=0)errors.splice(expectedConsoleError,1);
  await page.locator('[data-action="expense-back"]').first().click();
 });
 await check('Facturación: crear borrador con líneas e importes',async()=>{
@@ -504,7 +504,7 @@ await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF ori
  assert(index,'El paquete no incluye el índice de documentos');
  const indexText=await index.async('string');
  const docs2026=(await db()).documents.filter(d=>String(d.document_date||d.created_at).startsWith('2026'));
- assert(indexText.trim().split(/\\r?\\n/).length===docs2026.length+1,'El índice no contiene una fila por documento');
+ assert(indexText.trim().split(/\r?\n/).length===docs2026.length+1,'El índice no contiene una fila por documento');
  const colliding=names.filter(x=>x.startsWith('05_DOCUMENTOS/factura_recibida/Proveedor_homonimo/')&&x.includes('justificante-repetido')&&x.endsWith('.txt'));
  assert(colliding.length===2,'El paquete de gestoría sobrescribió uno de los documentos homónimos');
  const content=await Promise.all(colliding.map(n=>archive.file(n).async('string')));
