@@ -753,31 +753,52 @@ async function previewTemplate(id){
  }finally{state.data.invoiceLines=state.data.invoiceLines.filter(x=>x.id!=='__preview_line__')}
 }
 
+function logoReferencedElsewhere(path,excludeTemplateId=''){
+ if(!path)return false;
+ return state.data.templates.some(t=>t.id!==excludeTemplateId&&t.logo_path===path)
+  ||state.data.invoices.some(x=>x.template_snapshot?.logo_path===path||x.design_snapshot?.logo_path===path);
+}
 async function saveTemplate(id=''){
  const current=id?state.data.templates.find(x=>x.id===id):null;
- const file=input('tpLogo')?.files?.[0]||null;
- if(file){
-   const allowed=['image/png','image/jpeg','image/webp'];if(!allowed.includes(file.type))throw new Error('El logo debe ser PNG, JPG o WEBP.');
-   if(file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
- }
- let logoPath=current?.logo_path||null,logoName=current?.logo_name||null,logoMime=current?.logo_mime||null,logoSize=Number(current?.logo_size_bytes||0),uploadedPath=null;
- if(file){
-   const ext=(file.name.split('.').pop()||'img').replace(/[^a-z0-9]/gi,'');
-   uploadedPath=`logos/${crypto.randomUUID()}.${ext}`;
-   await upload('business-assets',uploadedPath,file);
-   logoPath=uploadedPath;logoName=file.name;logoMime=file.type;logoSize=file.size;
- }
+ if(id&&!current)throw new Error('La plantilla ya no existe. Actualiza la página.');
+ // Validar antes de subir. Un formulario incompleto no debe consumir Storage.
  const storeId=val('tpStore')||null,defaultInvoice=!!input('tpDefaultInvoice')?.checked,defaultProforma=!!input('tpDefaultProforma')?.checked;
  const code=required('tpCode','Código').trim().toUpperCase(),name=required('tpName','Nombre');
  const duplicate=state.data.templates.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code&&String(x.store_id||'')===String(storeId||''));
- if(duplicate){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw new Error('Ya existe una plantilla con ese código para la misma tienda.')}
+ if(duplicate)throw new Error('Ya existe una plantilla con ese código para la misma tienda.');
+ const file=input('tpLogo')?.files?.[0]||null;
+ if(file){
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('El logo debe ser PNG, JPG o WEBP.');
+  if(!file.size)throw new Error('El logo seleccionado está vacío.');
+  if(file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
+  const usage=state.data.storageUsage||{};
+  if(Number(usage.total_bytes||0)+file.size-Number(current?.logo_size_bytes||0)>Number(usage.limit_bytes||500*1024*1024))
+   throw new Error('No queda suficiente almacenamiento para el logo.');
+ }
+ const oldLogoPath=current?.logo_path||null;
+ let logoPath=oldLogoPath,logoName=current?.logo_name||null,logoMime=current?.logo_mime||null,logoSize=Number(current?.logo_size_bytes||0),uploadedPath=null;
+ if(file){
+  const ext=(file.name.split('.').pop()||'img').replace(/[^a-z0-9]/gi,'').toLowerCase();
+  uploadedPath=`logos/${crypto.randomUUID()}.${ext}`;
+  await upload('business-assets',uploadedPath,file);
+  logoPath=uploadedPath;logoName=file.name;logoMime=file.type;logoSize=file.size;
+ }
  const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),text_color:val('tpTextColor'),font_family:val('tpFont'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,show_payment_details:input('tpShowPayment')?.checked!==false,show_company_email:input('tpShowEmail')?.checked!==false,show_company_phone:input('tpShowPhone')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),notes_default:val('tpNotes').trim(),payment_terms_default:val('tpTerms').trim(),bank_details:val('tpBank').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
  try{
-   await clearOtherTemplateDefaults(id,storeId,{invoice:defaultInvoice,proforma:defaultProforma});
-   if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
+  if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
  }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
- closeModal();await refresh('Plantilla guardada.');
-}async function duplicateTemplate(id){
+ // No desactivar otras plantillas predeterminadas hasta confirmar que se guardó esta.
+ // Si la actualización de las anteriores falla, indicar que debe revisarse: no ocultar un guardado parcial.
+ let defaultsError=null;
+ try{await clearOtherTemplateDefaults(id,storeId,{invoice:defaultInvoice,proforma:defaultProforma})}catch(e){defaultsError=e}
+ if(oldLogoPath&&oldLogoPath!==logoPath&&!logoReferencedElsewhere(oldLogoPath,id)){
+  await removeFile('business-assets',oldLogoPath).catch(e=>console.warn('No se pudo retirar el logo sustituido',e));
+ }
+ closeModal();
+ await refresh(defaultsError?'Plantilla guardada; revisa las predeterminadas.':'Plantilla guardada.');
+ if(defaultsError)toast('No se pudo actualizar la plantilla predeterminada anterior: '+defaultsError.message,'bad');
+}
+async function duplicateTemplate(id){
  const src=state.data.templates.find(x=>x.id===id);if(!src)return;
  const copy={...src};delete copy.id;delete copy.created_at;delete copy.updated_at;
  copy.name=src.name+' · copia';copy.code=(src.code+'-COPIA').slice(0,50);copy.default_invoice=false;copy.default_proforma=false;copy.active=true;
@@ -791,7 +812,7 @@ async function deleteTemplate(id){
  const drafts=state.data.invoices.filter(x=>x.template_id===id&&x.status==='borrador').length;if(drafts)throw new Error('No se puede eliminar: hay '+drafts+' borrador(es) usando esta plantilla.');
  if(!confirm('¿Eliminar esta plantilla?'))return;
  await remove('ops_document_templates',id);
- const logoUsed=row.logo_path&&state.data.invoices.some(x=>x.status!=='borrador'&&(x.template_snapshot?.logo_path===row.logo_path||x.design_snapshot?.logo_path===row.logo_path));
+ const logoUsed=logoReferencedElsewhere(row.logo_path,id);
  if(row.logo_path&&!logoUsed)await removeFile('business-assets',row.logo_path).catch(()=>{});
  await refresh('Plantilla eliminada.');
 }
