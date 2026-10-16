@@ -33,3 +33,25 @@ export function safeFileSegment(v){
  const segment=String(v||'sin_dato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80);
  return segment && segment!=='.' && segment!=='..' ? segment : 'sin_dato';
 }
+
+/**
+ * Asigna un nombre único dentro de un ZIP sin modificar el documento original.
+ * Impide que facturas homónimas de un mismo proveedor sobrescriban otros archivos.
+ * @param {{id?:string,doc_type?:string,supplier_or_customer?:string,original_name?:string}} doc
+ * @param {Set<string>} occupied
+ */
+export function uniqueArchiveDocumentPath(doc,occupied=new Set()){
+ const folder=safeFileSegment(doc.doc_type)+'/'+safeFileSegment(doc.supplier_or_customer||'Sin_parte');
+ const name=safeFileSegment(doc.original_name||'documento');
+ const extensionIndex=name.lastIndexOf('.');
+ const ext=extensionIndex>0?name.slice(extensionIndex):'';
+ const stem=extensionIndex>0?name.slice(0,extensionIndex):name;
+ let path=folder+'/'+name;
+ if(!occupied.has(path)){occupied.add(path);return path}
+ const marker=safeFileSegment(String(doc.id||'copia')).slice(0,36);
+ let index=1;
+ do{path=folder+'/'+stem+'__'+marker+(index===1?'':'_'+index)+ext;index++}
+ while(occupied.has(path));
+ occupied.add(path);
+ return path;
+}
