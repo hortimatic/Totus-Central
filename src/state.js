@@ -12,6 +12,7 @@ export const state={
    administracion:{section:'usuarios'}
  },
  filters:{
+   adminLog:{from:'',to:'',area:'',action:'',actor:'',query:''},
    pricing:{query:''},
    cajas:dateFilter(),
    gastos:dateFilter(),
