@@ -960,35 +960,117 @@ async function saveDrawer(storeId,id=''){
  if(id)await update('ops_cash_drawers',id,row);else await insert('ops_cash_drawers',row);closeModal();await refresh('Caja guardada.');
 }
 
+function rolePresetFor(rights){
+ const v=PERMISSION_ACTIONS.map(([a])=>!!rights[a]);
+ if(v.every(x=>!x))return 'none';
+ if(v[0]&&v.slice(1).every(x=>!x))return 'read';
+ if(v[0]&&v[1]&&v[2]&&!v[3]&&!v[4])return 'work';
+ if(v.every(Boolean))return 'all';
+ return 'custom';
+}
+function setRoleModulePreset(module,preset){
+ const pattern={none:[],read:['view'],work:['view','create','edit'],all:PERMISSION_ACTIONS.map(([a])=>a)};
+ if(!(preset in pattern))return;
+ for(const [action] of PERMISSION_ACTIONS){
+  const el=input('roleperm_'+module+'_'+action);
+  if(el&&!el.disabled)el.checked=pattern[preset].includes(action);
+ }
+}
 function rolePermissionsModal(role){
- if(!isAdmin()||!['gerente','encargado'].includes(role))throw new Error('Rol no editable.');
+ if(!isAdmin()||role==='admin'||!state.data.roles.some(r=>r.code===role))throw new Error('Rol no editable.');
+ const definition=state.data.roles.find(r=>r.code===role);
+ const isCustom=!definition.is_system;
  const rows=PERMISSION_MODULES.map(([module,label])=>{
-  const rights=rolePermissions(role,module);
-  const cells=PERMISSION_ACTIONS.map(([action,actionLabel])=>`<td class="permission-cell"><label title="${esc(actionLabel)} en ${esc(label)}"><input type="checkbox" id="roleperm_${module}_${action}" ${rights[action]?'checked':''} aria-label="${esc(actionLabel)} en ${esc(label)}"></label></td>`).join('');
-  return `<tr><th scope="row">${esc(label)}</th>${cells}</tr>`;
+  const values=rolePermissions(role,module);
+  const restricted=isCustom&&module==='administracion';
+  const preset=restricted?'none':rolePresetFor(values);
+  const cells=PERMISSION_ACTIONS.map(([action,txt])=>`<label class="role-access-check"><input type="checkbox" id="roleperm_${module}_${action}" ${values[action]&&!restricted?'checked':''} ${restricted?'disabled':''}><span>${esc(txt)}</span></label>`).join('');
+  return `<div class="role-module" data-module="${module}"><div class="role-module-head"><div><strong>${esc(label)}</strong><p>${restricted?'La administración de usuarios y ajustes críticos está reservada a los roles del sistema.':'Elige el acceso general o ajusta cada operación.'}</p></div><select class="role-preset" id="rolepreset_${module}" data-module="${module}" ${restricted?'disabled':''} aria-label="Nivel de acceso a ${esc(label)}"><option value="none" ${preset==='none'?'selected':''}>Sin acceso</option><option value="read" ${preset==='read'?'selected':''}>Solo consultar</option><option value="work" ${preset==='work'?'selected':''}>Consultar y gestionar</option><option value="all" ${preset==='all'?'selected':''}>Control completo</option><option value="custom" ${preset==='custom'?'selected':''}>Personalizado</option></select></div><details class="role-module-detail"><summary>Ajustar acciones individualmente</summary><div class="role-access-checks">${cells}</div></details></div>`;
  }).join('');
- const head=PERMISSION_ACTIONS.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('');
- const body=`<div class="stack"><p>Permisos predeterminados de <b>${role==='gerente'?'Gerencia':'Encargado'}</b>. Afectan a los usuarios de este rol que no tienen una excepción individual. Administración conserva las operaciones críticas exclusivamente para el administrador.</p><div class="table-scroll"><table class="permissions-table"><thead><tr><th scope="col">Módulo</th>${head}</tr></thead><tbody>${rows}</tbody></table></div><div class="form-actions">${btn('Restablecer configuración inicial','role-permissions-reset','secondary',`data-role="${role}"`)}${btn('Guardar permisos del rol','role-permissions-save','primary',`data-role="${role}"`)}</div></div>`;
- modal('Permisos por rol',body);
+ const body=`<div class="stack"><div class="note">Los cambios de <b>${esc(definition.name)}</b> se aplican a todos los usuarios de este rol que no tengan permisos individuales. <b>Ver</b> es necesario para permitir cualquier otra acción. No se modifican permisos de otros roles.</div>
+ <div class="role-bulk"><label for="roleBulkPreset">Aplicar un nivel a todos los módulos</label><select id="roleBulkPreset"><option value="read">Solo consultar</option><option value="work">Consultar y gestionar</option><option value="all">Control completo</option><option value="none">Sin acceso</option></select>${btn('Aplicar a todos','role-bulk-apply','secondary')}</div>
+ <div class="role-module-list">${rows}</div><div class="form-actions">${btn('Restablecer','role-permissions-reset','secondary',`data-role="${role}"`)}${btn('Guardar permisos','role-permissions-save','primary',`data-role="${role}"`)}</div></div>`;
+ modal('Permisos · '+definition.name,body);
 }
 async function saveRolePermissions(role){
- if(!isAdmin()||!['gerente','encargado'].includes(role))throw new Error('Rol no editable.');
+ if(!isAdmin()||role==='admin'||!state.data.roles.some(r=>r.code===role))throw new Error('Rol no editable.');
+ const isCustom=!state.data.roles.find(r=>r.code===role)?.is_system;
  const rows=PERMISSION_MODULES.map(([module])=>{
   const row={role,module,updated_at:new Date().toISOString(),updated_by:state.session?.user?.id||null};
-  for(const [action] of PERMISSION_ACTIONS)row['can_'+action]=!!document.getElementById('roleperm_'+module+'_'+action)?.checked;
+  for(const [action] of PERMISSION_ACTIONS)row['can_'+action]=!isCustom||module!=='administracion'?!!input('roleperm_'+module+'_'+action)?.checked:false;
   if(!row.can_view){for(const [action] of PERMISSION_ACTIONS)if(action!=='view')row['can_'+action]=false}
   return row;
  });
  const {error}=await sb.from('ops_role_permissions').upsert(rows,{onConflict:'role,module'});
- if(error)throw new Error('No se pudieron guardar los permisos por rol: '+error.message);
- closeModal();await refresh('Permisos del rol actualizados.');
+ if(error)throw new Error('No se pudieron guardar los permisos: '+error.message);
+ closeModal();await refresh('Permisos del rol guardados.');
 }
 async function resetRolePermissions(role){
- if(!isAdmin()||!['gerente','encargado'].includes(role))throw new Error('Rol no editable.');
- if(!confirm('¿Restablecer los permisos iniciales del rol '+role+'?'))return;
+ if(!isAdmin()||role==='admin'||!state.data.roles.some(r=>r.code===role))throw new Error('Rol no editable.');
+ if(!confirm('¿Restablecer los permisos de '+role+'? Los roles personalizados quedarán sin acceso.'))return;
  const {error}=await sb.from('ops_role_permissions').delete().eq('role',role);
- if(error)throw new Error('No se pudieron restablecer los permisos: '+error.message);
- closeModal();await refresh('Permisos iniciales restablecidos.');
+ if(error)throw new Error('No se pudieron restablecer permisos: '+error.message);
+ closeModal();await refresh('Permisos restablecidos.');
+}
+function roleForm(role=null){
+ if(!isAdmin())throw new Error('Acceso restringido.');
+ if(role?.is_system)throw new Error('Los roles del sistema están protegidos.');
+ const body=`<div class="stack"><p>${role?'El nombre y la descripción se pueden modificar. El identificador del rol no cambia.':'Crea un nuevo puesto. El identificador técnico se genera a partir de su nombre y debe ser único.'}</p>
+ <div class="form-grid">${formField('Nombre del rol','roleName',role?.name||'','text','maxlength="80" required')}
+ ${role?formField('Código fijo','roleCode',role.code,'text','disabled'):formField('Código único','roleCode','','text','pattern="[a-z][a-z0-9_]{2,31}" maxlength="32" required')}
+ <label class="wide">Descripción<textarea id="roleDescription" rows="3" maxlength="240">${esc(role?.description||'')}</textarea></label>
+ ${role?'':selectField('Permisos iniciales','roleTemplate',[{value:'read',label:'Solo lectura'},{value:'work',label:'Operativa sin borrado'},{value:'staff',label:'Como Encargado'},{value:'manager',label:'Como Gerencia'},{value:'none',label:'Sin acceso'}],'read')}
+ </div><div class="form-actions">${btn(role?'Guardar cambios':'Crear rol','role-save','primary',role?`data-role="${role.code}"`:'')}</div></div>`;
+ modal(role?'Editar rol':'Crear rol',body,{small:true});
+}
+async function saveRole(code=''){
+ if(!isAdmin())throw new Error('Acceso restringido.');
+ const name=required('roleName','Nombre del rol');
+ const slug=(code||required('roleCode','Código del rol')).trim().toLowerCase();
+ if(!/^[a-z][a-z0-9_]{2,31}$/.test(slug))throw new Error('Código: entre 3 y 32 caracteres, letras sin tilde, números y guiones bajos.');
+ if(name.length<3||name.length>80)throw new Error('El nombre debe tener entre 3 y 80 caracteres.');
+ if(state.data.roles.some(x=>x.code===slug && (!code||x.is_system)))throw new Error('Este código ya existe o está protegido.');
+ const description=val('roleDescription').trim();
+ if(code){
+  const role=state.data.roles.find(r=>r.code===code);
+  if(!role||role.is_system)throw new Error('No se puede modificar este rol.');
+  const {error}=await sb.from('ops_roles').update({name,description}).eq('code',code);
+  if(error)throw new Error('Error al actualizar el rol: '+error.message);
+ }else{
+  const {error}=await sb.from('ops_roles').insert({code:slug,name,description,is_system:false,sort_order:100});
+  if(error)throw new Error('No se pudo crear el rol: '+error.message);
+  const preset=val('roleTemplate');
+  const rows=PERMISSION_MODULES.map(([module])=>{
+   let x={view:false,create:false,edit:false,delete:false,export:false};
+   if(module!=='administracion'){
+    if(preset==='read')x={...x,view:true};
+    if(preset==='work')x={...x,view:true,create:true,edit:true};
+    if(preset==='staff')x=rolePermissions('encargado',module);
+    if(preset==='manager')x=rolePermissions('gerente',module);
+   }
+   const row={role:slug,module};
+   for(const [action] of PERMISSION_ACTIONS)row['can_'+action]=!!x[action];
+   return row;
+  });
+  const {error:permissionError}=await sb.from('ops_role_permissions').insert(rows);
+  if(permissionError){
+   await sb.from('ops_roles').delete().eq('code',slug);
+   throw new Error('Error al inicializar los permisos; creación cancelada: '+permissionError.message);
+  }
+ }
+ closeModal();await refresh(code?'Rol actualizado.':'Rol creado. Ya puedes asignarlo a usuarios.');
+}
+async function deleteRole(code){
+ if(!isAdmin())throw new Error('Acceso restringido.');
+ const role=state.data.roles.find(r=>r.code===code);
+ if(!role||role.is_system)throw new Error('Los roles protegidos no se pueden eliminar.');
+ const users=state.data.team.filter(u=>u.role===code);
+ if(users.length)throw new Error('El rol está asignado a '+users.length+' usuario(s). Cambia su rol antes de eliminarlo.');
+ if(!confirm('¿Eliminar el rol "'+role.name+'"? Se eliminarán sus permisos, pero no otros roles.'))return;
+ if(prompt('Escribe ELIMINAR ROL para confirmar:')!=='ELIMINAR ROL')return;
+ const {error}=await sb.from('ops_roles').delete().eq('code',code);
+ if(error)throw new Error('No se pudo eliminar el rol: '+error.message);
+ await refresh('Rol eliminado.');
 }
 
 function userPermissionsModal(email){
