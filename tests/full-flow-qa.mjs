@@ -7,7 +7,7 @@ const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
 page.setDefaultTimeout(5000);
-page.on('dialog',async d=>{await d.accept(d.type()==='prompt'?'ELIMINAR USUARIO':undefined);});
+page.on('dialog',async d=>{await d.accept(d.type()==='prompt'?(d.message().includes('ELIMINAR ROL')?'ELIMINAR ROL':'ELIMINAR USUARIO'):undefined);});
 const errors=[];
 page.on('pageerror',e=>errors.push('JS '+e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push('Consola '+m.text())});
@@ -406,6 +406,42 @@ await check('Roles: gerente y encargado con permisos de navegación',async()=>{
   }
   await rolePage.close();
  }
+});
+await check('Roles personalizados: crear, asignar permisos, editar, listar en usuarios y eliminar',async()=>{
+ await nav('administracion');
+ await page.locator('[data-action="admin-section"][data-section="roles"]').first().click();
+ await page.locator('[data-action="role-new"]').click();
+ await page.locator('#roleName').fill('Personal de almacén');
+ const newCode=await page.locator('#roleCode').inputValue();
+ assert(newCode==='personal_de_almacen','El código no se normaliza correctamente: '+newCode);
+ await page.locator('#roleTemplate').selectOption('read');
+ await page.locator('[data-action="role-save"]').click();
+ await page.waitForTimeout(160);
+ const initial=await page.evaluate(()=>({roles:window.__mockDb.ops_roles,rights:window.__mockDb.ops_role_permissions}));
+ assert(initial.roles.some(x=>x.code===newCode),'El rol no está guardado');
+ assert(initial.rights.filter(x=>x.role===newCode).length===9,'La plantilla debe guardar 9 módulos');
+ await page.locator('[data-action="role-permissions"][data-role="'+newCode+'"]').click();
+ assert((await page.locator('[id^="roleperm_"]').count())===45,'No se muestran los permisos por módulo');
+ await page.locator('#roleBulkPreset').selectOption('work');
+ await page.locator('[data-action="role-bulk-apply"]').click();
+ assert(await page.locator('#roleperm_gastos_create').isChecked(),'La plantilla de operativa no activa Crear');
+ assert(!(await page.locator('#roleperm_administracion_view').isChecked()),'Un rol personalizado no recibe acceso administrativo');
+ await page.locator('[data-action="role-permissions-save"]').click();
+ await page.waitForTimeout(160);
+ await page.locator('[data-action="role-rename"][data-role="'+newCode+'"]').click();
+ await page.locator('#roleName').fill('Apoyo y almacén');
+ await page.locator('[data-action="role-save"]').click();
+ await page.waitForTimeout(150);
+ assert((await page.evaluate(code=>window.__mockDb.ops_roles.find(r=>r.code===code)?.name,newCode))==='Apoyo y almacén','No se renombró');
+ await page.locator('[data-action="admin-section"][data-section="usuarios"]').first().click();
+ await page.locator('[data-action="user-new"]').click();
+ assert(await page.locator('#usRole option[value="'+newCode+'"]').count()===1,'El rol no se ofrece al crear usuario');
+ await page.locator('#modalHost .close-btn').click();
+ await page.locator('[data-action="admin-section"][data-section="roles"]').first().click();
+ await page.locator('[data-action="role-delete"][data-role="'+newCode+'"]').click();
+ await page.waitForTimeout(150);
+ assert(!(await page.evaluate(code=>window.__mockDb.ops_roles.some(r=>r.code===code),newCode)),'No se eliminó el rol vacío');
+ assert(await page.locator('[data-action="role-delete"][data-role="admin"]').count()===0,'El administrador no es eliminable');
 });
 await browser.close();
 if(errors.length){console.error('E2E MOCK QA FALLÓ\n- '+errors.join('\n- '));process.exit(1)}
