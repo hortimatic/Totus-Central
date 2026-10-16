@@ -1252,6 +1252,44 @@ function setFiscalQuarter(year,q){
  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;patchFilters('fiscalidad',{from,to});render();
 }
 
+
+function applyAdminLogFilters(){
+ const from=val('logFrom'),to=val('logTo');
+ if(from&&to&&from>to)throw new Error('La fecha inicial del Log no puede ser posterior a la final.');
+ state.filters.adminLog={from,to,area:val('logArea'),action:val('logAction'),actor:val('logActor').trim(),query:val('logQuery').trim()};
+ render();
+}
+function filteredLogRows(){
+ const f=state.filters.adminLog||{};
+ const key=s=>String(s||'').toLocaleLowerCase('es');
+ return (state.data.audit||[]).filter(r=>{
+  const day=String(r.created_at||'').slice(0,10);
+  return (!f.from||day>=f.from)&&(!f.to||day<=f.to)
+   &&(!f.area||f.area===r.area)&&(!f.action||f.action===r.action)
+   &&(!f.actor||key(r.user_email).includes(key(f.actor)))
+   &&(!f.query||key([r.user_email,r.action,r.area,JSON.stringify(r.detail||{})].join(' ')).includes(key(f.query)));
+ });
+}
+function showLogEntry(id){
+ const row=(state.data.audit||[]).find(r=>String(r.id)===String(id));
+ if(!row)throw new Error('El evento no está disponible.');
+ const detail=JSON.stringify(row.detail||{},null,2);
+ modal('Detalle del evento',`<div class="stack">
+  <p><b>Fecha:</b> ${esc(new Date(row.created_at).toLocaleString('es-ES'))}</p>
+  <p><b>Usuario:</b> ${esc(row.user_email||'—')}</p>
+  <p><b>Área:</b> ${esc(row.area||'—')}</p>
+  <p><b>Acción:</b> ${esc(row.action||'—')}</p>
+  <pre class="text-preview">${esc(detail)}</pre>
+ </div>`);
+}
+function exportLogCsv(){
+ const rows=filteredLogRows();
+ const escCell=v=>'"'+String(v??'').replaceAll('"','""').replace(/[\r\n]+/g,' ')+'"';
+ const cols=['Fecha','Usuario','Área','Acción','Detalle JSON'];
+ const csvText='\uFEFF'+[cols,...rows.map(r=>[r.created_at||'',r.user_email||'',r.area||'',r.action||'',JSON.stringify(r.detail||{})])].map(row=>row.map(escCell).join(';')).join('\r\n');
+ download(new Blob([csvText],{type:'text/csv;charset=utf-8'}),'Log_Totus_'+isoToday()+'.csv');
+}
+
 async function downloadBackup(){
  if(!isAdmin())throw new Error('Solo el administrador puede crear copias completas.');
  toast('Preparando copia completa…');
@@ -1538,6 +1576,11 @@ document.addEventListener('click',async e=>{
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();return}
+  if(a==='admin-log-filter'){applyAdminLogFilters();return}
+  if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};render();return}
+  if(a==='admin-log-refresh'){await refresh('Eventos actualizados.');return}
+  if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
+  if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='backup-create'){await downloadBackup();return}
   if(a==='backup-verify'){await verifyBackupFromInput();return}
   if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));return}
