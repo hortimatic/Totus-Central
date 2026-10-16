@@ -5,7 +5,9 @@ export const PERMISSION_MODULES=[
  ['informes','Informes'],['administracion','Administración']
 ];
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];
-export function rolePermissions(role,module){
+let roleOverrides=[];
+export function setRolePermissions(rows=[]){roleOverrides=Array.isArray(rows)?rows:[]}
+export function defaultRolePermissions(role,module){
  if(role==='admin')return {view:true,create:true,edit:true,delete:true,export:true};
  if(role==='gerente')return module==='fiscalidad'
   ?{view:true,create:true,edit:true,delete:false,export:true}
@@ -20,6 +22,13 @@ export function rolePermissions(role,module){
   export:false
  };
  return {view:false,create:false,edit:false,delete:false,export:false};
+}
+export function rolePermissions(role,module){
+ const base=defaultRolePermissions(role,module);
+ if(role==='admin')return base;
+ const saved=roleOverrides.find(row=>row.role===role&&row.module===module);
+ if(!saved)return base;
+ return Object.fromEntries(PERMISSION_ACTIONS.map(([action])=>[action,saved['can_'+action]===true]));
 }
 export function permissionsFor(user,module,entries=[]){
  const original=rolePermissions(user?.role,module);
