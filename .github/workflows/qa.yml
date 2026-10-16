@@ -17,6 +17,7 @@ jobs:
       - run: node tests/functional-regression.mjs
       - run: node tests/code-integrity.mjs
       - run: node tests/permissions-qa.mjs
+      - run: node tests/roles-and-help-qa.mjs
       - run: node tests/route-smoke.mjs
       - run: node tests/filters-qa.mjs
       - run: node tests/excel-invariants.mjs
