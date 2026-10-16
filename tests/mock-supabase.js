@@ -7,6 +7,8 @@ const userId='cccccccc-cccc-4ccc-cccc-cccccccccccc';
 const session={user:{id:userId,email:'qa@example.com'},access_token:'qa-sandbox'};
 const role=new URLSearchParams(location.search).get('role')||'admin';
 const db={
+ ops_backup_config:[{id:1,enabled:false,frequency:'daily',run_hour:3,run_minute:0,weekday:1,month_day:1,retention_days:10,destination_folder:'automaticas'}],
+ ops_backup_runs:[],
  ops_roles:[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}],
  ops_role_permissions:[],
  ops_user_permissions:[],
@@ -72,6 +74,12 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ if(name==='totus_backup_save_settings'){
+  if(role!=='admin')return {data:null,error:{message:'Solo administrador'}};
+  const x=args.p||{};
+  Object.assign(db.ops_backup_config[0],x,{updated_at:new Date().toISOString()});
+  return {data:null,error:null};
+ }
  if(name==='totus_backup_contract')return {data:{version:window.__mockContractVersion||1,income_adjustments:true,storage:true},error:null};
  if(name==='totus_restore_backup'){
   if(window.__mockContractVersion!==2)return {data:null,error:{message:'Contrato SQL antiguo'}};
@@ -132,10 +140,40 @@ const storageBucket=bucket=>({
  list:async (prefix='')=>({data:[...uploaded.keys()].filter(k=>k.startsWith(bucket+'/'+prefix)).map(k=>({id:uuid(),name:k.slice((bucket+'/').length)})),error:null}),
  createSignedUrl:async path=>{const f=uploaded.get(bucket+'/'+path);return {data:{signedUrl:f?URL.createObjectURL(f):''},error:f?null:{message:'No encontrado'}}}
 });
+const mockCloudBackup=async()=>{
+ const mod=await import('../src/backup.js');
+ const tables=mod.BACKUP_TABLES;
+ const database={};for(const table of tables)database[table]=[...(db[table]||[])];
+ const zip=new window.JSZip(),files={'business-documents':[],'business-assets':[]},hashes={'business-documents':{},'business-assets':{}};
+ const sha=async x=>{
+  const b=typeof x==='string'?new TextEncoder().encode(x):x instanceof Blob?await x.arrayBuffer():x;
+  const h=await crypto.subtle.digest('SHA-256',b);
+  return [...new Uint8Array(h)].map(z=>z.toString(16).padStart(2,'0')).join('');
+ };
+ for(const bucket of Object.keys(files)){
+  for(const [key,file] of uploaded.entries()){
+   if(!key.startsWith(bucket+'/'))continue;
+   const path=key.slice(bucket.length+1);files[bucket].push(path);
+   const content=file instanceof Blob?file:new Blob([file]);
+   zip.file('storage/'+bucket+'/'+path,content);
+   hashes[bucket][path]=await sha(content);
+  }
+ }
+ const databaseJson=JSON.stringify(database);
+ const manifest={format:'totus-clean-backup',version:2,created_at:new Date().toISOString(),tables,storage:files,integrity:{database:await sha(databaseJson),storage:hashes}};
+ zip.file('manifest.json',JSON.stringify(manifest));
+ zip.file('database.json',databaseJson);
+ const blob=await zip.generateAsync({type:'blob'});
+ const id=uuid(),path='automaticas/QA_'+id+'.totusbackup';
+ uploaded.set('business-backups/'+path,blob);
+ db.ops_backup_runs.unshift({id,mode:'manual',status:'success',started_at:new Date().toISOString(),finished_at:new Date().toISOString(),storage_path:path,size_bytes:blob.size,rows_count:Object.values(database).reduce((n,x)=>n+x.length,0),files_count:Object.values(files).reduce((n,x)=>n+x.length,0)});
+ return {data:{id,status:'success',size_bytes:blob.size},error:null};
+};
 const client={
  auth:{getSession:async()=>({data:{session},error:null}),signInWithPassword:async()=>({data:{session},error:null}),signOut:async()=>{events?.('SIGNED_OUT',null);return {error:null}},resetPasswordForEmail:async()=>({data:{},error:null}),onAuthStateChange:fn=>{events=fn;return {data:{subscription:{unsubscribe(){}}}}}},
  from:table=>new Query(table),
  rpc,
+ functions:{invoke:async name=>name==='totus-backup-run'?await mockCloudBackup():{data:null,error:{message:'Función no simulada'}}},
  storage:{from:storageBucket}
 };
 window.supabase={createClient:()=>client};
