@@ -24,6 +24,9 @@ state.data.templates=[{id:'tp1',name:'Plantilla QA',code:'QA',style:'clean',prim
 state.data.invoices=[{id:'iv1',series_id:'i1',store_id:'s1',issue_date:'2026-10-08',display_number:'H-0001',origin:'totus',status:'emitida',document_type:'factura',invoice_kind:'invoice',customer_id:'cu1',customer_name:'Cliente QA',customer_tax_id:'00000000T',customer_email:'cliente@example.com',customer_address:'Calle Cliente 1',concept:'Servicios QA',payment_method:'transferencia',paid_status:'pagada',paid_date:'2026-10-08',paid_amount:121,include_in_income:false,template_id:'tp1',base_amount:100,vat_amount:21,total_amount:121,notes:''}];
 state.data.invoiceLines=[{id:'il1',invoice_id:'iv1',sort_order:10,description:'Servicio QA',quantity:1,unit_price_base:100,discount_pct:0,vat_rate:21,total_amount:121}];
 state.data.documents=[{id:'doc1',store_id:'s1',doc_type:'factura_recibida',document_date:'2026-10-09',supplier_or_customer:'Proveedor QA',tax_id:'B00000000',invoice_number:'F-001',status:'pagada',storage_path:'qa/factura.pdf',original_name:'factura.pdf',mime_type:'application/pdf',size_bytes:120000,notes:''}];
+state.data.backupConfig={id:1,enabled:false,frequency:'weekly',run_hour:9,run_minute:30,weekday:1,month_day:1,retention_days:10,destination_folder:'automaticas'};
+state.data.backupRuns=[];
+state.data.roles=[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}];
 state.data.taxPayments=[{id:'tx1',tax_type:'130',fiscal_year:2026,quarter:3,period_label:'3T 2026',payment_date:'2026-10-01',amount:500,status:'pagado',notes:''}];
 state.data.fiscalAdjustments=[];state.data.incomeAdjustments=[];state.data.audit=[{id:'a1',created_at:'2026-10-10T10:00:00Z',user_email:'qa@example.com',area:'qa',action:'probar',detail:{ok:true}}];
 state.data.reta=[];state.data.brands=[];state.data.families=[];state.data.products=[];state.data.variants=[];state.data.providers=[];state.data.providerPrices=[];state.data.competitors=[];state.data.consultations=[];state.data.team=[{email:'qa@example.com',full_name:'QA',role:'admin',active:true,job_title:'Admin'}];
@@ -34,6 +37,8 @@ if(mode==='record'){
  if(route==='facturacion')setView('facturacion',{mode:'record',id:q.get('id')==='new'?null:'iv1',docType:q.get('type')||'factura',invoiceKind:q.get('kind')||'invoice',origin:q.get('origin')||'totus'});
  if(route==='documentos')setView('documentos',{mode:'record',id:q.get('id')==='new'?null:'doc1'});
 }
+if(route==='gastos'&&q.get('section'))setView('gastos',{section:q.get('section')});
+if(route==='facturacion'&&q.get('section'))setView('facturacion',{section:q.get('section')});
 if(route==='administracion'&&q.get('section'))setView('administracion',{section:q.get('section')});
 document.getElementById('root').innerHTML=renderers[route]();
 window.__totusQa={state,render:()=>{document.getElementById('root').innerHTML=renderers[state.route]()},setRoute,setView};
