@@ -500,6 +500,24 @@ await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF ori
   assert(!!archive.file(required),'Falta fichero del gestor: '+required);
  }
  assert(names.some(x=>x.endsWith('/justificante-test.pdf')),'No se incluyó la factura PDF original de gastos en el ZIP');
+ const workbook= xlsx.read(await archive.file('02_GASTOS/Libros_gestor_y_auditoria_2026_Totus.xlsx').async('nodebuffer'),{type:'buffer',cellFormula:true,cellStyles:true});
+ for(const quarter of [1,2,3,4]){
+  assert(workbook.SheetNames.includes('Libro gestor '+quarter+'T'),'Falta el libro fiscal del trimestre '+quarter);
+  assert(workbook.SheetNames.includes('Conciliación '+quarter+'T'),'Falta la conciliación del trimestre '+quarter);
+ }
+ assert(workbook.SheetNames.includes('Auditoría gestor'),'Falta la hoja de auditoría para gestoría');
+ for(const sheet of workbook.SheetNames.filter(n=>n.startsWith('Libro gestor '))){
+  const cells=xlsx.utils.sheet_to_json(workbook.Sheets[sheet],{header:1,defval:''});
+  assert(!cells.flat().some(x=>String(x).includes('Horas extra QA')),'Gasto interno enviado erróneamente a fiscalidad');
+ }
+ for(const name of ['Hortimatic','Newoldsmok']){
+  const p='03_DIARIOS/Gastos y ventas '+(name==='Hortimatic'?name:'NewOldSmok')+' 2026.xlsx';
+  const book=xlsx.read(await archive.file(p).async('nodebuffer'),{type:'buffer',cellFormula:true,cellStyles:true});
+  assert(book.SheetNames.length===12&&book.SheetNames[0]==='Enero'&&book.SheetNames[11]==='Diciembre','El libro de '+name+' perdió hojas mensuales');
+  const monthly=book.Sheets.Septiembre;
+  assert(monthly&&Object.values(monthly).some(cell=>cell?.f&&String(cell.f).includes('SUM(')),'Faltan fórmulas en el libro de '+name);
+ }
+
  const index=archive.file('05_DOCUMENTOS/Indice_documentos_2026.csv');
  assert(index,'El paquete no incluye el índice de documentos');
  const indexText=await index.async('string');
