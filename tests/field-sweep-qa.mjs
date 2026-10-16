@@ -6,12 +6,16 @@ const pages=[
  ['inicio','?route=inicio'],['pricing','?route=pricing'],
  ['cajas-list','?route=cajas'],['cajas-form','?route=cajas&mode=record&id=new'],
  ['gastos-list','?route=gastos'],['gastos-form','?route=gastos&mode=record&id=new'],
- ['facturas-list','?route=facturacion'],['factura-form','?route=facturacion&mode=record&id=new&type=factura&kind=invoice&origin=totus'],
+ ['gastos-facturas','?route=gastos&section=facturas'],
+ ['facturas-list','?route=facturacion'],
+ ['facturacion-clientes','?route=facturacion&section=clientes'],['facturacion-plantillas','?route=facturacion&section=plantillas'],['facturacion-series','?route=facturacion&section=series'],['factura-form','?route=facturacion&mode=record&id=new&type=factura&kind=invoice&origin=totus'],
  ['rectificativa-form','?route=facturacion&mode=record&id=new&type=factura&kind=rectifying&origin=totus'],
+ ['proforma-form','?route=facturacion&mode=record&id=new&type=proforma&kind=invoice&origin=totus'],
  ['externa-form','?route=facturacion&mode=record&id=new&type=factura&kind=invoice&origin=externa'],
  ['documentos-list','?route=documentos'],['documentos-form','?route=documentos&mode=record&id=new'],
  ['fiscalidad','?route=fiscalidad'],['informes','?route=informes'],
- ['admin-users','?route=administracion&section=usuarios'],['admin-business','?route=administracion&section=negocio'],
+ ['admin-users','?route=administracion&section=usuarios'],
+ ['admin-roles','?route=administracion&section=roles'],['admin-business','?route=administracion&section=negocio'],
  ['admin-fiscal','?route=administracion&section=fiscal'],['admin-storage','?route=administracion&section=storage'],
  ['admin-backups','?route=administracion&section=backups'],['admin-log','?route=administracion&section=log']
 ];
