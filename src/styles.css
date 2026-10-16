@@ -164,3 +164,26 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .role-actions{flex-direction:column;align-items:stretch}
  .role-actions button{width:100%}
 }
+
+/* Expense document register */
+.expense-tabs{margin-bottom:4px}
+.expense-file-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:185px}
+.expense-file-actions .btn{white-space:nowrap}
+.expense-amounts{display:grid;gap:3px;min-width:116px;font-size:12px}
+.expense-amounts span{display:flex;justify-content:space-between;gap:6px}
+.expense-attachment-picker{display:flex;flex-direction:column;gap:9px;min-width:210px;max-width:100%}
+.expense-attachment-picker #exSelectedFile{overflow-wrap:anywhere}
+.expense-attachment-picker button{align-self:flex-start}
+.expense-attachment-picker button:disabled{cursor:not-allowed;opacity:.55}
+.gestor-details-scroll{overflow-x:auto;max-width:100%;max-height:56vh;border:1px solid var(--line);border-radius:10px}
+.gestor-details-scroll .table-wrap{overflow-x:visible}
+.gestor-details-scroll .data-table{min-width:2050px;font-size:12px}
+.gestor-details-scroll .data-table td,.gestor-details-scroll .data-table th{white-space:nowrap;padding:10px}
+.gestor-details-scroll .data-table th{position:sticky;top:0;background:#f0f5fa;z-index:1}
+@media(max-width:700px){
+ .expense-tabs{display:flex;overflow-x:auto;white-space:nowrap;max-width:100%}
+ .expense-tabs .tab{flex:1 0 auto}
+ .expense-file-actions{min-width:0}
+ .expense-attachment-picker{width:100%}
+ .expense-attachment-picker button{align-self:stretch}
+}
