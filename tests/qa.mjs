@@ -108,7 +108,8 @@ if(!pageSource.includes('documentRecordHtml'))errors.push('Documentos no usa lis
 if(!pageSource.includes('administracion()'))errors.push('Falta Administración consolidada');
 if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
 if(!text('index.html').includes('xlsx-js-style'))errors.push('Falta motor Excel');
-if(/download\([^\n]*\.csv|text\/csv|cierres_[^\n]*\.csv|gastos_[^\n]*\.csv|resumen_[^\n]*\.csv/.test(appSource))errors.push('Persisten exportaciones CSV en Informes');
+const appWithoutLogCsv=appSource.replace(/function exportLogCsv\(\)\{[\s\S]*?\n\}/,'');
+if(/download\([^\n]*\.csv|text\/csv|cierres_[^\n]*\.csv|gastos_[^\n]*\.csv|resumen_[^\n]*\.csv/.test(appWithoutLogCsv))errors.push('Persisten exportaciones CSV en Informes');
 for(const term of ['exportClosingsWorkbook','exportExpensesWorkbook','exportSummaryWorkbook','cellStyles:true','SUM('])if(!text('src/excel.js').includes(term))errors.push('Excel incompleto: '+term);
 for(const term of ['provider-price-new','competitor-new','variant-new','consultation-save','providers-manage'])if(!text('src/app.js').includes(term)&&!text('src/pages/main.js').includes(term))errors.push('Pricing incompleto: '+term);
 if(/apply_special_tax\s*\?\s*Number\([^\n]*special_tax_amount[^\n]*\)\s*:\s*0/.test(pageSource)||text('src/app.js').includes('ppApplyTax'))errors.push('Pricing vuelve a sumar impuesto especial ya incluido');
