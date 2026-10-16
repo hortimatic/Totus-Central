@@ -137,10 +137,14 @@ await check('Cajas: segunda tienda, fecha distinta y conciliación de todos los 
  await page.locator('[data-action="closing-new"]').first().click();
  const storeB=await page.evaluate(()=>window.__mockDb.ops_stores.find(x=>x.name==='NewOldSmok').id);
  await page.locator('#clStore').selectOption(storeB);
- await page.locator('#clDate').fill('2026-09-15');
  const ids=await page.locator('.drawer-entry').evaluateAll(rows=>rows.map(x=>x.dataset.drawerId));
  assert(ids.length===1,'NewOldSmok debe mostrar solo su caja, sin mezclar Hortimatic');
  const id=ids[0];
+ await page.locator('#drCard_'+id).fill('8,50');
+ await page.locator('#clReported').fill('125,00');
+ await page.locator('#clDate').fill('2026-09-15');
+ assert((await page.locator('#drCard_'+id).inputValue())==='8,50','Cambiar fecha ha borrado importes del usuario');
+ assert((await page.locator('#clReported').inputValue())==='125,00','Cambiar fecha ha borrado el total de control');
  await page.locator('#drOpen_'+id).fill('10,00');
  await page.locator('#drClose_'+id).fill('30,00');
  await page.locator('#drWithdraw_'+id).fill('2,00');
