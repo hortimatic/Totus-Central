@@ -34,6 +34,33 @@ if(errors.length){
  console.error('E2E MOCK ARRANQUE FALLÓ\n- '+errors.join('\n- '));
  process.exit(1);
 }
+await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
+ await nav('administracion');
+ await page.locator('[data-action="admin-section"][data-section="roles"]').click();
+ assert((await page.locator('#content').innerText()).includes('Gerencia'),'Falta la matriz de roles');
+ await page.locator('[data-action="role-permissions"][data-role="gerente"]').click();
+ assert(await page.locator('[id^="roleperm_"]').count()===45,'Deben existir 9 módulos × 5 permisos');
+ await page.locator('#roleperm_gastos_create').uncheck();
+ await page.locator('[data-action="role-permissions-save"]').click();
+ await page.waitForTimeout(100);
+ const saved=await page.evaluate(()=>window.__mockDb.ops_role_permissions);
+ assert(saved.length===9,'No se guardaron los nueve módulos del rol');
+ assert(saved.find(x=>x.role==='gerente'&&x.module==='gastos')?.can_create===false,'No persistió el permiso de Gastos');
+ await page.locator('[data-action="role-permissions"][data-role="gerente"]').click();
+ assert(!(await page.locator('#roleperm_gastos_create').isChecked()),'La edición no recupera los permisos guardados');
+ await page.locator('[data-action="role-permissions-reset"]').click();
+ await page.waitForTimeout(100);
+ assert((await page.evaluate(()=>window.__mockDb.ops_role_permissions)).length===0,'No se restableció la matriz del rol');
+});
+await check('Ayudas i: apertura, contenido y campos de un gasto',async()=>{
+ await nav('gastos');
+ await page.locator('[data-action="expense-new"]').click();
+ const aids=page.locator('#content .field-help summary');
+ assert(await aids.count()>=14,'Faltan iconos i en los formularios');
+ await aids.first().click();
+ assert(await page.locator('#content .field-help[open] [role="note"]').count()>=1,'Al pulsar i no aparece información');
+ assert((await page.locator('#content .field-help[open] [role="note"]').first().innerText()).length>20,'La ayuda no explica el campo');
+});
 await check('Cajas: creación, cálculo, guardado y lectura',async()=>{
  await nav('cajas');
  await page.locator('[data-action="closing-new"]').first().click();
