@@ -7,6 +7,7 @@ const userId='cccccccc-cccc-4ccc-cccc-cccccccccccc';
 const session={user:{id:userId,email:'qa@example.com'},access_token:'qa-sandbox'};
 const role=new URLSearchParams(location.search).get('role')||'admin';
 const db={
+ ops_role_permissions:[],
  ops_user_permissions:[],
  team_members:[{id:userId,email:'qa@example.com',full_name:'Administración QA',role,active:true}],
  profiles:[{id:userId,email:'qa@example.com'}],
