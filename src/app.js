@@ -151,7 +151,8 @@ function showExpenseGestorDetail(id){
  const items=expenseRegisterLines([expense],state.data.expenseLines);
  const tHeaders=GESTOR_EXPENSE_COLUMNS.map(label=>({label,html:row=>{
   const i=GESTOR_EXPENSE_COLUMNS.indexOf(label),value=row.fields[i];
-  return typeof value==='number'?money(value):esc(value||'—');
+  if(typeof value==='number')return i===0?String(value):[9,12,16].includes(i)?value.toLocaleString('es-ES',{maximumFractionDigits:2})+' %':money(value);
+  return esc(value??'—');
  }}));
  const warning=expense.management_only?'Es un gasto de control interno: no debe incorporarse al libro fiscal de gestoría.':
   expense.fiscal_reviewed===false?'SIN REVISAR: contrasta la factura y los importes antes de enviarlos a gestoría.':'Detalle desglosado por concepto fiscal.';
