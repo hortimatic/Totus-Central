@@ -7,6 +7,7 @@ import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from '
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
 import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
+import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
 
@@ -141,6 +142,51 @@ async function deleteClosing(id){
  const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
  await rpc('totus_delete_closing',{p_id:id,p_reason:reason.trim()});
  resetView('cajas');await refresh('Cierre eliminado.');
+}
+
+
+function showExpenseGestorDetail(id){
+ const expense=state.data.expenses.find(x=>x.id===id);
+ if(!expense)throw new Error('No se encuentra el gasto seleccionado.');
+ const items=expenseRegisterLines([expense],state.data.expenseLines);
+ const tHeaders=GESTOR_EXPENSE_COLUMNS.map(label=>({label,html:row=>{
+  const i=GESTOR_EXPENSE_COLUMNS.indexOf(label),value=row.fields[i];
+  return typeof value==='number'?money(value):esc(value||'—');
+ }}));
+ const warning=expense.management_only?'Es un gasto de control interno: no debe incorporarse al libro fiscal de gestoría.':
+  expense.fiscal_reviewed===false?'SIN REVISAR: contrasta la factura y los importes antes de enviarlos a gestoría.':'Detalle desglosado por concepto fiscal.';
+ const doc=state.data.documents.find(d=>d.id===expense.document_id);
+ const actions=doc?`<div class="inline-actions">${btn('Ver factura original','expense-document-preview','secondary',`data-id="${esc(doc.id)}"`)}${btn('Descargar factura','expense-document-download','secondary',`data-id="${esc(doc.id)}"`)}</div>`:'<p class="note">Este gasto todavía no tiene un justificante adjunto.</p>';
+ const rows=items.map(x=>({
+  ...x,fields:x.fields.map((v,i)=>i===1?fmtDate(v):v)
+ }));
+ modal('Datos para gestoría · '+(expense.invoice_number||expense.supplier_name||'Gasto'),
+  `<div class="stack"><p class="note ${expense.fiscal_reviewed===false?'warn':''}">${esc(warning)}</p><div class="gestor-details-scroll">${table(tHeaders,rows)}</div>
+  ${items.some(x=>x.missingBreakdown)?'<p class="note">Falta el desglose original por líneas; revisa este gasto antes de declararlo.</p>':''}
+  ${actions}</div>`);
+}
+async function previewPendingExpenseFile(){
+ const file=input('exFile')?.files?.[0];
+ if(!file)throw new Error('Selecciona primero una factura para verla.');
+ const settings=state.data.settings||{},usage=state.data.storageUsage||{};
+ const existingId=getView('gastos').id,existing=state.data.expenses.find(x=>x.id===existingId);
+ const old=state.data.documents.find(d=>d.id===existing?.document_id);
+ validateDocumentFile(file,{maxBytes:Number(settings.document_max_bytes||20*1024*1024),usedBytes:Number(usage.total_bytes||0),limitBytes:Number(usage.limit_bytes||500*1024*1024),replacingBytes:Number(old?.size_bytes||0)});
+ const kind=previewKind(file.name,file.type);
+ let content='';
+ if(kind==='pdf'||kind==='image'){
+  const url=URL.createObjectURL(file);
+  content=kind==='pdf'?`<iframe class="document-frame" src="${url}" title="${esc(file.name)}"></iframe>`:`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(file.name)}"></div>`;
+  setTimeout(()=>URL.revokeObjectURL(url),180000);
+ }else if(kind==='excel'){
+  const workbook=window.XLSX.read(await file.arrayBuffer(),{type:'array'});
+  content=`<div class="excel-preview">${workbook.SheetNames.slice(0,8).map((sheet,i)=>`<details ${i===0?'open':''}><summary>${esc(sheet)}</summary><div class="excel-preview-sheet"><table class="data-table"><tbody>${window.XLSX.utils.sheet_to_json(workbook.Sheets[sheet],{header:1,raw:false,defval:''}).slice(0,120).map(line=>`<tr>${line.slice(0,20).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`).join('')}</div>`;
+ }else if(kind==='text'){
+  content=`<pre class="text-preview">${esc((await file.text()).slice(0,100000))}</pre>`;
+ }else{
+  content='<p class="note">Este archivo se puede guardar y descargar. No hay vista previa integrada para este formato.</p>';
+ }
+ modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div>${content}<div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
 }
 
 function expenseSuppliersManager(){
@@ -1236,7 +1282,7 @@ function applyFilter(prefix){
  const route=filterRoute[prefix];if(!route)return;
  const from=val(prefix+'From'),to=val(prefix+'To');if(from&&to&&from>to)throw new Error('La fecha Desde no puede ser posterior a Hasta.');
  const patch={from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()};
- if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all'}
+ if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all';if(input('gastosAttachment'))patch.attachment=val('gastosAttachment')||'all'}
  if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
  if(prefix==='informes'){patch.year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())))}
  patchFilters(route,patch);render();
@@ -1372,6 +1418,10 @@ document.addEventListener('click',async e=>{
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-supplier-save'){await saveExpenseSupplier(el.dataset.id||'');return}
   if(a==='expense-supplier-delete'){await deleteExpenseSupplier(el.dataset.id);return}
+  if(a==='expense-section'){setView('gastos',{mode:'list',id:null,section:el.dataset.section||'registros'});render();return}
+  if(a==='expense-gestor-detail'){showExpenseGestorDetail(el.dataset.id);return}
+  if(a==='expense-unlinked-open'){setRoute('documentos');setView('documentos',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='expense-file-preview'){await previewPendingExpenseFile();return}
   if(a==='expense-new'){setView('gastos',{mode:'record',id:null});setRoute('gastos');render();return}
   if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
@@ -1525,6 +1575,12 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',e=>{
+ if(e.target?.id==='exFile'){
+  const selected=e.target.files?.[0],name=input('exSelectedFile'),button=input('exFilePreview');
+  if(name)name.textContent=selected?selected.name+' · '+(selected.size/1024).toFixed(1)+' KB · pendiente de guardar':'No se ha seleccionado una factura nueva.';
+  if(button)button.disabled=!selected;
+  return;
+ }
  if(e.target?.classList?.contains('role-preset')){
    setRoleModulePreset(e.target.dataset.module,e.target.value);
    return;
