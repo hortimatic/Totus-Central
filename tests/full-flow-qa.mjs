@@ -61,7 +61,7 @@ await check('Ayudas i: apertura, contenido y campos de un gasto',async()=>{
  await aids.first().click();
  assert(await page.locator('#content .field-help[open] [role="note"]').count()>=1,'Al pulsar i no aparece información');
  assert((await page.locator('#content .field-help[open] [role="note"]').first().innerText()).length>20,'La ayuda no explica el campo');
- await page.locator('[data-action="expense-back"]').click();
+ await page.locator('[data-action="expense-back"]').first().click();
 });
 await check('Cajas: creación, cálculo, guardado y lectura',async()=>{
  await nav('cajas');
