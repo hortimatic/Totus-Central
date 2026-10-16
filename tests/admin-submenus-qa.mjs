@@ -59,10 +59,22 @@ try{
  await page.locator('[data-action="backup-settings-save"]').click();
  assert.equal((await page.evaluate(()=>window.__mockDb.ops_backup_config[0].enabled)),false);
  steps.push('backup:disabled');
+ await page.evaluate(()=>{
+  const old={id:'old-qa-archive',mode:'scheduled',status:'success',started_at:new Date(Date.now()-16*86400000).toISOString(),storage_path:'automaticas/antigua.totusbackup',size_bytes:42,rows_count:1,files_count:0};
+  window.__mockDb.ops_backup_runs.push(old);
+  window.__mockUploads.set('business-backups/'+old.storage_path,new Blob(['COPIA ANTIGUA DE ENSAYO']));
+ });
  await page.locator('[data-action="backup-run-now"]').click();
  await page.waitForTimeout(140);
  const snap=await page.evaluate(()=>window.__mockDb.ops_backup_runs[0]);
  assert.equal(snap?.status,'success','La copia privada no se ha guardado');
+ const rotation=await page.evaluate(()=>({
+  old:window.__mockDb.ops_backup_runs.find(x=>x.id==='old-qa-archive'),
+  leftover:window.__mockUploads.has('business-backups/automaticas/antigua.totusbackup')
+ }));
+ assert.equal(rotation.old?.status,'expired','La copia con más de 10 días no se ha rotado');
+ assert.equal(rotation.leftover,false,'La rotación dejó ocupando espacio la copia anterior');
+ steps.push('backup:rotation-retention-10-days');
  assert(snap.storage_path.endsWith('.totusbackup'));
  assert(await page.locator('[data-action="backup-history-download"]').count()===1,'La copia no es descargable');
  steps.push('backup:server-created');
