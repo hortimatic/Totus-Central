@@ -15,10 +15,9 @@ const TABLES=[
  "ops_fiscal_adjustments","ops_income_adjustments","ops_reta_brackets","ops_audit_log",
  "brands","families","providers","products","product_variants","product_provider_prices",
  "product_competitor_prices","price_history","consultations","consultation_history",
- "ops_roles","ops_role_permissions","ops_user_permissions","team_members","profiles",
- "team_email_log","team_user_audit_log","ops_backup_config"
+ "ops_roles","ops_role_permissions","ops_user_permissions","ops_backup_config"
 ] as const;
-const ORDERS:Record<string,string>={"ops_roles":"code","ops_role_permissions":"role","ops_user_permissions":"email","team_members":"email"};
+const ORDERS:Record<string,string>={"ops_roles":"code","ops_role_permissions":"role","ops_user_permissions":"email"};
 const BUCKETS=["business-documents","business-assets"] as const;
 const OMIT_USER:Record<string,string[]>={
  products:["created_by"],consultations:["created_by"],consultation_history:["user_id"],price_history:["user_id"],
