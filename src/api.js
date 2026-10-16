@@ -1,5 +1,6 @@
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
+import {setRolePermissions} from './permissions.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const assert=({error},ctx)=>{if(error)throw new Error(`${ctx}: ${error.message}`)};
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
@@ -30,7 +31,7 @@ export async function signedUrl(bucket,path,seconds=120){const r=await sb.storag
 export async function removeFile(bucket,path){const r=await sb.storage.from(bucket).remove([path]);assert(r,'Eliminar archivo')}
 export async function loadCore(){
  const tasks=[
- ['settings','ops_business_settings'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
+ ['settings','ops_business_settings'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
  ['customers','ops_customers','name'],['series','ops_invoice_series','year'],['invoices','ops_sales_invoices','issue_date'],['invoiceLines','ops_sales_invoice_lines'],['documents','ops_documents','created_at'],
  ['taxPayments','ops_tax_payments','created_at'],['reta','ops_reta_brackets','bracket_order'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],
@@ -39,6 +40,7 @@ export async function loadCore(){
  ];
  const results=await Promise.all(tasks.map(([,table,order])=>select(table,{order,ascending:false}).catch(e=>{console.error(e);throw e})));
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
+ setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.storageUsage=await rpc('totus_storage_usage').catch(()=>({documents_bytes:0,documents_count:0,assets_bytes:0,assets_count:0,total_bytes:0,limit_bytes:Number(state.data.settings?.storage_limit_bytes||500*1024*1024)}));
  if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000}).catch(()=>[])}
