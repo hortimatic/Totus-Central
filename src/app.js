@@ -39,7 +39,7 @@ function permissionForAction(action,el){
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
- if(a==='config-save'||a==='backup-create'||a==='backup-restore'||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='config-save'||a.startsWith('backup-')||a.startsWith('admin-log-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
  if(a==='closing-save-close'&&el?.dataset?.id)operation='edit';
@@ -1290,6 +1290,57 @@ function exportLogCsv(){
  download(new Blob([csvText],{type:'text/csv;charset=utf-8'}),'Log_Totus_'+isoToday()+'.csv');
 }
 
+
+async function saveBackupSettings(){
+ if(!isAdmin())throw new Error('Solo el administrador configura las copias.');
+ const h=val('backupTime'),match=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(h);
+ if(!match)throw new Error('Introduce una hora válida de 00:00 a 23:59.');
+ const retention=Number(val('backupRetention')),folder=val('backupFolder').trim();
+ if(!Number.isInteger(retention)||retention<1||retention>365)throw new Error('La conservación debe ser de 1 a 365 días.');
+ if(!/^[a-zA-Z0-9_-]{3,48}$/.test(folder))throw new Error('La carpeta debe tener de 3 a 48 letras, números, _ o -.');
+ const frequency=val('backupFrequency');
+ if(!['daily','weekly','monthly'].includes(frequency))throw new Error('Frecuencia incorrecta.');
+ const enabled=!!input('backupEnabled')?.checked;
+ if(enabled&&!confirm('¿Activar copias automáticas en Supabase STAGING? Se almacenarán los datos y documentos privados con la frecuencia indicada.'))return;
+ await rpc('totus_backup_save_settings',{p:{
+  enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
+  weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),
+  retention_days:retention,destination_folder:folder
+ }});
+ await refresh(enabled?'Programación activada.':'Configuración guardada; programación desactivada.');
+}
+async function runBackupOnServer(){
+ if(!isAdmin())throw new Error('Solo el administrador puede generar copias.');
+ if(!confirm('¿Crear una copia privada completa en Supabase staging ahora?'))return;
+ toast('Generando copia privada en el servidor…');
+ const {data,error}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
+ if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
+ await refresh('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB.');
+}
+async function getStoredBackup(id){
+ if(!isAdmin())throw new Error('Solo administrador.');
+ const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
+ if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible para descarga.');
+ const {data,error}=await sb.storage.from('business-backups').download(run.storage_path);
+ if(error||!data)throw new Error('No se pudo obtener la copia: '+(error?.message||'Sin datos'));
+ return {run,blob:data};
+}
+async function downloadStoredBackup(id){
+ const {run,blob}=await getStoredBackup(id);
+ download(blob,run.storage_path.split('/').pop()||'Totus_Central.totusbackup');
+}
+async function verifyStoredBackup(id){
+ const {blob}=await getStoredBackup(id);
+ const result=await inspectBackup(blob);
+ const rows=Object.values(result.database).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
+ const files=Object.values(result.manifest.storage||{}).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
+ modal('Copia de seguridad verificada',`<div class="stack"><p class="note">Integridad SHA-256 comprobada. Esta operación no restaura ni modifica datos.</p>
+ <div class="summary-row"><span>Tablas</span><b>${result.manifest.tables.length}</b></div>
+ <div class="summary-row"><span>Registros</span><b>${rows}</b></div>
+ <div class="summary-row"><span>Archivos</span><b>${files}</b></div>
+ <p class="note warn">La restauración completa sigue desactivada hasta su certificación.</p></div>`);
+}
+
 async function downloadBackup(){
  if(!isAdmin())throw new Error('Solo el administrador puede crear copias completas.');
  toast('Preparando copia completa…');
@@ -1581,6 +1632,11 @@ document.addEventListener('click',async e=>{
   if(a==='admin-log-refresh'){await refresh('Eventos actualizados.');return}
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
+  if(a==='backup-settings-save'){await saveBackupSettings();return}
+  if(a==='backup-run-now'){await runBackupOnServer();return}
+  if(a==='backup-history-download'){await downloadStoredBackup(el.dataset.id);return}
+  if(a==='backup-history-verify'){await verifyStoredBackup(el.dataset.id);return}
+  if(a==='backup-refresh'){await refresh('Historial de copias actualizado.');return}
   if(a==='backup-create'){await downloadBackup();return}
   if(a==='backup-verify'){await verifyBackupFromInput();return}
   if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));return}
@@ -1619,6 +1675,12 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',e=>{
+ if(e.target?.id==='backupFrequency'){
+  const weekly=input('backupWeekdayWrapper'),monthly=input('backupMonthdayWrapper');
+  if(weekly)weekly.hidden=e.target.value!=='weekly';
+  if(monthly)monthly.hidden=e.target.value!=='monthly';
+  return;
+ }
  if(e.target?.id==='exFile'){
   const selected=e.target.files?.[0],name=input('exSelectedFile'),button=input('exFilePreview');
   if(name)name.textContent=selected?selected.name+' · '+(selected.size/1024).toFixed(1)+' KB · pendiente de guardar':'No se ha seleccionado una factura nueva.';
