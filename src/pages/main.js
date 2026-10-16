@@ -350,17 +350,31 @@ function adminUsersHtml(){
  return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Los permisos generales se configuran en Roles y permisos. Las excepciones se editan en la fila de cada usuario. Administración siempre mantiene control total.</p></div><div class="inline-actions">${btn('Configurar roles','admin-section','secondary','data-section="roles"')}${btn('+ Nuevo usuario','user-new','primary')}</div></div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
 }
 function adminRolesHtml(){
- if(!isAdmin())return '<section class="card card-pad"><h2>Roles y permisos</h2><p>Solo el administrador puede editar permisos.</p></section>';
- const titles={gerente:'Gerencia',encargado:'Encargado'};
- const groups=['gerente','encargado'].map(role=>{
-   const line=PERMISSION_MODULES.map(([module,title])=>{
-     const rights=rolePermissions(role,module);
-     const granted=PERMISSION_ACTIONS.filter(([action])=>rights[action]).map(([,label])=>label).join(' · ');
-     return `<div class="summary-row"><b>${esc(title)}</b><span class="small">${esc(granted||'Sin acceso')}</span></div>`;
-   }).join('');
-   return `<section class="card card-pad"><div class="section-head"><div><h2>${titles[role]}</h2><p>Permisos base aplicados al rol. Un permiso individual puede sustituirlos.</p></div>${btn('Editar permisos del rol','role-permissions','primary',`data-role="${role}"`)}</div><div class="stack role-permission-summary">${line}</div></section>`;
+ if(!isAdmin())return '<section class="card card-pad"><h2>Roles y permisos</h2><p>Solo el administrador puede gestionar roles.</p></section>';
+ const records=(state.data.roles||[]).slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||a.name.localeCompare(b.name,'es'));
+ const cards=records.map(role=>{
+  const people=state.data.team.filter(t=>t.role===role.code);
+  const modules=PERMISSION_MODULES.filter(([m])=>rolePermissions(role.code,m).view).length;
+  const canDelete=!role.is_system&&people.length===0;
+  const buttons=[
+   btn('Configurar permisos','role-permissions','primary',`data-role="${esc(role.code)}"`),
+   !role.is_system?btn('Cambiar nombre','role-rename','secondary',`data-role="${esc(role.code)}"`):'',
+   !role.is_system?btn('Eliminar','role-delete',canDelete?'danger':'secondary',`data-role="${esc(role.code)}" ${canDelete?'':'disabled title="Asigna otro rol a sus usuarios antes de eliminar"'}`):''
+  ].join('');
+  const summary=PERMISSION_MODULES.map(([module,label])=>{
+   const p=rolePermissions(role.code,module);
+   const actions=PERMISSION_ACTIONS.filter(([a])=>p[a]).map(([,txt])=>txt).join(' · ');
+   return `<div class="role-scope-row"><span>${esc(label)}</span><span>${esc(actions||'Sin acceso')}</span></div>`;
+  }).join('');
+  return `<article class="card card-pad role-card"><div class="section-head"><div><h3>${esc(role.name)}</h3><p>${esc(role.description||'Permisos configurables por módulo')}</p></div><span class="badge ${role.is_system?'info':'ok'}">${role.is_system?'Rol del sistema':'Personalizado'}</span></div>
+    <div class="role-meta"><span><b>${people.length}</b> usuario${people.length===1?'':'s'}</span><span><b>${modules}</b> de ${PERMISSION_MODULES.length} módulos visibles</span></div>
+    <details class="role-details"><summary>Ver permisos actuales <span aria-hidden="true">⌄</span></summary><div class="role-scope-list">${summary}</div></details>
+    <div class="inline-actions role-actions">${buttons}</div></article>`;
  }).join('');
- return `<div class="stack"><section class="card card-pad"><h2>Roles y permisos</h2><p><b>Administrador</b>: acceso completo no configurable. Configura Gerencia y Encargado por módulo y después establece excepciones desde Usuarios → Permisos.</p></section>${groups}</div>`;
+ return `<div class="stack role-page">
+ <section class="card card-pad role-guide"><div class="section-head"><div><h2>Roles y permisos</h2><p>Crea puestos con acceso propio. Cada usuario hereda los permisos de su rol; las excepciones se ajustan desde Usuarios → Permisos.</p></div>${btn('+ Crear rol','role-new','primary')}</div>
+ <div class="note">El Administrador conserva el control total y no se puede eliminar. Los roles del sistema son permanentes; los personalizados pueden borrarse cuando nadie los utiliza. Los ajustes de seguridad se validan también en Supabase.</div></section>
+ <div class="role-card-grid">${cards}</div></div>`;
 }
 function adminBusinessHtml(){
  const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
