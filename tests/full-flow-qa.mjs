@@ -40,7 +40,7 @@ await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
  assert((await page.locator('#content').innerText()).includes('Gerencia'),'Falta la matriz de roles');
  await page.locator('[data-action="role-permissions"][data-role="gerente"]').click();
  assert(await page.locator('[id^="roleperm_"]').count()===45,'Deben existir 9 módulos × 5 permisos');
- await page.locator('#roleperm_gastos_create').uncheck();
+ await page.locator('#rolepreset_gastos').selectOption('read');
  await page.locator('[data-action="role-permissions-save"]').click();
  await page.waitForTimeout(100);
  const saved=await page.evaluate(()=>window.__mockDb.ops_role_permissions);
