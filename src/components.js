@@ -161,7 +161,10 @@ Object.assign(FIELD_HELP,{
  "Trimestre":"Periodo de tres meses utilizado para declaraciones y previsiones.",
  "Importe":"Cantidad monetaria en euros, admite coma o punto decimal."
 });
-const fieldHelp=label=>FIELD_HELP[label]?` <details class="field-help" style="display:inline-block;position:relative;vertical-align:middle;margin-left:.3em"><summary aria-label="${esc('Información sobre '+label)}" style="display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor;border-radius:50%;width:1.35em;height:1.35em;font-size:.78em;cursor:pointer;list-style:none">i</summary><span role="note" style="display:block;position:absolute;z-index:20;min-width:220px;max-width:min(75vw,320px);padding:10px 12px;border:1px solid currentColor;border-radius:8px;background:var(--surface,white);color:var(--text,#222);box-shadow:0 6px 20px #0002;font-size:.85rem;line-height:1.4">${esc(FIELD_HELP[label])}</span></details>`:'';
+const fieldHelp=label=>{
+ const help=FIELD_HELP[label]||'Introduce el dato correspondiente a este campo y comprueba que coincide con su justificante o configuración antes de guardar.';
+ return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+label)}" title="${esc('Información sobre '+label)}">i</summary><span role="note">${esc(help)}</span></details>`;
+};
 
 export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label>${esc(label)}${fieldHelp(label)}<input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
 export const selectField=(label,id,options,value='',extra='')=>`<label>${esc(label)}${fieldHelp(label)}<select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
