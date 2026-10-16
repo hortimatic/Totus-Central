@@ -113,7 +113,16 @@ const rpc=async (name,args={})=>{
   const series=get('ops_invoice_series',row.series_id);row.status='emitida';const next=series?.next_number||1;if(series)series.next_number=next+1;row.display_number=(series?.prefix||'QA-')+String(next).padStart(4,'0');return {data:row.id,error:null};
  }
  if(name==='totus_update_invoice_payment'){const row=get('ops_sales_invoices',args.p_id);if(row)Object.assign(row,args.p_payment);return {data:row?.id||null,error:null}}
- if(name==='totus_convert_proforma'){const row=get('ops_sales_invoices',args.p_id);return {data:row?.id||null,error:null}}
+ if(name==='totus_convert_proforma'){
+  const row=get('ops_sales_invoices',args.p_id);
+  if(!row||row.document_type!=='proforma')return {data:null,error:{message:'Proforma no encontrada'}};
+  if(row.status==='convertida'&&row.converted_invoice_id)return {data:row.converted_invoice_id,error:null};
+  if(!['emitida','aceptada'].includes(row.status))return {data:null,error:{message:'Emite o acepta la proforma antes de convertirla'}};
+  const copy=insert('ops_sales_invoices',{...row,id:uuid(),series_id:args.p_invoice_series,document_type:'factura',invoice_kind:'invoice',status:'borrador',display_number:'',origin:'totus',include_in_income:false,paid_status:'pendiente',source_proforma_document_id:row.id,converted_invoice_id:null});
+  db.ops_sales_invoice_lines.filter(x=>x.invoice_id===row.id).forEach(x=>insert('ops_sales_invoice_lines',{...x,id:uuid(),invoice_id:copy.id}));
+  row.status='convertida';row.converted_invoice_id=copy.id;
+  return {data:copy.id,error:null};
+ }
  return {data:null,error:{message:'RPC de prueba sin implementar: '+name}};
 };
 const storageBucket=bucket=>({
