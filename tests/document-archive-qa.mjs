@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {uniqueArchiveDocumentPath} from '../src/file-utils.js';
+import {uniqueArchiveDocumentPath,validateDocumentFile} from '../src/file-utils.js';
 const used=new Set();
 const first={id:'11111111-1111-4111-8111-111111111111',doc_type:'factura_recibida',supplier_or_customer:'Proveedor A',original_name:'factura.pdf'};
 const second={...first,id:'22222222-2222-4222-8222-222222222222'};
@@ -17,4 +17,11 @@ assert.equal(used.size,4);
 const repeated=uniqueArchiveDocumentPath(second,used);
 assert.notEqual(repeated,b,'La misma entrada no debe reutilizar una ruta ya ocupada');
 assert.ok(![a,b,c,unicode].includes(repeated));
+const fixture={name:'comprobante.pdf',size:1024,type:'application/pdf'};
+assert.equal(validateDocumentFile(fixture,{maxBytes:2048,usedBytes:100,limitBytes:2000}).projectedBytes,1124);
+assert.throws(()=>validateDocumentFile({...fixture,name:'peligroso.exe'}),/Formato no permitido/);
+assert.throws(()=>validateDocumentFile({...fixture,size:0}),/archivo está vacío/);
+assert.throws(()=>validateDocumentFile({...fixture,size:4096},{maxBytes:2048}),/supera el máximo/);
+assert.throws(()=>validateDocumentFile(fixture,{usedBytes:1600,limitBytes:2000}),/No hay espacio/);
+assert.equal(validateDocumentFile(fixture,{usedBytes:1600,limitBytes:2000,replacingBytes:1000}).projectedBytes,1624);
 console.log('DOCUMENT ARCHIVE QA: nombres homónimos, colisiones por acentos, índice único OK');
