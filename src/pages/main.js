@@ -454,13 +454,47 @@ function adminStorageHtml(){
  return `<div class="kpis">${kpi('Uso total',(used/1024/1024).toFixed(1).replace('.',',')+' MB')}${kpi('Límite configurado',(limit/1024/1024).toFixed(0)+' MB')}${kpi('Documentos',String(u.documents_count||0))}${kpi('Assets',String(u.assets_count||0))}</div><section class="card card-pad"><h2>Almacenamiento</h2><div class="summary-row"><span>Documentos</span><strong>${(Number(u.documents_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Logos/assets</span><strong>${(Number(u.assets_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Disponible</span><strong>${(Math.max(0,limit-used)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="note" style="margin-top:12px">El contador usa bytes reales de Storage y el límite configurado de 500 MB.</div></section>`;
 }
 function adminBackupHtml(){
- if(!isAdmin())return '<section class="card card-pad"><h2>Copias de seguridad</h2><div class="note">Solo administración puede revisar y descargar copias.</div></section>';
- return `<section class="card card-pad">
- <div class="section-head"><div><h2>Copias de seguridad</h2><p>Exporta datos y documentos de negocio. Las cuentas y contraseñas no están incluidas.</p></div>${btn('Descargar copia','backup-create','primary')}</div>
- <div class="form-grid" style="margin-top:14px"><label class="wide">Comprobar una copia guardada<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></label></div>
- <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}</div>
- <div class="note warn" style="margin-top:12px">Restauración bloqueada: la recuperación completa de datos y archivos todavía no está verificada. Comprobar una copia no modifica ningún registro.</div>
- </section>`;
+ if(!isAdmin())return '<section class="card card-pad"><h2>Copias de seguridad</h2><p>Solo el administrador puede configurar y consultar copias.</p></section>';
+ const config=state.data.backupConfig||{},runs=(state.data.backupRuns||[]).slice().sort((a,b)=>String(b.started_at||'').localeCompare(String(a.started_at||'')));
+ const active=!!config.enabled,frequency=config.frequency||'daily',retention=config.retention_days||10;
+ const hh=String(config.run_hour??3).padStart(2,'0'),mm=String(config.run_minute??0).padStart(2,'0');
+ const frequencyOptions=[['daily','Cada día'],['weekly','Cada semana'],['monthly','Cada mes']].map(([v,label])=>`<option value="${v}" ${frequency===v?'selected':''}>${label}</option>`).join('');
+ const weekOptions=[['1','Lunes'],['2','Martes'],['3','Miércoles'],['4','Jueves'],['5','Viernes'],['6','Sábado'],['0','Domingo']].map(([v,label])=>`<option value="${v}" ${Number(config.weekday??1)===Number(v)?'selected':''}>${label}</option>`).join('');
+ const days=Array.from({length:28},(_,i)=>`<option value="${i+1}" ${Number(config.month_day??1)===i+1?'selected':''}>Día ${i+1}</option>`).join('');
+ const paths=runs.filter(x=>x.status==='success'),bytes=paths.reduce((a,x)=>a+Number(x.size_bytes||0),0),recent=paths[0];
+ const columns=[
+  {label:'Creación',html:r=>esc(new Date(r.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
+  {label:'Tipo',html:r=>r.mode==='scheduled'?'Automática':'Manual'},
+  {label:'Estado',html:r=>r.status==='success'?'<span class="badge ok">Completada</span>':r.status==='failed'?'<span class="badge warn">Fallida</span>':r.status==='expired'?'<span class="badge">Caducada / rotada</span>':'<span class="badge info">En curso</span>'},
+  {label:'Tamaño',html:r=>r.size_bytes?((Number(r.size_bytes)/1024/1024).toFixed(2)+' MB'):'—'},
+  {label:'Datos / archivos',html:r=>`${Number(r.rows_count||0)} registros · ${Number(r.files_count||0)} archivos`},
+  {label:'Incidencias',html:r=>esc(r.error_message||'—')},
+  {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}</div>`:''}
+ ];
+ return `<div class="stack">
+  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias disponibles',String(paths.length))}${kpi('Espacio usado',bytes<1024*1024?(bytes/1024).toFixed(0)+' KB':(bytes/1024/1024).toFixed(1)+' MB')}${kpi('Conservación',String(retention)+' días')}</div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
+   <div class="form-grid" style="margin-top:14px">
+    <label class="check-field wide emphasis-check"><input type="checkbox" id="backupEnabled" ${active?'checked':''}> Activar copias programadas</label>
+    <div class="field"><label for="backupFrequency">Frecuencia</label><select id="backupFrequency">${frequencyOptions}</select></div>
+    <div class="field"><label for="backupTime">Hora en España (Madrid)</label><input id="backupTime" type="time" value="${hh}:${mm}"></div>
+    <div class="field" id="backupWeekdayWrapper" ${frequency!=='weekly'?'hidden':''}><label for="backupWeekday">Día de la semana</label><select id="backupWeekday">${weekOptions}</select></div>
+    <div class="field" id="backupMonthdayWrapper" ${frequency!=='monthly'?'hidden':''}><label for="backupMonthday">Día de cada mes</label><select id="backupMonthday">${days}</select></div>
+    <div class="field"><label for="backupRetention">Días que conservar las copias</label><input id="backupRetention" type="number" value="${retention}" min="1" max="365" step="1"></div>
+    <div class="field"><label for="backupFolder">Carpeta de destino (nube privada)</label><input id="backupFolder" value="${esc(config.destination_folder||'automaticas')}" maxlength="48" pattern="[a-zA-Z0-9_-]{3,48}" placeholder="automaticas"></div>
+   </div>
+   <div class="note">Destino: almacenamiento privado de <b>Supabase STAGING → business-backups</b>, en la carpeta elegida. No se puede guardar automáticamente en una carpeta del ordenador mientras está apagado. Las copias antiguas se eliminan tras una nueva copia exitosa, conservando siempre la más reciente. El proceso no incorpora contraseñas.</div>
+   <div class="form-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
+   <div class="note warn">Una copia correcta no garantiza todavía restauración automática: la recuperación completa continúa bloqueada hasta que se pueda probar sin riesgo. Para grandes volúmenes superiores a 49 MB se mostrará fallo, nunca un respaldo incompleto como correcto.</div>
+  </section>
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Historial y descargas</h2><p>${recent?'Última copia correcta: '+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Aún no hay copias completas almacenadas.'} Revisa cada ejecución, errores, tamaño y archivos.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
+   ${table(columns,runs.slice(0,50),{emptyTitle:'Sin copias en el servidor',emptyText:'Puedes crear una copia manual o activar la programación.'})}
+  </section>
+  <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
+  <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></label></div>
+  <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}</div>
+  </section>
+ </div>`;
 }
 function adminLogHtml(){
  const f=state.filters.adminLog||{},all=state.data.audit||[];
