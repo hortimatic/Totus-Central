@@ -29,7 +29,7 @@ const app=fs.readFileSync('src/app.js','utf8');
 assert.match(app,/import \{[^}]*\bmoney\b[^}]*\} from '\.\/utils\.js'/,'El panel necesita el formato de importes');
 assert.match(app,/import \{[^}]*\btable\b[^}]*\} from '\.\/components\.js'/,'El panel necesita la tabla de informes');
 const backup=fs.readFileSync('src/backup.js','utf8');
-assert.match(backup,/select\('\*'\)\.order\('id',\{ascending:true\}\)\.range\(from,from\+999\)/,'La copia debe paginar con orden estable');
+assert.match(backup,/select\('\*'\)\.order\(orderKey,\{ascending:true\}\)\.range\(from,from\+999\)/,'La copia debe paginar con orden estable por clave primaria');
 const sql=fs.readFileSync('supabase/backup.sql','utf8');
 for(const token of ["x.notes,state.data.stores.find","x.supplier_name,x.invoice_number,x.description,x.payment_method"]){
  assert.ok(app.includes(token),'El Excel exportado debe respetar los filtros de búsqueda: '+token);
