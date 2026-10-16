@@ -40,14 +40,16 @@ class Query{
  update(v){this.mode='update';this.value=v;return this}
  upsert(v,{onConflict}={}){this.mode='upsert';this.value=v;this.conflictKeys=String(onConflict||'id').split(',');return this}
  delete(){this.mode='delete';return this}
- eq(k,v){this.filters.push([k,v]);return this}
+ eq(k,v){this.filters.push([k,v,'eq']);return this}
+ neq(k,v){this.filters.push([k,v,'neq']);return this}
+ is(k,v){this.filters.push([k,v,'is']);return this}
  order(k,{ascending=false}={}){this.orderBy=[k,ascending];return this}
  range(a,b){this.rangeBy=[a,b];return this}
  limit(n){this.rangeBy=[0,n-1];return this}
  result(){
   const target=db[this.table];
   if(!target)return {data:null,error:{message:'Tabla de pruebas no definida: '+this.table}};
-  let matches=target.filter(r=>this.filters.every(([k,v])=>r[k]===v));
+  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
   if(this.mode==='insert'){
    let rows=(Array.isArray(this.value)?this.value:[this.value]).map(x=>({id:uuid(),created_at:new Date().toISOString(),...x}));
    target.push(...rows);return {data:rows,error:null};
