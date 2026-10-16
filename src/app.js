@@ -39,7 +39,7 @@ function permissionForAction(action,el){
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
- if(a==='config-save'||a.startsWith('backup-')||a.startsWith('admin-log-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
  if(a==='closing-save-close'&&el?.dataset?.id)operation='edit';
