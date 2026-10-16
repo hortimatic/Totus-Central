@@ -23,7 +23,7 @@ for(const [module] of PERMISSION_MODULES){
  const html=formField('Rol','role_'+module);
  assert.match(html,/<details class="field-help">/);
  assert.match(html,/<summary[^>]*>i<\/summary>/);
- assert.match(html,/El rol determina permisos|El rol determina/);
+ assert.match(html,/Conjunto de permisos iniciales/);
 }
 assert.match(selectField('IVA (%)','vat',[{value:21,label:'21 %'}],21),/<details class="field-help">/);
 assert.match(formField('Un campo nuevo','newField'),/<details class="field-help">/);
