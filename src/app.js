@@ -1263,7 +1263,7 @@ function filteredLogRows(){
  const f=state.filters.adminLog||{};
  const key=s=>String(s||'').toLocaleLowerCase('es');
  return (state.data.audit||[]).filter(r=>{
-  const day=String(r.created_at||'').slice(0,10);
+  const day=r.created_at?new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}):'';
   return (!f.from||day>=f.from)&&(!f.to||day<=f.to)
    &&(!f.area||f.area===r.area)&&(!f.action||f.action===r.action)
    &&(!f.actor||key(r.user_email).includes(key(f.actor)))
@@ -1284,7 +1284,7 @@ function showLogEntry(id){
 }
 function exportLogCsv(){
  const rows=filteredLogRows();
- const escCell=v=>'"'+String(v??'').replaceAll('"','""').replace(/[\r\n]+/g,' ')+'"';
+ const escCell=v=>{const value=String(v??'').replace(/[\r\n]+/g,' ');return '"'+(/^[=+@-]/.test(value)?'\'':'')+value.replaceAll('"','""')+'"'};
  const cols=['Fecha','Usuario','Área','Acción','Detalle JSON'];
  const csvText='\uFEFF'+[cols,...rows.map(r=>[r.created_at||'',r.user_email||'',r.area||'',r.action||'',JSON.stringify(r.detail||{})])].map(row=>row.map(escCell).join(';')).join('\r\n');
  download(new Blob([csvText],{type:'text/csv;charset=utf-8'}),'Log_Totus_'+isoToday()+'.csv');
