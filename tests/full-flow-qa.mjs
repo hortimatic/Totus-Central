@@ -36,7 +36,7 @@ if(errors.length){
 }
 await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
  await nav('administracion');
- await page.locator('[data-action="admin-section"][data-section="roles"]').click();
+ await page.locator('[data-action="admin-section"][data-section="roles"]').first().click();
  assert((await page.locator('#content').innerText()).includes('Gerencia'),'Falta la matriz de roles');
  await page.locator('[data-action="role-permissions"][data-role="gerente"]').click();
  assert(await page.locator('[id^="roleperm_"]').count()===45,'Deben existir 9 módulos × 5 permisos');
