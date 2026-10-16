@@ -144,7 +144,7 @@ export function gastos(){
   <div class="kpis">${kpi('Gasto del periodo',money(total))}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pendientes de pago',String(pending))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Listado completo. La ficha concentra documento, fiscalidad, pago y notas.</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
-   <div class="filters">${dateFilters({...f,stores:stores()},'gastos').replace(/^<div class="filters">|<\/div>$/g,'')}${extras}</div>
+   ${dateFilters({...f,stores:stores()},'gastos',extras)}
    ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para los filtros seleccionados.'})}
   </section>
  </div>`;
