@@ -783,14 +783,15 @@ async function saveTemplate(id=''){
   await upload('business-assets',uploadedPath,file);
   logoPath=uploadedPath;logoName=file.name;logoMime=file.type;logoSize=file.size;
  }
+ let savedTemplate=null;
  const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),text_color:val('tpTextColor'),font_family:val('tpFont'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,show_payment_details:input('tpShowPayment')?.checked!==false,show_company_email:input('tpShowEmail')?.checked!==false,show_company_phone:input('tpShowPhone')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),notes_default:val('tpNotes').trim(),payment_terms_default:val('tpTerms').trim(),bank_details:val('tpBank').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
  try{
-  if(id)await update('ops_document_templates',id,row);else await insert('ops_document_templates',row);
+  savedTemplate=id?await update('ops_document_templates',id,row):await insert('ops_document_templates',row);
  }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
  // No desactivar otras plantillas predeterminadas hasta confirmar que se guardó esta.
  // Si la actualización de las anteriores falla, indicar que debe revisarse: no ocultar un guardado parcial.
  let defaultsError=null;
- try{await clearOtherTemplateDefaults(id,storeId,{invoice:defaultInvoice,proforma:defaultProforma})}catch(e){defaultsError=e}
+ try{await clearOtherTemplateDefaults(savedTemplate?.id||id,storeId,{invoice:defaultInvoice,proforma:defaultProforma})}catch(e){defaultsError=e}
  if(oldLogoPath&&oldLogoPath!==logoPath&&!logoReferencedElsewhere(oldLogoPath,id)){
   await removeFile('business-assets',oldLogoPath).catch(e=>console.warn('No se pudo retirar el logo sustituido',e));
  }
