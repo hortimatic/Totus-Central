@@ -51,7 +51,10 @@ try{
  assert(original?.logo_path&&original.default_invoice,'Plantilla/logo o defecto no guardados correctamente');
  assert(snap.files.includes('business-assets/'+original.logo_path),'El logo no se subió al guardar');
  assert(!snap.templates.some(x=>x.id!==original.id&&x.default_invoice&&x.store_id==null),'No se cambió la plantilla predeterminada anterior');
- done.push('plantillas:validación previa,logo,valor predeterminado');
+ await page.locator('[data-action="template-preview"][data-id="'+original.id+'"]').click();
+ assert((await page.locator('#modalHost').innerText()).includes('Ejemplo de concepto o producto'),'Vista previa de plantilla sin concepto de prueba');
+ await page.locator('#modalHost .close-btn').click();
+ done.push('plantillas:validación previa,logo,valor predeterminado,vista previa');
  await page.locator('[data-action="template-edit"][data-id="'+original.id+'"]').click();
  await page.locator('[data-action="template-duplicate"]').click();
  snap=await state();
