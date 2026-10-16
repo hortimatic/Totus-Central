@@ -1539,7 +1539,7 @@ document.addEventListener('change',e=>{
  }
  if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
  if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
- if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:val('clStore'),date:e.target.value||isoToday()});render();return}
+ if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{date:e.target.value||isoToday()});return}
  if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){setView('facturacion',{storeId:e.target.value});render();return}
  if(e.target?.id==='exSupplierId'){
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
