@@ -119,6 +119,13 @@ await check('Gastos: adjuntar factura PDF y recuperar el documento',async()=>{
  await page.locator('#exLineRe_0').fill('5,2');
  const pdf=await PDFDocument.create();pdf.addPage([300,200]);
  await page.locator('#exFile').setInputFiles({name:'justificante-test.pdf',mimeType:'application/pdf',buffer:Buffer.from(await pdf.save())});
+ assert((await page.locator('#exSelectedFile').innerText()).includes('justificante-test.pdf'),'La ficha no muestra el nombre de la factura seleccionada');
+ assert(await page.locator('#exFilePreview').isEnabled(),'La vista previa previa al guardado sigue bloqueada');
+ await page.locator('[data-action="expense-file-preview"]').click();
+ await page.locator('#modalHost .document-frame').waitFor({state:'visible'});
+ assert((await page.locator('#modalHost').innerText()).includes('todavía NO guardado'),'La vista previa confunde adjuntar con guardar');
+ await page.locator('#modalHost .close-btn').click();
+ assert(await page.locator('#exFile').evaluate(el=>el.files?.length===1),'Ver la factura ha borrado el archivo seleccionado');
  await page.locator('[data-action="expense-save"]').click();
  await page.waitForTimeout(100);
  const d=await db(),ex=d.expenses.find(x=>x.invoice_number==='TEST-PDF-2026');
@@ -130,6 +137,51 @@ await check('Gastos: adjuntar factura PDF y recuperar el documento',async()=>{
  const ready=page.waitForEvent('download');
  await page.locator('[data-action="expense-document-download"]').first().click();
  assert((await ready).suggestedFilename()==='justificante-test.pdf','Descarga del justificante incorrecta');
+});
+await check('Gastos: índice de facturas, búsqueda, desglose gestor y PDF descargable',async()=>{
+ await nav('gastos');
+ if(await page.locator('[data-action="expense-back"]').count())await page.locator('[data-action="expense-back"]').first().click();
+ await page.locator('[data-action="expense-section"][data-section="facturas"]').click();
+ assert((await page.locator('#content').innerText()).includes('Facturas y justificantes de gastos'),'Falta la sección documental en Gastos');
+ assert((await page.locator('#content').innerText()).includes('TEST-PDF-2026'),'No aparece la factura adjunta en el índice');
+ assert((await page.locator('#content').innerText()).includes('Proveedor QA PDF'),'Faltan datos de proveedor');
+ assert(await page.locator('#gastosAttachment').count()===1,'Falta filtro de justificantes');
+ await page.locator('#gastosQuery').fill('TEST-PDF-2026');
+ await page.locator('#gastosAttachment').selectOption('attached');
+ await page.locator('[data-action="gastos-apply"]').click();
+ assert((await page.locator('#content .data-table tbody tr').count())===1,'La búsqueda por factura no filtra correctamente');
+ await page.locator('[data-action="expense-gestor-detail"]').first().click();
+ const gestor=page.locator('#modalHost');
+ assert(await gestor.locator('th').count()===20,'La ficha de gestoría no conserva las 20 columnas');
+ for(const txt of ['NIF/CIF','Base IVA','Cuota IVA','Base R.E.','Cuota R.E.','Imputable a IRPF','Neto pagado']){
+  assert((await gestor.innerText()).includes(txt),'Falta columna gestoría: '+txt);
+ }
+ assert((await gestor.innerText()).includes('Sin revisar'),'Debe avisarse si el desglose fiscal no está cotejado');
+ await gestor.locator('.close-btn').click();
+ await page.locator('[data-action="expense-document-preview"]').first().click();
+ await page.locator('#modalHost .document-frame').waitFor({state:'visible'});
+ await page.locator('#modalHost .close-btn').click();
+ const pdfReady=page.waitForEvent('download');
+ await page.locator('[data-action="expense-document-download"]').first().click();
+ const file=await pdfReady;
+ assert(file.suggestedFilename()==='justificante-test.pdf','La descarga desde Gastos tiene nombre incorrecto');
+ const bytes=await fs.readFile(await file.path());
+ assert(bytes.subarray(0,5).toString()==='%PDF-','La factura descargada no es un PDF original válido');
+ await page.locator('#gastosFrom').fill('2026-01-01');
+ await page.locator('#gastosTo').fill('2026-01-31');
+ await page.locator('[data-action="gastos-apply"]').click();
+ assert((await page.locator('#content').innerText()).includes('No hay facturas'),'El filtro de fechas no excluye octubre');
+ await page.locator('#gastosFrom').fill('2026-10-01');
+ await page.locator('#gastosTo').fill('2026-10-31');
+ await page.locator('#gastosQuery').fill('');
+ await page.locator('#gastosAttachment').selectOption('missing');
+ await page.locator('[data-action="gastos-apply"]').click();
+ assert((await page.locator('#content').innerText()).includes('QA-F-1'),'No aparece el gasto sin justificante');
+ assert(!(await page.locator('#content').innerText()).includes('TEST-PDF-2026'),'El filtro sin justificante incluye facturas adjuntas');
+ await page.locator('#gastosAttachment').selectOption('all');
+ await page.locator('[data-action="gastos-apply"]').click();
+ await page.locator('[data-action="expense-section"][data-section="registros"]').click();
+ assert((await page.locator('#content').innerText()).includes('Gastos'),'No puede volver al listado habitual de gastos');
 });
 await check('Cajas: segunda tienda, fecha distinta y conciliación de todos los cobros',async()=>{
  await nav('cajas');
