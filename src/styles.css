@@ -97,6 +97,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 @media(max-width:640px){.permissions-table th,.permissions-table td{padding:9px 8px}}
 
 /* Contextual info popovers: keyboard, touch and compact screens. */
+.field-caption{display:flex;align-items:center;gap:4px;min-width:0}
+.field-caption .field-help{flex:0 0 auto;line-height:1}
+
 .field-help{display:inline-block!important;position:relative!important;vertical-align:middle!important;margin-inline-start:6px!important;z-index:3}
 .field-help[open]{z-index:60}
 .field-help>summary{display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid #6b91c5;border-radius:50%;background:#eff6ff;color:#194b8c;font:750 12px/1 system-ui;cursor:pointer;list-style:none;user-select:none}
