@@ -31,7 +31,7 @@ export async function signedUrl(bucket,path,seconds=120){const r=await sb.storag
 export async function removeFile(bucket,path){const r=await sb.storage.from(bucket).remove([path]);assert(r,'Eliminar archivo')}
 export async function loadCore(){
  const tasks=[
- ['settings','ops_business_settings'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
+ ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
  ['customers','ops_customers','name'],['series','ops_invoice_series','year'],['invoices','ops_sales_invoices','issue_date'],['invoiceLines','ops_sales_invoice_lines'],['documents','ops_documents','created_at'],
  ['taxPayments','ops_tax_payments','created_at'],['reta','ops_reta_brackets','bracket_order'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],
@@ -42,6 +42,7 @@ export async function loadCore(){
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
+ state.data.backupConfig=state.data.backupConfig[0]||null;
  state.data.storageUsage=await rpc('totus_storage_usage').catch(()=>({documents_bytes:0,documents_count:0,assets_bytes:0,assets_count:0,total_bytes:0,limit_bytes:Number(state.data.settings?.storage_limit_bytes||500*1024*1024)}));
  if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000}).catch(()=>[])}
 }
