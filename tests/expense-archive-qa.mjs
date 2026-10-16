@@ -35,4 +35,10 @@ assert.equal(details[0].fields[18],126.2);
 assert.equal(details[1].fields[19],88.34);
 assert.ok(expenseRegisterLines([expenses[1]],[])[0].missingBreakdown,'No se deben inventar líneas fiscales faltantes');
 assert.equal(expenseRegisterLines([expenses[1]],[])[0].fields[14],0,'Gasto interno no debe aparecer como deducible IRPF');
+// Caso equivalente a una línea real del modelo de gestoría: base + IVA - retención.
+const withheld=expenseRegisterLines([{id:'ret',expense_date:'2026-01-01',supplier_name:'Proveedor alquiler',supplier_tax_id:'X123',invoice_number:'AR 01/26',management_only:false}],
+ [{expense_id:'ret',sort_order:10,description:'Arrendamiento',base_amount:971,vat_rate:21,vat_amount:203.91,re_base:0,re_rate:0,re_amount:0,irpf_imputable:1174.91,withholding_base:971,withholding_rate:19,withholding_amount:184.49}])[0];
+assert.ok(Math.abs(withheld.fields[18]-1174.91)<.001,'Total factura incorrecto con retención');
+assert.ok(Math.abs(withheld.fields[19]-990.42)<.001,'Neto pagado incorrecto con retención');
+assert.equal(withheld.fields[16],19,'Tipo de retención errado');
 console.log('EXPENSE ARCHIVE QA: 20 columnas, 2 conceptos, filtros y facturas sin asociar, duplicados seguros OK');
