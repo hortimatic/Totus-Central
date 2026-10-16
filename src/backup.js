@@ -7,7 +7,7 @@ export const BACKUP_TABLES=[
  'ops_suppliers','ops_customers','ops_document_templates','ops_documents','ops_daily_closings','ops_daily_closing_drawers',
  'ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_tax_payments','ops_fiscal_adjustments','ops_income_adjustments','ops_reta_brackets','ops_audit_log',
  'brands','families','providers','products','product_variants','product_provider_prices','product_competitor_prices','price_history','consultations','consultation_history',
- 'ops_roles','ops_role_permissions','ops_user_permissions','team_members','profiles','team_email_log','team_user_audit_log','ops_backup_config'
+ 'ops_roles','ops_role_permissions','ops_user_permissions','ops_backup_config'
 ];
 const STORAGE_BUCKETS=['business-documents','business-assets'];
 async function sha256(bytes){
@@ -18,7 +18,7 @@ async function sha256(bytes){
 
 async function allRows(table){
  const rows=[];let from=0;
- const orderKey={ops_roles:'code',ops_role_permissions:'role',ops_user_permissions:'email',team_members:'email'}[table]||'id';
+ const orderKey={ops_roles:'code',ops_role_permissions:'role',ops_user_permissions:'email'}[table]||'id';
  while(true){
   const {data,error}=await sb.from(table).select('*').order(orderKey,{ascending:true}).range(from,from+999);
   if(error)throw new Error(table+': '+error.message);
@@ -94,8 +94,8 @@ export async function inspectBackup(file){
  if(!database||typeof database!=='object'||Array.isArray(database))throw new Error('Estructura de base de datos no válida.');
  for(const table of BACKUP_TABLES){
   if(manifest.version===1&&table==='ops_income_adjustments'&&database[table]===undefined)database[table]=[];
-  // Las copias antiguas v2 no incluían usuarios/permisos/catálogo de programación.
-  if(!manifest.tables?.includes(table)&&database[table]===undefined&&['ops_roles','ops_role_permissions','ops_user_permissions','team_members','profiles','team_email_log','team_user_audit_log','ops_backup_config'].includes(table))database[table]=[];
+  // Las copias antiguas v2 no incluían roles/permisos/catálogo de programación; las cuentas/Auth siguen excluidas.
+  if(!manifest.tables?.includes(table)&&database[table]===undefined&&['ops_roles','ops_role_permissions','ops_user_permissions','ops_backup_config'].includes(table))database[table]=[];
   if(!Array.isArray(database[table]))throw new Error('Falta la tabla '+table+' en la copia.');
  }
  // Evitar que una copia manipulada incluya rutas duplicadas, archivos ajenos o ZIPs inconsistentes.
