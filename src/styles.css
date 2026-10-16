@@ -95,3 +95,25 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .permissions-table .permission-cell input:focus-visible{outline:3px solid #2563eb;outline-offset:4px}
 .table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
 @media(max-width:640px){.permissions-table th,.permissions-table td{padding:9px 8px}}
+
+/* Contextual info popovers: keyboard, touch and compact screens. */
+.field-help{display:inline-block!important;position:relative!important;vertical-align:middle!important;margin-inline-start:6px!important;z-index:3}
+.field-help[open]{z-index:60}
+.field-help>summary{display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid #6b91c5;border-radius:50%;background:#eff6ff;color:#194b8c;font:750 12px/1 system-ui;cursor:pointer;list-style:none;user-select:none}
+.field-help>summary::-webkit-details-marker{display:none}
+.field-help>summary:hover,.field-help[open]>summary{background:#2468c2;color:#fff;border-color:#2468c2}
+.field-help>summary:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+.field-help>span[role="note"]{display:block;position:absolute;left:0;top:26px;z-index:60;width:max-content;max-width:min(80vw,340px);min-width:220px;padding:12px 14px;background:white;color:#1e293b;border:1px solid #aac3e2;border-radius:10px;box-shadow:0 10px 30px #152b4540;font:400 13px/1.5 system-ui;white-space:normal}
+.permissions-table{width:100%;border-collapse:collapse;min-width:550px}
+.permissions-table th,.permissions-table td{padding:10px;border-bottom:1px solid #e5e9f0;text-align:center}
+.permissions-table th:first-child{text-align:left}
+.permissions-table input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent)}
+.table-scroll{width:100%;max-width:100%;overflow:auto}
+.role-permission-summary{margin-top:12px}
+.role-permission-summary .summary-row{align-items:center}
+.role-permission-summary .summary-row span{text-align:right}
+@media(max-width:700px){
+ .field-help[open]>span[role="note"]{position:fixed;left:12px;right:12px;bottom:12px;top:auto;z-index:300;width:auto;min-width:0;max-width:none;border:2px solid #60a5fa;box-shadow:0 15px 50px #0004}
+ .role-permission-summary .summary-row{align-items:flex-start;flex-direction:column;gap:4px}
+ .role-permission-summary .summary-row span{text-align:left}
+}
