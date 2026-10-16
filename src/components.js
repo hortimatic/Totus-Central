@@ -166,8 +166,8 @@ const fieldHelp=label=>{
  return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+label)}" title="${esc('Información sobre '+label)}">i</summary><span role="note">${esc(help)}</span></details>`;
 };
 
-export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label>${esc(label)}${fieldHelp(label)}<input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
-export const selectField=(label,id,options,value='',extra='')=>`<label>${esc(label)}${fieldHelp(label)}<select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
+export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label><span class="field-caption">${esc(label)}${fieldHelp(label)}</span><input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
+export const selectField=(label,id,options,value='',extra='')=>`<label><span class="field-caption">${esc(label)}${fieldHelp(label)}</span><select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" data-modal-content="true"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;
