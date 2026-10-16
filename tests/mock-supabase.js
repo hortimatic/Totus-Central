@@ -35,6 +35,7 @@ class Query{
  select(){return this}
  insert(v){this.mode='insert';this.value=v;return this}
  update(v){this.mode='update';this.value=v;return this}
+ upsert(v,{onConflict}={}){this.mode='upsert';this.value=v;this.conflictKeys=String(onConflict||'id').split(',');return this}
  delete(){this.mode='delete';return this}
  eq(k,v){this.filters.push([k,v]);return this}
  order(k,{ascending=false}={}){this.orderBy=[k,ascending];return this}
@@ -47,6 +48,14 @@ class Query{
   if(this.mode==='insert'){
    let rows=(Array.isArray(this.value)?this.value:[this.value]).map(x=>({id:uuid(),created_at:new Date().toISOString(),...x}));
    target.push(...rows);return {data:rows,error:null};
+  }
+  if(this.mode==='upsert'){
+   const rows=(Array.isArray(this.value)?this.value:[this.value]).map(x=>{
+    const old=target.find(v=>this.conflictKeys.every(k=>v[k]===x[k]));
+    if(old){Object.assign(old,x);return old}
+    const next={id:uuid(),created_at:new Date().toISOString(),...x};target.push(next);return next;
+   });
+   return {data:rows,error:null};
   }
   if(this.mode==='update'){for(const r of matches)Object.assign(r,this.value);return {data:matches,error:null}}
   if(this.mode==='delete'){for(const r of matches){const i=target.indexOf(r);if(i>=0)target.splice(i,1)}return {data:matches,error:null}}
