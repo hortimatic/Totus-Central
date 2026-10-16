@@ -2,6 +2,7 @@ import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
+import {expenseAttachedInvoices,expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from '../expense-register.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -122,6 +123,7 @@ export function gastos(){
    const row=view.id?state.data.expenses.find(x=>x.id===view.id):null;
    return expenseRecordHtml(row);
  }
+ if(view.section==='facturas')return expenseInvoiceSectionHtml();
  const f=getFilters('gastos');
  const kind=f.kind||'all',paid=f.paid||'all';
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
@@ -141,6 +143,7 @@ export function gastos(){
  ];
  const extras=`<div class="field"><label>Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Solo interno</option></select></div><div class="field"><label>Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>`;
  return `<div class="page">
+  ${expenseTabs('registros')}
   <div class="kpis">${kpi('Gasto del periodo',money(total))}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pendientes de pago',String(pending))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Listado completo. La ficha concentra documento, fiscalidad, pago y notas.</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
@@ -572,7 +575,9 @@ export function expenseRecordHtml(row=null){
      <div class="attachment-box" style="margin-top:14px">
       <div><b>Justificante</b><div class="small muted">${doc?esc(doc.original_name):'Sin archivo vinculado'}</div></div>
       <div class="inline-actions">${doc?btn('Vista previa','expense-document-preview','secondary',`data-id="${doc.id}"`):''}${doc?btn('Descargar','expense-document-download','secondary',`data-id="${doc.id}"`):''}${doc?btn('Quitar','expense-document-unlink','danger',`data-expense="${row.id}" data-document="${doc.id}"`):''}</div>
-      <label class="file-picker">Seleccionar o sustituir archivo<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
+      <div class="expense-attachment-picker"><label class="file-picker">${doc?'Sustituir factura adjunta':'Seleccionar factura o justificante'}<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
+      <div id="exSelectedFile" class="small muted" aria-live="polite">No se ha seleccionado una factura nueva.</div>
+      ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}</div>
      </div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
