@@ -1,5 +1,5 @@
 import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
-import {canUser} from '../permissions.js';
+import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 
@@ -340,14 +340,27 @@ export function informes(){
 export function administracion(){
  if(!canUser(state.user,'administracion','view',state.data.userPermissions))return '<div class="page"><div class="card card-pad"><h2>Sin acceso</h2></div></div>';
  const section=getView('administracion').section||'usuarios';
- const tabs=`<div class="tabs module-tabs"><button class="tab ${section==='usuarios'?'active':''}" data-action="admin-section" data-section="usuarios">Usuarios</button><button class="tab ${section==='negocio'?'active':''}" data-action="admin-section" data-section="negocio">Negocio y cajas</button><button class="tab ${section==='fiscal'?'active':''}" data-action="admin-section" data-section="fiscal">Configuración fiscal</button><button class="tab ${section==='storage'?'active':''}" data-action="admin-section" data-section="storage">Almacenamiento</button><button class="tab ${section==='backups'?'active':''}" data-action="admin-section" data-section="backups">Copias</button><button class="tab ${section==='log'?'active':''}" data-action="admin-section" data-section="log">Log</button></div>`;
- return `<div class="page">${tabs}${section==='usuarios'?adminUsersHtml():section==='negocio'?adminBusinessHtml():section==='fiscal'?adminFiscalHtml():section==='storage'?adminStorageHtml():section==='backups'?adminBackupHtml():adminLogHtml()}</div>`;
+ const tabs=`<div class="tabs module-tabs"><button class="tab ${section==='usuarios'?'active':''}" data-action="admin-section" data-section="usuarios">Usuarios</button><button class="tab ${section==='roles'?'active':''}" data-action="admin-section" data-section="roles">Roles y permisos</button><button class="tab ${section==='negocio'?'active':''}" data-action="admin-section" data-section="negocio">Negocio y cajas</button><button class="tab ${section==='fiscal'?'active':''}" data-action="admin-section" data-section="fiscal">Configuración fiscal</button><button class="tab ${section==='storage'?'active':''}" data-action="admin-section" data-section="storage">Almacenamiento</button><button class="tab ${section==='backups'?'active':''}" data-action="admin-section" data-section="backups">Copias</button><button class="tab ${section==='log'?'active':''}" data-action="admin-section" data-section="log">Log</button></div>`;
+ return `<div class="page">${tabs}${section==='usuarios'?adminUsersHtml():section==='roles'?adminRolesHtml():section==='negocio'?adminBusinessHtml():section==='fiscal'?adminFiscalHtml():section==='storage'?adminStorageHtml():section==='backups'?adminBackupHtml():adminLogHtml()}</div>`;
 }
 function adminUsersHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Usuarios</h2><div class="note">Solo el administrador gestiona usuarios.</div></section>';
  const rows=state.data.team;
  const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'Acciones',html:r=>`<div class="inline-actions">${btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}${r.role!=='admin'?btn('Permisos','user-permissions','secondary',`data-email="${esc(r.email)}"`):''}</div>`}];
  return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Accesos, roles y contraseñas.</p></div>${btn('+ Nuevo usuario','user-new','primary')}</div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
+}
+function adminRolesHtml(){
+ if(!isAdmin())return '<section class="card card-pad"><h2>Roles y permisos</h2><p>Solo el administrador puede editar permisos.</p></section>';
+ const titles={gerente:'Gerencia',encargado:'Encargado'};
+ const groups=['gerente','encargado'].map(role=>{
+   const line=PERMISSION_MODULES.map(([module,title])=>{
+     const rights=rolePermissions(role,module);
+     const granted=PERMISSION_ACTIONS.filter(([action])=>rights[action]).map(([,label])=>label).join(' · ');
+     return `<div class="summary-row"><b>${esc(title)}</b><span class="small">${esc(granted||'Sin acceso')}</span></div>`;
+   }).join('');
+   return `<section class="card card-pad"><div class="section-head"><div><h2>${titles[role]}</h2><p>Permisos base aplicados al rol. Un permiso individual puede sustituirlos.</p></div>${btn('Editar permisos del rol','role-permissions','primary',`data-role="${role}"`)}</div><div class="stack role-permission-summary">${line}</div></section>`;
+ }).join('');
+ return `<div class="stack"><section class="card card-pad"><h2>Roles y permisos</h2><p><b>Administrador</b>: acceso completo no configurable. Configura Gerencia y Encargado por módulo y después establece excepciones desde Usuarios → Permisos.</p></section>${groups}</div>`;
 }
 function adminBusinessHtml(){
  const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
