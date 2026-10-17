@@ -22,7 +22,7 @@ AS $fn$
 DECLARE
  v_docs bigint:=0; v_assets bigint:=0;v_backups bigint:=0;
  v_docs_count bigint:=0;v_assets_count bigint:=0;v_backup_count bigint:=0;
- v_limit bigint:=524288000;v_used bigint;
+ v_limit bigint:=524288000;v_used bigint;v_database_bytes bigint:=0;
  v_today date:=(timezone('Europe/Madrid',now()))::date;
  v_earliest record; v_days integer;v_day_growth numeric:=null;v_estimated integer:=null;
  v_sample_count integer:=0;
@@ -40,6 +40,7 @@ BEGIN
  FROM public.ops_business_settings WHERE id=1;
  v_limit:=coalesce(v_limit,524288000);
  v_used:=v_docs+v_assets;
+ SELECT pg_database_size(current_database()) INTO v_database_bytes;
  IF private.is_admin() THEN
   INSERT INTO public.ops_storage_usage_samples(day,measured_at,documents_bytes,assets_bytes,backup_bytes,configured_limit_bytes)
    VALUES(v_today,now(),v_docs,v_assets,v_backups,v_limit)
@@ -57,7 +58,7 @@ BEGIN
   v_days:=v_today-v_earliest.day;
   IF v_days>=7 AND v_used>v_earliest.used_bytes AND v_limit>v_used THEN
    v_day_growth:=(v_used-v_earliest.used_bytes)::numeric/v_days;
-   IF v_day_growth>0 THEN v_estimated:=ceil((v_limit-v_used)::numeric/v_day_growth)::integer; END IF;
+   IF v_day_growth>0 THEN v_estimated:=least(36500,ceil((v_limit-v_used)::numeric/v_day_growth))::integer; END IF;
   END IF;
  END IF;
  RETURN jsonb_build_object(
@@ -66,6 +67,7 @@ BEGIN
   'assets_bytes',v_assets,'assets_count',v_assets_count,
   'backup_bytes',v_backups,'backup_count',v_backup_count,
   'total_bytes',v_used,'all_buckets_bytes',v_used+v_backups,
+  'database_bytes',v_database_bytes,'observed_total_bytes',v_used+v_backups+v_database_bytes,
   'limit_bytes',v_limit,'available_bytes',greatest(0,v_limit-v_used),
   'usage_percent',CASE WHEN v_limit>0 THEN round(100*v_used::numeric/v_limit,2) ELSE null END,
   'sample_count',v_sample_count,'trend_days',v_days,'daily_growth_bytes',v_day_growth,
