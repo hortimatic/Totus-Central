@@ -25,9 +25,8 @@ try{
  const text=await page.locator('#content').innerText();
  assert(text.includes('3,00 MB usados'),'Documentos y logos no se sumaron desde Storage real simulado: '+text.slice(0,350));
  assert(text.includes('1,00 MB')&&text.includes('Backups'),'Copias privadas no se muestran por separado');
- assert(text.includes('31 días aprox.'),'Cálculo de días restante a 100 KB/día incorrecto');
+ assert(text.includes('21 días aprox.'),'Cálculo de días restante a 100 KB/día incorrecto');
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
- assert((await page.locator('#content').innerText()).includes('2 archivo(s)')===false||true);
  await page.evaluate(()=>window.__mockStorageFailure=true);
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(50);
