@@ -61,6 +61,17 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
   if(audit.outOfBounds.length)failures.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
   if(audit.clipped.length)failures.push(label+' clipped text: '+JSON.stringify(audit.clipped.slice(0,8)));
   if(audit.invalidInfoIcons.length)failures.push(label+' malformed i icons: '+JSON.stringify(audit.invalidInfoIcons.slice(0,8)));
+  if(view==='inicio'){
+   const overlaps=await page.evaluate(()=>[...document.querySelectorAll('.store-status-card')].map(card=>{
+    const metrics=card.querySelector('.metric-list')?.getBoundingClientRect();
+    const action=card.querySelector('.form-actions');
+    if(!metrics||!action)return {error:'Faltan métricas o botón'};
+    const button=action.getBoundingClientRect();
+    return {name:card.querySelector('h3')?.textContent||'Tienda',overlap:button.top<metrics.bottom-1,position:getComputedStyle(action).position,actionY:Math.round(button.top),metricsBottom:Math.round(metrics.bottom)};
+   }));
+   for(const problem of overlaps)if(problem.error||problem.overlap||problem.position!=='static')
+    failures.push(label+' cierre de caja sobrepuesto: '+JSON.stringify(problem));
+  }
   const helpButtons=page.locator('#root .field-help>summary');
   const helpCount=await helpButtons.count();
   for(const position of [...new Set([0,Math.max(0,helpCount-1)])]){
