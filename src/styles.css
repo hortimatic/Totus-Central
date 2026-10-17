@@ -239,3 +239,13 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .storage-usage-header{align-items:flex-start;flex-direction:column}
  .storage-information-grid .summary-row strong{text-align:left}
 }
+
+/* Las ayudas próximas al borde inferior no pueden quedar fuera de pantalla en tablet. */
+@media(max-width:850px){
+ .field-help[open]>span[role="note"]{
+  position:fixed!important;left:12px!important;right:12px!important;
+  bottom:12px!important;top:auto!important;z-index:300!important;
+  width:auto!important;min-width:0!important;max-width:none!important;
+  max-height:45vh;overflow-y:auto;
+ }
+}
