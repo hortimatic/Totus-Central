@@ -190,3 +190,52 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 
 /* Submenús Copias: los selectores de día se ocultan realmente según frecuencia. */
 #backupWeekdayWrapper[hidden],#backupMonthdayWrapper[hidden]{display:none!important}
+
+/* Storage dashboard and geometric visual fixes 2026-10-17 */
+.storage-dashboard{min-width:0}
+.storage-dashboard .section-head{align-items:center;flex-wrap:wrap}
+.storage-dashboard .section-head>div{min-width:0;flex:1 1 260px}
+.storage-sync-line,.storage-usage-footer,.storage-usage-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.storage-sync-line{margin:14px 0;color:#526078;font-size:12px}
+.storage-status{display:inline-flex;align-items:center;gap:7px;font-weight:700;color:#17603c}
+.storage-online-dot{width:9px;height:9px;border-radius:50%;background:#15803d;flex:0 0 9px}
+.storage-usage-header{margin-top:18px;margin-bottom:8px;font-variant-numeric:tabular-nums}
+.storage-usage-header strong{font-size:15px;overflow-wrap:anywhere}
+.storage-dashboard progress{width:100%;display:block;height:16px;appearance:none;overflow:hidden;border:0;border-radius:12px;background:#e4ebf5}
+.storage-dashboard progress::-webkit-progress-bar{background:#e4ebf5;border-radius:12px}
+.storage-dashboard progress::-webkit-progress-value{background:#2468c2;border-radius:12px}
+.storage-dashboard progress::-moz-progress-bar{background:#2468c2;border-radius:12px}
+.storage-usage-footer{font-size:12px;color:var(--muted);margin-top:8px}
+.storage-information-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.storage-information-grid .card{min-width:0}
+.storage-information-grid .card h3{margin:0 0 14px;font-size:16px}
+.storage-information-grid .summary-row{align-items:baseline;min-width:0}
+.storage-information-grid .summary-row span,.storage-information-grid .summary-row strong{min-width:0;overflow-wrap:anywhere}
+.storage-information-grid .summary-row strong{text-align:right}
+.storage-forecast-value{font-size:clamp(19px,3vw,28px);line-height:1.2;font-weight:800;margin:10px 0;overflow-wrap:anywhere}
+.storage-dashboard .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.storage-dashboard .kpi{min-width:0}
+.storage-dashboard .kpi strong{font-size:clamp(16px,2vw,22px);line-height:1.18;overflow-wrap:anywhere;word-break:normal}
+.page,.card,.section-head>div,.form-grid>label,.field-caption{min-width:0}
+.section-head h2,.section-head h3,.card h3,.card .note,.card p{overflow-wrap:anywhere}
+.inline-actions{min-width:0;max-width:100%}
+.inline-actions .btn{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.form-grid label,.field label{min-width:0;overflow-wrap:anywhere}
+.field-caption{display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;line-height:1.35}
+.field-caption .field-help{margin-inline-start:1px!important;flex:0 0 20px}
+.field-help>summary{display:inline-flex!important;justify-content:center!important;align-items:center!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;padding:0!important;font-size:0!important;line-height:1!important;border-radius:50%!important;vertical-align:middle}
+.field-help>summary::after{content:"i";display:block;line-height:1;font-family:system-ui,sans-serif;font-size:12px;font-style:normal;font-weight:800;transform:translateY(-.35px)}
+.field-help>span[role="note"]{overflow-wrap:anywhere}
+@media(max-width:850px){
+ .storage-information-grid{grid-template-columns:1fr}
+ .storage-dashboard .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .storage-information-grid .summary-row{flex-wrap:wrap}
+}
+@media(max-width:480px){
+ .storage-dashboard .kpis{grid-template-columns:1fr 1fr}
+ .storage-dashboard .kpi strong{font-size:17px}
+ .storage-dashboard .section-head .btn{width:100%}
+ .storage-sync-line{align-items:flex-start;flex-direction:column}
+ .storage-usage-header{align-items:flex-start;flex-direction:column}
+ .storage-information-grid .summary-row strong{text-align:left}
+}
