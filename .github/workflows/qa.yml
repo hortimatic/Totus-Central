@@ -37,6 +37,7 @@ jobs:
       - run: node tests/backup-qa.mjs
       - run: node tests/admin-submenus-qa.mjs
       - run: node tests/billing-submenus-qa.mjs
+      - run: node tests/storage-live-qa.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: totus-excel-qa
