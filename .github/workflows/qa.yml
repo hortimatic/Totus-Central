@@ -46,6 +46,7 @@ jobs:
           path: |
             artifacts/*.xlsx
             artifacts/ui_*.png
+            artifacts/layout_*.png
             artifacts/layout-audit.json
             artifacts/field-sweep.json
           retention-days: 3
