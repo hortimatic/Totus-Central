@@ -450,9 +450,64 @@ function adminFiscalHtml(){
  <div class="stack" style="margin-top:12px">${state.data.categories.length?state.data.categories.slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'es')).map(c=>`<div class="summary-row"><div><b>${esc(c.name)}</b><div class="small muted">${esc(c.code)}${c.aeat_group?' · '+esc(c.aeat_group):''}${c.manager_code?' · gestor '+esc(c.manager_code):''}</div></div><div>${stateBadge(c.active?'activo':'inactivo')}</div><div class="inline-actions">${isAdmin()?btn('Editar','expense-category-edit','secondary',`data-id="${c.id}"`):''}</div></div>`).join(''):'<div class="empty"><strong>Sin categorías</strong><span>Crea categorías antes de registrar gastos.</span></div>'}</div></section>`;
 }
 function adminStorageHtml(){
- const u=state.data.storageUsage||{},used=Number(u.total_bytes||0),limit=Number(u.limit_bytes||524288000);
- const backupBytes=(state.data.backupRuns||[]).filter(r=>r.status==='success').reduce((total,r)=>total+Number(r.size_bytes||0),0);
- return `<div class="kpis">${kpi('Uso total',(used/1024/1024).toFixed(1).replace('.',',')+' MB')}${kpi('Límite configurado',(limit/1024/1024).toFixed(0)+' MB')}${kpi('Documentos',String(u.documents_count||0))}${kpi('Assets',String(u.assets_count||0))}${kpi('Copias privadas',(backupBytes/1048576).toFixed(2).replace('.',',')+' MB')}</div><section class="card card-pad"><h2>Almacenamiento</h2><div class="summary-row"><span>Documentos</span><strong>${(Number(u.documents_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Logos/assets</span><strong>${(Number(u.assets_bytes||0)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Disponible</span><strong>${(Math.max(0,limit-used)/1024/1024).toFixed(1).replace('.',',')} MB</strong></div><div class="summary-row"><span>Backups privados (consumo adicional)</span><strong>${(backupBytes/1048576).toFixed(2).replace('.',',')} MB</strong></div><div class="note" style="margin-top:12px">El contador usa bytes reales de Storage y el límite configurado de 500 MB.</div></section>`;
+ const u=state.data.storageUsage||{};
+ const bytes=v=>Number(v||0),mb=v=>(bytes(v)/1048576).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' MB';
+ const healthy=u.status==='ok';
+ if(!healthy)return `<section class="card card-pad storage-dashboard" role="status">
+  <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>La lectura de almacenamiento no se ha podido verificar. No mostramos 0 MB porque podría ser incorrecto.</p></div>${btn('Reintentar conexión','storage-refresh','primary')}</div>
+  <div class="note warn"><b>Datos no disponibles</b> · ${esc(u.message||'Comprueba la conexión a Supabase y los permisos de la sesión.')}</div>
+ </section>`;
+ const total=bytes(u.total_bytes),limit=Math.max(1,bytes(u.limit_bytes)),backups=bytes(u.backup_bytes);
+ const pct=Math.max(0,Math.min(100,total/limit*100));
+ const stamp=u.measured_at?new Date(u.measured_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}):'Sin fecha';
+ const remaining=Math.max(0,limit-total);
+ let forecast='Sin datos históricos suficientes';
+ let explanation='La previsión necesita al menos dos mediciones separadas siete días. No se calcula con cifras inventadas.';
+ if(total>=limit){
+  forecast='Límite alcanzado';explanation='Se ha alcanzado el máximo interno configurado para documentos y logos.';
+ }else if(Number.isFinite(Number(u.estimated_days_left))&&u.estimated_days_left!==null&&Number(u.estimated_days_left)>=0&&bytes(u.daily_growth_bytes)>0){
+  const days=Number(u.estimated_days_left);
+  forecast=days>365?'Más de un año':days+' días aprox.';
+  explanation='Estimación orientativa: tendencia neta de los últimos '+Number(u.trend_days||0)+' días ('+mb(bytes(u.daily_growth_bytes))+'/día). No predice subidas extraordinarias.';
+ }else if(Number(u.trend_days||0)>=7) {
+  forecast='Sin crecimiento neto';explanation='El espacio de documentos y logos no ha aumentado durante el periodo observado; no se puede estimar una fecha de llenado.';
+ }
+ const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
+ return `<div class="stack storage-dashboard">
+  <section class="card card-pad">
+   <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Medición real de archivos guardados en el servidor, con actualización automática mientras esta pantalla está abierta.</p></div>
+    ${btn('Actualizar ahora','storage-refresh','secondary')}</div>
+   <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b id="storageMeasuredAt">${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
+   <div class="storage-usage-header"><strong>${mb(total)} usados</strong><strong>${mb(remaining)} disponibles</strong></div>
+   <progress id="storageUsageBar" aria-label="Porcentaje ocupado del límite de documentos y logos" max="100" value="${pct.toFixed(2)}"></progress>
+   <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1)} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>
+   <p class="note">${esc(caution)} Este indicador <b>no representa la cuota total contratada con Supabase</b>; mide el límite operativo que Totus aplica a documentos y logos.</p>
+  </section>
+  <div class="kpis">
+   ${kpi('Facturas y documentos',mb(u.documents_bytes||0))}
+   ${kpi('Logos y recursos',mb(u.assets_bytes||0))}
+   ${kpi('Copias privadas adicionales',mb(backups))}
+   ${kpi('Estimación de capacidad',forecast)}
+  </div>
+  <div class="storage-information-grid">
+   <section class="card card-pad">
+    <h3>Distribución del almacenamiento</h3>
+    <div class="summary-row"><span>Documentos originales</span><strong>${mb(u.documents_bytes)} · ${Number(u.documents_count||0)} archivo(s)</strong></div>
+    <div class="summary-row"><span>Logos y recursos</span><strong>${mb(u.assets_bytes)} · ${Number(u.assets_count||0)} archivo(s)</strong></div>
+    <div class="summary-row"><span>Backups en nube privada</span><strong>${mb(backups)} · ${Number(u.backup_count||0)} copia(s)</strong></div>
+    <div class="summary-row"><span>Total de archivos en estos tres espacios</span><strong>${mb(u.all_buckets_bytes)}</strong></div>
+    <p class="small muted">Las copias ocupan espacio adicional en Supabase, pero no se incluyen en el límite interno de documentos y logos. Otros usos del proyecto, como PostgreSQL, tampoco se incluyen en ese límite.</p>
+   </section>
+   <section class="card card-pad">
+    <h3>Previsión de crecimiento</h3>
+    <div class="storage-forecast-value">${esc(forecast)}</div>
+    <p class="small muted">${esc(explanation)}</p>
+    <div class="summary-row"><span>Mediciones históricas</span><strong>${Number(u.sample_count||0)}</strong></div>
+    <div class="summary-row"><span>Tendencia media neta</span><strong>${bytes(u.daily_growth_bytes)>0?mb(u.daily_growth_bytes)+'/día':'No calculable'}</strong></div>
+    <p class="note">Para verificar el almacenamiento total del proyecto y el límite de tu plan, consulta <b>Supabase → Usage</b>. Totus no inventará esa cuota.</p>
+   </section>
+  </div>
+ </div>`;
 }
 function adminBackupHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Copias de seguridad</h2><p>Solo el administrador puede configurar y consultar copias.</p></section>';
