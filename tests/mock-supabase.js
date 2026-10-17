@@ -88,7 +88,21 @@ const rpc=async (name,args={})=>{
   for(const [table,rows] of Object.entries(args.p_payload||{}))if(Array.isArray(rows))db[table]=structuredClone(rows);
   return {data:{restored:true},error:null};
  }
- if(name==='totus_storage_usage'){return {data:{documents_count:db.ops_documents.length,documents_bytes:sum(db.ops_documents,x=>x.size_bytes),assets_bytes:0,assets_count:0,total_bytes:sum(db.ops_documents,x=>x.size_bytes),limit_bytes:524288000},error:null}}
+ if(name==='totus_storage_usage'){
+  if(window.__mockStorageFailure)return {data:null,error:{message:'Servicio Storage temporalmente no disponible'}};
+  const keys=[...uploaded.keys()],measure=bucket=>keys.filter(k=>k.startsWith(bucket+'/')).reduce((total,k)=>total+Number(uploaded.get(k)?.size||0),0);
+  const docs=measure('business-documents'),assets=measure('business-assets'),backups=measure('business-backups'),limit=Number(db.ops_business_settings?.[0]?.storage_limit_bytes||524288000);
+  const samples=window.__mockStorageSamples||[],day=window.__mockStorageDailyGrowthBytes||null;
+  return {data:{status:'ok',source:'supabase_storage_objects',measured_at:new Date().toISOString(),
+    documents_count:keys.filter(k=>k.startsWith('business-documents/')).length,documents_bytes:docs,
+    assets_bytes:assets,assets_count:keys.filter(k=>k.startsWith('business-assets/')).length,
+    backup_bytes:backups,backup_count:keys.filter(k=>k.startsWith('business-backups/')).length,
+    total_bytes:docs+assets,all_buckets_bytes:docs+assets+backups,limit_bytes:limit,
+    usage_percent:Number(((docs+assets)*100/limit).toFixed(2)),available_bytes:Math.max(0,limit-docs-assets),
+    sample_count:samples.length,trend_days:day?14:null,daily_growth_bytes:day,
+    estimated_days_left:day&&docs+assets<limit?Math.ceil((limit-docs-assets)/day):null
+  },error:null};
+ }
  if(name==='totus_save_closing'){
   const p=args.p_closing,drawers=args.p_drawers||[];let row=p.id?get('ops_daily_closings',p.id):null;
   if(!row)row=insert('ops_daily_closings',{status:'borrador'});
