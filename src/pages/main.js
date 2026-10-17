@@ -543,7 +543,7 @@ function adminBackupHtml(){
    </div>
    <div class="note">Destino: almacenamiento privado de <b>Supabase STAGING → business-backups</b>, en la carpeta elegida. No se puede guardar automáticamente en una carpeta del ordenador mientras está apagado. Las copias antiguas se eliminan tras una nueva copia exitosa, conservando siempre la más reciente. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
-   <div class="note warn">Las copias se pueden descargar y verificar. La restauración automática continúa desactivada hasta que su recuperación íntegra esté probada. Para grandes volúmenes superiores a 49 MB se mostrará fallo, nunca un respaldo incompleto como correcto.</div>
+   <div class="note warn">Restauración bloqueada: las copias se pueden descargar y verificar, pero no restaurar desde Totus hasta que la recuperación íntegra esté probada. Para grandes volúmenes superiores a 49 MB se mostrará fallo, nunca un respaldo incompleto como correcto.</div>
   </section>
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Historial y descargas</h2><p>${recent?'Última copia correcta: '+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Aún no hay copias completas almacenadas.'} Revisa cada ejecución, errores, tamaño y archivos.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
    ${table(columns,runs.slice(0,50),{emptyTitle:'Sin copias en el servidor',emptyText:'Puedes crear una copia manual o activar la programación.'})}
