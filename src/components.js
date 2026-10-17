@@ -16,6 +16,7 @@ export const dateFilters=({from,to,store='all',stores=[],query=''},prefix='filte
   ${btn('Aplicar',prefix+'-apply','primary')}
   ${btn('Este mes',prefix+'-month','secondary')}
   ${extraFields}
+  <div class="date-selected-hint" role="status" aria-live="polite">Periodo aplicado: <strong>${esc(fmtDate(from))}</strong> a <strong>${esc(fmtDate(to))}</strong> · Formato español DD/MM/AAAA</div>
  </div>`;
 export const empty=(title='Sin datos',text='Todavía no hay registros.')=>`<div class="empty"><strong>${esc(title)}</strong><span>${esc(text)}</span></div>`;
 export const kpi=(label,value,sub='')=>`<div class="kpi"><span>${esc(label)}</span><strong>${value}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
