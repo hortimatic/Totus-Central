@@ -1419,10 +1419,10 @@ async function saveConfig(){
  const bounded=(label,max=100,min=0)=>v=>{
   // n() intentionally falls back to zero for non-numeric UI calculations.
   // Configuration must never silently persist that fallback as a real value.
-  const raw=String(v??'').trim().replace(/\\s/g,'');
-  if(!/^[+-]?[\\d.,]+$/.test(raw))throw new Error(label+' debe ser un número válido (admite coma o punto decimal).');
+  const raw=String(v??'').trim().replace(/\s/g,'');
+  if(!/^[+-]?[\d.,]+$/.test(raw))throw new Error(label+' debe ser un número válido (admite coma o punto decimal).');
   const normalized=raw.includes(',')&&raw.includes('.')
-   ?(raw.lastIndexOf(',')>raw.lastIndexOf('.')?raw.replace(/\\./g,'').replace(',','.'):raw.replace(/,/g,''))
+   ?(raw.lastIndexOf(',')>raw.lastIndexOf('.')?raw.replace(/\./g,'').replace(',','.'):raw.replace(/,/g,''))
    :raw.replace(',','.');
   const number=Number(normalized);
   if(!Number.isFinite(number))throw new Error(label+' debe ser un número válido (admite coma o punto decimal).');
