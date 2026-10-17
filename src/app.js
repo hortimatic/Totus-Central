@@ -1265,7 +1265,12 @@ function taxPaymentForm(model,year,quarter,row=null){
 }
 async function saveTaxPayment(id='',model,year,quarter){
  const date=val('txDate')||null;if(date&&date>isoToday())throw new Error('La fecha de pago no puede ser futura.');
- const row={tax_type:model,fiscal_year:Number(year),quarter:Number(quarter),period_label:`${quarter}T ${year}`,payment_date:date,amount:Math.max(0,num('txAmount')),status:val('txStatus'),notes:val('txNotes').trim(),created_by:state.user?.id||null};
+ const amountText=required('txAmount','Importe').trim(),amount=n(amountText);
+ if(!Number.isFinite(amount)||amount<0)throw new Error('El importe fiscal no puede ser negativo.');
+ if(![1,2,3,4].includes(Number(quarter))||!Number.isInteger(Number(year))||Number(year)<2020||Number(year)>2100)
+  throw new Error('Año o trimestre fiscal incorrecto.');
+ const row={tax_type:model,fiscal_year:Number(year),quarter:Number(quarter),period_label:`${quarter}T ${year}`,payment_date:date,amount,status:val('txStatus'),notes:val('txNotes').trim()};
+ if(!id)row.created_by=state.user?.id||null;
  try{if(id)await update('ops_tax_payments',id,row);else await insert('ops_tax_payments',row)}
  catch(e){if(String(e.message).toLowerCase().includes('unique'))throw new Error('Ya existe un registro para ese modelo, año y trimestre.');throw e}
  closeModal();await refresh('Modelo actualizado.');
@@ -1284,7 +1289,10 @@ function fiscalAdjustmentForm(row=null){
 }
 async function saveFiscalAdjustment(id=''){
  const date=required('faDate','Fecha');if(date>isoToday())throw new Error('La fecha del ajuste no puede ser futura.');
- const row={store_id:val('faStore')||null,adjustment_date:date,kind:val('faKind'),amount:Math.max(0,num('faAmount')),description:required('faDescription','Descripción'),document_id:null,created_by:state.user?.id||null};
+ const amountText=required('faAmount','Importe').trim(),amount=n(amountText);
+ if(!Number.isFinite(amount)||amount<0)throw new Error('El ajuste fiscal no puede tener un importe negativo.');
+ const row={store_id:val('faStore')||null,adjustment_date:date,kind:val('faKind'),amount,description:required('faDescription','Descripción')};
+ if(!id){row.document_id=null;row.created_by=state.user?.id||null}
  if(id)await update('ops_fiscal_adjustments',id,row);else await insert('ops_fiscal_adjustments',row);closeModal();await refresh('Ajuste fiscal guardado.');
 }
 async function deleteFiscalAdjustment(id){if(!confirm('¿Eliminar este ajuste fiscal?'))return;await remove('ops_fiscal_adjustments',id);closeModal();await refresh('Ajuste eliminado.')}
@@ -1402,7 +1410,21 @@ async function saveConfig(){
  const current={...(state.data.settings||{})},patch={updated_at:new Date().toISOString()};
  const setIf=(id,key,transform=v=>v)=>{const el=input(id);if(el)patch[key]=transform(el.value)};
  setIf('cfgBusiness','business_name',v=>v.trim());setIf('cfgTax','tax_id',v=>v.trim());setIf('cfgAddress','business_address',v=>v.trim());setIf('cfgEmail','business_email',v=>v.trim());setIf('cfgPhone','business_phone',v=>v.trim());
- setIf('cfgVat','default_sales_vat_rate',n);setIf('cfgPurchaseRe','purchase_re_rate',n);setIf('cfgIrpf','irpf_prepayment_rate',n);setIf('cfgDifficultPct','difficult_expense_pct',n);setIf('cfgDifficultCap','difficult_expense_annual_cap',n);setIf('cfgReta','actual_reta_monthly',v=>v===''?null:n(v));setIf('cfgRetaRate','reta_total_rate',n);setIf('cfgRetaDeduction','reta_generic_deduction_pct',n);setIf('cfgMargin','target_operating_margin_pct',n);
+ const bounded=(label,max=100,min=0)=>v=>{
+  if(String(v).trim()==='')throw new Error('El campo '+label+' no puede estar vacío.');
+  const number=n(v);
+  if(!Number.isFinite(number)||number<min||number>max)throw new Error(label+' debe estar entre '+min+' y '+max+'.');
+  return number;
+ };
+ setIf('cfgVat','default_sales_vat_rate',bounded('IVA (%)'));
+ setIf('cfgPurchaseRe','purchase_re_rate',bounded('Recargo de equivalencia (%)'));
+ setIf('cfgIrpf','irpf_prepayment_rate',bounded('Pago fraccionado IRPF (%)'));
+ setIf('cfgDifficultPct','difficult_expense_pct',bounded('Difícil justificación (%)'));
+ setIf('cfgDifficultCap','difficult_expense_annual_cap',bounded('Tope anual de gastos',100000000));
+ setIf('cfgReta','actual_reta_monthly',v=>v===''?null:bounded('Cuota RETA mensual',100000)(v));
+ setIf('cfgRetaRate','reta_total_rate',bounded('Tipo RETA (%)'));
+ setIf('cfgRetaDeduction','reta_generic_deduction_pct',bounded('Deducción RETA (%)'));
+ setIf('cfgMargin','target_operating_margin_pct',bounded('Margen objetivo (%)'));
  if(input('cfgDifficultEnabled'))patch.difficult_expense_enabled=!!input('cfgDifficultEnabled').checked;if(input('cfgFiscalNotes'))patch.fiscal_notes=val('cfgFiscalNotes').trim();
  await update('ops_business_settings',current.id||1,patch);await refresh('Configuración guardada.');
 }
