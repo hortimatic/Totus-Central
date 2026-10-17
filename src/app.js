@@ -1,7 +1,7 @@
 import {ROUTES} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,defaultRolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
-import {sb,login,logout,recover,loadCore,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
+import {sb,login,logout,recover,loadCore,reloadStorageUsage,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
@@ -78,6 +78,19 @@ function render(){
  $('#content').innerHTML=renderer();
  hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
+}
+let storageRefreshInFlight=false;
+function isStoragePanelVisible(){
+ return !!state.user&&state.route==='administracion'&&getView('administracion').section==='storage';
+}
+async function refreshStoragePanel(){
+ if(!isStoragePanelVisible()||storageRefreshInFlight||state.loading)return;
+ storageRefreshInFlight=true;
+ try{
+  const result=await reloadStorageUsage();
+  if(isStoragePanelVisible())render();
+  if(result.status!=='ok')toast('No se pudo consultar Storage: '+result.message,'bad');
+ }finally{storageRefreshInFlight=false}
 }
 async function refresh(message=''){
  state.loading=true;
@@ -1648,7 +1661,8 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();return}
+  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();return}
+  if(a==='storage-refresh'){await refreshStoragePanel();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};render();return}
   if(a==='admin-log-refresh'){await refresh('Eventos actualizados.');return}
@@ -1810,4 +1824,9 @@ async function boot(){
 }
 sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
 
+// Poll only while the Storage subtab is visible: no background traffic on other pages.
+setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error);
+});
 boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});
