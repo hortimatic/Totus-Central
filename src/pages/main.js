@@ -480,7 +480,7 @@ function adminStorageHtml(){
    <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b id="storageMeasuredAt">${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
    <div class="storage-usage-header"><strong>${mb(total)} usados</strong><strong>${mb(remaining)} disponibles</strong></div>
    <progress id="storageUsageBar" aria-label="Porcentaje ocupado del límite de documentos y logos" max="100" value="${pct.toFixed(2)}"></progress>
-   <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1)} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>
+   <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1})} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>
    <p class="note">${esc(caution)} Este indicador <b>no representa la cuota total contratada con Supabase</b>; mide el límite operativo que Totus aplica a documentos y logos.</p>
   </section>
   <div class="kpis">
