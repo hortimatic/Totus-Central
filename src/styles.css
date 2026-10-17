@@ -249,3 +249,13 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
   max-height:45vh;overflow-y:auto;
  }
 }
+
+/* Selected date range and scroll affordances */
+.date-selected-hint{flex:1 1 100%;min-width:0;color:#58667b;font-size:11px;padding-top:4px;line-height:1.45;overflow-wrap:anywhere}
+.date-selected-hint strong{color:#213d67;white-space:nowrap}
+.tab-scroll-hint{display:none;margin:0;color:#61738c;font-size:11px;line-height:1.35;padding:0 7px 4px}
+@media(max-width:800px){
+ .tab-scroll-hint{display:block}
+ .module-tabs{scrollbar-width:thin;scrollbar-color:#aebbd0 transparent}
+ .module-tabs .tab{min-height:42px}
+}
