@@ -259,3 +259,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .module-tabs{scrollbar-width:thin;scrollbar-color:#aebbd0 transparent}
  .module-tabs .tab{min-height:42px}
 }
+
+/* Backups: prevent squeezed primary actions on narrow devices. */
+.backup-control-actions{align-items:stretch;gap:9px}
+.backup-control-actions .btn{min-width:0;min-height:43px}
+@media(max-width:620px){
+ .backup-control-actions{display:grid;grid-template-columns:1fr;justify-content:stretch}
+ .backup-control-actions .btn{width:100%}
+}
