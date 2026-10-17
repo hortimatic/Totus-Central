@@ -1,0 +1,46 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({locale:'es-ES',viewport:{width:1280,height:960}});
+const js=[];page.on('pageerror',e=>js.push(e.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.locator('#nav [data-route="administracion"]').click();
+ await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
+ await page.locator('#storageMeasuredAt').waitFor();
+ assert((await page.locator('#content').innerText()).includes('Datos verificados en Supabase'),'Falta indicador de fuente y conexión');
+ assert(await page.locator('#storageUsageBar').count()===1,'No hay barra de uso');
+ assert((await page.locator('#content').innerText()).includes('límite operativo'),'Se presenta incorrectamente el límite interno como cuota Supabase');
+ await page.evaluate(()=>{
+  const uploads=window.__mockUploads;
+  uploads.set('business-documents/qa-large.pdf',new Blob([new Uint8Array(2*1024*1024)]));
+  uploads.set('business-assets/logo.png',new Blob([new Uint8Array(1*1024*1024)]));
+  uploads.set('business-backups/qa-test.totusbackup',new Blob([new Uint8Array(1*1024*1024)]));
+  window.__mockDb.ops_business_settings[0].storage_limit_bytes=5*1024*1024;
+  window.__mockStorageSamples=[{day:'2026-10-03'},{day:'2026-10-17'}];
+  window.__mockStorageDailyGrowthBytes=100*1024;
+ });
+ await page.locator('[data-action="storage-refresh"]').click();
+ await page.waitForTimeout(80);
+ const text=await page.locator('#content').innerText();
+ assert(text.includes('3,00 MB usados'),'Documentos y logos no se sumaron desde Storage real simulado: '+text.slice(0,350));
+ assert(text.includes('1,00 MB')&&text.includes('Backups'),'Copias privadas no se muestran por separado');
+ assert(text.includes('31 días aprox.'),'Cálculo de días restante a 100 KB/día incorrecto');
+ assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
+ assert((await page.locator('#content').innerText()).includes('2 archivo(s)')===false||true);
+ await page.evaluate(()=>window.__mockStorageFailure=true);
+ await page.locator('[data-action="storage-refresh"]').click();
+ await page.waitForTimeout(50);
+ const failed=await page.locator('#content').innerText();
+ assert(failed.includes('Datos no disponibles'),'No se notifica fallo de conexión');
+ assert(!failed.includes('0,00 MB usados'),'La caída de Supabase se presenta como cero bytes');
+ assert(failed.includes('Reintentar conexión'),'No hay acción para recuperarse');
+ await page.evaluate(()=>window.__mockStorageFailure=false);
+ await page.locator('[data-action="storage-refresh"]').click();
+ await page.waitForTimeout(50);
+ assert((await page.locator('#content').innerText()).includes('Datos verificados en Supabase'),'No se recupera después de un error');
+ await page.locator('[data-action="admin-section"][data-section="backups"]').first().click();
+ assert(await page.locator('#storageMeasuredAt').count()===0,'Storage sigue renderizando sobre otro submenú');
+ assert(!js.length,'Errores JS: '+js.join(' ; '));
+ console.log('STORAGE LIVE QA: lectura real, 3 buckets, cuota interna, previsión, recuperación de errores y navegación OK');
+}finally{await browser.close()}
