@@ -34,6 +34,12 @@ try{
  assert(failed.includes('Datos no disponibles'),'No se notifica fallo de conexión');
  assert(!failed.includes('0,00 MB usados'),'La caída de Supabase se presenta como cero bytes');
  assert(failed.includes('Reintentar conexión'),'No hay acción para recuperarse');
+ // A failed RPC must also remain explicit on Inicio; it must not become a fake 0 MB.
+ await page.locator('#nav [data-route="inicio"]').click();
+ const homeUsage=await page.locator('.dashboard-page .summary-row',{hasText:'Almacenamiento usado'}).innerText();
+ const homeOccupancy=await page.locator('.dashboard-page .summary-row',{hasText:'Ocupación'}).innerText();
+ assert(homeUsage.includes('No disponible'),'Inicio oculta el fallo de Storage con un consumo ficticio: '+homeUsage);
+ assert(homeOccupancy.includes('Sin medir'),'Inicio muestra un porcentaje falso tras fallo: '+homeOccupancy);
  const beforeRejected=await page.evaluate(()=>({files:window.__mockUploads.size,expenses:window.__mockDb.ops_expenses.length}));
  await page.locator('#nav [data-route="gastos"]').click();
  await page.locator('[data-action="expense-new"]').first().click();
