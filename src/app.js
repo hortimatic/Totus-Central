@@ -253,9 +253,14 @@ async function deleteExpenseSupplier(id){
 
 async function fileSha256(file){const buf=await file.arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function quarterFromDate(date){const m=Number(String(date).slice(5,7));return 'T'+Math.ceil(m/3)}
+async function verifiedStorageMetrics(){
+ const usage=await reloadStorageUsage();
+ if(usage.status!=='ok')throw new Error('No se puede comprobar el espacio en Supabase. Reintenta cuando se restablezca la conexión antes de subir archivos.');
+ return usage;
+}
 async function createStoredDocument(file,{storeId=null,date,docType='otro',status='pendiente',party='',taxId='',number='',category='',notes='',linkedType=null,linkedId=null}={}){
  const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
- const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0);
+ const usage=await verifiedStorageMetrics(),limit=Number(usage.limit_bytes),used=Number(usage.total_bytes);
  validateDocumentFile(file,{maxBytes:max,usedBytes:used,limitBytes:limit});
  const y=String(date).slice(0,4),m=String(date).slice(5,7),storeNameValue=state.data.stores.find(s=>s.id===storeId)?.name||'General';
  const path=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(docType)}/${safeFileSegment(party)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;
@@ -784,8 +789,8 @@ async function saveTemplate(id=''){
   if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('El logo debe ser PNG, JPG o WEBP.');
   if(!file.size)throw new Error('El logo seleccionado está vacío.');
   if(file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
-  const usage=state.data.storageUsage||{};
-  if(Number(usage.total_bytes||0)+file.size-Number(current?.logo_size_bytes||0)>Number(usage.limit_bytes||500*1024*1024))
+  const usage=await verifiedStorageMetrics();
+  if(Number(usage.total_bytes)+file.size-Number(current?.logo_size_bytes||0)>Number(usage.limit_bytes))
    throw new Error('No queda suficiente almacenamiento para el logo.');
  }
  const oldLogoPath=current?.logo_path||null;
@@ -927,7 +932,7 @@ async function importDocumentZip(zipFile){
  const known=new Set(state.data.documents.map(d=>String(d.notes||'').match(/\[ORIGEN-ZIP:([^\]]+)\]/)?.[1]).filter(Boolean));
  const missing=entries.filter(f=>!known.has(f.name));
  const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
- const used=Number(state.data.storageUsage?.total_bytes||0),limit=Number(state.data.storageUsage?.limit_bytes||500*1024*1024);
+ const quota=await verifiedStorageMetrics(),used=Number(quota.total_bytes),limit=Number(quota.limit_bytes);
  const estimated=missing.reduce((a,f)=>a+Number(f._data?.uncompressedSize||0),0);
  if(used+estimated>limit)throw new Error('El lote supera el almacenamiento disponible. Elimina otros archivos o utiliza un lote menor.');
  if(!confirm('Se van a importar '+missing.length+' archivos a STAGING como pendientes de clasificar, sin afectar a producción. ¿Continuar?'))return;
