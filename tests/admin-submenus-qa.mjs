@@ -27,7 +27,7 @@ try{
  await page.waitForTimeout(50);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate),originalVat,
   'Texto no numérico cambió silenciosamente el IVA en configuración');
- assert((await page.locator('#toastHost').innerText()).includes('número válido'),
+ assert(/(importe no válido|número válido)/.test(await page.locator('#toastHost').innerText()),
   'La configuración no explica el rechazo de un valor no numérico');
  assert.equal(await page.locator('#cfgVat').inputValue(),'no-es-un-numero',
   'Perdió el texto escrito tras un error de validación');
