@@ -20,7 +20,7 @@ const pages=[
  ['admin-backups','?route=administracion&section=backups'],['admin-log','?route=administracion&section=log']
 ];
 const report=[],errors=[];
-for(const [size,viewport] of [['desktop',{width:1440,height:960}],['mobile',{width:390,height:844}]]){
+for(const [size,viewport] of [['desktop',{width:1440,height:960}],['tablet',{width:768,height:1024}],['mobile',{width:390,height:844}]]){
  const page=await browser.newPage({locale:'es-ES',viewport});
  const jsErrors=[];
  page.on('pageerror',e=>jsErrors.push(e.message));
