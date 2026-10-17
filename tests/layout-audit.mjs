@@ -88,7 +88,7 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
     failures.push(label+' popup out of viewport: '+JSON.stringify(measured));
    await icon.click({force:true});
   }
-  if(['admin-storage','admin-backups','admin-log','admin-roles','facturacion-plantillas','facturacion-series','gastos-facturas'].includes(view))
+  if(['admin-storage','admin-backups','admin-log','admin-roles','facturacion-plantillas','facturacion-series','gastos-facturas','gastos-form','cajas-form','factura-form','documentos-form'].includes(view))
     await page.screenshot({path:'artifacts/layout_'+viewportName+'_'+view+'.png',fullPage:true});
  }
  await page.close();
