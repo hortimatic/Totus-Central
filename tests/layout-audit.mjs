@@ -21,7 +21,7 @@ const pages=[
  ['admin-fiscal','?route=administracion&section=fiscal'],['admin-storage','?route=administracion&section=storage'],
  ['admin-backups','?route=administracion&section=backups'],['admin-log','?route=administracion&section=log']
 ];
-for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobile',{width:390,height:844}]]){
+for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tablet',{width:768,height:1024}],['mobile',{width:390,height:844}]]){
  const page=await browser.newPage({locale:'es-ES',viewport});
  for(const [view,query] of pages){
   const label=viewportName+'/'+view;
@@ -84,6 +84,6 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobi
 }
 await browser.close();
 fs.writeFileSync('artifacts/layout-audit.json',JSON.stringify({failures,notices},null,2));
-console.log('Auditado: '+(2*pages.length)+' vistas; avisos='+notices.length+' errores='+failures.length);
+console.log('Auditado: '+(3*pages.length)+' vistas; avisos='+notices.length+' errores='+failures.length);
 if(notices.length)console.log('Avisos:\n'+notices.slice(0,20).join('\n'));
 if(failures.length){console.error(failures.join('\n'));process.exit(1)}
