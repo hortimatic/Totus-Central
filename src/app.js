@@ -76,6 +76,12 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  $('#content').innerHTML=renderer();
+ // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
+ const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
+ if(active&&tabs.scrollWidth>tabs.clientWidth){
+  const bar=tabs.getBoundingClientRect(),item=active.getBoundingClientRect();
+  tabs.scrollLeft+=item.left-bar.left-(tabs.clientWidth-item.width)/2;
+ }
  hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
 }
