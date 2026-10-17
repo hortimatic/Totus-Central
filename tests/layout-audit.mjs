@@ -4,11 +4,27 @@ fs.mkdirSync('artifacts',{recursive:true});
 const browser=await chromium.launch({headless:true});
 const failures=[],notices=[];
 const routes=['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion'];
-const pages=['?route=inicio','?route=pricing','?route=cajas','?route=cajas&mode=record&id=new','?route=gastos','?route=gastos&mode=record&id=new','?route=facturacion','?route=facturacion&mode=record&id=new','?route=documentos','?route=documentos&mode=record&id=new','?route=fiscalidad','?route=informes','?route=administracion&section=usuarios','?route=administracion&section=negocio','?route=administracion&section=fiscal','?route=administracion&section=storage','?route=administracion&section=backups','?route=administracion&section=log'];
+const pages=[
+ ['inicio','?route=inicio'],['pricing','?route=pricing'],
+ ['cajas-list','?route=cajas'],['cajas-form','?route=cajas&mode=record&id=new'],
+ ['gastos-list','?route=gastos'],['gastos-form','?route=gastos&mode=record&id=new'],
+ ['gastos-facturas','?route=gastos&section=facturas'],
+ ['facturas-list','?route=facturacion'],
+ ['facturacion-clientes','?route=facturacion&section=clientes'],['facturacion-plantillas','?route=facturacion&section=plantillas'],['facturacion-series','?route=facturacion&section=series'],['factura-form','?route=facturacion&mode=record&id=new&type=factura&kind=invoice&origin=totus'],
+ ['rectificativa-form','?route=facturacion&mode=record&id=new&type=factura&kind=rectifying&origin=totus'],
+ ['proforma-form','?route=facturacion&mode=record&id=new&type=proforma&kind=invoice&origin=totus'],
+ ['externa-form','?route=facturacion&mode=record&id=new&type=factura&kind=invoice&origin=externa'],
+ ['documentos-list','?route=documentos'],['documentos-form','?route=documentos&mode=record&id=new'],
+ ['fiscalidad','?route=fiscalidad'],['informes','?route=informes'],
+ ['admin-users','?route=administracion&section=usuarios'],
+ ['admin-roles','?route=administracion&section=roles'],['admin-business','?route=administracion&section=negocio'],
+ ['admin-fiscal','?route=administracion&section=fiscal'],['admin-storage','?route=administracion&section=storage'],
+ ['admin-backups','?route=administracion&section=backups'],['admin-log','?route=administracion&section=log']
+];
 for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobile',{width:390,height:844}]]){
  const page=await browser.newPage({locale:'es-ES',viewport});
- for(const query of pages){
-  const label=viewportName+'/'+query;
+ for(const [view,query] of pages){
+  const label=viewportName+'/'+view;
   await page.goto('http://127.0.0.1:4173/tests/ui-harness.html'+query,{waitUntil:'networkidle'});
   const audit=await page.evaluate(()=>{
    const root=document.querySelector('#root');
@@ -24,13 +40,29 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobi
    for(const label of root.querySelectorAll('label[for]'))if(!document.getElementById(label.htmlFor))links.push(label.htmlFor);
    const forms=[...root.querySelectorAll('form')].filter(visible).length;
    const blank=[...root.querySelectorAll('.card,.record-main,.record-side,.table-wrap')].filter(visible).filter(el=>el.getBoundingClientRect().height>300 && (el.innerText||'').trim().length<12).slice(0,4).map(el=>({class:el.className,height:Math.round(el.getBoundingClientRect().height)}));
-   return {duplicate,unlabeled,links,outOfBounds,blank,forms};
+   const clipped=[];
+   for(const el of root.querySelectorAll('.section-head h2,.section-head h3,.kpi strong,.field-caption,.btn,.summary-row strong')){
+    if(!visible(el))continue;
+    const st=getComputedStyle(el);
+    if(st.overflowX==='visible'&&st.whiteSpace!=='nowrap')continue;
+    if(el.scrollWidth>el.clientWidth+6)clipped.push({tag:el.tagName,cls:el.className,text:(el.innerText||el.textContent||'').slice(0,70),overflow:Math.round(el.scrollWidth-el.clientWidth)});
+   }
+   const infoIcons=[...root.querySelectorAll('.field-help>summary')].filter(visible).map(el=>{
+    const r=el.getBoundingClientRect();
+    return {w:r.width,h:r.height,content:getComputedStyle(el,'::after').content};
+   });
+   const invalidInfoIcons=infoIcons.filter(i=>Math.abs(i.w-i.h)>1||i.w<18||i.h<18||i.content!=='"i"');
+   return {duplicate,unlabeled,links,outOfBounds,blank,forms,clipped,invalidInfoIcons,infoIconsCount:infoIcons.length};
   });
   if(audit.duplicate.length)failures.push(label+' duplicate visible element IDs: '+JSON.stringify(audit.duplicate));
   if(audit.links.length)failures.push(label+' labels for missing controls: '+JSON.stringify(audit.links));
   if(audit.blank.length)failures.push(label+' tall empty blocks: '+JSON.stringify(audit.blank));
   if(audit.unlabeled.length)failures.push(label+' unlabeled controls: '+JSON.stringify(audit.unlabeled));
   if(audit.outOfBounds.length)failures.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
+  if(audit.clipped.length)failures.push(label+' clipped text: '+JSON.stringify(audit.clipped.slice(0,8)));
+  if(audit.invalidInfoIcons.length)failures.push(label+' malformed i icons: '+JSON.stringify(audit.invalidInfoIcons.slice(0,8)));
+  if(['admin-storage','admin-backups','admin-log','admin-roles','facturacion-plantillas','facturacion-series','gastos-facturas'].includes(view))
+    await page.screenshot({path:'artifacts/layout_'+viewportName+'_'+view+'.png',fullPage:true});
  }
  await page.close();
 }
