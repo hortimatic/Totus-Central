@@ -29,6 +29,18 @@ export async function invokeTeam(payload){const s=(await sb.auth.getSession()).d
 export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
 export async function signedUrl(bucket,path,seconds=120){const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);assert(r,'Vista previa');return r.data.signedUrl}
 export async function removeFile(bucket,path){const r=await sb.storage.from(bucket).remove([path]);assert(r,'Eliminar archivo')}
+// Independent refresh: reports errors without fabricating an empty Supabase bucket.
+export async function reloadStorageUsage(){
+ try{
+  const data=await rpc('totus_storage_usage');
+  if(!data||data.status!=='ok'||data.source!=='supabase_storage_objects')throw new Error('Respuesta de Storage no verificable.');
+  state.data.storageUsage={...data,status:'ok',fetched_at:new Date().toISOString()};
+  return state.data.storageUsage;
+ }catch(e){
+  state.data.storageUsage={status:'error',message:String(e?.message||e),fetched_at:new Date().toISOString()};
+  return state.data.storageUsage;
+ }
+}
 export async function loadCore(){
  const tasks=[
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
@@ -43,6 +55,6 @@ export async function loadCore(){
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
- state.data.storageUsage=await rpc('totus_storage_usage').catch(()=>({documents_bytes:0,documents_count:0,assets_bytes:0,assets_count:0,total_bytes:0,limit_bytes:Number(state.data.settings?.storage_limit_bytes||500*1024*1024)}));
+ await reloadStorageUsage();
  if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000}).catch(()=>[])}
 }
