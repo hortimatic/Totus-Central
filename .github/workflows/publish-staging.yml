@@ -77,6 +77,7 @@ jobs:
           node tests/billing-submenus-qa.mjs
           node tests/fiscal-submenus-qa.mjs
           node tests/store-drawers-qa.mjs
+          node tests/mobile-navigation-qa.mjs
           node tests/storage-live-qa.mjs
       - name: Assemble single GitHub Pages site with untouched main and /staging
         shell: bash
