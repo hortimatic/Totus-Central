@@ -61,6 +61,22 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['mobi
   if(audit.outOfBounds.length)failures.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
   if(audit.clipped.length)failures.push(label+' clipped text: '+JSON.stringify(audit.clipped.slice(0,8)));
   if(audit.invalidInfoIcons.length)failures.push(label+' malformed i icons: '+JSON.stringify(audit.invalidInfoIcons.slice(0,8)));
+  const helpButtons=page.locator('#root .field-help>summary');
+  const helpCount=await helpButtons.count();
+  for(const position of [...new Set([0,Math.max(0,helpCount-1)])]){
+   if(!helpCount)break;
+   const icon=helpButtons.nth(position);
+   if(!await icon.isVisible())continue;
+   await icon.click({force:true});
+   const measured=await icon.evaluate(el=>{
+    const note=el.closest('details')?.querySelector('[role="note"]');
+    const b=note?.getBoundingClientRect();
+    return b?{left:b.left,right:b.right,top:b.top,bottom:b.bottom,width:innerWidth,height:innerHeight}:null;
+   });
+   if(measured&&(measured.left< -4||measured.right>measured.width+4||measured.top< -4||measured.bottom>measured.height+4))
+    failures.push(label+' popup out of viewport: '+JSON.stringify(measured));
+   await icon.click({force:true});
+  }
   if(['admin-storage','admin-backups','admin-log','admin-roles','facturacion-plantillas','facturacion-series','gastos-facturas'].includes(view))
     await page.screenshot({path:'artifacts/layout_'+viewportName+'_'+view+'.png',fullPage:true});
  }
