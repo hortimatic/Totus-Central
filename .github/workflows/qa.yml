@@ -39,6 +39,7 @@ jobs:
       - run: node tests/billing-submenus-qa.mjs
       - run: node tests/fiscal-submenus-qa.mjs
       - run: node tests/store-drawers-qa.mjs
+      - run: node tests/mobile-navigation-qa.mjs
       - run: node tests/storage-live-qa.mjs
       - uses: actions/upload-artifact@v4
         with:
