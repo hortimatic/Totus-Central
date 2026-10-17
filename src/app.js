@@ -1417,9 +1417,16 @@ async function saveConfig(){
  const setIf=(id,key,transform=v=>v)=>{const el=input(id);if(el)patch[key]=transform(el.value)};
  setIf('cfgBusiness','business_name',v=>v.trim());setIf('cfgTax','tax_id',v=>v.trim());setIf('cfgAddress','business_address',v=>v.trim());setIf('cfgEmail','business_email',v=>v.trim());setIf('cfgPhone','business_phone',v=>v.trim());
  const bounded=(label,max=100,min=0)=>v=>{
-  if(String(v).trim()==='')throw new Error('El campo '+label+' no puede estar vacío.');
-  const number=n(v);
-  if(!Number.isFinite(number)||number<min||number>max)throw new Error(label+' debe estar entre '+min+' y '+max+'.');
+  // n() intentionally falls back to zero for non-numeric UI calculations.
+  // Configuration must never silently persist that fallback as a real value.
+  const raw=String(v??'').trim().replace(/\\s/g,'');
+  if(!/^[+-]?[\\d.,]+$/.test(raw))throw new Error(label+' debe ser un número válido (admite coma o punto decimal).');
+  const normalized=raw.includes(',')&&raw.includes('.')
+   ?(raw.lastIndexOf(',')>raw.lastIndexOf('.')?raw.replace(/\\./g,'').replace(',','.'):raw.replace(/,/g,''))
+   :raw.replace(',','.');
+  const number=Number(normalized);
+  if(!Number.isFinite(number))throw new Error(label+' debe ser un número válido (admite coma o punto decimal).');
+  if(number<min||number>max)throw new Error(label+' debe estar entre '+min+' y '+max+'.');
   return number;
  };
  setIf('cfgVat','default_sales_vat_rate',bounded('IVA (%)'));

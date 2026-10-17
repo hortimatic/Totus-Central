@@ -19,6 +19,30 @@ try{
   await section(id);
   assert((await page.locator('#content').innerText()).trim().length>50,'Submenú vacío '+id);
  }
+ // Fiscal settings must reject invalid text, preserving the persisted VAT rate.
+ await section('fiscal');
+ const originalVat=await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate);
+ await page.locator('#cfgVat').fill('no-es-un-numero');
+ await page.locator('[data-action="config-save"]').click();
+ await page.waitForTimeout(50);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate),originalVat,
+  'Texto no numérico cambió silenciosamente el IVA en configuración');
+ assert((await page.locator('#toastHost').innerText()).includes('número válido'),
+  'La configuración no explica el rechazo de un valor no numérico');
+ assert.equal(await page.locator('#cfgVat').inputValue(),'no-es-un-numero',
+  'Perdió el texto escrito tras un error de validación');
+ await page.locator('#cfgVat').fill('21,5');
+ await page.locator('[data-action="config-save"]').click();
+ await page.waitForTimeout(75);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate),21.5,
+  'La configuración no admite decimales con coma');
+ await page.locator('#cfgVat').fill(String(originalVat));
+ await page.locator('[data-action="config-save"]').click();
+ await page.waitForTimeout(75);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate),originalVat,
+  'No se restauró el valor previo de prueba');
+ steps.push('fiscal:invalid-number-rejected/comma-accepted/restored');
+
  await section('backups');
  assert(await page.locator('#backupEnabled').count()===1,'El programador no se muestra');
  assert(!(await page.locator('#backupEnabled').isChecked()),'El programador no debe activarse solo');
