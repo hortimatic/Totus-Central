@@ -496,7 +496,9 @@ function adminStorageHtml(){
     <div class="summary-row"><span>Logos y recursos</span><strong>${mb(u.assets_bytes)} · ${Number(u.assets_count||0)} archivo(s)</strong></div>
     <div class="summary-row"><span>Backups en nube privada</span><strong>${mb(backups)} · ${Number(u.backup_count||0)} copia(s)</strong></div>
     <div class="summary-row"><span>Total de archivos en estos tres espacios</span><strong>${mb(u.all_buckets_bytes)}</strong></div>
-    <p class="small muted">Las copias ocupan espacio adicional en Supabase, pero no se incluyen en el límite interno de documentos y logos. Otros usos del proyecto, como PostgreSQL, tampoco se incluyen en ese límite.</p>
+    <div class="summary-row"><span>Base de datos PostgreSQL (aprox.)</span><strong>${Number.isFinite(Number(u.database_bytes))?mb(u.database_bytes):'No disponible'}</strong></div>
+    <div class="summary-row"><span>Total observado en Totus + PostgreSQL</span><strong>${Number.isFinite(Number(u.observed_total_bytes))?mb(u.observed_total_bytes):'No disponible'}</strong></div>
+    <p class="small muted">Las copias y PostgreSQL consumen espacio en Supabase, pero no se descuentan del límite interno de documentos y logos. La cifra de PostgreSQL incluye sobrecarga de la base y no equivale por sí sola a la cuota facturable de tu plan.</p>
    </section>
    <section class="card card-pad">
     <h3>Previsión de crecimiento</h3>
