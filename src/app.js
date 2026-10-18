@@ -828,8 +828,8 @@ async function saveTemplate(id=''){
  // Validar antes de subir. Un formulario incompleto no debe consumir Storage.
  const storeId=val('tpStore')||null,defaultInvoice=!!input('tpDefaultInvoice')?.checked,defaultProforma=!!input('tpDefaultProforma')?.checked;
  const code=required('tpCode','Código').trim().toUpperCase(),name=required('tpName','Nombre');
- const duplicate=state.data.templates.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code&&String(x.store_id||'')===String(storeId||''));
- if(duplicate)throw new Error('Ya existe una plantilla con ese código para la misma tienda.');
+ const duplicate=state.data.templates.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code);
+ if(duplicate)throw new Error('Ya existe una plantilla con ese código. El código debe ser único en toda la herramienta.');
  const file=input('tpLogo')?.files?.[0]||null;
  if(file){
   if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('El logo debe ser PNG, JPG o WEBP.');
@@ -867,7 +867,7 @@ async function duplicateTemplate(id){
  const src=state.data.templates.find(x=>x.id===id);if(!src)return;
  const copy={...src};delete copy.id;delete copy.created_at;delete copy.updated_at;
  copy.name=src.name+' · copia';copy.code=(src.code+'-COPIA').slice(0,50);copy.default_invoice=false;copy.default_proforma=false;copy.active=true;
- let suffix=2;while(state.data.templates.some(x=>x.code===copy.code&&String(x.store_id||'')===String(copy.store_id||''))){copy.code=(src.code+'-COPIA-'+suffix++).slice(0,50)}
+ let suffix=2;while(state.data.templates.some(x=>x.code===copy.code)){copy.code=(src.code+'-COPIA-'+suffix++).slice(0,50)}
  await insert('ops_document_templates',copy);closeModal();await refresh('Plantilla duplicada.');
 }
 
