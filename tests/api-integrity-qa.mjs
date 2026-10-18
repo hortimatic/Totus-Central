@@ -15,7 +15,7 @@ const client={
      deleteCalls++;
      const index=denyDeletion?-1:rows.findIndex(x=>x.id===id);
      const removed=index>=0?rows.splice(index,1):[];
-     return Promise.resolve({data:index>=0?[removed]:[],error:null}).then(done,reject);
+     return Promise.resolve({data:removed,error:null}).then(done,reject);
     }
     const ordered=[...rows].sort((a,b)=>{
      for(const [k,asc] of sort){const cmp=String(a[k]??'').localeCompare(String(b[k]??''));if(cmp)return asc?cmp:-cmp}
