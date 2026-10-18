@@ -61,6 +61,16 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
   if(audit.outOfBounds.length)failures.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
   if(audit.clipped.length)failures.push(label+' clipped text: '+JSON.stringify(audit.clipped.slice(0,8)));
   if(audit.invalidInfoIcons.length)failures.push(label+' malformed i icons: '+JSON.stringify(audit.invalidInfoIcons.slice(0,8)));
+  if(view==='admin-storage'){
+   const observed=page.locator('#storageObservedBar'),total=page.locator('#storageObservedTotal');
+   if(await observed.count()!==1||await total.count()!==1)failures.push(label+' no renderiza barra superior de almacenamiento observado');
+   else{
+    const widths=await observed.locator('span').evaluateAll(els=>els.map(el=>Math.round(el.getBoundingClientRect().width)));
+    if(widths.length!==4||widths[0]<20||widths[1]<=0||widths[2]<=0||widths[3]<=0)
+     failures.push(label+' barras de base/documentos/logos/copias sin representación visible: '+widths.join(','));
+    if(!(await total.innerText()).includes('36,00 MB'))failures.push(label+' total real de almacenamiento observado incorrecto');
+   }
+  }
   if(view==='inicio'){
    const overlaps=await page.evaluate(()=>[...document.querySelectorAll('.store-status-card')].map(card=>{
     const metrics=card.querySelector('.metric-list')?.getBoundingClientRect();

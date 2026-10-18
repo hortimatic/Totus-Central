@@ -29,6 +29,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/excel-qa.mjs
       - run: node tests/quarter-fixture-qa.mjs
+      - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/browser-qa.mjs
