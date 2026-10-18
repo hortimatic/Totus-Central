@@ -6,7 +6,7 @@ import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,inse
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
+import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
@@ -46,6 +46,7 @@ function permissionForAction(action,el){
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
+ if(a==='invoice-rectify')operation='create';
  if(a==='closing-save-close'&&el?.dataset?.id)operation='edit';
  return {module,operation};
 }
@@ -390,7 +391,9 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
    if(master&&(String(master.name||'').trim()!==customerName.trim()||String(master.tax_id||'').trim()!==customerTax))customerId=null;
  }
  const isProforma=type==='proforma';
- const paidStatus=isProforma?'pendiente':(val('ivPaidStatus')||'pendiente'),paidAmount=isProforma?0:Math.max(0,num('ivPaidAmount'));if(paidStatus==='pendiente'&&paidAmount>0)throw new Error('Un documento pendiente no puede tener importe cobrado.');if(paidStatus==='pagada'&&!paidDate)throw new Error('Indica la fecha de cobro.');
+ const paidStatus=isProforma?'pendiente':(val('ivPaidStatus')||'pendiente'),paidAmount=isProforma?0:num('ivPaidAmount');
+ if(!isProforma)validateInvoiceSettlement(readInvoiceDraft().row.total_amount,paidAmount,paidStatus,paidDate,isoToday());
+ if(invoiceKind==='rectifying'&&!isProforma){required('ivRectifiedInvoice','Factura original');required('ivRectificationReason','Motivo de rectificación')}
  const current=id?state.data.invoices.find(x=>x.id===id):null;
  const oldSource=current?.source_document_id?state.data.documents.find(x=>x.id===current.source_document_id):null;
  let sourceDoc=oldSource||null,newSource=null;
@@ -404,6 +407,8 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  }
 
  const doc={id:id||null,series_id:required('ivSeries','Serie'),store_id:required('ivStore','Tienda'),issue_date:issue,due_date:due,operation_date:operation,origin,document_type:type,invoice_kind:isProforma?'invoice':invoiceKind,customer_id:customerId,customer_name:customerName,customer_tax_id:customerTax,customer_address:val('ivAddress').trim(),customer_email:val('ivEmail').trim(),concept:val('ivConcept').trim(),payment_method:val('ivPayment'),paid_status:paidStatus,paid_date:isProforma?null:paidDate,paid_amount:paidAmount,include_in_income:isProforma?false:!!input('ivIncludeIncome')?.checked,template_id:val('ivTemplate')||null,purchase_order_ref:val('ivPO').trim(),terms_text:val('ivTerms').trim(),footer_text:val('ivFooter').trim(),notes:val('ivNotes').trim(),source_document_id:sourceDoc?.id||null,external_number_text:origin==='externa'?val('ivExternalNumber').trim():''};
+ doc.rectified_invoice_id=invoiceKind==='rectifying'&&!isProforma?val('ivRectifiedInvoice')||null:null;
+ doc.rectification_reason=invoiceKind==='rectifying'&&!isProforma?val('ivRectificationReason').trim():'';
  let savedId;
  try{savedId=await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines})}
  catch(e){if(newSource)await destroyDocument(newSource).catch(()=>{});throw e}
@@ -413,13 +418,10 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
 }
 async function saveInvoicePayment(id){
  const row=state.data.invoices.find(x=>x.id===id);if(!row)throw new Error('Factura no encontrada.');
- const status=val('ivPaidStatus')||'pendiente',amount=Math.max(0,num('ivPaidAmount')),date=val('ivPaidDate')||null,method=val('ivPayment')||'transferencia';
- if(date&&date>isoToday())throw new Error('La fecha de cobro no puede ser futura.');
- if(status==='pendiente'&&amount>0)throw new Error('Una factura pendiente no puede tener importe cobrado.');
- if(status==='pagada'&&(Math.abs(amount-Number(row.total_amount||0))>.02||!date))throw new Error('Una factura pagada debe tener fecha y el total cobrado.');
- if(status==='parcial'&&(amount<=0||amount>=Number(row.total_amount||0)||!date))throw new Error('Un cobro parcial debe tener fecha e importe mayor que 0 y menor que el total.');
+ const status=val('ivPaidStatus')||'pendiente',amount=num('ivPaidAmount'),date=val('ivPaidDate')||null,method=val('ivPayment')||'transferencia';
+ validateInvoiceSettlement(Number(row.total_amount||0),amount,status,date,isoToday());
  await rpc('totus_update_invoice_payment',{p_id:id,p_payment:{paid_status:status,paid_amount:amount,paid_date:date,payment_method:method}});
- await refresh('Cobro actualizado.');
+ await refresh(row.invoice_kind==='rectifying'?'Liquidación actualizada.':'Cobro actualizado.');
 }
 
 async function deleteDraftInvoice(id){
@@ -501,6 +503,10 @@ function readInvoiceDraft(){
  });
  const base_amount=round(lines.reduce((sum,line)=>sum+line.base_amount,0)),vat_amount=round(lines.reduce((sum,line)=>sum+line.vat_amount,0));
  const row={...current,status:current.status||'borrador',document_type:current.document_type||view.docType||'factura',invoice_kind:current.invoice_kind||view.invoiceKind||'invoice',issue_date:val('ivDate'),operation_date:val('ivOperation'),due_date:val('ivDue'),external_number_text:val('ivExternalNumber'),customer_name:val('ivCustomer'),customer_tax_id:val('ivTax'),customer_address:val('ivAddress'),customer_email:val('ivEmail'),concept:val('ivConcept'),payment_method:val('ivPayment'),paid_status:val('ivPaidStatus'),paid_amount:num('ivPaidAmount'),template_id:val('ivTemplate'),terms_text:val('ivTerms'),footer_text:val('ivFooter'),base_amount,vat_amount,total_amount:round(base_amount+vat_amount)};
+ row.rectified_invoice_id=val('ivRectifiedInvoice')||current.rectified_invoice_id||null;
+ row.rectification_reason=val('ivRectificationReason')||current.rectification_reason||'';
+ const original=state.data.invoices.find(x=>x.id===row.rectified_invoice_id);
+ row.rectified_invoice_snapshot=current.rectified_invoice_id===row.rectified_invoice_id&&current.rectified_invoice_snapshot&&Object.keys(current.rectified_invoice_snapshot).length?current.rectified_invoice_snapshot:original?{number:original.display_number||original.external_number_text,issue_date:original.issue_date}:{};
  return {row,lines};
 }
 let draftPreviewSequence=0;
@@ -1782,7 +1788,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-delete'){await deleteExpense(el.dataset.id);return}
   if(a==='invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});setRoute('facturacion');render();return}
   if(a==='proforma-new'){setView('facturacion',{mode:'record',id:null,docType:'proforma',invoiceKind:'invoice',origin:'totus'});render();return}
-  if(a==='rectifying-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus'});render();return}
+  if(a==='rectifying-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus',rectifiedInvoiceId:null});render();return}
   if(a==='external-invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'externa'});render();return}
   if(a==='invoice-edit'||a==='invoice-open'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);if(row){setView('facturacion',{mode:'record',id:row.id,docType:row.document_type,invoiceKind:row.invoice_kind,origin:row.origin});render()}return}
   if(a==='invoice-save'){await saveInvoice(el.dataset.id||'',el.dataset.type||'factura',el.dataset.kind||'invoice',el.dataset.origin||'totus');return}
@@ -1793,6 +1799,7 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
   if(a==='invoice-payment-save'){await saveInvoicePayment(el.dataset.id);return}
   if(a==='invoice-delete'){await deleteDraftInvoice(el.dataset.id);return}
+  if(a==='invoice-rectify'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus',rectifiedInvoiceId:el.dataset.id});render();return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
   if(a==='invoice-draft-preview'){await showDraftInvoicePreview();return}

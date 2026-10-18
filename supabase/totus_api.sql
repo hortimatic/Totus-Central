@@ -314,12 +314,12 @@ begin
 end;
 $$;
 
-create or replace function public.totus_save_sales_document(p_document jsonb,p_lines jsonb)
-returns uuid
-language plpgsql
-security definer
-set search_path='public,private'
-as $$
+CREATE OR REPLACE FUNCTION public.totus_save_sales_document(p_document jsonb, p_lines jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public,private'
+AS $function$
 declare
   v_id uuid := nullif(p_document->>'id','')::uuid;
   v_status text;
@@ -364,7 +364,7 @@ begin
       series_id,store_id,issue_date,due_date,operation_date,origin,status,document_type,invoice_kind,
       customer_id,customer_name,customer_tax_id,customer_address,customer_email,concept,payment_method,
       paid_status,paid_date,include_in_income,template_id,terms_text,footer_text,purchase_order_ref,currency,
-      notes,created_by,source_document_id,external_number_text,paid_amount
+      notes,created_by,source_document_id,external_number_text,paid_amount,rectified_invoice_id,rectification_reason
     ) values(
       nullif(p_document->>'series_id','')::uuid,nullif(p_document->>'store_id','')::uuid,
       v_issue,v_due,v_operation,v_origin,'borrador',v_type,v_kind,nullif(p_document->>'customer_id','')::uuid,
@@ -376,7 +376,8 @@ begin
       nullif(p_document->>'template_id','')::uuid,coalesce(p_document->>'terms_text',''),coalesce(p_document->>'footer_text',''),
       coalesce(p_document->>'purchase_order_ref',''),coalesce(nullif(p_document->>'currency',''),'EUR'),coalesce(p_document->>'notes',''),
       auth.uid(),nullif(p_document->>'source_document_id','')::uuid,coalesce(p_document->>'external_number_text',''),
-      case when v_type='proforma' then 0 else coalesce((p_document->>'paid_amount')::numeric,0) end
+      case when v_type='proforma' then 0 else coalesce((p_document->>'paid_amount')::numeric,0) end,
+      nullif(p_document->>'rectified_invoice_id','')::uuid,coalesce(p_document->>'rectification_reason','')
     ) returning id into v_id;
   else
     select status into v_status from public.ops_sales_invoices where id=v_id for update;
@@ -396,7 +397,9 @@ begin
       footer_text=coalesce(p_document->>'footer_text',''),purchase_order_ref=coalesce(p_document->>'purchase_order_ref',''),
       currency=coalesce(nullif(p_document->>'currency',''),'EUR'),notes=coalesce(p_document->>'notes',''),
       source_document_id=nullif(p_document->>'source_document_id','')::uuid,external_number_text=coalesce(p_document->>'external_number_text',''),
-      paid_amount=case when v_type='proforma' then 0 else coalesce((p_document->>'paid_amount')::numeric,0) end
+      paid_amount=case when v_type='proforma' then 0 else coalesce((p_document->>'paid_amount')::numeric,0) end,
+      rectified_invoice_id=nullif(p_document->>'rectified_invoice_id','')::uuid,
+      rectification_reason=coalesce(p_document->>'rectification_reason','')
     where id=v_id;
     delete from public.ops_sales_invoice_lines where invoice_id=v_id;
   end if;
@@ -407,19 +410,21 @@ begin
     coalesce((j->>'discount_pct')::numeric,0),coalesce((j->>'vat_rate')::numeric,21)
   from jsonb_array_elements(p_lines) j;
 
-  if v_type='factura' and coalesce(nullif(p_document->>'paid_status',''),'pendiente')='pagada'
-     and abs(coalesce((select total_amount from public.ops_sales_invoices where id=v_id),0)-coalesce((p_document->>'paid_amount')::numeric,0))>.02
-  then raise exception 'Una factura pagada debe tener cobrado el total'; end if;
-  if v_type='factura' and coalesce(nullif(p_document->>'paid_status',''),'pendiente')='parcial'
-     and (coalesce((p_document->>'paid_amount')::numeric,0)<=0
-          or coalesce((p_document->>'paid_amount')::numeric,0)>=coalesce((select total_amount from public.ops_sales_invoices where id=v_id),0))
-  then raise exception 'Un cobro parcial debe ser mayor que 0 y menor que el total'; end if;
+  if v_type='factura' then
+    if v_kind<>'rectifying' and (select total_amount<0 from public.ops_sales_invoices where id=v_id) then
+      raise exception 'Una factura ordinaria no puede tener total negativo: utiliza una rectificativa';
+    end if;
+    perform private.totus_validate_invoice_settlement(
+      (select total_amount from public.ops_sales_invoices where id=v_id),
+      coalesce((p_document->>'paid_amount')::numeric,0),
+      coalesce(nullif(p_document->>'paid_status',''),'pendiente'),v_paid);
+  end if;
 
   perform private.totus_audit('facturacion',case when nullif(p_document->>'id','') is null then 'crear' else 'actualizar' end,v_id,
     jsonb_build_object('tipo',v_type,'kind',v_kind,'origen',v_origin,'fecha',v_issue));
   return v_id;
 end;
-$$;
+$function$;
 
 create or replace function public.totus_register_external_document(p_id uuid,p_number integer)
 returns public.ops_sales_invoices
@@ -461,12 +466,12 @@ $$;
 revoke all on function public.totus_register_external_document(uuid,integer) from public,anon;
 grant execute on function public.totus_register_external_document(uuid,integer) to authenticated;
 
-create or replace function public.totus_update_invoice_payment(p_id uuid,p_payment jsonb)
-returns void
-language plpgsql
-security definer
-set search_path='public,private'
-as $$
+CREATE OR REPLACE FUNCTION public.totus_update_invoice_payment(p_id uuid, p_payment jsonb)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public,private'
+AS $function$
 declare
   v_total numeric; v_type text; v_status text; v_amount numeric; v_date date; v_method text;
 begin
@@ -478,26 +483,21 @@ begin
   v_amount:=coalesce((p_payment->>'paid_amount')::numeric,0);
   v_date:=nullif(p_payment->>'paid_date','')::date;
   v_method:=coalesce(nullif(p_payment->>'payment_method',''),'transferencia');
-  if v_status not in ('pendiente','pagada','parcial') then raise exception 'Estado de cobro no válido'; end if;
-  if v_amount<0 then raise exception 'El importe cobrado no puede ser negativo'; end if;
-  if v_date is not null and v_date>current_date then raise exception 'La fecha de cobro no puede ser futura'; end if;
-  if v_status='pendiente' and v_amount<>0 then raise exception 'Una factura pendiente no puede tener importe cobrado'; end if;
-  if v_status='pagada' and (v_date is null or abs(v_amount-v_total)>.02) then raise exception 'Una factura pagada debe tener fecha y el total cobrado'; end if;
-  if v_status='parcial' and (v_amount<=0 or v_amount>=v_total or v_date is null) then raise exception 'Un cobro parcial debe tener fecha e importe mayor que 0 y menor que el total'; end if;
+  perform private.totus_validate_invoice_settlement(v_total,v_amount,v_status,v_date);
   update public.ops_sales_invoices set payment_method=v_method,paid_status=v_status,paid_date=v_date,paid_amount=v_amount,updated_at=now() where id=p_id;
   perform private.totus_audit('facturacion','actualizar_cobro',p_id,jsonb_build_object('estado',v_status,'importe',v_amount,'fecha',v_date,'metodo',v_method));
 end;
-$$;
+$function$;
 
 revoke all on function public.totus_update_invoice_payment(uuid,jsonb) from public,anon;
 grant execute on function public.totus_update_invoice_payment(uuid,jsonb) to authenticated;
 
-create or replace function public.totus_finalize_sales_document(p_id uuid)
-returns public.ops_sales_invoices
-language plpgsql
-security definer
-set search_path='public,private,extensions'
-as $$
+CREATE OR REPLACE FUNCTION public.totus_finalize_sales_document(p_id uuid)
+ RETURNS ops_sales_invoices
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public,private,extensions'
+AS $function$
 declare
   v_doc public.ops_sales_invoices;
   v_series public.ops_invoice_series;
@@ -531,7 +531,8 @@ begin
 
   v_hash:=encode(extensions.digest(concat_ws('|',v_doc.id::text,v_doc.document_type,v_series.code,v_num::text,
     v_doc.issue_date::text,v_doc.customer_tax_id,v_doc.customer_name,v_doc.base_amount::text,
-    v_doc.vat_amount::text,v_doc.total_amount::text,coalesce(v_prev,'')),'sha256'),'hex');
+    v_doc.vat_amount::text,v_doc.total_amount::text,coalesce(v_doc.rectified_invoice_id::text,''),
+    coalesce(v_doc.rectification_reason,''),coalesce(v_doc.rectified_invoice_snapshot::text,''),coalesce(v_prev,'')),'sha256'),'hex');
 
   update public.ops_sales_invoices set
     number=v_num,display_number=v_series.prefix||lpad(v_num::text,v_series.padding,'0'),
@@ -542,7 +543,7 @@ begin
   perform private.totus_audit('facturacion','emitir',p_id,jsonb_build_object('numero',v_doc.display_number));
   return v_doc;
 end;
-$$;
+$function$;
 
 create or replace function public.totus_convert_proforma(p_id uuid,p_invoice_series uuid)
 returns uuid

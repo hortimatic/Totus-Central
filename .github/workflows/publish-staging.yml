@@ -49,6 +49,7 @@ jobs:
           node tests/qa.mjs
           node tests/closed-closing-qa.mjs
           node tests/partial-balances-qa.mjs
+          node tests/rectifying-refunds-qa.mjs
           node tests/team-admin-qa.mjs
           node tests/invoice-issuer-qa.mjs
           node tests/gestor-source-qa.mjs
@@ -89,6 +90,7 @@ jobs:
           node tests/report-period-qa.mjs
           node tests/second-review-qa.mjs
           node tests/full-flow-qa.mjs
+          node tests/rectifying-browser-qa.mjs
           node tests/pdf-preview-qa.mjs
           node tests/invoice-logo-qa.mjs
           node tests/deletion-flows-qa.mjs

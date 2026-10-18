@@ -9,6 +9,21 @@ export function parseDecimal(value){
  return Number.isFinite(n)?n:0;
 }
 
+// paid_amount is always a positive magnitude: receipts on positive invoices,
+// refunds on negative rectifying invoices. Never subtract a refund from receivables.
+export const isInvoiceRefund=row=>row?.invoice_kind==='rectifying'&&Number(row.total_amount)<0;
+export const invoiceOutstanding=row=>Math.max(0,Math.abs(Number(row?.total_amount||0))-Number(row?.paid_amount||0));
+export function validateInvoiceSettlement(total,amount,status,date,today){
+ if(!Number.isFinite(total)||!Number.isFinite(amount)||amount<0)throw new Error('Introduce un importe liquidado válido, igual o superior a cero.');
+ if(!['pendiente','pagada','parcial'].includes(status))throw new Error('Estado de liquidación no válido.');
+ if(date&&date>today)throw new Error('La fecha de liquidación no puede ser futura.');
+ if(amount>Math.abs(total)+0.02)throw new Error('El importe liquidado no puede superar el total del documento.');
+ if(status==='pendiente'&&amount!==0)throw new Error('Un documento pendiente no puede tener importe liquidado.');
+ if(status==='pagada'&&(!date||Math.abs(amount-Math.abs(total))>0.02))throw new Error('Un documento saldado debe tener fecha y el importe total liquidado.');
+ if(status==='parcial'&&(!date||amount<=0||amount>=Math.abs(total)-0.02))throw new Error('Una liquidación parcial necesita fecha e importe mayor que cero e inferior al total.');
+ return true;
+}
+
 export function quickPriceStudy({cost=0,pvp=0,competitor=0,discount=0,vat=21,re=5.2}={}){
  cost=parseDecimal(cost);pvp=parseDecimal(pvp);competitor=parseDecimal(competitor);
  discount=Math.min(100,Math.max(0,parseDecimal(discount)));

@@ -16,6 +16,7 @@ jobs:
       - run: node tests/qa.mjs
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/partial-balances-qa.mjs
+      - run: node tests/rectifying-refunds-qa.mjs
       - run: node tests/team-admin-qa.mjs
       - run: node tests/invoice-issuer-qa.mjs
       - run: node tests/gestor-source-qa.mjs
@@ -51,6 +52,7 @@ jobs:
       - run: node tests/report-period-qa.mjs
       - run: node tests/second-review-qa.mjs
       - run: node tests/full-flow-qa.mjs
+      - run: node tests/rectifying-browser-qa.mjs
       - run: node tests/pdf-preview-qa.mjs
       - run: node tests/invoice-logo-qa.mjs
       - run: node tests/deletion-flows-qa.mjs
