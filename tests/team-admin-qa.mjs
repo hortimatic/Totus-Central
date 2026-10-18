@@ -21,11 +21,11 @@ async function scenario({action='set_password',callerRole='admin',memberRole='ad
  const auth={getUser:async()=>({data:{user:{email:'caller@qa.invalid'}}}),resetPasswordForEmail:async()=>({error:null}),admin:{
   listUsers:async({page})=>{pages.push(page);return {data:{users:paginated&&page===1?Array.from({length:1000},(_,i)=>({id:`other-${i}`,email:`other-${i}@qa.invalid`})):existing?[{id:'target-id',email:member.email,email_confirmed_at:'2026-01-01'}]:[]},error:null}},
   updateUserById:async(id,value)=>{updates.push({id,value});return {error:null}},
-  createUser:async()=>{throw new Error('Unexpected account creation')}
+  createUser:async()=>({data:{user:{id:'new-target-id'}},error:null})
  }};
  const env={SUPABASE_URL:'https://qa.invalid',SUPABASE_ANON_KEY:'test-public',SUPABASE_SERVICE_ROLE_KEY:'test-secret'};
  vm.runInNewContext(source,{createClient:()=>({auth,from}),Deno:{env:{get:k=>env[k]},serve:h=>{handler=h}},Response,Request,console});
- const response=await handler(new Request('https://qa.invalid/team-admin',{method:'POST',headers:{Authorization:'Bearer test-session','Content-Type':'application/json'},body:JSON.stringify({action,email:member.email,full_name:'Changed name',role:'gerente',password:'fixture-only-password'})}));
+ const response=await handler(new Request('https://qa.invalid/team-admin',{method:'POST',headers:{Authorization:'Bearer test-session','Content-Type':'application/json'},body:JSON.stringify({action,email:member.email,full_name:'Changed name',role:'gerente',password:'fixture-only-password',phone:'600000000',job_title:'QA manager',store:'QA centre',employee_notes:'QA notes'})}));
  return {status:response.status,body:await response.json(),writes,updates,pages};
 }
 for(const memberRole of ['admin','encargado']){
@@ -40,5 +40,8 @@ for(const action of ['invite','resend_invite']){
  assert.equal(result.writes.filter(w=>w.table==='team_members').length,0,'Recovery for confirmed accounts must preserve revoked access');
 }
 assert.equal((await scenario({existing:false})).status,404);
+const created=await scenario({action:'create_user',existing:false});assert.equal(created.status,200);
+const ficha=created.writes.find(w=>w.table==='team_members').value;
+assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager');assert.equal(ficha.store,'QA centre');assert.equal(ficha.employee_notes,'QA notes');
 const denied=await scenario({callerRole:'gerente'});assert.equal(denied.status,403);assert.equal(denied.updates.length,0);assert.equal(denied.writes.length,0);
 console.log('TEAM ADMIN QA: credential maintenance preserves role, identity and revoked access; pagination and authorization verified.');
