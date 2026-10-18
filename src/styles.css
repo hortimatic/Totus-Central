@@ -324,3 +324,10 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .invoice-presentation-fields>*{grid-column:1/-1;min-width:0}
 .field-help>summary{font-size:12px!important;line-height:1!important;font-weight:800!important;display:inline-grid!important;place-items:center!important}
 .field-help>summary::after{content:none!important;display:none!important}
+
+/* The invoice summary must have a full-height containing grid item: sticky cannot
+   follow the reader down a long document when its parent is only card-height. */
+@media(min-width:1101px){
+ .record-layout>.record-side{align-self:stretch;position:relative}
+ .record-layout>.record-side>.sticky-summary{position:sticky;top:96px}
+}
