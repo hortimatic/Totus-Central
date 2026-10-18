@@ -1724,7 +1724,7 @@ async function reviewUnusedLogos(){
    await removeFile('business-assets',path);removed++;
   }
  }finally{
-  if(removed)await insert('ops_audit_log',{area:'administracion',action:'unused_logos_removed',detail:{count:removed}});
+  if(removed)await insert('ops_audit_log',{user_id:state.session.user.id,user_email:state.user.email.toLowerCase(),area:'administracion',action:'unused_logos_removed',detail:{count:removed}});
   await refresh();
  }
  toast(removed+' logo(s) sin uso retirados.','ok');
