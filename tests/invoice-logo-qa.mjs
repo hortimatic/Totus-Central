@@ -77,8 +77,36 @@ try {
   await page.locator('#modalHost .modal').screenshot({path:'artifacts/invoice_logo_preview_mobile.png'});
   await exitModal();
 
+  // Comprobar también el logo dentro de una factura de prueba, su popup de
+  // impresión y el PDF real generado por Chromium. La base de producción no se usa.
+  await page.locator('[data-action="billing-section"][data-section="documentos"]').first().click();
+  await page.locator('[data-action="invoice-new"]').first().click();
+  await page.locator('#ivCustomer').fill('Cliente ficticio · Logo QA');
+  await page.locator('#ivDesc_0').fill('Servicio de simulación con identidad corporativa');
+  await page.locator('#ivQty_0').fill('1');
+  await page.locator('#ivUnit_0').fill('20,00');
+  await page.locator('details.invoice-presentation summary').click();
+  await page.locator('#ivTemplate').selectOption(tpl.id);
+  await page.locator('[data-action="invoice-save"]').first().click();
+  await page.waitForFunction(()=>window.__mockDb.ops_sales_invoices.some(x=>x.customer_name?.includes('Logo QA')));
+  await page.locator('[data-action="invoice-preview"]').first().click();
+  await page.locator('#modalHost img.invoice-logo').waitFor({state:'visible'});
+  await page.waitForFunction(()=>{const i=document.querySelector('#modalHost img.invoice-logo');return i?.complete&&i.naturalWidth===4});
+  const popupWait=page.waitForEvent('popup');
+  await page.locator('#modalHost [data-action="invoice-print"]').first().click();
+  const popup=await popupWait;
+  await popup.locator('img.invoice-logo').waitFor({state:'visible'});
+  await popup.waitForFunction(()=>{const i=document.querySelector('img.invoice-logo');return i?.complete&&i.naturalWidth===4});
+  assert((await popup.locator('body').innerText()).includes('Cliente ficticio'),'La factura para imprimir ha perdido su cliente');
+  const printed=await popup.pdf({format:'A4',printBackground:true});
+  assert(printed.subarray(0,5).toString()==='%PDF-','No se genera un PDF de factura imprimible');
+  assert(printed.length>4000,'El PDF de factura parece vacío');
+  fs.writeFileSync('artifacts/invoice_logo_print_qa.pdf',printed);
+  await popup.close();
+  await exitModal();
+
   assert.deepEqual(errors,[],'Errores JavaScript en subida/vista previa/sustitución');
-  console.log('INVOICE LOGO QA: MIME, límite 5MB, subida, persistencia, vista previa, sustitución, limpieza de archivo anterior y móvil: OK');
+  console.log('INVOICE LOGO QA: validaciones, subida, sustitución, vista previa, factura impresa con logo, PDF y móvil: OK');
 }finally{
   await browser.close();
 }
