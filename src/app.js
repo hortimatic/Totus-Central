@@ -886,25 +886,41 @@ async function saveSeries(id=''){
  closeModal();await refresh('Serie guardada.');
 }
 function expenseCategoryForm(row=null){
+ const parents=[{value:'',label:'Categoría principal (sin padre)'},...state.data.categories.filter(c=>!c.parent_id&&String(c.id)!==String(row?.id||'')).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'es')).map(c=>({value:c.id,label:c.name}))];
  const body=`<div class="form-grid">
   ${formField('Código','ecCode',row?.code||'')}
   ${formField('Nombre','ecName',row?.name||'')}
+  ${selectField('Categoría principal','ecParent',parents,row?.parent_id||'')}
   ${formField('Grupo AEAT','ecAeat',row?.aeat_group||'')}
   ${formField('Código gestor','ecManager',row?.manager_code||'')}
   ${formField('Orden','ecSort',row?.sort_order??0,'number','min="0"')}
   <label class="check-field"><input id="ecDeductible" type="checkbox" ${row?.deductible_default===false?'':'checked'}> Deducible por defecto</label>
   <label class="check-field"><input id="ecFixed" type="checkbox" ${row?.fixed_asset_default?'checked':''}> Inmovilizado por defecto</label>
   <label class="check-field"><input id="ecActive" type="checkbox" ${row?.active===false?'':'checked'}> Activa</label>
- </div><div class="form-actions">${btn('Guardar categoría','expense-category-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
- modal(row?'Editar categoría':'Nueva categoría',body,{small:true});
+ </div><div class="note" style="margin-top:12px">Sin principal se crea una categoría; al seleccionar una principal se crea una subcategoría. Solo dos niveles. Los códigos se conservan en los informes.</div>
+ <div class="form-actions">${btn('Guardar categoría','expense-category-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar categoría o subcategoría':'Nueva categoría o subcategoría',body,{small:true});
 }
 async function saveExpenseCategory(id=''){
  if(!isAdmin())throw new Error('Solo el administrador puede gestionar categorías.');
- const code=required('ecCode','Código').trim().toUpperCase(),name=required('ecName','Nombre');
- const dup=state.data.categories.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code);if(dup)throw new Error('Ya existe una categoría con ese código.');
- const row={code,name,aeat_group:val('ecAeat').trim(),manager_code:val('ecManager').trim(),sort_order:Math.max(0,Math.round(num('ecSort'))),deductible_default:!!input('ecDeductible')?.checked,fixed_asset_default:!!input('ecFixed')?.checked,active:!!input('ecActive')?.checked};
+ const code=required('ecCode','Código').trim().toUpperCase(),name=required('ecName','Nombre'),parent_id=val('ecParent')||null,active=!!input('ecActive')?.checked;
+ const dup=state.data.categories.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code);
+ if(dup)throw new Error('Ya existe una categoría con ese código.');
+ if(state.data.categories.some(x=>x.id!==id&&String(x.parent_id||'')===String(parent_id||'')&&String(x.name||'').trim().toLocaleLowerCase('es')===name.trim().toLocaleLowerCase('es')))throw new Error('Ya existe ese nombre dentro de la misma categoría principal.');
+ validateExpenseCategoryHierarchy(state.data.categories,{id,parent_id,active});
+ if(!active&&state.data.categories.some(x=>String(x.parent_id||'')===String(id)&&x.active!==false))throw new Error('Desactiva antes las subcategorías activas.');
+ const row={code,name,parent_id,aeat_group:val('ecAeat').trim(),manager_code:val('ecManager').trim(),sort_order:Math.max(0,Math.round(num('ecSort'))),deductible_default:!!input('ecDeductible')?.checked,fixed_asset_default:!!input('ecFixed')?.checked,active};
  if(id)await update('ops_expense_categories',id,row);else await insert('ops_expense_categories',row);
  closeModal();await refresh('Categoría guardada.');
+}
+async function deleteExpenseCategory(id){
+ if(!isAdmin())throw new Error('Solo el administrador puede borrar categorías.');
+ const row=state.data.categories.find(x=>String(x.id)===String(id));
+ if(!row)throw new Error('Categoría no encontrada.');
+ if(state.data.categories.some(x=>String(x.parent_id)===String(id)))throw new Error('La categoría tiene subcategorías; debes gestionarlas primero.');
+ if(state.data.expenseLines.some(x=>String(x.category_id)===String(id))||state.data.expenses.some(x=>String(x.category_id)===String(id))||state.data.suppliers.some(x=>String(x.default_category_id)===String(id)))throw new Error('La categoría ya tiene gastos o proveedores asociados. Desactívala en lugar de borrarla.');
+ if(!confirm('¿Eliminar definitivamente «'+row.name+'»? Esta acción no se puede deshacer.'))return;
+ await remove('ops_expense_categories',id);await refresh('Categoría eliminada.');
 }
 
 async function toggleSeries(id,active){
@@ -1679,6 +1695,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-category-new'){expenseCategoryForm();return}
   if(a==='expense-category-edit'){expenseCategoryForm(state.data.categories.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-category-save'){await saveExpenseCategory(el.dataset.id||'');return}
+  if(a==='expense-category-delete'){await deleteExpenseCategory(el.dataset.id);return}
   if(a==='document-bulk-select'){input('documentBulkZip')?.click();return}
   if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
   if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
