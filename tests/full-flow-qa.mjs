@@ -168,6 +168,18 @@ await check('Gastos: índice de facturas, búsqueda, desglose gestor y PDF desca
  assert(file.suggestedFilename()==='justificante-test.pdf','La descarga desde Gastos tiene nombre incorrecto');
  const bytes=await fs.readFile(await file.path());
  assert(bytes.subarray(0,5).toString()==='%PDF-','La factura descargada no es un PDF original válido');
+ // Searching by original filename must export the same expense as the archive list.
+ await page.locator('#gastosQuery').fill('justificante-test.pdf');
+ await page.locator('[data-action="gastos-apply"]').click();
+ assert(await page.locator('#content .data-table tbody tr').count()===1,'No encuentra la factura por nombre del archivo');
+ const filenameDownload=page.waitForEvent('download');
+ await page.locator('[data-action="export-expenses-current"]').click();
+ const filenameFile=await filenameDownload;
+ const filenameBook=xlsx.read(await fs.readFile(await filenameFile.path()),{type:'buffer'});
+ const filenameRows=xlsx.utils.sheet_to_json(filenameBook.Sheets.Gastos,{header:1});
+ assert(filenameRows.some(row=>row.includes('TEST-PDF-2026')),'Buscar un justificante por nombre no coincide con el Excel exportado');
+ await page.locator('#gastosQuery').fill('TEST-PDF-2026');
+ await page.locator('[data-action="gastos-apply"]').click();
  await page.locator('#gastosFrom').fill('2026-01-01');
  await page.locator('#gastosTo').fill('2026-01-31');
  await page.locator('[data-action="gastos-apply"]').click();
