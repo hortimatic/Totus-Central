@@ -104,6 +104,8 @@ for(const [viewportName,viewport] of [['wide',{width:1640,height:900}],['desktop
    const icon=helpButtons.nth(position);
    if(!await icon.isVisible())continue;
    await icon.click({force:true});
+   // Allow the browser one rendering frame to settle the native details geometry.
+   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
    const measured=await icon.evaluate(el=>{
     const note=el.closest('details')?.querySelector('[role="note"]');
     const b=note?.getBoundingClientRect();

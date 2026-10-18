@@ -1,21 +1,25 @@
 import {esc,fmtDate,money,statusClass} from './utils.js';
 
-// Position contextual help within the actual viewport. Native <details> popups
-// near the bottom of a long form otherwise overflow the window on desktop.
-if(typeof document!=='undefined'){
- document.addEventListener('toggle',event=>{
-  const el=event.target;
-  if(!el?.matches?.('details.field-help'))return;
-  el.classList.remove('flip-up','align-right');
-  if(!el.open||window.innerWidth<=700)return;
-  const popup=el.querySelector('[role="note"]'),trigger=el.querySelector('summary');
-  if(!popup||!trigger)return;
-  const note=popup.getBoundingClientRect(),anchor=trigger.getBoundingClientRect();
-  if(note.bottom>window.innerHeight-8&&anchor.top>=note.height+32)el.classList.add('flip-up');
-  if(popup.getBoundingClientRect().right>window.innerWidth-8)el.classList.add('align-right');
- },true);
+// Contextual help follows the viewport. A MutationObserver runs at the
+// open-attribute microtask, avoiding the delayed native <details> toggle event.
+function positionOpenHelp(el){
+ if(!el?.matches?.('details.field-help'))return;
+ el.classList.remove('flip-up','align-right');
+ if(!el.open||window.innerWidth<=700)return;
+ const popup=el.querySelector('[role="note"]'),trigger=el.querySelector('summary');
+ if(!popup||!trigger)return;
+ const note=popup.getBoundingClientRect(),anchor=trigger.getBoundingClientRect();
+ if(note.bottom>window.innerHeight-8&&anchor.top>=note.height+32)el.classList.add('flip-up');
+ if(popup.getBoundingClientRect().right>window.innerWidth-8)el.classList.add('align-right');
 }
-
+if(typeof document!=='undefined'){
+ const helpObserver=new MutationObserver(changes=>{
+  for(const change of changes)
+   if(change.type==='attributes'&&change.attributeName==='open')positionOpenHelp(change.target);
+ });
+ helpObserver.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['open']});
+ document.addEventListener('toggle',event=>positionOpenHelp(event.target),true);
+}
 
 export function setHeader(eyebrow,title,actions=''){
  document.getElementById('pageEyebrow').textContent=eyebrow||'';
