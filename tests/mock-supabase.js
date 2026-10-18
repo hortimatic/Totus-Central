@@ -207,29 +207,11 @@ const storageBucket=bucket=>({
  createSignedUrl:async path=>{const f=uploaded.get(bucket+'/'+path);return {data:{signedUrl:f?URL.createObjectURL(f):''},error:f?null:{message:'No encontrado'}}}
 });
 const mockCloudBackup=async()=>{
- const mod=await import('../src/backup.js');
- const tables=mod.BACKUP_TABLES;
- const database={};for(const table of tables)database[table]=[...(db[table]||[])];
- const zip=new window.JSZip(),files={'business-documents':[],'business-assets':[]},hashes={'business-documents':{},'business-assets':{}};
- const sha=async x=>{
-  const b=typeof x==='string'?new TextEncoder().encode(x):x instanceof Blob?await x.arrayBuffer():x;
-  const h=await crypto.subtle.digest('SHA-256',b);
-  return [...new Uint8Array(h)].map(z=>z.toString(16).padStart(2,'0')).join('');
- };
- for(const bucket of Object.keys(files)){
-  for(const [key,file] of uploaded.entries()){
-   if(!key.startsWith(bucket+'/'))continue;
-   const path=key.slice(bucket.length+1);files[bucket].push(path);
-   const content=file instanceof Blob?file:new Blob([file]);
-   zip.file('storage/'+bucket+'/'+path,content);
-   hashes[bucket][path]=await sha(content);
-  }
- }
- const databaseJson=JSON.stringify(database);
- const manifest={format:'totus-clean-backup',version:2,created_at:new Date().toISOString(),tables,storage:files,integrity:{database:await sha(databaseJson),storage:hashes}};
- zip.file('manifest.json',JSON.stringify(manifest));
- zip.file('database.json',databaseJson);
- const blob=await zip.generateAsync({type:'blob'});
+ const {buildRecoveryArchive}=await import('../src/recovery-core.js');
+ const {data:snapshot}=await rpc('totus_export_recovery_snapshot');
+ snapshot.project_ref='awmojepsasikxocoeqtu';
+ const {bytes,manifest}=await buildRecoveryArchive(snapshot,window.JSZip,async(bucket,path)=>uploaded.get(bucket+'/'+path));
+ const database=snapshot.database,files=manifest.storage,blob=new Blob([bytes]);
  const id=uuid(),path='automaticas/QA_'+id+'.totusbackup';
  uploaded.set('business-backups/'+path,blob);
  db.ops_backup_runs.unshift({id,mode:'manual',status:'success',started_at:new Date().toISOString(),finished_at:new Date().toISOString(),storage_path:path,size_bytes:blob.size,rows_count:Object.values(database).reduce((n,x)=>n+x.length,0),files_count:Object.values(files).reduce((n,x)=>n+x.length,0)});

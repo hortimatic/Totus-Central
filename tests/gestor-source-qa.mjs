@@ -17,6 +17,10 @@ assert.equal(rows[1][13],105);
 assert.equal(rows[0][16],95);
 assert.equal(rows[0][2],'','No inventar referencias de la gestoría');
 assert.equal(rows[0][4],'');
+for(const [code,label] of [['SOCIAL','SEGURIDAD SOCIAL EMP'],['RETA','SEGURIDAD SOCIAL O A'],['TRANSPORT','TRANSPORTES'],['SERVICES','OTROS SERVICIOS']]){
+ const categoryCase=structuredClone(args);categoryCase.categories[0].code=code;
+ assert.equal(buildGestorSourceRows(categoryCase)[0][6],label,'Preservar el concepto de gestoría: '+code);
+}
 assert.equal(gestorSourceTotals(rows)[13],605);
 const breakdown=gestorSourceBreakdown(rows);
 assert.deepEqual(breakdown.vat,[[21,{base:500,tax:105}]]);
