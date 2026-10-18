@@ -1,4 +1,5 @@
 import {fmtDate,n} from './utils.js';
+import {computeModel130Accumulated} from './calculations.js';
 
 const XLSX=window.XLSX;
 const euro='#,##0.00 "€"';
@@ -228,7 +229,7 @@ function monthTotals(args,month){
 }
 function appendReconciliationSheet(wb,q,args){
  const {year,stores,fiscalAdjustments=[]}=args,rng=quarterRange(year,q);const months=rng.months.map(m=>monthTotals(args,m));
- const rows=months.map((x,i)=>{const adjustment=fiscalAdjustments.filter(a=>inDate(a.adjustment_date,x.from,x.to)&&a.kind!=='retencion_soportada'&&a.kind!=='ingreso_extra').reduce((s,a)=>s+n(a.amount),0);const sales=x.sales.reduce((a,b)=>a+b,0)+x.commonIncome,direct=x.direct.reduce((a,b)=>a+b,0),gestor=direct+x.common+adjustment;return [MONTHS[rng.months[i]],x.sales[0]||0,x.sales[1]||0,sales,-(x.direct[0]||0),-(x.direct[1]||0),-x.common,adjustment,-gestor,sales-gestor,0,sales-gestor]});
+ const rows=months.map((x,i)=>{const adjustment=fiscalAdjustments.filter(a=>inDate(a.adjustment_date,x.from,x.to)&&['gasto_deducible_extra','amortizacion'].includes(a.kind)).reduce((s,a)=>s+n(a.amount),0);const sales=x.sales.reduce((a,b)=>a+b,0)+x.commonIncome,direct=x.direct.reduce((a,b)=>a+b,0),gestor=direct+x.common+adjustment;return [MONTHS[rng.months[i]],x.sales[0]||0,x.sales[1]||0,sales,-(x.direct[0]||0),-(x.direct[1]||0),-x.common,adjustment,-gestor,sales-gestor,0,sales-gestor]});
  const totals=new Array(12).fill(0);totals[0]='TOTAL';for(let c=1;c<12;c++)totals[c]=rows.reduce((a,r)=>a+n(r[c]),0);
  const headers=['Mes','Ventas Hortimatic','Ventas NewOldSmok','Ventas totales','Gasto directo Horti','Gasto directo NewOld','Gastos comunes','Ajuste / diferencia gestor','Gastos gestor','Resultado fiscal','Luz almacén incluida','Resultado corregido sin luz almacén'];
  const ws=XLSX.utils.aoa_to_sheet([[null],[],headers,...rows,totals,[],['Fórmula visible: Ventas totales - Gastos del gestor = Resultado fiscal. Los gastos del gestor se forman con gastos directos de las dos tiendas + gastos comunes + ajustes de conciliación.']]);gestorTitle(ws,`Conciliación fiscal trazable - ${q}T ${year}`,'L');gestorHeader(ws,2,12);ws['!cols']=[15,18,19,17,19,20,17,22,17,17,18,24].map(w=>({wch:w-XLSX_WCH_PAD}));ws['!freeze']={ySplit:3};
@@ -237,14 +238,33 @@ function appendReconciliationSheet(wb,q,args){
  XLSX.utils.book_append_sheet(wb,ws,`Conciliación ${q}T`);
  }
 function appendAuditSheet(wb,args){
- const {year,taxPayments=[],fiscalAdjustments=[]}=args,rows=[];
+ const {year,taxPayments=[],fiscalAdjustments=[],settings={}}=args,rows=[];
+ const deductible=(from,to)=>args.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0);
+ const adjustment=(from,to,kinds)=>fiscalAdjustments.filter(x=>kinds.includes(x.kind)&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
  for(let q=1;q<=4;q++){
-   const rng=quarterRange(year,q),income=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to}),expense=args.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0);
-   const extraDed=fiscalAdjustments.filter(x=>x.kind==='gasto_deducible_extra'&&inDate(x.adjustment_date,rng.from,rng.to)).reduce((a,x)=>a+n(x.amount),0),result=income-expense-extraDed,diff=Math.max(0,result*n(args.settings?.difficult_expense_pct??5)/100),base=Math.max(0,result-diff),calc=base*n(args.settings?.irpf_prepayment_rate??20)/100;
-   const paid=taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===q&&x.status==='pagado'),status=paid?(Math.abs(n(paid.amount)-calc)<.02?'Coincide al céntimo':'Diferencia '+(n(paid.amount)-calc).toFixed(2)+' €'):'Sin pago registrado';
-   rows.push([`${q}T`,income,-(expense+extraDed),result,-diff,base,-calc,status]);
+  const rng=quarterRange(year,q),from=`${year}-01-01`,to=rng.to;
+  const periodIncome=fiscalIncomeForPeriod({...args,from:rng.from,to:rng.to});
+  const periodExpenses=deductible(rng.from,rng.to)+adjustment(rng.from,rng.to,['gasto_deducible_extra','amortizacion']);
+  const ytdIncome=fiscalIncomeForPeriod({...args,from,to});
+  const ytdExpenses=deductible(from,to),ytdExtra=adjustment(from,to,['gasto_deducible_extra','amortizacion']);
+  const priorPayments=taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<q&&x.status==='pagado').reduce((a,x)=>a+n(x.amount),0);
+  const estimate=computeModel130Accumulated({income:ytdIncome,deductible:ytdExpenses,extraDeductible:ytdExtra,
+   reductions:adjustment(from,to,['reduccion']),withholdings:adjustment(from,to,['retencion_soportada']),previousPayments:priorPayments,
+   rate:n(settings?.irpf_prepayment_rate??20),difficultRate:n(settings?.difficult_expense_pct??5),
+   difficultAnnualCap:n(settings?.difficult_expense_annual_cap??2000),difficultEnabled:settings?.difficult_expense_enabled!==false});
+  const paid=taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===q&&x.status==='pagado');
+  const status=paid?(Math.abs(n(paid.amount)-estimate.due)<.02?'Coincide al céntimo':'Diferencia '+(n(paid.amount)-estimate.due).toFixed(2)+' €'):'Sin pago registrado';
+  rows.push([`${q}T`,periodIncome,-periodExpenses,periodIncome-periodExpenses,-estimate.difficult,estimate.base,-estimate.due,status]);
  }
- const ws=XLSX.utils.aoa_to_sheet([['Auditoría y conciliación con la gestoría - Año '+year],[],['Periodo','Ventas correctas','Gastos gestor','Resultado antes 5 %','5 % difícil justificación','Base neta','20 % / Modelo 130','Estado'],...rows]);gestorTitle(ws,`Auditoría y conciliación con la gestoría - Año ${year}`,'H');gestorHeader(ws,2,8);ws['!cols']=[28,18,18,20,22,24,20,45].map(w=>({wch:w-XLSX_WCH_PAD}));sheetCurrency(ws,4,7,['B','C','D','E','F','G']);for(const [col,label] of [['A','Incidencia'],['B','Periodo'],['C','Importe incluido'],['D','Impacto en gasto'],['E','Impacto estimado en IRPF'],['F','Acción recomendada']])setCell(ws,col+'8',label,{font:{name:'Calibri',sz:10,bold:true},fill:{fgColor:{rgb:GESTOR_ALT}},alignment:{wrapText:true}});ws['!merges'].push(XLSX.utils.decode_range('A12:H17'));setCell(ws,'A12','Comprobación: contrastar ventas, gastos, regularizaciones y pagos registrados con los justificantes originales antes de presentar impuestos.',{font:{name:'Calibri',sz:11},alignment:{wrapText:true,vertical:'top'}});ws['!ref']='A1:H17';XLSX.utils.book_append_sheet(wb,ws,'Auditoría gestor');
+ const ws=XLSX.utils.aoa_to_sheet([['Auditoría y conciliación con la gestoría - Año '+year],[],['Periodo','Ventas del trimestre','Gastos del trimestre','Resultado del trimestre','Difícil justificación acumulada','Base acumulada','130 a ingresar (trimestre)','Conciliación de pago'],...rows]);
+ gestorTitle(ws,`Auditoría y conciliación con la gestoría - Año ${year}`,'H');gestorHeader(ws,2,8);
+ ws['!cols']=[28,22,22,22,28,24,25,45].map(w=>({wch:w-XLSX_WCH_PAD}));
+ sheetCurrency(ws,4,7,['B','C','D','E','F','G']);
+ for(const [col,label] of [['A','Incidencia'],['B','Periodo'],['C','Importe incluido'],['D','Impacto en gasto'],['E','Impacto estimado en IRPF'],['F','Acción recomendada']])
+  setCell(ws,col+'8',label,{font:{name:'Calibri',sz:10,bold:true},fill:{fgColor:{rgb:GESTOR_ALT}},alignment:{wrapText:true}});
+ ws['!merges'].push(XLSX.utils.decode_range('A12:H17'));
+ setCell(ws,'A12','Modelo 130 orientativo: cálculo acumulado desde enero, descontando pagos anteriores, retenciones y reducciones. Contrastar con la gestoría.',{font:{name:'Calibri',sz:11},alignment:{wrapText:true,vertical:'top'}});
+ ws['!ref']='A1:H17';XLSX.utils.book_append_sheet(wb,ws,'Auditoría gestor');
 }
 export function buildGestorWorkbook(args){const wb=book();appendAuditSheet(wb,args);const lastDataQuarter=[...args.closings.map(x=>x.business_date),...args.expenses.map(x=>x.expense_date),...(args.invoices||[]).map(x=>x.issue_date),...(args.fiscalAdjustments||[]).map(x=>x.adjustment_date),...(args.incomeAdjustments||[]).map(x=>x.income_date)].filter(x=>String(x||'').startsWith(String(args.year)+'-')).reduce((max,x)=>Math.max(max,Math.ceil(Number(String(x).slice(5,7))/3)||0),0);const maxQ=args.firstSemesterOnly===true?2:args.onlyPeriodsWithData===true?Math.max(2,lastDataQuarter):4;for(let q=1;q<=maxQ;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=maxQ;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
 export function exportGestorWorkbook(args){const wb=buildGestorWorkbook(args);write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);}

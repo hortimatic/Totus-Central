@@ -1,4 +1,5 @@
 import xlsx from 'xlsx-js-style';
+import {computeModel130Accumulated} from '../src/calculations.js';
 global.window={XLSX:xlsx};
 const {buildGestorWorkbook,buildStoreAnnualWorkbook}=await import('../src/excel.js');
 const stores=[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}];
@@ -6,7 +7,7 @@ const closing=(id,store,date,cash,card)=>({id,store_id:store,business_date:date,
 const expense=(id,store,date,amount,internal=false)=>({id,store_id:store,expense_date:date,accounting_amount:amount,gross_expense:amount,amount_paid:amount,management_only:internal,supplier_name:'Proveedor de simulación'});
 const data={
  year:2026,stores,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},
- categories:[],expenseLines:[],taxPayments:[],
+ categories:[],expenseLines:[],taxPayments:[{tax_type:'130',fiscal_year:2026,quarter:1,status:'pagado',amount:61.712},{tax_type:'130',fiscal_year:2026,quarter:2,status:'pagado',amount:66.5}],
  closings:[
   closing('h1','h','2026-01-05',100,50),closing('h2','h','2026-02-05',0,200),closing('n1','n','2026-01-05',75,0),
   closing('h3','h','2026-04-05',500,0),closing('n2','n','2026-05-05',100,0),
@@ -43,7 +44,14 @@ eq(audit.D5.v,350,'2T profit');
 eq(audit.B6.v,800,'3T incomes');
 eq(audit.C6.v,-900,'3T expenses');
 eq(audit.D6.v,-100,'3T loss');
-eq(audit.E6.v,0,'3T no difficult-expense deduction on loss');
+eq(audit.E5.v,-33.74,'2T difficult expense must be accumulated, not quarterly');
+eq(audit.F5.v,641.06,'2T cumulative taxable base');
+eq(audit.G5.v,-66.5,'2T due minus Q1 payment');
+eq(audit.E6.v,-28.74,'3T accumulated difficult expense recalculated after loss');
+eq(audit.G6.v,0,'3T loss must not invent a new payment when prior installments exceed cumulative liability');
+const calc=computeModel130Accumulated({income:1236,deductible:561.2,extraDeductible:0,previousPayments:61.712,difficultRate:5,rate:20});
+eq(calc.due,66.5,'shared model 130 calculator');
+if(!String(audit.H5.v).includes('Coincide'))throw new Error('Q2 previous payment not reconciled');
 for(const r of [4,5,6])eq(audit['B'+r]?.v+audit['C'+r]?.v,audit['D'+r]?.v,r+'T arithmetic consistency');
 const q1=wb.Sheets['Conciliación 1T'],q2=wb.Sheets['Conciliación 2T'],q3=wb.Sheets['Conciliación 3T'];
 eq(q1.D4.v,150+75+121+30+40,'January income including general');

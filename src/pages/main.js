@@ -3,6 +3,7 @@ import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices,expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from '../expense-register.js';
+import {computeModel130Accumulated} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -341,8 +342,10 @@ export function fiscalidad(){
  const periodDed=deductibleFor(periodExpenses),ytdDedBase=deductibleFor(ytdExpenses);
  const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
  const extraIncomeYtd=sum(fiscalYtd.filter(x=>x.kind==='ingreso_extra'),x=>x.amount),extraDedYtd=sum(fiscalYtd.filter(x=>['gasto_deducible_extra','amortizacion'].includes(x.kind)),x=>x.amount),reductionsYtd=sum(fiscalYtd.filter(x=>x.kind==='reduccion'),x=>x.amount),withheldYtd=sum(fiscalYtd.filter(x=>x.kind==='retencion_soportada'),x=>x.amount);
- const netBeforeDiff=Math.max(0,ytdIncome-ytdDedBase-extraDedYtd-reductionsYtd),dPct=Number(state.data.settings?.difficult_expense_pct??5),dCap=Number(state.data.settings?.difficult_expense_annual_cap??2000),difficult=state.data.settings?.difficult_expense_enabled===false?0:Math.min(netBeforeDiff*dPct/100,dCap),base=Math.max(0,netBeforeDiff-difficult),rate=Number(state.data.settings?.irpf_prepayment_rate??20),gross130=base*rate/100;
- const previous130=sum(state.data.taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<quarter&&x.status==='pagado'),x=>x.amount),calc130=Math.max(0,gross130-previous130-withheldYtd);
+ const dPct=Number(state.data.settings?.difficult_expense_pct??5),dCap=Number(state.data.settings?.difficult_expense_annual_cap??2000),rate=Number(state.data.settings?.irpf_prepayment_rate??20);
+ const previous130=sum(state.data.taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<quarter&&x.status==='pagado'),x=>x.amount);
+ const model130=computeModel130Accumulated({income:ytdIncome,deductible:ytdDedBase,extraDeductible:extraDedYtd,reductions:reductionsYtd,previousPayments:previous130,withholdings:withheldYtd,rate,difficultRate:dPct,difficultAnnualCap:dCap,difficultEnabled:state.data.settings?.difficult_expense_enabled!==false});
+ const {difficult,base,gross:gross130,due:calc130}=model130;
  const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),paid130=current130?.status==='pagado'?Number(current130.amount||0):0,diff130=paid130-calc130;
  const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
  const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);

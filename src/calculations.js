@@ -54,3 +54,21 @@ export function validateExpenseClassification(lines,categories,managementOnly){
  if(internalLines.some(l=>l.deductible_irpf!==false||Number(l.deductible_pct||0)>0))throw new Error('Un concepto interno no puede marcarse como deducible en IRPF.');
  return true;
 }
+
+/** One accumulated model 130 estimate for both screen and gestor workbook. */
+export function computeModel130Accumulated({
+ income=0,deductible=0,extraDeductible=0,reductions=0,previousPayments=0,
+ withholdings=0,rate=20,difficultRate=5,difficultAnnualCap=2000,difficultEnabled=true
+}={}){
+ const valid=(v,k)=>{const n=Number(v);if(!Number.isFinite(n)||n<0)throw new Error('Modelo 130: valor inválido '+k);return n};
+ income=valid(income,'ingresos');deductible=valid(deductible,'gastos');
+ extraDeductible=valid(extraDeductible,'ajustes');reductions=valid(reductions,'reducciones');
+ previousPayments=valid(previousPayments,'pagos anteriores');withholdings=valid(withholdings,'retenciones');
+ rate=valid(rate,'porcentaje IRPF');difficultRate=valid(difficultRate,'difícil justificación');
+ difficultAnnualCap=valid(difficultAnnualCap,'tope anual');
+ const beforeDifficult=Math.max(0,income-deductible-extraDeductible-reductions);
+ const difficult=difficultEnabled?Math.min(beforeDifficult*difficultRate/100,difficultAnnualCap):0;
+ const base=Math.max(0,beforeDifficult-difficult);
+ const gross=base*rate/100;
+ return {beforeDifficult,difficult,base,gross,due:Math.max(0,gross-previousPayments-withholdings)};
+}
