@@ -178,7 +178,7 @@ try{fileUtils.validateDocumentFile(fake('sin-espacio.pdf','application/pdf',2*10
 setView('facturacion',{mode:'list',id:null,section:'series'});const seriesHtml=pages.facturacion();
 for(const term of ['Nueva serie','series-new','series-edit'])if(!seriesHtml.includes(term))errors.push('Gestión de series incompleta: '+term);
 setView('administracion',{section:'fiscal'});const adminFiscal=pages.administracion();
-for(const term of ['Categorías y subcategorías de gastos','expense-category-new'])if(!adminFiscal.includes(term))errors.push('Gestión de categorías incompleta: '+term);
+for(const term of ['Categorías de gastos','expense-category-new'])if(!adminFiscal.includes(term))errors.push('Gestión de categorías incompleta: '+term);
 if(!pageSource.includes("'expense-category-edit'"))errors.push('Gestión de categorías sin acción Editar');
 for(const action of ['series-new','series-edit','series-save','expense-category-new','expense-category-edit','expense-category-save','template-preview','report-store-preview','report-gestor-preview'])if(!appSource.includes("a==='"+action+"'"))errors.push('Falta handler: '+action);
 

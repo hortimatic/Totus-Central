@@ -56,7 +56,6 @@ jobs:
           node tests/filters-qa.mjs
            node tests/document-archive-qa.mjs
           node tests/expense-archive-qa.mjs
-          node tests/expense-categories-qa.mjs
           node tests/excel-invariants.mjs
       - name: Install browser and document testing dependencies
         working-directory: staging-source

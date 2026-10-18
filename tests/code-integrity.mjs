@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 const root=process.cwd();
-const source=['src/app.js','src/api.js','src/state.js','src/utils.js','src/config.js','src/components.js','src/permissions.js','src/calculations.js','src/file-utils.js','src/expense-register.js','src/expense-categories.js','src/excel.js','src/backup.js','src/pages/main.js'];
+const source=['src/app.js','src/api.js','src/state.js','src/utils.js','src/config.js','src/components.js','src/permissions.js','src/calculations.js','src/file-utils.js','src/expense-register.js','src/excel.js','src/backup.js','src/pages/main.js'];
 const cache=Object.fromEntries(source.map(file=>[file,fs.readFileSync(file,'utf8')]));
 const problems=[];
 for(const [file,content] of Object.entries(cache)){

@@ -3,7 +3,6 @@ import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices,expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from '../expense-register.js';
-import {expenseCategoryOptions,expenseCategoryTree} from '../expense-categories.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -450,11 +449,6 @@ function adminBusinessHtml(){
   <section class="card card-pad"><div class="section-head"><div><h2>Establecimientos y cajas</h2><p>Configuración física usada por Cajas.</p></div>${isAdmin()?btn('+ Establecimiento','store-new','primary'):''}</div><div class="stack" style="margin-top:14px">${storeRows}</div></section>
  </div>`;
 }
-function expenseCategoryAdminRow(c,child=false,count=0){
- const used=state.data.expenseLines.some(x=>x.category_id===c.id)||state.data.expenses.some(x=>x.category_id===c.id)||state.data.suppliers.some(x=>x.default_category_id===c.id);
- return `<div class="expense-category-entry ${child?'expense-category-child':'expense-category-parent'}"><div class="expense-category-name"><b>${child?'↳ ':''}${esc(c.name)}</b><div class="small muted">${esc(c.code)}${c.aeat_group?' · '+esc(c.aeat_group):''}${c.manager_code?' · gestor '+esc(c.manager_code):''}${count?' · '+count+' subcategorías':''}</div></div>
- <div>${stateBadge(c.active?'activo':'inactivo')}</div><div class="inline-actions">${isAdmin()?btn('Editar','expense-category-edit','secondary',`data-id="${c.id}"`):''}${isAdmin()&&!used&&!count?btn('Eliminar','expense-category-delete','danger',`data-id="${c.id}"`):''}</div></div>`;
-}
 function adminFiscalHtml(){
  const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
  return `<section class="card card-pad"><div class="section-head"><div><h2>Configuración fiscal</h2><p>Parámetros de previsión. No sustituye a la gestoría.</p></div></div><div class="form-grid" style="margin-top:14px">
@@ -462,11 +456,8 @@ function adminFiscalHtml(){
  <label class="check-field wide"><input id="cfgDifficultEnabled" type="checkbox" ${s.difficult_expense_enabled===false?'':'checked'} ${locked}> Aplicar difícil justificación en previsión</label>
  <label class="wide">Notas fiscales<textarea id="cfgFiscalNotes" rows="4" ${locked}>${esc(s.fiscal_notes||'')}</textarea></label>
  </div>${isAdmin()?`<div class="form-actions">${btn('Guardar configuración fiscal','config-save','primary')}</div>`:''}</section>
- <section class="card card-pad"><div class="section-head"><div><h2>Categorías y subcategorías de gastos</h2><p>Dos niveles para distinguir conceptos sin perder el grupo fiscal ni los códigos de los libros.</p></div>${isAdmin()?btn('+ Categoría o subcategoría','expense-category-new','primary'):''}</div>
- <div class="expense-category-tree" style="margin-top:12px">${state.data.categories.length?expenseCategoryTree(state.data.categories).map(({category,children})=>`<div class="expense-category-group">
-   ${expenseCategoryAdminRow(category,false,children.length)}
-   ${children.map(child=>expenseCategoryAdminRow(child,true,0)).join('')}
-  </div>`).join(''):'<div class="empty"><strong>Sin categorías ni subcategorías</strong><span>Crea primero las categorías principales y organiza debajo los conceptos específicos.</span></div>'}</div></section>`;
+ <section class="card card-pad"><div class="section-head"><div><h2>Categorías de gastos</h2><p>Códigos usados por Gastos, fiscalidad y los libros Excel.</p></div>${isAdmin()?btn('+ Nueva categoría','expense-category-new','primary'):''}</div>
+ <div class="stack" style="margin-top:12px">${state.data.categories.length?state.data.categories.slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'es')).map(c=>`<div class="summary-row"><div><b>${esc(c.name)}</b><div class="small muted">${esc(c.code)}${c.aeat_group?' · '+esc(c.aeat_group):''}${c.manager_code?' · gestor '+esc(c.manager_code):''}</div></div><div>${stateBadge(c.active?'activo':'inactivo')}</div><div class="inline-actions">${isAdmin()?btn('Editar','expense-category-edit','secondary',`data-id="${c.id}"`):''}</div></div>`).join(''):'<div class="empty"><strong>Sin categorías</strong><span>Crea categorías antes de registrar gastos.</span></div>'}</div></section>`;
 }
 function adminStorageHtml(){
  const u=state.data.storageUsage||{};
@@ -763,6 +754,7 @@ export function expenseLineRow(line={},index=0,categories=[]){
 export function expenseRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const suppliers=[{value:'',label:'Proveedor manual'},...state.data.suppliers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
+ const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
  const lines=row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  const total=Number(row?.gross_expense??row?.accounting_amount??row?.amount_paid??0),paid=Number(row?.amount_paid||0),pending=Math.max(0,total-paid);
@@ -789,7 +781,7 @@ export function expenseRecordHtml(row=null){
      </div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
-     <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,expenseCategoryOptions(state.data.categories,l.category_id))).join('')}</div>
+     <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
      <div class="form-grid" style="margin-top:14px">

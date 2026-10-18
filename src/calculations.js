@@ -44,11 +44,9 @@ export function validateExpenseLineAmounts({base,vat,re,withholding,deductiblePc
  return {base,vat,re,withholding,deductiblePct};
 }
 
-import {isInternalExpenseCategory} from './expense-categories.js';
-
 /** Internal-only costs (overtime, warehouse) must never leak into fiscal expense data. */
 export function validateExpenseClassification(lines,categories,managementOnly){
- const internalIds=new Set(categories.filter(c=>isInternalExpenseCategory(categories,c.id)).map(c=>String(c.id)));
+ const internalIds=new Set(categories.filter(c=>String(c.code||'').startsWith('INTERNAL_')).map(c=>String(c.id)));
  const internalLines=lines.filter(l=>internalIds.has(String(l.category_id||'')));
  if(!internalLines.length)return true;
  if(!managementOnly)throw new Error('Este concepto es solo de control interno. Activa «Solo control interno» antes de guardar.');

@@ -1,4 +1,3 @@
-import {expenseCategoryCode} from './expense-categories.js';
 import {fmtDate,n} from './utils.js';
 
 const XLSX=window.XLSX;
@@ -98,7 +97,7 @@ const WEEKDAYS=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabad
 const XLSX_WCH_PAD=0.83203125;
 const LEGACY_COLORS={other:'00B050',payroll:'FFC000',orders:'00B0F0',fixed:'FFFF00',irpf:'92D050',total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
 function legacyGroup(expense,categories){
- const code=expenseCategoryCode(categories,expense.category_id);
+ const code=categories.find(x=>x.id===expense.category_id)?.code||'';
  if(code==='MERCH')return'orders';
  if(['PAYROLL','SOCIAL','RETA','FAMILY_COLLAB'].includes(code))return'payroll';
  if(code==='TAX'||['111','115'].includes(String(expense.withholding_model||'')))return'irpf';

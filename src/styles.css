@@ -285,17 +285,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .storage-quota-title{padding-top:18px;margin-top:18px;border-top:1px solid var(--line)}
 @media(max-width:520px){.storage-observed-heading{align-items:flex-start}.storage-observed-heading strong{font-size:19px}}
 
-/* Expense category hierarchy, non-nested controls and responsive alignment. */
-.expense-category-tree{display:grid;gap:13px}
-.expense-category-group{background:#fbfcff;border:1px solid #dfe4ec;border-radius:12px;overflow:hidden}
-.expense-category-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 14px}
-.expense-category-entry+.expense-category-entry{border-top:1px solid #e8edf5}
-.expense-category-parent{background:#f0f5fc}
-.expense-category-child{padding-left:31px}
-.expense-category-name{min-width:0;overflow-wrap:anywhere}
-.expense-category-name b{font-size:14px}
-.expense-category-entry .inline-actions{justify-content:flex-end}
-@media(max-width:560px){.expense-category-entry{grid-template-columns:minmax(0,1fr) auto;gap:8px}.expense-category-entry .inline-actions{grid-column:1/-1;justify-content:flex-start}.expense-category-child{padding-left:20px}}
-
-/* Feedback messages must not block buttons underneath while notifications fade. */
+/* Unrelated bug fix: toasts cannot obscure or intercept buttons. */
 .toast-host,.toast-host .toast{pointer-events:none}
