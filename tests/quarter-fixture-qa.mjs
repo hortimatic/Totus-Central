@@ -1,5 +1,5 @@
 import xlsx from 'xlsx-js-style';
-import {computeModel130Accumulated} from '../src/calculations.js';
+import {computeModel130Accumulated,deductibleExpenseTotal} from '../src/calculations.js';
 global.window={XLSX:xlsx};
 const {buildGestorWorkbook,buildStoreAnnualWorkbook}=await import('../src/excel.js');
 const stores=[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}];
@@ -70,4 +70,14 @@ for(const [name,amount] of [['Hortimatic',300],['NewOldSmok',600]]){
  if(name==='Hortimatic'&&!Object.values(july).some(c=>c?.v===amount))throw Error('Q3 Horti expense not exported');
  if(name==='NewOldSmok'&&!Object.values(august).some(c=>c?.v===amount))throw Error('Q3 NewOld expense not exported');
 }
-console.log('QUARTER QA: Q1/Q2/Q3, two stores, IVA/RE, internal expense, deductions, unassigned income, drafts, fiscal formulas: OK');
+const mixedCase={...data,expenseLines:[
+ {expense_id:'e1',deductible_irpf:true,irpf_imputable:63.1,base_amount:100,vat_amount:21,re_amount:5.2,sort_order:10},
+ {expense_id:'e2',deductible_irpf:false,irpf_imputable:65,base_amount:65,sort_order:10}
+]};
+const mixedWorkbook=buildGestorWorkbook(mixedCase);
+eq(deductibleExpenseTotal(mixedCase.expenses,mixedCase.expenseLines),1313.1,'Shared IRPF expenses: 50% deductible and fully nondeductible');
+const q1Ded=deductibleExpenseTotal(mixedCase.expenses.filter(e=>e.expense_date<='2026-03-31'),mixedCase.expenseLines);
+eq(q1Ded,163.1,'First quarter deductible base mismatch');
+const q1Calc=computeModel130Accumulated({income:636,deductible:q1Ded,extraDeductible:20,rate:20,difficultRate:5,difficultAnnualCap:2000});
+eq(mixedWorkbook.Sheets['Auditoría gestor'].G4.v,-q1Calc.due,'Gestor workbook IRPF differs from Fiscalidad line calculation');
+console.log('QUARTER QA: Q1/Q2/Q3, two stores, partial IRPF deductions, unreviewed and internal, draft invoices and shared formulas OK');

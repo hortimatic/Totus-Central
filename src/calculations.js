@@ -74,3 +74,27 @@ export function computeModel130Accumulated({
  const gross=base*rate/100;
  return {beforeDifficult,difficult,base,gross,due:Math.max(0,gross-previousPayments-withholdings)};
 }
+
+/** The same deductible expense total for Inicio, Fiscalidad and exported Modelo 130. */
+export function deductibleExpenseTotal(expenses=[],lines=[]){
+ const eligible=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false);
+ const ids=new Set(eligible.map(x=>String(x.id)));
+ const withLines=new Set();
+ let total=0;
+ for(const line of lines){
+  const id=String(line.expense_id||'');if(!ids.has(id))continue;
+  withLines.add(id);
+  if(line.deductible_irpf===false)continue;
+  const amount=Number(line.irpf_imputable??0);
+  if(!Number.isFinite(amount))throw new Error('Importe imputable a IRPF no numérico.');
+  total+=amount;
+ }
+ for(const expense of eligible){
+  if(withLines.has(String(expense.id))||expense.deductible_irpf===false)continue;
+  const amount=Number(expense.accounting_amount??expense.gross_expense??expense.amount_paid??0);
+  const pct=Number(expense.deductible_pct??100);
+  if(!Number.isFinite(amount)||!Number.isFinite(pct)||pct<0||pct>100)throw new Error('Gasto o porcentaje deducible inválido.');
+  total+=amount*pct/100;
+ }
+ return total;
+}

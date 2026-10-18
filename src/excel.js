@@ -1,5 +1,5 @@
 import {fmtDate,n} from './utils.js';
-import {computeModel130Accumulated} from './calculations.js';
+import {computeModel130Accumulated,deductibleExpenseTotal} from './calculations.js';
 
 const XLSX=window.XLSX;
 const euro='#,##0.00 "€"';
@@ -249,7 +249,7 @@ function appendReconciliationSheet(wb,q,args){
  }
 function appendAuditSheet(wb,args){
  const {year,taxPayments=[],fiscalAdjustments=[],settings={}}=args,rows=[];
- const deductible=(from,to)=>args.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inDate(x.expense_date,from,to)).reduce((a,x)=>a+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0);
+ const deductible=(from,to)=>deductibleExpenseTotal(args.expenses.filter(x=>inDate(x.expense_date,from,to)),args.expenseLines||[]);
  const adjustment=(from,to,kinds)=>fiscalAdjustments.filter(x=>kinds.includes(x.kind)&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
  for(let q=1;q<=4;q++){
   const rng=quarterRange(year,q),from=`${year}-01-01`,to=rng.to;
