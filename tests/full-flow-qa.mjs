@@ -623,8 +623,12 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  const consultationId=history.consultations[0].id;
  await page.locator('[data-action="consultation-convert"][data-id="'+consultationId+'"]').click();
  await page.locator('#ccSku').fill('SKU-CONVERT-QA');
+ const beforeMissingProvider=errors.length;
  await page.locator('[data-action="consultation-convert-save"]').click();
+ await page.waitForTimeout(35);
  assert((await page.locator('#toastHost').innerText()).includes('Proveedor'),'No informa que falta el proveedor');
+ assert(errors.slice(beforeMissingProvider).some(x=>x.includes('Proveedor es obligatorio')),'Se esperaba validación de proveedor');
+ errors.splice(beforeMissingProvider); // validation intentionally rejected in this negative test
  assert(!(await page.evaluate(()=>window.__mockDb.products)).some(x=>x.sku==='SKU-CONVERT-QA'),'Creó producto sin coste de proveedor');
  await page.locator('#modalHost .close-btn').click();
  const providerId=await page.evaluate(async()=>{
@@ -636,8 +640,11 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  await page.locator('#ccSku').fill('SKU-CONVERT-QA');
  await page.locator('#ccProvider').selectOption(providerId);
  await page.evaluate(()=>window.__mockRejectInsertTable='product_provider_prices');
+ const beforePriceFailure=errors.length;
  await page.locator('[data-action="consultation-convert-save"]').click();
  await page.waitForTimeout(50);
+ assert(errors.slice(beforePriceFailure).some(x=>x.includes('No se pudo guardar el coste')),'No se notificó fallo de proveedor');
+ errors.splice(beforePriceFailure); // fault injection is an expected failure
  assert(!(await page.evaluate(()=>window.__mockDb.products)).some(x=>x.sku==='SKU-CONVERT-QA'),
   'El error de registrar el coste deja un producto sin proveedor después de intentar revertirlo');
  await page.locator('[data-action="consultation-convert-save"]').click();

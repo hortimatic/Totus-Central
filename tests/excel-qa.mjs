@@ -50,8 +50,8 @@ if(Math.abs(nosJan['!cols'][2]?.wch-(30.7109375-pad))>0.00001)throw new Error('N
 if(Math.abs(storeWb.Sheets.Enero['!cols'][2]?.wch-(33-pad))>0.00001)throw new Error('Hortimatic: original expense column width must be 33');
 const jan=storeWb.Sheets.Enero;
 if(jan['!merges']?.length!==1)throw new Error('Original shop workbook must have only its B1:F1 merge');
-if(jan['!cols']?.length!==9)throw new Error('Original shop workbook A:I widths must be preserved');
-if(!/^A1:I/.test(jan['!ref']||''))throw new Error('Shop workbook must preserve A:I grid');
+if(jan['!cols']?.length!==6)throw new Error('Original shop workbook A:F widths must be preserved');
+if(!/^A1:F/.test(jan['!ref']||''))throw new Error('Shop workbook must preserve the original A:F grid');
 
 if(jan.B1?.v!=='Enero 2026')throw new Error('Original month title layout missing');
 if(jan.B2?.v!=='Dia'||jan.C2?.v!=='Gastos'||jan.D2?.v!=='Precio'||jan.E2?.v!=='Tarjeta'||jan.F2?.v!=='Salida de caja')throw new Error('Original headers do not match');
