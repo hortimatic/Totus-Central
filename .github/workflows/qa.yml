@@ -20,7 +20,6 @@ jobs:
       - run: node tests/roles-and-help-qa.mjs
       - run: node tests/route-smoke.mjs
       - run: node tests/action-inventory-qa.mjs
-      - run: node tests/subtab-walk-qa.mjs
       - run: node tests/api-integrity-qa.mjs
       - run: node tests/filters-qa.mjs
       - run: node tests/document-archive-qa.mjs
@@ -48,6 +47,7 @@ jobs:
       - run: node tests/store-drawers-qa.mjs
       - run: node tests/mobile-navigation-qa.mjs
       - run: node tests/shell-geometry-qa.mjs
+      - run: node tests/subtab-walk-qa.mjs
       - run: node tests/storage-live-qa.mjs
       - uses: actions/upload-artifact@v4
         with:
