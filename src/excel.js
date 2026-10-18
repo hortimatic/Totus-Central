@@ -1,5 +1,6 @@
 import {fmtDate,n} from './utils.js';
 import {computeModel130Accumulated,deductibleExpenseTotal} from './calculations.js';
+import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
 
 const XLSX=window.XLSX;
 const euro='#,##0.00 "€"';
@@ -124,11 +125,11 @@ function setCell(ws,addr,value,style,formula=null){
 }
 function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
  const monthName=MONTHS[month],ws={};
- ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,/newold|smok/i.test(store.name||'')?30.7109375:33,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
+ ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,!/newold|smok/i.test(store.name||'')&&month===0?33:30.7109375,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  const legacyTitle=year===2026&&month>=3&&month<=6?`${/newold|smok/i.test(store.name||'')?(month===3?'NewOldSmok':'Newoldsmok'):'Hortimatic'} ${monthName} ${year}`:`${monthName} ${year}`;
  setCell(ws,'B1',legacyTitle,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
- for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
+ for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{fill:{fgColor:{rgb:LEGACY_COLORS.header}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}});
  const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
  const byDateClose=new Map();
  for(const closing of closings.filter(x=>x.store_id===store.id&&x.include_in_income!==false&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`))){
@@ -279,3 +280,22 @@ function appendAuditSheet(wb,args){
 export function buildGestorWorkbook(args){const wb=book();appendAuditSheet(wb,args);const lastDataQuarter=[...args.closings.map(x=>x.business_date),...args.expenses.map(x=>x.expense_date),...(args.invoices||[]).map(x=>x.issue_date),...(args.fiscalAdjustments||[]).map(x=>x.adjustment_date),...(args.incomeAdjustments||[]).map(x=>x.income_date)].filter(x=>String(x||'').startsWith(String(args.year)+'-')).reduce((max,x)=>Math.max(max,Math.ceil(Number(String(x).slice(5,7))/3)||0),0);const maxQ=args.firstSemesterOnly===true?2:args.onlyPeriodsWithData===true?Math.max(2,lastDataQuarter):4;for(let q=1;q<=maxQ;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=maxQ;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
 export function exportGestorWorkbook(args){const wb=buildGestorWorkbook(args);write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);}
 export function workbookBlob(wb){return new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx',cellStyles:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
+
+export function buildGestorSourceWorkbook(args){
+ const rows=buildGestorSourceRows(args),totals=gestorSourceTotals(rows),wb=book();
+ const ws=XLSX.utils.aoa_to_sheet([[args.settings?.business_name||''],['Compras y gastos / Facturas recibidas (Var.Ex.-Desg.Sop./Rep.)'],[`${fmtDate(args.from)} - ${fmtDate(args.to)}`],[],GESTOR_SOURCE_COLUMNS,...rows,totals]);
+ ws['!merges']=[XLSX.utils.decode_range('A1:Q1'),XLSX.utils.decode_range('A2:Q2'),XLSX.utils.decode_range('A3:Q3')];
+ ws['!cols']=[6,12,12,20,4,45,30,14,8,14,15,8,15,18,16,8,16].map(w=>({wch:w}));
+ ws['!autofilter']={ref:`A5:Q${5+rows.length}`};ws['!freeze']={ySplit:5};
+ for(let r=5;r<=6+rows.length;r++)for(let c=0;c<17;c++){
+  const addr=XLSX.utils.encode_cell({r:r-1,c}),cell=ws[addr];if(!cell)continue;
+  const last=r===6+rows.length;
+  cell.s={font:{name:'Arial',sz:r===5?8:9,bold:last},alignment:{horizontal:c>=7?'right':'left',vertical:'center',wrapText:c<7},fill:{fgColor:{rgb:r>5&&!last&&r%2===0?'C5C5C5':'FFFFFF'}},border:r===5||last?{top:{style:'thin',color:{rgb:'000000'}}}:undefined};
+  if(c>=7)cell.z='#,##0.00';
+  if(last&&GESTOR_AMOUNT_COLUMNS.includes(c)){cell.f=rows.length?`SUM(${XLSX.utils.encode_col(c)}6:${XLSX.utils.encode_col(c)}${5+rows.length})`:'0';cell.t='n'}
+ }
+ ws[`A${6+rows.length}`]={t:'s',v:'TOTAL'};
+ XLSX.utils.book_append_sheet(wb,ws,'Compras y gastos');
+ return wb;
+}
+export function exportGestorSourceWorkbook(args){write(buildGestorSourceWorkbook(args),`Tabla_gestoria_${args.from}_${args.to}.xlsx`)}

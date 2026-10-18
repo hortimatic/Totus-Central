@@ -415,7 +415,8 @@ export function informes(){
   <section class="card card-pad"><div class="section-head"><div><h2>Libros como los Excel originales</h2><p>Doce hojas mensuales, mismos bloques, fórmulas, códigos de color y estructura de ventas/gastos.</p></div></div>
    <div class="stack" style="margin-top:14px">${stores().map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">Gastos y ventas · ${year}</div></div><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${year}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${year}"`)}</div></div>`).join('')}</div>
   </section>
-  <section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Libro de gastos, conciliación por trimestre y auditoría del Modelo 130.</p></div></div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Tabla de compras y gastos con las columnas y el desglose del documento de la gestoría. Solo incluye gastos fiscales revisados del periodo y tienda seleccionados. Nºfra.rec. y Rt quedan para la gestoría.</p></div></div>
+   <div class="stack" style="margin-top:14px">${btn('Ver tabla de gestoría','report-gestor-source-preview','secondary')}${btn('Descargar tabla Excel','export-gestor-source','primary')}${btn('Imprimir / guardar PDF','report-gestor-source-print','secondary')}</div>
    <div class="stack" style="margin-top:14px">${btn('Vista previa','report-gestor-preview','secondary',`data-year="${year}"`)}${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar paquete gestor ZIP','export-gestor-package','secondary',`data-year="${year}"`)}</div>
   </section>
  </div>

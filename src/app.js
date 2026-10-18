@@ -10,6 +10,8 @@ import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPa
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
+import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
+import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
@@ -1568,6 +1570,26 @@ function reportGestorPreview(year){
 function reportArgs(year){
  return {year,onlyPeriodsWithData:year===2026,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,incomeAdjustments:state.data.incomeAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
 }
+function gestorSourceArgs(){
+ const f=getFilters('informes');
+ if(!f.from||!f.to||f.from>f.to)throw new Error('Selecciona un periodo válido en Desde y Hasta.');
+ if(f.from.slice(0,4)!==f.to.slice(0,4))throw new Error('Prepara la tabla de gestoría de un ejercicio cada vez.');
+ return {...reportArgs(Number(f.from.slice(0,4))),from:f.from,to:f.to,store:f.store||'all'};
+}
+function reportGestorSourcePreview(){
+ previewWorkbookExact(buildGestorSourceWorkbook(gestorSourceArgs()),'Tabla de la gestoría',btn('Descargar tabla Excel','export-gestor-source','primary')+btn('Imprimir / guardar PDF','report-gestor-source-print','secondary'));
+}
+function printGestorSource(){
+ const args=gestorSourceArgs(),rows=buildGestorSourceRows(args);
+ const previousTo=new Date(args.from+'T12:00:00');previousTo.setDate(previousTo.getDate()-1);
+ const previousEnd=[previousTo.getFullYear(),String(previousTo.getMonth()+1).padStart(2,'0'),String(previousTo.getDate()).padStart(2,'0')].join('-');
+ const previousRows=args.from>`${args.year}-01-01`?buildGestorSourceRows({...args,from:`${args.year}-01-01`,to:previousEnd}):[];
+ const html=gestorSourcePrintHtml({...args,rows,previousRows});
+ const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
+ try{w.opener=null}catch{}
+ w.document.open();w.document.write(html);w.document.close();
+ w.addEventListener('load',()=>{w.focus();w.print()},{once:true});
+}
 function exportStoreBook(storeId,year){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
  exportStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
@@ -1583,6 +1605,7 @@ async function exportGestorPackage(year){
  ].sort((a,b)=>{const key=d=>String(d||'').split('/').reverse().join('-');return key(a[0]).localeCompare(key(b[0]))});
  const incomeCsv=csv(incomeRows,['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]})));ingresos.file(`Ingresos_${year}.csv`,incomeCsv);
  const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
+ gastos.file(`Tabla_gestoria_${year}.xlsx`,workbookBlob(buildGestorSourceWorkbook({...args,from:`${year}-01-01`,to:`${year}-12-31`,store:'all'})));
  for(const store of stores){const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`Gastos y ventas ${safeFileSegment(store.name)} ${year}.xlsx`,workbookBlob(wb))}
  const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
  const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
@@ -1800,6 +1823,9 @@ document.addEventListener('click',async e=>{
   if(a==='export-summary'){exportRows('summary');return}
   if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(el.dataset.year));return}
   if(a==='report-gestor-preview'){reportGestorPreview(Number(el.dataset.year));return}
+  if(a==='report-gestor-source-preview'){reportGestorSourcePreview();return}
+  if(a==='export-gestor-source'){exportGestorSourceWorkbook(gestorSourceArgs());return}
+  if(a==='report-gestor-source-print'){printGestorSource();return}
   if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year));return}
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}

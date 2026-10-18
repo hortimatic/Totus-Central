@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import xlsx from 'xlsx-js-style';
+global.window={XLSX:xlsx};
+const {buildGestorSourceWorkbook}=await import('../src/excel.js');
+const wb=buildGestorSourceWorkbook({from:'2026-10-01',to:'2026-10-31',expenses:[{id:'one',expense_date:'2026-10-18',fiscal_reviewed:true,invoice_number:'QA-ONLY',supplier_name:'Proveedor de prueba'}],expenseLines:[{expense_id:'one',base_amount:100,vat_rate:21,vat_amount:21,re_base:100,re_rate:5.2,re_amount:5.2,irpf_imputable:126.2}]});
+const binary=xlsx.write(wb,{type:'buffer',bookType:'xlsx',cellStyles:true});
+const roundtrip=xlsx.read(binary,{type:'buffer',cellStyles:true});
+assert.deepEqual(roundtrip.SheetNames,['Compras y gastos']);
+const s=roundtrip.Sheets['Compras y gastos'];
+assert.equal(s['!ref'],'A1:Q8');
+assert.equal(s.F5.v,'Identificación');
+assert.equal(s.O5.v,'Base retención');
+assert.equal(s.D6.v,'QA-ONLY');
+assert.equal(s.G7.v,'IVA SOPORTADO(RECARG');
+assert.equal(s.N6.v,100);assert.equal(s.N7.v,26.2);
+assert.equal(s.N8.f,'SUM(N6:N7)');assert.equal(s.N8.v,126.2);
+assert(!s.R5,'No hay columnas añadidas al modelo original');
+console.log('GESTOR WORKBOOK QA: XLSX guardado y reabierto, 17 columnas, filas de impuestos y suma IRPF conciliada.');
