@@ -49,9 +49,9 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
    }
    const infoIcons=[...root.querySelectorAll('.field-help>summary')].filter(visible).map(el=>{
     const r=el.getBoundingClientRect();
-    return {w:r.width,h:r.height,content:getComputedStyle(el,'::after').content};
+    return {w:r.width,h:r.height,content:getComputedStyle(el,'::after').content,text:el.textContent.trim(),fontSize:parseFloat(getComputedStyle(el).fontSize)};
    });
-   const invalidInfoIcons=infoIcons.filter(i=>Math.abs(i.w-i.h)>1||i.w<18||i.h<18||i.content!=='"i"');
+   const invalidInfoIcons=infoIcons.filter(i=>Math.abs(i.w-i.h)>1||i.w<18||i.h<18||i.text!=='i'||i.fontSize<10||!['none','normal'].includes(i.content));
    return {duplicate,unlabeled,links,outOfBounds,blank,forms,clipped,invalidInfoIcons,infoIconsCount:infoIcons.length};
   });
   if(audit.duplicate.length)failures.push(label+' duplicate visible element IDs: '+JSON.stringify(audit.duplicate));
