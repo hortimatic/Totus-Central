@@ -51,7 +51,6 @@ jobs:
           node tests/partial-balances-qa.mjs
           node tests/team-admin-qa.mjs
           node tests/invoice-issuer-qa.mjs
-          node tests/legacy-retention-qa.mjs
           node tests/gestor-source-qa.mjs
           node tests/functional-regression.mjs
           node tests/cross-view-integrity-qa.mjs
@@ -74,6 +73,7 @@ jobs:
         working-directory: staging-source
         run: |
           node tests/excel-qa.mjs
+          node tests/legacy-retention-qa.mjs
           node tests/gestor-workbook-qa.mjs
           node tests/gestor-print-qa.mjs
           node tests/quarter-fixture-qa.mjs
