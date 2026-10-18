@@ -941,7 +941,7 @@ async function saveDocument(id=''){
  if(!current){
    row=await createStoredDocument(file,{storeId,date,docType:meta.doc_type,status:meta.status,party:meta.supplier_or_customer,taxId:meta.tax_id,number:meta.invoice_number,category:meta.category_code,notes:meta.notes});
  }else if(file){
-   const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);const usage=state.data.storageUsage||{},limit=Number(usage.limit_bytes||500*1024*1024),used=Number(usage.total_bytes||0);
+   const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);const usage=await verifiedStorageMetrics(),limit=Number(usage.limit_bytes),used=Number(usage.total_bytes);
    validateDocumentFile(file,{maxBytes:max,usedBytes:used,limitBytes:limit,replacingBytes:Number(current.size_bytes||0)});
    const y=date.slice(0,4),m=date.slice(5,7),storeNameValue=state.data.stores.find(x=>x.id===storeId)?.name||'General';
    newPath=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(meta.doc_type)}/${safeFileSegment(meta.supplier_or_customer)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;

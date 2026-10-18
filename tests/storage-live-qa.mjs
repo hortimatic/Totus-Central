@@ -33,7 +33,27 @@ try{
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
  assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
  assert((await page.locator('#storageObservedBar .storage-segment-docs').evaluate(el=>el.getBoundingClientRect().width))>10,'Los documentos cargados no se reflejan en la barra superior');
+ // Replacing an existing document cannot use stale measurements when Storage is unavailable.
+ await page.evaluate(async()=>{
+  const doc={id:'qa-existing-doc',document_date:'2026-10-17',doc_type:'factura_recibida',status:'pendiente',
+   original_name:'anterior.pdf',mime_type:'application/pdf',size_bytes:18,storage_path:'qa/existente.pdf',supplier_or_customer:'Proveedor QA'};
+  window.__mockDb.ops_documents.push(doc);
+  (await import('../src/state.js')).state.data.documents.push(doc);
+  window.__mockUploads.set('business-documents/'+doc.storage_path,new Blob(['%PDF-1.4 old content']));
+ });
  await page.evaluate(()=>window.__mockStorageFailure=true);
+ await page.locator('#nav [data-route="documentos"]').click();
+ await page.locator('[data-action="document-edit"][data-id="qa-existing-doc"]').first().click();
+ await page.locator('#docFile').setInputFiles({name:'nuevo.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 new content')});
+ const oldDocument=await page.evaluate(()=>window.__mockDb.ops_documents.find(d=>d.id==='qa-existing-doc').storage_path);
+ const beforeUploadCount=await page.evaluate(()=>window.__mockUploads.size);
+ await page.locator('[data-action="document-save"]').click();
+ await page.waitForTimeout(100);
+ assert((await page.locator('#toastHost').innerText()).includes('No se puede comprobar el espacio'),'Reemplazar documento con Storage caído no da error');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.find(d=>d.id==='qa-existing-doc').storage_path),oldDocument,'Se reemplazó el original sin cuota verificada');
+ assert.equal(await page.evaluate(()=>window.__mockUploads.size),beforeUploadCount,'Subió archivo pese al fallo de cuota');
+ await page.locator('#nav [data-route="administracion"]').click();
+ await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(50);
  const failed=await page.locator('#content').innerText();
