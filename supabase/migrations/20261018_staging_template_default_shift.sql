@@ -9,20 +9,28 @@ RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public, private
 AS $template$
+DECLARE
+  shift_invoice boolean := false;
+  shift_proforma boolean := false;
 BEGIN
-  IF NEW.active IS TRUE AND NEW.default_invoice IS TRUE
-     AND (TG_OP='INSERT' OR OLD.default_invoice IS DISTINCT FROM NEW.default_invoice
-          OR OLD.store_id IS DISTINCT FROM NEW.store_id OR OLD.active IS DISTINCT FROM NEW.active)
-  THEN
+  IF TG_OP='INSERT' THEN
+    shift_invoice := NEW.active IS TRUE AND NEW.default_invoice IS TRUE;
+    shift_proforma := NEW.active IS TRUE AND NEW.default_proforma IS TRUE;
+  ELSE
+    shift_invoice := NEW.active IS TRUE AND NEW.default_invoice IS TRUE
+      AND (OLD.default_invoice IS DISTINCT FROM NEW.default_invoice
+        OR OLD.store_id IS DISTINCT FROM NEW.store_id OR OLD.active IS DISTINCT FROM NEW.active);
+    shift_proforma := NEW.active IS TRUE AND NEW.default_proforma IS TRUE
+      AND (OLD.default_proforma IS DISTINCT FROM NEW.default_proforma
+        OR OLD.store_id IS DISTINCT FROM NEW.store_id OR OLD.active IS DISTINCT FROM NEW.active);
+  END IF;
+  IF shift_invoice THEN
     UPDATE public.ops_document_templates
        SET default_invoice = FALSE
      WHERE id <> NEW.id AND store_id IS NOT DISTINCT FROM NEW.store_id
        AND active IS TRUE AND default_invoice IS TRUE;
   END IF;
-  IF NEW.active IS TRUE AND NEW.default_proforma IS TRUE
-     AND (TG_OP='INSERT' OR OLD.default_proforma IS DISTINCT FROM NEW.default_proforma
-          OR OLD.store_id IS DISTINCT FROM NEW.store_id OR OLD.active IS DISTINCT FROM NEW.active)
-  THEN
+  IF shift_proforma THEN
     UPDATE public.ops_document_templates
        SET default_proforma = FALSE
      WHERE id <> NEW.id AND store_id IS NOT DISTINCT FROM NEW.store_id
