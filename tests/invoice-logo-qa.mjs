@@ -52,7 +52,7 @@ try {
   await page.locator('#modalHost img.invoice-logo').waitFor({state:'visible'});
   await page.waitForFunction(()=>{const img=document.querySelector('#modalHost img.invoice-logo');return img&&img.complete&&img.naturalWidth===4});
   fs.mkdirSync('artifacts',{recursive:true});
-  await page.locator('#modalHost').screenshot({path:'artifacts/invoice_logo_preview_desktop.png'});
+  await page.locator('#modalHost .modal').screenshot({path:'artifacts/invoice_logo_preview_desktop.png'});
   await exitModal();
 
   await page.locator('[data-action="template-edit"][data-id="'+tpl.id+'"]').click();
@@ -74,7 +74,7 @@ try {
   await page.locator('#modalHost img.invoice-logo').waitFor({state:'visible'});
   const geometry=await page.locator('#modalHost .modal').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right}});
   assert(geometry.left>=-2&&geometry.right<=392,'La vista previa del logo se desborda en móvil');
-  await page.locator('#modalHost').screenshot({path:'artifacts/invoice_logo_preview_mobile.png'});
+  await page.locator('#modalHost .modal').screenshot({path:'artifacts/invoice_logo_preview_mobile.png'});
   await exitModal();
 
   assert.deepEqual(errors,[],'Errores JavaScript en subida/vista previa/sustitución');
