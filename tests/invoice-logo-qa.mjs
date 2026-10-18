@@ -25,6 +25,8 @@ try {
 
   await page.locator('#tpName').fill('Plantilla prueba logo');
   await page.locator('#tpCode').fill('LOGOQA');
+  assert.deepEqual(await page.locator('#tpStyle option').evaluateAll(els=>els.map(el=>el.value)),['brand','clean','compact'],'Los estilos deben coincidir con el CHECK real de Supabase');
+  assert.deepEqual(await page.locator('#tpFont option').evaluateAll(els=>els.map(el=>el.value)),['helvetica','courier','times'],'Las fuentes deben coincidir con el CHECK real de Supabase');
   await page.locator('#tpLogo').setInputFiles({name:'no-es-imagen.pdf',mimeType:'application/pdf',buffer:Buffer.from('fake')});
   await page.locator('#modalHost [data-action="template-save"]').click();
   await page.waitForTimeout(150);
@@ -44,6 +46,7 @@ try {
   await page.waitForFunction(()=>window.__mockDb.ops_document_templates.some(x=>x.code==='LOGOQA'));
   data=await snapshot();
   let tpl=data.templates.find(x=>x.code==='LOGOQA');
+  assert.equal(tpl.style,'brand','La plantilla debe persistir el estilo canónico');
   assert(tpl?.logo_path?.startsWith('logos/'),'Plantilla creada sin ruta de logo');
   assert.equal(tpl.logo_name,'logo-qa-original.png');
   assert(data.assets.includes('business-assets/'+tpl.logo_path),'El archivo no se subió a Storage simulado');
@@ -85,7 +88,7 @@ try {
   await page.locator('#ivDesc_0').fill('Servicio de simulación con identidad corporativa');
   await page.locator('#ivQty_0').fill('1');
   await page.locator('#ivUnit_0').fill('20,00');
-  await page.locator('details.invoice-presentation summary').click();
+  await page.locator('details.invoice-presentation > summary').click();
   await page.locator('#ivTemplate').selectOption(tpl.id);
   await page.locator('[data-action="invoice-save"]').first().click();
   await page.waitForFunction(()=>window.__mockDb.ops_sales_invoices.some(x=>x.customer_name?.includes('Logo QA')));

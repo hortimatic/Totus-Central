@@ -60,7 +60,7 @@ for(const sqlPath of ['supabase/cleanup.sql','supabase/totus_api.sql']){
  }
 }
 
-const backupSql=fs.readFileSync('supabase/backup.sql','utf8');
+const backupSql=fs.readFileSync('supabase/backup.sql','utf8').replace(/\r\n/g,'\n');
 const contractStart=backupSql.indexOf('create or replace function public.totus_backup_contract()');
 assert.ok(contractStart>=0,'Backup contract missing from SQL source');
 const contractEnd=backupSql.indexOf('revoke all on function public.totus_backup_contract()',contractStart);

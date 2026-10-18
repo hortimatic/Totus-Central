@@ -770,11 +770,11 @@ function templateForm(row=null){
   ${formField('Nombre','tpName',row?.name||'')}
   ${formField('Código','tpCode',row?.code||'')}
   ${selectField('Tienda','tpStore',stores,row?.store_id||'')}
-  ${selectField('Estilo','tpStyle',[{value:'modern',label:'Moderna'},{value:'minimal',label:'Minimal'},{value:'classic',label:'Clásica'}],row?.style==='brand'?'modern':row?.style==='clean'?'minimal':row?.style==='compact'?'classic':(row?.style||'modern'))}
+  ${selectField('Estilo','tpStyle',[{value:'brand',label:'Moderna'},{value:'clean',label:'Minimal'},{value:'compact',label:'Clásica'}],({modern:'brand',minimal:'clean',classic:'compact'})[row?.style]||row?.style||'brand')}
   ${formField('Color principal','tpPrimary',row?.primary_color||'#17365D','color')}
   ${formField('Color secundario','tpSecondary',row?.secondary_color||'#4472C4','color')}
   ${formField('Color de texto','tpTextColor',row?.text_color||'#17202A','color')}
-  ${selectField('Tipografía','tpFont',[{value:'helvetica',label:'Helvetica / Arial'},{value:'georgia',label:'Georgia'},{value:'times',label:'Times'}],row?.font_family||'helvetica')}
+  ${selectField('Tipografía','tpFont',[{value:'helvetica',label:'Helvetica / Arial'},{value:'courier',label:'Courier'},{value:'times',label:'Times'}],row?.font_family||'helvetica')}
   ${selectField('Posición logo','tpLogoPos',[{value:'left',label:'Izquierda'},{value:'center',label:'Centro'},{value:'right',label:'Derecha'}],row?.logo_position||'left')}
   ${formField('Ancho logo (mm)','tpLogoWidth',row?.logo_width_mm??34,'number','min="10" max="70"')}
   ${formField('Título factura','tpInvoiceTitle',row?.invoice_title||'FACTURA')}

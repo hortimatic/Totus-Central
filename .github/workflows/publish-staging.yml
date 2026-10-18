@@ -47,6 +47,7 @@ jobs:
         working-directory: staging-source
         run: |
           node tests/qa.mjs
+          node tests/closed-closing-qa.mjs
           node tests/functional-regression.mjs
           node tests/cross-view-integrity-qa.mjs
           node tests/code-integrity.mjs

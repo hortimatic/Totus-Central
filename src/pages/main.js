@@ -736,7 +736,7 @@ export function closingRecordHtml(row=null){
       <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>
     </section>
-    <section class="stack" id="closingDrawers">${drawers.map(d=>drawerEditor(d,row)).join('')||'<div class="note bad">Esta tienda no tiene cajas activas configuradas.</div>'}</section>
+    <section class="stack" id="closingDrawers">${drawers.map(d=>drawerEditor(d,row,locked)).join('')||'<div class="note bad">Esta tienda no tiene cajas activas configuradas.</div>'}</section>
    </div>
    <aside class="record-side">
     <section class="card card-pad sticky-summary">
@@ -910,7 +910,7 @@ export function invoicePreview(row,logoUrl=''){
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
  const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=state.data.settings||{};
  const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',tpl.payment_terms_default||''].filter(Boolean).join(' · ');
- const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=tpl.style||'modern';
+ const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='courier'?'Courier New, monospace':tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=({brand:'modern',clean:'minimal',compact:'classic'})[tpl.style]||tpl.style||'modern';
  return `<article class="invoice-preview invoice-style-${esc(style)}" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)};--invoice-text:${esc(textColor)};--invoice-font:${esc(font)}">
   <header class="invoice-document-head">
    <div class="invoice-company">

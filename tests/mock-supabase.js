@@ -49,6 +49,12 @@ class Query{
  result(){
   const target=db[this.table];
   if(!target)return {data:null,error:{message:'Tabla de pruebas no definida: '+this.table}};
+  if(this.table==='ops_document_templates'&&['insert','update','upsert'].includes(this.mode)){
+   for(const row of Array.isArray(this.value)?this.value:[this.value]){
+    if(row.style!==undefined&&!['clean','brand','compact'].includes(row.style))return {data:null,error:{message:'ops_document_templates_style_check'}};
+    if(row.font_family!==undefined&&!['helvetica','times','courier'].includes(row.font_family))return {data:null,error:{message:'ops_document_templates_font_family_check'}};
+   }
+  }
   let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
   if(this.mode==='insert'){
    if(window.__mockRejectInsertTable===this.table){

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
@@ -8,7 +9,7 @@ const must=[
 ];
 const errors=[];
 for(const f of must)if(!fs.existsSync(path.join(root,f)))errors.push('Falta '+f);
-const text=f=>fs.readFileSync(path.join(root,f),'utf8');
+const text=f=>fs.readFileSync(path.join(root,f),'utf8').replace(/\r\n/g,'\n');
 const all=must.map(text).join('\n');
 const appSource=text('src/app.js');
 const pageSource=text('src/pages/main.js');
@@ -41,8 +42,8 @@ for(const key of usedData){
  if(!loadedData.has(key)&&!['audit','storageUsage'].includes(key))errors.push('state.data usado pero no cargado por loadCore: '+key);
 }
 
-const {state,setView}=await import(path.resolve(root,'src/state.js'));
-const pages=await import(path.resolve(root,'src/pages/main.js'));
+const {state,setView}=await import(pathToFileURL(path.resolve(root,'src/state.js')).href);
+const pages=await import(pathToFileURL(path.resolve(root,'src/pages/main.js')).href);
 state.user={role:'admin',email:'test@example.com',full_name:'Test'};
 state.data.settings={id:1,irpf_prepayment_rate:20,default_sales_vat_rate:21,storage_limit_bytes:500*1024*1024,difficult_expense_pct:5,difficult_expense_annual_cap:2000};state.data.storageUsage={total_bytes:0,limit_bytes:500*1024*1024,documents_count:0,assets_count:0};
 state.data.stores=[{id:'s1',name:'Hortimatic',active:true},{id:'s2',name:'NewOldSmok',active:true}];
@@ -162,7 +163,7 @@ for(const action of ['document-save','document-back'])if(!newDocument.includes('
 
 setView('administracion',{section:'backups'});const backupHtml=pages.administracion();
 for(const term of ['Descargar copia','Verificar integridad','Restauración bloqueada'])if(!backupHtml.includes(term))errors.push('Administración copias incompleta: '+term);
-const fileUtils=await import(path.resolve(root,'src/file-utils.js'));
+const fileUtils=await import(pathToFileURL(path.resolve(root,'src/file-utils.js')).href);
 const fake=(name,type,size=1024)=>({name,type,size});
 for(const [name,type,kind] of [
  ['a.pdf','application/pdf','pdf'],['a.jpg','image/jpeg','image'],['a.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','excel'],

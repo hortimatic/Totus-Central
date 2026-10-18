@@ -14,6 +14,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
+      - run: node tests/closed-closing-qa.mjs
       - run: node tests/functional-regression.mjs
       - run: node tests/cross-view-integrity-qa.mjs
       - run: node tests/code-integrity.mjs
