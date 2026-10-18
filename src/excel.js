@@ -120,6 +120,9 @@ function excelDateKey(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${Strin
 function moneyStyle(fill){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11},alignment:{horizontal:'right'},numFmt:'#,##0.00',border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
 function textStyle(fill,bold=false,align='left'){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11,bold},alignment:{horizontal:align,vertical:'center'},border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
 function sumFormula(refs){return refs.length?`SUM(${refs.join(',')})`:'0'}
+// The original daily cash book records the supplier's net bill; withheld tax
+// remains payable to the tax authority and is recorded separately when paid.
+function legacyExpenseAmount(expense){return n(expense.gross_expense??expense.accounting_amount??expense.amount_paid??0)-n(expense.withholding_amount)}
 function setCell(ws,addr,value,style,formula=null){
  const t=typeof value==='number'?'n':'s';ws[addr]={t,v:value,s:style};if(formula)ws[addr].f=formula;
 }
@@ -148,7 +151,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
      if(k===0)setCell(ws,`B${row}`,`${d} ${WEEKDAYS[new Date(year,month,d).getDay()]}`,textStyle(stripe,true));
      else setCell(ws,`B${row}`,'',textStyle(stripe,true));
      if(ex){
-       const g=legacyGroup(ex,categories),amount=n(ex.gross_expense??ex.accounting_amount??ex.amount_paid??0);
+       const g=legacyGroup(ex,categories),amount=legacyExpenseAmount(ex);
        setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(LEGACY_COLORS[g],false));
        setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
      }else{setCell(ws,`C${row}`,'',textStyle(stripe));setCell(ws,`D${row}`,'',moneyStyle(stripe))}
@@ -158,13 +161,13 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
    }
  }
  row+=2;const summaryStart=row;
- const cardTotal=[...byDateClose.values()].reduce((t,d)=>t+n(d.card_sales),0),cashTotal=[...byDateClose.values()].reduce((t,d)=>t+n(d.cash_withdrawals),0),grossExpenses=expMonth.reduce((t,e)=>t+n(e.gross_expense??e.accounting_amount??e.amount_paid??0),0);
+ const cardTotal=[...byDateClose.values()].reduce((t,d)=>t+n(d.card_sales),0),cashTotal=[...byDateClose.values()].reduce((t,d)=>t+n(d.cash_withdrawals),0),grossExpenses=expMonth.reduce((t,e)=>t+legacyExpenseAmount(e),0);
  const groups=[['Otros','other'],['SS y nominas','payroll'],['Pedidos ','orders'],['Gastos fijos','fixed'],['IRPF','irpf']];
  for(const [label,g] of groups){setCell(ws,`B${row}`,label,textStyle(LEGACY_COLORS[g],true));setCell(ws,`C${row}`,groupRefs[g].reduce((total,addr)=>total+n(ws[addr]?.v),0),textStyle(row%2===1?LEGACY_COLORS.stripe:null,false,'center'),sumFormula(groupRefs[g]));row++}
  const totalRow=row;setCell(ws,`B${row}`,'Total',textStyle(LEGACY_COLORS.total,true));setCell(ws,`C${row}`,grossExpenses,textStyle(LEGACY_COLORS.stripe,false,'center'),`SUM(C${summaryStart}:C${row-1})`);setCell(ws,`D${row}`,grossExpenses,moneyStyle(LEGACY_COLORS.stripe),expenseRefs.length?`SUM(${expenseRefs.join(',')})`:'0');
  const firstData=3,lastData=summaryStart-3;setCell(ws,`E${row}`,cardTotal,moneyStyle(LEGACY_COLORS.stripe),`SUM(E${firstData}:E${lastData})`);setCell(ws,`F${row}`,cashTotal,moneyStyle(LEGACY_COLORS.stripe),`SUM(F${firstData}:F${lastData})`);
  row+=2;
- const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+ const internalTotal=expMonth.filter(x=>x.management_only).reduce((a,x)=>a+legacyExpenseAmount(x),0);
  setCell(ws,`C${row}`,monthName,{font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}});row++;
  const fmtEuro=value=>Number(value||0).toFixed(2).replace('.',',');
  const recalc=`SUM(E${totalRow},F${totalRow})`;setCell(ws,`C${row}`,`${fmtEuro(cardTotal)}€ Tarjeta + ${fmtEuro(cashTotal)}€ metalico`,{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;

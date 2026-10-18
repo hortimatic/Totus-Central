@@ -18,6 +18,7 @@ jobs:
       - run: node tests/partial-balances-qa.mjs
       - run: node tests/team-admin-qa.mjs
       - run: node tests/invoice-issuer-qa.mjs
+      - run: node tests/legacy-retention-qa.mjs
       - run: node tests/gestor-source-qa.mjs
       - run: node tests/functional-regression.mjs
       - run: node tests/cross-view-integrity-qa.mjs

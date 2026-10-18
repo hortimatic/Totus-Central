@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {buildGestorSourceRows,gestorSourceTotals,gestorSourcePrintHtml,GESTOR_SOURCE_COLUMNS} from '../src/gestor-format.js';
+import {buildGestorSourceRows,gestorSourceTotals,gestorSourceBreakdown,gestorSourcePrintHtml,GESTOR_SOURCE_COLUMNS} from '../src/gestor-format.js';
 
 const args={from:'2026-01-01',to:'2026-03-31',store:'s1',categories:[{id:'rent',code:'RENT'}],
  expenses:[{id:'rent',store_id:'s1',expense_date:'2026-01-01',supplier_name:'Proveedor ficticio',invoice_number:'ALQ-QA',fiscal_reviewed:true},
@@ -18,6 +18,10 @@ assert.equal(rows[0][16],95);
 assert.equal(rows[0][2],'','No inventar referencias de la gestoría');
 assert.equal(rows[0][4],'');
 assert.equal(gestorSourceTotals(rows)[13],605);
+const breakdown=gestorSourceBreakdown(rows);
+assert.deepEqual(breakdown.vat,[[21,{base:500,tax:105}]]);
+assert.equal(breakdown.retentionBase,500);assert.equal(breakdown.retention,95);
+assert.equal(breakdown.concepts.reduce((sum,[,values])=>sum+values[4],0),605,'El resumen por conceptos debe conciliar con el libro');
 const partial=structuredClone(args);Object.assign(partial.expenseLines[0],{irpf_imputable:302.5});
 assert.equal(gestorSourceTotals(buildGestorSourceRows(partial))[13],302.5,'No duplicar deducciones parciales al desglosar impuestos');
 const recargo=structuredClone(args);Object.assign(recargo.expenseLines[0],{base_amount:100,vat_amount:21,re_base:100,re_rate:5.2,re_amount:5.2,irpf_imputable:126.2});
@@ -31,6 +35,7 @@ assert.equal((html.match(/<section class="gestor-page">/g)||[]).length,2);
 assert(!html.includes('<script>QA</script>'));
 assert(html.includes('&lt;script&gt;QA&lt;/script&gt;'));
 assert(html.includes('TOTAL DE PAGINA')&&html.includes('TOTAL ACUMULADO')&&html.includes('Sumas Anteriores'));
+assert(html.includes('DESGLOSE POR TIPOS')&&html.includes('DESGLOSE POR CONCEPTOS'));
 assert(!html.includes('Total factura')&&!html.includes('Neto pagado'));
 assert(gestorSourcePrintHtml().includes('Sin gastos fiscales revisados'));
 console.log('GESTOR SOURCE QA: 17 columnas originales, IVA/RE separado, retención, deducción parcial, filtros, referencias vacías y acumulados.');

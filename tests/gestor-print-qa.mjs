@@ -11,18 +11,18 @@ const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
  await page.setContent(html,{waitUntil:'load'});
- assert.equal(await page.locator('.gestor-page').count(),3);
- for(const table of await page.locator('table').all()){
+ assert.equal(await page.locator('.gestor-page').count(),4);
+ for(const table of await page.locator('.gestor-page:not(.gestor-summary) table').all()){
   assert.equal(await table.locator('thead tr:last-child th').count(),17);
   const overflow=await table.evaluate(t=>[...t.querySelectorAll('td')].filter(el=>el.scrollWidth>el.clientWidth+2).length);
   assert.equal(overflow,0,'Se recortan números o textos de la tabla');
  }
  const pdf=await page.pdf({preferCSSPageSize:true,printBackground:true});
  const parsed=await PDFDocument.load(pdf);
- assert.equal(parsed.getPageCount(),3,'La tabla desborda el A4 horizontal y añade páginas');
+ assert.equal(parsed.getPageCount(),4,'La tabla desborda el A4 horizontal y añade páginas');
  for(const p of parsed.getPages())assert(p.getWidth()>p.getHeight());
  fs.mkdirSync('artifacts',{recursive:true});
  fs.writeFileSync('artifacts/gestor_source_qa.pdf',pdf);
  await page.locator('.gestor-page').first().screenshot({path:'artifacts/gestor_source_qa.png'});
- console.log('GESTOR PRINT QA: 100 filas, tres páginas A4 horizontales, 17 columnas, números sin recorte y PDF reabierto.');
+ console.log('GESTOR PRINT QA: 100 filas, cuatro páginas A4 (incluye desglose final) horizontales, 17 columnas, números sin recorte y PDF reabierto.');
 }finally{await browser.close()}
