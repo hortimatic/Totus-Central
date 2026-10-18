@@ -4,7 +4,7 @@ import path from 'node:path';
 const root=process.cwd();
 const source=['src/app.js','src/api.js','src/state.js','src/utils.js','src/config.js','src/components.js','src/permissions.js','src/calculations.js','src/file-utils.js','src/expense-register.js','src/excel.js','src/backup.js','src/pages/main.js'];
 source.push('src/gestor-format.js');
-source.push('src/pdf-preview.js','src/report-period.js');
+source.push('src/pdf-preview.js','src/report-period.js','src/recovery-core.js','src/recovery-runner.js');
 const cache=Object.fromEntries(source.map(file=>[file,fs.readFileSync(file,'utf8')]));
 const problems=[];
 for(const [file,content] of Object.entries(cache)){

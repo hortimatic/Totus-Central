@@ -1,8 +1,8 @@
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
-import {ROUTES} from './config.js';
+import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
-import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
+import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
@@ -32,7 +32,7 @@ function permissionForAction(action,el){
  else if(/^(tax-payment-|fiscal-|reta-|expense-category-|income-adjustment-)/.test(action))module='fiscalidad';
  else if(/^(pricing-|product-|brand-|family-|families-|provider-|providers-|variant-|competitor-|consultation-|home-price-)/.test(action))module='pricing';
  else if(/^(report-|export-gestor-|export-store-|export-summary)/.test(action))module='informes';
- else if(/^(user-|role-|store-|drawer-|config-|backup-|admin-)/.test(action))module='administracion';
+ else if(/^(user-|role-|store-|drawer-|config-|backup-|admin-|recovery-)/.test(action))module='administracion';
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
@@ -44,6 +44,7 @@ function permissionForAction(action,el){
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a.startsWith('recovery-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
  if(a==='invoice-rectify')operation='create';
@@ -1518,7 +1519,7 @@ async function verifyStoredBackup(id){
  <div class="summary-row"><span>Tablas</span><b>${result.manifest.tables.length}</b></div>
  <div class="summary-row"><span>Registros</span><b>${rows}</b></div>
  <div class="summary-row"><span>Archivos</span><b>${files}</b></div>
- <p class="note warn">La restauración completa sigue desactivada hasta su certificación.</p></div>`);
+ <p class="note">${result.manifest.version===3?'Esta copia conserva autores y permisos y se puede revisar para recuperar los datos en este mismo proyecto.':'Esta copia antigua solo admite comprobación; para recuperar autores y permisos necesitas una copia nueva.'}</p></div>`);
 }
 
 async function downloadBackup(){
@@ -1534,7 +1535,54 @@ async function verifyBackupFromInput(){
  const result=await inspectBackup(file);
  const rows=Object.values(result.database).reduce((a,entries)=>a+(Array.isArray(entries)?entries.length:0),0);
  const files=Object.values(result.manifest.storage||{}).reduce((a,entries)=>a+(Array.isArray(entries)?entries.length:0),0);
- modal('Comprobación de copia',`<div class="stack"><div class="note">Integridad validada. No se ha modificado ningún dato.</div><p>Versión: <b>${esc(result.manifest.version)}</b></p><p>Registros de negocio: <b>${rows}</b></p><p>Archivos: <b>${files}</b></p><div class="note warn">Validar la copia no significa que se pueda restaurar aún. La restauración sigue bloqueada por seguridad.</div></div>`);
+ modal('Comprobación de copia',`<div class="stack"><div class="note">Integridad validada. No se ha modificado ningún dato.</div><p>Versión: <b>${esc(result.manifest.version)}</b></p><p>Registros de negocio: <b>${rows}</b></p><p>Archivos: <b>${files}</b></p><div class="note">${result.manifest.version===3?'Usa «Revisar para recuperar» para comprobar el destino y preparar la recuperación.':'La copia antigua se puede revisar, pero no permite recuperar todos los autores. Genera una copia nueva.'}</div></div>`);
+}
+
+let recoveryCandidate=null,recoveryBusy=false;
+async function reviewRecoveryFile(){
+ if(!isAdmin())throw new Error('Solo administración puede recuperar una copia.');
+ const file=input('backupFile')?.files?.[0];
+ if(!file)throw new Error('Selecciona la copia que quieres recuperar.');
+ const archive=await inspectBackup(file);
+ if(archive.manifest.version!==3)throw new Error('Esta copia antigua no conserva todos los autores. Solo admite comprobación; la recuperación necesita una copia nueva.');
+ if(archive.manifest.project_ref!==new URL(SUPABASE_URL).hostname.split('.')[0])throw new Error('La copia pertenece a otro proyecto.');
+ const current=await rpc('totus_export_recovery_snapshot');
+ if(current.database_instance!==archive.manifest.database_instance||current.schema_hash!==archive.manifest.schema_hash)throw new Error('La copia no corresponde a este proyecto o su estructura es incompatible.');
+ const rows=Object.values(archive.database).reduce((sum,list)=>sum+list.length,0),files=Object.values(archive.manifest.storage).reduce((sum,list)=>sum+list.length,0);
+ recoveryCandidate={file,manifest:archive.manifest};
+ modal('Revisar recuperación',`<p><b>${esc(file.name)}</b></p><div class="summary-row"><span>Fecha de la copia</span><strong>${esc(new Date(archive.manifest.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}</strong></div><div class="summary-row"><span>Registros</span><strong>${rows}</strong></div><div class="summary-row"><span>Archivos vinculados</span><strong>${files}</strong></div><p class="note warn">Se sustituirán los datos y permisos por los de esta copia. Las contraseñas de las cuentas actuales se conservan. Antes se guardará una copia del estado anterior y se verificarán los archivos.</p><div class="form-actions">${btn('Cancelar','close-modal','secondary')}${btn('Continuar','recovery-confirm','primary')}</div>`);
+}
+async function performRecovery(jobId=''){
+ if(!isAdmin())throw new Error('Solo administración puede recuperar una copia.');
+ if(recoveryBusy)throw new Error('Ya hay una recuperación en curso. Consulta su estado.');
+ const candidate=recoveryCandidate;
+ if(!jobId&&!candidate)throw new Error('Revisa primero la copia que quieres recuperar.');
+ if(!await confirmAction('Se recuperarán los datos y permisos de la copia seleccionada. Se conservará un punto de vuelta atrás antes de sustituir los registros.',{phrase:'RECUPERAR COPIA',title:'Confirmar recuperación',acceptLabel:'Recuperar datos'}))return;
+ recoveryBusy=true;
+ const id=jobId||crypto.randomUUID();
+ try{
+  toast('Preparando punto de recuperación y archivos…');
+  if(!jobId){
+   const registered=await invokeRecovery(id,'register');
+   const {error}=await sb.storage.from('business-backups').upload(registered.source_path,candidate.file,{contentType:'application/octet-stream',upsert:false});
+   if(error)throw new Error('No se ha podido subir la copia: '+error.message);
+  }
+  await invokeRecovery(id);
+  recoveryCandidate=null;await refresh('Recuperación completada y verificada.');
+ }catch(error){
+  const {data:job}=await sb.from('ops_recovery_jobs').select('*').eq('id',id).maybeSingle();
+  if(job?.status==='committed'){recoveryCandidate=null;await refresh('Recuperación completada. Se ha confirmado el resultado tras una interrupción de conexión.');return}
+  await refresh();
+  throw new Error((error.message||String(error))+' Revisa el estado en «Recuperaciones» antes de reintentar.');
+ }finally{recoveryBusy=false}
+}
+async function downloadRecoveryFile(id,kind){
+ if(!isAdmin())throw new Error('Solo administración puede descargar estas copias.');
+ const job=(state.data.recoveryJobs||[]).find(x=>x.id===id),path=kind==='checkpoint'?job?.checkpoint_path:job?.source_path;
+ if(!path)throw new Error('El archivo no está disponible.');
+ const {data,error}=await sb.storage.from('business-backups').download(path);
+ if(error||!data)throw new Error('No se pudo descargar el archivo: '+(error?.message||'No disponible'));
+ download(data,path.split('/').pop());
 }
 
 async function saveConfig(){
@@ -1907,6 +1955,10 @@ document.addEventListener('click',async e=>{
   if(a==='backup-refresh'){await refresh('Historial de copias actualizado.');return}
   if(a==='backup-create'){await downloadBackup();return}
   if(a==='backup-verify'){await verifyBackupFromInput();return}
+  if(a==='recovery-review'){await reviewRecoveryFile();return}
+  if(a==='recovery-confirm'){await performRecovery();return}
+  if(a==='recovery-continue'){await performRecovery(el.dataset.id);return}
+  if(a==='recovery-download'){await downloadRecoveryFile(el.dataset.id,el.dataset.kind);return}
   if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));return}
   if(a==='tax-payment-edit'){const row=el.dataset.id?state.data.taxPayments.find(x=>x.id===el.dataset.id):null;taxPaymentForm(el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter),row);return}
   if(a==='tax-payment-save'){await saveTaxPayment(el.dataset.id||'',el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter));return}
@@ -1951,6 +2003,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){
+  recoveryCandidate=null;
   const file=e.target.files?.[0],label=input('backupSelectedFile');
   if(label)label.textContent=file?file.name+' · '+(file.size/1024).toFixed(1)+' KB':'Ningún archivo seleccionado';
   return;

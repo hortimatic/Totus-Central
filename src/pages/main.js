@@ -597,7 +597,7 @@ function adminBackupHtml(){
    </div>
    <div class="note">Destino: almacenamiento privado de <b>Supabase STAGING → business-backups</b>, en la carpeta elegida. No se puede guardar automáticamente en una carpeta del ordenador mientras está apagado. Las copias antiguas se eliminan tras una nueva copia exitosa, conservando siempre la más reciente. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
-   <div class="note warn">Restauración bloqueada: las copias se pueden descargar y verificar, pero no restaurar desde Totus hasta que la recuperación íntegra esté probada. Para grandes volúmenes superiores a 49 MB se mostrará fallo, nunca un respaldo incompleto como correcto.</div>
+   <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. El límite de cada archivo de copia es 49 MB; un exceso se mostrará como fallo y no como respaldo correcto.</div>
   </section>
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Historial y descargas</h2><p>${recent?'Última copia correcta: '+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Aún no hay copias completas almacenadas.'} Revisa cada ejecución, errores, tamaño y archivos.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
    ${table(columns,runs.slice(0,50),{emptyTitle:'Sin copias en el servidor',emptyText:'Puedes crear una copia manual o activar la programación.'})}
@@ -607,9 +607,21 @@ function adminBackupHtml(){
    <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></span>
    <span id="backupSelectedFile" role="status" class="small muted">Ningún archivo seleccionado</span></span>
   </label></div>
-  <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}</div>
+  <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}${btn('Revisar para recuperar','recovery-review','primary')}</div>
   </section>
+  ${adminRecoveryHistoryHtml()}
  </div>`;
+}
+
+function adminRecoveryHistoryHtml(){
+ const labels={uploaded:'Pendiente de subida o confirmación',preparing:'Preparando',prepared:'Preparada; falta confirmar',committed:'Completada',failed:'Fallida'};
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Recuperaciones</h2><p>Consulta el resultado antes de reintentar una operación interrumpida. La copia anterior permite recuperar el estado previo.</p></div>${btn('Actualizar','backup-refresh','secondary')}</div>${table([
+  {label:'Fecha',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
+  {label:'Solicitante',get:'requested_email'},
+  {label:'Estado',html:r=>`<span class="badge ${r.status==='committed'?'ok':r.status==='failed'?'warn':'info'}">${esc(labels[r.status]||r.status)}</span>`},
+  {label:'Incidencia',html:r=>esc(r.error||'—')},
+  {label:'',html:r=>`<div class="inline-actions">${r.checkpoint_path?btn('Copia anterior','recovery-download','secondary',`data-id="${r.id}" data-kind="checkpoint"`):''}${r.source_path?btn('Copia solicitada','recovery-download','secondary',`data-id="${r.id}" data-kind="source"`):''}${r.requested_by===state.session?.user?.id&&['uploaded','prepared'].includes(r.status)?btn('Continuar recuperación','recovery-continue','secondary',`data-id="${r.id}"`):''}</div>`}
+ ],(state.data.recoveryJobs||[]).slice(0,20),{emptyTitle:'Sin recuperaciones',emptyText:'Las recuperaciones y sus puntos de vuelta atrás aparecerán aquí.'})}</section>`;
 }
 function adminLogHtml(){
  const f=state.filters.adminLog||{},all=state.data.audit||[];

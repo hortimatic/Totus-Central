@@ -33,6 +33,8 @@ jobs:
       - run: node tests/expense-archive-qa.mjs
       - run: node tests/excel-invariants.mjs
       - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib
+      - run: node tests/recovery-core-qa.mjs
+      - run: node tests/recovery-handler-qa.mjs
       - run: npx playwright install --with-deps chromium
       - run: node tests/excel-qa.mjs
       - run: node tests/monthly-workbook-qa.mjs
@@ -57,6 +59,7 @@ jobs:
       - run: node tests/invoice-logo-qa.mjs
       - run: node tests/deletion-flows-qa.mjs
       - run: node tests/backup-qa.mjs
+      - run: node tests/recovery-browser-qa.mjs
       - run: node tests/admin-submenus-qa.mjs
       - run: node tests/billing-submenus-qa.mjs
       - run: node tests/fiscal-submenus-qa.mjs

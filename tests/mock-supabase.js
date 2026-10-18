@@ -9,6 +9,8 @@ const role=new URLSearchParams(location.search).get('role')||'admin';
 const db={
  ops_backup_config:[{id:1,enabled:false,frequency:'daily',run_hour:3,run_minute:0,weekday:1,month_day:1,retention_days:10,destination_folder:'automaticas'}],
  ops_backup_runs:[],
+ ops_recovery_jobs:[],
+ team_email_log:[],
  team_user_audit_log:[],
  ops_roles:[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}],
  ops_role_permissions:[],
@@ -90,6 +92,12 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ if(name==='totus_export_recovery_snapshot'){
+  if(role!=='admin')return {data:null,error:{message:'Solo administración'}};
+  const {RECOVERY_TABLES,recoveryFileReferences}=await import('../src/recovery-core.js');
+  const database=Object.fromEntries(RECOVERY_TABLES.map(table=>[table,structuredClone(db[table]||[]).sort((a,b)=>String(a.id||a.code||a.email).localeCompare(String(b.id||b.code||b.email)))]));
+  return {data:{database,storage:recoveryFileReferences(database),identities:db.profiles.map(p=>({id:p.id,email:p.email})),database_instance:userId,schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:new Date().toISOString()},error:null};
+ }
  if(name==='totus_backup_save_settings'){
   if(role!=='admin')return {data:null,error:{message:'Solo administrador'}};
   const x=args.p||{};

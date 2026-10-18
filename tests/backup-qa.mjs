@@ -32,7 +32,9 @@ try{
  const zip=await JSZip.loadAsync(bytes);
  const manifest=JSON.parse(await zip.file('manifest.json').async('string'));
  const database=JSON.parse(await zip.file('database.json').async('string'));
- if(manifest.version!==2||!manifest.integrity?.database)throw Error('Falta control de integridad v2');
+ if(manifest.version!==3||!manifest.integrity?.database)throw Error('Falta control de integridad v3');
+ if(!Array.isArray(database.profiles)||!Array.isArray(database.team_members)||manifest.identities.length!==1)throw Error('Faltan autores o directorio');
+ if(database.ops_documents[0].uploaded_by!==manifest.identities[0].id)throw Error('Se ha perdido el autor del documento');
  if(!Array.isArray(database.ops_income_adjustments))throw Error('Falta tabla de ajustes manuales');
  if(database.ops_expenses.length!==1205)throw Error('Paginación del backup pierde gastos');
  if(database.ops_expenses[0].id!=='00000000-0000-4000-8000-000000000000'||database.ops_expenses.at(-1).id!=='00000000-0000-4000-8000-000000001204')throw Error('Paginación sin orden estable');

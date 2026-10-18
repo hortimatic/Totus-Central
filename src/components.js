@@ -196,9 +196,9 @@ export function modal(title,body,{small=false}={}){
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" data-modal-content="true"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;
 }
 export function closeModal(){document.getElementById('modalHost').innerHTML=''}
-export function confirmAction(message,{phrase=''}={}){
+export function confirmAction(message,{phrase='',title='Confirmar eliminación',acceptLabel='Eliminar definitivamente'}={}){
  return new Promise(resolve=>{
-  modal('Confirmar eliminación',`<p>${esc(message)}</p>${phrase?formField('Escribe '+phrase,'confirmPhrase'):''}<div class="form-actions"><button class="btn secondary" data-confirm="cancel">Cancelar</button><button class="btn danger" data-confirm="accept" ${phrase?'disabled':''}>Eliminar definitivamente</button></div>`,{small:true});
+  modal(title,`<p>${esc(message)}</p>${phrase?formField('Escribe '+phrase,'confirmPhrase'):''}<div class="form-actions"><button class="btn secondary" data-confirm="cancel">Cancelar</button><button class="btn danger" data-confirm="accept" ${phrase?'disabled':''}>${esc(acceptLabel)}</button></div>`,{small:true});
   const host=document.getElementById('modalHost'),panel=host.firstElementChild,accept=panel.querySelector('[data-confirm="accept"]'),field=panel.querySelector('#confirmPhrase');
   const finish=result=>{observer.disconnect();host.removeEventListener('click',click);closeModal();resolve(result)};
   const click=e=>{

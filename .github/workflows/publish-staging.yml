@@ -69,6 +69,8 @@ jobs:
         working-directory: staging-source
         run: |
           npm install --no-save xlsx-js-style playwright jszip pdf-lib
+          node tests/recovery-core-qa.mjs
+          node tests/recovery-handler-qa.mjs
           npx playwright install --with-deps chromium
       - name: Check exports and real browser flows against isolated mock data
         working-directory: staging-source
@@ -95,6 +97,7 @@ jobs:
           node tests/invoice-logo-qa.mjs
           node tests/deletion-flows-qa.mjs
           node tests/backup-qa.mjs
+          node tests/recovery-browser-qa.mjs
           node tests/admin-submenus-qa.mjs
           node tests/billing-submenus-qa.mjs
           node tests/fiscal-submenus-qa.mjs
