@@ -78,6 +78,7 @@ jobs:
           node tests/modal-geometry-qa.mjs
           node tests/field-sweep-qa.mjs
           node tests/full-flow-qa.mjs
+          node tests/invoice-logo-qa.mjs
           node tests/deletion-flows-qa.mjs
           node tests/backup-qa.mjs
           node tests/admin-submenus-qa.mjs
