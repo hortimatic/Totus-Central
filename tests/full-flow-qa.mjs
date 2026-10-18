@@ -620,6 +620,30 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  await page.waitForTimeout(100);
  const history=await page.evaluate(()=>({consultations:window.__mockDb.consultations,actions:window.__mockDb.consultation_history}));
  assert(history.consultations.length===1&&history.actions.length===1,'La consulta no guardó su histórico');
+ const consultationId=history.consultations[0].id;
+ await page.locator('[data-action="consultation-convert"][data-id="'+consultationId+'"]').click();
+ await page.locator('#ccSku').fill('SKU-CONVERT-QA');
+ await page.locator('[data-action="consultation-convert-save"]').click();
+ assert((await page.locator('#toastHost').innerText()).includes('Proveedor'),'No informa que falta el proveedor');
+ assert(!(await page.evaluate(()=>window.__mockDb.products)).some(x=>x.sku==='SKU-CONVERT-QA'),'Creó producto sin coste de proveedor');
+ await page.locator('#modalHost .close-btn').click();
+ const providerId=await page.evaluate(async()=>{
+  const {state}=await import('../src/state.js');
+  const p={id:crypto.randomUUID(),name:'Proveedor conversión QA',active:true};
+  state.data.providers.push(p);window.__mockDb.providers.push(p);return p.id;
+ });
+ await page.locator('[data-action="consultation-convert"][data-id="'+consultationId+'"]').click();
+ await page.locator('#ccSku').fill('SKU-CONVERT-QA');
+ await page.locator('#ccProvider').selectOption(providerId);
+ await page.locator('[data-action="consultation-convert-save"]').click();
+ await page.waitForTimeout(90);
+ const converted=await page.evaluate(()=>({
+  product:window.__mockDb.products.find(x=>x.sku==='SKU-CONVERT-QA'),
+  costs:window.__mockDb.product_provider_prices
+ }));
+ assert(converted.product,'No se convirtió la consulta correctamente');
+ assert(converted.costs.some(x=>x.product_id===converted.product.id&&x.provider_id===providerId&&x.net_cost===2.5&&x.selected),'La conversión perdió proveedor o precio neto');
+ await nav('pricing');
  await page.locator('[data-action="product-new"]').first().click();
  await page.locator('#prSku').fill('SKU-QA-001');
  await page.locator('#prName').fill('Producto de prueba independiente');

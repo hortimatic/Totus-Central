@@ -692,7 +692,7 @@ function consultationConvertForm(id){
   ${formField('Nombre producto','ccName',c.query||'')}
   ${formField('Referencia / SKU','ccSku','')}
   ${selectField('Familia','ccFamily',families,'')}
-  ${selectField('Proveedor opcional','ccProvider',providers,'')}
+  ${selectField('Proveedor obligatorio','ccProvider',[{value:'',label:'Selecciona proveedor'},...providers],'')}
   ${formField('Coste neto','ccCost',c.cost_net??0,'number','step="0.01" min="0"')}
   ${formField('PVP','ccPvp',c.pvp??0,'number','step="0.01" min="0"')}
  </div><div class="note" style="margin-top:12px">El impuesto especial de sales no se vuelve a sumar: el coste introducido se conserva como coste de compra.</div><div class="form-actions">${btn('Crear producto','consultation-convert-save','primary',`data-id="${id}"`)}</div>`;
@@ -702,9 +702,16 @@ async function convertConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)throw new Error('Consulta no encontrada.');
  const sku=required('ccSku','Referencia / SKU').trim(),name=required('ccName','Nombre');
  const dup=state.data.products.find(x=>String(x.sku||'').trim().toLowerCase()===sku.toLowerCase());if(dup)throw new Error('Ya existe un producto con esa referencia.');
- const product=await insert('products',{name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:Math.max(0,num('ccPvp')),proposed_pvp:null,units_month:0,status:'ACTIVO',notes:'Creado desde consulta: '+c.query,created_by:state.user?.id||null,updated_at:new Date().toISOString()});
- const providerId=val('ccProvider')||null,cost=Math.max(0,num('ccCost'));
- if(providerId)await insert('product_provider_prices',{product_id:product.id,variant_id:null,provider_id:providerId,net_cost:cost,provider_discount:0,shipping_unit:0,moq:0,stock_status:'',price_date:isoToday(),notes:'Coste trasladado desde consulta',selected:true,purchase_origin:'España',apply_special_tax:false,special_tax_amount:0});
+ const providerId=required('ccProvider','Proveedor'),cost=num('ccCost');
+ if(cost<=0)throw new Error('Introduce el coste de compra neto antes de convertir la consulta en producto.');
+ const pvp=num('ccPvp');if(pvp<=0)throw new Error('Indica un PVP válido antes de convertir la consulta en producto.');
+ const product=await insert('products',{name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,units_month:0,status:'ACTIVO',notes:'Creado desde consulta: '+c.query,created_by:state.user?.id||null,updated_at:new Date().toISOString()});
+ try{
+  await insert('product_provider_prices',{product_id:product.id,variant_id:null,provider_id:providerId,net_cost:cost,provider_discount:0,shipping_unit:0,moq:0,stock_status:'',price_date:isoToday(),notes:'Coste trasladado desde consulta',selected:true,purchase_origin:'España',apply_special_tax:false,special_tax_amount:0});
+ }catch(e){
+  try{await remove('products',product.id)}catch(rollbackError){throw new Error('No se pudo asignar el proveedor al producto; tampoco se pudo revertir el alta: '+rollbackError.message)}
+  throw new Error('No se pudo guardar el coste del proveedor. No se ha creado el producto: '+e.message);
+ }
  await insert('consultation_history',{consultation_id:id,user_id:state.user?.id||null,action:'CONVERTIDO_A_PRODUCTO',consultation_query:c.query,snapshot:{...c,product_id:product.id}}).catch(()=>{});
  closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
 }
