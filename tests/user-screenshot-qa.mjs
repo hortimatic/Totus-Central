@@ -30,13 +30,15 @@ for(const width of sizes){
   const el=document.querySelector('.invoice-presentation');
   const box=e=>{const b=e.getBoundingClientRect();return {x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height}};
   const selector=el.querySelector('#ivTemplate'),area=el.querySelector('#ivTerms'),caption=selector.closest('label').querySelector('.field-caption');
-  const summary=caption.querySelector('.field-help>summary'),style=getComputedStyle(summary);
-  return {selector:box(selector),area:box(area),caption:box(caption),icon:box(summary),i:summary.textContent.trim(),
-    fontSize:style.fontSize,after:getComputedStyle(summary,'::after').content,scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
+  const summary=caption.querySelector('.field-help>summary'),svg=summary.querySelector('svg.field-help-icon');
+  return {selector:box(selector),area:box(area),caption:box(caption),icon:box(summary),svg:svg?box(svg):null,
+    svgVisible:svg&&getComputedStyle(svg).visibility==='visible'&&getComputedStyle(svg).display!=='none',
+    svgStructure:!!svg?.querySelector('circle')&&!!svg?.querySelector('path'),
+    after:getComputedStyle(summary,'::after').content,scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth};
  });
  if(Math.abs(invoice.selector.width-invoice.area.width)>4)errors.push(width+': template does not align with full-width textarea: '+JSON.stringify(invoice));
- if(invoice.i!=='i'||parseFloat(invoice.fontSize)<10||invoice.icon.width<19||invoice.icon.height<19||invoice.after!=='none')
-  errors.push(width+': information icon not correctly rendered: '+JSON.stringify(invoice));
+ if(!invoice.svgVisible||!invoice.svgStructure||!invoice.svg||invoice.svg.width<19||invoice.svg.height<19||invoice.icon.width<23||invoice.icon.height<23||!['none','normal'].includes(invoice.after))
+  errors.push(width+': information SVG not drawn correctly: '+JSON.stringify(invoice));
  if(invoice.icon.x<invoice.caption.x||invoice.icon.right>invoice.caption.right+3)
   errors.push(width+': info icon outside caption');
  if(invoice.scrollWidth>invoice.viewport+3)errors.push(width+': horizontal page overflow');
@@ -57,7 +59,11 @@ for(const width of sizes){
   if(!aside||aside.mode!=='sticky'||aside.ownerHeight<700||aside.bottom<90||aside.top>900-120)
    errors.push(width+': sidebar summary disappears when scrolling down to template: '+JSON.stringify(aside));
  }
- if([1640,390].includes(width))await page.screenshot({path:'artifacts/user_invoice_'+width+'.png',fullPage:false});
+ if([1640,390].includes(width)){
+  await section.locator('#ivTemplate').scrollIntoViewIfNeeded();
+  await section.locator('.field-help>summary').first().screenshot({path:'artifacts/field_help_icon_'+width+'.png'});
+  await page.screenshot({path:'artifacts/user_invoice_'+width+'.png',fullPage:false});
+ }
  await page.close();
 }
 await browser.close();

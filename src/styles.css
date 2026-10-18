@@ -102,7 +102,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 
 .field-help{display:inline-block!important;position:relative!important;vertical-align:middle!important;margin-inline-start:6px!important;z-index:3}
 .field-help[open]{z-index:60}
-.field-help>summary{display:inline-grid!important;place-items:center!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;padding:0!important;border:1px solid #6b91c5;border-radius:50%;background:#eff6ff;color:#194b8c;font:800 12px/1 system-ui!important;cursor:pointer;list-style:none;user-select:none}
+.field-help>summary{display:inline-grid!important;place-items:center!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;padding:0!important;border:0!important;border-radius:50%;background:transparent;color:#2468c2;cursor:pointer;list-style:none;user-select:none}
+.field-help>summary>.field-help-icon{display:block!important;visibility:visible!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round;fill:none}
+.field-help>summary>.field-help-icon>.field-help-dot{fill:currentColor!important;stroke:none!important}
 .field-help>summary::-webkit-details-marker{display:none}
 .field-help>summary:hover,.field-help[open]>summary{background:#2468c2;color:#fff;border-color:#2468c2}
 .field-help>summary:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
@@ -222,7 +224,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .inline-actions .btn{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .form-grid label,.field label{min-width:0;overflow-wrap:anywhere}
 .field-caption{display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;line-height:1.35}
-.field-caption .field-help{margin-inline-start:1px!important;flex:0 0 20px}
+.field-caption .field-help{margin-inline-start:1px!important;flex:0 0 24px}
 .field-help>span[role="note"]{overflow-wrap:anywhere}
 @media(max-width:850px){
  .storage-information-grid{grid-template-columns:1fr}

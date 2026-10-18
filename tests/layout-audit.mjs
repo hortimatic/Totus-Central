@@ -63,9 +63,13 @@ for(const [viewportName,viewport] of [['wide',{width:1640,height:900}],['desktop
    }
    const infoIcons=[...root.querySelectorAll('.field-help>summary')].filter(visible).map(el=>{
     const r=el.getBoundingClientRect();
-    return {w:r.width,h:r.height,content:getComputedStyle(el,'::after').content,text:el.textContent.trim(),fontSize:parseFloat(getComputedStyle(el).fontSize)};
+    const svg=el.querySelector('svg.field-help-icon'),sr=svg?.getBoundingClientRect();
+    const style=svg?getComputedStyle(svg):null;
+    return {w:r.width,h:r.height,content:getComputedStyle(el,'::after').content,
+      hasSvg:!!svg,svgWidth:sr?.width||0,svgHeight:sr?.height||0,svgVisible:style?.visibility==='visible'&&style?.display!=='none',
+      hasCircle:!!svg?.querySelector('circle'),hasStem:!!svg?.querySelector('path')};
    });
-   const invalidInfoIcons=infoIcons.filter(i=>Math.abs(i.w-i.h)>1||i.w<18||i.h<18||i.text!=='i'||i.fontSize<10||!['none','normal'].includes(i.content));
+   const invalidInfoIcons=infoIcons.filter(i=>Math.abs(i.w-i.h)>1||i.w<23||i.h<23||!i.hasSvg||!i.svgVisible||i.svgWidth<19||i.svgHeight<19||!i.hasCircle||!i.hasStem||!['none','normal'].includes(i.content));
    return {duplicate,unlabeled,links,outOfBounds,blank,forms,clipped,compressedHeadings,invalidInfoIcons,infoIconsCount:infoIcons.length};
   });
   if(audit.duplicate.length)failures.push(label+' duplicate visible element IDs: '+JSON.stringify(audit.duplicate));
