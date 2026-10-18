@@ -296,3 +296,6 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .expense-category-name b{font-size:14px}
 .expense-category-entry .inline-actions{justify-content:flex-end}
 @media(max-width:560px){.expense-category-entry{grid-template-columns:minmax(0,1fr) auto;gap:8px}.expense-category-entry .inline-actions{grid-column:1/-1;justify-content:flex-start}.expense-category-child{padding-left:20px}}
+
+/* Feedback messages must not block buttons underneath while notifications fade. */
+.toast-host,.toast-host .toast{pointer-events:none}
