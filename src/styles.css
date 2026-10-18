@@ -331,3 +331,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .record-layout>.record-side{align-self:stretch;position:relative}
  .record-layout>.record-side>.sticky-summary{position:sticky;top:96px}
 }
+
+/* Do not let a button squeeze section headings until normal words split.
+   Flex wrapping should move the action to the next line before splitting words. */
+.section-head>div:first-child{min-width:min(100%,240px)}
+.section-head h2,.section-head h3{word-break:normal;overflow-wrap:break-word;hyphens:none}

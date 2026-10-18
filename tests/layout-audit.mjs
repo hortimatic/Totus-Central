@@ -21,7 +21,7 @@ const pages=[
  ['admin-fiscal','?route=administracion&section=fiscal'],['admin-storage','?route=administracion&section=storage'],
  ['admin-backups','?route=administracion&section=backups'],['admin-log','?route=administracion&section=log']
 ];
-for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tablet',{width:768,height:1024}],['mobile',{width:390,height:844}]]){
+for(const [viewportName,viewport] of [['wide',{width:1640,height:900}],['desktop',{width:1440,height:960}],['tablet',{width:768,height:1024}],['mobile',{width:390,height:844}],['small-mobile',{width:320,height:740}]]){
  const page=await browser.newPage({locale:'es-ES',viewport});
  for(const [view,query] of pages){
   const label=viewportName+'/'+view;
@@ -40,6 +40,20 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
    for(const label of root.querySelectorAll('label[for]'))if(!document.getElementById(label.htmlFor))links.push(label.htmlFor);
    const forms=[...root.querySelectorAll('form')].filter(visible).length;
    const blank=[...root.querySelectorAll('.card,.record-main,.record-side,.table-wrap')].filter(visible).filter(el=>el.getBoundingClientRect().height>300 && (el.innerText||'').trim().length<12).slice(0,4).map(el=>({class:el.className,height:Math.round(el.getBoundingClientRect().height)}));
+   const compressedHeadings=[];
+   for(const header of root.querySelectorAll('.section-head')){
+    const action=header.querySelector('.btn,.inline-actions');
+    if(!action||!visible(action))continue;
+    const title=header.querySelector('h2,h3');
+    if(!title||!visible(title))continue;
+    const ctx=document.createElement('canvas').getContext('2d');
+    ctx.font=getComputedStyle(title).font;
+    const text=(title.textContent||'').trim();
+    const longest=Math.max(...text.split(/\s+/).map(word=>ctx.measureText(word).width),0);
+    const heading=title.getBoundingClientRect(),parent=header.getBoundingClientRect();
+    if(longest>heading.width+3&&longest<parent.width-12)
+      compressedHeadings.push({title:text.slice(0,85),headingWidth:Math.round(heading.width),wordWidth:Math.round(longest),parentWidth:Math.round(parent.width)});
+   }
    const clipped=[];
    for(const el of root.querySelectorAll('.section-head h2,.section-head h3,.kpi strong,.field-caption,.btn,.summary-row strong')){
     if(!visible(el))continue;
@@ -52,7 +66,7 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
     return {w:r.width,h:r.height,content:getComputedStyle(el,'::after').content,text:el.textContent.trim(),fontSize:parseFloat(getComputedStyle(el).fontSize)};
    });
    const invalidInfoIcons=infoIcons.filter(i=>Math.abs(i.w-i.h)>1||i.w<18||i.h<18||i.text!=='i'||i.fontSize<10||!['none','normal'].includes(i.content));
-   return {duplicate,unlabeled,links,outOfBounds,blank,forms,clipped,invalidInfoIcons,infoIconsCount:infoIcons.length};
+   return {duplicate,unlabeled,links,outOfBounds,blank,forms,clipped,compressedHeadings,invalidInfoIcons,infoIconsCount:infoIcons.length};
   });
   if(audit.duplicate.length)failures.push(label+' duplicate visible element IDs: '+JSON.stringify(audit.duplicate));
   if(audit.links.length)failures.push(label+' labels for missing controls: '+JSON.stringify(audit.links));
@@ -60,6 +74,7 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
   if(audit.unlabeled.length)failures.push(label+' unlabeled controls: '+JSON.stringify(audit.unlabeled));
   if(audit.outOfBounds.length)failures.push(label+' small targets: '+JSON.stringify(audit.outOfBounds));
   if(audit.clipped.length)failures.push(label+' clipped text: '+JSON.stringify(audit.clipped.slice(0,8)));
+  if(audit.compressedHeadings.length)failures.push(label+' button squeezes heading across a word: '+JSON.stringify(audit.compressedHeadings.slice(0,8)));
   if(audit.invalidInfoIcons.length)failures.push(label+' malformed i icons: '+JSON.stringify(audit.invalidInfoIcons.slice(0,8)));
   if(view==='admin-storage'){
    const observed=page.locator('#storageObservedBar'),total=page.locator('#storageObservedTotal');
@@ -105,6 +120,6 @@ for(const [viewportName,viewport] of [['desktop',{width:1440,height:960}],['tabl
 }
 await browser.close();
 fs.writeFileSync('artifacts/layout-audit.json',JSON.stringify({failures,notices},null,2));
-console.log('Auditado: '+(3*pages.length)+' vistas; avisos='+notices.length+' errores='+failures.length);
+console.log('Auditado: '+(5*pages.length)+' vistas; avisos='+notices.length+' errores='+failures.length);
 if(notices.length)console.log('Avisos:\n'+notices.slice(0,20).join('\n'));
 if(failures.length){console.error(failures.join('\n'));process.exit(1)}
