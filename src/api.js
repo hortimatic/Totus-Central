@@ -6,24 +6,43 @@ const assert=({error},ctx)=>{if(error)throw new Error(`${ctx}: ${error.message}`
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
 export async function logout(){await sb.auth.signOut()}
 export async function recover(email){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});assert(r,'Recuperación')}
-export async function select(table,{order,ascending=false,limit=20000,filter}={}){
+// Always sort by a unique key before paginating. This prevents missing
+// or duplicated rows when a date/other display sort contains ties.
+const TABLE_KEYS={
+ ops_roles:['code'],ops_role_permissions:['role','module'],
+ ops_user_permissions:['email','module'],team_members:['email']
+};
+export async function select(table,{order,ascending=false,limit=100000,filter,allowTruncated=false}={}){
+ if(!Number.isSafeInteger(limit)||limit<1)throw new Error('Límite de consulta no válido.');
+ const keys=TABLE_KEYS[table]||['id'];
+ const sorts=[...new Set([...(order?[order]:[]),...keys])];
  const rows=[],pageSize=1000;let from=0;
  while(from<limit){
   let q=sb.from(table).select('*');
   if(filter)q=filter(q);
-  if(order)q=q.order(order,{ascending});
+  for(let i=0;i<sorts.length;i++)q=q.order(sorts[i],{ascending:i===0&&order?ascending:true});
   const size=Math.min(pageSize,limit-from);
-  q=q.range(from,from+size-1);
-  const r=await q;assert(r,table);
-  const batch=r.data||[];rows.push(...batch);
+  const r=await q.range(from,from+size-1);assert(r,table);
+  const batch=r.data||[];
+  if(!Array.isArray(batch))throw new Error(table+': respuesta de datos no válida.');
+  rows.push(...batch);
   if(batch.length<size)break;
   from+=size;
  }
+ if(rows.length===limit&&!allowTruncated)
+  throw new Error(table+': se alcanzó el límite de '+limit+' filas. No se mostrarán datos incompletos.');
  return rows;
 }
 export async function insert(table,row){const r=await sb.from(table).insert(row).select().single();assert(r,`Crear ${table}`);return r.data}
 export async function update(table,id,row){const r=await sb.from(table).update(row).eq('id',id).select().single();assert(r,`Actualizar ${table}`);return r.data}
-export async function remove(table,id){const r=await sb.from(table).delete().eq('id',id);assert(r,`Eliminar ${table}`)}
+export async function remove(table,id){
+ if(id===undefined||id===null||id==='')throw new Error('Falta el identificador del registro que deseas eliminar.');
+ const r=await sb.from(table).delete().eq('id',id).select('id');
+ assert(r,`Eliminar ${table}`);
+ if(!Array.isArray(r.data)||r.data.length!==1)
+  throw new Error(`No se eliminó el registro de ${table}. Puede faltar permiso, estar ya borrado o tener referencias protegidas. Actualiza y comprueba su estado.`);
+ return r.data[0];
+}
 export async function rpc(name,args={}){const r=await sb.rpc(name,args);assert(r,name);return r.data}
 export async function invokeTeam(payload){const s=(await sb.auth.getSession()).data.session;if(!s)throw new Error('Sesión no válida');const res=await fetch(`${SUPABASE_URL}/functions/v1/team-admin`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify(payload)});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||`Error ${res.status}`);return body}
 export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
@@ -56,5 +75,5 @@ export async function loadCore(){
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
  await reloadStorageUsage();
- if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000}).catch(()=>[])}
+ if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000,allowTruncated:true}).catch(()=>[])}
 }
