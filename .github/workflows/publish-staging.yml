@@ -73,6 +73,7 @@ jobs:
           node tests/browser-qa.mjs
           node tests/layout-audit.mjs
           node tests/visual-geometry-qa.mjs
+          node tests/modal-geometry-qa.mjs
           node tests/field-sweep-qa.mjs
           node tests/full-flow-qa.mjs
           node tests/deletion-flows-qa.mjs
