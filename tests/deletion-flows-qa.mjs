@@ -13,10 +13,10 @@ try{
   const {isoToday}=await import('../src/utils.js');
   const db=window.__mockDb,day=isoToday(),store=db.ops_stores[0].id,owner=db.team_members[0].id,series=db.ops_invoice_series[0].id;
   const close={id:ids.closing,store_id:store,business_date:day,status:'cerrado',source:'manual',cash_sales:75,card_sales:10,bizum_sales:0,online_sales:0,other_income:0,cash_withdrawals:0,difference:0};
-  const expense={id:ids.expense,store_id:store,expense_date:day,supplier_name:'Proveedor incorrecto QA',invoice_number:'ERR-QA-1',description:'Importe incorrecto',base_amount:40,vat_amount:8.4,re_amount:0,withholding_amount:0,gross_expense:48.4,paid_status:'pagado',payment_method:'efectivo'};
+  const expense={id:ids.expense,store_id:store,expense_date:day,supplier_name:'Proveedor incorrecto QA',invoice_number:'ERR-QA-1',description:'Importe incorrecto',document_id:ids.doc,base_amount:40,vat_amount:8.4,re_amount:0,withholding_amount:0,gross_expense:48.4,paid_status:'pagado',payment_method:'efectivo'};
   const draft={id:ids.draft,store_id:store,series_id:series,issue_date:day,document_type:'factura',status:'borrador',number:null,display_number:null,customer_name:'Cliente QA borrador',total_amount:60};
   const issued={id:ids.issued,store_id:store,series_id:series,issue_date:day,document_type:'factura',status:'emitida',number:1,display_number:'H-0001',issued_at:new Date().toISOString(),customer_name:'Cliente QA emitida',total_amount:121};
-  const doc={id:ids.doc,store_id:store,document_date:day,doc_type:'factura_recibida',status:'pendiente',original_name:'error-qa.txt',supplier_or_customer:'Proveedor archivo QA',mime_type:'text/plain',size_bytes:7,storage_path:'qa/error-qa.txt',uploaded_by:owner};
+  const doc={id:ids.doc,store_id:store,document_date:day,doc_type:'factura_recibida',status:'pendiente',original_name:'error-qa.txt',supplier_or_customer:'Proveedor archivo QA',mime_type:'text/plain',size_bytes:7,storage_path:'qa/error-qa.txt',uploaded_by:owner,linked_entity_id:ids.expense,linked_entity_type:'expense'};
   db.ops_daily_closings.push(close);
   db.ops_daily_closing_drawers.push({id:'66666666-6666-4666-8666-666666666666',closing_id:ids.closing,drawer_id:db.ops_cash_drawers[0].id});
   db.ops_expenses.push(expense);
@@ -45,6 +45,8 @@ try{
  await page.locator('[data-action="expense-delete"][data-id="'+ids.expense+'"]').click();
  await page.waitForTimeout(70);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_expenses.length),0,'No eliminó el gasto');
+ assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id&&!d.linked_entity_id),ids.doc),'Eliminar un gasto borró o dejó vinculado el justificante original');
+ assert(await page.evaluate(()=>window.__mockUploads.size)===1,'La eliminación del gasto ha destruido el archivo original');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_expense_lines.length),0,'Quedaron conceptos huérfanos del gasto');
  await go('facturacion');
  assert.equal(await page.locator('[data-action="invoice-delete"][data-id="'+ids.draft+'"]').count(),1,'Falta Eliminar borrador en Facturación');
