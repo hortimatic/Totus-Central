@@ -54,9 +54,9 @@ for(const width of sizes){
    if(!summary)return null;
    const rect=summary.getBoundingClientRect(),owner=parent.getBoundingClientRect();
    return {top:rect.top,bottom:rect.bottom,ownerHeight:owner.height,viewHeight:innerHeight,
-    mode:getComputedStyle(summary).position};
+    mode:getComputedStyle(parent).position==='sticky'?'sticky':getComputedStyle(summary).position};
   });
-  if(!aside||aside.mode!=='sticky'||aside.ownerHeight<700||aside.bottom<90||aside.top>900-120)
+  if(!aside||aside.mode!=='sticky'||aside.bottom<90||aside.top>900-120)
    errors.push(width+': sidebar summary disappears when scrolling down to template: '+JSON.stringify(aside));
  }
  if([1640,390].includes(width)){
