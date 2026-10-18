@@ -22,7 +22,7 @@ assert.equal(rolePermissions('gerente','gastos').create,true,'El restablecimient
 for(const [module] of PERMISSION_MODULES){
  const html=formField('Rol','role_'+module);
  assert.match(html,/<details class="field-help">/);
- assert.match(html,/<summary[^>]*>i<\/summary>/);
+ assert.match(html,/<summary[^>]*><svg class="field-help-icon"[^>]*>[\s\S]*?<circle[^>]*>[\s\S]*<\/svg><\/summary>/,'El icono de ayuda debe ser SVG, no una i tipográfica');
  assert.match(html,/Conjunto de permisos iniciales/);
 }
 assert.match(selectField('IVA (%)','vat',[{value:21,label:'21 %'}],21),/<details class="field-help">/);
