@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const view=fs.readFileSync('src/pages/main.js','utf8');
 const app=fs.readFileSync('src/app.js','utf8');
-const buttons=[...view.matchAll(/\bbtn\([^,\n]*,\s*'([a-z0-9-]+)'/g)].map(x=>x[1]);
-const literals=[...view.matchAll(/data-action="([a-z0-9-]+)"/g)].map(x=>x[1]);
+const buttons=[...[view,app].flatMap(code=>[...code.matchAll(/\bbtn\([^,\n]*,\s*'([a-z0-9-]+)'/g)].map(x=>x[1]))];
+const literals=[...[view,app].flatMap(code=>[...code.matchAll(/data-action="([a-z0-9-]+)"/g)].map(x=>x[1]))];
 const handlers=new Set([...app.matchAll(/\ba\s*===\s*'([a-z0-9-]+)'/g)].map(x=>x[1]));
 const visible=[...new Set([...buttons,...literals])].sort();
 const exceptions=new Set();
@@ -18,4 +18,4 @@ for(const action of ['admin-log-filter','admin-log-clear','admin-log-refresh','a
 for(const field of ['backupFrequency','backupTime','backupRetention','backupFolder','backupEnabled','logFrom','logTo','logActor','logArea','logQuery']){
  assert(view.includes('id="'+field+'"'),'Campo ausente de administración: '+field);
 }
-console.log('ACTION INVENTORY QA: '+visible.length+' tipos de botones y '+handlers.size+' manejadores; cero botones sin ruta, siete submenús verificados');
+console.log('ACTION INVENTORY QA: '+visible.length+' botones (páginas + ventanas emergentes) y '+handlers.size+' manejadores; cero botones sin ruta, siete submenús verificados');
