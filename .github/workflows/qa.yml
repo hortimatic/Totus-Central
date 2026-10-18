@@ -56,6 +56,9 @@ jobs:
             artifacts/*.xlsx
             artifacts/ui_*.png
             artifacts/layout_*.png
+            artifacts/user_*.png
             artifacts/layout-audit.json
+            artifacts/subtab-walk.json
+            artifacts/user_screenshot_checks.json
             artifacts/field-sweep.json
           retention-days: 3
