@@ -48,6 +48,7 @@ jobs:
         run: |
           node tests/qa.mjs
           node tests/functional-regression.mjs
+          node tests/cross-view-integrity-qa.mjs
           node tests/code-integrity.mjs
           node tests/permissions-qa.mjs
           node tests/roles-and-help-qa.mjs

@@ -282,7 +282,9 @@ export function documentos(){
  }
  const f=getFilters('documentos');
  const usage=state.data.storageUsage||{};
- const used=Number(usage.total_bytes||0),limit=Number(usage.limit_bytes||500*1024*1024),usagePct=limit?Math.min(100,used/limit*100):0;
+ const storageVerified=usage.status==='ok'&&Number.isFinite(Number(usage.total_bytes))&&Number.isFinite(Number(usage.limit_bytes))&&Number(usage.limit_bytes)>0;
+ const used=storageVerified?Number(usage.total_bytes):null,limit=storageVerified?Number(usage.limit_bytes):null;
+ const usagePct=storageVerified?Math.min(100,used/limit*100):null;
  const status=f.status||'all',type=f.type||'all';
  const rows=state.data.documents.filter(x=>inRange(x.document_date||x.created_at,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
   &&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)
@@ -296,7 +298,7 @@ export function documentos(){
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page">
-  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',(used/1024/1024).toFixed(1).replace('.',',')+' MB',usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB')}${kpi('Archivos en Storage',String(Number(usage.documents_count||0)+Number(usage.assets_count||0)))}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
+  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',storageVerified?(used/1024/1024).toFixed(1).replace('.',',')+' MB':'No disponible',storageVerified?usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB':'Sin medición fiable de Supabase')}${kpi('Archivos en Storage',storageVerified?String(Number(usage.documents_count||0)+Number(usage.assets_count||0)):'No disponible')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Subida, clasificación, vista previa, descarga y paquetes. Las facturas históricas aún no aparecen hasta que se importe el archivo original al almacenamiento.</p></div><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden>${btn('+ Subir documento','document-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'documentos',extra)}
@@ -937,8 +939,11 @@ export function productRecordHtml(row=null){
  const comps=row?state.data.competitors.filter(x=>x.product_id===row.id&&!x.variant_id):[];
  const variants=row?state.data.variants.filter(x=>x.product_id===row.id&&x.active!==false):[];
  const chosen=prices.find(x=>x.selected)||(prices.length?[...prices].sort((a,b)=>providerCost(a)-providerCost(b))[0]:null);
- const vat=Number(state.data.settings?.default_sales_vat_rate||21),re=Number(state.data.settings?.purchase_re_rate||5.2);
- const cost=providerCost(chosen),pvp=Number(row?.current_pvp||row?.proposed_pvp||0),net=pvp/(1+vat/100),fiscalCost=cost*(1+vat/100+re/100),grossMargin=pvp-fiscalCost,margin=net-cost,marginPct=net>0?margin/net*100:0;
+ const vat=Number(state.data.settings?.default_sales_vat_rate??21),re=Number(state.data.settings?.purchase_re_rate??5.2);
+ const cost=providerCost(chosen),pvp=Number(row?.current_pvp??row?.proposed_pvp??0);
+ const hasCost=!!chosen&&chosen.net_cost!=null&&Number.isFinite(Number(chosen.net_cost));
+ const study=hasCost&&pvp>0?quickPriceStudy({cost,pvp,vat,re}):null;
+ const fiscalCost=study?.costReal??null,margin=study?.margin??null,marginPct=study?.marginPct??null;
  const providerName=id=>state.data.providers.find(x=>x.id===id)?.name||'Proveedor';
  const providerRows=prices.map(x=>`<div class="summary-row"><div><b>${esc(providerName(x.provider_id))}</b><div class="small muted">Coste final ${money(providerCost(x))} · base ${money(x.net_cost)} · dto ${Number(x.provider_discount||0).toFixed(1).replace('.',',')} %${x.apply_special_tax?' · + impuesto especial':''}</div></div><div class="inline-actions">${x.selected?'<span class="badge ok">Seleccionado</span>':''}${btn('Editar','provider-price-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','provider-price-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin proveedores</strong><span>Añade al menos un coste de compra.</span></div>';
  const compRows=comps.map(x=>`<div class="summary-row"><div><b>${esc(x.competitor_name)}</b><div class="small muted">${money(x.price)} · dto ${Number(x.discount||0).toFixed(1).replace('.',',')} % · envío ${money(x.shipping)}</div></div><div class="inline-actions">${btn('Editar','competitor-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','competitor-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin competencia</strong><span>Añade precios comparables si los necesitas.</span></div>';
@@ -962,7 +967,8 @@ export function productRecordHtml(row=null){
     <section class="card card-pad"><div class="section-head"><div><h3>Variantes</h3><p>Nicotina, formatos, colores u otros atributos.</p></div>${btn('+ Añadir variante','variant-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${variantRows}</div></section>`:''}
    </div>
    <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3>
-    <div class="summary-row"><span>Coste neto</span><strong>${money(cost)}</strong></div><div class="summary-row"><span>Coste con IVA + RE</span><strong>${money(fiscalCost)}</strong></div><div class="summary-row"><span>PVP final</span><strong>${money(pvp)}</strong></div><div class="summary-row"><span>Margen neto</span><strong>${money(margin)}</strong></div><div class="summary-row"><span>Margen neto %</span><strong>${marginPct.toFixed(1).replace('.',',')} %</strong></div><div class="summary-row"><span>Margen caja tras IVA + RE</span><strong>${money(grossMargin)}</strong></div>
+    <div class="summary-row"><span>Coste neto</span><strong>${hasCost?money(cost):'Sin proveedor'}</strong></div><div class="summary-row"><span>Coste con IVA + RE</span><strong>${fiscalCost==null?'—':money(fiscalCost)}</strong></div><div class="summary-row"><span>PVP final</span><strong>${pvp>0?money(pvp):'Sin precio'}</strong></div><div class="summary-row"><span>Margen real</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${margin==null?'—':money(margin)}</strong></div><div class="summary-row"><span>Margen real %</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${marginPct==null?'—':marginPct.toFixed(1).replace('.',',')+' %'}</strong></div>
+    ${!hasCost?'<div class="note warn">Añade un proveedor y su coste para calcular el margen real.</div>':''}
     <div class="stack" style="margin-top:14px">${row?btn('Eliminar producto','product-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','product-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','product-back','secondary')}</div>
    </section></aside>
   </div>
