@@ -304,3 +304,10 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .role-card-grid{align-items:stretch}
 .role-card{grid-template-rows:auto auto auto minmax(40px,1fr);align-content:start}
 .role-card .role-actions{align-self:end;min-height:40px}
+
+/* File verification uses the same Spanish-language picker as other modules,
+   avoiding an unstyled browser control and misaligned file-name text. */
+.backup-file-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.backup-file-picker{min-width:0;max-width:100%}
+#backupSelectedFile{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+@media(max-width:480px){.backup-file-control{align-items:stretch;flex-direction:column}.backup-file-picker{width:100%}}

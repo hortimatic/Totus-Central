@@ -587,7 +587,10 @@ function adminBackupHtml(){
    ${table(columns,runs.slice(0,50),{emptyTitle:'Sin copias en el servidor',emptyText:'Puedes crear una copia manual o activar la programación.'})}
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
-  <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></label></div>
+  <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar
+   <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></span>
+   <span id="backupSelectedFile" role="status" class="small muted">Ningún archivo seleccionado</span></span>
+  </label></div>
   <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}</div>
   </section>
  </div>`;

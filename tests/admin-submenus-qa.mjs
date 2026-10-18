@@ -45,6 +45,11 @@ try{
 
  await section('backups');
  assert(await page.locator('#backupEnabled').count()===1,'El programador no se muestra');
+ assert(await page.locator('#backupSelectedFile').count()===1,'Falta el selector uniforme de copias');
+ await page.locator('#backupFile').setInputFiles({name:'copia_comprobacion.totusbackup',mimeType:'application/zip',buffer:Buffer.from('QA backup sample')});
+ assert((await page.locator('#backupSelectedFile').innerText()).includes('copia_comprobacion.totusbackup'),'No se muestra el nombre del archivo seleccionado');
+ await page.locator('#backupFile').setInputFiles([]);
+ assert((await page.locator('#backupSelectedFile').innerText()).includes('Ningún archivo'),'El selector no se limpia');
  assert(!(await page.locator('#backupEnabled').isChecked()),'El programador no debe activarse solo');
  await page.locator('#backupFrequency').selectOption('weekly');
  assert(await page.locator('#backupWeekdayWrapper').isVisible(),'Frecuencia semanal sin selector de día');

@@ -1823,6 +1823,11 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',e=>{
+ if(e.target?.id==='backupFile'){
+  const file=e.target.files?.[0],label=input('backupSelectedFile');
+  if(label)label.textContent=file?file.name+' · '+(file.size/1024).toFixed(1)+' KB':'Ningún archivo seleccionado';
+  return;
+ }
  if(e.target?.id==='backupFrequency'){
   const weekly=input('backupWeekdayWrapper'),monthly=input('backupMonthdayWrapper');
   if(weekly)weekly.hidden=e.target.value!=='weekly';
