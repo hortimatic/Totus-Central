@@ -194,8 +194,8 @@ const rpc=async (name,args={})=>{
 const storageBucket=bucket=>({
  upload:async(path,file)=>{uploaded.set(bucket+'/'+path,file);return {data:{path},error:null}},
  download:async path=>{const file=uploaded.get(bucket+'/'+path);return {data:file||null,error:file?null:{message:'Archivo no encontrado'}}},
- remove:async paths=>{paths.forEach(path=>uploaded.delete(bucket+'/'+path));return {data:paths,error:null}},
- list:async (prefix='')=>({data:[...uploaded.keys()].filter(k=>k.startsWith(bucket+'/'+prefix)).map(k=>({id:uuid(),name:k.slice((bucket+'/').length)})),error:null}),
+ remove:async paths=>{if(window.__mockStorageRemoveError)return {data:null,error:{message:'Storage no disponible'}};paths.forEach(path=>uploaded.delete(bucket+'/'+path));return {data:paths,error:null}},
+ list:async (prefix='',options={})=>({data:[...uploaded.keys()].filter(k=>k.startsWith(bucket+'/'+prefix)).slice(options.offset||0,(options.offset||0)+(options.limit||1000)).map(k=>({id:uuid(),name:k.slice((bucket+'/'+(prefix?prefix+'/':'')).length)})),error:null}),
  createSignedUrl:async path=>{const f=uploaded.get(bucket+'/'+path);return {data:{signedUrl:f?URL.createObjectURL(f):''},error:f?null:{message:'No encontrado'}}}
 });
 const mockCloudBackup=async()=>{

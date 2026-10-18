@@ -4,7 +4,7 @@ import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,can
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
-import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
+import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
 import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
@@ -1111,8 +1111,10 @@ async function deleteDocument(id){
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
 if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo puedes eliminar documentos que hayas subido.');
  if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
- if(!confirm('¿Eliminar definitivamente este documento?'))return;
- await remove('ops_documents',id);if(d.storage_path)await removeFile('business-documents',d.storage_path).catch(()=>{});
+ if(!await confirmAction('Se eliminarán el documento «'+d.original_name+'» y su archivo. Esta acción es definitiva.'))return;
+ // Keep the metadata when Storage rejects deletion, so the user can retry.
+ if(d.storage_path)await removeFile('business-documents',d.storage_path);
+ try{await remove('ops_documents',id)}catch(e){await refresh();throw new Error('El archivo se retiró, pero queda su ficha documental. Reintenta eliminar la ficha. '+e.message)}
  resetView('documentos');await refresh('Documento eliminado.');
 }
 async function zipFilteredDocuments(){
@@ -1344,8 +1346,7 @@ async function resetUser(email){
 }
 async function deleteUser(email){
  if(email.toLowerCase()===state.user?.email?.toLowerCase())throw new Error('No puedes eliminar tu propio usuario.');
- if(!confirm('¿Eliminar definitivamente a '+email+'?'))return;
- const check=prompt('Escribe ELIMINAR USUARIO para confirmar:');if(check!=='ELIMINAR USUARIO')return;
+ if(!await confirmAction('Se eliminarán definitivamente el acceso y la ficha de '+email+'.',{phrase:'ELIMINAR USUARIO'}))return;
  await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
 }
 
@@ -1701,6 +1702,34 @@ function exportRows(type){
  return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,incomeAdjustments,from:f.from,to:f.to});
 }
 
+async function reviewUnusedLogos(){
+ if(!isAdmin())throw new Error('Solo administración puede limpiar archivos.');
+ await loadCore();
+ const references=()=>JSON.stringify([state.data.templates,state.data.invoices,state.data.settings]);
+ const files=[];
+ for(let offset=0;;offset+=1000){
+  const {data,error}=await sb.storage.from('business-assets').list('logos',{limit:1000,offset,sortBy:{column:'name',order:'asc'}});
+  if(error)throw error;
+  files.push(...(data||[]).filter(x=>x.id).map(x=>'logos/'+x.name));
+  if((data||[]).length<1000)break;
+ }
+ const unused=files.filter(path=>!references().includes(path));
+ if(!unused.length){toast('Todos los logos están vinculados a plantillas o facturas.');return}
+ if(!await confirmAction('Estos logos no aparecen en las plantillas, facturas ni configuración actuales: '+unused.join(', ')+'. Comprueba tu copia antes de retirarlos.',{phrase:'ELIMINAR LOGOS'}))return;
+ await loadCore();
+ let removed=0;
+ try{
+  for(const path of unused){
+   if(references().includes(path))continue;
+   await removeFile('business-assets',path);removed++;
+  }
+ }finally{
+  if(removed)await insert('ops_audit_log',{area:'administracion',action:'unused_logos_removed',detail:{count:removed}});
+  await refresh();
+ }
+ toast(removed+' logo(s) sin uso retirados.','ok');
+}
+
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}setRoute(route);document.body.classList.remove('menu-open');render();return}
@@ -1858,6 +1887,7 @@ document.addEventListener('click',async e=>{
   if(a==='config-save'){await saveConfig();return}
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();return}
   if(a==='storage-refresh'){await refreshStoragePanel();return}
+  if(a==='admin-unused-logos'){await reviewUnusedLogos();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};render();return}
   if(a==='admin-log-refresh'){if(await refreshAuditPanel())toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}

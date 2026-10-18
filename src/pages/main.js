@@ -523,7 +523,7 @@ function adminStorageHtml(){
  return `<div class="stack storage-dashboard">
   <section class="card card-pad">
    <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Medición real de archivos guardados en el servidor, con actualización automática mientras esta pantalla está abierta.</p></div>
-    ${btn('Actualizar ahora','storage-refresh','secondary')}</div>
+    <div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></div>
    <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b id="storageMeasuredAt">${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
    <div class="storage-observed-heading"><div><h3>Espacio total observado en Supabase</h3><p>Desglose proporcional de lo que ocupa cada componente medido; no representa la cuota del plan.</p></div><strong id="storageObservedTotal">${measuredOk?mb(measuredTotal):'No disponible'}</strong></div>
    ${measuredOk?`<div id="storageObservedBar" class="storage-breakdown-bar" role="img" aria-label="Distribución del almacenamiento observado: PostgreSQL ${mb(dbSize)}, documentos ${mb(u.documents_bytes)}, logos ${mb(u.assets_bytes)}, copias ${mb(backups)}">

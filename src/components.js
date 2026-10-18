@@ -196,6 +196,21 @@ export function modal(title,body,{small=false}={}){
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" data-modal-content="true"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;
 }
 export function closeModal(){document.getElementById('modalHost').innerHTML=''}
+export function confirmAction(message,{phrase=''}={}){
+ return new Promise(resolve=>{
+  modal('Confirmar eliminación',`<p>${esc(message)}</p>${phrase?formField('Escribe '+phrase,'confirmPhrase'):''}<div class="form-actions"><button class="btn secondary" data-confirm="cancel">Cancelar</button><button class="btn danger" data-confirm="accept" ${phrase?'disabled':''}>Eliminar definitivamente</button></div>`,{small:true});
+  const host=document.getElementById('modalHost'),panel=host.firstElementChild,accept=panel.querySelector('[data-confirm="accept"]'),field=panel.querySelector('#confirmPhrase');
+  const finish=result=>{observer.disconnect();host.removeEventListener('click',click);closeModal();resolve(result)};
+  const click=e=>{
+   const action=e.target.closest('[data-confirm]')?.dataset.confirm;
+   if(action==='accept'&&(!phrase||field.value===phrase)){e.stopPropagation();finish(true)}
+   else if(action==='cancel'){e.stopPropagation();finish(false)}
+  };
+  const observer=new MutationObserver(()=>{if(!host.contains(panel)){observer.disconnect();host.removeEventListener('click',click);resolve(false)}});
+  host.addEventListener('click',click);observer.observe(host,{childList:true});
+  if(field){field.addEventListener('input',()=>{accept.disabled=field.value!==phrase});field.focus()}else accept.focus();
+ });
+}
 export function toast(message,type=''){const host=document.getElementById('toastHost'),el=document.createElement('div');el.className=`toast ${type}`;el.textContent=message;host.appendChild(el);setTimeout(()=>el.remove(),3500)}
 export const moneyCell=v=>`<span class="money">${money(v)}</span>`;
 export const dateCell=v=>`<span class="date-display">${fmtDate(v)}</span>`;

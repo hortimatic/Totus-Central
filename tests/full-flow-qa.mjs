@@ -507,6 +507,7 @@ await check('Documentos Excel: carga y vista previa',async()=>{
  await page.locator('[data-action="document-download"]').first().click();
  assert((await download).suggestedFilename()==='qa-factura.xlsx','El archivo XLSX descargado no coincide con el original');
  await page.locator('[data-action="document-delete"]').click();
+ await page.locator('[data-confirm="accept"]').click();
  await page.waitForTimeout(100);
  assert(!(await db()).documents.some(x=>x.original_name==='qa-factura.xlsx'),'No se ha eliminado el documento de prueba');
 
@@ -579,6 +580,8 @@ await check('Usuarios: crear y comprobar persistencia simulada',async()=>{
  assert((await db()).team.some(x=>x.email==='empleado-qa@example.com'&&x.job_title==='Encargado de simulación'),'No se actualizó la ficha de usuario');
  await page.locator('[data-action="user-edit"][data-email="empleado-qa@example.com"]').click();
  await page.locator('[data-action="user-delete"]').click();
+ await page.locator('#confirmPhrase').fill('ELIMINAR USUARIO');
+ await page.locator('[data-confirm="accept"]').click();
  await page.waitForTimeout(100);
  assert(!(await db()).team.some(x=>x.email==='empleado-qa@example.com'),'No se eliminó el usuario de prueba');
 
