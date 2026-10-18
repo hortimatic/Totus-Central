@@ -49,6 +49,8 @@ jobs:
           node tests/qa.mjs
           node tests/closed-closing-qa.mjs
           node tests/partial-balances-qa.mjs
+          node tests/team-admin-qa.mjs
+          node tests/invoice-issuer-qa.mjs
           node tests/gestor-source-qa.mjs
           node tests/functional-regression.mjs
           node tests/cross-view-integrity-qa.mjs

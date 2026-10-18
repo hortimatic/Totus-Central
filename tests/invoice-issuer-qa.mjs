@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {state} from '../src/state.js';
+import {invoicePreview} from '../src/pages/main.js';
+state.data.settings={business_name:'Changed business',tax_id:'CHANGED'};
+state.data.invoiceLines=[];
+const row={id:'qa',status:'emitida',template_snapshot:{issuer:{business_name:'Original issuer',tax_id:'ORIGINAL'}}};
+const issued=invoicePreview(row);
+assert(issued.includes('Original issuer'));assert(issued.includes('ORIGINAL'));assert(!issued.includes('Changed business'));
+assert(invoicePreview({...row,status:'borrador'}).includes('Changed business'),'Drafts must use current settings');
+assert(invoicePreview({...row,template_snapshot:{}}).includes('Changed business'),'Do not fabricate snapshots for historical invoices');
+console.log('INVOICE ISSUER QA: issued snapshots remain stable; drafts and historic fallback preserved.');

@@ -1,4 +1,4 @@
-import {sb,rpc} from './api.js';
+import {sb} from './api.js';
 import {download} from './utils.js';
 
 const JSZip=window.JSZip;
@@ -133,7 +133,7 @@ export async function inspectBackup(file){
 // A partial failure could leave invoices and attachments inconsistent or delete newer files.
 // Keep validation/read-only inspection available; refuse all writes until a staged,
 // recoverable, server-coordinated restore procedure has passed end-to-end tests.
-export async function restoreBackup(file,reason){
+export async function restoreBackup(file){
  await inspectBackup(file);
  throw new Error('Restauración deshabilitada por seguridad: primero hay que implementar y probar una restauración recuperable de base de datos y archivos. No se ha modificado ningún dato.');
 }

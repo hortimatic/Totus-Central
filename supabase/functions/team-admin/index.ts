@@ -28,7 +28,7 @@ Deno.serve(async(req:Request)=>{
 
   const body=await req.json(),action=String(body?.action||'')
   const cleanEmail=(v:unknown)=>String(v||'').trim().toLowerCase(),cleanText=(v:unknown)=>String(v||'').trim();const validRole=async (r:string)=>{if(!/^[a-z][a-z0-9_]{2,31}$/.test(r))return false;const {data,error}=await admin.from('ops_roles').select('code').eq('code',r).maybeSingle();if(error)throw error;return !!data}
-  const listAuthUsers=async()=>{const {data,error}=await admin.auth.admin.listUsers({page:1,perPage:1000});if(error)throw error;return data.users||[]}
+  const listAuthUsers=async()=>{const users=[];for(let page=1;;page++){const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});if(error)throw error;const batch=data.users||[];users.push(...batch);if(batch.length<1000)return users}}
   const findAuthUser=async(email:string)=>(await listAuthUsers()).find(u=>(u.email||'').toLowerCase()===email)||null
   const countActiveAdmins=async()=>{const {count,error}=await admin.from('team_members').select('*',{count:'exact',head:true}).eq('role','admin').eq('active',true);if(error)throw error;return count||0}
   const audit=async(target:string,act:string,status:'ok'|'failed',detail='')=>{await admin.from('team_user_audit_log').insert({actor_email:callerEmail,target_email:target,action:act,status,detail})}
@@ -51,7 +51,17 @@ Deno.serve(async(req:Request)=>{
    try{
     const existing=await findAuthUser(email)
     if(action==='create_user'&&existing)return json({error:'Ese email ya tiene una cuenta. Edita su ficha o asigna una nueva contraseña.'},409)
-    if(existing){const {error}=await admin.auth.admin.updateUserById(existing.id,{password,email_confirm:true,user_metadata:{full_name:fullName,role}});if(error)throw error;await ensureMember(email,fullName,role,true);await audit(email,'password_assigned','ok','Contraseña asignada por administrador');return json({ok:true,message:'Contraseña actualizada y acceso activo.'})}
+    if(existing){
+     // Credential maintenance must not change roles or reactivate revoked access.
+     const {data:member,error:memberError}=await admin.from('team_members').select('full_name,role,active').eq('email',email).maybeSingle();
+     if(memberError)throw memberError;
+     if(!member)return json({error:'La cuenta no tiene una ficha de equipo. Revisa su alta antes de asignar contraseña.'},409);
+     const {error}=await admin.auth.admin.updateUserById(existing.id,{password,email_confirm:true,user_metadata:{full_name:member.full_name,role:member.role}});
+     if(error)throw error;
+     await audit(email,'password_assigned','ok','Contraseña actualizada; rol y estado de acceso conservados');
+     return json({ok:true,message:'Contraseña actualizada. El rol y el estado de acceso no han cambiado.'});
+    }
+    if(action==='set_password')return json({error:'La cuenta no existe. Crea el usuario desde Nuevo usuario.'},404);
     const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{full_name:fullName,role}});if(error)throw error
     try{await ensureMember(email,fullName,role,true)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
     await audit(email,'user_created','ok','Cuenta creada directamente con contraseña')
@@ -66,7 +76,6 @@ Deno.serve(async(req:Request)=>{
    try{
     let existing=await findAuthUser(email)
     if(existing?.email_confirmed_at){
-      await ensureMember(email,fullName,role,true)
       await sendRecovery(email,action==='resend_invite'?'reenviar sobre cuenta confirmada':'invitar cuenta ya confirmada')
       await audit(email,action,'ok','Cuenta ya confirmada: se sustituyó invitación por recuperación de contraseña')
       return json({ok:true,converted_to_reset:true,message:'La cuenta ya estaba confirmada. Se ha enviado un correo para crear o restablecer su contraseña.'})

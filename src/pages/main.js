@@ -2,7 +2,7 @@ import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
-import {expenseAttachedInvoices,expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from '../expense-register.js';
+import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy} from '../calculations.js';
 import {computeModel130Accumulated,deductibleExpenseTotal} from '../calculations.js';
 
@@ -782,7 +782,7 @@ export function expenseRecordHtml(row=null){
  const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
  const lines=row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
- const total=Number(row?.gross_expense??row?.accounting_amount??row?.amount_paid??0),paid=Number(row?.amount_paid||0),pending=Math.max(0,total-paid);
+ const total=Number(row?.gross_expense??row?.accounting_amount??row?.amount_paid??0);
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="expense-back">← Volver a gastos</button><div class="eyebrow">Gastos · ${row?'Registro':'Nuevo'}</div><h2>${row?esc(row.supplier_name||'Gasto'):'Nuevo gasto'}</h2></div><div>${row?(row.management_only?'<span class="badge warn">Solo control interno</span>':'<span class="badge info">Fiscal</span>'):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
@@ -909,7 +909,7 @@ export function invoicePreview(row,logoUrl=''){
  const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
  const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id)||{});
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
- const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=state.data.settings||{};
+ const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=frozen?.issuer||state.data.settings||{};
  const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',tpl.payment_terms_default||''].filter(Boolean).join(' · ');
  const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='courier'?'Courier New, monospace':tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=({brand:'modern',clean:'minimal',compact:'classic'})[tpl.style]||tpl.style||'modern';
  return `<article class="invoice-preview invoice-style-${esc(style)}" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)};--invoice-text:${esc(textColor)};--invoice-font:${esc(font)}">

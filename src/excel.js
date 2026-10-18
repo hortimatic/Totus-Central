@@ -185,7 +185,7 @@ export function buildStoreAnnualWorkbook({store,year,closings,expenses,categorie
 export function exportStoreAnnualWorkbook(args){const wb=buildStoreAnnualWorkbook(args);write(wb,`Gastos y ventas ${args.store.name} ${args.year}.xlsx`);}
 
 
-const GESTOR_NAVY='17365D',GESTOR_BLUE='4472C4',GESTOR_ALT='D9EAF7',GESTOR_LINE='5B9BD5',GESTOR_WARN='FFF2CC',GESTOR_OK='E2F0D9';
+const GESTOR_NAVY='17365D',GESTOR_BLUE='4472C4',GESTOR_ALT='D9EAF7',GESTOR_LINE='5B9BD5';
 function gestorHeader(ws,row,cols){
  for(let i=0;i<cols;i++){const a=XLSX.utils.encode_cell({r:row,c:i});if(ws[a])ws[a].s={fill:{fgColor:{rgb:GESTOR_BLUE}},font:{bold:true,color:{rgb:'FFFFFF'},name:'Calibri',sz:10},alignment:{horizontal:'center',vertical:'center'},border:{bottom:{style:'thin',color:{rgb:GESTOR_LINE}}}}}
 }
@@ -239,7 +239,7 @@ function monthTotals(args,month){
  return {from,to,sales,direct,common,commonIncome};
 }
 function appendReconciliationSheet(wb,q,args){
- const {year,stores,fiscalAdjustments=[]}=args,rng=quarterRange(year,q);const months=rng.months.map(m=>monthTotals(args,m));
+ const {year,fiscalAdjustments=[]}=args,rng=quarterRange(year,q);const months=rng.months.map(m=>monthTotals(args,m));
  const rows=months.map((x,i)=>{const adjustment=fiscalAdjustments.filter(a=>inDate(a.adjustment_date,x.from,x.to)&&['gasto_deducible_extra','amortizacion'].includes(a.kind)).reduce((s,a)=>s+n(a.amount),0);const sales=x.sales.reduce((a,b)=>a+b,0)+x.commonIncome,direct=x.direct.reduce((a,b)=>a+b,0),gestor=direct+x.common+adjustment;return [MONTHS[rng.months[i]],x.sales[0]||0,x.sales[1]||0,sales,-(x.direct[0]||0),-(x.direct[1]||0),-x.common,adjustment,-gestor,sales-gestor,0,sales-gestor]});
  const totals=new Array(12).fill(0);totals[0]='TOTAL';for(let c=1;c<12;c++)totals[c]=rows.reduce((a,r)=>a+n(r[c]),0);
  const headers=['Mes','Ventas Hortimatic','Ventas NewOldSmok','Ventas totales','Gasto directo Horti','Gasto directo NewOld','Gastos comunes','Ajuste / diferencia gestor','Gastos gestor','Resultado fiscal','Luz almacén incluida','Resultado corregido sin luz almacén'];

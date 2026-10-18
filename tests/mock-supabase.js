@@ -49,6 +49,9 @@ class Query{
  result(){
   const target=db[this.table];
   if(!target)return {data:null,error:{message:'Tabla de pruebas no definida: '+this.table}};
+  if(this.table==='consultation_history'&&['insert','update','upsert'].includes(this.mode)){
+   for(const row of Array.isArray(this.value)?this.value:[this.value])if(row.action!==undefined&&!['CREADA','ABIERTA','ACTUALIZADA','CONVERTIDA','ELIMINADA'].includes(row.action))return {data:null,error:{message:'consultation_history_action_check'}};
+  }
   if(this.table==='ops_document_templates'&&['insert','update','upsert'].includes(this.mode)){
    for(const row of Array.isArray(this.value)?this.value:[this.value]){
     if(row.style!==undefined&&!['clean','brand','compact'].includes(row.style))return {data:null,error:{message:'ops_document_templates_style_check'}};

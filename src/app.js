@@ -1,5 +1,5 @@
 import {ROUTES} from './config.js';
-import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,defaultRolePermissions,canUser} from './permissions.js';
+import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,reloadStorageUsage,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
@@ -683,8 +683,12 @@ async function saveConsultation(){
  const query=required('pqQuery','Consulta');
  const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
- await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO',consultation_query:query,snapshot:row}).catch(()=>{});
- await refresh('Consulta guardada.');
+ const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:'CREADA',consultation_query:query,snapshot:row});
+ await refresh(logged?'Consulta guardada.':'Consulta guardada, pero no se pudo guardar su historial. Revisa el registro antes de continuar.');
+}
+async function recordConsultationHistory(row){
+ try{await insert('consultation_history',row);return true}
+ catch(error){console.warn('No se pudo guardar el historial de la consulta',error);return false}
 }
 function consultationConvertForm(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
@@ -714,17 +718,17 @@ async function convertConsultation(id){
   try{await remove('products',product.id)}catch(rollbackError){throw new Error('No se pudo asignar el proveedor al producto; tampoco se pudo revertir el alta: '+rollbackError.message)}
   throw new Error('No se pudo guardar el coste del proveedor. No se ha creado el producto: '+e.message);
  }
- await insert('consultation_history',{consultation_id:id,user_id:state.user?.id||null,action:'CONVERTIDO_A_PRODUCTO',consultation_query:c.query,snapshot:{...c,product_id:product.id}}).catch(()=>{});
- closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
+ const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'CONVERTIDA',consultation_query:c.query,snapshot:{...c,product_id:product.id}});
+ closeModal();await refresh(logged?'Producto creado desde la consulta.':'Producto creado, pero no se pudo guardar el historial de conversión.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
 }
 
 async function reuseConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
  set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);
- await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()}).catch(()=>{});
- await insert('consultation_history',{consultation_id:id,user_id:state.user?.id||null,action:'REABIERTO',consultation_query:c.query,snapshot:c}).catch(()=>{});
- toast('Consulta cargada.','ok');
+ await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+ const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'ABIERTA',consultation_query:c.query,snapshot:c});
+ toast(logged?'Consulta cargada.':'Consulta cargada, pero no se pudo guardar su historial.',logged?'ok':'warn');
 }
 async function deleteConsultation(id){
  if(!confirm('¿Eliminar esta consulta guardada?'))return;
@@ -1535,8 +1539,8 @@ async function saveHomePrice(){
  const query=required('homePriceQuery','Producto / referencia');
  const r=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
- await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO_DESDE_INICIO',consultation_query:query,snapshot:row}).catch(()=>{});
- await refresh('Consulta guardada.');
+ const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:'CREADA',consultation_query:query,snapshot:{...row,source:'inicio'}});
+ await refresh(logged?'Consulta guardada.':'Consulta guardada, pero no se pudo guardar su historial.');
 }
 function homeReport(kind){
  const now=isoToday(),year=Number(now.slice(0,4)),month=Number(now.slice(5,7)),q=Math.ceil(month/3);

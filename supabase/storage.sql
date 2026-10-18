@@ -5,5 +5,6 @@ set allowed_mime_types=array[
  'text/csv','text/plain','text/markdown',
  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
  'application/vnd.ms-excel'
+ ,'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]
 where id='business-documents';
