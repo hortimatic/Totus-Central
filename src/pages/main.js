@@ -378,6 +378,10 @@ export function fiscalidad(){
    <section class="card card-pad"><div class="section-head"><div><h2>Modelos y pagos · ${quarter}T</h2><p>Calculado frente a lo registrado.</p></div></div><div class="stack" style="margin-top:12px">${paymentRows}</div></section>
   </div>
   <section class="card card-pad"><div class="section-head"><div><h2>Ajustes fiscales del periodo</h2><p>Ninguna diferencia se corrige de forma silenciosa.</p></div>${btn('+ Nuevo ajuste','fiscal-adjustment-new','primary')}</div><div class="stack" style="margin-top:12px">${fiscalPeriod.length?fiscalPeriod.map(x=>`<div class="summary-row"><div><b>${esc(x.kind.replaceAll('_',' '))}</b><div class="small muted">${fmtDate(x.adjustment_date)} · ${esc(x.description||'')}</div></div><strong>${money(x.amount)}</strong><div class="inline-actions">${btn('Editar','fiscal-adjustment-edit','secondary',`data-id="${x.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin ajustes</strong><span>No hay ajustes fiscales explícitos en este periodo.</span></div>'}</div></section>
+  <section class="card card-pad"><div class="section-head"><div><h2>Ingresos manuales</h2><p>Movimientos no incluidos en cierres ni facturas emitidas.</p></div>${btn('+ Registrar ingreso','income-adjustment-new','primary')}</div>
+   <div class="stack" style="margin-top:12px">${periodManual.length?periodManual.slice().sort((a,b)=>String(b.income_date).localeCompare(String(a.income_date))).map(x=>`<div class="summary-row"><div><b>${esc(x.concept||'Ingreso manual')}</b><div class="small muted">${fmtDate(x.income_date)} · ${esc(state.data.stores.find(s=>s.id===x.store_id)?.name||'General / sin tienda')}</div></div><strong>${money(x.amount)}</strong><div class="inline-actions">${btn('Editar','income-adjustment-edit','secondary',`data-id="${x.id}"`)}${btn('Eliminar','income-adjustment-delete','danger',`data-id="${x.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin ingresos manuales</strong><span>Añádelos solo si no se contabilizan ya en otro apartado.</span></div>'}</div>
+  </section>
+
  </div>`;
 }
 

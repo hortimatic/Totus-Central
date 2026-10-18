@@ -25,7 +25,7 @@ function permissionForAction(action,el){
  else if(/^(expense-|export-expenses-current)/.test(action))module='gastos';
  else if(/^(invoice-|proforma-|rectifying-|external-invoice-|customer-|customers-|template-|series-|billing-)/.test(action))module='facturacion';
  else if(/^(document-|documents-)/.test(action))module='documentos';
- else if(/^(tax-payment-|fiscal-|reta-|expense-category-)/.test(action))module='fiscalidad';
+ else if(/^(tax-payment-|fiscal-|reta-|expense-category-|income-adjustment-)/.test(action))module='fiscalidad';
  else if(/^(pricing-|product-|brand-|family-|families-|provider-|providers-|variant-|competitor-|consultation-|home-price-)/.test(action))module='pricing';
  else if(/^(report-|export-gestor-|export-store-|export-summary)/.test(action))module='informes';
  else if(/^(user-|role-|store-|drawer-|config-|backup-|admin-)/.test(action))module='administracion';
@@ -1342,6 +1342,33 @@ async function saveFiscalAdjustment(id=''){
  if(id)await update('ops_fiscal_adjustments',id,row);else await insert('ops_fiscal_adjustments',row);closeModal();await refresh('Ajuste fiscal guardado.');
 }
 async function deleteFiscalAdjustment(id){if(!confirm('¿Eliminar este ajuste fiscal?'))return;await remove('ops_fiscal_adjustments',id);closeModal();await refresh('Ajuste eliminado.')}
+function incomeAdjustmentForm(row=null){
+ const opts=[{value:'',label:'General / sin tienda'},...state.data.stores.map(s=>({value:s.id,label:s.name}))];
+ const body=`<div class="form-grid">
+  ${selectField('Tienda','iaStore',opts,row?.store_id||'')}
+  ${formField('Fecha','iaDate',row?.income_date||isoToday(),'date')}
+  ${formField('Concepto','iaConcept',row?.concept||'')}
+  ${formField('Importe','iaAmount',row?.amount??'','number','step="0.01" min="0"')}
+  <label class="wide">Observaciones<textarea id="iaNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
+ </div><div class="note">No dupliques ingresos que ya estén incluidos en cierres, facturas emitidas o ajustes fiscales de ingreso extra.</div>
+ <div class="form-actions">${row?btn('Eliminar','income-adjustment-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar ingreso','income-adjustment-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ modal(row?'Editar ingreso manual':'Nuevo ingreso manual',body,{small:true});
+}
+async function saveIncomeAdjustment(id=''){
+ const income_date=required('iaDate','Fecha');
+ if(income_date>isoToday())throw new Error('La fecha del ingreso no puede ser futura.');
+ const amount=num('iaAmount');if(!Number.isFinite(amount)||amount<=0)throw new Error('El importe debe ser mayor que cero.');
+ const row={store_id:val('iaStore')||null,income_date,amount,concept:required('iaConcept','Concepto'),notes:val('iaNotes').trim()};
+ if(!id)row.created_by=state.session?.user?.id||null;
+ if(id)await update('ops_income_adjustments',id,row);else await insert('ops_income_adjustments',row);
+ closeModal();await refresh('Ingreso manual guardado.');
+}
+async function deleteIncomeAdjustment(id){
+ if(!confirm('¿Eliminar este ingreso manual y actualizar los informes?'))return;
+ const reason=prompt('Motivo de la eliminación:');if(!reason?.trim())return;
+ await remove('ops_income_adjustments',id);
+ closeModal();await refresh('Ingreso manual eliminado.');
+}
 function setFiscalQuarter(year,q){
  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;patchFilters('fiscalidad',{from,to});render();
 }
@@ -1764,6 +1791,10 @@ document.addEventListener('click',async e=>{
   if(a==='fiscal-adjustment-edit'){fiscalAdjustmentForm(state.data.fiscalAdjustments.find(x=>x.id===el.dataset.id));return}
   if(a==='fiscal-adjustment-save'){await saveFiscalAdjustment(el.dataset.id||'');return}
   if(a==='fiscal-adjustment-delete'){await deleteFiscalAdjustment(el.dataset.id);return}
+  if(a==='income-adjustment-new'){incomeAdjustmentForm();return}
+  if(a==='income-adjustment-edit'){incomeAdjustmentForm(state.data.incomeAdjustments.find(x=>x.id===el.dataset.id));return}
+  if(a==='income-adjustment-save'){await saveIncomeAdjustment(el.dataset.id||'');return}
+  if(a==='income-adjustment-delete'){await deleteIncomeAdjustment(el.dataset.id);return}
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}

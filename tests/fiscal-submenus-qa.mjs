@@ -4,12 +4,13 @@ const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({locale:'es-ES',acceptDownloads:true});
 const errors=[],steps=[];
 page.on('pageerror',e=>errors.push(e.message));
-page.on('dialog',d=>d.accept());
+page.on('dialog',d=>d.accept(d.type()==='prompt'?'Motivo de corrección QA':undefined));
 const data=()=>page.evaluate(()=>({
  settings:window.__mockDb.ops_business_settings[0],
  categories:window.__mockDb.ops_expense_categories,
  taxPayments:window.__mockDb.ops_tax_payments,
- adjustments:window.__mockDb.ops_fiscal_adjustments
+ adjustments:window.__mockDb.ops_fiscal_adjustments,
+ manualIncome:window.__mockDb.ops_income_adjustments
 }));
 const nav=async section=>{
  await page.locator('#nav [data-route="'+section+'"]').click();
@@ -98,6 +99,22 @@ try{
  await page.locator('[data-action="fiscal-adjustment-delete"]').click();
  assert.equal((await data()).adjustments.length,0,'No se eliminó ajuste');
  steps.push('ajustes:filtro negativo,crear,editar,eliminar');
+ await nav('fiscalidad');
+ await page.locator('[data-action="income-adjustment-new"]').click();
+ await page.locator('#iaConcept').fill('Venta complementaria QA');
+ await page.locator('#iaAmount').fill('37,75');
+ await page.locator('[data-action="income-adjustment-save"]').click();
+ let incomes=(await data()).manualIncome;
+ const entry=incomes.find(x=>x.concept==='Venta complementaria QA');
+ assert(entry&&entry.amount===37.75,'Ingreso manual no creado');
+ await page.locator('[data-action="income-adjustment-edit"][data-id="'+entry.id+'"]').click();
+ await page.locator('#iaAmount').fill('42,50');
+ await page.locator('[data-action="income-adjustment-save"]').click();
+ assert((await data()).manualIncome.some(x=>x.id===entry.id&&x.amount===42.5),'Edición del ingreso manual falló');
+ await page.locator('[data-action="income-adjustment-delete"][data-id="'+entry.id+'"]').click();
+ await page.waitForTimeout(60);
+ assert(!(await data()).manualIncome.some(x=>x.id===entry.id),'El ingreso manual no se eliminó');
+ steps.push('ingresos manuales: crear,editar,eliminar');
  assert(!errors.length,errors.join('; '));
  console.log('FISCAL SUBMENUS QA: '+steps.join(' | ')+' OK');
 }finally{await browser.close()}
