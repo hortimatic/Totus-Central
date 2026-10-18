@@ -314,12 +314,12 @@ begin
 end;
 $$;
 
-CREATE OR REPLACE FUNCTION public.totus_save_sales_document(p_document jsonb, p_lines jsonb)
+create or replace function public.totus_save_sales_document(p_document jsonb, p_lines jsonb)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public,private'
-AS $function$
+AS $$
 declare
   v_id uuid := nullif(p_document->>'id','')::uuid;
   v_status text;
@@ -424,7 +424,7 @@ begin
     jsonb_build_object('tipo',v_type,'kind',v_kind,'origen',v_origin,'fecha',v_issue));
   return v_id;
 end;
-$function$;
+$$;
 
 create or replace function public.totus_register_external_document(p_id uuid,p_number integer)
 returns public.ops_sales_invoices
@@ -466,12 +466,12 @@ $$;
 revoke all on function public.totus_register_external_document(uuid,integer) from public,anon;
 grant execute on function public.totus_register_external_document(uuid,integer) to authenticated;
 
-CREATE OR REPLACE FUNCTION public.totus_update_invoice_payment(p_id uuid, p_payment jsonb)
+create or replace function public.totus_update_invoice_payment(p_id uuid, p_payment jsonb)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public,private'
-AS $function$
+AS $$
 declare
   v_total numeric; v_type text; v_status text; v_amount numeric; v_date date; v_method text;
 begin
@@ -487,17 +487,17 @@ begin
   update public.ops_sales_invoices set payment_method=v_method,paid_status=v_status,paid_date=v_date,paid_amount=v_amount,updated_at=now() where id=p_id;
   perform private.totus_audit('facturacion','actualizar_cobro',p_id,jsonb_build_object('estado',v_status,'importe',v_amount,'fecha',v_date,'metodo',v_method));
 end;
-$function$;
+$$;
 
 revoke all on function public.totus_update_invoice_payment(uuid,jsonb) from public,anon;
 grant execute on function public.totus_update_invoice_payment(uuid,jsonb) to authenticated;
 
-CREATE OR REPLACE FUNCTION public.totus_finalize_sales_document(p_id uuid)
+create or replace function public.totus_finalize_sales_document(p_id uuid)
  RETURNS ops_sales_invoices
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public,private,extensions'
-AS $function$
+AS $$
 declare
   v_doc public.ops_sales_invoices;
   v_series public.ops_invoice_series;
@@ -543,7 +543,7 @@ begin
   perform private.totus_audit('facturacion','emitir',p_id,jsonb_build_object('numero',v_doc.display_number));
   return v_doc;
 end;
-$function$;
+$$;
 
 create or replace function public.totus_convert_proforma(p_id uuid,p_invoice_series uuid)
 returns uuid
