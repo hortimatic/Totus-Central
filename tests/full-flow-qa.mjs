@@ -167,6 +167,7 @@ await check('Gastos: adjuntar factura PDF y recuperar el documento',async()=>{
  assert(await page.locator('#exFilePreview').isEnabled(),'La vista previa previa al guardado sigue bloqueada');
  await page.locator('[data-action="expense-file-preview"]').click();
  await page.locator('#modalHost .document-frame').waitFor({state:'visible'});
+ await page.locator('#modalHost [data-pdf-rendered="1"]').waitFor({state:'visible'});
  assert((await page.locator('#modalHost').innerText()).includes('todavía NO guardado'),'La vista previa confunde adjuntar con guardar');
  await page.locator('#modalHost .close-btn').click();
  assert(await page.locator('#exFile').evaluate(el=>el.files?.length===1),'Ver la factura ha borrado el archivo seleccionado');

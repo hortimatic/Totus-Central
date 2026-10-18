@@ -341,3 +341,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .field-help[open].flip-up>span[role="note"]{top:auto;bottom:26px}
  .field-help[open].align-right>span[role="note"]{left:auto;right:0}
 }
+
+.pdf-viewer{overflow:auto;padding:10px;text-align:center}.pdf-controls{position:sticky;top:0;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;background:#f7f7f7;padding:4px 0 10px;z-index:1}.pdf-controls [role=status]{font-size:13px}.pdf-page{display:block;max-width:100%;height:auto!important;margin:auto;background:white}

@@ -12,6 +12,7 @@ import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,expo
 import {createBackup,inspectBackup} from './backup.js';
 import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
 import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
+import {renderPdfPreview} from './pdf-preview.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
@@ -199,10 +200,14 @@ async function previewPendingExpenseFile(){
  const old=state.data.documents.find(d=>d.id===existing?.document_id);
  validateDocumentFile(file,{maxBytes:Number(settings.document_max_bytes||20*1024*1024),usedBytes:Number(usage.total_bytes||0),limitBytes:Number(usage.limit_bytes||500*1024*1024),replacingBytes:Number(old?.size_bytes||0)});
  const kind=previewKind(file.name,file.type);
+ if(kind==='pdf'){
+  modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div><div id="pdfPreviewHost" class="document-frame pdf-viewer"></div><div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
+  await renderPdfPreview(file,document.getElementById('pdfPreviewHost'));return;
+ }
  let content='';
- if(kind==='pdf'||kind==='image'){
+ if(kind==='image'){
   const url=URL.createObjectURL(file);
-  content=kind==='pdf'?`<iframe class="document-frame" src="${url}" title="${esc(file.name)}"></iframe>`:`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(file.name)}"></div>`;
+  content=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(file.name)}"></div>`;
   setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
   const workbook=window.XLSX.read(await file.arrayBuffer(),{type:'array'});
@@ -1035,8 +1040,8 @@ async function previewDocument(id){
  const blob=await getDocumentBlob(d),mime=String(d.mime_type||blob.type||'').toLowerCase(),name=String(d.original_name||'').toLowerCase();
  let body='';const kind=previewKind(name,mime);
  if(kind==='pdf'){
-   const url=URL.createObjectURL(blob);body=`<iframe class="document-frame" src="${url}" title="${esc(d.original_name||'PDF')}"></iframe>`;
-   setTimeout(()=>URL.revokeObjectURL(url),180000);
+   modal(d.original_name||'Documento',`<div class="stack"><div id="pdfPreviewHost" class="document-frame pdf-viewer"></div><div class="form-actions">${btn('Descargar','document-download','primary',`data-id="${d.id}"`)}</div></div>`);
+   await renderPdfPreview(blob,document.getElementById('pdfPreviewHost'));return;
  }else if(kind==='image'){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
