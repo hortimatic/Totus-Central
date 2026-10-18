@@ -23,3 +23,10 @@ Lectura de la rama `staging` y Supabase STAGING `awmojepsasikxocoeqtu`. Producci
 - Revisión visual y contable de los libros semestrales completos, importes, estilos, fórmulas y filtros.
 - Pruebas transaccionales contra staging con rollback de registros de negocio.
 - Auditoría del resto de módulos y de la restauración segura, que continúa bloqueada.
+
+## Segunda pasada: CONT-001 — ingresos manuales omitidos
+- Detección: `inicio()`, `fiscalidad()` e `informes()` no incorporaban `ops_income_adjustments`, aunque `exportSummaryWorkbook` y los libros de gestoría sí lo hacen. Los KPIs y la previsión IRPF divergían de las exportaciones.
+- Corregido en `src/pages/main.js`: sumar ingresos manuales usando `income_date` y filtros de periodo/tienda; mostrar su importe acumulado en Fiscalidad.
+- Detectado también que la fiscalidad sumaba algunos ajustes de otras tiendas aunque estuviera filtrada una tienda, y que los porcentajes configurados a cero se sustituían por valores predeterminados debido a `||`. Corregidos con filtro por tienda y `??`.
+- Regresión ampliada en `tests/filters-qa.mjs` con ingresos 150 + ajuste 25 = 175 €, tipo IRPF 0 % y ajuste ajeno a la tienda seleccionada.
+- Pendiente validar el último commit mediante QA y publicación; ningún dato contable del servidor se ha cambiado.

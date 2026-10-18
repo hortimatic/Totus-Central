@@ -18,7 +18,8 @@ export function inicio(){
  const salesFromClosings=sum(monthClosings.filter(x=>x.include_in_income!==false),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
  const extraInvoices=sum(monthInvoices.filter(x=>x.include_in_income===true),x=>x.total_amount);
  const monthIncomeAdjustments=sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,month.from,month.to)),x=>x.amount);
- const sales=salesFromClosings+extraInvoices+monthIncomeAdjustments;
+ const monthManualIncome=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,month.from,month.to)),x=>x.amount);
+ const sales=salesFromClosings+extraInvoices+monthIncomeAdjustments+monthManualIncome;
  const accountingExpenses=sum(monthExpenses.filter(x=>!x.management_only),x=>x.accounting_amount??x.gross_expense??x.amount_paid??0);
  const internalExpenses=sum(monthExpenses.filter(x=>x.management_only),x=>x.accounting_amount??x.gross_expense??x.amount_paid??0);
  const realResult=sales-accountingExpenses-internalExpenses;
@@ -39,11 +40,12 @@ export function inicio(){
  const used=storageOk?Number(usage.total_bytes):null,limit=storageOk?Number(usage.limit_bytes):null,storagePct=storageOk?used/limit*100:null;
  const qIncome=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,qFrom,qTo)),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))
   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,qFrom,qTo)),x=>x.total_amount)
-  +sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,qFrom,qTo)),x=>x.amount);
+  +sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,qFrom,qTo)),x=>x.amount)
+  +sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,qFrom,qTo)),x=>x.amount);
  const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo));
  const qExpenseIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qExpenseIds.has(x.expense_id)),qWithLines=new Set(qLines.map(x=>x.expense_id));
  const qDed=sum(qLines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0))+sum(qExpenses.filter(x=>!qWithLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount??x.gross_expense??0)*(Number(x.deductible_pct??100)/100));
- const qNet=Math.max(0,qIncome-qDed),qIrpf=Math.max(0,qNet*Number(state.data.settings?.irpf_prepayment_rate||20)/100);
+ const qNet=Math.max(0,qIncome-qDed),qIrpf=Math.max(0,qNet*Number(state.data.settings?.irpf_prepayment_rate??20)/100);
  const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
  const alerts=[];
  if(missingStores.length)alerts.push({level:'warn',title:'Cierres pendientes hoy',text:missingStores.map(x=>x.name).join(', '),route:'cajas'});
@@ -328,15 +330,17 @@ export function fiscalidad(){
  const ytdInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)&&storeOk(x));
  const periodAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
  const ytdAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x));
+ const periodManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&storeOk(x));
+ const ytdManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)&&storeOk(x));
  const sumIncome=(cs,is,as)=>sum(cs,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
- const periodIncome=sumIncome(periodClose,periodInv,periodAdj),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj);
+ const periodIncome=sumIncome(periodClose,periodInv,periodAdj)+sum(periodManual,x=>x.amount),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj)+sum(ytdManual,x=>x.amount);
  const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,qTo)&&storeOk(x));
  const internalPeriod=state.data.expenses.filter(x=>x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x));
  const deductibleFor=expenses=>{const ids=new Set(expenses.map(x=>x.id)),lines=state.data.expenseLines.filter(x=>ids.has(x.expense_id)),withLines=new Set(lines.map(x=>x.expense_id));return sum(lines,x=>x.deductible_irpf===false?0:Number(x.irpf_imputable||0))+sum(expenses.filter(x=>!withLines.has(x.id)&&x.deductible_irpf!==false),x=>Number(x.accounting_amount??x.gross_expense??0)*(Number(x.deductible_pct??100)/100))};
  const periodDed=deductibleFor(periodExpenses),ytdDedBase=deductibleFor(ytdExpenses);
- const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to));
+ const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
  const extraIncomeYtd=sum(fiscalYtd.filter(x=>x.kind==='ingreso_extra'),x=>x.amount),extraDedYtd=sum(fiscalYtd.filter(x=>['gasto_deducible_extra','amortizacion'].includes(x.kind)),x=>x.amount),reductionsYtd=sum(fiscalYtd.filter(x=>x.kind==='reduccion'),x=>x.amount),withheldYtd=sum(fiscalYtd.filter(x=>x.kind==='retencion_soportada'),x=>x.amount);
- const netBeforeDiff=Math.max(0,ytdIncome-ytdDedBase-extraDedYtd-reductionsYtd),dPct=Number(state.data.settings?.difficult_expense_pct||5),dCap=Number(state.data.settings?.difficult_expense_annual_cap||2000),difficult=state.data.settings?.difficult_expense_enabled===false?0:Math.min(netBeforeDiff*dPct/100,dCap),base=Math.max(0,netBeforeDiff-difficult),rate=Number(state.data.settings?.irpf_prepayment_rate||20),gross130=base*rate/100;
+ const netBeforeDiff=Math.max(0,ytdIncome-ytdDedBase-extraDedYtd-reductionsYtd),dPct=Number(state.data.settings?.difficult_expense_pct??5),dCap=Number(state.data.settings?.difficult_expense_annual_cap??2000),difficult=state.data.settings?.difficult_expense_enabled===false?0:Math.min(netBeforeDiff*dPct/100,dCap),base=Math.max(0,netBeforeDiff-difficult),rate=Number(state.data.settings?.irpf_prepayment_rate??20),gross130=base*rate/100;
  const previous130=sum(state.data.taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<quarter&&x.status==='pagado'),x=>x.amount),calc130=Math.max(0,gross130-previous130-withheldYtd);
  const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),paid130=current130?.status==='pagado'?Number(current130.amount||0):0,diff130=paid130-calc130;
  const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
@@ -352,6 +356,7 @@ export function fiscalidad(){
    <section class="card card-pad"><div class="section-head"><div><h2>Modelo 130 · ${quarter}T ${year}</h2><p>Cálculo acumulado del 01/01/${year} al ${fmtDate(qTo)}.</p></div>${btn('Ajuste fiscal','fiscal-adjustment-new','secondary')}</div>
     <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(ytdIncome)}</strong></div>
     <div class="summary-row"><span>Ajustes de ingreso</span><strong>${money(extraIncomeYtd)}</strong></div>
+    <div class="summary-row"><span>Ingresos manuales acumulados</span><strong>${money(sum(ytdManual,x=>x.amount))}</strong></div>
     <div class="summary-row"><span>Gasto deducible acumulado</span><strong>− ${money(ytdDedBase)}</strong></div>
     <div class="summary-row"><span>Gastos/amortizaciones extra</span><strong>− ${money(extraDedYtd)}</strong></div>
     <div class="summary-row"><span>Reducciones</span><strong>− ${money(reductionsYtd)}</strong></div>
@@ -377,7 +382,8 @@ export function informes(){
  const g=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const extraInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const incomeAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount);
+ const manualIncome=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
+ const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount)+sum(manualIncome,x=>x.amount);
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only&&x.fiscal_reviewed!==false),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  return `<div class="page">
