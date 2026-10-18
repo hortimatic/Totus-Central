@@ -787,6 +787,8 @@ export function expenseRecordHtml(row=null){
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
       <label class="check-field wide emphasis-check"><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Solo control interno · no enviar a gestoría ni incluir en cálculo fiscal</label>
+      <label class="check-field wide"><input id="exFiscalReviewed" type="checkbox" ${row?.fiscal_reviewed===true?'checked':''}> He cotejado el documento, sus conceptos e impuestos; gasto fiscal revisado</label>
+      <p class="small muted wide">Un gasto nuevo permanece sin revisar hasta que marques esta casilla. Los gastos internos nunca se incluirán en el cálculo fiscal.</p>
       ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
       ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
       ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}

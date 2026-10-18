@@ -139,6 +139,17 @@ await check('Gastos: creación, importe decimal y líneas fiscales',async()=>{
  const d=await db();
  assert(d.expenses.length===1,'El gasto no se guardó');
  assert(Math.abs(d.expenses[0].gross_expense-126.2)<0.01,'El importe IVA + RE no cuadra');
+ assert(d.expenses[0].fiscal_reviewed===false,'Una factura sin cotejar no debe entrar directamente en fiscalidad');
+ await page.locator('[data-action="expense-back"]').first().click();
+ await page.locator('[data-action="expense-edit"][data-id="'+d.expenses[0].id+'"]').click();
+ await page.locator('#exFiscalReviewed').check();
+ await page.locator('[data-action="expense-save"]').click();
+ await page.waitForTimeout(120);
+ assert((await db()).expenses.find(x=>x.id===d.expenses[0].id)?.fiscal_reviewed===true,'No se puede pasar un gasto de pendiente a fiscal revisado');
+ await nav('informes');
+ const reviewed=await page.locator('#content').innerText();
+ assert(reviewed.includes('Gastos fiscales revisados')&&reviewed.includes('126,20'),'El gasto revisado no se refleja en el informe');
+
 });
 await check('Gastos: adjuntar factura PDF y recuperar el documento',async()=>{
  await nav('gastos');
