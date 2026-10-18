@@ -53,10 +53,10 @@ assert(output?.wb?.Sheets?.Resumen,'El resumen no generó libro');
 const summary=output.wb.Sheets.Resumen,perStore=output.wb.Sheets['Por tienda'];
 const eq=(actual,expected,reason)=>assert(Math.abs(Number(actual)-expected)<0.02,reason+': '+actual+' frente a '+expected);
 eq(summary.B8.v,expectedIncome,'Ingresos anuales cruzados');
-eq(summary.B9.v,expectedFiscal,'Gastos revisados de los dos negocios');
+eq(summary.B9.v,expectedFiscal+expectedPending,'Los gastos registrados incluyen facturas por cotejar');
 eq(summary.B10.v,expectedInternal,'Gastos internos');
 eq(summary.B13.v,expectedPending,'Gastos pendientes de revisar');
-eq(summary.B12.v,expectedIncome-expectedFiscal-expectedInternal,'Resultado neto');
+eq(summary.B12.v,expectedIncome-expectedFiscal-expectedPending-expectedInternal,'Resultado neto debe descontar gastos pendientes');
 eq(perStore.E2.v+perStore.E3.v+perStore.E4.v,summary.B12.v,'Suma de resultados por tienda y sin tienda');
 eq(perStore.F2.v+perStore.F3.v+perStore.F4.v,expectedPending,'Pendientes de los tres orígenes');
 for(const store of shops){

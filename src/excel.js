@@ -69,13 +69,13 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
  const adjustmentSales=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.reduce((a,x)=>a+n(x.amount),0);
  const sales=closeSales+extraInvoiceSales+adjustmentSales;
- const accounting=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+ const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  const pending=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  const costs=accounting+internal;
  const summary=[
   ['RESUMEN DE GESTIÓN'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],
-  ['Concepto','Importe'],['Ventas de cierres',closeSales],['Facturas adicionales',extraInvoiceSales],['Ajustes de ingreso',adjustmentSales],['Ingresos totales',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs],['Pendientes de revisión (no incluidos)',pending]
+  ['Concepto','Importe'],['Ventas de cierres',closeSales],['Facturas adicionales',extraInvoiceSales],['Ajustes de ingreso',adjustmentSales],['Ingresos totales',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs],['Pendientes de revisión (incluidos)',pending]
  ];
  const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(let r=5;r<=13;r++)if(ws[`B${r}`])ws[`B${r}`].z=euro;
  ws['A12'].s=totalStyle;ws['B12'].s={...totalStyle};ws['B12'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
@@ -86,19 +86,19 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
   const as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
   const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>x.store_id===s.id).reduce((a,x)=>a+n(x.amount),0);
   const amt=x=>n(x.gross_expense??x.accounting_amount??x.amount_paid??0);
-  const fiscal=es.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((a,x)=>a+amt(x),0);
+  const accounting=es.filter(x=>!x.management_only).reduce((a,x)=>a+amt(x),0);
   const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+amt(x),0);
   const notReviewed=es.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+amt(x),0);
-  return [s.name,sv,fiscal,internal,sv-fiscal-internal,notReviewed];
+  return [s.name,sv,accounting,internal,sv-accounting-internal,notReviewed];
  });
  const generalIncome=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id).reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>!x.store_id).reduce((a,x)=>a+n(x.amount),0);
  const generalExpenses=expenses.filter(x=>!x.store_id),ga=x=>n(x.gross_expense??x.accounting_amount??x.amount_paid??0);
- const generalFiscal=generalExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((a,x)=>a+ga(x),0);
+ const generalAccounting=generalExpenses.filter(x=>!x.management_only).reduce((a,x)=>a+ga(x),0);
  const generalInternal=generalExpenses.filter(x=>x.management_only).reduce((a,x)=>a+ga(x),0);
  const generalPending=generalExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+ga(x),0);
- if(generalIncome||generalFiscal||generalInternal||generalPending)
-  perStore.push(['General / sin tienda',generalIncome,generalFiscal,generalInternal,generalIncome-generalFiscal-generalInternal,generalPending]);
- const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos revisados','Gastos internos','Resultado','Pendientes de revisión'],...perStore]);styleHeader(ws2,0,6);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E','F'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16,25]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
+ if(generalIncome||generalAccounting||generalInternal||generalPending)
+  perStore.push(['General / sin tienda',generalIncome,generalAccounting,generalInternal,generalIncome-generalAccounting-generalInternal,generalPending]);
+ const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos registrados','Gastos internos','Resultado','Sin revisión fiscal'],...perStore]);styleHeader(ws2,0,6);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E','F'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16,25]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
  write(wb,`resumen_${from}_${to}.xlsx`);
 }
 
