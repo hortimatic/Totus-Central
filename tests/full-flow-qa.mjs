@@ -377,6 +377,7 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  assert(d.invoices.length===1,'Factura no guardada');
  assert(d.invoices[0].status==='borrador','Factura debe quedar en borrador');
  assert(Math.abs(d.invoices[0].total_amount-121)<0.01,'Factura total incorrecto');
+ await page.locator('[data-action="invoice-back"]').first().click();
  await page.locator('[data-action="invoice-preview"]').first().click();
  assert((await page.locator('#modalHost').innerText()).includes('Cliente ensayo'),'La vista previa de factura no muestra el cliente');
  const popupReady=page.waitForEvent('popup',{timeout:5000});
@@ -388,6 +389,7 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  assert(cssHref?.includes('/src/styles.css'),'La impresión no carga la hoja de estilos');
  await printPopup.close();
  await page.locator('#modalHost .close-btn').click();
+ await page.locator('[data-action="invoice-edit"]').first().click();
  await page.locator('[data-action="invoice-finalize"]').first().click();
  await page.waitForTimeout(100);
  const issued=await db();
@@ -598,6 +600,7 @@ await check('Descargas desde los botones reales de Cajas, Gastos e Informes',asy
   await nav(route);
   if(route==='cajas'&&await page.locator('[data-action="closing-back"]').count())await page.locator('[data-action="closing-back"]').first().click();
   if(route==='gastos'&&await page.locator('[data-action="expense-back"]').count())await page.locator('[data-action="expense-back"]').first().click();
+  if(action==='export-gestor-book')await page.locator('.report-extra summary').click();
   const started=page.waitForEvent('download',{timeout:7000});
   await page.locator('[data-action="'+action+'"]').first().click();
   const exported=await started;
@@ -701,7 +704,7 @@ await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF ori
  assert(download.suggestedFilename()==='Paquete_gestor_2026.zip','El paquete del gestor no tiene el nombre anual correcto');
  const archive=await JSZip.loadAsync(await fs.readFile(await download.path()));
  const names=Object.keys(archive.files);
- for(const required of ['01_INGRESOS/Ingresos_2026.csv','02_GASTOS/Libros_gestor_y_auditoria_2026_Totus.xlsx','03_DIARIOS/Gastos y ventas Hortimatic 2026.xlsx','03_DIARIOS/Gastos y ventas NewOldSmok 2026.xlsx','04_RESUMEN/Resumen_2026.csv']){
+ for(const required of ['01_INGRESOS/Ingresos_2026.csv','02_GASTOS/Libros_gestor_y_auditoria_2026_Totus.xlsx','03_DIARIOS/Hortimatic/2026-01 Gastos y ventas.xlsx','03_DIARIOS/NewOldSmok/2026-12 Gastos y ventas.xlsx','04_RESUMEN/Resumen_2026.csv']){
   assert(!!archive.file(required),'Falta fichero del gestor: '+required);
  }
  assert(names.some(x=>x.endsWith('/justificante-test.pdf')),'No se incluyó la factura PDF original de gastos en el ZIP');
@@ -715,12 +718,13 @@ await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF ori
   const cells=xlsx.utils.sheet_to_json(workbook.Sheets[sheet],{header:1,defval:''});
   assert(!cells.flat().some(x=>String(x).includes('Horas extra QA')),'Gasto interno enviado erróneamente a fiscalidad');
  }
- for(const name of ['Hortimatic','Newoldsmok']){
-  const p='03_DIARIOS/Gastos y ventas '+(name==='Hortimatic'?name:'NewOldSmok')+' 2026.xlsx';
-  const book=xlsx.read(await archive.file(p).async('nodebuffer'),{type:'buffer',cellFormula:true,cellStyles:true});
-  assert(book.SheetNames.length===12&&book.SheetNames[0]==='Enero'&&book.SheetNames[11]==='Diciembre','El libro de '+name+' perdió hojas mensuales');
-  const monthly=book.Sheets.Septiembre;
-  assert(monthly&&Object.values(monthly).some(cell=>cell?.f&&String(cell.f).includes('SUM(')),'Faltan fórmulas en el libro de '+name);
+ for(const name of ['Hortimatic','NewOldSmok'])for(let month=1;month<=12;month++){
+  const path=`03_DIARIOS/${name}/2026-${String(month).padStart(2,'0')} Gastos y ventas.xlsx`;
+  const book=xlsx.read(await archive.file(path).async('nodebuffer'),{type:'buffer',cellFormula:true});
+  assert(book.SheetNames.length===1,'Each workbook must contain one month');
+  const sheet=book.Sheets[book.SheetNames[0]];
+  assert(sheet.D2.v==='N\u00ba factura'&&sheet.E2.v==='Precio','Monthly column order');
+  assert(Object.values(sheet).some(cell=>cell?.f&&String(cell.f).includes('SUM(')),'Monthly formulas missing');
  }
 
  const index=archive.file('05_DOCUMENTOS/Indice_documentos_2026.csv');

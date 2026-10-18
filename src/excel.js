@@ -126,7 +126,8 @@ function legacyExpenseAmount(expense){return n(expense.gross_expense??expense.ac
 function setCell(ws,addr,value,style,formula=null){
  const t=typeof value==='number'?'n':'s';ws[addr]={t,v:value,s:style};if(formula)ws[addr].f=formula;
 }
-function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
+function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,invoiceNumbers=false}){
+ const invoiceReferences=new Map();
  const monthName=MONTHS[month],ws={};
  ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,!/newold|smok/i.test(store.name||'')&&month===0?33:30.7109375,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  const legacyTitle=year===2026&&month>=3&&month<=6?`${/newold|smok/i.test(store.name||'')?(month===3?'NewOldSmok':'Newoldsmok'):'Hortimatic'} ${monthName} ${year}`:`${monthName} ${year}`;
@@ -151,6 +152,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
      if(k===0)setCell(ws,`B${row}`,`${d} ${WEEKDAYS[new Date(year,month,d).getDay()]}`,textStyle(stripe,true));
      else setCell(ws,`B${row}`,'',textStyle(stripe,true));
      if(ex){
+       invoiceReferences.set(row,ex.invoice_number||'');
        const g=legacyGroup(ex,categories),amount=legacyExpenseAmount(ex);
        setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(LEGACY_COLORS[g],false));
        setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
@@ -179,13 +181,35 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  setCell(ws,`C${row}`,`${fmtEuro(cardTotal+cashTotal)}€ - ${fmtEuro(grossExpenses-internalTotal)}€ = ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`Total ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);
  ws['!ref']=`A1:F${Math.max(row,totalRow)}`;
- XLSX.utils.book_append_sheet(wb,ws,monthName);
+ let output=ws;
+ if(invoiceNumbers){
+  output={};
+  const shiftFormula=formula=>formula.replace(/(\$?)([A-Z]{1,3})(\$?\d+)/g,(_match,dollar,column,number)=>dollar+XLSX.utils.encode_col(XLSX.utils.decode_col(column)+(XLSX.utils.decode_col(column)>=3?1:0))+number);
+  for(const [address,cell] of Object.entries(ws)){
+   if(address.startsWith('!'))continue;
+   const position=XLSX.utils.decode_cell(address);if(position.c>=3)position.c++;
+   output[XLSX.utils.encode_cell(position)]={...cell,...(cell.f?{f:shiftFormula(cell.f)}:{})};
+  }
+  output['!cols']=[...ws['!cols'].slice(0,3),{wch:20},...ws['!cols'].slice(3)];
+  output['!merges']=[XLSX.utils.decode_range('B1:G1')];output['!ref']=`A1:G${Math.max(row,totalRow)}`;
+  output['D2']={...ws.C2,v:'Nº factura'};
+  for(let r=3;r<=lastData;r++)output[`D${r}`]={t:'s',v:invoiceReferences.get(r)||'',s:{...textStyle(r%2===1?LEGACY_COLORS.stripe:null),alignment:{vertical:'center',wrapText:true}}};
+  output['!autofilter']={ref:`B2:G${lastData}`};
+  output['!freeze']={xSplit:0,ySplit:2};
+ }
+ XLSX.utils.book_append_sheet(wb,output,monthName);
 }
 export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories}){
  const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories});
  wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
 }
-export function exportStoreAnnualWorkbook(args){const wb=buildStoreAnnualWorkbook(args);write(wb,`Gastos y ventas ${args.store.name} ${args.year}.xlsx`);}
+export function buildStoreMonthlyWorkbook(args){
+ if(!Number.isInteger(args.month)||args.month<1||args.month>12)throw new Error('Selecciona un mes válido.');
+ if(!Number.isInteger(args.year)||args.year<2020||args.year>2100)throw new Error('Selecciona un año válido.');
+ const wb=book();appendLegacyMonthlySheet(wb,{...args,month:args.month-1,invoiceNumbers:true});
+ wb.Workbook={CalcPr:{calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true}};return wb;
+}
+export function exportStoreMonthlyWorkbook(args){write(buildStoreMonthlyWorkbook(args),`Gastos y ventas ${args.store.name} ${args.year}-${String(args.month).padStart(2,'0')} ${MONTHS[args.month-1]}.xlsx`)}
 
 
 const GESTOR_NAVY='17365D',GESTOR_BLUE='4472C4',GESTOR_ALT='D9EAF7',GESTOR_LINE='5B9BD5';
@@ -293,11 +317,12 @@ export function buildGestorSourceWorkbook(args){
  for(let r=5;r<=6+rows.length;r++)for(let c=0;c<17;c++){
   const addr=XLSX.utils.encode_cell({r:r-1,c}),cell=ws[addr];if(!cell)continue;
   const last=r===6+rows.length;
-  cell.s={font:{name:'Arial',sz:r===5?8:9,bold:last},alignment:{horizontal:c>=7?'right':'left',vertical:'center',wrapText:c<7},fill:{fgColor:{rgb:r>5&&!last&&r%2===0?'C5C5C5':'FFFFFF'}},border:r===5||last?{top:{style:'thin',color:{rgb:'000000'}}}:undefined};
+  cell.s={font:{name:'Arial',sz:10,bold:r===5||last,color:{rgb:r===5?'FFFFFF':'24354B'}},alignment:{horizontal:c>=7?'right':'left',vertical:'center',wrapText:c<7},fill:{fgColor:{rgb:r===5?'17365D':last?'DCE6F1':r%2===0?'F1F5FA':'FFFFFF'}},border:r===5||last?{top:{style:'thin',color:{rgb:'000000'}}}:undefined};
   if(c>=7)cell.z='#,##0.00';
   if(last&&GESTOR_AMOUNT_COLUMNS.includes(c)){cell.f=rows.length?`SUM(${XLSX.utils.encode_col(c)}6:${XLSX.utils.encode_col(c)}${5+rows.length})`:'0';cell.t='n'}
  }
- ws[`A${6+rows.length}`]={t:'s',v:'TOTAL'};
+ ws['A1'].s={font:{name:'Arial',sz:16,bold:true,color:{rgb:'17365D'}}};ws['A2'].s={font:{name:'Arial',sz:11,color:{rgb:'475569'}}};ws['!rows']=[{hpt:27},{hpt:21},{hpt:19},{hpt:8},{hpt:36},...rows.map(()=>({hpt:30})),{hpt:25}];
+ ws[`A${6+rows.length}`]={t:'s',v:'TOTAL',s:{font:{name:'Arial',sz:10,bold:true,color:{rgb:'17365D'}},fill:{fgColor:{rgb:'DCE6F1'}}}};
  XLSX.utils.book_append_sheet(wb,ws,'Compras y gastos');
  return wb;
 }

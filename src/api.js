@@ -75,5 +75,14 @@ export async function loadCore(){
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
  await reloadStorageUsage();
- if(['admin','gerente'].includes(state.user?.role)){state.data.audit=await select('ops_audit_log',{order:'created_at',ascending:false,limit:1000,allowTruncated:true}).catch(()=>[])}
+ if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{state.data.auditError=error.message});
+}
+export async function reloadAudit(){
+ if(!['admin','gerente'].includes(state.user?.role))return;
+ const [events,users]=await Promise.all([
+  select('ops_audit_log',{order:'created_at',ascending:false,limit:1000,allowTruncated:true}),
+  state.user.role==='admin'?select('team_user_audit_log',{order:'created_at',ascending:false,limit:1000,allowTruncated:true}):Promise.resolve([])
+ ]);
+ state.data.audit=[...events,...users.map(row=>({id:'team:'+row.id,created_at:row.created_at,user_email:row.actor_email,area:'usuarios',action:row.action,detail:{usuario:row.target_email,resultado:row.status,detalle:row.detail}}))].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,1000);
+ state.data.auditError='';state.data.auditUpdatedAt=new Date().toISOString();
 }

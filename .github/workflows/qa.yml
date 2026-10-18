@@ -34,6 +34,7 @@ jobs:
       - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib
       - run: npx playwright install --with-deps chromium
       - run: node tests/excel-qa.mjs
+      - run: node tests/monthly-workbook-qa.mjs
       - run: node tests/legacy-retention-qa.mjs
       - run: node tests/gestor-workbook-qa.mjs
       - run: node tests/gestor-print-qa.mjs
@@ -47,6 +48,7 @@ jobs:
       - run: node tests/user-screenshot-qa.mjs
       - run: node tests/modal-geometry-qa.mjs
       - run: node tests/field-sweep-qa.mjs
+      - run: node tests/second-review-qa.mjs
       - run: node tests/full-flow-qa.mjs
       - run: node tests/pdf-preview-qa.mjs
       - run: node tests/invoice-logo-qa.mjs
@@ -67,6 +69,7 @@ jobs:
             artifacts/*.xlsx
             artifacts/gestor_source_qa.pdf
             artifacts/gestor_source_qa.png
+            artifacts/review_*.png
             artifacts/ui_*.png
             artifacts/layout_*.png
             artifacts/user_*.png

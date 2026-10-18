@@ -143,6 +143,7 @@ export function gastos(){
    return expenseRecordHtml(row);
  }
  if(view.section==='facturas')return expenseInvoiceSectionHtml();
+ if(view.section==='proveedores')return expenseSuppliersHtml();
  const f=getFilters('gastos');
  const kind=f.kind||'all',paid=f.paid||'all';
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
@@ -181,7 +182,20 @@ function expenseTabs(section){
  return `<div class="tabs module-tabs expense-tabs" role="group" aria-label="Secciones de gastos">
   <button class="tab ${section==='registros'?'active':''}" data-action="expense-section" data-section="registros">Registros de gastos</button>
   <button class="tab ${section==='facturas'?'active':''}" data-action="expense-section" data-section="facturas">Facturas y justificantes</button>
+  <button class="tab ${section==='proveedores'?'active':''}" data-action="expense-section" data-section="proveedores">Proveedores</button>
  </div>`;
+}
+function expenseSuppliersHtml(){
+ const query=String(getFilters('gastos').supplierQuery||''),needle=query.toLocaleLowerCase('es');
+ const suppliers=state.data.suppliers.filter(s=>!needle||[s.name,s.tax_id,s.email,s.phone,s.notes].filter(Boolean).join(' ').toLocaleLowerCase('es').includes(needle)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const headers=[
+  {label:'Proveedor',html:s=>`<b>${esc(s.name)}</b><div class="small muted">${esc(s.tax_id||'Sin NIF/CIF')}</div>`},
+  {label:'Contacto',html:s=>`<div>${esc(s.email||'—')}</div><div class="small muted">${esc(s.phone||'')}</div>`},
+  {label:'Valores de las facturas',html:s=>`<div>IVA ${Number(s.default_vat_rate||0)} % · RE ${Number(s.default_re_rate||0)} %</div><div class="small muted">${Number(s.default_withholding_rate||0)?`Retención ${Number(s.default_withholding_rate)} % · modelo ${esc(s.default_withholding_model||'Sin asignar')}`:'Sin retención por defecto'}</div>`},
+  {label:'Estado',html:s=>stateBadge(s.active!==false?'activo':'inactivo')},
+  {label:'Acciones',html:s=>`<div class="inline-actions">${btn('Editar','expense-supplier-edit','secondary',`data-id="${s.id}"`)}${btn('Eliminar','expense-supplier-delete','danger',`data-id="${s.id}"`)}</div>`}
+ ];
+ return `<div class="page">${expenseTabs('proveedores')}<section class="card table-card"><div class="section-head card-pad"><div><h2>Proveedores de gastos</h2><p>Compras, servicios y arrendadores. Sus datos se reutilizan al registrar una factura.</p></div>${btn('+ Nuevo proveedor','expense-supplier-new','primary')}</div><div class="toolbar card-pad"><label class="field">Buscar proveedor<input id="expenseSuppliersQuery" value="${esc(query)}" placeholder="Nombre, NIF, correo o teléfono"></label>${btn('Buscar','expense-suppliers-search','secondary')}</div>${table(headers,suppliers,{emptyTitle:'Sin proveedores',emptyText:'Crea un proveedor o cambia la búsqueda.'})}</section></div>`;
 }
 function expenseInvoiceSectionHtml(){
  const f=getFilters('gastos'),kind=f.kind||'all',paid=f.paid||'all',attachment=f.attachment||'all';
@@ -291,17 +305,17 @@ export function documentos(){
   &&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type,x.category_code,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  const headers=[
   {label:'Documento',html:r=>`<b>${esc(r.original_name||'Documento')}</b><div class="small muted">${fmtDate(r.document_date||r.created_at)} · ${esc(storeName(r.store_id))}</div>`},
-  {label:'Clasificación',html:r=>`<b>${esc(r.doc_type||'—')}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
+  {label:'Clasificación',html:r=>`<b>${esc(String(r.doc_type||'—').replaceAll('_',' '))}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
   {label:'Tamaño',num:true,html:r=>`${(Number(r.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB`},
   {label:'Estado',html:r=>stateBadge(r.status)},
   {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}${canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||r.uploaded_by===state.session?.user?.id)?btn('Eliminar','document-delete','danger',`data-id="${r.id}"`):''}</div>`}
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
- return `<div class="page">
-  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',storageVerified?(used/1024/1024).toFixed(1).replace('.',',')+' MB':'No disponible',storageVerified?usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB':'Sin medición fiable de Supabase')}${kpi('Archivos en Storage',storageVerified?String(Number(usage.documents_count||0)+Number(usage.assets_count||0)):'No disponible')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
+ return `<div class="page documents-page">
+  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',storageVerified?(used/1024/1024).toFixed(1).replace('.',',')+' MB':'No disponible',storageVerified?usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB':'Sin medición fiable de Supabase')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
-   <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Subida, clasificación, vista previa, descarga y paquetes. Las facturas históricas aún no aparecen hasta que se importe el archivo original al almacenamiento.</p></div><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden>${btn('+ Subir documento','document-new','primary')}</div></div>
-   ${dateFilters({...f,stores:stores()},'documentos',extra)}
+   <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Busca por fecha, tienda, proveedor o número de factura. Abre cada documento para revisar su clasificación y sus datos.</p></div><div class="inline-actions">${btn('+ Subir documento','document-new','primary')}</div></div>
+   <div class="document-filters">${dateFilters({...f,stores:stores()},'documentos',extra)}</div><div class="document-batch-toolbar"><span class="small muted">${rows.length} documentos encontrados</span><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden></div></div>
    ${table(headers,rows,{emptyTitle:'No hay documentos',emptyText:'No existen documentos para los filtros seleccionados.'})}
   </section>
  </div>`;
@@ -365,7 +379,7 @@ export function fiscalidad(){
  const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
  const accountingPeriod=sum(state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),x=>x.accounting_amount??x.gross_expense??x.amount_paid??0),internal=sum(internalPeriod,x=>x.accounting_amount??x.gross_expense??x.amount_paid??0);
  const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
- const paymentRows=[['130',calc130,current130],['111',calc111,pay111],['115',calc115,pay115]].map(([model,calc,pay])=>{const paid=pay?Number(pay.amount||0):0,diff=paid-Number(calc||0);return `<div class="summary-row"><div><b>Modelo ${model}</b><div class="small muted">${pay?`${esc(pay.status)} · ${fmtDate(pay.payment_date)}`:'Sin registro'}</div></div><div class="compact-detail"><span>Calculado <b>${money(calc)}</b></span><span>Registrado <b>${money(paid)}</b></span><span>Diferencia <b class="${Math.abs(diff)<.02?'good-text':'warn-text'}">${money(diff)}</b></span></div><div class="inline-actions">${btn(pay?'Editar':'Registrar','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></div>`}).join('');
+ const paymentRows=[['130',calc130,current130],['111',calc111,pay111],['115',calc115,pay115]].map(([model,calc,pay])=>{const paid=pay?Number(pay.amount||0):0,diff=paid-Number(calc||0);return `<div class="summary-row"><div><b>Modelo ${model}</b><div class="small muted">${({'130':'Pago fraccionado IRPF','111':'Retenciones de personal y profesionales','115':'Retención de alquiler · Azuqueca'})[model]||''}</div><div class="small muted">${pay?`${esc(pay.status)} · ${fmtDate(pay.payment_date)}`:'Sin registro'}</div></div><div class="compact-detail"><span>Calculado <b>${money(calc)}</b></span><span>Registrado <b>${money(paid)}</b></span><span>Diferencia <b class="${Math.abs(diff)<.02?'good-text':'warn-text'}">${money(diff)}</b></span></div><div class="inline-actions">${btn(pay?'Editar':'Registrar','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></div>`}).join('');
  return `<div class="page">
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gasto deducible',money(periodDed))}${kpi('Gasto interno',money(internal))}${kpi('Resultado real',money(periodIncome-accountingPeriod-internal))}</div>
@@ -387,7 +401,7 @@ export function fiscalidad(){
     <div class="summary-row"><span>Diferencia</span><strong class="${Math.abs(diff130)<.02?'good-text':'warn-text'}">${money(diff130)}</strong></div>
     <div class="note warn" style="margin-top:12px">Control interno basado en registros Totus y ajustes explícitos. No sustituye el cálculo definitivo de la gestoría.</div>
    </section>
-   <section class="card card-pad"><div class="section-head"><div><h2>Modelos y pagos · ${quarter}T</h2><p>Calculado frente a lo registrado.</p></div></div><div class="stack" style="margin-top:12px">${paymentRows}</div></section>
+   <section class="card card-pad"><div class="section-head"><div><h2>Modelos y pagos · ${quarter}T</h2><p>Retenciones y pagos registrados, separados del IVA de las facturas.</p></div></div><div class="stack" style="margin-top:12px">${paymentRows}</div><div class="note rental-tax-note">El modelo 115 corresponde a la retención del alquiler, no al IVA. En vuestra operativa se aplica al local de Azuqueca. El alquiler de Alcalá no debe recibir esa retención por defecto. Cada factura conserva sus propios porcentajes y justificante.</div></section>
   </div>
   <section class="card card-pad"><div class="section-head"><div><h2>Ajustes fiscales del periodo</h2><p>Ninguna diferencia se corrige de forma silenciosa.</p></div>${btn('+ Nuevo ajuste','fiscal-adjustment-new','primary')}</div><div class="stack" style="margin-top:12px">${fiscalPeriod.length?fiscalPeriod.map(x=>`<div class="summary-row"><div><b>${esc(x.kind.replaceAll('_',' '))}</b><div class="small muted">${fmtDate(x.adjustment_date)} · ${esc(x.description||'')}</div></div><strong>${money(x.amount)}</strong><div class="inline-actions">${btn('Editar','fiscal-adjustment-edit','secondary',`data-id="${x.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin ajustes</strong><span>No hay ajustes fiscales explícitos en este periodo.</span></div>'}</div></section>
   <section class="card card-pad"><div class="section-head"><div><h2>Ingresos manuales</h2><p>Movimientos no incluidos en cierres ni facturas emitidas.</p></div>${btn('+ Registrar ingreso','income-adjustment-new','primary')}</div>
@@ -398,7 +412,7 @@ export function fiscalidad(){
 }
 
 export function informes(){
- const f=getFilters('informes'),year=Number(f.year||state.data.settings?.current_year||new Date().getFullYear());
+ const f=getFilters('informes'),month=Math.max(1,Math.min(12,Number(f.month||String(f.from||isoToday()).slice(5,7)))),monthLabel=new Date(2026,month-1,1).toLocaleDateString('es-ES',{month:'long'}),year=Number(f.year||state.data.settings?.current_year||new Date().getFullYear());
  const c=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&x.include_in_income!==false);
  const g=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
  const extraInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
@@ -408,16 +422,16 @@ export function informes(){
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  return `<div class="page">
- <section class="card">${dateFilters({...f,stores:stores()},'informes',`<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div>`)}</section>
+ <section class="card">${dateFilters({...f,stores:stores()},'informes',`<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div><div class="field"><label for="informesMonth">Mes del diario</label><select id="informesMonth">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${month===i+1?'selected':''}>${new Date(2026,i,1).toLocaleDateString('es-ES',{month:'long'})}</option>`).join('')}</select></div>`)}</section>
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
  <div class="split">
-  <section class="card card-pad"><div class="section-head"><div><h2>Libros como los Excel originales</h2><p>Doce hojas mensuales, mismos bloques, fórmulas, códigos de color y estructura de ventas/gastos.</p></div></div>
-   <div class="stack" style="margin-top:14px">${stores().map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">Gastos y ventas · ${year}</div></div><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${year}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${year}"`)}</div></div>`).join('')}</div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Un archivo por tienda y mes. Conserva los bloques y colores e incorpora el número de factura junto al gasto.</p></div></div>
+   <div class="report-actions" style="margin-top:14px">${stores().map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted monthly-period-label">${esc(monthLabel)} · ${year}</div></div><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${year}" data-month="${month}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${year}" data-month="${month}"`)}</div></div>`).join('')}</div>
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Tabla de compras y gastos con las columnas y el desglose del documento de la gestoría. Solo incluye gastos fiscales revisados del periodo y tienda seleccionados. Nºfra.rec. y Rt quedan para la gestoría.</p></div></div>
-   <div class="stack" style="margin-top:14px">${btn('Ver tabla de gestoría','report-gestor-source-preview','secondary')}${btn('Descargar tabla Excel','export-gestor-source','primary')}${btn('Imprimir / guardar PDF','report-gestor-source-print','secondary')}</div>
-   <div class="stack" style="margin-top:14px">${btn('Vista previa','report-gestor-preview','secondary',`data-year="${year}"`)}${btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`)}${btn('Preparar paquete gestor ZIP','export-gestor-package','secondary',`data-year="${year}"`)}</div>
+   <div class="report-actions" style="margin-top:14px">${btn('Ver tabla de gestoría','report-gestor-source-preview','secondary')}${btn('Descargar tabla Excel','export-gestor-source','primary')}${btn('Imprimir / guardar PDF','report-gestor-source-print','secondary')}</div>
+   <div class="report-actions" style="margin-top:14px"><details class="report-extra"><summary>Conciliación y auditoría interna</summary><p class="small muted">Libro complementario para contrastar importes; el documento para entregar es la tabla de gestoría.</p>${btn('Descargar libro de conciliación','export-gestor-book','secondary',`data-year="${year}"`)}</details>${btn('Preparar paquete gestor ZIP','export-gestor-package','secondary',`data-year="${year}" data-month="${month}"`)}</div>
   </section>
  </div>
  <section class="card card-pad"><div class="section-head"><div><h2>Exportaciones de trabajo</h2><p>Para análisis puntual con las fechas exactas seleccionadas.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Cierres detallados','export-closings','secondary')}${btn('Gastos detallados','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section>
@@ -611,7 +625,7 @@ function adminLogHtml(){
    &&(!query||[r.area,r.action,r.user_email,JSON.stringify(r.detail||{})].join(' ').toLocaleLowerCase('es').includes(query));
  }).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
  const headers=[
-  {label:'Fecha y hora',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES'))},
+  {label:'Fecha y hora',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
   {label:'Usuario',html:r=>esc(r.user_email||'—')},
   {label:'Área',html:r=>esc(r.area||'—')},
   {label:'Acción',html:r=>esc(r.action||'—')},
@@ -619,7 +633,7 @@ function adminLogHtml(){
   {label:'',html:r=>btn('Ver detalle','admin-log-detail','secondary',`data-id="${esc(r.id)}"`)}
  ];
  return `<div class="stack">
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Consulta los eventos y cambios registrados por la herramienta. La búsqueda se aplica a los últimos ${all.length} eventos cargados.</p></div><div class="inline-actions">
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Cambios guardados en los datos y gestión de usuarios. Actualización automática cada 30 segundos mientras consultas este panel. Los cambios de código se consultan en GitHub.</p></div><div class="inline-actions">
   ${btn('Actualizar','admin-log-refresh','secondary')}
   ${btn('Exportar CSV filtrado','admin-log-export','primary')}
   </div></div>
@@ -633,7 +647,7 @@ function adminLogHtml(){
    ${btn('Aplicar filtros','admin-log-filter','primary')}
    ${btn('Limpiar filtros','admin-log-clear','secondary')}
   </div>
-  <div class="card-pad small muted">Resultados: ${rows.length} · Se conservan las trazas originales; esta pantalla no permite borrarlas.</div>
+  ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">Última lectura: ${state.data.auditUpdatedAt?esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Sin actualizar'} · Hasta 1000 eventos recientes · Resultados: ${rows.length} · Se conservan las trazas originales; esta pantalla no permite borrarlas.</div>
   ${table(headers,rows,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
   </section>
  </div>`;
@@ -865,8 +879,8 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const title=isProforma?'Proforma':isRect?'Factura rectificativa':isExternal?'Factura externa':'Factura';
  const issued=!!row&&row.status!=='borrador',lock=issued?'disabled':'';
  return `<div class="page record-page">
-  <div class="record-toolbar"><div><button class="btn link" data-action="invoice-back">← Volver a facturación</button><div class="eyebrow">Facturación · ${title}</div><h2>${row?esc(row.display_number||row.external_number_text||'Borrador'):'Nueva '+title.toLowerCase()}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
-  <div class="record-layout">
+  <div class="record-toolbar"><div><button class="btn link" data-action="invoice-back">← Volver a facturación</button><div class="eyebrow">Facturación · ${title}</div><h2>${row?esc(row.display_number||row.external_number_text||'Borrador'):'Nueva '+title.toLowerCase()}</h2></div><div class="inline-actions">${btn('Vista previa ampliada','invoice-draft-preview','secondary')}${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
+  <div class="record-layout invoice-workspace">
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento</h3><p>Serie, fechas y referencia.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
@@ -899,18 +913,18 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
      </div></section>
     <details class="card card-pad design-details invoice-presentation"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid invoice-presentation-fields" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2" ${lock}>${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2" ${lock}>${esc(row?.footer_text||'')}</textarea></label></div></details>
    </div>
-   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3><div class="summary-row"><span>Base</span><strong id="ivSumBase">${money(row?.base_amount||0)}</strong></div><div class="summary-row"><span>IVA</span><strong id="ivSumVat">${money(row?.vat_amount||0)}</strong></div><div class="summary-row"><span>Total</span><strong id="ivSumTotal">${money(row?.total_amount||0)}</strong></div><div class="stack" style="margin-top:14px">${row?btn('Vista previa','invoice-preview','secondary',`data-id="${row.id}"`):''}${row?.status==='borrador'||!row?btn('Guardar borrador','invoice-save','secondary',`${row?`data-id="${row.id}" `:''}data-type="${docType}" data-kind="${invoiceKind}" data-origin="${origin}"`):''}${row?.status==='borrador'?btn(isProforma?'Emitir proforma':'Emitir documento','invoice-finalize','primary',`data-id="${row.id}"`):''}${row&&issued&&!isProforma?btn('Guardar cobro','invoice-payment-save','primary',`data-id="${row.id}"`):''}${row&&isProforma&&['emitida','aceptada'].includes(row.status)?btn('Convertir en factura','proforma-convert','primary',`data-id="${row.id}"`):''}${row?.status==='borrador'?btn('Eliminar borrador','invoice-delete','danger',`data-id="${row.id}"`):''}${row&&issued?'<p class="small muted">La factura emitida conserva su numeración: para corregirla, crea una rectificativa.</p>':''}${btn('Volver','invoice-back','secondary')}</div></section></aside>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3><div class="summary-row"><span>Base</span><strong id="ivSumBase">${money(row?.base_amount||0)}</strong></div><div class="summary-row"><span>IVA</span><strong id="ivSumVat">${money(row?.vat_amount||0)}</strong></div><div class="summary-row"><span>Total</span><strong id="ivSumTotal">${money(row?.total_amount||0)}</strong></div><div class="stack" style="margin-top:14px">${row?.status==='borrador'||!row?btn('Guardar borrador','invoice-save','secondary',`${row?`data-id="${row.id}" `:''}data-type="${docType}" data-kind="${invoiceKind}" data-origin="${origin}"`):''}${row?.status==='borrador'?btn(isProforma?'Emitir proforma':'Emitir documento','invoice-finalize','primary',`data-id="${row.id}"`):''}${row&&issued&&!isProforma?btn('Guardar cobro','invoice-payment-save','primary',`data-id="${row.id}"`):''}${row&&isProforma&&['emitida','aceptada'].includes(row.status)?btn('Convertir en factura','proforma-convert','primary',`data-id="${row.id}"`):''}${row?.status==='borrador'?btn('Eliminar borrador','invoice-delete','danger',`data-id="${row.id}"`):''}${row&&issued?'<p class="small muted">La factura emitida conserva su numeración: para corregirla, crea una rectificativa.</p>':''}${btn('Volver','invoice-back','secondary')}</div></section><section class="card card-pad invoice-preview-card"><h3>Vista previa en vivo</h3><p class="small muted">Se actualiza mientras completas el documento. No guarda ni emite la factura.</p><div id="invoiceDraftPreview" class="invoice-live-preview"></div></section></aside>
   </div>
  </div>`;
 }
 
-export function invoicePreview(row,logoUrl=''){
- const lines=state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order);
+export function invoicePreview(row,logoUrl='',options={}){
+ const lines=[...(options.lines||state.data.invoiceLines.filter(x=>x.invoice_id===row.id))].sort((a,b)=>a.sort_order-b.sort_order);
  const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
  const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id)||{});
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
  const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=frozen?.issuer||state.data.settings||{};
- const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',tpl.payment_terms_default||''].filter(Boolean).join(' · ');
+ const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',row.terms_text||tpl.payment_terms_default||''].filter(Boolean).join(' · ');
  const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='courier'?'Courier New, monospace':tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=({brand:'modern',clean:'minimal',compact:'classic'})[tpl.style]||tpl.style||'modern';
  return `<article class="invoice-preview invoice-style-${esc(style)}" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)};--invoice-text:${esc(textColor)};--invoice-font:${esc(font)}">
   <header class="invoice-document-head">
@@ -929,8 +943,8 @@ export function invoicePreview(row,logoUrl=''){
   ],lines,{emptyTitle:'Sin líneas'})}</div>
   <div class="invoice-totals"><div class="summary-row"><span>Base imponible</span><strong>${money(row.base_amount)}</strong></div><div class="summary-row"><span>IVA</span><strong>${money(row.vat_amount)}</strong></div><div class="summary-row invoice-grand-total"><span>Total</span><strong>${money(row.total_amount)}</strong></div>${row.document_type!=='proforma'&&Number(row.paid_amount||0)>0?`<div class="summary-row"><span>Cobrado</span><strong>${money(row.paid_amount)}</strong></div><div class="summary-row"><span>Pendiente</span><strong>${money(Math.max(0,Number(row.total_amount||0)-Number(row.paid_amount||0)))}</strong></div>`:''}</div>
   ${paymentText&&tpl.show_payment_details!==false?`<section class="invoice-payment-box"><b>Pago</b><div>${esc(paymentText)}</div></section>`:''}
-  ${tpl.footer_text?`<footer class="invoice-footer">${esc(tpl.footer_text)}</footer>`:''}
-  <div class="form-actions no-print">${btn('Imprimir / Guardar PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>
+  ${(row.footer_text||tpl.footer_text)?`<footer class="invoice-footer">${esc(row.footer_text||tpl.footer_text)}</footer>`:''}
+  ${options.actions===false?'':`<div class="form-actions no-print">${btn('Imprimir / Guardar PDF','invoice-print','primary',`data-id="${row.id}"`)}</div>`}
  </article>`;
 }
 

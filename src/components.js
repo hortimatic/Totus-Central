@@ -34,9 +34,9 @@ export const dateFilters=({from,to,store='all',stores=[],query=''},prefix='filte
   <div class="field"><label for="${prefix}To">Hasta</label><input type="date" id="${prefix}To" value="${esc(to)}"></div>
   <div class="field"><label for="${prefix}Store">Tienda</label><select id="${prefix}Store"><option value="all">Todas</option>${stores.map(s=>`<option value="${s.id}" ${store===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
   <div class="field search"><label for="${prefix}Query">Buscar</label><input id="${prefix}Query" value="${esc(query||'')}" placeholder="Buscar por texto"></div>
+  ${extraFields}
   ${btn('Aplicar',prefix+'-apply','primary')}
   ${btn('Este mes',prefix+'-month','secondary')}
-  ${extraFields}
   <div class="date-selected-hint" role="status" aria-live="polite">Periodo aplicado: <strong>${esc(fmtDate(from))}</strong> a <strong>${esc(fmtDate(to))}</strong> · Formato español DD/MM/AAAA</div>
  </div>`;
 export const empty=(title='Sin datos',text='Todavía no hay registros.')=>`<div class="empty"><strong>${esc(title)}</strong><span>${esc(text)}</span></div>`;

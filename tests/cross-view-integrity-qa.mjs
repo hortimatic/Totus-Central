@@ -22,5 +22,5 @@ const offline=documentos();
 assert(offline.includes('No disponible')&&offline.includes('Sin medición fiable'),'Documentos da 0 MB falsos cuando falla Supabase');
 state.data.storageUsage={status:'ok',total_bytes:1048576,limit_bytes:524288000,documents_count:2,assets_count:1};
 const measured=documentos();
-assert(measured.includes('1,0 MB')&&measured.includes('3</strong>'),'Documentos no muestra métrica autenticada');
+assert(measured.includes('1,0 MB')&&measured.includes('0,2 % de 500 MB'),'Documentos no muestra métrica autenticada');
 console.log('CROSS-VIEW QA: Pricing margenes PVP bruto/IVA+RE, sin proveedor, pérdida y métricas reales/caída Storage coherentes');

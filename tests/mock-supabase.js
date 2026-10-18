@@ -9,6 +9,7 @@ const role=new URLSearchParams(location.search).get('role')||'admin';
 const db={
  ops_backup_config:[{id:1,enabled:false,frequency:'daily',run_hour:3,run_minute:0,weekday:1,month_day:1,retention_days:10,destination_folder:'automaticas'}],
  ops_backup_runs:[],
+ team_user_audit_log:[],
  ops_roles:[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}],
  ops_role_permissions:[],
  ops_user_permissions:[],

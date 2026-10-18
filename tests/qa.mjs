@@ -39,7 +39,7 @@ const loadedData=new Set([...apiSource.matchAll(/\['([A-Za-z0-9_]+)','[^']+'/g)]
 const usedData=new Set([...(appSource+'\n'+pageSource+'\n'+text('src/excel.js')+'\n'+text('src/backup.js')).matchAll(/state\.data\.([A-Za-z0-9_]+)/g)].map(m=>m[1]));
 for(const key of usedData){
  if(!declaredData.has(key))errors.push('state.data usado pero no inicializado: '+key);
- if(!loadedData.has(key)&&!['audit','storageUsage'].includes(key))errors.push('state.data usado pero no cargado por loadCore: '+key);
+ if(!loadedData.has(key)&&!['audit','storageUsage','auditError','auditUpdatedAt'].includes(key))errors.push('state.data usado pero no cargado por loadCore: '+key);
 }
 
 const {state,setView}=await import(pathToFileURL(path.resolve(root,'src/state.js')).href);
@@ -139,7 +139,7 @@ const uiMatrix=[
  ['facturacion',pages.facturacion(),['Desde','Hasta','Nueva factura','Proforma','Factura externa','Rectificativa']],
  ['documentos',pages.documentos(),['Desde','Hasta','Subir documento','Descargar ZIP filtrado']],
  ['fiscalidad',pages.fiscalidad(),['Desde','Hasta','Modelo 130','Ajuste fiscal']],
- ['informes',pages.informes(),['Desde','Hasta','Libros como los Excel originales','Gestoría y auditoría']]
+ ['informes',pages.informes(),['Desde','Hasta','Diarios mensuales de gastos y ventas','Gestoría y auditoría']]
 ];
 for(const [name,html,terms] of uiMatrix){
  for(const term of terms)if(!html.includes(term))errors.push(name+' incompleto: '+term);
@@ -181,7 +181,7 @@ for(const term of ['Nueva serie','series-new','series-edit'])if(!seriesHtml.incl
 setView('administracion',{section:'fiscal'});const adminFiscal=pages.administracion();
 for(const term of ['Categorías de gastos','expense-category-new'])if(!adminFiscal.includes(term))errors.push('Gestión de categorías incompleta: '+term);
 if(!pageSource.includes("'expense-category-edit'"))errors.push('Gestión de categorías sin acción Editar');
-for(const action of ['series-new','series-edit','series-save','expense-category-new','expense-category-edit','expense-category-save','template-preview','report-store-preview','report-gestor-preview'])if(!appSource.includes("a==='"+action+"'"))errors.push('Falta handler: '+action);
+for(const action of ['series-new','series-edit','series-save','expense-category-new','expense-category-edit','expense-category-save','template-preview','report-store-preview','report-gestor-source-preview'])if(!appSource.includes("a==='"+action+"'"))errors.push('Falta handler: '+action);
 
 const backupSource=text('src/backup.js');
 const backupSql=text('supabase/backup.sql');

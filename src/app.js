@@ -1,14 +1,14 @@
 import {ROUTES} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
-import {sb,login,logout,recover,loadCore,reloadStorageUsage,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
+import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,upload,signedUrl,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
 import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
-import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
+import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
 import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
 import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
@@ -91,6 +91,7 @@ function render(){
  }
  hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
+ if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
 }
 let storageRefreshInFlight=false;
 function isStoragePanelVisible(){
@@ -117,6 +118,14 @@ async function refresh(message=''){
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
  finally{state.loading=false}
+}
+let auditRefreshInFlight=false;
+async function refreshAuditPanel(){
+ if(auditRefreshInFlight)return false;
+ auditRefreshInFlight=true;
+ try{await reloadAudit();return true}
+ catch(error){state.data.auditError=error.message;return false}
+ finally{auditRefreshInFlight=false;if(state.route==='administracion'&&getView('administracion').section==='log')render()}
 }
 function input(id){return document.getElementById(id)}
 function val(id){return input(id)?.value??''}
@@ -220,12 +229,8 @@ async function previewPendingExpenseFile(){
  modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div>${content}<div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
 }
 
-function expenseSuppliersManager(){
- const rows=state.data.suppliers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
- const body=`<div class="section-head"><div><p>Proveedores de gastos con valores fiscales predeterminados.</p></div>${btn('Nuevo proveedor','expense-supplier-new','primary')}</div>
- <div class="stack" style="margin-top:14px">${rows.length?rows.map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted">${esc(s.tax_id||'')}${s.default_payment_method?' · '+esc(s.default_payment_method):''}</div></div><div class="inline-actions">${btn('Editar','expense-supplier-edit','secondary',`data-id="${s.id}"`)}${btn('Eliminar','expense-supplier-delete','danger',`data-id="${s.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin proveedores</strong><span>Crea el primero para reutilizar sus datos en Gastos.</span></div>'}</div>`;
- modal('Proveedores de gastos',body);
-}
+function expenseSuppliersManager(){setView('gastos',{mode:'list',id:null,section:'proveedores'});setRoute('gastos');render()}
+
 function expenseSupplierForm(row=null){
  const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
  const body=`<div class="form-grid">
@@ -247,7 +252,7 @@ function expenseSupplierForm(row=null){
   ${formField('% deducible','esDedPct',row?.default_deductible_pct??100,'number','min="0" max="100"')}
   <label><input id="esDeductible" type="checkbox" ${row?.default_deductible_irpf===false?'':'checked'}> Deducible IRPF por defecto</label>
   <label class="wide">Notas<textarea id="esNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
- </div><div class="form-actions">${btn('Guardar proveedor','expense-supplier-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ <label class="check-field"><input id="esActive" type="checkbox" ${row?.active===false?'':'checked'}> Proveedor activo</label></div><div class="form-actions">${btn('Guardar proveedor','expense-supplier-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar proveedor de gastos':'Nuevo proveedor de gastos',body);
 }
 async function saveExpenseSupplier(id=''){
@@ -256,7 +261,7 @@ async function saveExpenseSupplier(id=''){
    const dup=state.data.suppliers.find(x=>x.id!==id&&String(x.tax_id||'').trim().toLowerCase()===taxId.toLowerCase());
    if(dup)throw new Error('Ya existe un proveedor con ese NIF/CIF.');
  }
- const row={name:required('esName','Nombre'),tax_id:taxId,email:val('esEmail').trim(),phone:val('esPhone').trim(),address:val('esAddress').trim(),city:val('esCity').trim(),postal_code:val('esPostal').trim(),province:val('esProvince').trim(),country:'España',default_category_id:val('esCategory')||null,default_payment_method:val('esPayment'),default_document_kind:val('esDocKind'),default_vat_rate:Math.max(0,num('esVat')),default_re_rate:Math.max(0,num('esRe')),default_withholding_rate:Math.max(0,num('esWh')),default_withholding_model:val('esWhModel')||null,default_deductible_irpf:!!input('esDeductible')?.checked,default_deductible_pct:Math.min(100,Math.max(0,num('esDedPct'))),notes:val('esNotes').trim(),active:true,source:'manual',updated_at:new Date().toISOString()};
+ const row={name:required('esName','Nombre'),tax_id:taxId,email:val('esEmail').trim(),phone:val('esPhone').trim(),address:val('esAddress').trim(),city:val('esCity').trim(),postal_code:val('esPostal').trim(),province:val('esProvince').trim(),country:'España',default_category_id:val('esCategory')||null,default_payment_method:val('esPayment'),default_document_kind:val('esDocKind'),default_vat_rate:Math.max(0,num('esVat')),default_re_rate:Math.max(0,num('esRe')),default_withholding_rate:Math.max(0,num('esWh')),default_withholding_model:val('esWhModel')||null,default_deductible_irpf:!!input('esDeductible')?.checked,default_deductible_pct:Math.min(100,Math.max(0,num('esDedPct'))),notes:val('esNotes').trim(),active:input('esActive')?.checked!==false,source:'manual',updated_at:new Date().toISOString()};
  try{if(id)await update('ops_suppliers',id,row);else await insert('ops_suppliers',{...row,created_by:state.user?.id||null})}
  catch(e){if(String(e.message).toLowerCase().includes('unique'))throw new Error('Ya existe un proveedor con ese NIF/CIF.');throw e}
  closeModal();await refresh('Proveedor de gastos guardado.');
@@ -481,9 +486,36 @@ function updateClosingSummary(){
  const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=fmt(diff);d.className=Math.abs(diff)>.01?'danger-text':'good-text'}
 }
 function updateInvoiceSummary(){
- let base=0,vat=0;for(const el of document.querySelectorAll('.invoice-line')){const ix=el.dataset.lineIndex,q=n(val(`ivQty_${ix}`)),u=n(val(`ivUnit_${ix}`)),disc=Math.min(100,Math.max(0,n(val(`ivDisc_${ix}`)))),vr=Math.max(0,n(val(`ivVat_${ix}`)));const b=q*u*(1-disc/100);base+=b;vat+=b*vr/100}
+ const draft=readInvoiceDraft(),base=draft.row.base_amount,vat=draft.row.vat_amount;
  const fmt=v=>money(v);for(const [id,v] of [['ivSumBase',base],['ivSumVat',vat],['ivSumTotal',base+vat]]){const el=document.getElementById(id);if(el)el.textContent=fmt(v)}
 }
+function readInvoiceDraft(){
+ const current=state.data.invoices.find(x=>x.id===getView('facturacion').id)||{},view=getView('facturacion');
+ const round=value=>Math.sign(value)*Math.round((Math.abs(value)+Number.EPSILON)*100)/100;
+ const lines=[...document.querySelectorAll('.invoice-line')].map((el,i)=>{
+  const ix=el.dataset.lineIndex,quantity=n(val(`ivQty_${ix}`)),unit_price_base=n(val(`ivUnit_${ix}`)),discount_pct=Math.min(100,Math.max(0,n(val(`ivDisc_${ix}`)))),vat_rate=Math.max(0,n(val(`ivVat_${ix}`)));
+  const base_amount=round(quantity*unit_price_base*(1-discount_pct/100)),vat_amount=round(base_amount*vat_rate/100);
+  return {sort_order:i,description:val(`ivDesc_${ix}`),quantity,unit_price_base,discount_pct,vat_rate,base_amount,vat_amount,total_amount:round(base_amount+vat_amount)};
+ });
+ const base_amount=round(lines.reduce((sum,line)=>sum+line.base_amount,0)),vat_amount=round(lines.reduce((sum,line)=>sum+line.vat_amount,0));
+ const row={...current,status:current.status||'borrador',document_type:current.document_type||view.docType||'factura',invoice_kind:current.invoice_kind||view.invoiceKind||'invoice',issue_date:val('ivDate'),operation_date:val('ivOperation'),due_date:val('ivDue'),external_number_text:val('ivExternalNumber'),customer_name:val('ivCustomer'),customer_tax_id:val('ivTax'),customer_address:val('ivAddress'),customer_email:val('ivEmail'),concept:val('ivConcept'),payment_method:val('ivPayment'),paid_status:val('ivPaidStatus'),paid_amount:num('ivPaidAmount'),template_id:val('ivTemplate'),terms_text:val('ivTerms'),footer_text:val('ivFooter'),base_amount,vat_amount,total_amount:round(base_amount+vat_amount)};
+ return {row,lines};
+}
+let draftPreviewSequence=0;
+const draftLogoCache=new Map();
+async function draftPreviewHtml(){
+ const {row,lines}=readInvoiceDraft(),tpl=row.status!=='borrador'&&row.template_snapshot?row.template_snapshot:state.data.templates.find(t=>t.id===row.template_id);
+ const key=tpl?.show_logo===false?'':tpl?.logo_path||'';
+ let cached=draftLogoCache.get(key);
+ if(!cached||cached.expires<Date.now()){cached={expires:Date.now()+240000,url:key?invoiceLogoUrl(row):Promise.resolve('')};draftLogoCache.set(key,cached)}
+ return invoicePreview(row,await cached.url,{lines,actions:false});
+}
+async function updateDraftInvoicePreview(){
+ const host=input('invoiceDraftPreview');if(!host)return;
+ const sequence=++draftPreviewSequence,html=await draftPreviewHtml();
+ if(host.isConnected&&sequence===draftPreviewSequence)host.innerHTML=html;
+}
+async function showDraftInvoicePreview(){modal('Vista previa del documento sin guardar',`<div class="note">Esta vista no guarda ni emite el documento.</div>${await draftPreviewHtml()}`)}
 function exportCurrentModule(module){
  const f=getFilters(module);
  if(module==='cajas'){
@@ -508,12 +540,12 @@ function addInvoiceLine(){
  const host=document.getElementById('invoiceLines');if(!host)return;
  const indexes=[...host.querySelectorAll('.invoice-line')].map(x=>Number(x.dataset.lineIndex)||0);
  const next=indexes.length?Math.max(...indexes)+1:0;
- host.insertAdjacentHTML('beforeend',invoiceLineRow({},next));
+ host.insertAdjacentHTML('beforeend',invoiceLineRow({},next));updateInvoiceSummary();updateDraftInvoicePreview();
 }
 function removeInvoiceLine(index){
  const rows=[...document.querySelectorAll('.invoice-line')];
  if(rows.length<=1){toast('Debe quedar al menos una línea.','bad');return}
- document.querySelector(`.invoice-line[data-line-index="${index}"]`)?.remove();
+ document.querySelector(`.invoice-line[data-line-index="${index}"]`)?.remove();updateInvoiceSummary();updateDraftInvoicePreview();
 }
 async function invoiceLogoUrl(row){
  const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
@@ -1010,9 +1042,10 @@ async function importDocumentZip(zipFile){
    const fm=folder?months[folder]:null;
    const dm=name.match(/(?:^|[^\d])(\d{1,2})[-._](\d{1,2})[-._](20\d{2})(?:[^\d]|$)/);
    let date=dm&&+dm[1]>=1&&+dm[1]<=31&&+dm[2]>=1&&+dm[2]<=12?`${dm[3]}-${String(dm[2]).padStart(2,'0')}-${String(dm[1]).padStart(2,'0')}`:null;
-   if(date&&!Number.isFinite(Date.parse(date)))date=null;
+   if(date){const parsed=new Date(date+'T12:00:00Z');if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)date=null;}
    const provisional=!date;
-   date=date||`2026-${String(fm||1).padStart(2,'0')}-01`;
+   const fallbackYear=e.name.match(/20\d{2}/)?.[0]||String(state.data.settings?.current_year||new Date().getFullYear());
+   date=date||`${fallbackYear}-${String(fm||1).padStart(2,'0')}-01`;
    const reportFile=/gestoria|ingresos|gastos .*gestor|modelo 130|informe/i.test(name)||/\.(xlsx|docx)$/i.test(name);
    const party=name.replace(/\.pdf$/i,'').replace(/\b\d{1,2}[-._]\d{1,2}[-._]20\d\d\b/g,'').trim().slice(0,150);
    const notes=`[ORIGEN-ZIP:${e.name}] ${provisional?'Fecha provisional tomada del mes de carpeta (o enero si no consta). ':''}DOCUMENTO SIN CONCILIAR: confirmar tienda, proveedor, fecha, número de factura, importe e impuestos antes de asociarlo.`;
@@ -1527,7 +1560,7 @@ function applyFilter(prefix){
  const patch={from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()};
  if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all';if(input('gastosAttachment'))patch.attachment=val('gastosAttachment')||'all'}
  if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
- if(prefix==='informes'){patch.year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())))}
+ if(prefix==='informes'){patch.month=Math.max(1,Math.min(12,Number(val('informesMonth'))||Number(String(patch.from||isoToday()).slice(5,7))));patch.year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())))}
  patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
@@ -1556,26 +1589,38 @@ function homeReport(kind){
 function openAdminSection(section){setView('administracion',{section});setRoute('administracion');render();}
 
 function sheetPreviewTable(sheet){
- const range=window.XLSX.utils.decode_range(sheet['!ref']||'A1');
- const visible={s:range.s,e:{r:Math.min(range.e.r,range.s.r+199),c:Math.min(range.e.c,range.s.c+29)}};
- const rows=window.XLSX.utils.sheet_to_json(sheet,{header:1,range:window.XLSX.utils.encode_range(visible),raw:false,defval:''});
- const html=rows.map(row=>`<tr>${(Array.isArray(row)?row:[row]).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
- const truncated=range.e.r>visible.e.r||range.e.c>visible.e.c;
- return `<table class="data-table"><tbody>${html}</tbody></table>${truncated?'<div class="note">Vista parcial: se muestran hasta 200 filas y 30 columnas. Descarga el archivo para consultar todo.</div>':''}`;
+ const range=window.XLSX.utils.decode_range(sheet['!ref']||'A1'),lastRow=Math.min(range.e.r,range.s.r+199),lastCol=Math.min(range.e.c,range.s.c+29);
+ let firstCol=range.s.c;
+ while(firstCol<lastCol&&!Array.from({length:lastRow-range.s.r+1},(_,i)=>sheet[window.XLSX.utils.encode_cell({r:range.s.r+i,c:firstCol})]).some(cell=>cell?.v!==undefined&&cell.v!==''))firstCol++;
+ const merges=sheet['!merges']||[],covered=new Set(),starts=new Map();
+ for(const merge of merges){starts.set(`${merge.s.r}:${merge.s.c}`,merge);for(let r=merge.s.r;r<=merge.e.r;r++)for(let c=merge.s.c;c<=merge.e.c;c++)if(r!==merge.s.r||c!==merge.s.c)covered.add(`${r}:${c}`)}
+ const rgb=value=>/^(?:[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value?.rgb||'')?'#'+value.rgb.slice(-6):'';
+ const rows=[];
+ for(let r=range.s.r;r<=lastRow;r++){
+  const cells=[];let headings=0;
+  for(let c=firstCol;c<=lastCol;c++){
+   if(covered.has(`${r}:${c}`))continue;
+   const cell=sheet[window.XLSX.utils.encode_cell({r,c})],style=cell?.s||{},fill=rgb(style.fill?.fgColor),color=rgb(style.font?.color),merge=starts.get(`${r}:${c}`);
+   const css=[fill?`background:${fill}`:'',color?`color:${color}`:'',style.font?.bold?'font-weight:700':'',style.alignment?.horizontal?`text-align:${['left','center','right'].includes(style.alignment.horizontal)?style.alignment.horizontal:'left'}`:''].filter(Boolean).join(';');
+   if(r<6&&style.font?.bold&&fill)headings++;
+   cells.push(`<td ${merge?`colspan="${Math.min(merge.e.c,lastCol)-c+1}" rowspan="${Math.min(merge.e.r,lastRow)-r+1}"`:''} style="${css}">${esc(cell?window.XLSX.utils.format_cell(cell):'')}</td>`);
+  }
+  rows.push(`<tr ${headings>2?'class="sheet-header"':''}>${cells.join('')}</tr>`);
+ }
+ const columns=Array.from({length:lastCol-firstCol+1},(_,i)=>`<col style="width:${Math.min(360,Math.max(70,Number(sheet['!cols']?.[firstCol+i]?.wch||14)*7))}px">`).join('');
+ return `<table class="workbook-preview"><colgroup>${columns}</colgroup><tbody>${rows.join('')}</tbody></table>${range.e.r>lastRow||range.e.c>lastCol?'<div class="note">Vista de hasta 200 filas y 30 columnas. El archivo descargado contiene todos los datos.</div>':''}`;
 }
+
 function previewWorkbookExact(wb,title,downloadButton){
  const sheets=wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${sheetPreviewTable(wb.Sheets[sheetName])}</div></details>`).join('');
- modal(title,`<div class="stack"><div class="note">Vista de todas las hojas del mismo libro que genera la descarga. La representación web no conserva necesariamente colores, bordes o anchuras de Excel.</div><div class="excel-preview">${sheets}</div><div class="form-actions">${downloadButton}</div></div>`);
+ modal(title,`<div class="stack"><div class="note">Vista del archivo que vas a descargar, con sus columnas, colores y totales. Desliza la tabla para consultar todas las columnas.</div><div class="excel-preview">${sheets}</div><div class="form-actions">${downloadButton}</div></div>`);
 }
-function reportStorePreview(storeId,year){
+function reportStorePreview(storeId,year,month){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)return;
- const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
- previewWorkbookExact(wb,`${store.name} · ${year}`,btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}"`));
+ const wb=buildStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+ previewWorkbookExact(wb,`${store.name} · ${year}-${String(month).padStart(2,'0')}`,btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}" data-month="${month}"`));
 }
-function reportGestorPreview(year){
- const wb=buildGestorWorkbook(reportArgs(year));
- previewWorkbookExact(wb,`Libro de gestoría · ${year}`,btn('Descargar libro gestor','export-gestor-book','primary',`data-year="${year}"`));
-}
+
 function reportArgs(year){
  return {year,onlyPeriodsWithData:year===2026,settings:state.data.settings,stores:state.data.stores,closings:state.data.closings,expenses:state.data.expenses,expenseLines:state.data.expenseLines,invoices:state.data.invoices,fiscalAdjustments:state.data.fiscalAdjustments,incomeAdjustments:state.data.incomeAdjustments,taxPayments:state.data.taxPayments,categories:state.data.categories};
 }
@@ -1599,9 +1644,9 @@ function printGestorSource(){
  w.document.open();w.document.write(html);w.document.close();
  w.addEventListener('load',()=>{w.focus();w.print()},{once:true});
 }
-function exportStoreBook(storeId,year){
+function exportStoreBook(storeId,year,month){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
- exportStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+ exportStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
 }
 async function exportGestorPackage(year){
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
@@ -1615,7 +1660,7 @@ async function exportGestorPackage(year){
  const incomeCsv=csv(incomeRows,['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]})));ingresos.file(`Ingresos_${year}.csv`,incomeCsv);
  const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
  gastos.file(`Tabla_gestoria_${year}.xlsx`,workbookBlob(buildGestorSourceWorkbook({...args,from:`${year}-01-01`,to:`${year}-12-31`,store:'all'})));
- for(const store of stores){const wb=buildStoreAnnualWorkbook({store,year,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`Gastos y ventas ${safeFileSegment(store.name)} ${year}.xlsx`,workbookBlob(wb))}
+ for(const store of stores)for(let month=1;month<=12;month++){const wb=buildStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`${safeFileSegment(store.name)}/${year}-${String(month).padStart(2,'0')} Gastos y ventas.xlsx`,workbookBlob(wb))}
  const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
  const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
  const yearAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year)));
@@ -1677,6 +1722,7 @@ document.addEventListener('click',async e=>{
   if(a==='closing-back'){resetView('cajas');render();return}
   if(a==='export-closings-current'){exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
+  if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim()});render();return}
   if(a==='expense-suppliers'){expenseSuppliersManager();return}
   if(a==='expense-supplier-new'){expenseSupplierForm();return}
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
@@ -1712,6 +1758,7 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-delete'){await deleteDraftInvoice(el.dataset.id);return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
+  if(a==='invoice-draft-preview'){await showDraftInvoicePreview();return}
   if(a==='invoice-preview'){await showInvoicePreview(el.dataset.id);return}
   if(a==='invoice-print'){await printInvoice(el.dataset.id);return}
   if(a==='proforma-convert'){await convertProforma(el.dataset.id);return}
@@ -1805,7 +1852,7 @@ document.addEventListener('click',async e=>{
   if(a==='storage-refresh'){await refreshStoragePanel();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};render();return}
-  if(a==='admin-log-refresh'){await refresh('Eventos actualizados.');return}
+  if(a==='admin-log-refresh'){if(await refreshAuditPanel())toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='backup-settings-save'){await saveBackupSettings();return}
@@ -1830,12 +1877,11 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
-  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(el.dataset.year));return}
-  if(a==='report-gestor-preview'){reportGestorPreview(Number(el.dataset.year));return}
+  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(val('informesYear')||el.dataset.year),Number(val('informesMonth')||el.dataset.month));return}
   if(a==='report-gestor-source-preview'){reportGestorSourcePreview();return}
   if(a==='export-gestor-source'){exportGestorSourceWorkbook(gestorSourceArgs());return}
   if(a==='report-gestor-source-print'){printGestorSource();return}
-  if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year));return}
+  if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(val('informesYear')||el.dataset.year),Number(val('informesMonth')||el.dataset.month));return}
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
@@ -1854,10 +1900,18 @@ document.addEventListener('input',e=>{
  if(id.startsWith('homePrice'))updateHomePrice();
  if(id.startsWith('pq'))updatePricingQuick();
  if(id.startsWith('exLine'))updateExpenseSummary();
- if(id.startsWith('ivQty_')||id.startsWith('ivUnit_')||id.startsWith('ivDisc_')||id.startsWith('ivVat_'))updateInvoiceSummary();
+ if(id.startsWith('iv')&&input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
 });
 
 document.addEventListener('change',e=>{
+ if(['informesMonth','informesYear'].includes(e.target?.id)){
+  const month=Math.max(1,Math.min(12,Number(val('informesMonth'))||1)),year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())));
+  patchFilters('informes',{month,year});
+  document.querySelectorAll('#content [data-year]').forEach(button=>{button.dataset.year=String(year);if(button.dataset.month)button.dataset.month=String(month)});
+  document.querySelectorAll('.monthly-period-label').forEach(label=>label.textContent=new Date(year,month-1,1).toLocaleDateString('es-ES',{month:'long'})+' · '+year);return;
+ }
+
+ if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){
   const file=e.target.files?.[0],label=input('backupSelectedFile');
   if(label)label.textContent=file?file.name+' · '+(file.size/1024).toFixed(1)+' KB':'Ningún archivo seleccionado';
@@ -1890,7 +1944,15 @@ document.addEventListener('change',e=>{
  if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
  if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{date:e.target.value||isoToday()});return}
- if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){setView('facturacion',{storeId:e.target.value});render();return}
+ if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'){
+  const view=getView('facturacion'),storeId=e.target.value,docType=view.docType||'factura',kind=view.invoiceKind||'invoice';setView('facturacion',{storeId});
+  const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===storeId)&&(docType==='proforma'||s.series_kind===kind));
+  const previousSeries=val('ivSeries');input('ivSeries').innerHTML=series.map(s=>`<option value="${esc(s.id)}">${esc(s.code)}</option>`).join('');input('ivSeries').value=series.some(s=>s.id===previousSeries)?previousSeries:series[0]?.id||'';
+  const templates=state.data.templates.filter(t=>t.active!==false&&(!t.store_id||t.store_id===storeId)),previousTemplate=val('ivTemplate');
+  const chosen=templates.find(t=>t.id===previousTemplate)||templates.find(t=>t.store_id===storeId&&(docType==='proforma'?t.default_proforma:t.default_invoice))||templates.find(t=>docType==='proforma'?t.default_proforma:t.default_invoice);
+  input('ivTemplate').innerHTML='<option value="">Sin plantilla</option>'+templates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');input('ivTemplate').value=chosen?.id||'';
+  updateInvoiceSummary();updateDraftInvoicePreview();return;
+ }
  if(e.target?.id==='exSupplierId'){
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
@@ -1981,4 +2043,5 @@ setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible(
 document.addEventListener('visibilitychange',()=>{
  if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error);
 });
+setInterval(()=>{if(document.visibilityState==='visible'&&state.route==='administracion'&&getView('administracion').section==='log'&&!state.loading&&!document.activeElement?.id?.startsWith('log')&&!input('modalHost')?.children.length)refreshAuditPanel()},30000);
 boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});

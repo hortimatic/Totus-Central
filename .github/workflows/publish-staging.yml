@@ -73,6 +73,7 @@ jobs:
         working-directory: staging-source
         run: |
           node tests/excel-qa.mjs
+          node tests/monthly-workbook-qa.mjs
           node tests/legacy-retention-qa.mjs
           node tests/gestor-workbook-qa.mjs
           node tests/gestor-print-qa.mjs
@@ -85,6 +86,7 @@ jobs:
           node tests/user-screenshot-qa.mjs
           node tests/modal-geometry-qa.mjs
           node tests/field-sweep-qa.mjs
+          node tests/second-review-qa.mjs
           node tests/full-flow-qa.mjs
           node tests/pdf-preview-qa.mjs
           node tests/invoice-logo-qa.mjs
