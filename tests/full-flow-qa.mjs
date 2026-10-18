@@ -34,6 +34,39 @@ if(errors.length){
  console.error('E2E MOCK ARRANQUE FALLÓ\n- '+errors.join('\n- '));
  process.exit(1);
 }
+await check('Navegación: accesos directos ocultos y rechazo sin excepción',async()=>{
+ const before=errors.length;
+ await page.evaluate(async()=>{
+  const {state}=await import('../src/state.js');
+  window.__qaOriginalUser={...state.user};
+  window.__qaOriginalPerms=[...state.data.userPermissions];
+  state.user={...state.user,role:'gerente'};
+  state.data.userPermissions=[...state.data.userPermissions,{
+   email:state.user.email,module:'pricing',can_view:false,can_create:false,
+   can_edit:false,can_delete:false,can_export:false
+  }];
+ });
+ await page.locator('#nav [data-route="inicio"]').click();
+ assert(await page.locator('#content [data-route="pricing"]').count()===0,
+  'El panel Inicio deja accesos directos a Pricing aunque el rol no puede entrar');
+ assert(await page.locator('#nav [data-route="pricing"]').count()===0,
+  'El menú lateral deja entrar en Pricing sin permiso');
+ await page.evaluate(()=>{
+  const b=document.createElement('button');b.id='qaForbiddenRoute';b.dataset.route='pricing';
+  document.getElementById('content').appendChild(b);
+ });
+ await page.locator('#qaForbiddenRoute').click();
+ assert((await page.locator('#toastHost').innerText()).includes('No tienes permiso'),
+  'Un intento de navegación bloqueado no da un aviso claro');
+ assert(errors.length===before,'Una ruta no autorizada provocó excepción JavaScript');
+ await page.evaluate(async()=>{
+  const {state}=await import('../src/state.js');
+  state.user=window.__qaOriginalUser;
+  state.data.userPermissions=window.__qaOriginalPerms;
+  delete window.__qaOriginalUser;delete window.__qaOriginalPerms;
+ });
+ await page.locator('#nav [data-route="inicio"]').click();
+});
 await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
  await nav('administracion');
  await page.locator('[data-action="admin-section"][data-section="roles"]').first().click();

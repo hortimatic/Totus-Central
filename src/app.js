@@ -55,6 +55,10 @@ function hideForbiddenButtons(){
  document.querySelectorAll('#content [data-action]').forEach(el=>{
   if(!checkActionPermission(el.dataset.action,el))el.remove();
  });
+ // Navigation shortcuts in cards must obey the same view grants as the side menu.
+ document.querySelectorAll('#content [data-route]').forEach(el=>{
+  if(!can(el.dataset.route,'view'))el.remove();
+ });
 }
 
 function renderNav(){
@@ -1562,7 +1566,7 @@ function exportRows(type){
 
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
- const route=el.dataset.route;if(route){if(!can(route,'view'))throw new Error('No tienes permiso para acceder a esta sección.');setRoute(route);document.body.classList.remove('menu-open');render();return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
  try{
