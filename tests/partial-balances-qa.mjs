@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {state} from '../src/state.js';
+import {inicio,facturacion} from '../src/pages/main.js';
+state.user={role:'admin',email:'audit@qa.invalid'};
+state.filters.facturacion={from:'2026-01-01',to:'2026-12-31',store:'all',query:''};
+state.data.invoices=[{id:'partial',document_type:'factura',status:'emitida',paid_status:'parcial',total_amount:108.9,paid_amount:20,issue_date:'2026-10-18'}];
+for(const html of [inicio(),facturacion()])assert.match(html,/Pendiente de cobro<\/span><strong>88,90/,'El saldo pendiente debe descontar cobros parciales en ambas pantallas');
+state.data.expenses=[{id:'rent',paid_status:'parcial',accounting_amount:605,withholding_amount:95,amount_paid:200}];
+assert(inicio().includes('310,00'),'El pago al proveedor debe descontar la retención de la factura');
+state.data.invoices[0].paid_status='pagada';state.data.invoices[0].paid_amount=108.9;
+for(const html of [inicio(),facturacion()])assert.match(html,/Pendiente de cobro<\/span><strong>0,00/);
+console.log('PARTIAL BALANCES QA: Facturación e Inicio concilian cobros parciales y pagos con retención.');

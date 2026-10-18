@@ -30,7 +30,7 @@ export function inicio(){
  const draftClosings=state.data.closings.filter(x=>x.status==='borrador').length;
  const mismatches=state.data.closings.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
  const pendingExpenses=state.data.expenses.filter(x=>x.paid_status&&x.paid_status!=='pagado');
- const pendingExpenseAmount=sum(pendingExpenses,x=>Math.max(0,Number(x.accounting_amount??x.gross_expense??0)-Number(x.amount_paid||0)));
+ const pendingExpenseAmount=sum(pendingExpenses,x=>Math.max(0,Number(x.accounting_amount??x.gross_expense??0)-Number(x.withholding_amount||0)-Number(x.amount_paid||0)));
  const pendingInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada').sort((a,b)=>String(a.due_date||a.issue_date||'').localeCompare(String(b.due_date||b.issue_date||'')));
  const pendingInvoiceAmount=sum(pendingInvoices,x=>Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)));
  const draftInvoices=state.data.invoices.filter(x=>x.status==='borrador').length;
@@ -249,7 +249,7 @@ export function facturacion(){
  ];
  return `<div class="page">
   ${tabs}
-  <div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Facturado',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'),x=>x.total_amount)))}${kpi('Pendiente de cobro',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada'),x=>x.total_amount)))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
+  <div class="kpis">${kpi('Documentos',String(rows.length))}${kpi('Facturado',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'),x=>x.total_amount)))}${kpi('Pendiente de cobro',money(sum(rows.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada'),x=>Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)))))}${kpi('Borradores',String(rows.filter(x=>x.status==='borrador').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Facturación</h2><p>Facturas, rectificativas, externas y proformas.</p></div><div class="inline-actions">${btn('Factura externa','external-invoice-new','secondary')}${btn('Rectificativa','rectifying-new','secondary')}${btn('Proforma','proforma-new','secondary')}${btn('+ Nueva factura','invoice-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'facturas')}

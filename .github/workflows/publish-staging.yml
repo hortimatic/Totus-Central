@@ -48,6 +48,7 @@ jobs:
         run: |
           node tests/qa.mjs
           node tests/closed-closing-qa.mjs
+          node tests/partial-balances-qa.mjs
           node tests/gestor-source-qa.mjs
           node tests/functional-regression.mjs
           node tests/cross-view-integrity-qa.mjs
@@ -71,6 +72,7 @@ jobs:
         run: |
           node tests/excel-qa.mjs
           node tests/gestor-workbook-qa.mjs
+          node tests/gestor-print-qa.mjs
           node tests/quarter-fixture-qa.mjs
           node tests/annual-stress-qa.mjs
           python3 -m http.server 4173 >/tmp/totus-staging-qa-http.log 2>&1 &
