@@ -75,11 +75,9 @@ export async function inspectBackup(file){
  }
  return {zip,manifest,database};
 }
-// SAFETY LOCK: restoring SQL rows and storage objects in separate transactions is not atomic.
-// A partial failure could leave invoices and attachments inconsistent or delete newer files.
-// Keep validation/read-only inspection available; refuse all writes until a staged,
-// recoverable, server-coordinated restore procedure has passed end-to-end tests.
+// Retain the old entrypoint as a read-only compatibility guard. Recovery writes
+// must go through the authenticated server coordinator, including its checkpoint.
 export async function restoreBackup(file){
  await inspectBackup(file);
- throw new Error('Restauración deshabilitada por seguridad: primero hay que implementar y probar una restauración recuperable de base de datos y archivos. No se ha modificado ningún dato.');
+ throw new Error('Restauración antigua deshabilitada por seguridad. Para una copia v3 utiliza «Revisar para recuperar», que prepara los archivos y guarda un punto de vuelta atrás. No se ha modificado ningún dato.');
 }
