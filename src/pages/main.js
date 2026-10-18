@@ -4,7 +4,7 @@ import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
-import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding} from '../calculations.js';
+import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
 import {computeModel130Accumulated,deductibleExpenseTotal} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
@@ -309,7 +309,7 @@ export function documentos(){
   {label:'Clasificación',html:r=>`<b>${esc(String(r.doc_type||'—').replaceAll('_',' '))}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
   {label:'Tamaño',num:true,html:r=>`${(Number(r.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB`},
   {label:'Estado',html:r=>stateBadge(r.status)},
-  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}${canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||r.uploaded_by===state.session?.user?.id)?btn('Eliminar','document-delete','danger',`data-id="${r.id}"`):''}</div>`}
+  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}${!issuedDocumentFileLocked(r.id,state.data.invoices)&&canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||r.uploaded_by===state.session?.user?.id)?btn('Eliminar','document-delete','danger',`data-id="${r.id}"`):''}</div>`}
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page documents-page">
@@ -323,6 +323,7 @@ export function documentos(){
 }
 
 export function documentRecordHtml(row=null){
+ const fileLocked=issuedDocumentFileLocked(row?.id,state.data.invoices);
  const canEdit=!row?canUser(state.user,'documentos','create',state.data.userPermissions):((isManager()||(row.uploaded_by&&row.uploaded_by===state.session?.user?.id))&&canUser(state.user,'documentos','edit',state.data.userPermissions));
  if(row&&!canEdit)return `<div class="page record-page"><div class="record-toolbar"><h2>${esc(row.original_name||'Documento')}</h2></div><section class="card card-pad"><p class="note">Puedes consultar y descargar este archivo. La edición corresponde a quien lo subió o a gerencia.</p><div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${row.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${row.id}"`)}${btn('Volver','document-back','secondary')}</div></section></div>`;
  const storeOptions=[{value:'',label:'Sin tienda'},...stores().map(s=>({value:s.id,label:s.name}))];
@@ -332,7 +333,8 @@ export function documentRecordHtml(row=null){
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>Archivo</h3><p>Máximo 20 MB. PDF, imagen, Excel, CSV, TXT o MD.</p></div></div>
      ${row?`<div class="attachment-box" style="margin-top:14px"><div><b>${esc(row.original_name)}</b><div class="small muted">${(Number(row.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB · ${esc(row.mime_type||'')}</div></div><div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${row.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${row.id}"`)}</div></div>`:''}
-     <label class="file-picker wide" style="margin-top:14px">${row?'Sustituir archivo':'Seleccionar archivo'}<input id="docFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
+     ${fileLocked?'<p class="note">Original de factura emitida: puedes descargarlo y editar su clasificación, pero no sustituir el archivo.</p>':''}
+     <label class="file-picker wide" style="margin-top:14px">${row?'Sustituir archivo':'Seleccionar archivo'}<input id="docFile" type="file" ${fileLocked?'disabled':''} accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>Clasificación</h3></div></div><div class="form-grid" style="margin-top:14px">
       ${selectField('Tienda','docStore',storeOptions,row?.store_id||'')}
@@ -346,7 +348,7 @@ export function documentRecordHtml(row=null){
       <label class="wide">Notas<textarea id="docNotes" rows="4">${esc(row?.notes||'')}</textarea></label>
      </div></section>
    </div>
-   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Acciones</h3><div class="stack">${row&&canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||row.uploaded_by===state.session?.user?.id)?btn('Eliminar documento','document-delete','danger',`data-id="${row.id}"`):''}${btn(row?'Guardar cambios':'Subir y guardar','document-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','document-back','secondary')}</div></section></aside>
+   <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Acciones</h3><div class="stack">${row&&!fileLocked&&canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||row.uploaded_by===state.session?.user?.id)?btn('Eliminar documento','document-delete','danger',`data-id="${row.id}"`):''}${btn(row?'Guardar cambios':'Subir y guardar','document-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','document-back','secondary')}</div></section></aside>
   </div>
  </div>`;
 }
@@ -487,9 +489,9 @@ function adminBusinessHtml(){
 function adminFiscalHtml(){
  const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
  return `<section class="card card-pad"><div class="section-head"><div><h2>Configuración fiscal</h2><p>Parámetros de previsión. No sustituye a la gestoría.</p></div></div><div class="form-grid" style="margin-top:14px">
- ${formField('IVA venta (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}${formField('Recargo equivalencia compra (%)','cfgPurchaseRe',s.purchase_re_rate??5.2,'number',locked+' step="0.1"')}${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}${formField('Difícil justificación (%)','cfgDifficultPct',s.difficult_expense_pct??5,'number',locked+' step="0.1"')}${formField('Tope anual difícil justificación','cfgDifficultCap',s.difficult_expense_annual_cap??2000,'number',locked+' step="0.01"')}${formField('Cuota RETA actual','cfgReta',s.actual_reta_monthly??'','number',locked+' step="0.01"')}${formField('Tipo RETA referencia (%)','cfgRetaRate',s.reta_total_rate??31.5,'number',locked+' step="0.1"')}${formField('Deducción RETA genérica (%)','cfgRetaDeduction',s.reta_generic_deduction_pct??7,'number',locked+' step="0.1"')}${formField('Margen operativo objetivo (%)','cfgMargin',s.target_operating_margin_pct??15,'number',locked+' step="0.1"')}
+ ${formField('IVA venta (%)','cfgVat',s.default_sales_vat_rate??21,'number',locked+' step="0.1"')}${formField('Recargo equivalencia compra (%)','cfgPurchaseRe',s.purchase_re_rate??5.2,'number',locked+' step="0.1"')}${formField('Pago fraccionado IRPF (%)','cfgIrpf',s.irpf_prepayment_rate??20,'number',locked+' step="0.1"')}${formField('Difícil justificación (%)','cfgDifficultPct',s.difficult_expense_pct??5,'number',locked+' step="0.1"')}${formField('Tope anual difícil justificación','cfgDifficultCap',s.difficult_expense_annual_cap??2000,'number',locked+' step="0.01"')}
  <label class="check-field wide"><input id="cfgDifficultEnabled" type="checkbox" ${s.difficult_expense_enabled===false?'':'checked'} ${locked}> Aplicar difícil justificación en previsión</label>
- <label class="wide">Notas fiscales<textarea id="cfgFiscalNotes" rows="4" ${locked}>${esc(s.fiscal_notes||'')}</textarea></label>
+ <p class="note wide">Las cuotas de autónomos se registran en Gastos, con la categoría Seguridad Social de autónomos. La previsión fiscal utiliza los gastos registrados y revisados.</p><label class="wide">Notas fiscales<textarea id="cfgFiscalNotes" rows="4" ${locked}>${esc(s.fiscal_notes||'')}</textarea></label>
  </div>${isAdmin()?`<div class="form-actions">${btn('Guardar configuración fiscal','config-save','primary')}</div>`:''}</section>
  <section class="card card-pad"><div class="section-head"><div><h2>Categorías de gastos</h2><p>Códigos usados por Gastos, fiscalidad y los libros Excel.</p></div>${isAdmin()?btn('+ Nueva categoría','expense-category-new','primary'):''}</div>
  <div class="stack" style="margin-top:12px">${state.data.categories.length?state.data.categories.slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'es')).map(c=>`<div class="summary-row"><div><b>${esc(c.name)}</b><div class="small muted">${esc(c.code)}${c.aeat_group?' · '+esc(c.aeat_group):''}${c.manager_code?' · gestor '+esc(c.manager_code):''}</div></div><div>${stateBadge(c.active?'activo':'inactivo')}</div><div class="inline-actions">${isAdmin()?btn('Editar','expense-category-edit','secondary',`data-id="${c.id}"`):''}</div></div>`).join(''):'<div class="empty"><strong>Sin categorías</strong><span>Crea categorías antes de registrar gastos.</span></div>'}</div></section>`;
@@ -604,7 +606,7 @@ function adminBackupHtml(){
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
   <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar
-   <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" type="file" accept=".totusbackup,.zip,application/zip"></span>
+   <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" data-draft-ignore type="file" accept=".totusbackup,.zip,application/zip"></span>
    <span id="backupSelectedFile" role="status" class="small muted">Ningún archivo seleccionado</span></span>
   </label></div>
   <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}${btn('Revisar para recuperar','recovery-review','primary')}</div>
@@ -690,7 +692,7 @@ export function pricing(){
  const consultations=state.data.consultations.slice(0,20);
  return `<div class="page">
  <div class="kpis">${kpi('Productos',String(rows.length))}${kpi('Familias',String(state.data.families.length))}${kpi('Proveedores',String(state.data.providers.length))}${kpi('Consultas',String(state.data.consultations.length))}</div>
- <section class="card table-card"><div class="section-head card-pad"><div><h2>Pricing</h2><p>Costes, PVP, margen, proveedores, variantes y competencia.</p></div><div class="inline-actions">${btn('Marcas y familias','families-manage','secondary')}${btn('Proveedores','providers-manage','secondary')}${btn('+ Nuevo producto','product-new','primary')}</div></div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section>
+ <section class="card table-card"><div class="section-head card-pad"><div><h2>Pricing</h2><p>Costes, PVP, margen, proveedores, variantes y competencia.</p></div><div class="inline-actions">${btn('Marcas y familias','families-manage','secondary')}${btn('Proveedores','providers-manage','secondary')}${btn('+ Nuevo producto','product-new','primary')}</div></div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" data-draft-ignore value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section>
  <section class="card card-pad"><div class="section-head"><div><h2>Consulta rápida</h2><p>Calcula y guarda consultas reutilizables.</p></div></div><div class="form-grid" style="margin-top:14px">
   ${formField('Consulta / producto','pqQuery','')}
   ${formField('Coste neto','pqCost','','number','step="0.01" min="0"')}

@@ -72,6 +72,12 @@ try{
  assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc),'Un fallo de Storage eliminó la ficha');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),1,'Un fallo de Storage alteró el archivo');
  await page.evaluate(()=>window.__mockStorageRemoveError=false);
+ await page.evaluate(()=>window.__mockStorageRemoveNoop=true);
+ await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();await page.locator('[data-confirm="accept"]').click();
+ await page.getByText('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.',{exact:true}).waitFor();
+ assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc),'A silent Storage refusal removed the metadata');
+ assert.equal(await page.evaluate(()=>window.__mockUploads.size),1);
+ await page.evaluate(()=>window.__mockStorageRemoveNoop=false);
  await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();
  await page.locator('[data-confirm="accept"]').click();
  await page.waitForTimeout(75);

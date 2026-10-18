@@ -36,6 +36,15 @@ for(const table of ['ops_daily_closings','ops_daily_closing_drawers','ops_expens
 window.__mockDb=db;
 window.__mockUploads=uploaded;
 let events=null;
+function syncDocumentLink(table,row){
+ const field=table==='ops_expenses'?'document_id':table==='ops_sales_invoices'?'source_document_id':null;
+ if(!field)return;
+ const type=table==='ops_expenses'?'expense':'sales_invoice',target=row[field]||null;
+ for(const doc of db.ops_documents){
+  if(doc.linked_entity_id===row.id&&doc.linked_entity_type===type&&doc.id!==target)Object.assign(doc,{linked_entity_id:null,linked_entity_type:''});
+  if(doc.id===target)Object.assign(doc,{linked_entity_id:row.id,linked_entity_type:type});
+ }
+}
 class Query{
  constructor(table){this.table=table;this.mode='select';this.value=null;this.filters=[];this.orderBy=null;this.rangeBy=null;}
  select(){return this}
@@ -78,7 +87,7 @@ class Query{
    });
    return {data:rows,error:null};
   }
-  if(this.mode==='update'){for(const r of matches)Object.assign(r,this.value);return {data:matches,error:null}}
+  if(this.mode==='update'){for(const r of matches){Object.assign(r,this.value);syncDocumentLink(this.table,r)}return {data:matches,error:null}}
   if(this.mode==='delete'){for(const r of matches){const i=target.indexOf(r);if(i>=0)target.splice(i,1)}return {data:matches,error:null}}
   if(this.orderBy){const [key,ascending]=this.orderBy;matches=[...matches].sort((a,b)=>String(a[key]??'').localeCompare(String(b[key]??''))*(ascending?1:-1))}
   if(this.rangeBy)matches=matches.slice(this.rangeBy[0],this.rangeBy[1]+1);
@@ -148,6 +157,7 @@ const rpc=async (name,args={})=>{
   }
   const children=kind==='ops_daily_closings'?'ops_daily_closing_drawers':kind==='ops_expenses'?'ops_expense_lines':'ops_sales_invoice_lines';
   const key=kind==='ops_daily_closings'?'closing_id':kind==='ops_expenses'?'expense_id':'invoice_id';
+  syncDocumentLink(kind,{...row,document_id:null,source_document_id:null});
   db[children]=db[children].filter(x=>x[key]!==id);
   db[kind]=db[kind].filter(x=>x.id!==id);
   insert('ops_audit_log',{area:kind,action:'eliminar',entity_id:id,detail:{motivo:reason}});
@@ -170,6 +180,7 @@ const rpc=async (name,args={})=>{
   if(!row)row=insert('ops_expenses',{});
   const base=sum(lines,l=>l.base_amount),vat=sum(lines,l=>l.base_amount*l.vat_rate/100),re=sum(lines,l=>l.base_amount*l.re_rate/100),wh=sum(lines,l=>l.base_amount*l.withholding_rate/100);
   Object.assign(row,p,{id:row.id,base_amount:base,vat_amount:vat,re_amount:re,withholding_amount:wh,accounting_amount:base+vat+re-wh,gross_expense:base+vat+re-wh});
+  syncDocumentLink('ops_expenses',row);
   db.ops_expense_lines=db.ops_expense_lines.filter(l=>l.expense_id!==row.id);
   lines.forEach(l=>insert('ops_expense_lines',{...l,expense_id:row.id,vat_amount:l.base_amount*l.vat_rate/100,re_amount:l.base_amount*l.re_rate/100,withholding_amount:l.base_amount*l.withholding_rate/100,irpf_imputable:l.base_amount}));
   return {data:row.id,error:null};
@@ -178,6 +189,7 @@ const rpc=async (name,args={})=>{
   const p=args.p_document,lines=args.p_lines||[];let row=p.id?get('ops_sales_invoices',p.id):null;if(!row)row=insert('ops_sales_invoices',{});
   const base=sum(lines,l=>l.quantity*l.unit_price_base*(1-l.discount_pct/100)),vat=sum(lines,l=>l.quantity*l.unit_price_base*(1-l.discount_pct/100)*l.vat_rate/100);
   Object.assign(row,p,{id:row.id,base_amount:base,vat_amount:vat,total_amount:base+vat,status:'borrador',display_number:''});
+  syncDocumentLink('ops_sales_invoices',row);
   db.ops_sales_invoice_lines=db.ops_sales_invoice_lines.filter(l=>l.invoice_id!==row.id);
   lines.forEach(l=>insert('ops_sales_invoice_lines',{...l,invoice_id:row.id}));
   return {data:row.id,error:null};
@@ -202,7 +214,8 @@ const rpc=async (name,args={})=>{
 const storageBucket=bucket=>({
  upload:async(path,file)=>{uploaded.set(bucket+'/'+path,file);return {data:{path},error:null}},
  download:async path=>{const file=uploaded.get(bucket+'/'+path);return {data:file||null,error:file?null:{message:'Archivo no encontrado'}}},
- remove:async paths=>{if(window.__mockStorageRemoveError)return {data:null,error:{message:'Storage no disponible'}};paths.forEach(path=>uploaded.delete(bucket+'/'+path));return {data:paths,error:null}},
+ remove:async paths=>{if(window.__mockStorageRemoveError)return {data:null,error:{message:'Storage no disponible'}};if(window.__mockStorageRemoveNoop)return {data:[],error:null};paths.forEach(path=>uploaded.delete(bucket+'/'+path));return {data:paths,error:null}},
+ exists:async path=>({data:uploaded.has(bucket+'/'+path),error:uploaded.has(bucket+'/'+path)?null:{message:'Not found',originalError:{status:404}}}),
  list:async (prefix='',options={})=>({data:[...uploaded.keys()].filter(k=>k.startsWith(bucket+'/'+prefix)).slice(options.offset||0,(options.offset||0)+(options.limit||1000)).map(k=>({id:uuid(),name:k.slice((bucket+'/'+(prefix?prefix+'/':'')).length)})),error:null}),
  createSignedUrl:async path=>{const f=uploaded.get(bucket+'/'+path);return {data:{signedUrl:f?URL.createObjectURL(f):''},error:f?null:{message:'No encontrado'}}}
 });

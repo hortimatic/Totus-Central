@@ -25,6 +25,7 @@ try{
  await press('store-save');
  assert((await get()).stores.filter(x=>x.code==='TEST_STORE').length===1,'No se rechazó código repetido');
  await page.locator('#modalHost .close-btn').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  steps.push('rechazo duplicado');
  await press('store-edit',store.id);
  await page.locator('#stName').fill('Almacén QA corregido');
@@ -54,6 +55,7 @@ try{
  await press('drawer-save');
  assert((await get()).drawers.filter(x=>x.store_id===store.id&&x.code==='TEST_DRAWER').length===1,'Se guardó código de caja duplicado');
  await page.locator('#modalHost .close-btn').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  steps.push('rechazo caja repetida');
  await press('store-edit',store.id);
  await page.locator('#stActive').uncheck();

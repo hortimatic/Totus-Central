@@ -17,14 +17,19 @@ Aplicación interna de gestión para Hortimatic y NewOldSmok. Código JavaScript
 - Código: `index.html` y `src/`. Datos y archivos: Supabase del entorno correspondiente.
 - Usuario, configuración y permisos deben revisarse también contra las políticas RLS, funciones SQL y funciones Edge.
 - Las correcciones en GitHub **no implican que la web de staging esté actualizada**. Es necesario confirmar el despliegue real y la URL original.
-- Los flujos de restauración de backup están bloqueados en staging hasta contar con recuperación transaccional segura; la descarga sigue permitida.
+- La recuperación v3 restaura datos y archivos en el mismo proyecto, con comprobación de integridad, punto de vuelta y restauración SQL transaccional. Exige que existan las cuentas Auth originales; no sustituye una copia de infraestructura ni recupera contraseñas. Los formatos antiguos se pueden inspeccionar, pero no restaurar.
+- Las copias incluyen como máximo 49 MB de archivo y 8 MB de datos JSON. Si falta un archivo vinculado o se supera el límite, se rechaza la copia completa; nunca se presenta una copia parcial como recuperable.
+- Staging tiene el registro público cerrado y exige al menos 12 caracteres en las nuevas contraseñas. La detección de contraseñas filtradas requiere un plan de Supabase compatible y no está habilitada en el plan Free actual.
+- Los documentos emitidos conservan su archivo original y su logo histórico. Los vínculos de documentos con gastos y facturas se actualizan dentro de la misma transacción.
 - El primer semestre de 2026 no debe importarse sin conciliación de fuentes y aprobación explícita.
 
 ## Pruebas
 
 La rama `staging` ejecuta el workflow `.github/workflows/qa.yml`; cubre pruebas estáticas, funcionales, libros contables y simulaciones de interfaz. Estas pruebas **no reemplazan** un ensayo autenticado completo en el staging publicado con datos de prueba, roles y permisos RLS.
 
-No existe actualmente un workflow de publicación certificado para la URL original. No habilitar GitHub Pages sin confirmar que no modifica el despliegue de `main`.
+El workflow `publish-staging.yml` comprueba la rama antes de actualizar `/staging/`. Verificar su resultado y la versión mostrada en la aplicación; no asumir que un push ya está publicado. La publicación de staging no autoriza cambios en `main` ni en la base de datos de producción.
+
+Los controles de RETA sin efecto en los cálculos se han retirado. Las cuotas efectivamente pagadas se registran como gastos; la tabla histórica se conserva para compatibilidad de las copias.
 
 ## Seguridad y revisión
 

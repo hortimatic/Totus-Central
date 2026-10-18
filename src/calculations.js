@@ -113,3 +113,6 @@ export function deductibleExpenseTotal(expenses=[],lines=[]){
  }
  return total;
 }
+export function issuedDocumentFileLocked(id,invoices=[]){
+ return !!id&&invoices.some(i=>i.status!=='borrador'&&[i.source_document_id,i.generated_document_id].includes(id));
+}

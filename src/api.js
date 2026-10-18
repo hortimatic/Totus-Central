@@ -55,7 +55,13 @@ export async function invokeRecovery(jobId,action='process'){
 }
 export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
 export async function signedUrl(bucket,path,seconds=120){const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);assert(r,'Vista previa');return r.data.signedUrl}
-export async function removeFile(bucket,path){const r=await sb.storage.from(bucket).remove([path]);assert(r,'Eliminar archivo')}
+export async function removeFile(bucket,path){
+ const files=sb.storage.from(bucket),r=await files.remove([path]);assert(r,'Eliminar archivo');
+ const check=await files.exists(path),status=Number(check.error?.statusCode??check.error?.originalError?.status);
+ // Storage's HEAD helper can return false together with its 400/404 response.
+ if(check.error&&!(check.data===false&&[400,404].includes(status)))assert(check,'Comprobar eliminación');
+ if(check.data!==false)throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
+}
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
 export async function reloadStorageUsage(){
  try{
@@ -73,7 +79,7 @@ export async function loadCore(){
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
  ['customers','ops_customers','name'],['series','ops_invoice_series','year'],['invoices','ops_sales_invoices','issue_date'],['invoiceLines','ops_sales_invoice_lines'],['documents','ops_documents','created_at'],
- ['taxPayments','ops_tax_payments','created_at'],['reta','ops_reta_brackets','bracket_order'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],
+ ['taxPayments','ops_tax_payments','created_at'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],
  ['templates','ops_document_templates','name'],['brands','brands','name'],['families','families','name'],['products','products','updated_at'],['variants','product_variants','created_at'],
  ['providers','providers','name'],['providerPrices','product_provider_prices','created_at'],['competitors','product_competitor_prices','created_at'],['consultations','consultations','updated_at']
  ];

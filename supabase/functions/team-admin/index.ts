@@ -46,7 +46,7 @@ Deno.serve(async(req:Request)=>{
    const email=cleanEmail(body.email),fullName=cleanText(body.full_name),role=cleanText(body.role),password=String(body.password||'')
    if(!validEmail(email))return json({error:'Email no válido'},400)
    if(!fullName||!(await validRole(role)))return json({error:'Nombre y rol válidos son obligatorios'},400)
-   if(password.length<8)return json({error:'La contraseña debe tener al menos 8 caracteres'},400)
+   if(password.length<12)return json({error:'La contraseña debe tener al menos 12 caracteres'},400)
    if(email===callerEmail&&action==='create_user')return json({error:'Ese usuario ya es tu cuenta de administrador.'},400)
    try{
     const existing=await findAuthUser(email)

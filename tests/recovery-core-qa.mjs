@@ -30,7 +30,7 @@ const corruptBytes=await tampered.generateAsync({type:'uint8array'});
 await assert.rejects(()=>readRecoveryArchive(corruptBytes,JSZip),/dañada/);
 const bomb=built.bytes.slice();const view=new DataView(bomb.buffer,bomb.byteOffset,bomb.byteLength);
 for(let offset=0;offset<bomb.length-46;offset++)if(view.getUint32(offset,true)===0x02014b50){view.setUint32(offset+24,201*1024*1024,true);break}
-await assert.rejects(()=>readRecoveryArchive(bomb,JSZip),/descomprimido/);
+await assert.rejects(()=>readRecoveryArchive(bomb,JSZip),/límite de seguridad/);
 const plan=await prepareRecoveryPlan(archive,jobId);
 assert.equal(plan.files.length,3);assert.equal(plan.database.ops_sales_invoices[0].record_hash,'unchanged-financial-hash');
 assert.equal(plan.database.ops_sales_invoices[0].created_by,actor);

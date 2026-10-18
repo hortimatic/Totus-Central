@@ -26,13 +26,14 @@ try{
  assert.equal((await data()).settings.default_sales_vat_rate,21,'Un IVA fuera de rango se ha guardado');
  await page.locator('#cfgVat').fill('21');
  await page.locator('#cfgPurchaseRe').fill('5,20');
- await page.locator('#cfgReta').fill('315,00');
- await page.locator('#cfgMargin').fill('18,5');
+ await page.locator('#cfgIrpf').fill('20,00');
+ await page.locator('#cfgDifficultCap').fill('2000,00');
  await page.locator('[data-action="config-save"]').click();
  let d=await data();
  assert.equal(d.settings.purchase_re_rate,5.2,'Se perdió el decimal en recargo');
- assert.equal(d.settings.actual_reta_monthly,315,'No se ha guardado RETA');
- assert.equal(d.settings.target_operating_margin_pct,18.5,'No se ha guardado margen objetivo');
+ assert.equal(d.settings.irpf_prepayment_rate,20,'No se ha guardado el tipo del modelo 130');
+ assert.equal(d.settings.difficult_expense_annual_cap,2000,'No se ha guardado el límite de difícil justificación');
+ assert.equal(await page.locator('#cfgReta').count(),0,'No mostrar una simulación RETA que no interviene en los cálculos');
  steps.push('configuración fiscal:rechazo de rangos,decimales y persistencia');
  await page.locator('[data-action="expense-category-new"]').click();
  await page.locator('#ecCode').fill('QA_TEST');
@@ -58,6 +59,7 @@ try{
  await page.locator('[data-action="expense-category-save"]').click();
  assert.equal((await data()).categories.filter(x=>x.code==='QA_TEST').length,1,'Categoría duplicada aceptada');
  await page.locator('#modalHost .close-btn').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  steps.push('categorías:crear,editar,desactivar,rechazar código duplicado');
  await nav('fiscalidad');
  await page.locator('[data-action="tax-payment-edit"][data-model="130"]').first().click();

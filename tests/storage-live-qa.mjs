@@ -53,6 +53,7 @@ try{
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.find(d=>d.id==='qa-existing-doc').storage_path),oldDocument,'Se reemplazó el original sin cuota verificada');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),beforeUploadCount,'Subió archivo pese al fallo de cuota');
  await page.locator('#nav [data-route="administracion"]').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(50);
@@ -80,6 +81,7 @@ try{
  assert.deepEqual(afterRejected,beforeRejected,'La caída de Storage permitió almacenar archivo o gasto sin cuota verificada');
  assert((await page.locator('#toastHost').innerText()).includes('No se puede comprobar el espacio'),'Error de quota no visible');
  await page.locator('#nav [data-route="administracion"]').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.evaluate(()=>window.__mockStorageFailure=false);
  await page.locator('[data-action="storage-refresh"]').click();

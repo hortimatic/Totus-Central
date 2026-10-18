@@ -1,4 +1,5 @@
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
+import {captureFormDraft,hasFormDraft,originalFormValue} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
@@ -6,7 +7,7 @@ import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,inse
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement} from './calculations.js';
+import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
@@ -96,7 +97,30 @@ function render(){
  hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
+ captureFormDraft($('#content'));
 }
+let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(Boolean);
+async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
+ if(discardPromptActive)return false;
+ const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
+ if(!roots.length)return true;
+ const host=$('#modalHost'),previous=[...host.childNodes],focused=document.activeElement;
+ // Move the actual nodes: cloning would lose selected files and local listeners.
+ const held=document.createDocumentFragment();previous.forEach(node=>held.appendChild(node));
+ discardPromptActive=true;let accepted=false;
+ try{
+  accepted=await confirmAction('Hay cambios sin guardar. Si sales ahora, se perderán los campos y archivos pendientes.',{title:'Cambios sin guardar',acceptLabel:'Salir sin guardar'});
+  if(accepted)roots.forEach(captureFormDraft);
+  return accepted;
+ }finally{
+  discardPromptActive=false;
+  if(!accepted){host.replaceChildren(held);if(focused?.isConnected)focused.focus()}
+ }
+}
+window.addEventListener('beforeunload',e=>{
+ if(writeInProgress||discardPromptActive||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+});
 let storageRefreshInFlight=false;
 function isStoragePanelVisible(){
  return !!state.user&&state.route==='administracion'&&getView('administracion').section==='storage';
@@ -114,7 +138,8 @@ async function refresh(message=''){
  state.loading=true;
  try{
   await loadCore();
-  if(message)toast(message,'ok');render()
+  if(message)toast(message,'ok');
+  if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else render()
  }
  catch(e){
   console.error(e);toast(e.message,'bad');
@@ -294,13 +319,21 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
  let doc;
  try{
    doc=await insert('ops_documents',{store_id:storeId||null,doc_type:docType,document_date:date,supplier_or_customer:party,tax_id:taxId,invoice_number:number,category_code:category,status,storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file),linked_entity_type:linkedType||'',linked_entity_id:linkedId,notes,uploaded_by:state.session?.user?.id||null});
- }catch(e){await removeFile('business-documents',path).catch(()=>{});throw e}
+ }catch(e){throw await rollbackUploadedFile('business-documents',path,e)}
  return doc;
 }
 async function destroyDocument(doc){
  if(!doc)return;
+ if(doc.storage_path)await removeFile('business-documents',doc.storage_path);
  await remove('ops_documents',doc.id);
- if(doc.storage_path)await removeFile('business-documents',doc.storage_path).catch(()=>{});
+}
+async function rollbackUploadedFile(bucket,path,error){
+ try{await removeFile(bucket,path);return error}
+ catch(cleanup){console.error('Archivo pendiente de retirar',{bucket,path,error:cleanup});return new Error(error.message+' El archivo subido no se ha podido retirar del almacenamiento. No se ha presentado la operación como completada.')}
+}
+async function rollbackNewDocument(doc,error){
+ try{await destroyDocument(doc);return error}
+ catch(cleanup){return new Error(error.message+' No se ha podido completar la retirada del adjunto: '+cleanup.message+'. Revisa su ficha en Documentos antes de reintentar.')}
 }
 
 async function saveExpense(id=''){
@@ -337,22 +370,14 @@ async function saveExpense(id=''){
  const expense={id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
  let savedId;
  try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
- catch(e){if(newDoc)await destroyDocument(newDoc).catch(()=>{});throw e}
- if(newDoc){
-  await update('ops_documents',newDoc.id,{linked_entity_id:savedId});
-  if(oldDoc&&oldDoc.id!==newDoc.id&&String(oldDoc.linked_entity_id||'')===String(savedId))
-   await update('ops_documents',oldDoc.id,{linked_entity_id:null,linked_entity_type:''});
- }
+ catch(e){throw newDoc?await rollbackNewDocument(newDoc,e):e}
  setView('gastos',{mode:'record',id:savedId});await refresh('Gasto guardado.');
 }
 async function unlinkExpenseDocument(expenseId,documentId){
  const expense=state.data.expenses.find(x=>String(x.id)===String(expenseId));
  if(!expense||String(expense.document_id)!==String(documentId))throw new Error('El justificante ya no pertenece a este gasto. Actualiza la ficha.');
  if(!confirm('¿Desvincular el justificante? El original se conservará en Documentos; podrás eliminarlo allí por separado.'))return;
- const doc=state.data.documents.find(x=>String(x.id)===String(documentId));
  await update('ops_expenses',expenseId,{document_id:null});
- if(doc&&String(doc.linked_entity_id||'')===String(expenseId))
-  await update('ops_documents',doc.id,{linked_entity_id:null,linked_entity_type:''});
  await refresh('Justificante desvinculado. El archivo original se conserva en Documentos.');
 }
 async function deleteExpense(id){
@@ -360,8 +385,6 @@ async function deleteExpense(id){
  const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
  const row=state.data.expenses.find(x=>x.id===id),doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  await rpc('totus_delete_expense',{p_id:id,p_reason:reason.trim()});
- if(doc&&String(doc.linked_entity_id||'')===String(id))
-  await update('ops_documents',doc.id,{linked_entity_id:null,linked_entity_type:''});
  resetView('gastos');await refresh(doc?'Gasto eliminado. El justificante original se conserva en Documentos.':'Gasto eliminado.');
 }
 
@@ -412,8 +435,7 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  doc.rectification_reason=invoiceKind==='rectifying'&&!isProforma?val('ivRectificationReason').trim():'';
  let savedId;
  try{savedId=await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines})}
- catch(e){if(newSource)await destroyDocument(newSource).catch(()=>{});throw e}
- if(newSource){await update('ops_documents',newSource.id,{linked_entity_id:savedId});if(oldSource&&oldSource.id!==newSource.id)await destroyDocument(oldSource).catch(()=>{})}
+ catch(e){throw newSource?await rollbackNewDocument(newSource,e):e}
  setView('facturacion',{mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
  await refresh(isProforma?'Proforma guardada.':'Documento guardado.');
 }
@@ -909,13 +931,13 @@ async function saveTemplate(id=''){
  const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),text_color:val('tpTextColor'),font_family:val('tpFont'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,show_payment_details:input('tpShowPayment')?.checked!==false,show_company_email:input('tpShowEmail')?.checked!==false,show_company_phone:input('tpShowPhone')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),notes_default:val('tpNotes').trim(),payment_terms_default:val('tpTerms').trim(),bank_details:val('tpBank').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
  try{
   savedTemplate=id?await update('ops_document_templates',id,row):await insert('ops_document_templates',row);
- }catch(e){if(uploadedPath)await removeFile('business-assets',uploadedPath).catch(()=>{});throw e}
+ }catch(e){throw uploadedPath?await rollbackUploadedFile('business-assets',uploadedPath,e):e}
  // No desactivar otras plantillas predeterminadas hasta confirmar que se guardó esta.
  // Si la actualización de las anteriores falla, indicar que debe revisarse: no ocultar un guardado parcial.
  let defaultsError=null;
  try{await clearOtherTemplateDefaults(savedTemplate?.id||id,storeId,{invoice:defaultInvoice,proforma:defaultProforma})}catch(e){defaultsError=e}
  if(oldLogoPath&&oldLogoPath!==logoPath&&!logoReferencedElsewhere(oldLogoPath,id)){
-  await removeFile('business-assets',oldLogoPath).catch(e=>console.warn('No se pudo retirar el logo sustituido',e));
+  await removeFile('business-assets',oldLogoPath).catch(e=>{console.warn('No se pudo retirar el logo sustituido',e);toast('La plantilla se ha guardado. El logo anterior sigue almacenado porque no se ha podido retirar.','bad')});
  }
  closeModal();
  await refresh(defaultsError?'Plantilla guardada; revisa las predeterminadas.':'Plantilla guardada.');
@@ -936,7 +958,7 @@ async function deleteTemplate(id){
  if(!confirm('¿Eliminar esta plantilla?'))return;
  await remove('ops_document_templates',id);
  const logoUsed=logoReferencedElsewhere(row.logo_path,id);
- if(row.logo_path&&!logoUsed)await removeFile('business-assets',row.logo_path).catch(()=>{});
+ if(row.logo_path&&!logoUsed)await removeFile('business-assets',row.logo_path).catch(()=>toast('La plantilla se ha eliminado, pero su logo sigue almacenado. Revisa los logos sin uso.','bad'));
  await refresh('Plantilla eliminada.');
 }
 function seriesForm(row=null){
@@ -1002,6 +1024,7 @@ async function saveDocument(id=''){
  if(current&&!isManager()&&current.uploaded_by!==state.session?.user?.id)throw new Error('Solo quien subió el documento o gerencia puede modificarlo.');
  const date=required('docDate','Fecha');if(date>isoToday())throw new Error('La fecha del documento no puede ser futura.');
  const storeId=val('docStore')||null,file=input('docFile')?.files?.[0]||null;
+ if(file&&current&&issuedDocumentFileLocked(current.id,state.data.invoices))throw new Error('El archivo pertenece a una factura emitida. Conserva el original; para corregir la factura utiliza una rectificativa.');
  const meta={store_id:storeId,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),tax_id:val('docTax').trim(),invoice_number:val('docNumber').trim(),category_code:val('docCategory').trim(),status:val('docStatus'),notes:val('docNotes').trim()};
  if(!current&&!file)throw new Error('Selecciona un archivo.');
  let row=current,newPath=null;
@@ -1015,8 +1038,8 @@ async function saveDocument(id=''){
    await upload('business-documents',newPath,file);
    try{
      row=await update('ops_documents',id,{...meta,storage_path:newPath,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file)});
-   }catch(err){await removeFile('business-documents',newPath).catch(()=>{});throw err}
-   if(current.storage_path&&current.storage_path!==newPath)await removeFile('business-documents',current.storage_path).catch(()=>{});
+   }catch(err){throw await rollbackUploadedFile('business-documents',newPath,err)}
+   if(current.storage_path&&current.storage_path!==newPath)await removeFile('business-documents',current.storage_path).catch(()=>toast('El documento se ha actualizado. El archivo anterior sigue almacenado porque no se ha podido retirar.','bad'));
  }else{
    row=await update('ops_documents',id,meta);
  }
@@ -1312,7 +1335,7 @@ function userModal(row=null){
   ${formField('Puesto','usJob',row?.job_title||'')}
   ${formField('Tienda / centro','usStore',row?.store||'')}
   <label class="wide">Notas<textarea id="usNotes" rows="3">${esc(row?.employee_notes||'')}</textarea></label>
-  ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="8"'):formField('Contraseña inicial','usPassword','','password','minlength="8"')}
+  ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="12"'):formField('Contraseña inicial','usPassword','','password','minlength="12"')}
  </div>
  ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva. Al cambiar de rol se restablecen los permisos individuales anteriores.</div>`:''}
  <div class="form-actions">
@@ -1334,9 +1357,9 @@ async function saveUser(email=''){
     const {error:permissionError}=await sb.from('ops_user_permissions').delete().eq('email',email);
     if(permissionError)throw new Error('Se cambió el rol, pero no se pudieron restablecer los permisos anteriores: '+permissionError.message);
    }
-   if(password){if(password.length<8)throw new Error('La contraseña debe tener al menos 8 caracteres.');await invokeTeam({action:'set_password',email,password,full_name:payload.full_name,role:payload.role})}
+   if(password){if(password.length<12)throw new Error('La contraseña debe tener al menos 12 caracteres.');await invokeTeam({action:'set_password',email,password,full_name:payload.full_name,role:payload.role})}
  }else{
-   if(password.length<8)throw new Error('La contraseña inicial debe tener al menos 8 caracteres.');
+   if(password.length<12)throw new Error('La contraseña inicial debe tener al menos 12 caracteres.');
    await invokeTeam({action:'create_user',...payload,password});
  }
  closeModal();await refresh('Usuario guardado.');
@@ -1608,10 +1631,6 @@ async function saveConfig(){
  setIf('cfgIrpf','irpf_prepayment_rate',bounded('Pago fraccionado IRPF (%)'));
  setIf('cfgDifficultPct','difficult_expense_pct',bounded('Difícil justificación (%)'));
  setIf('cfgDifficultCap','difficult_expense_annual_cap',bounded('Tope anual de gastos',100000000));
- setIf('cfgReta','actual_reta_monthly',v=>v===''?null:bounded('Cuota RETA mensual',100000)(v));
- setIf('cfgRetaRate','reta_total_rate',bounded('Tipo RETA (%)'));
- setIf('cfgRetaDeduction','reta_generic_deduction_pct',bounded('Deducción RETA (%)'));
- setIf('cfgMargin','target_operating_margin_pct',bounded('Margen objetivo (%)'));
  if(input('cfgDifficultEnabled'))patch.difficult_expense_enabled=!!input('cfgDifficultEnabled').checked;if(input('cfgFiscalNotes'))patch.fiscal_notes=val('cfgFiscalNotes').trim();
  await update('ops_business_settings',current.id||1,patch);await refresh('Configuración guardada.');
 }
@@ -1786,11 +1805,24 @@ async function reviewUnusedLogos(){
 
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}setRoute(route);document.body.classList.remove('menu-open');render();return}
+ if(writeInProgress){toast('Espera a que termine la operación en curso.');return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
+ if(a==='close-modal'){
+  if(el.classList.contains('modal-backdrop')&&e.target!==el)return;
+  if(discardPromptActive){closeModal();return}
+  if(!await allowDiscardDrafts({modalOnly:true}))return;
+ }
+ const replacesPage=/(?:-back|-section|-home|-refresh)$/.test(a)||['logout','retry-load','closing-new','closing-edit','expense-new','expense-edit','invoice-new','proforma-new','rectifying-new','external-invoice-new','invoice-edit','invoice-open','invoice-rectify','document-new','document-edit','product-new','product-edit','expense-suppliers'].includes(a);
+ if(replacesPage&&!await allowDiscardDrafts())return;
+ if(!replacesPage&&/(?:-new|-edit|-permissions)$/.test(a)&&!await allowDiscardDrafts({modalOnly:true}))return;
+ if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
+ preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
+ const writes=/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  try{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
+  if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
   if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
@@ -1982,6 +2014,7 @@ document.addEventListener('click',async e=>{
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
+ finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(writes)writeInProgress=false;preserveMainDraftOnRefresh=false}
 });
 
 document.addEventListener('input',e=>{
@@ -2000,7 +2033,7 @@ document.addEventListener('input',e=>{
  if(id.startsWith('iv')&&input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
 });
 
-document.addEventListener('change',e=>{
+document.addEventListener('change',async e=>{
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){
   recoveryCandidate=null;
@@ -2033,7 +2066,10 @@ document.addEventListener('change',e=>{
    return;
  }
  if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
- if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
+ if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){
+  if(!await allowDiscardDrafts({ignore:['clStore']})){e.target.value=originalFormValue($('#content'),'clStore');return}
+  setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return;
+ }
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{date:e.target.value||isoToday()});return}
  if(['ivStore','ivDate'].includes(e.target?.id)&&getView('facturacion').mode==='record'){
   const view=getView('facturacion'),saved=state.data.invoices.find(x=>x.id===view.id),storeId=val('ivStore'),docType=saved?.document_type||view.docType||'factura',kind=saved?.invoice_kind||view.invoiceKind||'invoice',year=Number(val('ivDate').slice(0,4));setView('facturacion',{storeId});
@@ -2085,7 +2121,7 @@ function showPasswordRecovery(){
 }
 $('#saveRecoveryPassword').addEventListener('click',async()=>{
  const message=$('#loginMessage'),password=val('recoveryPassword'),confirmPassword=val('recoveryPasswordConfirm');
- if(password.length<8){message.textContent='Utiliza al menos 8 caracteres.';return}
+ if(password.length<12){message.textContent='Utiliza al menos 12 caracteres.';return}
  if(password!==confirmPassword){message.textContent='Las contraseñas no coinciden.';return}
  const button=$('#saveRecoveryPassword');button.disabled=true;
  try{
@@ -2142,6 +2178,11 @@ boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.
 
 // Enter applies the same visible controls as the Apply button, without submitting unrelated forms.
 document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&$('#modalHost')?.children.length){
+  e.preventDefault();
+  if(discardPromptActive)closeModal();else allowDiscardDrafts({modalOnly:true}).then(ok=>{if(ok)closeModal()});
+  return;
+ }
  if(e.key!=='Enter'||e.target?.tagName==='TEXTAREA')return;
  const prefix=e.target?.closest('[data-filter-prefix]')?.dataset.filterPrefix;
  try{

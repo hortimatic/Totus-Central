@@ -1,3 +1,4 @@
+import {captureFormDraft} from './form-drafts.js';
 import {esc,fmtDate,money,statusClass} from './utils.js';
 
 // Contextual help follows the viewport. A MutationObserver runs at the
@@ -87,10 +88,6 @@ Object.assign(FIELD_HELP,{
  "Pago fraccionado IRPF (%)":"Porcentaje orientativo para previsiones; no sustituye el modelo presentado por la gestoría.",
  "Difícil justificación (%)":"Porcentaje estimado según el régimen fiscal correspondiente y sus límites.",
  "Tope anual difícil justificación":"Límite anual usado únicamente en las simulaciones fiscales.",
- "Cuota RETA actual":"Cuota mensual que pagas realmente; sirve para previsiones, no modifica pagos pasados.",
- "Tipo RETA referencia (%)":"Porcentaje aproximado de cotización para simular tramos RETA.",
- "Deducción RETA genérica (%)":"Reducción estimada de rendimientos en el cálculo orientativo de tramos.",
- "Margen operativo objetivo (%)":"Rentabilidad a alcanzar tras descontar los costes usados en el cálculo.",
  "Consulta / producto":"Nombre o referencia con el que podrás encontrar esta consulta en el histórico.",
  "Coste neto":"Coste de compra antes de IVA y recargo; no añadas de nuevo impuestos especiales ya incluidos en la factura.",
  "PVP":"Precio final de venta al público, incluido el IVA que corresponda.",
@@ -194,6 +191,7 @@ export const selectField=(label,id,options,value='',extra='')=>`<label><span cla
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" data-modal-content="true"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;
+ const panel=host.querySelector('[data-modal-content]');queueMicrotask(()=>{if(panel?.isConnected)captureFormDraft(panel)});
 }
 export function closeModal(){document.getElementById('modalHost').innerHTML=''}
 export function confirmAction(message,{phrase='',title='Confirmar eliminación',acceptLabel='Eliminar definitivamente'}={}){

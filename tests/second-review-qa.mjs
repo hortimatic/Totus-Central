@@ -27,6 +27,8 @@ try{
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:`artifacts/review_invoice_${width}.png`,fullPage:true});
   await nav('informes');
+  await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();
+  await page.locator('[data-confirm="accept"]').click();
   assert.equal(await page.locator('[data-action="report-gestor-preview"]').count(),0,'Duplicate accountant preview must be removed');
   assert.equal(await page.locator('[data-action="report-gestor-source-preview"]').count(),1);
   await page.locator('#informesFrom').fill('2026-02-01');await page.locator('#informesTo').fill('2026-02-28');await page.locator('[data-action="informes-apply"]').click();

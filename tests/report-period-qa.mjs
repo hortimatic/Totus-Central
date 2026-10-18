@@ -70,7 +70,9 @@ try{
    const h=host.getBoundingClientRect(),p=paper.getBoundingClientRect();return p.width>0&&p.right<=h.right+2&&p.left>=h.left-2;
   });
  }
- await page.setViewportSize({width:1440,height:1000});await nav('administracion');await page.getByRole('button',{name:'Log',exact:true}).click();
+ await page.setViewportSize({width:1440,height:1000});await nav('administracion');
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
+ await page.getByRole('button',{name:'Log',exact:true}).click();
  const actions=await page.locator('.log-filter-actions button').evaluateAll(es=>es.map(e=>{const b=e.getBoundingClientRect();return {x:b.x,y:b.y,bottom:b.bottom}}));
  assert.equal(actions.length,2);assert(Math.abs(actions[0].x-actions[1].x)<2&&actions[1].y>=actions[0].bottom,'Log buttons must be together and vertically stacked');
  assert.deepEqual(errors,[]);

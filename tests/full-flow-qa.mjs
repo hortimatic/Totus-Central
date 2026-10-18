@@ -327,6 +327,7 @@ await check('Gastos: control interno, clasificación y rechazo de factura duplic
  const expectedConsoleError=errors.findIndex(x=>x.includes('Ya existe un gasto con esta factura para el mismo proveedor'));
  if(expectedConsoleError>=0)errors.splice(expectedConsoleError,1);
  await page.locator('[data-action="expense-back"]').first().click();
+ if(await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).count())await page.locator('[data-confirm="accept"]').click();
 });
 await check('Gastos: reemplazar justificante, previsualizar Excel y evitar archivos huérfanos',async()=>{
  await nav('gastos');
@@ -638,6 +639,8 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  errors.splice(beforeMissingProvider); // validation intentionally rejected in this negative test
  assert(!(await page.evaluate(()=>window.__mockDb.products)).some(x=>x.sku==='SKU-CONVERT-QA'),'Creó producto sin coste de proveedor');
  await page.locator('#modalHost .close-btn').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();
+ await page.locator('[data-confirm="accept"]').click();
  const providerId=await page.evaluate(async()=>{
   const {state}=await import('../src/state.js');
   const p={id:crypto.randomUUID(),name:'Proveedor conversión QA',active:true};
