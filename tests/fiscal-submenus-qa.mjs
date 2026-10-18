@@ -10,7 +10,8 @@ const data=()=>page.evaluate(()=>({
  categories:window.__mockDb.ops_expense_categories,
  taxPayments:window.__mockDb.ops_tax_payments,
  adjustments:window.__mockDb.ops_fiscal_adjustments,
- manualIncome:window.__mockDb.ops_income_adjustments
+ manualIncome:window.__mockDb.ops_income_adjustments,
+ audit:window.__mockDb.ops_audit_log
 }));
 const nav=async section=>{
  await page.locator('#nav [data-route="'+section+'"]').click();
@@ -114,7 +115,9 @@ try{
  await page.locator('[data-action="income-adjustment-delete"][data-id="'+entry.id+'"]').click();
  await page.waitForTimeout(60);
  assert(!(await data()).manualIncome.some(x=>x.id===entry.id),'El ingreso manual no se eliminó');
- steps.push('ingresos manuales: crear,editar,eliminar');
+ const proof=(await data()).audit.find(x=>x.entity_id===entry.id&&x.action==='eliminar_ingreso_manual');
+ assert(proof?.detail?.motivo==='Motivo de corrección QA','La baja no ha registrado su motivo en el Log');
+ steps.push('ingresos manuales: crear,editar,eliminar con motivo auditado');
  assert(!errors.length,errors.join('; '));
  console.log('FISCAL SUBMENUS QA: '+steps.join(' | ')+' OK');
 }finally{await browser.close()}

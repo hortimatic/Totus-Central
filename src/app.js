@@ -1366,8 +1366,8 @@ async function saveIncomeAdjustment(id=''){
 async function deleteIncomeAdjustment(id){
  if(!confirm('¿Eliminar este ingreso manual y actualizar los informes?'))return;
  const reason=prompt('Motivo de la eliminación:');if(!reason?.trim())return;
- await remove('ops_income_adjustments',id);
- closeModal();await refresh('Ingreso manual eliminado.');
+ await rpc('totus_delete_income_adjustment',{p_id:id,p_reason:reason.trim()});
+ closeModal();await refresh('Ingreso manual eliminado y registrado en el Log.');
 }
 function setFiscalQuarter(year,q){
  const from=`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${String(new Date(year,q*3,0).getDate()).padStart(2,'0')}`;patchFilters('fiscalidad',{from,to});render();

@@ -108,6 +108,15 @@ const rpc=async (name,args={})=>{
     estimated_days_left:day&&docs+assets<limit?Math.ceil((limit-docs-assets)/day):null
   },error:null};
  }
+ if(name==='totus_delete_income_adjustment'){
+  const id=args.p_id,reason=String(args.p_reason||'').trim();
+  if(!reason)return {data:null,error:{message:'Motivo obligatorio'}};
+  const row=get('ops_income_adjustments',id);
+  if(!row)return {data:null,error:{message:'Ingreso manual no encontrado'}};
+  insert('ops_audit_log',{area:'fiscalidad',action:'eliminar_ingreso_manual',entity_id:id,detail:{motivo:reason,concepto:row.concept,importe:row.amount}});
+  db.ops_income_adjustments=db.ops_income_adjustments.filter(x=>x.id!==id);
+  return {data:id,error:null};
+ }
  if(['totus_delete_closing','totus_delete_expense','totus_delete_sales_draft'].includes(name)){
   const id=args.p_id,reason=String(args.p_reason||'').trim();
   if(!reason)return {data:null,error:{message:'Motivo obligatorio'}};
