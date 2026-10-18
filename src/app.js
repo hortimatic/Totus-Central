@@ -460,7 +460,12 @@ function exportCurrentModule(module){
    const closings=state.data.closings.filter(x=>(!f.from||x.business_date>=f.from)&&(!f.to||x.business_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
    return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  }
- const expenses=state.data.expenses.filter(x=>(!f.from||x.expense_date>=f.from)&&(!f.to||x.expense_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(f.kind==='all'||!f.kind||(f.kind==='internal'?x.management_only:!x.management_only))&&(f.paid==='all'||!f.paid||x.paid_status===f.paid)&&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ // In the invoices/receipts subtab the exported expenses must match the visible
+ // attachment filter. In the normal expense subtab that filter is not displayed.
+ const attachmentFilter=getView('gastos').section==='facturas'?(f.attachment||'all'):'all';
+ const expenses=state.data.expenses.filter(x=>(!f.from||x.expense_date>=f.from)&&(!f.to||x.expense_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(f.kind==='all'||!f.kind||(f.kind==='internal'?x.management_only:!x.management_only))&&(f.paid==='all'||!f.paid||x.paid_status===f.paid)
+  &&(attachmentFilter==='all'||(attachmentFilter==='attached'?!!state.data.documents.find(d=>d.id===x.document_id):!state.data.documents.some(d=>d.id===x.document_id)))
+  &&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
  return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
 }
 

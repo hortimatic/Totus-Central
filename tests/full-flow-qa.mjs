@@ -179,6 +179,23 @@ await check('Gastos: índice de facturas, búsqueda, desglose gestor y PDF desca
  await page.locator('[data-action="gastos-apply"]').click();
  assert((await page.locator('#content').innerText()).includes('QA-F-1'),'No aparece el gasto sin justificante');
  assert(!(await page.locator('#content').innerText()).includes('TEST-PDF-2026'),'El filtro sin justificante incluye facturas adjuntas');
+ // The XLSX must match the applied attachment filter, not just the screen.
+ const missingDownload=page.waitForEvent('download');
+ await page.locator('[data-action="export-expenses-current"]').click();
+ const missingFile=await missingDownload;
+ const missingBook=xlsx.read(await fs.readFile(await missingFile.path()),{type:'buffer'});
+ const missingRows=xlsx.utils.sheet_to_json(missingBook.Sheets.Gastos,{header:1});
+ assert(missingRows.some(row=>row.includes('QA-F-1')),'XLSX sin archivo no incluye gasto visible');
+ assert(!missingRows.some(row=>row.includes('TEST-PDF-2026')),'XLSX sin archivo exporta una factura que tiene PDF');
+ await page.locator('#gastosAttachment').selectOption('attached');
+ await page.locator('[data-action="gastos-apply"]').click();
+ const attachedDownload=page.waitForEvent('download');
+ await page.locator('[data-action="export-expenses-current"]').click();
+ const attachedFile=await attachedDownload;
+ const attachedBook=xlsx.read(await fs.readFile(await attachedFile.path()),{type:'buffer'});
+ const attachedRows=xlsx.utils.sheet_to_json(attachedBook.Sheets.Gastos,{header:1});
+ assert(attachedRows.some(row=>row.includes('TEST-PDF-2026')),'XLSX con archivo omite factura con PDF');
+ assert(!attachedRows.some(row=>row.includes('QA-F-1')),'XLSX con archivo exporta gasto sin justificante');
  await page.locator('#gastosAttachment').selectOption('all');
  await page.locator('[data-action="gastos-apply"]').click();
  await page.locator('[data-action="expense-section"][data-section="registros"]').click();
