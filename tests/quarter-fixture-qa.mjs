@@ -59,6 +59,10 @@ eq(q1.D5.v,200+20,'February income');
 eq(q2.D4.v,500,'April income without draft invoice');
 eq(q3.D4.v,300,'July income');
 eq(q3.D5.v,500,'August income');
+const previewData={...data,closings:[...data.closings,{...closing('excluded','h','2026-07-05',0,999),include_in_income:false}]};
+const sampleAnnual=buildStoreAnnualWorkbook({...previewData,store:stores[0]});
+if(sampleAnnual.Sheets.Julio.E5?.v===999||Object.values(sampleAnnual.Sheets.Julio).some(c=>c?.v===999))
+ throw new Error('Los cierres excluidos no deben contaminar los libros por tienda');
 for(const [name,amount] of [['Hortimatic',300],['NewOldSmok',600]]){
  const store=stores.find(x=>x.name===name),book=buildStoreAnnualWorkbook({...data,store});
  if(book.SheetNames.length!==12)throw Error('Store quarterly annual workbook incomplete');

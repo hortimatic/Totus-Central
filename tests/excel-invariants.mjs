@@ -23,4 +23,12 @@ assert.equal(last.wb.Sheets.Gastos.K5.v,0,'Zero-valued gross expense cannot fall
 assert.equal(last.wb.Sheets.Gastos.K6.f,'SUM(K5:K5)','One-row expense total must reference the data row');
 exportSummaryWorkbook({...settings,closings:[],expenses:[expense],invoices:[],fiscalAdjustments:[],incomeAdjustments:[],stores:[{id:'s1',name:'QA shop'}]});
 assert.equal(last.wb.Sheets.Resumen.B9.v,0,'Summary accounting expenses must retain zero');
-console.log('Excel invariants: empty exports, zero values and total formulas OK');
+const unreviewed={...expense,id:'pending',gross_expense:50,accounting_amount:50,fiscal_reviewed:false};
+const common={...expense,id:'general',store_id:null,gross_expense:20,accounting_amount:20,fiscal_reviewed:true};
+exportSummaryWorkbook({...settings,closings:[],expenses:[expense,unreviewed,common],invoices:[],fiscalAdjustments:[],incomeAdjustments:[],stores:[{id:'s1',name:'QA shop'}]});
+assert.equal(last.wb.Sheets.Resumen.B9.v,20,'El total de gastos contables no debe incluir gastos pendientes de revisión');
+assert.equal(last.wb.Sheets.Resumen.B13.v,50,'Los pendientes deben figurar aparte y no desaparecer del Excel');
+assert.equal(last.wb.Sheets['Por tienda'].F2.v,50,'El pendiente de tienda debe constar como excluido');
+assert.equal(last.wb.Sheets['Por tienda'].C3.v,20,'Los gastos generales sin tienda no pueden desaparecer');
+assert.equal(last.wb.Sheets['Por tienda'].E2.v+last.wb.Sheets['Por tienda'].E3.v,last.wb.Sheets.Resumen.B12.v,'El resultado por tiendas y general debe conciliar con el total');
+console.log('Excel invariants: empty exports, zero, pendientes, generales y total formulas OK');

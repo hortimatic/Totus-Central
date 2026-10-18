@@ -69,26 +69,36 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
  const adjustmentSales=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.reduce((a,x)=>a+n(x.amount),0);
  const sales=closeSales+extraInvoiceSales+adjustmentSales;
- const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+ const accounting=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+ const pending=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
  const costs=accounting+internal;
  const summary=[
   ['RESUMEN DE GESTIÓN'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],
-  ['Concepto','Importe'],['Ventas de cierres',closeSales],['Facturas adicionales',extraInvoiceSales],['Ajustes de ingreso',adjustmentSales],['Ingresos totales',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs]
+  ['Concepto','Importe'],['Ventas de cierres',closeSales],['Facturas adicionales',extraInvoiceSales],['Ajustes de ingreso',adjustmentSales],['Ingresos totales',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs],['Pendientes de revisión (no incluidos)',pending]
  ];
  const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(let r=5;r<=13;r++)if(ws[`B${r}`])ws[`B${r}`].z=euro;
  ws['A12'].s=totalStyle;ws['B12'].s={...totalStyle};ws['B12'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
 
  const perStore=stores.map(s=>{
-  const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id),is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true),as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
+  const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id);
+  const is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true);
+  const as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
   const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>x.store_id===s.id).reduce((a,x)=>a+n(x.amount),0);
-  const ex=es.reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
-  const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
-  return [s.name,sv,ex-internal,internal,sv-ex];
+  const amt=x=>n(x.gross_expense??x.accounting_amount??x.amount_paid??0);
+  const fiscal=es.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((a,x)=>a+amt(x),0);
+  const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+amt(x),0);
+  const notReviewed=es.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+amt(x),0);
+  return [s.name,sv,fiscal,internal,sv-fiscal-internal,notReviewed];
  });
- const commonAdj=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id).reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>!x.store_id).reduce((a,x)=>a+n(x.amount),0);
- if(commonAdj)perStore.push(['General / sin tienda',commonAdj,0,0,commonAdj]);
- const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos contables','Gastos internos','Resultado'],...perStore]);styleHeader(ws2,0,5);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
+ const generalIncome=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id).reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>!x.store_id).reduce((a,x)=>a+n(x.amount),0);
+ const generalExpenses=expenses.filter(x=>!x.store_id),ga=x=>n(x.gross_expense??x.accounting_amount??x.amount_paid??0);
+ const generalFiscal=generalExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((a,x)=>a+ga(x),0);
+ const generalInternal=generalExpenses.filter(x=>x.management_only).reduce((a,x)=>a+ga(x),0);
+ const generalPending=generalExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+ga(x),0);
+ if(generalIncome||generalFiscal||generalInternal||generalPending)
+  perStore.push(['General / sin tienda',generalIncome,generalFiscal,generalInternal,generalIncome-generalFiscal-generalInternal,generalPending]);
+ const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos revisados','Gastos internos','Resultado','Pendientes de revisión'],...perStore]);styleHeader(ws2,0,6);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E','F'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16,25]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
  write(wb,`resumen_${from}_${to}.xlsx`);
 }
 
@@ -121,7 +131,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center'}});
  const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
  const byDateClose=new Map();
- for(const closing of closings.filter(x=>x.store_id===store.id&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`))){
+ for(const closing of closings.filter(x=>x.store_id===store.id&&x.include_in_income!==false&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`))){
   const date=String(closing.business_date).slice(0,10);
   const totals=byDateClose.get(date)||{card_sales:0,cash_withdrawals:0};
   totals.card_sales+=n(closing.card_sales);
