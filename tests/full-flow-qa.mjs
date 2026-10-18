@@ -635,6 +635,11 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  await page.locator('[data-action="consultation-convert"][data-id="'+consultationId+'"]').click();
  await page.locator('#ccSku').fill('SKU-CONVERT-QA');
  await page.locator('#ccProvider').selectOption(providerId);
+ await page.evaluate(()=>window.__mockRejectInsertTable='product_provider_prices');
+ await page.locator('[data-action="consultation-convert-save"]').click();
+ await page.waitForTimeout(50);
+ assert(!(await page.evaluate(()=>window.__mockDb.products)).some(x=>x.sku==='SKU-CONVERT-QA'),
+  'El error de registrar el coste deja un producto sin proveedor después de intentar revertirlo');
  await page.locator('[data-action="consultation-convert-save"]').click();
  await page.waitForTimeout(90);
  const converted=await page.evaluate(()=>({

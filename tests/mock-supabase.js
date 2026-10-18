@@ -51,6 +51,10 @@ class Query{
   if(!target)return {data:null,error:{message:'Tabla de pruebas no definida: '+this.table}};
   let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
   if(this.mode==='insert'){
+   if(window.__mockRejectInsertTable===this.table){
+    window.__mockRejectInsertTable=null;
+    return {data:null,error:{message:'Error simulado al registrar el coste en el proveedor'}};
+   }
    let rows=(Array.isArray(this.value)?this.value:[this.value]).map(x=>({id:uuid(),created_at:new Date().toISOString(),...x}));
    target.push(...rows);return {data:rows,error:null};
   }
