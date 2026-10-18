@@ -311,3 +311,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .backup-file-picker{min-width:0;max-width:100%}
 #backupSelectedFile{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
 @media(max-width:480px){.backup-file-control{align-items:stretch;flex-direction:column}.backup-file-picker{width:100%}}
+
+/* A real explanatory footer keeps Administrador aligned with configurable roles;
+   unlike a disabled button it does not suggest an operation that cannot happen. */
+.role-fixed-access{display:inline-flex;align-items:center;min-height:40px;max-width:100%;font-size:12px;font-weight:700;color:#536479;background:#f1f5fb;border-radius:9px;padding:8px 12px;overflow-wrap:anywhere}

@@ -48,6 +48,10 @@ for(const [size,viewport] of [['desktop',{width:1440,height:960}],['tablet',{wid
    if(Math.abs(card.x-container.x)>5||Math.abs(card.right-container.right)>5)
     failures.push(key+': tarjeta '+nameCard+' desalineada con su columna: '+JSON.stringify({card,container}));
   }
+  if(name==='admin-roles'){
+   const fixed=await page.locator('.role-card-grid .role-fixed-access').allTextContents();
+   if(fixed.length!==1||!fixed[0].includes('Acceso completo'))failures.push(key+': administrador sin nota de permisos permanentes');
+  }
   if(name==='admin-roles'&&viewport.width>1100&&report.roles.length>=3){
    const heights=report.roles.map(x=>x.height),spread=Math.max(...heights)-Math.min(...heights);
    if(spread>3)failures.push(key+': tarjetas de roles con alturas diferentes: '+heights.join(','));

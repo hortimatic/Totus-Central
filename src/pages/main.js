@@ -441,7 +441,7 @@ function adminRolesHtml(){
   const modules=PERMISSION_MODULES.filter(([m])=>rolePermissions(role.code,m).view).length;
   const canDelete=!role.is_system&&people.length===0;
   const buttons=[
-   role.code!=='admin'?btn('Configurar permisos','role-permissions','primary',`data-role="${esc(role.code)}"`):'',
+   role.code!=='admin'?btn('Configurar permisos','role-permissions','primary',`data-role="${esc(role.code)}"`):'<span class="role-fixed-access" title="El administrador dispone de todos los permisos y su acceso es permanente">Acceso completo · permanente</span>',
    !role.is_system?btn('Cambiar nombre','role-rename','secondary',`data-role="${esc(role.code)}"`):'',
    !role.is_system?btn('Eliminar','role-delete',canDelete?'danger':'secondary',`data-role="${esc(role.code)}" ${canDelete?'':'disabled title="Asigna otro rol a sus usuarios antes de eliminar"'}`):''
   ].join('');
