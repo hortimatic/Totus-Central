@@ -315,3 +315,12 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 /* A real explanatory footer keeps Administrador aligned with configurable roles;
    unlike a disabled button it does not suggest an operation that cannot happen. */
 .role-fixed-access{display:inline-flex;align-items:center;min-height:40px;max-width:100%;font-size:12px;font-weight:700;color:#536479;background:#f1f5fb;border-radius:9px;padding:8px 12px;overflow-wrap:anywhere}
+
+.business-stores-head{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+.business-stores-head h2{word-break:normal;overflow-wrap:normal;hyphens:none}
+.business-stores-head>.btn{align-self:flex-start}
+.business-layout{align-items:start}
+.invoice-presentation-fields{grid-template-columns:minmax(0,1fr)}
+.invoice-presentation-fields>*{grid-column:1/-1;min-width:0}
+.field-help>summary{font-size:12px!important;line-height:1!important;font-weight:800!important;display:inline-grid!important;place-items:center!important}
+.field-help>summary::after{content:none!important;display:none!important}
