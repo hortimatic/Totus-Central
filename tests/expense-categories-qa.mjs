@@ -17,6 +17,8 @@ assert(!opts.some(x=>x.value==='child-b'));
 assert(expenseCategoryOptions(cats,'child-b').some(x=>x.value==='child-b'));
 assert.equal(expenseCategoryCode(cats,'child-a'),'MERCH');
 assert(isInternalExpenseCategory(cats,'child-int'));
+cats.push({id:'child-explicit-internal',parent_id:'root-a',code:'INTERNAL_OVERTIME',name:'Horas extra',active:true});
+assert(isInternalExpenseCategory(cats,'child-explicit-internal'),'Un código interno explícito no debe heredar MERCH como fiscal');
 assert.throws(()=>validateExpenseClassification([{category_id:'child-int',deductible_irpf:true,deductible_pct:100}],cats,false),/solo de control interno/i);
 assert.equal(validateExpenseClassification([{category_id:'child-int',deductible_irpf:false,deductible_pct:0}],cats,true),true);
 assert.throws(()=>validateExpenseCategoryHierarchy(cats,{id:'root-a',parent_id:'root-a'}),/propia subcategoría/);
