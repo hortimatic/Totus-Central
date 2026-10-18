@@ -468,6 +468,10 @@ function adminStorageHtml(){
   <div class="note warn"><b>Datos no disponibles</b> · ${esc(u.message||'Comprueba la conexión a Supabase y los permisos de la sesión.')}</div>
  </section>`;
  const total=bytes(u.total_bytes),limit=Math.max(1,bytes(u.limit_bytes)),backups=bytes(u.backup_bytes);
+ const dbSize=Number(u.database_bytes),measuredTotal=Number(u.observed_total_bytes);
+ const measuredOk=Number.isFinite(dbSize)&&dbSize>=0&&Number.isFinite(measuredTotal)&&measuredTotal>=total+backups+dbSize-1;
+ const measuredDenominator=measuredOk?Math.max(1,measuredTotal):1;
+ const measurePercent=v=>(100*Math.max(0,bytes(v))/measuredDenominator).toFixed(4);
  const pct=Math.max(0,Math.min(100,total/limit*100));
  const stamp=u.measured_at?new Date(u.measured_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}):'Sin fecha';
  const remaining=Math.max(0,limit-total);
@@ -488,6 +492,11 @@ function adminStorageHtml(){
    <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Medición real de archivos guardados en el servidor, con actualización automática mientras esta pantalla está abierta.</p></div>
     ${btn('Actualizar ahora','storage-refresh','secondary')}</div>
    <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b id="storageMeasuredAt">${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
+   <div class="storage-observed-heading"><div><h3>Espacio total observado en Supabase</h3><p>Desglose proporcional de lo que ocupa cada componente medido; no representa la cuota del plan.</p></div><strong id="storageObservedTotal">${measuredOk?mb(measuredTotal):'No disponible'}</strong></div>
+   ${measuredOk?`<div id="storageObservedBar" class="storage-breakdown-bar" role="img" aria-label="Distribución del almacenamiento observado: PostgreSQL ${mb(dbSize)}, documentos ${mb(u.documents_bytes)}, logos ${mb(u.assets_bytes)}, copias ${mb(backups)}">
+    <span class="storage-segment-db" style="width:${measurePercent(dbSize)}%" title="PostgreSQL: ${mb(dbSize)}"></span><span class="storage-segment-docs" style="width:${measurePercent(u.documents_bytes)}%" title="Documentos: ${mb(u.documents_bytes)}"></span><span class="storage-segment-assets" style="width:${measurePercent(u.assets_bytes)}%" title="Logos: ${mb(u.assets_bytes)}"></span><span class="storage-segment-backups" style="width:${measurePercent(backups)}%" title="Copias: ${mb(backups)}"></span>
+   </div><div class="storage-legend"><span><i class="storage-legend-db"></i> PostgreSQL · ${mb(dbSize)}</span><span><i class="storage-legend-docs"></i> Documentos · ${mb(u.documents_bytes)}</span><span><i class="storage-legend-assets"></i> Logos · ${mb(u.assets_bytes)}</span><span><i class="storage-legend-backups"></i> Copias · ${mb(backups)}</span></div>`:'<div class="note warn">No se dispone de una medición verificable de la base de datos. No se calcula una barra ficticia.</div>'}
+   <div class="storage-quota-title"><h3>Cuota interna para documentos y logos</h3><p>Este límite operativo de Totus no incluye la base de datos ni las copias.</p></div>
    <div class="storage-usage-header"><strong>${mb(total)} usados</strong><strong>${mb(remaining)} disponibles</strong></div>
    <progress id="storageUsageBar" aria-label="Porcentaje ocupado del límite de documentos y logos" max="100" value="${pct.toFixed(2)}"></progress>
    <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1})} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>

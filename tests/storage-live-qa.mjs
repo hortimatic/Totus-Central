@@ -9,7 +9,11 @@ try{
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('#storageMeasuredAt').waitFor();
  assert((await page.locator('#content').innerText()).includes('Datos verificados en Supabase'),'Falta indicador de fuente y conexión');
- assert(await page.locator('#storageUsageBar').count()===1,'No hay barra de uso');
+ assert(await page.locator('#storageUsageBar').count()===1,'No hay barra de cuota interna');
+ assert(await page.locator('#storageObservedBar').count()===1,'No existe barra superior de espacio total observado');
+ assert((await page.locator('#content').innerText()).includes('Espacio total observado en Supabase'),'No presenta el tamaño de PostgreSQL');
+ assert((await page.locator('#storageObservedTotal').innerText()).includes('16,00 MB'),'La barra superior no incluye el espacio real simulado de PostgreSQL');
+ assert((await page.locator('#storageObservedBar .storage-segment-db').evaluate(el=>el.getBoundingClientRect().width))>10,'La base de datos no es visible en la barra');
  assert((await page.locator('#content').innerText()).includes('límite operativo'),'Se presenta incorrectamente el límite interno como cuota Supabase');
  await page.evaluate(()=>{
   const uploads=window.__mockUploads;
@@ -27,6 +31,8 @@ try{
  assert(text.includes('1,00 MB')&&text.includes('Backups'),'Copias privadas no se muestran por separado');
  assert(text.includes('21 días aprox.'),'Cálculo de días restante a 100 KB/día incorrecto');
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
+ assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
+ assert((await page.locator('#storageObservedBar .storage-segment-docs').evaluate(el=>el.getBoundingClientRect().width))>10,'Los documentos cargados no se reflejan en la barra superior');
  await page.evaluate(()=>window.__mockStorageFailure=true);
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(50);

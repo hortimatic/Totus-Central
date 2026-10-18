@@ -267,3 +267,20 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .backup-control-actions{display:grid;grid-template-columns:1fr;justify-content:stretch}
  .backup-control-actions .btn{width:100%}
 }
+
+/* Exact storage breakdown: real database/files versus independent Totus upload allowance. */
+.storage-observed-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin:18px 0 11px}
+.storage-observed-heading h3,.storage-quota-title h3{font-size:15px;margin:0 0 4px}
+.storage-observed-heading p,.storage-quota-title p{margin:0;color:var(--muted);font-size:12px}
+.storage-observed-heading strong{font-size:21px;font-variant-numeric:tabular-nums}
+.storage-breakdown-bar{display:flex;width:100%;height:22px;background:#e4ebf5;border-radius:10px;overflow:hidden;border:1px solid #d1d9e5}
+.storage-breakdown-bar>span{height:100%;display:block;flex:0 0 auto;min-width:0}
+.storage-segment-db,.storage-legend-db{background:#475569}
+.storage-segment-docs,.storage-legend-docs{background:#2367d1}
+.storage-segment-assets,.storage-legend-assets{background:#0d9488}
+.storage-segment-backups,.storage-legend-backups{background:#b45309}
+.storage-legend{display:flex;flex-wrap:wrap;gap:8px 18px;padding-top:10px;color:#526078;font-size:12px}
+.storage-legend span{display:inline-flex;align-items:center;gap:6px;overflow-wrap:anywhere}
+.storage-legend i{display:inline-block;flex:0 0 10px;width:10px;height:10px;border-radius:3px}
+.storage-quota-title{padding-top:18px;margin-top:18px;border-top:1px solid var(--line)}
+@media(max-width:520px){.storage-observed-heading{align-items:flex-start}.storage-observed-heading strong{font-size:19px}}

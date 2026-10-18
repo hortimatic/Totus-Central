@@ -98,6 +98,7 @@ const rpc=async (name,args={})=>{
     assets_bytes:assets,assets_count:keys.filter(k=>k.startsWith('business-assets/')).length,
     backup_bytes:backups,backup_count:keys.filter(k=>k.startsWith('business-backups/')).length,
     total_bytes:docs+assets,all_buckets_bytes:docs+assets+backups,limit_bytes:limit,
+    database_bytes:16*1024*1024,observed_total_bytes:16*1024*1024+docs+assets+backups,
     usage_percent:Number(((docs+assets)*100/limit).toFixed(2)),available_bytes:Math.max(0,limit-docs-assets),
     sample_count:samples.length,trend_days:day?14:null,daily_growth_bytes:day,
     estimated_days_left:day&&docs+assets<limit?Math.ceil((limit-docs-assets)/day):null
