@@ -1,5 +1,22 @@
 import {esc,fmtDate,money,statusClass} from './utils.js';
 
+// Position contextual help within the actual viewport. Native <details> popups
+// near the bottom of a long form otherwise overflow the window on desktop.
+if(typeof document!=='undefined'){
+ document.addEventListener('toggle',event=>{
+  const el=event.target;
+  if(!el?.matches?.('details.field-help'))return;
+  el.classList.remove('flip-up','align-right');
+  if(!el.open||window.innerWidth<=700)return;
+  const popup=el.querySelector('[role="note"]'),trigger=el.querySelector('summary');
+  if(!popup||!trigger)return;
+  const note=popup.getBoundingClientRect(),anchor=trigger.getBoundingClientRect();
+  if(note.bottom>window.innerHeight-8&&anchor.top>=note.height+32)el.classList.add('flip-up');
+  if(popup.getBoundingClientRect().right>window.innerWidth-8)el.classList.add('align-right');
+ },true);
+}
+
+
 export function setHeader(eyebrow,title,actions=''){
  document.getElementById('pageEyebrow').textContent=eyebrow||'';
  document.getElementById('pageTitle').textContent=title||'';

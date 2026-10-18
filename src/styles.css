@@ -336,3 +336,10 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    Flex wrapping should move the action to the next line before splitting words. */
 .section-head>div:first-child{min-width:min(100%,240px)}
 .section-head h2,.section-head h3{word-break:normal;overflow-wrap:break-word;hyphens:none}
+
+/* Contextual help is positioned above a trigger when opening downwards would
+   clip it beyond the bottom of the viewport, and aligned inward at right edge. */
+@media(min-width:701px){
+ .field-help[open].flip-up>span[role="note"]{top:auto;bottom:26px}
+ .field-help[open].align-right>span[role="note"]{left:auto;right:0}
+}
