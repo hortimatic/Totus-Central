@@ -287,3 +287,20 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 
 /* Unrelated bug fix: toasts cannot obscure or intercept buttons. */
 .toast-host,.toast-host .toast{pointer-events:none}
+
+/* Visual audit 2026-10-18: remove the negative margin that shifts mobile table
+ * cards left and leaves an unequal right gutter. Scrolling stays in .table-wrap. */
+@media(max-width:800px){
+ .page > .table-card,.page .card.table-card{
+  margin-inline:0;
+  width:100%;
+  max-width:100%;
+  border-left:1px solid var(--line);
+  border-right:1px solid var(--line);
+  border-radius:var(--r);
+ }
+}
+/* Roles form one comparable row, rather than cards of different heights. */
+.role-card-grid{align-items:stretch}
+.role-card{grid-template-rows:auto auto auto minmax(40px,1fr);align-content:start}
+.role-card .role-actions{align-self:end;min-height:40px}
