@@ -35,6 +35,7 @@ jobs:
       - run: node tests/browser-qa.mjs
       - run: node tests/layout-audit.mjs
       - run: node tests/visual-geometry-qa.mjs
+      - run: node tests/user-screenshot-qa.mjs
       - run: node tests/modal-geometry-qa.mjs
       - run: node tests/field-sweep-qa.mjs
       - run: node tests/full-flow-qa.mjs
