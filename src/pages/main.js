@@ -3,6 +3,7 @@ import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices,expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from '../expense-register.js';
+import {expenseCategoryOptions,expenseCategoryTree} from '../expense-categories.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -754,7 +755,6 @@ export function expenseLineRow(line={},index=0,categories=[]){
 export function expenseRecordHtml(row=null){
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const suppliers=[{value:'',label:'Proveedor manual'},...state.data.suppliers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
- const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
  const lines=row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  const total=Number(row?.gross_expense??row?.accounting_amount??row?.amount_paid??0),paid=Number(row?.amount_paid||0),pending=Math.max(0,total-paid);
@@ -781,7 +781,7 @@ export function expenseRecordHtml(row=null){
      </div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
-     <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
+     <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,expenseCategoryOptions(state.data.categories,l.category_id))).join('')}</div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
      <div class="form-grid" style="margin-top:14px">

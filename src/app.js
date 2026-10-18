@@ -8,6 +8,7 @@ import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js
 import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
+import {expenseCategoryOptions,isInternalExpenseCategory,validateExpenseCategoryHierarchy} from './expense-categories.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreAnnualWorkbook,exportGestorWorkbook,buildStoreAnnualWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
 
@@ -220,7 +221,7 @@ function expenseSuppliersManager(){
  modal('Proveedores de gastos',body);
 }
 function expenseSupplierForm(row=null){
- const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
+ const categories=[{value:'',label:'Sin categoría'},...expenseCategoryOptions(state.data.categories,row?.default_category_id)];
  const body=`<div class="form-grid">
   ${formField('Nombre','esName',row?.name||'')}
   ${formField('NIF/CIF','esTax',row?.tax_id||'')}
@@ -433,7 +434,7 @@ function addExpenseLine(){
  const host=document.getElementById('expenseLines');if(!host)return;
  const indexes=[...host.querySelectorAll('.expense-line')].map(x=>Number(x.dataset.lineIndex)||0);
  const next=indexes.length?Math.max(...indexes)+1:0;
- const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
+ const categories=expenseCategoryOptions(state.data.categories);
  host.insertAdjacentHTML('beforeend',expenseLineRow({},next,categories));
  updateExpenseSummary();
 }
@@ -1797,11 +1798,10 @@ document.addEventListener('change',e=>{
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
    set('exSupplier',s.name);set('exTax',s.tax_id);set('exPayment',s.default_payment_method||'tarjeta');
-   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;const category=state.data.categories.find(c=>c.id===s.default_category_id);if(String(category?.code||'').startsWith('INTERNAL_')){const m=input('exManagement'),p=input('exLineDedPct_'+ix);if(m)m.checked=true;if(d)d.checked=false;if(p)p.value='0'}updateExpenseSummary()}
+   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;if(isInternalExpenseCategory(state.data.categories,s.default_category_id)){const m=input('exManagement'),p=input('exLineDedPct_'+ix);if(m)m.checked=true;if(d)d.checked=false;if(p)p.value='0'}updateExpenseSummary()}
  }
  if(/^exLineCategory_\d+$/.test(e.target?.id||'')){
-   const category=state.data.categories.find(x=>String(x.id)===String(e.target.value));
-   if(String(category?.code||'').startsWith('INTERNAL_')){
+   if(isInternalExpenseCategory(state.data.categories,e.target.value)){
      const index=e.target.id.slice('exLineCategory_'.length);
      const management=input('exManagement'),deductible=input('exLineDed_'+index),percentage=input('exLineDedPct_'+index);
      if(management)management.checked=true;
