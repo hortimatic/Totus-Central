@@ -86,6 +86,7 @@ jobs:
           node tests/user-screenshot-qa.mjs
           node tests/modal-geometry-qa.mjs
           node tests/field-sweep-qa.mjs
+          node tests/report-period-qa.mjs
           node tests/second-review-qa.mjs
           node tests/full-flow-qa.mjs
           node tests/pdf-preview-qa.mjs

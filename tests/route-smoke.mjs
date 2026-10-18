@@ -59,6 +59,7 @@ resetView('documentos');
 
 const app=fs.readFileSync('src/app.js','utf8');
 const handlers=new Set([...app.matchAll(/\ba==='([^']+)'/g)].map(x=>x[1]));
-const unhandled=[...actions].filter(x=>!handlers.has(x)&&!x.endsWith('-apply')&&!x.endsWith('-month'));
+assert.ok(app.includes("a.endsWith('-clear')"),'Missing shared clear handler');
+const unhandled=[...actions].filter(x=>!handlers.has(x)&&!x.endsWith('-apply')&&!x.endsWith('-month')&&!x.endsWith('-clear'));
 assert.deepEqual(unhandled,[],'Missing click handlers');
 console.log('ROUTE SMOKE: '+cases+' renders, '+actions.size+' actions checked, 12 date/store scenarios OK');

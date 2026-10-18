@@ -29,8 +29,8 @@ try{
   await nav('informes');
   assert.equal(await page.locator('[data-action="report-gestor-preview"]').count(),0,'Duplicate accountant preview must be removed');
   assert.equal(await page.locator('[data-action="report-gestor-source-preview"]').count(),1);
-  await page.locator('#informesMonth').selectOption('2');
-  assert((await page.locator('.monthly-period-label').first().innerText()).includes('febrero'));
+  await page.locator('#informesFrom').fill('2026-02-01');await page.locator('#informesTo').fill('2026-02-28');await page.locator('[data-action="informes-apply"]').click();
+  assert((await page.locator('.monthly-report h3').first().innerText()).toLowerCase().includes('febrero'));
   const ready=page.waitForEvent('download');await page.locator('[data-action="export-store-book"]').first().click();const download=await ready;
   assert(download.suggestedFilename().includes('2026-02'));
   const wb=XLSX.read(fs.readFileSync(await download.path()),{type:'buffer'});assert.deepEqual(wb.SheetNames,['Febrero']);assert.equal(wb.Sheets.Febrero.D2.v,'Nº factura');

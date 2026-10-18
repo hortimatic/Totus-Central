@@ -1,3 +1,4 @@
+import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {ROUTES} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
@@ -82,6 +83,7 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
+ draftPreviewResizeObserver?.disconnect();
  $('#content').innerHTML=renderer();
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
@@ -510,16 +512,22 @@ async function draftPreviewHtml(){
  if(!cached||cached.expires<Date.now()){cached={expires:Date.now()+240000,url:key?invoiceLogoUrl(row):Promise.resolve('')};draftLogoCache.set(key,cached)}
  return invoicePreview(row,await cached.url,{lines,actions:false});
 }
+let draftPreviewResizeObserver;
 async function updateDraftInvoicePreview(){
  const host=input('invoiceDraftPreview');if(!host)return;
  const sequence=++draftPreviewSequence,html=await draftPreviewHtml();
- if(host.isConnected&&sequence===draftPreviewSequence)host.innerHTML=html;
+ if(host.isConnected&&sequence===draftPreviewSequence){
+  host.innerHTML=html;
+  const fit=()=>{if(host.isConnected)host.style.setProperty('--preview-scale',String(Math.min(1,host.clientWidth/794)))};
+  fit();
+  draftPreviewResizeObserver?.disconnect();draftPreviewResizeObserver=new ResizeObserver(fit);draftPreviewResizeObserver.observe(host);
+ }
 }
 async function showDraftInvoicePreview(){modal('Vista previa del documento sin guardar',`<div class="note">Esta vista no guarda ni emite el documento.</div>${await draftPreviewHtml()}`)}
 function exportCurrentModule(module){
  const f=getFilters(module);
  if(module==='cajas'){
-   const closings=state.data.closings.filter(x=>(!f.from||x.business_date>=f.from)&&(!f.to||x.business_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+   const closings=state.data.closings.filter(x=>(!f.from||x.business_date>=f.from)&&(!f.to||x.business_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name,x.status));
    return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  }
  // In the invoices/receipts subtab the exported expenses must match the visible
@@ -527,12 +535,12 @@ function exportCurrentModule(module){
  const invoiceSection=getView('gastos').section==='facturas';
  const attachmentFilter=invoiceSection?(f.attachment||'all'):'all';
  const documentsById=new Map(state.data.documents.map(d=>[String(d.id),d]));
- const search=String(f.query||'').toLocaleLowerCase('es');
+ const search=searchText(f.query);
  const expenses=state.data.expenses.filter(x=>(!f.from||x.expense_date>=f.from)&&(!f.to||x.expense_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(f.kind==='all'||!f.kind||(f.kind==='internal'?x.management_only:!x.management_only))&&(f.paid==='all'||!f.paid||x.paid_status===f.paid)
   &&(attachmentFilter==='all'||(attachmentFilter==='attached'?documentsById.has(String(x.document_id)):!documentsById.has(String(x.document_id))))
   &&(!search||(invoiceSection
    ?[x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,documentsById.get(String(x.document_id))?.original_name]
-   :[x.supplier_name,x.invoice_number,x.description,x.payment_method]).filter(Boolean).join(' ').toLocaleLowerCase('es').includes(search)));
+   :[x.supplier_name,x.invoice_number,x.description,x.payment_method,x.supplier_tax_id,x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name]).filter(Boolean).map(searchText).join(' ').includes(search)));
  return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
 }
 
@@ -1108,8 +1116,8 @@ if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo p
  resetView('documentos');await refresh('Documento eliminado.');
 }
 async function zipFilteredDocuments(){
- const f=getFilters('documentos'),status=f.status||'all',type=f.type||'all';
- const rows=state.data.documents.filter(x=>(!f.from||String(x.document_date||x.created_at).slice(0,10)>=f.from)&&(!f.to||String(x.document_date||x.created_at).slice(0,10)<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)&&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const f=getFilters('documentos');
+ const rows=selectDocuments(state.data,f);
  if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
  const zip=new window.JSZip();
  for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.id)}_${safeFileSegment(d.original_name)}`,blob)}
@@ -1426,7 +1434,7 @@ function applyAdminLogFilters(){
 }
 function filteredLogRows(){
  const f=state.filters.adminLog||{};
- const key=s=>String(s||'').toLocaleLowerCase('es');
+ const key=searchText;
  return (state.data.audit||[]).filter(r=>{
   const day=r.created_at?new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}):'';
   return (!f.from||day>=f.from)&&(!f.to||day<=f.to)
@@ -1557,10 +1565,11 @@ const filterRoute={cajas:'cajas',gastos:'gastos',facturas:'facturacion',document
 function applyFilter(prefix){
  const route=filterRoute[prefix];if(!route)return;
  const from=val(prefix+'From'),to=val(prefix+'To');if(from&&to&&from>to)throw new Error('La fecha Desde no puede ser posterior a Hasta.');
+ if(prefix==='informes'&&(!from||!to))throw new Error('Selecciona Desde y Hasta para mostrar los meses del periodo.');
  const patch={from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()};
  if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all';if(input('gastosAttachment'))patch.attachment=val('gastosAttachment')||'all'}
  if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
- if(prefix==='informes'){patch.month=Math.max(1,Math.min(12,Number(val('informesMonth'))||Number(String(patch.from||isoToday()).slice(5,7))));patch.year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())))}
+
  patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
@@ -1612,12 +1621,13 @@ function sheetPreviewTable(sheet){
 }
 
 function previewWorkbookExact(wb,title,downloadButton){
- const sheets=wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${sheetPreviewTable(wb.Sheets[sheetName])}</div></details>`).join('');
- modal(title,`<div class="stack"><div class="note">Vista del archivo que vas a descargar, con sus columnas, colores y totales. Desliza la tabla para consultar todas las columnas.</div><div class="excel-preview">${sheets}</div><div class="form-actions">${downloadButton}</div></div>`);
+ const sheets=wb.SheetNames.map(sheetName=>`<section class="workbook-sheet">${wb.SheetNames.length>1?`<h3>${esc(sheetName)}</h3>`:''}${sheetPreviewTable(wb.Sheets[sheetName])}</section>`).join('');
+ modal(title,`<div class="workbook-view"><p class="small muted">Vista del archivo que vas a descargar, con sus columnas, colores y totales. Desliza la tabla para consultar todas las columnas.</p><div class="workbook-scroll">${sheets}</div><div class="form-actions">${downloadButton}</div></div>`);
+ document.querySelector('#modalHost .modal')?.classList.add('workbook-modal');
 }
 function reportStorePreview(storeId,year,month){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)return;
- const wb=buildStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+ const wb=buildStoreMonthlyWorkbook({store,year,month,...selectReportData(state.data,getFilters('informes')),categories:state.data.categories});
  previewWorkbookExact(wb,`${store.name} · ${year}-${String(month).padStart(2,'0')}`,btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}" data-month="${month}"`));
 }
 
@@ -1628,7 +1638,7 @@ function gestorSourceArgs(){
  const f=getFilters('informes');
  if(!f.from||!f.to||f.from>f.to)throw new Error('Selecciona un periodo válido en Desde y Hasta.');
  if(f.from.slice(0,4)!==f.to.slice(0,4))throw new Error('Prepara la tabla de gestoría de un ejercicio cada vez.');
- return {...reportArgs(Number(f.from.slice(0,4))),from:f.from,to:f.to,store:f.store||'all'};
+ return {...reportArgs(Number(f.from.slice(0,4))),...selectReportData(state.data,f),from:f.from,to:f.to,store:f.store||'all'};
 }
 function reportGestorSourcePreview(){
  previewWorkbookExact(buildGestorSourceWorkbook(gestorSourceArgs()),'Tabla de la gestoría',btn('Descargar tabla Excel','export-gestor-source','primary')+btn('Imprimir / guardar PDF','report-gestor-source-print','secondary'));
@@ -1646,7 +1656,7 @@ function printGestorSource(){
 }
 function exportStoreBook(storeId,year,month){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
- exportStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});
+ exportStoreMonthlyWorkbook({store,year,month,...selectReportData(state.data,getFilters('informes')),categories:state.data.categories});
 }
 async function exportGestorPackage(year){
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
@@ -1683,14 +1693,10 @@ async function exportGestorPackage(year){
 function exportRows(type){
  const f=getFilters('informes');
  if(!f.from||!f.to)throw new Error('Selecciona Desde y Hasta.');
- const closings=state.data.closings.filter(x=>x.business_date>=f.from&&x.business_date<=f.to&&(f.store==='all'||x.store_id===f.store));
- const expenses=state.data.expenses.filter(x=>x.expense_date>=f.from&&x.expense_date<=f.to&&(f.store==='all'||x.store_id===f.store));
+ const {closings,expenses,invoices,fiscalAdjustments,incomeAdjustments}=selectReportData(state.data,f);
  const stores=state.data.stores.filter(x=>f.store==='all'||x.id===f.store);
  if(type==='closings')return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  if(type==='expenses')return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
- const invoices=state.data.invoices.filter(x=>x.issue_date>=f.from&&x.issue_date<=f.to&&(f.store==='all'||x.store_id===f.store));
- const fiscalAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.adjustment_date>=f.from&&x.adjustment_date<=f.to&&(f.store==='all'||x.store_id===f.store));
- const incomeAdjustments=state.data.incomeAdjustments.filter(x=>x.income_date>=f.from&&x.income_date<=f.to&&(f.store==='all'||x.store_id===f.store));
  return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,incomeAdjustments,from:f.from,to:f.to});
 }
 
@@ -1706,6 +1712,7 @@ document.addEventListener('click',async e=>{
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
   if(a==='close-modal'){if(el.classList.contains('modal-backdrop')&&e.target!==el)return;closeModal();return}
   if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
+  if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});render();return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
@@ -1877,11 +1884,11 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings'){exportRows('closings');return}
   if(a==='export-expenses'){exportRows('expenses');return}
   if(a==='export-summary'){exportRows('summary');return}
-  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(val('informesYear')||el.dataset.year),Number(val('informesMonth')||el.dataset.month));return}
+  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
   if(a==='report-gestor-source-preview'){reportGestorSourcePreview();return}
   if(a==='export-gestor-source'){exportGestorSourceWorkbook(gestorSourceArgs());return}
   if(a==='report-gestor-source-print'){printGestorSource();return}
-  if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(val('informesYear')||el.dataset.year),Number(val('informesMonth')||el.dataset.month));return}
+  if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
@@ -1904,13 +1911,6 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',e=>{
- if(['informesMonth','informesYear'].includes(e.target?.id)){
-  const month=Math.max(1,Math.min(12,Number(val('informesMonth'))||1)),year=Math.max(2020,Math.min(2100,Math.round(num('informesYear')||new Date().getFullYear())));
-  patchFilters('informes',{month,year});
-  document.querySelectorAll('#content [data-year]').forEach(button=>{button.dataset.year=String(year);if(button.dataset.month)button.dataset.month=String(month)});
-  document.querySelectorAll('.monthly-period-label').forEach(label=>label.textContent=new Date(year,month-1,1).toLocaleDateString('es-ES',{month:'long'})+' · '+year);return;
- }
-
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){
   const file=e.target.files?.[0],label=input('backupSelectedFile');
@@ -1944,13 +1944,16 @@ document.addEventListener('change',e=>{
  if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
  if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return}
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{date:e.target.value||isoToday()});return}
- if(e.target?.id==='ivStore'&&getView('facturacion').mode==='record'){
-  const view=getView('facturacion'),storeId=e.target.value,docType=view.docType||'factura',kind=view.invoiceKind||'invoice';setView('facturacion',{storeId});
-  const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===storeId)&&(docType==='proforma'||s.series_kind===kind));
+ if(['ivStore','ivDate'].includes(e.target?.id)&&getView('facturacion').mode==='record'){
+  const view=getView('facturacion'),saved=state.data.invoices.find(x=>x.id===view.id),storeId=val('ivStore'),docType=saved?.document_type||view.docType||'factura',kind=saved?.invoice_kind||view.invoiceKind||'invoice',year=Number(val('ivDate').slice(0,4));setView('facturacion',{storeId});
+  let series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&Number(s.year)===year&&(!s.store_id||s.store_id===storeId)&&(docType==='proforma'||s.series_kind===kind));
+  if(docType==='factura'&&kind==='invoice'&&series.some(s=>!s.store_id))series=series.filter(s=>!s.store_id);
   const previousSeries=val('ivSeries');input('ivSeries').innerHTML=series.map(s=>`<option value="${esc(s.id)}">${esc(s.code)}</option>`).join('');input('ivSeries').value=series.some(s=>s.id===previousSeries)?previousSeries:series[0]?.id||'';
-  const templates=state.data.templates.filter(t=>t.active!==false&&(!t.store_id||t.store_id===storeId)),previousTemplate=val('ivTemplate');
-  const chosen=templates.find(t=>t.id===previousTemplate)||templates.find(t=>t.store_id===storeId&&(docType==='proforma'?t.default_proforma:t.default_invoice))||templates.find(t=>docType==='proforma'?t.default_proforma:t.default_invoice);
-  input('ivTemplate').innerHTML='<option value="">Sin plantilla</option>'+templates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');input('ivTemplate').value=chosen?.id||'';
+  if(e.target.id==='ivStore'){
+   const templates=state.data.templates.filter(t=>t.active!==false&&(!t.store_id||t.store_id===storeId)),previousTemplate=val('ivTemplate');
+   const chosen=templates.find(t=>t.store_id===storeId&&(docType==='proforma'?t.default_proforma:t.default_invoice))||templates.find(t=>t.id===previousTemplate)||templates.find(t=>docType==='proforma'?t.default_proforma:t.default_invoice);
+   input('ivTemplate').innerHTML='<option value="">Sin plantilla</option>'+templates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');input('ivTemplate').value=chosen?.id||'';
+  }
   updateInvoiceSummary();updateDraftInvoicePreview();return;
  }
  if(e.target?.id==='exSupplierId'){
@@ -2045,3 +2048,15 @@ document.addEventListener('visibilitychange',()=>{
 });
 setInterval(()=>{if(document.visibilityState==='visible'&&state.route==='administracion'&&getView('administracion').section==='log'&&!state.loading&&!document.activeElement?.id?.startsWith('log')&&!input('modalHost')?.children.length)refreshAuditPanel()},30000);
 boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});
+
+// Enter applies the same visible controls as the Apply button, without submitting unrelated forms.
+document.addEventListener('keydown',e=>{
+ if(e.key!=='Enter'||e.target?.tagName==='TEXTAREA')return;
+ const prefix=e.target?.closest('[data-filter-prefix]')?.dataset.filterPrefix;
+ try{
+  if(prefix){e.preventDefault();applyFilter(prefix)}
+  else if(e.target?.id?.startsWith('log')){e.preventDefault();applyAdminLogFilters()}
+  else if(e.target?.id==='pricingQuery'){e.preventDefault();patchFilters('pricing',{query:val('pricingQuery').trim()});render()}
+  else if(e.target?.id==='expenseSuppliersQuery'){e.preventDefault();patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim()});render()}
+ }catch(error){toast(error.message||String(error),'bad')}
+});

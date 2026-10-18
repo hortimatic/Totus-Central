@@ -390,3 +390,38 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 }
 
 .document-filters input,.document-filters select{min-width:0;max-width:100%;width:100%}
+
+/* Reports use one scrolling table surface; no nested cards or sheet accordions. */
+.workbook-modal{width:min(1600px,96vw);max-height:94vh}
+.workbook-view{display:flex;flex-direction:column;gap:12px;min-height:0}
+.workbook-view>p{margin:0}
+.workbook-scroll{overflow:auto;max-height:70vh;border-block:1px solid var(--line)}
+.workbook-sheet{margin:0;padding:0;border:0;background:none}
+.workbook-sheet h3{margin:14px 0}
+.monthly-reports{display:grid;gap:18px;margin-top:16px}
+.monthly-report{padding-block:6px 12px;border-bottom:1px solid var(--line)}
+.monthly-report h3{margin:0 0 8px;text-transform:capitalize}
+.log-filter-actions{display:flex;flex-direction:column;gap:8px;margin-left:auto;align-self:end;min-width:160px}
+.filters [hidden]{display:none!important}
+.invoice-workspace .record-side{max-height:none;overflow:visible}
+.invoice-live-preview{overflow:hidden;padding:0;background:white;border:1px solid var(--line)}
+.invoice-live-preview .invoice-preview{width:794px;max-width:none;zoom:var(--preview-scale,0.5);padding:32px;font-size:14px;box-sizing:border-box}
+.invoice-live-preview .invoice-title{font-size:13px}
+.invoice-live-preview .invoice-company-name{font-size:18px}
+.invoice-live-preview .data-table td,.invoice-live-preview .data-table th{font-size:12px;padding:10px}
+.invoice-live-preview .invoice-lines-wrap{overflow:visible}
+.invoice-workspace .invoice-preview-card{padding:16px}
+@media(min-width:1101px){.invoice-workspace.record-layout>.record-side{position:sticky;top:96px;align-self:start}}
+@media(max-width:1100px){.invoice-workspace.record-layout>.record-side{position:static;order:initial}}
+@media(max-width:600px){.log-filter-actions{width:100%;margin:0}.monthly-report .summary-row{flex-wrap:wrap;gap:10px}}
+
+.invoice-workspace .invoice-preview-card{order:-1}
+.invoice-workspace .sticky-summary{padding:16px}
+.invoice-workspace .sticky-summary h3,.invoice-workspace .invoice-preview-card h3{margin:0 0 10px}
+.invoice-workspace .sticky-summary .summary-row{padding-block:7px}
+.workbook-modal{height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.workbook-modal .modal-head{flex-shrink:0}
+.workbook-modal .modal-body{flex:1;min-height:0;overflow:hidden}
+.workbook-view{height:100%}
+.workbook-scroll{flex:1;min-height:0;max-height:none}
+.workbook-view>p,.workbook-view>.form-actions{flex-shrink:0}

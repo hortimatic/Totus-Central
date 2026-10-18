@@ -1,3 +1,4 @@
+import {reportMonths,selectReportData,matchesText,searchText,selectDocuments} from '../report-period.js';
 import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
@@ -113,7 +114,7 @@ export function cajas(){
    return closingRecordHtml(row);
  }
  const f=getFilters('cajas');
- const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.notes,storeName(x.store_id),x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,storeName(x.store_id),x.status,storeName(x.store_id)));
  const total=sum(rows,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
  const historical=rows.filter(x=>String(x.source_ref||'').startsWith('EXCEL2026-'));
  const mismatches=rows.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
@@ -149,7 +150,7 @@ export function gastos(){
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
    &&(kind==='all'||(kind==='internal'?x.management_only:!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
-   &&(!f.query||[x.supplier_name,x.invoice_number,x.description,x.payment_method].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+   &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
  const total=sum(rows,x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  const internal=sum(rows.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  const pending=rows.filter(x=>x.paid_status!=='pagado').length;
@@ -186,8 +187,8 @@ function expenseTabs(section){
  </div>`;
 }
 function expenseSuppliersHtml(){
- const query=String(getFilters('gastos').supplierQuery||''),needle=query.toLocaleLowerCase('es');
- const suppliers=state.data.suppliers.filter(s=>!needle||[s.name,s.tax_id,s.email,s.phone,s.notes].filter(Boolean).join(' ').toLocaleLowerCase('es').includes(needle)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const query=String(getFilters('gastos').supplierQuery||''),needle=searchText(query);
+ const suppliers=state.data.suppliers.filter(s=>!needle||matchesText(needle,s.name,s.tax_id,s.email,s.phone,s.notes)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
  const headers=[
   {label:'Proveedor',html:s=>`<b>${esc(s.name)}</b><div class="small muted">${esc(s.tax_id||'Sin NIF/CIF')}</div>`},
   {label:'Contacto',html:s=>`<div>${esc(s.email||'—')}</div><div class="small muted">${esc(s.phone||'')}</div>`},
@@ -206,7 +207,7 @@ function expenseInvoiceSectionHtml(){
    &&(kind==='all'||(expense&&(kind==='internal'?!!expense.management_only:!expense.management_only)))
    &&(paid==='all'||expense?.paid_status===paid)
    &&(attachment==='all'||(attachment==='attached'?!!document:!document))
-   &&(!f.query||searchable.includes(String(f.query).toLocaleLowerCase('es'))))
+   &&(!f.query||matchesText(f.query,searchable)))
   .sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(a.expense?.supplier_name||a.document?.supplier_or_customer||'').localeCompare(String(b.expense?.supplier_name||b.document?.supplier_or_customer||''),'es'));
  const headers=[
   {label:'Fecha / tienda',html:r=>`<b>${fmtDate(r.date)}</b><div class="small muted">${esc(storeName(r.expense?.store_id||r.document?.store_id))}</div>`},
@@ -252,7 +253,7 @@ export function facturacion(){
  if(section==='series') return `<div class="page">${tabs}${seriesSectionHtml()}</div>`;
 
  const f=getFilters('facturacion');
- const rows=state.data.invoices.filter(x=>inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&(!f.query||[x.display_number,x.external_number_text,x.customer_name,x.customer_tax_id,x.concept,x.status,x.document_type,x.invoice_kind].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const rows=state.data.invoices.filter(x=>inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.display_number,x.external_number_text,x.customer_name,x.customer_tax_id,x.concept,x.status,x.document_type,x.invoice_kind,storeName(x.store_id)));
  const headers=[
   {label:'Documento',html:r=>`<b>${esc(r.display_number||r.external_number_text||'Borrador')}</b><div class="small muted">${fmtDate(r.issue_date)} · ${r.document_type==='proforma'?'Proforma':r.invoice_kind==='rectifying'?'Rectificativa':r.origin==='externa'?'Factura externa':'Factura'}</div>`},
   {label:'Cliente',html:r=>`<b>${esc(r.customer_name||'—')}</b><div class="small muted">${esc(r.customer_tax_id||'')}</div>`},
@@ -285,7 +286,7 @@ function templatesSectionHtml(){
 function seriesSectionHtml(){
  const rows=[...state.data.series].sort((a,b)=>Number(b.year)-Number(a.year)||String(a.code).localeCompare(String(b.code),'es'));
  const headers=[{label:'Serie',html:r=>`<b>${esc(r.code)}</b><div class="small muted">${r.document_type==='proforma'?'Proforma':r.series_kind==='rectifying'?'Rectificativa':'Factura'} · ${r.year}</div>`},{label:'Tienda',html:r=>esc(r.store_id?storeName(r.store_id):'General')},{label:'Formato',html:r=>`${esc(r.prefix)} · ${r.padding} dígitos`},{label:'Siguiente',num:true,html:r=>String(r.next_number)},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'',html:r=>isAdmin()?`<div class="inline-actions">${btn('Editar','series-edit','secondary',`data-id="${r.id}"`)}${btn(r.active?'Desactivar':'Activar','series-toggle','secondary',`data-id="${r.id}" data-active="${r.active?'false':'true'}"`)}</div>`:''}];
- return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Series</h2><p>Numeración anual protegida. Las series usadas conservan código, prefijo, año y formato.</p></div>${isAdmin()?btn('+ Nueva serie','series-new','primary'):''}</div>${table(headers,rows,{emptyTitle:'Sin series',emptyText:'Crea las series de facturas, rectificativas y proformas.'})}</section>`;
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Series</h2><p>Las dos tiendas comparten la serie ordinaria del titular. Las proformas y rectificativas tienen series propias. Las series usadas conservan su identidad y numeración.</p></div>${isAdmin()?btn('+ Nueva serie','series-new','primary'):''}</div>${table(headers,rows,{emptyTitle:'Sin series',emptyText:'Crea las series de facturas, rectificativas y proformas.'})}</section>`;
 }
 
 export function documentos(){
@@ -300,9 +301,7 @@ export function documentos(){
  const used=storageVerified?Number(usage.total_bytes):null,limit=storageVerified?Number(usage.limit_bytes):null;
  const usagePct=storageVerified?Math.min(100,used/limit*100):null;
  const status=f.status||'all',type=f.type||'all';
- const rows=state.data.documents.filter(x=>inRange(x.document_date||x.created_at,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
-  &&(status==='all'||x.status===status)&&(type==='all'||x.doc_type===type)
-  &&(!f.query||[x.original_name,x.supplier_or_customer,x.invoice_number,x.doc_type,x.category_code,x.status].join(' ').toLowerCase().includes(f.query.toLowerCase())));
+ const rows=selectDocuments(state.data,f);
  const headers=[
   {label:'Documento',html:r=>`<b>${esc(r.original_name||'Documento')}</b><div class="small muted">${fmtDate(r.document_date||r.created_at)} · ${esc(storeName(r.store_id))}</div>`},
   {label:'Clasificación',html:r=>`<b>${esc(String(r.doc_type||'—').replaceAll('_',' '))}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
@@ -412,26 +411,24 @@ export function fiscalidad(){
 }
 
 export function informes(){
- const f=getFilters('informes'),month=Math.max(1,Math.min(12,Number(f.month||String(f.from||isoToday()).slice(5,7)))),monthLabel=new Date(2026,month-1,1).toLocaleDateString('es-ES',{month:'long'}),year=Number(f.year||state.data.settings?.current_year||new Date().getFullYear());
- const c=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&x.include_in_income!==false);
- const g=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const extraInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const incomeAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
- const manualIncome=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store));
+ const f=getFilters('informes'),periods=reportMonths(f),year=Number(String(f.to||isoToday()).slice(0,4)),selected=selectReportData(state.data,f);
+ const c=selected.closings.filter(x=>x.include_in_income!==false),g=selected.expenses;
+ const extraInv=selected.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true);
+ const incomeAdj=selected.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'),manualIncome=selected.incomeAdjustments;
  const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount)+sum(manualIncome,x=>x.amount);
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
  return `<div class="page">
- <section class="card">${dateFilters({...f,stores:stores()},'informes',`<div class="field"><label for="informesYear">Año de libros</label><input id="informesYear" type="number" min="2020" max="2100" value="${year}"></div><div class="field"><label for="informesMonth">Mes del diario</label><select id="informesMonth">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${month===i+1?'selected':''}>${new Date(2026,i,1).toLocaleDateString('es-ES',{month:'long'})}</option>`).join('')}</select></div>`)}</section>
+ <section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
  <div class="split">
-  <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Un archivo por tienda y mes. Conserva los bloques y colores e incorpora el número de factura junto al gasto.</p></div></div>
-   <div class="report-actions" style="margin-top:14px">${stores().map(s=>`<div class="summary-row"><div><b>${esc(s.name)}</b><div class="small muted monthly-period-label">${esc(monthLabel)} · ${year}</div></div><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${year}" data-month="${month}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${year}" data-month="${month}"`)}</div></div>`).join('')}</div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Todos los meses del periodo aplicado. Cada archivo incluye solo las fechas, tienda y búsqueda seleccionadas.</p></div></div>
+   <div class="monthly-reports">${periods.map(period=>`<section class="monthly-report"><h3>${esc(period.label)}</h3>${stores().filter(s=>f.store==='all'||s.id===f.store).map(s=>`<div class="summary-row"><b>${esc(s.name)}</b><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}</div></div>`).join('')}</section>`).join('')}</div>
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Tabla de compras y gastos con las columnas y el desglose del documento de la gestoría. Solo incluye gastos fiscales revisados del periodo y tienda seleccionados. Nºfra.rec. y Rt quedan para la gestoría.</p></div></div>
    <div class="report-actions" style="margin-top:14px">${btn('Ver tabla de gestoría','report-gestor-source-preview','secondary')}${btn('Descargar tabla Excel','export-gestor-source','primary')}${btn('Imprimir / guardar PDF','report-gestor-source-print','secondary')}</div>
-   <div class="report-actions" style="margin-top:14px"><details class="report-extra"><summary>Conciliación y auditoría interna</summary><p class="small muted">Libro complementario para contrastar importes; el documento para entregar es la tabla de gestoría.</p>${btn('Descargar libro de conciliación','export-gestor-book','secondary',`data-year="${year}"`)}</details>${btn('Preparar paquete gestor ZIP','export-gestor-package','secondary',`data-year="${year}" data-month="${month}"`)}</div>
+   <div class="report-actions" style="margin-top:14px"><details class="report-extra"><summary>Conciliación y auditoría interna</summary><p class="small muted">Libro complementario para contrastar importes; el documento para entregar es la tabla de gestoría.</p>${btn('Descargar conciliación anual '+year,'export-gestor-book','secondary',`data-year="${year}"`)}</details>${btn('Preparar paquete anual gestor ZIP','export-gestor-package','secondary',`data-year="${year}"`)}</div>
   </section>
  </div>
  <section class="card card-pad"><div class="section-head"><div><h2>Exportaciones de trabajo</h2><p>Para análisis puntual con las fechas exactas seleccionadas.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Cierres detallados','export-closings','secondary')}${btn('Gastos detallados','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section>
@@ -481,8 +478,8 @@ function adminBusinessHtml(){
  const s=state.data.settings||{}; const locked=isAdmin()?'':'disabled';
  const storeRows=state.data.stores.map(st=>`<div class="admin-entity"><div><b>${esc(st.name)}</b><div class="small muted">${esc(st.code||'')} · ${st.active?'Activo':'Inactivo'}</div></div><div class="inline-actions">${isAdmin()?btn('Editar','store-edit','secondary',`data-id="${st.id}"`):''}</div><div class="entity-children">${state.data.drawers.filter(d=>d.store_id===st.id).map(d=>`<div class="summary-row"><span>${esc(d.name)} ${d.active?'':'(inactiva)'}</span>${isAdmin()?btn('Editar caja','drawer-edit','secondary',`data-id="${d.id}" data-store="${st.id}"`):''}</div>`).join('')||'<div class="small muted">Sin cajas</div>'}${isAdmin()?btn('+ Añadir caja','drawer-new','secondary',`data-store="${st.id}"`):''}</div></div>`).join('');
  return `<div class="split business-layout">
-  <section class="card card-pad"><div class="section-head"><div><h2>Datos del negocio</h2><p>Una sola ubicación para identidad fiscal y contacto.</p></div></div><div class="form-grid" style="margin-top:14px">${formField('Nombre / razón fiscal','cfgBusiness',s.business_name||'','text',locked)}${formField('NIF','cfgTax',s.tax_id||'','text',locked)}${formField('Dirección','cfgAddress',s.business_address||'','text',locked)}${formField('Email','cfgEmail',s.business_email||'','email',locked)}${formField('Teléfono','cfgPhone',s.business_phone||'','text',locked)}</div>${isAdmin()?`<div class="form-actions">${btn('Guardar datos','config-save','primary')}</div>`:''}</section>
-  <section class="card card-pad business-stores"><div class="section-head business-stores-head"><div><h2>Establecimientos y cajas</h2><p>Configuración física usada por Cajas.</p></div>${isAdmin()?btn('+ Establecimiento','store-new','primary'):''}</div><div class="stack" style="margin-top:14px">${storeRows}</div></section>
+  <section class="card card-pad"><div class="section-head"><div><h2>Titular autónomo y domicilio fiscal</h2><p>Un único emisor para las dos tiendas. Tus facturas de venta y las compras deben identificar al titular con su nombre, NIF y domicilio fiscal. La tienda determina el logo y el control interno.</p></div></div><div class="form-grid" style="margin-top:14px">${formField('Nombre y apellidos del titular','cfgBusiness',s.business_name||'','text',locked)}${formField('NIF','cfgTax',s.tax_id||'','text',locked)}${formField('Domicilio fiscal','cfgAddress',s.business_address||'','text',locked)}${formField('Email','cfgEmail',s.business_email||'','email',locked)}${formField('Teléfono','cfgPhone',s.business_phone||'','text',locked)}</div>${isAdmin()?`<div class="form-actions">${btn('Guardar datos','config-save','primary')}</div>`:''}</section>
+  <section class="card card-pad business-stores"><div class="section-head business-stores-head"><div><h2>Establecimientos y cajas</h2><p>Dos tiendas del mismo titular: Hortimatic (Azuqueca) y NewOldSmok (Alcalá). Cajas y gastos se asignan a cada tienda; la identidad fiscal es común.</p></div>${isAdmin()?btn('+ Establecimiento','store-new','primary'):''}</div><div class="stack" style="margin-top:14px">${storeRows}</div></section>
  </div>`;
 }
 function adminFiscalHtml(){
@@ -614,15 +611,15 @@ function adminBackupHtml(){
 }
 function adminLogHtml(){
  const f=state.filters.adminLog||{},all=state.data.audit||[];
- const from=f.from||'',to=f.to||'',query=String(f.query||'').toLocaleLowerCase('es'),actor=String(f.actor||'').toLocaleLowerCase('es');
+ const from=f.from||'',to=f.to||'',query=searchText(f.query),actor=searchText(f.actor);
  const areas=[...new Set(all.map(x=>String(x.area||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const actions=[...new Set(all.map(x=>String(x.action||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const rows=all.filter(r=>{
   const date=r.created_at?new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}):'';
   return (!from||date>=from)&&(!to||date<=to)
    &&(!f.area||r.area===f.area)&&(!f.action||r.action===f.action)
-   &&(!actor||String(r.user_email||'').toLocaleLowerCase('es').includes(actor))
-   &&(!query||[r.area,r.action,r.user_email,JSON.stringify(r.detail||{})].join(' ').toLocaleLowerCase('es').includes(query));
+   &&(!actor||matchesText(actor,r.user_email))
+   &&(!query||matchesText(query,r.area,r.action,r.user_email,JSON.stringify(r.detail||{})));
  }).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
  const headers=[
   {label:'Fecha y hora',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
@@ -644,8 +641,7 @@ function adminLogHtml(){
    <div class="field"><label for="logArea">Área</label><select id="logArea"><option value="">Todas</option>${areas.map(v=>`<option value="${esc(v)}" ${f.area===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
    <div class="field"><label for="logAction">Acción</label><select id="logAction"><option value="">Todas</option>${actions.map(v=>`<option value="${esc(v)}" ${f.action===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
    <div class="field search"><label for="logQuery">Texto en detalle</label><input id="logQuery" value="${esc(f.query||'')}" placeholder="Buscar evento"></div>
-   ${btn('Aplicar filtros','admin-log-filter','primary')}
-   ${btn('Limpiar filtros','admin-log-clear','secondary')}
+   <div class="log-filter-actions">${btn('Aplicar filtros','admin-log-filter','primary')}${btn('Limpiar filtros','admin-log-clear','secondary')}</div>
   </div>
   ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">Última lectura: ${state.data.auditUpdatedAt?esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Sin actualizar'} · Hasta 1000 eventos recientes · Resultados: ${rows.length} · Se conservan las trazas originales; esta pantalla no permite borrarlas.</div>
   ${table(headers,rows,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
@@ -661,7 +657,7 @@ export function pricing(){
    return productRecordHtml(row);
  }
  const q=getFilters('pricing').query.toLowerCase();
- const rows=state.data.products.filter(x=>!q||[x.name,x.sku,x.status].join(' ').toLowerCase().includes(q));
+ const rows=state.data.products.filter(x=>!q||matchesText(q,x.name,x.sku,x.status));
  const familyName=id=>state.data.families.find(x=>x.id===id)?.name||'—';
  const costOf=prod=>{
    const list=state.data.providerPrices.filter(x=>x.product_id===prod.id&&!x.variant_id);
@@ -801,7 +797,7 @@ export function expenseRecordHtml(row=null){
   <div class="record-toolbar"><div><button class="btn link" data-action="expense-back">← Volver a gastos</button><div class="eyebrow">Gastos · ${row?'Registro':'Nuevo'}</div><h2>${row?esc(row.supplier_name||'Gasto'):'Nuevo gasto'}</h2></div><div>${row?(row.management_only?'<span class="badge warn">Solo control interno</span>':'<span class="badge info">Fiscal</span>'):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
    <div class="record-main stack">
-    <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento y proveedor</h3><p>Identificación del gasto y justificante.</p></div></div>
+    <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento y proveedor</h3><p>La tienda clasifica el gasto. La factura recibida debe identificar a ${esc(state.data.settings?.business_name||'tu nombre como autónomo')} con su NIF y domicilio fiscal comunes.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
       ${selectField('Tienda','exStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
       ${formField('Fecha','exDate',row?.expense_date||isoToday(),'date')}
@@ -868,7 +864,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const view=getView('facturacion');
  const selectedStore=row?.store_id||view.storeId||storeOptions[0]?.value||'';
- const series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&(!s.store_id||s.store_id===selectedStore)&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).map(s=>({value:s.id,label:s.code}));
+ const series=state.data.series.filter(s=>s.active!==false&&Number(s.year)===Number(String(row?.issue_date||isoToday()).slice(0,4))&&s.document_type===docType&&(!s.store_id||s.store_id===selectedStore)&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).sort((a,b)=>Number(!!a.store_id)-Number(!!b.store_id)).map(s=>({value:s.id,label:s.code}));
  const activeTemplates=state.data.templates.filter(x=>x.active!==false&&(!x.store_id||x.store_id===selectedStore));
  const defaultTemplate=activeTemplates.find(x=>x.store_id===selectedStore&&(isProforma?x.default_proforma:x.default_invoice))
    ||activeTemplates.find(x=>!x.store_id&&(isProforma?x.default_proforma:x.default_invoice));
@@ -880,7 +876,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const issued=!!row&&row.status!=='borrador',lock=issued?'disabled':'';
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="invoice-back">← Volver a facturación</button><div class="eyebrow">Facturación · ${title}</div><h2>${row?esc(row.display_number||row.external_number_text||'Borrador'):'Nueva '+title.toLowerCase()}</h2></div><div class="inline-actions">${btn('Vista previa ampliada','invoice-draft-preview','secondary')}${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
-  <div class="record-layout invoice-workspace">
+  <p class="small muted invoice-issuer-note">Emisor: <b>${esc(state.data.settings?.business_name||'Titular pendiente de configurar')}</b>. NIF y domicilio fiscal comunes. Elige la tienda para aplicar su logo; la serie de facturas es compartida.</p><div class="record-layout invoice-workspace">
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento</h3><p>Serie, fechas y referencia.</p></div></div>
      <div class="form-grid" style="margin-top:14px">

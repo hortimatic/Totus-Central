@@ -48,6 +48,7 @@ jobs:
       - run: node tests/user-screenshot-qa.mjs
       - run: node tests/modal-geometry-qa.mjs
       - run: node tests/field-sweep-qa.mjs
+      - run: node tests/report-period-qa.mjs
       - run: node tests/second-review-qa.mjs
       - run: node tests/full-flow-qa.mjs
       - run: node tests/pdf-preview-qa.mjs

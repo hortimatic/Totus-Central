@@ -59,7 +59,7 @@ state.views.documentos={mode:'list',id:null};
 for(const [module,html,additional] of [
  ['documentos',documentos(),'documentosStatus'],
  ['fiscalidad',fiscalidad(),'fiscal-quarter'],
- ['informes',informes(),'informesYear']
+ ['informes',informes(),'monthly-reports']
 ]){
  assert.equal((html.match(/class="filters"/g)||[]).length,1,module+': filtros duplicados o anidados');
  assert.ok(html.includes(additional),module+': falta control complementario');
