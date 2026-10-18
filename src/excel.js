@@ -124,7 +124,7 @@ function setCell(ws,addr,value,style,formula=null){
 }
 function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories}){
  const monthName=MONTHS[month],ws={};
- ws['!ref']='A1:I80';ws['!cols']=[null,...[11.7109375,/newold|smok/i.test(store.name||'')?30.7109375:33,9.140625,9.140625,12.140625,9.140625,9.140625,9.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
+ ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,/newold|smok/i.test(store.name||'')?30.7109375:33,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  const legacyTitle=year===2026&&month>=3&&month<=6?`${/newold|smok/i.test(store.name||'')?(month===3?'NewOldSmok':'Newoldsmok'):'Hortimatic'} ${monthName} ${year}`:`${monthName} ${year}`;
  setCell(ws,'B1',legacyTitle,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
@@ -174,7 +174,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  setCell(ws,`C${row}`,`${fmtEuro(grossExpenses)}€ - ${fmtEuro(internalTotal)}€ = ${fmtEuro(grossExpenses-internalTotal)}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`${fmtEuro(cardTotal+cashTotal)}€ - ${fmtEuro(grossExpenses-internalTotal)}€ = ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`Total ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);
- ws['!ref']=`A1:I${Math.max(row,totalRow)}`;
+ ws['!ref']=`A1:F${Math.max(row,totalRow)}`;
  XLSX.utils.book_append_sheet(wb,ws,monthName);
 }
 export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories}){
