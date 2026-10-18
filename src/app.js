@@ -161,7 +161,7 @@ async function reopenClosing(id){
  await refresh('Cierre reabierto.');
 }
 async function deleteClosing(id){
- if(!confirm('¿Eliminar este cierre?'))return;
+ if(!confirm('¿Eliminar este cierre de caja y sus importes? Se actualizarán los informes y puede variar la apertura de la siguiente jornada.'))return;
  const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
  await rpc('totus_delete_closing',{p_id:id,p_reason:reason.trim()});
  resetView('cajas');await refresh('Cierre eliminado.');
@@ -398,6 +398,17 @@ async function saveInvoicePayment(id){
  if(status==='parcial'&&(amount<=0||amount>=Number(row.total_amount||0)||!date))throw new Error('Un cobro parcial debe tener fecha e importe mayor que 0 y menor que el total.');
  await rpc('totus_update_invoice_payment',{p_id:id,p_payment:{paid_status:status,paid_amount:amount,paid_date:date,payment_method:method}});
  await refresh('Cobro actualizado.');
+}
+
+async function deleteDraftInvoice(id){
+ const row=state.data.invoices.find(x=>x.id===id);
+ if(!row)throw new Error('El borrador ya no existe. Actualiza los documentos.');
+ if(row.status!=='borrador'||row.number!=null||row.issued_at||String(row.display_number||'').trim())throw new Error('Este documento ya está emitido o numerado. Para corregirlo utiliza una rectificativa; no se puede borrar.');
+ if(!confirm('¿Eliminar este borrador y todos sus conceptos? El documento original adjunto, si existe, permanecerá en Documentos.'))return;
+ const reason=prompt('Indica el motivo de eliminación del borrador:');
+ if(!reason?.trim())return;
+ await rpc('totus_delete_sales_draft',{p_id:id,p_reason:reason.trim()});
+ resetView('facturacion');await refresh('Borrador eliminado. La operación ha quedado registrada.');
 }
 
 async function finalizeInvoice(id){
@@ -1624,6 +1635,7 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-source-download'){await downloadDocument(el.dataset.id);return}
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
   if(a==='invoice-payment-save'){await saveInvoicePayment(el.dataset.id);return}
+  if(a==='invoice-delete'){await deleteDraftInvoice(el.dataset.id);return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
   if(a==='invoice-preview'){await showInvoicePreview(el.dataset.id);return}
