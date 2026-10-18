@@ -43,7 +43,21 @@ for(const width of sizes){
  await section.locator('.field-help>summary').first().click();
  if(!(await section.locator('.field-help').first().evaluate(e=>e.open)))
   errors.push(width+': info icon does not open help');
- if([1640,390].includes(width))await page.screenshot({path:'artifacts/user_invoice_'+width+'.png',fullPage:true});
+ await section.locator('.field-help>summary').first().click();
+ if(width>1100){
+  await page.locator('#ivTemplate').scrollIntoViewIfNeeded();
+  const aside=await page.evaluate(()=>{
+   const parent=document.querySelector('.record-layout>.record-side');
+   const summary=parent?.querySelector('.sticky-summary');
+   if(!summary)return null;
+   const rect=summary.getBoundingClientRect(),owner=parent.getBoundingClientRect();
+   return {top:rect.top,bottom:rect.bottom,ownerHeight:owner.height,viewHeight:innerHeight,
+    mode:getComputedStyle(summary).position};
+  });
+  if(!aside||aside.mode!=='sticky'||aside.ownerHeight<700||aside.bottom<90||aside.top>height-120)
+   errors.push(width+': sidebar summary disappears when scrolling down to template: '+JSON.stringify(aside));
+ }
+ if([1640,390].includes(width))await page.screenshot({path:'artifacts/user_invoice_'+width+'.png',fullPage:false});
  await page.close();
 }
 await browser.close();
