@@ -92,6 +92,7 @@ try {
   await page.locator('#ivTemplate').selectOption(tpl.id);
   await page.locator('[data-action="invoice-save"]').first().click();
   await page.waitForFunction(()=>window.__mockDb.ops_sales_invoices.some(x=>x.customer_name?.includes('Logo QA')));
+  await page.locator('[data-action="invoice-back"]').first().click();
   await page.locator('[data-action="invoice-preview"]').first().click();
   await page.locator('#modalHost img.invoice-logo').waitFor({state:'visible'});
   await page.waitForFunction(()=>{const i=document.querySelector('#modalHost img.invoice-logo');return i?.complete&&i.naturalWidth===4});
