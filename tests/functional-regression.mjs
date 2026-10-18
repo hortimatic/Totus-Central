@@ -29,17 +29,20 @@ const app=fs.readFileSync('src/app.js','utf8');
 assert.match(app,/import \{[^}]*\bmoney\b[^}]*\} from '\.\/utils\.js'/,'El panel necesita el formato de importes');
 assert.match(app,/import \{[^}]*\btable\b[^}]*\} from '\.\/components\.js'/,'El panel necesita la tabla de informes');
 const backup=fs.readFileSync('src/backup.js','utf8');
-assert.match(backup,/select\('\*'\)\.order\(orderKey,\{ascending:true\}\)\.range\(from,from\+999\)/,'La copia debe paginar con orden estable por clave primaria');
+assert.ok(backup.includes("rpc('totus_export_recovery_snapshot')"),'La copia debe leer una instantánea consistente del servidor');
+const recoverySql=fs.readFileSync('supabase/migrations/20261018181959_recoverable_application_snapshots.sql','utf8');
+const recoveryCore=fs.readFileSync('src/recovery-core.js','utf8');
+assert.ok(recoverySql.includes('jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text)'),'La instantánea debe conservar todas las filas con orden estable');
 const sql=fs.readFileSync('supabase/backup.sql','utf8');
 for(const token of ["x.notes,state.data.stores.find","x.supplier_name,x.invoice_number,x.description,x.payment_method"]){
  assert.ok(app.includes(token),'El Excel exportado debe respetar los filtros de búsqueda: '+token);
 }
 for(const required of ["'ops_income_adjustments'"]){
- assert.ok(backup.includes(required),'Falta tabla en ZIP: '+required);
- assert.ok(sql.includes(required),'Falta tabla en restauración: '+required);
+ assert.ok(recoveryCore.includes(required),'Falta tabla en ZIP: '+required);
+ assert.ok(recoverySql.includes(required),'Falta tabla en restauración: '+required);
 }
-assert.ok(sql.includes('delete from public.ops_income_adjustments;'));
-assert.ok(sql.includes('insert into public.ops_income_adjustments'));
+assert.ok(!sql.includes('delete from public.'),'El restaurador antiguo debe quedar sin operaciones destructivas');
+assert.ok(recoverySql.includes("'truncate table '||truncate_sql||' restart identity'"));
 
 for(const good of [[126.2,126.2,'pagado'],[126.2,0,'pendiente'],[126.2,30,'parcial'],[0,0,'pagado']]){
  assert.equal(validateExpensePayment(...good),true,'Valid expense payment rejected: '+good);
