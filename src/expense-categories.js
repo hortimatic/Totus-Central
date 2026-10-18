@@ -20,6 +20,7 @@ export function expenseCategoryCode(rows=[],id){
  const own=String(c.code||'').toUpperCase();
  const parent=c.parent_id?rows.find(x=>String(x.id)===String(c.parent_id)):null;
  const base=String(parent?.code||'').toUpperCase();
+ if(own.startsWith('INTERNAL_'))return own;
  return base.startsWith('INTERNAL_')||['MERCH','PAYROLL','SOCIAL','RETA','FAMILY_COLLAB','TAX','OTHER'].includes(base)?base:own;
 }
 export const isInternalExpenseCategory=(rows,id)=>expenseCategoryCode(rows,id).startsWith('INTERNAL_');
