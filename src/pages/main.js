@@ -3,6 +3,7 @@ import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices,expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from '../expense-register.js';
+import {quickPriceStudy} from '../calculations.js';
 import {computeModel130Accumulated} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
@@ -639,7 +640,7 @@ export function pricing(){
   {label:'Familia',html:r=>esc(familyName(r.family_id))},
   {label:'Coste',num:true,html:r=>moneyCell(costOf(r))},
   {label:'PVP',num:true,html:r=>moneyCell(r.current_pvp||r.proposed_pvp)},
-  {label:'Margen',num:true,html:r=>{const price=Number(r.current_pvp||r.proposed_pvp||0),cost=costOf(r),vat=Number(state.data.settings?.default_sales_vat_rate||21),net=price/(1+vat/100);return net>0?((net-cost)/net*100).toFixed(1).replace('.',',')+' %':'—'}},
+  {label:'Margen real',num:true,html:r=>{const price=Number(r.current_pvp??r.proposed_pvp??0),cost=costOf(r);const vat=Number(state.data.settings?.default_sales_vat_rate??21),re=Number(state.data.settings?.purchase_re_rate??5.2);const result=quickPriceStudy({cost,pvp:price,vat,re});return price>0?result.marginPct.toFixed(1).replace('.',',')+' %':'—'}},
   {label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>btn('Abrir','product-edit','secondary',`data-id="${r.id}"`)}
  ];
  const consultations=state.data.consultations.slice(0,20);

@@ -673,13 +673,13 @@ async function deleteVariant(productId,id){
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
 }
 function updatePricingQuick(){
- const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate||21,re:state.data.settings?.purchase_re_rate||5.2});
+ const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
  set('pqReal',money(r.costReal));set('pqSale',money(r.finalSale));set('pqMargin',money(r.margin),r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqMarginPct',r.marginPct.toFixed(1).replace('.',',')+' %',r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqCompetition',r.competitorDiff==null?'—':((r.competitorDiff>0?'+':'')+money(r.competitorDiff)),r.competitorDiff==null?'':r.competitorDiff>0?'warn-text':'good-text');
 }
 async function saveConsultation(){
  const query=required('pqQuery','Consulta');
- const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate||21,re:state.data.settings?.purchase_re_rate||5.2});
+ const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
  await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO',consultation_query:query,snapshot:row}).catch(()=>{});
  await refresh('Consulta guardada.');
@@ -1487,7 +1487,7 @@ function applyFilter(prefix){
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
 function updateHomePrice(){
- const result=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate||21,re:state.data.settings?.purchase_re_rate||5.2});
+ const result=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
  set('homePriceReal',money(result.costReal));
  set('homePriceSale',money(result.finalSale));
@@ -1497,7 +1497,7 @@ function updateHomePrice(){
 }
 async function saveHomePrice(){
  const query=required('homePriceQuery','Producto / referencia');
- const r=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate||21,re:state.data.settings?.purchase_re_rate||5.2});
+ const r=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
  await insert('consultation_history',{consultation_id:row.id,user_id:state.user?.id||null,action:'CREADO_DESDE_INICIO',consultation_query:query,snapshot:row}).catch(()=>{});
  await refresh('Consulta guardada.');

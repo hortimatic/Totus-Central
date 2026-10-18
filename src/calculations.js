@@ -16,8 +16,10 @@ export function quickPriceStudy({cost=0,pvp=0,competitor=0,discount=0,vat=21,re=
  const finalSale=pvp*(1-discount/100);
  const saleNet=finalSale/(1+vat/100);
  const costReal=cost*(1+vat/100+re/100);
- const margin=saleNet-cost;
- const marginPct=saleNet>0?margin/saleNet*100:0;
+ // Recargo de equivalencia: purchase VAT and RE are not recoverable.
+ // Economic margin is the gross amount collected minus the actual purchase outflow.
+ const margin=finalSale-costReal;
+ const marginPct=finalSale>0?margin/finalSale*100:0;
  const competitorDiff=competitor>0?finalSale-competitor:null;
  return {cost,pvp,competitor,discount,vat,re,finalSale,saleNet,costReal,margin,marginPct,competitorDiff};
 }

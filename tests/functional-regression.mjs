@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {monthRange,yearRange,inRange,fmtDate,n,csv} from '../src/utils.js';
-import {validateExpensePayment,validateExpenseLineAmounts} from '../src/calculations.js';
+import {validateExpensePayment,validateExpenseLineAmounts,quickPriceStudy} from '../src/calculations.js';
 
 for(const [input,expected] of [['1.234,56',1234.56],['1,234.56',1234.56],['12,50',12.5],['12.50',12.5],['0',0],['',0]])assert.equal(n(input),expected,'Importe mal interpretado: '+input);
 assert.equal(csv([['11/10/2026','Hortimatic','Gasto',10.2,'Proveedor; "especial"']],['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]}))).split('\n')[1],'"11/10/2026";"Hortimatic";"Gasto";"10.2";"Proveedor; ""especial"""');
@@ -55,4 +55,12 @@ for(const patch of [{base:-1},{vat:-1},{vat:101},{re:110},{withholding:120},{ded
  assert.throws(()=>validateExpenseLineAmounts({...validLine,...patch}),Error,'Invoice line incorrectly accepted: '+JSON.stringify(patch));
 }
 
-console.log('Fechas, límites, exportaciones filtradas, líneas fiscales, pagos y backup: OK');
+const margin=quickPriceStudy({cost:5,pvp:10,vat:21,re:5.2,discount:0});
+assert.equal(Math.round(margin.costReal*100),631,'RE purchase cost includes IVA + recargo');
+assert.equal(Math.round(margin.margin*100),369,'Cash margin must subtract entire RE purchase cost from final PVP');
+assert.equal(Math.round(margin.marginPct*10),369,'Margin percent must use final PVP, not VAT-deductible base');
+const negativeMargin=quickPriceStudy({cost:5,pvp:6,vat:21,re:5.2});
+assert(negativeMargin.margin<0,'Pricing must alert on actual loss after RE');
+const noTaxes=quickPriceStudy({cost:5,pvp:10,vat:0,re:0});
+assert.equal(noTaxes.margin,5,'Zero tax rates must be respected');
+console.log('Fechas, límites, exportaciones, IVA+RE y márgenes reales, líneas fiscales, pagos y backup: OK');
