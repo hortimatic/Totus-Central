@@ -34,6 +34,7 @@ jobs:
       - run: node tests/layout-audit.mjs
       - run: node tests/field-sweep-qa.mjs
       - run: node tests/full-flow-qa.mjs
+      - run: node tests/deletion-flows-qa.mjs
       - run: node tests/backup-qa.mjs
       - run: node tests/admin-submenus-qa.mjs
       - run: node tests/billing-submenus-qa.mjs

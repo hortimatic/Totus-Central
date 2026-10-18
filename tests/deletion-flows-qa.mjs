@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({acceptDownloads:true,locale:'es-ES',viewport:{width:1400,height:980}});
+const errors=[];
+page.on('pageerror',err=>errors.push(err.message));
+page.on('dialog',dialog=>dialog.accept(dialog.type()==='prompt'?'Registro incorrecto de prueba':undefined));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const ids={closing:'11111111-1111-4111-8111-111111111111',expense:'22222222-2222-4222-8222-222222222222',draft:'33333333-3333-4333-8333-333333333333',issued:'44444444-4444-4444-8444-444444444444',doc:'55555555-5555-4555-8555-555555555555'};
+ await page.evaluate(async (ids)=>{
+  const {state}=await import('../src/state.js');
+  const {isoToday}=await import('../src/utils.js');
+  const db=window.__mockDb,day=isoToday(),store=db.ops_stores[0].id,owner=db.team_members[0].id,series=db.ops_invoice_series[0].id;
+  const close={id:ids.closing,store_id:store,business_date:day,status:'cerrado',source:'manual',cash_sales:75,card_sales:10,bizum_sales:0,online_sales:0,other_income:0,cash_withdrawals:0,difference:0};
+  const expense={id:ids.expense,store_id:store,expense_date:day,supplier_name:'Proveedor incorrecto QA',invoice_number:'ERR-QA-1',description:'Importe incorrecto',base_amount:40,vat_amount:8.4,re_amount:0,withholding_amount:0,gross_expense:48.4,paid_status:'pagado',payment_method:'efectivo'};
+  const draft={id:ids.draft,store_id:store,series_id:series,issue_date:day,document_type:'factura',status:'borrador',number:null,display_number:null,customer_name:'Cliente QA borrador',total_amount:60};
+  const issued={id:ids.issued,store_id:store,series_id:series,issue_date:day,document_type:'factura',status:'emitida',number:1,display_number:'H-0001',issued_at:new Date().toISOString(),customer_name:'Cliente QA emitida',total_amount:121};
+  const doc={id:ids.doc,store_id:store,document_date:day,doc_type:'factura_recibida',status:'pendiente',original_name:'error-qa.txt',supplier_or_customer:'Proveedor archivo QA',mime_type:'text/plain',size_bytes:7,storage_path:'qa/error-qa.txt',uploaded_by:owner};
+  db.ops_daily_closings.push(close);
+  db.ops_daily_closing_drawers.push({id:'66666666-6666-4666-8666-666666666666',closing_id:ids.closing,drawer_id:db.ops_cash_drawers[0].id});
+  db.ops_expenses.push(expense);
+  db.ops_expense_lines.push({id:'77777777-7777-4777-8777-777777777777',expense_id:ids.expense,description:'Fila errónea',base_amount:40});
+  db.ops_sales_invoices.push(draft,issued);
+  db.ops_sales_invoice_lines.push({id:'88888888-8888-4888-8888-888888888888',invoice_id:ids.draft,description:'Borrador',quantity:1,unit_price_base:60});
+  db.ops_documents.push(doc);
+  window.__mockUploads.set('business-documents/qa/error-qa.txt',new Blob(['QA text'],{type:'text/plain'}));
+  state.data.closings.push(close);state.data.closingDrawers.push(db.ops_daily_closing_drawers.at(-1));
+  state.data.expenses.push(expense);state.data.expenseLines.push(db.ops_expense_lines.at(-1));
+  state.data.invoices.push(draft,issued);state.data.invoiceLines.push(db.ops_sales_invoice_lines.at(-1));
+  state.data.documents.push(doc);
+ },ids);
+ const go=async area=>{
+  await page.locator('#nav [data-route="'+area+'"]').click();
+  await page.waitForTimeout(65);
+ };
+ await go('cajas');
+ assert.equal(await page.locator('[data-action="closing-delete"][data-id="'+ids.closing+'"]').count(),1,'No aparece Eliminar en la fila del cierre');
+ await page.locator('[data-action="closing-delete"][data-id="'+ids.closing+'"]').click();
+ await page.waitForTimeout(70);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings.length),0,'Se conservó el cierre tras confirmar');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closing_drawers.length),0,'Quedaron cajas huérfanas tras eliminar cierre');
+ await go('gastos');
+ assert.equal(await page.locator('[data-action="expense-delete"][data-id="'+ids.expense+'"]').count(),1,'No aparece Eliminar en el gasto');
+ await page.locator('[data-action="expense-delete"][data-id="'+ids.expense+'"]').click();
+ await page.waitForTimeout(70);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_expenses.length),0,'No eliminó el gasto');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_expense_lines.length),0,'Quedaron conceptos huérfanos del gasto');
+ await go('facturacion');
+ assert.equal(await page.locator('[data-action="invoice-delete"][data-id="'+ids.draft+'"]').count(),1,'Falta Eliminar borrador en Facturación');
+ assert.equal(await page.locator('[data-action="invoice-delete"][data-id="'+ids.issued+'"]').count(),0,'Se muestra borrado destructivo en factura ya emitida');
+ await page.locator('[data-action="invoice-delete"][data-id="'+ids.draft+'"]').click();
+ await page.waitForTimeout(70);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_sales_invoice_lines.length),0,'Quedaron conceptos del borrador eliminado');
+ assert.deepEqual(await page.evaluate(()=>window.__mockDb.ops_sales_invoices.map(x=>x.id)),[ids.issued],'El borrado alteró una factura emitida');
+ const denied=await page.evaluate(async id=>{
+  try{await (await import('../src/api.js')).rpc('totus_delete_sales_draft',{p_id:id,p_reason:'Intento no autorizado'});return false}
+  catch(e){return /emitid|numerad|rectificativa/i.test(e.message)}
+ },ids.issued);
+ assert(denied,'El servidor no rechazó borrar una factura emitida');
+ await go('documentos');
+ assert.equal(await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').count(),1,'Falta Eliminar en archivo documental');
+ await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();
+ await page.waitForTimeout(75);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),0,'No se eliminó el archivo de la base');
+ assert.equal(await page.evaluate(()=>window.__mockUploads.size),0,'Quedó archivo físico tras eliminar documento');
+ const logs=await page.evaluate(()=>window.__mockDb.ops_audit_log);
+ assert(logs.some(x=>x.entity_id===ids.closing)&&logs.some(x=>x.entity_id===ids.expense)&&logs.some(x=>x.entity_id===ids.draft),'Las bajas no generan evidencia en el log');
+ assert(!errors.length,'Errores JavaScript: '+errors.join('; '));
+ console.log('DELETE FLOWS QA: botones visibles, motivo obligatorio, eliminación y limpieza de líneas, factura emitida protegida, documentos y auditoría OK');
+}finally{await browser.close()}

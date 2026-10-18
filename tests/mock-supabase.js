@@ -104,6 +104,24 @@ const rpc=async (name,args={})=>{
     estimated_days_left:day&&docs+assets<limit?Math.ceil((limit-docs-assets)/day):null
   },error:null};
  }
+ if(['totus_delete_closing','totus_delete_expense','totus_delete_sales_draft'].includes(name)){
+  const id=args.p_id,reason=String(args.p_reason||'').trim();
+  if(!reason)return {data:null,error:{message:'Motivo obligatorio'}};
+  const kind=name==='totus_delete_closing'?'ops_daily_closings':name==='totus_delete_expense'?'ops_expenses':'ops_sales_invoices';
+  const row=get(kind,id);if(!row)return {data:null,error:{message:'Registro no encontrado'}};
+  if(name==='totus_delete_sales_draft'){
+   if(row.status!=='borrador'||row.number!=null||String(row.display_number||'').trim()||row.issued_at)
+    return {data:null,error:{message:'Documento emitido o numerado: usa rectificativa'}};
+   if(db.ops_sales_invoices.some(x=>x.source_proforma_document_id===id||x.converted_invoice_id===id))
+    return {data:null,error:{message:'Borrador vinculado a otro documento'}};
+  }
+  const children=kind==='ops_daily_closings'?'ops_daily_closing_drawers':kind==='ops_expenses'?'ops_expense_lines':'ops_sales_invoice_lines';
+  const key=kind==='ops_daily_closings'?'closing_id':kind==='ops_expenses'?'expense_id':'invoice_id';
+  db[children]=db[children].filter(x=>x[key]!==id);
+  db[kind]=db[kind].filter(x=>x.id!==id);
+  insert('ops_audit_log',{area:kind,action:'eliminar',entity_id:id,detail:{motivo:reason}});
+  return {data:id,error:null};
+ }
  if(name==='totus_save_closing'){
   const p=args.p_closing,drawers=args.p_drawers||[];let row=p.id?get('ops_daily_closings',p.id):null;
   if(!row)row=insert('ops_daily_closings',{status:'borrador'});
