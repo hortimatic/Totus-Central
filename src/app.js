@@ -1616,8 +1616,9 @@ function sheetPreviewTable(sheet){
   }
   rows.push(`<tr ${headings>2?'class="sheet-header"':''}>${cells.join('')}</tr>`);
  }
- const columns=Array.from({length:lastCol-firstCol+1},(_,i)=>`<col style="width:${Math.min(360,Math.max(70,Number(sheet['!cols']?.[firstCol+i]?.wch||14)*7))}px">`).join('');
- return `<table class="workbook-preview"><colgroup>${columns}</colgroup><tbody>${rows.join('')}</tbody></table>${range.e.r>lastRow||range.e.c>lastCol?'<div class="note">Vista de hasta 200 filas y 30 columnas. El archivo descargado contiene todos los datos.</div>':''}`;
+ const widths=Array.from({length:lastCol-firstCol+1},(_,i)=>Math.min(420,Math.max(76,Number(sheet['!cols']?.[firstCol+i]?.wch||14)*8+24)));
+ const columns=widths.map(width=>`<col style="width:${width}px">`).join(''),tableWidth=widths.reduce((sum,width)=>sum+width,0);
+ return `<table class="workbook-preview" style="width:${tableWidth}px;min-width:${tableWidth}px"><colgroup>${columns}</colgroup><tbody>${rows.join('')}</tbody></table>${range.e.r>lastRow||range.e.c>lastCol?'<div class="note">Vista de hasta 200 filas y 30 columnas. El archivo descargado contiene todos los datos.</div>':''}`;
 }
 
 function previewWorkbookExact(wb,title,downloadButton){

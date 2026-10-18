@@ -50,6 +50,11 @@ try{
  await page.locator('[data-action="report-gestor-source-preview"]').click();
  assert.equal(await page.locator('#modalHost details').count(),0,'Single-sheet preview must not nest accordions');
  assert.equal(await page.locator('#modalHost .workbook-scroll').count(),1,'One scroll surface: '+await page.locator('#toastHost').innerText());
+ await page.setViewportSize({width:842,height:740});
+ const columnWidths=await page.locator('#modalHost .sheet-header td').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));
+ assert(columnWidths[1]>=110&&columnWidths[5]>=350,'Date and identity columns must retain readable widths in a narrow panel');
+ assert.equal(await page.locator('#modalHost .workbook-scroll').evaluate(e=>e.scrollWidth>e.clientWidth),true,'Wide table should scroll instead of squeezing columns');
+ await page.setViewportSize({width:1440,height:1000});
  await page.locator('#modalHost .close-btn').click();
  await nav('facturacion');await page.locator('[data-action="invoice-new"]').click();
  assert.equal(await page.locator('#ivSeries').inputValue(),'shared-series');
