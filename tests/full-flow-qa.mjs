@@ -342,7 +342,7 @@ await check('Gastos: reemplazar justificante, previsualizar Excel y evitar archi
  await page.waitForTimeout(140);
  const after=await db(),updated=after.expenses.find(x=>x.id===old.id);
  assert(updated?.document_id&&updated.document_id!==previousId,'No se sustituyó el justificante anterior');
- assert(!after.documents.some(d=>d.id===previousId),'Quedó registro documental huérfano de la factura antigua');
+ assert(after.documents.some(d=>d.id===previousId&&!d.linked_entity_id),'El justificante anterior debe conservarse en Documentos, sin vínculo antiguo');
  assert(after.documents.some(d=>d.id===updated.document_id&&d.original_name==='documento-actualizado.pdf'),'No se conservó la factura nueva');
  await page.locator('[data-action="expense-document-preview"]').first().click();
  await page.locator('#modalHost .document-frame').waitFor({state:'visible'});
@@ -436,6 +436,7 @@ await check('Documentos: subida, archivo y metadatos',async()=>{
  assert(d.documents.some(x=>x.original_name==='factura-qa.txt'),'Documento no archivado');
  assert(d.uploads>=1,'Archivo no subido a storage simulado');
  assert(d.documents.some(x=>x.original_name==='factura-qa.txt'),'Nombre de archivo erróneo');
+ assert(d.documents.some(x=>x.original_name==='factura-qa.txt'&&x.linked_entity_type===''),'Los documentos independientes no deben intentar insertar NULL en su tipo de vínculo');
  await page.locator('[data-action="document-preview"]').first().click();
  await page.locator('#modalHost .text-preview').waitFor({state:'visible'});
  assert((await page.locator('#modalHost .text-preview').innerText()).includes('Importe: 121 euros'),'El texto de la factura no aparece en vista previa');

@@ -277,7 +277,7 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
  await upload('business-documents',path,file);
  let doc;
  try{
-   doc=await insert('ops_documents',{store_id:storeId||null,doc_type:docType,document_date:date,supplier_or_customer:party,tax_id:taxId,invoice_number:number,category_code:category,status,storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file),linked_entity_type:linkedType,linked_entity_id:linkedId,notes,uploaded_by:state.session?.user?.id||null});
+   doc=await insert('ops_documents',{store_id:storeId||null,doc_type:docType,document_date:date,supplier_or_customer:party,tax_id:taxId,invoice_number:number,category_code:category,status,storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file),linked_entity_type:linkedType||'',linked_entity_id:linkedId,notes,uploaded_by:state.session?.user?.id||null});
  }catch(e){await removeFile('business-documents',path).catch(()=>{});throw e}
  return doc;
 }
@@ -322,23 +322,31 @@ async function saveExpense(id=''){
  let savedId;
  try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
  catch(e){if(newDoc)await destroyDocument(newDoc).catch(()=>{});throw e}
- if(newDoc){await update('ops_documents',newDoc.id,{linked_entity_id:savedId});if(oldDoc&&oldDoc.id!==newDoc.id)await destroyDocument(oldDoc).catch(()=>{})}
+ if(newDoc){
+  await update('ops_documents',newDoc.id,{linked_entity_id:savedId});
+  if(oldDoc&&oldDoc.id!==newDoc.id&&String(oldDoc.linked_entity_id||'')===String(savedId))
+   await update('ops_documents',oldDoc.id,{linked_entity_id:null,linked_entity_type:''});
+ }
  setView('gastos',{mode:'record',id:savedId});await refresh('Gasto guardado.');
 }
 async function unlinkExpenseDocument(expenseId,documentId){
- if(!confirm('¿Quitar el justificante de este gasto?'))return;
- const doc=state.data.documents.find(x=>x.id===documentId);
+ const expense=state.data.expenses.find(x=>String(x.id)===String(expenseId));
+ if(!expense||String(expense.document_id)!==String(documentId))throw new Error('El justificante ya no pertenece a este gasto. Actualiza la ficha.');
+ if(!confirm('¿Desvincular el justificante? El original se conservará en Documentos; podrás eliminarlo allí por separado.'))return;
+ const doc=state.data.documents.find(x=>String(x.id)===String(documentId));
  await update('ops_expenses',expenseId,{document_id:null});
- if(doc)await destroyDocument(doc);
- await refresh('Justificante eliminado.');
+ if(doc&&String(doc.linked_entity_id||'')===String(expenseId))
+  await update('ops_documents',doc.id,{linked_entity_id:null,linked_entity_type:''});
+ await refresh('Justificante desvinculado. El archivo original se conserva en Documentos.');
 }
 async function deleteExpense(id){
  if(!confirm('¿Eliminar este gasto?'))return;
  const reason=prompt('Motivo de eliminación:');if(!reason?.trim())return;
  const row=state.data.expenses.find(x=>x.id===id),doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  await rpc('totus_delete_expense',{p_id:id,p_reason:reason.trim()});
- if(doc)await destroyDocument(doc).catch(()=>{});
- resetView('gastos');await refresh('Gasto eliminado.');
+ if(doc&&String(doc.linked_entity_id||'')===String(id))
+  await update('ops_documents',doc.id,{linked_entity_id:null,linked_entity_type:''});
+ resetView('gastos');await refresh(doc?'Gasto eliminado. El justificante original se conserva en Documentos.':'Gasto eliminado.');
 }
 
 function externalSequenceNumber(text){
