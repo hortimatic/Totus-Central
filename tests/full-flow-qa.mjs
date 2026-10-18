@@ -644,6 +644,7 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  assert(converted.product,'No se convirtió la consulta correctamente');
  assert(converted.costs.some(x=>x.product_id===converted.product.id&&x.provider_id===providerId&&x.net_cost===2.5&&x.selected),'La conversión perdió proveedor o precio neto');
  await nav('pricing');
+ if(await page.locator('[data-action="product-back"]').count())await page.locator('[data-action="product-back"]').first().click();
  await page.locator('[data-action="product-new"]').first().click();
  await page.locator('#prSku').fill('SKU-QA-001');
  await page.locator('#prName').fill('Producto de prueba independiente');
