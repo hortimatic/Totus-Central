@@ -16,7 +16,7 @@ const extra='<div class="field" id="specialExpenseFilter">Extra</div>';
 const filters=dateFilters({from:'2026-10-01',to:'2026-10-16',store:'a',stores:[{id:'a',name:'Hortimatic'}]},'gastos',extra);
 assert.equal((filters.match(/class="filters"/g)||[]).length,1,'Debe existir un solo contenedor raíz de filtros');
 assert.ok(filters.includes('id="specialExpenseFilter"'));
-assert.ok(filters.indexOf(extra)>filters.indexOf('gastos-month'));
+assert.ok(filters.indexOf(extra)<filters.indexOf('gastos-month'));
 assert.ok(filters.indexOf(extra)<filters.lastIndexOf('</div>'));
 
 state.data.stores=[{id:'a',name:'Hortimatic',active:true},{id:'b',name:'NewOldSmok',active:true}];
