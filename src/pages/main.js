@@ -164,7 +164,7 @@ export function gastos(){
   {label:'Total',num:true,html:r=>`<b>${money(r.gross_expense??r.accounting_amount??r.amount_paid??0)}</b><div class="small">${stateBadge(r.paid_status||'pendiente')}</div>`},
   {label:'Factura adjunta',html:r=>{
     const d=state.data.documents.find(x=>x.id===r.document_id);
-    return d?`<div class="small"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Ver','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:'<span class="small muted">Pendiente de adjuntar</span>';
+    return d?`<div class="small"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Vista previa','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:`<span class="small muted">${isUnreconciledPayment(r)?'Pago pendiente de vincular con su justificante':'Sin justificante adjunto'}</span>`;
    }},
   {label:'Acciones',html:r=>`<div class="inline-actions">${btn('Abrir','expense-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','expense-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];

@@ -343,6 +343,12 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 }
 
 .pdf-viewer{overflow:auto;padding:10px;text-align:center}.pdf-controls{position:sticky;top:0;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;background:#f7f7f7;padding:4px 0 10px;z-index:1}.pdf-controls [role=status]{font-size:13px}.pdf-page{display:block;max-width:100%;height:auto!important;margin:auto;background:white}
+.pdf-document-modal{height:92vh;display:flex;flex-direction:column;overflow:hidden;width:min(1200px,96vw)}
+.pdf-document-modal .modal-head{flex:none}
+.pdf-document-modal .modal-body{flex:1;min-height:0;overflow:hidden;padding:12px}
+.pdf-document-modal .modal-body>.stack{height:100%;min-height:0;display:flex;flex-direction:column}
+.pdf-document-modal .pdf-viewer{flex:1;min-height:0;height:auto}
+.pdf-document-modal .form-actions{flex:none;margin:0}
 
 /* Invoice editing: the form and its unsaved document stay visible together. */
 .invoice-workspace.record-layout{grid-template-columns:minmax(0,1.1fr) minmax(400px,.9fr)}

@@ -1107,11 +1107,20 @@ async function downloadDocument(id){
  const blob=await getDocumentBlob(d);download(blob,d.original_name||'documento');
 }
 async function previewDocument(id){
- const d=state.data.documents.find(x=>x.id===id);if(!d)return;
- const blob=await getDocumentBlob(d),mime=String(d.mime_type||blob.type||'').toLowerCase(),name=String(d.original_name||'').toLowerCase();
+ const d=state.data.documents.find(x=>x.id===id);if(!d)throw new Error('El archivo adjunto no está disponible. Actualiza el listado y vuelve a abrir el gasto.');
+ modal(d.original_name||'Documento','<div role="status">Cargando archivo adjunto…</div>');
+ const loadingPanel=document.querySelector('#modalHost .modal');
+ let blob;
+ try{blob=await getDocumentBlob(d)}catch(error){
+  if(loadingPanel?.isConnected)loadingPanel.querySelector('.modal-body').innerHTML=`<div class="note bad" role="alert">${esc(error.message)}</div>`;
+  return;
+ }
+ if(!loadingPanel?.isConnected)return;
+ const mime=String(d.mime_type||blob.type||'').toLowerCase(),name=String(d.original_name||'').toLowerCase();
  let body='';const kind=previewKind(name,mime);
  if(kind==='pdf'){
    modal(d.original_name||'Documento',`<div class="stack"><div id="pdfPreviewHost" class="document-frame pdf-viewer"></div><div class="form-actions">${btn('Descargar','document-download','primary',`data-id="${d.id}"`)}</div></div>`);
+   document.querySelector('#modalHost .modal').classList.add('pdf-document-modal');
    await renderPdfPreview(blob,document.getElementById('pdfPreviewHost'));return;
  }else if(kind==='image'){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;

@@ -25,5 +25,25 @@ try{
   if(width===320)await page.screenshot({path:'artifacts/pdf_preview_mobile.png'});
   await page.close();
  }
- console.log('PDF PREVIEW QA: actual painted pixels, three pages, navigation limits and desktop/mobile sizing verified without browser PDF plugin.');
+ for(const width of [881,320]){
+  const page=await browser.newPage({viewport:{width,height:680}});
+  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+  const id=await page.evaluate(async bytes=>{
+   const id=crypto.randomUUID();window.__mockDb.ops_documents.push({id,original_name:'Invoice preview QA.pdf',doc_type:'factura_recibida',mime_type:'application/pdf',storage_path:'qa/preview.pdf',document_date:new Date().toISOString().slice(0,10)});
+   window.__mockUploads.set('business-documents/qa/preview.pdf',new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));
+   await (await import('/src/api.js')).loadCore();return id;
+  },bytes);
+  await page.locator('#nav [data-route="documentos"]').click();
+  await page.locator(`[data-action="document-preview"][data-id="${id}"]`).click();
+  await page.locator('#pdfPreviewHost[data-pdf-rendered="1"]').waitFor();
+  assert(await page.locator('.pdf-document-modal').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'Outer PDF modal must not introduce a second scroll area');
+  assert(await page.locator('.pdf-document-modal .modal-body').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'PDF modal body must fit the viewport');
+  assert(await page.locator('.pdf-document-modal [data-action="document-download"]').isVisible());
+  await page.locator('[data-action="close-modal"]').last().click();
+  await page.evaluate(()=>window.__mockUploads.delete('business-documents/qa/preview.pdf'));
+  await page.locator(`[data-action="document-preview"][data-id="${id}"]`).click();
+  await page.getByRole('alert').filter({hasText:'Archivo no encontrado'}).waitFor();
+  await page.close();
+ }
+ console.log('PDF PREVIEW QA: painted pages, navigation, desktop/mobile modal geometry and visible missing-file errors verified.');
 }finally{await browser.close()}
