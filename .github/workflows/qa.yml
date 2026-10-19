@@ -15,6 +15,7 @@ jobs:
           node-version: 22
       - run: node tests/qa.mjs
       - run: node tests/closed-closing-qa.mjs
+      - run: node tests/source-closing-qa.mjs
       - run: node tests/partial-balances-qa.mjs
       - run: node tests/rectifying-refunds-qa.mjs
       - run: node tests/team-admin-qa.mjs

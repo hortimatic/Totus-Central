@@ -118,21 +118,21 @@ export function cajas(){
  const f=getFilters('cajas');
  const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,storeName(x.store_id),x.status,storeName(x.store_id)));
  const total=sum(rows,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
- const historical=rows.filter(x=>String(x.source_ref||'').startsWith('EXCEL2026-'));
- const mismatches=rows.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
+ const historical=rows.filter(x=>String(x.source_ref||'').startsWith('EXCEL2026-')||x.entry_mode==='source_snapshot');
+ const mismatches=rows.filter(x=>x.entry_mode!=='source_snapshot'&&Math.abs(Number(x.difference||0))>.01).length;
  const drafts=rows.filter(x=>x.status==='borrador').length;
  const headers=[
   {label:'Cierre',html:r=>`<b class="date-display">${fmtDate(r.business_date)}</b><div class="small muted">${esc(storeName(r.store_id))}</div>`},
-  {label:'Cobros',html:r=>`<div class="compact-detail"><span>Efectivo <b>${money(r.cash_sales)}</b></span><span>Tarjeta <b>${money(r.card_sales)}</b></span><span>Bizum <b>${money(r.bizum_sales)}</b></span><span>Online <b>${money(r.online_sales)}</b></span><span>Otros <b>${money(r.other_income)}</b></span></div>`},
+  {label:'Cobros',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Tarjeta según banco <b>${JSON.parse(r.source_ref).card_sales==null?'Sin anotación':money(r.card_sales)}</b></span><span>Efectivo vendido pendiente de conciliación</span></div>`:`<div class="compact-detail"><span>Efectivo <b>${money(r.cash_sales)}</b></span><span>Tarjeta <b>${money(r.card_sales)}</b></span><span>Bizum <b>${money(r.bizum_sales)}</b></span><span>Online <b>${money(r.online_sales)}</b></span><span>Otros <b>${money(r.other_income)}</b></span></div>`},
   {label:'Caja',html:r=>`<div class="compact-detail"><span>Apertura <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.opening_cash)}</b></span><span>Final <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.actual_cash)}</b></span><span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
-  {label:'Control',html:r=>`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>TPV/control <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
+  {label:'Control',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Al fin del origen <b>${money(r.reported_total_sales)}</b></span><span class="warn-text">Conciliación pendiente</span><span>No incluido en ingresos fiscales</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>TPV/control <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
   {label:'Estado',html:r=>`${stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
-  {label:'Acciones',html:r=>`<div class="inline-actions">${btn(r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
+  {label:'Acciones',html:r=>`<div class="inline-actions">${btn(r.entry_mode==='source_snapshot'?'Ver origen':r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
  return `<div class="page">
-  <div class="kpis">${kpi('Cobros parciales registrados',money(total))}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
+  <div class="kpis">${kpi('Cobros parciales registrados',money(total))}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
   <section class="card table-card">
-   <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos importados del Excel. Sus salidas de caja NO son retiradas verificadas; las aperturas y el efectivo final están pendientes. Estos registros no están incluidos en ingresos fiscales.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
+   <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos con su origen conservado, pendientes de conciliación. No están incluidos en ingresos fiscales. Abre cada ficha para consultar qué datos están disponibles y cuáles faltan.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'cajas')}
    ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.'})}
   </section>
@@ -743,6 +743,7 @@ function drawerEditor(drawer,row,locked=false){
 }
 
 export function closingRecordHtml(row=null){
+ if(row?.entry_mode==='source_snapshot')return sourceClosingRecordHtml(row);
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const view=getView('cajas');
  const sid=row?.store_id||view.storeId||storeOptions[0]?.value||'';
@@ -781,6 +782,21 @@ export function closingRecordHtml(row=null){
    </aside>
   </div>
  </div>`;
+}
+
+export function sourceClosingRecordHtml(row){
+ let origin;try{origin=JSON.parse(row.source_ref)}catch{throw new Error('No se puede leer el origen del cierre importado.');}
+ if(origin?.kind!=='closing_source_snapshot'||!Array.isArray(origin.drawers)||row.include_in_income!==false)throw new Error('El origen del cierre importado está incompleto o no está separado de ingresos fiscales.');
+ const amount=value=>value==null?'Sin anotación':money(value);
+ return `<div class="page record-page"><div class="record-toolbar"><div>${btn('← Volver a cierres','closing-back','link')}<div class="eyebrow">Cierre de origen · ${fmtDate(row.business_date)}</div><h2>${esc(storeName(row.store_id))}</h2></div><span class="badge warn">Pendiente de conciliación</span></div>
+ <section class="card card-pad"><h3>Captura original</h3><p>Datos conservados sin repartir tarjetas ni retiradas entre cajas cuando el origen solo indica el total de tienda.</p>${origin.missing_drawers?.length?`<p class="note warn">Sin captura de ${esc(origin.missing_drawers.join(', '))} en esta fecha. No se ha creado una caja con importes a cero.</p>`:''}${table([
+ {label:'Caja',html:d=>esc(d.name)}, {label:'Apertura',html:d=>amount(d.opening)},
+ {label:'Al fin del origen',html:d=>amount(d.al_fin)}, {label:'Efectivo siguiente apertura',html:d=>amount(d.closing)},
+ {label:'Anotación original',html:d=>esc(d.comment)}, {label:'Referencia',html:d=>esc(d.source_id)}
+ ],origin.drawers)}</section>
+ <section class="card card-pad"><h3>Excel de la misma tienda</h3><div class="summary-row"><span>Tarjeta · venta ${fmtDate(row.business_date)}</span><strong>${amount(origin.card_sales)}</strong></div><p class="small muted">Ingreso en banco: ${fmtDate(origin.bank_date)}. ${esc(origin.book)} · filas ${esc((origin.card_rows||[]).join(', ')||'sin anotación')}.</p>
+ <div class="summary-row"><span>Retiradas registradas · total tienda</span><strong>${amount(origin.withdrawals)}</strong></div><p class="note">${(origin.expected_drawers??origin.drawers.length)>1?'El reparto de las retiradas entre Vape y Head no figura en el Excel. Se conserva el total de tienda, sin asignarlo a una caja ficticiamente.':'Importe de la caja de este establecimiento.'}</p></section>
+ <section class="card card-pad"><h3>Tratamiento del histórico</h3><p>Este registro conserva el origen y no se suma a ingresos fiscales. La referencia mensual presentada se registra por separado para evitar duplicar ventas. La conciliación diaria sigue pendiente; no se crean gastos ni movimientos para forzar un cuadre.</p><p>${esc(row.notes||'')}</p></section></div>`;
 }
 
 export function expenseLineRow(line={},index=0,categories=[]){
