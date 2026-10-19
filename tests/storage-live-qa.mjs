@@ -41,7 +41,7 @@ try{
  assert(text.includes('business-backups')&&text.includes('business-documents')&&text.includes('business-assets'),'No muestra la ubicación de cada grupo de archivos');
  assert((await page.locator('#storageBackupsCapacityBar').getAttribute('aria-label')).includes('1,00 MB usados; 3,00 MB de otros archivos; 1020,00 MB de margen'),'El margen de copias debe descontar todos los archivos del proyecto');
  await page.locator('.storage-space-section').screenshot({path:'artifacts/storage-capacity-bars.png'});
- assert(text.includes('Cuánto puede durar el espacio')&&text.includes('9 meses')&&text.includes('0,33 MB/mes'),'No muestra la simulación con referencia de nueve meses');
+ assert(text.includes('Cuánto puede durar el espacio')&&text.includes('9 meses')&&text.includes('0,33 MB/mes')&&text.includes('Sin plazo por cargar datos')&&text.includes('Plazo aún no calculable'),'No muestra la simulación con referencia de nueve meses');
  assert(text.includes('la copia nueva antes de borrar la antigua')&&text.includes('no libera espacio'),'Falta explicar el margen de subida o la descarga sin borrado');
  assert(await page.locator('[data-action="admin-section"][data-section="backups"]').count()>0,'Falta acceso a descarga y eliminación de copias');
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');

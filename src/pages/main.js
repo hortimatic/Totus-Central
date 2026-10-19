@@ -608,23 +608,24 @@ function adminStorageHtml(){
  const planning=planStorage({usage:u,reference,runs:state.data.backupRuns||[],protectedPaths:(state.data.recoveryJobs||[]).flatMap(j=>[j.checkpoint_path,j.source_path])});
  const duration=days=>days==null?'Más de 10 años en esta simulación':days<30?'Unos '+days+' días':'Unos '+(days/30.4375).toLocaleString('es-ES',{maximumFractionDigits:1})+' meses';
  const forecastHtml=`<section class="card card-pad storage-planning" aria-labelledby="storagePlanningTitle"><h2 id="storagePlanningTitle">Cuánto puede durar el espacio</h2>
- ${planning.available?`<p>Simulación basada en ${planning.months} meses de documentos y logos, hasta ${fmtDate(reference.planning_sample_through)}. Mantiene una copia completa diaria y el máximo actual de <b>10 copias</b>.</p>
- <div class="kpis">${kpi('Crecimiento de documentos y logos',mb(planning.monthlyOriginalBytes)+'/mes','Media del periodo de referencia')}${kpi('Una copia completa del tamaño actual',mb(planning.currentCopyBytes),'Estimación según la copia completa de referencia')}${kpi('Diez copias completas actualizadas',mb(planning.fullCopiesBytes),'Además de los originales y otros archivos')}</div>
- <p class="note ${planning.days!=null&&planning.days<=30?'warn':''}" id="storageForecastResult"><b>${duration(planning.days)}</b>${planning.days==null?' sin alcanzar los límites simulados.':planning.reason==='space'?' antes de que una nueva copia pueda quedarse sin espacio.':' antes de alcanzar el límite actual de tamaño de una copia (96 MB).'} Es una estimación de este proyecto, no una garantía ni una medición del espacio libre de toda la organización.</p>
- <p>Las copias históricas son más pequeñas porque se hicieron durante la carga de datos. Al sustituirse por copias con todos los archivos actuales, ocuparán más. Para calcular el plazo también se reserva el espacio de <b>la copia nueva antes de borrar la antigua</b>; no basta con dividir el espacio libre entre los documentos de cada mes.</p>
- <p class="small muted">Supuestos: mismo ritmo de documentos, copias con proporción de tamaño similar y otros archivos constantes. El límite de 96 MB por copia es de Totus, independiente del gigabyte de archivos de Supabase. La base de datos tiene cuota separada; sin dos mediciones comparables no se inventa una fecha de llenado para ella.</p>`:'<p class="note">Todavía no hay una referencia completa del periodo para simular el crecimiento. Los tamaños y las barras anteriores siguen mostrando las mediciones disponibles; no calculamos un plazo con datos incompletos.</p>'}
+ <p>Estimación al ritmo de vuestros 9 meses de datos.</p>
+ <div class="storage-information-grid">
+ <div class="card card-pad"><h3>Supabase · facturas y copias</h3><p id="storageForecastResult" style="font-size:1.7rem;font-weight:700">${planning.available?duration(planning.days):'Sin estimación disponible'}</p><p>Hasta ${planning.reason==='archive'?'el límite de tamaño de una copia':'que una nueva copia pueda quedarse sin espacio'}, manteniendo las 10 copias completas diarias.</p><p class="small muted">${mb(fileTotal)} usados · ${mb(Math.max(0,Number(reference.files_limit_bytes)-fileTotal))} libres en este proyecto.</p></div>
+ <div class="card card-pad"><h3>GitHub · la herramienta</h3><p style="font-size:1.7rem;font-weight:700">Sin plazo por cargar datos</p><p>Las facturas, gastos y cajas se guardan en Supabase. Introducir más meses no aumenta el espacio de GitHub.</p><p class="small muted">Repositorio: 9,68 MB aprox. · consultado el 20/10/2026. El tamaño de la web publicada se mide aparte.</p></div>
+ <div class="card card-pad"><h3>Supabase · base de datos</h3><p style="font-size:1.7rem;font-weight:700">Plazo aún no calculable</p><p>${mb(dbSize)} usados de ${mb(Number(reference.database_limit_bytes))}. Falta medir su crecimiento durante un periodo comparable.</p></div>
+ </div>
+ <details><summary>Cómo se calcula y qué puedes limpiar</summary>
+ <p>${planning.available?mb(planning.monthlyOriginalBytes)+'/mes de documentos y logos. Una copia completa ocupa aproximadamente '+mb(planning.currentCopyBytes)+'.':'Falta la referencia de crecimiento.'} Las diez copias ocuparán más que las antiguas, hechas durante la carga. Se reserva espacio para terminar la nueva antes de borrar la más vieja. Es una simulación; otros proyectos pueden consumir el espacio compartido.</p>
  <h3>Qué puedes descargar y eliminar para liberar espacio</h3>
- <div class="summary-row"><span>Copias anteriores a la más reciente</span><strong>${planning.available?planning.downloadableOlderCount+' copias · '+mb(planning.downloadableOlderBytes):'Consultar en Copias'}</strong></div>
- <p>Desde Copias puedes descargar una copia y, si decides retirarla, eliminarla con confirmación. La descarga por sí sola <b>no libera espacio</b>. La cifra anterior excluye la más reciente y las vinculadas a recuperaciones. Conserva la copia actual comprobada; no es necesario borrar datos contables para retirar una copia antigua.</p>
- <p class="note">Borrar copias antiguas libera espacio ahora. Con la programación diaria se volverán a generar hasta diez: esa limpieza <b>no amplía por sí sola el plazo de forma permanente</b>. Para archivar fuera de Supabase, utiliza otro destino de conservación que hayas elegido y verificado; esta herramienta no instala tareas ni guarda copias automáticas en el portátil.</p>
- <div class="summary-row"><span>Facturas y justificantes originales</span><strong>${mb(u.documents_bytes)}</strong></div>
- <p>Puedes descargarlos desde Documentos. Exportar un Excel o un informe no sustituye sus PDF y adjuntos. Borrarlos impediría abrir sus vistas previas y dejaría las siguientes copias sin esos originales: no se propone su eliminación como limpieza automática.</p>
- <div class="summary-row"><span>Logos y recursos</span><strong>${mb(u.assets_bytes)}</strong></div>
- <p>Usa la revisión de logos sin uso; se comprueba que no estén vinculados antes de retirarlos. Los documentos y logos necesitan revisión de sus vínculos, no un borrado general por antigüedad.</p>
+ <p>Copias antiguas: <b>${planning.available?planning.downloadableOlderCount+' copias · '+mb(planning.downloadableOlderBytes):'Consultar en Copias'}</b>. Descargar no libera espacio: después tendrías que eliminar las que decidas retirar. Las copias diarias volverán a generarse hasta diez.</p>
+ <p>Conserva los originales de las facturas: borrarlos impide abrir sus vistas previas. La limpieza de copias no borra vuestra contabilidad.</p>
+ <p class="small muted">GitHub no tiene una caducidad calculable por vuestra actividad contable. Los cambios de código y su historial crecen por separado. <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits" target="_blank" rel="noopener noreferrer">Límites de GitHub Pages</a>: web publicada hasta 1 GB; recomendación de 1 GB para su repositorio fuente. No son una misma cuota.</p>
+ </details>
  <div class="inline-actions">${btn('Ver copias: descargar o eliminar','admin-section','primary','data-section="backups"')}<button class="btn secondary" data-route="documentos">Abrir documentos</button></div>
  </section>`;
  const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
  return `<div class="stack storage-dashboard">
+  ${forecastHtml}
   <section class="card card-pad">
    <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Tamaño actual de los archivos y de la base de datos, medido en este proyecto.</p></div>
     <div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></div>
@@ -642,7 +643,6 @@ function adminStorageHtml(){
    <p class="note">${esc(caution)} Este indicador <b>no representa la cuota total contratada con Supabase</b>; mide el límite operativo que Totus aplica a documentos y logos.</p>
   </section>
   ${spaceBars}
-  ${forecastHtml}
   <div class="kpis">
    ${kpi('Facturas y documentos',mb(u.documents_bytes||0))}
    ${kpi('Logos y recursos',mb(u.assets_bytes||0))}
