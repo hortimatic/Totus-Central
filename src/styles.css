@@ -438,3 +438,6 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .workbook-view{height:100%}
 .workbook-scroll{flex:1;min-height:0;max-height:none}
 .workbook-view>p,.workbook-view>.form-actions{flex-shrink:0}
+
+.next-opening{margin-top:18px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0)}
+.next-opening h4{margin:0 0 6px}.next-opening .summary-row{gap:12px;flex-wrap:wrap}.next-opening strong{overflow-wrap:anywhere}

@@ -1,3 +1,4 @@
+import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
 import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,closingIncomeAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
@@ -17,20 +18,20 @@ function write(wb,name){XLSX.writeFile(wb,name,{cellStyles:true})}
 function storeName(stores,id){return stores.find(s=>s.id===id)?.name||''}
 function drawerName(drawers,id){return drawers.find(d=>d.id===id)?.name||''}
 
-export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,from,to}){
+export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,from,to,settings=null}){
  const wb=book();
  const rows=closings.map(c=>c.entry_mode==='source_snapshot'?[
-  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','',c.include_in_income===false?'':closingIncomeAmount(c),n(c.actual_cash),'Captura de origen · caja por conciliar',c.notes||''
+  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','',c.include_in_income===false?'':closingIncomeAmount(c),n(c.actual_cash),archiveAccepted(settings,c,'closing')?'Conciliado y aceptado':'Histórico pendiente de revisión',c.notes||''
  ]:[
   fmtDate(c.business_date),storeName(stores,c.store_id),n(c.cash_sales),n(c.card_sales),n(c.bizum_sales),n(c.online_sales),n(c.other_income),
-  closingIncomeAmount(c),n(c.actual_cash),c.status||'',c.notes||''
+  closingIncomeAmount(c),n(c.actual_cash),archiveAccepted(settings,c,'closing')?'Conciliado y aceptado':c.status||'',c.notes||''
  ]);
  const aoa=[['CIERRES DE CAJA'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Efectivo','Tarjeta','Bizum','Online','Otros','Total ventas','Efectivo final','Estado','Observaciones'],...rows];
  const totalRow=aoa.length;
  aoa.push(['','','','','','','','TOTAL','','','']);
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,11);
- ws[`H${totalRow+1}`]=closings.length&&closings.every(c=>c.entry_mode==='source_snapshot'&&c.include_in_income===false)?{t:'s',v:'Sin ventas conciliadas',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',v:closings.reduce((t,c)=>t+closingIncomeAmount(c),0),s:totalStyle,z:euro};
+ ws[`H${totalRow+1}`]=closings.length&&closings.every(c=>c.entry_mode==='source_snapshot'&&c.include_in_income===false)?{t:'s',v:'Ventas no sumadas aquí',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',v:closings.reduce((t,c)=>t+closingIncomeAmount(c),0),s:totalStyle,z:euro};
  for(let r=5;r<=totalRow;r++)for(const col of ['C','D','E','F','G','H','I'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,13,13,13,13,13,15,15,12,35]);
  ws['!freeze']={xSplit:0,ySplit:4};

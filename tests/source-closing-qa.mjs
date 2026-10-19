@@ -18,7 +18,7 @@ origin.card_sales=null;origin.withdrawals=null;
 assert(sourceClosingRecordHtml({...row,source_ref:JSON.stringify(origin)}).includes('Sin anotación'));
 assert(sourceClosingRecordHtml({...row,source_ref:JSON.stringify({...origin,drawers:origin.drawers.slice(0,1),expected_drawers:2,missing_drawers:['Head']})}).includes('Sin captura de Head'));
 state.data.closings=[row];patchFilters('cajas',{from:'2026-01-01',to:'2026-01-31',store:'all',query:''});setView('cajas',{mode:'list'});
-html=cajas();assert(html.includes('1 históricos pendientes de conciliación')&&html.includes('Ver origen')&&!html.includes('Sin incidencias'));
+html=cajas();assert(html.includes('1 históricos pendientes de conciliación')&&html.includes('Ver detalle')&&!html.includes('Sin incidencias'));
 state.data.incomeAdjustments=[{store_id:'shop',amount:120,notes:JSON.stringify({kind:'monthly_source_reference',period:'2026-01',gestoria_income_compared:false})}];
 html=sourceClosingRecordHtml(row);
 assert(html.includes('Origen: Excel original; pendiente de contraste'),'An Excel source must not be presented as already checked against the accountant');

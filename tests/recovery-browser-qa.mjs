@@ -33,7 +33,7 @@ try{
  await page.locator('[data-confirm="cancel"]').click();assert.equal(calls.length,0,'Cancel must not start a recovery');
  await page.locator('[data-action="recovery-review"]').click();await page.locator('[data-action="recovery-confirm"]').click();
  await page.locator('#confirmPhrase').fill('RECUPERAR COPIA');await page.locator('[data-confirm="accept"]').click();
- await page.getByText('Completada',{exact:true}).waitFor();
+ await page.locator('tr').filter({has:page.getByRole('button',{name:'Copia anterior',exact:true})}).getByText('Completada',{exact:true}).waitFor();
  assert.deepEqual(calls.map(x=>x.action),['register','process']);
  assert.equal(await page.getByRole('button',{name:'Copia anterior',exact:true}).count(),1);
  assert.equal(await page.getByRole('button',{name:'Continuar recuperación',exact:true}).count(),0);

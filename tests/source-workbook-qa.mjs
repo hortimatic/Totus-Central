@@ -35,7 +35,9 @@ assert.throws(()=>buildStoreMonthlyWorkbook({...args,incomeAdjustments:[{store_i
 let captured;XLSX.writeFile=book=>{captured=book};
 exportClosingsWorkbook({closings:[closing],closingDrawers:[],stores:[store],drawers:[],from:'2026-01-01',to:'2026-01-31'});
 assert.equal(captured.Sheets.Cierres.H5.v,'','Unknown total sales must stay blank');
-assert.equal(captured.Sheets.Cierres.H6.v,'Sin ventas conciliadas');
+assert.equal(captured.Sheets.Cierres.H6.v,'Ventas no sumadas aquí');
+exportClosingsWorkbook({closings:[closing],closingDrawers:[],stores:[store],drawers:[],from:'2026-01-01',to:'2026-01-31',settings:{historical_acceptance:{closing_ids:[closing.id]}}});
+assert.equal(captured.Sheets.Cierres.J5.v,'Conciliado y aceptado');
 assert.equal(captured.Sheets['Orígenes importados'].E2.v,40);assert.equal(captured.Sheets['Orígenes importados'].F2.v,10);
 assert.throws(()=>exportClosingsWorkbook({closings:[{...closing,include_in_income:true,reported_total_sales:40}],closingDrawers:[],stores:[store],drawers:[],from:'2026-01-01',to:'2026-01-31'}),/no es una venta verificada/);
 exportSummaryWorkbook({closings:[{...closing,include_in_income:false}],expenses:[],stores:[store],incomeAdjustments:[{store_id:store.id,amount:40}],from:'2026-01-01',to:'2026-01-31'});

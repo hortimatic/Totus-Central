@@ -567,7 +567,7 @@ function exportCurrentModule(module){
  const f=getFilters(module);
  if(module==='cajas'){
    const closings=state.data.closings.filter(x=>(!f.from||x.business_date>=f.from)&&(!f.to||x.business_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name,x.status));
-   return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
+   return exportClosingsWorkbook({settings:state.data.settings,closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  }
  // In the invoices/receipts subtab the exported expenses must match the visible
  // attachment filter. In the normal expense subtab that filter is not displayed.
@@ -1830,7 +1830,7 @@ function exportRows(type){
  if(!f.from||!f.to)throw new Error('Selecciona Desde y Hasta.');
  const {closings,expenses,invoices,fiscalAdjustments,incomeAdjustments}=selectReportData(state.data,f);
  const stores=state.data.stores.filter(x=>f.store==='all'||x.id===f.store);
- if(type==='closings')return exportClosingsWorkbook({closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
+ if(type==='closings')return exportClosingsWorkbook({settings:state.data.settings,closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
  if(type==='expenses')return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
  return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,incomeAdjustments,from:f.from,to:f.to});
 }
