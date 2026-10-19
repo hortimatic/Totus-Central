@@ -132,6 +132,20 @@ try{
  await page.locator('[data-action="backup-create"]').click();
  assert((await local).suggestedFilename().endsWith('.totusbackup'));
  steps.push('backup:local-download');
+ await page.evaluate(()=>{
+  window.__mockDb.ops_backup_runs.push(
+   {id:'failed-qa',status:'failed',started_at:new Date().toISOString(),error_message:'Array buffer allocation failed'},
+   {id:'stale-qa',status:'running',started_at:'2026-01-01T00:00:00Z'},
+   {id:'removed-qa',status:'expired',started_at:'2025-01-01T00:00:00Z'});
+ });
+ await page.locator('[data-action="backup-refresh"]').first().click();
+ assert((await page.locator('.backup-health').innerText()).includes('No se creó la copia'));
+ assert.equal(await page.locator('.backup-attempts').getAttribute('open'),null,'Los fallos antiguos no deben ocupar la vista principal');
+ await page.locator('.backup-attempts summary').first().click();
+ assert((await page.locator('.backup-attempts').innerText()).includes('Sin finalizar'));
+ assert((await page.locator('.backup-attempts').innerText()).includes('sin memoria'));
+ assert.equal(await page.locator('[data-action="backup-history-download"]').count(),2,'Intentos fallidos o eliminados cuentan como copias');
+ steps.push('backup:clear-failures-and-stale-state');
  await page.evaluate(async()=>{
   const when=new Date('2026-10-14T11:00:00Z').toISOString();
   const events=[

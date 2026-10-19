@@ -1,3 +1,4 @@
+import {backupRunState,backupFailureSummary} from '../backup-retention.js';
 import {archiveAccepted,quarterPresented,lastDrawerBalance} from '../historical-acceptance.js';
 import {SUPABASE_URL} from '../config.js';
 import {reportMonths,selectReportData,matchesText,searchText,selectDocuments} from '../report-period.js';
@@ -664,18 +665,30 @@ function adminBackupHtml(){
  const frequencyOptions=[['daily','Cada día'],['weekly','Cada semana'],['monthly','Cada mes']].map(([v,label])=>`<option value="${v}" ${frequency===v?'selected':''}>${label}</option>`).join('');
  const weekOptions=[['1','Lunes'],['2','Martes'],['3','Miércoles'],['4','Jueves'],['5','Viernes'],['6','Sábado'],['0','Domingo']].map(([v,label])=>`<option value="${v}" ${Number(config.weekday??1)===Number(v)?'selected':''}>${label}</option>`).join('');
  const days=Array.from({length:28},(_,i)=>`<option value="${i+1}" ${Number(config.month_day??1)===i+1?'selected':''}>Día ${i+1}</option>`).join('');
- const paths=runs.filter(x=>x.status==='success'),bytes=paths.reduce((a,x)=>a+Number(x.size_bytes||0),0),recent=paths[0];
+ const paths=runs.filter(x=>backupRunState(x)==='saved'),recent=paths[0];
+ const attempts=runs.filter(x=>['failed','unfinished','running'].includes(backupRunState(x))),removed=runs.filter(x=>backupRunState(x)==='removed');
+ const backupBytes=state.data.storageUsage?.status==='ok'?Number(state.data.storageUsage.backup_bytes):null;
+ const labels={saved:'Guardada',failed:'No se creó la copia',unfinished:'Sin finalizar',running:'Preparando copia',removed:'Eliminada por conservación'};
+ const currentFiles=(state.data.documents||[]).filter(d=>d.storage_path).length;
+ const outdated=recent&&Number(recent.files_count)<currentFiles;
+ const lastAttempt=runs[0],lastState=lastAttempt?backupRunState(lastAttempt):null;
  const columns=[
   {label:'Creación',html:r=>esc(new Date(r.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
   {label:'Tipo',html:r=>r.mode==='scheduled'?'Automática':'Manual'},
-  {label:'Estado',html:r=>r.status==='success'?'<span class="badge ok">Completada</span>':r.status==='failed'?'<span class="badge warn">Fallida</span>':r.status==='expired'?'<span class="badge">Caducada / rotada</span>':'<span class="badge info">En curso</span>'},
+  {label:'Estado',html:r=>`<span class="badge ${backupRunState(r)==='saved'?'ok':backupRunState(r)==='running'?'info':'warn'}">${labels[backupRunState(r)]}</span>`},
   {label:'Tamaño',html:r=>r.size_bytes?((Number(r.size_bytes)/1024/1024).toFixed(2)+' MB'):'—'},
   {label:'Datos / archivos',html:r=>`${Number(r.rows_count||0)} registros · ${Number(r.files_count||0)} archivos`},
-  {label:'Incidencias',html:r=>esc(r.error_message||'—')},
+  {label:'Incidencias',html:r=>r.error_message?`<span>${esc(backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
   {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}</div>`:''}
  ];
  return `<div class="stack">
-  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias disponibles',String(paths.length))}${kpi('Espacio usado',bytes<1024*1024?(bytes/1024).toFixed(0)+' KB':(bytes/1024/1024).toFixed(1)+' MB')}${kpi('Conservación','10 copias más recientes')}</div>
+  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de 10')}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación','10 copias más recientes')}</div>
+  <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
+   <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia guardada en Supabase.'}</p>
+   ${lastAttempt?`<p>Último intento: <b>${labels[lastState]}</b> · ${esc(new Date(lastAttempt.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}.</p>`:''}
+   ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
+   <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de 10 copias completadas.</p>
+  </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
    <div class="form-grid" style="margin-top:14px">
     <label class="check-field wide emphasis-check"><input type="checkbox" id="backupEnabled" ${active?'checked':''}> Activar copias programadas</label>
@@ -690,9 +703,11 @@ function adminBackupHtml(){
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
    <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias admiten hasta 96 MB (128 MB descomprimidos) y se guardan en fragmentos privados verificados. Un exceso se mostrará como fallo y no como respaldo correcto.</div>
   </section>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Historial y descargas</h2><p>${recent?'Última copia correcta: '+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Aún no hay copias completas almacenadas.'} Revisa cada ejecución, errores, tamaño y archivos.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
-   ${table(columns,runs.slice(0,50),{emptyTitle:'Sin copias en el servidor',emptyText:'Puedes crear una copia manual o activar la programación.'})}
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Copias guardadas · descargas</h2><p>Solo copias completadas con archivo disponible para descargar. La fecha indica qué momento de los datos conservan.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
+   ${table(columns.filter(c=>c.label!=='Incidencias'),paths,{emptyTitle:'Sin copias guardadas',emptyText:'Los intentos fallidos aparecen por separado y no cuentan como copia.'})}
   </section>
+  <section class="card card-pad"><details class="backup-attempts"><summary>Intentos no completados y en curso · ${attempts.length}</summary><p>Este historial explica los fallos. No son copias descargables ni significan que se hayan borrado tus datos. Un intento puede dejar fragmentos: su espacio se incluye en Almacenamiento.</p>${table(columns.filter(c=>!['Datos / archivos','Tamaño',''].includes(c.label)),attempts,{emptyTitle:'Sin intentos pendientes o fallidos',emptyText:'Los próximos intentos aparecerán aquí.'})}</details></section>
+  <section class="card card-pad"><details><summary>Copias antiguas eliminadas · ${removed.length}</summary><p>Registro de las copias retiradas para conservar las diez más recientes. Sus archivos ya no están disponibles.</p>${table(columns.filter(c=>!['Incidencias','Datos / archivos','Tamaño',''].includes(c.label)),removed,{emptyTitle:'Sin copias eliminadas',emptyText:'Aquí aparecerá el historial de conservación.'})}</details></section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
   <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar
    <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" data-draft-ignore type="file" accept=".totusbackup,.zip,application/zip"></span>

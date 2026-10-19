@@ -1,4 +1,17 @@
 export const MAX_SAVED_BACKUPS=10;
+export function backupRunState(run,now=Date.now()){
+ if(run.status==='success'&&run.storage_path)return 'saved';
+ if(run.status==='expired')return 'removed';
+ if(run.status==='running')return now-Date.parse(run.started_at)>15*60*1000?'unfinished':'running';
+ return 'failed';
+}
+export function backupFailureSummary(message=''){
+ if(/array buffer|memory|allocation/i.test(message))return 'El servidor se quedó sin memoria al preparar la copia.';
+ if(/CPUTime|compresi[oó]n/i.test(message))return 'El servidor interrumpió la preparación por su límite de procesamiento.';
+ if(/429|connections/i.test(message))return 'Supabase limitó temporalmente la lectura de archivos.';
+ if(/plazo|confirmaci[oó]n/i.test(message))return 'La copia no llegó a confirmarse dentro del tiempo disponible.';
+ return 'No se completó la copia. Consulta el detalle para conocer el motivo.';
+}
 export function oldestBackupCandidates(runs,protectedPaths=[]){
  const protectedSet=new Set(protectedPaths);
  return runs.filter(r=>r.status==='success'&&r.storage_path)
