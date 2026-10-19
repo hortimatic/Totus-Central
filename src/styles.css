@@ -354,6 +354,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .data-table .compact-detail{display:flex;flex-direction:column;gap:6px;min-width:0}
 .data-table .compact-detail span{display:flex;flex-wrap:wrap;gap:3px 10px;white-space:normal;overflow-wrap:anywhere}
 .data-table .compact-detail b{white-space:nowrap}
+.section-head>.inline-actions{flex-shrink:0}
+.section-head>.inline-actions .btn{white-space:nowrap}
 
 /* Invoice editing: the form and its unsaved document stay visible together. */
 .invoice-workspace.record-layout{grid-template-columns:minmax(0,1.1fr) minmax(400px,.9fr)}

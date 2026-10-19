@@ -78,6 +78,8 @@ for(const width of [1901,1280,881,390]){
   return bad;
  }));
  if(overflow.length)failures.push('source-closings/'+width+': text crosses table cells: '+overflow.slice(0,5).join(', '));
+ const splitActions=await page.locator('.section-head .inline-actions .btn').evaluateAll(buttons=>buttons.filter(button=>{const range=document.createRange();range.selectNodeContents(button);return new Set([...range.getClientRects()].filter(r=>r.width).map(r=>Math.round(r.top))).size>1}).map(button=>button.textContent));
+ if(splitActions.length)failures.push('source-closings/'+width+': header action labels wrap: '+splitActions.join(', '));
  results.push({screen:'source-closings/'+width,rows:50,textOverflows:overflow.length});await page.close();
 }
 await browser.close();
