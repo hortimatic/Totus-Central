@@ -240,7 +240,15 @@ const client={
  auth:{getSession:async()=>({data:{session},error:null}),signInWithPassword:async()=>({data:{session},error:null}),signOut:async()=>{events?.('SIGNED_OUT',null);return {error:null}},resetPasswordForEmail:async()=>({data:{},error:null}),onAuthStateChange:fn=>{events=fn;return {data:{subscription:{unsubscribe(){}}}}}},
  from:table=>new Query(table),
  rpc,
- functions:{invoke:async name=>name==='totus-backup-run'?await mockCloudBackup():{data:null,error:{message:'Función no simulada'}}},
+ functions:{invoke:async (name,options)=>{
+ if(name!=='totus-backup-run')return {data:null,error:{message:'Función no simulada'}};
+ if(options?.body?.action!=='delete')return await mockCloudBackup();
+ const saved=db.ops_backup_runs.filter(r=>r.status==='success'&&r.storage_path);
+ const target=saved.find(r=>r.id===options.body.id);
+ if(!target||saved.length<=1)return {data:{error:'Conserva al menos una copia guardada.'},error:null};
+ uploaded.delete('business-backups/'+target.storage_path);target.storage_path=null;target.status='expired';
+ return {data:{deleted:target.id},error:null};
+ }},
  storage:{from:storageBucket}
 };
 window.supabase={createClient:()=>client};

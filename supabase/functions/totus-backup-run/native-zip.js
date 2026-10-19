@@ -82,5 +82,29 @@ export class NativeBackupZip{
  }
 }
 export class SegmentedBackupZip extends NativeBackupZip{
- constructor(){super();this.segmented=true}
+ constructor(){
+  super();this.segmented=true;this.chunks=[];this.total=0;this.complete=false;this.names=new Set();
+  this.writer=new Zip((error,bytes,final)=>{
+   if(error)throw error;
+   this.chunks.push(bytes);this.total+=bytes.length;this.complete=final;
+  });
+ }
+ file(name,content){
+  if(this.names.has(name))throw new Error('Entrada duplicada en copia: '+name);
+  if(this.complete)throw new Error('La copia ya está cerrada.');
+  this.names.add(name);
+  const bytes=typeof content==='string'?new TextEncoder().encode(content):content instanceof Uint8Array?content:new Uint8Array(content);
+  // Package each original as it arrives instead of retaining a second complete
+  // uncompressed inventory alongside the finished archive in the hosted worker.
+  const compress=bytes.length<=256*1024||name==='database.json'||name==='manifest.json';
+  const file=compress?new NativeDeflateFile(name):new NativeStoredFile(name);
+  this.writer.add(file);file.push(bytes,true);
+  return this;
+ }
+ async generateAsync(){
+  this.writer.end();
+  if(!this.complete)throw new Error('La copia ZIP no terminó correctamente.');
+  const hash=createHash('sha256');for(const chunk of this.chunks)hash.update(chunk);
+  return {segments:this.chunks,byteLength:this.total,sha256:hash.digest('hex')};
+ }
 }

@@ -26,6 +26,38 @@ async function canStart(req:Request,mode:string){
  const {data:staff,error:teamError}=await admin.from("team_members").select("role,active").ilike("email",user.email).maybeSingle();
  return !teamError&&staff?.role==="admin"&&staff?.active===true;
 }
+async function verifySavedBackup(id:string){
+ const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,archive_sha256').eq('id',id).single();
+ if(error||!run?.storage_path||run.status!=='success')throw new Error('Copia no disponible.');
+ const bytes=await readBackupObject(run.storage_path,async(path:string)=>{
+  const {data,error}=await admin.storage.from('business-backups').download(path);
+  if(error||!data)throw new Error('No se pudo leer un archivo de la copia.');return data;
+ });
+ const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
+ return {verified:true,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
+}
+async function deleteSavedBackup(id:string){
+ if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Identificador de copia inválido.');
+ const {data:runs,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path').in('status',['success','running']);
+ if(error)throw error;
+ const saved=(runs||[]).filter(r=>r.status==='success'&&r.storage_path),target=saved.find(r=>r.id===id);
+ if(!target)throw new Error('La copia ya no está disponible. Actualiza el listado.');
+ if(saved.length<=1)throw new Error('No puedes eliminar la única copia guardada. Crea otra primero.');
+ if((runs||[]).some(r=>r.status==='running'&&Date.now()-Date.parse(r.started_at)<15*60*1000))throw new Error('Espera a que termine la copia en preparación.');
+ const {data:jobs,error:jobError}=await admin.from('ops_recovery_jobs').select('checkpoint_path,source_path');
+ if(jobError)throw jobError;
+ if((jobs||[]).some(j=>j.checkpoint_path===target.storage_path||j.source_path===target.storage_path))throw new Error('Esta copia está vinculada a una recuperación y debe conservarse.');
+ const path=target.storage_path,slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
+ const {data:objects,error:listError}=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
+ if(listError||!objects||objects.length>=100)throw new Error('No se pudo verificar el inventario de la copia.');
+ const paths=backupObjectPaths(path,objects);
+ if(!paths.includes(path))throw new Error('No se encontró el archivo principal. No se ha eliminado la copia.');
+ const {error:removeError}=await admin.storage.from('business-backups').remove(paths);
+ if(removeError)throw removeError;
+ const {error:updateError}=await admin.from('ops_backup_runs').update({status:'expired',storage_path:null,error_message:'Eliminada manualmente por un administrador.'}).eq('id',id).eq('status','success');
+ if(updateError)throw updateError;
+ return {deleted:id,removed_objects:paths.length};
+}
 async function pruneBackups(){
  const runs:any[]=[];
  for(let offset=0;;offset+=1000){
@@ -128,6 +160,11 @@ Deno.serve(async(req)=>{
   const body=await req.json().catch(()=>({}));
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
+  if(body?.action==='verify')return reply(await verifySavedBackup(String(body?.id||'')));
+  if(body?.action==='delete'){
+   if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);
+   return reply(await deleteSavedBackup(String(body?.id||'')));
+  }
   return reply(body?.action==="prune"?await pruneBackups():await run(mode));
  }catch(e){return reply({error:String(e instanceof Error?e.message:e)},500);}
 });

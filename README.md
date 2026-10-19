@@ -18,10 +18,10 @@ Aplicación interna de gestión para Hortimatic y NewOldSmok. Código JavaScript
 - Usuario, configuración y permisos deben revisarse también contra las políticas RLS, funciones SQL y funciones Edge.
 - Las correcciones en GitHub **no implican que la web de staging esté actualizada**. Es necesario confirmar el despliegue real y la URL original.
 - La recuperación v3 restaura datos y archivos en el mismo proyecto, con comprobación de integridad, punto de vuelta y restauración SQL transaccional. Exige que existan las cuentas Auth originales; no sustituye una copia de infraestructura ni recupera contraseñas. Los formatos antiguos se pueden inspeccionar, pero no restaurar.
-- Las copias incluyen como máximo 49 MB de archivo y 8 MB de datos JSON. Si falta un archivo vinculado o se supera el límite, se rechaza la copia completa; nunca se presenta una copia parcial como recuperable.
+- Las copias incluyen como máximo 96 MB de archivo (128 MB descomprimidos) y 8 MB de datos JSON. Si falta un archivo vinculado o se supera el límite, se rechaza la copia completa; nunca se presenta una copia parcial como recuperable.
 - Staging tiene el registro público cerrado y exige al menos 12 caracteres en las nuevas contraseñas. La detección de contraseñas filtradas requiere un plan de Supabase compatible y no está habilitada en el plan Free actual.
 - Los documentos emitidos conservan su archivo original y su logo histórico. Los vínculos de documentos con gastos y facturas se actualizan dentro de la misma transacción.
-- El primer semestre de 2026 no debe importarse sin conciliación de fuentes y aprobación explícita.
+- Los tres primeros trimestres de 2026 están cargados y aceptados por el titular. No volver a importarlos ni alterar sus cifras sin contraste y autorización. Octubre se introduce manualmente.
 
 ## Pruebas
 
@@ -37,3 +37,7 @@ Los controles de RETA sin efecto en los cálculos se han retirado. Las cuotas ef
 - Registrar cambios de base de datos mediante migraciones y contrastarlos con el esquema actual.
 - Ninguna limpieza puede borrar información histórica, registros fiscales, documentos o copias útiles sin inventario previo y recuperación verificada.
 - Documentación base: `TOTUS_CENTRAL_INSTRUCCIONES_AUDITORIA_STAGING_2026-10-14.txt` en fuentes privadas; revisar `docs/auditorias/` para hallazgos y pendientes.
+
+## Relevo online
+
+Ver [RELEVO_CHATGPT_ONLINE.md](RELEVO_CHATGPT_ONLINE.md). Las copias nocturnas se ejecutan en Supabase a las 00:35 Europe/Madrid, sin ordenador encendido; se conservan las diez completadas más recientes. Consultar el estado real en Administración → Copias: no confundir intentos fallidos con copias guardadas ni una copia histórica con un respaldo actualizado.

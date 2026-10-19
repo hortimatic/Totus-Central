@@ -1568,6 +1568,18 @@ async function runBackupOnServer(){
   toast('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB. Pulsa «Actualizar historial» para verla.','ok');
  }).catch(error=>toast(error.message||String(error),'bad')).finally(()=>{cloudBackupRunning=false});
 }
+async function deleteStoredBackup(id){
+ if(!isAdmin())throw new Error('Solo el administrador puede eliminar copias.');
+ const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
+ if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible.');
+ if((state.data.backupRuns||[]).filter(r=>r.status==='success'&&r.storage_path).length<=1)throw new Error('Conserva al menos una copia guardada.');
+ const date=new Date(run.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'});
+ if(!await confirmAction('Se eliminará definitivamente la copia del '+date+' y todos sus fragmentos de Supabase. Los datos actuales de la herramienta no se borran. Esta acción no se puede deshacer.',{title:'Eliminar copia de seguridad',acceptLabel:'Eliminar esta copia'}))return;
+ const {data,error}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual',action:'delete',id}});
+ if(error||data?.error)throw new Error(data?.error||error?.message||'No se pudo eliminar la copia.');
+ if(data?.deleted!==id)throw new Error('La eliminación no se ha confirmado. Actualiza y comprueba el estado.');
+ await refresh('Copia eliminada de Supabase.');
+}
 async function readBackupStorage(path){
  const {data,error}=await sb.storage.from('business-backups').download(path);
  if(error||!data)throw new Error('No se pudo leer la copia: '+(error?.message||'No disponible'));
@@ -2058,6 +2070,7 @@ document.addEventListener('click',async e=>{
   if(a==='backup-run-now'){await runBackupOnServer();return}
   if(a==='backup-history-download'){await downloadStoredBackup(el.dataset.id);return}
   if(a==='backup-history-verify'){await verifyStoredBackup(el.dataset.id);return}
+  if(a==='backup-history-delete'){await deleteStoredBackup(el.dataset.id);return}
   if(a==='backup-refresh'){await refresh('Historial de copias actualizado.');return}
   if(a==='backup-create'){await downloadBackup();return}
   if(a==='backup-verify'){await verifyBackupFromInput();return}

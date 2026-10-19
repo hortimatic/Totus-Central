@@ -132,6 +132,16 @@ try{
  await page.locator('[data-action="backup-create"]').click();
  assert((await local).suggestedFilename().endsWith('.totusbackup'));
  steps.push('backup:local-download');
+ await page.locator('[data-action="backup-history-delete"][data-id="old-qa-archive"]').click();
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ assert.equal(await page.locator('[data-action="backup-history-download"]').count(),2,'Cancelar eliminó una copia');
+ await page.locator('[data-action="backup-history-delete"][data-id="old-qa-archive"]').click();
+ await page.getByRole('button',{name:'Eliminar esta copia',exact:true}).click();
+ await page.waitForTimeout(80);
+ assert.equal(await page.locator('[data-action="backup-history-download"]').count(),1,'La copia eliminada sigue descargable');
+ assert(await page.locator('[data-action="backup-history-delete"]').isDisabled(),'Debe proteger la única copia disponible');
+ assert.equal(await page.evaluate(()=>window.__mockUploads.has('business-backups/automaticas/antigua.totusbackup')),false);
+ steps.push('backup:delete-confirm-cancel-and-last-copy-protected');
  await page.evaluate(()=>{
   window.__mockDb.ops_backup_runs.push(
    {id:'failed-qa',status:'failed',started_at:new Date().toISOString(),error_message:'Array buffer allocation failed'},
@@ -140,11 +150,9 @@ try{
  });
  await page.locator('[data-action="backup-refresh"]').first().click();
  assert((await page.locator('.backup-health').innerText()).includes('No se creó la copia'));
- assert.equal(await page.locator('.backup-attempts').getAttribute('open'),null,'Los fallos antiguos no deben ocupar la vista principal');
- await page.locator('.backup-attempts summary').first().click();
- assert((await page.locator('.backup-attempts').innerText()).includes('Sin finalizar'));
- assert((await page.locator('.backup-attempts').innerText()).includes('sin memoria'));
- assert.equal(await page.locator('[data-action="backup-history-download"]').count(),2,'Intentos fallidos o eliminados cuentan como copias');
+ assert.equal(await page.locator('.backup-attempts').count(),0,'No deben mostrarse los intentos antiguos en Copias');
+ assert(!(await page.locator('#content').innerText()).includes('Array buffer allocation failed'),'Los errores técnicos antiguos no deben llenar la pantalla');
+ assert.equal(await page.locator('[data-action="backup-history-download"]').count(),1,'Intentos fallidos o eliminados cuentan como copias');
  steps.push('backup:clear-failures-and-stale-state');
  await page.evaluate(async()=>{
   const when=new Date('2026-10-14T11:00:00Z').toISOString();

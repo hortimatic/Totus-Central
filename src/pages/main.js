@@ -666,7 +666,6 @@ function adminBackupHtml(){
  const weekOptions=[['1','Lunes'],['2','Martes'],['3','Miércoles'],['4','Jueves'],['5','Viernes'],['6','Sábado'],['0','Domingo']].map(([v,label])=>`<option value="${v}" ${Number(config.weekday??1)===Number(v)?'selected':''}>${label}</option>`).join('');
  const days=Array.from({length:28},(_,i)=>`<option value="${i+1}" ${Number(config.month_day??1)===i+1?'selected':''}>Día ${i+1}</option>`).join('');
  const paths=runs.filter(x=>backupRunState(x)==='saved'),recent=paths[0];
- const attempts=runs.filter(x=>['failed','unfinished','running'].includes(backupRunState(x))),removed=runs.filter(x=>backupRunState(x)==='removed');
  const backupBytes=state.data.storageUsage?.status==='ok'?Number(state.data.storageUsage.backup_bytes):null;
  const labels={saved:'Guardada',failed:'No se creó la copia',unfinished:'Sin finalizar',running:'Preparando copia',removed:'Eliminada por conservación'};
  const currentFiles=(state.data.documents||[]).filter(d=>d.storage_path).length;
@@ -679,13 +678,14 @@ function adminBackupHtml(){
   {label:'Tamaño',html:r=>r.size_bytes?((Number(r.size_bytes)/1024/1024).toFixed(2)+' MB'):'—'},
   {label:'Datos / archivos',html:r=>`${Number(r.rows_count||0)} registros · ${Number(r.files_count||0)} archivos`},
   {label:'Incidencias',html:r=>r.error_message?`<span>${esc(backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
-  {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}</div>`:''}
+  {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}${btn('Eliminar','backup-history-delete','danger',`data-id="${r.id}" ${paths.length<=1?'disabled title="Conserva al menos una copia"':''}`)}</div>`:''}
  ];
  return `<div class="stack">
   <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de 10')}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación','10 copias más recientes')}</div>
   <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
    <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia guardada en Supabase.'}</p>
    ${lastAttempt?`<p>Último intento: <b>${labels[lastState]}</b> · ${esc(new Date(lastAttempt.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}.</p>`:''}
+   ${['failed','unfinished'].includes(lastState)?`<p class="note warn">${esc(backupFailureSummary(lastAttempt?.error_message||''))} Las copias guardadas anteriores se conservan.</p>`:''}
    ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
    <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de 10 copias completadas.</p>
   </section>
@@ -706,8 +706,6 @@ function adminBackupHtml(){
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Copias guardadas · descargas</h2><p>Solo copias completadas con archivo disponible para descargar. La fecha indica qué momento de los datos conservan.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
    ${table(columns.filter(c=>c.label!=='Incidencias'),paths,{emptyTitle:'Sin copias guardadas',emptyText:'Los intentos fallidos aparecen por separado y no cuentan como copia.'})}
   </section>
-  <section class="card card-pad"><details class="backup-attempts"><summary>Intentos no completados y en curso · ${attempts.length}</summary><p>Este historial explica los fallos. No son copias descargables ni significan que se hayan borrado tus datos. Un intento puede dejar fragmentos: su espacio se incluye en Almacenamiento.</p>${table(columns.filter(c=>!['Datos / archivos','Tamaño',''].includes(c.label)),attempts,{emptyTitle:'Sin intentos pendientes o fallidos',emptyText:'Los próximos intentos aparecerán aquí.'})}</details></section>
-  <section class="card card-pad"><details><summary>Copias antiguas eliminadas · ${removed.length}</summary><p>Registro de las copias retiradas para conservar las diez más recientes. Sus archivos ya no están disponibles.</p>${table(columns.filter(c=>!['Incidencias','Datos / archivos','Tamaño',''].includes(c.label)),removed,{emptyTitle:'Sin copias eliminadas',emptyText:'Aquí aparecerá el historial de conservación.'})}</details></section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
   <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar
    <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" data-draft-ignore type="file" accept=".totusbackup,.zip,application/zip"></span>

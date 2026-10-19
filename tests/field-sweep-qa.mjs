@@ -27,7 +27,7 @@ for(const [size,viewport] of [['desktop',{width:1440,height:960}],['tablet',{wid
  for(const [view,query] of pages){
   jsErrors.length=0;
   await page.goto('http://127.0.0.1:4173/tests/ui-harness.html'+query,{waitUntil:'networkidle'});
-  const controls=page.locator('#root input:not([type="file"]):not([type="hidden"]):not([disabled]),#root textarea:not([disabled]),#root select:not([disabled])');
+  const controls=page.locator('#root input:not([type="file"]):not([type="hidden"]):not([disabled]):not([readonly]),#root textarea:not([disabled]):not([readonly]),#root select:not([disabled]):not([readonly])');
   const count=await controls.count();
   let filled=0;
   for(let i=0;i<count;i++){
