@@ -1745,7 +1745,7 @@ async function exportGestorPackage(year){
  const incomeCsv=csv(incomeRows,['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]})));ingresos.file(`Ingresos_${year}.csv`,incomeCsv);
  const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
  gastos.file(`Tabla_gestoria_${year}.xlsx`,workbookBlob(buildGestorSourceWorkbook({...args,from:`${year}-01-01`,to:`${year}-12-31`,store:'all'})));
- for(const store of stores)for(let month=1;month<=12;month++){const wb=buildStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories});diarios.file(`${safeFileSegment(store.name)}/${year}-${String(month).padStart(2,'0')} Gastos y ventas.xlsx`,workbookBlob(wb))}
+ for(const store of stores)for(let month=1;month<=12;month++){const wb=buildStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories,incomeAdjustments:state.data.incomeAdjustments});diarios.file(`${safeFileSegment(store.name)}/${year}-${String(month).padStart(2,'0')} Gastos y ventas.xlsx`,workbookBlob(wb))}
  const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
  const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
  const yearAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year)));

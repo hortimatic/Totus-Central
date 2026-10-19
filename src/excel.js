@@ -18,7 +18,9 @@ function drawerName(drawers,id){return drawers.find(d=>d.id===id)?.name||''}
 
 export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,from,to}){
  const wb=book();
- const rows=closings.map(c=>[
+ const rows=closings.map(c=>c.entry_mode==='source_snapshot'?[
+  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','','',n(c.actual_cash),'Origen sin conciliar',c.notes||''
+ ]:[
   fmtDate(c.business_date),storeName(stores,c.store_id),n(c.cash_sales),n(c.card_sales),n(c.bizum_sales),n(c.online_sales),n(c.other_income),
   n(c.cash_sales)+n(c.card_sales)+n(c.bizum_sales)+n(c.online_sales)+n(c.other_income),n(c.actual_cash),c.status||'',c.notes||''
  ]);
@@ -27,7 +29,7 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  aoa.push(['','','','','','','','TOTAL','','','']);
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,11);
- ws[`H${totalRow+1}`]={t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',s:totalStyle,z:euro};
+ ws[`H${totalRow+1}`]=closings.length&&!closings.some(c=>c.entry_mode!=='source_snapshot')?{t:'s',v:'Sin ventas conciliadas',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',s:totalStyle,z:euro};
  for(let r=5;r<=totalRow;r++)for(const col of ['C','D','E','F','G','H','I'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,13,13,13,13,13,15,15,12,35]);
  ws['!freeze']={xSplit:0,ySplit:4};
@@ -44,6 +46,15 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  styleHeader(wa,0,14);for(let r=2;r<=detail.length+1;r++)for(const col of ['D','E','F','G','H','I','J','K','L','M','N'])if(wa[`${col}${r}`])wa[`${col}${r}`].z=euro;
  autoWidths(wa,[12,18,18,13,13,13,13,13,13,13,13,13,13,15]);wa['!autofilter']={ref:`A1:N${detail.length+1}`};wa['!freeze']={ySplit:1};
  XLSX.utils.book_append_sheet(wb,wa,'Detalle por caja');
+
+ const originals=closings.filter(c=>c.entry_mode==='source_snapshot').flatMap(c=>readClosingSource(c).drawers.map(d=>[
+  fmtDate(c.business_date),storeName(stores,c.store_id),d.name,d.opening??'',d.al_fin??'',d.closing??'',d.comment||'',d.source_id||'','No · pendiente de conciliación'
+ ]));
+ if(originals.length){
+  const sourceSheet=XLSX.utils.aoa_to_sheet([['Fecha','Tienda','Caja','Apertura original','Al fin original','Efectivo siguiente apertura','Comentario original','Referencia','Incluido en ingresos fiscales'],...originals]);
+  styleHeader(sourceSheet,0,9);autoWidths(sourceSheet,[12,18,14,18,18,24,38,16,32]);sourceSheet['!autofilter']={ref:`A1:I${originals.length+1}`};sourceSheet['!freeze']={ySplit:1};
+  XLSX.utils.book_append_sheet(wb,sourceSheet,'Orígenes importados');
+ }
 
  write(wb,`cierres_${from}_${to}.xlsx`);
 }
@@ -126,7 +137,24 @@ function legacyExpenseAmount(expense){return n(expense.gross_expense??expense.ac
 function setCell(ws,addr,value,style,formula=null){
  const t=typeof value==='number'?'n':'s';ws[addr]={t,v:value,s:style};if(formula)ws[addr].f=formula;
 }
-function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,invoiceNumbers=false}){
+function readClosingSource(closing){
+ let source;try{source=JSON.parse(closing.source_ref)}catch{throw new Error('No se puede exportar un cierre cuyo origen no se puede leer.');}
+ if(source?.kind!=='closing_source_snapshot'||!Array.isArray(source.drawers)||closing.include_in_income!==false)throw new Error('El cierre de origen debe conservarse separado de ingresos fiscales.');
+ return source;
+}
+function monthlySourceReference(incomeAdjustments,storeId,period){
+ const sources=[];
+ for(const row of incomeAdjustments.filter(x=>x.store_id===storeId)){
+  let source;try{source=JSON.parse(row.notes)}catch{continue;}
+  if(source?.kind==='monthly_source_reference'&&source.period===period){
+   if(!['bank_entries','withdrawal_entries','payment_entries'].every(key=>Array.isArray(source[key])))throw new Error('El origen del libro mensual está incompleto.');
+   sources.push(source);
+  }
+ }
+ if(sources.length>1)throw new Error('Hay más de un origen para el mismo libro mensual. Revisa la importación.');
+ return sources[0];
+}
+function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments=[],invoiceNumbers=false}){
  const invoiceReferences=new Map();
  const monthName=MONTHS[month],ws={};
  ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,!/newold|smok/i.test(store.name||'')&&month===0?33:30.7109375,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
@@ -143,7 +171,24 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
   totals.cash_withdrawals+=n(closing.cash_withdrawals);
   byDateClose.set(date,totals);
  }
- const expMonth=expenses.filter(x=>x.store_id===store.id&&String(x.expense_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||String(a.created_at||'').localeCompare(String(b.created_at||'')));
+ const period=`${year}-${String(month+1).padStart(2,'0')}`,source=monthlySourceReference(incomeAdjustments,store.id,period);
+ let monthExpenses=expenses.filter(x=>x.store_id===store.id&&String(x.expense_date).startsWith(period));
+ if(source){
+  byDateClose.clear();
+  for(const [field,entries] of [['card_sales',source.bank_entries],['cash_withdrawals',source.withdrawal_entries]])for(const entry of entries){
+   if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Apunte bancario fuera del mes o con importe inválido.');
+   const totals=byDateClose.get(entry.date)||{card_sales:null,cash_withdrawals:null};totals[field]=(totals[field]??0)+Number(entry.amount);byDateClose.set(entry.date,totals);
+  }
+  const belongsToSource=expense=>{try{const ref=JSON.parse(expense.source_ref);return typeof source.batch==='string'&&source.batch!==''&&ref.batch===source.batch}catch{return false}};
+  const imported=expenses.filter(x=>x.store_id===store.id&&belongsToSource(x));
+  monthExpenses=source.payment_entries.map(entry=>{
+   if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Pago original fuera del mes o con importe inválido.');
+   const invoice=entry.invoice_number?imported.find(x=>x.invoice_number===entry.invoice_number):null;
+   const raw=imported.find(x=>{try{const ref=JSON.parse(x.source_ref);return ref.kind==='bank_payment_source'&&ref.source?.row===entry.row}catch{return false}});
+   return {...(invoice||raw||{}),source_row:entry.row,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
+  }).concat(monthExpenses.filter(x=>!belongsToSource(x)));
+ }
+ const expMonth=monthExpenses.sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||(a.source_row!=null&&b.source_row!=null?a.source_row-b.source_row:String(a.created_at||'').localeCompare(String(b.created_at||''))));
  for(let d=1;d<=days;d++){
    const key=excelDateKey(year,month,d),close=byDateClose.get(key),dayExp=expMonth.filter(x=>String(x.expense_date).slice(0,10)===key);
    const count=Math.max(1,dayExp.length);
@@ -158,7 +203,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
        setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
      }else{setCell(ws,`C${row}`,'',textStyle(stripe));setCell(ws,`D${row}`,'',moneyStyle(stripe))}
      if(k===0&&close){
-       setCell(ws,`E${row}`,n(close.card_sales),moneyStyle(stripe));setCell(ws,`F${row}`,n(close.cash_withdrawals),moneyStyle(stripe));
+       setCell(ws,`E${row}`,close.card_sales==null?'':n(close.card_sales),moneyStyle(stripe));setCell(ws,`F${row}`,close.cash_withdrawals==null?'':n(close.cash_withdrawals),moneyStyle(stripe));
      }else{setCell(ws,`E${row}`,'',moneyStyle(stripe));setCell(ws,`F${row}`,'',moneyStyle(stripe))}
    }
  }
@@ -180,6 +225,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  setCell(ws,`C${row}`,`${fmtEuro(grossExpenses)}€ - ${fmtEuro(internalTotal)}€ = ${fmtEuro(grossExpenses-internalTotal)}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`${fmtEuro(cardTotal+cashTotal)}€ - ${fmtEuro(grossExpenses-internalTotal)}€ = ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`Total ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);
+ if(source){row+=2;setCell(ws,`C${row}`,'Libro original de tesorería: pagos y tarjetas por fecha bancaria. La revisión fiscal se consulta en el libro de gestoría.',{font:{name:'Calibri',sz:10},alignment:{wrapText:true,vertical:'top'}});ws['!merges'].push(XLSX.utils.decode_range(`C${row}:F${row}`));ws['!rows']=ws['!rows']||[];ws['!rows'][row-1]={hpt:44};}
  ws['!ref']=`A1:F${Math.max(row,totalRow)}`;
  let output=ws;
  if(invoiceNumbers){
@@ -191,7 +237,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
    output[XLSX.utils.encode_cell(position)]={...cell,...(cell.f?{f:shiftFormula(cell.f)}:{})};
   }
   output['!cols']=[...ws['!cols'].slice(0,3),{wch:20},...ws['!cols'].slice(3)];
-  output['!merges']=[XLSX.utils.decode_range('B1:G1')];output['!ref']=`A1:G${Math.max(row,totalRow)}`;
+  output['!merges']=ws['!merges'].map(range=>({s:{...range.s,c:range.s.c>=3?range.s.c+1:range.s.c},e:{...range.e,c:range.e.c>=3?range.e.c+1:range.e.c}}));output['!ref']=`A1:G${Math.max(row,totalRow)}`;if(ws['!rows'])output['!rows']=ws['!rows'];
   output['D2']={...ws.C2,v:'Nº factura'};
   for(let r=3;r<=lastData;r++)output[`D${r}`]={t:'s',v:invoiceReferences.get(r)||'',s:{...textStyle(r%2===1?LEGACY_COLORS.stripe:null),alignment:{vertical:'center',wrapText:true}}};
   output['!autofilter']={ref:`B2:G${lastData}`};
@@ -199,8 +245,8 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  }
  XLSX.utils.book_append_sheet(wb,output,monthName);
 }
-export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories}){
- const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories});
+export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories,incomeAdjustments=[]}){
+ const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments});
  wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
 }
 export function buildStoreMonthlyWorkbook(args){
