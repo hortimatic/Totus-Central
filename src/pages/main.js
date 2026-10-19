@@ -1,4 +1,5 @@
 import {archiveAccepted,quarterPresented,lastDrawerBalance} from '../historical-acceptance.js';
+import {SUPABASE_URL} from '../config.js';
 import {reportMonths,selectReportData,matchesText,searchText,selectDocuments} from '../report-period.js';
 import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
@@ -96,6 +97,7 @@ export function inicio(){
  // Never silently show 0 MB on the home dashboard when the server measurement fails.
  const storageOk=usage.status==='ok'&&Number.isFinite(Number(usage.total_bytes))&&Number.isFinite(Number(usage.limit_bytes))&&Number(usage.limit_bytes)>0;
  const used=storageOk?Number(usage.total_bytes):null,limit=storageOk?Number(usage.limit_bytes):null,storagePct=storageOk?used/limit*100:null;
+ const storageFiles=Number(usage.all_buckets_bytes),storageFilesOk=usage.all_buckets_bytes!=null&&Number.isFinite(storageFiles)&&storageFiles>=0;
  const yFrom=`${year}-01-01`;
  const incomeYtd=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,yFrom,qTo)),closingIncomeAmount)
   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)),x=>x.total_amount)
@@ -158,7 +160,7 @@ export function inicio(){
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Seguimiento y sistema</h2><p>Informes, usuarios y almacenamiento en un vistazo.</p></div></div><div class="dashboard-grid">
    <article class="card card-pad"><div class="section-head"><div><h3>Informes y gestoría</h3><p>Prepara libros y paquetes con el periodo correcto.</p></div></div><div class="home-report-cards"><button class="report-shortcut" data-action="home-report-quarter"><span>Trimestre actual</span><b>${quarter}T ${year}</b><small>${fmtDate(qFrom)} → ${fmtDate(qTo)}</small></button><button class="report-shortcut" data-action="home-report-year"><span>Año actual</span><b>${year}</b><small>01/01/${year} → 31/12/${year}</small></button></div><div class="dashboard-links"><button class="btn secondary" data-route="informes">Abrir informes</button></div></article>
-   <article class="card card-pad"><div class="section-head"><div><h3>Estado del sistema</h3><p>Control básico de la herramienta.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div><div class="summary-row"><span>Usuarios activos</span><strong>${activeUsers}</strong></div><div class="summary-row"><span>Documentos</span><strong>${state.data.documents.length}</strong></div><div class="summary-row"><span>Almacenamiento usado</span><strong>${storageOk?(used/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>Ocupación</span><strong class="${storageOk&&storagePct>=95?'danger-text':storageOk&&storagePct>=85?'warn-text':''}">${storageOk?storagePct.toFixed(1).replace('.',',')+' % de '+(limit/1048576).toFixed(0)+' MB':'Sin medir'}</strong></div><div class="dashboard-links">${isManager()?'<button class="btn secondary" data-action="admin-storage-home">Almacenamiento</button><button class="btn secondary" data-action="admin-users-home">Usuarios</button>':''}</div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Estado del sistema</h3><p>Control básico de la herramienta.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div><div class="summary-row"><span>Usuarios activos</span><strong>${activeUsers}</strong></div><div class="summary-row"><span>Documentos</span><strong>${state.data.documents.length}</strong></div><div class="summary-row"><span>Almacenamiento usado · archivos de Totus</span><strong>${storageOk&&storageFilesOk?(storageFiles/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>De ellos, documentos y logos</span><strong>${storageOk?(used/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>Base de datos · por separado</span><strong>${storageOk&&usage.database_bytes!=null&&Number.isFinite(Number(usage.database_bytes))?(Number(usage.database_bytes)/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>Ocupación del límite interno</span><strong class="${storageOk&&storagePct>=95?'danger-text':storageOk&&storagePct>=85?'warn-text':''}">${storageOk?storagePct.toFixed(1).replace('.',',')+' % de '+(limit/1048576).toFixed(0)+' MB':'Sin medir'}</strong></div><div class="dashboard-links">${isManager()?'<button class="btn secondary" data-action="admin-storage-home">Almacenamiento</button><button class="btn secondary" data-action="admin-users-home">Usuarios</button>':''}</div></article>
   </div></section>
  </div>`;
 }
@@ -370,7 +372,7 @@ export function documentos(){
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page documents-page">
-  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Uso de almacenamiento',storageVerified?(used/1024/1024).toFixed(1).replace('.',',')+' MB':'No disponible',storageVerified?usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB':'Sin medición fiable de Supabase')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
+  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Documentos y logos almacenados',storageVerified?(used/1024/1024).toFixed(1).replace('.',',')+' MB':'No disponible',storageVerified?usagePct.toFixed(1).replace('.',',')+' % del límite interno de Totus · no es la cuota del plan':'Sin medición fiable de Supabase')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Busca por fecha, tienda, proveedor o número de factura. Abre cada documento para revisar su clasificación y sus datos.</p></div><div class="inline-actions">${btn('+ Subir documento','document-new','primary')}</div></div>
    <div class="document-filters">${dateFilters({...f,stores:stores()},'documentos',extra)}</div><div class="document-batch-toolbar"><span class="small muted">${rows.length} documentos encontrados</span><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden></div></div>
@@ -587,6 +589,9 @@ function adminStorageHtml(){
  const pct=Math.max(0,Math.min(100,total/limit*100));
  const stamp=u.measured_at?new Date(u.measured_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}):'Sin fecha';
  const remaining=Math.max(0,limit-total);
+ const fileTotal=Number(u.all_buckets_bytes),fileTotalOk=u.all_buckets_bytes!=null&&Number.isFinite(fileTotal)&&fileTotal>=total+backups;
+ const projectRef=String(SUPABASE_URL).match(/^https:\/\/([a-z0-9]+)\.supabase\.co(?:\/|$)/)?.[1];
+ const providerUrl=projectRef?'https://supabase.com/dashboard/project/'+projectRef:'https://supabase.com/dashboard/organizations';
  let forecast='Sin datos históricos suficientes';
  let explanation='La previsión necesita al menos dos mediciones separadas siete días. No se calcula con cifras inventadas.';
  if(total>=limit){
@@ -601,14 +606,16 @@ function adminStorageHtml(){
  const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
  return `<div class="stack storage-dashboard">
   <section class="card card-pad">
-   <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Medición real de archivos guardados en el servidor, con actualización automática mientras esta pantalla está abierta.</p></div>
+   <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Tamaño actual de los archivos y de la base de datos, medido en este proyecto.</p></div>
     <div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></div>
    <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b id="storageMeasuredAt">${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
-   <div class="storage-observed-heading"><div><h3>Espacio total observado en Supabase</h3><p>Desglose proporcional de lo que ocupa cada componente medido; no representa la cuota del plan.</p></div><strong id="storageObservedTotal">${measuredOk?mb(measuredTotal):'No disponible'}</strong></div>
+   <div class="kpis" style="margin-top:16px">${kpi('Todos los archivos de Totus',fileTotalOk?mb(fileTotal):'No disponible','Incluye documentos, logos y archivos de copias')}${kpi('Base de datos · por separado',Number.isFinite(dbSize)?mb(dbSize):'No disponible','No comparte la cuota de los archivos')}</div>
+   <p class="note">El espacio de archivos y el de la base de datos tienen límites distintos en Supabase. El límite de ${mb(limit)} de Totus es solo un control interno de documentos y logos; no es la capacidad del plan. <a href="${esc(providerUrl)}" target="_blank" rel="noopener noreferrer">Abrir este proyecto en Supabase</a> → organización → Usage para consultar la cuota y el consumo del plan.</p>
+   <div class="storage-observed-heading"><div><h3>Reparto de los componentes medidos</h3><p>Suma de archivos y base de datos. No es el espacio total del servidor ni una cuota única del plan.</p></div><strong id="storageObservedTotal">${measuredOk?mb(measuredTotal):'No disponible'}</strong></div>
    ${measuredOk?`<div id="storageObservedBar" class="storage-breakdown-bar" role="img" aria-label="Distribución del almacenamiento observado: PostgreSQL ${mb(dbSize)}, documentos ${mb(u.documents_bytes)}, logos ${mb(u.assets_bytes)}, copias ${mb(backups)}">
     <span class="storage-segment-db" style="width:${measurePercent(dbSize)}%" title="PostgreSQL: ${mb(dbSize)}"></span><span class="storage-segment-docs" style="width:${measurePercent(u.documents_bytes)}%" title="Documentos: ${mb(u.documents_bytes)}"></span><span class="storage-segment-assets" style="width:${measurePercent(u.assets_bytes)}%" title="Logos: ${mb(u.assets_bytes)}"></span><span class="storage-segment-backups" style="width:${measurePercent(backups)}%" title="Copias: ${mb(backups)}"></span>
    </div><div class="storage-legend"><span><i class="storage-legend-db"></i> PostgreSQL · ${mb(dbSize)}</span><span><i class="storage-legend-docs"></i> Documentos · ${mb(u.documents_bytes)}</span><span><i class="storage-legend-assets"></i> Logos · ${mb(u.assets_bytes)}</span><span><i class="storage-legend-backups"></i> Copias · ${mb(backups)}</span></div>`:'<div class="note warn">No se dispone de una medición verificable de la base de datos. No se calcula una barra ficticia.</div>'}
-   <div class="storage-quota-title"><h3>Cuota interna para documentos y logos</h3><p>Este límite operativo de Totus no incluye la base de datos ni las copias.</p></div>
+   <div class="storage-quota-title"><h3>Control interno de subidas · documentos y logos</h3><p>Esta barra solo controla nuevas subidas en Totus. No incluye copias ni base de datos, y no indica cuánto queda libre en el plan de Supabase.</p></div>
    <div class="storage-usage-header"><strong>${mb(total)} usados</strong><strong>${mb(remaining)} disponibles</strong></div>
    <progress id="storageUsageBar" aria-label="Porcentaje ocupado del límite de documentos y logos" max="100" value="${pct.toFixed(2)}"></progress>
    <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1})} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>
@@ -617,15 +624,15 @@ function adminStorageHtml(){
   <div class="kpis">
    ${kpi('Facturas y documentos',mb(u.documents_bytes||0))}
    ${kpi('Logos y recursos',mb(u.assets_bytes||0))}
-   ${kpi('Copias privadas adicionales',mb(backups))}
-   ${kpi('Estimación de capacidad',forecast)}
+   ${kpi('Archivos de copias en Supabase',mb(backups),'Pueden incluir partes o intentos; no es un recuento de copias completas')}
+   ${kpi('Tiempo hasta el límite interno',forecast)}
   </div>
   <div class="storage-information-grid">
    <section class="card card-pad">
     <h3>Distribución del almacenamiento</h3>
     <div class="summary-row"><span>Documentos originales</span><strong>${mb(u.documents_bytes)} · ${Number(u.documents_count||0)} archivo(s)</strong></div>
     <div class="summary-row"><span>Logos y recursos</span><strong>${mb(u.assets_bytes)} · ${Number(u.assets_count||0)} archivo(s)</strong></div>
-    <div class="summary-row"><span>Backups en nube privada</span><strong>${mb(backups)} · ${Number(u.backup_count||0)} copia(s)</strong></div>
+    <div class="summary-row"><span>Backups · archivos y partes almacenados</span><strong>${mb(backups)} · ${Number(u.backup_count||0)} archivo(s)</strong></div>
     <div class="summary-row"><span>Total de archivos en estos tres espacios</span><strong>${mb(u.all_buckets_bytes)}</strong></div>
     <div class="summary-row"><span>Base de datos PostgreSQL (aprox.)</span><strong>${Number.isFinite(Number(u.database_bytes))?mb(u.database_bytes):'No disponible'}</strong></div>
     <div class="summary-row"><span>Total observado en Totus + PostgreSQL</span><strong>${Number.isFinite(Number(u.observed_total_bytes))?mb(u.observed_total_bytes):'No disponible'}</strong></div>
@@ -637,7 +644,7 @@ function adminStorageHtml(){
     <p class="small muted">${esc(explanation)}</p>
     <div class="summary-row"><span>Mediciones históricas</span><strong>${Number(u.sample_count||0)}</strong></div>
     <div class="summary-row"><span>Tendencia media neta</span><strong>${bytes(u.daily_growth_bytes)>0?mb(u.daily_growth_bytes)+'/día':'No calculable'}</strong></div>
-    <p class="note">Para verificar el almacenamiento total del proyecto y el límite de tu plan, consulta <b>Supabase → Usage</b>. Totus no inventará esa cuota.</p>
+    <p class="note">Esta previsión se refiere al control interno de subidas. <b>Supabase → Usage</b> muestra el consumo del plan durante su periodo: puede ser un promedio y tardar en actualizarse. Por eso puede diferir del tamaño actual de los archivos que se muestra aquí. La cuota disponible del plan no se calcula a partir del límite interno.</p>
    </section>
   </div>
  </div>`;
