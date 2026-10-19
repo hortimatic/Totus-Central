@@ -7,6 +7,8 @@ try{
  const fixture=await page.evaluate(async()=>{
   const db=window.__mockDb,shop=db.ops_stores[0],drawers=db.ops_cash_drawers.filter(d=>d.store_id===shop.id),day=new Date().toISOString().slice(0,10),id=crypto.randomUUID();
   const origin={kind:'closing_source_snapshot',expected_drawers:2,drawers:[{name:'Vape',opening:20,closing:30,al_fin:65},{name:'Head',opening:10,closing:15,al_fin:55}],card_sales:80,withdrawals:25};
+  origin.daily_drawers=origin.drawers.map(d=>({...d}));
+  origin.drawers.unshift({name:'Vape',opening:5,closing:20,al_fin:30,source_id:'earlier-shift'});
   db.ops_daily_closings.push({id,store_id:shop.id,business_date:day,status:'borrador',entry_mode:'source_snapshot',include_in_income:false,reported_total_sales:120,card_sales:80,source_ref:JSON.stringify(origin)});
   db.ops_income_adjustments.push({id:crypto.randomUUID(),store_id:shop.id,income_date:day,amount:120,notes:JSON.stringify({kind:'monthly_source_reference',period:day.slice(0,7)})});
   await(await import('/src/api.js')).loadCore();return {id,drawers:drawers.map(d=>d.id),origin};
