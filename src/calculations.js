@@ -48,9 +48,11 @@ export function quickPriceStudy({cost=0,pvp=0,competitor=0,discount=0,vat=21,re=
 }
 
 /** Validates a received invoice payment before allowing a database write. */
-export function validateExpensePayment(total,amountPaid,status){
- const invoice=Number(total),paid=Number(amountPaid);
- if(!Number.isFinite(invoice)||!Number.isFinite(paid)||invoice<0||paid<0)throw new Error('Introduce importes válidos, sin valores negativos.');
+export function validateExpensePayment(total,amountPaid,status,documentKind='factura'){
+ const signedInvoice=Number(total),signedPaid=Number(amountPaid),credit=documentKind==='rectificativa'&&signedInvoice<0;
+ if(!Number.isFinite(signedInvoice)||!Number.isFinite(signedPaid)||(!credit&&(signedInvoice<0||signedPaid<0)))throw new Error('Introduce importes válidos, sin valores negativos.');
+ if(credit&&signedPaid>0)throw new Error('En un abono, indica el importe devuelto con signo negativo.');
+ const invoice=Math.abs(signedInvoice),paid=Math.abs(signedPaid);
  if(paid>invoice+0.02)throw new Error('El importe pagado no puede superar el total de la factura.');
  if(status==='pagado'&&Math.abs(paid-invoice)>0.02)throw new Error('Si el gasto está pagado, el importe pagado debe coincidir con el total.');
  if(status==='pendiente'&&paid>0.02)throw new Error('Un gasto pendiente no puede tener importe pagado.');
@@ -59,10 +61,10 @@ export function validateExpensePayment(total,amountPaid,status){
 }
 
 /** Rejects invalid invoice line amounts instead of silently replacing negatives with zero. */
-export function validateExpenseLineAmounts({base,vat,re,withholding,deductiblePct}){
+export function validateExpenseLineAmounts({base,vat,re,withholding,deductiblePct,documentKind='factura'}){
  const fields=[['Base imponible',base,false],['IVA',vat,true],['Recargo de equivalencia',re,true],['Retención',withholding,true],['Porcentaje deducible',deductiblePct,true]];
  for(const [label,value,isPercent] of fields){
-  if(typeof value!=='number'||!Number.isFinite(value)||value<0||(isPercent&&value>100)){
+  if(typeof value!=='number'||!Number.isFinite(value)||(value<0&&(isPercent||documentKind!=='rectificativa'))||(isPercent&&value>100)){
    throw new Error(label+': introduce '+(isPercent?'un porcentaje entre 0 y 100':'un importe igual o superior a cero')+'.');
   }
  }

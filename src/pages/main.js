@@ -821,7 +821,7 @@ export function expenseLineRow(line={},index=0,categories=[]){
   <div class="form-grid">
    ${selectField('Categoría',`exLineCategory_${index}`,[{value:'',label:'Sin categoría'},...categories],line.category_id||'')}
    ${formField('Descripción',`exLineDesc_${index}`,line.description||'')}
-   ${formField('Base',`exLineBase_${index}`,line.base_amount??'','number','step="0.01" min="0"')}
+   ${formField('Base',`exLineBase_${index}`,line.base_amount??'','number','step="0.01"')}
    ${formField('IVA (%)',`exLineVat_${index}`,line.vat_rate??21,'number','step="0.1" min="0"')}
    ${formField('Recargo (%)',`exLineRe_${index}`,line.re_rate??0,'number','step="0.1" min="0"')}
    ${formField('Retención (%)',`exLineWh_${index}`,line.withholding_rate??0,'number','step="0.1" min="0"')}
@@ -865,7 +865,7 @@ export function expenseRecordHtml(row=null){
       ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}</div>
      </div>
     </section>
-    <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
+    <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales. Para un abono de proveedor, selecciona «Rectificativa» e introduce las bases y el importe devuelto con signo negativo; los porcentajes siguen positivos.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
      <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
@@ -877,7 +877,7 @@ export function expenseRecordHtml(row=null){
       ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
       ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
       ${formField('Fecha de pago','exPaidDate',row?.paid_date||(row?'':isoToday()),'date')}
-      ${formField('Importe pagado','exPaidAmount',row?.amount_paid??'','number','step="0.01" min="0"')}
+      ${formField('Importe pagado / devuelto','exPaidAmount',row?.amount_paid??'','number','step="0.01"')}
       <label class="wide">Observaciones<textarea id="exNotes" rows="4">${esc(row?.notes||'')}</textarea></label>
      </div>
     </section>

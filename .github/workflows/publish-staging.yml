@@ -56,6 +56,7 @@ jobs:
           node tests/invoice-issuer-qa.mjs
           node tests/gestor-source-qa.mjs
           node tests/functional-regression.mjs
+          node tests/supplier-credit-qa.mjs
           node tests/cross-view-integrity-qa.mjs
           node tests/code-integrity.mjs
           node tests/permissions-qa.mjs

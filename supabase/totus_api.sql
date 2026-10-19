@@ -186,12 +186,12 @@ begin
 end;
 $$;
 
-create or replace function public.totus_save_expense(p_expense jsonb,p_lines jsonb)
-returns uuid
-language plpgsql
-security definer
-set search_path='public,private'
-as $$
+CREATE OR REPLACE FUNCTION public.totus_save_expense(p_expense jsonb, p_lines jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public,private'
+AS $function$
 declare
   v_id uuid := nullif(p_expense->>'id','')::uuid;
   v_store uuid := nullif(p_expense->>'store_id','')::uuid;
@@ -208,8 +208,8 @@ begin
   if v_date>current_date then raise exception 'La fecha del gasto no puede ser futura'; end if;
   if v_paid_date is not null and v_paid_date>current_date then raise exception 'La fecha de pago no puede ser futura'; end if;
   if v_paid_status not in ('pendiente','pagado','parcial') then raise exception 'Estado de pago no válido'; end if;
-  if v_amount_paid<0 then raise exception 'El importe pagado no puede ser negativo'; end if;
-  if v_paid_status='pendiente' and v_amount_paid>0 then raise exception 'Un gasto pendiente no puede tener importe pagado'; end if;
+  if v_amount_paid<0 and coalesce(p_expense->>'document_kind','factura')<>'rectificativa' then raise exception 'Un importe devuelto negativo exige una rectificativa'; end if;
+  if v_paid_status='pendiente' and v_amount_paid<>0 then raise exception 'Un gasto pendiente no puede tener importe pagado'; end if;
   if v_paid_status='pagado' and v_paid_date is null then raise exception 'Indica la fecha de pago'; end if;
   if jsonb_typeof(p_lines)<>'array' or jsonb_array_length(p_lines)=0 then raise exception 'El gasto debe tener al menos una línea'; end if;
 
@@ -226,7 +226,7 @@ begin
   if exists(
     select 1 from jsonb_array_elements(p_lines) j
     where nullif(btrim(coalesce(j->>'description','')),'') is null
-       or coalesce((j->>'base_amount')::numeric,0)<0
+       or (coalesce((j->>'base_amount')::numeric,0)<0 and coalesce(p_expense->>'document_kind','factura')<>'rectificativa')
        or coalesce((j->>'vat_rate')::numeric,0)<0
        or coalesce((j->>'re_rate')::numeric,0)<0
        or coalesce((j->>'withholding_rate')::numeric,0)<0
@@ -293,7 +293,8 @@ begin
   if v_paid_status='pagado' and abs(coalesce((select accounting_amount-withholding_amount from public.ops_expenses where id=v_id),0)-v_amount_paid)>.02 then
     raise exception 'El importe pagado no coincide con el neto a pagar del gasto';
   end if;
-  if v_paid_status='parcial' and v_amount_paid>=coalesce((select accounting_amount-withholding_amount from public.ops_expenses where id=v_id),0) then
+  if v_amount_paid<>0 and v_amount_paid*coalesce((select accounting_amount-withholding_amount from public.ops_expenses where id=v_id),0)<0 then raise exception 'El pago o devolución debe tener el mismo signo que la factura'; end if;
+  if v_paid_status='parcial' and (v_amount_paid=0 or abs(v_amount_paid)>=abs(coalesce((select accounting_amount-withholding_amount from public.ops_expenses where id=v_id),0))) then
     raise exception 'Un pago parcial debe ser menor que el total';
   end if;
 
@@ -301,7 +302,8 @@ begin
     jsonb_build_object('fecha',v_date,'proveedor',v_supplier,'factura',v_invoice,'estado_pago',v_paid_status));
   return v_id;
 end;
-$$;
+$function$;
+
 
 create or replace function public.totus_delete_expense(p_id uuid,p_reason text)
 returns uuid

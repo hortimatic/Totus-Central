@@ -121,7 +121,7 @@ assert.ok(!appSource.includes('XLSX.utils.sheet_to_html('),'Untrusted spreadshee
 assert.ok(appSource.includes('row.slice(0,30).map(cell=>`<td>${esc(cell)}</td>`)'),'Spreadsheet preview must escape cell text');
 
 const paymentSource=fs.readFileSync('src/calculations.js','utf8');
-assert.ok(appSource.includes('validateExpensePayment(total,amountPaid,paidStatus)'),'Expense form must use shared validator');
+assert.ok(appSource.includes("validateExpensePayment(total,amountPaid,paidStatus,val('exDocKind'))"),'Expense form must validate payments using the selected invoice kind');
 assert.ok(paymentSource.includes('El importe pagado no puede superar el total de la factura.'),'Expense payments must not exceed invoice total');
 assert.ok(paymentSource.includes('Un pago parcial debe ser mayor que cero'),'Partial payments require a positive partial amount');
 assert.ok(appSource.includes('safeFileSegment(d.id)}_${safeFileSegment(d.original_name)'),'ZIP export must preserve duplicate named documents');
@@ -148,7 +148,7 @@ assert.ok(appSource.includes('Indica la fecha en que se pagó el gasto.'),'Paid 
 
 const expenseCalculations=fs.readFileSync('src/calculations.js','utf8');
 assert.ok(expenseCalculations.includes('export function validateExpenseLineAmounts('),'Expense fiscal line validator missing');
-assert.ok(appSource.includes('validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct})'),'Saving expenses must use the fiscal line validator');
+assert.ok(appSource.includes("validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct,documentKind:val('exDocKind')})"),'Saving expenses must validate signed lines using the selected invoice kind');
 const expenseLineConstraint=fs.readFileSync('supabase/review_patches/005_expense_line_validation.sql','utf8');
 assert.ok(expenseLineConstraint.includes('ops_expense_lines_valid_amounts_ck'),'Database expense constraint documentation missing');
 

@@ -1,0 +1,36 @@
+begin;
+do $test$
+declare actor uuid; actor_email text; shop uuid; cat uuid; invoice uuid; credit uuid; e jsonb; l jsonb; rejected boolean; initial_count integer;
+begin
+ select count(*) into initial_count from public.ops_expenses;
+ select created_by,store_id,category_id into actor,shop,cat from public.ops_expenses where created_by is not null and category_id is not null limit 1;
+ select email into actor_email from auth.users where id=actor;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',actor,'email',actor_email,'role','authenticated')::text,true);
+ perform set_config('request.jwt.claim.sub',actor::text,true);
+ e:=jsonb_build_object('store_id',shop,'expense_date',current_date,'supplier_name','QA supplier credit rollback','category_id',cat,'document_kind','factura','description','Original','paid_status','pagado','paid_date',current_date,'amount_paid',126.2,'fiscal_reviewed',true);
+ l:=jsonb_build_array(jsonb_build_object('category_id',cat,'description','Original','base_amount',100,'vat_rate',21,'re_rate',5.2,'deductible_irpf',true,'deductible_pct',100));
+ invoice:=public.totus_save_expense(e,l);
+ e:=e||jsonb_build_object('document_kind','rectificativa','description','Abono','amount_paid',-12.62);
+ l:=jsonb_build_array(jsonb_build_object('category_id',cat,'description','Abono','base_amount',-10,'vat_rate',21,'re_rate',5.2,'deductible_irpf',true,'deductible_pct',100));
+ credit:=public.totus_save_expense(e,l);
+ if not exists(select 1 from public.ops_expenses where id=credit and accounting_amount=-12.62 and amount_paid=-12.62 and vat_amount=-2.10 and re_amount=-0.52) then raise exception 'Abono sin signo correcto'; end if;
+ if not exists(select 1 from public.ops_expense_lines where expense_id=credit and irpf_imputable=-12.62) then raise exception 'Abono IRPF incorrecto'; end if;
+ if (select sum(accounting_amount) from public.ops_expenses where id in(invoice,credit))<>113.58 then raise exception 'Coste neto incorrecto'; end if;
+ perform public.totus_save_expense(e||jsonb_build_object('id',credit,'paid_status','parcial','amount_paid',-5),l);
+ perform public.totus_save_expense(e||jsonb_build_object('id',credit),l);
+ rejected:=false;
+ begin perform public.totus_save_expense(e||jsonb_build_object('document_kind','factura','paid_status','pendiente','paid_date',null,'amount_paid',0),l); exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Factura ordinaria admite base negativa'; end if;
+ rejected:=false;
+ begin update public.ops_expenses set document_kind='factura' where id=credit; exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Se puede ocultar un abono cambiando el tipo'; end if;
+ rejected:=false;
+ begin insert into public.ops_expense_lines(expense_id,description,base_amount,vat_rate) values(invoice,'Base negativa prohibida',-10,21); exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Escritura directa omite validación'; end if;
+ rejected:=false;
+ begin perform public.totus_save_expense(e||jsonb_build_object('id',credit,'amount_paid',12.62),l); exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Devolución con signo contrario admitida'; end if;
+ if (select count(*) from public.ops_expenses)<>initial_count+2 then raise exception 'Altas inesperadas'; end if;
+end;
+$test$;
+rollback;
