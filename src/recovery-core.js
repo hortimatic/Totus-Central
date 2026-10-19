@@ -8,8 +8,8 @@ export const RECOVERY_TABLES=[
  'profiles','team_members','team_email_log','team_user_audit_log'
 ];
 export const RECOVERY_BUCKETS=['business-documents','business-assets'];
-export const MAX_ARCHIVE_BYTES=49*1024*1024;
-export const MAX_EXPANDED_BYTES=64*1024*1024;
+export const MAX_ARCHIVE_BYTES=96*1024*1024;
+export const MAX_EXPANDED_BYTES=128*1024*1024;
 export const MAX_DATABASE_BYTES=8*1024*1024;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HASH=/^[0-9a-f]{64}$/;
@@ -67,33 +67,43 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
  manifest.integrity.identities=await archiveHash(JSON.stringify(manifest.identities));
  let expanded=new TextEncoder().encode(databaseJson).byteLength;
  zip.file('database.json',databaseJson);
+ const pending=[];
  for(const bucket of RECOVERY_BUCKETS){
   manifest.integrity.storage[bucket]={};
-  for(const path of manifest.storage[bucket]){
-   const original=await readFile(bucket,path);
-   if(original==null)throw new Error('Falta el archivo '+bucket+'/'+path+'. No se ha creado una copia incompleta.');
-   const bytes=original instanceof Blob?new Uint8Array(await original.arrayBuffer()):new Uint8Array(original);
-   expanded+=bytes.byteLength;
-   if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 64 MB. No se ha guardado una copia incompleta.');
-   manifest.integrity.storage[bucket][path]=await archiveHash(bytes);
-   zip.file('storage/'+bucket+'/'+path,bytes);
-  }
+  for(const path of manifest.storage[bucket])pending.push({bucket,path});
  }
+ let next=0,failure=null;
+ const worker=async()=>{
+  while(!failure&&next<pending.length){
+   const {bucket,path}=pending[next++];
+   try{
+    const original=await readFile(bucket,path);
+    if(original==null)throw new Error('Falta el archivo '+bucket+'/'+path+'. No se ha creado una copia incompleta.');
+    const bytes=original instanceof Blob?new Uint8Array(await original.arrayBuffer()):new Uint8Array(original);
+    expanded+=bytes.byteLength;
+    if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB. No se ha guardado una copia incompleta.');
+    manifest.integrity.storage[bucket][path]=await archiveHash(bytes);
+    zip.file('storage/'+bucket+'/'+path,bytes);
+   }catch(error){failure||=error;}
+  }
+ };
+ await Promise.all(Array.from({length:Math.min(4,pending.length)},worker));
+ if(failure)throw failure;
  const manifestJson=JSON.stringify(manifest);
  expanded+=new TextEncoder().encode(manifestJson).byteLength;
- if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 64 MB. No se ha guardado una copia incompleta.');
+ if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB. No se ha guardado una copia incompleta.');
  zip.file('manifest.json',manifestJson);
  // Keep the fast path for small archives. Larger source inventories may fit
- // safely after lossless compression; the 49 MB file and 64 MB expansion caps remain.
- const compress=expanded>MAX_ARCHIVE_BYTES-1024*1024;
+ // safely after lossless compression; the 96 MB file and 128 MB expansion caps remain.
+ const compress=expanded>24*1024*1024;
  const bytes=await zip.generateAsync({type:'uint8array',compression:compress?'DEFLATE':'STORE',compressionOptions:compress?{level:1}:undefined});
- if(bytes.byteLength>MAX_ARCHIVE_BYTES)throw new Error('La copia supera 49 MB. No se ha guardado una copia incompleta.');
+ if(bytes.byteLength>MAX_ARCHIVE_BYTES)throw new Error('La copia supera 96 MB. No se ha guardado una copia incompleta.');
  return {bytes,manifest};
 }
 export async function loadBoundedRecoveryZip(input,JSZip){
- if(input instanceof Blob&&input.size>MAX_ARCHIVE_BYTES)throw new Error('La copia supera el límite de recuperación de 49 MB.');
+ if(input instanceof Blob&&input.size>MAX_ARCHIVE_BYTES)throw new Error('La copia supera el límite de recuperación de 96 MB.');
  const bytes=input instanceof Blob?await input.arrayBuffer():input;
- if(bytes.byteLength>MAX_ARCHIVE_BYTES)throw new Error('La copia supera el límite de recuperación de 49 MB.');
+ if(bytes.byteLength>MAX_ARCHIVE_BYTES)throw new Error('La copia supera el límite de recuperación de 96 MB.');
  const zip=await JSZip.loadAsync(bytes);
  let expanded=0;
  for(const entry of Object.values(zip.files)){
@@ -103,7 +113,7 @@ export async function loadBoundedRecoveryZip(input,JSZip){
   if(!Number.isSafeInteger(size)||size<0)throw new Error('El ZIP no declara un tamaño de archivo válido.');
   if(entry.name==='database.json'&&size>MAX_DATABASE_BYTES)throw new Error('Los datos de la copia superan el límite de seguridad de 8 MB.');
   expanded+=size;
-  if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 64 MB.');
+  if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB.');
  }
  return zip;
 }

@@ -13,6 +13,7 @@ import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
+import {readBackupObject,writeBackupObject} from './backup-transport.js';
 import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
 import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
 import {renderPdfPreview} from './pdf-preview.js';
@@ -45,6 +46,7 @@ function permissionForAction(action,el){
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('recovery-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
@@ -343,6 +345,8 @@ async function rollbackNewDocument(doc,error){
 }
 
 async function saveExpense(id=''){
+ const existing=id?state.data.expenses.find(x=>x.id===id):null;
+ if(existing&&state.data.settings?.closed_through&&existing.expense_date<=state.data.settings.closed_through)throw new Error('Este gasto pertenece a un periodo cerrado. Usa «Registrar pago» para actualizar su pago; administración debe reabrir el periodo para corregir importes.');
  const storeId=required('exStore','Tienda'),date=required('exDate','Fecha'),supplier=required('exSupplier','Proveedor');
  if(date>isoToday())throw new Error('La fecha del gasto no puede ser futura.');
  const invoiceNumber=val('exInvoice').trim(),taxId=val('exTax').trim();
@@ -1512,6 +1516,26 @@ function exportLogCsv(){
 }
 
 
+async function setClosedPeriod(reopen=false){
+ if(!isAdmin())throw new Error('Solo administración.');
+ const reason=val('periodCloseReason').trim(),through=reopen?null:val('periodCloseDate');
+ if(reason.length<15)throw new Error('Explica el motivo y los pendientes con al menos 15 caracteres.');
+ if(!reopen&&!through)throw new Error('Selecciona el último día del trimestre.');
+ if(!await confirmAction(reopen?'Se permitirán correcciones históricas. El motivo quedará registrado.':'Se protegerán los importes hasta '+fmtDate(through)+'. Los pendientes seguirán visibles.',{title:reopen?'Reabrir periodos':'Cerrar periodo',acceptLabel:reopen?'Reabrir':'Cerrar periodo'}))return;
+ await rpc('totus_set_closed_period',{p_through:through,p_reason:reason});await refresh(reopen?'Periodos reabiertos con motivo registrado.':'Periodo protegido.');
+}
+function expensePaymentForm(id){
+ const e=state.data.expenses.find(x=>x.id===id);if(!e)throw new Error('Gasto no encontrado.');
+ modal('Registrar pago',`<p>${esc(e.supplier_name)} · ${esc(e.invoice_number||'Sin número')}</p><p class="note">Actualiza el pago sin modificar ni duplicar el gasto fiscal.</p><div class="form-grid">${selectField('Estado','expensePaymentStatus',[{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'},{value:'pagado',label:'Pagado'}],e.paid_status)}${formField('Importe pagado / devuelto','expensePaymentAmount',e.amount_paid||0,'number','step="0.01"')}${formField('Fecha de pago','expensePaymentDate',e.paid_date||isoToday(),'date')}</div><div class="form-actions">${btn('Cancelar','close-modal','secondary')}${btn('Guardar pago','expense-payment-save','primary',`data-id="${e.id}"`)}</div>`);
+}
+async function saveExpensePayment(id){
+ const e=state.data.expenses.find(x=>x.id===id);if(!e)throw new Error('Gasto no encontrado.');
+ const status=val('expensePaymentStatus'),amount=num('expensePaymentAmount'),date=status==='pendiente'?null:val('expensePaymentDate');
+ validateExpensePayment(Number(e.base_amount)+Number(e.vat_amount)+Number(e.re_amount)-Number(e.withholding_amount),amount,status,e.document_kind);
+ if(status!=='pendiente'&&!date||date&&date>isoToday())throw new Error('Indica una fecha de pago válida.');
+ await rpc('totus_set_expense_payment',{p_id:id,p_status:status,p_amount:amount,p_date:date});closeModal();await refresh('Pago registrado sin modificar el gasto.');
+}
+
 async function saveBackupSettings(){
  if(!isAdmin())throw new Error('Solo el administrador configura las copias.');
  const h=val('backupTime'),match=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(h);
@@ -1538,13 +1562,21 @@ async function runBackupOnServer(){
  if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
  await refresh('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB.');
 }
+async function readBackupStorage(path){
+ const {data,error}=await sb.storage.from('business-backups').download(path);
+ if(error||!data)throw new Error('No se pudo leer la copia: '+(error?.message||'No disponible'));
+ return data;
+}
+async function writeBackupStorage(path,bytes){
+ const {error}=await sb.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});
+ if(error)throw new Error('No se pudo guardar la copia: '+error.message);
+}
 async function getStoredBackup(id){
  if(!isAdmin())throw new Error('Solo administrador.');
  const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
  if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible para descarga.');
- const {data,error}=await sb.storage.from('business-backups').download(run.storage_path);
- if(error||!data)throw new Error('No se pudo obtener la copia: '+(error?.message||'Sin datos'));
- return {run,blob:data};
+ const bytes=await readBackupObject(run.storage_path,readBackupStorage);
+ return {run,blob:new Blob([bytes],{type:'application/octet-stream'})};
 }
 async function downloadStoredBackup(id){
  const {run,blob}=await getStoredBackup(id);
@@ -1604,8 +1636,7 @@ async function performRecovery(jobId=''){
   toast('Preparando punto de recuperación y archivos…');
   if(!jobId){
    const registered=await invokeRecovery(id,'register');
-   const {error}=await sb.storage.from('business-backups').upload(registered.source_path,candidate.file,{contentType:'application/octet-stream',upsert:false});
-   if(error)throw new Error('No se ha podido subir la copia: '+error.message);
+   await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
   }
   await invokeRecovery(id);
   recoveryCandidate=null;await refresh('Recuperación completada y verificada.');
@@ -1620,9 +1651,8 @@ async function downloadRecoveryFile(id,kind){
  if(!isAdmin())throw new Error('Solo administración puede descargar estas copias.');
  const job=(state.data.recoveryJobs||[]).find(x=>x.id===id),path=kind==='checkpoint'?job?.checkpoint_path:job?.source_path;
  if(!path)throw new Error('El archivo no está disponible.');
- const {data,error}=await sb.storage.from('business-backups').download(path);
- if(error||!data)throw new Error('No se pudo descargar el archivo: '+(error?.message||'No disponible'));
- download(data,path.split('/').pop());
+ const bytes=await readBackupObject(path,readBackupStorage);
+ download(new Blob([bytes],{type:'application/octet-stream'}),path.split('/').pop());
 }
 
 async function saveConfig(){
@@ -2012,6 +2042,10 @@ document.addEventListener('click',async e=>{
   if(a==='admin-log-refresh'){if(await refreshAuditPanel())toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
+  if(a==='admin-period-close'){await setClosedPeriod();return}
+  if(a==='admin-period-reopen'){await setClosedPeriod(true);return}
+  if(a==='expense-payment-open'){expensePaymentForm(el.dataset.id);return}
+  if(a==='expense-payment-save'){await saveExpensePayment(el.dataset.id);return}
   if(a==='backup-settings-save'){await saveBackupSettings();return}
   if(a==='backup-run-now'){await runBackupOnServer();return}
   if(a==='backup-history-download'){await downloadStoredBackup(el.dataset.id);return}

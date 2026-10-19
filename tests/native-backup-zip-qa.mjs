@@ -12,8 +12,9 @@ database.ops_documents=[...files.keys()].map((storage_path,i)=>({id:String(i),st
 const snapshot={database,project_ref:'qa-project',database_instance:id,schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:'2026-10-19T00:00:00Z',identities:[],storage:{'business-documents':[...files.keys()],'business-assets':[]}};
 const start=performance.now();
 const built=await buildRecoveryArchive(snapshot,NativeBackupZip,async(_b,p)=>files.get(p));
-const restored=await readRecoveryArchive(built.bytes,JSZip,{projectRef:'qa-project'});
+const restored=await readRecoveryArchive(built.bytes,NativeBackupZip,{projectRef:'qa-project'});
 for(const [p,bytes]of files)assert.equal(await archiveHash(await restored.zip.file('storage/business-documents/'+p).async('uint8array')),await archiveHash(bytes));
+await assert.rejects(()=>readRecoveryArchive(built.bytes.slice(0,-1),NativeBackupZip),/ZIP/);
 const small=new NativeBackupZip();small.file('small.txt','hello');
 assert.equal(await (await JSZip.loadAsync(await small.generateAsync({compression:'STORE'}))).file('small.txt').async('string'),'hello');
 console.log('NATIVE BACKUP ZIP QA: ordinary ZIP round trip, Unicode paths, original hashes, native compression above 49 MB and STORE compatibility; elapsed '+Math.round(performance.now()-start)+' ms.');
