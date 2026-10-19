@@ -1061,13 +1061,13 @@ async function importDocumentZip(zipFile){
  const entries=Object.values(zip.files).filter(f=>!f.dir&&/\.(pdf|xlsx|docx)$/i.test(f.name)&&!f.name.startsWith('__MACOSX/'));
  if(!entries.length)throw new Error('El ZIP no contiene PDF, Excel o Word admitidos.');
  if(entries.length>500)throw new Error('Máximo 500 documentos por lote.');
- const known=new Set(state.data.documents.map(d=>String(d.notes||'').match(/\[ORIGEN-ZIP:([^\]]+)\]/)?.[1]).filter(Boolean));
- const missing=entries.filter(f=>!known.has(f.name));
+ const knownHashes=new Set(state.data.documents.map(d=>d.sha256).filter(Boolean));
+ const missing=entries;
  const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
  const quota=await verifiedStorageMetrics(),used=Number(quota.total_bytes),limit=Number(quota.limit_bytes);
  const estimated=missing.reduce((a,f)=>a+Number(f._data?.uncompressedSize||0),0);
  if(used+estimated>limit)throw new Error('El lote supera el almacenamiento disponible. Elimina otros archivos o utiliza un lote menor.');
- if(!confirm('Se van a importar '+missing.length+' archivos a STAGING como pendientes de clasificar, sin afectar a producción. ¿Continuar?'))return;
+ if(!await confirmAction('Se revisarán '+missing.length+' archivos en STAGING. Se omitirán los que tengan el mismo contenido que un documento ya guardado. Los nuevos quedarán pendientes de clasificar, sin afectar a producción.',{title:'Importar documentos',acceptLabel:'Importar archivos'}))return;
  const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
  let ok=0,skipped=entries.length-missing.length;const errors=[];
  modal('Importación de documentos',`<div class="stack"><p>Los archivos se guardan como <b>pendientes</b> y no se computan fiscalmente.</p><p id="bulkZipProgress" role="status">Preparando ${missing.length} documentos…</p></div>`);
@@ -1080,6 +1080,8 @@ async function importDocumentZip(zipFile){
    const ext=name.toLowerCase().split('.').pop();
    const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':ext==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/pdf';
    const file=new File([raw],name,{type:mime});
+   const hash=await fileSha256(file);
+   if(knownHashes.has(hash)){skipped++;report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);continue;}
    const segments=e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
    const folder=Object.keys(months).find(m=>segments.includes(m));
    const fm=folder?months[folder]:null;
@@ -1093,7 +1095,7 @@ async function importDocumentZip(zipFile){
    const party=name.replace(/\.pdf$/i,'').replace(/\b\d{1,2}[-._]\d{1,2}[-._]20\d\d\b/g,'').trim().slice(0,150);
    const notes=`[ORIGEN-ZIP:${e.name}] ${provisional?'Fecha provisional tomada del mes de carpeta (o enero si no consta). ':''}DOCUMENTO SIN CONCILIAR: confirmar tienda, proveedor, fecha, número de factura, importe e impuestos antes de asociarlo.`;
    const doc=await createStoredDocument(file,{storeId:null,date,docType:reportFile?'informe':'factura_recibida',status:'pendiente',party,notes});
-   state.data.documents.push(doc);known.add(e.name);ok++;
+   state.data.documents.push(doc);knownHashes.add(hash);ok++;
   }catch(err){errors.push(name+': '+(err?.message||String(err)))}
   if((i+1)%5===0||i===missing.length-1)report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);
  }
