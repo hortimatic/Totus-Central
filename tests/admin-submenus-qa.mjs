@@ -81,6 +81,7 @@ try{
  await page.locator('#backupEnabled').check();
  await page.locator('#backupRetention').fill('10');
  await page.locator('[data-action="backup-settings-save"]').click();
+ await page.getByRole('button',{name:'Activar programación',exact:true}).click();
  config=await page.evaluate(()=>window.__mockDb.ops_backup_config[0]);
  assert.equal(config.enabled,true);assert.equal(config.frequency,'daily');assert.equal(config.retention_days,10);
  steps.push('backup:daily+enabled');
@@ -94,6 +95,14 @@ try{
   window.__mockUploads.set('business-backups/'+old.storage_path,new Blob(['COPIA ANTIGUA DE ENSAYO']));
  });
  await page.locator('[data-action="backup-run-now"]').click();
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_backup_runs.filter(x=>x.id!=='old-qa-archive').length),0,'Cancelar creó una copia');
+ await page.locator('[data-action="backup-run-now"]').click();
+ await page.keyboard.press('Escape');
+ await page.locator('[data-action="backup-run-now"]').click();
+ await page.locator('#modalHost [data-action="close-modal"]').last().click();
+ await page.locator('[data-action="backup-run-now"]').click();
+ await page.getByRole('button',{name:'Crear copia',exact:true}).click();
  await page.waitForTimeout(140);
  const snap=await page.evaluate(()=>window.__mockDb.ops_backup_runs[0]);
  assert.equal(snap?.status,'success','La copia privada no se ha guardado');

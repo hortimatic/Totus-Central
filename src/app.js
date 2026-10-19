@@ -1505,7 +1505,7 @@ async function saveBackupSettings(){
  const frequency=val('backupFrequency');
  if(!['daily','weekly','monthly'].includes(frequency))throw new Error('Frecuencia incorrecta.');
  const enabled=!!input('backupEnabled')?.checked;
- if(enabled&&!confirm('¿Activar copias automáticas en Supabase STAGING? Se almacenarán los datos y documentos privados con la frecuencia indicada.'))return;
+ if(enabled&&!await confirmAction('¿Activar copias automáticas en Supabase STAGING? Se almacenarán los datos y documentos privados con la frecuencia indicada.',{title:'Activar copias programadas',acceptLabel:'Activar programación'}))return;
  await rpc('totus_backup_save_settings',{p:{
   enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
   weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),
@@ -1515,7 +1515,7 @@ async function saveBackupSettings(){
 }
 async function runBackupOnServer(){
  if(!isAdmin())throw new Error('Solo el administrador puede generar copias.');
- if(!confirm('¿Crear una copia privada completa en Supabase staging ahora?'))return;
+ if(!await confirmAction('¿Crear una copia privada completa en Supabase staging ahora?',{title:'Crear copia privada',acceptLabel:'Crear copia'}))return;
  toast('Generando copia privada en el servidor…');
  const {data,error}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
  if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
@@ -1805,7 +1805,7 @@ async function reviewUnusedLogos(){
 
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
- if(writeInProgress){toast('Espera a que termine la operación en curso.');return}
+ if(writeInProgress&&el.dataset.action!=='close-modal'){toast('Espera a que termine la operación en curso.');return}
  const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
