@@ -37,6 +37,10 @@ try{
  assert(text.includes('1 archivo(s)')&&!text.includes('1 copia(s)'),'Los objetos o partes de una copia no deben contarse como copias completas');
  assert(!text.includes('días aprox.')&&text.includes('Capacidad gratuita y ubicación de los datos'),'No debe inventar una previsión de crecimiento ni ocultar la ubicación de los datos');
  assert(text.includes('484,00 MB')&&text.includes('otros proyectos'),'Debe separar el margen del proyecto de la capacidad compartida de archivos');
+ assert(await page.locator('.storage-space-bar').count()===5,'Faltan barras de capacidad por tipo de almacenamiento');
+ assert(text.includes('business-backups')&&text.includes('business-documents')&&text.includes('business-assets'),'No muestra la ubicación de cada grupo de archivos');
+ assert((await page.locator('#storageBackupsCapacityBar').getAttribute('aria-label')).includes('1,00 MB usados; 3,00 MB de otros archivos; 1020,00 MB de margen'),'El margen de copias debe descontar todos los archivos del proyecto');
+ await page.locator('.storage-space-section').screenshot({path:'artifacts/storage-capacity-bars.png'});
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
  assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
  assert((await page.locator('#storageObservedBar .storage-segment-docs').evaluate(el=>el.getBoundingClientRect().width))>10,'Los documentos cargados no se reflejan en la barra superior');
@@ -101,3 +105,4 @@ try{
  assert(!js.length,'Errores JS: '+js.join(' ; '));
  console.log('STORAGE LIVE QA: lectura real, 3 buckets, cuota interna, previsión, recuperación de errores y navegación OK');
 }finally{await browser.close()}
+

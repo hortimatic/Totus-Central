@@ -596,6 +596,12 @@ function adminStorageHtml(){
  const freeReference=reference.plan==='Free'&&reference.checked_at&&Number(reference.database_limit_bytes)>0&&Number(reference.files_limit_bytes)>0;
  const referenceDate=freeReference?new Date(reference.checked_at).toLocaleDateString('es-ES',{timeZone:'Europe/Madrid'}):'';
  const databaseRemaining=freeReference&&Number.isFinite(dbSize)?Math.max(0,Number(reference.database_limit_bytes)-dbSize):null;
+ const capacityBar=(id,label,used,capacity,location,shared=false)=>{
+  const other=shared?Math.max(0,fileTotal-used):0,available=Math.max(0,capacity-used-other);
+  const width=n=>Math.min(100,Math.max(0,n/capacity*100)).toFixed(4);
+  return `<article class="card card-pad storage-space-card"><h3>${label}</h3><p class="small">${location}</p><div class="storage-usage-header"><strong>${mb(used)} usados</strong><span>${mb(available)} ${shared?'de margen en este proyecto':'libres aprox.'}</span></div><div id="${id}" class="storage-space-bar" role="img" aria-label="${esc(label)}: ${mb(used)} usados; ${mb(other)} de otros archivos; ${mb(available)} de margen"><span class="storage-space-used" style="width:${width(used)}%"></span><span class="storage-space-other" style="width:${width(other)}%"></span></div><div class="storage-usage-footer"><span>${(used/capacity*100).toLocaleString('es-ES',{maximumFractionDigits:2})} % ${shared?'del espacio compartido':'ocupado'}</span><span>${mb(capacity)} ${shared?'compartidos':'de capacidad'}</span></div>${shared?`<p class="small muted">Azul: estos archivos. Gris: otros archivos de Totus (${mb(other)}). El espacio sin rellenar es común, no una reserva exclusiva para ${label.toLowerCase()}.</p>`:''}</article>`;
+ };
+ const spaceBars=freeReference&&fileTotalOk?`<section class="storage-space-section"><h2>Espacio usado y disponible</h2><p>Los archivos están en Supabase Storage. Documentos, logos y copias comparten 1 GB; la base de datos tiene su propia capacidad.</p><div class="storage-information-grid">${capacityBar('storageFilesCapacityBar','Todos los archivos',fileTotal,Number(reference.files_limit_bytes),'Supabase Storage · documentos + logos + copias')}${capacityBar('storageDatabaseCapacityBar','Base de datos',dbSize,Number(reference.database_limit_bytes),'Supabase Database · contabilidad, cajas, usuarios y permisos')}${capacityBar('storageDocumentsCapacityBar','Facturas y documentos',bytes(u.documents_bytes),Number(reference.files_limit_bytes),'Supabase Storage · business-documents',true)}${capacityBar('storageAssetsCapacityBar','Logos y recursos',bytes(u.assets_bytes),Number(reference.files_limit_bytes),'Supabase Storage · business-assets',true)}${capacityBar('storageBackupsCapacityBar','Copias de seguridad',backups,Number(reference.files_limit_bytes),'Supabase Storage · business-backups · '+Number(u.backup_count||0)+' archivos y partes',true)}</div><p class="note">El margen de archivos mostrado descuenta todos los archivos de este proyecto. Otros proyectos de la organización también pueden consumir ese mismo gigabyte: el libre global se confirma en Supabase → Usage. Las copias locales descargadas no ocupan este espacio.</p></section>`:'';
  const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
  return `<div class="stack storage-dashboard">
   <section class="card card-pad">
@@ -614,6 +620,7 @@ function adminStorageHtml(){
    <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1})} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>
    <p class="note">${esc(caution)} Este indicador <b>no representa la cuota total contratada con Supabase</b>; mide el límite operativo que Totus aplica a documentos y logos.</p>
   </section>
+  ${spaceBars}
   <div class="kpis">
    ${kpi('Facturas y documentos',mb(u.documents_bytes||0))}
    ${kpi('Logos y recursos',mb(u.assets_bytes||0))}
