@@ -41,7 +41,7 @@ export function inicio(){
  const pendingInvoiceAmount=sum(pendingInvoices,x=>Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)));
  const draftInvoices=state.data.invoices.filter(x=>x.status==='borrador').length;
  const recentDocs=[...state.data.documents].sort((a,b)=>String(b.created_at||b.document_date||'').localeCompare(String(a.created_at||a.document_date||''))).slice(0,4);
- const pendingDocs=state.data.documents.filter(x=>['pendiente','revisada'].includes(x.status)).length;
+ const pendingDocs=state.data.documents.filter(x=>x.status==='pendiente').length;
  const usage=state.data.storageUsage||{};
  // Never silently show 0 MB on the home dashboard when the server measurement fails.
  const storageOk=usage.status==='ok'&&Number.isFinite(Number(usage.total_bytes))&&Number.isFinite(Number(usage.limit_bytes))&&Number(usage.limit_bytes)>0;
