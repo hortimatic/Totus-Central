@@ -88,7 +88,7 @@ assert.match(kpiAmount(inicio(),'Ingresos acumulados'),/175,00\s*€/,'Inicio tr
 assert(!inicio().includes('Simulación de IRPF, no recibo'),'Inicio no debe presentar una previsión como importe de declaración');
 assert.match(kpiAmount(fiscalidad(),'Ingresos del periodo'),/175,00\s*€/,'Fiscalidad omite ingresos manuales');
 assert.match(kpiAmount(fiscalidad(),'Ingresos acumulados'),/175,00\s*€/,'Fiscalidad omite ingreso manual acumulado');
-assert.match(kpiAmount(fiscalidad(),'Simulación interna del anticipo de IRPF'),/0,00\s*€/,'Fiscalidad ignora tipo IRPF 0 %');
+assert.match(kpiAmount(fiscalidad(),'Anticipo de IRPF estimado · Modelo 130'),/0,00\s*€/,'Fiscalidad ignora tipo IRPF 0 %');
 assert.match(kpiAmount(informes(),'Ventas del periodo'),/175,00\s*€/,'Informes no coincide con su Excel exportado');
 state.filters.fiscalidad.store='a';
 state.data.fiscalAdjustments.push({id:'other',store_id:'b',adjustment_date:current,kind:'gasto_deducible_extra',amount:90});
