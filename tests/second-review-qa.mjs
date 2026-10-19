@@ -47,6 +47,8 @@ try{
   const row=page.locator('.data-table tbody tr').filter({hasText:'Arrendador de pruebas'});
   assert((await row.innerText()).includes('115'));await row.locator('[data-action="expense-supplier-edit"]').click();
   await page.locator('#esActive').uncheck();await page.locator('[data-action="expense-supplier-save"]').click();await page.locator('#modalHost .modal').waitFor({state:'hidden'});
+  assert.equal(await row.count(),0,'Inactive suppliers are hidden until explicitly requested');
+  await page.locator('#expenseSuppliersInactive').check();await page.locator('[data-action="expense-suppliers-search"]').click();
   assert((await row.innerText()).includes('inactivo'));
   await nav('documentos');assert(await page.locator('.document-filters').isVisible());assert(await page.locator('.document-batch-toolbar').isVisible());
   await page.screenshot({path:`artifacts/review_documents_${width}.png`,fullPage:true});
