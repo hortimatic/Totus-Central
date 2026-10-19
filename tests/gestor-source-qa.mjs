@@ -16,6 +16,9 @@ assert.equal(rows[1][6],'IVA SOPORTADO(RECARG');
 assert.equal(rows[1][13],105);
 assert.equal(rows[0][16],95);
 assert.equal(rows[0][2],'','No inventar referencias de la gestoría');
+const payroll=buildGestorSourceRows({expenses:[{id:'salary',expense_date:'2026-01-31',document_kind:'nomina',fiscal_reviewed:true}],expenseLines:[{expense_id:'salary',base_amount:1732.71,irpf_imputable:1732.71,withholding_base:1732.71,withholding_rate:2,withholding_amount:34.65}]});
+assert.deepEqual(payroll[0].slice(7,13),['','','','','',''],'Payroll amounts must not become VAT bases');
+assert.deepEqual(payroll[0].slice(13),[1732.71,1732.71,2,34.65]);
 assert.equal(rows[0][4],'');
 for(const [code,label] of [['SOCIAL','SEGURIDAD SOCIAL EMP'],['RETA','SEGURIDAD SOCIAL O A'],['TRANSPORT','TRANSPORTES'],['SERVICES','OTROS SERVICIOS']]){
  const categoryCase=structuredClone(args);categoryCase.categories[0].code=code;

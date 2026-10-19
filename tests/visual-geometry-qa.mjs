@@ -62,6 +62,24 @@ for(const [size,viewport] of [['desktop',{width:1440,height:960}],['tablet',{wid
  }
  await page.close();
 }
+// Reproduce dense, imported two-drawer closings rather than an empty list.
+for(const width of [1901,1280,881,390]){
+ const page=await browser.newPage({viewport:{width,height:960}});
+ await page.goto('http://127.0.0.1:4173/tests/ui-harness.html?route=cajas',{waitUntil:'networkidle'});
+ await page.evaluate(async()=>{
+  const {state,patchFilters,setView}=await import('/src/state.js');const {cajas}=await import('/src/pages/main.js');
+  state.data.stores=[{id:'shop',name:'Tienda con dos cajas',active:true}];
+  state.data.closings=Array.from({length:50},(_,i)=>({id:'source-'+i,store_id:'shop',business_date:'2026-01-02',entry_mode:'source_snapshot',status:'borrador',include_in_income:false,card_sales:432.45,opening_cash:436.03,actual_cash:281.13,cash_withdrawals:150,reported_total_sales:1108.16,source_ref:JSON.stringify({kind:'closing_source_snapshot',card_sales:432.45,withdrawals:150,drawers:[{name:'Vape'},{name:'Head'}]})}));
+  patchFilters('cajas',{from:'2026-01-01',to:'2026-01-31',store:'all',query:''});setView('cajas',{mode:'list'});document.querySelector('#root').innerHTML=cajas();
+ });
+ const overflow=await page.locator('.data-table td').evaluateAll(cells=>cells.flatMap(cell=>{
+  const box=cell.getBoundingClientRect(),bad=[],walker=document.createTreeWalker(cell,NodeFilter.SHOW_TEXT);let node;
+  while((node=walker.nextNode())){if(!node.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(node);for(const r of range.getClientRects())if(r.width&& (r.left<box.left-1||r.right>box.right+1))bad.push(node.textContent)}
+  return bad;
+ }));
+ if(overflow.length)failures.push('source-closings/'+width+': text crosses table cells: '+overflow.slice(0,5).join(', '));
+ results.push({screen:'source-closings/'+width,rows:50,textOverflows:overflow.length});await page.close();
+}
 await browser.close();
 fs.writeFileSync('artifacts/visual-geometry.json',JSON.stringify({results,failures},null,2));
 console.log('VISUAL GEOMETRY QA: '+results.length+' escenas, 4 anchuras (1440, 768, 390, 320 px), tablas, roles, campos y solapamientos; fallos='+failures.length);

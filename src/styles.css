@@ -349,6 +349,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .pdf-document-modal .modal-body>.stack{height:100%;min-height:0;display:flex;flex-direction:column}
 .pdf-document-modal .pdf-viewer{flex:1;min-height:0;height:auto}
 .pdf-document-modal .form-actions{flex:none;margin:0}
+/* A table cell is already a column: nested two-column summaries overlap at
+   realistic label lengths, even on wide screens. Keep each datum on its row. */
+.data-table .compact-detail{display:flex;flex-direction:column;gap:6px;min-width:0}
+.data-table .compact-detail span{display:flex;flex-wrap:wrap;gap:3px 10px;white-space:normal;overflow-wrap:anywhere}
+.data-table .compact-detail b{white-space:nowrap}
 
 /* Invoice editing: the form and its unsaved document stay visible together. */
 .invoice-workspace.record-layout{grid-template-columns:minmax(0,1.1fr) minmax(400px,.9fr)}

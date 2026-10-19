@@ -26,7 +26,8 @@ export function buildGestorSourceRows({expenses=[],expenseLines=[],categories=[]
    const total=base+vat+re;
    const baseDeductible=total===0?0:round(deductible*base/total),taxDeductible=round(deductible-baseDeductible);
    const common=[fmtDate(expense.expense_date),expense.received_invoice_number||'',expense.invoice_number||'',expense.accountant_rt||'',identity];
-   rows.push([rows.length+1,...common,concept,base,numeric(line.vat_rate,'tipo IVA'),vat,numeric(line.re_base,'base recargo'),numeric(line.re_rate,'tipo recargo'),re,baseDeductible,numeric(line.withholding_base,'base retención'),numeric(line.withholding_rate,'tipo retención'),numeric(line.withholding_amount,'retención')]);
+   const personnel=['nomina','seguridad_social'].includes(expense.document_kind);
+   rows.push([rows.length+1,...common,concept,personnel?'':base,personnel?'':numeric(line.vat_rate,'tipo IVA'),personnel?'':vat,personnel?'':numeric(line.re_base,'base recargo'),personnel?'':numeric(line.re_rate,'tipo recargo'),personnel?'':re,baseDeductible,numeric(line.withholding_base,'base retención'),numeric(line.withholding_rate,'tipo retención'),numeric(line.withholding_amount,'retención')]);
    if(vat!==0||re!==0)rows.push([rows.length+1,...common,'IVA SOPORTADO(RECARG','','','','','','',taxDeductible,'','','']);
   }
  }

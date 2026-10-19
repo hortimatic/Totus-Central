@@ -9,6 +9,8 @@ import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,isUn
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
+const bookPaymentPending=row=>{try{return JSON.parse(row?.source_ref||'{}').kind==='gestoria_book_entry'&&JSON.parse(row.source_ref).requires_payment_reconciliation===true}catch{return false}};
+const expensePaymentBadge=row=>bookPaymentPending(row)?'<span class="badge warn">Pago sin conciliar</span>':stateBadge(row.paid_status||'pendiente');
 
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
@@ -30,7 +32,7 @@ export function inicio(){
  const missingStores=activeStores.filter(s=>!todays.some(x=>x.store_id===s.id&&x.status==='cerrado'));
  const draftClosings=state.data.closings.filter(x=>x.status==='borrador').length;
  const mismatches=state.data.closings.filter(x=>Math.abs(Number(x.difference||0))>.01).length;
- const pendingExpenses=state.data.expenses.filter(x=>x.paid_status&&x.paid_status!=='pagado');
+ const pendingExpenses=state.data.expenses.filter(x=>x.paid_status&&x.paid_status!=='pagado'&&!bookPaymentPending(x));
  const pendingExpenseAmount=sum(pendingExpenses,x=>Math.max(0,Number(x.accounting_amount??x.gross_expense??0)-Number(x.withholding_amount||0)-Number(x.amount_paid||0)));
  const pendingRefunds=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&isInvoiceRefund(x)&&invoiceOutstanding(x)>.02);
  const pendingInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.paid_status!=='pagada'&&!isInvoiceRefund(x)).sort((a,b)=>String(a.due_date||a.issue_date||'').localeCompare(String(b.due_date||b.issue_date||'')));
@@ -150,19 +152,19 @@ export function gastos(){
  const f=getFilters('gastos');
  const kind=f.kind||'all',paid=f.paid||'all';
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
-   &&(kind==='all'||(kind==='internal'?x.management_only:!x.management_only))
+   &&(kind==='all'||(kind==='internal'?x.management_only&&!isUnreconciledPayment(x):!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
    &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
  const total=sum(rows,expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
  const pending=rows.filter(x=>x.paid_status!=='pagado').length;
  const headers=[
-  {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
+  {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${isUnreconciledPayment(r)?'<span class="badge warn">Pago por vincular</span>':r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
   {label:'Documento / proveedor',html:r=>`<b>${esc(r.supplier_name||'—')}</b><div class="small muted">${esc(r.invoice_number||r.document_kind||'Sin número')}</div>`},
   {label:'Concepto',html:r=>`<div>${esc(r.description||'—')}</div><div class="small muted">${esc(r.payment_method||'')} · ${esc(r.withholding_model?('Modelo '+r.withholding_model):'Sin retención')}</div>`},
   {label:'Fiscal',html:r=>`<div class="compact-detail">${r.fiscal_reviewed===false?'<span>Pendiente de desglose fiscal y cotejo de factura</span>':`<span>Base <b>${money(r.base_amount)}</b></span><span>IVA <b>${money(r.vat_amount)}</b></span><span>RE <b>${money(r.re_amount)}</b></span><span>Ret. <b>${money(r.withholding_amount)}</b></span>`}</div>`},
-  {label:'Total',num:true,html:r=>`<b>${money(r.gross_expense??r.accounting_amount??r.amount_paid??0)}</b><div class="small">${stateBadge(r.paid_status||'pendiente')}</div>`},
-  {label:'Factura adjunta',html:r=>{
+  {label:'Total',num:true,html:r=>`<b>${money(r.gross_expense??r.accounting_amount??r.amount_paid??0)}</b><div class="small">${expensePaymentBadge(r)}</div>`},
+  {label:'Documento adjunto',html:r=>{
     const d=state.data.documents.find(x=>x.id===r.document_id);
     return d?`<div class="small"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Vista previa','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:`<span class="small muted">${isUnreconciledPayment(r)?'Pago pendiente de vincular con su justificante':'Sin justificante adjunto'}</span>`;
    }},
@@ -172,7 +174,7 @@ export function gastos(){
  return `<div class="page">
   ${expenseTabs('registros')}
   ${rows.some(isUnreconciledPayment)?`<p class="note warn">${rows.filter(isUnreconciledPayment).length} pagos originales pendientes de vincular o desglosar. Se conservan en el listado; no se suman otra vez al gasto ni al cálculo fiscal.</p>`:''}
-  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pendientes de pago',String(pending))}</div>
+  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pago pendiente o sin conciliar',String(pending))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
@@ -208,7 +210,7 @@ function expenseInvoiceSectionHtml(){
   .filter(({expense,document,date,searchable})=>
    inRange(date,f.from,f.to)
    &&(f.store==='all'||(expense?.store_id||document?.store_id)===f.store)
-   &&(kind==='all'||(expense&&(kind==='internal'?!!expense.management_only:!expense.management_only)))
+   &&(kind==='all'||(expense&&(kind==='internal'?!!expense.management_only&&!isUnreconciledPayment(expense):!expense.management_only)))
    &&(paid==='all'||expense?.paid_status===paid)
    &&(attachment==='all'||(attachment==='attached'?!!document:!document))
    &&(!f.query||matchesText(f.query,searchable)))
@@ -219,7 +221,7 @@ function expenseInvoiceSectionHtml(){
   {label:'Concepto / archivo',html:r=>`<span>${esc(r.expense?.description||r.document?.original_name||'—')}</span><div class="small muted">${esc(r.document?.original_name||'Sin justificante')}</div>`},
   {label:'Importes',html:r=>r.expense?`<div class="expense-amounts"><span>Base <b>${money(r.expense.base_amount||0)}</b></span><span>IVA <b>${money(r.expense.vat_amount||0)}</b></span><span>RE <b>${money(r.expense.re_amount||0)}</b></span><span>Ret. <b>${money(r.expense.withholding_amount||0)}</b></span></div>`:'Pendiente de asociar'},
   {label:'Total factura / Neto',num:true,html:r=>r.expense?`<div class="expense-amounts"><span>Total <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0))}</b></span><span>Neto <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0)-Number(r.expense.withholding_amount||0))}</b></span></div><div class="small">${stateBadge(r.expense.paid_status||'pendiente')}</div>`:'—'},
-  {label:'Revisión',html:r=>r.unlinked?'<span class="badge warn">Sin asociar</span>':r.expense?.management_only?'<span class="badge warn">Interno, no gestoría</span>':r.expense?.fiscal_reviewed===false?'<span class="badge warn">Sin revisar</span>':'<span class="badge info">Revisado</span>'},
+  {label:'Revisión',html:r=>r.unlinked?'<span class="badge warn">Sin asociar</span>':isUnreconciledPayment(r.expense)?'<span class="badge warn">Pago por vincular</span>':r.expense?.management_only?'<span class="badge warn">Interno, no gestoría</span>':r.expense?.fiscal_reviewed===false?'<span class="badge warn">Sin revisar</span>':'<span class="badge info">Revisado</span>'},
   {label:'Acciones',html:r=>`<div class="expense-file-actions">
    ${r.document?btn('Vista previa','expense-document-preview','secondary',`data-id="${esc(r.document.id)}"`):'<span class="small muted">Sin archivo</span>'}
    ${r.document?btn('Descargar','expense-document-download','secondary',`data-id="${esc(r.document.id)}"`):''}
@@ -830,6 +832,7 @@ export function expenseRecordHtml(row=null){
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  const total=Number(row?.gross_expense??row?.accounting_amount??row?.amount_paid??0);
  return `<div class="page record-page">
+  ${bookPaymentPending(row)?`<div class="note warn">Asiento fiscal contrastado con el libro de gestoría. El pago del banco está registrado en el Excel original y pendiente de conciliación; no significa que esté impagado. El adjunto es un soporte del libro, no el documento individual original. ${esc(row.notes||'')}</div>`:''}
   <div class="record-toolbar"><div><button class="btn link" data-action="expense-back">← Volver a gastos</button><div class="eyebrow">Gastos · ${row?'Registro':'Nuevo'}</div><h2>${row?esc(row.supplier_name||'Gasto'):'Nuevo gasto'}</h2></div><div>${row?(row.management_only?'<span class="badge warn">Solo control interno</span>':'<span class="badge info">Fiscal</span>'):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
    <div class="record-main stack">
