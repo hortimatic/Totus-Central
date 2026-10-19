@@ -621,7 +621,7 @@ function adminStorageHtml(){
  <p>Puedes descargarlos desde Documentos. Exportar un Excel o un informe no sustituye sus PDF y adjuntos. Borrarlos impediría abrir sus vistas previas y dejaría las siguientes copias sin esos originales: no se propone su eliminación como limpieza automática.</p>
  <div class="summary-row"><span>Logos y recursos</span><strong>${mb(u.assets_bytes)}</strong></div>
  <p>Usa la revisión de logos sin uso; se comprueba que no estén vinculados antes de retirarlos. Los documentos y logos necesitan revisión de sus vínculos, no un borrado general por antigüedad.</p>
- <div class="inline-actions">${btn('Ver copias: descargar o eliminar','admin-section','primary','data-section="backups"')}<button class="btn secondary" data-route="documentos">Abrir documentos</button>${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div>
+ <div class="inline-actions">${btn('Ver copias: descargar o eliminar','admin-section','primary','data-section="backups"')}<button class="btn secondary" data-route="documentos">Abrir documentos</button></div>
  </section>`;
  const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
  return `<div class="stack storage-dashboard">
