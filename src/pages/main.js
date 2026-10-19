@@ -61,7 +61,7 @@ function dailySalesByDrawer(row){
  }).join('');
  const total=row.entry_mode==='source_snapshot'?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
  const collections=row.entry_mode==='source_snapshot'?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(source.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
- return `<div class="compact-detail">${detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><details class="cash-collection-detail"><summary>Ver cómo se cobró</summary><div class="compact-detail">${collections}</div></details></div>`;
+ return `<div class="compact-detail">${detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><div class="compact-detail cash-collection-summary">${collections}</div></div>`;
 }
 
 export function inicio(){
