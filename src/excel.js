@@ -61,11 +61,11 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  write(wb,`cierres_${from}_${to}.xlsx`);
 }
 
-export function exportExpensesWorkbook({expenses,stores,from,to}){
+export function exportExpensesWorkbook({expenses,stores,from,to,settings=null}){
  const wb=book();
  const rows=expenses.map(x=>[
    fmtDate(x.expense_date),storeName(stores,x.store_id),x.supplier_name||'',x.supplier_tax_id||'',x.invoice_number||'',x.description||'',
-   n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense??x.accounting_amount??x.amount_paid??0),x.management_only?'Interno':'Contable',x.payment_method||'',x.paid_status||'',x.notes||''
+   n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense??x.accounting_amount??x.amount_paid??0),x.management_only?'Interno':'Contable',x.payment_method||'',archiveAccepted(settings,x,'expense')?'Conciliado y aceptado':x.paid_status||'',x.notes||''
  ]);
  const aoa=[['GASTOS'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Proveedor','NIF','Factura','Descripción','Base','IVA','RE','Retención','Total','Tipo','Pago','Estado','Observaciones'],...rows];
  const end=aoa.length;aoa.push(['','','','','','','','','','','TOTAL','','','']);

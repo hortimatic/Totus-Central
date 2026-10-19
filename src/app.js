@@ -580,7 +580,7 @@ function exportCurrentModule(module){
   &&(!search||(invoiceSection
    ?[x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,documentsById.get(String(x.document_id))?.original_name]
    :[x.supplier_name,x.invoice_number,x.description,x.payment_method,x.supplier_tax_id,x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name]).filter(Boolean).map(searchText).join(' ').includes(search)));
- return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
+ return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,from:f.from,to:f.to});
 }
 
 function addInvoiceLine(){
@@ -1831,7 +1831,7 @@ function exportRows(type){
  const {closings,expenses,invoices,fiscalAdjustments,incomeAdjustments}=selectReportData(state.data,f);
  const stores=state.data.stores.filter(x=>f.store==='all'||x.id===f.store);
  if(type==='closings')return exportClosingsWorkbook({settings:state.data.settings,closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
- if(type==='expenses')return exportExpensesWorkbook({expenses,stores:state.data.stores,from:f.from,to:f.to});
+ if(type==='expenses')return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,from:f.from,to:f.to});
  return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,incomeAdjustments,from:f.from,to:f.to});
 }
 
