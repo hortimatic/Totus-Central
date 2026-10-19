@@ -103,7 +103,8 @@ try{
  await page.locator('#modalHost [data-action="close-modal"]').last().click();
  await page.locator('[data-action="backup-run-now"]').click();
  await page.getByRole('button',{name:'Crear copia',exact:true}).click();
- await page.waitForTimeout(140);
+ await page.getByText(/^Copia creada:.*Actualizar historial/).waitFor();
+ await page.locator('[data-action="backup-refresh"]').first().click();
  const snap=await page.evaluate(()=>window.__mockDb.ops_backup_runs[0]);
  assert.equal(snap?.status,'success','La copia privada no se ha guardado');
  const rotation=await page.evaluate(()=>({
