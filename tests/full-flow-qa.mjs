@@ -466,13 +466,14 @@ await check('Documentos: importación ZIP por lote, vista previa y sin duplicado
  if(await page.locator('[data-action="document-back"]').count())await page.locator('[data-action="document-back"]').first().click();
  const zipped=new JSZip();
  zipped.file('Febrero 2026/Proveedor X 12-2-2026.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
- zipped.file('Marzo 2026/Proveedor Y.pdf',Buffer.from('%PDF-1.4\\n1 0 obj\\n<<>>\\nendobj\\n%%EOF'));
+ zipped.file('Marzo 2026/Proveedor Y.pdf',Buffer.from('%PDF-1.4\\n2 0 obj\\n<<>>\\nendobj\\n%%EOF'));
  const zipBook=xlsx.utils.book_new();xlsx.utils.book_append_sheet(zipBook,xlsx.utils.aoa_to_sheet([['Concepto','Euros'],['Prueba',1]]),'Datos');
  zipped.file('Informes/Libro referencia.xlsx',Buffer.from(xlsx.write(zipBook,{bookType:'xlsx',type:'buffer'})));
  zipped.file('Informes/Resumen.docx',Buffer.from('Documento Word de prueba'));
  const buffer=await zipped.generateAsync({type:'nodebuffer'});
  const before=(await db()).documents.length;
  await page.locator('#documentBulkZip').setInputFiles({name:'facturas-staging.zip',mimeType:'application/zip',buffer});
+ await page.getByRole('button',{name:'Importar archivos',exact:true}).click();
  await page.waitForFunction(n=>window.__mockDb.ops_documents.length>=n+4,before,{timeout:12000});
  await page.waitForTimeout(250);
  const docs=(await db()).documents;
@@ -481,7 +482,8 @@ await check('Documentos: importación ZIP por lote, vista previa y sin duplicado
  assert(docs.some(x=>x.original_name==='Proveedor X 12-2-2026.pdf'),'El nombre original se ha perdido');
  await nav('documentos');
  await page.locator('#documentBulkZip').setInputFiles({name:'facturas-staging.zip',mimeType:'application/zip',buffer});
- await page.waitForTimeout(300);
+ await page.getByRole('button',{name:'Importar archivos',exact:true}).click();
+ await page.getByText('4 duplicados omitidos',{exact:false}).waitFor({state:'visible'});
  assert((await db()).documents.length===before+4,'Se duplicaron PDF al reimportar el ZIP');
 });
 await check('Documentos Excel: carga y vista previa',async()=>{
