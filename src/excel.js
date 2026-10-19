@@ -120,6 +120,7 @@ const WEEKDAYS=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabad
 const XLSX_WCH_PAD=0.83203125;
 const LEGACY_COLORS={other:'00B050',payroll:'FFC000',orders:'00B0F0',fixed:'FFFF00',irpf:'92D050',total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
 function legacyGroup(expense,categories){
+ if(['other','payroll','orders','fixed','irpf'].includes(expense.source_group))return expense.source_group;
  const code=categories.find(x=>x.id===expense.category_id)?.code||'';
  if(code==='MERCH')return'orders';
  if(['PAYROLL','SOCIAL','RETA','FAMILY_COLLAB'].includes(code))return'payroll';
@@ -185,7 +186,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
    if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Pago original fuera del mes o con importe inválido.');
    const invoice=entry.invoice_number?imported.find(x=>x.invoice_number===entry.invoice_number):null;
    const raw=imported.find(x=>{try{const ref=JSON.parse(x.source_ref);return ref.kind==='bank_payment_source'&&ref.source?.row===entry.row}catch{return false}});
-   return {...(invoice||raw||{}),source_row:entry.row,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
+   return {...(invoice||raw||{}),source_row:entry.row,source_group:entry.group,source_color:typeof entry.color==='string'&&/^[A-Fa-f0-9]{6}$/.test(entry.color)?entry.color:undefined,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
   }).concat(monthExpenses.filter(x=>!belongsToSource(x)));
  }
  const expMonth=monthExpenses.sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||(a.source_row!=null&&b.source_row!=null?a.source_row-b.source_row:String(a.created_at||'').localeCompare(String(b.created_at||''))));
@@ -199,7 +200,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
      if(ex){
        invoiceReferences.set(row,ex.invoice_number||'');
        const g=legacyGroup(ex,categories),amount=legacyExpenseAmount(ex);
-       setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(LEGACY_COLORS[g],false));
+       setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(ex.source_color||LEGACY_COLORS[g],false));
        setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
      }else{setCell(ws,`C${row}`,'',textStyle(stripe));setCell(ws,`D${row}`,'',moneyStyle(stripe))}
      if(k===0&&close){
@@ -220,12 +221,16 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  const recalc=`SUM(E${totalRow},F${totalRow})`;setCell(ws,`C${row}`,`${fmtEuro(cardTotal)}€ Tarjeta + ${fmtEuro(cashTotal)}€ metalico`,{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(E${totalRow},"0.00")&"€ Tarjeta + "&TEXT(F${totalRow},"0.00")&"€ metalico"`);row++;
  setCell(ws,`C${row}`,`Total recaudado: ${fmtEuro(cardTotal+cashTotal)}€`,{fill:{fgColor:{rgb:'FFFF00'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total recaudado: "&TEXT(${recalc},"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`Gastos: ${fmtEuro(grossExpenses)}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}},`"Gastos: "&TEXT(D${totalRow},"0.00")&"€"`);row++;
+ if(source){
+  setCell(ws,`C${row}`,`Saldo de tesorería: ${fmtEuro(cardTotal+cashTotal-grossExpenses)}€`,{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Saldo de tesorería: "&TEXT(${recalc}-D${totalRow},"0.00")&"€"`);
+ }else{
  if(internalTotal>0){setCell(ws,`C${row}`,`Menos gastos internos: ${internalTotal.toFixed(2).replace('.',',')}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'left'}});row++}
  const fiscalFormula=internalTotal>0?`D${totalRow}-${internalTotal}`:`D${totalRow}`;
  setCell(ws,`C${row}`,`${fmtEuro(grossExpenses)}€ - ${fmtEuro(internalTotal)}€ = ${fmtEuro(grossExpenses-internalTotal)}€`,{fill:{fgColor:{rgb:'92D050'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(D${totalRow},"0.00")&"€ - "&TEXT(${internalTotal},"0.00")&"€ = "&TEXT(${fiscalFormula},"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`${fmtEuro(cardTotal+cashTotal)}€ - ${fmtEuro(grossExpenses-internalTotal)}€ = ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`Total ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);
- if(source){row+=2;setCell(ws,`C${row}`,'Libro original de tesorería: pagos y tarjetas por fecha bancaria. La revisión fiscal se consulta en el libro de gestoría.',{font:{name:'Calibri',sz:10},alignment:{wrapText:true,vertical:'top'}});ws['!merges'].push(XLSX.utils.decode_range(`C${row}:F${row}`));ws['!rows']=ws['!rows']||[];ws['!rows'][row-1]={hpt:44};}
+ }
+ if(source){row+=2;setCell(ws,`C${row}`,'Libro original de tesorería: pagos y tarjetas por fecha bancaria. El saldo no es el beneficio fiscal. La revisión fiscal se consulta en el libro de gestoría.',{font:{name:'Calibri',sz:10},alignment:{wrapText:true,vertical:'top'}});ws['!merges'].push(XLSX.utils.decode_range(`C${row}:F${row}`));ws['!rows']=ws['!rows']||[];ws['!rows'][row-1]={hpt:44};}
  ws['!ref']=`A1:F${Math.max(row,totalRow)}`;
  let output=ws;
  if(invoiceNumbers){
