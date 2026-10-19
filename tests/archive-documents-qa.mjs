@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {collectArchiveDocuments} from '../src/archive-documents.js';
+const blob=new Blob(['original']);
+const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const documents=Array.from({length:20},(_,i)=>({id:String(i),original_name:`original-${i}.pdf`,size_bytes:blob.size,sha256:hash}));
+let active=0,maxActive=0;const progress=[];
+const result=await collectArchiveDocuments(documents,async d=>{active++;maxActive=Math.max(maxActive,active);await new Promise(resolve=>setTimeout(resolve,Number(d.id)%3));active--;return blob;},{onProgress:n=>progress.push(n)});
+assert.equal(result.length,20);assert.ok(result.every(b=>b===blob));assert.equal(maxActive,4);assert.equal(progress.at(-1),20);
+await assert.rejects(collectArchiveDocuments([documents[0],documents[0]],async()=>blob),/duplicados/);
+await assert.rejects(collectArchiveDocuments([documents[0]],async()=>new Blob(['modificado'])),/tamaño/);
+await assert.rejects(collectArchiveDocuments([{...documents[0],sha256:'0'.repeat(64)}],async()=>blob),/contenido/);
+await assert.rejects(collectArchiveDocuments([documents[0]],async()=>{throw new Error('sin conexión')}),/original-0.pdf.*sin conexión/);
+await assert.rejects(collectArchiveDocuments([],async()=>blob,{concurrency:50}),/Concurrencia/);
+assert.deepEqual(await collectArchiveDocuments([],async()=>blob),[]);
+console.log('ARCHIVE DOCUMENTS QA: bounded parallel reads, stable index and original integrity verified');

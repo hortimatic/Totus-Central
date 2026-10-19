@@ -9,6 +9,7 @@ import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
 import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
+import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
@@ -1749,7 +1750,12 @@ function exportStoreBook(storeId,year,month){
  const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
  exportStoreMonthlyWorkbook({store,year,month,...selectReportData(state.data,getFilters('informes')),categories:state.data.categories});
 }
+let annualExportInProgress=false;
 async function exportGestorPackage(year){
+ if(annualExportInProgress){toast('El paquete anual ya se está preparando.');return;}
+ annualExportInProgress=true;
+ modal('Preparando paquete anual','<p id="annualPackageProgress" role="status" aria-live="polite">Preparando libros y documentos…</p>');
+ try{
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
  const incomeRows=[
@@ -1769,17 +1775,18 @@ async function exportGestorPackage(year){
  resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos fiscales revisados;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
  const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
  const usedPaths=new Set(),manifest=[];
- for(const d of yearDocs){
-  try{
-   const blob=await getDocumentBlob(d);
+ const originals=await collectArchiveDocuments(yearDocs,getDocumentBlob,{onProgress:(done,total)=>{const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent=`Comprobando documentos ${done}/${total}…`;}});
+ for(const [index,d] of yearDocs.entries()){
+   const blob=originals[index];
    const archivePath=uniqueArchiveDocumentPath(d,usedPaths);
    docs.file(archivePath,blob);
    manifest.push([d.id,d.document_date||'',state.data.stores.find(x=>x.id===d.store_id)?.name||'General',d.doc_type||'',d.supplier_or_customer||'',d.original_name||'',archivePath,d.sha256||'',Number(d.size_bytes||blob.size||0)]);
-  }catch(e){throw new Error('No se pudo incluir '+(d.original_name||'documento')+' en el ZIP: '+e.message)}
  }
  if(manifest.length!==yearDocs.length||usedPaths.size!==yearDocs.length)throw new Error('Error de integridad: faltan documentos en el paquete.');
  docs.file('Indice_documentos_'+year+'.csv',csv(manifest,['ID','Fecha','Tienda','Tipo','Proveedor / cliente','Archivo original','Ruta ZIP','SHA256','Tamaño bytes'].map((label,i)=>({label,get:r=>r[i]}))));
- const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});download(blob,`Paquete_gestor_${year}.zip`);
+ const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent='Comprimiendo paquete verificado…';
+ const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});download(blob,`Paquete_gestor_${year}.zip`);
+ }finally{annualExportInProgress=false;if(document.getElementById('annualPackageProgress'))closeModal();}
 }
 function exportRows(type){
  const f=getFilters('informes');
