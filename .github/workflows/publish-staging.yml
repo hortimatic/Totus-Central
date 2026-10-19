@@ -71,7 +71,7 @@ jobs:
       - name: Install browser and document testing dependencies
         working-directory: staging-source
         run: |
-          npm install --no-save xlsx-js-style playwright jszip pdf-lib @zip.js/zip.js@2.24.0
+          npm install --no-save xlsx-js-style playwright jszip pdf-lib fflate@0.8.3
           node tests/recovery-core-qa.mjs
           node tests/recovery-capacity-qa.mjs
           node tests/native-backup-zip-qa.mjs

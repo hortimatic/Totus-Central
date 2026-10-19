@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import JSZip from 'jszip';
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,archiveHash} from '../src/recovery-core.js';
-const code=(await fs.readFile(new URL('../supabase/functions/totus-backup-run/native-zip.js',import.meta.url),'utf8')).replace('npm:@zip.js/zip.js@2.24.0',import.meta.resolve('@zip.js/zip.js'));
+const code=(await fs.readFile(new URL('../supabase/functions/totus-backup-run/native-zip.js',import.meta.url),'utf8')).replace('npm:fflate@0.8.3',import.meta.resolve('fflate'));
 const {NativeBackupZip}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const id='11111111-1111-4111-8111-111111111111';
 const database=Object.fromEntries(RECOVERY_TABLES.map(t=>[t,[]]));
