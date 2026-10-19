@@ -43,6 +43,25 @@ try{
  for(const id of emptyIds)await page.locator(`#drOpen_${id}`).fill('0');
  await page.locator('[data-action="closing-save-close"]').click();
  await page.getByText('Cierre cerrado y cuadrado.',{exact:true}).waitFor();
+ await page.reload({waitUntil:'networkidle'});
+ const nextIds=await page.evaluate(async()=>{
+  const db=window.__mockDb,shop=db.ops_stores[0],drawers=db.ops_cash_drawers.filter(d=>d.store_id===shop.id);
+  for(const [date,amounts] of [['2026-09-29',[30,40]],['2026-09-30',[11,22]]]){
+   const id=crypto.randomUUID();db.ops_daily_closings.push({id,store_id:shop.id,business_date:date,status:'cerrado',entry_mode:'manual',include_in_income:false});
+   drawers.forEach((d,i)=>db.ops_daily_closing_drawers.push({id:crypto.randomUUID(),closing_id:id,drawer_id:d.id,closing_cash:amounts[i]}));
+  }
+  await(await import('/src/api.js')).loadCore();return drawers.map(d=>d.id);
+ });
+ await page.locator('#nav [data-route="cajas"]').click();
+ await page.locator('[data-action="closing-new"]').first().click();
+ assert.equal(await page.locator(`#drOpen_${nextIds[0]}`).inputValue(),'11');
+ assert.equal(await page.locator(`#drOpen_${nextIds[1]}`).inputValue(),'22','Head must use its own retained cash, never the combined store amount');
+ await page.locator(`#drOpen_${nextIds[0]}`).fill('999');
+ await page.locator(`#drCard_${nextIds[1]}`).fill('55');
+ await page.locator('#clDate').fill('2026-09-30');await page.locator('#clDate').press('Tab');
+ assert.equal(await page.locator(`#drOpen_${nextIds[0]}`).inputValue(),'999','Date changes must preserve an explicitly entered opening');
+ assert.equal(await page.locator(`#drOpen_${nextIds[1]}`).inputValue(),'40','Untouched opening must follow the previous closing for the chosen date');
+ assert.equal(await page.locator(`#drCard_${nextIds[1]}`).inputValue(),'55','Refreshing an opening must preserve other fields');
  await page.close();
  console.log('SOURCE RECONCILIATION QA: explicit button, real captured prefills, unknown allocation blank, incomplete rejection, closed status and unchanged income/original evidence.');
 }finally{await browser.close()}

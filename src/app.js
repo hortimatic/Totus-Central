@@ -1,10 +1,10 @@
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
-import {captureFormDraft,hasFormDraft,originalFormValue} from './form-drafts.js';
+import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,removeFile} from './api.js';
-import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml} from './pages/main.js';
+import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
 import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
@@ -2144,7 +2144,7 @@ document.addEventListener('change',async e=>{
   if(!await allowDiscardDrafts({ignore:['clStore']})){e.target.value=originalFormValue($('#content'),'clStore');return}
   setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return;
  }
- if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){setView('cajas',{date:e.target.value||isoToday()});return}
+ if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){const date=e.target.value||isoToday();setView('cajas',{date});for(const drawer of state.data.drawers.filter(d=>d.store_id===val('clStore')&&d.active!==false))setPristineFormValue($('#content'),`drOpen_${drawer.id}`,openingDrawerCash(drawer.store_id,drawer.id,date));updateClosingSummary();return}
  if(['ivStore','ivDate'].includes(e.target?.id)&&getView('facturacion').mode==='record'){
   const view=getView('facturacion'),saved=state.data.invoices.find(x=>x.id===view.id),storeId=val('ivStore'),docType=saved?.document_type||view.docType||'factura',kind=saved?.invoice_kind||view.invoiceKind||'invoice',year=Number(val('ivDate').slice(0,4));setView('facturacion',{storeId});
   let series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&Number(s.year)===year&&(!s.store_id||s.store_id===storeId)&&(docType==='proforma'||s.series_kind===kind));

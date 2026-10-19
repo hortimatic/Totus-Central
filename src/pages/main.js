@@ -18,6 +18,14 @@ const expensePaymentBadge=row=>acceptedExpense(row)?acceptedBadge:bookPaymentPen
 const closingHasOrigin=row=>{try{return JSON.parse(row?.source_ref||'{}').kind==='closing_source_snapshot'}catch{return false}};
 const closingMonthlyReference=row=>state.data.incomeAdjustments.find(ref=>ref.store_id===row?.store_id&&Number(ref.amount)>0&&(()=>{try{const source=JSON.parse(ref.notes);return source.kind==='monthly_source_reference'&&source.period===String(row.business_date).slice(0,7)}catch{return false}})());
 
+function retainedCashByDrawer(row){
+ const drawers=state.data.drawers.filter(d=>d.store_id===row.store_id&&d.active!==false);
+ return drawers.map(drawer=>{
+  const balance=row.entry_mode==='source_snapshot'?lastDrawerBalance({closings:[row],storeId:row.store_id,drawer,before:row.business_date+'T'}):{amount:state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id)?.closing_cash};
+  return `<span>${esc(drawer.name)} · siguiente apertura <b>${balance?.amount==null?'Sin importe anotado':money(balance.amount)}</b></span>`;
+ }).join('');
+}
+
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
  const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`;
@@ -136,7 +144,7 @@ export function cajas(){
  const headers=[
   {label:'Cierre',html:r=>`<b class="date-display">${fmtDate(r.business_date)}</b><div class="small muted">${esc(storeName(r.store_id))}</div>`},
   {label:'Cobros',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Tarjeta según banco <b>${JSON.parse(r.source_ref).card_sales==null?'Sin anotación':money(r.card_sales)}</b></span><span>${acceptedClosing(r)?'Histórico aceptado · ventas en el resumen mensual':'Efectivo vendido pendiente de conciliación'}</span></div>`:`<div class="compact-detail"><span>Efectivo <b>${money(r.cash_sales)}</b></span><span>Tarjeta <b>${money(r.card_sales)}</b></span><span>Bizum <b>${money(r.bizum_sales)}</b></span><span>Online <b>${money(r.online_sales)}</b></span><span>Otros <b>${money(r.other_income)}</b></span></div>`},
-  {label:'Caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Dinero al abrir <b>${sourceCashKnown(r,'opening')?money(r.opening_cash):'Ver detalle por caja'}</b></span><span>Dinero para la siguiente apertura <b>${sourceCashKnown(r,'closing')?money(r.actual_cash):'Ver detalle por caja'}</b></span><span>Retirada total tienda <b>${JSON.parse(r.source_ref).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${JSON.parse(r.source_ref).missing_drawers?.length?'<span class="warn-text">Ver detalle por caja</span>':''}</div>`:`<div class="compact-detail"><span>Apertura <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.opening_cash)}</b></span><span>Final <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.actual_cash)}</b></span><span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
+  {label:'Caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Dinero al abrir <b>${sourceCashKnown(r,'opening')?money(r.opening_cash):'Ver detalle por caja'}</b></span>${retainedCashByDrawer(r)}<span>Retirada total tienda <b>${JSON.parse(r.source_ref).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${JSON.parse(r.source_ref).missing_drawers?.length?'<span class="warn-text">Ver detalle por caja</span>':''}</div>`:`<div class="compact-detail"><span>Apertura <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.opening_cash)}</b></span>${retainedCashByDrawer(r)}<span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
   {label:'Control',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Total del origen <b>${money(r.reported_total_sales)}</b></span><span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span><span class="${acceptedClosing(r)?'good-text':'warn-text'}">${acceptedClosing(r)?'Conciliado y aceptado':'Caja pendiente de conciliación'}</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>TPV/control <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
   {label:'Estado',html:r=>acceptedClosing(r)?acceptedBadge:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
   {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
@@ -752,10 +760,10 @@ function drawerEditor(drawer,row,locked=false){
  const targetDate=row?.business_date||getView('cajas').date||isoToday();
  const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id,targetDate);
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
-  <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>Importes de esta caja.</p></div></div>
+  <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>El efectivo que dejas aquí será la apertura de esta misma caja el próximo día.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
-   ${formField('Apertura efectivo',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
-   ${formField('Efectivo final',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Dinero al abrir',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Dinero que dejas para la próxima apertura',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Bizum',`drBizum_${drawer.id}`,saved?.bizum_sales??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Pedidos online',`drOnline_${drawer.id}`,saved?.online_sales??'','number','step="0.01" '+(locked?'disabled':''))}

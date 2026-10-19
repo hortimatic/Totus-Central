@@ -18,3 +18,9 @@ export function hasFormDraft(root,ignore=[]){
  return JSON.stringify(select(fields(root)))!==JSON.stringify(select(baselines.get(root)));
 }
 export function originalFormValue(root,key){return baselines.get(root)?.find(row=>row.key===key)?.value}
+export function setPristineFormValue(root,key,value){
+ const baseline=baselines.get(root)?.find(row=>row.key===key);
+ const field=[...(root?.querySelectorAll('input,select,textarea')||[])].find(el=>el.id===key);
+ if(!baseline||!field||field.value!==baseline.value)return false;
+ field.value=String(value??'');baseline.value=field.value;return true;
+}
