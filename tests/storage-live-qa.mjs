@@ -18,7 +18,7 @@ try{
  assert((await page.locator('#content').innerText()).includes('Cuota del plan pendiente de verificar'),'Sin referencia del proveedor no debe inventar capacidad gratuita');
  await page.evaluate(async()=>{
   const {state}=await import('../src/state.js');
-  state.data.settings.storage_provider_reference={plan:'Free',checked_at:'2026-10-20T00:00:00Z',database_limit_bytes:500*1024*1024,files_limit_bytes:1024*1024*1024};
+  state.data.settings.storage_provider_reference={plan:'Free',checked_at:'2026-10-20T00:00:00Z',database_limit_bytes:500*1024*1024,files_limit_bytes:1024*1024*1024,planning_sample_months:9,planning_sample_through:'2026-09-30',planning_sample_files_bytes:3*1024*1024,planning_sample_full_backup_bytes:2*1024*1024};
  });
  await page.evaluate(()=>{
   const uploads=window.__mockUploads;
@@ -41,6 +41,9 @@ try{
  assert(text.includes('business-backups')&&text.includes('business-documents')&&text.includes('business-assets'),'No muestra la ubicación de cada grupo de archivos');
  assert((await page.locator('#storageBackupsCapacityBar').getAttribute('aria-label')).includes('1,00 MB usados; 3,00 MB de otros archivos; 1020,00 MB de margen'),'El margen de copias debe descontar todos los archivos del proyecto');
  await page.locator('.storage-space-section').screenshot({path:'artifacts/storage-capacity-bars.png'});
+ assert(text.includes('Cuánto puede durar el espacio')&&text.includes('9 meses')&&text.includes('0,33 MB/mes'),'No muestra la simulación con referencia de nueve meses');
+ assert(text.includes('la copia nueva antes de borrar la antigua')&&text.includes('no libera espacio'),'Falta explicar el margen de subida o la descarga sin borrado');
+ assert(await page.locator('[data-action="admin-section"][data-section="backups"]').count()>0,'Falta acceso a descarga y eliminación de copias');
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
  assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
  assert((await page.locator('#storageObservedBar .storage-segment-docs').evaluate(el=>el.getBoundingClientRect().width))>10,'Los documentos cargados no se reflejan en la barra superior');

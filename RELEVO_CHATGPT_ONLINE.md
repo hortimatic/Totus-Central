@@ -83,3 +83,9 @@ Al finalizar cada intervención, actualizar este documento si cambian horarios, 
 La programación de las 00:35 Europe/Madrid se ejecutó en Supabase el 20/10/2026 sin intervención del portátil y terminó correctamente. Se contrastó que incluyera todos los documentos actuales y que la rotación mantuviera diez copias guardadas. Esto verifica creación, inventario y transporte; no equivale a un ensayo de restauración en producción.
 
 Cada copia guardada dispone de Eliminar con confirmación. Solo el administrador puede hacerlo; el servidor protege la última copia y las vinculadas a recuperaciones. Las copias retiradas y los fallos antiguos no deben mostrarse como elementos disponibles. Los registros técnicos conservan el resultado verdadero.
+
+## Estimación de espacio y limpieza
+
+Administración → Almacenamiento incluye una simulación que usa la referencia privada de nueve meses guardada en la configuración. Debe contar el crecimiento de originales, la sustitución de copias históricas pequeñas por diez copias completas actuales y el espacio temporal de la nueva copia antes de retirar la antigua. El límite de archivo de Totus y la cuota de Storage son límites separados. No convertir el espacio de este proyecto en una promesa de espacio libre global de la organización.
+
+Descargar no libera espacio; eliminar copias antiguas no elimina los datos actuales, pero la programación vuelve a generar hasta diez. No proponer borrar facturas o justificantes vinculados para ampliar capacidad. Una exportación Excel no sustituye sus documentos originales. No extrapolar la base de datos sin una referencia comparable.

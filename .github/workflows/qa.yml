@@ -15,6 +15,7 @@ jobs:
           node-version: 22
       - run: node tests/qa.mjs
       - run: node tests/backup-retention-qa.mjs
+      - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/source-closing-qa.mjs
       - run: node tests/historical-acceptance-qa.mjs
