@@ -19,6 +19,17 @@ assert(Object.values(sheet).some(c=>String(c?.v).startsWith('Saldo de tesorería
 assert(!Object.values(sheet).some(c=>String(c?.v).startsWith('Menos gastos internos: ')),'A cash-book source must not invent a provisional fiscal deduction');
 assert(Object.values(sheet).some(c=>String(c?.v).includes('Libro original de tesorería')));
 const reopened=XLSX.read(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}),{type:'buffer'});assert.equal(reopened.Sheets.Enero.D4.v,'0007');
+const {selectReportData}=await import('../src/report-period.js');
+const scoped=selectReportData({stores:[store],...args,incomeAdjustments:[{store_id:'shop',income_date:'2026-01-31',notes:JSON.stringify(source)}]},{from:'2026-01-02',to:'2026-01-02',store:'all',query:'Original payment'});
+assert.equal(scoped.incomeAdjustments.length,0,'A supplier search must not match the entire monthly income through its JSON evidence');
+const filtered=buildStoreMonthlyWorkbook({...args,...scoped}).Sheets.Enero;
+assert.equal(filtered.E4.v,45,'A partial-month search retains the original payment source even when its month-end income record is outside the date range');
+assert.equal(filtered.F3.v,'');assert.equal(filtered.F6.v,'');
+assert(!Object.values(filtered).some(c=>c?.v==='Original payroll'||c?.v==='Manual expense'),'Search must not export unrelated monthly payment entries');
+const dateScoped=selectReportData({stores:[store],...args,incomeAdjustments:[{store_id:'shop',income_date:'2026-01-31',notes:JSON.stringify(source)}]},{from:'2026-01-03',to:'2026-01-03',store:'all',query:''});
+const partial=buildStoreMonthlyWorkbook({...args,...dateScoped}).Sheets.Enero;
+assert.equal(partial.F5.v,23,'Card settlement must be filtered by its original bank date');
+assert.equal(partial.F3.v,'');
 assert.throws(()=>buildStoreMonthlyWorkbook({...args,incomeAdjustments:[...args.incomeAdjustments,...args.incomeAdjustments]}),/más de un origen/);
 assert.throws(()=>buildStoreMonthlyWorkbook({...args,incomeAdjustments:[{store_id:'shop',notes:JSON.stringify({...source,bank_entries:[{date:'2026-02-01',amount:5}]})}]}),/fuera del mes/);
 let captured;XLSX.writeFile=book=>{captured=book};

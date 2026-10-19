@@ -1,6 +1,7 @@
 import {fmtDate,n} from './utils.js';
 import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
+import {matchesText} from './report-period.js';
 
 const XLSX=window.XLSX;
 const euro='#,##0.00 "€"';
@@ -155,7 +156,7 @@ function monthlySourceReference(incomeAdjustments,storeId,period){
  if(sources.length>1)throw new Error('Hay más de un origen para el mismo libro mensual. Revisa la importación.');
  return sources[0];
 }
-function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments=[],invoiceNumbers=false}){
+function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments=[],monthlySourceReferences=incomeAdjustments,reportFilter={},invoiceNumbers=false}){
  const invoiceReferences=new Map();
  const monthName=MONTHS[month],ws={};
  ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,!/newold|smok/i.test(store.name||'')&&month===0?33:30.7109375,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
@@ -172,17 +173,19 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
   totals.cash_withdrawals+=n(closing.cash_withdrawals);
   byDateClose.set(date,totals);
  }
- const period=`${year}-${String(month+1).padStart(2,'0')}`,source=monthlySourceReference(incomeAdjustments,store.id,period);
+ const period=`${year}-${String(month+1).padStart(2,'0')}`,source=monthlySourceReference(monthlySourceReferences,store.id,period);
+ const sourceDateMatches=date=>(!reportFilter.from||date>=reportFilter.from)&&(!reportFilter.to||date<=reportFilter.to);
  let monthExpenses=expenses.filter(x=>x.store_id===store.id&&String(x.expense_date).startsWith(period));
  if(source){
   byDateClose.clear();
   for(const [field,entries] of [['card_sales',source.bank_entries],['cash_withdrawals',source.withdrawal_entries]])for(const entry of entries){
    if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Apunte bancario fuera del mes o con importe inválido.');
+   if(!sourceDateMatches(entry.date)||!matchesText(reportFilter.query,store.name,entry.date,field==='card_sales'?'Tarjeta':'Salida de caja'))continue;
    const totals=byDateClose.get(entry.date)||{card_sales:null,cash_withdrawals:null};totals[field]=(totals[field]??0)+Number(entry.amount);byDateClose.set(entry.date,totals);
   }
   const belongsToSource=expense=>{try{const ref=JSON.parse(expense.source_ref);return typeof source.batch==='string'&&source.batch!==''&&ref.batch===source.batch}catch{return false}};
   const imported=expenses.filter(x=>x.store_id===store.id&&belongsToSource(x));
-  monthExpenses=source.payment_entries.map(entry=>{
+  monthExpenses=source.payment_entries.filter(entry=>sourceDateMatches(entry.date)&&matchesText(reportFilter.query,store.name,entry.date,entry.label,entry.invoice_number)).map(entry=>{
    if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Pago original fuera del mes o con importe inválido.');
    const invoice=entry.invoice_number?imported.find(x=>x.invoice_number===entry.invoice_number):null;
    const raw=imported.find(x=>{try{const ref=JSON.parse(x.source_ref);return ref.kind==='bank_payment_source'&&ref.source?.row===entry.row}catch{return false}});

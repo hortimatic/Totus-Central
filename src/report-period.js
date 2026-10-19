@@ -25,12 +25,15 @@ export function reportMonths({from,to}){
 
 export function selectReportData(data,filters){
  const storeName=id=>data.stores.find(s=>s.id===id)?.name||'';
- const take=(rows,date,fields)=>(rows||[]).filter(row=>inRange(row[date],filters.from,filters.to)&&(!filters.store||filters.store==='all'||row.store_id===filters.store)&&matchesText(filters.query,storeName(row.store_id),row[date],...fields.map(key=>row[key])));
+ const take=(rows,date,fields)=>(rows||[]).filter(row=>inRange(row[date],filters.from,filters.to)&&(!filters.store||filters.store==='all'||row.store_id===filters.store)&&matchesText(filters.query,storeName(row.store_id),row[date],...fields.map(key=>typeof key==='function'?key(row):row[key])));
+ const incomeNote=row=>{try{const ref=JSON.parse(row.notes);if(ref.kind==='monthly_source_reference')return [ref.book,ref.criterion].join(' ')}catch{}return row.notes;};
  return {
   closings:take(data.closings,'business_date',['notes','status']),
   expenses:take(data.expenses,'expense_date',['supplier_name','supplier_tax_id','invoice_number','description','notes','payment_method']),
   invoices:take(data.invoices,'issue_date',['customer_name','customer_tax_id','display_number','external_number_text','concept','notes']),
   fiscalAdjustments:take(data.fiscalAdjustments,'adjustment_date',['description','kind']),
-  incomeAdjustments:take(data.incomeAdjustments,'income_date',['concept','notes'])
+  incomeAdjustments:take(data.incomeAdjustments,'income_date',['concept',incomeNote]),
+  monthlySourceReferences:(data.incomeAdjustments||[]).filter(row=>(!filters.store||filters.store==='all'||row.store_id===filters.store)&&(()=>{try{return JSON.parse(row.notes).kind==='monthly_source_reference'}catch{return false}})()),
+  reportFilter:{from:filters.from,to:filters.to,query:filters.query}
  };
 }
