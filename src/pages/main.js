@@ -5,12 +5,14 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment} from '../calculations.js';
+import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
 const bookPaymentPending=row=>{try{return JSON.parse(row?.source_ref||'{}').kind==='gestoria_book_entry'&&JSON.parse(row.source_ref).requires_payment_reconciliation===true}catch{return false}};
 const expensePaymentBadge=row=>bookPaymentPending(row)?'<span class="badge warn">Pago sin conciliar</span>':stateBadge(row.paid_status||'pendiente');
+const closingHasOrigin=row=>{try{return JSON.parse(row?.source_ref||'{}').kind==='closing_source_snapshot'}catch{return false}};
+const closingMonthlyReference=row=>state.data.incomeAdjustments.find(ref=>ref.store_id===row?.store_id&&Number(ref.amount)>0&&(()=>{try{const source=JSON.parse(ref.notes);return source.kind==='monthly_source_reference'&&source.period===String(row.business_date).slice(0,7)}catch{return false}})());
 
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
@@ -20,7 +22,7 @@ export function inicio(){
  const monthExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,month.from,month.to));
  const quarterExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,qFrom,qTo));
  const monthInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&inRange(x.issue_date,month.from,month.to));
- const salesFromClosings=sum(monthClosings.filter(x=>x.include_in_income!==false),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const salesFromClosings=sum(monthClosings.filter(x=>x.include_in_income!==false),closingIncomeAmount);
  const extraInvoices=sum(monthInvoices.filter(x=>x.include_in_income===true),x=>x.total_amount);
  const monthIncomeAdjustments=sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,month.from,month.to)),x=>x.amount);
  const monthManualIncome=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,month.from,month.to)),x=>x.amount);
@@ -45,7 +47,7 @@ export function inicio(){
  const storageOk=usage.status==='ok'&&Number.isFinite(Number(usage.total_bytes))&&Number.isFinite(Number(usage.limit_bytes))&&Number(usage.limit_bytes)>0;
  const used=storageOk?Number(usage.total_bytes):null,limit=storageOk?Number(usage.limit_bytes):null,storagePct=storageOk?used/limit*100:null;
  const yFrom=`${year}-01-01`;
- const incomeYtd=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,yFrom,qTo)),x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))
+ const incomeYtd=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,yFrom,qTo)),closingIncomeAmount)
   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)),x=>x.total_amount)
   +sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,qTo)),x=>x.amount)
   +sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)),x=>x.amount);
@@ -77,8 +79,8 @@ export function inicio(){
  if(!storageOk&&isManager())alerts.push({level:'warn',title:'Almacenamiento sin medición',text:'Supabase no ha confirmado el espacio utilizado.',route:'administracion'});
  const storeCards=activeStores.map(store=>{
   const close=todays.find(x=>x.store_id===store.id),storeMonth=monthClosings.filter(x=>x.store_id===store.id);
-  const monthSales=sum(storeMonth,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
-  const todaySales=close?Number(close.cash_sales||0)+Number(close.card_sales||0)+Number(close.bizum_sales||0)+Number(close.online_sales||0)+Number(close.other_income||0):0;
+  const monthSales=sum(storeMonth,closingIncomeAmount);
+  const todaySales=closingIncomeAmount(close);
   return `<article class="store-status-card"><div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div><div class="metric-list" style="margin-top:12px"><div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div><div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div><div class="metric-box"><span>Efectivo final</span><b>${close?money(close.actual_cash):'—'}</b></div><div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div></div><div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div></article>`;
  }).join('');
  const expenseByStore=activeStores.map(store=>{const rows=quarterExpenses.filter(x=>x.store_id===store.id),regular=rows.filter(x=>!x.management_only),internal=rows.filter(x=>x.management_only);return `<div class="summary-row"><div><b>${esc(store.name)}</b><div class="small muted">${regular.length} contabilizados · ${internal.length} internos</div></div><strong>${money(sum(rows,expenseCostAmount))}</strong></div>`}).join('');
@@ -119,7 +121,7 @@ export function cajas(){
  }
  const f=getFilters('cajas');
  const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,storeName(x.store_id),x.status,storeName(x.store_id)));
- const total=sum(rows,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0));
+ const total=sum(rows,row=>Number(row.card_sales||0));
  const historical=rows.filter(x=>String(x.source_ref||'').startsWith('EXCEL2026-')||x.entry_mode==='source_snapshot');
  const mismatches=rows.filter(x=>x.entry_mode!=='source_snapshot'&&Math.abs(Number(x.difference||0))>.01).length;
  const drafts=rows.filter(x=>x.status==='borrador').length;
@@ -127,14 +129,14 @@ export function cajas(){
   {label:'Cierre',html:r=>`<b class="date-display">${fmtDate(r.business_date)}</b><div class="small muted">${esc(storeName(r.store_id))}</div>`},
   {label:'Cobros',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Tarjeta según banco <b>${JSON.parse(r.source_ref).card_sales==null?'Sin anotación':money(r.card_sales)}</b></span><span>Efectivo vendido pendiente de conciliación</span></div>`:`<div class="compact-detail"><span>Efectivo <b>${money(r.cash_sales)}</b></span><span>Tarjeta <b>${money(r.card_sales)}</b></span><span>Bizum <b>${money(r.bizum_sales)}</b></span><span>Online <b>${money(r.online_sales)}</b></span><span>Otros <b>${money(r.other_income)}</b></span></div>`},
   {label:'Caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Apertura capturada <b>${money(r.opening_cash)}</b></span><span>Final capturado <b>${money(r.actual_cash)}</b></span><span>Retirada total tienda <b>${JSON.parse(r.source_ref).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${JSON.parse(r.source_ref).missing_drawers?.length?'<span class="warn-text">Captura parcial · ver origen</span>':''}</div>`:`<div class="compact-detail"><span>Apertura <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.opening_cash)}</b></span><span>Final <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.actual_cash)}</b></span><span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
-  {label:'Control',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Al fin del origen <b>${money(r.reported_total_sales)}</b></span><span class="warn-text">Conciliación pendiente</span><span>No incluido en ingresos fiscales</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>TPV/control <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
-  {label:'Estado',html:r=>r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
-  {label:'Acciones',html:r=>`<div class="inline-actions">${btn(r.entry_mode==='source_snapshot'?'Ver origen':r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
+  {label:'Control',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Total del origen <b>${money(r.reported_total_sales)}</b></span><span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual de gestoría':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span><span class="warn-text">Caja pendiente de conciliación</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>TPV/control <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
+  {label:'Estado',html:r=>r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
+  {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver origen':r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
  return `<div class="page">
-  <div class="kpis">${kpi('Cobros parciales registrados',money(total))}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
+  <div class="kpis">${kpi('Tarjeta registrada',money(total),'El total fiscal se consulta en Fiscalidad')}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
   <section class="card table-card">
-   <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos con su origen conservado, pendientes de conciliación. No están incluidos en ingresos fiscales. Abre cada ficha para consultar qué datos están disponibles y cuáles faltan.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
+   <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos pendientes de conciliación de caja. Fiscalidad conserva las referencias mensuales de gestoría. Conciliar comprueba el desglose de caja y no duplica esos ingresos.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'cajas')}
    ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.'})}
   </section>
@@ -369,7 +371,7 @@ export function fiscalidad(){
  const ytdAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x));
  const periodManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&storeOk(x));
  const ytdManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)&&storeOk(x));
- const sumIncome=(cs,is,as)=>sum(cs,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
+ const sumIncome=(cs,is,as)=>sum(cs,closingIncomeAmount)+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
  const periodIncome=sumIncome(periodClose,periodInv,periodAdj)+sum(periodManual,x=>x.amount),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj)+sum(ytdManual,x=>x.amount);
  const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,qTo)&&storeOk(x));
  const internalPeriod=state.data.expenses.filter(x=>x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x));
@@ -424,7 +426,7 @@ export function informes(){
  const c=selected.closings.filter(x=>x.include_in_income!==false),g=selected.expenses;
  const extraInv=selected.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true);
  const incomeAdj=selected.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'),manualIncome=selected.incomeAdjustments;
- const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount)+sum(manualIncome,x=>x.amount);
+ const sales=sum(c,closingIncomeAmount)+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount)+sum(manualIncome,x=>x.amount);
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only),expenseCostAmount),internal=sum(g.filter(x=>x.management_only),expenseCostAmount);
  return `<div class="page">
@@ -728,7 +730,13 @@ export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
 }
 
 function drawerEditor(drawer,row,locked=false){
- const saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
+ let saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
+ if(!saved&&row?.entry_mode==='source_snapshot'&&getView('cajas').reconcileSource){
+  const normalize=name=>String(name).toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
+  const origin=JSON.parse(row.source_ref),captured=origin.drawers.find(d=>normalize(d.name)===normalize(drawer.name));
+  const single=(origin.expected_drawers??origin.drawers.length)===1;
+  saved={opening_cash:captured?.opening??'',closing_cash:captured?.closing??'',card_sales:single?(origin.card_sales??''):'',cash_withdrawals:single?(origin.withdrawals??''):''};
+ }
  const targetDate=row?.business_date||getView('cajas').date||isoToday();
  const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id,targetDate);
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
@@ -749,7 +757,8 @@ function drawerEditor(drawer,row,locked=false){
 }
 
 export function closingRecordHtml(row=null){
- if(row?.entry_mode==='source_snapshot')return sourceClosingRecordHtml(row);
+ const sourceReconcile=row?.entry_mode==='source_snapshot'&&getView('cajas').reconcileSource;
+ if(row?.entry_mode==='source_snapshot'&&!sourceReconcile)return sourceClosingRecordHtml(row);
  const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
  const view=getView('cajas');
  const sid=row?.store_id||view.storeId||storeOptions[0]?.value||'';
@@ -758,15 +767,16 @@ export function closingRecordHtml(row=null){
  const calculated=Number(row?.cash_sales||0)+Number(row?.card_sales||0)+Number(row?.bizum_sales||0)+Number(row?.online_sales||0)+Number(row?.other_income||0);
  const locked=row?.status==='cerrado';
  return `<div class="page record-page">
+  ${sourceReconcile?`<section class="note warn"><b>Conciliar el cierre importado</b><p>La referencia fiscal mensual se conserva. «Al fin» puede incluir dinero que permanece en caja y no se copia como venta. Aquí se comprueba el movimiento del efectivo por caja. Completa los campos vacíos con el dato real, o con 0 si confirmas que no hubo movimiento. No se inventa el reparto entre cajas.</p><p>Referencia de la tienda: tarjeta ${JSON.parse(row.source_ref).card_sales==null?'sin anotación':money(JSON.parse(row.source_ref).card_sales)} · retiradas ${JSON.parse(row.source_ref).withdrawals==null?'sin anotación':money(JSON.parse(row.source_ref).withdrawals)} · «al fin» del origen ${money(row.reported_total_sales)}.</p></section>`:''}
   <div class="record-toolbar"><div><button class="btn link" data-action="closing-back">← Volver a cierres</button><div class="eyebrow">Cajas · ${row?'Cierre '+fmtDate(row.business_date):'Nuevo cierre'}</div><h2>${row?esc(storeName(row.store_id)):'Nuevo cierre de caja'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
    <div class="record-main stack">
     <section class="card card-pad">
      <div class="section-head"><div><h3>Datos del cierre</h3><p>Fecha, establecimiento y total de control.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${selectField('Tienda','clStore',storeOptions,sid,locked?'disabled':'')}
-      ${formField('Fecha','clDate',recordDate,'date',locked?'disabled':'')}
-      ${formField('Total TPV / control','clReported',row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
+      ${selectField('Tienda','clStore',storeOptions,sid,locked||sourceReconcile?'disabled':'')}
+      ${formField('Fecha','clDate',recordDate,'date',locked||sourceReconcile?'disabled':'')}
+      ${formField(sourceReconcile?'Ventas contrastadas / control':'Total TPV / control','clReported',sourceReconcile?'':row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
       <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>
     </section>
@@ -780,8 +790,9 @@ export function closingRecordHtml(row=null){
      <div class="summary-row"><span>Diferencia</span><strong id="clDifference" class="${Math.abs(Number(row?.difference||0))>.01?'danger-text':'good-text'}">${money(row?.difference||0)}</strong></div>
      <div class="note" style="margin-top:12px">El efectivo se calcula por caja: final + retiradas + gastos de caja + salidas extra − apertura − entradas extra.</div>
      <div class="stack" style="margin-top:14px">
-      ${row&&locked?btn('Reabrir cierre','closing-reopen','secondary',`data-id="${row.id}"`):btn('Guardar borrador','closing-save-draft','secondary',row?`data-id="${row.id}"`:'')}
-      ${!locked?btn('Cerrar y validar','closing-save-close','primary',row?`data-id="${row.id}"`:''):''}
+      ${closingHasOrigin(row)?btn('Ver captura original','closing-view-source','secondary',`data-id="${row.id}"`):''}
+      ${row&&locked?btn('Reabrir cierre','closing-reopen','secondary',`data-id="${row.id}"`):sourceReconcile?'':btn('Guardar borrador','closing-save-draft','secondary',row?`data-id="${row.id}"`:'')}
+      ${!locked?btn(sourceReconcile?'Conciliar y cerrar':'Cerrar y validar','closing-save-close','primary',row?`data-id="${row.id}"`:''):''}
       ${row?btn('Eliminar','closing-delete','danger',`data-id="${row.id}"`):''}
      </div>
     </section>
@@ -790,11 +801,11 @@ export function closingRecordHtml(row=null){
  </div>`;
 }
 
-export function sourceClosingRecordHtml(row){
+export function sourceClosingRecordHtml(row,{embedded=false}={}){
  let origin;try{origin=JSON.parse(row.source_ref)}catch{throw new Error('No se puede leer el origen del cierre importado.');}
- if(origin?.kind!=='closing_source_snapshot'||!Array.isArray(origin.drawers)||row.include_in_income!==false)throw new Error('El origen del cierre importado está incompleto o no está separado de ingresos fiscales.');
+ if(origin?.kind!=='closing_source_snapshot'||!Array.isArray(origin.drawers))throw new Error('El origen del cierre importado está incompleto.');
  const amount=value=>value==null?'Sin anotación':money(value);
- return `<div class="page record-page"><div class="record-toolbar"><div>${btn('← Volver a cierres','closing-back','link')}<div class="eyebrow">Cierre de origen · ${fmtDate(row.business_date)}</div><h2>${esc(storeName(row.store_id))}</h2></div><span class="badge warn">Pendiente de conciliación</span></div>
+ return `<div class="page record-page"><div class="record-toolbar"><div>${embedded?'':btn('← Volver a cierres','closing-back','link')}<div class="eyebrow">Cierre de origen · ${fmtDate(row.business_date)}</div><h2>${esc(storeName(row.store_id))}</h2></div><span class="badge ${row.status==='cerrado'?'good':'warn'}">${row.status==='cerrado'?'Conciliado':'Pendiente de conciliación'}</span></div>
  <section class="card card-pad"><h3>Captura original</h3><p>Datos conservados sin repartir tarjetas ni retiradas entre cajas cuando el origen solo indica el total de tienda.</p>${origin.missing_drawers?.length?`<p class="note warn">Sin captura de ${esc(origin.missing_drawers.join(', '))} en esta fecha. No se ha creado una caja con importes a cero.</p>`:''}${table([
  {label:'Caja',html:d=>esc(d.name)}, {label:'Apertura',html:d=>amount(d.opening)},
  {label:'Al fin del origen',html:d=>amount(d.al_fin)}, {label:'Efectivo siguiente apertura',html:d=>amount(d.closing)},
@@ -802,7 +813,7 @@ export function sourceClosingRecordHtml(row){
  ],origin.drawers)}</section>
  <section class="card card-pad"><h3>Excel de la misma tienda</h3><div class="summary-row"><span>Tarjeta · venta ${fmtDate(row.business_date)}</span><strong>${amount(origin.card_sales)}</strong></div><p class="small muted">Ingreso en banco: ${fmtDate(origin.bank_date)}. ${esc(origin.book)} · filas ${esc((origin.card_rows||[]).join(', ')||'sin anotación')}.</p>
  <div class="summary-row"><span>Retiradas registradas · total tienda</span><strong>${amount(origin.withdrawals)}</strong></div><p class="note">${(origin.expected_drawers??origin.drawers.length)>1?'El reparto de las retiradas entre Vape y Head no figura en el Excel. Se conserva el total de tienda, sin asignarlo a una caja ficticiamente.':'Importe de la caja de este establecimiento.'}</p></section>
- <section class="card card-pad"><h3>Tratamiento del histórico</h3><p>Este registro conserva el origen y no se suma a ingresos fiscales. La referencia mensual presentada se registra por separado para evitar duplicar ventas. La conciliación diaria sigue pendiente; no se crean gastos ni movimientos para forzar un cuadre.</p><p>${esc(row.notes||'')}</p></section></div>`;
+ <section class="card card-pad"><h3>Ventas e ingresos fiscales</h3><p>${row.include_in_income===false?(closingMonthlyReference(row)?`Fiscalidad utiliza la referencia de gestoría de este mes: ${money(closingMonthlyReference(row).amount)} para esta tienda. Este cierre se conserva para contrastar el detalle; no se añade otra vez al total mensual.`:'No hay una referencia fiscal mensual que cubra este cierre.'): `Se incorporan ${money(closingIncomeAmount(row))} de ventas verificadas. Las tarjetas y retiradas no se suman de nuevo.`} Conciliar el efectivo no cambia por sí solo el criterio fiscal ni corrige importes de gestoría.</p><p>${esc(String(row.notes||'').replace('Este registro no se suma a los ingresos fiscales.',''))}</p><div class="form-actions">${embedded||row.status==='cerrado'?'':btn('Conciliar cierre','closing-reconcile-source','primary',`data-id="${row.id}"`)}</div></section></div>`;
 }
 
 export function expenseLineRow(line={},index=0,categories=[]){
@@ -1031,4 +1042,3 @@ export function productRecordHtml(row=null){
   </div>
  </div>`;
 }
-

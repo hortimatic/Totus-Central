@@ -1,5 +1,5 @@
 import {fmtDate,n} from './utils.js';
-import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount} from './calculations.js';
+import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,closingIncomeAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
 import {matchesText} from './report-period.js';
 
@@ -20,17 +20,17 @@ function drawerName(drawers,id){return drawers.find(d=>d.id===id)?.name||''}
 export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,from,to}){
  const wb=book();
  const rows=closings.map(c=>c.entry_mode==='source_snapshot'?[
-  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','','',n(c.actual_cash),'Origen sin conciliar',c.notes||''
+  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','',c.include_in_income===false?'':closingIncomeAmount(c),n(c.actual_cash),'Captura de origen · caja por conciliar',c.notes||''
  ]:[
   fmtDate(c.business_date),storeName(stores,c.store_id),n(c.cash_sales),n(c.card_sales),n(c.bizum_sales),n(c.online_sales),n(c.other_income),
-  n(c.cash_sales)+n(c.card_sales)+n(c.bizum_sales)+n(c.online_sales)+n(c.other_income),n(c.actual_cash),c.status||'',c.notes||''
+  closingIncomeAmount(c),n(c.actual_cash),c.status||'',c.notes||''
  ]);
  const aoa=[['CIERRES DE CAJA'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Efectivo','Tarjeta','Bizum','Online','Otros','Total ventas','Efectivo final','Estado','Observaciones'],...rows];
  const totalRow=aoa.length;
  aoa.push(['','','','','','','','TOTAL','','','']);
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,11);
- ws[`H${totalRow+1}`]=closings.length&&!closings.some(c=>c.entry_mode!=='source_snapshot')?{t:'s',v:'Sin ventas conciliadas',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',s:totalStyle,z:euro};
+ ws[`H${totalRow+1}`]=closings.length&&closings.every(c=>c.entry_mode==='source_snapshot'&&c.include_in_income===false)?{t:'s',v:'Sin ventas conciliadas',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',v:closings.reduce((t,c)=>t+closingIncomeAmount(c),0),s:totalStyle,z:euro};
  for(let r=5;r<=totalRow;r++)for(const col of ['C','D','E','F','G','H','I'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,13,13,13,13,13,15,15,12,35]);
  ws['!freeze']={xSplit:0,ySplit:4};
@@ -48,8 +48,8 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  autoWidths(wa,[12,18,18,13,13,13,13,13,13,13,13,13,13,15]);wa['!autofilter']={ref:`A1:N${detail.length+1}`};wa['!freeze']={ySplit:1};
  XLSX.utils.book_append_sheet(wb,wa,'Detalle por caja');
 
- const originals=closings.filter(c=>c.entry_mode==='source_snapshot').flatMap(c=>readClosingSource(c).drawers.map(d=>[
-  fmtDate(c.business_date),storeName(stores,c.store_id),d.name,d.opening??'',d.al_fin??'',d.closing??'',d.comment||'',d.source_id||'','No · pendiente de conciliación'
+ const originals=closings.filter(c=>{try{return JSON.parse(c.source_ref).kind==='closing_source_snapshot'}catch{return false}}).flatMap(c=>readClosingSource(c).drawers.map(d=>[
+  fmtDate(c.business_date),storeName(stores,c.store_id),d.name,d.opening??'',d.al_fin??'',d.closing??'',d.comment||'',d.source_id||'',c.include_in_income===false?'No':'Sí · ventas declaradas en origen'
  ]));
  if(originals.length){
   const sourceSheet=XLSX.utils.aoa_to_sheet([['Fecha','Tienda','Caja','Apertura original','Al fin original','Efectivo siguiente apertura','Comentario original','Referencia','Incluido en ingresos fiscales'],...originals]);
@@ -78,7 +78,7 @@ export function exportExpensesWorkbook({expenses,stores,from,to}){
 
 export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fiscalAdjustments=[],incomeAdjustments=[],from,to}){
  const wb=book();
- const closeSales=closings.filter(x=>x.include_in_income!==false).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
+ const closeSales=closings.filter(x=>x.include_in_income!==false).reduce((a,x)=>a+closingIncomeAmount(x),0);
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
  const adjustmentSales=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.reduce((a,x)=>a+n(x.amount),0);
  const sales=closeSales+extraInvoiceSales+adjustmentSales;
@@ -97,7 +97,7 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
   const cs=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false),es=expenses.filter(x=>x.store_id===s.id);
   const is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true);
   const as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
-  const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>x.store_id===s.id).reduce((a,x)=>a+n(x.amount),0);
+  const sv=cs.reduce((a,x)=>a+closingIncomeAmount(x),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>x.store_id===s.id).reduce((a,x)=>a+n(x.amount),0);
   const amt=expenseCostAmount;
   const accounting=es.filter(x=>!x.management_only).reduce((a,x)=>a+amt(x),0);
   const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+amt(x),0);
@@ -141,7 +141,7 @@ function setCell(ws,addr,value,style,formula=null){
 }
 function readClosingSource(closing){
  let source;try{source=JSON.parse(closing.source_ref)}catch{throw new Error('No se puede exportar un cierre cuyo origen no se puede leer.');}
- if(source?.kind!=='closing_source_snapshot'||!Array.isArray(source.drawers)||closing.include_in_income!==false)throw new Error('El cierre de origen debe conservarse separado de ingresos fiscales.');
+ if(source?.kind!=='closing_source_snapshot'||!Array.isArray(source.drawers))throw new Error('El cierre de origen está incompleto.');
  return source;
 }
 function monthlySourceReference(incomeAdjustments,storeId,period){
@@ -281,7 +281,7 @@ function quarterRange(year,q){const sm=(q-1)*3+1,em=q*3;return {from:`${year}-${
 function inDate(v,from,to){const d=String(v||'').slice(0,10);return d>=from&&d<=to}
 function categoryConcept(categories,id){const c=categories.find(x=>x.id===id);return (c?.name||c?.code||'OTROS').toUpperCase().slice(0,28)}
 function fiscalIncomeForPeriod({from,to,closings,invoices=[],fiscalAdjustments=[],incomeAdjustments=[]}){
- const close=closings.filter(x=>x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
+ const close=closings.filter(x=>x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+closingIncomeAmount(x),0);
  const inv=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
  const adj=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
  return close+inv+adj+incomeAdjustments.filter(x=>inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
@@ -308,7 +308,7 @@ function appendGestorBookSheet(wb,q,args){
 function monthTotals(args,month){
  const {year,stores,closings,expenses,invoices=[],fiscalAdjustments=[],incomeAdjustments=[]}=args,from=excelDateKey(year,month,1),to=`${year}-${String(month+1).padStart(2,'0')}-${String(new Date(year,month+1,0).getDate()).padStart(2,'0')}`;
  const sales=stores.map(s=>{
-   const close=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0);
+   const close=closings.filter(x=>x.store_id===s.id&&x.include_in_income!==false&&inDate(x.business_date,from,to)).reduce((a,x)=>a+closingIncomeAmount(x),0);
    const inv=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inDate(x.issue_date,from,to)).reduce((a,x)=>a+n(x.total_amount),0);
    const adj=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id&&inDate(x.adjustment_date,from,to)).reduce((a,x)=>a+n(x.amount),0);
    return close+inv+adj+incomeAdjustments.filter(x=>x.store_id===s.id&&inDate(x.income_date,from,to)).reduce((a,x)=>a+n(x.amount),0);

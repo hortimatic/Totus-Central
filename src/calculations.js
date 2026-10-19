@@ -1,3 +1,11 @@
+/** A raw register snapshot may contain carried cash; it is not a verified sale. */
+export function closingIncomeAmount(closing){
+ if(!closing||closing.include_in_income===false)return 0;
+ if(closing.entry_mode==='source_snapshot'){
+  throw new Error('El dato «al fin» del origen no es una venta verificada. Concilia el cierre y conserva la referencia fiscal del mes.');
+ }
+ return ['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((total,key)=>total+Number(closing[key]||0),0);
+}
 export function parseDecimal(value){
  let s=String(value??'').trim().replace(/\s/g,'');
  if(!s)return 0;

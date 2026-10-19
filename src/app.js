@@ -4,10 +4,10 @@ import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,removeFile} from './api.js';
-import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
+import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
+import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
@@ -50,6 +50,7 @@ function permissionForAction(action,el){
  if(a==='proforma-convert')operation='create';
  if(a==='invoice-rectify')operation='create';
  if(a==='closing-save-close'&&el?.dataset?.id)operation='edit';
+ if(a==='closing-reconcile-source')operation='edit';
  return {module,operation};
 }
 function checkActionPermission(action,el){
@@ -176,13 +177,17 @@ function validateDecimalFields(){
 
 
 async function saveClosing(id='',status='borrador'){
+ const reconcilingSource=!!getView('cajas').reconcileSource;
  const store=required('clStore','Tienda'),date=required('clDate','Fecha');
  if(date>isoToday())throw new Error('La fecha del cierre no puede ser futura.');
+ if(reconcilingSource&&val('clReported').trim()===''){input('clReported')?.focus();throw new Error('Indica las ventas contrastadas del día. El importe «al fin» se conserva como origen y no se copia como venta automáticamente.');}
  const drawerEls=[...document.querySelectorAll('.drawer-entry')];
  if(!drawerEls.length)throw new Error('La tienda no tiene cajas activas configuradas.');
  const drawers=drawerEls.map(el=>{
    const d=el.dataset.drawerId;
    const raw=suffix=>document.getElementById(`dr${suffix}_${d}`)?.value??'';
+   const missing=reconcilingSource&&['Open','Close','Card','Bizum','Online','Other','Withdraw','CashExpense','ExtraIn','ExtraOut'].find(suffix=>raw(suffix).trim()==='');
+   if(missing){document.getElementById(`dr${missing}_${d}`)?.focus();throw new Error('Completa todos los importes de cada caja para conciliar; escribe 0 solo cuando confirmes que no hubo movimiento.');}
    const read=suffix=>n(raw(suffix));
    if(status==='cerrado'&&raw('Close')==='')throw new Error('Falta el efectivo final de una caja.');
    const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:''};
@@ -191,8 +196,8 @@ async function saveClosing(id='',status='borrador'){
  });
  const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status};
  const savedId=await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
- setView('cajas',{mode:'record',id:savedId});
- await refresh(status==='cerrado'?'Cierre cerrado y cuadrado.':'Borrador guardado.');
+ setView('cajas',{mode:'record',id:savedId,reconcileSource:false});
+ await refresh(status==='cerrado'?(reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
 }
 async function reopenClosing(id){
  if(!confirm('¿Reabrir este cierre para corregirlo? La acción quedará registrada.'))return;
@@ -1746,7 +1751,7 @@ async function exportGestorPackage(year){
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
  const incomeRows=[
-  ...state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))).map(x=>[fmtDate(x.business_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Cierre',n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),x.notes||'']),
+  ...state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))).map(x=>[fmtDate(x.business_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Cierre',closingIncomeAmount(x),x.notes||'']),
   ...state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year))).map(x=>[fmtDate(x.issue_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Factura adicional',n(x.total_amount),x.display_number||x.external_number_text||'']),
   ...state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year))).map(x=>[fmtDate(x.adjustment_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'General','Ajuste de ingreso',n(x.amount),x.description||'']),
   ...state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).map(x=>[fmtDate(x.income_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'General','Ingreso manual',n(x.amount),x.concept||''])
@@ -1758,7 +1763,7 @@ async function exportGestorPackage(year){
  const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
  const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
  const yearAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year)));
- const sales=yearClosings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0)+state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((v,x)=>v+expenseCostAmount(x),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+expenseCostAmount(x),0);
+ const sales=yearClosings.reduce((v,x)=>v+closingIncomeAmount(x),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0)+state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((v,x)=>v+expenseCostAmount(x),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+expenseCostAmount(x),0);
  resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos fiscales revisados;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
  const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
  const usedPaths=new Set(),manifest=[];
@@ -1847,8 +1852,17 @@ document.addEventListener('click',async e=>{
   if(a==='admin-storage-home'){openAdminSection('storage');return}
   if(a==='admin-users-home'){openAdminSection('usuarios');return}
   if(a==='closing-new'){setView('cajas',{mode:'record',id:null,storeId:el.dataset.store||null});setRoute('cajas');render();return}
-  if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:false});render();return}
+  if(a==='closing-view-source'){
+   const row=state.data.closings.find(x=>x.id===el.dataset.id);if(!row)throw new Error('No se encuentra el cierre.');
+   modal('Datos originales del cierre',sourceClosingRecordHtml(row,{embedded:true}));return;
+  }
   if(a==='closing-save-draft'){await saveClosing(el.dataset.id||'','borrador');return}
+  if(a==='closing-reconcile-source'){
+   if(!can('cajas','edit'))throw new Error('No tienes permiso para conciliar cierres.');
+   closeModal();
+   setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:true});render();return;
+  }
   if(a==='closing-save-close'){await saveClosing(el.dataset.id||'','cerrado');return}
   if(a==='closing-reopen'){await reopenClosing(el.dataset.id);return}
   if(a==='closing-back'){resetView('cajas');render();return}

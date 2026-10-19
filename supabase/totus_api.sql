@@ -57,6 +57,7 @@ declare
   v_store uuid := nullif(p_closing->>'store_id','')::uuid;
   v_date date := nullif(p_closing->>'business_date','')::date;
   v_status text := coalesce(nullif(p_closing->>'status',''),'borrador');
+  v_include_income boolean := true;
   v_reported numeric := nullif(p_closing->>'reported_total_sales','')::numeric;
   v_open numeric := 0; v_close numeric := 0; v_card numeric := 0; v_bizum numeric := 0;
   v_online numeric := 0; v_other numeric := 0; v_withdraw numeric := 0; v_cash_exp numeric := 0;
@@ -66,6 +67,11 @@ begin
   if v_store is null or v_date is null then raise exception 'Tienda y fecha son obligatorias'; end if;
   if v_date>current_date then raise exception 'La fecha del cierre no puede ser futura'; end if;
   if v_status not in ('borrador','cerrado') then raise exception 'Estado de cierre no válido'; end if;
+  if v_id is not null then
+    select coalesce(include_in_income,true) into v_include_income
+    from public.ops_daily_closings where id=v_id for update;
+    if not found then raise exception 'Cierre no encontrado'; end if;
+  end if;
   if jsonb_typeof(p_drawers)<>'array' or jsonb_array_length(p_drawers)=0 then raise exception 'Incluye al menos una caja'; end if;
 
   if exists(
@@ -138,7 +144,7 @@ begin
       cash_withdrawals=v_withdraw,cash_expenses_declared=v_cash_exp,expected_cash=v_close,
       actual_cash=v_close,difference=v_diff,notes=coalesce(p_closing->>'notes',''),status=v_status,
       closed_by=case when v_status='cerrado' then auth.uid() else null end,
-      source='manual',include_in_income=true,reported_total_sales=v_reported,entry_mode='manual',
+      source='manual',include_in_income=v_include_income,reported_total_sales=v_reported,entry_mode='manual',
       cash_extra_in=v_extra_in,cash_extra_out=v_extra_out
     where id=v_id;
     delete from public.ops_daily_closing_drawers where closing_id=v_id;

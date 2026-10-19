@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1280,height:960}});
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const fixture=await page.evaluate(async()=>{
+  const db=window.__mockDb,shop=db.ops_stores[0],drawers=db.ops_cash_drawers.filter(d=>d.store_id===shop.id),day=new Date().toISOString().slice(0,10),id=crypto.randomUUID();
+  const origin={kind:'closing_source_snapshot',expected_drawers:2,drawers:[{name:'Vape',opening:20,closing:30,al_fin:65},{name:'Head',opening:10,closing:15,al_fin:55}],card_sales:80,withdrawals:25};
+  db.ops_daily_closings.push({id,store_id:shop.id,business_date:day,status:'borrador',entry_mode:'source_snapshot',include_in_income:false,reported_total_sales:120,card_sales:80,source_ref:JSON.stringify(origin)});
+  db.ops_income_adjustments.push({id:crypto.randomUUID(),store_id:shop.id,income_date:day,amount:120,notes:JSON.stringify({kind:'monthly_source_reference',period:day.slice(0,7)})});
+  await(await import('/src/api.js')).loadCore();return {id,drawers:drawers.map(d=>d.id),origin};
+ });
+ await page.locator('#nav [data-route="cajas"]').click();
+ await page.locator(`[data-action="closing-reconcile-source"][data-id="${fixture.id}"]`).click();
+ await page.getByText('Conciliar el cierre importado',{exact:true}).waitFor();
+ assert.equal(await page.locator(`#drOpen_${fixture.drawers[0]}`).inputValue(),'20');
+ assert.equal(await page.locator(`#drClose_${fixture.drawers[1]}`).inputValue(),'15');
+ assert.equal(await page.locator(`#drWithdraw_${fixture.drawers[0]}`).inputValue(),'','Never allocate the store withdrawal to the first drawer');
+ assert.equal(await page.locator('[data-action="closing-save-draft"]').count(),0,'Incomplete reconciliation must not replace the known income with a draft');
+ assert.equal(await page.locator('#clReported').inputValue(),'','Raw al fin must not be copied as verified sales');
+ await page.locator('#clReported').fill('120');
+ await page.locator('[data-action="closing-save-close"]').click();
+ await page.getByText(/Completa todos los importes de cada caja/).waitFor();
+ for(const [i,id] of fixture.drawers.entries())for(const [suffix,value] of Object.entries({Open:i?10:20,Close:i?15:30,Card:40,Bizum:0,Online:0,Other:0,Withdraw:i?10:15,CashExpense:0,ExtraIn:0,ExtraOut:0}))await page.locator(`#dr${suffix}_${id}`).fill(String(value));
+ await page.locator('[data-action="closing-save-close"]').click();
+ await page.getByText('Cierre conciliado, cerrado y cuadrado.',{exact:true}).waitFor();
+ const saved=await page.evaluate(id=>window.__mockDb.ops_daily_closings.find(c=>c.id===id),fixture.id);
+ assert.equal(saved.status,'cerrado');assert.equal(saved.entry_mode,'manual');assert.equal(saved.include_in_income,false,'A closing covered by the monthly accountant reference must not be added again');
+ assert.equal(saved.cash_sales+saved.card_sales,120,'Reconciliation does not add cards or cash floats to sales again');
+ assert.deepEqual(JSON.parse(saved.source_ref),fixture.origin,'Original evidence survives reconciliation');
+ await page.locator('[data-action="closing-back"]').click();await page.getByText('Conciliado',{exact:true}).waitFor();
+ await page.close();
+ console.log('SOURCE RECONCILIATION QA: explicit button, real captured prefills, unknown allocation blank, incomplete rejection, closed status and unchanged income/original evidence.');
+}finally{await browser.close()}

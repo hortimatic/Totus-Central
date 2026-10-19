@@ -88,6 +88,7 @@ jobs:
           node tests/annual-stress-qa.mjs
           python3 -m http.server 4173 >/tmp/totus-staging-qa-http.log 2>&1 &
           node tests/browser-qa.mjs
+          node tests/source-reconciliation-qa.mjs
           node tests/layout-audit.mjs
           node tests/visual-geometry-qa.mjs
           node tests/user-screenshot-qa.mjs

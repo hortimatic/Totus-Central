@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import XLSX from 'xlsx-js-style';
 global.window={XLSX};
-const {buildStoreMonthlyWorkbook,exportClosingsWorkbook}=await import('../src/excel.js');
+const {buildStoreMonthlyWorkbook,exportClosingsWorkbook,exportSummaryWorkbook}=await import('../src/excel.js');
 const source={kind:'monthly_source_reference',batch:'fixture-batch',period:'2026-01',bank_entries:[{date:'2026-01-01',amount:11},{date:'2026-01-03',amount:23}],withdrawal_entries:[{date:'2026-01-02',amount:7}],payment_entries:[{date:'2026-01-02',row:4,label:'Original payment',amount:45,invoice_number:'0007',group:'fixed',color:'FFFF00'},{date:'2026-01-04',row:6,label:'Original payroll',amount:7,group:'payroll',color:'FFC000'}]};
 const store={id:'shop',name:'Fixture shop'};
 const expenses=[{id:'invoice',store_id:'shop',expense_date:'2026-01-01',invoice_number:'0007',gross_expense:99,source_ref:JSON.stringify({batch:'fixture-batch'})},{store_id:'shop',expense_date:'2026-01-02',description:'Manual expense',gross_expense:3}];
@@ -37,4 +37,7 @@ exportClosingsWorkbook({closings:[closing],closingDrawers:[],stores:[store],draw
 assert.equal(captured.Sheets.Cierres.H5.v,'','Unknown total sales must stay blank');
 assert.equal(captured.Sheets.Cierres.H6.v,'Sin ventas conciliadas');
 assert.equal(captured.Sheets['Orígenes importados'].E2.v,40);assert.equal(captured.Sheets['Orígenes importados'].F2.v,10);
+assert.throws(()=>exportClosingsWorkbook({closings:[{...closing,include_in_income:true,reported_total_sales:40}],closingDrawers:[],stores:[store],drawers:[],from:'2026-01-01',to:'2026-01-31'}),/no es una venta verificada/);
+exportSummaryWorkbook({closings:[{...closing,include_in_income:false}],expenses:[],stores:[store],incomeAdjustments:[{store_id:store.id,amount:40}],from:'2026-01-01',to:'2026-01-31'});
+assert.equal(captured.Sheets.Resumen.B5.v,0);assert.equal(captured.Sheets.Resumen.B8.v,40,'Monthly accountant reference already includes the fiscal income; raw snapshots do not add another amount');
 console.log('SOURCE WORKBOOK QA: bank-date source, invoice references, no duplicated payments, manual additions, blanks for unknowns and original drawer evidence verified.');

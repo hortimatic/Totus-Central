@@ -166,11 +166,11 @@ const rpc=async (name,args={})=>{
  if(name==='totus_save_closing'){
   const p=args.p_closing,drawers=args.p_drawers||[];let row=p.id?get('ops_daily_closings',p.id):null;
   if(!row)row=insert('ops_daily_closings',{status:'borrador'});
-  Object.assign(row,p,{id:row.id,status:p.status||'borrador',
+  Object.assign(row,p,{id:row.id,status:p.status||'borrador',entry_mode:'manual',source:'manual',
     cash_sales:sum(drawers,d=>Number(d.closing_cash)-Number(d.opening_cash)+Number(d.cash_withdrawals)+Number(d.cash_expenses_declared)+Number(d.cash_extra_out)-Number(d.cash_extra_in)),
     card_sales:sum(drawers,d=>d.card_sales),bizum_sales:sum(drawers,d=>d.bizum_sales),online_sales:sum(drawers,d=>d.online_sales),other_income:sum(drawers,d=>d.other_income),
     cash_withdrawals:sum(drawers,d=>d.cash_withdrawals),cash_expenses_declared:sum(drawers,d=>d.cash_expenses_declared),
-    opening_cash:sum(drawers,d=>d.opening_cash),actual_cash:sum(drawers,d=>d.closing_cash),difference:0,include_in_income:true});
+    opening_cash:sum(drawers,d=>d.opening_cash),actual_cash:sum(drawers,d=>d.closing_cash),difference:0,include_in_income:row.include_in_income??true});
   db.ops_daily_closing_drawers=db.ops_daily_closing_drawers.filter(d=>d.closing_id!==row.id);
   drawers.forEach(d=>insert('ops_daily_closing_drawers',{...d,closing_id:row.id}));
   return {data:row.id,error:null};

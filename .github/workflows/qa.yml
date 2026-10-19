@@ -50,6 +50,7 @@ jobs:
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/browser-qa.mjs
+      - run: node tests/source-reconciliation-qa.mjs
       - run: node tests/layout-audit.mjs
       - run: node tests/visual-geometry-qa.mjs
       - run: node tests/user-screenshot-qa.mjs
