@@ -1554,14 +1554,18 @@ async function saveBackupSettings(){
  }});
  await refresh(enabled?'Programación activada.':'Configuración guardada; programación desactivada.');
 }
+let cloudBackupRunning=false;
 async function runBackupOnServer(){
  if(!isAdmin())throw new Error('Solo el administrador puede generar copias.');
+ if(cloudBackupRunning)throw new Error('Ya hay una copia en curso. Puedes continuar trabajando.');
  if(!await confirmAction('¿Crear una copia privada completa en Supabase staging ahora?',{title:'Crear copia privada',acceptLabel:'Crear copia'}))return;
- toast('Generando copia privada en el servidor…');
- const {data,error}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
- if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
- if(data?.skipped){await refresh(data.reason||'Ya hay una copia en curso.');return}
- await refresh('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB.');
+ cloudBackupRunning=true;
+ toast('Copia iniciada en segundo plano. Puedes continuar trabajando.');
+ void sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}}).then(({data,error})=>{
+  if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
+  if(data?.skipped){toast(data.reason||'Ya hay una copia en curso.');return}
+  toast('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB. Pulsa «Actualizar historial» para verla.','ok');
+ }).catch(error=>toast(error.message||String(error),'bad')).finally(()=>{cloudBackupRunning=false});
 }
 async function readBackupStorage(path){
  const {data,error}=await sb.storage.from('business-backups').download(path);
@@ -2223,15 +2227,14 @@ async function boot(){
  if(recoveringPassword){showPasswordRecovery();return}
  const session=(await sb.auth.getSession()).data.session;state.session=session;
  if(!session){$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
- const [team,profiles]=await Promise.all([
-  sb.from('team_members').select('*').eq('email',session.user.email.toLowerCase()).maybeSingle(),
-  sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle()
+ const [teamRows,profileRows]=await Promise.all([
+  select('team_members',{limit:1,allowTruncated:true,filter:q=>q.eq('email',session.user.email.toLowerCase())}),
+  select('profiles',{limit:1,allowTruncated:true,filter:q=>q.eq('id',session.user.id)})
  ]);
- if(team.error)throw new Error('No se pudo comprobar el acceso: '+team.error.message);
- if(profiles.error)throw new Error('No se pudo cargar el perfil: '+profiles.error.message);
- const member=team.data;if(!member||member.active===false){await logout();throw new Error('Tu usuario no tiene acceso activo.')}
- if(!profiles.data&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
- state.user={...member,id:profiles.data?.id||session.user.id};
+ const member=teamRows[0],profile=profileRows[0];
+ if(!member||member.active===false){await logout();throw new Error('Tu usuario no tiene acceso activo.')}
+ if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
+ state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();
 }

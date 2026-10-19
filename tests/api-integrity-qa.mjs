@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 // The browser SDK is substituted only in Node tests; production connects directly to Supabase.
 const records=Array.from({length:2305},(_,i)=>({id:String(i).padStart(5,'0'),business_date:'2026-01-02',value:i}));
-let rows=records,denyDeletion=false,deleteCalls=0;
+let rows=records,denyDeletion=false,deleteCalls=0,startup=false,active=0,peak=0,reads=0;
 const client={
  from(table){
   let mode='select',id=null,sort=[],offset=[0,999];
@@ -11,6 +11,10 @@ const client={
    order(key,{ascending=true}={}){sort.push([key,ascending]);return this;},
    range(a,b){offset=[a,b];return this;},
    then(done,reject){
+    if(startup){
+     active++;reads++;peak=Math.max(peak,active);
+     return new Promise(resolve=>setTimeout(()=>{active--;resolve({data:[],error:null})},5)).then(done,reject);
+    }
     if(mode==='delete'){
      deleteCalls++;
      const index=denyDeletion?-1:rows.findIndex(x=>x.id===id);
@@ -27,7 +31,7 @@ const client={
  }
 };
 globalThis.window={supabase:{createClient:()=>client}};
-const {select,remove}=await import('../src/api.js');
+const {select,remove,loadCore}=await import('../src/api.js');
 const paged=await select('ops_daily_closings',{order:'business_date',ascending:false});
 assert.equal(paged.length,2305);
 assert.equal(new Set(paged.map(x=>x.id)).size,2305,'Paginated queries duplicate rows');
@@ -42,4 +46,7 @@ assert.equal((await remove('ops_suppliers','exists')).id,'exists');
 assert.equal(rows.length,0);
 await assert.rejects(remove('ops_suppliers','exists'),/No se eliminó/,'Missing record must not report deletion');
 assert.equal(deleteCalls,3);
-console.log('API INTEGRITY QA: 2305 rows, deterministic pagination, no silent truncation, denied/missing delete detected');
+client.rpc=async()=>({data:{status:'ok',source:'supabase_storage_objects'},error:null});
+startup=true;await loadCore();
+assert.ok(reads>30);assert.equal(active,0);assert.ok(peak>1&&peak<=4,'Sign-in must not open dozens of concurrent database requests');
+console.log('API INTEGRITY QA: deterministic pagination, no silent truncation, denied/missing deletes and bounded startup connections verified');
