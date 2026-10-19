@@ -592,17 +592,10 @@ function adminStorageHtml(){
  const fileTotal=Number(u.all_buckets_bytes),fileTotalOk=u.all_buckets_bytes!=null&&Number.isFinite(fileTotal)&&fileTotal>=total+backups;
  const projectRef=String(SUPABASE_URL).match(/^https:\/\/([a-z0-9]+)\.supabase\.co(?:\/|$)/)?.[1];
  const providerUrl=projectRef?'https://supabase.com/dashboard/project/'+projectRef:'https://supabase.com/dashboard/organizations';
- let forecast='Sin datos históricos suficientes';
- let explanation='La previsión necesita al menos dos mediciones separadas siete días. No se calcula con cifras inventadas.';
- if(total>=limit){
-  forecast='Límite alcanzado';explanation='Se ha alcanzado el máximo interno configurado para documentos y logos.';
- }else if(Number.isFinite(Number(u.estimated_days_left))&&u.estimated_days_left!==null&&Number(u.estimated_days_left)>=0&&bytes(u.daily_growth_bytes)>0){
-  const days=Number(u.estimated_days_left);
-  forecast=days>365?'Más de un año':days+' días aprox.';
-  explanation='Estimación orientativa: tendencia neta de los últimos '+Number(u.trend_days||0)+' días ('+mb(bytes(u.daily_growth_bytes))+'/día). No predice subidas extraordinarias.';
- }else if(Number(u.trend_days||0)>=7) {
-  forecast='Sin crecimiento neto';explanation='El espacio de documentos y logos no ha aumentado durante el periodo observado; no se puede estimar una fecha de llenado.';
- }
+ const reference=state.data.settings?.storage_provider_reference||{};
+ const freeReference=reference.plan==='Free'&&reference.checked_at&&Number(reference.database_limit_bytes)>0&&Number(reference.files_limit_bytes)>0;
+ const referenceDate=freeReference?new Date(reference.checked_at).toLocaleDateString('es-ES',{timeZone:'Europe/Madrid'}):'';
+ const databaseRemaining=freeReference&&Number.isFinite(dbSize)?Math.max(0,Number(reference.database_limit_bytes)-dbSize):null;
  const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
  return `<div class="stack storage-dashboard">
   <section class="card card-pad">
@@ -625,7 +618,7 @@ function adminStorageHtml(){
    ${kpi('Facturas y documentos',mb(u.documents_bytes||0))}
    ${kpi('Logos y recursos',mb(u.assets_bytes||0))}
    ${kpi('Archivos de copias en Supabase',mb(backups),'Pueden incluir partes o intentos; no es un recuento de copias completas')}
-   ${kpi('Tiempo hasta el límite interno',forecast)}
+   ${kpi('Plan acordado',freeReference?'Free · 0 €/mes':'Sin referencia verificada','La herramienta no contrata ampliaciones de pago')}
   </div>
   <div class="storage-information-grid">
    <section class="card card-pad">
@@ -639,12 +632,19 @@ function adminStorageHtml(){
     <p class="small muted">Las copias y PostgreSQL consumen espacio en Supabase, pero no se descuentan del límite interno de documentos y logos. La cifra de PostgreSQL incluye sobrecarga de la base y no equivale por sí sola a la cuota facturable de tu plan.</p>
    </section>
    <section class="card card-pad">
-    <h3>Previsión de crecimiento</h3>
-    <div class="storage-forecast-value">${esc(forecast)}</div>
-    <p class="small muted">${esc(explanation)}</p>
-    <div class="summary-row"><span>Mediciones históricas</span><strong>${Number(u.sample_count||0)}</strong></div>
-    <div class="summary-row"><span>Tendencia media neta</span><strong>${bytes(u.daily_growth_bytes)>0?mb(u.daily_growth_bytes)+'/día':'No calculable'}</strong></div>
-    <p class="note">Esta previsión se refiere al control interno de subidas. <b>Supabase → Usage</b> muestra el consumo del plan durante su periodo: puede ser un promedio y tardar en actualizarse. Por eso puede diferir del tamaño actual de los archivos que se muestra aquí. La cuota disponible del plan no se calcula a partir del límite interno.</p>
+    <h3>Capacidad gratuita y ubicación de los datos</h3>
+    ${freeReference?`<p>Referencia del plan <b>Free</b> consultada el ${esc(referenceDate)}. El uso actual se mide arriba; los límites del plan no se sincronizan automáticamente con facturación.</p>
+    <div class="summary-row"><span>Base de datos · capacidad por proyecto</span><strong>${mb(reference.database_limit_bytes)}</strong></div>
+    <div class="summary-row"><span>Base de datos · espacio libre aproximado</span><strong>${databaseRemaining==null?'No disponible':mb(databaseRemaining)}</strong></div>
+    <div class="summary-row"><span>Archivos · capacidad compartida de la organización</span><strong>${(Number(reference.files_limit_bytes)/1073741824).toLocaleString('es-ES')} GB</strong></div>
+    <p class="note">Documentos, logos y copias comparten el espacio de archivos. Cada carpeta o contenedor no dispone de una cuota independiente. El espacio libre global depende también de otros proyectos de la organización: se comprueba en Supabase → Usage, no se inventa a partir de este proyecto.</p>`:'<p class="note warn">Cuota del plan pendiente de verificar. Los tamaños medidos son reales; no se muestra una capacidad libre del proveedor sin referencia.</p>'}
+    <div class="summary-row"><span>Contabilidad, cajas, usuarios y permisos</span><strong>Supabase · base de datos</strong></div>
+    <div class="summary-row"><span>Facturas y justificantes originales</span><strong>Supabase · documentos</strong></div>
+    <div class="summary-row"><span>Logos de las tiendas</span><strong>Supabase · recursos</strong></div>
+    <div class="summary-row"><span>Archivos de copias en la nube</span><strong>Supabase · copias</strong></div>
+    <p class="small muted">La web se publica en GitHub Pages. Los datos de trabajo se guardan en Supabase; el navegador conserva la sesión de acceso. Las descargas y copias locales que decidas guardar quedan fuera de estas cifras.</p>
+    <p class="small muted">Supabase → Usage puede mostrar un promedio del periodo y tardar en actualizarse. No es lo mismo que el tamaño actual de los archivos.</p>
+    <p class="small muted"><a href="https://supabase.com/pricing" target="_blank" rel="noopener noreferrer">Condiciones actuales del plan Free</a>: no tiene una fecha de fin anunciada; sus condiciones pueden cambiar y los proyectos inactivos pueden pausarse.</p>
    </section>
   </div>
  </div>`;
