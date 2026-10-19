@@ -16,7 +16,6 @@ jobs:
       - run: node tests/qa.mjs
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/source-closing-qa.mjs
-      - run: node tests/source-workbook-qa.mjs
       - run: node tests/partial-balances-qa.mjs
       - run: node tests/rectifying-refunds-qa.mjs
       - run: node tests/team-admin-qa.mjs
@@ -41,6 +40,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/excel-qa.mjs
       - run: node tests/monthly-workbook-qa.mjs
+      - run: node tests/source-workbook-qa.mjs
       - run: node tests/legacy-retention-qa.mjs
       - run: node tests/gestor-workbook-qa.mjs
       - run: node tests/gestor-print-qa.mjs

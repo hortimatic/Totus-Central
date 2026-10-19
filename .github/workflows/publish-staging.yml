@@ -49,7 +49,6 @@ jobs:
           node tests/qa.mjs
           node tests/closed-closing-qa.mjs
           node tests/source-closing-qa.mjs
-          node tests/source-workbook-qa.mjs
           node tests/partial-balances-qa.mjs
           node tests/rectifying-refunds-qa.mjs
           node tests/team-admin-qa.mjs
@@ -80,6 +79,7 @@ jobs:
         run: |
           node tests/excel-qa.mjs
           node tests/monthly-workbook-qa.mjs
+          node tests/source-workbook-qa.mjs
           node tests/legacy-retention-qa.mjs
           node tests/gestor-workbook-qa.mjs
           node tests/gestor-print-qa.mjs
