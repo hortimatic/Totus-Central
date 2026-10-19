@@ -1,3 +1,4 @@
+import {oneDriveRequest} from './onedrive-connection.js';
 import {MAX_SAVED_BACKUPS} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
@@ -36,7 +37,7 @@ function permissionForAction(action,el){
  else if(/^(tax-payment-|fiscal-|reta-|expense-category-|income-adjustment-)/.test(action))module='fiscalidad';
  else if(/^(pricing-|product-|brand-|family-|families-|provider-|providers-|variant-|competitor-|consultation-|home-price-)/.test(action))module='pricing';
  else if(/^(report-|export-gestor-|export-store-|export-summary)/.test(action))module='informes';
- else if(/^(user-|role-|store-|drawer-|config-|backup-|admin-|recovery-)/.test(action))module='administracion';
+ else if(/^(user-|role-|store-|drawer-|config-|backup-|admin-|recovery-|onedrive-)/.test(action))module='administracion';
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
@@ -49,6 +50,7 @@ function permissionForAction(action,el){
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a.startsWith('onedrive-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('recovery-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a==='document-bulk-select'||a==='document-bulk-import')operation='create';
  if(a==='proforma-convert')operation='create';
@@ -2055,7 +2057,27 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();return}
+  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
+
+  if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
+  if(a==='onedrive-credential-save'){
+   const field=$('#odClientSecret'),value=field?.value||'';
+   try{await oneDriveRequest('configure',{client_secret:value});if(field)field.value='';await refreshOneDrivePanel();toast('Credencial guardada de forma privada.');}finally{if(field)field.value='';}
+   return;
+  }
+  if(a==='onedrive-begin'){
+   const result=await oneDriveRequest('begin');
+   const authorization=new URL(result.authorization_url);
+   if(authorization.origin!=='https://login.microsoftonline.com'||authorization.pathname!=='/consumers/oauth2/v2.0/authorize')throw new Error('Dirección de autorización no válida.');
+   modal('Autorizar OneDrive',`<p>Microsoft solicitará acceso a la carpeta exclusiva de esta aplicación y permiso para mantener la conexión con el navegador cerrado.</p><p>No concede acceso general a tus otras carpetas.</p><a class="btn primary" href="${esc(authorization.href)}" target="_blank" rel="noopener noreferrer">Continuar en Microsoft</a><p>Después vuelve aquí y pulsa Actualizar conexión.</p>`);return;
+  }
+  if(a==='onedrive-test'){
+   toast('Guardando y leyendo el archivo de prueba…');
+   const result=await oneDriveRequest('test');
+   if(result.verified!==true)throw new Error('No se ha verificado el archivo de prueba.');
+   await refreshOneDrivePanel();toast('Archivo guardado y vuelto a leer correctamente desde OneDrive.');return;
+  }
+
   if(a==='storage-refresh'){await refreshStoragePanel();return}
   if(a==='admin-unused-logos'){await reviewUnusedLogos();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
@@ -2279,3 +2301,9 @@ document.addEventListener('keydown',e=>{
   else if(e.target?.id==='expenseSuppliersQuery'){e.preventDefault();patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim()});render()}
  }catch(error){toast(error.message||String(error),'bad')}
 });
+
+async function refreshOneDrivePanel(){
+ if(!isAdmin())throw new Error('Solo administración puede consultar esta conexión.');
+ state.data.onedriveStatus=await oneDriveRequest('status');
+ if(state.route==='administracion'&&getView('administracion').section==='onedrive')render();
+}

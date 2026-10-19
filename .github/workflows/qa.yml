@@ -57,6 +57,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/onedrive-connection-qa.mjs
       - run: node tests/browser-qa.mjs
       - run: node tests/source-reconciliation-qa.mjs
       - run: node tests/layout-audit.mjs

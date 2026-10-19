@@ -94,3 +94,15 @@ Descargar no libera espacio; eliminar copias antiguas no elimina los datos actua
 El titular ha reducido la conservación a cinco copias completas el 20/10/2026. La programación sigue a las 00:35 Europe/Madrid. MAX_SAVED_BACKUPS es la referencia común del servidor, interfaz y simulación; no confundir el campo heredado retention_days con borrado por antigüedad.
 
 La limpieza retira únicamente archivos automáticos sin una copia guardada ni recuperación vinculada y logos no incluidos en el inventario actual, con margen de 15 minutos. Conserva documentos originales y el relevo privado. La previsión de capacidad de Storage se calcula aparte del límite técnico del archivo de copia; mostrar ambos sin confundirlos.
+
+
+## OneDrive: fase de conexión aislada
+La aplicación Microsoft «TotusCentral Staging» se ha registrado con autorización expresa del titular, para cuentas personales. No equivale a un consentimiento de archivos. El código de conexión se prepara solo en staging.
+- Administración → OneDrive permite al administrador guardar la credencial de Microsoft en Supabase Vault, preparar OAuth y probar un archivo sintético.
+- Permisos solicitados: Files.ReadWrite.AppFolder y offline_access. No solicitar acceso general a todo OneDrive para evitar configurar una carpeta.
+- La dirección de retorno es la función totus-onedrive con callback=1. OAuth usa PKCE y un estado aleatorio de un solo uso, con caducidad de diez minutos.
+- Antes de aceptar permisos de Microsoft, explicar alcance y obtener autorización concreta del titular. Las credenciales nuevas las introduce y envía el titular; no deben aparecer en el chat, GitHub ni archivos locales.
+- La cuenta autorizada debe coincidir con el OneDrive comprobado. Sus identificadores se guardan solo en la configuración privada, nunca en este repositorio.
+- El archivo de prueba no contiene datos personales; se guarda en la carpeta de aplicación, se vuelve a leer y se compara su contenido.
+- No se han migrado documentos ni cambiado las copias automáticas por preparar esta conexión. Todavía hay que probar subida, vista previa, descarga, continuidad nocturna y recuperación antes de migrar.
+- Mantener cinco copias actuales de Supabase hasta verificar la alternativa. No eliminar adjuntos vinculados como parte de esta prueba.
