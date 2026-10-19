@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {archiveAccepted,quarterPresented,lastDrawerBalance,sourceCashKnown} from '../src/historical-acceptance.js';
+import {archiveAccepted,quarterPresented,lastDrawerBalance} from '../src/historical-acceptance.js';
 import {state,patchFilters,setView} from '../src/state.js';
 import {cajas,gastos,fiscalidad,inicio,openingDrawerCash} from '../src/pages/main.js';
 import {expenseCostAmount,closingIncomeAmount} from '../src/calculations.js';
@@ -28,10 +28,8 @@ assert(inicio().includes('Dinero para abrir las cajas'));
 assert.equal(JSON.stringify([state.data.expenses,state.data.closings]),financialBefore,'Rendering acceptance must not modify financial facts');
 const options={closings:state.data.closings,closingDrawers:[],storeId:'s',drawer:state.data.drawers[0],before:'2026-10-01'};
 assert.equal(lastDrawerBalance(options).amount,31.5);
-assert(sourceCashKnown(options.closings[0],'closing'));
 source.daily_drawers[0].closing=null;options.closings=[{...state.data.closings[0],source_ref:JSON.stringify(source)}];
 assert.equal(lastDrawerBalance(options).amount,null,'Raw al_fin must never become retained cash');
-assert(!sourceCashKnown(options.closings[0],'closing'),'An incomplete physical cash total must not be displayed as zero');
 assert.equal(lastDrawerBalance({...options,storeId:'other'}),null,'Never mix stores');
 assert.equal(lastDrawerBalance({...options,drawer:{name:'Head'}}).amount,null,'Never mix tills');
 source.daily_drawers[0].closing=0;options.closings[0].source_ref=JSON.stringify(source);

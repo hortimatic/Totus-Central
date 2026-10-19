@@ -7,12 +7,6 @@ export function archiveAccepted(settings,row,kind){
 export function quarterPresented(settings,year,quarter){
  return settings?.historical_acceptance?.presented_periods?.includes(`${year}-T${quarter}`)===true;
 }
-export function sourceCashKnown(row,field){
- try{
-  const source=JSON.parse(row.source_ref),drawers=source.daily_drawers??source.drawers??[];
-  return drawers.length>0&&!source.missing_drawers?.length&&drawers.every(d=>d[field]!=null&&d[field]!==''&&Number.isFinite(Number(d[field])));
- }catch{return false;}
-}
 export function lastDrawerBalance({closings=[],closingDrawers=[],storeId,drawer,before}){
  const normalize=name=>String(name||'').toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
  const rows=closings.filter(x=>x.store_id===storeId&&x.business_date<before&&(x.status==='cerrado'||x.entry_mode==='source_snapshot')).sort((a,b)=>String(b.business_date).localeCompare(String(a.business_date)));

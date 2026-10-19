@@ -1,4 +1,4 @@
-import {archiveAccepted,quarterPresented,lastDrawerBalance,sourceCashKnown} from '../historical-acceptance.js';
+import {archiveAccepted,quarterPresented,lastDrawerBalance} from '../historical-acceptance.js';
 import {reportMonths,selectReportData,matchesText,searchText,selectDocuments} from '../report-period.js';
 import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
@@ -20,10 +20,40 @@ const closingMonthlyReference=row=>state.data.incomeAdjustments.find(ref=>ref.st
 
 function retainedCashByDrawer(row){
  const drawers=state.data.drawers.filter(d=>d.store_id===row.store_id&&d.active!==false);
+ const normal=name=>String(name||'').toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
+ let source=null;try{source=JSON.parse(row.source_ref||'{}')}catch{}
+ const amount=value=>value==null||value===''?'Sin importe anotado':money(value);
  return drawers.map(drawer=>{
-  const balance=row.entry_mode==='source_snapshot'?lastDrawerBalance({closings:[row],storeId:row.store_id,drawer,before:row.business_date+'T'}):{amount:state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id)?.closing_cash};
-  return `<span>${esc(drawer.name)} · siguiente apertura <b>${balance?.amount==null?'Sin importe anotado':money(balance.amount)}</b></span>`;
+  let opening,closing;
+  if(row.entry_mode==='source_snapshot'){
+   const matches=(source?.daily_drawers??source?.drawers??[]).filter(d=>normal(d.name)===normal(drawer.name));
+   opening=matches[0]?.opening;closing=matches.at(-1)?.closing;
+  }else{
+   const saved=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
+   opening=saved?.opening_cash;closing=saved?.closing_cash;
+  }
+  return `<div class="drawer-cash-summary"><b>${esc(drawer.name)}</b><span>Para empezar ese día <b>${amount(opening)}</b></span><span>Lo que se deja al terminar <b>${amount(closing)}</b></span></div>`;
  }).join('');
+}
+
+function dailySalesByDrawer(row){
+ const drawers=state.data.drawers.filter(d=>d.store_id===row.store_id&&d.active!==false);
+ const normal=name=>String(name||'').toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
+ let source=null;try{source=JSON.parse(row.source_ref||'{}')}catch{}
+ const detail=drawers.map(drawer=>{
+  let sales=null;
+  if(row.entry_mode==='source_snapshot'){
+   const match=(source?.daily_drawers??source?.drawers??[]).filter(d=>normal(d.name)===normal(drawer.name));
+   if(match.length&&match.every(d=>d.al_fin!=null))sales=match.reduce((n,d)=>n+Number(d.al_fin),0);
+  }else{
+   const d=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
+   if(d)sales=Number(d.closing_cash||0)+Number(d.cash_withdrawals||0)+Number(d.cash_expenses_declared||0)+Number(d.cash_extra_out||0)-Number(d.opening_cash||0)-Number(d.cash_extra_in||0)+Number(d.card_sales||0)+Number(d.bizum_sales||0)+Number(d.online_sales||0)+Number(d.other_income||0);
+  }
+  return `<span>${esc(drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>`;
+ }).join('');
+ const total=row.entry_mode==='source_snapshot'?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
+ const collections=row.entry_mode==='source_snapshot'?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(row.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
+ return `<div class="compact-detail">${detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><details class="cash-collection-detail"><summary>Ver cómo se cobró</summary><div class="compact-detail">${collections}</div></details></div>`;
 }
 
 export function inicio(){
@@ -132,9 +162,9 @@ export function cajas(){
  const drafts=rows.filter(x=>x.status==='borrador'&&!acceptedClosing(x)).length;
  const headers=[
   {label:'Cierre',html:r=>`<b class="date-display">${fmtDate(r.business_date)}</b><div class="small muted">${esc(storeName(r.store_id))}</div>`},
-  {label:'Cobros',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Tarjeta según banco <b>${JSON.parse(r.source_ref).card_sales==null?'Sin anotación':money(r.card_sales)}</b></span><span>${acceptedClosing(r)?'Histórico aceptado · ventas en el resumen mensual':'Efectivo vendido pendiente de conciliación'}</span></div>`:`<div class="compact-detail"><span>Efectivo <b>${money(r.cash_sales)}</b></span><span>Tarjeta <b>${money(r.card_sales)}</b></span><span>Bizum <b>${money(r.bizum_sales)}</b></span><span>Online <b>${money(r.online_sales)}</b></span><span>Otros <b>${money(r.other_income)}</b></span></div>`},
-  {label:'Caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Dinero para abrir <b>${sourceCashKnown(r,'opening')?money(r.opening_cash):'Ver detalle por caja'}</b></span>${retainedCashByDrawer(r)}<span>Retirada total tienda <b>${JSON.parse(r.source_ref).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${JSON.parse(r.source_ref).missing_drawers?.length?'<span class="warn-text">Ver detalle por caja</span>':''}</div>`:`<div class="compact-detail"><span>Apertura <b>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Sin verificar':money(r.opening_cash)}</b></span>${retainedCashByDrawer(r)}<span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
-  {label:'Comprobación de ventas',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>Total anotado en el registro anterior <b>${money(r.reported_total_sales)}</b></span><span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span><span class="${acceptedClosing(r)?'good-text':'warn-text'}">${acceptedClosing(r)?'Conciliado y aceptado':'Caja pendiente de conciliación'}</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>Ventas del programa <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
+  {label:'Ventas del día',html:r=>dailySalesByDrawer(r)},
+  {label:'Dinero de cada caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail">${retainedCashByDrawer(r)}<span>Retirada total tienda <b>${JSON.parse(r.source_ref).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${JSON.parse(r.source_ref).missing_drawers?.length?'<span class="warn-text">Ver detalle por caja</span>':''}</div>`:`<div class="compact-detail">${retainedCashByDrawer(r)}<span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
+  {label:'Comprobación de ventas',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span><span class="${acceptedClosing(r)?'good-text':'warn-text'}">${acceptedClosing(r)?'Conciliado y aceptado':'Caja pendiente de conciliación'}</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>Ventas del programa <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
   {label:'Estado',html:r=>acceptedClosing(r)?acceptedBadge:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
   {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
@@ -753,8 +783,8 @@ function drawerEditor(drawer,row,locked=false){
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>El efectivo que dejas aquí será la apertura de esta misma caja el próximo día.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
-   ${formField('Dinero para abrir',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
-   ${formField('Dinero que dejas para mañana',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Dinero que quedó del cierre anterior',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Dinero que dejas para el próximo día',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Bizum',`drBizum_${drawer.id}`,saved?.bizum_sales??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Pedidos online',`drOnline_${drawer.id}`,saved?.online_sales??'','number','step="0.01" '+(locked?'disabled':''))}
@@ -818,13 +848,13 @@ export function sourceClosingRecordHtml(row,{embedded=false}={}){
  const amount=value=>value==null?'Sin anotación':money(value);
  return `<div class="page record-page"><div class="record-toolbar"><div>${embedded?'':btn('← Volver a cierres','closing-back','link')}<div class="eyebrow">Cierre de caja · ${fmtDate(row.business_date)}</div><h2>${esc(storeName(row.store_id))}</h2></div><span class="badge ${row.status==='cerrado'||acceptedClosing(row)?'good':'warn'}">${acceptedClosing(row)?'Conciliado y aceptado':row.status==='cerrado'?'Conciliado':'Pendiente de conciliación'}</span></div>
  <section class="card card-pad"><h3>Datos del registro anterior</h3><p>Datos conservados sin repartir tarjetas ni retiradas entre cajas cuando el origen solo indica el total de tienda.</p>${origin.missing_drawers?.length?`<p class="note warn">Sin captura de ${esc(origin.missing_drawers.join(', '))} en esta fecha. No se ha creado una caja con importes a cero.</p>`:''}${table([
- {label:'Caja',html:d=>esc(d.name)}, {label:'Dinero para abrir',html:d=>amount(d.opening)},
- {label:'Total anotado al cerrar',html:d=>amount(d.al_fin)}, {label:'Dinero para abrir el siguiente día',html:d=>amount(d.closing)},
+ {label:'Caja',html:d=>esc(d.name)}, {label:'Dinero que quedó del cierre anterior',html:d=>amount(d.opening)},
+ {label:'Cifra «al fin» del registro antiguo',html:d=>amount(d.al_fin)}, {label:'Dinero para abrir el siguiente día',html:d=>amount(d.closing)},
  {label:'Anotación original',html:d=>esc(d.comment)}, {label:'Referencia',html:d=>esc(d.source_id)}
  ],origin.drawers)}</section>
  <section class="card card-pad"><h3>Excel de la misma tienda</h3><div class="summary-row"><span>Tarjeta · venta ${fmtDate(row.business_date)}</span><strong>${amount(origin.card_sales)}</strong></div><p class="small muted">Ingreso en banco: ${fmtDate(origin.bank_date)}. ${esc(origin.book)} · filas ${esc((origin.card_rows||[]).join(', ')||'sin anotación')}.</p>
  <div class="summary-row"><span>Retiradas registradas · total tienda</span><strong>${amount(origin.withdrawals)}</strong></div><p class="note">${(origin.expected_drawers??origin.drawers.length)>1?'El reparto de las retiradas entre Vape y Head no figura en el Excel. Se conserva el total de tienda, sin asignarlo a una caja ficticiamente.':'Importe de la caja de este establecimiento.'}</p></section>
- <section class="card card-pad"><h3>Ventas e ingresos fiscales</h3><p>${row.include_in_income===false?(closingMonthlyReference(row)?`Fiscalidad utiliza la referencia mensual registrada: ${money(closingMonthlyReference(row).amount)} para esta tienda. Este cierre se conserva para contrastar el detalle; no se añade otra vez al total mensual. ${(()=>{try{return !acceptedClosing(row)&&JSON.parse(closingMonthlyReference(row).notes).gestoria_income_compared===false?'Origen: Excel original; pendiente de contraste con el libro de ingresos de gestoría.':''}catch{return ''}})()}`:'No hay una referencia fiscal mensual que cubra este cierre.'): `Se incorporan ${money(closingIncomeAmount(row))} de ventas verificadas. Las tarjetas y retiradas no se suman de nuevo.`} Conciliar el efectivo no cambia por sí solo el criterio fiscal ni corrige importes de gestoría.</p><p>${esc(String(row.notes||'').replace('Este registro no se suma a los ingresos fiscales.',''))}</p><div class="form-actions">${embedded||row.status==='cerrado'||acceptedClosing(row)?'':btn('Conciliar cierre','closing-reconcile-source','primary',`data-id="${row.id}"`)}</div></section></div>`;
+ <section class="card card-pad"><h3>Ventas e ingresos fiscales</h3><p>${row.include_in_income===false?(closingMonthlyReference(row)?`Fiscalidad utiliza la referencia mensual registrada: ${money(closingMonthlyReference(row).amount)} para esta tienda. Este cierre se conserva para contrastar el detalle; no se añade otra vez al total mensual. ${(()=>{try{return !acceptedClosing(row)&&JSON.parse(closingMonthlyReference(row).notes).gestoria_income_compared===false?'Origen: Excel original; pendiente de contraste con el libro de ingresos de gestoría.':''}catch{return ''}})()}`:'No hay una referencia fiscal mensual que cubra este cierre.'): `Se incorporan ${money(closingIncomeAmount(row))} de ventas verificadas. Las tarjetas y retiradas no se suman de nuevo.`} Conciliar el efectivo no cambia por sí solo el criterio fiscal ni corrige importes de gestoría.</p><details><summary>Notas conservadas del registro anterior</summary><p>${esc(String(row.notes||'').replace('Este registro no se suma a los ingresos fiscales.',''))}</p></details><div class="form-actions">${embedded||row.status==='cerrado'||acceptedClosing(row)?'':btn('Conciliar cierre','closing-reconcile-source','primary',`data-id="${row.id}"`)}</div></section></div>`;
 }
 
 export function expenseLineRow(line={},index=0,categories=[]){

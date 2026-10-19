@@ -209,8 +209,8 @@ const DISPLAY_LABELS={
  'Otros ingresos':'Otros cobros por ventas'
 };
 Object.assign(FIELD_HELP,{
- 'Dinero para abrir':'Cuenta lo que hay en esta caja antes de empezar. Es el dinero dejado en esta misma caja al terminar el día anterior; no son ventas de hoy.',
- 'Dinero que dejas para mañana':'Cuenta el efectivo que queda después de las retiradas y los gastos. Será la apertura de esta misma caja el siguiente día trabajado.',
+ 'Dinero que quedó del cierre anterior':'Cuenta lo que hay en esta caja antes de empezar. Es el dinero dejado en esta misma caja al terminar el día anterior; no son ventas de hoy.',
+ 'Dinero que dejas para el próximo día':'Cuenta el efectivo que queda después de las retiradas y los gastos. Será la apertura de esta misma caja el siguiente día trabajado.',
  'Ventas del programa de caja':'Total de ventas que muestra tu programa de caja. Sirve para compararlo con este cierre; no es el efectivo que dejas para mañana.',
  'Ventas comprobadas del día':'Total de ventas verificado al revisar el registro anterior. No copies automáticamente un importe antiguo que incluya el dinero dejado en caja.',
  'Entradas extraordinarias':'Dinero añadido para cambio o fondo de caja, sin proceder de una venta. No lo vuelvas a anotar como ingreso.',
