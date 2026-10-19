@@ -186,12 +186,12 @@ begin
 end;
 $$;
 
-CREATE OR REPLACE FUNCTION public.totus_save_expense(p_expense jsonb, p_lines jsonb)
+create or replace function public.totus_save_expense(p_expense jsonb, p_lines jsonb)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public,private'
-AS $function$
+AS $$
 declare
   v_id uuid := nullif(p_expense->>'id','')::uuid;
   v_store uuid := nullif(p_expense->>'store_id','')::uuid;
@@ -302,7 +302,7 @@ begin
     jsonb_build_object('fecha',v_date,'proveedor',v_supplier,'factura',v_invoice,'estado_pago',v_paid_status));
   return v_id;
 end;
-$function$;
+$$;
 
 
 create or replace function public.totus_delete_expense(p_id uuid,p_reason text)
