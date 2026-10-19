@@ -58,6 +58,43 @@ async function deleteSavedBackup(id:string){
  if(updateError)throw updateError;
  return {deleted:id,removed_objects:paths.length};
 }
+async function cleanupUnusedFiles(){
+ const {data:running,error:runningError}=await admin.from('ops_backup_runs').select('id').eq('status','running').gte('started_at',new Date(Date.now()-15*60*1000).toISOString());
+ if(runningError||running?.length)throw new Error('Espera a que termine la copia en preparación.');
+ const {data:runs,error:runsError}=await admin.from('ops_backup_runs').select('storage_path,status');
+ const {data:jobs,error:jobsError}=await admin.from('ops_recovery_jobs').select('source_path,checkpoint_path,status');
+ const {data:snapshot,error:snapshotError}=await admin.rpc('totus_export_recovery_snapshot');
+ if(runsError||jobsError||snapshotError||!snapshot?.storage)throw new Error('No se pudo verificar el inventario actual.');
+ const linked=new Set([...(runs||[]).filter(r=>r.status==='success'&&r.storage_path).map(r=>r.storage_path),...(jobs||[]).flatMap(j=>[j.source_path,j.checkpoint_path]).filter(Boolean)]);
+ const removals:{bucket:string,path:string,bytes:number}[]=[];
+ async function inspect(bucket:string,folder:string,used:Set<string>,backup:boolean){
+  for(let offset=0;;offset+=100){
+   const {data:objects,error}=await admin.storage.from(bucket).list(folder,{limit:100,offset,sortBy:{column:'name',order:'asc'}});
+   if(error||!objects)throw new Error('No se pudo revisar el almacenamiento.');
+   for(const object of objects){
+    if(!object.id||!object.metadata)continue;
+    const path=folder+'/'+object.name;
+    const base=backup?path.replace(/\.part-\d{4}$/,''):path;
+    if(used.has(base)||used.has(path))continue;
+    const created=Date.parse(object.created_at||object.updated_at);
+    if(!Number.isFinite(created)||Date.now()-created<15*60*1000)continue;
+    if(backup&&!/\.totusbackup(?:\.part-\d{4})?$/.test(path))continue;
+    removals.push({bucket,path,bytes:Number(object.metadata.size)||0});
+   }
+   if(objects.length<100)break;
+  }
+ }
+ await inspect('business-backups','automaticas',linked,true);
+ await inspect('business-assets','logos',new Set(snapshot.storage['business-assets']||[]),false);
+ let bytes=0;
+ for(const file of removals){
+  const {error}=await admin.storage.from(file.bucket).remove([file.path]);
+  if(error)throw new Error('No se pudo retirar un archivo sin uso.');
+  bytes+=file.bytes;
+ }
+ return {removed:removals.length,freed_bytes:bytes};
+}
+
 async function pruneBackups(){
  const runs:any[]=[];
  for(let offset=0;;offset+=1000){
@@ -147,7 +184,8 @@ async function run(mode:string){
   if(updateErr)throw updateErr;
   // Only rotate after the new archive has been uploaded and verified.
   const retention=await pruneBackups().catch(e=>({warning:String(e.message||e)}));
-  return {id:backupId,status:"success",retention,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,storage_path:pathname};
+  const cleanup=await cleanupUnusedFiles().catch(e=>({warning:String(e.message||e)}));
+  return {id:backupId,status:"success",retention,cleanup,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,storage_path:pathname};
  }catch(e){
   await admin.from("ops_backup_runs").update({status:"failed",finished_at:new Date().toISOString(),error_message:String(e instanceof Error?e.message:e).slice(0,1000)}).eq("id",backupId);
   throw e;
@@ -160,6 +198,7 @@ Deno.serve(async(req)=>{
   const body=await req.json().catch(()=>({}));
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
+  if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
   if(body?.action==='verify')return reply(await verifySavedBackup(String(body?.id||'')));
   if(body?.action==='delete'){
    if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);

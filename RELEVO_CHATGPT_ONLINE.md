@@ -92,3 +92,5 @@ Descargar no libera espacio; eliminar copias antiguas no elimina los datos actua
 
 
 El titular ha reducido la conservación a cinco copias completas el 20/10/2026. La programación sigue a las 00:35 Europe/Madrid. MAX_SAVED_BACKUPS es la referencia común del servidor, interfaz y simulación; no confundir el campo heredado retention_days con borrado por antigüedad.
+
+La limpieza retira únicamente archivos automáticos sin una copia guardada ni recuperación vinculada y logos no incluidos en el inventario actual, con margen de 15 minutos. Conserva documentos originales y el relevo privado. La previsión de capacidad de Storage se calcula aparte del límite técnico del archivo de copia; mostrar ambos sin confundirlos.
