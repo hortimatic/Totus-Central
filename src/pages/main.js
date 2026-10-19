@@ -613,7 +613,7 @@ function adminStorageHtml(){
  ${kpi('Supabase · tiempo restante',planning.available?duration(planning.days):'Sin estimación','Con 10 copias completas diarias')}
  ${kpi('GitHub · tiempo restante','No depende de los meses cargados','Vuestra contabilidad se guarda en Supabase')}
  </div>
- <p id="storageForecastResult" class="note warn">Con las copias actuales, el espacio no alcanza para un año.</p>
+ <p id="storageForecastResult" class="note ${planning.available&&planning.days!=null&&planning.days<365?'warn':''}">${!planning.available?'Faltan datos para estimar la duración.':planning.days!=null&&planning.days<365?'Con las copias actuales, el espacio no alcanza para un año.':'Estimación con el ritmo de datos y las copias actuales.'}</p>
  <details><summary>Cómo se calcula y qué puedes limpiar</summary><p>Base de datos: Plazo aún no calculable. Falta medir su crecimiento. GitHub: Sin plazo por cargar datos; repositorio 9,68 MB aproximados, consultado el 20/10/2026.</p>
  <p>${planning.available?mb(planning.monthlyOriginalBytes)+'/mes de documentos y logos. Una copia completa ocupa aproximadamente '+mb(planning.currentCopyBytes)+'.':'Falta la referencia de crecimiento.'} Las diez copias ocuparán más que las antiguas, hechas durante la carga. Se reserva espacio para terminar la nueva antes de borrar la más vieja. Es una simulación; otros proyectos pueden consumir el espacio compartido.</p>
  <h3>Qué puedes descargar y eliminar para liberar espacio</h3>
