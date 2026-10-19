@@ -17,4 +17,11 @@ let reads=0;const huge=structuredClone(snapshot);huge.database.ops_audit_log=[{d
 await assert.rejects(()=>buildRecoveryArchive(huge,JSZip,async()=>{reads++;return new Uint8Array()}),/datos.*8 MB/);assert.equal(reads,0,'Oversized database must fail before downloading attachments');
 const overflow={...snapshot,storage:{'business-documents':[...files.keys(),'documents/extra.pdf'],'business-assets':[]},database:{...database,ops_documents:[...database.ops_documents,{id:'extra',storage_path:'documents/extra.pdf'}]}};
 await assert.rejects(()=>buildRecoveryArchive(overflow,JSZip,async(_b,p)=>files.get(p)||randomBytes(1024*1024)),/49 MB/);
+const compressedFiles=new Map([['documents/large.pdf',Buffer.alloc(55*1024*1024,65)]]);
+const compressible={...snapshot,storage:{'business-documents':[...compressedFiles.keys()],'business-assets':[]},database:{...database,ops_documents:[{id:'large',storage_path:'documents/large.pdf'}]}};
+const compressed=await buildRecoveryArchive(compressible,JSZip,async(_b,p)=>compressedFiles.get(p));
+assert.ok(compressed.bytes.byteLength<MAX_ARCHIVE_BYTES,'Compressible originals above 49 MB must fit without losing files');
+const uncompressed=await readRecoveryArchive(compressed.bytes,JSZip,{projectRef:'qa-project'});
+assert.equal(await archiveHash(await uncompressed.zip.file('storage/business-documents/documents/large.pdf').async('uint8array')),await archiveHash(compressedFiles.get('documents/large.pdf')));
+await assert.rejects(()=>buildRecoveryArchive(compressible,JSZip,async()=>Buffer.alloc(65*1024*1024)),/64 MB/,'Expansion limit must remain enforced before compression');
 console.log('RECOVERY CAPACITY QA: 48.9 MB of non-compressible files round-trip with identical hashes; over-limit archives and oversized databases fail closed. Local elapsed '+Math.round(performance.now()-started)+' ms; hosted runtime measured separately.');

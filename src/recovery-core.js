@@ -74,15 +74,19 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
    if(original==null)throw new Error('Falta el archivo '+bucket+'/'+path+'. No se ha creado una copia incompleta.');
    const bytes=original instanceof Blob?new Uint8Array(await original.arrayBuffer()):new Uint8Array(original);
    expanded+=bytes.byteLength;
-   if(expanded>MAX_ARCHIVE_BYTES)throw new Error('La copia supera 49 MB. No se ha guardado una copia incompleta.');
+   if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 64 MB. No se ha guardado una copia incompleta.');
    manifest.integrity.storage[bucket][path]=await archiveHash(bytes);
    zip.file('storage/'+bucket+'/'+path,bytes);
   }
  }
- zip.file('manifest.json',JSON.stringify(manifest));
- // PDFs, images and Office files are usually already compressed. STORE bounds
- // CPU and memory on the hosted worker instead of recompressing the whole archive.
- const bytes=await zip.generateAsync({type:'uint8array',compression:'STORE'});
+ const manifestJson=JSON.stringify(manifest);
+ expanded+=new TextEncoder().encode(manifestJson).byteLength;
+ if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 64 MB. No se ha guardado una copia incompleta.');
+ zip.file('manifest.json',manifestJson);
+ // Keep the fast path for small archives. Larger source inventories may fit
+ // safely after lossless compression; the 49 MB file and 64 MB expansion caps remain.
+ const compress=expanded>MAX_ARCHIVE_BYTES-1024*1024;
+ const bytes=await zip.generateAsync({type:'uint8array',compression:compress?'DEFLATE':'STORE',compressionOptions:compress?{level:1}:undefined});
  if(bytes.byteLength>MAX_ARCHIVE_BYTES)throw new Error('La copia supera 49 MB. No se ha guardado una copia incompleta.');
  return {bytes,manifest};
 }
