@@ -1407,8 +1407,8 @@ function taxPaymentForm(model,year,quarter,row=null){
   ${formField('Modelo','txModel',model,'text','disabled')}
   ${formField('Año','txYear',year,'number','disabled')}
   ${formField('Trimestre','txQuarter',quarter,'number','disabled')}
-  ${selectField('Estado','txStatus',[{value:'previsto',label:'Previsto'},{value:'pagado',label:'Pagado'},{value:'compensado',label:'Compensado'}],row?.status||'pagado')}
-  ${formField('Fecha de pago','txDate',row?.payment_date||isoToday(),'date')}
+  ${selectField('Estado','txStatus',[{value:'previsto',label:'Referencia para contrastar · sin pago anotado'},{value:'pagado',label:'Pagado'},{value:'compensado',label:'Compensado'}],row?.status||'previsto')}
+  ${formField('Fecha de pago','txDate',row?.payment_date||'','date')}
   ${formField('Importe','txAmount',row?.amount??'','number','step="0.01" min="0"')}
   <label class="wide">Notas<textarea id="txNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
  </div><div class="form-actions">${row?btn('Eliminar','tax-payment-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','tax-payment-save','primary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
@@ -1416,11 +1416,12 @@ function taxPaymentForm(model,year,quarter,row=null){
 }
 async function saveTaxPayment(id='',model,year,quarter){
  const date=val('txDate')||null;if(date&&date>isoToday())throw new Error('La fecha de pago no puede ser futura.');
+ if(val('txStatus')==='pagado'&&!date)throw new Error('Para marcarlo como pagado, indica la fecha real del pago.');
  const amountText=required('txAmount','Importe').trim(),amount=n(amountText);
  if(!Number.isFinite(amount)||amount<0)throw new Error('El importe fiscal no puede ser negativo.');
  if(![1,2,3,4].includes(Number(quarter))||!Number.isInteger(Number(year))||Number(year)<2020||Number(year)>2100)
   throw new Error('Año o trimestre fiscal incorrecto.');
- const row={tax_type:model,fiscal_year:Number(year),quarter:Number(quarter),period_label:`${quarter}T ${year}`,payment_date:date,amount,status:val('txStatus'),notes:val('txNotes').trim()};
+ const row={tax_type:model,fiscal_year:Number(year),quarter:Number(quarter),period_label:`${quarter}T ${year}`,payment_date:val('txStatus')==='previsto'?null:date,amount,status:val('txStatus'),notes:val('txNotes').trim()};
  if(!id)row.created_by=state.user?.id||null;
  try{if(id)await update('ops_tax_payments',id,row);else await insert('ops_tax_payments',row)}
  catch(e){if(String(e.message).toLowerCase().includes('unique'))throw new Error('Ya existe un registro para ese modelo, año y trimestre.');throw e}

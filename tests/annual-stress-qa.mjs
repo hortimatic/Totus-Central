@@ -70,6 +70,7 @@ const gestor=buildGestorWorkbook(data);
 assert(gestor.SheetNames.includes('Auditoría gestor'));
 for(let q=1;q<=4;q++)assert(gestor.SheetNames.includes('Libro gestor '+q+'T')&&gestor.SheetNames.includes('Conciliación '+q+'T'),'Falta trimestre '+q);
 const audit=gestor.Sheets['Auditoría gestor'];
+const estimatedAdvances=[];
 for(let q=1;q<=4;q++){
  const end=String(q*3).padStart(2,'0')+'-'+new Date(2026,q*3,0).getDate();
  const until='2026-'+end;
@@ -78,9 +79,11 @@ for(let q=1;q<=4;q++){
  const ytdIncome=netIncome(closings)+invoices.reduce((a,x)=>a+x.total_amount,0)
   +data.incomeAdjustments.filter(x=>x.income_date<=until).reduce((a,x)=>a+x.amount,0);
  const ytdDed=fiscalExpenses.filter(x=>x.expense_date<=until).reduce((a,x)=>a+amount(x),0);
- const prior=data.taxPayments.filter(x=>x.quarter<q).reduce((a,x)=>a+x.amount,0);
+ const prior=data.taxPayments.filter(x=>x.quarter<q).reduce((a,x)=>a+x.amount,0)
+  +estimatedAdvances.filter(x=>!data.taxPayments.some(p=>Number(p.quarter)===x.quarter)).reduce((a,x)=>a+x.amount,0);
  const calc=computeModel130Accumulated({income:ytdIncome,deductible:ytdDed,extraDeductible:q>=2?40:0,
   reductions:q>=3?12:0,withholdings:q>=2?5:0,previousPayments:prior});
  eq(audit['G'+(q+3)].v,-calc.due,q+'T IRPF acumulado');
+ estimatedAdvances.push({quarter:q,amount:Math.round(calc.due*100)/100});
 }
 console.log('ANNUAL STRESS QA: 730 cierres, '+data.expenses.length+' gastos, 24 facturas emitidas, 24 borradores, 12 meses x 2 tiendas, 4 modelos 130 e ingresos comunes conciliados.');

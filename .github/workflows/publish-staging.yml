@@ -65,6 +65,7 @@ jobs:
           node tests/action-inventory-qa.mjs
           node tests/api-integrity-qa.mjs
           node tests/filters-qa.mjs
+          node tests/fiscal-forecast-qa.mjs
            node tests/document-archive-qa.mjs
           node tests/expense-archive-qa.mjs
           node tests/excel-invariants.mjs

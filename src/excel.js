@@ -1,6 +1,6 @@
 import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
-import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,closingIncomeAmount} from './calculations.js';
+import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,closingIncomeAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
 import {matchesText} from './report-period.js';
 
@@ -340,7 +340,7 @@ function appendAuditSheet(wb,args){
   const periodExpenses=deductible(rng.from,rng.to)+adjustment(rng.from,rng.to,['gasto_deducible_extra','amortizacion']);
   const ytdIncome=fiscalIncomeForPeriod({...args,from,to});
   const ytdExpenses=deductible(from,to),ytdExtra=adjustment(from,to,['gasto_deducible_extra','amortizacion']);
-  const priorPayments=taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<q&&x.status==='pagado').reduce((a,x)=>a+n(x.amount),0);
+  const priorPayments=estimatePriorModel130(args,year,q).total;
   const estimate=computeModel130Accumulated({income:ytdIncome,deductible:ytdExpenses,extraDeductible:ytdExtra,
    reductions:adjustment(from,to,['reduccion']),withholdings:adjustment(from,to,['retencion_soportada']),previousPayments:priorPayments,
    rate:n(settings?.irpf_prepayment_rate??20),difficultRate:n(settings?.difficult_expense_pct??5),

@@ -123,6 +123,32 @@ export function deductibleExpenseTotal(expenses=[],lines=[]){
  }
  return total;
 }
+
+/** Planning baseline: recorded settlements, or our own prior-quarter estimates.
+ * A comparison figure (status previsto) must never drive the forecast.
+ */
+export function estimatePriorModel130(data,year,quarter,store='all'){
+ const inPeriod=(date,from,to)=>String(date||'')>=from&&String(date||'')<=to;
+ const storeOk=row=>store==='all'||row.store_id===store;
+ const sum=(rows,amount)=>rows.reduce((n,row)=>n+Number(amount(row)||0),0);
+ const settings=data.settings||{};let total=0,recorded=0,estimated=0;
+ for(let q=1;q<quarter;q++){
+  const paid=(data.taxPayments||[]).find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===q&&['pagado','compensado'].includes(x.status));
+  if(paid){total+=Number(paid.amount||0);recorded+=Number(paid.amount||0);continue;}
+  const from=`${year}-01-01`,to=`${year}-${String(q*3).padStart(2,'0')}-${new Date(year,q*3,0).getDate()}`;
+  const filter=(rows,key)=>(rows||[]).filter(x=>storeOk(x)&&inPeriod(x[key],from,to));
+  const adjustments=filter(data.fiscalAdjustments,'adjustment_date');
+  const extra=kinds=>sum(adjustments.filter(x=>kinds.includes(x.kind)),x=>x.amount);
+  const income=sum(filter(data.closings,'business_date').filter(x=>x.include_in_income!==false),closingIncomeAmount)
+   +sum(filter(data.invoices,'issue_date').filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true),x=>x.total_amount)
+   +sum(filter(data.incomeAdjustments,'income_date'),x=>x.amount)+extra(['ingreso_extra']);
+  const result=computeModel130Accumulated({income,deductible:deductibleExpenseTotal(filter(data.expenses,'expense_date'),data.expenseLines||[]),
+   extraDeductible:extra(['gasto_deducible_extra','amortizacion']),reductions:extra(['reduccion']),withholdings:extra(['retencion_soportada']),previousPayments:total,
+   rate:settings.irpf_prepayment_rate??20,difficultRate:settings.difficult_expense_pct??5,difficultAnnualCap:settings.difficult_expense_annual_cap??2000,difficultEnabled:settings.difficult_expense_enabled!==false});
+  const amount=Math.round((result.due+Number.EPSILON)*100)/100;total+=amount;estimated+=amount;
+ }
+ return {total,recorded,estimated};
+}
 /** A bank payment awaiting an invoice match is evidence, not another operating cost. */
 export function isUnreconciledPayment(expense){
  if(!expense?.management_only)return false;

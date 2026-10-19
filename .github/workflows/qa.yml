@@ -33,6 +33,7 @@ jobs:
       - run: node tests/action-inventory-qa.mjs
       - run: node tests/api-integrity-qa.mjs
       - run: node tests/filters-qa.mjs
+      - run: node tests/fiscal-forecast-qa.mjs
       - run: node tests/document-archive-qa.mjs
       - run: node tests/archive-documents-qa.mjs
       - run: node tests/expense-archive-qa.mjs

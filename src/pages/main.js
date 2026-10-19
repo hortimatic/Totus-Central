@@ -6,7 +6,7 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
+import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -103,7 +103,14 @@ export function inicio(){
   +sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)),x=>x.amount);
  const ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,qTo));
  const deductedYtd=deductibleExpenseTotal(ytdExpenses,state.data.expenseLines);
- const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
+ const homeAdjustments=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo));
+ const homeExtra=kinds=>sum(homeAdjustments.filter(x=>kinds.includes(x.kind)),x=>x.amount);
+ const home130=computeModel130Accumulated({income:incomeYtd,deductible:deductedYtd,extraDeductible:homeExtra(['gasto_deducible_extra','amortizacion']),reductions:homeExtra(['reduccion']),withholdings:homeExtra(['retencion_soportada']),previousPayments:estimatePriorModel130(state.data,year,quarter).total,
+  rate:state.data.settings?.irpf_prepayment_rate??20,difficultRate:state.data.settings?.difficult_expense_pct??5,difficultAnnualCap:state.data.settings?.difficult_expense_annual_cap??2000,difficultEnabled:state.data.settings?.difficult_expense_enabled!==false}).due;
+ const homeQuarterIds=new Set(quarterExpenses.filter(x=>!x.management_only).map(x=>x.id));
+ const homeRetention=model=>sum(state.data.expenseLines.filter(x=>homeQuarterIds.has(x.expense_id)&&x.withholding_model===model),x=>x.withholding_amount);
+ const homeForecast=[['130',home130],['111',homeRetention('111')],['115',homeRetention('115')]];
+ const homeReserve=sum(homeForecast,([model,amount])=>Math.max(0,amount-sum(state.data.taxPayments.filter(x=>x.tax_type===model&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter&&['pagado','compensado'].includes(x.status)),x=>x.amount)));
  const alerts=[];
  if(missingStores.length)alerts.push({level:'warn',title:'Cierres pendientes hoy',text:missingStores.map(x=>x.name).join(', '),route:'cajas'});
  if(draftClosings)alerts.push({level:'warn',title:'Cierres en borrador',text:`${draftClosings} pendientes de cerrar`,route:'cajas'});
@@ -146,7 +153,7 @@ export function inicio(){
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Documentos y fiscalidad</h2><p>Acceso rápido a archivo documental y previsión fiscal.</p></div></div><div class="dashboard-grid">
    <article class="card card-pad"><div class="section-head"><div><h3>Documentos recientes</h3><p>${pendingDocs} pendientes de revisar.</p></div>${btn('Subir documento','document-new','primary')}</div><div class="stack">${docRows||'<div class="empty compact-empty"><strong>Sin documentos</strong><span>Todavía no hay documentos archivados.</span></div>'}</div><div class="dashboard-links"><button class="btn secondary" data-route="documentos">Buscar documentos</button></div></article>
-   <article class="card card-pad"><div class="section-head"><div><h3>Fiscalidad · ${quarter}T ${year}</h3><p>Consulta los datos anotados y los importes de la gestoría.</p></div><button class="btn secondary" data-route="fiscalidad">Abrir fiscalidad</button></div><div class="summary-row"><span>Ingresos acumulados</span><strong>${money(incomeYtd)}</strong></div><div class="summary-row"><span>Gasto deducible</span><strong>− ${money(deductedYtd)}</strong></div><div class="summary-row"><span>Declaración de IRPF de la gestoría · 130</span><strong>${current130?money(current130.amount):'Importe pendiente de anotar'}</strong></div><p class="small muted">Anota el importe de la declaración que te entregue la gestoría. Las estimaciones se consultan aparte en Fiscalidad.</p></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Fiscalidad · ${quarter}T ${year}</h3><p>Previsión propia con los datos que llevas registrados.</p></div><button class="btn secondary" data-route="fiscalidad">Abrir fiscalidad</button></div><div class="summary-row"><span>Ingresos acumulados</span><strong>${money(incomeYtd)}</strong></div><div class="summary-row"><span>Gasto deducible</span><strong>− ${money(deductedYtd)}</strong></div>${homeForecast.map(([model,amount])=>`<div class="summary-row"><span>${model==='130'?'Anticipo de IRPF estimado':model==='111'?'Retenciones de nóminas y profesionales':'Retención del alquiler de Azuqueca'} · ${model}</span><strong>${money(amount)}</strong></div>`).join('')}<div class="summary-row"><b>Total por reservar este trimestre</b><strong>${money(homeReserve)}</strong></div><p class="small muted">Se actualiza con tu actividad, sin sustituir el cálculo por cifras de gestoría. No supone ingresos ni gastos de los días que faltan. Consulta el desglose y los anticipos utilizados en Fiscalidad.</p></article>
   </div></section>
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Seguimiento y sistema</h2><p>Informes, usuarios y almacenamiento en un vistazo.</p></div></div><div class="dashboard-grid">
@@ -406,43 +413,53 @@ export function documentRecordHtml(row=null){
 export function fiscalidad(){
  const f=getFilters('fiscalidad'),to=f.to||isoToday(),year=Number(String(to).slice(0,4)),quarter=Math.max(1,Math.min(4,Math.ceil(Number(String(to).slice(5,7))/3)));
  const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`,yFrom=`${year}-01-01`;
+ const calculationTo=to<qTo?to:qTo;
  const storeOk=x=>f.store==='all'||x.store_id===f.store;
  const periodClose=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&storeOk(x)&&x.include_in_income!==false);
- const ytdClose=state.data.closings.filter(x=>inRange(x.business_date,yFrom,qTo)&&storeOk(x)&&x.include_in_income!==false);
+ const ytdClose=state.data.closings.filter(x=>inRange(x.business_date,yFrom,calculationTo)&&storeOk(x)&&x.include_in_income!==false);
  const periodInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,f.from,f.to)&&storeOk(x));
- const ytdInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)&&storeOk(x));
+ const ytdInv=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,calculationTo)&&storeOk(x));
  const periodAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
- const ytdAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x));
+ const ytdAdj=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,calculationTo)&&storeOk(x));
  const periodManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,f.from,f.to)&&storeOk(x));
- const ytdManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)&&storeOk(x));
+ const ytdManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,calculationTo)&&storeOk(x));
  const sumIncome=(cs,is,as)=>sum(cs,closingIncomeAmount)+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
  const periodIncome=sumIncome(periodClose,periodInv,periodAdj)+sum(periodManual,x=>x.amount),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj)+sum(ytdManual,x=>x.amount);
- const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,qTo)&&storeOk(x));
+ const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,calculationTo)&&storeOk(x));
  const internalPeriod=state.data.expenses.filter(x=>x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x));
  const periodDed=deductibleExpenseTotal(periodExpenses,state.data.expenseLines),ytdDedBase=deductibleExpenseTotal(ytdExpenses,state.data.expenseLines);
- const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo)&&storeOk(x)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
+ const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,calculationTo)&&storeOk(x)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
  const extraIncomeYtd=sum(fiscalYtd.filter(x=>x.kind==='ingreso_extra'),x=>x.amount),extraDedYtd=sum(fiscalYtd.filter(x=>['gasto_deducible_extra','amortizacion'].includes(x.kind)),x=>x.amount),reductionsYtd=sum(fiscalYtd.filter(x=>x.kind==='reduccion'),x=>x.amount),withheldYtd=sum(fiscalYtd.filter(x=>x.kind==='retencion_soportada'),x=>x.amount);
  const dPct=Number(state.data.settings?.difficult_expense_pct??5),dCap=Number(state.data.settings?.difficult_expense_annual_cap??2000),rate=Number(state.data.settings?.irpf_prepayment_rate??20);
- const previous130=sum(state.data.taxPayments.filter(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)<quarter&&x.status==='pagado'),x=>x.amount);
+ const prior130=estimatePriorModel130(state.data,year,quarter,f.store),previous130=prior130.total;
  const model130=computeModel130Accumulated({income:ytdIncome,deductible:ytdDedBase,extraDeductible:extraDedYtd,reductions:reductionsYtd,previousPayments:previous130,withholdings:withheldYtd,rate,difficultRate:dPct,difficultAnnualCap:dCap,difficultEnabled:state.data.settings?.difficult_expense_enabled!==false});
  const {difficult,base,gross:gross130,due:calc130}=model130;
  const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
- const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
+ const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,calculationTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
  const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
  const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
  const internal=sum(internalPeriod,expenseCostAmount);
  const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
  const presented=quarterPresented(state.data.settings,year,quarter);
+ const estimates={'130':calc130,'111':calc111,'115':calc115};
+ const forecastRows=[['130','Tu anticipo de IRPF',calc130],['111','Retenciones de nóminas y profesionales',calc111],['115','Retención del alquiler de Azuqueca',calc115]].map(([model,label,amount])=>{
+  const paid=sum(state.data.taxPayments.filter(x=>x.tax_type===model&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter&&['pagado','compensado'].includes(x.status)),x=>x.amount);
+  return {model,label,amount,paid,reserve:Math.max(0,amount-paid)};
+ });
+ const reserve=sum(forecastRows,x=>x.reserve);
+ const forecastCards=forecastRows.map(x=>`<article class="fiscal-declaration"><h3>${esc(x.label)} · ${x.model}</h3><div class="declaration-amount"><span>Acumulado según tus registros</span><strong>${money(x.amount)}</strong></div><p class="small muted">Pagado o compensado este trimestre: ${money(x.paid)}</p><div class="summary-row"><span>Por reservar</span><strong>${money(x.reserve)}</strong></div></article>`).join('');
  const paymentRows=[['130',current130],['111',pay111],['115',pay115]].map(([model,pay])=>{
   const paid=pay?.status==='pagado',amount=pay?Number(pay.amount||0):null;
-  return `<article class="fiscal-declaration"><h3>${({'130':'Anticipo de tu IRPF · Modelo 130','111':'Retenciones de nóminas y profesionales · Modelo 111','115':'Retención del alquiler de Azuqueca · Modelo 115'})[model]}</h3><p>${presented?'<span class="badge good">Presentado y aceptado</span>':'<span class="badge info">Trimestre en preparación</span>'}</p><div class="declaration-amount"><span>Importe de la declaración de gestoría</span><strong>${amount==null?'Importe pendiente de anotar':money(amount)}</strong></div>${pay?`<p class="small muted">${paid?'Pago anotado'+(pay.payment_date?' · '+fmtDate(pay.payment_date):''):'Sin pago anotado'}</p>`:''}<div class="form-actions">${btn(pay?'Ver o corregir importe':'Anotar importe de gestoría','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></article>`;
+  const difference=amount==null?null:Math.round((estimates[model]-amount)*100)/100;
+  return `<article class="fiscal-declaration"><h3>${({'130':'Anticipo de tu IRPF · Modelo 130','111':'Retenciones de nóminas y profesionales · Modelo 111','115':'Retención del alquiler de Azuqueca · Modelo 115'})[model]}</h3><p>${presented?'<span class="badge good">Presentado y aceptado</span>':'<span class="badge info">Trimestre en preparación</span>'}</p><div class="declaration-amount"><span>Referencia comunicada por gestoría</span><strong>${amount==null?'Importe pendiente de anotar':money(amount)}</strong></div>${difference==null?'':`<p class="small">${Math.abs(difference)<.01?'Coincide con el cálculo de la herramienta':`La herramienta calcula ${money(Math.abs(difference))} ${difference>0?'más':'menos'} · pendiente de contraste`}</p>`}${pay?`<p class="small muted">${paid?'Pago anotado'+(pay.payment_date?' · '+fmtDate(pay.payment_date):''):'Sin pago anotado'}</p>`:''}<div class="form-actions">${btn(pay?'Ver o corregir importe':'Anotar importe de gestoría','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></article>`;
  }).join('');
  return `<div class="page fiscal-page">${presented?'<p class="note good"><b>Trimestre presentado y aceptado.</b> Confirmado por el titular. Las simulaciones internas se conservan como consulta y no representan una nueva cantidad a pagar.</p>':''}${state.data.settings?.closed_through?`<details class="note"><summary>Histórico protegido hasta ${fmtDate(state.data.settings.closed_through)} · ver notas de contraste</summary><p>${esc(state.data.settings.period_close_notes||'')}</p></details>`:''}
   ${state.data.expenses.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)&&inRange(x.expense_date,f.from,f.to)&&storeOk(x))?'<p class="note warn">Carga con pagos pendientes de soporte o conciliación. Los impuestos y el resultado siguen siendo provisionales.</p>':''}
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Beneficio para calcular el IRPF',money(periodIncome-periodDed),'Ingresos menos gastos deducibles; antes de deducciones y anticipos del modelo 130')}${kpi('Gastos internos · solo información',money(internal),'No se restan del beneficio fiscal ni reducen el IRPF')}</div>
   <div class="split">
-   <section class="card card-pad fiscal-calculation"><div class="section-head"><div><h2>Cálculo de impuestos con los datos registrados</h2><p>Modelo 130 · ${quarter}T ${year}. El IRPF se calcula desde enero hasta ${fmtDate(qTo)}, descontando los anticipos anteriores anotados. El resultado es una estimación; el importe presentado por gestoría aparece en su apartado.</p></div></div>
+   <section class="card card-pad fiscal-forecast"><div class="section-head"><div><h2>Previsión de impuestos · ${quarter}T ${year}</h2><p>Se actualiza con tus cierres, facturas y gastos. No utiliza las cifras de gestoría para calcular este trimestre ni supone ventas o gastos que todavía no has registrado.</p></div></div><div class="fiscal-declaration-grid">${forecastCards}</div><div class="summary-row"><b>Total que conviene reservar para este trimestre</b><strong>${money(reserve)}</strong></div><p class="small muted">El 130 acumula desde enero; el 111 y el 115 suman las retenciones de este trimestre. Los gastos internos no reducen estos impuestos.</p>${prior130.estimated>0?`<p class="note">Para planificar se han usado ${money(prior130.estimated)} de anticipos anteriores calculados por la herramienta, todavía sin pago anotado. Al registrar sus liquidaciones reales se actualizará la previsión.</p>`:''}${f.store!=='all'?'<p class="note warn">Has seleccionado una tienda. Para planificar los impuestos del autónomo, selecciona «Todas».</p>':''}</section>
+   <section class="card card-pad fiscal-calculation"><div class="section-head"><div><h2>Cálculo de impuestos con los datos registrados</h2><p>Modelo 130 · ${quarter}T ${year}. El IRPF se calcula desde enero hasta ${fmtDate(calculationTo)}, descontando los anticipos anteriores anotados. El resultado es una estimación; el importe presentado por gestoría aparece en su apartado.</p></div></div>
     <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(ytdIncome)}</strong></div>
     <div class="summary-row"><span>De esos ingresos: ajustes añadidos</span><strong>${money(extraIncomeYtd)}</strong></div>
     <div class="summary-row"><span>De esos ingresos: resúmenes y anotaciones manuales</span><strong>${money(sum(ytdManual,x=>x.amount))}</strong></div>
@@ -452,15 +469,15 @@ export function fiscalidad(){
     <div class="summary-row"><span>Deducción adicional para pequeños gastos (${dPct} %, tope ${money(dCap)})</span><strong>− ${money(difficult)}</strong></div>
     <div class="summary-row"><span>Beneficio acumulado usado para la estimación</span><strong>${money(base)}</strong></div>
     <div class="summary-row"><span>${rate.toFixed(1).replace('.',',')} %</span><strong>${money(gross130)}</strong></div>
-    <div class="summary-row"><span>Anticipos de IRPF anteriores registrados</span><strong>− ${money(previous130)}</strong></div>
+    <div class="summary-row"><span>Anticipos de IRPF anteriores utilizados</span><strong>− ${money(previous130)}</strong></div><p class="small muted">Pagos o compensaciones anotados: ${money(prior130.recorded)} · calculados para la previsión: ${money(prior130.estimated)}.</p>
     <div class="summary-row"><span>IRPF que ya te han retenido</span><strong>− ${money(withheldYtd)}</strong></div>
     <div class="summary-row"><span>Anticipo de IRPF estimado · Modelo 130</span><strong>${money(calc130)}</strong></div>
     <div class="summary-row"><span>Retenciones anotadas en nóminas y profesionales · 111</span><strong>${money(calc111)}</strong></div>
     <div class="summary-row"><span>Retenciones anotadas en el alquiler de Azuqueca · 115</span><strong>${money(calc115)}</strong></div>
-    <p class="note">Esta cifra es una simulación con los datos disponibles, no un recibo ni una deuda pendiente. El importe de la declaración se consulta en «Declaraciones de gestoría». El cálculo completo del modelo puede incluir compensaciones y otras casillas de la declaración que no recoge esta simulación.</p>
+    <p class="note">Previsión según la actividad registrada: cambiará al añadir ventas, gastos o pagos. Las cifras comunicadas por gestoría se comparan aparte en «Contraste con gestoría». La liquidación definitiva también puede incluir compensaciones y otras casillas personales del modelo 130 que debes revisar al cerrar el trimestre.</p>
     ${f.store!=='all'?'<p class="note warn">Has seleccionado una tienda: esta simulación es parcial. Tu declaración como autónomo incluye las dos tiendas.</p>':''}
    </section>
-   <section class="card card-pad fiscal-declarations"><div class="section-head"><div><h2>Declaraciones de gestoría · ${quarter}T</h2><p>Anota aquí el importe de cada declaración que te entregue la gestoría. «Importe pendiente de anotar» significa que falta copiar ese dato.</p></div></div><div class="fiscal-declaration-grid">${paymentRows}</div><div class="note rental-tax-note">El modelo 115 corresponde a la retención del alquiler, no al IVA. En vuestra operativa se aplica al local de Azuqueca. El alquiler de Alcalá no debe recibir esa retención por defecto. Cada factura conserva sus propios porcentajes y justificante.</div></section>
+   <section class="card card-pad fiscal-declarations"><div class="section-head"><div><h2>Contraste con gestoría · ${quarter}T</h2><p>Referencias para comparar al cerrar el trimestre. No sustituyen el cálculo de arriba ni se consideran pagos hasta que los registres como realizados.</p></div></div><div class="fiscal-declaration-grid">${paymentRows}</div><div class="note rental-tax-note">El modelo 115 corresponde a la retención del alquiler, no al IVA. En vuestra operativa se aplica al local de Azuqueca. El alquiler de Alcalá no debe recibir esa retención por defecto. Cada factura conserva sus propios porcentajes y justificante.</div></section>
 
   </div>
   <section class="card card-pad"><div class="section-head"><div><h2>Ajustes fiscales del periodo</h2><p>Ninguna diferencia se corrige de forma silenciosa.</p></div>${btn('+ Ajuste fiscal','fiscal-adjustment-new','primary')}</div><div class="stack" style="margin-top:12px">${fiscalPeriod.length?fiscalPeriod.map(x=>`<div class="summary-row"><div><b>${esc(x.kind.replaceAll('_',' '))}</b><div class="small muted">${fmtDate(x.adjustment_date)} · ${esc(x.description||'')}</div></div><strong>${money(x.amount)}</strong><div class="inline-actions">${btn('Editar','fiscal-adjustment-edit','secondary',`data-id="${x.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin ajustes</strong><span>No hay ajustes fiscales explícitos en este periodo.</span></div>'}</div></section>
