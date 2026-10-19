@@ -191,7 +191,8 @@ function expenseTabs(section){
 }
 function expenseSuppliersHtml(){
  const query=String(getFilters('gastos').supplierQuery||''),needle=searchText(query);
- const suppliers=state.data.suppliers.filter(s=>!needle||matchesText(needle,s.name,s.tax_id,s.email,s.phone,s.notes)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const showInactive=!!getFilters('gastos').supplierShowInactive;
+ const suppliers=state.data.suppliers.filter(s=>(showInactive||s.active!==false)&&(!needle||matchesText(needle,s.name,s.tax_id,s.email,s.phone,s.notes))).sort((a,b)=>a.name.localeCompare(b.name,'es'));
  const headers=[
   {label:'Proveedor',html:s=>`<b>${esc(s.name)}</b><div class="small muted">${esc(s.tax_id||'Sin NIF/CIF')}</div>`},
   {label:'Contacto',html:s=>`<div>${esc(s.email||'—')}</div><div class="small muted">${esc(s.phone||'')}</div>`},
@@ -199,7 +200,7 @@ function expenseSuppliersHtml(){
   {label:'Estado',html:s=>stateBadge(s.active!==false?'activo':'inactivo')},
   {label:'Acciones',html:s=>`<div class="inline-actions">${btn('Editar','expense-supplier-edit','secondary',`data-id="${s.id}"`)}${btn('Eliminar','expense-supplier-delete','danger',`data-id="${s.id}"`)}</div>`}
  ];
- return `<div class="page">${expenseTabs('proveedores')}<section class="card table-card"><div class="section-head card-pad"><div><h2>Proveedores de gastos</h2><p>Compras, servicios y arrendadores. Sus datos se reutilizan al registrar una factura.</p></div>${btn('+ Nuevo proveedor','expense-supplier-new','primary')}</div><div class="toolbar card-pad"><label class="field">Buscar proveedor<input id="expenseSuppliersQuery" value="${esc(query)}" placeholder="Nombre, NIF, correo o teléfono"></label>${btn('Buscar','expense-suppliers-search','secondary')}</div>${table(headers,suppliers,{emptyTitle:'Sin proveedores',emptyText:'Crea un proveedor o cambia la búsqueda.'})}</section></div>`;
+ return `<div class="page">${expenseTabs('proveedores')}<section class="card table-card"><div class="section-head card-pad"><div><h2>Proveedores de gastos</h2><p>Compras, servicios y arrendadores. Sus datos se reutilizan al registrar una factura.</p></div>${btn('+ Nuevo proveedor','expense-supplier-new','primary')}</div><div class="toolbar card-pad"><label class="field">Buscar proveedor<input id="expenseSuppliersQuery" value="${esc(query)}" placeholder="Nombre, NIF, correo o teléfono"></label><label class="check-field"><input id="expenseSuppliersInactive" type="checkbox" ${showInactive?'checked':''}> Mostrar inactivos</label>${btn('Buscar','expense-suppliers-search','secondary')}</div>${table(headers,suppliers,{emptyTitle:'Sin proveedores',emptyText:'Crea un proveedor o cambia la búsqueda.'})}</section></div>`;
 }
 function expenseInvoiceSectionHtml(){
  const f=getFilters('gastos'),kind=f.kind||'all',paid=f.paid||'all',attachment=f.attachment||'all';

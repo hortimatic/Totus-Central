@@ -1845,7 +1845,7 @@ document.addEventListener('click',async e=>{
   if(a==='closing-back'){resetView('cajas');render();return}
   if(a==='export-closings-current'){exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
-  if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim()});render();return}
+  if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim(),supplierShowInactive:!!input('expenseSuppliersInactive')?.checked});render();return}
   if(a==='expense-suppliers'){expenseSuppliersManager();return}
   if(a==='expense-supplier-new'){expenseSupplierForm();return}
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}

@@ -9,4 +9,8 @@ const internal={...payment,source_ref:JSON.stringify({kind:'bank_payment_source'
 assert.equal(expenseCostAmount(internal),45,'A known internal cost still affects operating results');
 assert.equal(deductibleExpenseTotal([internal],[]),0,'Internal costs remain excluded from fiscal deductions');
 assert.equal(expenseCostAmount({...payment,management_only:false}),45,'An actual reconciled expense is a cost');
+const {state,setView,patchFilters}=await import('../src/state.js');const {gastos}=await import('../src/pages/main.js');
+state.user={role:'admin'};state.data.suppliers=[{id:'active',name:'Active supplier',active:true},{id:'inactive',name:'Inactive source label',active:false}];setView('gastos',{mode:'list',section:'proveedores'});
+let html=gastos();assert(html.includes('Active supplier')&&!html.includes('Inactive source label'));
+patchFilters('gastos',{supplierShowInactive:true});html=gastos();assert(html.includes('Inactive source label'));
 console.log('TREASURY SOURCE QA: no double operating cost or fiscal deduction; known internal costs remain visible.');
