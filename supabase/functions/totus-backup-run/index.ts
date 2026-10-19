@@ -5,6 +5,7 @@ import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 import {NativeBackupZip,SegmentedBackupZip} from "./native-zip.js";
 import {buildRecoveryArchive,readRecoveryArchive} from "../../../src/recovery-core.js";
 import {writeBackupObject,readBackupObject} from '../../../src/backup-transport.js';
+import {oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin=createClient(SUPABASE_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -24,6 +25,31 @@ async function canStart(req:Request,mode:string){
  if(error||!user?.email)return false;
  const {data:staff,error:teamError}=await admin.from("team_members").select("role,active").ilike("email",user.email).maybeSingle();
  return !teamError&&staff?.role==="admin"&&staff?.active===true;
+}
+async function pruneBackups(){
+ const runs:any[]=[];
+ for(let offset=0;;offset+=1000){
+  const {data,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path').eq('status','success').order('started_at',{ascending:false}).range(offset,offset+999);
+  if(error)throw error;
+  runs.push(...data||[]);if((data||[]).length<1000)break;
+ }
+ const {data:jobs,error:jobsError}=await admin.from('ops_recovery_jobs').select('checkpoint_path');
+ if(jobsError)throw jobsError;
+ const candidates=oldestBackupCandidates(runs,(jobs||[]).map(j=>j.checkpoint_path));
+ const removed:string[]=[],warnings:string[]=[];
+ for(const previous of candidates){
+  const path=previous.storage_path,slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
+  const {data:objects,error}=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
+  if(error||!objects||objects.length>=100){warnings.push(previous.id+': inventario no verificado');continue;}
+  const paths=backupObjectPaths(path,objects);
+  if(!paths.includes(path)){warnings.push(previous.id+': archivo principal ausente');continue;}
+  const {error:removeError}=await admin.storage.from('business-backups').remove(paths);
+  if(removeError){warnings.push(previous.id+': no se pudo liberar el archivo');continue;}
+  const {error:updateError}=await admin.from('ops_backup_runs').update({status:'expired',storage_path:null}).eq('id',previous.id).eq('status','success');
+  if(updateError)throw updateError;
+  removed.push(previous.id);
+ }
+ return {maximum:10,removed,remaining:runs.length-removed.length,warnings};
 }
 async function run(mode:string){
  const {data:id,error:claimError}=await admin.rpc("totus_backup_claim",{p_mode:mode});
@@ -87,24 +113,9 @@ async function run(mode:string){
   });
   const {error:updateErr}=await admin.from("ops_backup_runs").update({status:"success",finished_at:new Date().toISOString(),storage_path:pathname,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,snapshot_revision:snapshot.revision,archive_sha256:archive.sha256,archive_manifest:manifest}).eq("id",backupId);
   if(updateErr)throw updateErr;
-  // Retain the newly verified snapshot; delete old ones only after successful upload.
-  const limit=new Date(Date.now()-Number(config.retention_days||10)*86400000).toISOString();
-  const {data:expired,error:expiredErr}=await admin.from("ops_backup_runs").select("id,storage_path").eq("status","success").lt("started_at",limit).neq("id",backupId).limit(100);
-  const {data:jobs,error:jobsError}=await admin.from("ops_recovery_jobs").select("checkpoint_path");
-  const protectedPaths=new Set((jobs||[]).map(j=>j.checkpoint_path));
-  if(!expiredErr&&!jobsError){
-   for(const previous of expired||[]){
-    if(!previous.storage_path||protectedPaths.has(previous.storage_path))continue;
-    const slash=previous.storage_path.lastIndexOf('/'),folder=previous.storage_path.slice(0,slash),name=previous.storage_path.slice(slash+1);
-    const {data:objects,error:listError}=await admin.storage.from("business-backups").list(folder,{search:name,limit:100});
-    if(listError||!objects||objects.length>=100)continue;
-    const paths=objects.filter(o=>o.name===name||o.name.startsWith(name+'.part-')&&/^\d{4}$/.test(o.name.slice((name+'.part-').length))).map(o=>folder+'/'+o.name);
-    if(!paths.includes(previous.storage_path))continue;
-    const {error:rmError}=await admin.storage.from("business-backups").remove(paths);
-    if(!rmError)await admin.from("ops_backup_runs").update({status:"expired",storage_path:null}).eq("id",previous.id);
-   }
-  }
-  return {id:backupId,status:"success",size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,storage_path:pathname};
+  // Only rotate after the new archive has been uploaded and verified.
+  const retention=await pruneBackups().catch(e=>({warning:String(e.message||e)}));
+  return {id:backupId,status:"success",retention,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,storage_path:pathname};
  }catch(e){
   await admin.from("ops_backup_runs").update({status:"failed",finished_at:new Date().toISOString(),error_message:String(e instanceof Error?e.message:e).slice(0,1000)}).eq("id",backupId);
   throw e;
@@ -117,6 +128,6 @@ Deno.serve(async(req)=>{
   const body=await req.json().catch(()=>({}));
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
-  return reply(await run(mode));
+  return reply(body?.action==="prune"?await pruneBackups():await run(mode));
  }catch(e){return reply({error:String(e instanceof Error?e.message:e)},500);}
 });

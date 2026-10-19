@@ -1542,8 +1542,7 @@ async function saveBackupSettings(){
  if(!isAdmin())throw new Error('Solo el administrador configura las copias.');
  const h=val('backupTime'),match=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(h);
  if(!match)throw new Error('Introduce una hora válida de 00:00 a 23:59.');
- const retention=Number(val('backupRetention')),folder=val('backupFolder').trim();
- if(!Number.isInteger(retention)||retention<1||retention>365)throw new Error('La conservación debe ser de 1 a 365 días.');
+ const folder=val('backupFolder').trim();
  if(!/^[a-zA-Z0-9_-]{3,48}$/.test(folder))throw new Error('La carpeta debe tener de 3 a 48 letras, números, _ o -.');
  const frequency=val('backupFrequency');
  if(!['daily','weekly','monthly'].includes(frequency))throw new Error('Frecuencia incorrecta.');
@@ -1552,7 +1551,7 @@ async function saveBackupSettings(){
  await rpc('totus_backup_save_settings',{p:{
   enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
   weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),
-  retention_days:retention,destination_folder:folder
+  retention_days:10,destination_folder:folder
  }});
  await refresh(enabled?'Programación activada.':'Configuración guardada; programación desactivada.');
 }

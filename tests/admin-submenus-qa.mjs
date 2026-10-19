@@ -56,7 +56,7 @@ try{
  assert(!(await page.locator('#backupMonthdayWrapper').isVisible()),'Día mensual visible en semanal');
  await page.locator('#backupTime').fill('09:35');
  await page.locator('#backupWeekday').selectOption('5');
- await page.locator('#backupRetention').fill('15');
+ assert(await page.locator('#backupRetention').getAttribute('readonly')!==null);
  await page.locator('#backupFolder').fill('copia_semanal');
  await page.locator('[data-action="backup-settings-save"]').click();
  await page.waitForTimeout(70);
@@ -65,21 +65,21 @@ try{
  assert.equal(config.run_hour,9);
  assert.equal(config.run_minute,35);
  assert.equal(config.weekday,5);
- assert.equal(config.retention_days,15);
+ assert.equal(config.retention_days,10);
  assert.equal(config.destination_folder,'copia_semanal');
  assert.equal(config.enabled,false);
  steps.push('backup:weekly/schedule/destination/retention/save');
  await page.locator('#backupFrequency').selectOption('monthly');
  assert(await page.locator('#backupMonthdayWrapper').isVisible(),'Frecuencia mensual sin día');
  await page.locator('#backupMonthday').selectOption('12');
- await page.locator('#backupRetention').fill('5');
+
  await page.locator('[data-action="backup-settings-save"]').click();
  config=await page.evaluate(()=>window.__mockDb.ops_backup_config[0]);
- assert.equal(config.month_day,12);assert.equal(config.retention_days,5);
+ assert.equal(config.month_day,12);assert.equal(config.retention_days,10);
  steps.push('backup:monthly');
  await page.locator('#backupFrequency').selectOption('daily');
  await page.locator('#backupEnabled').check();
- await page.locator('#backupRetention').fill('10');
+
  await page.locator('[data-action="backup-settings-save"]').click();
  await page.getByRole('button',{name:'Activar programación',exact:true}).click();
  config=await page.evaluate(()=>window.__mockDb.ops_backup_config[0]);
@@ -111,18 +111,18 @@ try{
   old:window.__mockDb.ops_backup_runs.find(x=>x.id==='old-qa-archive'),
   leftover:window.__mockUploads.has('business-backups/automaticas/antigua.totusbackup')
  }));
- assert.equal(rotation.old?.status,'expired','La copia con más de 10 días no se ha rotado');
- assert.equal(rotation.leftover,false,'La rotación dejó ocupando espacio la copia anterior');
- steps.push('backup:rotation-retention-10-days');
+ assert.equal(rotation.old?.status,'success','No debe eliminar por antigüedad si hay menos de diez copias');
+ assert.equal(rotation.leftover,true,'Se eliminó una copia sin superar el máximo de diez');
+ steps.push('backup:retention-count-not-age');
  assert(snap.storage_path.endsWith('.totusbackup'));
- assert(await page.locator('[data-action="backup-history-download"]').count()===1,'La copia no es descargable');
+ assert(await page.locator('[data-action="backup-history-download"]').count()===2,'La copia no es descargable');
  steps.push('backup:server-created');
  const dl=page.waitForEvent('download',{timeout:10000});
- await page.locator('[data-action="backup-history-download"]').click();
+ await page.locator('[data-action="backup-history-download"]').first().click();
  const filename=(await dl).suggestedFilename();
  assert(filename.endsWith('.totusbackup'),'Formato de descarga incorrecto');
  steps.push('backup:server-download');
- await page.locator('[data-action="backup-history-verify"]').click();
+ await page.locator('[data-action="backup-history-verify"]').first().click();
  await page.locator('#modalHost').getByText('Integridad SHA-256 comprobada.',{exact:false}).waitFor({state:'visible'});
  assert((await page.locator('#modalHost').innerText()).includes('Registros'));
  await page.locator('#modalHost .close-btn').click();

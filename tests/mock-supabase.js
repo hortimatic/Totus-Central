@@ -228,9 +228,8 @@ const mockCloudBackup=async()=>{
  const id=uuid(),path='automaticas/QA_'+id+'.totusbackup';
  uploaded.set('business-backups/'+path,blob);
  db.ops_backup_runs.unshift({id,mode:'manual',status:'success',started_at:new Date().toISOString(),finished_at:new Date().toISOString(),storage_path:path,size_bytes:blob.size,rows_count:Object.values(database).reduce((n,x)=>n+x.length,0),files_count:Object.values(files).reduce((n,x)=>n+x.length,0)});
- const expiry=Date.now()-Number(db.ops_backup_config[0].retention_days||10)*86400000;
- for(const previous of db.ops_backup_runs){
-  if(previous.id===id||previous.status!=='success'||Date.parse(previous.started_at)>=expiry)continue;
+ const expired=db.ops_backup_runs.filter(r=>r.status==='success'&&r.storage_path).sort((a,b)=>b.started_at.localeCompare(a.started_at)).slice(10);
+ for(const previous of expired){
   uploaded.delete('business-backups/'+previous.storage_path);
   previous.status='expired';
   previous.storage_path=null;

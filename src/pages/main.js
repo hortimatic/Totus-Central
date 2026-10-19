@@ -659,7 +659,7 @@ function adminStorageHtml(){
 function adminBackupHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Copias de seguridad</h2><p>Solo el administrador puede configurar y consultar copias.</p></section>';
  const config=state.data.backupConfig||{},runs=(state.data.backupRuns||[]).slice().sort((a,b)=>String(b.started_at||'').localeCompare(String(a.started_at||'')));
- const active=!!config.enabled,frequency=config.frequency||'daily',retention=config.retention_days||10;
+ const active=!!config.enabled,frequency=config.frequency||'daily';
  const hh=String(config.run_hour??3).padStart(2,'0'),mm=String(config.run_minute??0).padStart(2,'0');
  const frequencyOptions=[['daily','Cada día'],['weekly','Cada semana'],['monthly','Cada mes']].map(([v,label])=>`<option value="${v}" ${frequency===v?'selected':''}>${label}</option>`).join('');
  const weekOptions=[['1','Lunes'],['2','Martes'],['3','Miércoles'],['4','Jueves'],['5','Viernes'],['6','Sábado'],['0','Domingo']].map(([v,label])=>`<option value="${v}" ${Number(config.weekday??1)===Number(v)?'selected':''}>${label}</option>`).join('');
@@ -675,7 +675,7 @@ function adminBackupHtml(){
   {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}</div>`:''}
  ];
  return `<div class="stack">
-  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias disponibles',String(paths.length))}${kpi('Espacio usado',bytes<1024*1024?(bytes/1024).toFixed(0)+' KB':(bytes/1024/1024).toFixed(1)+' MB')}${kpi('Conservación',String(retention)+' días')}</div>
+  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias disponibles',String(paths.length))}${kpi('Espacio usado',bytes<1024*1024?(bytes/1024).toFixed(0)+' KB':(bytes/1024/1024).toFixed(1)+' MB')}${kpi('Conservación','10 copias más recientes')}</div>
   <section class="card card-pad"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
    <div class="form-grid" style="margin-top:14px">
     <label class="check-field wide emphasis-check"><input type="checkbox" id="backupEnabled" ${active?'checked':''}> Activar copias programadas</label>
@@ -683,10 +683,10 @@ function adminBackupHtml(){
     <div class="field"><label for="backupTime">Hora en España (Madrid)</label><input id="backupTime" type="time" value="${hh}:${mm}"></div>
     <div class="field" id="backupWeekdayWrapper" ${frequency!=='weekly'?'hidden':''}><label for="backupWeekday">Día de la semana</label><select id="backupWeekday">${weekOptions}</select></div>
     <div class="field" id="backupMonthdayWrapper" ${frequency!=='monthly'?'hidden':''}><label for="backupMonthday">Día de cada mes</label><select id="backupMonthday">${days}</select></div>
-    <div class="field"><label for="backupRetention">Días que conservar las copias</label><input id="backupRetention" type="number" value="${retention}" min="1" max="365" step="1"></div>
+    <div class="field"><label for="backupRetention">Máximo de copias guardadas</label><input id="backupRetention" type="number" value="10" readonly></div>
     <div class="field"><label for="backupFolder">Carpeta de destino (nube privada)</label><input id="backupFolder" value="${esc(config.destination_folder||'automaticas')}" maxlength="48" pattern="[a-zA-Z0-9_-]{3,48}" placeholder="automaticas"></div>
    </div>
-   <div class="note">Destino: almacenamiento privado de <b>Supabase STAGING → business-backups</b>, en la carpeta elegida. No se puede guardar automáticamente en una carpeta del ordenador mientras está apagado. Las copias antiguas se eliminan tras una nueva copia exitosa, conservando siempre la más reciente. El proceso no incorpora contraseñas.</div>
+   <div class="note">Destino: almacenamiento privado de <b>Supabase STAGING → business-backups</b>, en la carpeta elegida. No se puede guardar automáticamente en una carpeta del ordenador mientras está apagado. Se conservan las 10 copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
    <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias admiten hasta 96 MB (128 MB descomprimidos) y se guardan en fragmentos privados verificados. Un exceso se mostrará como fallo y no como respaldo correcto.</div>
   </section>
