@@ -57,10 +57,13 @@ export async function upload(bucket,path,file){const r=await sb.storage.from(buc
 export async function signedUrl(bucket,path,seconds=120){const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);assert(r,'Vista previa');return r.data.signedUrl}
 export async function removeFile(bucket,path){
  const files=sb.storage.from(bucket),r=await files.remove([path]);assert(r,'Eliminar archivo');
- const check=await files.exists(path),status=Number(check.error?.statusCode??check.error?.originalError?.status);
- // Storage's HEAD helper can return false together with its 400/404 response.
- if(check.error&&!(check.data===false&&[400,404].includes(status)))assert(check,'Comprobar eliminación');
- if(check.data!==false)throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
+ // HEAD can reuse a cached successful GET after removal. Listing uses POST and
+ // checks the current object index instead of the browser's download cache.
+ const slash=path.lastIndexOf('/'),folder=slash<0?'':path.slice(0,slash),name=path.slice(slash+1);
+ const check=await files.list(folder,{search:name,limit:100,offset:0});
+ assert(check,'Comprobar eliminación');
+ if(!Array.isArray(check.data)||check.data.length>=100||check.data.some(file=>file.name===name))
+  throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
 }
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
 export async function reloadStorageUsage(){

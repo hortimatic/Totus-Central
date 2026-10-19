@@ -78,6 +78,7 @@ try{
  assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc),'A silent Storage refusal removed the metadata');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),1);
  await page.evaluate(()=>window.__mockStorageRemoveNoop=false);
+ await page.evaluate(()=>window.__mockStorageHeadStale=true);
  await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();
  await page.locator('[data-confirm="accept"]').click();
  await page.waitForTimeout(75);
