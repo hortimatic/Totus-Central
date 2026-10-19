@@ -31,6 +31,8 @@ try{
  });
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(80);
+ assert((await page.locator('#content').innerText()).includes('Sin plazo por cargar datos'),'La duración de GitHub debe estar visible sin desplegar detalles');
+ await page.getByText('Cómo se calcula y qué puedes limpiar',{exact:true}).click();
  const text=await page.locator('#content').innerText();
  assert(text.includes('3,00 MB usados'),'Documentos y logos no se sumaron desde Storage real simulado: '+text.slice(0,350));
  assert(text.includes('1,00 MB')&&text.includes('Backups'),'Copias privadas no se muestran por separado');
