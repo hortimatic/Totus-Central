@@ -5,7 +5,7 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {computeModel130Accumulated,deductibleExpenseTotal} from '../calculations.js';
+import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -23,8 +23,8 @@ export function inicio(){
  const monthIncomeAdjustments=sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,month.from,month.to)),x=>x.amount);
  const monthManualIncome=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,month.from,month.to)),x=>x.amount);
  const sales=salesFromClosings+extraInvoices+monthIncomeAdjustments+monthManualIncome;
- const accountingExpenses=sum(monthExpenses.filter(x=>!x.management_only),x=>x.accounting_amount??x.gross_expense??x.amount_paid??0);
- const internalExpenses=sum(monthExpenses.filter(x=>x.management_only),x=>x.accounting_amount??x.gross_expense??x.amount_paid??0);
+ const accountingExpenses=sum(monthExpenses.filter(x=>!x.management_only),expenseCostAmount);
+ const internalExpenses=sum(monthExpenses.filter(x=>x.management_only),expenseCostAmount);
  const realResult=sales-accountingExpenses-internalExpenses;
  const todays=state.data.closings.filter(x=>x.business_date===today);
  const missingStores=activeStores.filter(s=>!todays.some(x=>x.store_id===s.id&&x.status==='cerrado'));
@@ -79,7 +79,7 @@ export function inicio(){
   const todaySales=close?Number(close.cash_sales||0)+Number(close.card_sales||0)+Number(close.bizum_sales||0)+Number(close.online_sales||0)+Number(close.other_income||0):0;
   return `<article class="store-status-card"><div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div><div class="metric-list" style="margin-top:12px"><div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div><div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div><div class="metric-box"><span>Efectivo final</span><b>${close?money(close.actual_cash):'—'}</b></div><div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div></div><div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div></article>`;
  }).join('');
- const expenseByStore=activeStores.map(store=>{const rows=quarterExpenses.filter(x=>x.store_id===store.id),regular=rows.filter(x=>!x.management_only),internal=rows.filter(x=>x.management_only);return `<div class="summary-row"><div><b>${esc(store.name)}</b><div class="small muted">${regular.length} contabilizados · ${internal.length} internos</div></div><strong>${money(sum(rows,x=>x.accounting_amount??x.gross_expense??x.amount_paid??0))}</strong></div>`}).join('');
+ const expenseByStore=activeStores.map(store=>{const rows=quarterExpenses.filter(x=>x.store_id===store.id),regular=rows.filter(x=>!x.management_only),internal=rows.filter(x=>x.management_only);return `<div class="summary-row"><div><b>${esc(store.name)}</b><div class="small muted">${regular.length} contabilizados · ${internal.length} internos</div></div><strong>${money(sum(rows,expenseCostAmount))}</strong></div>`}).join('');
  const invoiceRows=pendingInvoices.slice(0,4).map(x=>`<div class="summary-row"><div><b>${esc(x.display_number||x.external_number_text||'Factura')}</b><div class="small muted">${esc(x.customer_name||'Cliente')} · ${money(Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)))} pendientes${x.due_date?' · vence '+fmtDate(x.due_date):''}</div></div><div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${x.id}"`)}</div></div>`).join('');
  const docRows=recentDocs.map(d=>`<div class="summary-row"><div><b>${esc(d.original_name||'Documento')}</b><div class="small muted">${esc(d.supplier_or_customer||d.doc_type||'')} · ${fmtDate(d.document_date||d.created_at)}</div></div><div class="inline-actions">${btn('Ver','document-preview','secondary',`data-id="${d.id}"`)}</div></div>`).join('');
  const activeUsers=state.data.team.filter(x=>x.active!==false).length;
@@ -88,7 +88,7 @@ export function inicio(){
   <div class="kpis">${kpi('Ingresos del mes',money(sales),`${fmtDate(month.from)} → ${fmtDate(month.to)}`)}${kpi('Gastos contables',money(accountingExpenses),internalExpenses?('+'+money(internalExpenses)+' internos'):'Sin gasto interno')}${kpi('Resultado real',money(realResult),realResult>=0?'Ingresos − todos los gastos':'Mes en negativo')}${kpi('Pendiente de cobro',money(pendingInvoiceAmount),`${pendingInvoices.length} factura${pendingInvoices.length===1?'':'s'}`)}</div>
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Operativa de hoy</h2><p>Cierres y control de gasto del trimestre.</p></div></div><div class="dashboard-store-grid">${storeCards}</div><div class="dashboard-grid">
-   <article class="card card-pad"><div class="section-head"><div><h3>Gastos del ${quarter}T</h3><p>Total contabilizado e interno por establecimiento.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div><div class="home-big-number">${money(sum(quarterExpenses,x=>x.accounting_amount??x.gross_expense??x.amount_paid??0))}</div><div class="stack">${expenseByStore}</div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Gastos del ${quarter}T</h3><p>Total contabilizado e interno por establecimiento.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div><div class="home-big-number">${money(sum(quarterExpenses,expenseCostAmount))}</div><div class="stack">${expenseByStore}</div></article>
    <article class="card card-pad"><div class="section-head"><div><h3>Pendientes y avisos</h3><p>Solo incidencias que requieren atención.</p></div></div><div class="dashboard-alerts">${alerts.length?alerts.map(a=>`<button class="dashboard-alert ${a.level}" data-route="${a.route}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span>→</span></button>`).join(''):'<div class="empty compact-empty"><strong>Todo al día</strong><span>No hay avisos operativos pendientes.</span></div>'}</div></article>
   </div></section>
 
@@ -153,8 +153,8 @@ export function gastos(){
    &&(kind==='all'||(kind==='internal'?x.management_only:!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
    &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
- const total=sum(rows,x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
- const internal=sum(rows.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
+ const total=sum(rows,expenseCostAmount);
+ const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
  const pending=rows.filter(x=>x.paid_status!=='pagado').length;
  const headers=[
   {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
@@ -171,7 +171,8 @@ export function gastos(){
  const extras=`<div class="field"><label>Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Solo interno</option></select></div><div class="field"><label>Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>`;
  return `<div class="page">
   ${expenseTabs('registros')}
-  <div class="kpis">${kpi('Gasto del periodo',money(total))}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pendientes de pago',String(pending))}</div>
+  ${rows.some(isUnreconciledPayment)?`<p class="note warn">${rows.filter(isUnreconciledPayment).length} pagos originales pendientes de vincular o desglosar. Se conservan en el listado; no se suman otra vez al gasto ni al cálculo fiscal.</p>`:''}
+  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pendientes de pago',String(pending))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
@@ -380,10 +381,11 @@ export function fiscalidad(){
  const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
  const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
  const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
- const accountingPeriod=sum(state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),x=>x.accounting_amount??x.gross_expense??x.amount_paid??0),internal=sum(internalPeriod,x=>x.accounting_amount??x.gross_expense??x.amount_paid??0);
+ const accountingPeriod=sum(state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),expenseCostAmount),internal=sum(internalPeriod,expenseCostAmount);
  const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
  const paymentRows=[['130',calc130,current130],['111',calc111,pay111],['115',calc115,pay115]].map(([model,calc,pay])=>{const paid=pay?Number(pay.amount||0):0,diff=paid-Number(calc||0);return `<div class="summary-row"><div><b>Modelo ${model}</b><div class="small muted">${({'130':'Pago fraccionado IRPF','111':'Retenciones de personal y profesionales','115':'Retención de alquiler · Azuqueca'})[model]||''}</div><div class="small muted">${pay?`${esc(pay.status)} · ${fmtDate(pay.payment_date)}`:'Sin registro'}</div></div><div class="compact-detail"><span>Calculado <b>${money(calc)}</b></span><span>Registrado <b>${money(paid)}</b></span><span>Diferencia <b class="${Math.abs(diff)<.02?'good-text':'warn-text'}">${money(diff)}</b></span></div><div class="inline-actions">${btn(pay?'Editar':'Registrar','tax-payment-edit','secondary',`data-model="${model}" data-year="${year}" data-quarter="${quarter}" ${pay?`data-id="${pay.id}"`:''}`)}</div></div>`}).join('');
  return `<div class="page">
+  ${state.data.expenses.some(x=>isUnreconciledPayment(x)&&inRange(x.expense_date,f.from,f.to)&&storeOk(x))?'<p class="note warn">Carga con pagos pendientes de soporte o conciliación. Los impuestos y el resultado siguen siendo provisionales.</p>':''}
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gasto deducible',money(periodDed))}${kpi('Gasto interno',money(internal))}${kpi('Resultado real',money(periodIncome-accountingPeriod-internal))}</div>
   <div class="split">
@@ -421,9 +423,10 @@ export function informes(){
  const incomeAdj=selected.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'),manualIncome=selected.incomeAdjustments;
  const sales=sum(c,x=>Number(x.cash_sales||0)+Number(x.card_sales||0)+Number(x.bizum_sales||0)+Number(x.online_sales||0)+Number(x.other_income||0))+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount)+sum(manualIncome,x=>x.amount);
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
- const accounting=sum(g.filter(x=>!x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0),internal=sum(g.filter(x=>x.management_only),x=>x.gross_expense??x.accounting_amount??x.amount_paid??0);
+ const accounting=sum(g.filter(x=>!x.management_only),expenseCostAmount),internal=sum(g.filter(x=>x.management_only),expenseCostAmount);
  return `<div class="page">
  <section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
+ ${g.some(isUnreconciledPayment)?'<p class="note warn">Hay pagos del Excel pendientes de vincular o desglosar. Se conservan para consulta, sin volver a restarlos como gasto. El resultado es provisional.</p>':''}
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
  <div class="split">

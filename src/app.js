@@ -7,7 +7,7 @@ import {sb,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,inse
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
-import {quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
+import {expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
@@ -1749,7 +1749,7 @@ async function exportGestorPackage(year){
  const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
  const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
  const yearAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year)));
- const sales=yearClosings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0)+state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((v,x)=>v+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+n(x.accounting_amount??x.gross_expense??x.amount_paid??0),0);
+ const sales=yearClosings.reduce((v,x)=>v+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0)+state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((v,x)=>v+expenseCostAmount(x),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+expenseCostAmount(x),0);
  resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos fiscales revisados;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
  const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
  const usedPaths=new Set(),manifest=[];

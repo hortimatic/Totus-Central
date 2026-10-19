@@ -101,7 +101,9 @@ assert.ok(componentSource.includes('<summary aria-label='),'Contextual help need
 // Reporting totals must preserve explicit zero values instead of falling back to paid amounts.
 const pagesSource=fs.readFileSync('src/pages/main.js','utf8');
 assert.ok(!pagesSource.includes('x.gross_expense||x.accounting_amount||x.amount_paid'),'Gastos total must not treat 0 as missing');
-assert.ok(pagesSource.includes('x.gross_expense??x.accounting_amount??x.amount_paid??0'),'Gastos total fallback should use nullish values');
+const {expenseCostAmount}=await import('../src/calculations.js');
+assert.equal(expenseCostAmount({accounting_amount:0,amount_paid:88}),0,'Expense rollups must preserve an explicit accounting zero');
+assert.equal(expenseCostAmount({gross_expense:0,amount_paid:88}),0,'Expense rollups must preserve an explicit gross zero');
 
 assert.ok(!pagesSource.includes('r.gross_expense||r.accounting_amount||r.amount_paid'),'Expense row must preserve zero-valued totals');
 

@@ -1,5 +1,5 @@
 import {fmtDate,n} from './utils.js';
-import {computeModel130Accumulated,deductibleExpenseTotal} from './calculations.js';
+import {computeModel130Accumulated,deductibleExpenseTotal,expenseCostAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
 
 const XLSX=window.XLSX;
@@ -81,9 +81,9 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
  const adjustmentSales=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.reduce((a,x)=>a+n(x.amount),0);
  const sales=closeSales+extraInvoiceSales+adjustmentSales;
- const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
- const pending=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
- const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0);
+ const accounting=expenses.filter(x=>!x.management_only).reduce((a,x)=>a+expenseCostAmount(x),0);
+ const pending=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+expenseCostAmount(x),0);
+ const internal=expenses.filter(x=>x.management_only).reduce((a,x)=>a+expenseCostAmount(x),0);
  const costs=accounting+internal;
  const summary=[
   ['RESUMEN DE GESTIÓN'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],
@@ -97,14 +97,14 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
   const is=invoices.filter(x=>x.store_id===s.id&&x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true);
   const as=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&x.store_id===s.id);
   const sv=cs.reduce((a,x)=>a+n(x.cash_sales)+n(x.card_sales)+n(x.bizum_sales)+n(x.online_sales)+n(x.other_income),0)+is.reduce((a,x)=>a+n(x.total_amount),0)+as.reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>x.store_id===s.id).reduce((a,x)=>a+n(x.amount),0);
-  const amt=x=>n(x.gross_expense??x.accounting_amount??x.amount_paid??0);
+  const amt=expenseCostAmount;
   const accounting=es.filter(x=>!x.management_only).reduce((a,x)=>a+amt(x),0);
   const internal=es.filter(x=>x.management_only).reduce((a,x)=>a+amt(x),0);
   const notReviewed=es.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+amt(x),0);
   return [s.name,sv,accounting,internal,sv-accounting-internal,notReviewed];
  });
  const generalIncome=fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&!x.store_id).reduce((a,x)=>a+n(x.amount),0)+incomeAdjustments.filter(x=>!x.store_id).reduce((a,x)=>a+n(x.amount),0);
- const generalExpenses=expenses.filter(x=>!x.store_id),ga=x=>n(x.gross_expense??x.accounting_amount??x.amount_paid??0);
+ const generalExpenses=expenses.filter(x=>!x.store_id),ga=expenseCostAmount;
  const generalAccounting=generalExpenses.filter(x=>!x.management_only).reduce((a,x)=>a+ga(x),0);
  const generalInternal=generalExpenses.filter(x=>x.management_only).reduce((a,x)=>a+ga(x),0);
  const generalPending=generalExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false).reduce((a,x)=>a+ga(x),0);

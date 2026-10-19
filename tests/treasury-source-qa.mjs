@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {expenseCostAmount,isUnreconciledPayment,deductibleExpenseTotal} from '../src/calculations.js';
+const payment={id:'payment',gross_expense:45,management_only:true,source_ref:JSON.stringify({kind:'bank_payment_source',requires_invoice_reconciliation:true})};
+const invoice={id:'invoice',accounting_amount:45,management_only:false,fiscal_reviewed:true};
+assert(isUnreconciledPayment(payment));assert.equal(expenseCostAmount(payment),0);
+assert.equal([payment,invoice].reduce((sum,e)=>sum+expenseCostAmount(e),0),45,'Bank evidence cannot double an invoice cost');
+assert.equal(deductibleExpenseTotal([payment,invoice],[]),45);
+const internal={...payment,source_ref:JSON.stringify({kind:'bank_payment_source',requires_invoice_reconciliation:false})};
+assert.equal(expenseCostAmount(internal),45,'A known internal cost still affects operating results');
+assert.equal(deductibleExpenseTotal([internal],[]),0,'Internal costs remain excluded from fiscal deductions');
+assert.equal(expenseCostAmount({...payment,management_only:false}),45,'An actual reconciled expense is a cost');
+console.log('TREASURY SOURCE QA: no double operating cost or fiscal deduction; known internal costs remain visible.');
