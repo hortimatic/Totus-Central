@@ -1805,7 +1805,7 @@ async function reviewUnusedLogos(){
 
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
- if(writeInProgress&&el.dataset.action!=='close-modal'){toast('Espera a que termine la operación en curso.');return}
+ if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
  const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();setRoute(route);document.body.classList.remove('menu-open');render();return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
