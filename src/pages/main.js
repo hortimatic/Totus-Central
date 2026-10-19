@@ -18,10 +18,18 @@ const expensePaymentBadge=row=>acceptedExpense(row)?acceptedBadge:bookPaymentPen
 const closingHasOrigin=row=>{try{return JSON.parse(row?.source_ref||'{}').kind==='closing_source_snapshot'}catch{return false}};
 const closingMonthlyReference=row=>state.data.incomeAdjustments.find(ref=>ref.store_id===row?.store_id&&Number(ref.amount)>0&&(()=>{try{const source=JSON.parse(ref.notes);return source.kind==='monthly_source_reference'&&source.period===String(row.business_date).slice(0,7)}catch{return false}})());
 
+function closingDisplayDrawers(row,source){
+ const drawers=state.data.drawers.filter(d=>d.store_id===row.store_id&&d.active!==false).map(d=>({...d}));
+ const normal=name=>String(name||'').toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
+ if(row.entry_mode==='source_snapshot')for(const raw of source?.daily_drawers??source?.drawers??[]){
+  if(!drawers.some(d=>normal(d.name)===normal(raw.name)))drawers.push({name:raw.name,displayName:raw.name+' · registro anterior'});
+ }
+ return drawers;
+}
 function retainedCashByDrawer(row){
- const drawers=state.data.drawers.filter(d=>d.store_id===row.store_id&&d.active!==false);
  const normal=name=>String(name||'').toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
  let source=null;try{source=JSON.parse(row.source_ref||'{}')}catch{}
+ const drawers=closingDisplayDrawers(row,source);
  const amount=value=>value==null||value===''?'Sin importe anotado':money(value);
  return drawers.map(drawer=>{
   let opening,closing;
@@ -32,14 +40,14 @@ function retainedCashByDrawer(row){
    const saved=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
    opening=saved?.opening_cash;closing=saved?.closing_cash;
   }
-  return `<div class="drawer-cash-summary"><b>${esc(drawer.name)}</b><span>Para empezar ese día <b>${amount(opening)}</b></span><span>Lo que se deja al terminar <b>${amount(closing)}</b></span></div>`;
+  return `<div class="drawer-cash-summary"><b>${esc(drawer.displayName||drawer.name)}</b><span>Para empezar ese día <b>${amount(opening)}</b></span><span>Lo que se deja al terminar <b>${amount(closing)}</b></span></div>`;
  }).join('');
 }
 
 function dailySalesByDrawer(row){
- const drawers=state.data.drawers.filter(d=>d.store_id===row.store_id&&d.active!==false);
  const normal=name=>String(name||'').toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
  let source=null;try{source=JSON.parse(row.source_ref||'{}')}catch{}
+ const drawers=closingDisplayDrawers(row,source);
  const detail=drawers.map(drawer=>{
   let sales=null;
   if(row.entry_mode==='source_snapshot'){
@@ -49,7 +57,7 @@ function dailySalesByDrawer(row){
    const d=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
    if(d)sales=Number(d.closing_cash||0)+Number(d.cash_withdrawals||0)+Number(d.cash_expenses_declared||0)+Number(d.cash_extra_out||0)-Number(d.opening_cash||0)-Number(d.cash_extra_in||0)+Number(d.card_sales||0)+Number(d.bizum_sales||0)+Number(d.online_sales||0)+Number(d.other_income||0);
   }
-  return `<span>${esc(drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>`;
+  return `<span>${esc(drawer.displayName||drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>`;
  }).join('');
  const total=row.entry_mode==='source_snapshot'?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
  const collections=row.entry_mode==='source_snapshot'?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(source.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
