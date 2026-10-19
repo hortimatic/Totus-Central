@@ -105,6 +105,7 @@ await check('Cajas: creación, cálculo, guardado y lectura',async()=>{
  await page.locator('#drOpen_'+ids[0]).fill('100,00');
  await page.locator('#drClose_'+ids[0]).fill('150,00');
  await page.locator('#drCard_'+ids[0]).fill('20,00');
+ await page.locator('#drOpen_'+ids[1]).fill('0');
  await page.locator('#drClose_'+ids[1]).fill('0');
  await page.locator('#clReported').fill('70');
  await page.locator('[data-action="closing-save-close"]').click();

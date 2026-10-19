@@ -32,6 +32,17 @@ try{
  assert.equal(saved.cash_sales+saved.card_sales,120,'Reconciliation does not add cards or cash floats to sales again');
  assert.deepEqual(JSON.parse(saved.source_ref),fixture.origin,'Original evidence survives reconciliation');
  await page.locator('[data-action="closing-back"]').click();await page.getByText('Conciliado',{exact:true}).waitFor();
+ await page.reload({waitUntil:'networkidle'});
+ await page.locator('#nav [data-route="cajas"]').click();
+ await page.locator('[data-action="closing-new"]').first().click();
+ const emptyIds=await page.locator('.drawer-entry').evaluateAll(rows=>rows.map(x=>x.dataset.drawerId));
+ for(const id of emptyIds)await page.locator(`#drClose_${id}`).fill('0');
+ await page.locator('[data-action="closing-save-close"]').click();
+ await page.getByText('Indica el dinero de apertura de cada caja; escribe 0 solo si confirmas que estaba vacía.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings.length),0,'A missing opening must not silently become zero');
+ for(const id of emptyIds)await page.locator(`#drOpen_${id}`).fill('0');
+ await page.locator('[data-action="closing-save-close"]').click();
+ await page.getByText('Cierre cerrado y cuadrado.',{exact:true}).waitFor();
  await page.close();
  console.log('SOURCE RECONCILIATION QA: explicit button, real captured prefills, unknown allocation blank, incomplete rejection, closed status and unchanged income/original evidence.');
 }finally{await browser.close()}
