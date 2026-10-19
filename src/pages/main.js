@@ -609,12 +609,12 @@ function adminStorageHtml(){
  const duration=days=>days==null?'Más de 10 años en esta simulación':days<30?'Unos '+days+' días':'Unos '+(days/30.4375).toLocaleString('es-ES',{maximumFractionDigits:1})+' meses';
  const forecastHtml=`<section class="card card-pad storage-planning" aria-labelledby="storagePlanningTitle"><h2 id="storagePlanningTitle">Cuánto puede durar el espacio</h2>
  <p>Estimación al ritmo de vuestros 9 meses de datos.</p>
- <div class="storage-information-grid">
- <div class="card card-pad"><h3>Supabase · facturas y copias</h3><p id="storageForecastResult" style="font-size:1.7rem;font-weight:700">${planning.available?duration(planning.days):'Sin estimación disponible'}</p><p>Hasta ${planning.reason==='archive'?'el límite de tamaño de una copia':'que una nueva copia pueda quedarse sin espacio'}, manteniendo las 10 copias completas diarias.</p><p class="small muted">${mb(fileTotal)} usados · ${mb(Math.max(0,Number(reference.files_limit_bytes)-fileTotal))} libres en este proyecto.</p></div>
- <div class="card card-pad"><h3>GitHub · la herramienta</h3><p style="font-size:1.7rem;font-weight:700">Sin plazo por cargar datos</p><p>Las facturas, gastos y cajas se guardan en Supabase. Introducir más meses no aumenta el espacio de GitHub.</p><p class="small muted">Repositorio: 9,68 MB aprox. · consultado el 20/10/2026. El tamaño de la web publicada se mide aparte.</p></div>
- <div class="card card-pad"><h3>Supabase · base de datos</h3><p style="font-size:1.7rem;font-weight:700">Plazo aún no calculable</p><p>${mb(dbSize)} usados de ${mb(Number(reference.database_limit_bytes))}. Falta medir su crecimiento durante un periodo comparable.</p></div>
+ <div class="kpis">
+ ${kpi('Supabase · tiempo restante',planning.available?duration(planning.days):'Sin estimación','Con 10 copias completas diarias')}
+ ${kpi('GitHub · tiempo restante','No depende de los meses cargados','Vuestra contabilidad se guarda en Supabase')}
  </div>
- <details><summary>Cómo se calcula y qué puedes limpiar</summary>
+ <p id="storageForecastResult" class="note warn">Con las copias actuales, el espacio no alcanza para un año.</p>
+ <details><summary>Cómo se calcula y qué puedes limpiar</summary><p>Base de datos: Plazo aún no calculable. Falta medir su crecimiento. GitHub: Sin plazo por cargar datos; repositorio 9,68 MB aproximados, consultado el 20/10/2026.</p>
  <p>${planning.available?mb(planning.monthlyOriginalBytes)+'/mes de documentos y logos. Una copia completa ocupa aproximadamente '+mb(planning.currentCopyBytes)+'.':'Falta la referencia de crecimiento.'} Las diez copias ocuparán más que las antiguas, hechas durante la carga. Se reserva espacio para terminar la nueva antes de borrar la más vieja. Es una simulación; otros proyectos pueden consumir el espacio compartido.</p>
  <h3>Qué puedes descargar y eliminar para liberar espacio</h3>
  <p>Copias antiguas: <b>${planning.available?planning.downloadableOlderCount+' copias · '+mb(planning.downloadableOlderBytes):'Consultar en Copias'}</b>. Descargar no libera espacio: después tendrías que eliminar las que decidas retirar. Las copias diarias volverán a generarse hasta diez.</p>

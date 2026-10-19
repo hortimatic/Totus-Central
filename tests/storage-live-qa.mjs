@@ -31,7 +31,7 @@ try{
  });
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(80);
- assert((await page.locator('#content').innerText()).includes('Sin plazo por cargar datos'),'La duración de GitHub debe estar visible sin desplegar detalles');
+ assert((await page.locator('#content').innerText()).includes('No depende de los meses cargados'),'La duración de GitHub debe estar visible sin desplegar detalles');
  await page.getByText('Cómo se calcula y qué puedes limpiar',{exact:true}).click();
  const text=await page.locator('#content').innerText();
  assert(text.includes('3,00 MB usados'),'Documentos y logos no se sumaron desde Storage real simulado: '+text.slice(0,350));
@@ -44,7 +44,7 @@ try{
  assert((await page.locator('#storageBackupsCapacityBar').getAttribute('aria-label')).includes('1,00 MB usados; 3,00 MB de otros archivos; 1020,00 MB de margen'),'El margen de copias debe descontar todos los archivos del proyecto');
  await page.locator('.storage-space-section').screenshot({path:'artifacts/storage-capacity-bars.png'});
  assert(text.includes('Cuánto puede durar el espacio')&&text.includes('9 meses')&&text.includes('0,33 MB/mes')&&text.includes('Sin plazo por cargar datos')&&text.includes('Plazo aún no calculable'),'No muestra la simulación con referencia de nueve meses');
- assert(text.includes('la copia nueva antes de borrar la antigua')&&text.includes('no libera espacio'),'Falta explicar el margen de subida o la descarga sin borrado');
+ assert(text.includes('Se reserva espacio para terminar la nueva antes de borrar la más vieja')&&text.includes('no libera espacio'),'Falta explicar el margen de subida o la descarga sin borrado');
  assert(await page.locator('[data-action="admin-section"][data-section="backups"]').count()>0,'Falta acceso a descarga y eliminación de copias');
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
  assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
