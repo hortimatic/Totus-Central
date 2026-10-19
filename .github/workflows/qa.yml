@@ -35,9 +35,10 @@ jobs:
       - run: node tests/document-archive-qa.mjs
       - run: node tests/expense-archive-qa.mjs
       - run: node tests/excel-invariants.mjs
-      - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib
+      - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib @zip.js/zip.js@2.24.0
       - run: node tests/recovery-core-qa.mjs
       - run: node tests/recovery-capacity-qa.mjs
+      - run: node tests/native-backup-zip-qa.mjs
       - run: node tests/recovery-handler-qa.mjs
       - run: npx playwright install --with-deps chromium
       - run: node tests/excel-qa.mjs

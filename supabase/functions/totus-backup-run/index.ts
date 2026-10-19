@@ -2,7 +2,7 @@
 // Automated calls require the unique secret held in Supabase Vault.
 // Manual calls additionally require an authenticated administrator.
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
-import JSZip from "npm:jszip@3.10.1";
+import {NativeBackupZip} from "./native-zip.js";
 import {buildRecoveryArchive,archiveHash} from "../../../src/recovery-core.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -35,7 +35,7 @@ async function run(mode:string){
   const {data:snapshot,error:snapshotError}=await admin.rpc("totus_export_recovery_snapshot");
   if(snapshotError)throw snapshotError;
   snapshot.project_ref=new URL(SUPABASE_URL).hostname.split(".")[0];
-  const {bytes:archive}=await buildRecoveryArchive(snapshot,JSZip,async(bucket:string,path:string)=>{
+  const {bytes:archive}=await buildRecoveryArchive(snapshot,NativeBackupZip,async(bucket:string,path:string)=>{
    const {data,error}=await admin.storage.from(bucket).download(path);
    if(error||!data)throw new Error("No se pudo leer un archivo vinculado: "+(error?.message||path));
    return data;
