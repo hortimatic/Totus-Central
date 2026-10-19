@@ -181,13 +181,53 @@ Object.assign(FIELD_HELP,{
  "Trimestre":"Periodo de tres meses utilizado para declaraciones y previsiones.",
  "Importe":"Cantidad monetaria en euros, admite coma o punto decimal."
 });
+// Plain visible language, with the original field identifiers and stored values
+// unchanged. Exported accountant templates retain their original column names.
+const DISPLAY_LABELS={
+ 'Base':'Importe sin impuestos',
+ 'Recargo (%)':'Recargo de equivalencia (%)',
+ 'Retención (%)':'IRPF retenido (%)',
+ '% deducible':'Parte del gasto que reduce el IRPF (%)',
+ 'Modelo':'Modelo de Hacienda',
+ 'Modelo retención':'Modelo de la retención',
+ 'Años amortización':'Años para repartir el gasto',
+ 'Coste neto':'Coste sin impuestos',
+ 'Coste neto final':'Coste final sin impuestos',
+ 'Pago fraccionado IRPF (%)':'Porcentaje del anticipo de IRPF (%)',
+ 'Difícil justificación (%)':'Deducción adicional de pequeños gastos (%)',
+ 'Tope anual difícil justificación':'Límite anual de esa deducción (€)',
+ 'Serie':'Numeración del documento',
+ 'Tipo de serie':'Tipo de numeración',
+ 'Dígitos':'Cifras del número',
+ 'Prefijo':'Texto antes del número',
+ 'Tarjeta':'Ventas cobradas con tarjeta',
+ 'Bizum':'Ventas cobradas por Bizum',
+ 'Pedidos online':'Ventas cobradas por internet',
+ 'Salidas de efectivo':'Dinero que retiras de esta caja',
+ 'Entradas extraordinarias':'Dinero añadido que no es una venta',
+ 'Salidas extraordinarias':'Otras salidas de dinero',
+ 'Otros ingresos':'Otros cobros por ventas'
+};
+Object.assign(FIELD_HELP,{
+ 'Dinero para abrir':'Cuenta lo que hay en esta caja antes de empezar. Es el dinero dejado en esta misma caja al terminar el día anterior; no son ventas de hoy.',
+ 'Dinero que dejas para mañana':'Cuenta el efectivo que queda después de las retiradas y los gastos. Será la apertura de esta misma caja el siguiente día trabajado.',
+ 'Ventas del programa de caja':'Total de ventas que muestra tu programa de caja. Sirve para compararlo con este cierre; no es el efectivo que dejas para mañana.',
+ 'Ventas comprobadas del día':'Total de ventas verificado al revisar el registro anterior. No copies automáticamente un importe antiguo que incluya el dinero dejado en caja.',
+ 'Entradas extraordinarias':'Dinero añadido para cambio o fondo de caja, sin proceder de una venta. No lo vuelvas a anotar como ingreso.',
+ 'Salidas extraordinarias':'Otras salidas que no hayas anotado ya en retiradas ni en gastos pagados con esta caja.',
+ 'Otros ingresos':'Otros cobros de ventas no incluidos en efectivo, tarjeta, Bizum ni internet. No anotes aquí el fondo de caja.',
+ '% deducible':'Parte del gasto que la gestoría admite para reducir tu IRPF. Copia el porcentaje que corresponda a la factura; no cambies el importe pagado.',
+ 'Años amortización':'Plazo durante el que la gestoría reparte el coste de un equipo o inversión entre varios ejercicios.',
+ 'Modelo':'Modelo de Hacienda en el que se declara este importe. En las retenciones: 111 para nóminas o profesionales y 115 para alquiler de local.',
+ 'Recargo (%)':'Impuesto adicional que aparece en algunas facturas de compra. Copia el porcentaje del documento.'
+});
 const fieldHelp=label=>{
  const help=FIELD_HELP[label]||'Introduce el dato correspondiente a este campo y comprueba que coincide con su justificante o configuración antes de guardar.';
- return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+label)}" title="${esc('Información sobre '+label)}"><svg class="field-help-icon" viewBox="0 0 24 24" role="presentation" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r="1.1" class="field-help-dot"/></svg></summary><span role="note">${esc(help)}</span></details>`;
+ return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}" title="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}"><svg class="field-help-icon" viewBox="0 0 24 24" role="presentation" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r="1.1" class="field-help-dot"/></svg></summary><span role="note">${esc(help)}</span></details>`;
 };
 
-export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label><span class="field-caption">${esc(label)}${fieldHelp(label)}</span><input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
-export const selectField=(label,id,options,value='',extra='')=>`<label><span class="field-caption">${esc(label)}${fieldHelp(label)}</span><select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
+export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label)}</span><input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
+export const selectField=(label,id,options,value='',extra='')=>`<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label)}</span><select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" data-modal-content="true"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;

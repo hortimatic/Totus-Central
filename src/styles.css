@@ -439,16 +439,26 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .workbook-scroll{flex:1;min-height:0;max-height:none}
 .workbook-view>p,.workbook-view>.form-actions{flex-shrink:0}
 
-.next-opening{margin-top:18px;padding-top:14px;border-top:1px solid var(--border,#e2e8f0)}
-.next-opening h4{margin:0 0 6px}.next-opening .summary-row{gap:12px;flex-wrap:wrap}.next-opening strong{overflow-wrap:anywhere}
 .badge.good{background:#e9f8ef;color:var(--ok)}
 .note.good{background:#e9f8ef;border-color:#b9e3c9;color:#166534}
 
 /* Fiscal summaries must remain readable even when labels explain the tax. */
-.fiscal-page .split{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .fiscal-page .split>*,.fiscal-page .summary-row>*{min-width:0}
-.fiscal-page .summary-row .compact-detail{grid-template-columns:minmax(0,1fr);flex-basis:100%;width:100%}
-.fiscal-page .compact-detail span{white-space:normal;flex-wrap:wrap;overflow-wrap:anywhere}
-.fiscal-page .compact-detail b{white-space:nowrap}
 .fiscal-page .inline-actions{max-width:100%}
 .fiscal-page .inline-actions .btn{white-space:normal;max-width:100%}
+.opening-panel h2{margin:0;font-size:19px}
+.opening-panel>p{margin:7px 0 14px;color:var(--muted)}
+.opening-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px}
+.opening-card{min-width:0;border:1px solid var(--line);border-radius:10px;padding:13px;background:#f7fafc}
+.opening-card h3{margin:0 0 10px;font-size:14px;overflow-wrap:anywhere}
+.opening-card strong{display:block;font-size:23px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.opening-card p{margin:7px 0 0;font-size:12px;color:var(--muted)}
+.fiscal-page .split{grid-template-columns:minmax(0,1fr)}
+.fiscal-declaration-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:16px;margin-top:16px}
+.fiscal-declaration{min-width:0;padding:14px;border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:flex-start}
+.fiscal-declaration h3{margin:0;font-size:16px;overflow-wrap:anywhere}
+.declaration-amount{display:grid;gap:8px;width:100%;margin:10px 0}
+.declaration-amount span{font-size:12px;color:var(--muted)}
+.declaration-amount strong{font-size:19px;overflow-wrap:anywhere}
+.fiscal-declaration .form-actions{margin-top:auto;padding-top:14px;max-width:100%}
+.fiscal-declaration .btn{white-space:normal;max-width:100%}

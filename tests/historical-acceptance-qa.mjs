@@ -16,11 +16,15 @@ const financialBefore=JSON.stringify([state.data.expenses,state.data.closings]);
 for(const route of ['cajas','gastos','fiscalidad']){patchFilters(route,{from:'2026-07-01',to:'2026-09-30',store:'all',query:''});setView(route,{mode:'list'});}
 assert(cajas().includes('Conciliado y aceptado'));assert(!cajas().includes('data-action="closing-reconcile-source"'));
 assert(gastos().includes('Conciliado y aceptado'));assert(!gastos().includes('pagos originales pendientes'));
-const fiscal=fiscalidad();assert(fiscal.includes('Trimestre presentado y aceptado'));assert(fiscal.includes('Sin importe registrado'));assert(!fiscal.includes('130 calculado del trimestre'));
+const fiscal=fiscalidad();assert(fiscal.includes('Trimestre presentado y aceptado'));assert(fiscal.includes('Importe pendiente de anotar'));assert(!fiscal.includes('130 calculado del trimestre'));
+const declarations=fiscal.split('fiscal-declarations')[1].split('</section>')[0];
+assert(!declarations.includes('Simulación')&&!declarations.includes('Estimación'),'The actual declaration panel must never mix in forecast amounts');
+assert.equal((declarations.match(/Importe pendiente de anotar<\/strong>/g)||[]).length,3,'Missing official amounts must not be replaced with zero or an estimate');
+assert(inicio().indexOf('Dinero para abrir las cajas')<inicio().indexOf('Ingresos del mes'),'Opening cash must be easy to find before accounting figures');
 assert.equal(closingIncomeAmount(state.data.closings[0]),0,'Accepting source evidence must not count monthly income twice');
 assert.equal(expenseCostAmount(state.data.expenses[0]),0,'Accepted bank evidence must not duplicate invoices as an expense');
 assert.equal(openingDrawerCash('s','d','2026-10-01'),31.5);
-assert(inicio().includes('Dinero para la próxima apertura'));
+assert(inicio().includes('Dinero para abrir las cajas'));
 assert.equal(JSON.stringify([state.data.expenses,state.data.closings]),financialBefore,'Rendering acceptance must not modify financial facts');
 const options={closings:state.data.closings,closingDrawers:[],storeId:'s',drawer:state.data.drawers[0],before:'2026-10-01'};
 assert.equal(lastDrawerBalance(options).amount,31.5);

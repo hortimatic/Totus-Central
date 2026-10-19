@@ -286,7 +286,7 @@ function expenseSupplierForm(row=null){
   ${formField('IVA (%)','esVat',row?.default_vat_rate??21,'number','step="0.1" min="0"')}
   ${formField('Recargo (%)','esRe',row?.default_re_rate??0,'number','step="0.1" min="0"')}
   ${formField('Retención (%)','esWh',row?.default_withholding_rate??0,'number','step="0.1" min="0"')}
-  ${selectField('Modelo retención','esWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'111'},{value:'115',label:'115'}],row?.default_withholding_model||'')}
+  ${selectField('Modelo retención','esWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'111 · Nóminas y profesionales'},{value:'115',label:'115 · Alquiler del local'}],row?.default_withholding_model||'')}
   ${formField('% deducible','esDedPct',row?.default_deductible_pct??100,'number','min="0" max="100"')}
   <label><input id="esDeductible" type="checkbox" ${row?.default_deductible_irpf===false?'':'checked'}> Deducible IRPF por defecto</label>
   <label class="wide">Notas<textarea id="esNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
@@ -521,7 +521,7 @@ function updateClosingSummary(){
  const rows=[...document.querySelectorAll('.drawer-entry')];let total=0;
  for(const el of rows){const d=el.dataset.drawerId,read=s=>n(document.getElementById(`dr${s}_${d}`)?.value||0);const cash=read('Close')+read('Withdraw')+read('CashExpense')+read('ExtraOut')-read('ExtraIn')-read('Open');total+=cash+read('Card')+read('Bizum')+read('Online')+read('Other')}
  const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:total-reported,fmt=v=>money(v);
- const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=fmt(diff);d.className=Math.abs(diff)>.01?'danger-text':'good-text'}
+ const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=reported==null?'Sin total para comparar':fmt(diff);d.className=reported==null?'muted':Math.abs(diff)>.01?'danger-text':'good-text'}
 }
 function updateInvoiceSummary(){
  const draft=readInvoiceDraft(),base=draft.row.base_amount,vat=draft.row.vat_amount;

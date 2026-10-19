@@ -85,7 +85,7 @@ const kpiAmount=(markup,label)=>{
 };
 assert.match(kpiAmount(inicio(),'Ingresos del mes'),/175,00\s*€/,'Inicio excluye ingresos manuales');
 assert.match(kpiAmount(inicio(),'Ingresos acumulados'),/175,00\s*€/,'Inicio trimestral difiere del libro');
-assert.match(kpiAmount(inicio(),'Simulación de IRPF, no recibo'),/0,00\s*€/,'Tipo IRPF 0 % se reemplazó por 20 %');
+assert(!inicio().includes('Simulación de IRPF, no recibo'),'Inicio no debe presentar una previsión como importe de declaración');
 assert.match(kpiAmount(fiscalidad(),'Ingresos del periodo'),/175,00\s*€/,'Fiscalidad omite ingresos manuales');
 assert.match(kpiAmount(fiscalidad(),'Ingresos acumulados'),/175,00\s*€/,'Fiscalidad omite ingreso manual acumulado');
 assert.match(kpiAmount(fiscalidad(),'Simulación interna del anticipo de IRPF'),/0,00\s*€/,'Fiscalidad ignora tipo IRPF 0 %');
