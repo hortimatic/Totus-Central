@@ -430,7 +430,7 @@ export function fiscalidad(){
  const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,qTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
  const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
  const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
- const accountingPeriod=sum(state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),expenseCostAmount),internal=sum(internalPeriod,expenseCostAmount);
+ const internal=sum(internalPeriod,expenseCostAmount);
  const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
  const presented=quarterPresented(state.data.settings,year,quarter);
  const paymentRows=[['130',current130],['111',pay111],['115',pay115]].map(([model,pay])=>{
@@ -440,7 +440,7 @@ export function fiscalidad(){
  return `<div class="page fiscal-page">${presented?'<p class="note good"><b>Trimestre presentado y aceptado.</b> Confirmado por el titular. Las simulaciones internas se conservan como consulta y no representan una nueva cantidad a pagar.</p>':''}${state.data.settings?.closed_through?`<details class="note"><summary>Histórico protegido hasta ${fmtDate(state.data.settings.closed_through)} · ver notas de contraste</summary><p>${esc(state.data.settings.period_close_notes||'')}</p></details>`:''}
   ${state.data.expenses.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)&&inRange(x.expense_date,f.from,f.to)&&storeOk(x))?'<p class="note warn">Carga con pagos pendientes de soporte o conciliación. Los impuestos y el resultado siguen siendo provisionales.</p>':''}
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
-  <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Gasto interno',money(internal))}${kpi('Ingresos menos gastos',money(periodIncome-accountingPeriod-internal),'No es el saldo del banco ni el impuesto a pagar')}</div>
+  <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Beneficio para calcular el IRPF',money(periodIncome-periodDed),'Ingresos menos gastos deducibles; antes de deducciones y anticipos del modelo 130')}${kpi('Gastos internos · solo información',money(internal),'No se restan del beneficio fiscal ni reducen el IRPF')}</div>
   <div class="split">
    <section class="card card-pad fiscal-calculation"><div class="section-head"><div><h2>Cálculo de impuestos con los datos registrados</h2><p>Modelo 130 · ${quarter}T ${year}. El IRPF se calcula desde enero hasta ${fmtDate(qTo)}, descontando los anticipos anteriores anotados. El resultado es una estimación; el importe presentado por gestoría aparece en su apartado.</p></div></div>
     <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(ytdIncome)}</strong></div>
