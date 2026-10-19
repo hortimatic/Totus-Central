@@ -16,11 +16,13 @@ const original=new Uint8Array([1,2,3]);
 const built=await buildRecoveryArchive(snapshot,JSZip,async()=>original);
 class Query{
  constructor(table){this.table=table;this.filters=[];this.op='select'}
+ order(){return this} limit(){return this}
  select(){return this} eq(k,v){this.filters.push(x=>x[k]===v);return this}
  in(k,values){this.filters.push(x=>values.includes(x[k]));return this}
  maybeSingle(){this.singleRow=true;return this} single(){this.singleRow=true;return this}
  insert(row){this.op='insert';this.row=row;return this} update(row){this.op='update';this.row=row;return this}
  then(resolve,reject){return Promise.resolve().then(()=>{
+  if(this.table==='ops_backup_runs')return {data:null,error:null};
   if(this.table==='team_members')return {data:{role:state.role,active:state.active},error:null};
   if(this.table!=='ops_recovery_jobs')throw Error('Unexpected table '+this.table);
   if(this.op==='insert')state.jobs.push({status:'uploaded',...structuredClone(this.row)});

@@ -1560,6 +1560,7 @@ async function runBackupOnServer(){
  toast('Generando copia privada en el servidor…');
  const {data,error}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
  if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
+ if(data?.skipped){await refresh(data.reason||'Ya hay una copia en curso.');return}
  await refresh('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB.');
 }
 async function readBackupStorage(path){
@@ -1638,6 +1639,8 @@ async function performRecovery(jobId=''){
    const registered=await invokeRecovery(id,'register');
    await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
   }
+  const {data:checkpoint,error:checkpointError}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
+  if(checkpointError||checkpoint?.error||checkpoint?.skipped)throw new Error('Antes de recuperar se necesita una copia actual completa. '+(checkpoint?.error||checkpoint?.reason||checkpointError?.message||'Revisa el historial de copias.'));
   await invokeRecovery(id);
   recoveryCandidate=null;await refresh('Recuperación completada y verificada.');
  }catch(error){

@@ -68,6 +68,7 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
  let expanded=new TextEncoder().encode(databaseJson).byteLength;
  zip.file('database.json',databaseJson);
  const pending=[];
+ const originalHashes=new Map((snapshot.database.ops_documents||[]).filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
  for(const bucket of RECOVERY_BUCKETS){
   manifest.integrity.storage[bucket]={};
   for(const path of manifest.storage[bucket])pending.push({bucket,path});
@@ -82,7 +83,9 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
     const bytes=original instanceof Blob?new Uint8Array(await original.arrayBuffer()):new Uint8Array(original);
     expanded+=bytes.byteLength;
     if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB. No se ha guardado una copia incompleta.');
-    manifest.integrity.storage[bucket][path]=await archiveHash(bytes);
+    const digest=await archiveHash(bytes);
+    if(bucket==='business-documents'&&originalHashes.has(path)&&originalHashes.get(path)!==digest)throw new Error('Un original no coincide con la huella registrada. No se ha creado la copia.');
+    manifest.integrity.storage[bucket][path]=digest;
     zip.file('storage/'+bucket+'/'+path,bytes);
    }catch(error){failure||=error;}
   }
@@ -128,6 +131,7 @@ export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schem
  if(await archiveHash(databaseJson)!==manifest.integrity?.database
   ||await archiveHash(JSON.stringify(manifest.identities))!==manifest.integrity?.identities)throw new Error('La copia está dañada: falla el control de integridad de datos o cuentas.');
  const expected=new Set(['manifest.json','database.json']);
+ for(const doc of database.ops_documents)if(doc.storage_path&&doc.sha256&&doc.sha256!==manifest.integrity?.storage?.['business-documents']?.[doc.storage_path])throw new Error('La copia está dañada: un documento no coincide con su huella registrada.');
  for(const bucket of RECOVERY_BUCKETS)for(const path of manifest.storage[bucket]){
   const name='storage/'+bucket+'/'+path;expected.add(name);
   const entry=zip.file(name);
@@ -137,10 +141,15 @@ export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schem
  for(const entry of Object.values(zip.files))if(!entry.dir&&!expected.has(entry.name))throw new Error('El ZIP incluye un archivo inesperado.');
  return {zip,manifest,database};
 }
-export async function prepareRecoveryPlan(archive,jobId){
+export async function prepareRecoveryPlan(archive,jobId,{reusable}={}){
  if(!UUID.test(jobId))throw new Error('Identificador de recuperación no válido.');
  const files=[],maps=Object.fromEntries(RECOVERY_BUCKETS.map(b=>[b,new Map()]));
  for(const bucket of RECOVERY_BUCKETS)for(const path of archive.manifest.storage[bucket]){
+  if(reusable?.version===3&&reusable.revision&&reusable.project_ref===archive.manifest.project_ref
+   &&reusable.database_instance===archive.manifest.database_instance&&reusable.schema_hash===archive.manifest.schema_hash
+   &&reusable.integrity?.storage?.[bucket]?.[path]===archive.manifest.integrity.storage[bucket][path]){
+   maps[bucket].set(path,path);continue;
+  }
   const extension=path.match(/\.([a-z0-9]{1,10})$/i)?.[1].toLowerCase();
   const target='recovery/'+jobId+'/'+await archiveHash(bucket+'/'+path)+(extension?'.'+extension:'');
   maps[bucket].set(path,target);files.push({bucket,path,target,hash:archive.manifest.integrity.storage[bucket][path]});

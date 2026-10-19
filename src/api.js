@@ -22,7 +22,9 @@ export async function select(table,{order,ascending=false,limit=100000,filter,al
   if(filter)q=filter(q);
   for(let i=0;i<sorts.length;i++)q=q.order(sorts[i],{ascending:i===0&&order?ascending:true});
   const size=Math.min(pageSize,limit-from);
-  const r=await q.range(from,from+size-1);assert(r,table);
+  q=q.range(from,from+size-1);
+  if(typeof q.abortSignal==='function')q=q.abortSignal(AbortSignal.timeout(20000));
+  const r=await q;assert(r,table);
   const batch=r.data||[];
   if(!Array.isArray(batch))throw new Error(table+': respuesta de datos no válida.');
   rows.push(...batch);
@@ -86,7 +88,19 @@ export async function loadCore(){
  ['templates','ops_document_templates','name'],['brands','brands','name'],['families','families','name'],['products','products','updated_at'],['variants','product_variants','created_at'],
  ['providers','providers','name'],['providerPrices','product_provider_prices','created_at'],['competitors','product_competitor_prices','created_at'],['consultations','consultations','updated_at']
  ];
- const results=await Promise.all(tasks.map(([,table,order])=>select(table,{order,ascending:false}).catch(e=>{console.error(e);throw e})));
+ // A single sign-in must not occupy dozens of database connections while a
+ // maintenance lock is pending. Wait for the bounded in-flight reads to finish
+ // and publish state only when every required table has loaded successfully.
+ const results=new Array(tasks.length);let next=0,failure=null;
+ const worker=async()=>{
+  while(!failure&&next<tasks.length){
+   const index=next++,[,table,order]=tasks[index];
+   try{results[index]=await select(table,{order,ascending:false})}
+   catch(error){failure||=error}
+  }
+ };
+ await Promise.all(Array.from({length:Math.min(4,tasks.length)},worker));
+ if(failure)throw failure;
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;

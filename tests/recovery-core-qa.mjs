@@ -86,4 +86,14 @@ for(const failure of ['', 'revision', 'checkpoint-hash', 'prepared-hash']){
  else{await run();assert.equal(state.commits,1);assert.equal(state.job.status,'committed')}
  assert.equal(state.writes,0,'Resume must verify existing prepared files without replacing them');
 }
-console.log('RECOVERY CORE QA: authors, historic assets, ZIP limits, checkpoints, concurrent writes, lost responses, idempotent retry and prepared resume OK');
+const reused=await prepareRecoveryPlan(archive,jobId,{reusable:archive.manifest});
+assert.equal(reused.files.length,0);assert.equal(reused.database.ops_documents[0].storage_path,'original/invoice.pdf');
+for(const mismatch of [false,true]){
+ const {adapter,state}=adapterFor();
+ adapter.getVerifiedCheckpoint=async()=>({path:'automaticas/verified.totusbackup',manifest:{...archive.manifest,revision:mismatch?'c'.repeat(64):snapshot.revision}});
+ adapter.writeCheckpoint=async()=>{throw Error('Verified checkpoint must not be rebuilt')};
+ const run=()=>runApplicationRecovery({archive,snapshot,jobId,JSZip,adapter});
+ if(mismatch){await assert.rejects(run,/estado actual/);assert.equal(state.commits,0)}
+ else{await run();assert.equal(state.commits,1);assert.equal(state.writes,0);assert.equal(state.job.checkpoint_path,'automaticas/verified.totusbackup')}
+}
+console.log('RECOVERY CORE QA: authors, historic assets, ZIP limits, verified current checkpoints, immutable reuse, concurrent writes, lost responses, idempotent retry and prepared resume OK');

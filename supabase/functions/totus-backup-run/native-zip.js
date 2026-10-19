@@ -1,7 +1,14 @@
 import {Zip,ZipPassThrough} from 'npm:fflate@0.8.3';
-import {deflateRawSync,inflateRawSync} from 'node:zlib';
+import {deflateRawSync,inflateRawSync,crc32} from 'node:zlib';
+import {createHash} from 'node:crypto';
 
-class NativeDeflateFile extends ZipPassThrough{
+class NativeStoredFile extends ZipPassThrough{
+ push(bytes,final){
+  if(!final)throw new Error('La copia necesita el archivo original completo.');
+  this.crc=crc32(bytes);this.size=bytes.length;this.process(bytes,true);
+ }
+}
+class NativeDeflateFile extends NativeStoredFile{
  constructor(name){super(name);this.compression=8}
  process(bytes,final){
   if(!final)throw new Error('La copia necesita el archivo original completo.');
@@ -25,12 +32,20 @@ export class NativeBackupZip{
    chunks.push(bytes);total+=bytes.length;complete=final;
   });
   for(const [name,bytes]of this.entries){
-   const file=compression==='DEFLATE'?new NativeDeflateFile(name):new ZipPassThrough(name);
+   // Large PDFs/images already contain compressed streams. Recompressing them
+   // spends the hosted worker's CPU budget for little benefit. Compress the
+   // database and small originals; keep large originals byte-for-byte in STORE.
+   const compress=compression==='DEFLATE'&&(bytes.length<=256*1024||name==='database.json'||name==='manifest.json');
+   const file=compress?new NativeDeflateFile(name):new NativeStoredFile(name);
    writer.add(file);file.push(bytes,true);
    this.entries.delete(name);
   }
   writer.end();
   if(!complete)throw new Error('La copia ZIP no terminó correctamente.');
+  if(this.segmented){
+   const hash=createHash('sha256');for(const chunk of chunks)hash.update(chunk);
+   return {segments:chunks,byteLength:total,sha256:hash.digest('hex')};
+  }
   const output=new Uint8Array(total);let offset=0;
   for(const chunk of chunks){output.set(chunk,offset);offset+=chunk.length}
   return output;
@@ -65,4 +80,7 @@ export class NativeBackupZip{
   if(p!==end)throw new Error('Directorio ZIP incompleto.');
   return {files,file:name=>files[name]||null};
  }
+}
+export class SegmentedBackupZip extends NativeBackupZip{
+ constructor(){super();this.segmented=true}
 }

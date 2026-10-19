@@ -1,7 +1,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {NativeBackupZip as JSZip} from '../totus-backup-run/native-zip.js';
-import {readBackupObject,writeBackupObject} from '../../../src/backup-transport.js';
-import {readRecoveryArchive,MAX_ARCHIVE_BYTES} from '../../../src/recovery-core.js';
+import {readBackupObject,writeBackupObject,validateBackupIndex,BACKUP_PART_BYTES} from '../../../src/backup-transport.js';
+import {readRecoveryArchive,MAX_ARCHIVE_BYTES,archiveHash} from '../../../src/recovery-core.js';
 import {runApplicationRecovery} from '../../../src/recovery-runner.js';
 
 const url=Deno.env.get('SUPABASE_URL')||'';
@@ -62,6 +62,29 @@ Deno.serve(async req=>{
   const result=await runApplicationRecovery({archive,snapshot,jobId,JSZip,adapter:{
    getJob,
    claimJob:async()=>!!checked(await admin.from('ops_recovery_jobs').update({status:'preparing'}).eq('id',jobId).eq('status','uploaded').select('id'),'No se pudo iniciar la recuperación')?.length,
+   getVerifiedCheckpoint:async(currentSnapshot:any,expectedPath?:string)=>{
+    let q=admin.from('ops_backup_runs').select('storage_path,size_bytes,archive_sha256,archive_manifest').eq('status','success').eq('snapshot_revision',currentSnapshot.revision);
+    if(expectedPath)q=q.eq('storage_path',expectedPath);
+    const proof=checked(await q.order('started_at',{ascending:false}).limit(1).maybeSingle(),'No se pudo consultar el respaldo actual');
+    if(!proof){
+     const size=currentSnapshot.database.ops_documents.reduce((n:number,d:any)=>n+Number(d.size_bytes||0),0);
+     if(size>32*1024*1024)throw new Error('Crea una copia completa actual antes de recuperar los datos.');
+     return null;
+    }
+    const path=proof.storage_path,manifest=proof.archive_manifest;
+    if(!manifest||manifest.revision!==currentSnapshot.revision||manifest.project_ref!==projectRef||manifest.schema_hash!==currentSnapshot.schema_hash)throw new Error('El respaldo actual no tiene una prueba compatible.');
+    const slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
+    const objects=checked(await admin.storage.from('business-backups').list(folder,{search:name,limit:100}),'No se pudo comprobar el respaldo actual');
+    const root=objects?.find(x=>x.name===name);
+    if(!root)throw new Error('Falta el respaldo previo a la recuperación.');
+    if(Number(proof.size_bytes)>BACKUP_PART_BYTES){
+     if(Number(root.metadata?.size)>16384)throw new Error('Índice de respaldo no válido.');
+     const index=validateBackupIndex(path,JSON.parse(await (await download('business-backups',path)).text()));
+     if(index.sha256!==proof.archive_sha256||index.size!==Number(proof.size_bytes))throw new Error('El respaldo actual no coincide con la prueba verificada.');
+     for(const part of index.parts){const item=objects.find(x=>folder+'/'+x.name===part.path);if(!item||Number(item.metadata?.size)!==part.size)throw new Error('Falta un fragmento del respaldo actual.');}
+    }else if(await archiveHash(await download('business-backups',path))!==proof.archive_sha256)throw new Error('El respaldo actual está dañado.');
+    return {path,manifest};
+   },
    readFile:download,
    writeCheckpoint:(path:string,bytes:Uint8Array)=>writeBackupObject(path,bytes,(part:string,value:Uint8Array)=>write('business-backups',part,value,'application/octet-stream'),(part:string)=>download('business-backups',part)),
    readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part)),
