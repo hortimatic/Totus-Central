@@ -1,3 +1,4 @@
+import {MAX_SAVED_BACKUPS} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
@@ -1551,7 +1552,7 @@ async function saveBackupSettings(){
  await rpc('totus_backup_save_settings',{p:{
   enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
   weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),
-  retention_days:10,destination_folder:folder
+  retention_days:MAX_SAVED_BACKUPS,destination_folder:folder
  }});
  await refresh(enabled?'Programación activada.':'Configuración guardada; programación desactivada.');
 }

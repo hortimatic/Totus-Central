@@ -1,6 +1,7 @@
+import {MAX_SAVED_BACKUPS} from './backup-retention.js';
 const DAY_MONTH=30.4375;
 const nonnegative=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
-export function planStorage({usage,reference,runs=[],protectedPaths=[],keep=10,archiveLimit=96*1048576,horizonDays=3650}={}){
+export function planStorage({usage,reference,runs=[],protectedPaths=[],keep=MAX_SAVED_BACKUPS,archiveLimit=96*1048576,horizonDays=3650}={}){
  const months=Number(reference?.planning_sample_months),sample=Number(reference?.planning_sample_files_bytes),sampleCopy=Number(reference?.planning_sample_full_backup_bytes),limit=Number(reference?.files_limit_bytes);
  const originals=Number(usage?.documents_bytes)+Number(usage?.assets_bytes),all=Number(usage?.all_buckets_bytes);
  if(usage?.status!=='ok'||reference?.plan!=='Free'||!reference?.checked_at||![originals,all].every(nonnegative)||all<originals||![months,sample,sampleCopy,limit].every(v=>Number.isFinite(v)&&v>0)||!Number.isInteger(keep)||keep<1||keep>10)return {available:false};

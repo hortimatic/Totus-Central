@@ -1,4 +1,4 @@
-export const MAX_SAVED_BACKUPS=10;
+export const MAX_SAVED_BACKUPS=5;
 export function backupRunState(run,now=Date.now()){
  if(run.status==='success'&&run.storage_path)return 'saved';
  if(run.status==='expired')return 'removed';

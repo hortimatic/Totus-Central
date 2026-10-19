@@ -86,6 +86,9 @@ Cada copia guardada dispone de Eliminar con confirmación. Solo el administrador
 
 ## Estimación de espacio y limpieza
 
-Administración → Almacenamiento incluye una simulación que usa la referencia privada de nueve meses guardada en la configuración. Debe contar el crecimiento de originales, la sustitución de copias históricas pequeñas por diez copias completas actuales y el espacio temporal de la nueva copia antes de retirar la antigua. El límite de archivo de Totus y la cuota de Storage son límites separados. No convertir el espacio de este proyecto en una promesa de espacio libre global de la organización.
+Administración → Almacenamiento incluye una simulación que usa la referencia privada de nueve meses guardada en la configuración. Debe contar el crecimiento de originales, la sustitución de copias históricas pequeñas por cinco copias completas actuales y el espacio temporal de la nueva copia antes de retirar la antigua. El límite de archivo de Totus y la cuota de Storage son límites separados. No convertir el espacio de este proyecto en una promesa de espacio libre global de la organización.
 
-Descargar no libera espacio; eliminar copias antiguas no elimina los datos actuales, pero la programación vuelve a generar hasta diez. No proponer borrar facturas o justificantes vinculados para ampliar capacidad. Una exportación Excel no sustituye sus documentos originales. No extrapolar la base de datos sin una referencia comparable.
+Descargar no libera espacio; eliminar copias antiguas no elimina los datos actuales, pero la programación vuelve a generar hasta cinco. No proponer borrar facturas o justificantes vinculados para ampliar capacidad. Una exportación Excel no sustituye sus documentos originales. No extrapolar la base de datos sin una referencia comparable.
+
+
+El titular ha reducido la conservación a cinco copias completas el 20/10/2026. La programación sigue a las 00:35 Europe/Madrid. MAX_SAVED_BACKUPS es la referencia común del servidor, interfaz y simulación; no confundir el campo heredado retention_days con borrado por antigüedad.

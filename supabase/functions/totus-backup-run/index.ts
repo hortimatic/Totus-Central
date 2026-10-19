@@ -5,7 +5,7 @@ import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 import {NativeBackupZip,SegmentedBackupZip} from "./native-zip.js";
 import {buildRecoveryArchive,readRecoveryArchive} from "../../../src/recovery-core.js";
 import {writeBackupObject,readBackupObject} from '../../../src/backup-transport.js';
-import {oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
+import {MAX_SAVED_BACKUPS,oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin=createClient(SUPABASE_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -81,7 +81,7 @@ async function pruneBackups(){
   if(updateError)throw updateError;
   removed.push(previous.id);
  }
- return {maximum:10,removed,remaining:runs.length-removed.length,warnings};
+ return {maximum:MAX_SAVED_BACKUPS,removed,remaining:runs.length-removed.length,warnings};
 }
 async function run(mode:string){
  const {data:id,error:claimError}=await admin.rpc("totus_backup_claim",{p_mode:mode});
