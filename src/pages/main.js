@@ -407,7 +407,7 @@ export function fiscalidad(){
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Gasto interno',money(internal))}${kpi('Ingresos menos gastos',money(periodIncome-accountingPeriod-internal),'No es el saldo del banco ni el impuesto a pagar')}</div>
   <div class="split">
-   <section class="card card-pad"><details><summary>Ver la simulación de IRPF y cómo se calcula</summary><div class="section-head"><div><h2>Cómo se estima tu anticipo de IRPF</h2><p>Modelo 130 · ${quarter}T ${year}. Suma lo registrado desde enero hasta ${fmtDate(qTo)}; no solo este trimestre.</p></div>${btn('Ajuste fiscal','fiscal-adjustment-new','secondary')}</div>
+   <section class="card card-pad"><details><summary>Ver la simulación de IRPF y cómo se calcula</summary><div class="section-head"><div><h2>Cómo se estima tu anticipo de IRPF</h2><p>Modelo 130 · ${quarter}T ${year}. Suma lo registrado desde enero hasta ${fmtDate(qTo)}; no solo este trimestre.</p></div></div>
     <div class="summary-row"><span>Ingresos acumulados</span><strong>${money(ytdIncome)}</strong></div>
     <div class="summary-row"><span>De esos ingresos: ajustes añadidos</span><strong>${money(extraIncomeYtd)}</strong></div>
     <div class="summary-row"><span>De esos ingresos: resúmenes y anotaciones manuales</span><strong>${money(sum(ytdManual,x=>x.amount))}</strong></div>
