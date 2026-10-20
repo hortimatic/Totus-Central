@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import * as XLSX from 'xlsx-js-style';
+import XLSX from 'xlsx-js-style';
 import {workbookPreviewText} from '../src/workbook-preview.js';
 const preview=cell=>workbookPreviewText(cell,XLSX.utils.format_cell,XLSX.SSF);
 for(const [value,format,expected] of [[1053.47,'#,##0.00','1.053,47'],[-8.91,'#,##0.00','-8,91'],[0,'0.00','0,00'],[.21,'0.00%','21,00%'],[1234,'0','1234']]){
