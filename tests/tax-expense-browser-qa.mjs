@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {PDFDocument} from 'pdf-lib';
 const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const pdf=await PDFDocument.create();pdf.addPage();const buffer=Buffer.from(await pdf.save());
  const before=await page.evaluate(async()=>{
   const db=window.__mockDb,date=new Date().toLocaleDateString('en-CA');
   db.ops_tax_payments??=[];
@@ -23,6 +25,14 @@ try{
  await page.locator('[data-action="expense-new"]').waitFor();
  let result=await page.evaluate(()=>({tax:window.__mockDb.ops_tax_payments.find(x=>x.id==='qa-internal-tax'),expenses:window.__mockDb.ops_expenses.length}));
  assert.equal(result.tax.amount,400);assert.equal(result.tax.notes,'Justificante pendiente; solo control interno');assert.equal(result.expenses,before);
+ await page.locator('[data-action="expense-tax-edit"][data-id="qa-internal-tax"]').click();
+ await page.locator('#exFile').setInputFiles({name:'justificante-banco.pdf',mimeType:'application/pdf',buffer});
+ await page.locator('[data-action="expense-tax-attach-save"]').click();
+ await page.getByText('Justificante guardado. El importe y el tratamiento interno no han cambiado.',{exact:true}).waitFor();
+ const receipt=await page.evaluate(()=>{const p=window.__mockDb.ops_tax_payments.find(x=>x.id==='qa-internal-tax');return {payment:p,doc:window.__mockDb.ops_documents.find(d=>d.id===p.document_id)}});
+ assert.equal(receipt.payment.amount,400);assert.equal(receipt.payment.notes,'Justificante pendiente; solo control interno');
+ assert.equal(receipt.doc.linked_entity_id,'qa-internal-tax');assert.equal(receipt.doc.doc_type,'impuesto');
+ await page.locator('[data-action="expense-back"]').first().click();
  await page.locator('[data-action="expense-new"]').click();
  await page.locator('#exDocKind').selectOption('impuesto');
  assert(await page.locator('#exManagement').isChecked());
@@ -30,9 +40,12 @@ try{
  await page.locator('#exTaxPaymentYear').fill('2026');
  await page.locator('#exTaxPaymentQuarter').selectOption('4');
  await page.locator('#exPaidAmount').fill('120');
+ await page.locator('#exFile').setInputFiles({name:'nuevo-impuesto.pdf',mimeType:'application/pdf',buffer});
  await page.locator('[data-action="expense-save"]').click();
  await page.locator('[data-action="expense-new"]').waitFor();
  result=await page.evaluate(()=>({tax:window.__mockDb.ops_tax_payments.filter(x=>x.tax_type==='309'&&x.fiscal_year===2026&&x.quarter===4),expenses:window.__mockDb.ops_expenses.length}));
  assert.equal(result.tax.length,1);assert.equal(result.tax[0].amount,120);assert.equal(result.expenses,before);
+ const newDoc=await page.evaluate(id=>window.__mockDb.ops_documents.find(d=>d.linked_entity_id===id),result.tax[0].id);
+ assert.equal(newDoc.id,result.tax[0].document_id);assert.equal(newDoc.doc_type,'impuesto');
  console.log('TAX EXPENSE BROWSER QA: existing expense form edits and creates one canonical internal tax payment, preserving ordinary expenses and fiscal costs.');
 }finally{await browser.close()}
