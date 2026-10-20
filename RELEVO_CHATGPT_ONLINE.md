@@ -17,7 +17,7 @@ Este documento no contiene contraseñas, claves secretas ni documentación fisca
 - Logos: `business-assets`.
 - Copias y fragmentos: `business-backups`.
 - Programación nocturna: Supabase Cron y función `totus-backup-run`. Todos los días a las **00:35, Europe/Madrid**. La hora se adapta al cambio de horario de España.
-- Conservar como máximo las diez copias completadas más recientes. Después de verificar una nueva, retirar la más antigua con sus fragmentos. Los puntos de vuelta de una recuperación están protegidos y no se confunden con copias ordinarias.
+- Conservar como máximo las cinco copias completadas más recientes. Después de verificar una nueva, retirar la más antigua con sus fragmentos. Los puntos de vuelta de una recuperación están protegidos y no se confunden con copias ordinarias.
 
 No instalar ni usar el programador de tareas de Windows, un servidor local o rutas del portátil para trabajos nocturnos. No contratar planes de pago. Si el plan gratuito impide una operación, comunicar el límite real.
 
@@ -80,7 +80,7 @@ Al finalizar cada intervención, actualizar este documento si cambian horarios, 
 
 ## Última prueba nocturna verificada
 
-La programación de las 00:35 Europe/Madrid se ejecutó en Supabase el 20/10/2026 sin intervención del portátil y terminó correctamente. Se contrastó que incluyera todos los documentos actuales y que la rotación mantuviera diez copias guardadas. Esto verifica creación, inventario y transporte; no equivale a un ensayo de restauración en producción.
+La programación de las 00:35 Europe/Madrid se ejecutó en Supabase el 20/10/2026 sin intervención del portátil y terminó correctamente. Se contrastó que incluyera todos los documentos actuales y que la rotación aplicara la conservación configurada en ese momento; después se redujo a cinco copias guardadas. Esto verifica creación, inventario y transporte; no equivale a un ensayo de restauración en producción.
 
 Cada copia guardada dispone de Eliminar con confirmación. Solo el administrador puede hacerlo; el servidor protege la última copia y las vinculadas a recuperaciones. Las copias retiradas y los fallos antiguos no deben mostrarse como elementos disponibles. Los registros técnicos conservan el resultado verdadero.
 
