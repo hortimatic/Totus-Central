@@ -6,7 +6,7 @@ import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 import {NativeBackupZip,cloudBackupZip} from "./native-zip.js";
 import {buildRecoveryArchive,readRecoveryArchive,RECOVERY_TABLES,archiveHash} from "../../../src/recovery-core.js";
 import {readBackupObject,validateBackupIndex} from '../../../src/backup-transport.js';
-import {MAX_SAVED_BACKUPS,oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
+import {MAX_SAVED_BACKUPS,oldestBackupCandidates,obsoleteBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin=createClient(SUPABASE_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -121,13 +121,14 @@ async function cleanupUnusedFiles(){
 async function pruneBackups(){
  const runs:any[]=[];
  for(let offset=0;;offset+=1000){
-  const {data,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path').eq('status','success').order('started_at',{ascending:false}).range(offset,offset+999);
+  const {data,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path,archive_manifest,archive_sha256,storage_provider').eq('status','success').order('started_at',{ascending:false}).range(offset,offset+999);
   if(error)throw error;
   runs.push(...data||[]);if((data||[]).length<1000)break;
  }
- const {data:jobs,error:jobsError}=await admin.from('ops_recovery_jobs').select('checkpoint_path');
+ const {data:jobs,error:jobsError}=await admin.from('ops_recovery_jobs').select('checkpoint_path,source_path');
  if(jobsError)throw jobsError;
- const candidates=oldestBackupCandidates(runs,(jobs||[]).map(j=>j.checkpoint_path));
+ const protectedPaths=(jobs||[]).flatMap(j=>[j.checkpoint_path,j.source_path]).filter(Boolean);
+ const candidates=[...new Map([...oldestBackupCandidates(runs,protectedPaths),...obsoleteBackupCandidates(runs,protectedPaths)].map(r=>[r.id,r])).values()];
  const removed:string[]=[],warnings:string[]=[];
  for(const previous of candidates){
   const path=previous.storage_path,slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
@@ -160,15 +161,7 @@ async function backupRead(path:string,runId:string,req:Request){
  return oneDriveRead(req,'backup-file-url',{run_id:runId,path});
 }
 
-async function settleInterruptedRuns(){
- // Hosted workers end within 150 seconds. Five minutes leaves a margin for slow
- // responses; only an execution older than that can be marked interrupted.
- const result=await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'La ejecución anterior se interrumpió. Las copias guardadas se conservan.'}).eq('status','running').lt('started_at',new Date(Date.now()-5*60*1000).toISOString()).select('id');
- if(result.error)throw new Error('No se pudo comprobar la ejecución anterior.');
- return result.data?.length||0;
-}
 async function run(mode:string,req:Request){
- await settleInterruptedRuns();
  const {data:id,error:claimError}=await admin.rpc("totus_backup_claim",{p_mode:mode});
  if(claimError)throw claimError;
  if(!id)return {skipped:true,reason:"No corresponde a este horario o ya existe una copia para este periodo."};
