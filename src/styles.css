@@ -561,3 +561,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 
 /* Keep optional tax metadata in the existing form without affecting other records. */
 #exTaxPaymentFields[hidden],#expenseLines[hidden],#exTaxConcept[hidden]{display:none!important}
+
+/* Cash figures remain together; other modules keep their existing KPI layout. */
+.closing-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:1350px){.closing-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:980px){.closing-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
