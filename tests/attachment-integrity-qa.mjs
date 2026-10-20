@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {PDFDocument} from 'pdf-lib';
 const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1280,height:950}}),errors=[];
@@ -38,6 +39,29 @@ try{
  for(const key of Object.keys(before))assert.deepEqual(after.expense[key],before[key],'Attachment must preserve '+key);
  assert.equal(await attachment.evaluate(id=>window.__mockDb.ops_documents.filter(d=>d.id===id).length,after.expense.document_id),1);
  await attachment.close();
+
+
+ const receipt=await browser.newPage();
+ await receipt.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const taxBefore=await receipt.evaluate(async()=>{
+  const id=crypto.randomUUID(),day=new Date().toLocaleDateString('en-CA');
+  const row={id,tax_type:'130',fiscal_year:Number(day.slice(0,4)),quarter:Math.ceil(Number(day.slice(5,7))/3),period_label:'Periodo de prueba',payment_date:day,amount:123.45,status:'pagado',notes:'Preservar el pago original'};
+  window.__mockDb.ops_tax_payments.push(row);await(await import('../src/api.js')).loadCore();return row;
+ });
+ await receipt.locator('#nav [data-route="gastos"]').click();
+ await receipt.locator('[data-action="tax-payment-receipt"][data-id="'+taxBefore.id+'"]').click();
+ const pdf=await PDFDocument.create();pdf.addPage();const pdfBytes=await pdf.save();
+ await receipt.locator('#txReceiptFile').setInputFiles({name:'bank-receipt.pdf',mimeType:'application/pdf',buffer:Buffer.from(pdfBytes)});
+ await receipt.locator('[data-action="tax-payment-receipt-save"]').click();
+ await receipt.getByText('Justificante bancario guardado. El pago y sus importes no han cambiado.',{exact:true}).waitFor();
+ const taxAfter=await receipt.evaluate(id=>({payment:window.__mockDb.ops_tax_payments.find(p=>p.id===id),expenses:window.__mockDb.ops_expenses.length}),taxBefore.id);
+ assert(taxAfter.payment.document_id);assert.equal(taxAfter.expenses,0,'A tax receipt must never create an expense');
+ for(const key of Object.keys(taxBefore))assert.deepEqual(taxAfter.payment[key],taxBefore[key],'Receipt must preserve tax '+key);
+ const receiptDoc=await receipt.evaluate(id=>window.__mockDb.ops_documents.find(d=>d.id===id),taxAfter.payment.document_id);
+ assert.equal(receiptDoc.linked_entity_type,'tax_payment');assert.equal(receiptDoc.linked_entity_id,taxBefore.id);assert.equal(receiptDoc.doc_type,'impuesto');
+ assert.equal(await receipt.locator('[data-action="tax-payment-document-preview"][data-id="'+taxBefore.id+'"]').count(),1);
+ assert.equal(await receipt.locator('[data-action="tax-payment-document-download"][data-id="'+taxBefore.id+'"]').count(),1);
+ await receipt.close();
 
  const failure=await browser.newPage();
  await failure.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});

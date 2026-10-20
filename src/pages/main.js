@@ -214,7 +214,8 @@ function taxPaymentInformationHtml(filters){
  {label:'Impuesto',html:r=>esc(taxPaymentLabel(r))},
  {label:'Periodo al que corresponde',html:r=>esc(r.period_label||[r.fiscal_year,r.quarter?r.quarter+'T':''].filter(Boolean).join(' · '))},
  {label:'Importe pagado',num:true,html:r=>money(r.amount)},
- {label:'Tratamiento',html:()=>'<span class="badge info">Informativo · sin deducción fiscal</span>'}
+ {label:'Tratamiento',html:()=>'<span class="badge info">Informativo · sin deducción fiscal</span>'},
+ {label:'Justificante bancario',html:r=>{const doc=state.data.documents.find(d=>d.id===r.document_id);return `<div class="expense-file-actions">${doc?`<span class="small">${esc(doc.original_name)}</span>${btn('Vista previa','tax-payment-document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','tax-payment-document-download','secondary',`data-id="${r.id}"`)}`:''}${btn(doc?'Cambiar justificante':'Adjuntar justificante','tax-payment-receipt','secondary',`data-id="${r.id}"`)}</div>`;}}
  ],rows)}<p class="small muted card-pad">Para registrar o corregir estos pagos: Fiscalidad → Pagos de impuestos. Las cuotas de autónomo y la Seguridad Social se registran como gastos, con su tratamiento fiscal.</p></section>`;
 }
 

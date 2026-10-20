@@ -57,7 +57,7 @@ function permissionForAction(action,el){
  if(a==='proforma-convert')operation='create';
  if(a==='invoice-rectify')operation='create';
  if(a==='closing-save-close'&&el?.dataset?.id)operation='edit';
- if(a==='closing-reconcile-source')operation='edit';
+ if(a==='closing-reconcile-source'||a==='tax-payment-receipt')operation='edit';
  return {module,operation};
 }
 function checkActionPermission(action,el){
@@ -1424,6 +1424,33 @@ async function deleteUser(email){
  await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
 }
 
+
+function taxReceiptForm(id){
+ const row=state.data.taxPayments.find(p=>p.id===id);
+ if(!row)throw new Error('No se encuentra este pago. Actualiza los datos.');
+ const doc=state.data.documents.find(d=>d.id===row.document_id);
+ modal('Justificante bancario · Modelo '+row.tax_type,`<p><strong>${esc(row.period_label||row.fiscal_year)} · ${money(row.amount)}</strong> · ${fmtDate(row.payment_date)}</p>
+ <p>Adjunta el comprobante del banco. El importe, la fecha, el estado del pago y el cálculo fiscal se conservarán.</p>
+ ${doc?`<p>Justificante actual: ${esc(doc.original_name)}. Si lo sustituyes, el original seguirá en Documentos.</p>`:''}
+ <label class="file-picker">Seleccionar justificante bancario<input id="txReceiptFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label>
+ <div class="form-actions">${btn('Guardar justificante','tax-payment-receipt-save','primary',`data-id="${id}"`)}</div>`,{small:true});
+}
+async function saveTaxReceipt(id){
+ const row=state.data.taxPayments.find(p=>p.id===id);
+ if(!row)throw new Error('No se encuentra este pago. Actualiza los datos.');
+ const file=input('txReceiptFile')?.files?.[0];
+ if(!file)throw new Error('Selecciona el justificante bancario antes de guardar.');
+ const doc=await createStoredDocument(file,{date:row.payment_date||isoToday(),docType:'impuesto',status:'archivada',party:'Hacienda',number:'Modelo '+row.tax_type+' · '+(row.period_label||row.fiscal_year),category:'justificante_bancario',notes:'Comprobante bancario del pago de impuesto; no es otro gasto deducible',linkedType:'tax_payment',linkedId:id});
+ try{await update('ops_tax_payments',id,{document_id:doc.id})}
+ catch(error){throw await rollbackNewDocument(doc,error)}
+ closeModal();await refresh('Justificante bancario guardado. El pago y sus importes no han cambiado.');
+}
+function taxReceiptDocument(id){
+ const payment=state.data.taxPayments.find(p=>p.id===id);
+ if(!payment?.document_id)throw new Error('Este pago aún no tiene justificante adjunto.');
+ return payment.document_id;
+}
+
 function taxPaymentForm(model,year,quarter,row=null){
  const body=`<div class="form-grid">
   ${formField('Modelo','txModel',model,'text','disabled')}
@@ -2148,6 +2175,10 @@ document.addEventListener('click',async e=>{
   if(a==='recovery-confirm'){await performRecovery();return}
   if(a==='recovery-continue'){await performRecovery(el.dataset.id);return}
   if(a==='recovery-download'){await downloadRecoveryFile(el.dataset.id,el.dataset.kind);return}
+  if(a==='tax-payment-receipt'){taxReceiptForm(el.dataset.id);return}
+  if(a==='tax-payment-receipt-save'){await saveTaxReceipt(el.dataset.id);return}
+  if(a==='tax-payment-document-preview'){await previewDocument(taxReceiptDocument(el.dataset.id));return}
+  if(a==='tax-payment-document-download'){await downloadDocument(taxReceiptDocument(el.dataset.id));return}
   if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));await refresh();return}
   if(a==='tax-payment-edit'){const row=el.dataset.id?state.data.taxPayments.find(x=>x.id===el.dataset.id):null;taxPaymentForm(el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter),row);return}
   if(a==='tax-payment-save'){await saveTaxPayment(el.dataset.id||'',el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter));return}
