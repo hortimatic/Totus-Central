@@ -237,25 +237,31 @@ async function run(mode:string,req:Request){
 }
 
 
+
 async function capacityProbe(){
- const MB=1024*1024,path='simulation/year.totusbackup',files=new Map<string,Uint8Array>(),payload=new Uint8Array(MB);
+ const MB=1024*1024,path='simulaciones/capacidad-'+crypto.randomUUID()+'.totusbackup',payload=new Uint8Array(MB);
  crypto.getRandomValues(payload.subarray(0,65536));for(let i=65536;i<payload.length;i+=65536)payload.set(payload.subarray(0,65536),i);
  const paths=Array.from({length:112},(_,i)=>'simulation/'+i+'.bin'),database=Object.fromEntries(RECOVERY_TABLES.map((table:string)=>[table,[]]));
  database.ops_documents=paths.map((storage_path:string,i:number)=>({id:String(i),storage_path}));
  const snapshot={project_ref:'simulation',database_instance:'11111111-1111-4111-8111-111111111111',schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:new Date().toISOString(),identities:[],database,storage:{'business-documents':paths,'business-assets':[]}};
- let peakBuffer=0;const Base=cloudBackupZip({path,write:async(p:string,b:Uint8Array)=>{files.set(p,b);},read:async(p:string)=>files.get(p)});
+ let peakBuffer=0;const Base=cloudBackupZip({path,write:async(p:string,b:Uint8Array)=>{
+  const result=await admin.storage.from('business-backups').upload(p,new Blob([b]),{contentType:'application/octet-stream',upsert:false});if(result.error)throw result.error;
+ },read:async(p:string)=>{const result=await admin.storage.from('business-backups').download(p);if(result.error||!result.data)throw new Error('Falta un fragmento de simulación.');return result.data;}});
  class Zip extends Base{async flush(final=false){peakBuffer=Math.max(peakBuffer,this.pendingBytes);return super.flush(final)}}
- const start=Date.now();
- try{
-  const built=await buildRecoveryArchive(snapshot,Zip,async()=>payload);
-  const bytes=await readBackupObject(path,async(p:string)=>files.get(p),NativeBackupZip.archiveHash);
-  if(createHash('sha256').update(bytes).digest('hex')!==built.bytes.sha256)throw new Error('La simulación no conserva el archivo completo.');
-  const restored=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:'simulation'});
-  if(restored.manifest.storage['business-documents'].length!==112)throw new Error('Simulación incompleta.');
-  return {verified:true,simulated_originals:112,size_bytes:bytes.length,maximum_buffer_bytes:peakBuffer,elapsed_ms:Date.now()-start,persistent_files:0};
- }finally{files.clear();}
+ const start=Date.now(),built=await buildRecoveryArchive(snapshot,Zip,async()=>payload);
+ return {created:true,simulation_path:path,simulated_originals:112,size_bytes:built.bytes.byteLength,sha256:built.bytes.sha256,maximum_buffer_bytes:peakBuffer,elapsed_ms:Date.now()-start};
 }
-
+async function verifyCapacityProbe(path:string){
+ if(!/^simulaciones\/capacidad-[a-f0-9-]{36}\.totusbackup$/.test(path))throw new Error('Simulación no válida.');
+ const read=async(p:string)=>{const result=await admin.storage.from('business-backups').download(p);if(result.error||!result.data)throw new Error('No se pudo leer la simulación.');return result.data;};
+ const start=Date.now(),root=await read(path),index=validateBackupIndex(path,JSON.parse(await root.text()));
+ const bytes=await readBackupObject(path,read,NativeBackupZip.archiveHash);
+ const restored=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:'simulation'});
+ if(restored.manifest.storage['business-documents'].length!==112)throw new Error('Simulación incompleta.');
+ const paths=[...index.parts.map((p:any)=>p.path),path],removed=await admin.storage.from('business-backups').remove(paths);
+ if(removed.error)throw new Error('La simulación pasó, pero no se pudo retirar su archivo sintético.');
+ return {verified:true,simulated_originals:112,size_bytes:bytes.length,removed_objects:paths.length,elapsed_ms:Date.now()-start};
+}
 async function retireVerifiedBackupParts(req:Request,id:string){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Referencia de copia no válida.');
  const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,size_bytes,archive_sha256,archive_manifest,storage_provider').eq('id',id).single();
@@ -395,6 +401,7 @@ Deno.serve(async(req)=>{
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
   if(body?.action==='capacity-probe')return reply(await capacityProbe());
+  if(body?.action==='capacity-probe-verify')return reply(await verifyCapacityProbe(String(body.path||'')));
   if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
   if(body?.action==='retire-backup-parts')return reply(await retireVerifiedBackupParts(req,String(body.id||'')));
   if(body?.action==='retire-documents')return reply(await retireDocumentsWithLease(req,body.full===true,body.dry_run===true));
