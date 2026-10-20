@@ -16,11 +16,17 @@ const expenses=[{id:'invoice',management_only:false,fiscal_reviewed:true,account
 assert.equal(deductibleExpenseTotal(expenses,[]),100);
 assert.equal(expenses.reduce((s,x)=>s+expenseCostAmount(x),0),100,'Information and bank evidence cannot duplicate costs');
 const {state,patchFilters,setView}=await import('../src/state.js');
-const {gastos,informes}=await import('../src/pages/main.js');
+const {gastos,informes,fiscalidad}=await import('../src/pages/main.js');
 state.user={role:'admin'};state.data.expenses=[];state.data.taxPayments=payments;
 patchFilters('gastos',filter);setView('gastos',{mode:'list',section:'registros'});
 let html=gastos();assert(html.includes('Impuestos pagados · solo información'));assert(html.includes(money(2294.55)));assert(html.includes('No se restan del beneficio fiscal'));
 patchFilters('informes',filter);html=informes();assert(html.includes('Impuestos pagados · solo información'));
+
+patchFilters('fiscalidad',filter);
+html=fiscalidad();
+const info=html.slice(html.indexOf('Gastos internos · solo información'),html.indexOf('Gastos internos · solo información')+600);
+assert(info.includes(money(2294.55)),'Paid tax must appear in the internal information KPI');
+assert(html.includes(money(0)),'Tax payments must not create deductible operating expenses');
 const app=fs.readFileSync('src/app.js','utf8');
 const attach=app.slice(app.indexOf('async function saveExpenseAttachment('),app.indexOf("async function saveExpense(id="));
 assert(attach.includes("update('ops_expenses',id,{document_id:newDoc.id})"),'Attach changes only the existing document reference');

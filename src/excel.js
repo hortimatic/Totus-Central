@@ -112,7 +112,9 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
   ['RESUMEN DE GESTIÓN'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],
   ['Concepto','Importe'],['Ventas de cierres',closeSales],['Facturas adicionales',extraInvoiceSales],['Ajustes de ingreso',adjustmentSales],['Ingresos totales',sales],['Gastos contables',accounting],['Gastos internos',internal],['Gastos totales',costs],['Resultado real',sales-costs],['Pendientes de revisión (incluidos)',pending]
  ];
- const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(let r=5;r<=13;r++)if(ws[`B${r}`])ws[`B${r}`].z=euro;
+ const taxInformation=informationalTaxPayments(taxPayments,{...reportFilter,from,to}).reduce((s,p)=>s+n(p.amount),0);
+ summary.push(['Impuestos pagados · solo información',taxInformation],['Control interno e impuestos · informativo',internal+taxInformation]);
+ const ws=XLSX.utils.aoa_to_sheet(summary);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,2);for(let r=5;r<=summary.length;r++)if(ws[`B${r}`])ws[`B${r}`].z=euro;
  ws['A12'].s=totalStyle;ws['B12'].s={...totalStyle};ws['B12'].z=euro;autoWidths(ws,[24,18]);XLSX.utils.book_append_sheet(wb,ws,'Resumen');
 
  const perStore=stores.map(s=>{

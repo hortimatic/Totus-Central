@@ -234,6 +234,7 @@ export function gastos(){
    &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
  const total=sum(rows,expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
+ const taxInformation=kind!=='fiscal'&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
  const pending=rows.filter(x=>!acceptedExpense(x)&&x.paid_status!=='pagado').length;
  const headers=[
   {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${acceptedExpense(r)?acceptedBadge:isUnreconciledPayment(r)?'<span class="badge warn">Pago por vincular</span>':r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
@@ -251,7 +252,7 @@ export function gastos(){
  return `<div class="page">
   ${expenseTabs('registros')}
   ${rows.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?`<p class="note warn">${rows.filter(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)).length} pagos originales pendientes de vincular o desglosar. Se conservan en el listado; no se suman otra vez al gasto ni al cálculo fiscal.</p>`:''}
-  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal))}${kpi('Registros',String(rows.length))}${kpi('Pago pendiente o sin conciliar',String(pending))}</div>
+  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Pago pendiente o sin conciliar',String(pending))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
@@ -479,6 +480,7 @@ export function fiscalidad(){
  const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
  const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
  const internal=sum(internalPeriod,expenseCostAmount);
+ const taxInformation=sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount);
  const quarterButtons=[1,2,3,4].map(q=>btn(`${q}T`,'fiscal-quarter',q===quarter?'primary':'secondary',`data-year="${year}" data-quarter="${q}"`)).join('');
  const presented=quarterPresented(state.data.settings,year,quarter);
  const estimates={'130':calc130,'111':calc111,'115':calc115};
@@ -497,7 +499,7 @@ export function fiscalidad(){
   ${state.data.expenses.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)&&inRange(x.expense_date,f.from,f.to)&&storeOk(x))?'<p class="note warn">Carga con pagos pendientes de soporte o conciliación. Los impuestos y el resultado siguen siendo provisionales.</p>':''}
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   ${pendingFiscal.length?`<p class="note warn fiscal-pending-review" role="status"><b>${pendingFiscal.length} gasto${pendingFiscal.length===1?' fiscal sin revisar':'s fiscales sin revisar'}</b> · No incluido${pendingFiscal.length===1?'':'s'} en esta previsión. Abre cada gasto, comprueba la factura y marca «He cotejado el documento, sus conceptos e impuestos» para incluirlo. El aviso abarca desde enero hasta la fecha de cálculo.</p>`:''}
-  <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Beneficio para calcular el IRPF',money(periodIncome-periodDed),'Ingresos menos gastos deducibles; antes de deducciones y anticipos del modelo 130')}${kpi('Gastos internos · solo información',money(internal),'No se restan del beneficio fiscal ni reducen el IRPF')}</div>
+  <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Beneficio para calcular el IRPF',money(periodIncome-periodDed),'Ingresos menos gastos deducibles; antes de deducciones y anticipos del modelo 130')}${kpi('Gastos internos · solo información',money(internal+taxInformation),'Incluye impuestos pagados; no se resta del beneficio fiscal ni reduce el IRPF')}</div>
   ${incomeBreakdownHtml(periodClose,periodIncome-sum(periodClose,closingIncomeAmount))}
   <div class="split">
    <section class="card card-pad fiscal-forecast"><div class="section-head"><div><h2>Previsión de impuestos · ${quarter}T ${year}</h2><p>Se actualiza con tus cierres, facturas y gastos. No utiliza las cifras de gestoría para calcular este trimestre ni supone ventas o gastos que todavía no has registrado.</p></div></div><div class="fiscal-declaration-grid">${forecastCards}</div><div class="summary-row"><b>Total que conviene reservar para este trimestre</b><strong>${money(reserve)}</strong></div><p class="small muted">El 130 acumula desde enero; el 111 y el 115 suman las retenciones de este trimestre. Los gastos internos no reducen estos impuestos.</p>${prior130.estimated>0?`<p class="note">Para planificar se han usado ${money(prior130.estimated)} de anticipos anteriores calculados por la herramienta, todavía sin pago anotado. Al registrar sus liquidaciones reales se actualizará la previsión.</p>`:''}${f.store!=='all'?'<p class="note warn">Has seleccionado una tienda. Para planificar los impuestos del autónomo, selecciona «Todas».</p>':''}</section>
@@ -538,10 +540,11 @@ export function informes(){
  const sales=sum(c,closingIncomeAmount)+sum(extraInv,x=>x.total_amount)+sum(incomeAdj,x=>x.amount)+sum(manualIncome,x=>x.amount);
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only),expenseCostAmount),internal=sum(g.filter(x=>x.management_only),expenseCostAmount);
+ const taxInformation=sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount);
  return `<div class="page">
  <section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
  ${g.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?'<p class="note warn">Hay pagos del Excel pendientes de vincular o desglosar. Se conservan para consulta, sin volver a restarlos como gasto. El resultado es provisional.</p>':''}
- <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado tras gastos internos',money(sales-accounting-internal),'Para calcular el IRPF, consulta el beneficio fiscal en Fiscalidad')}</div>
+ <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos · solo información',money(internal+taxInformation),'Incluye los impuestos pagados, mostrados en el detalle inferior')}${kpi('Resultado antes de pagar impuestos',money(sales-accounting-internal),'Los pagos de impuestos no se descuentan aquí. Para el IRPF, consulta Fiscalidad')}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
  ${incomeBreakdownHtml(c,sales-sum(c,closingIncomeAmount))}
  ${taxPaymentInformationHtml(f)}
