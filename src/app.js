@@ -1556,7 +1556,7 @@ async function saveBackupSettings(){
  if(!['daily','weekly','monthly'].includes(frequency))throw new Error('Frecuencia incorrecta.');
  const retention=backupRetentionCount(num('backupRetention'));
  const enabled=!!input('backupEnabled')?.checked;
- if(enabled&&!await confirmAction('¿Guardar esta programación de copias de staging? El servidor conservará hasta '+retention+' copias completas con la frecuencia indicada.',{title:'Activar copias programadas',acceptLabel:'Activar programación'}))return;
+ if(enabled&&!await confirmAction('¿Guardar esta programación de copias de staging? El servidor conservará hasta '+retention+' copias completas con la frecuencia indicada.',{title:'Guardar programación',acceptLabel:'Guardar cambios'}))return;
  await rpc('totus_backup_save_settings',{p:{
   enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
   weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),

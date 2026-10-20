@@ -478,7 +478,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .storage-page-heading,.storage-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}
 .storage-page-heading h2{font-size:24px;margin:0 0 6px}
 .storage-page-heading p,.storage-section-heading p{margin:4px 0 8px;color:var(--muted,#667085)}
-.storage-provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px;align-items:start}
+.storage-provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px;align-items:stretch}
 .storage-provider-card{background:#fff;border:1px solid var(--border,#e2e8f0);border-radius:14px;padding:22px;min-width:0;overflow-wrap:anywhere}
 .storage-provider-name{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.03em;color:#265dac;margin-bottom:10px}
 .storage-provider-card h3{font-size:19px;line-height:1.3;margin:0 0 10px}
@@ -500,3 +500,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .storage-organized .storage-technical .storage-information-grid{grid-template-columns:1fr}
 @media(max-width:1200px){.storage-provider-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.storage-provider-github{grid-column:1/-1}}
 @media(max-width:760px){.storage-provider-grid{grid-template-columns:1fr}.storage-provider-github{grid-column:auto}.storage-provider-card{padding:18px}.storage-page-heading .inline-actions{width:100%}.storage-page-heading .inline-actions .btn{flex:1}.storage-detail-panel{padding:16px}.storage-organized{gap:22px}}
+
+.storage-provider-card{display:flex;flex-direction:column}.storage-provider-status{margin-top:auto!important}
+
+.storage-detail-panel:not([open]) > :not(summary){display:none}

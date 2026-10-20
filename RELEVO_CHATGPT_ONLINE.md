@@ -22,7 +22,7 @@ El 20/10/2026 se conservaron 547 gastos, 449 cierres y 452 documentos. Los 452 o
 ## Automatización sin ordenador
 La copia nocturna se programa a las 00:35 Europe/Madrid. Con OneDrive conectado, crea y verifica el archivo directamente allí, sin duplicar sus partes en Supabase. Los traslados antiguos y la retirada de duplicados mantienen sus fases separadas y reservas.
 La tarea de mantenimiento existente de dos minutos continúa las fases pendientes desde Supabase. No crear otro horario de copias ni un proceso en Windows.
-Máximo: cinco copias ordinarias completadas. Los puntos de recuperación protegidos se conservan aparte. Una copia fallida o incompleta nunca sustituye a una correcta.
+Conservación configurable: de una a diez copias ordinarias completadas, mediante Administración → Copias → Guardar programación. Los puntos de recuperación protegidos se conservan aparte. Una copia fallida o incompleta nunca sustituye a una correcta.
 
 ## Acceso de ChatGPT
 Las sesiones de este escritorio no se heredan. Verificar conexiones autorizadas o navegador en la nube disponible y entrar con el titular cuando proceda. No pedir que escriba contraseñas en el chat.
