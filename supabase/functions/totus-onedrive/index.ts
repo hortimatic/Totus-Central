@@ -46,7 +46,13 @@ async function token(){
 }
 async function graph(access:string,path:string,options:RequestInit={}){
  if(!path.startsWith('/me/drive/special/approot'))throw new Error('Operación fuera de la carpeta de aplicación.');
- const r=await fetch('https://graph.microsoft.com/v1.0'+path,{...options,headers:{Authorization:'Bearer '+access,...options.headers},signal:AbortSignal.timeout(20000),redirect:'manual'});
+ let resolved=path;
+ if(path!=='/me/drive/special/approot'){
+  const c=await config();
+  if(!c.app_folder_id)throw new Error('Falta la carpeta autorizada de la aplicación.');
+  resolved='/me/drive/items/'+encodeURIComponent(c.app_folder_id)+path.slice('/me/drive/special/approot'.length);
+ }
+ const r=await fetch('https://graph.microsoft.com/v1.0'+resolved,{...options,headers:{Authorization:'Bearer '+access,...options.headers},signal:AbortSignal.timeout(20000),redirect:'manual'});
  return r;
 }
 async function root(access:string){
@@ -77,7 +83,7 @@ async function folder(access:string,name:string){
  const path='/me/drive/special/approot:/'+encodeURIComponent(name);
  let r=await graph(access,path);
  if(r.status===404)r=await graph(access,'/me/drive/special/approot/children',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,folder:{},'@microsoft.graph.conflictBehavior':'fail'})});
- if(!r.ok)throw new Error('No se pudo preparar la carpeta de prueba (HTTP '+r.status+').');
+ if(!r.ok){const detail=await r.json().catch(()=>({}));const code=String(detail?.error?.code||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80);throw new Error('No se pudo preparar la carpeta de prueba (HTTP '+r.status+(code?' · '+code:'')+').');}
  const value=await r.json();if(!value.folder)throw new Error('El nombre de la carpeta de prueba ya lo utiliza un archivo.');
 }
 async function test(){
