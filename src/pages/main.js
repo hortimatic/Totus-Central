@@ -245,7 +245,7 @@ export function gastos(){
    &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
  const total=sum(rows,expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
- const taxInformation=kind!=='fiscal'&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
+ const taxInformation=(kind==='all'||kind==='internal')&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
  const pending=rows.filter(x=>!acceptedExpense(x)&&(isUnreconciledPayment(x)||x.paid_status!=='pagado')).length;
  const linkedPayments=rows.filter(x=>isUnreconciledPayment(x)&&expensePaymentRelation(x)).length;
  const headers=[
@@ -269,7 +269,7 @@ export function gastos(){
   ${expenseTabs('registros')}
   ${rows.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?`<p class="note warn">${rows.filter(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)).length} pagos en revisión${linkedPayments?`: ${linkedPayments} con factura vinculada`:''}. Los importes del Excel se conservan como pagos y no duplican el gasto fiscal.</p>`:''}
   <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Registros pendientes',String(pending),'Factura, pago o diferencia por comprobar')}</div>
-  ${kind!=='fiscal'&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
+  ${(kind==='all'||kind==='internal')&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
   <section class="card table-card expense-register-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
@@ -314,8 +314,19 @@ function expenseInvoiceSectionHtml(){
   {label:'Fecha / tienda',html:r=>`<b>${fmtDate(r.date)}</b><div class="small muted">${esc(storeName(r.expense?.store_id||r.document?.store_id))}</div>`},
   {label:'Factura / proveedor',html:r=>`<b>${esc(r.expense?.invoice_number||r.document?.invoice_number||'Sin número')}</b><div>${esc(r.expense?.supplier_name||r.document?.supplier_or_customer||'Sin identificar')}</div><div class="small muted">${esc(r.expense?.supplier_tax_id||r.document?.tax_id||'Sin NIF/CIF')}</div>`},
   {label:'Concepto / archivo',html:r=>`<span>${esc(r.expense?.description||r.document?.original_name||'—')}</span><div class="small muted">${esc(r.document?.original_name||'Sin justificante')}</div>`},
-  {label:'Importes',html:r=>r.expense?`<div class="expense-amounts"><span>Base <b>${money(r.expense.base_amount||0)}</b></span><span>IVA <b>${money(r.expense.vat_amount||0)}</b></span><span>Recargo <b>${money(r.expense.re_amount||0)}</b></span><span>IRPF retenido <b>${money(r.expense.withholding_amount||0)}</b></span></div>`:'Pendiente de asociar'},
-  {label:'Total factura / Neto',num:true,html:r=>r.expense?`<div class="expense-amounts"><span>Total <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0))}</b></span><span>Neto <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0)-Number(r.expense.withholding_amount||0))}</b></span></div><div class="small">${expensePaymentBadge(r.expense)}</div>`:'—'},
+  {label:'Importes',html:r=>{
+    const relation=expensePaymentRelation(r.expense),invoice=relation?.invoice||r.expense;
+    if(isExpensePaymentEvidence(r.expense)&&!relation)return '<span class="small muted">Justificante de pago · factura pendiente de cotejo</span>';
+    return invoice?`<div class="expense-amounts"><span>Base <b>${money(invoice.base_amount||0)}</b></span><span>IVA <b>${money(invoice.vat_amount||0)}</b></span><span>Recargo <b>${money(invoice.re_amount||0)}</b></span><span>IRPF retenido <b>${money(invoice.withholding_amount||0)}</b></span></div>`:'Pendiente de asociar';
+   }},
+  {label:'Factura / pago',num:true,html:r=>{
+    if(!r.expense)return '—';
+    if(isExpensePaymentEvidence(r.expense)){
+     const relation=expensePaymentRelation(r.expense);
+     return `<div class="expense-amounts"><span>Pagado <b>${money(r.expense.amount_paid||0)}</b></span>${relation?`<span>Neto factura <b>${money(relation.net)}</b></span>`:''}</div><div class="small">${expensePaymentBadge(r.expense)}</div>`;
+    }
+    return `<div class="expense-amounts"><span>Total <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0))}</b></span><span>Neto <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0)-Number(r.expense.withholding_amount||0))}</b></span></div><div class="small">${expensePaymentBadge(r.expense)}</div>`;
+   }},
   {label:'Revisión',html:r=>acceptedExpense(r.expense)?acceptedBadge:r.unlinked?'<span class="badge warn">Sin asociar</span>':isExpensePaymentEvidence(r.expense)?(!isUnreconciledPayment(r.expense)?'<span class="badge good">Pago conciliado</span>':expensePaymentRelation(r.expense)?'<span class="badge info">Factura vinculada · revisar diferencia</span>':'<span class="badge warn">Pago por vincular</span>'):r.expense?.management_only?'<span class="badge warn">Interno, no gestoría</span>':r.expense?.fiscal_reviewed===false?'<span class="badge warn">Sin revisar</span>':'<span class="badge info">Revisado</span>'},
   {label:'Acciones',html:r=>`<div class="expense-file-actions">
    ${r.document?btn('Vista previa','expense-document-preview','secondary',`data-id="${esc(r.document.id)}"`):'<span class="small muted">Sin archivo</span>'}
@@ -331,7 +342,7 @@ function expenseInvoiceSectionHtml(){
  <div class="field"><label for="gastosAttachment">Archivo</label><select id="gastosAttachment"><option value="all" ${attachment==='all'?'selected':''}>Todos</option><option value="attached" ${attachment==='attached'?'selected':''}>Con archivo</option><option value="missing" ${attachment==='missing'?'selected':''}>Sin archivo</option></select></div>`;
  return `<div class="page expense-page">
   ${expenseTabs('facturas')}
-  <div class="kpis">${kpi('Facturas adjuntas',String(rows.filter(r=>r.document).length))}${kpi('Gastos sin justificante',String(rows.filter(r=>r.expense&&!r.document).length))}${kpi('Por asociar',String(rows.filter(r=>r.unlinked).length))}${kpi('Registros',String(rows.length))}</div>
+  <div class="kpis">${kpi('Registros con archivo',String(rows.filter(r=>r.document).length))}${kpi('Gastos sin justificante',String(rows.filter(r=>r.expense&&!r.document).length))}${kpi('Archivos sin asociar',String(rows.filter(r=>r.unlinked).length))}${kpi('Registros',String(rows.length))}</div>
   <section class="card table-card expense-invoice-card">
    <div class="section-head card-pad"><div><h2>Facturas y justificantes de gastos</h2><p>Listado con búsqueda por fechas, tienda, proveedor, NIF y número de factura. La vista previa no descarga el archivo. Los importes sin revisión fiscal son provisionales.</p></div>
     <div class="inline-actions">${btn('Exportar gastos Excel','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
