@@ -189,3 +189,16 @@ export function expenseCostAmount(expense){
 export function issuedDocumentFileLocked(id,invoices=[]){
  return !!id&&invoices.some(i=>i.status!=='borrador'&&[i.source_document_id,i.generated_document_id].includes(id));
 }
+
+/** A manual close is reconciled by the same balanced-save validation used by the form.
+ * This is cash reconciliation, not a declaration that a tax return was submitted.
+ */
+export function manualClosingReconciled(row){
+ if(!row||row.entry_mode==='source_snapshot'||row.status!=='cerrado')return false;
+ const valid=v=>v!==null&&v!==''&&v!==undefined&&Number.isFinite(Number(v));
+ if(!valid(row.reported_total_sales)||!valid(row.cash_sales)||!valid(row.card_sales)||!valid(row.difference))return false;
+ const amounts=['cash_sales','card_sales','bizum_sales','online_sales','other_income'].map(k=>Number(row[k]??0));
+ if(amounts.some(v=>!Number.isFinite(v)||v<0))return false;
+ const cents=v=>Math.round(Number(v)*100),difference=cents(amounts.reduce((s,v)=>s+v,0))-cents(row.reported_total_sales);
+ return Number(row.reported_total_sales)>=0&&Math.abs(difference)<=1&&Math.abs(cents(row.difference))<=1&&Math.abs(difference-cents(row.difference))<=1;
+}

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {manualClosingReconciled} from '../src/calculations.js';
+import {state,patchFilters,setView} from '../src/state.js';
+import {cajas,closingRecordHtml} from '../src/pages/main.js';
+const closed={id:'manual',store_id:'shop',business_date:'2026-10-01',entry_mode:'manual',status:'cerrado',reported_total_sales:80,cash_sales:20,card_sales:60,difference:0,notes:'Nota del usuario'};
+assert(manualClosingReconciled(closed));
+for(const patch of [{status:'borrador'},{reported_total_sales:null},{difference:3},{card_sales:65},{entry_mode:'source_snapshot'},{cash_sales:-1}])assert(!manualClosingReconciled({...closed,...patch}));
+state.user={role:'admin'};state.data.stores=[{id:'shop',name:'Shop',active:true}];state.data.drawers=[{id:'drawer',name:'Vape',store_id:'shop',active:true}];
+state.data.closings=[closed];patchFilters('cajas',{from:'2026-10-01',to:'2026-10-31',store:'all',query:''});setView('cajas',{mode:'list'});
+let html=cajas();assert(html.includes('Conciliado y aceptado'));assert(html.includes('Ver detalle'));assert(html.includes('Nota del usuario'));
+assert(html.includes('Total ventas'));assert(!html.includes('Calculado')&&!html.includes('Ventas del programa'));
+html=closingRecordHtml(null);assert(html.includes('clSaveStatus')&&html.includes('Estado al guardar'));
+html=closingRecordHtml(closed);assert(html.includes('closing-reopen'));assert(!html.includes('clReportedTotal'));
+console.log('CLOSING WORKFLOW QA: balanced manual closings share reconciliation labels and detail action, draft and mismatches remain distinct, totals do not repeat.');

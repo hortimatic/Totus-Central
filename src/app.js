@@ -193,6 +193,7 @@ function validateDecimalFields(){
 
 
 async function saveClosing(id='',status='borrador'){
+ if(!['borrador','cerrado'].includes(status))throw new Error('Selecciona un estado válido para el cierre.');
  const reconcilingSource=!!getView('cajas').reconcileSource;
  const store=required('clStore','Tienda'),date=required('clDate','Fecha');
  if(date>isoToday())throw new Error('La fecha del cierre no puede ser futura.');
@@ -207,10 +208,16 @@ async function saveClosing(id='',status='borrador'){
    const read=suffix=>n(raw(suffix));
    if(status==='cerrado'&&raw('Open').trim()===''){document.getElementById(`drOpen_${d}`)?.focus();throw new Error('Indica el dinero de apertura de cada caja; escribe 0 solo si confirmas que estaba vacía.');}
    if(status==='cerrado'&&raw('Close')==='')throw new Error('Falta el efectivo final de una caja.');
-   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:''};
+   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:state.data.closingDrawers.find(x=>x.closing_id===id&&x.drawer_id===d)?.notes||''};
    if(Object.entries(row).some(([k,v])=>k!=='drawer_id'&&k!=='notes'&&Number(v)<0))throw new Error('No se admiten importes negativos en Cajas.');
    return row;
  });
+ if(status==='cerrado'){
+  if(val('clReported').trim()==='')throw new Error('Indica el total de ventas antes de conciliar el cierre.');
+  const calculated=drawers.reduce((sum,d)=>sum+d.closing_cash+d.cash_withdrawals+d.cash_expenses_declared+d.cash_extra_out-d.cash_extra_in-d.opening_cash+d.card_sales+d.bizum_sales+d.online_sales+d.other_income,0);
+  const difference=Math.round(calculated*100)-Math.round(num('clReported')*100);
+  if(Math.abs(difference)>1)throw new Error('El cierre no cuadra: diferencia '+money(difference/100)+'. Revisa Total ventas y los importes de cada caja.');
+ }
  const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status};
  const savedId=await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
  setView('cajas',{mode:'record',id:savedId,reconcileSource:false});
@@ -605,7 +612,7 @@ function updateExpenseSummary(){
 function updateClosingSummary(){
  const rows=[...document.querySelectorAll('.drawer-entry')];let total=0;
  for(const el of rows){const d=el.dataset.drawerId,read=s=>n(document.getElementById(`dr${s}_${d}`)?.value||0);const cash=read('Close')+read('Withdraw')+read('CashExpense')+read('ExtraOut')-read('ExtraIn')-read('Open');total+=cash+read('Card')+read('Bizum')+read('Online')+read('Other')}
- const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:total-reported,fmt=v=>money(v);
+ const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:Math.round((total-reported)*100)/100,fmt=v=>money(v);
  const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=reported==null?'Sin total para comparar':fmt(diff);d.className=reported==null?'muted':Math.abs(diff)>.01?'danger-text':'good-text'}
 }
 function updateInvoiceSummary(){
@@ -2049,7 +2056,7 @@ document.addEventListener('click',async e=>{
    closeModal();
    setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:true});render();return;
   }
-  if(a==='closing-save-close'){await saveClosing(el.dataset.id||'','cerrado');return}
+  if(a==='closing-save-close'){await saveClosing(el.dataset.id||'',val('clSaveStatus')||'cerrado');return}
   if(a==='closing-reopen'){await reopenClosing(el.dataset.id);return}
   if(a==='closing-back'){resetView('cajas');render();return}
   if(a==='export-closings-current'){exportCurrentModule('cajas');return}
@@ -2285,6 +2292,7 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id==='clSaveStatus'){const button=document.querySelector('[data-action="closing-save-close"]');if(button)button.textContent=e.target.value==='borrador'?'Guardar borrador':document.querySelectorAll('.drawer-entry').length>1?'Cerrar las cajas':'Cerrar caja';return}
  if(['exDocKind','exTaxPaymentModel','exTaxPaymentYear','exTaxPaymentQuarter','exManagement','exPaidDate'].includes(e.target?.id)){updateExpenseTaxTreatment();return}
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){

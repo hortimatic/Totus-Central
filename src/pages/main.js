@@ -13,12 +13,12 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount} from '../calculations.js';
+import {manualClosingReconciled,sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
 const acceptedExpense=row=>archiveAccepted(state.data.settings,row,'expense');
-const acceptedClosing=row=>archiveAccepted(state.data.settings,row,'closing')||sourceClosingReconciled(row);
+const acceptedClosing=row=>archiveAccepted(state.data.settings,row,'closing')||sourceClosingReconciled(row)||manualClosingReconciled(row);
 const acceptedBadge='<span class="badge good">Conciliado y aceptado</span>';
 const bookPaymentPending=row=>{if(acceptedExpense(row))return false;try{return JSON.parse(row?.source_ref||'{}').kind==='gestoria_book_entry'&&JSON.parse(row.source_ref).requires_payment_reconciliation===true}catch{return false}};
 const expensePaymentBadge=row=>acceptedExpense(row)?acceptedBadge:isExpensePaymentEvidence(row)&&!isUnreconciledPayment(row)?'<span class="badge good">Pago conciliado</span>':bookPaymentPending(row)?'<span class="badge warn">Pago sin conciliar</span>':stateBadge(row.paid_status||'pendiente');
@@ -192,9 +192,13 @@ export function cajas(){
   {label:'Cierre',html:r=>`<b class="date-display">${fmtDate(r.business_date)}</b><div class="small muted">${esc(storeName(r.store_id))}</div>`},
   {label:'Ventas del día',html:r=>dailySalesByDrawer(r)},
   {label:'Dinero de cada caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail">${retainedCashByDrawer(r)}<span>Retirada total tienda <b>${readClosingSource(r).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${readClosingSource(r).missing_drawers?.length?'<span class="warn-text">Ver detalle por caja</span>':''}</div>`:`<div class="compact-detail">${retainedCashByDrawer(r)}<span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
-  {label:'Comprobación de ventas',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail"><span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span><span class="${acceptedClosing(r)?'good-text':'warn-text'}">${acceptedClosing(r)?'Conciliado y aceptado':'Caja pendiente de conciliación'}</span></div>`:`<div class="compact-detail"><span>Calculado <b>${money(Number(r.cash_sales||0)+Number(r.card_sales||0)+Number(r.bizum_sales||0)+Number(r.online_sales||0)+Number(r.other_income||0))}</b></span><span>Ventas del programa <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span><span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span></div>`},
-  {label:'Estado',html:r=>acceptedClosing(r)?acceptedBadge:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
-  {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Abrir','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
+  {label:'Total ventas',html:r=>{
+   const rawSource=r.entry_mode==='source_snapshot'&&!sourceClosingReconciled(r);
+   const total=rawSource?r.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(r[key]||0),0);
+   return `<div class="compact-detail"><span><b>${total==null?'Sin importe anotado':money(total)}</b></span>${r.entry_mode==='source_snapshot'?`<span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span>`:`<span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span>${Math.abs(Number(r.difference||0))>.01?`<span>Total anotado <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span>`:''}`}</div>`;
+  }},
+  {label:'Estado',html:r=>acceptedClosing(r)?`${acceptedBadge}${r.entry_mode!=='source_snapshot'&&r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
+  {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Ver detalle','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
  return `<div class="page">
   <div class="kpis">${kpi('Tarjeta registrada',money(total),'El total fiscal se consulta en Fiscalidad')}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
@@ -438,7 +442,7 @@ export function documentRecordHtml(row=null){
  if(row&&!canEdit)return `<div class="page record-page"><div class="record-toolbar"><h2>${esc(row.original_name||'Documento')}</h2></div><section class="card card-pad"><p class="note">Puedes consultar y descargar este archivo. La edición corresponde a quien lo subió o a gerencia.</p><div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${row.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${row.id}"`)}${btn('Volver','document-back','secondary')}</div></section></div>`;
  const storeOptions=[{value:'',label:'Sin tienda'},...stores().map(s=>({value:s.id,label:s.name}))];
  return `<div class="page record-page">
-  <div class="record-toolbar"><div><button class="btn link" data-action="document-back">← Volver a documentos</button><div class="eyebrow">Documentos · ${row?'Ficha':'Nuevo'}</div><h2>${row?esc(row.original_name||'Documento'):'Subir documento'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
+  <div class="record-toolbar"><div><button class="btn link" data-action="document-back">← Volver a documentos</button><div class="eyebrow">Documentos · ${row?'Ficha':'Nuevo'}</div><h2>${row?esc(row.original_name||'Documento'):'Subir documento'}</h2></div><div>${row?(acceptedClosing(row)?acceptedBadge:stateBadge(row.status)):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>Archivo</h3><p>Máximo 20 MB. PDF, imagen, Excel, CSV, TXT o MD.</p></div></div>
@@ -983,7 +987,8 @@ export function closingRecordHtml(row=null){
      <div class="form-grid" style="margin-top:14px">
       ${selectField('Tienda','clStore',storeOptions,sid,locked||sourceReconcile?'disabled':'')}
       ${formField('Fecha','clDate',recordDate,'date',locked||sourceReconcile?'disabled':'')}
-      ${formField(sourceReconcile?'Ventas comprobadas del día':'Ventas del programa de caja','clReported',sourceReconcile?'':row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
+      ${formField('Total ventas','clReported',sourceReconcile?'':row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
+      ${!locked&&!sourceReconcile?selectField('Estado al guardar','clSaveStatus',[{value:'cerrado',label:'Conciliar y aceptar el cierre'},{value:'borrador',label:'Borrador · terminar después'}],'cerrado'):''}
       <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>
     </section>
@@ -992,9 +997,8 @@ export function closingRecordHtml(row=null){
    <aside class="record-side">
     <section class="card card-pad sticky-summary">
      <h3>Resumen</h3>
-     <div class="summary-row"><span>Ventas según este cierre</span><strong id="clCalcTotal">${money(calculated)}</strong></div>
-     <div class="summary-row"><span>Ventas del programa de caja</span><strong id="clReportedTotal">${row?.reported_total_sales==null?'—':money(row.reported_total_sales)}</strong></div>
-     <div class="summary-row"><span>Diferencia entre las ventas</span><strong id="clDifference" class="${Math.abs(Number(row?.difference||0))>.01?'danger-text':'good-text'}">${row?.reported_total_sales==null?'Sin total para comparar':money(row?.difference||0)}</strong></div>
+     <div class="summary-row"><span>Total ventas</span><strong id="clCalcTotal">${money(calculated)}</strong></div>
+     <div class="summary-row"><span>Diferencia</span><strong id="clDifference" class="${Math.abs(Number(row?.difference||0))>.01?'danger-text':'good-text'}">${row?.reported_total_sales==null?'Sin total para comparar':money(row?.difference||0)}</strong></div>
      <div class="note" style="margin-top:12px">Las ventas en efectivo se obtienen con el dinero que queda, más lo retirado y los gastos pagados en caja, menos el dinero con el que abriste. Las entradas y otras salidas se ajustan aparte. No confundas las ventas con lo que dejas para mañana.</div>
      <div class="stack" style="margin-top:14px">
       ${closingHasOrigin(row)?btn('Ver registro anterior','closing-view-source','secondary',`data-id="${row.id}"`):''}

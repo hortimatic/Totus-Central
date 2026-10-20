@@ -17,6 +17,7 @@ jobs:
       - run: node tests/backup-retention-qa.mjs
       - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
+      - run: node tests/closing-workflow-qa.mjs
       - run: node tests/source-closing-qa.mjs
       - run: node tests/historical-acceptance-qa.mjs
       - run: node tests/income-breakdown-qa.mjs
@@ -69,6 +70,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/closing-workflow-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
       - run: node tests/onedrive-connection-qa.mjs

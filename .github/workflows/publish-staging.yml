@@ -51,6 +51,7 @@ jobs:
           node tests/storage-planning-qa.mjs
           node tests/cloud-backup-retention-qa.mjs
           node tests/closed-closing-qa.mjs
+          node tests/closing-workflow-qa.mjs
           node tests/source-closing-qa.mjs
           node tests/income-breakdown-qa.mjs
           node tests/payment-information-qa.mjs
@@ -99,6 +100,7 @@ jobs:
           node tests/quarter-fixture-qa.mjs
           node tests/annual-stress-qa.mjs
           python3 -m http.server 4173 >/tmp/totus-staging-qa-http.log 2>&1 &
+          node tests/closing-workflow-browser-qa.mjs
           node tests/tax-expense-browser-qa.mjs
           node tests/expense-layout-qa.mjs
           node tests/onedrive-connection-qa.mjs
