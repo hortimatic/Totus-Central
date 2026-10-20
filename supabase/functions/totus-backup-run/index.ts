@@ -52,9 +52,15 @@ async function verifySavedBackup(id:string,source='supabase',req?:Request){
  if(rehearsalError||rehearsal?.verified!==true)throw new Error('No se pudo comprobar la recuperación de datos: '+(rehearsalError?.message||'resultado incompleto'));
  return {verified:true,source:usedOneDrive?'onedrive':'supabase',rehearsal,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
 }
+async function verifiedCloudLocation(run:any){
+ if(run.storage_provider!=='onedrive'||!/^[a-f0-9]{64}$/.test(run.archive_sha256||''))return false;
+ const saved=await admin.from('ops_onedrive_backups').select('verified_at,archive_sha256').eq('run_id',run.id).maybeSingle();
+ if(saved.error)throw saved.error;
+ return !!saved.data?.verified_at&&saved.data.archive_sha256===run.archive_sha256;
+}
 async function deleteSavedBackup(id:string,req:Request){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Identificador de copia inválido.');
- const {data:runs,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path').in('status',['success','running']);
+ const {data:runs,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path,storage_provider,archive_sha256').in('status',['success','running']);
  if(error)throw error;
  const saved=(runs||[]).filter(r=>r.status==='success'&&r.storage_path),target=saved.find(r=>r.id===id);
  if(!target)throw new Error('La copia ya no está disponible. Actualiza el listado.');
@@ -67,8 +73,8 @@ async function deleteSavedBackup(id:string,req:Request){
  const {data:objects,error:listError}=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
  if(listError||!objects||objects.length>=100)throw new Error('No se pudo verificar el inventario de la copia.');
  const paths=backupObjectPaths(path,objects);
- if(!paths.includes(path))throw new Error('No se encontró el archivo principal. No se ha eliminado la copia.');
- const {error:removeError}=await admin.storage.from('business-backups').remove(paths);
+ if(!paths.includes(path)&&!await verifiedCloudLocation(target))throw new Error('No se encontró una copia completa verificada. No se ha eliminado.');
+ const {error:removeError}=paths.length?await admin.storage.from('business-backups').remove(paths):{error:null};
  if(removeError)throw removeError;
  const {error:updateError}=await admin.from('ops_backup_runs').update({status:'expired',storage_path:null,error_message:'Eliminada manualmente por un administrador.'}).eq('id',id).eq('status','success');
  if(updateError)throw updateError;
@@ -135,8 +141,8 @@ async function pruneBackups(){
   const {data:objects,error}=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
   if(error||!objects||objects.length>=100){warnings.push(previous.id+': inventario no verificado');continue;}
   const paths=backupObjectPaths(path,objects);
-  if(!paths.includes(path)){warnings.push(previous.id+': archivo principal ausente');continue;}
-  const {error:removeError}=await admin.storage.from('business-backups').remove(paths);
+  if(!paths.includes(path)&&!await verifiedCloudLocation(previous)){warnings.push(previous.id+': archivo principal ausente');continue;}
+  const {error:removeError}=paths.length?await admin.storage.from('business-backups').remove(paths):{error:null};
   if(removeError){warnings.push(previous.id+': no se pudo liberar el archivo');continue;}
   const {error:updateError}=await admin.from('ops_backup_runs').update({status:'expired',storage_path:null}).eq('id',previous.id).eq('status','success');
   if(updateError)throw updateError;
@@ -145,6 +151,14 @@ async function pruneBackups(){
  return {maximum:MAX_SAVED_BACKUPS,removed,remaining:runs.length-removed.length,warnings};
 }
 
+async function oneDriveAction(req:Request,action:string,body:Record<string,unknown>){
+ const headers:Record<string,string>={'Content-Type':'application/json'};
+ for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)headers[name]=value;}
+ const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers,body:JSON.stringify({action,...body}),signal:AbortSignal.timeout(60000)});
+ const result=await response.json();
+ if(!response.ok||result?.error)throw new Error(result?.error||'OneDrive no pudo completar la operación.');
+ return result;
+}
 async function oneDriveRead(req:Request,action:string,body:Record<string,string>){
  const headers:Record<string,string>={'Content-Type':'application/json'};
  for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)headers[name]=value;}
@@ -176,12 +190,20 @@ async function run(mode:string,req:Request){
   snapshot.project_ref=new URL(SUPABASE_URL).hostname.split(".")[0];
   // Reuse verified immutable originals from the previous full backup. The new
   // archive is still complete; only newly attached files need individual reads.
-  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('id,storage_path,size_bytes,archive_sha256').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
+  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('id,storage_path,size_bytes,archive_sha256,storage_provider').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
   if(previousError)throw previousError;
   let cached:any=null;
   if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=120*1024*1024){
    await progress('Leyendo copia anterior verificada');
-   const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req),NativeBackupZip.archiveHash,previous.archive_sha256);
+
+   const links=previous.storage_provider==='onedrive'?await oneDriveAction(req,'backup-file-urls',{run_id:previous.id}):null;
+   const urls=new Map<string,string>((links?.files||[]).map((f:any)=>[f.path,f.url]));
+   const prior=await readBackupObject(previous.storage_path,async(path:string)=>{
+    if(previous.storage_provider!=='onedrive')return backupRead(path,previous.id,req);
+    const url=urls.get(path);if(!url||new URL(url).protocol!=='https:')throw new Error('Falta un archivo de la copia anterior.');
+    const response=await fetch(url,{signal:AbortSignal.timeout(60000)});
+    if(!response.ok)throw new Error('No se pudo leer la copia anterior de OneDrive.');return response.blob();
+   },NativeBackupZip.archiveHash,previous.archive_sha256);
 
    // Only reuse originals, never its database. The complete archive hash is
    // authenticated by the server record; the builder checks each original again.
@@ -203,11 +225,41 @@ async function run(mode:string,req:Request){
   }
   const folder=String(config.destination_folder||"automaticas");
   const pathname=folder+"/Totus_Central_"+new Date().toISOString().replace(/[:.]/g,"-")+"_"+backupId.slice(0,8)+".totusbackup";
+  const {data:driveConfig,error:driveError}=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
+  if(driveError)throw driveError;
+  const direct=driveConfig?.connected===true&&!!driveConfig.tested_at;
+  const sessions=new Map<string,string>();
+  if(direct){
+   const planned=await admin.from('ops_backup_runs').update({storage_path:pathname}).eq('id',backupId).eq('status','running').select('id');
+   if(planned.error||planned.data?.length!==1)throw new Error('No se pudo registrar la copia en preparación.');
+   const prepared=await oneDriveAction(req,'prepare-backup-upload',{run_id:backupId});
+   if(prepared.source_path!==pathname||!Array.isArray(prepared.sessions))throw new Error('Destino de copia no válido.');
+   for(const item of prepared.sessions){if(typeof item.url!=='string'||new URL(item.url).protocol!=='https:')throw new Error('Destino de subida no válido.');sessions.set(item.path,item.url);}
+  }
   const trustedHashes=new WeakMap<Uint8Array,string>();
   const CloudBase=cloudBackupZip({path:pathname,write:async(path:string,bytes:Uint8Array)=>{
+   if(direct){
+    const url=sessions.get(path);if(!url)throw new Error('La copia supera el inventario de subida preparado.');
+    const sha256=await NativeBackupZip.archiveHash(bytes);
+    // Upload session URLs are bearer capabilities. Never forward our application
+    // authorization headers or the server job key to Microsoft.
+    try{
+     const result=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/octet-stream','Content-Range':'bytes 0-'+(bytes.length-1)+'/'+bytes.length},body:bytes,signal:AbortSignal.timeout(60000)});
+     await result.body?.cancel();
+    }catch{/* A lost response is accepted only if independent readback proves it. */}
+    const proof=await oneDriveAction(req,'verify-backup-file',{run_id:backupId,path,size:bytes.length,sha256});
+    if(proof?.verified!==true||proof.path!==path||proof.size!==bytes.length||proof.sha256!==sha256)throw new Error('OneDrive no ha verificado el archivo guardado.');
+    // Keep only the tiny segmented index as a locator in Supabase, never ZIP parts.
+    if(path===pathname&&bytes[0]===123){
+     const saved=await admin.storage.from('business-backups').upload(path,new Blob([bytes]),{contentType:'application/octet-stream',upsert:false});
+     if(saved.error)throw new Error('No se pudo guardar el índice de localización.');
+    }
+    return proof;
+   }
    const {error}=await admin.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});
    if(error)throw new Error('No se guardó un fragmento de la copia: '+error.message);
   },read:async(path:string)=>{
+   if(direct)return oneDriveRead(req,'staged-backup-file-url',{run_id:backupId,path});
    const {data,error}=await admin.storage.from('business-backups').download(path);
    if(error||!data)throw new Error('No se pudo verificar un fragmento de la copia.');return data;
   }});
@@ -239,7 +291,7 @@ async function run(mode:string,req:Request){
   const totalRows=Object.values(snapshot.database).reduce((count:number,rows:unknown)=>count+(rows as unknown[]).length,0);
   const totalFiles=Object.values(snapshot.storage).reduce((count:number,paths:unknown)=>count+(paths as unknown[]).length,0);
 
-  const {error:updateErr}=await admin.from("ops_backup_runs").update({status:"success",error_message:null,finished_at:new Date().toISOString(),storage_path:pathname,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,snapshot_revision:snapshot.revision,archive_sha256:archive.sha256,archive_manifest:manifest}).eq("id",backupId);
+  const {error:updateErr}=await admin.from("ops_backup_runs").update({status:"success",error_message:null,finished_at:new Date().toISOString(),storage_path:pathname,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,snapshot_revision:snapshot.revision,archive_sha256:archive.sha256,archive_manifest:manifest,storage_provider:direct?'onedrive':'supabase',supabase_parts_retired_at:direct?new Date().toISOString():null}).eq("id",backupId);
   if(updateErr)throw updateErr;
   // Only rotate after the new archive has been uploaded and verified.
   const retention=await pruneBackups().catch(e=>({warning:String(e.message||e)}));

@@ -133,6 +133,15 @@ export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=1
     this.digest.update(bytes);this.pending.push(bytes);this.pendingBytes+=bytes.length;this.complete=final;
    });
   }
+  async saveVerified(path,bytes,sha256){
+   const proof=await write(path,bytes);
+   if(proof?.verified===true){
+    if(proof.path!==path||proof.size!==bytes.length||proof.sha256!==sha256)throw new Error('La confirmación remota no coincide con la copia.');
+    return;
+   }
+   const received=await read(path),actual=received instanceof Blob?new Uint8Array(await received.arrayBuffer()):new Uint8Array(received);
+   if(actual.length!==bytes.length||await nativeArchiveHash(actual)!==sha256)throw new Error('El archivo guardado no coincide con la copia.');
+  }
   async flush(final=false){
    if(this.failed)throw this.failed;
    while(this.pendingBytes>=partBytes||final&&this.pendingBytes){
@@ -143,9 +152,7 @@ export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=1
     }
     this.pendingBytes-=size;
     const piecePath=path+'.part-'+String(this.parts.length).padStart(4,'0'),sha256=await nativeArchiveHash(piece);
-    await write(piecePath,piece);
-    const received=await read(piecePath),bytes=received instanceof Blob?new Uint8Array(await received.arrayBuffer()):new Uint8Array(received);
-    if(bytes.length!==size||await nativeArchiveHash(bytes)!==sha256)throw new Error('Un fragmento de la copia no se ha guardado correctamente.');
+    await this.saveVerified(piecePath,piece,sha256);
     this.parts.push({path:piecePath,size,sha256});
    }
   }
@@ -167,14 +174,10 @@ export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=1
    if(this.total<=partBytes){
     const only=this.parts[0],value=await read(only.path);
     const bytes=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):new Uint8Array(value);
-    await write(path,bytes);
-    const check=await read(path),actual=check instanceof Blob?new Uint8Array(await check.arrayBuffer()):new Uint8Array(check);
-    if(actual.length!==this.total||createHash('sha256').update(actual).digest('hex')!==sha256)throw new Error('La copia subida no coincide con el original.');
+    await this.saveVerified(path,bytes,sha256);
    }else{
     const index=new TextEncoder().encode(JSON.stringify({format:'totus-backup-parts',version:1,size:this.total,sha256,parts:this.parts}));
-    await write(path,index);
-    const check=await read(path),actual=check instanceof Blob?new Uint8Array(await check.arrayBuffer()):new Uint8Array(check);
-    if(createHash('sha256').update(actual).digest('hex')!==createHash('sha256').update(index).digest('hex'))throw new Error('No se pudo comprobar el índice de la copia.');
+    await this.saveVerified(path,index,await nativeArchiveHash(index));
    }
    return {stored:true,byteLength:this.total,sha256};
   }

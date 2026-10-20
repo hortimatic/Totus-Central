@@ -1583,9 +1583,11 @@ async function deleteStoredBackup(id){
  await refresh(data.cloud_warning||'Copia eliminada de la lista y del almacenamiento.');
 }
 async function readBackupStorage(path){
- const {data,error}=await sb.storage.from('business-backups').download(path);
- if(!error&&data)return data;
- const run=(state.data.backupRuns||[]).find(r=>r.storage_path===path||path.startsWith(r.storage_path+'.part-'));
+ const run=(state.data.backupRuns||[]).find(r=>r.storage_path&&(r.storage_path===path||path.startsWith(r.storage_path+'.part-')));
+ if(run?.storage_provider!=='onedrive'){
+  const {data,error}=await sb.storage.from('business-backups').download(path);
+  if(!error&&data)return data;
+ }
  if(!run)throw new Error('No se pudo localizar la copia.');
  const {data:link,error:locationError}=await sb.functions.invoke('totus-onedrive',{body:{action:'backup-file-url',run_id:run.id,path}});
  if(locationError||!link?.url||new URL(link.url).protocol!=='https:')throw new Error('No se pudo leer la copia de OneDrive.');

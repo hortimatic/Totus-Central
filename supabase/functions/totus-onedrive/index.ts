@@ -1,3 +1,4 @@
+import {createDirectBackupTransfer} from './backup-transfer.js';
 import {validateBackupIndex} from '../../../src/backup-index.js';
 
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
@@ -289,8 +290,8 @@ async function driveQuota(){
 }
 
 async function backupMirrorSummary(){
- const rows=check(await admin.from('ops_onedrive_backups').select('run_id,archive_size,total_files,verified_at,created_at').order('created_at',{ascending:false}),'No se pudo consultar la copia de seguridad en OneDrive.');
- return {verified:rows.filter((r:any)=>r.verified_at).length,pending:rows.filter((r:any)=>!r.verified_at).length,bytes:rows.filter((r:any)=>r.verified_at).reduce((n:number,r:any)=>n+Number(r.archive_size),0)};
+ const rows=check(await admin.from('ops_onedrive_backups').select('run_id,archive_size,total_files,verified_at,created_at,ops_backup_runs(status)').order('created_at',{ascending:false}),'No se pudo consultar la copia de seguridad en OneDrive.');
+ return {verified:rows.filter((r:any)=>r.verified_at&&r.ops_backup_runs?.status==='success').length,pending:rows.filter((r:any)=>!r.verified_at&&['running','success'].includes(r.ops_backup_runs?.status)).length,bytes:rows.filter((r:any)=>r.verified_at&&r.ops_backup_runs?.status==='success').reduce((n:number,r:any)=>n+Number(r.archive_size),0)};
 }
 async function storedBytes(bucket:string,path:string,maximum:number){
  const blob=check(await admin.storage.from(bucket).download(path),'No se pudo leer un archivo de la copia original.');
@@ -307,20 +308,23 @@ async function uploadAndVerify(access:string,relative:string[],bytes:ArrayBuffer
 }
 
 async function pruneMirroredBackups(access:string){
- const copies=check(await admin.from('ops_onedrive_backups').select('run_id,source_path,folder_path,verified_at,ops_backup_runs(started_at,status,storage_path)').not('verified_at','is',null),'No se pudo comprobar la conservación en OneDrive.');
+ const copies=check(await admin.from('ops_onedrive_backups').select('run_id,source_path,folder_path,verified_at,created_at,ops_backup_runs(started_at,status,storage_path)'),'No se pudo comprobar la conservación en OneDrive.');
  const jobs=check(await admin.from('ops_recovery_jobs').select('checkpoint_path,source_path'),'No se pudieron comprobar las copias protegidas.');
  const protectedPaths=new Set(jobs.flatMap((j:any)=>[j.checkpoint_path,j.source_path]).filter(Boolean));
  copies.sort((a:any,b:any)=>String(b.ops_backup_runs?.started_at||'').localeCompare(String(a.ops_backup_runs?.started_at||'')));
- const active=copies.filter((c:any)=>c.ops_backup_runs?.status==='success');
+ const active=copies.filter((c:any)=>c.verified_at&&c.ops_backup_runs?.status==='success');
  const kept=new Set(active.slice(0,5).map((c:any)=>c.run_id));
  for(const old of copies){
+  const state=old.ops_backup_runs?.status;
+  if(state==='running'||!['success','expired','failed'].includes(state))continue;
+  if(!old.verified_at&&(state==='success'||Date.now()-Date.parse(old.created_at)<15*60*1000))continue;
   if(kept.has(old.run_id)||protectedPaths.has(old.source_path||old.ops_backup_runs?.storage_path))continue;
   if(!active.some((c:any)=>c.run_id!==old.run_id&&kept.has(c.run_id)))continue; // Keep at least one verified active cloud copy.
   if(!old.folder_path.startsWith('02 Copias de seguridad/'))throw new Error('Ruta de copia no válida para conservación.');
   const path='/me/drive/special/approot:/'+encodedPath(old.folder_path.split('/'));
   const removed=await graph(access,path,{method:'DELETE'});
   if(!removed.ok&&removed.status!==404)throw new Error('No se pudo retirar una copia antigua de OneDrive.');
-  check(await admin.from('ops_onedrive_backups').delete().eq('run_id',old.run_id).not('verified_at','is',null),'No se pudo actualizar la conservación en OneDrive.');
+  check(await admin.from('ops_onedrive_backups').delete().eq('run_id',old.run_id),'No se pudo actualizar la conservación en OneDrive.');
  }
 }
 
@@ -458,6 +462,25 @@ async function copyBackupBatches(full:boolean){
  return result;
 }
 
+async function backupFileUrls(runId:string){
+ if(!/^[a-f0-9-]{36}$/i.test(runId))throw new Error('Referencia de copia no válida.');
+ const backup=check(await admin.from('ops_onedrive_backups').select('folder_path,verified_at').eq('run_id',runId).maybeSingle(),'No se pudo comprobar la copia.');
+ if(!backup?.verified_at)throw new Error('La copia de OneDrive no está completa.');
+ const files=check(await admin.from('ops_onedrive_backup_files').select('source_path').eq('run_id',runId),'No se pudo comprobar el inventario.');
+ if(!files.length||files.length>20)throw new Error('Inventario de copia no compatible.');
+ const access=await token(),result:any[]=[];let next=0;
+ const worker=async()=>{while(next<files.length){
+  const file=files[next++];
+  const response=await graph(access,'/me/drive/special/approot:/'+encodedPath([...backup.folder_path.split('/'),...file.source_path.split('/')])+':/content');
+  const location=response.headers.get('Location');
+  if(response.status!==302||!location||new URL(location).protocol!=='https:')throw new Error('No se pudo preparar la lectura privada de la copia.');
+  result.push({path:file.source_path,url:location});
+ }};
+ await Promise.all(Array.from({length:Math.min(3,files.length)},worker));
+ return {files:result};
+}
+
+const directBackup=createDirectBackupTransfer({admin,check,config,token,root,ensurePath,graph,encodedPath,fileHash});
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  try{
@@ -472,8 +495,12 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url'].includes(action))throw new Error('Acceso denegado.');
    if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
+   if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
+   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||'')));
+   if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));
+   if(action==='staged-backup-file-url')return json(await directBackup.stagedUrl(String(body.run_id||''),String(body.path||'')));
    if(action==='sync-manuals')return json(await syncOnlineManuals(String(body.revision||'')));
    if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
@@ -483,6 +510,11 @@ Deno.serve(async req=>{
   }
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
+  if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
+  if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||'')));
+  if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));
+  if(action==='staged-backup-file-url')return json(await directBackup.stagedUrl(String(body.run_id||''),String(body.path||'')));
+
   if(action==='sync-manuals'){const result=await syncOnlineManuals(String(body.revision||''));await audit(user.id,user.email||'','manuales_online_actualizados');return json(result);}
   if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));

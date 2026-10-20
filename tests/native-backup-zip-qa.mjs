@@ -69,3 +69,16 @@ await buildRecoveryArchive(cachedSnapshot,CachedCloud,async(bucket,p)=>{
 assert.equal(skipped,2,'Only originals authenticated by the previous complete archive may reuse their recorded digest');
 await readRecoveryArchive(await readBackupObject(cachePath,async p=>cacheObjects.get(p)),NativeBackupZip,{projectRef:'qa-project'});
 console.log('VERIFIED CACHE QA: immutable source digests reused only inside an authenticated archive; resulting full copy independently re-read');
+
+const proofObjects=new Map(),proofRoot='private/direct-proof.totusbackup';
+let redundantReads=0;
+const ProofCloud=cloudBackupZip({path:proofRoot,partBytes:256,write:async(p,b)=>{
+ proofObjects.set(p,new Uint8Array(b));return {verified:true,path:p,size:b.length,sha256:await NativeBackupZip.archiveHash(b)};
+},read:async p=>{redundantReads++;return proofObjects.get(p)}});
+const proofZip=new ProofCloud();await proofZip.file('proof.txt',Buffer.alloc(1024,65));await proofZip.generateAsync();
+assert.equal(redundantReads,0,'A separately readback-verified server receipt avoids duplicate downloads');
+for(const change of ['path','size','sha256']){
+ const Wrong=cloudBackupZip({path:proofRoot,partBytes:256,write:async(p,b)=>({verified:true,path:change==='path'?'other':p,size:change==='size'?b.length+1:b.length,sha256:change==='sha256'?'f'.repeat(64):await NativeBackupZip.archiveHash(b)}),read:async()=>{throw Error('Not permitted')}});
+ const zip=new Wrong();await assert.rejects(()=>zip.file('proof.txt',Buffer.alloc(1024,65)),/confirmación remota/);
+}
+console.log('VERIFIED REMOTE RECEIPTS QA: exact path, size and SHA required; malformed receipts never complete an archive');
