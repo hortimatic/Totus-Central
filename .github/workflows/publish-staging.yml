@@ -98,6 +98,7 @@ jobs:
           node tests/quarter-fixture-qa.mjs
           node tests/annual-stress-qa.mjs
           python3 -m http.server 4173 >/tmp/totus-staging-qa-http.log 2>&1 &
+          node tests/expense-layout-qa.mjs
           node tests/onedrive-connection-qa.mjs
           node tests/storage-live-qa.mjs
           node tests/storage-organization-qa.mjs
@@ -110,7 +111,6 @@ jobs:
           node tests/modal-geometry-qa.mjs
           node tests/field-sweep-qa.mjs
           node tests/live-refresh-qa.mjs
-          node tests/expense-layout-qa.mjs
           node tests/report-period-qa.mjs
           node tests/second-review-qa.mjs
           node tests/full-flow-qa.mjs

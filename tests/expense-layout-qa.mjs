@@ -12,8 +12,8 @@ try{
  await page.locator('#nav [data-route="gastos"]').click();
  for(const width of [1440,900,390]){
   await page.setViewportSize({width,height:1000});
-  const metrics=await page.locator('.expense-row-actions .btn').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {width:r.width,height:r.height,clipped:e.scrollWidth>e.clientWidth+1}}));
-  assert(metrics.length>=6);assert(metrics.every(r=>r.width<=120&&r.height<=40&&!r.clipped),'Compact buttons must retain their complete labels at '+width);
+  const metrics=await page.locator('.expense-row-actions .btn').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {text:e.textContent,width:r.width,height:r.height,clipped:e.scrollWidth>e.clientWidth+1}}));
+  assert(metrics.length>=6);assert(metrics.every(r=>r.width<=120&&r.height<=40&&!r.clipped),'Compact buttons must retain their complete labels at '+width+': '+JSON.stringify(metrics));
   const cells=await page.locator('.expense-register-card .data-table tbody tr').first().locator('td').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right}}));
   for(let i=1;i<cells.length;i++)assert(cells[i].left>=cells[i-1].right-1,'Cells cannot overlap');
  }
