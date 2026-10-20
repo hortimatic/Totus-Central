@@ -10,7 +10,7 @@ Trabaja únicamente en [staging](https://hortimatic.github.io/Totus-Central/stag
 - OneDrive: originales y copias completas verificadas, en Mis archivos → Apps → TotusCentral Staging.
 - No se necesita este portátil ni un servidor local. No dejar descargas, documentos fiscales o credenciales en equipos como parte del funcionamiento.
 
-El 20/10/2026 se conservaron 547 gastos, 449 cierres y 452 documentos. Los 452 originales y tres copias completas se comprobaron en OneDrive; se retiraron sus duplicados pesados de Supabase. Las copias antiguas incompatibles se retiraron después de disponer de sucesoras completas verificadas. El archivo privado de revisión y dos puntos de recuperación se conservaron.
+El 20/10/2026 se conservaron 547 gastos, 449 cierres y 452 documentos. Los 452 originales y cuatro copias completas se comprobaron en OneDrive; se retiraron sus duplicados pesados de Supabase. Las copias antiguas incompatibles se retiraron después de disponer de sucesoras completas verificadas. El archivo privado de revisión y dos puntos de recuperación se conservaron.
 
 ## Trabajo diario
 1. Verificar entorno, versión, acceso y última copia correcta.
@@ -20,7 +20,7 @@ El 20/10/2026 se conservaron 547 gastos, 449 cierres y 452 documentos. Los 452 o
 5. No modificar el histórico aceptado del 1T–3T para forzar coincidencias. Octubre lo introduce manualmente el titular para aprender.
 
 ## Automatización sin ordenador
-La copia nocturna se programa a las 00:35 Europe/Madrid. Crear, trasladar y liberar duplicados son fases separadas con verificación y reservas.
+La copia nocturna se programa a las 00:35 Europe/Madrid. Con OneDrive conectado, crea y verifica el archivo directamente allí, sin duplicar sus partes en Supabase. Los traslados antiguos y la retirada de duplicados mantienen sus fases separadas y reservas.
 La tarea de mantenimiento existente de dos minutos continúa las fases pendientes desde Supabase. No crear otro horario de copias ni un proceso en Windows.
 Máximo: cinco copias ordinarias completadas. Los puntos de recuperación protegidos se conservan aparte. Una copia fallida o incompleta nunca sustituye a una correcta.
 
