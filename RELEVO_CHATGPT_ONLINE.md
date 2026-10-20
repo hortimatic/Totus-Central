@@ -106,3 +106,7 @@ La aplicación Microsoft «TotusCentral Staging» se ha registrado con autorizac
 - El archivo de prueba no contiene datos personales; se guarda en la carpeta de aplicación, se vuelve a leer y se compara su contenido.
 - No se han migrado documentos ni cambiado las copias automáticas por preparar esta conexión. Todavía hay que probar subida, vista previa, descarga, continuidad nocturna y recuperación antes de migrar.
 - Mantener cinco copias actuales de Supabase hasta verificar la alternativa. No eliminar adjuntos vinculados como parte de esta prueba.
+
+## Copia documental por lotes en OneDrive
+El servidor mantiene un espejo verificado de documentos en OneDrive, organizado por año, tipo y mes. Supabase Cron comprueba pendientes cada dos minutos y procesa hasta cinco por lote. Esta tarea es independiente del ordenador y no hace llamadas de red si no hay pendientes. Cada archivo se descarga de Supabase, se copia, se vuelve a descargar de OneDrive y se compara por tamaño y SHA-256 antes de registrar su comprobación. Una reserva de tres minutos evita lotes simultáneos.
+Los originales y sus vistas previas siguen en Supabase. El espejo no equivale a haber trasladado el almacenamiento principal ni las copias de seguridad. No borrar originales ni retirar las cinco copias actuales por esta fase. Consultar docs/MANUAL_CHATGPT_ONLINE.md para el procedimiento diario.

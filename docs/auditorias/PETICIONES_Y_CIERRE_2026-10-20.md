@@ -7,7 +7,7 @@ Una petición no se cierra por haber escrito código. Anotar versión, prueba re
 ## Prioridad inmediata
 | Petición | Estado comprobado | Trabajo pendiente |
 |---|---|---|
-| OneDrive sin depender de un ordenador | Autorización real completada; servidor ha escrito y vuelto a leer archivo sintético el 20/10/2026 | Integrar documentos, descargas, vistas previas y copias; comprobar renovación de sesión y funcionamiento nocturno |
+| OneDrive sin depender de un ordenador | Autorización real completada; servidor ha escrito y vuelto a leer archivo sintético el 20/10/2026 | Copia documental por lotes en servidor activada, con verificación de cada archivo y reserva temporal. Pendiente completar inventario, lectura principal desde OneDrive, copias y recuperación; comprobar renovación de sesión |
 | OneDrive dentro de Almacenamiento | Código y QA de integración aprobados en be717a8c | Publicación falló instalando dependencias por HTTP 403 externo; reintentada. Verificar web publicada |
 | Carpetas ordenadas y claras | Carpetas privadas iniciales creadas | Unificar carpeta manual y carpeta autorizada de aplicación sin ampliar permisos; organizar año/tipo |
 | Cinco copias completas, todas las noches a las 00:35 Madrid | Conservación cinco y tarea servidor existentes; creación nocturna verificada | Ensayar recuperación integral aislada, verificar todos los datos/archivos y migración de destino antes de retirar originales |

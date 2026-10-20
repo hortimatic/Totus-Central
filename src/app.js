@@ -133,10 +133,11 @@ function isStoragePanelVisible(){
  return !!state.user&&state.route==='administracion'&&getView('administracion').section==='storage';
 }
 async function refreshStoragePanel(){
- if(!isStoragePanelVisible()||storageRefreshInFlight||state.loading)return;
+ if(!isStoragePanelVisible()||storageRefreshInFlight||state.loading||$('#odClientSecret')?.value)return;
  storageRefreshInFlight=true;
  try{
   const result=await reloadStorageUsage();
+  if(isAdmin())try{setOneDriveStatus(await oneDriveRequest('status'));}catch{}
   if(isStoragePanelVisible())render();
   if(result.status!=='ok')toast('No se pudo consultar Storage: '+result.message,'bad');
  }finally{storageRefreshInFlight=false}
@@ -2070,6 +2071,11 @@ document.addEventListener('click',async e=>{
    const authorization=new URL(result.authorization_url);
    if(authorization.origin!=='https://login.microsoftonline.com'||authorization.pathname!=='/consumers/oauth2/v2.0/authorize')throw new Error('Dirección de autorización no válida.');
    modal('Autorizar OneDrive',`<p>Microsoft solicitará acceso a la carpeta exclusiva de esta aplicación y permiso para mantener la conexión con el navegador cerrado.</p><p>No concede acceso general a tus otras carpetas.</p><a class="btn primary" href="${esc(authorization.href)}" target="_blank" rel="noopener noreferrer">Continuar en Microsoft</a><p>Después vuelve aquí y pulsa Actualizar conexión.</p>`);return;
+  }
+  if(a==='onedrive-mirror'){
+   toast('Copiando y comprobando hasta cinco documentos en el servidor…');
+   try{const result=await oneDriveRequest('mirror-documents');await refreshOneDrivePanel();toast(result.copied+' documentos copiados y comprobados. Quedan '+result.pending+'.');}
+   catch(error){await refreshOneDrivePanel().catch(()=>{});throw error;}return;
   }
   if(a==='onedrive-test'){
    toast('Guardando y leyendo el archivo de prueba…');
