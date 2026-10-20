@@ -53,3 +53,19 @@ for(const fault of ['write','read']){
  assert.equal(failed.has(root),false,'An incomplete transfer must never publish the root index');
 }
 console.log('STREAMING BACKUP QA: 112 MiB full archive, ordinary ZIP CRC, bounded part buffer, complete hashes and failed-transfer publication fence OK');
+
+const trusted=new WeakMap();let skipped=0;
+const cacheObjects=new Map(),cachePath='private/cached.totusbackup';
+const CacheBase=cloudBackupZip({path:cachePath,write:async(p,b)=>cacheObjects.set(p,new Uint8Array(b)),read:async p=>cacheObjects.get(p)});
+class CachedCloud extends CacheBase{
+ static archiveHash=async value=>{if(value instanceof Uint8Array&&trusted.has(value)){skipped++;return trusted.get(value)}return archiveHash(value)};
+}
+const cachedSnapshot=structuredClone(snapshot);
+cachedSnapshot.database.ops_documents.forEach(d=>d.sha256=restored.manifest.integrity.storage['business-documents'][d.storage_path]);
+await buildRecoveryArchive(cachedSnapshot,CachedCloud,async(bucket,p)=>{
+ const value=await restored.zip.file('storage/'+bucket+'/'+p).async('uint8array');
+ trusted.set(value,restored.manifest.integrity.storage[bucket][p]);return value;
+});
+assert.equal(skipped,2,'Only originals authenticated by the previous complete archive may reuse their recorded digest');
+await readRecoveryArchive(await readBackupObject(cachePath,async p=>cacheObjects.get(p)),NativeBackupZip,{projectRef:'qa-project'});
+console.log('VERIFIED CACHE QA: immutable source digests reused only inside an authenticated archive; resulting full copy independently re-read');

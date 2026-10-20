@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
+import {archiveHash} from '../src/recovery-core.js';
 import {readBackupObject,writeBackupObject,BACKUP_PART_BYTES} from '../src/backup-transport.js';
 const files=new Map(),path='private/test.totusbackup';
 const write=async(p,b)=>{assert(!files.has(p));files.set(p,new Uint8Array(b))};
@@ -19,3 +20,11 @@ assert.equal(reads,1,'Reject foreign paths before reading any piece');
 files.clear();await writeBackupObject(path,new Uint8Array([1,2]),write,read);
 assert.deepEqual(await readBackupObject(path,read),new Uint8Array([1,2]));
 console.log('BACKUP TRANSPORT QA: ordinary/large archives, exact bytes, corrupted pieces and foreign paths verified.');
+
+await assert.rejects(()=>readBackupObject(path,read,archiveHash,'a'.repeat(64)),/huella/);
+const smallHash=await archiveHash(new Uint8Array([1,2]));
+assert.deepEqual(await readBackupObject(path,read,archiveHash,smallHash),new Uint8Array([1,2]));
+files.clear();await writeBackupObject(path,original,write,read);
+let checkedReads=0;await assert.rejects(()=>readBackupObject(path,async p=>{checkedReads++;return read(p)},archiveHash,'b'.repeat(64)),/huella/);
+assert.equal(checkedReads,1,'A mismatched registered archive hash must fail before downloading pieces');
+assert.deepEqual(Buffer.from(await readBackupObject(path,read,archiveHash,await archiveHash(original))),original);

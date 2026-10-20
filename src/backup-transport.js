@@ -42,13 +42,14 @@ export async function writeBackupObject(path,input,write,read){
  // index completes the proof without allocating a second full archive in RAM.
  if(await archiveHash(await read(path))!==await archiveHash(indexBytes))throw new Error('No se ha podido verificar el índice de la copia completa.');
 }
-export async function readBackupObject(path,read,hash=archiveHash){
+export async function readBackupObject(path,read,hash=archiveHash,expectedHash=null){
  const input=await read(path),bytes=input instanceof Blob?new Uint8Array(await input.arrayBuffer()):new Uint8Array(input);
  if(bytes.length>MAX_ARCHIVE_BYTES)throw new Error('La copia supera la capacidad de recuperación.');
- if(bytes[0]!==123)return bytes;
+ if(bytes[0]!==123){if(expectedHash&&await hash(bytes)!==expectedHash)throw new Error('La copia no coincide con su huella registrada.');return bytes;}
  if(bytes.length>INDEX_LIMIT)throw new Error('Índice de copia demasiado grande.');
  const index=JSON.parse(new TextDecoder().decode(bytes));
  validateBackupIndex(path,index,MAX_ARCHIVE_BYTES);
+ if(expectedHash&&index.sha256!==expectedHash)throw new Error('El índice no coincide con la huella de la copia.');
  const output=new Uint8Array(index.size);let offset=0;
  for(const p of index.parts){
   const value=await read(p.path),piece=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):value instanceof Uint8Array?value:new Uint8Array(value);

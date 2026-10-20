@@ -4,7 +4,7 @@
 import {createHash} from 'node:crypto';
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 import {NativeBackupZip,cloudBackupZip} from "./native-zip.js";
-import {buildRecoveryArchive,readRecoveryArchive,RECOVERY_TABLES} from "../../../src/recovery-core.js";
+import {buildRecoveryArchive,readRecoveryArchive,RECOVERY_TABLES,archiveHash} from "../../../src/recovery-core.js";
 import {readBackupObject,validateBackupIndex} from '../../../src/backup-transport.js';
 import {MAX_SAVED_BACKUPS,oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
@@ -45,8 +45,8 @@ async function verifySavedBackup(id:string,source='supabase',req?:Request){
   }
   const {data,error}=await admin.storage.from('business-backups').download(path);
   if(error||!data){if(!req)throw new Error('No se pudo leer un archivo de la copia.');usedOneDrive=true;return oneDriveRead(req,'backup-file-url',{run_id:id,path});}return data;
- },NativeBackupZip.archiveHash);
- if(!run.archive_sha256||createHash('sha256').update(bytes).digest('hex')!==run.archive_sha256)throw new Error('La copia completa no coincide con su huella registrada.');
+ },NativeBackupZip.archiveHash,run.archive_sha256);
+ if(!run.archive_sha256)throw new Error('La copia no tiene una huella registrada.');
  const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
  const {data:rehearsal,error:rehearsalError}=await admin.rpc('totus_verify_recovery_rows',{p_payload:archive.database});
  if(rehearsalError||rehearsal?.verified!==true)throw new Error('No se pudo comprobar la recuperación de datos: '+(rehearsalError?.message||'resultado incompleto'));
@@ -173,11 +173,14 @@ async function run(mode:string,req:Request){
   let cached:any=null;
   if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=120*1024*1024){
    await progress('Leyendo copia anterior verificada');
-   const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req),NativeBackupZip.archiveHash);
-   if(createHash('sha256').update(prior).digest('hex')!==previous.archive_sha256)throw new Error('La copia anterior no coincide con su huella registrada.');
+   const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req),NativeBackupZip.archiveHash,previous.archive_sha256);
+
    // Only reuse originals, never its database. The complete archive hash is
    // authenticated by the server record; the builder checks each original again.
-   cached={zip:await NativeBackupZip.loadAsync(prior)};
+   const zip=await NativeBackupZip.loadAsync(prior);
+   const manifest=JSON.parse(await zip.file('manifest.json').async('string'));
+   if(manifest.version!==3||manifest.project_ref!==snapshot.project_ref)throw new Error('La copia anterior no tiene un inventario compatible.');
+   cached={zip,manifest};
   }
   const downloadUrls=new Map<string,string>();
   for(const [bucket,paths] of Object.entries(snapshot.storage)){
@@ -192,17 +195,21 @@ async function run(mode:string,req:Request){
   }
   const folder=String(config.destination_folder||"automaticas");
   const pathname=folder+"/Totus_Central_"+new Date().toISOString().replace(/[:.]/g,"-")+"_"+backupId.slice(0,8)+".totusbackup";
-  const CloudZip=cloudBackupZip({path:pathname,write:async(path:string,bytes:Uint8Array)=>{
+  const trustedHashes=new WeakMap<Uint8Array,string>();
+  const CloudBase=cloudBackupZip({path:pathname,write:async(path:string,bytes:Uint8Array)=>{
    const {error}=await admin.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});
    if(error)throw new Error('No se guardó un fragmento de la copia: '+error.message);
   },read:async(path:string)=>{
    const {data,error}=await admin.storage.from('business-backups').download(path);
    if(error||!data)throw new Error('No se pudo verificar un fragmento de la copia.');return data;
   }});
+  class CloudZip extends CloudBase{
+   static archiveHash=async(value:any)=>value instanceof Uint8Array&&trustedHashes.has(value)?trustedHashes.get(value)!:archiveHash(value);
+  }
   await progress("Leyendo documentos y preparando archivo");let filesRead=0;
   const {bytes:archive,manifest}=await buildRecoveryArchive(snapshot,CloudZip,async(bucket:string,path:string)=>{
    const prior=cached?.zip.file('storage/'+bucket+'/'+path);
-   if(prior){const bytes=await prior.async('uint8array');delete cached.zip.files['storage/'+bucket+'/'+path];return bytes;}
+   if(prior){const bytes=await prior.async('uint8array');const digest=cached.manifest.integrity?.storage?.[bucket]?.[path];if(/^[a-f0-9]{64}$/.test(digest||''))trustedHashes.set(bytes,digest);delete cached.zip.files['storage/'+bucket+'/'+path];return bytes;}
    for(let attempt=0;attempt<5;attempt++){
     const link=downloadUrls.get(bucket+'/'+path);
     if(!link){

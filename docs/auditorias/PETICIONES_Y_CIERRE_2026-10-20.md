@@ -7,9 +7,9 @@ Una petición no se cierra por haber escrito código. Anotar versión, prueba re
 ## Prioridad inmediata
 | Petición | Estado comprobado | Trabajo pendiente |
 |---|---|---|
-| OneDrive sin depender de un ordenador | Autorización real completada; servidor ha escrito y vuelto a leer archivo sintético el 20/10/2026 | Copia documental por lotes en servidor activada, con verificación de cada archivo y reserva temporal. Pendiente completar inventario, lectura principal desde OneDrive, copias y recuperación; comprobar renovación de sesión |
-| OneDrive dentro de Almacenamiento | Código y QA de integración aprobados en be717a8c | Publicación falló instalando dependencias por HTTP 403 externo; reintentada. Verificar web publicada |
-| Carpetas ordenadas y claras | Carpetas privadas iniciales creadas | Unificar carpeta manual y carpeta autorizada de aplicación sin ampliar permisos; organizar año/tipo |
+| OneDrive sin depender de un ordenador | Autorización y lectura real; 452 originales verificados en OneDrive | Cerrar recuperación integral y comprobar renovación de sesión |
+| OneDrive dentro de Almacenamiento | Integración publicada y probada; OneDrive dentro de Almacenamiento | Revalidar las cifras tras terminar la limpieza de copias |
+| Carpetas ordenadas y claras | Ruta única Apps → TotusCentral Staging; carpeta manual vacía retirada a papelera | Mantener estructura de año/tipo/mes y archivo recuperable de retirados |
 | Cinco copias completas, todas las noches a las 00:35 Madrid | Conservación cinco y tarea servidor existentes; creación nocturna verificada | Ensayar recuperación integral aislada, verificar todos los datos/archivos y migración de destino antes de retirar originales |
 | No dejar materiales de trabajo en portátil | Copias de trabajo previas retiradas; desarrollo actual remoto | Mantener código/manual en GitHub; datos y secretos privados en servicios autorizados |
 | Informe y manual detallado para ChatGPT online | Existe RELEVO_CHATGPT_ONLINE.md | Completar manual operativo paso a paso, recuperación, errores, permisos y evidencias finales |
@@ -55,23 +55,23 @@ Una petición no se cierra por haber escrito código. Anotar versión, prueba re
 
 ## Lista numerada de seguimiento — 20/10/2026
 
-Ningún punto se considera terminado sin prueba asociada. No borrar originales para aparentar una migración.
+Cada estado distingue pruebas automáticas, comprobaciones reales y criterios aún abiertos.
 
-1. **Pendiente: lectura principal de documentos desde OneDrive.** Vistas previas, descarga individual y conjunta, documentos asociados a gastos, informes y copias deben usar el proveedor correcto con los mismos permisos.
-2. **Pendiente: limpieza de duplicados en Supabase.** Solo después del punto 1, comprobar tamaño y SHA-256 del destino, registrar ubicación, ensayar acceso y recuperación; retirar únicamente objetos verificados. Conservar base de datos, cuentas, permisos, enlaces, secretos y registros necesarios.
-3. **Parcialmente verificado: copias nuevas.** Tras corregir la reutilización de originales y los errores temporales, se creó una copia nueva completa, se replicaron sus 12 objetos en OneDrive y se leyó desde allí. El ensayo de recuperación pasó 38 tablas y 57 relaciones. Sigue pendiente un ensayo independiente completo, el escenario sin copia previa y ampliar capacidad antes de alcanzar el límite actual.
-4. **Pendiente de cierre: recuperación independiente y renovación de conexión.** El ensayo temporal no reemplaza un restablecimiento completo aislado. Comprobar renovación automática sin dispositivo abierto.
-5. **Pendiente de cierre: cinco copias y horario 00:35 Madrid.** Mantener rotación solo después de éxito y verificación. No añadir tareas periódicas duplicadas. Dejar botón de eliminación y estados comprensibles.
-6. **Pendiente de nueva comprobación: capacidad.** Uso real Supabase/OneDrive, fuente y fecha, previsión en meses/años desde nueve meses; medir de nuevo tras migración. No prometer un año sin prueba.
-7. **Pendiente de nueva comprobación: cajas.** Mostrar ventas, tarjeta, retiradas, apertura y cierre por cada cajón; Hortimatic tiene Vape y Head. Inicio debe mostrar efectivo para la próxima apertura con fecha.
-8. **Pendiente de nueva comprobación: fiscalidad.** Nombres comprensibles, cálculo propio de reserva y modelos, acumulados 130, referencias gestoría separadas, internos sin deducir, nóminas/SS/autónomo sin duplicar.
-9. **Pendiente de nueva comprobación: histórico 1T–3T.** Conservar cifras y aceptación del titular sin inventar reparto de retiradas ni ajustes. Octubre se introduce a mano por el titular.
-10. **Pendiente de nueva comprobación: facturación.** Emisor único y numeración compartida, logos por tienda y vista previa encuadrada; emisión, rectificativas, adjuntos y descarga.
-11. **Pendiente de nueva comprobación: gastos/proveedores/documentos.** Asociación inequívoca de factura, originales íntegros, filtros y búsquedas coherentes, altas/edición/borrado protegido.
-12. **Pendiente de nueva comprobación: informes.** Vista previa única clara, columnas fieles a gestoría, exportaciones mensuales, número de factura junto a gastos, todo el rango de fechas incluido.
-13. **Pendiente de nueva comprobación: interfaz completa.** Escritorio/tableta/móvil, modales, campos, textos sencillos, sin solapes ni datos importantes ocultos.
-14. **Pendiente de cierre: seguridad y longevidad.** Permisos reales por rol, denegaciones, concurrencia, errores sin pérdida, integridad de adjuntos, auditoría, dependencias fijadas, código obsoleto demostrado antes de eliminar.
-15. **Pendiente de cierre: informe/manual online.** Explicar trabajo diario, cierres, gastos, facturas, exportación, fiscalidad, copias, recuperación y conexión autorizada de ChatGPT. Código/manual en GitHub; documentación privada solo en servicios privados autorizados; sin materiales locales.
+1. **Verificado: lectura principal desde OneDrive.** API sujeta a las políticas del usuario, tamaño y SHA-256; pruebas de sesión, rol, archivo sustituido y errores. PDFs reales de ambas tiendas visibles, incluido un original cuyo duplicado ya había desaparecido de Supabase. Las descargas y exportaciones comparten el lector; no se guardaron descargas en este portátil.
+2. **Completado: duplicados documentales de Supabase.** 452 de 452 retirados después de comprobar original, destino y copia completa. Cero objetos restantes en business-documents; 547 gastos y 449 cierres conservados. La retirada de fragmentos de copias de seguridad es un trabajo distinto y exige otra comprobación.
+3. **Verificado parcialmente: copias completas.** Copias reales anteriores leídas desde OneDrive y ensayo temporal de 38 tablas/57 relaciones. Nuevo guardado secuencial publica el índice al final; simulación real de 112 MiB creada y leída por separado, con integridad comprobada y 16 objetos temporales retirados. Pendiente cerrar una copia nueva de los datos reales después de la migración.
+4. **Abierto crítico: recuperación integral.** Se corrigió la exigencia antigua de originales físicos en Supabase y se conserva el índice de OneDrive al recuperar. El ensayo SQL con reversión agotó el tiempo de conexión; requiere investigación y comprobación posterior del estado. No es prueba aprobada ni certificación de producción.
+5. **Verificado parcialmente: cinco copias y 00:35 Madrid.** Horario servidor y copia nocturna reales anteriores comprobados. Conservar guardas de última copia y puntos protegidos. El recorrido nuevo de traslado y retirada de fragmentos debe probarse completo, sin añadir otra tarea periódica.
+6. **En comprobación: capacidad.** La previsión distingue volumen lógico de originales y ocupación física; las copias en OneDrive no se cuentan como archivos pesados de Supabase. Hay límite de recuperación de 120 MiB/128 MiB expandidos; la prueba de 112 MiB no permite prometer capacidad ilimitada.
+7. **QA aprobada: cajas.** Ventas, tarjeta, retiradas, apertura y efectivo final por cajón. Hortimatic Vape/Head y NewOldSmok separadas; no inventar reparto histórico. Conservar comprobación diaria de Inicio y fecha de la última apertura disponible.
+8. **QA aprobada: fiscalidad.** Previsión propia, reserva, referencias de gestoría separadas, acumulados del 130 e internos sin deducir. Las diferencias contables se documentan sin alterar importes para coincidir.
+9. **Conservado: histórico 1T–3T.** No se cambiaron cifras ni aceptación del titular durante la migración. Octubre lo introduce el titular a mano.
+10. **QA aprobada: facturación.** Emisor único, numeración compartida, logos por tienda, vista previa, emisión, rectificativas y adjuntos. Mantener prueba real de la versión utilizada antes de entregar documentos.
+11. **QA y lectura real: gastos, proveedores y documentos.** Pruebas de asociación, originales, filtros y protección ante errores; dos originales reales abiertos desde OneDrive. No cruzar libros de tiendas al importar.
+12. **QA aprobada: informes.** Columnas y formato de gestoría, libros mensuales, número de factura y rangos de fechas. Contrastar las exportaciones del periodo real antes de enviarlas.
+13. **QA visual aprobada.** Batería remota de vistas, geometría, modales, campos y recorridos; no equivale a una revisión humana de cada pantalla con datos reales en cada dispositivo.
+14. **Abierto: cierre de estabilidad y seguridad.** Reservas para limpiezas simultáneas, denegaciones por rol, integridad, errores de transferencia y recuperación simulada comprobados. Investigar el bloqueo del ensayo SQL y verificar permisos/asesores después de las migraciones antes de declarar producción.
+15. **En actualización: manual e informe online.** Manual operativo en GitHub, registro de peticiones y relevo. Sin archivos de trabajo locales. Publicar documentación final verificada en OneDrive al cerrar los puntos críticos.
 
-### Evidencia disponible
-La última batería remota comprobó los recorridos simulados de altas, edición, adjuntos, facturación, roles, fiscalidad y descargas. La prueba visual de almacenamiento requiere abrir los detalles técnicos antes de medir sus controles. Es evidencia simulada; no sustituye la verificación real de servicios y datos.
+### Evidencia
+La batería completa aprobó las revisiones hasta b285ba95, incluyendo guardado de 112 MiB, recuperación simulada, filtros, informes, facturación y geometría visual. Las ejecuciones de publicación posteriores y las comprobaciones reales se anotarán con su resultado; no asumir éxito porque exista código.
