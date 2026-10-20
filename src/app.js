@@ -187,7 +187,7 @@ async function saveClosing(id='',status='borrador'){
  const reconcilingSource=!!getView('cajas').reconcileSource;
  const store=required('clStore','Tienda'),date=required('clDate','Fecha');
  if(date>isoToday())throw new Error('La fecha del cierre no puede ser futura.');
- if(reconcilingSource&&val('clReported').trim()===''){input('clReported')?.focus();throw new Error('Indica las ventas contrastadas del día. El importe «al fin» se conserva como origen y no se copia como venta automáticamente.');}
+ if(reconcilingSource&&val('clReported').trim()===''){input('clReported')?.focus();throw new Error('Indica las ventas totales del día para comprobar el cierre. La referencia fiscal mensual se conserva sin duplicar ingresos.');}
  const drawerEls=[...document.querySelectorAll('.drawer-entry')];
  if(!drawerEls.length)throw new Error('La tienda no tiene cajas activas configuradas.');
  const drawers=drawerEls.map(el=>{

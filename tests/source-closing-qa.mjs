@@ -12,7 +12,7 @@ assert(html.includes('sin asignarlo a una caja ficticiamente'));
 assert(html.includes('&lt;script&gt;unsafe&lt;/script&gt;')&&!html.includes('<script>unsafe'));
 assert(!html.includes('closing-save')&&!html.includes('<input'),'Source snapshots must not be editable physical closings');
 assert.equal(closingIncomeAmount(row),0);
-assert.throws(()=>closingIncomeAmount({...row,include_in_income:true}),/no es una venta verificada/,'Raw al fin may include retained cash and must not become fiscal sales');
+assert.throws(()=>closingIncomeAmount({...row,include_in_income:true}),/no es una venta verificada/,'Historical sales already covered by a monthly reference must not be added again');
 assert.throws(()=>sourceClosingRecordHtml({...row,source_ref:'bad'}),/leer el origen/);
 origin.card_sales=null;origin.withdrawals=null;
 assert(sourceClosingRecordHtml({...row,source_ref:JSON.stringify(origin)}).includes('Sin anotación'));
@@ -22,4 +22,6 @@ html=cajas();assert(html.includes('1 históricos pendientes de conciliación')&&
 state.data.incomeAdjustments=[{store_id:'shop',amount:120,notes:JSON.stringify({kind:'monthly_source_reference',period:'2026-01',gestoria_income_compared:false})}];
 html=sourceClosingRecordHtml(row);
 assert(html.includes('Origen: Excel original; pendiente de contraste'),'An Excel source must not be presented as already checked against the accountant');
+state.data.closings=[{...row,source_ref:'bad'}];
+assert.doesNotThrow(()=>cajas(),'Un registro antiguo incompleto no debe impedir abrir el listado de cierres');
 console.log('SOURCE CLOSING QA: raw snapshot never becomes fiscal sales, no invented drawer allocation, read-only evidence, escaped text and visible pending reconciliation');
