@@ -183,7 +183,7 @@ export function cajas(){
    return closingRecordHtml(row);
  }
  const f=getFilters('cajas');
- const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,storeName(x.store_id),x.status,storeName(x.store_id)));
+ const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,storeName(x.store_id),x.status,acceptedClosing(x)?'conciliado aceptado':x.entry_mode==='source_snapshot'?'por conciliar':'borrador por terminar'));
  const total=sum(rows,row=>Number(row.card_sales||0));
  const historical=rows.filter(x=>!acceptedClosing(x)&&(String(x.source_ref||'').startsWith('EXCEL2026-')||x.entry_mode==='source_snapshot'));
  const mismatches=rows.filter(x=>!acceptedClosing(x)&&x.entry_mode!=='source_snapshot'&&Math.abs(Number(x.difference||0))>.01).length;

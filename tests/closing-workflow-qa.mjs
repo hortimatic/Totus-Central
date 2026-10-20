@@ -8,6 +8,7 @@ for(const patch of [{status:'borrador'},{reported_total_sales:null},{difference:
 state.user={role:'admin'};state.data.stores=[{id:'shop',name:'Shop',active:true}];state.data.drawers=[{id:'drawer',name:'Vape',store_id:'shop',active:true}];
 state.data.closings=[closed];patchFilters('cajas',{from:'2026-10-01',to:'2026-10-31',store:'all',query:''});setView('cajas',{mode:'list'});
 let html=cajas();assert(html.includes('Conciliado y aceptado'));assert(html.includes('Ver detalle'));assert(html.includes('Nota del usuario'));
+patchFilters('cajas',{query:'conciliado'});assert(cajas().includes('data-id="manual"'),'The search must find the displayed reconciled status');patchFilters('cajas',{query:''});
 assert(html.includes('Total ventas'));assert(!html.includes('Calculado')&&!html.includes('Ventas del programa'));
 html=closingRecordHtml(null);assert(html.includes('clSaveStatus')&&html.includes('Estado al guardar'));
 html=closingRecordHtml(closed);assert(html.includes('closing-reopen'));assert(!html.includes('clReportedTotal'));
