@@ -12,11 +12,11 @@ const built=await buildRecoveryArchive(snapshot,JSZip,async(_b,p)=>files.get(p))
 assert.ok(built.bytes.byteLength>48*1024*1024&&built.bytes.byteLength<=MAX_ARCHIVE_BYTES,'Near-limit archive must be complete and within the advertised limit');
 const restored=await readRecoveryArchive(built.bytes,JSZip,{projectRef:'qa-project'});
 for(const [path,bytes]of files)assert.equal(await archiveHash(await restored.zip.file('storage/business-documents/'+path).async('uint8array')),await archiveHash(bytes));
-await assert.rejects(()=>readRecoveryArchive(new Uint8Array(MAX_ARCHIVE_BYTES+1),JSZip),/96 MB/);
+await assert.rejects(()=>readRecoveryArchive(new Uint8Array(MAX_ARCHIVE_BYTES+1),JSZip),/120 MB/);
 let reads=0;const huge=structuredClone(snapshot);huge.database.ops_audit_log=[{detail:'x'.repeat(MAX_DATABASE_BYTES)}];
 await assert.rejects(()=>buildRecoveryArchive(huge,JSZip,async()=>{reads++;return new Uint8Array()}),/datos.*8 MB/);assert.equal(reads,0,'Oversized database must fail before downloading attachments');
 const overflow={...snapshot,storage:{'business-documents':[...files.keys(),'documents/extra.pdf'],'business-assets':[]},database:{...database,ops_documents:[...database.ops_documents,{id:'extra',storage_path:'documents/extra.pdf'}]}};
-await assert.rejects(()=>buildRecoveryArchive(overflow,JSZip,async(_b,p)=>files.get(p)||randomBytes(48*1024*1024)),/96 MB/);
+await assert.rejects(()=>buildRecoveryArchive(overflow,JSZip,async(_b,p)=>files.get(p)||randomBytes(72*1024*1024)),/120 MB/);
 const compressedFiles=new Map([['documents/large.pdf',Buffer.alloc(55*1024*1024,65)]]);
 const compressible={...snapshot,storage:{'business-documents':[...compressedFiles.keys()],'business-assets':[]},database:{...database,ops_documents:[{id:'large',storage_path:'documents/large.pdf'}]}};
 const compressed=await buildRecoveryArchive(compressible,JSZip,async(_b,p)=>compressedFiles.get(p));

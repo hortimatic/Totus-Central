@@ -108,3 +108,65 @@ export class SegmentedBackupZip extends NativeBackupZip{
   return {segments:this.chunks,byteLength:this.total,sha256:hash.digest('hex')};
  }
 }
+
+/** Write an ordinary ZIP directly to verified fixed-size cloud pieces.
+ * Only one original and one part are retained; publishing the index is last. */
+export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=120*1024*1024}){
+ return class CloudBackupZip{
+  static concurrency=1;
+  constructor(){
+   this.names=new Set();this.pending=[];this.pendingBytes=0;this.total=0;this.parts=[];this.digest=createHash('sha256');this.complete=false;this.failed=null;
+   this.writer=new Zip((error,bytes,final)=>{
+    if(error){this.failed=error;return;}
+    this.total+=bytes.length;
+    if(this.total>maxBytes){this.failed=new Error('La copia supera la capacidad de recuperación.');return;}
+    this.digest.update(bytes);this.pending.push(bytes);this.pendingBytes+=bytes.length;this.complete=final;
+   });
+  }
+  async flush(final=false){
+   if(this.failed)throw this.failed;
+   while(this.pendingBytes>=partBytes||final&&this.pendingBytes){
+    const size=Math.min(partBytes,this.pendingBytes),piece=new Uint8Array(size);let offset=0;
+    while(offset<size){
+     const chunk=this.pending[0],take=Math.min(chunk.length,size-offset);piece.set(chunk.subarray(0,take),offset);offset+=take;
+     if(take===chunk.length)this.pending.shift();else this.pending[0]=chunk.subarray(take);
+    }
+    this.pendingBytes-=size;
+    const piecePath=path+'.part-'+String(this.parts.length).padStart(4,'0'),sha256=createHash('sha256').update(piece).digest('hex');
+    await write(piecePath,piece);
+    const received=await read(piecePath),bytes=received instanceof Blob?new Uint8Array(await received.arrayBuffer()):new Uint8Array(received);
+    if(bytes.length!==size||createHash('sha256').update(bytes).digest('hex')!==sha256)throw new Error('Un fragmento de la copia no se ha guardado correctamente.');
+    this.parts.push({path:piecePath,size,sha256});
+   }
+  }
+  async file(name,content){
+   if(this.names.has(name)||this.complete)throw new Error('Entrada duplicada o copia cerrada.');
+   this.names.add(name);
+   const bytes=typeof content==='string'?new TextEncoder().encode(content):content instanceof Uint8Array?content:new Uint8Array(content);
+   const file=name==='database.json'||name==='manifest.json'?new NativeDeflateFile(name):new NativeStoredFile(name);
+   this.writer.add(file);file.push(bytes,true);await this.flush();
+   return this;
+  }
+  async generateAsync(){
+   this.writer.end();if(this.failed)throw this.failed;
+   if(!this.complete)throw new Error('La copia ZIP no terminó correctamente.');
+   await this.flush(true);
+   const sha256=this.digest.digest('hex');
+   // The shared reader also accepts segmented small ZIPs when their size exceeds
+   // partBytes; use the standard 8 MiB piece size in production.
+   if(this.total<=partBytes){
+    const only=this.parts[0],value=await read(only.path);
+    const bytes=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):new Uint8Array(value);
+    await write(path,bytes);
+    const check=await read(path),actual=check instanceof Blob?new Uint8Array(await check.arrayBuffer()):new Uint8Array(check);
+    if(actual.length!==this.total||createHash('sha256').update(actual).digest('hex')!==sha256)throw new Error('La copia subida no coincide con el original.');
+   }else{
+    const index=new TextEncoder().encode(JSON.stringify({format:'totus-backup-parts',version:1,size:this.total,sha256,parts:this.parts}));
+    await write(path,index);
+    const check=await read(path),actual=check instanceof Blob?new Uint8Array(await check.arrayBuffer()):new Uint8Array(check);
+    if(createHash('sha256').update(actual).digest('hex')!==createHash('sha256').update(index).digest('hex'))throw new Error('No se pudo comprobar el índice de la copia.');
+   }
+   return {stored:true,byteLength:this.total,sha256};
+  }
+ };
+}

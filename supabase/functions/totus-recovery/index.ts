@@ -76,7 +76,7 @@ Deno.serve(async req=>{
   const objects=checked(await admin.storage.from('business-backups').list(prefix,{limit:100,search:jobId+'.totusbackup'}),'No se pudo comprobar el tamaño de la copia');
   const sourceInfo=objects?.find(x=>x.name===jobId+'.totusbackup');
   if(!sourceInfo||!Number.isFinite(Number(sourceInfo.metadata?.size))||Number(sourceInfo.metadata.size)>MAX_ARCHIVE_BYTES)
-   return reply({error:'La copia no está disponible o supera 96 MB'},400);
+   return reply({error:'La copia no está disponible o supera 120 MB'},400);
   const snapshot=checked(await admin.rpc('totus_export_recovery_snapshot'),'No se pudo preparar la copia actual');
   snapshot.project_ref=projectRef;
   const archive=await readRecoveryArchive(await readBackupObject(sourcePath,(path:string)=>download('business-backups',path)),JSZip,{projectRef,instance:snapshot.database_instance,schemaHash:snapshot.schema_hash});

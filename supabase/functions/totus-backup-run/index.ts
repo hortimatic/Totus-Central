@@ -3,7 +3,7 @@
 // Manual calls additionally require an authenticated administrator.
 import {createHash} from 'node:crypto';
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
-import {NativeBackupZip,SegmentedBackupZip} from "./native-zip.js";
+import {NativeBackupZip,SegmentedBackupZip,cloudBackupZip} from "./native-zip.js";
 import {buildRecoveryArchive,readRecoveryArchive} from "../../../src/recovery-core.js";
 import {writeBackupObject,readBackupObject} from '../../../src/backup-transport.js';
 import {MAX_SAVED_BACKUPS,oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
@@ -171,7 +171,7 @@ async function run(mode:string,req:Request){
   const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('id,storage_path,size_bytes,archive_sha256').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
   if(previousError)throw previousError;
   let cached:any=null;
-  if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=96*1024*1024){
+  if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=120*1024*1024){
    await progress('Leyendo copia anterior verificada');
    const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req));
    if(createHash('sha256').update(prior).digest('hex')!==previous.archive_sha256)throw new Error('La copia anterior no coincide con su huella registrada.');
@@ -190,8 +190,17 @@ async function run(mode:string,req:Request){
     downloadUrls.set(bucket+'/'+link.path,link.signedUrl);
    }
   }
+  const folder=String(config.destination_folder||"automaticas");
+  const pathname=folder+"/Totus_Central_"+new Date().toISOString().replace(/[:.]/g,"-")+"_"+backupId.slice(0,8)+".totusbackup";
+  const CloudZip=cloudBackupZip({path:pathname,write:async(path:string,bytes:Uint8Array)=>{
+   const {error}=await admin.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});
+   if(error)throw new Error('No se guardó un fragmento de la copia: '+error.message);
+  },read:async(path:string)=>{
+   const {data,error}=await admin.storage.from('business-backups').download(path);
+   if(error||!data)throw new Error('No se pudo verificar un fragmento de la copia.');return data;
+  }});
   await progress("Leyendo documentos y preparando archivo");let filesRead=0;
-  const {bytes:archive,manifest}=await buildRecoveryArchive(snapshot,SegmentedBackupZip,async(bucket:string,path:string)=>{
+  const {bytes:archive,manifest}=await buildRecoveryArchive(snapshot,CloudZip,async(bucket:string,path:string)=>{
    const prior=cached?.zip.file('storage/'+bucket+'/'+path);
    if(prior){const bytes=await prior.async('uint8array');delete cached.zip.files['storage/'+bucket+'/'+path];return bytes;}
    for(let attempt=0;attempt<5;attempt++){
@@ -214,9 +223,8 @@ async function run(mode:string,req:Request){
   cached=null;downloadUrls.clear();
   const totalRows=Object.values(snapshot.database).reduce((count:number,rows:unknown)=>count+(rows as unknown[]).length,0);
   const totalFiles=Object.values(snapshot.storage).reduce((count:number,paths:unknown)=>count+(paths as unknown[]).length,0);
-  const folder=String(config.destination_folder||"automaticas");
-  const pathname=folder+"/Totus_Central_"+new Date().toISOString().replace(/[:.]/g,"-")+"_"+backupId.slice(0,8)+".totusbackup";
-  await writeBackupObject(pathname,archive,async(path:string,bytes:Uint8Array)=>{
+
+  if(!archive.stored)await writeBackupObject(pathname,archive,async(path:string,bytes:Uint8Array)=>{
    const {error}=await admin.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});
    if(error)throw new Error('No se guardó la copia: '+error.message);
   },async(path:string)=>{
