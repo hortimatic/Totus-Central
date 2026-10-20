@@ -1088,7 +1088,7 @@ export function expenseRecordHtml(row=null){
       <label class="check-field wide"><input id="exFiscalReviewed" type="checkbox" ${row?.fiscal_reviewed===true?'checked':''}> He cotejado el documento, sus conceptos e impuestos; gasto fiscal revisado</label>
       <p class="small muted wide">Un gasto nuevo permanece sin revisar hasta que marques esta casilla. Los gastos internos nunca se incluirán en el cálculo fiscal.</p>
       ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}
-      ${selectField('Forma de pago','exPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'tarjeta')}
+      ${selectField('Forma de pago','exPayment',[...(taxRecord?[{value:'',label:'No indicado'}]:[]),{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||(taxRecord?'':'tarjeta'))}
       ${selectField('Estado de pago','exPaidStatus',[{value:'pagado',label:'Pagado'},{value:'pendiente',label:'Pendiente'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pagado')}
       ${formField('Fecha de pago','exPaidDate',row?.paid_date||(row?'':isoToday()),'date')}
       ${formField('Importe pagado / devuelto','exPaidAmount',row?.amount_paid??'','number','step="0.01"')}

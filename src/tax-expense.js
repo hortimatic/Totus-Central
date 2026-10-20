@@ -4,7 +4,7 @@ export function taxExpenseRecord(payment){
  supplier_name:'Agencia Tributaria',invoice_number:'Modelo '+payment.tax_type+' · '+payment.quarter+'T '+payment.fiscal_year,
  document_kind:'impuesto',description:'Pago modelo '+payment.tax_type+' · '+payment.quarter+'T '+payment.fiscal_year,
  gross_expense:Number(payment.amount),accounting_amount:0,base_amount:Number(payment.amount),vat_amount:0,re_amount:0,withholding_amount:0,
- amount_paid:Number(payment.amount),paid_status:'pagado',paid_date:payment.payment_date,payment_method:'domiciliado',
+ amount_paid:Number(payment.amount),paid_status:'pagado',paid_date:payment.payment_date,payment_method:'',
  management_only:true,fiscal_reviewed:false,notes:payment.notes||'',document_id:payment.document_id||null};
 }
 export function validateTaxExpense({model,year,quarter,date,amount,internal,status,today}){

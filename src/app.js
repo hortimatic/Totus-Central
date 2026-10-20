@@ -387,6 +387,7 @@ function updateExpenseTaxTreatment(){
  if(tax){
   if(input('exDate'))input('exDate').value=val('exPaidDate');
   if(input('exStore'))input('exStore').value='';
+  const method=input('exPayment');if(method){if(![...method.options].some(o=>o.value===''))method.add(new Option('No indicado',''));method.value=''}
   if(input('exSupplier'))input('exSupplier').value='Agencia Tributaria';
   if(input('exInvoice'))input('exInvoice').value='Modelo '+val('exTaxPaymentModel')+' · '+val('exTaxPaymentQuarter')+'T '+val('exTaxPaymentYear');
   if(input('exPaidStatus'))input('exPaidStatus').value='pagado';
