@@ -75,3 +75,10 @@ Cada estado distingue pruebas automáticas, comprobaciones reales y criterios a�
 
 ### Evidencia
 La batería completa aprobó la revisión b25d6116, incluyendo guardado de 112 MiB, recuperación simulada, filtros, informes, facturación y geometría visual. La revisión 307d48f9 aprobó también la batería completa, incluidas sesiones directas, fallos de transferencia y pruebas visuales. La copia directa real superó después la lectura íntegra y el ensayo temporal de 38 tablas y 57 relaciones. Consultar GitHub Actions para la publicación posterior; no asumir éxito porque exista código.
+
+## Petición posterior: organización y diez copias
+- Conservar toda la información y agrupar Almacenamiento por Supabase, OneDrive y GitHub.
+- Mostrar las cifras principales y ordenar conexión, limpieza y diagnóstico en secciones desplegables.
+- Mantener abiertas esas secciones cuando se actualizan las cifras.
+- Permitir elegir y guardar de 1 a 10 copias; usar ese mismo valor en ambas conservaciones del servidor y en la pantalla.
+- Probar guardado de diez y otros valores, rechazo de valores inválidos, protección de recuperaciones y ausencia de cambios contables.

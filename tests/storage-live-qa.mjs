@@ -13,6 +13,8 @@ try{
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('#storageMeasuredAt').waitFor();
  assert.equal(await page.locator('details.storage-technical').getAttribute('open'),null,'El detalle técnico debe empezar recogido');
+ assert.equal(await page.locator('.storage-provider-card').count(),3,'Cada servicio debe tener su espacio identificado');
+ const stateBefore=await page.evaluate(()=>JSON.stringify({expenses:window.__mockDb.ops_expenses,closings:window.__mockDb.ops_daily_closings,documents:window.__mockDb.ops_documents}));
  await openTechnicalDetails();
  assert((await page.locator('#content').innerText()).includes('Datos verificados en Supabase'),'Falta indicador de fuente y conexión');
  assert(await page.locator('#storageUsageBar').count()===1,'No hay barra de cuota interna');
@@ -38,6 +40,8 @@ try{
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(80);
  await openTechnicalDetails();
+ assert.equal(await page.locator('details.storage-technical').getAttribute('open'),'','Actualizar no debe cerrar el detalle que se estaba consultando');
+ assert.equal(await page.evaluate(()=>JSON.stringify({expenses:window.__mockDb.ops_expenses,closings:window.__mockDb.ops_daily_closings,documents:window.__mockDb.ops_documents})),stateBefore,'Reorganizar almacenamiento no debe alterar datos contables');
  assert((await page.locator('#content').innerText()).includes('No depende de los meses cargados'),'La duración de GitHub debe estar visible sin desplegar detalles');
  await page.getByText('Cómo se calcula y qué puedes limpiar',{exact:true}).click();
  const text=await page.locator('#content').innerText();

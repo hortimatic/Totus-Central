@@ -30,6 +30,7 @@ try{
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  assert.equal(await page.locator('[data-action="admin-section"][data-section="onedrive"]').count(),0,'OneDrive debe estar integrado en Almacenamiento');
  await page.getByText('Almacenamiento · Supabase',{exact:true}).waitFor();
+ await page.locator('details[data-storage-detail="onedrive"] > summary').click();
  await page.getByLabel('Valor de la credencial de Microsoft').waitFor();
  assert((await page.locator('#content').innerText()).includes('Pendiente de preparar'));
  assert.equal(await page.locator('#odClientSecret').getAttribute('type'),'password');

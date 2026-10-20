@@ -90,6 +90,7 @@ jobs:
       - run: node tests/shell-geometry-qa.mjs
       - run: node tests/subtab-walk-qa.mjs
       - run: node tests/storage-live-qa.mjs
+      - run: node tests/storage-organization-qa.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: totus-excel-qa

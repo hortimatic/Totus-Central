@@ -1,3 +1,4 @@
+import {backupRetentionCount} from '../../../src/backup-retention.js';
 import {createDirectBackupTransfer} from './backup-transfer.js';
 import {validateBackupIndex} from '../../../src/backup-index.js';
 
@@ -289,9 +290,13 @@ async function driveQuota(){
  }catch{return {available:false};}
 }
 
+async function savedBackupMaximum(){
+ const c=check(await admin.from('ops_backup_config').select('retention_days').eq('id',1).single(),'No se pudo consultar el número de copias.');
+ return backupRetentionCount(c.retention_days);
+}
 async function backupMirrorSummary(){
  const rows=check(await admin.from('ops_onedrive_backups').select('run_id,archive_size,total_files,verified_at,created_at,ops_backup_runs(status)').order('created_at',{ascending:false}),'No se pudo consultar la copia de seguridad en OneDrive.');
- return {verified:rows.filter((r:any)=>r.verified_at&&r.ops_backup_runs?.status==='success').length,pending:rows.filter((r:any)=>!r.verified_at&&['running','success'].includes(r.ops_backup_runs?.status)).length,bytes:rows.filter((r:any)=>r.verified_at&&r.ops_backup_runs?.status==='success').reduce((n:number,r:any)=>n+Number(r.archive_size),0)};
+ return {maximum:await savedBackupMaximum(),verified:rows.filter((r:any)=>r.verified_at&&r.ops_backup_runs?.status==='success').length,pending:rows.filter((r:any)=>!r.verified_at&&['running','success'].includes(r.ops_backup_runs?.status)).length,bytes:rows.filter((r:any)=>r.verified_at&&r.ops_backup_runs?.status==='success').reduce((n:number,r:any)=>n+Number(r.archive_size),0)};
 }
 async function storedBytes(bucket:string,path:string,maximum:number){
  const blob=check(await admin.storage.from(bucket).download(path),'No se pudo leer un archivo de la copia original.');
@@ -308,12 +313,13 @@ async function uploadAndVerify(access:string,relative:string[],bytes:ArrayBuffer
 }
 
 async function pruneMirroredBackups(access:string){
+ const keep=await savedBackupMaximum();
  const copies=check(await admin.from('ops_onedrive_backups').select('run_id,source_path,folder_path,verified_at,created_at,ops_backup_runs(started_at,status,storage_path)'),'No se pudo comprobar la conservación en OneDrive.');
  const jobs=check(await admin.from('ops_recovery_jobs').select('checkpoint_path,source_path'),'No se pudieron comprobar las copias protegidas.');
  const protectedPaths=new Set(jobs.flatMap((j:any)=>[j.checkpoint_path,j.source_path]).filter(Boolean));
  copies.sort((a:any,b:any)=>String(b.ops_backup_runs?.started_at||'').localeCompare(String(a.ops_backup_runs?.started_at||'')));
  const active=copies.filter((c:any)=>c.verified_at&&c.ops_backup_runs?.status==='success');
- const kept=new Set(active.slice(0,5).map((c:any)=>c.run_id));
+ const kept=new Set(active.slice(0,keep).map((c:any)=>c.run_id));
  for(const old of copies){
   const state=old.ops_backup_runs?.status;
   if(state==='running'||!['success','expired','failed'].includes(state))continue;
@@ -329,8 +335,9 @@ async function pruneMirroredBackups(access:string){
 }
 
 async function mirrorBackups(){
+ const keep=await savedBackupMaximum();
  const c=await config();if(!c.connected||!c.tested_at)throw new Error('Comprueba primero la conexión de OneDrive.');
- const runs=check(await admin.from('ops_backup_runs').select('id,storage_path,size_bytes,archive_sha256,archive_manifest,started_at').eq('status','success').not('storage_path','is',null).not('archive_sha256','is',null).order('started_at',{ascending:false}).limit(5),'No se pudieron consultar las copias completas.');
+ const runs=check(await admin.from('ops_backup_runs').select('id,storage_path,size_bytes,archive_sha256,archive_manifest,started_at').eq('status','success').not('storage_path','is',null).not('archive_sha256','is',null).order('started_at',{ascending:false}).limit(keep),'No se pudieron consultar las copias completas.');
  let run:any=null;
  for(const candidate of runs){
   if(candidate.archive_manifest?.version!==3)continue;

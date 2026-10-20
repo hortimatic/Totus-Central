@@ -1,4 +1,10 @@
-export const MAX_SAVED_BACKUPS=5;
+export const MAX_SAVED_BACKUPS=10;
+export const DEFAULT_SAVED_BACKUPS=5;
+export function backupRetentionCount(value=DEFAULT_SAVED_BACKUPS){
+ const count=Number(value);
+ if(!Number.isInteger(count)||count<1||count>MAX_SAVED_BACKUPS)throw new Error('El número de copias debe estar entre 1 y '+MAX_SAVED_BACKUPS+'.');
+ return count;
+}
 export function backupRunState(run,now=Date.now()){
  if(run.status==='success'&&run.storage_path)return 'saved';
  if(run.status==='expired')return 'removed';
@@ -12,11 +18,12 @@ export function backupFailureSummary(message=''){
  if(/plazo|confirmaci[oó]n/i.test(message))return 'La copia no llegó a confirmarse dentro del tiempo disponible.';
  return 'No se completó la copia. Consulta el detalle para conocer el motivo.';
 }
-export function oldestBackupCandidates(runs,protectedPaths=[]){
+export function oldestBackupCandidates(runs,protectedPaths=[],keep=DEFAULT_SAVED_BACKUPS){
+ keep=backupRetentionCount(keep);
  const protectedSet=new Set(protectedPaths);
  return runs.filter(r=>r.status==='success'&&r.storage_path)
   .sort((a,b)=>String(b.started_at).localeCompare(String(a.started_at))||String(b.id).localeCompare(String(a.id)))
-  .slice(MAX_SAVED_BACKUPS).filter(r=>!protectedSet.has(r.storage_path));
+  .slice(keep).filter(r=>!protectedSet.has(r.storage_path));
 }
 export function backupObjectPaths(path,objects){
  const slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);

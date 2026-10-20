@@ -47,6 +47,9 @@ jobs:
         working-directory: staging-source
         run: |
           node tests/qa.mjs
+          node tests/backup-retention-qa.mjs
+          node tests/storage-planning-qa.mjs
+          node tests/cloud-backup-retention-qa.mjs
           node tests/closed-closing-qa.mjs
           node tests/source-closing-qa.mjs
           node tests/treasury-source-qa.mjs
@@ -117,6 +120,7 @@ jobs:
           node tests/shell-geometry-qa.mjs
           node tests/subtab-walk-qa.mjs
           node tests/storage-live-qa.mjs
+          node tests/storage-organization-qa.mjs
       - name: Assemble single GitHub Pages site with untouched main and /staging
         shell: bash
         run: |

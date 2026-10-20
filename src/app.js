@@ -1,5 +1,5 @@
 import {oneDriveRequest,setOneDriveStatus} from './onedrive-connection.js';
-import {MAX_SAVED_BACKUPS} from './backup-retention.js';
+import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
@@ -94,7 +94,9 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  draftPreviewResizeObserver?.disconnect();
+ const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  $('#content').innerHTML=renderer();
+ document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
  if(active&&tabs.scrollWidth>tabs.clientWidth){
@@ -138,7 +140,11 @@ async function refreshStoragePanel(){
  try{
   const result=await reloadStorageUsage();
   if(isAdmin())try{setOneDriveStatus(await oneDriveRequest('status'));}catch{}
-  if(isStoragePanelVisible())render();
+  if(isStoragePanelVisible()){
+   const scroll=document.scrollingElement?.scrollTop||0;
+   render();
+   window.scrollTo(0,scroll);
+  }
   if(result.status!=='ok')toast('No se pudo consultar Storage: '+result.message,'bad');
  }finally{storageRefreshInFlight=false}
 }
@@ -1548,12 +1554,13 @@ async function saveBackupSettings(){
  if(!/^[a-zA-Z0-9_-]{3,48}$/.test(folder))throw new Error('La carpeta debe tener de 3 a 48 letras, números, _ o -.');
  const frequency=val('backupFrequency');
  if(!['daily','weekly','monthly'].includes(frequency))throw new Error('Frecuencia incorrecta.');
+ const retention=backupRetentionCount(num('backupRetention'));
  const enabled=!!input('backupEnabled')?.checked;
- if(enabled&&!await confirmAction('¿Activar copias automáticas en Supabase STAGING? Se almacenarán los datos y documentos privados con la frecuencia indicada.',{title:'Activar copias programadas',acceptLabel:'Activar programación'}))return;
+ if(enabled&&!await confirmAction('¿Guardar esta programación de copias de staging? El servidor conservará hasta '+retention+' copias completas con la frecuencia indicada.',{title:'Activar copias programadas',acceptLabel:'Activar programación'}))return;
  await rpc('totus_backup_save_settings',{p:{
   enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
   weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),
-  retention_days:MAX_SAVED_BACKUPS,destination_folder:folder
+  retention_days:retention,destination_folder:folder
  }});
  await refresh(enabled?'Programación activada.':'Configuración guardada; programación desactivada.');
 }

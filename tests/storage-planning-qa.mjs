@@ -47,3 +47,7 @@ assert.equal(cloudPlan.retainedBytes,0);
 assert.equal(cloudPlan.otherBackupBytes,34*MB);
 assert.equal(cloudPlan.currentCopyBytes,80*MB,'The full archive must still include originals located in OneDrive');
 assert.equal(cloudPlan.reason,'archive','Remote capacity must never hide the recovery archive safety cap');
+
+const cloudTen=planStorage({usage:{...usage,documents_bytes:0,assets_bytes:MB,all_buckets_bytes:35*MB},reference,runs:cloudRuns,activeOriginalBytes:80*MB,keep:10,archiveLimit:Infinity});
+const cloudFive=planStorage({usage:{...usage,documents_bytes:0,assets_bytes:MB,all_buckets_bytes:35*MB},reference,runs:cloudRuns,activeOriginalBytes:80*MB,keep:5,archiveLimit:Infinity});
+assert.equal(cloudTen.days,cloudFive.days,'Increasing remote copies must not invent Supabase archive traffic or space');

@@ -1,6 +1,6 @@
-import {oneDrivePanel} from '../onedrive-connection.js';
+import {oneDrivePanel,oneDriveStorageCard} from '../onedrive-connection.js';
 import {planStorage} from '../storage-planning.js';
-import {MAX_SAVED_BACKUPS,backupRunState,backupFailureSummary} from '../backup-retention.js';
+import {MAX_SAVED_BACKUPS,backupRetentionCount,backupRunState,backupFailureSummary} from '../backup-retention.js';
 import {archiveAccepted,quarterPresented,lastDrawerBalance} from '../historical-acceptance.js';
 import {SUPABASE_URL} from '../config.js';
 import {reportMonths,selectReportData,matchesText,searchText,selectDocuments} from '../report-period.js';
@@ -577,7 +577,7 @@ function adminFiscalHtml(){
  <div class="stack" style="margin-top:12px">${state.data.categories.length?state.data.categories.slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'es')).map(c=>`<div class="summary-row"><div><b>${esc(c.name)}</b><div class="small muted">${esc(c.code)}${c.aeat_group?' · '+esc(c.aeat_group):''}${c.manager_code?' · gestor '+esc(c.manager_code):''}</div></div><div>${stateBadge(c.active?'activo':'inactivo')}</div><div class="inline-actions">${isAdmin()?btn('Editar','expense-category-edit','secondary',`data-id="${c.id}"`):''}</div></div>`).join(''):'<div class="empty"><strong>Sin categorías</strong><span>Crea categorías antes de registrar gastos.</span></div>'}</div></section>`;
 }
 function adminStorageHtml(){
- const u=state.data.storageUsage||{};
+ const u=state.data.storageUsage||{},keep=backupRetentionCount(state.data.backupConfig?.retention_days);
  const bytes=v=>Number(v||0),mb=v=>(bytes(v)/1048576).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' MB';
  const healthy=u.status==='ok';
  if(!healthy)return `<section class="card card-pad storage-dashboard" role="status">
@@ -606,21 +606,21 @@ function adminStorageHtml(){
  };
  const spaceBars=freeReference&&fileTotalOk?`<section class="storage-space-section"><h2>Espacio usado y disponible</h2><p>Estas barras miden solo Supabase. Los documentos verificados se abren desde OneDrive. En Supabase, documentos pendientes, logos y copias comparten 1 GB; la base de datos tiene su propia capacidad.</p><div class="storage-information-grid">${capacityBar('storageFilesCapacityBar','Todos los archivos',fileTotal,Number(reference.files_limit_bytes),'Supabase Storage · documentos + logos + copias')}${capacityBar('storageDatabaseCapacityBar','Base de datos',dbSize,Number(reference.database_limit_bytes),'Supabase Database · contabilidad, cajas, usuarios y permisos')}${capacityBar('storageDocumentsCapacityBar','Facturas y documentos',bytes(u.documents_bytes),Number(reference.files_limit_bytes),'Supabase Storage · business-documents',true)}${capacityBar('storageAssetsCapacityBar','Logos y recursos',bytes(u.assets_bytes),Number(reference.files_limit_bytes),'Supabase Storage · business-assets',true)}${capacityBar('storageBackupsCapacityBar','Copias de seguridad',backups,Number(reference.files_limit_bytes),'Supabase Storage · business-backups · '+Number(u.backup_count||0)+' archivos y partes',true)}</div><p class="note">Las copias completas verificadas están en OneDrive cuando así lo indica Copias. En Supabase quedan sus índices pequeños y el archivo privado de revisión y recuperación. El margen de archivos mostrado descuenta todos los archivos de este proyecto. Otros proyectos de la organización también pueden consumir ese mismo gigabyte: el libre global se confirma en Supabase → Usage. Las copias locales descargadas no ocupan este espacio.</p></section>`:'';
 
- const planning=planStorage({usage:u,reference,activeOriginalBytes:sum(state.data.documents,d=>Number(d.size_bytes||0))+Number(u.assets_bytes||0),runs:state.data.backupRuns||[],protectedPaths:(state.data.recoveryJobs||[]).flatMap(j=>[j.checkpoint_path,j.source_path])});
- const spacePlanning=planStorage({usage:u,reference,activeOriginalBytes:sum(state.data.documents,d=>Number(d.size_bytes||0))+Number(u.assets_bytes||0),runs:state.data.backupRuns||[],protectedPaths:(state.data.recoveryJobs||[]).flatMap(j=>[j.checkpoint_path,j.source_path]),archiveLimit:Infinity});
+ const planning=planStorage({usage:u,reference,keep,activeOriginalBytes:sum(state.data.documents,d=>Number(d.size_bytes||0))+Number(u.assets_bytes||0),runs:state.data.backupRuns||[],protectedPaths:(state.data.recoveryJobs||[]).flatMap(j=>[j.checkpoint_path,j.source_path])});
+ const spacePlanning=planStorage({usage:u,reference,keep,activeOriginalBytes:sum(state.data.documents,d=>Number(d.size_bytes||0))+Number(u.assets_bytes||0),runs:state.data.backupRuns||[],protectedPaths:(state.data.recoveryJobs||[]).flatMap(j=>[j.checkpoint_path,j.source_path]),archiveLimit:Infinity});
  const duration=days=>days==null?'Más de 10 años en esta simulación':days<30?'Unos '+days+' días':'Unos '+(days/30.4375).toLocaleString('es-ES',{maximumFractionDigits:1})+' meses';
  const forecastHtml=`<section class="card card-pad storage-planning" aria-labelledby="storagePlanningTitle"><h2 id="storagePlanningTitle">Cuánto puede durar el espacio</h2>
  <p>Estimación al ritmo de vuestros 9 meses de datos.</p>
  <div class="kpis">
- ${kpi('Supabase · tiempo restante',spacePlanning.available?duration(spacePlanning.days):'Sin estimación','Una copia al día; hasta '+MAX_SAVED_BACKUPS+' guardadas')}
+ ${kpi('Supabase · tiempo restante',spacePlanning.available?duration(spacePlanning.days):'Sin estimación','Simulación conservadora sin trasladar nuevos archivos a OneDrive')}
  ${kpi('GitHub · tiempo restante','No depende de los meses cargados','Vuestra contabilidad se guarda en Supabase')}
  </div>
  <p id="storageForecastResult" class="note ${spacePlanning.available&&spacePlanning.days!=null&&spacePlanning.days<365?'warn':''}">${!spacePlanning.available?'Faltan datos para estimar la duración.':spacePlanning.days!=null&&spacePlanning.days<365?'Con las copias actuales, el espacio no alcanza para un año.':'Estimación con el ritmo de datos y las copias actuales.'}</p>
  ${planning.available&&planning.reason==='archive'?'<p class="note warn">Copias de seguridad: hay que ampliar su límite técnico antes de '+duration(planning.days).toLowerCase()+'.</p>':''}
- <details><summary>Cómo se calcula y qué puedes limpiar</summary><p>Base de datos: Plazo aún no calculable. Falta medir su crecimiento. GitHub: Sin plazo por cargar datos; repositorio 9,68 MB aproximados, consultado el 20/10/2026.</p>
- <p>${planning.available?mb(planning.monthlyOriginalBytes)+'/mes de documentos y logos. Una copia completa ocupa aproximadamente '+mb(planning.currentCopyBytes)+'.':'Falta la referencia de crecimiento.'} Las cinco copias ocuparán más que las antiguas, hechas durante la carga. Se reserva espacio para terminar la nueva antes de borrar la más vieja. Es una simulación; otros proyectos pueden consumir el espacio compartido.</p>
+ <details data-storage-detail="forecast"><summary>Cómo se calcula y qué puedes limpiar</summary><p>Base de datos: Plazo aún no calculable. Falta medir su crecimiento. GitHub: Sin plazo por cargar datos; repositorio 9,68 MB aproximados, consultado el 20/10/2026.</p>
+ <p>${planning.available?mb(planning.monthlyOriginalBytes)+'/mes de documentos y logos. Una copia completa ocupa aproximadamente '+mb(planning.currentCopyBytes)+'.':'Falta la referencia de crecimiento.'} Las ${keep} copias configuradas se guardan en OneDrive cuando está conectado. Se reserva espacio para terminar la nueva antes de borrar la más vieja. Es una simulación; otros proyectos pueden consumir el espacio compartido.</p>
  <h3>Qué puedes descargar y eliminar para liberar espacio</h3>
- <p>Copias antiguas: <b>${planning.available?planning.downloadableOlderCount+' copias · '+mb(planning.downloadableOlderBytes):'Consultar en Copias'}</b>. Descargar no libera espacio: después tendrías que eliminar las que decidas retirar. Las copias diarias volverán a generarse hasta cinco.</p>
+ <p>Copias antiguas: <b>${planning.available?planning.downloadableOlderCount+' copias · '+mb(planning.downloadableOlderBytes):'Consultar en Copias'}</b>. Descargar no libera espacio: después tendrías que eliminar las que decidas retirar. Las copias diarias volverán a generarse hasta ${keep}.</p>
  <p>Conserva los originales de las facturas en OneDrive. Solo se retiran de Supabase sus duplicados comprobados y protegidos por una copia completa. La limpieza no borra vuestra contabilidad.</p>
  <p class="small muted">GitHub no tiene una caducidad calculable por vuestra actividad contable. Los cambios de código y su historial crecen por separado. <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits" target="_blank" rel="noopener noreferrer">Límites de GitHub Pages</a>: web publicada hasta 1 GB; recomendación de 1 GB para su repositorio fuente. No son una misma cuota.</p>
  </details>
@@ -669,26 +669,33 @@ function adminStorageHtml(){
     <div class="summary-row"><span>Archivos · capacidad compartida de la organización</span><strong>${(Number(reference.files_limit_bytes)/1073741824).toLocaleString('es-ES')} GB</strong></div>
     <p class="note">Documentos, logos y copias comparten el espacio de archivos. Cada carpeta o contenedor no dispone de una cuota independiente. El espacio libre global depende también de otros proyectos de la organización: se comprueba en Supabase → Usage, no se inventa a partir de este proyecto.</p>`:'<p class="note warn">Cuota del plan pendiente de verificar. Los tamaños medidos son reales; no se muestra una capacidad libre del proveedor sin referencia.</p>'}
     <div class="summary-row"><span>Contabilidad, cajas, usuarios y permisos</span><strong>Supabase · base de datos</strong></div>
-    <div class="summary-row"><span>Facturas y justificantes originales</span><strong>Supabase · documentos</strong></div>
+    <div class="summary-row"><span>Facturas y justificantes originales</span><strong>OneDrive · originales verificados</strong></div>
     <div class="summary-row"><span>Logos de las tiendas</span><strong>Supabase · recursos</strong></div>
-    <div class="summary-row"><span>Archivos de copias en la nube</span><strong>Supabase · copias</strong></div>
+    <div class="summary-row"><span>Archivos de copias en la nube</span><strong>OneDrive · copias completas; Supabase · índices y recuperación</strong></div>
     <p class="small muted">La web se publica en GitHub Pages. Los datos de trabajo se guardan en Supabase; el navegador conserva la sesión de acceso. Las descargas y copias locales que decidas guardar quedan fuera de estas cifras.</p>
     <p class="small muted">Supabase → Usage puede mostrar un promedio del periodo y tardar en actualizarse. No es lo mismo que el tamaño actual de los archivos.</p>
     <p class="small muted"><a href="https://supabase.com/pricing" target="_blank" rel="noopener noreferrer">Condiciones actuales del plan Free</a>: no tiene una fecha de fin anunciada; sus condiciones pueden cambiar y los proyectos inactivos pueden pausarse.</p>
    </section>
   </div>
  </div>`;
- return `<div class="stack storage-dashboard">
- ${forecastHtml}
- ${oneDrivePanel()}
- <section class="card card-pad"><div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Espacio actual de los archivos y de la base de datos.</p></div><div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></div><p class="small muted">Actualizado: <b id="storageMeasuredAt">${esc(stamp)}</b> · Plan ${freeReference?'gratuito':'pendiente de verificar'}</p></section>
- ${spaceBars}
- <details class="card card-pad storage-technical"><summary>Detalle de medición, límites de subidas y ubicación de los datos</summary>${technicalHtml}</details>
+ const locationsHtml=`<section class="storage-locations" aria-labelledby="storageLocationsTitle"><div class="storage-section-heading"><h2 id="storageLocationsTitle">Dónde se guarda cada cosa</h2><p>Tres servicios, cada uno con una función. No necesitas dejar encendido un ordenador.</p></div><div class="storage-provider-grid">
+ <article class="storage-provider-card storage-provider-supabase"><span class="storage-provider-name">Supabase</span><h3>Contabilidad y acceso</h3><p>Cajas, gastos, fiscalidad, usuarios y permisos.</p><div class="storage-provider-metrics"><div><span>Base de datos</span><strong>${mb(dbSize)}</strong></div><div><span>Archivos auxiliares</span><strong>${mb(fileTotal)}</strong></div></div><p>Los archivos auxiliares incluyen logos, índices de copias y el relevo privado. Los originales ya verificados están en OneDrive.</p><p class="storage-provider-status">Plan gratuito · datos medidos ${esc(stamp)}</p></article>
+ ${oneDriveStorageCard(planning.available?planning.monthlyOriginalBytes:0)}
+ <article class="storage-provider-card storage-provider-github"><span class="storage-provider-name">GitHub</span><h3>Código y página web</h3><p>Guarda la herramienta, sus versiones, las pruebas y los manuales. No guarda vuestra contabilidad ni las facturas.</p><div class="storage-provider-metrics"><div><span>Repositorio consultado</span><strong>9,68 MB aprox.</strong></div></div><p>Referencia del 20/10/2026. Cargar gastos o cierres no consume espacio aquí. El código y su historial crecen por separado.</p><p class="storage-provider-status">No depende de los meses cargados</p></article>
+ </div></section>`;
+ return `<div class="stack storage-dashboard storage-organized">
+ <header class="storage-page-heading"><div><h2>Almacenamiento</h2><p>Consulta dónde están tus datos, cuánto espacio queda y qué puedes gestionar.</p><span class="small muted">Medición de Supabase: ${esc(stamp)}</span></div><div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${btn('Gestionar copias','admin-section','primary','data-section="backups"')}</div></header>
+ ${locationsHtml}
+ <section class="storage-forecast-section">${forecastHtml}</section>
+ <section class="storage-provider-section"><div class="storage-section-heading"><h2>Almacenamiento · Supabase</h2><p>Base de datos y archivos tienen espacios distintos. Las cinco barras siguientes explican el uso de este proyecto.</p><span id="storageMeasuredAt" class="small muted">${esc(stamp)}</span></div>${spaceBars}</section>
+ <details class="storage-detail-panel" data-storage-detail="onedrive"><summary>Conexión y comprobaciones de OneDrive</summary>${oneDrivePanel()}</details>
+ <details class="storage-detail-panel" data-storage-detail="cleaning"><summary>Revisar archivos que ya no se utilizan</summary><p>Descargar no libera espacio. Conserva las facturas y los documentos contables; solo retira duplicados comprobados y copias antiguas que no necesites.</p><div class="inline-actions">${btn('Ver copias: descargar o eliminar','admin-section','primary','data-section="backups"')}<button class="btn secondary" data-route="documentos">Abrir documentos</button>${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></details>
+ <details class="storage-detail-panel storage-technical" data-storage-detail="technical"><summary>Detalle de medición, límites de subidas y ubicación de los datos</summary>${technicalHtml}</details>
  </div>`;
 }
 function adminBackupHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Copias de seguridad</h2><p>Solo el administrador puede configurar y consultar copias.</p></section>';
- const config=state.data.backupConfig||{},runs=(state.data.backupRuns||[]).slice().sort((a,b)=>String(b.started_at||'').localeCompare(String(a.started_at||'')));
+ const config=state.data.backupConfig||{},keep=backupRetentionCount(config.retention_days),runs=(state.data.backupRuns||[]).slice().sort((a,b)=>String(b.started_at||'').localeCompare(String(a.started_at||'')));
  const active=!!config.enabled,frequency=config.frequency||'daily';
  const hh=String(config.run_hour??3).padStart(2,'0'),mm=String(config.run_minute??0).padStart(2,'0');
  const frequencyOptions=[['daily','Cada día'],['weekly','Cada semana'],['monthly','Cada mes']].map(([v,label])=>`<option value="${v}" ${frequency===v?'selected':''}>${label}</option>`).join('');
@@ -710,13 +717,13 @@ function adminBackupHtml(){
   {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}${btn('Eliminar','backup-history-delete','danger',`data-id="${r.id}" ${paths.length<=1?'disabled title="Conserva al menos una copia"':''}`)}</div>`:''}
  ];
  return `<div class="stack">
-  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de '+MAX_SAVED_BACKUPS)}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación',MAX_SAVED_BACKUPS+' copias más recientes')}</div>
+  <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de '+keep)}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación',keep+' copias más recientes')}</div>
   <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
    <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia completa guardada.'}</p>
    ${lastAttempt?`<p>Último intento: <b>${labels[lastState]}</b> · ${esc(new Date(lastAttempt.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}.</p>`:''}
    ${['failed','unfinished'].includes(lastState)?`<p class="note warn">${esc(backupFailureSummary(lastAttempt?.error_message||''))} Las copias guardadas anteriores se conservan.</p>`:''}
    ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
-   <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de ${MAX_SAVED_BACKUPS} copias completadas.</p>
+   <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de ${keep} copias completadas.</p>
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
    <div class="form-grid" style="margin-top:14px">
@@ -725,10 +732,10 @@ function adminBackupHtml(){
     <div class="field"><label for="backupTime">Hora en España (Madrid)</label><input id="backupTime" type="time" value="${hh}:${mm}"></div>
     <div class="field" id="backupWeekdayWrapper" ${frequency!=='weekly'?'hidden':''}><label for="backupWeekday">Día de la semana</label><select id="backupWeekday">${weekOptions}</select></div>
     <div class="field" id="backupMonthdayWrapper" ${frequency!=='monthly'?'hidden':''}><label for="backupMonthday">Día de cada mes</label><select id="backupMonthday">${days}</select></div>
-    <div class="field"><label for="backupRetention">Máximo de copias guardadas</label><input id="backupRetention" type="number" value="${MAX_SAVED_BACKUPS}" readonly></div>
+    <div class="field"><label for="backupRetention">Máximo de copias guardadas</label><input id="backupRetention" type="number" value="${keep}" min="1" max="${MAX_SAVED_BACKUPS}" step="1" required aria-describedby="backupRetentionHelp"><p id="backupRetentionHelp" class="small muted">Elige de 1 a 10 y pulsa Guardar programación. Solo se retira una antigua después de verificar una nueva; las copias de recuperación protegidas se conservan.</p></div>
     <div class="field"><label for="backupFolder">Carpeta de destino (nube privada)</label><input id="backupFolder" value="${esc(config.destination_folder||'automaticas')}" maxlength="48" pattern="[a-zA-Z0-9_-]{3,48}" placeholder="automaticas"></div>
    </div>
-   <div class="note">Destino: <b>OneDrive → Apps → TotusCentral Staging → 02 Copias de seguridad</b> cuando la conexión está comprobada. El servidor envía y verifica cada fragmento directamente en OneDrive. En Supabase solo queda el índice pequeño. Si falla la transferencia, se muestra el intento fallido y se conservan las copias anteriores. Si OneDrive no está conectado, el respaldo se guarda en Supabase. Se conservan las ${MAX_SAVED_BACKUPS} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
+   <div class="note">Destino: <b>OneDrive → Apps → TotusCentral Staging → 02 Copias de seguridad</b> cuando la conexión está comprobada. El servidor envía y verifica cada fragmento directamente en OneDrive. En Supabase solo queda el índice pequeño. Si falla la transferencia, se muestra el intento fallido y se conservan las copias anteriores. Si OneDrive no está conectado, el respaldo se guarda en Supabase. Se conservan las ${keep} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
    <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias admiten hasta 120 MB (128 MB descomprimidos) y se guardan en fragmentos privados verificados. Un exceso se mostrará como fallo y no como respaldo correcto.</div>
   </section>

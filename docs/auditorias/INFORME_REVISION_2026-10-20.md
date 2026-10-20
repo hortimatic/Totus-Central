@@ -54,3 +54,6 @@ La copia es de aplicación y del mismo proyecto: no incluye contraseñas ni secr
 [Manual operativo para ChatGPT online](../MANUAL_CHATGPT_ONLINE.md) y [punto de entrada](../../RELEVO_CHATGPT_ONLINE.md).
 Los cuatro documentos de entrega se sincronizan y releen en OneDrive → 04 Manuales y funcionamiento. El material fiscal privado permanece fuera del repositorio público.
 No se guardaron nuevas carpetas de trabajo, descargas ni credenciales en este portátil. El paso a main/producción requiere una operación posterior autorizada, con su configuración y comprobación propias.
+
+## Revisión posterior de Almacenamiento
+Se agrupa la información por servicio, manteniendo capacidades, previsiones, ubicación y diagnóstico. Las secciones abiertas se conservan al actualizar. La conservación deja de estar fijada en cinco: la configuración admite de una a diez copias y se comparte entre el guardado, la rotación de Supabase y la rotación de OneDrive. La ampliación no elimina datos ni crea copias adicionales de forma artificial. Se añaden pruebas de persistencia, valores inválidos, conservación de diez, protección de recuperaciones y geometría de las tarjetas.

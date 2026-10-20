@@ -6,7 +6,7 @@ const start=source.indexOf('async function pruneMirroredBackups('),end=source.in
 assert.ok(start>=0&&end>start);
 let state;
 const copies=()=>Array.from({length:6},(_,i)=>({run_id:'r'+i,source_path:'copies/'+i,folder_path:'02 Copias de seguridad/r'+i,verified_at:'2026-10-20',ops_backup_runs:{started_at:String(9-i),status:'success',storage_path:'copies/'+i}}));
-const reset=()=>state={copies:copies(),jobs:[],deleted:[],removed:[],fail:false};
+const reset=()=>state={copies:copies(),jobs:[],deleted:[],removed:[],fail:false,keep:5};
 const admin={
  from(table){
   return {
@@ -23,7 +23,7 @@ const admin={
 const check=(r,label)=>{if(r.error)throw Error(label);return r.data};
 const graph=async(_access,path,options)=>{assert.equal(options.method,'DELETE');state.deleted.push(path);return new Response(null,{status:state.fail?500:204})};
 const encodedPath=p=>p.map(encodeURIComponent).join('/');
-const run=new Function('admin','check','graph','encodedPath',stripTypeScriptTypes(source.slice(start,end))+';return pruneMirroredBackups;')(admin,check,graph,encodedPath);
+const run=new Function('admin','check','graph','encodedPath','savedBackupMaximum',stripTypeScriptTypes(source.slice(start,end))+';return pruneMirroredBackups;')(admin,check,graph,encodedPath,async()=>state.keep);
 reset();await run('access');assert.deepEqual(state.removed,['r5']);
 reset();state.jobs=[{checkpoint_path:'copies/5'}];await run('access');assert.equal(state.deleted.length,0,'Recovery checkpoints must survive ordinary rotation');
 reset();state.copies[1].ops_backup_runs.status='expired';state.copies[1].ops_backup_runs.storage_path=null;await run('access');assert.deepEqual(state.removed,['r1'],'Expired mirrors must be retired even below five ordinary copies');
@@ -35,3 +35,6 @@ reset();state.copies[5].ops_backup_runs.status='running';await run('access');ass
 reset();state.copies[5].ops_backup_runs.status='failed';state.copies[5].verified_at=null;state.copies[5].created_at=new Date(Date.now()-20*60*1000).toISOString();await run('access');assert.deepEqual(state.removed,['r5'],'Old failed partial folders are removed only with an active verified successor');
 reset();state.copies[5].ops_backup_runs.status='failed';state.copies[5].verified_at=null;state.copies[5].created_at=new Date().toISOString();await run('access');assert.equal(state.deleted.length,0,'Fresh failed transfers retain a grace period');
 console.log('CLOUD BACKUP RETENTION QA: five newest ordinary copies, protected checkpoints/sources, expired inventory, last copy and provider failures verified');
+
+reset();state.keep=10;await run('access');assert.equal(state.deleted.length,0,'Increasing retention to ten must preserve all six existing copies');
+reset();state.keep=10;state.copies=Array.from({length:11},(_,i)=>({run_id:'r'+i,source_path:'copies/'+i,folder_path:'02 Copias de seguridad/r'+i,verified_at:'2026-10-20',ops_backup_runs:{started_at:String(99-i),status:'success',storage_path:'copies/'+i}}));await run('access');assert.deepEqual(state.removed,['r10'],'Only the eleventh ordinary copy rotates at a limit of ten');

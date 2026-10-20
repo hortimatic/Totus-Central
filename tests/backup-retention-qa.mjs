@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {obsoleteBackupCandidates,oldestBackupCandidates,backupObjectPaths,backupRunState,backupFailureSummary} from '../src/backup-retention.js';
+import {MAX_SAVED_BACKUPS,DEFAULT_SAVED_BACKUPS,backupRetentionCount,obsoleteBackupCandidates,oldestBackupCandidates,backupObjectPaths,backupRunState,backupFailureSummary} from '../src/backup-retention.js';
 const runs=Array.from({length:13},(_,i)=>({id:String(i),status:'success',started_at:new Date(Date.UTC(2026,0,i+1)).toISOString(),storage_path:'automaticas/'+i+'.totusbackup'}));
 assert.deepEqual(oldestBackupCandidates(runs).map(r=>r.id),['7','6','5','4','3','2','1','0']);
 assert.equal(oldestBackupCandidates(runs.slice(0,5)).length,0);
@@ -21,3 +21,11 @@ assert.equal(obsoleteBackupCandidates([{...old,started_at:'2026-10-21T10:00:00Z'
 console.log('LEGACY BACKUP RETENTION QA: two verified successors, protected paths and future formats enforced');
 
 assert.equal(backupRunState({status:'running',started_at:new Date(Date.now()-4*60*1000).toISOString()}),'unfinished','The UI must reflect the hosted three-minute interruption boundary');
+
+assert.equal(MAX_SAVED_BACKUPS,10);assert.equal(DEFAULT_SAVED_BACKUPS,5);
+assert.equal(backupRetentionCount(10),10);
+for(const bad of [0,11,5.5,'wrong',null])assert.throws(()=>backupRetentionCount(bad));
+assert.deepEqual(oldestBackupCandidates(runs,[],10).map(r=>r.id),['2','1','0']);
+assert.equal(oldestBackupCandidates(runs.slice(0,10),[],10).length,0);
+assert.deepEqual(oldestBackupCandidates(runs,['automaticas/1.totusbackup'],10).map(r=>r.id),['2','0']);
+console.log('CONFIGURABLE RETENTION QA: five default, ten maximum, explicit retention, protected copies and invalid settings verified');

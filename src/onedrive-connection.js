@@ -1,3 +1,4 @@
+import {backupRetentionCount} from './backup-retention.js';
 
 import {state,isAdmin} from './state.js';
 import {esc} from './utils.js';
@@ -23,7 +24,7 @@ const safeLink=value=>{
 };
 export function oneDrivePanel(){
  if(!isAdmin())return '<section class="card card-pad"><h2>OneDrive</h2><p>Solo administración puede preparar esta conexión.</p></section>';
- const s=connectionOwner===(state.user?.email||'')?connectionStatus:null;
+ const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
  const folder=safeLink(s?.folder_url);
  return `<div class="stack"><section class="card card-pad">
  <div class="section-head"><div><h2>OneDrive · documentos y copias</h2><p>Conexión del almacenamiento externo con TotusCentral.</p></div>${btn('Actualizar conexión','onedrive-refresh','secondary')}</div>
@@ -35,8 +36,20 @@ export function oneDrivePanel(){
  <div class="inline-actions">${btn('Preparar autorización de Microsoft','onedrive-begin','secondary',s.configured?'':'disabled')}</div>`}
  `}
  ${s?.connected&&s?.mirror?`<div class="note"><b>Documentos con copia verificada: ${Number(s.mirror.verified)||0} de ${Number(s.mirror.total)||0}</b><p>${Number(s.mirror.pending)||0} pendientes. La copia por lotes se ejecuta en Supabase cada dos minutos y se detiene cuando no queda nada pendiente. Las vistas previas y descargas utilizan OneDrive cuando el documento está verificado. Las nuevas subidas siguen disponibles desde Supabase mientras se completa su traslado.</p><progress aria-label="Documentos copiados y comprobados en OneDrive" max="${Math.max(1,Number(s.mirror.total)||0)}" value="${Number(s.mirror.verified)||0}" style="width:100%"></progress></div>${s.mirror.last_error?'<p class="note warn">Último lote: '+esc(s.mirror.last_error)+'</p>':''}${s.mirror.running?'<p role="status">Copia en curso en el servidor.</p>':''}${btn('Copiar siguiente lote de documentos','onedrive-mirror','secondary',s.tested_at&&s.mirror.pending&&!s.mirror.running?'':'disabled')}`:''}
-${s?.connected&&s?.backups?`<div class="note"><b>Copias completas verificadas en OneDrive: ${Number(s.backups.verified)||0} de 5 como máximo</b><p>${Number(s.backups.pending)||0} en preparación. La copia nocturna de las 00:35 se guarda y verifica directamente aquí. En Supabase solo queda su índice pequeño.</p>${s.backups.last_error?'<p class="warn-text">'+esc(s.backups.last_error)+'</p>':''}${s.backups.running?'<p role="status">Copiando la seguridad en el servidor.</p>':''}</div>${btn('Actualizar copia en OneDrive','onedrive-backup-mirror','secondary',s.tested_at&&!s.backups.running?'':'disabled')}`:''}
- ${s?.quota?.available?`<div class="note"><b>Espacio de tu cuenta OneDrive</b><p>${(Number(s.quota.used)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB usados · ${(Number(s.quota.remaining)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB libres · ${(Number(s.quota.total)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB de capacidad.</p><progress aria-label="Espacio ocupado de la cuenta OneDrive" max="${Number(s.quota.total)}" value="${Number(s.quota.used)}" style="width:100%"></progress></div>`:''}
+${s?.connected&&s?.backups?`<div class="note"><b>Copias completas verificadas en OneDrive: ${Number(s.backups.verified)||0} de ${Number(s.backups.maximum)||backupRetentionCount(state.data.backupConfig?.retention_days)} como máximo</b><p>${Number(s.backups.pending)||0} en preparación. La copia nocturna de las 00:35 se guarda y verifica directamente aquí. En Supabase solo queda su índice pequeño.</p>${s.backups.last_error?'<p class="warn-text">'+esc(s.backups.last_error)+'</p>':''}${s.backups.running?'<p role="status">Copiando la seguridad en el servidor.</p>':''}</div>${btn('Actualizar copia en OneDrive','onedrive-backup-mirror','secondary',s.tested_at&&!s.backups.running?'':'disabled')}`:''}
+ ${s?.quota?.available?`<div class="note"><b>Espacio de tu cuenta OneDrive</b><p>${(Number(s.quota.used)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB usados · ${(Number(s.quota.remaining)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB libres · ${(Number(s.quota.total)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB de capacidad.</p></div>`:''}
  <p class="note">Solo se utiliza la carpeta exclusiva de TotusCentral. Los documentos sustituidos o retirados se conservan en «99 Archivo de documentos retirados». La contabilidad, los usuarios y los permisos permanecen en Supabase.</p>
  </section></div>`;
+}
+
+export function oneDriveStorageCard(monthlyGrowth=0){
+ const s=connectionOwner===(state.user?.email||'')?connectionStatus:null;
+ const size=v=>{const n=Number(v);return Number.isFinite(n)&&n>=0?(n/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB':'Sin medición';};
+ const keep=backupRetentionCount(state.data.backupConfig?.retention_days);
+ const q=s?.quota,known=q?.available&&[q.used,q.total,q.remaining].every(v=>Number.isFinite(Number(v))&&Number(v)>=0)&&Number(q.total)>0;
+ const years=known&&monthlyGrowth>0?Number(q.remaining)/(monthlyGrowth*(keep+1)*12):null;
+ return `<article class="storage-provider-card storage-provider-onedrive"><span class="storage-provider-name">OneDrive</span><h3>Facturas, documentos y copias</h3><p>Carpeta exclusiva de TotusCentral; funciona desde el servidor.</p>
+ <div class="storage-provider-metrics"><div><span>Documentos de Totus</span><strong>${s?.mirror?size(s.mirror.verified_bytes):'Consultando…'}</strong></div><div><span>Copias de Totus</span><strong>${s?.backups?size(s.backups.bytes):'Consultando…'}</strong></div></div>
+ ${known?`<div class="storage-account-capacity"><span>Tu cuenta completa de OneDrive</span><strong>${(Number(q.remaining)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})} GB libres</strong><progress aria-label="Espacio ocupado de la cuenta OneDrive" max="${Number(q.total)}" value="${Number(q.used)}"></progress><p>${(Number(q.used)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})} GB usados de ${(Number(q.total)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})} GB. Incluye tus otros archivos.</p>${years!==null?'<p><b>Duración estimada para Totus: '+(years>10?'más de 10 años':years.toLocaleString('es-ES',{maximumFractionDigits:1})+' años')+'</b>. Al ritmo de 9 meses y conservando '+keep+' copias; no prevé el crecimiento de tus otros archivos.</p>':''}</div>`:'<p class="note">La capacidad de la cuenta se mostrará cuando Microsoft la facilite. No se inventa un espacio libre.</p>'}
+ <p class="storage-provider-status">${s?.connected?'Conectado':s?'Conexión pendiente':'Consultando conexión…'}${s?.mirror?' · '+Number(s.mirror.verified||0)+' documentos verificados':''}${s?.backups?' · '+Number(s.backups.verified||0)+' copias completas':''}</p></article>`;
 }
