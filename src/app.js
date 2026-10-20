@@ -1610,7 +1610,14 @@ async function downloadStoredBackup(id){
  const {run,blob}=await getStoredBackup(id);
  download(blob,run.storage_path.split('/').pop()||'Totus_Central.totusbackup');
 }
+let verifyingStoredBackup=false;
 async function verifyStoredBackup(id){
+ if(verifyingStoredBackup){toast('Ya se está comprobando una copia. Espera a que termine.');return;}
+ verifyingStoredBackup=true;
+ const controls=[...document.querySelectorAll('[data-action="backup-history-verify"]')],labels=controls.map(button=>button.textContent);
+ controls.forEach(button=>{button.disabled=true;if(button.dataset.id===String(id))button.textContent='Comprobando…';});
+ toast('Leyendo y comprobando la copia completa. Puede tardar unos minutos.');
+ try{
  const {blob}=await getStoredBackup(id);
  const result=await inspectBackup(blob);
  const rows=Object.values(result.database).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
@@ -1620,6 +1627,7 @@ async function verifyStoredBackup(id){
  <div class="summary-row"><span>Registros</span><b>${rows}</b></div>
  <div class="summary-row"><span>Archivos</span><b>${files}</b></div>
  <p class="note">${result.manifest.version===3?'Esta copia conserva autores y permisos y se puede revisar para recuperar los datos en este mismo proyecto.':'Esta copia antigua solo admite comprobación; para recuperar autores y permisos necesitas una copia nueva.'}</p></div>`);
+ }finally{verifyingStoredBackup=false;controls.forEach((button,index)=>{if(button.isConnected){button.disabled=false;button.textContent=labels[index];}});}
 }
 
 async function downloadBackup(){

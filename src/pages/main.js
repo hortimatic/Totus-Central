@@ -503,7 +503,7 @@ export function informes(){
  return `<div class="page">
  <section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
  ${g.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?'<p class="note warn">Hay pagos del Excel pendientes de vincular o desglosar. Se conservan para consulta, sin volver a restarlos como gasto. El resultado es provisional.</p>':''}
- <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado real',money(sales-accounting-internal))}</div>
+ <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado tras gastos internos',money(sales-accounting-internal),'Para calcular el IRPF, consulta el beneficio fiscal en Fiscalidad')}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
  <div class="split">
   <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Todos los meses del periodo aplicado. Cada archivo incluye solo las fechas, tienda y búsqueda seleccionadas.</p></div></div>
