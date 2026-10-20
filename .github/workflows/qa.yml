@@ -71,6 +71,7 @@ jobs:
       - run: node tests/deletion-flows-qa.mjs
       - run: node tests/browser-qa.mjs
       - run: node tests/source-reconciliation-qa.mjs
+      - run: node tests/store-reconciliation-qa.mjs
       - run: node tests/layout-audit.mjs
       - run: node tests/visual-geometry-qa.mjs
       - run: node tests/user-screenshot-qa.mjs

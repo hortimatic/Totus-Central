@@ -1,7 +1,24 @@
+/** Accepted store totals retain drawer balances without inventing a payment split. */
+export function sourceClosingReconciled(closing){
+ if(closing?.entry_mode!=='source_snapshot'||closing.status!=='cerrado'||closing.include_in_income!==true)return false;
+ let source;try{source=JSON.parse(closing.source_ref||'{}')}catch{return false;}
+ const approval=source.cash_reconciliation,drawers=source.daily_drawers??source.drawers;
+ if(approval?.version!==1||approval?.scope!=='store'||approval?.status!=='accepted'||!Array.isArray(drawers)||!drawers.length)return false;
+ const valid=v=>v!==null&&v!==''&&v!==undefined&&Number.isFinite(Number(v));
+ const cents=v=>Math.round(Number(v)*100);
+ if(!['opening_cash','actual_cash','cash_sales','card_sales','cash_withdrawals'].every(k=>valid(closing[k])))return false;
+ if(!valid(source.card_sales)||!valid(source.withdrawals)||!valid(approval.total))return false;
+ if(!drawers.every(d=>valid(d.opening)&&valid(d.closing)))return false;
+ if(cents(drawers.reduce((s,d)=>s+Number(d.opening),0))!==cents(closing.opening_cash)||cents(drawers.reduce((s,d)=>s+Number(d.closing),0))!==cents(closing.actual_cash))return false;
+ if(cents(source.card_sales)!==cents(closing.card_sales)||cents(source.withdrawals)!==cents(closing.cash_withdrawals))return false;
+ const cash=Number(closing.actual_cash)+Number(closing.cash_withdrawals)+Number(closing.cash_expenses_declared||0)+Number(closing.cash_extra_out||0)-Number(closing.cash_extra_in||0)-Number(closing.opening_cash);
+ const total=cash+['card_sales','bizum_sales','online_sales','other_income'].reduce((s,k)=>s+Number(closing[k]||0),0);
+ return cents(cash)>=0&&cents(cash)===cents(closing.cash_sales)&&cents(total)===cents(approval.total);
+}
 /** A raw register snapshot may contain carried cash; it is not a verified sale. */
 export function closingIncomeAmount(closing){
  if(!closing||closing.include_in_income===false)return 0;
- if(closing.entry_mode==='source_snapshot'){
+ if(closing.entry_mode==='source_snapshot'&&!sourceClosingReconciled(closing)){
   throw new Error('El dato «al fin» del origen no es una venta verificada. Concilia el cierre y conserva la referencia fiscal del mes.');
  }
  return ['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((total,key)=>total+Number(closing[key]||0),0);

@@ -10,12 +10,12 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
+import {sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
 const acceptedExpense=row=>archiveAccepted(state.data.settings,row,'expense');
-const acceptedClosing=row=>archiveAccepted(state.data.settings,row,'closing');
+const acceptedClosing=row=>archiveAccepted(state.data.settings,row,'closing')||sourceClosingReconciled(row);
 const acceptedBadge='<span class="badge good">Conciliado y aceptado</span>';
 const bookPaymentPending=row=>{if(acceptedExpense(row))return false;try{return JSON.parse(row?.source_ref||'{}').kind==='gestoria_book_entry'&&JSON.parse(row.source_ref).requires_payment_reconciliation===true}catch{return false}};
 const expensePaymentBadge=row=>acceptedExpense(row)?acceptedBadge:bookPaymentPending(row)?'<span class="badge warn">Pago sin conciliar</span>':stateBadge(row.paid_status||'pendiente');
@@ -63,9 +63,9 @@ function dailySalesByDrawer(row){
   }
   return `<span>${esc(drawer.displayName||drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>`;
  }).join('');
- const total=row.entry_mode==='source_snapshot'?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
- const collections=row.entry_mode==='source_snapshot'?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(source.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
- return `<div class="compact-detail">${detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><div class="compact-detail cash-collection-summary">${collections}</div></div>`;
+ const total=row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
+ const collections=row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(source.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
+ return `<div class="compact-detail">${sourceClosingReconciled(row)?'<span>Total conciliado de la tienda; cobros y retiradas sin reparto por caja.</span>':detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><div class="compact-detail cash-collection-summary">${collections}</div></div>`;
 }
 
 export function inicio(){

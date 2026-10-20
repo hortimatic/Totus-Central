@@ -36,6 +36,8 @@ Mostrar el importe y fecha de cada cajón. Si falta un cierre anterior, comunica
 En el Excel histórico, la tarjeta se anotó el día del abono bancario, normalmente al día siguiente. No tratar el abono de hoy como venta de hoy sin contrastar el cierre. «Al fin» de las capturas era ventas del día; el comentario recogía el efectivo restante. Las retiradas de Hortimatic pueden proceder de ambos cajones: no repartir un total arbitrariamente.
 Un cierre mensual ya incluido en ingresos históricos no debe duplicar ingresos al aceptarse.
 
+Los registros importados también pueden conciliarse por el total de tienda cuando las fuentes permiten comprobar aperturas, efectivo final, tarjeta y retiradas, aunque no separen estas últimas entre cajones. El efectivo vendido se calcula como efectivo final + retiradas + gastos en caja + otras salidas − otras entradas − apertura. Se añade la tarjeta del día de venta. Conservar las fuentes y el motivo de aceptación; no inventar el reparto entre cajones ni usar «al fin» como control independiente. La aceptación operativa no confirma la presentación del trimestre. Si el cierre ya tiene referencia fiscal mensual, mantenerlo excluido de ingresos diarios para evitar duplicación.
+
 ## 4. Gastos y facturas recibidas
 1. Buscar número de factura, proveedor, importe y fecha antes de crear nada.
 2. Abrir el original y contrastarlo con el Excel correspondiente. El original determina los datos de la factura; el Excel ayuda a localizar el pago y su tienda.

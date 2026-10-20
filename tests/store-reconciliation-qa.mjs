@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {closingIncomeAmount,sourceClosingReconciled} from '../src/calculations.js';
+const source={card_sales:80,withdrawals:50,daily_drawers:[{name:'Vape',opening:100,closing:120},{name:'Head',opening:40,closing:45}],cash_reconciliation:{version:1,scope:'store',status:'accepted',total:155}};
+const row={entry_mode:'source_snapshot',status:'cerrado',include_in_income:true,opening_cash:140,actual_cash:165,cash_withdrawals:50,cash_sales:75,card_sales:80,source_ref:JSON.stringify(source)};
+assert.equal(sourceClosingReconciled(row),true);
+assert.equal(closingIncomeAmount(row),155);
+assert.equal(sourceClosingReconciled({...row,cash_sales:76}),false);
+assert.throws(()=>closingIncomeAmount({...row,cash_sales:76}),/venta verificada/);
+assert.equal(sourceClosingReconciled({...row,status:'borrador'}),false);
+assert.equal(closingIncomeAmount({...row,include_in_income:false}),0);
+assert.equal(sourceClosingReconciled({...row,source_ref:'{}'}),false);
+assert.equal(sourceClosingReconciled({...row,source_ref:JSON.stringify({...source,withdrawals:null})}),false);
+assert.equal(sourceClosingReconciled({...row,actual_cash:166}),false);
+assert.equal(sourceClosingReconciled({...row,source_ref:JSON.stringify({...source,daily_drawers:[{opening:0,closing:165}]})}),false);
+assert.equal(closingIncomeAmount({entry_mode:'manual',cash_sales:75,card_sales:80}),155);
+console.log('Store reconciliation: cash conservation, source matching, inclusion and tamper rejection passed.');
