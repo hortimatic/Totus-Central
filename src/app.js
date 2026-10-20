@@ -1584,8 +1584,14 @@ async function deleteStoredBackup(id){
 }
 async function readBackupStorage(path){
  const {data,error}=await sb.storage.from('business-backups').download(path);
- if(error||!data)throw new Error('No se pudo leer la copia: '+(error?.message||'No disponible'));
- return data;
+ if(!error&&data)return data;
+ const run=(state.data.backupRuns||[]).find(r=>r.storage_path===path||path.startsWith(r.storage_path+'.part-'));
+ if(!run)throw new Error('No se pudo localizar la copia.');
+ const {data:link,error:locationError}=await sb.functions.invoke('totus-onedrive',{body:{action:'backup-file-url',run_id:run.id,path}});
+ if(locationError||!link?.url||new URL(link.url).protocol!=='https:')throw new Error('No se pudo leer la copia de OneDrive.');
+ const response=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
+ if(!response.ok)throw new Error('No se pudo descargar la copia de OneDrive.');
+ return response.blob();
 }
 async function writeBackupStorage(path,bytes){
  const {error}=await sb.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});

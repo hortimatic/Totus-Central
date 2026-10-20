@@ -23,7 +23,7 @@ mapped={...doc,source_path:doc.storage_path,onedrive_path:'01 Documentos/qa.pdf'
 assert.equal((await resolve(doc.storage_path,request('valid'))).provider,'onedrive');
 mapped.sha256='b'.repeat(64);await assert.rejects(()=>resolve(doc.storage_path,request('valid')),/no coincide/);
 mapped.sha256=doc.sha256;mapped.size_bytes=4;await assert.rejects(()=>resolve(doc.storage_path,request('valid')),/no coincide/);
-mapped.size_bytes=3;mapped.source_path='other.pdf';await assert.rejects(()=>resolve(doc.storage_path,request('valid')),/no coincide/);
+mapped.size_bytes=3;mapped.source_path='other.pdf';assert.equal((await resolve(doc.storage_path,request('valid'))).provider,'supabase','A newly replaced file must remain readable while its new mirror is pending');
 mapped.source_path=doc.storage_path;status=500;await assert.rejects(()=>resolve(doc.storage_path,request('valid')),/No se pudo abrir/);
 status=302;location='http://download.example.invalid/file';await assert.rejects(()=>resolve(doc.storage_path,request('valid')),/No se pudo abrir/);
 await assert.rejects(()=>resolve('../secret',request('valid')),/Ruta/);

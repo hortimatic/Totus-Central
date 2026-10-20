@@ -68,7 +68,9 @@ async function documentLocation(path){
 }
 export async function signedUrl(bucket,path,seconds=120){
  if(bucket==='business-documents'){const remote=await documentLocation(path);if(remote)return remote;}
- const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);assert(r,'Vista previa');return r.data.signedUrl;
+ const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);
+ if(r.error&&(/not found|no encontrado/i.test(r.error.message||'')||Number(r.error.status)===404))throw new Error('Archivo no encontrado. Comprueba su ubicación o restaura el adjunto.');
+ assert(r,'Vista previa');return r.data.signedUrl;
 }
 export async function downloadFile(bucket,path,metadata={}){
  const address=await signedUrl(bucket,path,300);

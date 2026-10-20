@@ -196,13 +196,57 @@ async function mirrorDocuments(){
 }
 
 
+
+async function cleanupRetiredDocuments(){
+ const rows=check(await admin.from('ops_onedrive_cleanup').select('*').is('archived_at',null).order('created_at').limit(5),'No se pudo leer el archivo de documentos retirados.');
+ if(!rows.length)return {archived:0,kept:0,failed:0};
+ const access=await token();await root(access);
+ const folderName='99 Archivo de documentos retirados';
+ await ensurePath(access,[folderName],new Set<string>());
+ const folderResponse=await graph(access,'/me/drive/special/approot:/'+encodedPath([folderName]));
+ if(!folderResponse.ok)throw new Error('No se pudo abrir el archivo de documentos retirados.');
+ const folder=await folderResponse.json();
+ let archived=0,kept=0,failed=0;
+ for(const row of rows){
+  try{
+   const current=check(await admin.from('ops_onedrive_documents').select('document_id').eq('onedrive_path',row.onedrive_path).limit(1),'No se pudo comprobar si el archivo sigue en uso.');
+   let destination=row.onedrive_path,resolution='preserved_in_use';
+   if(current?.length){kept++;}
+   else{
+    const name=cleanPart(row.id+' - '+row.onedrive_path.split('/').pop());
+    destination=folderName+'/'+name;
+    const archivedPath='/me/drive/special/approot:/'+encodedPath(destination.split('/'));
+    let itemResponse=await graph(access,archivedPath);
+    if(itemResponse.status===404){
+     const originalPath='/me/drive/special/approot:/'+encodedPath(row.onedrive_path.split('/'));
+     const originalResponse=await graph(access,originalPath);
+     if(!originalResponse.ok||(await originalResponse.json()).id!==row.onedrive_item_id)throw new Error('El archivo retirado no coincide con su registro. No se ha movido otro archivo.');
+     itemResponse=await graph(access,originalPath,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,parentReference:{id:folder.id},'@microsoft.graph.conflictBehavior':'fail'})});
+    }
+    if(!itemResponse.ok||(await itemResponse.json()).id!==row.onedrive_item_id)throw new Error('OneDrive no confirmó el archivo recuperable.');
+    if(row.sha256){
+     const bytes=await readContent(access,archivedPath+':/content');
+     if(bytes.byteLength!==Number(row.size_bytes)||await fileHash(bytes)!==row.sha256)throw new Error('El archivo conservado no supera la comprobación de integridad.');
+    }
+    resolution='archived';archived++;
+   }
+   check(await admin.from('ops_onedrive_cleanup').update({archived_at:new Date().toISOString(),archived_path:destination,resolution,last_error:null}).eq('id',row.id),'No se pudo registrar el archivo recuperable.');
+  }catch(error){
+   failed++;
+   await admin.from('ops_onedrive_cleanup').update({attempts:Number(row.attempts||0)+1,last_error:error instanceof Error?error.message:'No se pudo archivar el documento.'}).eq('id',row.id);
+  }
+ }
+ return {archived,kept,failed};
+}
+
 async function runDocumentMirror(){
  const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
  const claimed=check(await admin.from('ops_onedrive_config').update({mirror_lock_until:lease,mirror_last_attempt:at,mirror_last_error:null}).eq('id',1).or('mirror_lock_until.is.null,mirror_lock_until.lt.'+at).select('id').maybeSingle(),'No se pudo reservar el lote documental.');
  if(!claimed)throw new Error('Ya hay una copia de documentos en curso. Actualiza su estado en unos minutos.');
  try{
-  const result=await mirrorDocuments();
-  check(await admin.from('ops_onedrive_config').update({mirror_last_error:null}).eq('id',1),'No se pudo actualizar el resultado.');
+  const cleanup=await cleanupRetiredDocuments();
+  const result={...await mirrorDocuments(),cleanup};
+  check(await admin.from('ops_onedrive_config').update({mirror_last_error:cleanup.failed?'Hay archivos retirados pendientes de limpieza. Se reintentará automáticamente.':null}).eq('id',1),'No se pudo actualizar el resultado.');
   return result;
  }catch(error){
   await admin.from('ops_onedrive_config').update({mirror_last_error:error instanceof Error?error.message:'No se pudo copiar el lote.'}).eq('id',1);
@@ -336,7 +380,7 @@ async function documentFileUrl(path:string,req:Request,job=false){
  }
  if(!doc)throw new Error('Documento no disponible.');
  const mapped=check(await admin.from('ops_onedrive_documents').select('source_path,onedrive_path,size_bytes,sha256,verified_at').eq('document_id',doc.id).maybeSingle(),'No se pudo comprobar la ubicación del documento.');
- if(!mapped)return {provider:'supabase'};
+ if(!mapped||mapped.source_path!==doc.storage_path)return {provider:'supabase'};
  if(!mapped.verified_at||mapped.source_path!==doc.storage_path||Number(mapped.size_bytes)!==Number(doc.size_bytes)||!doc.sha256||mapped.sha256!==doc.sha256)throw new Error('La copia de OneDrive no coincide con el documento. No se ha abierto otro archivo.');
  const response=await graph(await token(),'/me/drive/special/approot:/'+encodedPath(mapped.onedrive_path.split('/'))+':/content');
  const location=response.headers.get('Location');
@@ -380,7 +424,7 @@ Deno.serve(async req=>{
    if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
-   if(result.copied)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending}}),'No se pudo registrar el lote automático.');
+   if(result.copied||result.cleanup?.archived)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending,retirados:result.cleanup?.archived||0}}),'No se pudo registrar el lote automático.');
    return json(result);
   }
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));

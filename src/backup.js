@@ -1,4 +1,4 @@
-import {sb,rpc,downloadFile} from './api.js';
+import {rpc,downloadFile} from './api.js';
 import {SUPABASE_URL} from './config.js';
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,loadBoundedRecoveryZip} from './recovery-core.js';
 import {download} from './utils.js';

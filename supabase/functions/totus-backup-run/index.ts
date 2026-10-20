@@ -28,6 +28,7 @@ async function canStart(req:Request,mode:string){
  return !teamError&&staff?.role==="admin"&&staff?.active===true;
 }
 async function verifySavedBackup(id:string,source='supabase',req?:Request){
+ let usedOneDrive=source==='onedrive';
  const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,archive_sha256').eq('id',id).single();
  if(error||!run?.storage_path||run.status!=='success')throw new Error('Copia no disponible.');
  const bytes=await readBackupObject(run.storage_path,async(path:string)=>{
@@ -43,12 +44,12 @@ async function verifySavedBackup(id:string,source='supabase',req?:Request){
    return await download.blob();
   }
   const {data,error}=await admin.storage.from('business-backups').download(path);
-  if(error||!data)throw new Error('No se pudo leer un archivo de la copia.');return data;
+  if(error||!data){if(!req)throw new Error('No se pudo leer un archivo de la copia.');usedOneDrive=true;return oneDriveRead(req,'backup-file-url',{run_id:id,path});}return data;
  });
  const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
  const {data:rehearsal,error:rehearsalError}=await admin.rpc('totus_verify_recovery_rows',{p_payload:archive.database});
  if(rehearsalError||rehearsal?.verified!==true)throw new Error('No se pudo comprobar la recuperación de datos: '+(rehearsalError?.message||'resultado incompleto'));
- return {verified:true,source,rehearsal,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
+ return {verified:true,source:usedOneDrive?'onedrive':'supabase',rehearsal,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
 }
 async function deleteSavedBackup(id:string){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Identificador de copia inválido.');
@@ -134,7 +135,24 @@ async function pruneBackups(){
  }
  return {maximum:MAX_SAVED_BACKUPS,removed,remaining:runs.length-removed.length,warnings};
 }
-async function run(mode:string){
+
+async function oneDriveRead(req:Request,action:string,body:Record<string,string>){
+ const headers:Record<string,string>={'Content-Type':'application/json'};
+ for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)headers[name]=value;}
+ const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers,body:JSON.stringify({action,...body}),signal:AbortSignal.timeout(30000)});
+ const link=await response.json();
+ if(!response.ok||typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('No se pudo localizar un archivo privado en OneDrive.');
+ const download=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
+ if(!download.ok)throw new Error('No se pudo leer un archivo privado de OneDrive.');
+ return await download.blob();
+}
+async function backupRead(path:string,runId:string,req:Request){
+ const {data,error}=await admin.storage.from('business-backups').download(path);
+ if(!error&&data)return data;
+ return oneDriveRead(req,'backup-file-url',{run_id:runId,path});
+}
+
+async function run(mode:string,req:Request){
  const {data:id,error:claimError}=await admin.rpc("totus_backup_claim",{p_mode:mode});
  if(claimError)throw claimError;
  if(!id)return {skipped:true,reason:"No corresponde a este horario o ya existe una copia para este periodo."};
@@ -149,15 +167,12 @@ async function run(mode:string){
   snapshot.project_ref=new URL(SUPABASE_URL).hostname.split(".")[0];
   // Reuse verified immutable originals from the previous full backup. The new
   // archive is still complete; only newly attached files need individual reads.
-  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('storage_path,size_bytes,archive_sha256').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
+  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('id,storage_path,size_bytes,archive_sha256').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
   if(previousError)throw previousError;
   let cached:any=null;
   if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=96*1024*1024){
    await progress('Leyendo copia anterior verificada');
-   const prior=await readBackupObject(previous.storage_path,async(path:string)=>{
-    const {data,error}=await admin.storage.from('business-backups').download(path);
-    if(error||!data)throw new Error('No se pudo leer la copia anterior verificada.');return data;
-   });
+   const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req));
    if(createHash('sha256').update(prior).digest('hex')!==previous.archive_sha256)throw new Error('La copia anterior no coincide con su huella registrada.');
    // Only reuse originals, never its database. The complete archive hash is
    // authenticated by the server record; the builder checks each original again.
@@ -170,7 +185,7 @@ async function run(mode:string){
    const {data:links,error:linkError}=await admin.storage.from(bucket).createSignedUrls(missing,180);
    if(linkError||!links)throw new Error('No se pudo preparar la lectura privada del archivo.');
    for(const link of links){
-    if(link.error||!link.path||!link.signedUrl)throw new Error('No se pudo autorizar un archivo de la copia.');
+    if(link.error||!link.path||!link.signedUrl)continue; // A migrated original may live only in OneDrive.
     downloadUrls.set(bucket+'/'+link.path,link.signedUrl);
    }
   }
@@ -180,7 +195,10 @@ async function run(mode:string){
    if(prior){const bytes=await prior.async('uint8array');delete cached.zip.files['storage/'+bucket+'/'+path];return bytes;}
    for(let attempt=0;attempt<5;attempt++){
     const link=downloadUrls.get(bucket+'/'+path);
-    if(!link)throw new Error('Archivo fuera del inventario de la copia.');
+    if(!link){
+     if(bucket==='business-documents')return oneDriveRead(req,'document-file-url',{path});
+     throw new Error('Archivo fuera del inventario de la copia.');
+    }
     const response=await fetch(link);
     if(response.ok){const value=await response.blob();filesRead++;if(filesRead%100===0)await progress("Documentos leídos: "+filesRead);return value;}
     await response.body?.cancel();
@@ -243,7 +261,7 @@ Deno.serve(async(req)=>{
    return reply(await deleteSavedBackup(String(body?.id||'')));
   }
   if(body?.action==='prune')return reply(await pruneBackups());
-  const result=await run(mode);
+  const result=await run(mode,req);
   const onedrive=await mirrorAfterBackup(req);
   return reply({...result,onedrive});
  }catch(e){return reply({error:String(e instanceof Error?e.message:e)},500);}
