@@ -52,3 +52,26 @@ Una petición no se cierra por haber escrito código. Anotar versión, prueba re
 - Mantener el cambio de producción fuera de alcance hasta autorización.
 - Registrar diferencias contables explicadas; nunca ajustar importes para aparentar coincidencia.
 - No importar octubre: lo introducirá el titular manualmente.
+
+## Lista numerada de seguimiento — 20/10/2026
+
+Ningún punto se considera terminado sin prueba asociada. No borrar originales para aparentar una migración.
+
+1. **Pendiente: lectura principal de documentos desde OneDrive.** Vistas previas, descarga individual y conjunta, documentos asociados a gastos, informes y copias deben usar el proveedor correcto con los mismos permisos.
+2. **Pendiente: limpieza de duplicados en Supabase.** Solo después del punto 1, comprobar tamaño y SHA-256 del destino, registrar ubicación, ensayar acceso y recuperación; retirar únicamente objetos verificados. Conservar base de datos, cuentas, permisos, enlaces, secretos y registros necesarios.
+3. **Pendiente: copias nuevas estables.** La copia existente de OneDrive se ha leído y sus 38 tablas se han ensayado en tablas temporales con 57 relaciones. Generar una copia nueva todavía ha mostrado límites de CPU y HTTP 429. No anunciar estabilidad hasta resolverlos y repetir prueba real completa.
+4. **Pendiente de cierre: recuperación independiente y renovación de conexión.** El ensayo temporal no reemplaza un restablecimiento completo aislado. Comprobar renovación automática sin dispositivo abierto.
+5. **Pendiente de cierre: cinco copias y horario 00:35 Madrid.** Mantener rotación solo después de éxito y verificación. No añadir tareas periódicas duplicadas. Dejar botón de eliminación y estados comprensibles.
+6. **Pendiente de nueva comprobación: capacidad.** Uso real Supabase/OneDrive, fuente y fecha, previsión en meses/años desde nueve meses; medir de nuevo tras migración. No prometer un año sin prueba.
+7. **Pendiente de nueva comprobación: cajas.** Mostrar ventas, tarjeta, retiradas, apertura y cierre por cada cajón; Hortimatic tiene Vape y Head. Inicio debe mostrar efectivo para la próxima apertura con fecha.
+8. **Pendiente de nueva comprobación: fiscalidad.** Nombres comprensibles, cálculo propio de reserva y modelos, acumulados 130, referencias gestoría separadas, internos sin deducir, nóminas/SS/autónomo sin duplicar.
+9. **Pendiente de nueva comprobación: histórico 1T–3T.** Conservar cifras y aceptación del titular sin inventar reparto de retiradas ni ajustes. Octubre se introduce a mano por el titular.
+10. **Pendiente de nueva comprobación: facturación.** Emisor único y numeración compartida, logos por tienda y vista previa encuadrada; emisión, rectificativas, adjuntos y descarga.
+11. **Pendiente de nueva comprobación: gastos/proveedores/documentos.** Asociación inequívoca de factura, originales íntegros, filtros y búsquedas coherentes, altas/edición/borrado protegido.
+12. **Pendiente de nueva comprobación: informes.** Vista previa única clara, columnas fieles a gestoría, exportaciones mensuales, número de factura junto a gastos, todo el rango de fechas incluido.
+13. **Pendiente de nueva comprobación: interfaz completa.** Escritorio/tableta/móvil, modales, campos, textos sencillos, sin solapes ni datos importantes ocultos.
+14. **Pendiente de cierre: seguridad y longevidad.** Permisos reales por rol, denegaciones, concurrencia, errores sin pérdida, integridad de adjuntos, auditoría, dependencias fijadas, código obsoleto demostrado antes de eliminar.
+15. **Pendiente de cierre: informe/manual online.** Explicar trabajo diario, cierres, gastos, facturas, exportación, fiscalidad, copias, recuperación y conexión autorizada de ChatGPT. Código/manual en GitHub; documentación privada solo en servicios privados autorizados; sin materiales locales.
+
+### Evidencia disponible
+La última batería remota comprobó los recorridos simulados de altas, edición, adjuntos, facturación, roles, fiscalidad y descargas. La prueba visual de almacenamiento requiere abrir los detalles técnicos antes de medir sus controles. Es evidencia simulada; no sustituye la verificación real de servicios y datos.

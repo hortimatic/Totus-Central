@@ -173,14 +173,16 @@ async function run(mode:string){
   const {bytes:archive,manifest}=await buildRecoveryArchive(snapshot,SegmentedBackupZip,async(bucket:string,path:string)=>{
    const prior=cached?.zip.file('storage/'+bucket+'/'+path);
    if(prior){const bytes=await prior.async('uint8array');delete cached.zip.files['storage/'+bucket+'/'+path];return bytes;}
-   for(let attempt=0;attempt<3;attempt++){
+   for(let attempt=0;attempt<5;attempt++){
     const link=downloadUrls.get(bucket+'/'+path);
     if(!link)throw new Error('Archivo fuera del inventario de la copia.');
     const response=await fetch(link);
     if(response.ok){const value=await response.blob();filesRead++;if(filesRead%100===0)await progress("Documentos leídos: "+filesRead);return value;}
     await response.body?.cancel();
-    if(attempt===2)throw new Error('No se pudo leer un archivo vinculado: HTTP '+response.status);
-    await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
+    if(attempt===4||![429,502,503,504].includes(response.status))throw new Error('No se pudo leer un archivo vinculado: HTTP '+response.status);
+    const retry=Number(response.headers.get('Retry-After'));
+    const delay=Number.isFinite(retry)&&retry>0?Math.min(10000,retry*1000):Math.min(8000,1000*2**attempt);
+    await new Promise(resolve=>setTimeout(resolve,delay));
    }
    throw new Error('No se pudo completar la lectura.');
   });
