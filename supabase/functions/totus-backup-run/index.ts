@@ -1,6 +1,7 @@
 // STAGING ONLY. A server-side, authenticated backup job; never exposes the service key to clients.
 // Automated calls require the unique secret held in Supabase Vault.
 // Manual calls additionally require an authenticated administrator.
+import {createHash} from 'node:crypto';
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 import {NativeBackupZip,SegmentedBackupZip} from "./native-zip.js";
 import {buildRecoveryArchive,readRecoveryArchive} from "../../../src/recovery-core.js";
@@ -148,15 +149,19 @@ async function run(mode:string){
   snapshot.project_ref=new URL(SUPABASE_URL).hostname.split(".")[0];
   // Reuse verified immutable originals from the previous full backup. The new
   // archive is still complete; only newly attached files need individual reads.
-  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('storage_path,size_bytes').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
+  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('storage_path,size_bytes,archive_sha256').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
   if(previousError)throw previousError;
   let cached:any=null;
-  if(previous?.storage_path&&Number(previous.size_bytes)<=32*1024*1024){
+  if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=96*1024*1024){
+   await progress('Leyendo copia anterior verificada');
    const prior=await readBackupObject(previous.storage_path,async(path:string)=>{
     const {data,error}=await admin.storage.from('business-backups').download(path);
     if(error||!data)throw new Error('No se pudo leer la copia anterior verificada.');return data;
    });
-   cached=await readRecoveryArchive(prior,NativeBackupZip,{projectRef:snapshot.project_ref});
+   if(createHash('sha256').update(prior).digest('hex')!==previous.archive_sha256)throw new Error('La copia anterior no coincide con su huella registrada.');
+   // Only reuse originals, never its database. The complete archive hash is
+   // authenticated by the server record; the builder checks each original again.
+   cached={zip:await NativeBackupZip.loadAsync(prior)};
   }
   const downloadUrls=new Map<string,string>();
   for(const [bucket,paths] of Object.entries(snapshot.storage)){
@@ -179,7 +184,7 @@ async function run(mode:string){
     const response=await fetch(link);
     if(response.ok){const value=await response.blob();filesRead++;if(filesRead%100===0)await progress("Documentos leídos: "+filesRead);return value;}
     await response.body?.cancel();
-    if(attempt===4||![429,502,503,504].includes(response.status))throw new Error('No se pudo leer un archivo vinculado: HTTP '+response.status);
+    if(attempt===4||![429,500,502,503,504].includes(response.status))throw new Error('No se pudo leer un archivo vinculado: HTTP '+response.status);
     const retry=Number(response.headers.get('Retry-After'));
     const delay=Number.isFinite(retry)&&retry>0?Math.min(10000,retry*1000):Math.min(8000,1000*2**attempt);
     await new Promise(resolve=>setTimeout(resolve,delay));
