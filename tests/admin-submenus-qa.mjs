@@ -56,7 +56,8 @@ try{
  assert(!(await page.locator('#backupMonthdayWrapper').isVisible()),'Día mensual visible en semanal');
  await page.locator('#backupTime').fill('09:35');
  await page.locator('#backupWeekday').selectOption('5');
- assert(await page.locator('#backupRetention').getAttribute('readonly')!==null);
+ assert.equal(await page.locator('#backupRetention').getAttribute('readonly'),null);
+ await page.locator('#backupRetention').fill('10');
  await page.locator('#backupFolder').fill('copia_semanal');
  await page.locator('[data-action="backup-settings-save"]').click();
  await page.waitForTimeout(70);
@@ -65,7 +66,7 @@ try{
  assert.equal(config.run_hour,9);
  assert.equal(config.run_minute,35);
  assert.equal(config.weekday,5);
- assert.equal(config.retention_days,5);
+ assert.equal(config.retention_days,10);
  assert.equal(config.destination_folder,'copia_semanal');
  assert.equal(config.enabled,false);
  steps.push('backup:weekly/schedule/destination/retention/save');
@@ -75,15 +76,15 @@ try{
 
  await page.locator('[data-action="backup-settings-save"]').click();
  config=await page.evaluate(()=>window.__mockDb.ops_backup_config[0]);
- assert.equal(config.month_day,12);assert.equal(config.retention_days,5);
+ assert.equal(config.month_day,12);assert.equal(config.retention_days,10);
  steps.push('backup:monthly');
  await page.locator('#backupFrequency').selectOption('daily');
  await page.locator('#backupEnabled').check();
 
  await page.locator('[data-action="backup-settings-save"]').click();
- await page.getByRole('button',{name:'Activar programación',exact:true}).click();
+ await page.getByRole('button',{name:'Guardar cambios',exact:true}).click();
  config=await page.evaluate(()=>window.__mockDb.ops_backup_config[0]);
- assert.equal(config.enabled,true);assert.equal(config.frequency,'daily');assert.equal(config.retention_days,5);
+ assert.equal(config.enabled,true);assert.equal(config.frequency,'daily');assert.equal(config.retention_days,10);
  steps.push('backup:daily+enabled');
  await page.locator('#backupEnabled').uncheck();
  await page.locator('[data-action="backup-settings-save"]').click();
