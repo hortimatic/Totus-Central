@@ -140,4 +140,9 @@ for(const col of ['D','E','F'])if(!rereadJan[`${col}${rrRow}`]?.f)throw new Erro
 const rereadGestor=xlsx.readFile(roundtripGestor,{cellStyles:true,cellFormula:true});
 if(!rereadGestor.SheetNames.includes('Auditoría gestor'))throw new Error('Roundtrip gestor workbook lost audit sheet');
 
+
+const paidTax={id:'tax-info',tax_type:'130',status:'pagado',payment_date:'2026-10-20',fiscal_year:2026,quarter:3,amount:2294.55};
+const taxInfoBook=buildGestorWorkbook({year:2026,settings:{difficult_expense_pct:5,irpf_prepayment_rate:20},stores,closings,expenses,expenseLines,categories,invoices:[],incomeAdjustments:[],fiscalAdjustments:[],taxPayments:[paidTax]});
+if(taxInfoBook.Sheets['Impuestos pagados']?.D5?.v!==2294.55)throw new Error('Falta el pago de impuesto en su hoja informativa');
+if(taxInfoBook.Sheets['Auditoría gestor'].D4.v!==gestorWb.Sheets['Auditoría gestor'].D4.v)throw new Error('El pago del impuesto no debe reducir el beneficio fiscal');
 console.log('Excel QA OK');

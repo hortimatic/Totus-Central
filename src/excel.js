@@ -65,6 +65,7 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
 
 function appendInformationalPayments(wb,taxPayments=[],filters={}){
  const rows=informationalTaxPayments(taxPayments,filters);
+ if(!rows.length)return;
  const ws=XLSX.utils.aoa_to_sheet([
  ['IMPUESTOS PAGADOS · SOLO INFORMACIÓN'],
  ['No reducen el beneficio fiscal ni se suman a los gastos. Son comunes a las dos tiendas.'],
