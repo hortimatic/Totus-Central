@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {money} from '../src/utils.js';
 import {informationalTaxPayments,taxPaymentLabel} from '../src/payment-information.js';
 import {deductibleExpenseTotal,expenseCostAmount} from '../src/calculations.js';
 const p={id:'tax',tax_type:'130',status:'pagado',payment_date:'2026-10-20',fiscal_year:2026,quarter:3,amount:2294.55};
@@ -18,7 +19,7 @@ const {state,patchFilters,setView}=await import('../src/state.js');
 const {gastos,informes}=await import('../src/pages/main.js');
 state.user={role:'admin'};state.data.expenses=[];state.data.taxPayments=payments;
 patchFilters('gastos',filter);setView('gastos',{mode:'list',section:'registros'});
-let html=gastos();assert(html.includes('Impuestos pagados · solo información'));assert(html.includes('2.294,55'));assert(html.includes('No se restan del beneficio fiscal'));
+let html=gastos();assert(html.includes('Impuestos pagados · solo información'));assert(html.includes(money(2294.55)));assert(html.includes('No se restan del beneficio fiscal'));
 patchFilters('informes',filter);html=informes();assert(html.includes('Impuestos pagados · solo información'));
 const app=fs.readFileSync('src/app.js','utf8');
 const attach=app.slice(app.indexOf('async function saveExpenseAttachment('),app.indexOf("async function saveExpense(id="));
