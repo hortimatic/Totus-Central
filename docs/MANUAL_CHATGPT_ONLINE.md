@@ -130,3 +130,10 @@ Comprobar que las operaciones quedan registradas con fecha y autor o identificad
 Trabajar solo en staging. Guardar código, migraciones y fuentes de funciones en GitHub; mantener secretos y datos privados fuera del repositorio.
 Ejecutar pruebas funcionales y visuales pertinentes, revisar GitHub Actions y comprobar la versión publicada. Registrar pruebas reales y simuladas por separado.
 Consultar docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md. No declarar «100 % terminado» sin cerrar los criterios y las limitaciones reales.
+
+## 14. Ruta única de OneDrive y seguridad adicional
+La carpeta activa es Mis archivos → Apps → TotusCentral Staging. Se utiliza la carpeta especial de la aplicación, identificada por Microsoft, no una segunda carpeta manual. La estructura inicial vacía TotusCentral se retiró a la papelera después de verificar que sus cuatro subcarpetas no contenían archivos. No volver a crear esa ruta alternativa.
+Los documentos ya disponen de espejo verificado. Las copias completas compatibles se trasladan también a 02 Copias de seguridad conservando su índice y fragmentos. Cada fragmento se vuelve a leer y comparar; el índice se publica al final. Una copia parcial no cuenta como guardada. Conservar como máximo cinco copias completas verificadas en OneDrive.
+El traslado de seguridad se invoca después de la copia nocturna existente de las 00:35, no mediante otro horario frecuente. Las comprobaciones puntuales son distintas de la programación. La copia de Supabase no se elimina por crear una réplica.
+La capacidad total de OneDrive solo se muestra cuando Microsoft permite leerla con los permisos actuales. No solicitar acceso a todos los archivos únicamente para mostrar una cuota ni convertir el tamaño de Totus en el libre total de la cuenta.
+ChatGPT online requiere conexiones autorizadas o sesión propia en el navegador disponible; no hereda sesiones de este ordenador. Consultar https://learn.chatgpt.com/docs/enterprise/chatgpt-work-overview y verificar una lectura real antes de iniciar operaciones.

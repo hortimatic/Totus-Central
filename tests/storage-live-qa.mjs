@@ -2,12 +2,18 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({locale:'es-ES',viewport:{width:1280,height:960}});
+async function openTechnicalDetails(){
+ const panel=page.locator('details.storage-technical');
+ if(await panel.count()&&await panel.getAttribute('open')===null)await panel.locator('summary').first().click();
+}
 const js=[];page.on('pageerror',e=>js.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('#nav [data-route="administracion"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('#storageMeasuredAt').waitFor();
+ assert.equal(await page.locator('details.storage-technical').getAttribute('open'),null,'El detalle técnico debe empezar recogido');
+ await openTechnicalDetails();
  assert((await page.locator('#content').innerText()).includes('Datos verificados en Supabase'),'Falta indicador de fuente y conexión');
  assert(await page.locator('#storageUsageBar').count()===1,'No hay barra de cuota interna');
  assert(await page.locator('#storageObservedBar').count()===1,'No existe barra superior de espacio total observado');
@@ -31,6 +37,7 @@ try{
  });
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(80);
+ await openTechnicalDetails();
  assert((await page.locator('#content').innerText()).includes('No depende de los meses cargados'),'La duración de GitHub debe estar visible sin desplegar detalles');
  await page.getByText('Cómo se calcula y qué puedes limpiar',{exact:true}).click();
  const text=await page.locator('#content').innerText();
@@ -75,6 +82,7 @@ try{
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(50);
+ await openTechnicalDetails();
  const failed=await page.locator('#content').innerText();
  assert(failed.includes('Datos no disponibles'),'No se notifica fallo de conexión');
  assert(!failed.includes('0,00 MB usados'),'La caída de Supabase se presenta como cero bytes');
@@ -104,6 +112,7 @@ try{
  await page.evaluate(()=>window.__mockStorageFailure=false);
  await page.locator('[data-action="storage-refresh"]').click();
  await page.waitForTimeout(50);
+ await openTechnicalDetails();
  assert((await page.locator('#content').innerText()).includes('Datos verificados en Supabase'),'No se recupera después de un error');
  await page.locator('[data-action="admin-section"][data-section="backups"]').first().click();
  assert(await page.locator('#storageMeasuredAt').count()===0,'Storage sigue renderizando sobre otro submenú');

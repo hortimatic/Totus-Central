@@ -110,3 +110,8 @@ La aplicación Microsoft «TotusCentral Staging» se ha registrado con autorizac
 ## Copia documental por lotes en OneDrive
 El servidor mantiene un espejo verificado de documentos en OneDrive, organizado por año, tipo y mes. Supabase Cron comprueba pendientes cada dos minutos y procesa hasta cinco por lote. Esta tarea es independiente del ordenador y no hace llamadas de red si no hay pendientes. Cada archivo se descarga de Supabase, se copia, se vuelve a descargar de OneDrive y se compara por tamaño y SHA-256 antes de registrar su comprobación. Una reserva de tres minutos evita lotes simultáneos.
 Los originales y sus vistas previas siguen en Supabase. El espejo no equivale a haber trasladado el almacenamiento principal ni las copias de seguridad. No borrar originales ni retirar las cinco copias actuales por esta fase. Consultar docs/MANUAL_CHATGPT_ONLINE.md para el procedimiento diario.
+
+## Continuidad verificada el 20/10/2026 por la mañana
+El espejo documental terminó sin errores. La única carpeta activa de OneDrive es Apps → TotusCentral Staging; la carpeta manual vacía se retiró a la papelera tras comprobar las cuatro subcarpetas.
+El servidor ya ha comprobado una copia completa adicional en OneDrive, conservando íntegros índice y fragmentos. El traslado futuro se vincula al final de la copia nocturna existente de las 00:35. No hay un cron adicional frecuente para copias. Esta réplica todavía no sustituye un ensayo de restauración desde OneDrive ni autoriza retirar sus originales de Supabase.
+El validador compartido de fragmentos está en src/backup-index.js. Mantenerlo en los archivos desplegados de totus-onedrive y totus-backup-run. Consultar docs/MANUAL_CHATGPT_ONLINE.md para la ruta única y los accesos de ChatGPT online.

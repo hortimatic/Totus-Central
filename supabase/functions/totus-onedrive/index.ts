@@ -1,3 +1,4 @@
+import {validateBackupIndex} from '../../../src/backup-index.js';
 
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 const url=Deno.env.get('SUPABASE_URL')!;
@@ -211,6 +212,114 @@ async function runDocumentMirror(){
  }
 }
 
+
+
+async function driveQuota(){
+ try{
+  const access=await token();
+  const response=await fetch('https://graph.microsoft.com/v1.0/me/drive?$select=quota',{headers:{Authorization:'Bearer '+access},signal:AbortSignal.timeout(15000),redirect:'error'});
+  if(!response.ok)return {available:false};
+  const value=(await response.json()).quota;
+  if(!value||!Number.isSafeInteger(value.total)||value.total<=0||!Number.isSafeInteger(value.used)||!Number.isSafeInteger(value.remaining))return {available:false};
+  return {available:true,total:value.total,used:value.used,remaining:value.remaining,measured_at:new Date().toISOString()};
+ }catch{return {available:false};}
+}
+
+async function backupMirrorSummary(){
+ const rows=check(await admin.from('ops_onedrive_backups').select('run_id,archive_size,total_files,verified_at,created_at').order('created_at',{ascending:false}),'No se pudo consultar la copia de seguridad en OneDrive.');
+ return {verified:rows.filter((r:any)=>r.verified_at).length,pending:rows.filter((r:any)=>!r.verified_at).length,bytes:rows.filter((r:any)=>r.verified_at).reduce((n:number,r:any)=>n+Number(r.archive_size),0)};
+}
+async function storedBytes(bucket:string,path:string,maximum:number){
+ const blob=check(await admin.storage.from(bucket).download(path),'No se pudo leer un archivo de la copia original.');
+ if(blob.size>maximum)throw new Error('La copia antigua no está dividida en fragmentos seguros. Crea una copia completa actual antes de trasladarla.');
+ return await blob.arrayBuffer();
+}
+async function uploadAndVerify(access:string,relative:string[],bytes:ArrayBuffer,expected:string){
+ const path='/me/drive/special/approot:/'+encodedPath(relative)+':/content';
+ const write=await graph(access,path,{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:bytes});
+ if(!write.ok)throw new Error('No se pudo guardar un fragmento de la copia (HTTP '+write.status+').');
+ const item=await write.json(),actual=await readContent(access,path);
+ if(actual.byteLength!==bytes.byteLength||await fileHash(actual)!==expected)throw new Error('Un fragmento de OneDrive no coincide con la copia original.');
+ return item;
+}
+
+async function pruneMirroredBackups(access:string){
+ const copies=check(await admin.from('ops_onedrive_backups').select('run_id,folder_path,verified_at,ops_backup_runs(started_at)').not('verified_at','is',null),'No se pudo comprobar la conservación en OneDrive.');
+ copies.sort((a:any,b:any)=>String(b.ops_backup_runs?.started_at||'').localeCompare(String(a.ops_backup_runs?.started_at||'')));
+ for(const old of copies.slice(5)){
+  if(!old.folder_path.startsWith('02 Copias de seguridad/'))throw new Error('Ruta de copia no válida para conservación.');
+  const path='/me/drive/special/approot:/'+encodedPath(old.folder_path.split('/'));
+  const removed=await graph(access,path,{method:'DELETE'});
+  if(!removed.ok&&removed.status!==404)throw new Error('No se pudo retirar una copia antigua de OneDrive.');
+  check(await admin.from('ops_onedrive_backups').delete().eq('run_id',old.run_id).not('verified_at','is',null),'No se pudo actualizar la conservación en OneDrive.');
+ }
+}
+
+async function mirrorBackups(){
+ const c=await config();if(!c.connected||!c.tested_at)throw new Error('Comprueba primero la conexión de OneDrive.');
+ const runs=check(await admin.from('ops_backup_runs').select('id,storage_path,size_bytes,archive_sha256,archive_manifest,started_at').eq('status','success').not('storage_path','is',null).not('archive_sha256','is',null).order('started_at',{ascending:false}).limit(5),'No se pudieron consultar las copias completas.');
+ let run:any=null;
+ for(const candidate of runs){
+  if(candidate.archive_manifest?.version!==3)continue;
+  const saved=check(await admin.from('ops_onedrive_backups').select('verified_at,archive_sha256').eq('run_id',candidate.id).maybeSingle(),'No se pudo comprobar el estado de la copia.');
+  if(!saved?.verified_at||saved.archive_sha256!==candidate.archive_sha256){run=candidate;break;}
+ }
+ if(!run){await pruneMirroredBackups(await token());return {copied:0,complete:true,...await backupMirrorSummary()};}
+ const indexBytes=await storedBytes('business-backups',run.storage_path,8*1024*1024);
+ let parts:any[]=[];
+ const segmented=new Uint8Array(indexBytes)[0]===123;
+ if(segmented){
+  if(indexBytes.byteLength>16384)throw new Error('Índice de copia demasiado grande.');
+  const index=validateBackupIndex(run.storage_path,JSON.parse(new TextDecoder().decode(indexBytes)));
+  if(index.sha256!==run.archive_sha256||index.size!==Number(run.size_bytes))throw new Error('El índice no coincide con la copia registrada.');
+  parts=index.parts;
+ }else{
+  if(indexBytes.byteLength!==Number(run.size_bytes)||await fileHash(indexBytes)!==run.archive_sha256)throw new Error('La copia original no coincide con su huella registrada.');
+ }
+ const folderPath='02 Copias de seguridad/'+String(run.started_at).slice(0,10)+' - '+run.id;
+ const previous=check(await admin.from('ops_onedrive_backups').select('*').eq('run_id',run.id).maybeSingle(),'No se pudo revisar el inventario de OneDrive.');
+ if(previous&&previous.archive_sha256!==run.archive_sha256)throw new Error('La copia registrada cambió; no se sobrescribe una copia verificada.');
+ if(!previous)check(await admin.from('ops_onedrive_backups').insert({run_id:run.id,source_path:run.storage_path,folder_path:folderPath,archive_sha256:run.archive_sha256,archive_size:run.size_bytes,total_files:parts.length+1}),'No se pudo preparar la copia en OneDrive.');
+ const access=await token();await root(access);const known=new Set<string>();
+ const savedFiles=check(await admin.from('ops_onedrive_backup_files').select('source_path,sha256,size_bytes').eq('run_id',run.id),'No se pudo comprobar el progreso de la copia.');
+ const saved=new Map(savedFiles.map((f:any)=>[f.source_path,f]));
+ let count=0;const deadline=Date.now()+80000;
+ for(const part of parts){
+  const prior:any=saved.get(part.path);if(prior?.sha256===part.sha256&&Number(prior.size_bytes)===part.size)continue;
+  if(count>=3||count&&Date.now()>deadline)break;
+  const bytes=await storedBytes('business-backups',part.path,8*1024*1024);
+  if(bytes.byteLength!==part.size||await fileHash(bytes)!==part.sha256)throw new Error('Un fragmento de Supabase no coincide con el índice de la copia.');
+  const relative=[...folderPath.split('/'),...part.path.split('/')];await ensurePath(access,relative.slice(0,-1),known);
+  const item=await uploadAndVerify(access,relative,bytes,part.sha256);
+  check(await admin.from('ops_onedrive_backup_files').upsert({run_id:run.id,source_path:part.path,item_id:item.id,size_bytes:part.size,sha256:part.sha256,verified_at:new Date().toISOString()},{onConflict:'run_id,source_path'}),'No se pudo registrar el fragmento verificado.');
+  saved.set(part.path,{sha256:part.sha256,size_bytes:part.size});count++;
+ }
+ const ready=parts.every((part:any)=>{const f:any=saved.get(part.path);return f?.sha256===part.sha256&&Number(f.size_bytes)===part.size;});
+ if(ready){
+  const relative=[...folderPath.split('/'),...run.storage_path.split('/')];await ensurePath(access,relative.slice(0,-1),known);
+  const digest=await fileHash(indexBytes),item=await uploadAndVerify(access,relative,indexBytes,digest);
+  check(await admin.from('ops_onedrive_backup_files').upsert({run_id:run.id,source_path:run.storage_path,item_id:item.id,size_bytes:indexBytes.byteLength,sha256:digest,verified_at:new Date().toISOString()},{onConflict:'run_id,source_path'}),'No se pudo registrar el índice de la copia.');
+  check(await admin.from('ops_onedrive_backups').update({verified_at:new Date().toISOString()}).eq('run_id',run.id),'No se pudo confirmar la copia completa.');
+ }
+ if(ready)await pruneMirroredBackups(access);
+ return {copied:count,complete:ready,...await backupMirrorSummary()};
+}
+async function runBackupMirror(){
+ const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
+ const claimed=check(await admin.from('ops_onedrive_config').update({backup_mirror_lock_until:lease,backup_mirror_last_attempt:at,backup_mirror_last_error:null}).eq('id',1).or('backup_mirror_lock_until.is.null,backup_mirror_lock_until.lt.'+at).select('id').maybeSingle(),'No se pudo reservar el lote de copias.');
+ if(!claimed)throw new Error('Ya se están copiando archivos de seguridad.');
+ try{return await mirrorBackups();}
+ catch(error){await admin.from('ops_onedrive_config').update({backup_mirror_last_error:error instanceof Error?error.message:'No se pudo copiar el lote de seguridad.'}).eq('id',1);throw error;}
+ finally{await admin.from('ops_onedrive_config').update({backup_mirror_lock_until:null}).eq('id',1).eq('backup_mirror_lock_until',lease);}
+}
+
+
+async function copyBackupBatches(full:boolean){
+ let result=await runBackupMirror();const deadline=Date.now()+90000;
+ while(full&&!result.complete&&Date.now()<deadline)result=await runBackupMirror();
+ return result;
+}
+
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  try{
@@ -225,16 +334,17 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||action!=='mirror-documents')throw new Error('Acceso denegado.');
-   const result=await runDocumentMirror();
-   if(result.copied)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending}}),'No se pudo registrar el lote automático.');
+   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups'].includes(action))throw new Error('Acceso denegado.');
+   const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
+   if(result.copied)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending}}),'No se pudo registrar el lote automático.');
    return json(result);
   }
   const user=await administrator(req);
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();
-   return json({configured,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+   const backups=await backupMirrorSummary();
+   return json({configured,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
   }
   if(action==='configure'){
    const value=String(body.client_secret||'');
@@ -254,6 +364,7 @@ Deno.serve(async req=>{
    auth.search=new URLSearchParams({client_id:c.client_id,response_type:'code',redirect_uri:redirect,response_mode:'form_post',scope:scopes,state,code_challenge:challenge,code_challenge_method:'S256',prompt:'consent'}).toString();
    return json({authorization_url:auth.toString()});
   }
+  if(action==='mirror-backups'){const result=await copyBackupBatches(body.full===true);await audit(user.id,user.email||'','onedrive_copia_seguridad_copiada');return json(result);}
   if(action==='mirror-documents'){const result=await runDocumentMirror();await audit(user.id,user.email||'','onedrive_documentos_copiados');return json(result);}
   if(action==='test'){const result=await test();await audit(user.id,user.email||'','onedrive_prueba_verificada');return json(result);}
   return json({error:'Acción no disponible.'},400);

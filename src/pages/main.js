@@ -527,7 +527,7 @@ export function administracion(){
  const selectedSection=getView('administracion').section||'usuarios';
  const section=selectedSection==='onedrive'?'storage':selectedSection;
  const tabs=`<div class="tabs module-tabs"><button class="tab ${section==='usuarios'?'active':''}" data-action="admin-section" data-section="usuarios">Usuarios</button><button class="tab ${section==='roles'?'active':''}" data-action="admin-section" data-section="roles">Roles y permisos</button><button class="tab ${section==='negocio'?'active':''}" data-action="admin-section" data-section="negocio">Negocio y cajas</button><button class="tab ${section==='fiscal'?'active':''}" data-action="admin-section" data-section="fiscal">Configuración fiscal</button><button class="tab ${section==='storage'?'active':''}" data-action="admin-section" data-section="storage">Almacenamiento</button><button class="tab ${section==='backups'?'active':''}" data-action="admin-section" data-section="backups">Copias</button><button class="tab ${section==='log'?'active':''}" data-action="admin-section" data-section="log">Log</button></div><p class="tab-scroll-hint">Más secciones: desliza la barra horizontalmente →</p>`;
- return `<div class="page">${tabs}${section==='usuarios'?adminUsersHtml():section==='roles'?adminRolesHtml():section==='negocio'?adminBusinessHtml():section==='fiscal'?adminFiscalHtml():section==='storage'?adminStorageHtml()+oneDrivePanel():section==='backups'?adminBackupHtml():adminLogHtml()}</div>`;
+ return `<div class="page">${tabs}${section==='usuarios'?adminUsersHtml():section==='roles'?adminRolesHtml():section==='negocio'?adminBusinessHtml():section==='fiscal'?adminFiscalHtml():section==='storage'?adminStorageHtml():section==='backups'?adminBackupHtml():adminLogHtml()}</div>`;
 }
 function adminUsersHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Usuarios</h2><div class="note">Solo el administrador gestiona usuarios.</div></section>';
@@ -587,7 +587,7 @@ function adminStorageHtml(){
  if(!healthy)return `<section class="card card-pad storage-dashboard" role="status">
   <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>La lectura de almacenamiento no se ha podido verificar. No mostramos 0 MB porque podría ser incorrecto.</p></div>${btn('Reintentar conexión','storage-refresh','primary')}</div>
   <div class="note warn"><b>Datos no disponibles</b> · ${esc(u.message||'Comprueba la conexión a Supabase y los permisos de la sesión.')}</div>
- </section>`;
+ </section>${oneDrivePanel()}`;
  const total=bytes(u.total_bytes),limit=Math.max(1,bytes(u.limit_bytes)),backups=bytes(u.backup_bytes);
  const dbSize=Number(u.database_bytes),measuredTotal=Number(u.observed_total_bytes);
  const measuredOk=Number.isFinite(dbSize)&&dbSize>=0&&Number.isFinite(measuredTotal)&&measuredTotal>=total+backups+dbSize-1;
@@ -631,12 +631,11 @@ function adminStorageHtml(){
  <div class="inline-actions">${btn('Ver copias: descargar o eliminar','admin-section','primary','data-section="backups"')}<button class="btn secondary" data-route="documentos">Abrir documentos</button></div>
  </section>`;
  const caution=total/limit>=.9?'Almacenamiento interno cercano al límite.':total/limit>=.75?'El espacio disponible está disminuyendo.':'Esta cifra se calcula con el límite interno configurado en Totus.';
- return `<div class="stack storage-dashboard">
-  ${forecastHtml}
+ const technicalHtml=`<div class="stack storage-dashboard">
   <section class="card card-pad">
-   <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Tamaño actual de los archivos y de la base de datos, medido en este proyecto.</p></div>
-    <div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></div>
-   <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b id="storageMeasuredAt">${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
+   <div class="section-head"><div><h2>Detalle de medición y límites</h2><p>Tamaño actual de los archivos y de la base de datos, medido en este proyecto.</p></div>
+    </div>
+   <div class="storage-sync-line"><span class="storage-status"><span class="storage-online-dot" aria-hidden="true"></span> Datos verificados en Supabase</span><span>Medición: <b >${esc(stamp)}</b> · Se actualiza cada 60 segundos</span></div>
    <div class="kpis" style="margin-top:16px">${kpi('Todos los archivos de Totus',fileTotalOk?mb(fileTotal):'No disponible','Incluye documentos, logos y archivos de copias')}${kpi('Base de datos · por separado',Number.isFinite(dbSize)?mb(dbSize):'No disponible','No comparte la cuota de los archivos')}</div>
    <p class="note">El espacio de archivos y el de la base de datos tienen límites distintos en Supabase. El límite de ${mb(limit)} de Totus es solo un control interno de documentos y logos; no es la capacidad del plan. <a href="${esc(providerUrl)}" target="_blank" rel="noopener noreferrer">Abrir este proyecto en Supabase</a> → organización → Usage para consultar la cuota y el consumo del plan.</p>
    <div class="storage-observed-heading"><div><h3>Reparto de los componentes medidos</h3><p>Suma de archivos y base de datos. No es el espacio total del servidor ni una cuota única del plan.</p></div><strong id="storageObservedTotal">${measuredOk?mb(measuredTotal):'No disponible'}</strong></div>
@@ -649,7 +648,6 @@ function adminStorageHtml(){
    <div class="storage-usage-footer"><span>${pct.toLocaleString('es-ES',{maximumFractionDigits:1})} % ocupado</span><span>Límite interno de Totus: ${mb(limit)}</span></div>
    <p class="note">${esc(caution)} Este indicador <b>no representa la cuota total contratada con Supabase</b>; mide el límite operativo que Totus aplica a documentos y logos.</p>
   </section>
-  ${spaceBars}
   <div class="kpis">
    ${kpi('Facturas y documentos',mb(u.documents_bytes||0))}
    ${kpi('Logos y recursos',mb(u.assets_bytes||0))}
@@ -683,6 +681,13 @@ function adminStorageHtml(){
     <p class="small muted"><a href="https://supabase.com/pricing" target="_blank" rel="noopener noreferrer">Condiciones actuales del plan Free</a>: no tiene una fecha de fin anunciada; sus condiciones pueden cambiar y los proyectos inactivos pueden pausarse.</p>
    </section>
   </div>
+ </div>`;
+ return `<div class="stack storage-dashboard">
+ ${forecastHtml}
+ ${oneDrivePanel()}
+ <section class="card card-pad"><div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>Espacio actual de los archivos y de la base de datos.</p></div><div class="inline-actions">${btn('Actualizar ahora','storage-refresh','secondary')}${isAdmin()?btn('Revisar logos sin uso','admin-unused-logos','secondary'):''}</div></div><p class="small muted">Actualizado: <b id="storageMeasuredAt">${esc(stamp)}</b> · Plan ${freeReference?'gratuito':'pendiente de verificar'}</p></section>
+ ${spaceBars}
+ <details class="card card-pad storage-technical"><summary>Detalle de medición, límites de subidas y ubicación de los datos</summary>${technicalHtml}</details>
  </div>`;
 }
 function adminBackupHtml(){

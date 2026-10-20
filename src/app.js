@@ -2058,7 +2058,7 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage'){await refreshStoragePanel();if(isAdmin())await refreshOneDrivePanel();}if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
+  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
 
   if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
   if(a==='onedrive-credential-save'){
@@ -2071,6 +2071,11 @@ document.addEventListener('click',async e=>{
    const authorization=new URL(result.authorization_url);
    if(authorization.origin!=='https://login.microsoftonline.com'||authorization.pathname!=='/consumers/oauth2/v2.0/authorize')throw new Error('Dirección de autorización no válida.');
    modal('Autorizar OneDrive',`<p>Microsoft solicitará acceso a la carpeta exclusiva de esta aplicación y permiso para mantener la conexión con el navegador cerrado.</p><p>No concede acceso general a tus otras carpetas.</p><a class="btn primary" href="${esc(authorization.href)}" target="_blank" rel="noopener noreferrer">Continuar en Microsoft</a><p>Después vuelve aquí y pulsa Actualizar conexión.</p>`);return;
+  }
+  if(a==='onedrive-backup-mirror'){
+   toast('Copiando y comprobando la seguridad en OneDrive…');
+   try{const result=await oneDriveRequest('mirror-backups',{full:true});await refreshOneDrivePanel();toast(result.complete?'Copia completa comprobada en OneDrive.':'Se ha avanzado el lote. Actualiza su estado antes de continuar.');}
+   catch(error){await refreshOneDrivePanel().catch(()=>{});throw error;}return;
   }
   if(a==='onedrive-mirror'){
    toast('Copiando y comprobando hasta cinco documentos en el servidor…');

@@ -191,6 +191,20 @@ async function run(mode:string){
   throw e;
  }
 }
+
+async function mirrorAfterBackup(req:Request){
+ try{
+  const {data,error}=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
+  if(error||!data?.connected||!data.tested_at)return {enabled:false};
+  const forward:Record<string,string>={'Content-Type':'application/json'};
+  for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)forward[name]=value;}
+  const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers:forward,body:JSON.stringify({action:'mirror-backups',full:true}),signal:AbortSignal.timeout(115000)});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(result.error||'No se pudo copiar la seguridad en OneDrive.');
+  return {enabled:true,...result};
+ }catch(error){return {enabled:true,warning:String(error instanceof Error?error.message:error)};}
+}
+
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
@@ -204,6 +218,9 @@ Deno.serve(async(req)=>{
    if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);
    return reply(await deleteSavedBackup(String(body?.id||'')));
   }
-  return reply(body?.action==="prune"?await pruneBackups():await run(mode));
+  if(body?.action==='prune')return reply(await pruneBackups());
+  const result=await run(mode);
+  const onedrive=await mirrorAfterBackup(req);
+  return reply({...result,onedrive});
  }catch(e){return reply({error:String(e instanceof Error?e.message:e)},500);}
 });

@@ -2,7 +2,8 @@ import {archiveHash,MAX_ARCHIVE_BYTES} from './recovery-core.js';
 
 // Storage's per-object limit remains unchanged. A large ordinary ZIP is stored
 // as immutable, hashed pieces; publish its index only after verifying every piece.
-export const BACKUP_PART_BYTES=8*1024*1024;
+import {BACKUP_PART_BYTES,validateBackupIndex} from './backup-index.js';
+export {BACKUP_PART_BYTES,validateBackupIndex} from './backup-index.js';
 const INDEX_LIMIT=16384;
 const hashPattern=/^[a-f0-9]{64}$/;
 export async function writeBackupObject(path,input,write,read){
@@ -47,7 +48,7 @@ export async function readBackupObject(path,read){
  if(bytes[0]!==123)return bytes;
  if(bytes.length>INDEX_LIMIT)throw new Error('Índice de copia demasiado grande.');
  const index=JSON.parse(new TextDecoder().decode(bytes));
- validateBackupIndex(path,index);
+ validateBackupIndex(path,index,MAX_ARCHIVE_BYTES);
  const output=new Uint8Array(index.size);let offset=0;
  for(const p of index.parts){
   const value=await read(p.path),piece=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):new Uint8Array(value);
@@ -58,14 +59,3 @@ export async function readBackupObject(path,read){
  return output;
 }
 
-export function validateBackupIndex(path,index){
- if(index.format!=='totus-backup-parts'||index.version!==1||!Number.isSafeInteger(index.size)||index.size<=BACKUP_PART_BYTES||index.size>MAX_ARCHIVE_BYTES
-  ||!hashPattern.test(index.sha256||'')||!Array.isArray(index.parts)||index.parts.length!==Math.ceil(index.size/BACKUP_PART_BYTES))throw new Error('Índice de copia no válido.');
- let total=0;
- for(let n=0;n<index.parts.length;n++){
-  const p=index.parts[n],size=Math.min(BACKUP_PART_BYTES,index.size-total);
-  if(p.path!==path+'.part-'+String(n).padStart(4,'0')||p.size!==size||!hashPattern.test(p.sha256||''))throw new Error('Fragmentos de copia no válidos.');
-  total+=size;
- }
- return index;
-}
