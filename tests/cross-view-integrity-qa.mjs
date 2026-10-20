@@ -17,10 +17,10 @@ assert(loss.includes('danger-text')&&loss.includes('−0,31')||loss.includes('da
 state.data.providerPrices=[];
 const missing=productRecordHtml(product);
 assert(missing.includes('Sin proveedor')&&missing.includes('Añade un proveedor'),'Sin coste, no debe mostrarse margen ficticio positivo');
-state.data.documents=[];state.data.stores=[];state.data.storageUsage={status:'error',message:'Fallo RPC'};
+state.data.documents=[{id:'d1',size_bytes:1048576,original_name:'Prueba.pdf',document_date:'2026-10-20',doc_type:'factura_recibida',status:'revisada'}];state.data.stores=[];state.data.storageUsage={status:'error',message:'Fallo RPC'};
 const offline=documentos();
-assert(offline.includes('No disponible')&&offline.includes('Sin medición fiable'),'Documentos da 0 MB falsos cuando falla Supabase');
+assert(offline.includes('Tamaño de los documentos')&&offline.includes('1,0 MB')&&!offline.includes('% de 500 MB'),'El volumen lógico de documentos debe conservarse aunque falle la medición física de Supabase');
 state.data.storageUsage={status:'ok',total_bytes:1048576,limit_bytes:524288000,documents_count:2,assets_count:1};
 const measured=documentos();
-assert(measured.includes('1,0 MB')&&measured.includes('0,2 % de 500 MB'),'Documentos no muestra métrica autenticada');
+assert(measured.includes('1,0 MB')&&measured.includes('Volumen de los originales')&&!measured.includes('0,2 % de 500 MB'),'El volumen documental no debe presentarse como cuota física de Supabase');
 console.log('CROSS-VIEW QA: Pricing margenes PVP bruto/IVA+RE, sin proveedor, pérdida y métricas reales/caída Storage coherentes');
