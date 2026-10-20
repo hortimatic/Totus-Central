@@ -1940,9 +1940,9 @@ document.addEventListener('click',async e=>{
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
   if(a==='close-modal'){if(el.classList.contains('modal-backdrop')&&e.target!==el)return;closeModal();return}
   if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
-  if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});render();return}
-  if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));return}
-  if(a.endsWith('-month')){thisMonth(a.replace('-month',''));return}
+  if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});await refresh();return}
+  if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));await refresh();return}
+  if(a.endsWith('-month')){thisMonth(a.replace('-month',''));await refresh();return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
   if(a==='home-price-save'){await saveHomePrice();return}
   if(a==='home-report-quarter'){homeReport('quarter');return}
@@ -2148,7 +2148,7 @@ document.addEventListener('click',async e=>{
   if(a==='recovery-confirm'){await performRecovery();return}
   if(a==='recovery-continue'){await performRecovery(el.dataset.id);return}
   if(a==='recovery-download'){await downloadRecoveryFile(el.dataset.id,el.dataset.kind);return}
-  if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));return}
+  if(a==='fiscal-quarter'){setFiscalQuarter(Number(el.dataset.year),Number(el.dataset.quarter));await refresh();return}
   if(a==='tax-payment-edit'){const row=el.dataset.id?state.data.taxPayments.find(x=>x.id===el.dataset.id):null;taxPaymentForm(el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter),row);return}
   if(a==='tax-payment-save'){await saveTaxPayment(el.dataset.id||'',el.dataset.model,Number(el.dataset.year),Number(el.dataset.quarter));return}
   if(a==='tax-payment-delete'){await deleteTaxPayment(el.dataset.id);return}
@@ -2333,7 +2333,7 @@ setInterval(()=>{if(document.visibilityState==='visible'&&state.route==='adminis
 boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});
 
 // Enter applies the same visible controls as the Apply button, without submitting unrelated forms.
-document.addEventListener('keydown',e=>{
+document.addEventListener('keydown',async e=>{
  if(e.key==='Escape'&&$('#modalHost')?.children.length){
   e.preventDefault();
   if(discardPromptActive)closeModal();else allowDiscardDrafts({modalOnly:true}).then(ok=>{if(ok)closeModal()});
@@ -2342,7 +2342,7 @@ document.addEventListener('keydown',e=>{
  if(e.key!=='Enter'||e.target?.tagName==='TEXTAREA')return;
  const prefix=e.target?.closest('[data-filter-prefix]')?.dataset.filterPrefix;
  try{
-  if(prefix){e.preventDefault();applyFilter(prefix)}
+  if(prefix){e.preventDefault();applyFilter(prefix);await refresh()}
   else if(e.target?.id?.startsWith('log')){e.preventDefault();applyAdminLogFilters()}
   else if(e.target?.id==='pricingQuery'){e.preventDefault();patchFilters('pricing',{query:val('pricingQuery').trim()});render()}
   else if(e.target?.id==='expenseSuppliersQuery'){e.preventDefault();patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim()});render()}

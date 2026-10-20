@@ -19,6 +19,7 @@ jobs:
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/source-closing-qa.mjs
       - run: node tests/historical-acceptance-qa.mjs
+      - run: node tests/income-breakdown-qa.mjs
       - run: node tests/payment-information-qa.mjs
       - run: node tests/treasury-source-qa.mjs
       - run: node tests/partial-balances-qa.mjs
@@ -78,6 +79,7 @@ jobs:
       - run: node tests/user-screenshot-qa.mjs
       - run: node tests/modal-geometry-qa.mjs
       - run: node tests/field-sweep-qa.mjs
+      - run: node tests/live-refresh-qa.mjs
       - run: node tests/report-period-qa.mjs
       - run: node tests/second-review-qa.mjs
       - run: node tests/full-flow-qa.mjs

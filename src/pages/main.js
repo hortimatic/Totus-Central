@@ -1,3 +1,4 @@
+import {incomeBreakdown} from '../income-breakdown.js';
 import {informationalTaxPayments,taxPaymentLabel} from '../payment-information.js';
 import {oneDrivePanel,oneDriveStorageCard} from '../onedrive-connection.js';
 import {planStorage} from '../storage-planning.js';
@@ -431,6 +432,23 @@ export function documentRecordHtml(row=null){
  </div>`;
 }
 
+
+function incomeBreakdownHtml(closings,additional){
+ const b=incomeBreakdown(closings,additional);
+ if(!closings.length&&!additional)return '';
+ const row=(label,value)=>`<div class="summary-row"><span>${label}</span><strong>${money(value)}</strong></div>`;
+ return `<section class="card card-pad"><h2>De dónde salen los ingresos</h2>
+ ${row('Cobros con tarjeta de los cierres',b.card)}
+ ${row('Efectivo retirado de las cajas',b.withdrawals)}
+ ${row('Cambio del efectivo en caja · cierre menos apertura',b.cashChange)}
+ ${b.cashMovements?row('Gastos y otros movimientos de efectivo · neto',b.cashMovements):''}
+ ${b.other?row('Otros cobros de los cierres',b.other):''}
+ ${b.difference?row('Diferencias de cierre por comprobar',b.difference):''}
+ ${row('Otros ingresos registrados · fuera de los cierres',b.additional)}
+ ${row('Total de ingresos del periodo',b.total)}
+ <p class="small muted">La tarjeta corresponde al día de la venta. En vuestro Excel se anota al día siguiente, cuando entra en el banco. El efectivo vendido incluye lo retirado y el cambio del dinero que queda en caja, descontando las entradas de dinero ajenas a ventas.</p></section>`;
+}
+
 export function fiscalidad(){
  const f=getFilters('fiscalidad'),to=f.to||isoToday(),year=Number(String(to).slice(0,4)),quarter=Math.max(1,Math.min(4,Math.ceil(Number(String(to).slice(5,7))/3)));
  const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`,yFrom=`${year}-01-01`;
@@ -480,6 +498,7 @@ export function fiscalidad(){
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
   ${pendingFiscal.length?`<p class="note warn fiscal-pending-review" role="status"><b>${pendingFiscal.length} gasto${pendingFiscal.length===1?' fiscal sin revisar':'s fiscales sin revisar'}</b> · No incluido${pendingFiscal.length===1?'':'s'} en esta previsión. Abre cada gasto, comprueba la factura y marca «He cotejado el documento, sus conceptos e impuestos» para incluirlo. El aviso abarca desde enero hasta la fecha de cálculo.</p>`:''}
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Beneficio para calcular el IRPF',money(periodIncome-periodDed),'Ingresos menos gastos deducibles; antes de deducciones y anticipos del modelo 130')}${kpi('Gastos internos · solo información',money(internal),'No se restan del beneficio fiscal ni reducen el IRPF')}</div>
+  ${incomeBreakdownHtml(periodClose,periodIncome-sum(periodClose,closingIncomeAmount))}
   <div class="split">
    <section class="card card-pad fiscal-forecast"><div class="section-head"><div><h2>Previsión de impuestos · ${quarter}T ${year}</h2><p>Se actualiza con tus cierres, facturas y gastos. No utiliza las cifras de gestoría para calcular este trimestre ni supone ventas o gastos que todavía no has registrado.</p></div></div><div class="fiscal-declaration-grid">${forecastCards}</div><div class="summary-row"><b>Total que conviene reservar para este trimestre</b><strong>${money(reserve)}</strong></div><p class="small muted">El 130 acumula desde enero; el 111 y el 115 suman las retenciones de este trimestre. Los gastos internos no reducen estos impuestos.</p>${prior130.estimated>0?`<p class="note">Para planificar se han usado ${money(prior130.estimated)} de anticipos anteriores calculados por la herramienta, todavía sin pago anotado. Al registrar sus liquidaciones reales se actualizará la previsión.</p>`:''}${f.store!=='all'?'<p class="note warn">Has seleccionado una tienda. Para planificar los impuestos del autónomo, selecciona «Todas».</p>':''}</section>
    <section class="card card-pad fiscal-calculation"><div class="section-head"><div><h2>Cálculo de impuestos con los datos registrados</h2><p>Modelo 130 · ${quarter}T ${year}. El IRPF se calcula desde enero hasta ${fmtDate(calculationTo)}, descontando los anticipos anteriores anotados. El resultado es una estimación; el importe presentado por gestoría aparece en su apartado.</p></div></div>
@@ -524,6 +543,7 @@ export function informes(){
  ${g.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?'<p class="note warn">Hay pagos del Excel pendientes de vincular o desglosar. Se conservan para consulta, sin volver a restarlos como gasto. El resultado es provisional.</p>':''}
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado tras gastos internos',money(sales-accounting-internal),'Para calcular el IRPF, consulta el beneficio fiscal en Fiscalidad')}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
+ ${incomeBreakdownHtml(c,sales-sum(c,closingIncomeAmount))}
  ${taxPaymentInformationHtml(f)}
  <div class="split">
   <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Todos los meses del periodo aplicado. Cada archivo incluye solo las fechas, tienda y búsqueda seleccionadas.</p></div></div>

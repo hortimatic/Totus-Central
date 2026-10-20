@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {incomeBreakdown} from '../src/income-breakdown.js';
+const rows=[{id:'a',status:'cerrado',cash_sales:100,card_sales:200,cash_withdrawals:80,opening_cash:50,actual_cash:70,include_in_income:true},{id:'b',status:'cerrado',cash_sales:20,card_sales:40,cash_withdrawals:25,opening_cash:20,actual_cash:15,include_in_income:true},{include_in_income:false,cash_sales:999,card_sales:999}];
+assert.deepEqual(incomeBreakdown(rows,10),{card:240,withdrawals:105,cashChange:15,cashMovements:0,other:0,difference:0,additional:10,total:370});
+const cashMovements={...rows[0],cash_sales:103,cash_extra_out:5,cash_extra_in:2};
+assert.equal(incomeBreakdown([cashMovements]).cashMovements,3);
+assert.equal(incomeBreakdown([cashMovements]).difference,0);
+assert.equal(incomeBreakdown([{...rows[0],cash_sales:101}]).difference,1,'Expose a real closing mismatch instead of hiding it');
+assert.equal(incomeBreakdown([],25).total,25,'Historical references and manual income remain separate');
+console.log('INCOME BREAKDOWN QA: cards, withdrawals, cash carried forward, non-sales movements, excluded sources and explicit differences reconcile.');
