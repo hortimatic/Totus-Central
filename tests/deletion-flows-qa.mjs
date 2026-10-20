@@ -91,6 +91,7 @@ try{
  });
  await go('administracion');
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
+ await page.locator('details[data-storage-detail="cleaning"] > summary').click();
  await page.locator('[data-action="admin-unused-logos"]').click();
  assert(await page.locator('[data-confirm="accept"]').isDisabled(),'Se permite borrar logos sin escribir confirmación');
  await page.locator('[data-confirm="cancel"]').click();

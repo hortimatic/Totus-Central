@@ -64,6 +64,9 @@ jobs:
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/onedrive-connection-qa.mjs
+      - run: node tests/storage-live-qa.mjs
+      - run: node tests/storage-organization-qa.mjs
+      - run: node tests/deletion-flows-qa.mjs
       - run: node tests/browser-qa.mjs
       - run: node tests/source-reconciliation-qa.mjs
       - run: node tests/layout-audit.mjs
@@ -77,7 +80,6 @@ jobs:
       - run: node tests/rectifying-browser-qa.mjs
       - run: node tests/pdf-preview-qa.mjs
       - run: node tests/invoice-logo-qa.mjs
-      - run: node tests/deletion-flows-qa.mjs
       - run: node tests/backup-qa.mjs
       - run: node tests/recovery-browser-qa.mjs
       - run: node tests/form-drafts-qa.mjs
@@ -89,8 +91,6 @@ jobs:
       - run: node tests/mobile-navigation-qa.mjs
       - run: node tests/shell-geometry-qa.mjs
       - run: node tests/subtab-walk-qa.mjs
-      - run: node tests/storage-live-qa.mjs
-      - run: node tests/storage-organization-qa.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: totus-excel-qa

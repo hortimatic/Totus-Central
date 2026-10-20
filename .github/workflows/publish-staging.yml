@@ -94,6 +94,9 @@ jobs:
           node tests/annual-stress-qa.mjs
           python3 -m http.server 4173 >/tmp/totus-staging-qa-http.log 2>&1 &
           node tests/onedrive-connection-qa.mjs
+          node tests/storage-live-qa.mjs
+          node tests/storage-organization-qa.mjs
+          node tests/deletion-flows-qa.mjs
           node tests/browser-qa.mjs
           node tests/source-reconciliation-qa.mjs
           node tests/layout-audit.mjs
@@ -107,7 +110,6 @@ jobs:
           node tests/rectifying-browser-qa.mjs
           node tests/pdf-preview-qa.mjs
           node tests/invoice-logo-qa.mjs
-          node tests/deletion-flows-qa.mjs
           node tests/backup-qa.mjs
           node tests/recovery-browser-qa.mjs
           node tests/form-drafts-qa.mjs
@@ -119,8 +121,6 @@ jobs:
           node tests/mobile-navigation-qa.mjs
           node tests/shell-geometry-qa.mjs
           node tests/subtab-walk-qa.mjs
-          node tests/storage-live-qa.mjs
-          node tests/storage-organization-qa.mjs
       - name: Assemble single GitHub Pages site with untouched main and /staging
         shell: bash
         run: |
