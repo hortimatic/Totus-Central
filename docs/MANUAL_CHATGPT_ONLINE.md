@@ -213,6 +213,6 @@ Para adjuntar el comprobante del banco a un pago de impuesto: Gastos → Solo co
 
 ## Revisión de pagos y presentación de Gastos · 21/10/2026
 
-La pantalla conserva la razón social del proveedor y muestra también Vaperalia para reconocer Internet Inteligente. Las acciones compactas Revisar, Adjuntar factura y Eliminar mantienen las mismas funciones. Los pagos del Excel se pueden consultar con el filtro «Pagos del Excel»; no se consideran por ello un coste interno deducible ni se cuentan otra vez como gasto.
+La pantalla conserva la razón social del proveedor y muestra también Vaperalia para reconocer Internet Inteligente. Las acciones compactas Revisar, Adjuntar y Eliminar mantienen las mismas funciones. Los pagos del Excel se pueden consultar con el filtro «Pagos del Excel»; no se consideran por ello un coste interno deducible ni se cuentan otra vez como gasto.
 
 Al vincular un pago con una factura, comprobar proveedor, número y cantidad. Las fechas del Excel pueden estar cambiadas y no se usarán como prueba de correspondencia. Si el usuario confirma que un importe del Excel está mal, corregirlo según el PDF y conservar el importe original en source_ref.source.amount y en el historial. Una relación con estado reconciled y factura identificada es un pago conciliado, pero sigue siendo evidencia del pago, sin duplicar el gasto de la factura. No marcar como conciliadas relaciones de importe que el usuario no haya aclarado. La pantalla muestra la factura, el importe neto, la diferencia y el importe del Excel anterior a una corrección.
