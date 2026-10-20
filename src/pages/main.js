@@ -253,12 +253,12 @@ export function gastos(){
   ${expenseTabs('registros')}
   ${rows.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?`<p class="note warn">${rows.filter(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)).length} pagos originales pendientes de vincular o desglosar. Se conservan en el listado; no se suman otra vez al gasto ni al cálculo fiscal.</p>`:''}
   <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Pago pendiente o sin conciliar',String(pending))}</div>
+  ${kind!=='fiscal'&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
    ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para los filtros seleccionados.'})}
   </section>
-  ${kind!=='fiscal'&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
  </div>`;
 }
 
