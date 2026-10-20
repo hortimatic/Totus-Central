@@ -14,6 +14,7 @@ try{
  assert.equal(await page.locator('details[data-storage-detail="forecast"]').getAttribute('open'),null);
  assert(await page.locator('.storage-backup-strip').isVisible());
  assert.equal(await page.locator('.storage-capacity-row').count(),4);
+ assert((await page.locator('details[data-storage-detail="capacity"]').textContent()).includes('La base de datos tiene capacidad propia.'));
  assert.equal(await page.locator('.storage-provider-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1,'Service summaries must be compact full-width rows');
  assert.equal(await page.locator('.storage-provider-card').count(),3);
  const details=page.locator('details[data-storage-detail="technical"]');
