@@ -242,7 +242,7 @@ export function gastos(){
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
    &&(kind==='all'||(kind==='payment'?isExpensePaymentEvidence(x):kind==='internal'?x.management_only&&!isExpensePaymentEvidence(x):!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
-   &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
+   &&matchesText(f.query,/internet inteligente/i.test(x.supplier_name||'')?'Vaperalia':'',x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
  const total=sum(rows,expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
  const taxInformation=(kind==='all'||kind==='internal')&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
@@ -308,7 +308,7 @@ function expenseInvoiceSectionHtml(){
    &&(kind==='all'||(expense&&(kind==='payment'?isExpensePaymentEvidence(expense):kind==='internal'?!!expense.management_only&&!isExpensePaymentEvidence(expense):!expense.management_only)))
    &&(paid==='all'||expense?.paid_status===paid)
    &&(attachment==='all'||(attachment==='attached'?!!document:!document))
-   &&(!f.query||matchesText(f.query,searchable)))
+   &&(!f.query||matchesText(f.query,searchable,/internet inteligente/i.test(expense?.supplier_name||document?.supplier_or_customer||'')?'Vaperalia':'')))
   .sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(a.expense?.supplier_name||a.document?.supplier_or_customer||'').localeCompare(String(b.expense?.supplier_name||b.document?.supplier_or_customer||''),'es'));
  const headers=[
   {label:'Fecha / tienda',html:r=>`<b>${fmtDate(r.date)}</b><div class="small muted">${esc(storeName(r.expense?.store_id||r.document?.store_id))}</div>`},

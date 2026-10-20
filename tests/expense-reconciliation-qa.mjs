@@ -14,6 +14,7 @@ state.data.documents=[{id:'doc',original_name:'invoice.pdf'}];
 setView('gastos',{mode:'list',section:'registros'});patchFilters('gastos',{from:'2026-10-01',to:'2026-10-31',store:'all',query:'',kind:'all',paid:'all'});
 let html=gastos();assert(html.includes('Pago conciliado'));assert(html.includes('Vaperalia'));assert(html.includes('INTERNET INTELIGENTE SLU'));assert(html.includes('expense-row-actions'));
 assert(!html.includes('Adjuntar factura / revisar'),'Long button must become a compact action');
-patchFilters('gastos',{kind:'internal'});html=gastos();assert(!html.includes('B/QA'),'Linked bank evidence is not an internal cost');
+patchFilters('gastos',{query:'Vaperalia',kind:'fiscal'});html=gastos();assert(html.includes('INTERNET INTELIGENTE SLU'),'Common supplier name must also find its legal-name invoice');
+patchFilters('gastos',{query:'',kind:'internal'});html=gastos();assert(!html.includes('B/QA'),'Linked bank evidence is not an internal cost');
 patchFilters('gastos',{kind:'payment'});html=gastos();assert(html.includes('Pago conciliado')&&html.includes('B/QA'));
 console.log('EXPENSE RECONCILIATION QA: paid invoice and bank evidence share their original without duplicate cost; pending, internal and linked payment states remain distinct.');

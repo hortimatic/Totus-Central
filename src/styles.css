@@ -543,7 +543,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .expense-row-meta .badge{white-space:normal;line-height:1.35;max-width:160px}
 .expense-register-card .compact-detail{gap:5px;font-size:12px;line-height:1.45}
 .expense-row-actions{display:flex;flex-direction:column;align-items:stretch;gap:7px;width:114px}
-.expense-row-actions .btn,.expense-page .expense-file-actions .btn{min-height:32px;height:auto;padding:7px 9px;font-size:12px;line-height:1.2;border-radius:8px;white-space:nowrap;flex:none}
+.expense-row-actions .btn,.expense-page .expense-file-actions .btn{min-height:32px;height:auto;padding:7px 5px;font-size:12px;font-weight:600;line-height:1.2;border-radius:8px;white-space:nowrap;flex:none}
 .expense-row-actions .btn.secondary{border-color:#cddbeb;background:#f3f7fc;color:#204e83}
 .expense-row-actions .btn.secondary:hover{background:#e7f0fb;border-color:#9fbadd}
 .expense-row-actions .btn.danger{background:#fff;border-color:#edced0;color:#a93d44;font-weight:600}
