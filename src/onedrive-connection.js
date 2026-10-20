@@ -1,11 +1,13 @@
 
-import {sb} from './api.js';
 import {state,isAdmin} from './state.js';
 import {esc} from './utils.js';
 import {btn,kpi} from './components.js';
 
+let connectionStatus=null,connectionOwner='';
+export function setOneDriveStatus(value){connectionStatus=value;connectionOwner=state.user?.email||'';}
 export async function oneDriveRequest(action,values={}){
  if(!isAdmin())throw new Error('Solo administración puede configurar OneDrive.');
+ const {sb}=await import('./api.js');
  const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action,...values}});
  if(error){
   let message='No se pudo contactar con la conexión de OneDrive.';
@@ -21,7 +23,7 @@ const safeLink=value=>{
 };
 export function oneDrivePanel(){
  if(!isAdmin())return '<section class="card card-pad"><h2>OneDrive</h2><p>Solo administración puede preparar esta conexión.</p></section>';
- const s=state.data.onedriveStatus;
+ const s=connectionOwner===(state.user?.email||'')?connectionStatus:null;
  const folder=safeLink(s?.folder_url);
  return `<div class="stack"><section class="card card-pad">
  <div class="section-head"><div><h2>OneDrive · prueba de conexión</h2><p>Preparación del almacenamiento externo. Vuestros documentos y copias siguen en Supabase.</p></div>${btn('Actualizar conexión','onedrive-refresh','secondary')}</div>

@@ -3,7 +3,7 @@ import {createClient} from "npm:@supabase/supabase-js@2.118.0";
 const url=Deno.env.get('SUPABASE_URL')!;
 const admin=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin='https://hortimatic.github.io';
-const redirect=url+'/functions/v1/totus-onedrive?callback=1';
+const redirect=url+'/functions/v1/totus-onedrive/callback';
 const scopes='Files.ReadWrite.AppFolder offline_access';
 const headers={'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json'}});
@@ -106,7 +106,7 @@ Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  try{
   const requestUrl=new URL(req.url);
-  if(requestUrl.searchParams.get('callback')==='1'){
+  if(requestUrl.pathname.endsWith('/callback')){
    if(req.method!=='POST')return json({error:'Método no permitido.'},405);
    return await callback(req);
   }

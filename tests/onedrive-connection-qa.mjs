@@ -10,7 +10,7 @@ try{
   const {sb}=await import('../src/api.js');
   const before=sb.functions.invoke;
   window.odCalls=[];
-  window.odState={configured:false,connected:false,client_id:'test-client',redirect_uri:'https://example.supabase.co/functions/v1/totus-onedrive?callback=1'};
+  window.odState={configured:false,connected:false,client_id:'test-client',redirect_uri:'https://example.supabase.co/functions/v1/totus-onedrive/callback'};
   sb.functions.invoke=async(name,options)=>{
    if(name!=='totus-onedrive')return before(name,options);
    const b=options.body;window.odCalls.push(b.action);

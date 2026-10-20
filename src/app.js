@@ -1,4 +1,4 @@
-import {oneDriveRequest} from './onedrive-connection.js';
+import {oneDriveRequest,setOneDriveStatus} from './onedrive-connection.js';
 import {MAX_SAVED_BACKUPS} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
@@ -2304,6 +2304,6 @@ document.addEventListener('keydown',e=>{
 
 async function refreshOneDrivePanel(){
  if(!isAdmin())throw new Error('Solo administración puede consultar esta conexión.');
- state.data.onedriveStatus=await oneDriveRequest('status');
+ setOneDriveStatus(await oneDriveRequest('status'));
  if(state.route==='administracion'&&getView('administracion').section==='onedrive')render();
 }
