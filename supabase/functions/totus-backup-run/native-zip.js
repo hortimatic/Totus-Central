@@ -32,10 +32,10 @@ export class NativeBackupZip{
    chunks.push(bytes);total+=bytes.length;complete=final;
   });
   for(const [name,bytes]of this.entries){
-   // Large PDFs/images already contain compressed streams. Recompressing them
-   // spends the hosted worker's CPU budget for little benefit. Compress the
-   // database and small originals; keep large originals byte-for-byte in STORE.
-   const compress=compression==='DEFLATE'&&(bytes.length<=256*1024||name==='database.json'||name==='manifest.json');
+   // Preserve originals in STORE. PDFs and images are already compressed;
+   // recompressing hundreds of small originals can exceed the hosted CPU budget.
+   // Compress only the database and manifest.
+   const compress=compression==='DEFLATE'&&(name==='database.json'||name==='manifest.json');
    const file=compress?new NativeDeflateFile(name):new NativeStoredFile(name);
    writer.add(file);file.push(bytes,true);
    this.entries.delete(name);
@@ -96,7 +96,7 @@ export class SegmentedBackupZip extends NativeBackupZip{
   const bytes=typeof content==='string'?new TextEncoder().encode(content):content instanceof Uint8Array?content:new Uint8Array(content);
   // Package each original as it arrives instead of retaining a second complete
   // uncompressed inventory alongside the finished archive in the hosted worker.
-  const compress=bytes.length<=256*1024||name==='database.json'||name==='manifest.json';
+  const compress=name==='database.json'||name==='manifest.json';
   const file=compress?new NativeDeflateFile(name):new NativeStoredFile(name);
   this.writer.add(file);file.push(bytes,true);
   return this;

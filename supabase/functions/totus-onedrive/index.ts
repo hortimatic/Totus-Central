@@ -314,6 +314,19 @@ async function runBackupMirror(){
 }
 
 
+
+async function backupFileUrl(runId:string,path:string){
+ if(!/^[0-9a-f-]{36}$/i.test(runId)||!path)throw new Error('Referencia de copia no válida.');
+ const backup=check(await admin.from('ops_onedrive_backups').select('folder_path,verified_at').eq('run_id',runId).maybeSingle(),'No se pudo comprobar la copia en OneDrive.');
+ if(!backup?.verified_at)throw new Error('La copia de OneDrive todavía no está completa.');
+ const file=check(await admin.from('ops_onedrive_backup_files').select('source_path').eq('run_id',runId).eq('source_path',path).maybeSingle(),'No se pudo comprobar el archivo de copia.');
+ if(!file)throw new Error('Archivo fuera del inventario de la copia.');
+ const response=await graph(await token(),'/me/drive/special/approot:/'+encodedPath([...backup.folder_path.split('/'),...path.split('/')])+':/content');
+ const location=response.headers.get('Location');
+ if(response.status!==302||!location||new URL(location).protocol!=='https:')throw new Error('No se pudo preparar una descarga segura de OneDrive.');
+ return {url:location};
+}
+
 async function copyBackupBatches(full:boolean){
  let result=await runBackupMirror();const deadline=Date.now()+90000;
  while(full&&!result.complete&&Date.now()<deadline)result=await runBackupMirror();
@@ -334,12 +347,14 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
    if(result.copied)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending}}),'No se pudo registrar el lote automático.');
    return json(result);
   }
   const user=await administrator(req);
+  if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();

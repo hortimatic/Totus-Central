@@ -26,15 +26,28 @@ async function canStart(req:Request,mode:string){
  const {data:staff,error:teamError}=await admin.from("team_members").select("role,active").ilike("email",user.email).maybeSingle();
  return !teamError&&staff?.role==="admin"&&staff?.active===true;
 }
-async function verifySavedBackup(id:string){
+async function verifySavedBackup(id:string,source='supabase',req?:Request){
  const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,archive_sha256').eq('id',id).single();
  if(error||!run?.storage_path||run.status!=='success')throw new Error('Copia no disponible.');
  const bytes=await readBackupObject(run.storage_path,async(path:string)=>{
+  if(source==='onedrive'){
+   if(!req)throw new Error('Falta autorización para leer OneDrive.');
+   const headers:Record<string,string>={'Content-Type':'application/json'};
+   for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)headers[name]=value;}
+   const linkResponse=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers,body:JSON.stringify({action:'backup-file-url',run_id:id,path}),signal:AbortSignal.timeout(30000)});
+   const link=await linkResponse.json();
+   if(!linkResponse.ok||typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('No se pudo leer la copia de OneDrive.');
+   const download=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
+   if(!download.ok)throw new Error('No se pudo descargar un archivo de OneDrive.');
+   return await download.blob();
+  }
   const {data,error}=await admin.storage.from('business-backups').download(path);
   if(error||!data)throw new Error('No se pudo leer un archivo de la copia.');return data;
  });
  const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
- return {verified:true,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
+ const {data:rehearsal,error:rehearsalError}=await admin.rpc('totus_verify_recovery_rows',{p_payload:archive.database});
+ if(rehearsalError||rehearsal?.verified!==true)throw new Error('No se pudo comprobar la recuperación de datos: '+(rehearsalError?.message||'resultado incompleto'));
+ return {verified:true,source,rehearsal,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
 }
 async function deleteSavedBackup(id:string){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Identificador de copia inválido.');
@@ -133,10 +146,10 @@ async function run(mode:string){
   snapshot.project_ref=new URL(SUPABASE_URL).hostname.split(".")[0];
   // Reuse verified immutable originals from the previous full backup. The new
   // archive is still complete; only newly attached files need individual reads.
-  const {data:previous,error:previousError}=await admin.from('ops_backup_runs').select('storage_path').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
+  const {data:previous,error:previousError}=await admin.from('ops_backup_runs') .select('storage_path,size_bytes').eq('status','success').order('started_at',{ascending:false}).limit(1).maybeSingle();
   if(previousError)throw previousError;
   let cached:any=null;
-  if(previous?.storage_path){
+  if(previous?.storage_path&&Number(previous.size_bytes)<=32*1024*1024){
    const prior=await readBackupObject(previous.storage_path,async(path:string)=>{
     const {data,error}=await admin.storage.from('business-backups').download(path);
     if(error||!data)throw new Error('No se pudo leer la copia anterior verificada.');return data;
@@ -213,7 +226,7 @@ Deno.serve(async(req)=>{
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
   if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
-  if(body?.action==='verify')return reply(await verifySavedBackup(String(body?.id||'')));
+  if(body?.action==='verify'||body?.action==='verify-onedrive')return reply(await verifySavedBackup(String(body?.id||''),body.action==='verify-onedrive'?'onedrive':'supabase',req));
   if(body?.action==='delete'){
    if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);
    return reply(await deleteSavedBackup(String(body?.id||'')));
