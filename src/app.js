@@ -413,13 +413,14 @@ async function saveTaxExpenseFromGastos(id=''){
  const current=id?state.data.taxPayments.find(x=>x.id===id):null;
  if(id&&!current)throw new Error('El pago ya no está disponible.');
  if(state.data.taxPayments.some(x=>x.id!==id&&x.tax_type===row.tax_type&&Number(x.fiscal_year)===row.fiscal_year&&Number(x.quarter)===row.quarter))throw new Error('Ya existe este modelo para ese trimestre. Revisa el pago existente en Control interno; no lo dupliques.');
+ const paymentId=id||crypto.randomUUID();
  row.notes=val('exNotes').trim();row.document_id=current?.document_id||null;
  let newDoc=null;
  const file=input('exFile')?.files?.[0];
- if(file){newDoc=await createStoredDocument(file,{date:row.payment_date,docType:'impuesto',status:'archivada',party:'Agencia Tributaria',number:'Modelo '+row.tax_type+' · '+row.period_label,category:'justificante_bancario',notes:'Solo control interno; excluido del cálculo fiscal',linkedType:'tax_payment',...(id?{linkedId:id}:{})});row.document_id=newDoc.id}
+ if(file){newDoc=await createStoredDocument(file,{date:row.payment_date,docType:'impuesto',status:'archivada',party:'Agencia Tributaria',number:'Modelo '+row.tax_type+' · '+row.period_label,category:'justificante_bancario',notes:'Solo control interno; excluido del cálculo fiscal',linkedType:'tax_payment',linkedId:paymentId});row.document_id=newDoc.id}
  try{
   if(id)await update('ops_tax_payments',id,row);
-  else await insert('ops_tax_payments',{...row,created_by:state.user?.id||null});
+  else await insert('ops_tax_payments',{...row,id:paymentId,created_by:state.user?.id||null});
  }catch(error){throw newDoc?await rollbackNewDocument(newDoc,error):error}
  resetView('gastos');await refresh('Impuesto guardado como solo control interno, sin duplicar el gasto fiscal.');
 }
