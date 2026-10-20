@@ -1576,11 +1576,11 @@ async function deleteStoredBackup(id){
  if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible.');
  if((state.data.backupRuns||[]).filter(r=>r.status==='success'&&r.storage_path).length<=1)throw new Error('Conserva al menos una copia guardada.');
  const date=new Date(run.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'});
- if(!await confirmAction('Se eliminará definitivamente la copia del '+date+' y todos sus fragmentos de Supabase. Los datos actuales de la herramienta no se borran. Esta acción no se puede deshacer.',{title:'Eliminar copia de seguridad',acceptLabel:'Eliminar esta copia'}))return;
+ if(!await confirmAction('Se eliminará definitivamente la copia del '+date+' y sus fragmentos guardados en la nube. Los datos actuales de la herramienta no se borran. Esta acción no se puede deshacer.',{title:'Eliminar copia de seguridad',acceptLabel:'Eliminar esta copia'}))return;
  const {data,error}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual',action:'delete',id}});
  if(error||data?.error)throw new Error(data?.error||error?.message||'No se pudo eliminar la copia.');
  if(data?.deleted!==id)throw new Error('La eliminación no se ha confirmado. Actualiza y comprueba el estado.');
- await refresh('Copia eliminada de Supabase.');
+ await refresh(data.cloud_warning||'Copia eliminada de la lista y del almacenamiento.');
 }
 async function readBackupStorage(path){
  const {data,error}=await sb.storage.from('business-backups').download(path);

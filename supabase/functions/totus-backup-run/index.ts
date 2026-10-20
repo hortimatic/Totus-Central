@@ -52,7 +52,7 @@ async function verifySavedBackup(id:string,source='supabase',req?:Request){
  if(rehearsalError||rehearsal?.verified!==true)throw new Error('No se pudo comprobar la recuperación de datos: '+(rehearsalError?.message||'resultado incompleto'));
  return {verified:true,source:usedOneDrive?'onedrive':'supabase',rehearsal,scope:archive.manifest.scope,tables:Object.fromEntries(Object.entries(archive.database).map(([table,rows])=>[table,(rows as any[]).length])),files:Object.fromEntries(Object.entries(archive.manifest.storage).map(([bucket,paths])=>[bucket,(paths as any[]).length])),identities:archive.manifest.identities.length,revision:archive.manifest.revision};
 }
-async function deleteSavedBackup(id:string){
+async function deleteSavedBackup(id:string,req:Request){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Identificador de copia inválido.');
  const {data:runs,error}=await admin.from('ops_backup_runs').select('id,status,started_at,storage_path').in('status',['success','running']);
  if(error)throw error;
@@ -72,7 +72,14 @@ async function deleteSavedBackup(id:string){
  if(removeError)throw removeError;
  const {error:updateError}=await admin.from('ops_backup_runs').update({status:'expired',storage_path:null,error_message:'Eliminada manualmente por un administrador.'}).eq('id',id).eq('status','success');
  if(updateError)throw updateError;
- return {deleted:id,removed_objects:paths.length};
+ let cloud_warning:string|undefined;
+ try{
+  const headers:Record<string,string>={'Content-Type':'application/json'};
+  for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)headers[name]=value;}
+  const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers,body:JSON.stringify({action:'prune-backups'}),signal:AbortSignal.timeout(30000)});
+  if(!response.ok)throw new Error('provider');
+ }catch{cloud_warning='La referencia se retiró, pero falta comprobar la limpieza en OneDrive. Actualiza la copia en Almacenamiento para reintentar.';}
+ return {deleted:id,removed_objects:paths.length,cloud_warning};
 }
 async function cleanupUnusedFiles(){
  const {data:running,error:runningError}=await admin.from('ops_backup_runs').select('id').eq('status','running').gte('started_at',new Date(Date.now()-15*60*1000).toISOString());
@@ -423,7 +430,7 @@ Deno.serve(async(req)=>{
   if(body?.action==='verify'||body?.action==='verify-onedrive')return reply(await verifySavedBackup(String(body?.id||''),body.action==='verify-onedrive'?'onedrive':'supabase',req));
   if(body?.action==='delete'){
    if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);
-   return reply(await deleteSavedBackup(String(body?.id||'')));
+   return reply(await deleteSavedBackup(String(body?.id||''),req));
   }
   if(body?.action==='prune')return reply(await pruneBackups());
   const result=await run(mode,req);

@@ -307,9 +307,15 @@ async function uploadAndVerify(access:string,relative:string[],bytes:ArrayBuffer
 }
 
 async function pruneMirroredBackups(access:string){
- const copies=check(await admin.from('ops_onedrive_backups').select('run_id,folder_path,verified_at,ops_backup_runs(started_at)').not('verified_at','is',null),'No se pudo comprobar la conservación en OneDrive.');
+ const copies=check(await admin.from('ops_onedrive_backups').select('run_id,source_path,folder_path,verified_at,ops_backup_runs(started_at,status,storage_path)').not('verified_at','is',null),'No se pudo comprobar la conservación en OneDrive.');
+ const jobs=check(await admin.from('ops_recovery_jobs').select('checkpoint_path,source_path'),'No se pudieron comprobar las copias protegidas.');
+ const protectedPaths=new Set(jobs.flatMap((j:any)=>[j.checkpoint_path,j.source_path]).filter(Boolean));
  copies.sort((a:any,b:any)=>String(b.ops_backup_runs?.started_at||'').localeCompare(String(a.ops_backup_runs?.started_at||'')));
- for(const old of copies.slice(5)){
+ const active=copies.filter((c:any)=>c.ops_backup_runs?.status==='success');
+ const kept=new Set(active.slice(0,5).map((c:any)=>c.run_id));
+ for(const old of copies){
+  if(kept.has(old.run_id)||protectedPaths.has(old.source_path||old.ops_backup_runs?.storage_path))continue;
+  if(!active.some((c:any)=>c.run_id!==old.run_id&&kept.has(c.run_id)))continue; // Keep at least one verified active cloud copy.
   if(!old.folder_path.startsWith('02 Copias de seguridad/'))throw new Error('Ruta de copia no válida para conservación.');
   const path='/me/drive/special/approot:/'+encodedPath(old.folder_path.split('/'));
   const removed=await graph(access,path,{method:'DELETE'});
@@ -465,7 +471,8 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups'].includes(action))throw new Error('Acceso denegado.');
+   if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
    if(action==='sync-manuals')return json(await syncOnlineManuals(String(body.revision||'')));
    if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
@@ -476,6 +483,7 @@ Deno.serve(async req=>{
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
   if(action==='sync-manuals'){const result=await syncOnlineManuals(String(body.revision||''));await audit(user.id,user.email||'','manuales_online_actualizados');return json(result);}
+  if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
