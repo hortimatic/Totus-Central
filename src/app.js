@@ -1933,7 +1933,7 @@ document.addEventListener('click',async e=>{
   if(a==='home-price-save'){await saveHomePrice();return}
   if(a==='home-report-quarter'){homeReport('quarter');return}
   if(a==='home-report-year'){homeReport('year');return}
-  if(a==='admin-storage-home'){openAdminSection('storage');return}
+  if(a==='admin-storage-home'){openAdminSection('storage');await refreshStoragePanel();return}
   if(a==='admin-users-home'){openAdminSection('usuarios');return}
   if(a==='closing-new'){setView('cajas',{mode:'record',id:null,storeId:el.dataset.store||null});setRoute('cajas');render();return}
   if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:false});render();return}

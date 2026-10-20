@@ -7,7 +7,10 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.evaluate(async()=>{const {state}=await import('../src/state.js');state.data.settings.storage_provider_reference={plan:'Free',checked_at:'2026-10-20T00:00:00Z',database_limit_bytes:500*1024*1024,files_limit_bytes:1024*1024*1024,planning_sample_months:9,planning_sample_through:'2026-09-30',planning_sample_files_bytes:3*1024*1024,planning_sample_full_backup_bytes:2*1024*1024};});
  const before=await page.evaluate(()=>JSON.stringify({expenses:window.__mockDb.ops_expenses,documents:window.__mockDb.ops_documents,closings:window.__mockDb.ops_daily_closings}));
- await page.locator('#nav [data-route="administracion"]').click();
+ await page.evaluate(async()=>{const {sb}=await import('../src/api.js');const invoke=sb.functions.invoke.bind(sb.functions);window.__storageStatusRequests=0;sb.functions.invoke=async(name,options)=>{if(name==='totus-onedrive'&&options?.body?.action==='status')window.__storageStatusRequests++;return invoke(name,options);};});
+ await page.locator('[data-action="admin-storage-home"]').click();
+ await page.waitForTimeout(100);
+ assert((await page.evaluate(()=>window.__storageStatusRequests))>0,'Home storage shortcut must request OneDrive status immediately');
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('.storage-provider-card').first().waitFor();
  assert.equal(await page.locator('details[data-storage-detail="capacity"]').getAttribute('open'),null);
