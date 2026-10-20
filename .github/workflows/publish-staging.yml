@@ -52,6 +52,7 @@ jobs:
           node tests/cloud-backup-retention-qa.mjs
           node tests/closed-closing-qa.mjs
           node tests/source-closing-qa.mjs
+          node tests/payment-information-qa.mjs
           node tests/treasury-source-qa.mjs
           node tests/partial-balances-qa.mjs
           node tests/rectifying-refunds-qa.mjs

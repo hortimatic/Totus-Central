@@ -1,3 +1,4 @@
+import {informationalTaxPayments,taxPaymentLabel} from '../payment-information.js';
 import {oneDrivePanel,oneDriveStorageCard} from '../onedrive-connection.js';
 import {planStorage} from '../storage-planning.js';
 import {MAX_SAVED_BACKUPS,backupRetentionCount,backupRunState,backupFailureSummary} from '../backup-retention.js';
@@ -203,6 +204,19 @@ export function cajas(){
  </div>`;
 }
 
+
+function taxPaymentInformationHtml(filters){
+ const rows=informationalTaxPayments(state.data.taxPayments,filters);
+ if(!rows.length)return '';
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Impuestos pagados · solo información</h2><p>Salidas de dinero del autónomo, por fecha de pago. No se restan del beneficio fiscal ni duplican los gastos. Son comunes a las dos tiendas.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
+ {label:'Fecha de pago',html:r=>fmtDate(r.payment_date)},
+ {label:'Impuesto',html:r=>esc(taxPaymentLabel(r))},
+ {label:'Periodo al que corresponde',html:r=>esc(r.period_label||[r.fiscal_year,r.quarter?r.quarter+'T':''].filter(Boolean).join(' · '))},
+ {label:'Importe pagado',num:true,html:r=>money(r.amount)},
+ {label:'Tratamiento',html:()=>'<span class="badge info">Informativo · sin deducción fiscal</span>'}
+ ],rows)}<p class="small muted card-pad">Para registrar o corregir estos pagos: Fiscalidad → Pagos de impuestos. Las cuotas de autónomo y la Seguridad Social se registran como gastos, con su tratamiento fiscal.</p></section>`;
+}
+
 export function gastos(){
  const view=getView('gastos');
  if(view.mode==='record'){
@@ -228,9 +242,9 @@ export function gastos(){
   {label:'Total',num:true,html:r=>`<b>${money(r.gross_expense??r.accounting_amount??r.amount_paid??0)}</b><div class="small">${expensePaymentBadge(r)}</div>`},
   {label:'Documento adjunto',html:r=>{
     const d=state.data.documents.find(x=>x.id===r.document_id);
-    return d?`<div class="small"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Vista previa','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:`<span class="small muted">${acceptedExpense(r)&&isUnreconciledPayment(r)?'Apunte bancario conservado en el Excel':isUnreconciledPayment(r)?'Pago pendiente de vincular con su justificante':'Sin justificante adjunto'}</span>`;
+    return d?`<div class="small"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Vista previa','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:`<span class="small muted">${acceptedExpense(r)&&isUnreconciledPayment(r)?'Apunte bancario conservado en el Excel':isUnreconciledPayment(r)?'Factura pendiente de recibir o pago por conciliar':'Sin justificante adjunto'}</span>`;
    }},
-  {label:'Acciones',html:r=>`<div class="inline-actions">${btn('Abrir','expense-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','expense-delete','danger',`data-id="${r.id}"`)}</div>`}
+  {label:'Acciones',html:r=>`<div class="inline-actions">${btn(r.document_id?'Abrir':'Adjuntar factura / revisar','expense-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','expense-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
  const extras=`<div class="field"><label>Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Solo interno</option></select></div><div class="field"><label>Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>`;
  return `<div class="page">
@@ -242,6 +256,7 @@ export function gastos(){
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
    ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para los filtros seleccionados.'})}
   </section>
+  ${kind!=='fiscal'&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
  </div>`;
 }
 
@@ -509,6 +524,7 @@ export function informes(){
  ${g.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?'<p class="note warn">Hay pagos del Excel pendientes de vincular o desglosar. Se conservan para consulta, sin volver a restarlos como gasto. El resultado es provisional.</p>':''}
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos',money(internal))}${kpi('Resultado tras gastos internos',money(sales-accounting-internal),'Para calcular el IRPF, consulta el beneficio fiscal en Fiscalidad')}</div>
  ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
+ ${taxPaymentInformationHtml(f)}
  <div class="split">
   <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Todos los meses del periodo aplicado. Cada archivo incluye solo las fechas, tienda y búsqueda seleccionadas.</p></div></div>
    <div class="monthly-reports">${periods.map(period=>`<section class="monthly-report"><h3>${esc(period.label)}</h3>${stores().filter(s=>f.store==='all'||s.id===f.store).map(s=>`<div class="summary-row"><b>${esc(s.name)}</b><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}</div></div>`).join('')}</section>`).join('')}</div>
@@ -999,8 +1015,8 @@ export function expenseRecordHtml(row=null){
       <div><b>Justificante</b><div class="small muted">${doc?esc(doc.original_name):'Sin archivo vinculado'}</div></div>
       <div class="inline-actions">${doc?btn('Vista previa','expense-document-preview','secondary',`data-id="${doc.id}"`):''}${doc?btn('Descargar','expense-document-download','secondary',`data-id="${doc.id}"`):''}${doc?btn('Quitar','expense-document-unlink','danger',`data-expense="${row.id}" data-document="${doc.id}"`):''}</div>
       <div class="expense-attachment-picker"><label class="file-picker">${doc?'Sustituir factura adjunta':'Seleccionar factura o justificante'}<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
-      <div id="exSelectedFile" class="small muted" aria-live="polite">No se ha seleccionado una factura nueva.</div>
-      ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}</div>
+      <div id="exSelectedFile" class="small muted" aria-live="polite">No se ha seleccionado una factura nueva.</div><p class="small muted">Si aún no has recibido la factura, conserva este gasto y adjúntala aquí cuando esté disponible. Subir el archivo no cambia los importes ni lo marca como revisado. Si la factura ya figura en otro gasto, vincula el pago a ese registro; no registres el coste dos veces.</p>
+      ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}${row?btn('Guardar solo adjunto','expense-attach-save','primary',`data-id="${row.id}"`):''}</div>
      </div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales. Para un abono de proveedor, selecciona «Rectificativa» e introduce las bases y el importe devuelto con signo negativo; los porcentajes siguen positivos.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
@@ -1008,7 +1024,7 @@ export function expenseRecordHtml(row=null){
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      <label class="check-field wide emphasis-check"><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Solo control interno · no enviar a gestoría ni incluir en cálculo fiscal</label>
+      <label class="check-field wide emphasis-check"><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Solo información interna · excluir del cálculo fiscal</label>
       <label class="check-field wide"><input id="exFiscalReviewed" type="checkbox" ${row?.fiscal_reviewed===true?'checked':''}> He cotejado el documento, sus conceptos e impuestos; gasto fiscal revisado</label>
       <p class="small muted wide">Un gasto nuevo permanece sin revisar hasta que marques esta casilla. Los gastos internos nunca se incluirán en el cálculo fiscal.</p>
       ${formField('Tipo interno','exPersonnelKind',row?.personnel_kind||'')}

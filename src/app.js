@@ -356,6 +356,19 @@ async function rollbackNewDocument(doc,error){
  catch(cleanup){return new Error(error.message+' No se ha podido completar la retirada del adjunto: '+cleanup.message+'. Revisa su ficha en Documentos antes de reintentar.')}
 }
 
+async function saveExpenseAttachment(id){
+ const expense=state.data.expenses.find(x=>x.id===id);
+ if(!expense)throw new Error('El gasto ya no está disponible. Actualiza el listado.');
+ const file=input('exFile')?.files?.[0];
+ if(!file)throw new Error('Selecciona primero la factura o justificante.');
+ const newDoc=await createStoredDocument(file,{storeId:expense.store_id,date:expense.expense_date,docType:'factura_recibida',status:'pendiente',party:expense.supplier_name,taxId:expense.supplier_tax_id,number:expense.invoice_number,category:'gasto',notes:'Adjunto incorporado al gasto existente; revisión fiscal independiente',linkedType:'expense'});
+ try{await update('ops_expenses',id,{document_id:newDoc.id})}
+ catch(e){throw await rollbackNewDocument(newDoc,e)}
+ // Financial fields, source references and fiscal review remain exactly as saved.
+ // Preserve the previous document in the archive when replacing an attachment.
+ await refresh('Factura adjuntada al mismo gasto. Importes y revisión fiscal conservados.');
+}
+
 async function saveExpense(id=''){
  const existing=id?state.data.expenses.find(x=>x.id===id):null;
  if(existing&&state.data.settings?.closed_through&&existing.expense_date<=state.data.settings.closed_through)throw new Error('Este gasto pertenece a un periodo cerrado. Usa «Registrar pago» para actualizar su pago; administración debe reabrir el periodo para corregir importes.');
@@ -592,7 +605,7 @@ function exportCurrentModule(module){
   &&(!search||(invoiceSection
    ?[x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,documentsById.get(String(x.document_id))?.original_name]
    :[x.supplier_name,x.invoice_number,x.description,x.payment_method,x.supplier_tax_id,x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name]).filter(Boolean).map(searchText).join(' ').includes(search)));
- return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,from:f.from,to:f.to});
+ return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,taxPayments:state.data.taxPayments,reportFilter:f,from:f.from,to:f.to});
 }
 
 function addInvoiceLine(){
@@ -1870,8 +1883,8 @@ function exportRows(type){
  const {closings,expenses,invoices,fiscalAdjustments,incomeAdjustments}=selectReportData(state.data,f);
  const stores=state.data.stores.filter(x=>f.store==='all'||x.id===f.store);
  if(type==='closings')return exportClosingsWorkbook({settings:state.data.settings,closings,closingDrawers:state.data.closingDrawers.filter(d=>closings.some(c=>c.id===d.closing_id)),stores:state.data.stores,drawers:state.data.drawers,from:f.from,to:f.to});
- if(type==='expenses')return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,from:f.from,to:f.to});
- return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,incomeAdjustments,from:f.from,to:f.to});
+ if(type==='expenses')return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,taxPayments:state.data.taxPayments,reportFilter:f,from:f.from,to:f.to});
+ return exportSummaryWorkbook({closings,expenses,stores,invoices,fiscalAdjustments,incomeAdjustments,taxPayments:state.data.taxPayments,reportFilter:f,from:f.from,to:f.to});
 }
 
 async function reviewUnusedLogos(){
@@ -1965,6 +1978,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-file-preview'){await previewPendingExpenseFile();return}
   if(a==='expense-new'){setView('gastos',{mode:'record',id:null});setRoute('gastos');render();return}
   if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='expense-attach-save'){await saveExpenseAttachment(el.dataset.id);return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
   if(a==='expense-back'){resetView('gastos');render();return}
   if(a==='expense-line-add'){addExpenseLine();return}

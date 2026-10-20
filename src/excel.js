@@ -1,3 +1,4 @@
+import {informationalTaxPayments,taxPaymentLabel} from './payment-information.js';
 import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
 import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,closingIncomeAmount} from './calculations.js';
@@ -61,7 +62,25 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  write(wb,`cierres_${from}_${to}.xlsx`);
 }
 
-export function exportExpensesWorkbook({expenses,stores,from,to,settings=null}){
+
+function appendInformationalPayments(wb,taxPayments=[],filters={}){
+ const rows=informationalTaxPayments(taxPayments,filters);
+ const ws=XLSX.utils.aoa_to_sheet([
+ ['IMPUESTOS PAGADOS · SOLO INFORMACIÓN'],
+ ['No reducen el beneficio fiscal ni se suman a los gastos. Son comunes a las dos tiendas.'],
+ [],
+ ['Fecha de pago','Impuesto','Periodo','Importe pagado'],
+ ...rows.map(p=>[fmtDate(p.payment_date),taxPaymentLabel(p),p.period_label||[p.fiscal_year,p.quarter?p.quarter+'T':''].filter(Boolean).join(' · '),n(p.amount)]),
+ ['TOTAL INFORMATIVO','','',rows.reduce((s,p)=>s+n(p.amount),0)]
+ ]);
+ ws['!merges']=[XLSX.utils.decode_range('A1:D1'),XLSX.utils.decode_range('A2:D2')];
+ ws['!rows']=[{hpt:28},{hpt:36}];styleHeader(ws,3,4);autoWidths(ws,[16,58,30,20]);
+ for(let r=5;r<=5+rows.length;r++)if(ws['D'+r])ws['D'+r].z=euro;
+ ws['!freeze']={ySplit:4};if(rows.length)ws['!autofilter']={ref:'A4:D'+(4+rows.length)};
+ XLSX.utils.book_append_sheet(wb,ws,'Impuestos pagados');
+}
+
+export function exportExpensesWorkbook({expenses,stores,from,to,settings=null,taxPayments=[],reportFilter={}}){
  const wb=book();
  const rows=expenses.map(x=>[
    fmtDate(x.expense_date),storeName(stores,x.store_id),x.supplier_name||'',x.supplier_tax_id||'',x.invoice_number||'',x.description||'',
@@ -74,10 +93,11 @@ export function exportExpensesWorkbook({expenses,stores,from,to,settings=null}){
  for(let r=5;r<=end;r++)for(const col of ['G','H','I','J','K'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,22,16,16,32,13,13,13,13,15,13,15,13,35]);ws['!autofilter']={ref:`A4:O${end}`};ws['!freeze']={ySplit:4};
  XLSX.utils.book_append_sheet(wb,ws,'Gastos');
+ appendInformationalPayments(wb,taxPayments,{...reportFilter,from,to});
  write(wb,`gastos_${from}_${to}.xlsx`);
 }
 
-export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fiscalAdjustments=[],incomeAdjustments=[],from,to}){
+export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fiscalAdjustments=[],incomeAdjustments=[],taxPayments=[],reportFilter={},from,to}){
  const wb=book();
  const closeSales=closings.filter(x=>x.include_in_income!==false).reduce((a,x)=>a+closingIncomeAmount(x),0);
  const extraInvoiceSales=invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true).reduce((a,x)=>a+n(x.total_amount),0);
@@ -113,6 +133,7 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
  if(generalIncome||generalAccounting||generalInternal||generalPending)
   perStore.push(['General / sin tienda',generalIncome,generalAccounting,generalInternal,generalIncome-generalAccounting-generalInternal,generalPending]);
  const ws2=XLSX.utils.aoa_to_sheet([['Tienda','Ventas','Gastos registrados','Gastos internos','Resultado','Sin revisión fiscal'],...perStore]);styleHeader(ws2,0,6);for(let r=2;r<=perStore.length+1;r++)for(const c of ['B','C','D','E','F'])if(ws2[`${c}${r}`])ws2[`${c}${r}`].z=euro;autoWidths(ws2,[22,16,18,18,16,25]);XLSX.utils.book_append_sheet(wb,ws2,'Por tienda');
+ appendInformationalPayments(wb,taxPayments,{...reportFilter,from,to});
  write(wb,`resumen_${from}_${to}.xlsx`);
 }
 
@@ -256,7 +277,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
 }
 export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories,incomeAdjustments=[]}){
  const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments});
- wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
+ appendInformationalPayments(wb,args.taxPayments,{from:args.year+'-01-01',to:args.year+'-12-31'});wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
 }
 export function buildStoreMonthlyWorkbook(args){
  if(!Number.isInteger(args.month)||args.month<1||args.month>12)throw new Error('Selecciona un mes válido.');
