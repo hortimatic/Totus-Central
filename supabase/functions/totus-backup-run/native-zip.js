@@ -18,7 +18,13 @@ class NativeDeflateFile extends NativeStoredFile{
 
 // The hosted worker has a small JavaScript CPU budget. Keep the same ordinary
 // ZIP format, but delegate DEFLATE to the runtime's native zlib at low CPU cost.
-async function nativeArchiveHash(value){const bytes=typeof value==='string'?new TextEncoder().encode(value):value instanceof Blob?new Uint8Array(await value.arrayBuffer()):value;return createHash('sha256').update(bytes).digest('hex');}
+async function nativeArchiveHash(value){
+ const bytes=typeof value==='string'?new TextEncoder().encode(value):value instanceof Blob?new Uint8Array(await value.arrayBuffer()):value;
+ // Offload bounded pieces to asynchronous WebCrypto; keep the full archive hash
+ // native so its verification does not allocate another complete archive.
+ if(bytes.byteLength<=8*1024*1024)return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(x=>x.toString(16).padStart(2,'0')).join('');
+ return createHash('sha256').update(bytes).digest('hex');
+}
 
 export class NativeBackupZip{
  static archiveHash=nativeArchiveHash;
@@ -136,10 +142,10 @@ export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=1
      if(take===chunk.length)this.pending.shift();else this.pending[0]=chunk.subarray(take);
     }
     this.pendingBytes-=size;
-    const piecePath=path+'.part-'+String(this.parts.length).padStart(4,'0'),sha256=createHash('sha256').update(piece).digest('hex');
+    const piecePath=path+'.part-'+String(this.parts.length).padStart(4,'0'),sha256=await nativeArchiveHash(piece);
     await write(piecePath,piece);
     const received=await read(piecePath),bytes=received instanceof Blob?new Uint8Array(await received.arrayBuffer()):new Uint8Array(received);
-    if(bytes.length!==size||createHash('sha256').update(bytes).digest('hex')!==sha256)throw new Error('Un fragmento de la copia no se ha guardado correctamente.');
+    if(bytes.length!==size||await nativeArchiveHash(bytes)!==sha256)throw new Error('Un fragmento de la copia no se ha guardado correctamente.');
     this.parts.push({path:piecePath,size,sha256});
    }
   }
