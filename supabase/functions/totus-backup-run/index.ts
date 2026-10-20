@@ -372,7 +372,7 @@ async function retireDocumentsWithLease(req:Request,full=false,dryRun=false){
  finally{await admin.from('ops_onedrive_config').update({retirement_lock_until:null}).eq('id',1).eq('retirement_lock_until',lease);}
 }
 
-async function mirrorAfterBackup(req:Request){
+async function mirrorAfterBackup(req:Request,runId?:string){
  try{
   const {data,error}=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
   if(error||!data?.connected||!data.tested_at)return {enabled:false};
@@ -381,7 +381,9 @@ async function mirrorAfterBackup(req:Request){
   const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers:forward,body:JSON.stringify({action:'mirror-backups',full:true}),signal:AbortSignal.timeout(115000)});
   const result=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(result.error||'No se pudo copiar la seguridad en OneDrive.');
-  return {enabled:true,...result};
+  const retirement=runId&&result.complete?await retireVerifiedBackupParts(req,runId):null;
+  const documents=runId&&result.complete?await retireDocumentsWithLease(req,false,false):null;
+  return {enabled:true,...result,retirement,documents};
  }catch(error){return {enabled:true,warning:String(error instanceof Error?error.message:error)};}
 }
 
@@ -403,7 +405,7 @@ Deno.serve(async(req)=>{
   }
   if(body?.action==='prune')return reply(await pruneBackups());
   const result=await run(mode,req);
-  const onedrive=await mirrorAfterBackup(req);
+  const onedrive=await mirrorAfterBackup(req,result.id);
   return reply({...result,onedrive});
  }catch(e){return reply({error:String(e instanceof Error?e.message:e)},500);}
 });

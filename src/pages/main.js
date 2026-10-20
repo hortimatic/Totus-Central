@@ -703,7 +703,7 @@ function adminBackupHtml(){
  const columns=[
   {label:'Creación',html:r=>esc(new Date(r.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
   {label:'Tipo',html:r=>r.mode==='scheduled'?'Automática':'Manual'},
-  {label:'Estado',html:r=>`<span class="badge ${backupRunState(r)==='saved'?'ok':backupRunState(r)==='running'?'info':'warn'}">${labels[backupRunState(r)]}</span>`},
+  {label:'Estado',html:r=>`<span class="badge ${backupRunState(r)==='saved'?'ok':backupRunState(r)==='running'?'info':'warn'}">${labels[backupRunState(r)]}</span><div class="small muted">${r.storage_provider==='onedrive'?'OneDrive':'Supabase'}</div>`},
   {label:'Tamaño',html:r=>r.size_bytes?((Number(r.size_bytes)/1024/1024).toFixed(2)+' MB'):'—'},
   {label:'Datos / archivos',html:r=>`${Number(r.rows_count||0)} registros · ${Number(r.files_count||0)} archivos`},
   {label:'Incidencias',html:r=>r.error_message?`<span>${esc(backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
@@ -712,7 +712,7 @@ function adminBackupHtml(){
  return `<div class="stack">
   <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de '+MAX_SAVED_BACKUPS)}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación',MAX_SAVED_BACKUPS+' copias más recientes')}</div>
   <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
-   <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia guardada en Supabase.'}</p>
+   <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia completa guardada.'}</p>
    ${lastAttempt?`<p>Último intento: <b>${labels[lastState]}</b> · ${esc(new Date(lastAttempt.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}.</p>`:''}
    ${['failed','unfinished'].includes(lastState)?`<p class="note warn">${esc(backupFailureSummary(lastAttempt?.error_message||''))} Las copias guardadas anteriores se conservan.</p>`:''}
    ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
@@ -728,7 +728,7 @@ function adminBackupHtml(){
     <div class="field"><label for="backupRetention">Máximo de copias guardadas</label><input id="backupRetention" type="number" value="${MAX_SAVED_BACKUPS}" readonly></div>
     <div class="field"><label for="backupFolder">Carpeta de destino (nube privada)</label><input id="backupFolder" value="${esc(config.destination_folder||'automaticas')}" maxlength="48" pattern="[a-zA-Z0-9_-]{3,48}" placeholder="automaticas"></div>
    </div>
-   <div class="note">Destino: almacenamiento privado de <b>Supabase STAGING → business-backups</b>, en la carpeta elegida. No se puede guardar automáticamente en una carpeta del ordenador mientras está apagado. Se conservan las ${MAX_SAVED_BACKUPS} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
+   <div class="note">Destino: <b>OneDrive → Apps → TotusCentral Staging → 02 Copias de seguridad</b> cuando la conexión está comprobada. Supabase prepara y verifica la copia antes de trasladarla. Si OneDrive falla, el archivo se conserva en Supabase y se muestra la incidencia. Se conservan las ${MAX_SAVED_BACKUPS} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
    <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias admiten hasta 120 MB (128 MB descomprimidos) y se guardan en fragmentos privados verificados. Un exceso se mostrará como fallo y no como respaldo correcto.</div>
   </section>
