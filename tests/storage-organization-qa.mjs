@@ -26,6 +26,7 @@ try{
  const input=page.locator('#backupRetention');
  assert.equal(await input.getAttribute('readonly'),null);
  assert.equal(await input.getAttribute('max'),'10');
+ await page.locator('#backupEnabled').check();
  for(const keep of [10,7]){
   await input.fill(String(keep));
   await page.locator('[data-action="backup-settings-save"]').click();
