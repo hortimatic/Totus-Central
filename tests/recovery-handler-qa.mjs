@@ -22,7 +22,7 @@ class Query{
  maybeSingle(){this.singleRow=true;return this} single(){this.singleRow=true;return this}
  insert(row){this.op='insert';this.row=row;return this} update(row){this.op='update';this.row=row;return this}
  then(resolve,reject){return Promise.resolve().then(()=>{
-  if(this.table==='ops_backup_runs')return {data:null,error:null};
+  if(this.table==='ops_backup_runs'){const rows=(state.backups||[]).filter(x=>this.filters.every(f=>f(x)));return {data:this.singleRow?rows[0]||null:rows,error:null};}
   if(this.table==='team_members')return {data:{role:state.role,active:state.active},error:null};
   if(this.table!=='ops_recovery_jobs')throw Error('Unexpected table '+this.table);
   if(this.op==='insert')state.jobs.push({status:'uploaded',...structuredClone(this.row)});
@@ -38,7 +38,7 @@ globalThis.__recoveryHandlerClient={
   if(name==='totus_export_recovery_snapshot')return {data:structuredClone(snapshot),error:null};
   assert.equal(name,'totus_commit_recovery');state.commitCalls++;
   const job=state.jobs.find(x=>x.id===args.p_job);assert.equal(job.status,'prepared');
-  assert.ok(state.files.has('business-backups/'+job.checkpoint_path),'Missing checkpoint');
+  assert.ok(state.files.has('business-backups/'+job.checkpoint_path)||state.cloudBackup,'Missing checkpoint');
   const path=args.p_payload.ops_documents[0].storage_path;
   assert.ok(path.startsWith('recovery/'+jobId+'/'));assert.ok(state.files.has('business-documents/'+path));
   assert.equal(args.p_payload.ops_documents[0].uploaded_by,actor);
@@ -60,11 +60,17 @@ const originalFetch=globalThis.fetch;
 globalThis.fetch=async(address,options)=>{
  if(String(address)==='https://qa-project.supabase.co/functions/v1/totus-onedrive'){
   assert.equal(options.headers.Authorization,'Bearer valid');
-  const body=JSON.parse(options.body);assert.equal(body.action,'document-file-url');
+  const body=JSON.parse(options.body);
+  if(body.action==='backup-file-url'){
+   assert.equal(body.run_id,'saved-copy');assert.equal(body.path,'automaticas/saved.totusbackup');
+   return new Response(JSON.stringify({url:state.unsafeCloudBackup?'http://qa.example.invalid/backup':'https://qa.example.invalid/backup'}));
+  }
+  assert.equal(body.action,'document-file-url');
   if(state.cloudOriginal)return new Response(JSON.stringify({provider:'onedrive',url:'https://qa.example.invalid/original.pdf'}));
   return new Response(JSON.stringify({provider:'supabase'}));
  }
  if(String(address)==='https://qa.example.invalid/original.pdf')return new Response(original);
+ if(String(address)==='https://qa.example.invalid/backup')return new Response(state.corruptCloudBackup?new Uint8Array([0]):built.bytes);
  throw Error('Unexpected external request in recovery test');
 };
 globalThis.__recoveryHandlerZip=JSZip;
@@ -101,6 +107,17 @@ state.files.set('business-backups/'+cloudJob.source_path,new Blob([built.bytes])
 const cloudResponse=await request({job_id:jobId});
 assert.equal(cloudResponse.status,200,await cloudResponse.text());
 assert.equal(state.commitCalls,1,'A OneDrive original must be included in the checkpoint before restoring');
+
+for(const problem of ['none','corrupt','unsafe']){
+ reset();state.cloudBackup=true;state.corruptCloudBackup=problem==='corrupt';state.unsafeCloudBackup=problem==='unsafe';
+ state.backups=[{id:'saved-copy',status:'success',storage_path:'automaticas/saved.totusbackup',snapshot_revision:snapshot.revision,size_bytes:built.bytes.length,archive_sha256:await archiveHash(built.bytes),archive_manifest:built.manifest,started_at:'2026-10-20T00:00:00Z'}];
+ const savedJob=await (await request({job_id:jobId,action:'register'})).json();
+ state.files.set('business-backups/'+savedJob.source_path,new Blob([built.bytes]));
+ const response=await request({job_id:jobId});
+ assert.equal(response.status,problem==='none'?200:500,await response.text());
+ assert.equal(state.commitCalls,problem==='none'?1:0,'A missing/corrupt cloud checkpoint must never allow a commit');
+}
+
 globalThis.fetch=originalFetch;
 delete globalThis.Deno;delete globalThis.__recoveryHandlerClient;delete globalThis.__recoveryHandlerZip;
 console.log('RECOVERY HANDLER QA: real handler rejects invalid Auth, inactive/non-admin users, foreign jobs, unsafe paths; checkpoints, file failure and idempotent completion OK');

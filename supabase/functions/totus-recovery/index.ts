@@ -27,6 +27,19 @@ const download=async(bucket:string,path:string,req?:Request)=>{
   }
   if(link.provider!=='supabase')throw new Error('Ubicación de recuperación desconocida.');
  }
+ if(bucket==='business-backups'&&req){
+  const local=await admin.storage.from(bucket).download(path);
+  if(!local.error&&local.data)return local.data;
+  const root=path.replace(/\.part-\d{4}$/,'');
+  const proof=checked(await admin.from('ops_backup_runs').select('id').eq('status','success').eq('storage_path',root).maybeSingle(),'No se pudo localizar la copia completa');
+  if(!proof)throw new Error('El respaldo solicitado no está disponible.');
+  const location=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'backup-file-url',run_id:proof.id,path}),signal:AbortSignal.timeout(30000)});
+  const link=await location.json();
+  if(!location.ok||typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('No se pudo localizar el respaldo privado en OneDrive.');
+  const response=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
+  if(!response.ok)throw new Error('No se pudo leer el respaldo privado de OneDrive.');
+  return await response.blob();
+ }
  const data=checked(await admin.storage.from(bucket).download(path),'No se pudo leer el archivo');
  if(!data)throw new Error('El archivo no está disponible');
  return data;
@@ -88,7 +101,11 @@ Deno.serve(async req=>{
     const slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
     const objects=checked(await admin.storage.from('business-backups').list(folder,{search:name,limit:100}),'No se pudo comprobar el respaldo actual');
     const root=objects?.find(x=>x.name===name);
-    if(!root)throw new Error('Falta el respaldo previo a la recuperación.');
+    if(!root){
+     const bytes=await readBackupObject(path,(part:string)=>download('business-backups',part,req));
+     if(bytes.length!==Number(proof.size_bytes)||await archiveHash(bytes)!==proof.archive_sha256)throw new Error('El respaldo de OneDrive no coincide con su prueba verificada.');
+     return {path,manifest};
+    }
     if(Number(proof.size_bytes)>BACKUP_PART_BYTES){
      if(Number(root.metadata?.size)>16384)throw new Error('Índice de respaldo no válido.');
      const index=validateBackupIndex(path,JSON.parse(await (await download('business-backups',path)).text()));
@@ -99,7 +116,7 @@ Deno.serve(async req=>{
    },
    readFile:(bucket:string,path:string)=>download(bucket,path,req),
    writeCheckpoint:(path:string,bytes:Uint8Array)=>writeBackupObject(path,bytes,(part:string,value:Uint8Array)=>write('business-backups',part,value,'application/octet-stream'),(part:string)=>download('business-backups',part)),
-   readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part)),
+   readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part,req)),
    setCheckpoint:async(path:string,revision:string)=>{checked(await admin.from('ops_recovery_jobs').update({checkpoint_path:path,before_revision:revision}).eq('id',jobId).eq('status','preparing').select('id').single(),'No se pudo guardar el punto de vuelta atrás');},
    writeFile:async(file:{bucket:string;path:string;target:string},bytes:Uint8Array)=>{
     const doc=file.bucket==='business-documents'?archive.database.ops_documents.find((d:{storage_path:string})=>d.storage_path===file.path):null;

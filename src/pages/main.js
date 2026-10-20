@@ -363,10 +363,6 @@ export function documentos(){
    return documentRecordHtml(row);
  }
  const f=getFilters('documentos');
- const usage=state.data.storageUsage||{};
- const storageVerified=usage.status==='ok'&&Number.isFinite(Number(usage.total_bytes))&&Number.isFinite(Number(usage.limit_bytes))&&Number(usage.limit_bytes)>0;
- const used=storageVerified?Number(usage.total_bytes):null,limit=storageVerified?Number(usage.limit_bytes):null;
- const usagePct=storageVerified?Math.min(100,used/limit*100):null;
  const status=f.status||'all',type=f.type||'all';
  const rows=selectDocuments(state.data,f);
  const headers=[
@@ -378,7 +374,7 @@ export function documentos(){
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page documents-page">
-  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Documentos y logos en Supabase',storageVerified?(used/1024/1024).toFixed(1).replace('.',',')+' MB':'No disponible',storageVerified?usagePct.toFixed(1).replace('.',',')+' % de '+(limit/1024/1024).toFixed(0)+' MB · límite interno de Totus, no del plan':'Sin medición fiable de Supabase')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
+  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Tamaño de los documentos',(state.data.documents.reduce((total,doc)=>total+Number(doc.size_bytes||0),0)/1024/1024).toFixed(1).replace('.',',')+' MB','Volumen de los originales · consulta su ubicación y el espacio libre en Almacenamiento')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Busca por fecha, tienda, proveedor o número de factura. Abre cada documento para revisar su clasificación y sus datos.</p></div><div class="inline-actions">${btn('+ Subir documento','document-new','primary')}</div></div>
    <div class="document-filters">${dateFilters({...f,stores:stores()},'documentos',extra)}</div><div class="document-batch-toolbar"><span class="small muted">${rows.length} documentos encontrados</span><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden></div></div>
