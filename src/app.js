@@ -1561,7 +1561,7 @@ let cloudBackupRunning=false;
 async function runBackupOnServer(){
  if(!isAdmin())throw new Error('Solo el administrador puede generar copias.');
  if(cloudBackupRunning)throw new Error('Ya hay una copia en curso. Puedes continuar trabajando.');
- if(!await confirmAction('¿Crear una copia privada completa en Supabase staging ahora?',{title:'Crear copia privada',acceptLabel:'Crear copia'}))return;
+ if(!await confirmAction('¿Crear ahora una copia privada completa de staging? Se guardará en OneDrive si la conexión está comprobada.',{title:'Crear copia privada',acceptLabel:'Crear copia'}))return;
  cloudBackupRunning=true;
  toast('Copia iniciada en segundo plano. Puedes continuar trabajando.');
  void sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}}).then(({data,error})=>{

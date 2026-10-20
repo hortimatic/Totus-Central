@@ -612,7 +612,7 @@ function adminStorageHtml(){
  const forecastHtml=`<section class="card card-pad storage-planning" aria-labelledby="storagePlanningTitle"><h2 id="storagePlanningTitle">Cuánto puede durar el espacio</h2>
  <p>Estimación al ritmo de vuestros 9 meses de datos.</p>
  <div class="kpis">
- ${kpi('Supabase · tiempo restante',spacePlanning.available?duration(spacePlanning.days):'Sin estimación','Con '+MAX_SAVED_BACKUPS+' copias completas diarias')}
+ ${kpi('Supabase · tiempo restante',spacePlanning.available?duration(spacePlanning.days):'Sin estimación','Una copia al día; hasta '+MAX_SAVED_BACKUPS+' guardadas')}
  ${kpi('GitHub · tiempo restante','No depende de los meses cargados','Vuestra contabilidad se guarda en Supabase')}
  </div>
  <p id="storageForecastResult" class="note ${spacePlanning.available&&spacePlanning.days!=null&&spacePlanning.days<365?'warn':''}">${!spacePlanning.available?'Faltan datos para estimar la duración.':spacePlanning.days!=null&&spacePlanning.days<365?'Con las copias actuales, el espacio no alcanza para un año.':'Estimación con el ritmo de datos y las copias actuales.'}</p>
@@ -728,7 +728,7 @@ function adminBackupHtml(){
     <div class="field"><label for="backupRetention">Máximo de copias guardadas</label><input id="backupRetention" type="number" value="${MAX_SAVED_BACKUPS}" readonly></div>
     <div class="field"><label for="backupFolder">Carpeta de destino (nube privada)</label><input id="backupFolder" value="${esc(config.destination_folder||'automaticas')}" maxlength="48" pattern="[a-zA-Z0-9_-]{3,48}" placeholder="automaticas"></div>
    </div>
-   <div class="note">Destino: <b>OneDrive → Apps → TotusCentral Staging → 02 Copias de seguridad</b> cuando la conexión está comprobada. Supabase prepara y verifica la copia antes de trasladarla. Si OneDrive falla, el archivo se conserva en Supabase y se muestra la incidencia. Se conservan las ${MAX_SAVED_BACKUPS} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
+   <div class="note">Destino: <b>OneDrive → Apps → TotusCentral Staging → 02 Copias de seguridad</b> cuando la conexión está comprobada. El servidor envía y verifica cada fragmento directamente en OneDrive. En Supabase solo queda el índice pequeño. Si falla la transferencia, se muestra el intento fallido y se conservan las copias anteriores. Si OneDrive no está conectado, el respaldo se guarda en Supabase. Se conservan las ${MAX_SAVED_BACKUPS} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
    <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias admiten hasta 120 MB (128 MB descomprimidos) y se guardan en fragmentos privados verificados. Un exceso se mostrará como fallo y no como respaldo correcto.</div>
   </section>
