@@ -5,7 +5,7 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} fr
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,removeFile} from './api.js';
+import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
@@ -1114,9 +1114,7 @@ async function importDocumentZip(zipFile){
 }
 
 async function getDocumentBlob(doc){
- const {data,error}=await sb.storage.from('business-documents').download(doc.storage_path);
- if(error)throw new Error('No se pudo leer el archivo: '+error.message);
- return data;
+ return downloadFile('business-documents',doc.storage_path,doc);
 }
 async function downloadDocument(id){
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;

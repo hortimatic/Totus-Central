@@ -254,6 +254,9 @@ const client={
 window.supabase={createClient:()=>client};
 const originalFetch=window.fetch.bind(window);
 window.fetch=async (url,opts)=>{
+ if(String(url).includes('/functions/v1/totus-onedrive')&&JSON.parse(opts?.body||'{}').action==='document-file-url')
+  return new Response(JSON.stringify({provider:'supabase'}),{status:200,headers:{'Content-Type':'application/json'}});
+
  if(String(url).includes('/functions/v1/team-admin')){
   const p=JSON.parse(opts?.body||'{}');
   if(p.action==='create_user'){db.team_members.push({id:uuid(),email:p.email,full_name:p.full_name,role:p.role,active:true});return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}

@@ -56,7 +56,32 @@ export async function invokeRecovery(jobId,action='process'){
  return body;
 }
 export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
-export async function signedUrl(bucket,path,seconds=120){const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);assert(r,'Vista previa');return r.data.signedUrl}
+async function documentLocation(path){
+ const session=(await sb.auth.getSession()).data.session;
+ if(!session)throw new Error('Sesión no válida.');
+ const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,apikey:SUPABASE_KEY},body:JSON.stringify({action:'document-file-url',path}),signal:AbortSignal.timeout(30000)});
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(result.error||'No se pudo localizar el documento.');
+ if(result.provider==='supabase')return null;
+ if(result.provider!=='onedrive'||typeof result.url!=='string'||new URL(result.url).protocol!=='https:')throw new Error('La ubicación del documento no es válida.');
+ return result.url;
+}
+export async function signedUrl(bucket,path,seconds=120){
+ if(bucket==='business-documents'){const remote=await documentLocation(path);if(remote)return remote;}
+ const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);assert(r,'Vista previa');return r.data.signedUrl;
+}
+export async function downloadFile(bucket,path,metadata={}){
+ const address=await signedUrl(bucket,path,300);
+ const response=await fetch(address,{signal:AbortSignal.timeout(60000)});
+ if(!response.ok)throw new Error('No se pudo leer el archivo (HTTP '+response.status+').');
+ const blob=await response.blob();
+ if(metadata.size_bytes!=null&&Number(metadata.size_bytes)!==blob.size)throw new Error('El tamaño del archivo no coincide con el documento.');
+ if(metadata.sha256){
+  const actual=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');
+  if(actual!==metadata.sha256)throw new Error('El archivo no coincide con su original. No se ha mostrado otro documento.');
+ }
+ return blob;
+}
 export async function removeFile(bucket,path){
  const files=sb.storage.from(bucket),r=await files.remove([path]);assert(r,'Eliminar archivo');
  // HEAD can reuse a cached successful GET after removal. Listing uses POST and

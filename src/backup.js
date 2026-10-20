@@ -1,4 +1,4 @@
-import {sb,rpc} from './api.js';
+import {sb,rpc,downloadFile} from './api.js';
 import {SUPABASE_URL} from './config.js';
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,loadBoundedRecoveryZip} from './recovery-core.js';
 import {download} from './utils.js';
@@ -17,9 +17,7 @@ export async function createBackup(){
  const snapshot=await rpc('totus_export_recovery_snapshot');
  snapshot.project_ref=new URL(SUPABASE_URL).hostname.split('.')[0];
  const {bytes,manifest}=await buildRecoveryArchive(snapshot,JSZip,async(bucket,path)=>{
-  const {data,error}=await sb.storage.from(bucket).download(path);
-  if(error||!data)throw new Error('No se pudo incluir el archivo '+bucket+'/'+path+': '+(error?.message||'No disponible'));
-  return data;
+  return downloadFile(bucket,path);
  });
  const blob=new Blob([bytes],{type:'application/octet-stream'});
  download(blob,`Totus_Central_${new Date().toISOString().replace(/[:.]/g,'-')}.totusbackup`);

@@ -315,6 +315,35 @@ async function runBackupMirror(){
 
 
 
+
+// Resolve only a document visible through the caller's existing database policies.
+// Scheduled backup workers have already passed their dedicated Vault-key check.
+async function documentFileUrl(path:string,req:Request,job=false){
+ if(!path||path.length>1024||path.split('/').some(p=>!p||p==='.'||p==='..')||/[\\\x00-\x1f]/.test(path))throw new Error('Ruta de documento no válida.');
+ let doc:any;
+ if(job){
+  doc=check(await admin.from('ops_documents').select('id,storage_path,size_bytes,sha256').eq('storage_path',path).maybeSingle(),'No se pudo localizar el documento.');
+ }else{
+  const authorization=req.headers.get('Authorization')||'';
+  const jwt=authorization.replace(/^Bearer\s+/i,'');
+  if(!jwt)throw new Error('Acceso denegado.');
+  const identity=await admin.auth.getUser(jwt);
+  if(identity.error||!identity.data.user)throw new Error('Acceso denegado.');
+  const scoped=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:authorization}},auth:{persistSession:false,autoRefreshToken:false}});
+  const result=await scoped.from('ops_documents').select('id,storage_path,size_bytes,sha256').eq('storage_path',path).maybeSingle();
+  if(result.error||!result.data)throw new Error('Acceso denegado.');
+  doc=result.data;
+ }
+ if(!doc)throw new Error('Documento no disponible.');
+ const mapped=check(await admin.from('ops_onedrive_documents').select('source_path,onedrive_path,size_bytes,sha256,verified_at').eq('document_id',doc.id).maybeSingle(),'No se pudo comprobar la ubicación del documento.');
+ if(!mapped)return {provider:'supabase'};
+ if(!mapped.verified_at||mapped.source_path!==doc.storage_path||Number(mapped.size_bytes)!==Number(doc.size_bytes)||!doc.sha256||mapped.sha256!==doc.sha256)throw new Error('La copia de OneDrive no coincide con el documento. No se ha abierto otro archivo.');
+ const response=await graph(await token(),'/me/drive/special/approot:/'+encodedPath(mapped.onedrive_path.split('/'))+':/content');
+ const location=response.headers.get('Location');
+ if(response.status!==302||!location||new URL(location).protocol!=='https:')throw new Error('No se pudo abrir el documento de OneDrive.');
+ return {provider:'onedrive',url:location,size_bytes:Number(mapped.size_bytes),sha256:mapped.sha256};
+}
+
 async function backupFileUrl(runId:string,path:string){
  if(!/^[0-9a-f-]{36}$/i.test(runId)||!path)throw new Error('Referencia de copia no válida.');
  const backup=check(await admin.from('ops_onedrive_backups').select('folder_path,verified_at').eq('run_id',runId).maybeSingle(),'No se pudo comprobar la copia en OneDrive.');
@@ -347,12 +376,14 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
    if(result.copied)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending}}),'No se pudo registrar el lote automático.');
    return json(result);
   }
+  if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
   if(action==='status'){
