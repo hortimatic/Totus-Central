@@ -30,6 +30,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
     if(!await page.locator('#content [data-action="'+mod.action+'"][data-section="'+section+'"].active').count())
       errors.push(key+': subtab not active after clicking');
    }
+   if(mod.route==='administracion'&&section==='storage'&&await page.locator('details.storage-technical').count())await page.locator('details.storage-technical > summary').click();
    const info=await page.evaluate(()=>{
     const root=document.querySelector('#content'),rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
     const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};

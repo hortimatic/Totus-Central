@@ -138,11 +138,13 @@ async function run(mode:string){
  if(claimError)throw claimError;
  if(!id)return {skipped:true,reason:"No corresponde a este horario o ya existe una copia para este periodo."};
  const backupId=String(id);
+ const progress=async(stage:string)=>{console.info(JSON.stringify({backup_stage:stage}));const {error}=await admin.from("ops_backup_runs").update({error_message:stage}).eq("id",backupId).eq("status","running");if(error)throw error;};
  try{
   const {data:config,error:configError}=await admin.from("ops_backup_config").select("*").eq("id",1).single();
   if(configError)throw configError;
   const {data:snapshot,error:snapshotError}=await admin.rpc("totus_export_recovery_snapshot");
   if(snapshotError)throw snapshotError;
+  await progress("Preparando inventario de documentos");
   snapshot.project_ref=new URL(SUPABASE_URL).hostname.split(".")[0];
   // Reuse verified immutable originals from the previous full backup. The new
   // archive is still complete; only newly attached files need individual reads.
@@ -167,6 +169,7 @@ async function run(mode:string){
     downloadUrls.set(bucket+'/'+link.path,link.signedUrl);
    }
   }
+  await progress("Leyendo documentos y preparando archivo");let filesRead=0;
   const {bytes:archive,manifest}=await buildRecoveryArchive(snapshot,SegmentedBackupZip,async(bucket:string,path:string)=>{
    const prior=cached?.zip.file('storage/'+bucket+'/'+path);
    if(prior){const bytes=await prior.async('uint8array');delete cached.zip.files['storage/'+bucket+'/'+path];return bytes;}
@@ -174,13 +177,14 @@ async function run(mode:string){
     const link=downloadUrls.get(bucket+'/'+path);
     if(!link)throw new Error('Archivo fuera del inventario de la copia.');
     const response=await fetch(link);
-    if(response.ok)return await response.blob();
+    if(response.ok){const value=await response.blob();filesRead++;if(filesRead%100===0)await progress("Documentos leídos: "+filesRead);return value;}
     await response.body?.cancel();
     if(attempt===2)throw new Error('No se pudo leer un archivo vinculado: HTTP '+response.status);
     await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
    }
    throw new Error('No se pudo completar la lectura.');
   });
+  await progress("Archivo preparado; comprobando y guardando");
   cached=null;downloadUrls.clear();
   const totalRows=Object.values(snapshot.database).reduce((count:number,rows:unknown)=>count+(rows as unknown[]).length,0);
   const totalFiles=Object.values(snapshot.storage).reduce((count:number,paths:unknown)=>count+(paths as unknown[]).length,0);
@@ -193,7 +197,7 @@ async function run(mode:string){
    const {data,error}=await admin.storage.from('business-backups').download(path);
    if(error||!data)throw new Error('No se pudo verificar la copia.');return data;
   });
-  const {error:updateErr}=await admin.from("ops_backup_runs").update({status:"success",finished_at:new Date().toISOString(),storage_path:pathname,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,snapshot_revision:snapshot.revision,archive_sha256:archive.sha256,archive_manifest:manifest}).eq("id",backupId);
+  const {error:updateErr}=await admin.from("ops_backup_runs").update({status:"success",error_message:null,finished_at:new Date().toISOString(),storage_path:pathname,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,snapshot_revision:snapshot.revision,archive_sha256:archive.sha256,archive_manifest:manifest}).eq("id",backupId);
   if(updateErr)throw updateErr;
   // Only rotate after the new archive has been uploaded and verified.
   const retention=await pruneBackups().catch(e=>({warning:String(e.message||e)}));
