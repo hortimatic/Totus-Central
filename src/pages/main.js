@@ -10,7 +10,7 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
+import {computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -106,17 +106,19 @@ export function inicio(){
   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)),x=>x.total_amount)
   +sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,yFrom,qTo)),x=>x.amount)
   +sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,qTo)),x=>x.amount);
- const ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,qTo));
+ const ytdExpenses=state.data.expenses.filter(x=>isReviewedFiscalExpense(x)&&inRange(x.expense_date,yFrom,qTo));
  const deductedYtd=deductibleExpenseTotal(ytdExpenses,state.data.expenseLines);
  const homeAdjustments=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,qTo));
  const homeExtra=kinds=>sum(homeAdjustments.filter(x=>kinds.includes(x.kind)),x=>x.amount);
  const home130=computeModel130Accumulated({income:incomeYtd,deductible:deductedYtd,extraDeductible:homeExtra(['gasto_deducible_extra','amortizacion']),reductions:homeExtra(['reduccion']),withholdings:homeExtra(['retencion_soportada']),previousPayments:estimatePriorModel130(state.data,year,quarter).total,
   rate:state.data.settings?.irpf_prepayment_rate??20,difficultRate:state.data.settings?.difficult_expense_pct??5,difficultAnnualCap:state.data.settings?.difficult_expense_annual_cap??2000,difficultEnabled:state.data.settings?.difficult_expense_enabled!==false}).due;
- const homeQuarterIds=new Set(quarterExpenses.filter(x=>!x.management_only).map(x=>x.id));
+ const homeQuarterIds=new Set(quarterExpenses.filter(isReviewedFiscalExpense).map(x=>x.id));
  const homeRetention=model=>sum(state.data.expenseLines.filter(x=>homeQuarterIds.has(x.expense_id)&&x.withholding_model===model),x=>x.withholding_amount);
  const homeForecast=[['130',home130],['111',homeRetention('111')],['115',homeRetention('115')]];
  const homeReserve=sum(homeForecast,([model,amount])=>Math.max(0,amount-sum(state.data.taxPayments.filter(x=>x.tax_type===model&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter&&['pagado','compensado'].includes(x.status)),x=>x.amount)));
+ const pendingFiscal=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false&&inRange(x.expense_date,yFrom,qTo));
  const alerts=[];
+ if(pendingFiscal.length)alerts.push({level:'warn',title:'Gastos fiscales sin revisar',text:pendingFiscal.length+' pendientes; no incluidos en la previsión de impuestos',route:'gastos'});
  if(missingStores.length)alerts.push({level:'warn',title:'Cierres pendientes hoy',text:missingStores.map(x=>x.name).join(', '),route:'cajas'});
  if(draftClosings)alerts.push({level:'warn',title:'Cierres en borrador',text:`${draftClosings} pendientes de cerrar`,route:'cajas'});
  if(mismatches)alerts.push({level:'bad',title:'Descuadres de caja',text:`${mismatches} cierre${mismatches===1?'':'s'} con diferencia`,route:'cajas'});
@@ -374,7 +376,7 @@ export function documentos(){
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page documents-page">
-  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Tamaño de los documentos',(state.data.documents.reduce((total,doc)=>total+Number(doc.size_bytes||0),0)/1024/1024).toFixed(1).replace('.',',')+' MB','Volumen de los originales · consulta su ubicación y el espacio libre en Almacenamiento')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
+  <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Tamaño de los documentos filtrados',(rows.reduce((total,doc)=>total+Number(doc.size_bytes||0),0)/1024/1024).toFixed(1).replace('.',',')+' MB','Solo los resultados actuales · capacidad total en Almacenamiento')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Archivo documental</h2><p>Busca por fecha, tienda, proveedor o número de factura. Abre cada documento para revisar su clasificación y sus datos.</p></div><div class="inline-actions">${btn('+ Subir documento','document-new','primary')}</div></div>
    <div class="document-filters">${dateFilters({...f,stores:stores()},'documentos',extra)}</div><div class="document-batch-toolbar"><span class="small muted">${rows.length} documentos encontrados</span><div class="inline-actions">${btn('Descargar ZIP filtrado','documents-zip','secondary')}${btn('Importar lote ZIP','document-bulk-select','secondary')}<input id="documentBulkZip" type="file" accept=".zip,application/zip" hidden></div></div>
@@ -429,8 +431,9 @@ export function fiscalidad(){
  const ytdManual=state.data.incomeAdjustments.filter(x=>inRange(x.income_date,yFrom,calculationTo)&&storeOk(x));
  const sumIncome=(cs,is,as)=>sum(cs,closingIncomeAmount)+sum(is,x=>x.total_amount)+sum(as,x=>x.amount);
  const periodIncome=sumIncome(periodClose,periodInv,periodAdj)+sum(periodManual,x=>x.amount),ytdIncome=sumIncome(ytdClose,ytdInv,ytdAdj)+sum(ytdManual,x=>x.amount);
- const periodExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false&&inRange(x.expense_date,yFrom,calculationTo)&&storeOk(x));
+ const periodExpenses=state.data.expenses.filter(x=>isReviewedFiscalExpense(x)&&inRange(x.expense_date,f.from,f.to)&&storeOk(x)),ytdExpenses=state.data.expenses.filter(x=>isReviewedFiscalExpense(x)&&inRange(x.expense_date,yFrom,calculationTo)&&storeOk(x));
  const internalPeriod=state.data.expenses.filter(x=>x.management_only&&inRange(x.expense_date,f.from,f.to)&&storeOk(x));
+ const pendingFiscal=state.data.expenses.filter(x=>!x.management_only&&x.fiscal_reviewed===false&&inRange(x.expense_date,yFrom,calculationTo)&&storeOk(x));
  const periodDed=deductibleExpenseTotal(periodExpenses,state.data.expenseLines),ytdDedBase=deductibleExpenseTotal(ytdExpenses,state.data.expenseLines);
  const fiscalYtd=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,yFrom,calculationTo)&&storeOk(x)),fiscalPeriod=state.data.fiscalAdjustments.filter(x=>inRange(x.adjustment_date,f.from,f.to)&&storeOk(x));
  const extraIncomeYtd=sum(fiscalYtd.filter(x=>x.kind==='ingreso_extra'),x=>x.amount),extraDedYtd=sum(fiscalYtd.filter(x=>['gasto_deducible_extra','amortizacion'].includes(x.kind)),x=>x.amount),reductionsYtd=sum(fiscalYtd.filter(x=>x.kind==='reduccion'),x=>x.amount),withheldYtd=sum(fiscalYtd.filter(x=>x.kind==='retencion_soportada'),x=>x.amount);
@@ -439,7 +442,7 @@ export function fiscalidad(){
  const model130=computeModel130Accumulated({income:ytdIncome,deductible:ytdDedBase,extraDeductible:extraDedYtd,reductions:reductionsYtd,previousPayments:previous130,withholdings:withheldYtd,rate,difficultRate:dPct,difficultAnnualCap:dCap,difficultEnabled:state.data.settings?.difficult_expense_enabled!==false});
  const {difficult,base,gross:gross130,due:calc130}=model130;
  const current130=state.data.taxPayments.find(x=>x.tax_type==='130'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
- const qExpenses=state.data.expenses.filter(x=>!x.management_only&&inRange(x.expense_date,qFrom,calculationTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
+ const qExpenses=state.data.expenses.filter(x=>isReviewedFiscalExpense(x)&&inRange(x.expense_date,qFrom,calculationTo)&&storeOk(x)),qIds=new Set(qExpenses.map(x=>x.id)),qLines=state.data.expenseLines.filter(x=>qIds.has(x.expense_id));
  const calc111=sum(qLines.filter(x=>x.withholding_model==='111'),x=>x.withholding_amount),calc115=sum(qLines.filter(x=>x.withholding_model==='115'),x=>x.withholding_amount);
  const pay111=state.data.taxPayments.find(x=>x.tax_type==='111'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter),pay115=state.data.taxPayments.find(x=>x.tax_type==='115'&&Number(x.fiscal_year)===year&&Number(x.quarter)===quarter);
  const internal=sum(internalPeriod,expenseCostAmount);
@@ -460,6 +463,7 @@ export function fiscalidad(){
  return `<div class="page fiscal-page">${presented?'<p class="note good"><b>Trimestre presentado y aceptado.</b> Confirmado por el titular. La previsión permite contrastar el cálculo. El importe declarado y su pago se consultan en el apartado de gestoría.</p>':''}${state.data.settings?.closed_through?`<details class="note"><summary>Histórico protegido hasta ${fmtDate(state.data.settings.closed_through)} · ver notas de contraste</summary><p>${esc(state.data.settings.period_close_notes||'')}</p></details>`:''}
   ${state.data.expenses.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)&&inRange(x.expense_date,f.from,f.to)&&storeOk(x))?'<p class="note warn">Carga con pagos pendientes de soporte o conciliación. Los impuestos y el resultado siguen siendo provisionales.</p>':''}
   <section class="card">${dateFilters({...f,stores:stores()},'fiscal',`<div class="field"><label>Acceso rápido</label><div class="inline-actions">${quarterButtons}</div></div>`)}</section>
+  ${pendingFiscal.length?`<p class="note warn fiscal-pending-review" role="status"><b>${pendingFiscal.length} gasto${pendingFiscal.length===1?' fiscal sin revisar':'s fiscales sin revisar'}</b> · No incluido${pendingFiscal.length===1?'':'s'} en esta previsión. Abre cada gasto, comprueba la factura y marca «He cotejado el documento, sus conceptos e impuestos» para incluirlo. El aviso abarca desde enero hasta la fecha de cálculo.</p>`:''}
   <div class="kpis">${kpi('Ingresos del periodo',money(periodIncome))}${kpi('Gastos que reducen el IRPF',money(periodDed),'Importe fiscal; puede diferir del total de la factura')}${kpi('Beneficio para calcular el IRPF',money(periodIncome-periodDed),'Ingresos menos gastos deducibles; antes de deducciones y anticipos del modelo 130')}${kpi('Gastos internos · solo información',money(internal),'No se restan del beneficio fiscal ni reducen el IRPF')}</div>
   <div class="split">
    <section class="card card-pad fiscal-forecast"><div class="section-head"><div><h2>Previsión de impuestos · ${quarter}T ${year}</h2><p>Se actualiza con tus cierres, facturas y gastos. No utiliza las cifras de gestoría para calcular este trimestre ni supone ventas o gastos que todavía no has registrado.</p></div></div><div class="fiscal-declaration-grid">${forecastCards}</div><div class="summary-row"><b>Total que conviene reservar para este trimestre</b><strong>${money(reserve)}</strong></div><p class="small muted">El 130 acumula desde enero; el 111 y el 115 suman las retenciones de este trimestre. Los gastos internos no reducen estos impuestos.</p>${prior130.estimated>0?`<p class="note">Para planificar se han usado ${money(prior130.estimated)} de anticipos anteriores calculados por la herramienta, todavía sin pago anotado. Al registrar sus liquidaciones reales se actualizará la previsión.</p>`:''}${f.store!=='all'?'<p class="note warn">Has seleccionado una tienda. Para planificar los impuestos del autónomo, selecciona «Todas».</p>':''}</section>

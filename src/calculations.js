@@ -100,9 +100,12 @@ export function computeModel130Accumulated({
  return {beforeDifficult,difficult,base,gross,due:Math.max(0,gross-previousPayments-withholdings)};
 }
 
+/** Use the same reviewed/non-internal scope for all tax forecasts. */
+export const isReviewedFiscalExpense=expense=>!!expense&&!expense.management_only&&expense.fiscal_reviewed!==false;
+
 /** The same deductible expense total for Inicio, Fiscalidad and exported Modelo 130. */
 export function deductibleExpenseTotal(expenses=[],lines=[]){
- const eligible=expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false);
+ const eligible=expenses.filter(isReviewedFiscalExpense);
  const ids=new Set(eligible.map(x=>String(x.id)));
  const withLines=new Set();
  let total=0;

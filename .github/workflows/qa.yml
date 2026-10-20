@@ -42,6 +42,7 @@ jobs:
       - run: node tests/direct-backup-transfer-qa.mjs
       - run: node tests/filters-qa.mjs
       - run: node tests/fiscal-forecast-qa.mjs
+      - run: node tests/document-filter-size-qa.mjs
       - run: node tests/document-archive-qa.mjs
       - run: node tests/archive-documents-qa.mjs
       - run: node tests/expense-archive-qa.mjs
@@ -53,6 +54,7 @@ jobs:
       - run: node tests/native-backup-zip-qa.mjs
       - run: node tests/recovery-handler-qa.mjs
       - run: npx playwright install --with-deps chromium
+      - run: node tests/workbook-preview-qa.mjs
       - run: node tests/excel-qa.mjs
       - run: node tests/monthly-workbook-qa.mjs
       - run: node tests/source-workbook-qa.mjs

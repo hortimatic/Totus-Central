@@ -86,3 +86,7 @@ La batería completa aprobó la revisión b25d6116, incluyendo guardado de 112 M
 
 ## Corrección solicitada: presentación compacta, pendiente de aceptación visual
 Rehacer la pantalla con filas por servicio y cifras alineadas. Conservar toda la información y funciones en apartados de detalle. Separar claramente el límite de formato de copia de la capacidad de almacenamiento. Mostrar el resumen de copias sin repetir tarjetas ni párrafos principales. La aprobación de pruebas no implica aceptación del diseño por el titular.
+
+
+## Revisión anterior a cargar octubre
+Comprobar integridad de datos, aperturas por cajón, cálculos, documentos asociados, informes por meses, permisos y tareas cloud. Corregir el criterio desigual de gastos sin revisar entre modelos fiscales y mostrar sus pendientes. Localizar las vistas previas numéricas y el tamaño de los documentos filtrados. Conservar los registros existentes y esperar los nuevos archivos antes de importar octubre.

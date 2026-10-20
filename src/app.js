@@ -1,3 +1,4 @@
+import {workbookPreviewText} from './workbook-preview.js';
 import {oneDriveRequest,setOneDriveStatus} from './onedrive-connection.js';
 import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
@@ -1778,7 +1779,7 @@ function sheetPreviewTable(sheet){
    const cell=sheet[window.XLSX.utils.encode_cell({r,c})],style=cell?.s||{},fill=rgb(style.fill?.fgColor),color=rgb(style.font?.color),merge=starts.get(`${r}:${c}`);
    const css=[fill?`background:${fill}`:'',color?`color:${color}`:'',style.font?.bold?'font-weight:700':'',style.alignment?.horizontal?`text-align:${['left','center','right'].includes(style.alignment.horizontal)?style.alignment.horizontal:'left'}`:''].filter(Boolean).join(';');
    if(r<6&&style.font?.bold&&fill)headings++;
-   cells.push(`<td ${merge?`colspan="${Math.min(merge.e.c,lastCol)-c+1}" rowspan="${Math.min(merge.e.r,lastRow)-r+1}"`:''} style="${css}">${esc(cell?window.XLSX.utils.format_cell(cell):'')}</td>`);
+   cells.push(`<td ${merge?`colspan="${Math.min(merge.e.c,lastCol)-c+1}" rowspan="${Math.min(merge.e.r,lastRow)-r+1}"`:''} style="${css}">${esc(workbookPreviewText(cell,window.XLSX.utils.format_cell,window.XLSX.SSF))}</td>`);
   }
   rows.push(`<tr ${headings>2?'class="sheet-header"':''}>${cells.join('')}</tr>`);
  }

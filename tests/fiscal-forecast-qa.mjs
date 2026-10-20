@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {estimatePriorModel130} from '../src/calculations.js';
+import {estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal} from '../src/calculations.js';
 import {state,patchFilters} from '../src/state.js';
 import {fiscalidad} from '../src/pages/main.js';
 
@@ -30,4 +30,22 @@ state.data.taxPayments.push({tax_type:'115',fiscal_year:2026,quarter:3,status:'p
 assert(forecast().includes('80,00'),'Actual payment reduces the reserve without overwriting the tax estimate');
 state.data.closings=state.data.closings.filter(x=>x.id!=='later');
 assert.equal(estimatePriorModel130(state.data,2026,4).total,480,'Future planning must carry forward our own earlier estimate when a payment has not been recorded');
+assert.equal(isReviewedFiscalExpense({fiscal_reviewed:false,management_only:false}),false);
+assert.equal(isReviewedFiscalExpense({fiscal_reviewed:true,management_only:true}),false);
+assert.equal(isReviewedFiscalExpense({fiscal_reviewed:true,management_only:false}),true);
+const savedForecast=forecast(),savedDeduction=deductibleExpenseTotal(state.data.expenses,state.data.expenseLines);
+state.data.expenses.push(
+ {id:'pending111',store_id:'h',expense_date:'2026-08-15',management_only:false,fiscal_reviewed:false},
+ {id:'pending115',store_id:'n',expense_date:'2026-08-15',management_only:false,fiscal_reviewed:false});
+state.data.expenseLines.push(
+ {expense_id:'pending111',irpf_imputable:100,deductible_irpf:true,withholding_model:'111',withholding_amount:15},
+ {expense_id:'pending115',irpf_imputable:100,deductible_irpf:true,withholding_model:'115',withholding_amount:19});
+assert.equal(forecast(),savedForecast,'Unreviewed expenses must not change any of the three forecasts');
+assert.equal(deductibleExpenseTotal(state.data.expenses,state.data.expenseLines),savedDeduction);
+assert(fiscalidad().includes('2 gastos fiscales sin revisar'),'Missing visible exclusion warning');
+state.data.expenses.find(x=>x.id==='pending111').fiscal_reviewed=true;
+assert(forecast().includes('15,00'),'A reviewed expense must enter withholding forecasts');
+assert(fiscalidad().includes('1 gasto fiscal sin revisar'));
+patchFilters('fiscalidad',{store:'h'});
+assert(!fiscalidad().includes('fiscal-pending-review'),'The warning must respect the selected store');
 console.log('FISCAL FORECAST QA: independent references, live activity, date cutoff, both stores, internal costs, paid versus estimated advances and reserve');

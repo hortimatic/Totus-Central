@@ -69,7 +69,8 @@ jobs:
           node tests/api-integrity-qa.mjs
           node tests/filters-qa.mjs
           node tests/fiscal-forecast-qa.mjs
-           node tests/document-archive-qa.mjs
+           node tests/document-filter-size-qa.mjs
+          node tests/document-archive-qa.mjs
           node tests/expense-archive-qa.mjs
           node tests/excel-invariants.mjs
       - name: Install browser and document testing dependencies
@@ -84,6 +85,7 @@ jobs:
       - name: Check exports and real browser flows against isolated mock data
         working-directory: staging-source
         run: |
+          node tests/workbook-preview-qa.mjs
           node tests/excel-qa.mjs
           node tests/monthly-workbook-qa.mjs
           node tests/source-workbook-qa.mjs
