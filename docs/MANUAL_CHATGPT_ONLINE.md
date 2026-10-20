@@ -2,7 +2,7 @@
 Versión de trabajo: 20/10/2026. Entorno: staging. Revisar el registro de pendientes antes de dar una función por certificada.
 
 ## 1. Acceso y responsabilidades
-La web está en GitHub Pages, el código en la rama staging de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, documentos y programación del servidor. OneDrive tiene una conexión restringida a la carpeta de aplicación.
+La web está en GitHub Pages, el código en la rama staging de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
 La sesión del portátil no se hereda a ChatGPT online. El nuevo chat necesita conectores autorizados o acceso por navegador a cada servicio. Verificar lectura y escritura antes de prometer operaciones.
 No guardar contraseñas ni claves en conversaciones, documentos, repositorios, borradores o archivos locales. Las credenciales de Microsoft se mantienen en Vault. No ampliar permisos para resolver un problema de rutas.
 
@@ -95,7 +95,7 @@ Los documentos verificados se resuelven desde OneDrive al abrirlos y descargarlo
 La herramienta comprueba tamaño y SHA-256 al abrir un documento. Si el archivo fue alterado directamente en OneDrive, no se debe actualizar su huella para ocultar el problema: recuperar el original correcto o sustituirlo por el flujo normal.
 Eliminar o sustituir una ficha conserva el archivo anterior de OneDrive en «99 Archivo de documentos retirados», mediante una tarea del servidor. Esa carpeta es un archivo recuperable, no una papelera que se vacíe automáticamente. No se elimina su contenido para ahorrar cuota de Supabase.
 No cambiar manualmente storage_path por una URL de OneDrive: es un identificador estable y la ubicación real se resuelve mediante el índice verificado del servidor.
-La retirada de duplicados de Supabase exige comprobar de nuevo ambos archivos, sus referencias y una copia completa de seguridad verificada en OneDrive. La limpieza real aún requiere la comprobación final en pantalla; no darla por ejecutada porque exista la función o porque una simulación haya pasado.
+La retirada de duplicados de Supabase exige comprobar de nuevo ambos archivos, sus referencias y una copia completa de seguridad verificada en OneDrive. El 20/10/2026 se completó con 452 originales: cero objetos restantes en business-documents, 452 índices conservados y las mismas 547 fichas de gastos y 449 cierres. Se abrieron PDFs de ambas tiendas, incluido uno cuyo duplicado ya había sido retirado.
 
 ## 9. Copias de seguridad
 La programación de las 00:35 Europe/Madrid se ejecuta en Supabase, con cambio de horario automático. Conservar cinco copias ordinarias completas: crear y verificar la nueva antes de retirar la antigua.
@@ -143,6 +143,12 @@ ChatGPT online requiere conexiones autorizadas o sesión propia en el navegador 
 
 ## 15. Evidencias y límites de esta fase de migración
 La versión 28317f3b superó las pruebas funcionales y visuales completas y se publicó en staging. Las pruebas reales de servidor comprobaron resolución de un documento de OneDrive, creación y lectura de una copia completa, ensayo de 38 tablas y 57 relaciones, y traslado de ida y vuelta de un archivo sintético sin cambiar su contenido.
-La simulación de limpieza examinó cinco documentos y no retiró ninguno. La comprobación de sustitución de una ficha se ejecutó en una subtransacción que se revirtió; no dejó documentos ficticios.
-Al recargar la versión publicada se solicitó acceso. Hasta completar esa entrada y probar las vistas previas reales, no marcar como terminada la retirada de originales de Supabase.
-Las copias actuales tienen un límite técnico de archivo que debe ampliarse con un diseño y pruebas de memoria/CPU apropiados antes de alcanzar su capacidad. OneDrive no elimina por sí solo ese límite ni certifica la recuperación de toda la infraestructura. Las credenciales y la configuración de los servicios requieren el procedimiento privado de reconexión.
+La simulación inicial examinó cinco documentos sin retirarlos. La limpieza real posterior finalizó con 452 documentos, sin errores, sin discrepancias de tamaño/huella y sin cambiar los registros contables. La comprobación de sustitución de una ficha se ejecutó en una subtransacción que se revirtió; no dejó documentos ficticios.
+El titular inició sesión y se comprobaron las vistas previas reales de ambas tiendas. La retirada de los 452 duplicados documentales quedó completada; no confundirla con la retirada de fragmentos de copias de seguridad, que exige su comprobación específica.
+El guardado por fragmentos conserva el formato ZIP completo y publica el índice al final, después de releer y comprobar cada fragmento. La ampliación a 120 MiB de archivo y 128 MiB de contenido requiere validar también los límites reales del servidor. Las primeras simulaciones detectaron memoria y CPU excesivas al combinar creación y lectura en una ejecución; se separaron ambas fases y se añadieron comprobaciones nativas y lectura secuencial. OneDrive no elimina por sí solo ese límite ni certifica la recuperación de toda la infraestructura. Las credenciales y la configuración de los servicios requieren el procedimiento privado de reconexión.
+
+## 16. Comprobación de ubicación y recuperación de una copia
+La tabla Copias identifica el proveedor principal. El campo storage_provider es metadato del servidor: no editarlo para aparentar una migración.
+Una copia en OneDrive conserva su referencia estable y puede mantener un índice pequeño en Supabase. Los fragmentos pesados solo se retiran después de releer toda la copia desde OneDrive, comprobar la huella completa y ejecutar el ensayo de filas y relaciones.
+El punto de vuelta se comprueba por fragmentos, sin cargar dos copias completas a la vez. Si falla la lectura, la integridad o la autorización, la recuperación no debe confirmar cambios.
+Una restauración total aislada del proyecto, incluidas identidades y configuración de proveedores, sigue siendo un criterio independiente. La copia de datos de la aplicación no contiene contraseñas, credenciales de Microsoft ni secretos de infraestructura.

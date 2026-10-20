@@ -231,7 +231,7 @@ async function run(mode:string,req:Request){
   const cleanup=await cleanupUnusedFiles().catch(e=>({warning:String(e.message||e)}));
   return {id:backupId,status:"success",retention,cleanup,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,storage_path:pathname};
  }catch(e){
-  await admin.from("ops_backup_runs").update({status:"failed",finished_at:new Date().toISOString(),error_message:String(e instanceof Error?e.message:e).slice(0,1000)}).eq("id",backupId);
+  await admin.from("ops_backup_runs").update({status:"failed",finished_at:new Date().toISOString(),error_message:String(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?e.message:e).slice(0,1000)}).eq("id",backupId);
   throw e;
  }
 }
@@ -414,5 +414,5 @@ Deno.serve(async(req)=>{
   const result=await run(mode,req);
   const onedrive=await mirrorAfterBackup(req,result.id);
   return reply({...result,onedrive});
- }catch(e){return reply({error:String(e instanceof Error?e.message:e)},500);}
+ }catch(e){return reply({error:String(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?e.message:e)},500);}
 });
