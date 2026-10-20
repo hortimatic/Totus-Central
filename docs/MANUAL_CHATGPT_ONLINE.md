@@ -3,7 +3,7 @@ Versión de trabajo: 20/10/2026. Entorno: staging. Revisar el registro de pendie
 
 ## 1. Acceso y responsabilidades
 La web está en GitHub Pages, el código en la rama staging de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
-La sesión del portátil no se hereda a ChatGPT online. El nuevo chat necesita conectores autorizados o acceso por navegador a cada servicio. Verificar lectura y escritura antes de prometer operaciones.
+La sesión del portátil no se hereda a ChatGPT online. La app estándar de GitHub de ChatGPT permite consulta; para publicar código se necesita una experiencia con escritura autorizada, como Codex (https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt). La operación diaria puede hacerse por la web con navegador en la nube cuando esté disponible y autorizado (https://help.openai.com/en/articles/20001280-using-cloud-browser-in-chatgpt). El nuevo chat necesita conectores autorizados o acceso por navegador a cada servicio. Verificar lectura y escritura antes de prometer operaciones.
 No guardar contraseñas ni claves en conversaciones, documentos, repositorios, borradores o archivos locales. Las credenciales de Microsoft se mantienen en Vault. No ampliar permisos para resolver un problema de rutas.
 
 ## 2. Antes de cada jornada
@@ -141,14 +141,26 @@ El traslado de seguridad se invoca después de la copia nocturna existente de la
 La capacidad total de OneDrive solo se muestra cuando Microsoft permite leerla con los permisos actuales. No solicitar acceso a todos los archivos únicamente para mostrar una cuota ni convertir el tamaño de Totus en el libre total de la cuenta.
 ChatGPT online requiere conexiones autorizadas o sesión propia en el navegador disponible; no hereda sesiones de este ordenador. Consultar https://learn.chatgpt.com/docs/enterprise/chatgpt-work-overview y verificar una lectura real antes de iniciar operaciones.
 
-## 15. Evidencias y límites de esta fase de migración
-La versión 28317f3b superó las pruebas funcionales y visuales completas y se publicó en staging. Las pruebas reales de servidor comprobaron resolución de un documento de OneDrive, creación y lectura de una copia completa, ensayo de 38 tablas y 57 relaciones, y traslado de ida y vuelta de un archivo sintético sin cambiar su contenido.
-La simulación inicial examinó cinco documentos sin retirarlos. La limpieza real posterior finalizó con 452 documentos, sin errores, sin discrepancias de tamaño/huella y sin cambiar los registros contables. La comprobación de sustitución de una ficha se ejecutó en una subtransacción que se revirtió; no dejó documentos ficticios.
-El titular inició sesión y se comprobaron las vistas previas reales de ambas tiendas. La retirada de los 452 duplicados documentales quedó completada; no confundirla con la retirada de fragmentos de copias de seguridad, que exige su comprobación específica.
-El guardado por fragmentos conserva el formato ZIP completo y publica el índice al final, después de releer y comprobar cada fragmento. La ampliación a 120 MiB de archivo y 128 MiB de contenido requiere validar también los límites reales del servidor. Las primeras simulaciones detectaron memoria y CPU excesivas al combinar creación y lectura en una ejecución; se separaron ambas fases y se añadieron comprobaciones nativas y lectura secuencial. OneDrive no elimina por sí solo ese límite ni certifica la recuperación de toda la infraestructura. Las credenciales y la configuración de los servicios requieren el procedimiento privado de reconexión.
+## 15. Evidencias de esta revisión
+La batería remota completa ha comprobado permisos, filtros, informes, facturación, documentos, recorridos, campos y geometría de interfaz. Consultar las ejecuciones de GitHub Actions de la revisión publicada; no confundir código escrito con prueba terminada.
+Comprobaciones reales del 20/10/2026:
+- 452 originales verificados y retirados de Supabase; PDFs de ambas tiendas abiertos desde OneDrive.
+- Las mismas 547 fichas de gasto y 449 cierres, con sus 452 ubicaciones documentales.
+- Copia nueva completa con 454 archivos y 4.870 registros; traslado a OneDrive, relectura íntegra y ensayo de 38 tablas/57 relaciones.
+- Tres copias completas verificadas en OneDrive; sus fragmentos pesados retirados de Supabase, conservando los índices.
+- Simulación de 112 MiB creada y leída en ejecuciones separadas; sus 16 objetos temporales se eliminaron.
+- Matriz SQL rechaza huella, tamaño, ruta preparada ausente o índice documental incorrectos. La recuperación completa de la base de datos se ejecutó con reversión y límite de ocho segundos: conservó las tablas y las 452 ubicaciones, y no dejó trabajos ni datos de prueba.
 
-## 16. Comprobación de ubicación y recuperación de una copia
-La tabla Copias identifica el proveedor principal. El campo storage_provider es metadato del servidor: no editarlo para aparentar una migración.
-Una copia en OneDrive conserva su referencia estable y puede mantener un índice pequeño en Supabase. Los fragmentos pesados solo se retiran después de releer toda la copia desde OneDrive, comprobar la huella completa y ejecutar el ensayo de filas y relaciones.
-El punto de vuelta se comprueba por fragmentos, sin cargar dos copias completas a la vez. Si falla la lectura, la integridad o la autorización, la recuperación no debe confirmar cambios.
-Una restauración total aislada del proyecto, incluidas identidades y configuración de proveedores, sigue siendo un criterio independiente. La copia de datos de la aplicación no contiene contraseñas, credenciales de Microsoft ni secretos de infraestructura.
+El primer ensayo detectó una validación que repetía el análisis del listado completo por documento y agotó la conexión; staging requirió reinicio. Se sustituyó por una validación conjunta materializada, se comprobaron de nuevo los recuentos y el ensayo posterior terminó correctamente. No repetir pruebas sin límite de tiempo ni presentar ese intento inicial como éxito.
+
+## 16. Copias por fases y recuperación
+La copia nocturna crea un archivo completo y publica su índice después de verificar los fragmentos. El servidor de Supabase continúa el traslado a OneDrive y la retirada de duplicados mediante la tarea de mantenimiento existente de dos minutos. Cada fase tiene su propia reserva y margen de ejecución; una fase interrumpida conserva el progreso y las copias anteriores.
+La tabla Copias identifica el proveedor principal. storage_provider es metadato del servidor: no editarlo para aparentar una migración. Una copia de OneDrive mantiene su referencia estable y un índice pequeño en Supabase.
+Antes de retirar los fragmentos pesados, el servidor relee la copia completa desde OneDrive, compara su huella registrada y ensaya filas y relaciones. No ejecutar limpiezas concurrentes: la reserva compartida impide recuperar durante una retirada y una ejecución antigua no puede liberar la reserva de otra nueva.
+Los documentos sustituidos o eliminados de una ficha se archivan de forma recuperable; no se borran automáticamente de OneDrive. La rotación de copias ordinarias protege las vinculadas a recuperaciones y conserva una sucesora verificada.
+
+## 17. Alcance y límites
+Las copias son de datos y archivos de la aplicación para el mismo proyecto. Conservan autores, usuarios y permisos; las contraseñas permanecen en Supabase Auth. La prueba SQL con reversión y el ensayo temporal de relaciones son distintos de reconstruir toda la infraestructura en una cuenta nueva.
+Una pérdida total del proyecto requiere GitHub, las migraciones y funciones, una conexión autorizada y el procedimiento privado de identidades/credenciales. No publicar secretos ni prometer que una copia de aplicación incluye toda la infraestructura de Microsoft o Supabase.
+El formato admite 120 MiB de archivo y 128 MiB expandidos. La prueba de 112 MiB cubre un año fiscal al ritmo de los nueve meses observados; sigue siendo una estimación, no capacidad ilimitada. Revisar la advertencia de crecimiento y preparar la ampliación por volúmenes o archivo de ejercicios antes del límite.
+La protección nativa de contraseñas filtradas de Supabase requiere un plan compatible; mantener la política de contraseñas y revisar esta limitación sin contratar servicios automáticamente. Referencia: https://supabase.com/docs/guides/auth/password-security.
