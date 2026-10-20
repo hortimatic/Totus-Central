@@ -1,0 +1,1 @@
+alter table public.ops_onedrive_documents add column retired_from_supabase_at timestamptz; create index ops_onedrive_documents_local_pending on public.ops_onedrive_documents(document_id) where retired_from_supabase_at is null;

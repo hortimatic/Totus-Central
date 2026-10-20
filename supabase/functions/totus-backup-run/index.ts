@@ -234,6 +234,64 @@ async function run(mode:string,req:Request){
  }
 }
 
+
+async function retireVerifiedDocuments(req:Request,full=false,dryRun=false){
+ const {data:copies,error:copiesError}=await admin.from('ops_onedrive_backups').select('run_id').not('verified_at','is',null).order('verified_at',{ascending:false}).limit(1);
+ if(copiesError||!copies?.length)throw new Error('Primero debe existir una copia completa comprobada en OneDrive.');
+ const {data:backup,error:backupError}=await admin.from('ops_backup_runs').select('status,archive_manifest').eq('id',copies[0].run_id).single();
+ if(backupError||backup?.status!=='success'||backup.archive_manifest?.version!==3)throw new Error('La copia de seguridad no está disponible para proteger la limpieza.');
+ const protectedFiles=backup.archive_manifest.integrity?.storage?.['business-documents']||{};
+ let retired=0,freed=0,checked=0,skipped=0,remaining=0;const errors:string[]=[];const deadline=Date.now()+85000;
+ do{
+  const {data:rows,error}=await admin.from('ops_onedrive_documents').select('document_id,source_path,size_bytes,sha256,verified_at').is('retired_from_supabase_at',null).order('document_id').limit(5);
+  if(error)throw error;
+  if(!rows?.length){remaining=0;break;}
+  let changed=0;
+  for(const map of rows){
+   try{
+    if(!map.verified_at||protectedFiles[map.source_path]!==map.sha256){skipped++;continue;}
+    const {data:doc,error:docError}=await admin.from('ops_documents').select('id,storage_path,size_bytes,sha256').eq('id',map.document_id).maybeSingle();
+    if(docError||!doc||doc.storage_path!==map.source_path||Number(doc.size_bytes)!==Number(map.size_bytes)||doc.sha256!==map.sha256)throw new Error('El documento cambió desde su copia. Se conserva el original.');
+    const remote=await oneDriveRead(req,'document-file-url',{path:map.source_path});
+    if(remote.size!==Number(map.size_bytes)||createHash('sha256').update(new Uint8Array(await remote.arrayBuffer())).digest('hex')!==map.sha256)throw new Error('OneDrive no supera la comprobación de integridad. Se conserva Supabase.');
+    const local=await admin.storage.from('business-documents').download(map.source_path);
+    let localBytes=0;
+    if(local.error){
+     if(!/not found|no encontrado/i.test(local.error.message||'')&&Number(local.error.status)!==404)throw new Error('No se pudo comprobar el original de Supabase.');
+    }else if(local.data){
+     localBytes=local.data.size;
+     if(localBytes!==Number(map.size_bytes)||createHash('sha256').update(new Uint8Array(await local.data.arrayBuffer())).digest('hex')!==map.sha256)throw new Error('El original de Supabase no coincide con su copia. No se retira.');
+    }else throw new Error('No se pudo comprobar el original de Supabase.');
+    const latest=await admin.from('ops_documents').select('storage_path,sha256,size_bytes').eq('id',map.document_id).maybeSingle();
+    if(latest.error||!latest.data||latest.data.storage_path!==map.source_path||latest.data.sha256!==map.sha256||Number(latest.data.size_bytes)!==Number(map.size_bytes))throw new Error('El documento cambió durante la revisión. No se retira.');
+    checked++;
+    if(dryRun)continue;
+    if(localBytes){
+     const removed=await admin.storage.from('business-documents').remove([map.source_path]);
+     if(removed.error)throw new Error('Supabase no confirmó la retirada del duplicado.');
+     const slash=map.source_path.lastIndexOf('/'),folder=slash<0?'':map.source_path.slice(0,slash),name=map.source_path.slice(slash+1);
+     const listing=await admin.storage.from('business-documents').list(folder,{search:name,limit:100});
+     if(listing.error||!Array.isArray(listing.data)||listing.data.length>=100||listing.data.some((item:any)=>item.name===name))throw new Error('No se pudo confirmar que el duplicado se retiró de Supabase.');
+    }
+    const saved=await admin.from('ops_onedrive_documents').update({retired_from_supabase_at:new Date().toISOString()}).eq('document_id',map.document_id).eq('source_path',map.source_path).eq('sha256',map.sha256).is('retired_from_supabase_at',null).select('document_id');
+    if(saved.error)throw new Error('No se pudo registrar la retirada; la copia de OneDrive sigue intacta.');
+    if(saved.data?.length){retired++;freed+=localBytes;changed++;}
+   }catch(error){errors.push(error instanceof Error?error.message:'No se pudo comprobar un documento.');}
+  }
+  const count=await admin.from('ops_onedrive_documents').select('document_id',{count:'exact',head:true}).is('retired_from_supabase_at',null);
+  if(count.error)throw count.error;remaining=Number(count.count)||0;
+  if(dryRun||!full||!changed||errors.length||Date.now()>deadline)break;
+ }while(remaining>0);
+ if(retired){
+  let actor:any=null;
+  const jwt=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');
+  if(jwt)actor=(await admin.auth.getUser(jwt)).data.user;
+  const logged=await admin.from('ops_audit_log').insert({user_id:actor?.id||null,user_email:actor?.email||'Tarea automática',area:'administracion',action:'duplicados_documentales_supabase_retirados',detail:{documentos:retired,bytes_liberados:freed,proteccion:'Original verificado en OneDrive y copia completa verificada'}});
+  if(logged.error)throw new Error('La retirada se completó pero no pudo registrarse su resumen. Revisa el estado antes de repetir.');
+ }
+ return {dry_run:dryRun,checked,retired,freed_bytes:freed,remaining,skipped,errors};
+}
+
 async function mirrorAfterBackup(req:Request){
  try{
   const {data,error}=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
@@ -255,6 +313,7 @@ Deno.serve(async(req)=>{
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
   if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
+  if(body?.action==='retire-documents')return reply(await retireVerifiedDocuments(req,body.full===true,body.dry_run===true));
   if(body?.action==='verify'||body?.action==='verify-onedrive')return reply(await verifySavedBackup(String(body?.id||''),body.action==='verify-onedrive'?'onedrive':'supabase',req));
   if(body?.action==='delete'){
    if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);

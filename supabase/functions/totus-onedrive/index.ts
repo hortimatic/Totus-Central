@@ -105,6 +105,25 @@ async function test(){
  if(!read.ok)throw new Error('No se pudo volver a leer el archivo de prueba.');
  const actual=await read.text();
  if(actual!==text)throw new Error('El archivo leído no coincide con el enviado.');
+ // Test reversible movement using this synthetic file only, then return it
+ // to its original location. No business document is moved by this check.
+ await ensurePath(access,['90 Pruebas de conexion','Archivo de pruebas'],new Set<string>());
+ const testFolderResponse=await graph(access,'/me/drive/special/approot:/'+encodedPath(['90 Pruebas de conexion','Archivo de pruebas']));
+ if(!testFolderResponse.ok)throw new Error('No se pudo preparar la prueba de archivo recuperable.');
+ const testFolder=await testFolderResponse.json();
+ const movedName='comprobacion-'+Date.now()+'.txt';
+ const originalItemPath=path.replace(/:\/content$/,'');
+ const moved=await graph(access,originalItemPath,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:movedName,parentReference:{id:testFolder.id},'@microsoft.graph.conflictBehavior':'fail'})});
+ if(!moved.ok||(await moved.json()).id!==item.id)throw new Error('No se pudo comprobar el traslado recuperable del archivo de prueba.');
+ const movedPath='/me/drive/special/approot:/'+encodedPath(['90 Pruebas de conexion','Archivo de pruebas',movedName]);
+ const archivedBytes=await readContent(access,movedPath+':/content');
+ if(new TextDecoder().decode(archivedBytes)!==text)throw new Error('La prueba de archivo recuperable no conserva el contenido.');
+ const originalFolderResponse=await graph(access,'/me/drive/special/approot:/'+encodedPath(['90 Pruebas de conexion']));
+ if(!originalFolderResponse.ok)throw new Error('No se pudo volver a abrir la carpeta de pruebas.');
+ const originalFolder=await originalFolderResponse.json();
+ const restored=await graph(access,movedPath,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'comprobacion-servidor.txt',parentReference:{id:originalFolder.id},'@microsoft.graph.conflictBehavior':'fail'})});
+ if(!restored.ok||(await restored.json()).id!==item.id)throw new Error('La prueba se conserva archivada; no se pudo devolver a su carpeta de pruebas.');
+ if(new TextDecoder().decode(await readContent(access,path))!==text)throw new Error('No se pudo comprobar la lectura final de la prueba.');
  const digest=await hash(text),at=new Date().toISOString();
  check(await admin.from('ops_onedrive_config').update({tested_at:at,test_sha256:digest,app_folder_url:base.webUrl,updated_at:at}).eq('id',1),'No se pudo guardar el resultado de la prueba.');
  return {verified:true,tested_at:at,bytes:new TextEncoder().encode(text).length,sha256:digest,file_url:item.webUrl};
