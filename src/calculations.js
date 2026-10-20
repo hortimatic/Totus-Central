@@ -7,10 +7,11 @@ export function sourceClosingReconciled(closing){
  const valid=v=>v!==null&&v!==''&&v!==undefined&&Number.isFinite(Number(v));
  const cents=v=>Math.round(Number(v)*100);
  if(!['opening_cash','actual_cash','cash_sales','card_sales','cash_withdrawals'].every(k=>valid(closing[k])))return false;
- if(!valid(source.card_sales)||!valid(source.withdrawals)||!valid(approval.total))return false;
+ const sourceWithdrawals=source.withdrawals==null&&approval.blank_withdrawals_as_zero===true?0:source.withdrawals;
+ if(!valid(source.card_sales)||!valid(sourceWithdrawals)||!valid(approval.total))return false;
  if(!drawers.every(d=>valid(d.opening)&&valid(d.closing)))return false;
  if(cents(drawers.reduce((s,d)=>s+Number(d.opening),0))!==cents(closing.opening_cash)||cents(drawers.reduce((s,d)=>s+Number(d.closing),0))!==cents(closing.actual_cash))return false;
- if(cents(source.card_sales)!==cents(closing.card_sales)||cents(source.withdrawals)!==cents(closing.cash_withdrawals))return false;
+ if(cents(source.card_sales)!==cents(closing.card_sales)||cents(sourceWithdrawals)!==cents(closing.cash_withdrawals))return false;
  const cash=Number(closing.actual_cash)+Number(closing.cash_withdrawals)+Number(closing.cash_expenses_declared||0)+Number(closing.cash_extra_out||0)-Number(closing.cash_extra_in||0)-Number(closing.opening_cash);
  const total=cash+['card_sales','bizum_sales','online_sales','other_income'].reduce((s,k)=>s+Number(closing[k]||0),0);
  return cents(cash)>=0&&cents(cash)===cents(closing.cash_sales)&&cents(total)===cents(approval.total);

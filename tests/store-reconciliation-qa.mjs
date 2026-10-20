@@ -13,4 +13,7 @@ assert.equal(sourceClosingReconciled({...row,source_ref:JSON.stringify({...sourc
 assert.equal(sourceClosingReconciled({...row,actual_cash:166}),false);
 assert.equal(sourceClosingReconciled({...row,source_ref:JSON.stringify({...source,daily_drawers:[{opening:0,closing:165}]})}),false);
 assert.equal(closingIncomeAmount({entry_mode:'manual',cash_sales:75,card_sales:80}),155);
+const noWithdrawal={...row,cash_withdrawals:0,cash_sales:25,source_ref:JSON.stringify({...source,withdrawals:null,cash_reconciliation:{...source.cash_reconciliation,total:105,blank_withdrawals_as_zero:true}})};
+assert.equal(sourceClosingReconciled(noWithdrawal),true);
+assert.equal(closingIncomeAmount(noWithdrawal),105);
 console.log('Store reconciliation: cash conservation, source matching, inclusion and tamper rejection passed.');
