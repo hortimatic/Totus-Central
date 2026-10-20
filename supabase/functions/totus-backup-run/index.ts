@@ -400,18 +400,24 @@ async function retireDocumentsWithLease(req:Request,full=false,dryRun=false){
  finally{await admin.from('ops_onedrive_config').update({retirement_lock_until:null}).eq('id',1).eq('retirement_lock_until',lease);}
 }
 
+async function retireBackupWithLease(req:Request,id:string){
+ const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
+ const {data:claim,error}=await admin.from('ops_onedrive_config').update({retirement_lock_until:lease}).eq('id',1).or('retirement_lock_until.is.null,retirement_lock_until.lt.'+at).select('id').maybeSingle();
+ if(error||!claim)throw new Error('Ya hay una limpieza en curso o no se pudo reservar.');
+ try{return await retireVerifiedBackupParts(req,id);}
+ finally{await admin.from('ops_onedrive_config').update({retirement_lock_until:null}).eq('id',1).eq('retirement_lock_until',lease);}
+}
+
 async function mirrorAfterBackup(req:Request,runId?:string){
+ if(!runId)return {enabled:false};
  try{
-  const {data,error}=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
-  if(error||!data?.connected||!data.tested_at)return {enabled:false};
-  const forward:Record<string,string>={'Content-Type':'application/json'};
-  for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)forward[name]=value;}
-  const response=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers:forward,body:JSON.stringify({action:'mirror-backups',full:true}),signal:AbortSignal.timeout(115000)});
-  const result=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(result.error||'No se pudo copiar la seguridad en OneDrive.');
-  const retirement=runId&&result.complete?await retireVerifiedBackupParts(req,runId):null;
-  const documents=runId&&result.complete?await retireDocumentsWithLease(req,false,false):null;
-  return {enabled:true,...result,retirement,documents};
+  const {data:config,error:configError}=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
+  if(configError||!config?.connected||!config.tested_at)return {enabled:false};
+  // The database owns the next request. Creation, mirroring and retirement each
+  // get their own execution budget; the existing two-minute tick retries progress.
+  const result=await admin.rpc('totus_onedrive_mirror_tick');
+  if(result.error)throw result.error;
+  return {enabled:true,queued:!!result.data,automatic_retry:true};
  }catch(error){return {enabled:true,warning:String(error instanceof Error?error.message:error)};}
 }
 
@@ -425,7 +431,7 @@ Deno.serve(async(req)=>{
   if(body?.action==='capacity-probe')return reply(await capacityProbe());
   if(body?.action==='capacity-probe-verify')return reply(await verifyCapacityProbe(String(body.path||'')));
   if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
-  if(body?.action==='retire-backup-parts')return reply(await retireVerifiedBackupParts(req,String(body.id||'')));
+  if(body?.action==='retire-backup-parts')return reply(await retireBackupWithLease(req,String(body.id||'')));
   if(body?.action==='retire-documents')return reply(await retireDocumentsWithLease(req,body.full===true,body.dry_run===true));
   if(body?.action==='verify'||body?.action==='verify-onedrive')return reply(await verifySavedBackup(String(body?.id||''),body.action==='verify-onedrive'?'onedrive':'supabase',req));
   if(body?.action==='delete'){
