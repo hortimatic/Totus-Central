@@ -153,7 +153,15 @@ async function backupRead(path:string,runId:string,req:Request){
  return oneDriveRead(req,'backup-file-url',{run_id:runId,path});
 }
 
+async function settleInterruptedRuns(){
+ // Hosted workers end within 150 seconds. Five minutes leaves a margin for slow
+ // responses; only an execution older than that can be marked interrupted.
+ const result=await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'La ejecución anterior se interrumpió. Las copias guardadas se conservan.'}).eq('status','running').lt('started_at',new Date(Date.now()-5*60*1000).toISOString()).select('id');
+ if(result.error)throw new Error('No se pudo comprobar la ejecución anterior.');
+ return result.data?.length||0;
+}
 async function run(mode:string,req:Request){
+ await settleInterruptedRuns();
  const {data:id,error:claimError}=await admin.rpc("totus_backup_claim",{p_mode:mode});
  if(claimError)throw claimError;
  if(!id)return {skipped:true,reason:"No corresponde a este horario o ya existe una copia para este periodo."};
