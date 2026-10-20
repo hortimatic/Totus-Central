@@ -4,17 +4,17 @@ Actualizado: 20/10/2026. Solo staging. No contiene documentación fiscal ni cred
 ## Cómo usar este registro
 Una petición no se cierra por haber escrito código. Anotar versión, prueba realizada, resultado y limitaciones. Los informes antiguos describen el estado en su fecha; no son el inventario actual. «Pendiente de verificar» no significa que la función esté ausente.
 
-## Prioridad inmediata
+## Estado de los trabajos de nube
 | Petición | Estado comprobado | Trabajo pendiente |
 |---|---|---|
 | OneDrive sin depender de un ordenador | Autorización y lectura real; 452 originales verificados en OneDrive | Cerrar recuperación integral y comprobar renovación de sesión |
 | OneDrive dentro de Almacenamiento | Integración publicada y probada; OneDrive dentro de Almacenamiento | Revalidar las cifras tras terminar la limpieza de copias |
 | Carpetas ordenadas y claras | Ruta única Apps → TotusCentral Staging; carpeta manual vacía retirada a papelera | Mantener estructura de año/tipo/mes y archivo recuperable de retirados |
-| Cinco copias completas, todas las noches a las 00:35 Madrid | Conservación cinco y tarea servidor existentes; creación nocturna verificada | Ensayar recuperación integral aislada, verificar todos los datos/archivos y migración de destino antes de retirar originales |
-| No dejar materiales de trabajo en portátil | Copias de trabajo previas retiradas; desarrollo actual remoto | Mantener código/manual en GitHub; datos y secretos privados en servicios autorizados |
-| Informe y manual detallado para ChatGPT online | Existe RELEVO_CHATGPT_ONLINE.md | Completar manual operativo paso a paso, recuperación, errores, permisos y evidencias finales |
+| Cinco copias completas, todas las noches a las 00:35 Madrid | Máximo cinco, tarea nocturna y recorrido completo comprobados | Reconstruir toda la infraestructura de otro proyecto es un procedimiento distinto |
+| No dejar materiales de trabajo en portátil | Desarrollo y entrega remotos; sin nuevas carpetas ni descargas locales | Mantener código/manual en GitHub y material privado en las nubes autorizadas |
+| Informe y manual detallado para ChatGPT online | Manual, relevo, registro e informe publicados; cuatro archivos verificados en OneDrive | Mantenerlos al cambiar la herramienta |
 
-## Contabilidad e interfaz: volver a comprobar con datos reales
+## Peticiones de contabilidad e interfaz: criterios de aceptación
 | Petición recuperada del chat | Criterio de aceptación |
 |---|---|
 | Cajas Hortimatic Vape y Head, NewOldSmok separada | Apertura y efectivo para mañana por cada caja; ventas del día, tarjeta y retiradas visibles sin desplegable |
@@ -43,7 +43,7 @@ Una petición no se cierra por haber escrito código. Anotar versión, prueba re
 - OneDrive debe reducir el uso de archivos en Supabase solo tras migración verificada y soporte completo de restauración.
 - Mantener plan gratuito, sin contratación automática.
 
-## Seguridad, código y pruebas pendientes de cierre
+## Criterios de seguridad, código y pruebas
 - Revisar funciones y llamadas del servidor, permisos reales de administrador/gerencia/encargado y denegaciones.
 - Revisar avisos de seguridad uno por uno; no suprimir controles para quitar advertencias.
 - Retirar código obsoleto solo con referencias y pruebas que demuestren que no tiene uso.
@@ -74,4 +74,4 @@ Cada estado distingue pruebas automáticas, comprobaciones reales y criterios a�
 15. **Entregables: manual e informe online.** Manual operativo en GitHub, registro de peticiones y relevo. Sin archivos de trabajo locales. El manual, relevo, registro e informe se sincronizan con lectura de comprobación en OneDrive.
 
 ### Evidencia
-La batería completa aprobó las revisiones hasta b285ba95, incluyendo guardado de 112 MiB, recuperación simulada, filtros, informes, facturación y geometría visual. Las ejecuciones de publicación posteriores y las comprobaciones reales se anotarán con su resultado; no asumir éxito porque exista código.
+La batería completa aprobó la revisión b25d6116, incluyendo guardado de 112 MiB, recuperación simulada, filtros, informes, facturación y geometría visual. Las ejecuciones de publicación posteriores y las comprobaciones reales se anotarán con su resultado; no asumir éxito porque exista código.
