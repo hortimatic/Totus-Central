@@ -40,7 +40,7 @@ try{
  await page.locator('[data-action="onedrive-begin"]').click();
  const authorize=page.getByRole('link',{name:'Continuar en Microsoft',exact:true});
  assert((await authorize.getAttribute('href')).startsWith('https://login.microsoftonline.com/consumers/'));
- await page.locator('[data-action="close-modal"]').first().click();
+ await page.locator('button[data-action="close-modal"]').first().click();
  await page.evaluate(()=>{window.odState.connected=true;window.odState.folder_url='https://onedrive.live.com/?test=1';});
  await page.locator('[data-action="onedrive-refresh"]').click();
  await page.locator('[data-action="onedrive-test"]').waitFor();
