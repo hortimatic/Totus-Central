@@ -18,7 +18,10 @@ class NativeDeflateFile extends NativeStoredFile{
 
 // The hosted worker has a small JavaScript CPU budget. Keep the same ordinary
 // ZIP format, but delegate DEFLATE to the runtime's native zlib at low CPU cost.
+async function nativeArchiveHash(value){const bytes=typeof value==='string'?new TextEncoder().encode(value):value instanceof Blob?new Uint8Array(await value.arrayBuffer()):value;return createHash('sha256').update(bytes).digest('hex');}
+
 export class NativeBackupZip{
+ static archiveHash=nativeArchiveHash;
  constructor(){this.entries=new Map()}
  file(name,content){
   if(this.entries.has(name))throw new Error('Entrada duplicada en copia: '+name);
@@ -114,6 +117,7 @@ export class SegmentedBackupZip extends NativeBackupZip{
 export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=120*1024*1024}){
  return class CloudBackupZip{
   static concurrency=1;
+  static archiveHash=nativeArchiveHash;
   constructor(){
    this.names=new Set();this.pending=[];this.pendingBytes=0;this.total=0;this.parts=[];this.digest=createHash('sha256');this.complete=false;this.failed=null;
    this.writer=new Zip((error,bytes,final)=>{

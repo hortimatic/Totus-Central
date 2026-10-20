@@ -40,7 +40,7 @@ const streamed=await buildRecoveryArchive(year,TrackedCloud,async()=>seed);
 assert.equal(streamed.bytes.stored,true);assert.equal(streamed.bytes.segments,undefined);
 assert.ok(streamed.bytes.byteLength>112*1024*1024);
 assert.ok(peakPending<10*1024*1024,'New archive buffering must stay bounded near one 8 MiB part');
-const yearBytes=await readBackupObject(cloudPath,async p=>cloudObjects.get(p));
+const yearBytes=await readBackupObject(cloudPath,async p=>cloudObjects.get(p),NativeBackupZip.archiveHash);
 assert.equal(await archiveHash(yearBytes),streamed.bytes.sha256);
 const yearRead=await readRecoveryArchive(yearBytes,NativeBackupZip,{projectRef:'qa-project'});
 assert.equal(Object.keys(yearRead.manifest.integrity.storage['business-documents']).length,112);

@@ -45,7 +45,7 @@ async function verifySavedBackup(id:string,source='supabase',req?:Request){
   }
   const {data,error}=await admin.storage.from('business-backups').download(path);
   if(error||!data){if(!req)throw new Error('No se pudo leer un archivo de la copia.');usedOneDrive=true;return oneDriveRead(req,'backup-file-url',{run_id:id,path});}return data;
- });
+ },NativeBackupZip.archiveHash);
  if(!run.archive_sha256||createHash('sha256').update(bytes).digest('hex')!==run.archive_sha256)throw new Error('La copia completa no coincide con su huella registrada.');
  const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
  const {data:rehearsal,error:rehearsalError}=await admin.rpc('totus_verify_recovery_rows',{p_payload:archive.database});
@@ -173,7 +173,7 @@ async function run(mode:string,req:Request){
   let cached:any=null;
   if(previous?.storage_path&&previous.archive_sha256&&Number(previous.size_bytes)<=120*1024*1024){
    await progress('Leyendo copia anterior verificada');
-   const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req));
+   const prior=await readBackupObject(previous.storage_path,(path:string)=>backupRead(path,previous.id,req),NativeBackupZip.archiveHash);
    if(createHash('sha256').update(prior).digest('hex')!==previous.archive_sha256)throw new Error('La copia anterior no coincide con su huella registrada.');
    // Only reuse originals, never its database. The complete archive hash is
    // authenticated by the server record; the builder checks each original again.
@@ -248,7 +248,7 @@ async function capacityProbe(){
  const start=Date.now();
  try{
   const built=await buildRecoveryArchive(snapshot,Zip,async()=>payload);
-  const bytes=await readBackupObject(path,async(p:string)=>files.get(p));
+  const bytes=await readBackupObject(path,async(p:string)=>files.get(p),NativeBackupZip.archiveHash);
   if(createHash('sha256').update(bytes).digest('hex')!==built.bytes.sha256)throw new Error('La simulación no conserva el archivo completo.');
   const restored=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:'simulation'});
   if(restored.manifest.storage['business-documents'].length!==112)throw new Error('Simulación incompleta.');

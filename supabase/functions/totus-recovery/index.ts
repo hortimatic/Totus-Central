@@ -1,7 +1,8 @@
+import {createHash} from 'node:crypto';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {NativeBackupZip as JSZip} from '../totus-backup-run/native-zip.js';
-import {readBackupObject,writeBackupObject,validateBackupIndex,BACKUP_PART_BYTES} from '../../../src/backup-transport.js';
-import {readRecoveryArchive,MAX_ARCHIVE_BYTES,archiveHash} from '../../../src/recovery-core.js';
+import {readBackupObject,writeBackupObject,validateBackupIndex} from '../../../src/backup-transport.js';
+import {readRecoveryArchive,MAX_ARCHIVE_BYTES} from '../../../src/recovery-core.js';
 import {runApplicationRecovery} from '../../../src/recovery-runner.js';
 
 const url=Deno.env.get('SUPABASE_URL')||'';
@@ -46,6 +47,24 @@ const download=async(bucket:string,path:string,req?:Request)=>{
 };
 const contentType=(path:string)=>({pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',txt:'text/plain',csv:'text/csv',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}[path.split('.').pop()?.toLowerCase()||'']||'application/octet-stream');
 
+async function verifyCheckpointObject(path:string,proof:any,req:Request){
+ const root=await download('business-backups',path,req),bytes=new Uint8Array(await root.arrayBuffer());
+ if(bytes[0]!==123){
+  if(bytes.length!==Number(proof.size_bytes)||createHash('sha256').update(bytes).digest('hex')!==proof.archive_sha256)throw new Error('El respaldo actual está dañado.');
+  return;
+ }
+ if(bytes.length>16384)throw new Error('Índice de respaldo no válido.');
+ const index=validateBackupIndex(path,JSON.parse(new TextDecoder().decode(bytes)));
+ if(index.sha256!==proof.archive_sha256||index.size!==Number(proof.size_bytes))throw new Error('El respaldo actual no coincide con la prueba verificada.');
+ const whole=createHash('sha256');
+ for(const part of index.parts){
+  const file=await download('business-backups',part.path,req),piece=new Uint8Array(await file.arrayBuffer());
+  if(piece.length!==part.size||createHash('sha256').update(piece).digest('hex')!==part.sha256)throw new Error('Falta un fragmento correcto del respaldo actual.');
+  whole.update(piece);
+ }
+ if(whole.digest('hex')!==proof.archive_sha256)throw new Error('El respaldo completo está dañado.');
+}
+
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
  if(req.method!=='POST')return reply({error:'Método no permitido'},405);
@@ -79,7 +98,7 @@ Deno.serve(async req=>{
    return reply({error:'La copia no está disponible o supera 120 MB'},400);
   const snapshot=checked(await admin.rpc('totus_export_recovery_snapshot'),'No se pudo preparar la copia actual');
   snapshot.project_ref=projectRef;
-  const archive=await readRecoveryArchive(await readBackupObject(sourcePath,(path:string)=>download('business-backups',path)),JSZip,{projectRef,instance:snapshot.database_instance,schemaHash:snapshot.schema_hash});
+  const archive=await readRecoveryArchive(await readBackupObject(sourcePath,(path:string)=>download('business-backups',path),JSZip.archiveHash),JSZip,{projectRef,instance:snapshot.database_instance,schemaHash:snapshot.schema_hash});
   if(!existing)checked(await admin.from('ops_recovery_jobs').insert({id:jobId,requested_by:user.id,requested_email:user.email.toLowerCase(),source_path:sourcePath}),'No se pudo registrar la solicitud');
   const write=async(bucket:string,path:string,bytes:Uint8Array,type:string)=>{
    checked(await admin.storage.from(bucket).upload(path,bytes,{contentType:type,upsert:false}),'No se pudo guardar el archivo');
@@ -98,32 +117,12 @@ Deno.serve(async req=>{
     }
     const path=proof.storage_path,manifest=proof.archive_manifest;
     if(!manifest||manifest.revision!==currentSnapshot.revision||manifest.project_ref!==projectRef||manifest.schema_hash!==currentSnapshot.schema_hash)throw new Error('El respaldo actual no tiene una prueba compatible.');
-    const slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
-    const objects=checked(await admin.storage.from('business-backups').list(folder,{search:name,limit:100}),'No se pudo comprobar el respaldo actual');
-    const root=objects?.find(x=>x.name===name);
-    if(!root){
-     const bytes=await readBackupObject(path,(part:string)=>download('business-backups',part,req));
-     if(bytes.length!==Number(proof.size_bytes)||await archiveHash(bytes)!==proof.archive_sha256)throw new Error('El respaldo de OneDrive no coincide con su prueba verificada.');
-     return {path,manifest};
-    }
-    if(Number(proof.size_bytes)>BACKUP_PART_BYTES){
-     if(Number(root.metadata?.size)>16384)throw new Error('Índice de respaldo no válido.');
-     const index=validateBackupIndex(path,JSON.parse(await (await download('business-backups',path)).text()));
-     if(index.sha256!==proof.archive_sha256||index.size!==Number(proof.size_bytes))throw new Error('El respaldo actual no coincide con la prueba verificada.');
-     for(const part of index.parts){
-      const item=objects.find(x=>folder+'/'+x.name===part.path);
-      if(!item||Number(item.metadata?.size)!==part.size){
-       const bytes=await readBackupObject(path,(p:string)=>download('business-backups',p,req));
-       if(bytes.length!==Number(proof.size_bytes)||await archiveHash(bytes)!==proof.archive_sha256)throw new Error('El respaldo de OneDrive no coincide con la prueba verificada.');
-       break;
-      }
-     }
-    }else if(await archiveHash(await download('business-backups',path))!==proof.archive_sha256)throw new Error('El respaldo actual está dañado.');
+    await verifyCheckpointObject(path,proof,req);
     return {path,manifest};
    },
    readFile:(bucket:string,path:string)=>download(bucket,path,req),
    writeCheckpoint:(path:string,bytes:Uint8Array)=>writeBackupObject(path,bytes,(part:string,value:Uint8Array)=>write('business-backups',part,value,'application/octet-stream'),(part:string)=>download('business-backups',part)),
-   readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part,req)),
+   readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part,req),JSZip.archiveHash),
    setCheckpoint:async(path:string,revision:string)=>{checked(await admin.from('ops_recovery_jobs').update({checkpoint_path:path,before_revision:revision}).eq('id',jobId).eq('status','preparing').select('id').single(),'No se pudo guardar el punto de vuelta atrás');},
    writeFile:async(file:{bucket:string;path:string;target:string},bytes:Uint8Array)=>{
     const doc=file.bucket==='business-documents'?archive.database.ops_documents.find((d:{storage_path:string})=>d.storage_path===file.path):null;

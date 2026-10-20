@@ -42,7 +42,7 @@ export async function writeBackupObject(path,input,write,read){
  // index completes the proof without allocating a second full archive in RAM.
  if(await archiveHash(await read(path))!==await archiveHash(indexBytes))throw new Error('No se ha podido verificar el índice de la copia completa.');
 }
-export async function readBackupObject(path,read){
+export async function readBackupObject(path,read,hash=archiveHash){
  const input=await read(path),bytes=input instanceof Blob?new Uint8Array(await input.arrayBuffer()):new Uint8Array(input);
  if(bytes.length>MAX_ARCHIVE_BYTES)throw new Error('La copia supera la capacidad de recuperación.');
  if(bytes[0]!==123)return bytes;
@@ -51,11 +51,11 @@ export async function readBackupObject(path,read){
  validateBackupIndex(path,index,MAX_ARCHIVE_BYTES);
  const output=new Uint8Array(index.size);let offset=0;
  for(const p of index.parts){
-  const value=await read(p.path),piece=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):new Uint8Array(value);
-  if(piece.length!==p.size||await archiveHash(piece)!==p.sha256)throw new Error('Copia incompleta o fragmento dañado.');
+  const value=await read(p.path),piece=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):value instanceof Uint8Array?value:new Uint8Array(value);
+  if(piece.length!==p.size||await hash(piece)!==p.sha256)throw new Error('Copia incompleta o fragmento dañado.');
   output.set(piece,offset);offset+=piece.length;
  }
- if(await archiveHash(output)!==index.sha256)throw new Error('Copia completa dañada.');
+ if(await hash(output)!==index.sha256)throw new Error('Copia completa dañada.');
  return output;
 }
 

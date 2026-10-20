@@ -56,6 +56,7 @@ function validateMetadata(manifest,database){
  }
 }
 export async function buildRecoveryArchive(snapshot,JSZip,readFile){
+ const hashValue=JSZip.archiveHash||archiveHash;
  const manifest={format:'totus-clean-backup',version:3,scope:'same-project-application-data',
   project_ref:snapshot.project_ref,database_instance:snapshot.database_instance,schema_hash:snapshot.schema_hash,
   revision:snapshot.revision,created_at:snapshot.created_at,tables:[...RECOVERY_TABLES],
@@ -63,8 +64,8 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
  validateMetadata(manifest,snapshot.database);
  const zip=new JSZip(),databaseJson=JSON.stringify(snapshot.database);
  if(new TextEncoder().encode(databaseJson).byteLength>MAX_DATABASE_BYTES)throw new Error('Los datos de la copia superan 8 MB. Necesitan un respaldo de mayor capacidad.');
- manifest.integrity.database=await archiveHash(databaseJson);
- manifest.integrity.identities=await archiveHash(JSON.stringify(manifest.identities));
+ manifest.integrity.database=await hashValue(databaseJson);
+ manifest.integrity.identities=await hashValue(JSON.stringify(manifest.identities));
  let expanded=new TextEncoder().encode(databaseJson).byteLength;
  await zip.file('database.json',databaseJson);
  const pending=[];
@@ -80,10 +81,10 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
    try{
     const original=await readFile(bucket,path);
     if(original==null)throw new Error('Falta el archivo '+bucket+'/'+path+'. No se ha creado una copia incompleta.');
-    const bytes=original instanceof Blob?new Uint8Array(await original.arrayBuffer()):new Uint8Array(original);
+    const bytes=original instanceof Blob?new Uint8Array(await original.arrayBuffer()):original instanceof Uint8Array?original:new Uint8Array(original);
     expanded+=bytes.byteLength;
     if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB. No se ha guardado una copia incompleta.');
-    const digest=await archiveHash(bytes);
+    const digest=await hashValue(bytes);
     if(bucket==='business-documents'&&originalHashes.has(path)&&originalHashes.get(path)!==digest)throw new Error('Un original no coincide con la huella registrada. No se ha creado la copia.');
     manifest.integrity.storage[bucket][path]=digest;
     await zip.file('storage/'+bucket+'/'+path,bytes);
@@ -121,6 +122,7 @@ export async function loadBoundedRecoveryZip(input,JSZip){
  return zip;
 }
 export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schemaHash}={}){
+ const hashValue=JSZip.archiveHash||archiveHash;
  const zip=await loadBoundedRecoveryZip(input,JSZip);
  const mf=zip.file('manifest.json'),db=zip.file('database.json');
  if(!mf||!db)throw new Error('Faltan el inventario o los datos de la copia.');
@@ -128,15 +130,15 @@ export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schem
  validateMetadata(manifest,database);
  if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash)
   throw new Error('La copia pertenece a otro proyecto o a una estructura incompatible.');
- if(await archiveHash(databaseJson)!==manifest.integrity?.database
-  ||await archiveHash(JSON.stringify(manifest.identities))!==manifest.integrity?.identities)throw new Error('La copia está dañada: falla el control de integridad de datos o cuentas.');
+ if(await hashValue(databaseJson)!==manifest.integrity?.database
+  ||await hashValue(JSON.stringify(manifest.identities))!==manifest.integrity?.identities)throw new Error('La copia está dañada: falla el control de integridad de datos o cuentas.');
  const expected=new Set(['manifest.json','database.json']);
  for(const doc of database.ops_documents)if(doc.storage_path&&doc.sha256&&doc.sha256!==manifest.integrity?.storage?.['business-documents']?.[doc.storage_path])throw new Error('La copia está dañada: un documento no coincide con su huella registrada.');
  for(const bucket of RECOVERY_BUCKETS)for(const path of manifest.storage[bucket]){
   const name='storage/'+bucket+'/'+path;expected.add(name);
   const entry=zip.file(name);
   if(!entry||entry.dir)throw new Error('Falta el archivo '+bucket+'/'+path+' en la copia.');
-  if(await archiveHash(await entry.async('uint8array'))!==manifest.integrity?.storage?.[bucket]?.[path])throw new Error('La copia está dañada: falla la integridad del archivo '+bucket+'/'+path);
+  if(await hashValue(await entry.async('uint8array'))!==manifest.integrity?.storage?.[bucket]?.[path])throw new Error('La copia está dañada: falla la integridad del archivo '+bucket+'/'+path);
  }
  for(const entry of Object.values(zip.files))if(!entry.dir&&!expected.has(entry.name))throw new Error('El ZIP incluye un archivo inesperado.');
  return {zip,manifest,database};
