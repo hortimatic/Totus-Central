@@ -173,10 +173,18 @@ export function estimatePriorModel130(data,year,quarter,store='all'){
 /** A bank payment awaiting an invoice match is evidence, not another operating cost. */
 export function isUnreconciledPayment(expense){
  if(!expense?.management_only)return false;
- try{const source=JSON.parse(expense.source_ref);return source?.kind==='bank_payment_source'&&source.requires_invoice_reconciliation===true}catch{return false;}
+ try{const source=JSON.parse(expense.source_ref);return source?.kind==='bank_payment_source'&&source.requires_invoice_reconciliation===true&&!(source.relation_status==='reconciled'&&source.related_invoice_expense_id)}catch{return false;}
+}
+export function isExpensePaymentEvidence(expense){
+ if(!expense?.management_only)return false;
+ try{
+  const source=JSON.parse(expense.source_ref||'{}');
+  return source.kind==='bank_payment_source'&&(source.requires_invoice_reconciliation===true||
+   (source.relation_status==='reconciled'&&!!source.related_invoice_expense_id));
+ }catch{return false;}
 }
 export function expenseCostAmount(expense){
- return isUnreconciledPayment(expense)?0:Number(expense.gross_expense??expense.accounting_amount??expense.amount_paid??0);
+ return isExpensePaymentEvidence(expense)?0:Number(expense.gross_expense??expense.accounting_amount??expense.amount_paid??0);
 }
 export function issuedDocumentFileLocked(id,invoices=[]){
  return !!id&&invoices.some(i=>i.status!=='borrador'&&[i.source_document_id,i.generated_document_id].includes(id));

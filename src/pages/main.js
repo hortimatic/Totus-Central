@@ -12,7 +12,7 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,closingIncomeAmount} from '../calculations.js';
+import {sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>stores().find(x=>x.id===id)?.name||'—';
@@ -20,7 +20,7 @@ const acceptedExpense=row=>archiveAccepted(state.data.settings,row,'expense');
 const acceptedClosing=row=>archiveAccepted(state.data.settings,row,'closing')||sourceClosingReconciled(row);
 const acceptedBadge='<span class="badge good">Conciliado y aceptado</span>';
 const bookPaymentPending=row=>{if(acceptedExpense(row))return false;try{return JSON.parse(row?.source_ref||'{}').kind==='gestoria_book_entry'&&JSON.parse(row.source_ref).requires_payment_reconciliation===true}catch{return false}};
-const expensePaymentBadge=row=>acceptedExpense(row)?acceptedBadge:bookPaymentPending(row)?'<span class="badge warn">Pago sin conciliar</span>':stateBadge(row.paid_status||'pendiente');
+const expensePaymentBadge=row=>acceptedExpense(row)?acceptedBadge:isExpensePaymentEvidence(row)&&!isUnreconciledPayment(row)?'<span class="badge good">Pago conciliado</span>':bookPaymentPending(row)?'<span class="badge warn">Pago sin conciliar</span>':stateBadge(row.paid_status||'pendiente');
 const closingHasOrigin=row=>{try{return JSON.parse(row?.source_ref||'{}').kind==='closing_source_snapshot'}catch{return false}};
 const closingMonthlyReference=row=>state.data.incomeAdjustments.find(ref=>ref.store_id===row?.store_id&&Number(ref.amount)>0&&(()=>{try{const source=JSON.parse(ref.notes);return source.kind==='monthly_source_reference'&&source.period===String(row.business_date).slice(0,7)}catch{return false}})());
 
@@ -219,6 +219,16 @@ function taxPaymentInformationHtml(filters){
  ],rows)}<p class="small muted card-pad">Para registrar o corregir estos pagos: Fiscalidad → Pagos de impuestos. Las cuotas de autónomo y la Seguridad Social se registran como gastos, con su tratamiento fiscal.</p></section>`;
 }
 
+
+function expensePaymentRelation(row){
+ let source;try{source=JSON.parse(row?.source_ref||'{}')}catch{return null}
+ if(source.kind!=='bank_payment_source'||!source.related_invoice_expense_id)return null;
+ const invoice=state.data.expenses.find(x=>x.id===source.related_invoice_expense_id&&!x.management_only);
+ if(!invoice||!invoice.document_id||invoice.document_id!==row.document_id)return null;
+ const net=Number(invoice.gross_expense??invoice.accounting_amount??0)-Number(invoice.withholding_amount||0);
+ return {invoice,net,originalAmount:Number(source.source?.amount??row.amount_paid??0),difference:Math.round((Number(row.amount_paid||0)-net)*100)/100};
+}
+
 export function gastos(){
  const view=getView('gastos');
  if(view.mode==='record'){
@@ -230,32 +240,37 @@ export function gastos(){
  const f=getFilters('gastos');
  const kind=f.kind||'all',paid=f.paid||'all';
  const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
-   &&(kind==='all'||(kind==='internal'?x.management_only&&!isUnreconciledPayment(x):!x.management_only))
+   &&(kind==='all'||(kind==='payment'?isExpensePaymentEvidence(x):kind==='internal'?x.management_only&&!isExpensePaymentEvidence(x):!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
    &&matchesText(f.query,x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
  const total=sum(rows,expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
  const taxInformation=kind!=='fiscal'&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
- const pending=rows.filter(x=>!acceptedExpense(x)&&x.paid_status!=='pagado').length;
+ const pending=rows.filter(x=>!acceptedExpense(x)&&(isUnreconciledPayment(x)||x.paid_status!=='pagado')).length;
+ const linkedPayments=rows.filter(x=>isUnreconciledPayment(x)&&expensePaymentRelation(x)).length;
  const headers=[
-  {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted">${esc(storeName(r.store_id))} · ${acceptedExpense(r)?acceptedBadge:isUnreconciledPayment(r)?'<span class="badge warn">Pago por vincular</span>':r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
-  {label:'Documento / proveedor',html:r=>`<b>${esc(r.supplier_name||'—')}</b><div class="small muted">${esc(r.invoice_number||r.document_kind||'Sin número')}</div>`},
+  {label:'Gasto',html:r=>`<b class="date-display">${fmtDate(r.expense_date)}</b><div class="small muted expense-row-meta"><span>${esc(storeName(r.store_id))}</span>${acceptedExpense(r)?acceptedBadge:isExpensePaymentEvidence(r)?(!isUnreconciledPayment(r)?'<span class="badge good">Pago conciliado</span>':expensePaymentRelation(r)?'<span class="badge info">Factura vinculada · revisar diferencia</span>':'<span class="badge warn">Pago por vincular</span>'):r.management_only?'<span class="badge warn">Interno</span>':r.fiscal_reviewed===false?'<span class="badge warn">Sin conciliar</span>':'<span class="badge info">Fiscal revisado</span>'}</div>`},
+  {label:'Documento / proveedor',html:r=>`<b>${/internet inteligente/i.test(r.supplier_name||'')?'Vaperalia':esc(r.supplier_name||'—')}</b>${/internet inteligente/i.test(r.supplier_name||'')?`<div class="small muted">${esc(r.supplier_name)}</div>`:''}<div class="small muted">${esc(r.invoice_number||r.document_kind||'Sin número')}</div>`},
   {label:'Concepto',html:r=>`<div>${esc(r.description||'—')}</div><div class="small muted">${esc(r.payment_method||'')} · ${esc(r.withholding_model?('Modelo '+r.withholding_model):'Sin retención')}</div>`},
-  {label:'Fiscal',html:r=>`<div class="compact-detail">${acceptedExpense(r)&&isUnreconciledPayment(r)?'<span>Apunte bancario aceptado; no se deduce otra vez</span>':r.fiscal_reviewed===false?'<span>Pendiente de desglose fiscal y cotejo de factura</span>':`<span>Base <b>${money(r.base_amount)}</b></span><span>IVA <b>${money(r.vat_amount)}</b></span><span>Recargo <b>${money(r.re_amount)}</b></span><span>IRPF retenido <b>${money(r.withholding_amount)}</b></span>`}</div>`},
+  {label:'Fiscal / revisión',html:r=>{
+    const relation=expensePaymentRelation(r);
+    if(relation)return `<div class="compact-detail"><span>Factura <b>${esc(relation.invoice.invoice_number)}</b></span><span>Neto factura <b>${money(relation.net)}</b></span><span>Diferencia de pago <b>${money(relation.difference)}</b></span>${Math.abs(relation.originalAmount-Number(r.amount_paid||0))>.005?`<span>Excel original <b>${money(relation.originalAmount)}</b></span><span class="small muted">Corregido según la factura.</span>`:''}<span class="small muted">El pago no duplica el gasto fiscal.</span></div>`;
+    return `<div class="compact-detail">${acceptedExpense(r)&&isUnreconciledPayment(r)?'<span>Apunte bancario aceptado; no se deduce otra vez</span>':isUnreconciledPayment(r)?'<span>Pago registrado · factura o importe por contrastar</span>':r.fiscal_reviewed===false?'<span>Pendiente de desglose fiscal y cotejo de factura</span>':`<span>Base <b>${money(r.base_amount)}</b></span><span>IVA <b>${money(r.vat_amount)}</b></span><span>Recargo <b>${money(r.re_amount)}</b></span><span>IRPF retenido <b>${money(r.withholding_amount)}</b></span>`}</div>`;
+   }},
   {label:'Total',num:true,html:r=>`<b>${money(r.gross_expense??r.accounting_amount??r.amount_paid??0)}</b><div class="small">${expensePaymentBadge(r)}</div>`},
   {label:'Documento adjunto',html:r=>{
     const d=state.data.documents.find(x=>x.id===r.document_id);
-    return d?`<div class="small"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Vista previa','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:`<span class="small muted">${acceptedExpense(r)&&isUnreconciledPayment(r)?'Apunte bancario conservado en el Excel':isUnreconciledPayment(r)?'Factura pendiente de recibir o pago por conciliar':'Sin justificante adjunto'}</span>`;
+    return d?`<div class="small expense-document-name"><b>${esc(d.original_name||'Factura')}</b></div><div class="expense-file-actions">${btn('Vista previa','expense-document-preview','secondary',`data-id="${d.id}"`)}${btn('Descargar','expense-document-download','secondary',`data-id="${d.id}"`)}</div>`:`<span class="small muted">${acceptedExpense(r)&&isUnreconciledPayment(r)?'Apunte bancario conservado en el Excel':isUnreconciledPayment(r)?'Factura pendiente de recibir o pago por conciliar':'Sin justificante adjunto'}</span>`;
    }},
-  {label:'Acciones',html:r=>`<div class="inline-actions">${btn(r.document_id?'Abrir':'Adjuntar factura / revisar','expense-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','expense-delete','danger',`data-id="${r.id}"`)}</div>`}
+  {label:'Acciones',html:r=>`<div class="expense-row-actions">${btn(r.document_id?'Revisar':'Adjuntar factura','expense-edit','secondary',`data-id="${r.id}" title="Abrir el gasto, revisar sus datos o adjuntar una factura"`)}${btn('Eliminar','expense-delete','danger',`data-id="${r.id}" title="Eliminar este registro de gasto"`)}</div>`}
  ];
- const extras=`<div class="field"><label>Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Solo interno</option></select></div><div class="field"><label>Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>`;
- return `<div class="page">
+ const extras=`<div class="field"><label>Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="payment" ${kind==='payment'?'selected':''}>Pagos del Excel</option><option value="internal" ${kind==='internal'?'selected':''}>Solo interno</option></select></div><div class="field"><label>Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>`;
+ return `<div class="page expense-page">
   ${expenseTabs('registros')}
-  ${rows.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?`<p class="note warn">${rows.filter(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)).length} pagos originales pendientes de vincular o desglosar. Se conservan en el listado; no se suman otra vez al gasto ni al cálculo fiscal.</p>`:''}
-  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Pago pendiente o sin conciliar',String(pending))}</div>
+  ${rows.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?`<p class="note warn">${rows.filter(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)).length} pagos en revisión${linkedPayments?`: ${linkedPayments} con factura vinculada`:''}. Los importes del Excel se conservan como pagos y no duplican el gasto fiscal.</p>`:''}
+  <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Registros pendientes',String(pending),'Factura, pago o diferencia por comprobar')}</div>
   ${kind!=='fiscal'&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
-  <section class="card table-card">
+  <section class="card table-card expense-register-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
    ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para los filtros seleccionados.'})}
@@ -290,7 +305,7 @@ function expenseInvoiceSectionHtml(){
   .filter(({expense,document,date,searchable})=>
    inRange(date,f.from,f.to)
    &&(f.store==='all'||(expense?.store_id||document?.store_id)===f.store)
-   &&(kind==='all'||(expense&&(kind==='internal'?!!expense.management_only&&!isUnreconciledPayment(expense):!expense.management_only)))
+   &&(kind==='all'||(expense&&(kind==='payment'?isExpensePaymentEvidence(expense):kind==='internal'?!!expense.management_only&&!isExpensePaymentEvidence(expense):!expense.management_only)))
    &&(paid==='all'||expense?.paid_status===paid)
    &&(attachment==='all'||(attachment==='attached'?!!document:!document))
    &&(!f.query||matchesText(f.query,searchable)))
@@ -301,7 +316,7 @@ function expenseInvoiceSectionHtml(){
   {label:'Concepto / archivo',html:r=>`<span>${esc(r.expense?.description||r.document?.original_name||'—')}</span><div class="small muted">${esc(r.document?.original_name||'Sin justificante')}</div>`},
   {label:'Importes',html:r=>r.expense?`<div class="expense-amounts"><span>Base <b>${money(r.expense.base_amount||0)}</b></span><span>IVA <b>${money(r.expense.vat_amount||0)}</b></span><span>Recargo <b>${money(r.expense.re_amount||0)}</b></span><span>IRPF retenido <b>${money(r.expense.withholding_amount||0)}</b></span></div>`:'Pendiente de asociar'},
   {label:'Total factura / Neto',num:true,html:r=>r.expense?`<div class="expense-amounts"><span>Total <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0))}</b></span><span>Neto <b>${money(Number(r.expense.base_amount||0)+Number(r.expense.vat_amount||0)+Number(r.expense.re_amount||0)-Number(r.expense.withholding_amount||0))}</b></span></div><div class="small">${expensePaymentBadge(r.expense)}</div>`:'—'},
-  {label:'Revisión',html:r=>acceptedExpense(r.expense)?acceptedBadge:r.unlinked?'<span class="badge warn">Sin asociar</span>':isUnreconciledPayment(r.expense)?'<span class="badge warn">Pago por vincular</span>':r.expense?.management_only?'<span class="badge warn">Interno, no gestoría</span>':r.expense?.fiscal_reviewed===false?'<span class="badge warn">Sin revisar</span>':'<span class="badge info">Revisado</span>'},
+  {label:'Revisión',html:r=>acceptedExpense(r.expense)?acceptedBadge:r.unlinked?'<span class="badge warn">Sin asociar</span>':isExpensePaymentEvidence(r.expense)?(!isUnreconciledPayment(r.expense)?'<span class="badge good">Pago conciliado</span>':expensePaymentRelation(r.expense)?'<span class="badge info">Factura vinculada · revisar diferencia</span>':'<span class="badge warn">Pago por vincular</span>'):r.expense?.management_only?'<span class="badge warn">Interno, no gestoría</span>':r.expense?.fiscal_reviewed===false?'<span class="badge warn">Sin revisar</span>':'<span class="badge info">Revisado</span>'},
   {label:'Acciones',html:r=>`<div class="expense-file-actions">
    ${r.document?btn('Vista previa','expense-document-preview','secondary',`data-id="${esc(r.document.id)}"`):'<span class="small muted">Sin archivo</span>'}
    ${r.document?btn('Descargar','expense-document-download','secondary',`data-id="${esc(r.document.id)}"`):''}
@@ -311,13 +326,13 @@ function expenseInvoiceSectionHtml(){
    ${r.expense?btn('Eliminar gasto','expense-delete','danger',`data-id="${esc(r.expense.id)}"`):''}
    </div>`}
  ];
- const extras=`<div class="field"><label for="gastosKind">Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="internal" ${kind==='internal'?'selected':''}>Interno</option></select></div>
+ const extras=`<div class="field"><label for="gastosKind">Tipo</label><select id="gastosKind"><option value="all" ${kind==='all'?'selected':''}>Todos</option><option value="fiscal" ${kind==='fiscal'?'selected':''}>Fiscal</option><option value="payment" ${kind==='payment'?'selected':''}>Pagos del Excel</option><option value="internal" ${kind==='internal'?'selected':''}>Interno</option></select></div>
  <div class="field"><label for="gastosPaid">Pago</label><select id="gastosPaid"><option value="all" ${paid==='all'?'selected':''}>Todos</option><option value="pagado" ${paid==='pagado'?'selected':''}>Pagado</option><option value="pendiente" ${paid==='pendiente'?'selected':''}>Pendiente</option><option value="parcial" ${paid==='parcial'?'selected':''}>Parcial</option></select></div>
  <div class="field"><label for="gastosAttachment">Archivo</label><select id="gastosAttachment"><option value="all" ${attachment==='all'?'selected':''}>Todos</option><option value="attached" ${attachment==='attached'?'selected':''}>Con archivo</option><option value="missing" ${attachment==='missing'?'selected':''}>Sin archivo</option></select></div>`;
- return `<div class="page">
+ return `<div class="page expense-page">
   ${expenseTabs('facturas')}
   <div class="kpis">${kpi('Facturas adjuntas',String(rows.filter(r=>r.document).length))}${kpi('Gastos sin justificante',String(rows.filter(r=>r.expense&&!r.document).length))}${kpi('Por asociar',String(rows.filter(r=>r.unlinked).length))}${kpi('Registros',String(rows.length))}</div>
-  <section class="card table-card">
+  <section class="card table-card expense-invoice-card">
    <div class="section-head card-pad"><div><h2>Facturas y justificantes de gastos</h2><p>Listado con búsqueda por fechas, tienda, proveedor, NIF y número de factura. La vista previa no descarga el archivo. Los importes sin revisión fiscal son provisionales.</p></div>
     <div class="inline-actions">${btn('Exportar gastos Excel','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}

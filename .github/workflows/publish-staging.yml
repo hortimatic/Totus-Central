@@ -54,6 +54,7 @@ jobs:
           node tests/source-closing-qa.mjs
           node tests/income-breakdown-qa.mjs
           node tests/payment-information-qa.mjs
+          node tests/expense-reconciliation-qa.mjs
           node tests/treasury-source-qa.mjs
           node tests/partial-balances-qa.mjs
           node tests/rectifying-refunds-qa.mjs
@@ -109,6 +110,7 @@ jobs:
           node tests/modal-geometry-qa.mjs
           node tests/field-sweep-qa.mjs
           node tests/live-refresh-qa.mjs
+          node tests/expense-layout-qa.mjs
           node tests/report-period-qa.mjs
           node tests/second-review-qa.mjs
           node tests/full-flow-qa.mjs
