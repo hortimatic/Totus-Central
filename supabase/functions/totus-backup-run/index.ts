@@ -3,9 +3,9 @@
 // Manual calls additionally require an authenticated administrator.
 import {createHash} from 'node:crypto';
 import {createClient} from "npm:@supabase/supabase-js@2.118.0";
-import {NativeBackupZip,SegmentedBackupZip,cloudBackupZip} from "./native-zip.js";
-import {buildRecoveryArchive,readRecoveryArchive} from "../../../src/recovery-core.js";
-import {writeBackupObject,readBackupObject} from '../../../src/backup-transport.js';
+import {NativeBackupZip,cloudBackupZip} from "./native-zip.js";
+import {buildRecoveryArchive,readRecoveryArchive,RECOVERY_TABLES} from "../../../src/recovery-core.js";
+import {readBackupObject,validateBackupIndex} from '../../../src/backup-transport.js';
 import {MAX_SAVED_BACKUPS,oldestBackupCandidates,backupObjectPaths} from "../../../src/backup-retention.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -224,13 +224,6 @@ async function run(mode:string,req:Request){
   const totalRows=Object.values(snapshot.database).reduce((count:number,rows:unknown)=>count+(rows as unknown[]).length,0);
   const totalFiles=Object.values(snapshot.storage).reduce((count:number,paths:unknown)=>count+(paths as unknown[]).length,0);
 
-  if(!archive.stored)await writeBackupObject(pathname,archive,async(path:string,bytes:Uint8Array)=>{
-   const {error}=await admin.storage.from('business-backups').upload(path,new Blob([bytes],{type:'application/octet-stream'}),{contentType:'application/octet-stream',upsert:false});
-   if(error)throw new Error('No se guardó la copia: '+error.message);
-  },async(path:string)=>{
-   const {data,error}=await admin.storage.from('business-backups').download(path);
-   if(error||!data)throw new Error('No se pudo verificar la copia.');return data;
-  });
   const {error:updateErr}=await admin.from("ops_backup_runs").update({status:"success",error_message:null,finished_at:new Date().toISOString(),storage_path:pathname,size_bytes:archive.byteLength,rows_count:totalRows,files_count:totalFiles,snapshot_revision:snapshot.revision,archive_sha256:archive.sha256,archive_manifest:manifest}).eq("id",backupId);
   if(updateErr)throw updateErr;
   // Only rotate after the new archive has been uploaded and verified.
@@ -243,6 +236,57 @@ async function run(mode:string,req:Request){
  }
 }
 
+
+async function capacityProbe(){
+ const MB=1024*1024,path='simulation/year.totusbackup',files=new Map<string,Uint8Array>(),payload=new Uint8Array(MB);
+ crypto.getRandomValues(payload.subarray(0,65536));for(let i=65536;i<payload.length;i+=65536)payload.set(payload.subarray(0,65536),i);
+ const paths=Array.from({length:112},(_,i)=>'simulation/'+i+'.bin'),database=Object.fromEntries(RECOVERY_TABLES.map((table:string)=>[table,[]]));
+ database.ops_documents=paths.map((storage_path:string,i:number)=>({id:String(i),storage_path}));
+ const snapshot={project_ref:'simulation',database_instance:'11111111-1111-4111-8111-111111111111',schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:new Date().toISOString(),identities:[],database,storage:{'business-documents':paths,'business-assets':[]}};
+ let peakBuffer=0;const Base=cloudBackupZip({path,write:async(p:string,b:Uint8Array)=>{files.set(p,b);},read:async(p:string)=>files.get(p)});
+ class Zip extends Base{async flush(final=false){peakBuffer=Math.max(peakBuffer,this.pendingBytes);return super.flush(final)}}
+ const start=Date.now();
+ try{
+  const built=await buildRecoveryArchive(snapshot,Zip,async()=>payload);
+  const bytes=await readBackupObject(path,async(p:string)=>files.get(p));
+  if(createHash('sha256').update(bytes).digest('hex')!==built.bytes.sha256)throw new Error('La simulación no conserva el archivo completo.');
+  const restored=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:'simulation'});
+  if(restored.manifest.storage['business-documents'].length!==112)throw new Error('Simulación incompleta.');
+  return {verified:true,simulated_originals:112,size_bytes:bytes.length,maximum_buffer_bytes:peakBuffer,elapsed_ms:Date.now()-start,persistent_files:0};
+ }finally{files.clear();}
+}
+
+async function retireVerifiedBackupParts(req:Request,id:string){
+ if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Referencia de copia no válida.');
+ const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,size_bytes,archive_sha256,archive_manifest').eq('id',id).single();
+ if(error||run?.status!=='success'||run.archive_manifest?.version!==3||!run.storage_path)throw new Error('Solo se retiran fragmentos de una copia completa compatible.');
+ const {data:mirror,error:mirrorError}=await admin.from('ops_onedrive_backups').select('verified_at,archive_sha256,archive_size').eq('run_id',id).maybeSingle();
+ if(mirrorError||!mirror?.verified_at||mirror.archive_sha256!==run.archive_sha256||Number(mirror.archive_size)!==Number(run.size_bytes))throw new Error('Primero verifica esta copia completa en OneDrive.');
+ const path=run.storage_path,slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
+ const {data:objects,error:listError}=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
+ if(listError||!objects||objects.length>=100||!objects.some((o:any)=>o.name===name))throw new Error('No se pudo comprobar el índice de la copia.');
+ if(Number(run.size_bytes)<=8*1024*1024)return {retired:0,freed_bytes:0,reason:'La copia pequeña se conserva íntegra.'};
+ const root=await admin.storage.from('business-backups').download(path);
+ if(root.error||!root.data||root.data.size>16384)throw new Error('Índice de copia no disponible.');
+ const index=validateBackupIndex(path,JSON.parse(await root.data.text()));
+ if(index.sha256!==run.archive_sha256||index.size!==Number(run.size_bytes))throw new Error('El índice no coincide con la copia registrada.');
+ const parts=index.parts.filter((part:any)=>objects.some((o:any)=>folder+'/'+o.name===part.path));
+ if(!parts.length)return {retired:0,freed_bytes:0};
+ // A fresh full read and row-recovery rehearsal must succeed before any removal.
+ const verified=await verifySavedBackup(id,'onedrive',req);
+ if(!verified.verified||verified.source!=='onedrive')throw new Error('No se ha podido comprobar la recuperación desde OneDrive.');
+ const current=await admin.from('ops_backup_runs').select('status,storage_path,archive_sha256').eq('id',id).single();
+ if(current.error||current.data?.status!=='success'||current.data.storage_path!==path||current.data.archive_sha256!==run.archive_sha256)throw new Error('La copia cambió durante la comprobación.');
+ const paths=parts.map((p:any)=>p.path);
+ const removed=await admin.storage.from('business-backups').remove(paths);
+ if(removed.error)throw new Error('No se pudieron retirar los fragmentos duplicados.');
+ const remaining=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
+ if(remaining.error||!remaining.data||remaining.data.length>=100||!remaining.data.some((o:any)=>o.name===name)||remaining.data.some((o:any)=>paths.includes(folder+'/'+o.name)))throw new Error('Revisa el inventario antes de repetir la limpieza.');
+ const freed=parts.reduce((n:number,p:any)=>n+p.size,0);
+ const audit=await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea del servidor',area:'administracion',action:'duplicados_copia_supabase_retirados',detail:{copia:id,fragmentos:paths.length,bytes_liberados:freed,proteccion:'Copia completa verificada en OneDrive; índice conservado en Supabase'}});
+ if(audit.error)throw new Error('La limpieza terminó, pero no se pudo registrar el resumen.');
+ return {retired:paths.length,freed_bytes:freed,verified:true};
+}
 
 async function retireVerifiedDocuments(req:Request,full=false,dryRun=false){
  const {data:copies,error:copiesError}=await admin.from('ops_onedrive_backups').select('run_id').not('verified_at','is',null).order('verified_at',{ascending:false}).limit(1);
@@ -346,7 +390,9 @@ Deno.serve(async(req)=>{
   const body=await req.json().catch(()=>({}));
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
+  if(body?.action==='capacity-probe')return reply(await capacityProbe());
   if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
+  if(body?.action==='retire-backup-parts')return reply(await retireVerifiedBackupParts(req,String(body.id||'')));
   if(body?.action==='retire-documents')return reply(await retireDocumentsWithLease(req,body.full===true,body.dry_run===true));
   if(body?.action==='verify'||body?.action==='verify-onedrive')return reply(await verifySavedBackup(String(body?.id||''),body.action==='verify-onedrive'?'onedrive':'supabase',req));
   if(body?.action==='delete'){
