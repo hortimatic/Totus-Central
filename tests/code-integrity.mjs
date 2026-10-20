@@ -2,10 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 const root=process.cwd();
-const source=['src/app.js','src/api.js','src/state.js','src/utils.js','src/config.js','src/components.js','src/permissions.js','src/calculations.js','src/file-utils.js','src/expense-register.js','src/excel.js','src/backup.js','src/pages/main.js'];
-source.push('src/historical-acceptance.js','src/gestor-format.js','src/archive-documents.js','src/backup-transport.js','src/backup-index.js','src/backup-retention.js','src/storage-planning.js');
-source.push('src/onedrive-connection.js');
-source.push('src/pdf-preview.js','src/report-period.js','src/recovery-core.js','src/recovery-runner.js','src/form-drafts.js');
+// Discover every first-party module so new files cannot silently miss this audit.
+const source=fs.readdirSync('src',{recursive:true}).filter(file=>file.endsWith('.js')&&!file.split(path.sep).join('/').startsWith('vendor/')).map(file=>path.posix.join('src',file.split(path.sep).join('/'))).sort();
 const cache=Object.fromEntries(source.map(file=>[file,fs.readFileSync(file,'utf8')]));
 const problems=[];
 for(const [file,content] of Object.entries(cache)){
