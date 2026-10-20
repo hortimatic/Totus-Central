@@ -110,7 +110,14 @@ Deno.serve(async req=>{
      if(Number(root.metadata?.size)>16384)throw new Error('Índice de respaldo no válido.');
      const index=validateBackupIndex(path,JSON.parse(await (await download('business-backups',path)).text()));
      if(index.sha256!==proof.archive_sha256||index.size!==Number(proof.size_bytes))throw new Error('El respaldo actual no coincide con la prueba verificada.');
-     for(const part of index.parts){const item=objects.find(x=>folder+'/'+x.name===part.path);if(!item||Number(item.metadata?.size)!==part.size)throw new Error('Falta un fragmento del respaldo actual.');}
+     for(const part of index.parts){
+      const item=objects.find(x=>folder+'/'+x.name===part.path);
+      if(!item||Number(item.metadata?.size)!==part.size){
+       const bytes=await readBackupObject(path,(p:string)=>download('business-backups',p,req));
+       if(bytes.length!==Number(proof.size_bytes)||await archiveHash(bytes)!==proof.archive_sha256)throw new Error('El respaldo de OneDrive no coincide con la prueba verificada.');
+       break;
+      }
+     }
     }else if(await archiveHash(await download('business-backups',path))!==proof.archive_sha256)throw new Error('El respaldo actual está dañado.');
     return {path,manifest};
    },

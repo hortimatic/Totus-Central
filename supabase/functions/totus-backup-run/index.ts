@@ -46,6 +46,7 @@ async function verifySavedBackup(id:string,source='supabase',req?:Request){
   const {data,error}=await admin.storage.from('business-backups').download(path);
   if(error||!data){if(!req)throw new Error('No se pudo leer un archivo de la copia.');usedOneDrive=true;return oneDriveRead(req,'backup-file-url',{run_id:id,path});}return data;
  });
+ if(!run.archive_sha256||createHash('sha256').update(bytes).digest('hex')!==run.archive_sha256)throw new Error('La copia completa no coincide con su huella registrada.');
  const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
  const {data:rehearsal,error:rehearsalError}=await admin.rpc('totus_verify_recovery_rows',{p_payload:archive.database});
  if(rehearsalError||rehearsal?.verified!==true)throw new Error('No se pudo comprobar la recuperación de datos: '+(rehearsalError?.message||'resultado incompleto'));

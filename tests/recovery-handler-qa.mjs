@@ -40,7 +40,9 @@ globalThis.__recoveryHandlerClient={
   const job=state.jobs.find(x=>x.id===args.p_job);assert.equal(job.status,'prepared');
   assert.ok(state.files.has('business-backups/'+job.checkpoint_path)||state.cloudBackup,'Missing checkpoint');
   const path=args.p_payload.ops_documents[0].storage_path;
-  assert.ok(path.startsWith('recovery/'+jobId+'/'));assert.ok(state.files.has('business-documents/'+path));
+  if(state.cloudBackup)assert.equal(path,'original/test.pdf','An unchanged original should be reused from the verified checkpoint');
+  else assert.ok(path.startsWith('recovery/'+jobId+'/'));
+  assert.ok(state.files.has('business-documents/'+path));
   assert.equal(args.p_payload.ops_documents[0].uploaded_by,actor);
   state.live=args.p_payload;Object.assign(job,{status:'committed',result:{ops_documents:1}});
   return {data:job.result,error:null};
