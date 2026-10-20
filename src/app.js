@@ -1,3 +1,4 @@
+import {validateTaxExpense} from './tax-expense.js';
 import {workbookPreviewText} from './workbook-preview.js';
 import {oneDriveRequest,setOneDriveStatus} from './onedrive-connection.js';
 import {backupRetentionCount} from './backup-retention.js';
@@ -107,6 +108,7 @@ function render(){
  hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
+ if(input('exDocKind'))updateExpenseTaxTreatment();
  captureFormDraft($('#content'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
@@ -369,7 +371,62 @@ async function saveExpenseAttachment(id){
  await refresh('Factura adjuntada al mismo gasto. Importes y revisión fiscal conservados.');
 }
 
+
+function updateExpenseTaxTreatment(){
+ const tax=val('exDocKind')==='impuesto',panel=input('exTaxPaymentFields');
+ if(panel)panel.hidden=!tax;
+ const management=input('exManagement');if(tax&&management)management.checked=true;
+ const fiscal=input('exFiscalReviewed');if(fiscal){fiscal.disabled=tax;if(tax)fiscal.checked=false}
+ for(const id of ['exStore','exSupplierId','exTax','exPayment','exPersonnelKind','exPaidStatus','exDate']){
+  const el=input(id);if(el)el.disabled=tax;
+ }
+ const lines=input('expenseLines');if(lines)lines.hidden=tax;
+ document.querySelector('[data-action="expense-line-add"]')?.classList.toggle('hidden',tax);
+ const hint=input('exTaxConcept');if(hint)hint.hidden=!tax;
+ for(const id of ['exSupplier','exInvoice']){const el=input(id);if(el)el.readOnly=tax}
+ if(tax){
+  if(input('exDate'))input('exDate').value=val('exPaidDate');
+  if(input('exStore'))input('exStore').value='';
+  if(input('exSupplier'))input('exSupplier').value='Agencia Tributaria';
+  if(input('exInvoice'))input('exInvoice').value='Modelo '+val('exTaxPaymentModel')+' · '+val('exTaxPaymentQuarter')+'T '+val('exTaxPaymentYear');
+  if(input('exPaidStatus'))input('exPaidStatus').value='pagado';
+ }
+ updateExpenseSummary();
+}
+function requireTaxExpensePermission(id){
+ if(!can('fiscalidad',id?'edit':'create'))throw new Error('Necesitas permiso para '+(id?'editar':'crear')+' pagos en Fiscalidad.');
+}
+async function saveTaxExpenseAttachment(id){
+ requireTaxExpensePermission(id);
+ const payment=state.data.taxPayments.find(x=>x.id===id);
+ if(!payment)throw new Error('El pago ya no está disponible.');
+ const file=input('exFile')?.files?.[0];if(!file)throw new Error('Selecciona un justificante.');
+ const doc=await createStoredDocument(file,{date:payment.payment_date,docType:'impuesto',status:'archivada',party:'Agencia Tributaria',number:'Modelo '+payment.tax_type+' · '+payment.period_label,category:'justificante_bancario',notes:'Justificante del mismo pago; solo control interno',linkedType:'tax_payment',linkedId:id});
+ try{await update('ops_tax_payments',id,{document_id:doc.id})}
+ catch(error){throw await rollbackNewDocument(doc,error)}
+ await refresh('Justificante guardado. El importe y el tratamiento interno no han cambiado.');
+}
+async function saveTaxExpenseFromGastos(id=''){
+ requireTaxExpensePermission(id);
+ if(getView('gastos').id)throw new Error('No conviertas una factura existente en un pago de impuesto. Crea un registro nuevo.');
+ const row=validateTaxExpense({model:val('exTaxPaymentModel'),year:num('exTaxPaymentYear'),quarter:num('exTaxPaymentQuarter'),date:val('exPaidDate'),amount:val('exPaidAmount').trim()===''?NaN:num('exPaidAmount'),internal:!!input('exManagement')?.checked,status:val('exPaidStatus'),today:isoToday()});
+ const current=id?state.data.taxPayments.find(x=>x.id===id):null;
+ if(id&&!current)throw new Error('El pago ya no está disponible.');
+ if(state.data.taxPayments.some(x=>x.id!==id&&x.tax_type===row.tax_type&&Number(x.fiscal_year)===row.fiscal_year&&Number(x.quarter)===row.quarter))throw new Error('Ya existe este modelo para ese trimestre. Revisa el pago existente en Control interno; no lo dupliques.');
+ row.notes=val('exNotes').trim();row.document_id=current?.document_id||null;
+ let newDoc=null;
+ const file=input('exFile')?.files?.[0];
+ if(file){newDoc=await createStoredDocument(file,{date:row.payment_date,docType:'impuesto',status:'archivada',party:'Agencia Tributaria',number:'Modelo '+row.tax_type+' · '+row.period_label,category:'justificante_bancario',notes:'Solo control interno; excluido del cálculo fiscal',linkedType:'tax_payment',...(id?{linkedId:id}:{})});row.document_id=newDoc.id}
+ try{
+  if(id)await update('ops_tax_payments',id,row);
+  else await insert('ops_tax_payments',{...row,created_by:state.user?.id||null});
+ }catch(error){throw newDoc?await rollbackNewDocument(newDoc,error):error}
+ resetView('gastos');await refresh('Impuesto guardado como solo control interno, sin duplicar el gasto fiscal.');
+}
+
 async function saveExpense(id=''){
+ if(val('exDocKind')==='impuesto'){await saveTaxExpenseFromGastos(getView('gastos').taxPaymentId||'');return}
+ if(getView('gastos').taxPaymentId)throw new Error('Este registro es un pago de impuesto. Conserva su tipo y tratamiento interno.');
  const existing=id?state.data.expenses.find(x=>x.id===id):null;
  if(existing&&state.data.settings?.closed_through&&existing.expense_date<=state.data.settings.closed_through)throw new Error('Este gasto pertenece a un periodo cerrado. Usa «Registrar pago» para actualizar su pago; administración debe reabrir el periodo para corregir importes.');
  const storeId=required('exStore','Tienda'),date=required('exDate','Fecha'),supplier=required('exSupplier','Proveedor');
@@ -536,6 +593,8 @@ function removeExpenseLine(index){
  document.querySelector(`.expense-line[data-line-index="${index}"]`)?.remove();updateExpenseSummary();
 }
 function updateExpenseSummary(){
+ if(val('exDocKind')==='impuesto'){for(const id of ['exSumBase','exSumVat','exSumRe','exSumWh'])if(input(id))input(id).textContent=money(0);if(input('exSumTotal'))input('exSumTotal').textContent=money(num('exPaidAmount'));return}
+
  const rows=[...document.querySelectorAll('.expense-line')];let base=0,vat=0,re=0,wh=0;
  for(const el of rows){const ix=el.dataset.lineIndex,b=Math.max(0,n(val(`exLineBase_${ix}`))),v=Math.max(0,n(val(`exLineVat_${ix}`))),r=Math.max(0,n(val(`exLineRe_${ix}`))),w=Math.max(0,n(val(`exLineWh_${ix}`)));base+=b;vat+=b*v/100;re+=b*r/100;wh+=b*w/100}
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
@@ -2003,8 +2062,10 @@ document.addEventListener('click',async e=>{
   if(a==='expense-gestor-detail'){showExpenseGestorDetail(el.dataset.id);return}
   if(a==='expense-unlinked-open'){setRoute('documentos');setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='expense-file-preview'){await previewPendingExpenseFile();return}
-  if(a==='expense-new'){setView('gastos',{mode:'record',id:null});setRoute('gastos');render();return}
-  if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='expense-new'){setView('gastos',{mode:'record',id:null,taxPaymentId:null});setRoute('gastos');render();return}
+  if(a==='expense-tax-edit'){setView('gastos',{mode:'record',id:null,taxPaymentId:el.dataset.id});render();return}
+  if(a==='expense-tax-attach-save'){await saveTaxExpenseAttachment(el.dataset.id);return}
+  if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id,taxPaymentId:null});render();return}
   if(a==='expense-attach-save'){await saveExpenseAttachment(el.dataset.id);return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
   if(a==='expense-back'){resetView('gastos');render();return}
@@ -2217,11 +2278,12 @@ document.addEventListener('input',e=>{
  if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
  if(id.startsWith('homePrice'))updateHomePrice();
  if(id.startsWith('pq'))updatePricingQuick();
- if(id.startsWith('exLine'))updateExpenseSummary();
+ if(id.startsWith('exLine')||id==='exPaidAmount')updateExpenseSummary();
  if(id.startsWith('iv')&&input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
 });
 
 document.addEventListener('change',async e=>{
+ if(['exDocKind','exTaxPaymentModel','exTaxPaymentYear','exTaxPaymentQuarter','exManagement','exPaidDate'].includes(e.target?.id)){updateExpenseTaxTreatment();return}
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){
   recoveryCandidate=null;

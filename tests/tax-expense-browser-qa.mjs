@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const before=await page.evaluate(async()=>{
+  const db=window.__mockDb,date=new Date().toLocaleDateString('en-CA');
+  db.ops_tax_payments??=[];
+  db.ops_tax_payments.push({id:'qa-internal-tax',tax_type:'111',fiscal_year:2026,quarter:3,amount:367.4,payment_date:date,status:'pagado',period_label:'3T 2026',notes:'original'});
+  await(await import('../src/api.js')).loadCore();
+  return db.ops_expenses.length;
+ });
+ await page.locator('#nav [data-route="gastos"]').click();
+ await page.locator('[data-action="expense-tax-edit"][data-id="qa-internal-tax"]').click();
+ assert(await page.locator('#exManagement').isChecked());
+ assert(await page.locator('#exTaxPaymentFields').isVisible());
+ assert(!await page.locator('#expenseLines').isVisible());
+ assert.equal(await page.locator('#exTaxPaymentModel').inputValue(),'111');
+ await page.locator('#exPaidAmount').fill('400');
+ await page.locator('#exNotes').fill('Justificante pendiente; solo control interno');
+ await page.locator('[data-action="expense-save"]').click();
+ await page.locator('[data-action="expense-new"]').waitFor();
+ let result=await page.evaluate(()=>({tax:window.__mockDb.ops_tax_payments.find(x=>x.id==='qa-internal-tax'),expenses:window.__mockDb.ops_expenses.length}));
+ assert.equal(result.tax.amount,400);assert.equal(result.tax.notes,'Justificante pendiente; solo control interno');assert.equal(result.expenses,before);
+ await page.locator('[data-action="expense-new"]').click();
+ await page.locator('#exDocKind').selectOption('impuesto');
+ assert(await page.locator('#exManagement').isChecked());
+ await page.locator('#exTaxPaymentModel').selectOption('309');
+ await page.locator('#exTaxPaymentYear').fill('2026');
+ await page.locator('#exTaxPaymentQuarter').selectOption('4');
+ await page.locator('#exPaidAmount').fill('120');
+ await page.locator('[data-action="expense-save"]').click();
+ await page.locator('[data-action="expense-new"]').waitFor();
+ result=await page.evaluate(()=>({tax:window.__mockDb.ops_tax_payments.filter(x=>x.tax_type==='309'&&x.fiscal_year===2026&&x.quarter===4),expenses:window.__mockDb.ops_expenses.length}));
+ assert.equal(result.tax.length,1);assert.equal(result.tax[0].amount,120);assert.equal(result.expenses,before);
+ console.log('TAX EXPENSE BROWSER QA: existing expense form edits and creates one canonical internal tax payment, preserving ordinary expenses and fiscal costs.');
+}finally{await browser.close()}

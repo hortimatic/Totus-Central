@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {taxExpenseRecord,validateTaxExpense} from '../src/tax-expense.js';
+import {expenseCostAmount,deductibleExpenseTotal} from '../src/calculations.js';
+const tax={id:'tax',tax_type:'130',fiscal_year:2026,quarter:3,amount:2294.55,payment_date:'2026-10-20',status:'pagado',document_id:'doc',notes:'original'};
+const view=taxExpenseRecord(tax);
+assert(view.management_only&&!view.fiscal_reviewed);assert.equal(view.accounting_amount,0);
+assert.equal(deductibleExpenseTotal([view],[]),0);assert.equal(view.document_id,'doc');assert.equal(view._taxPayment,tax);
+const valid={model:'130',year:2026,quarter:3,date:'2026-10-20',amount:2294.55,internal:true,status:'pagado',today:'2026-10-21'};
+assert.equal(validateTaxExpense(valid).amount,2294.55);
+for(const patch of [{internal:false},{amount:NaN},{amount:-1},{quarter:5},{model:'OTRO'},{date:'tomorrow'},{date:'2026-10-22'},{status:'previsto'}])assert.throws(()=>validateTaxExpense({...valid,...patch}));
+console.log('TAX EXPENSE QA: canonical payment projection retains original attachment and metadata, internal-only validation excludes fiscal deduction.');

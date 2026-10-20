@@ -21,6 +21,7 @@ jobs:
       - run: node tests/historical-acceptance-qa.mjs
       - run: node tests/income-breakdown-qa.mjs
       - run: node tests/payment-information-qa.mjs
+      - run: node tests/tax-expense-qa.mjs
       - run: node tests/expense-reconciliation-qa.mjs
       - run: node tests/treasury-source-qa.mjs
       - run: node tests/partial-balances-qa.mjs
@@ -68,6 +69,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
       - run: node tests/onedrive-connection-qa.mjs
       - run: node tests/storage-live-qa.mjs

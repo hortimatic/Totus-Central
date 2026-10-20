@@ -1,3 +1,4 @@
+import {taxExpenseRecord} from '../tax-expense.js';
 import {incomeBreakdown} from '../income-breakdown.js';
 import {informationalTaxPayments,taxPaymentLabel} from '../payment-information.js';
 import {oneDrivePanel,oneDriveStorageCard} from '../onedrive-connection.js';
@@ -209,14 +210,15 @@ export function cajas(){
 function taxPaymentInformationHtml(filters){
  const rows=informationalTaxPayments(state.data.taxPayments,filters);
  if(!rows.length)return '';
- return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Impuestos pagados · solo información</h2><p>Salidas de dinero del autónomo, por fecha de pago. No se restan del beneficio fiscal ni duplican los gastos. Son comunes a las dos tiendas.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
+ return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Control interno · impuestos pagados</h2><p>Salidas de dinero del autónomo, por fecha de pago. No se restan del beneficio fiscal ni duplican los gastos. Son comunes a las dos tiendas.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
  {label:'Fecha de pago',html:r=>fmtDate(r.payment_date)},
  {label:'Impuesto',html:r=>esc(taxPaymentLabel(r))},
  {label:'Periodo al que corresponde',html:r=>esc(r.period_label||[r.fiscal_year,r.quarter?r.quarter+'T':''].filter(Boolean).join(' · '))},
  {label:'Importe pagado',num:true,html:r=>money(r.amount)},
- {label:'Tratamiento',html:()=>'<span class="badge info">Informativo · sin deducción fiscal</span>'},
+ {label:'Tratamiento',html:()=>'<span class="badge info">Solo información interna · excluido del cálculo fiscal</span>'},
  {label:'Justificante bancario',html:r=>{const doc=state.data.documents.find(d=>d.id===r.document_id);return `<div class="expense-file-actions">${doc?`<span class="small">${esc(doc.original_name)}</span>${btn('Vista previa','tax-payment-document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','tax-payment-document-download','secondary',`data-id="${r.id}"`)}`:''}${btn(doc?'Cambiar justificante':'Adjuntar justificante','tax-payment-receipt','secondary',`data-id="${r.id}"`)}</div>`;}}
- ],rows)}<p class="small muted card-pad">Para registrar o corregir estos pagos: Fiscalidad → Pagos de impuestos. Las cuotas de autónomo y la Seguridad Social se registran como gastos, con su tratamiento fiscal.</p></section>`;
+ , {label:'Acciones',html:r=>`<div class="expense-row-actions">${btn('Revisar','expense-tax-edit','secondary',`data-id="${r.id}"`)}</div>`}
+ ],rows)}<p class="small muted card-pad">Puedes revisar estos pagos aquí o en Fiscalidad → Pagos de impuestos. Es el mismo registro; no se duplica el gasto. Las cuotas de autónomo y la Seguridad Social se registran como gastos, con su tratamiento fiscal.</p></section>`;
 }
 
 
@@ -232,7 +234,8 @@ function expensePaymentRelation(row){
 export function gastos(){
  const view=getView('gastos');
  if(view.mode==='record'){
-   const row=view.id?state.data.expenses.find(x=>x.id===view.id):null;
+   const tax=view.taxPaymentId?state.data.taxPayments.find(x=>x.id===view.taxPaymentId):null;
+   const row=tax?taxExpenseRecord(tax):view.id?state.data.expenses.find(x=>x.id===view.id):null;
    return expenseRecordHtml(row);
  }
  if(view.section==='facturas')return expenseInvoiceSectionHtml();
@@ -1040,10 +1043,11 @@ export function expenseLineRow(line={},index=0,categories=[]){
 }
 
 export function expenseRecordHtml(row=null){
- const storeOptions=stores().map(s=>({value:s.id,label:s.name}));
+ const taxRecord=!!row?._taxPayment,isTax=taxRecord;
+ const storeOptions=[{value:'',label:'Común al autónomo · ambas tiendas'},...stores().map(s=>({value:s.id,label:s.name}))];
  const suppliers=[{value:'',label:'Proveedor manual'},...state.data.suppliers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const categories=state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}));
- const lines=row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
+ const lines=taxRecord?[{description:row.description,base_amount:row.amount_paid,vat_rate:0,re_rate:0,withholding_rate:0,deductible_irpf:false,deductible_pct:0}]:row?state.data.expenseLines.filter(x=>x.expense_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):[{description:'',base_amount:'',vat_rate:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,fixed_asset:false}];
  const doc=row?.document_id?state.data.documents.find(x=>x.id===row.document_id):null;
  const total=Number(row?.gross_expense??row?.accounting_amount??row?.amount_paid??0);
  return `<div class="page record-page">
@@ -1053,27 +1057,33 @@ export function expenseRecordHtml(row=null){
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento y proveedor</h3><p>La tienda clasifica el gasto. La factura recibida debe identificar a ${esc(state.data.settings?.business_name||'tu nombre como autónomo')} con su NIF y domicilio fiscal comunes.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${selectField('Tienda','exStore',storeOptions,row?.store_id||storeOptions[0]?.value||'')}
+      ${selectField('Tienda','exStore',storeOptions,row?.store_id||(!taxRecord?stores()[0]?.id:'')||'')}
       ${formField('Fecha','exDate',row?.expense_date||isoToday(),'date')}
       ${selectField('Proveedor guardado','exSupplierId',suppliers,row?.supplier_id||'')}
       ${formField('Proveedor','exSupplier',row?.supplier_name||'')}
       ${formField('NIF/CIF','exTax',row?.supplier_tax_id||'')}
       ${formField('Nº factura / justificante','exInvoice',row?.invoice_number||'')}
-      ${selectField('Tipo documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.document_kind||'factura')}
+      ${selectField('Tipo documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'},...(!row||taxRecord?[{value:'impuesto',label:'Pago de impuesto · solo control interno'}]:[])],row?.document_kind||'factura')}
      </div>
      <div class="attachment-box" style="margin-top:14px">
       <div><b>Justificante</b><div class="small muted">${doc?esc(doc.original_name):'Sin archivo vinculado'}</div></div>
-      <div class="inline-actions">${doc?btn('Vista previa','expense-document-preview','secondary',`data-id="${doc.id}"`):''}${doc?btn('Descargar','expense-document-download','secondary',`data-id="${doc.id}"`):''}${doc?btn('Quitar','expense-document-unlink','danger',`data-expense="${row.id}" data-document="${doc.id}"`):''}</div>
+      <div class="inline-actions">${doc?btn('Vista previa','expense-document-preview','secondary',`data-id="${doc.id}"`):''}${doc?btn('Descargar','expense-document-download','secondary',`data-id="${doc.id}"`):''}${doc&&!taxRecord?btn('Quitar','expense-document-unlink','danger',`data-expense="${row.id}" data-document="${doc.id}"`):''}</div>
       <div class="expense-attachment-picker"><label class="file-picker">${doc?'Sustituir factura adjunta':'Seleccionar factura o justificante'}<input id="exFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.txt,.md"></label>
       <div id="exSelectedFile" class="small muted" aria-live="polite">No se ha seleccionado una factura nueva.</div><p class="small muted">Si aún no has recibido la factura, conserva este gasto y adjúntala aquí cuando esté disponible. Subir el archivo no cambia los importes ni lo marca como revisado. Si la factura ya figura en otro gasto, vincula el pago a ese registro; no registres el coste dos veces.</p>
-      ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}${row?btn('Guardar solo adjunto','expense-attach-save','primary',`data-id="${row.id}"`):''}</div>
+      ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}${row?btn('Guardar solo adjunto',taxRecord?'expense-tax-attach-save':'expense-attach-save','primary',`data-id="${row.id}"`):''}</div>
      </div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales. Para un abono de proveedor, selecciona «Rectificativa» e introduce las bases y el importe devuelto con signo negativo; los porcentajes siguen positivos.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
-     <div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
+     <p id="exTaxConcept" class="note" hidden>Pago de impuesto · solo control interno. Indica el importe y su fecha de pago en «Tratamiento general». No tiene IVA, recargo ni gasto fiscal deducible.</p><div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Tratamiento general</h3><p>Control interno, pago y observaciones.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
+      <div id="exTaxPaymentFields" class="wide form-grid" ${isTax?'':'hidden'}>
+       ${selectField('Impuesto pagado','exTaxPaymentModel',[{value:'130',label:'130 · IRPF del autónomo'},{value:'111',label:'111 · Retenciones de nóminas y profesionales'},{value:'115',label:'115 · Retenciones del alquiler'},{value:'309',label:'309 · IVA ocasional'}],row?._taxPayment?.tax_type||'130')}
+       ${formField('Año del impuesto','exTaxPaymentYear',row?._taxPayment?.fiscal_year||Number(isoToday().slice(0,4)),'number','min="2020" max="2100"')}
+       ${selectField('Trimestre del impuesto','exTaxPaymentQuarter',[1,2,3,4].map(q=>({value:String(q),label:q+'T'})),String(row?._taxPayment?.quarter||Math.ceil(Number(isoToday().slice(5,7))/3)))}
+       <p class="small muted wide">Pago común del autónomo. Se guarda una sola vez y también aparece en Fiscalidad. Elige el trimestre al que corresponde, aunque se pague después.</p>
+      </div>
       <label class="check-field wide emphasis-check"><input id="exManagement" type="checkbox" ${row?.management_only?'checked':''}> Solo información interna · excluir del cálculo fiscal</label>
       <label class="check-field wide"><input id="exFiscalReviewed" type="checkbox" ${row?.fiscal_reviewed===true?'checked':''}> He cotejado el documento, sus conceptos e impuestos; gasto fiscal revisado</label>
       <p class="small muted wide">Un gasto nuevo permanece sin revisar hasta que marques esta casilla. Los gastos internos nunca se incluirán en el cálculo fiscal.</p>
@@ -1092,7 +1102,7 @@ export function expenseRecordHtml(row=null){
     <div class="summary-row"><span>Recargo</span><strong id="exSumRe">${money(row?.re_amount||0)}</strong></div>
     <div class="summary-row"><span>Retención</span><strong id="exSumWh">${money(row?.withholding_amount||0)}</strong></div>
     <div class="summary-row"><span>Total gasto</span><strong id="exSumTotal">${money(total)}</strong></div>
-    <div class="stack" style="margin-top:14px">${row?btn('Eliminar gasto','expense-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','expense-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','expense-back','secondary')}</div>
+    <div class="stack" style="margin-top:14px">${row&&!taxRecord?btn('Eliminar gasto','expense-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','expense-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','expense-back','secondary')}</div>
    </section></aside>
   </div>
  </div>`;
