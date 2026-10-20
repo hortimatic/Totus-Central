@@ -20,6 +20,25 @@ try{
  assert.equal(await page.evaluate(async()=>window.__mockUploads.get('business-documents/qa/issued.txt').text()),'ORIGINAL');
  assert.equal(await page.evaluate(id=>window.__mockDb.ops_documents.find(x=>x.id===id).notes,id),'Clasificación revisada');
  assert.deepEqual(errors,[]);await page.close();
+
+ const attachment=await browser.newPage();
+ await attachment.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const before=await attachment.evaluate(async()=>{
+  const db=window.__mockDb,id=crypto.randomUUID(),day=new Date().toLocaleDateString('en-CA');
+  const expense={id,store_id:db.ops_stores[0].id,expense_date:day,supplier_name:'Factura todavía sin emitir',description:'Pago registrado',gross_expense:45,accounting_amount:45,amount_paid:45,paid_status:'pagado',paid_date:day,management_only:true,fiscal_reviewed:false,source_ref:JSON.stringify({kind:'bank_payment_source',requires_invoice_reconciliation:true})};
+  db.ops_expenses.push(expense);await(await import('../src/api.js')).loadCore();return expense;
+ });
+ await attachment.locator('#nav [data-route="gastos"]').click();
+ await attachment.locator('[data-action="expense-edit"][data-id="'+before.id+'"]').click();
+ await attachment.locator('#exFile').setInputFiles({name:'invoice-arrived.txt',mimeType:'text/plain',buffer:Buffer.from('Original supplier document')});
+ await attachment.locator('[data-action="expense-attach-save"]').click();
+ await attachment.getByText('Factura adjuntada al mismo gasto. Importes y revisión fiscal conservados.',{exact:true}).waitFor();
+ const after=await attachment.evaluate(id=>({expense:window.__mockDb.ops_expenses.find(x=>x.id===id),count:window.__mockDb.ops_expenses.length}),before.id);
+ assert.equal(after.count,1);assert(after.expense.document_id);
+ for(const key of Object.keys(before))assert.deepEqual(after.expense[key],before[key],'Attachment must preserve '+key);
+ assert.equal(await attachment.evaluate(id=>window.__mockDb.ops_documents.filter(d=>d.id===id).length,after.expense.document_id),1);
+ await attachment.close();
+
  const failure=await browser.newPage();
  await failure.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await failure.locator('#nav [data-route="gastos"]').click();await failure.locator('[data-action="expense-new"]').click();

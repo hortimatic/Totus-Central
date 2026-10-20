@@ -73,7 +73,7 @@ function appendInformationalPayments(wb,taxPayments=[],filters={}){
  ...rows.map(p=>[fmtDate(p.payment_date),taxPaymentLabel(p),p.period_label||[p.fiscal_year,p.quarter?p.quarter+'T':''].filter(Boolean).join(' · '),n(p.amount)]),
  ['TOTAL INFORMATIVO','','',rows.reduce((s,p)=>s+n(p.amount),0)]
  ]);
- ws['!merges']=[XLSX.utils.decode_range('A1:D1'),XLSX.utils.decode_range('A2:D2')];
+ ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}}];
  ws['!rows']=[{hpt:28},{hpt:36}];styleHeader(ws,3,4);autoWidths(ws,[16,58,30,20]);
  for(let r=5;r<=5+rows.length;r++)if(ws['D'+r])ws['D'+r].z=euro;
  ws['!freeze']={ySplit:4};if(rows.length)ws['!autofilter']={ref:'A4:D'+(4+rows.length)};
