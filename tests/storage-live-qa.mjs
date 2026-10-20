@@ -43,6 +43,7 @@ try{
  assert.equal(await page.locator('details.storage-technical').getAttribute('open'),'','Actualizar no debe cerrar el detalle que se estaba consultando');
  assert.equal(await page.evaluate(()=>JSON.stringify({expenses:window.__mockDb.ops_expenses,closings:window.__mockDb.ops_daily_closings,documents:window.__mockDb.ops_documents})),stateBefore,'Reorganizar almacenamiento no debe alterar datos contables');
  assert((await page.locator('#content').innerText()).includes('No depende de los meses cargados'),'La duración de GitHub debe estar visible sin desplegar detalles');
+ await page.locator('details[data-storage-detail="capacity"] > summary').click();
  await page.getByText('Cómo se calcula y qué puedes limpiar',{exact:true}).click();
  const text=await page.locator('#content').innerText();
  assert(text.includes('3,00 MB usados'),'Documentos y logos no se sumaron desde Storage real simulado: '+text.slice(0,350));

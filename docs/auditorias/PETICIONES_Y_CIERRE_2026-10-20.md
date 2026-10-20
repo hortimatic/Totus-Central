@@ -82,3 +82,7 @@ La batería completa aprobó la revisión b25d6116, incluyendo guardado de 112 M
 - Mantener abiertas esas secciones cuando se actualizan las cifras.
 - Permitir elegir y guardar de 1 a 10 copias; usar ese mismo valor en ambas conservaciones del servidor y en la pantalla.
 - Probar guardado de diez y otros valores, rechazo de valores inválidos, protección de recuperaciones y ausencia de cambios contables.
+
+
+## Corrección solicitada: presentación compacta, pendiente de aceptación visual
+Rehacer la pantalla con filas por servicio y cifras alineadas. Conservar toda la información y funciones en apartados de detalle. Separar claramente el límite de formato de copia de la capacidad de almacenamiento. Mostrar el resumen de copias sin repetir tarjetas ni párrafos principales. La aprobación de pruebas no implica aceptación del diseño por el titular.

@@ -57,3 +57,7 @@ No se guardaron nuevas carpetas de trabajo, descargas ni credenciales en este po
 
 ## Revisión posterior de Almacenamiento
 Se agrupa la información por servicio, manteniendo capacidades, previsiones, ubicación y diagnóstico. Las secciones abiertas se conservan al actualizar. La conservación deja de estar fijada en cinco: la configuración admite de una a diez copias y se comparte entre el guardado, la rotación de Supabase y la rotación de OneDrive. La ampliación no elimina datos ni crea copias adicionales de forma artificial. Se añaden pruebas de persistencia, valores inválidos, conservación de diez, protección de recuperaciones y geometría de las tarjetas.
+
+
+## Corrección de presentación
+La primera organización por tarjetas fue rechazada por el titular por exceso de altura, repetición y confusión entre previsiones de espacio y límite técnico de copia. Se sustituye por bloques compactos de servicio y cifras alineadas, con resumen de copias independiente y detalles conservados. No se considera aceptación visual por parte del titular que las pruebas funcionales pasen.

@@ -43,13 +43,14 @@ ${s?.connected&&s?.backups?`<div class="note"><b>Copias completas verificadas en
 }
 
 export function oneDriveStorageCard(monthlyGrowth=0){
- const s=connectionOwner===(state.user?.email||'')?connectionStatus:null;
+ const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
  const size=v=>{const n=Number(v);return Number.isFinite(n)&&n>=0?(n/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB':'Sin medición';};
- const keep=backupRetentionCount(state.data.backupConfig?.retention_days);
- const q=s?.quota,known=q?.available&&[q.used,q.total,q.remaining].every(v=>Number.isFinite(Number(v))&&Number(v)>=0)&&Number(q.total)>0;
+ const keep=backupRetentionCount(state.data.backupConfig?.retention_days),q=s?.quota;
+ const known=q?.available&&[q.used,q.total,q.remaining].every(v=>Number.isFinite(Number(v))&&Number(v)>=0)&&Number(q.total)>0;
+ const gb=v=>(Number(v)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})+' GB';
  const years=known&&monthlyGrowth>0?Number(q.remaining)/(monthlyGrowth*(keep+1)*12):null;
- return `<article class="storage-provider-card storage-provider-onedrive"><span class="storage-provider-name">OneDrive</span><h3>Facturas, documentos y copias</h3><p>Carpeta exclusiva de TotusCentral; funciona desde el servidor.</p>
- <div class="storage-provider-metrics"><div><span>Documentos de Totus</span><strong>${s?.mirror?size(s.mirror.verified_bytes):'Consultando…'}</strong></div><div><span>Copias de Totus</span><strong>${s?.backups?size(s.backups.bytes):'Consultando…'}</strong></div></div>
- ${known?`<div class="storage-account-capacity"><span>Tu cuenta completa de OneDrive</span><strong>${(Number(q.remaining)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})} GB libres</strong><progress aria-label="Espacio ocupado de la cuenta OneDrive" max="${Number(q.total)}" value="${Number(q.used)}"></progress><p>${(Number(q.used)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})} GB usados de ${(Number(q.total)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:1})} GB. Incluye tus otros archivos.</p>${years!==null?'<p><b>Duración estimada para Totus: '+(years>10?'más de 10 años':years.toLocaleString('es-ES',{maximumFractionDigits:1})+' años')+'</b>. Al ritmo de 9 meses y conservando '+keep+' copias; no prevé el crecimiento de tus otros archivos.</p>':''}</div>`:'<p class="note">La capacidad de la cuenta se mostrará cuando Microsoft la facilite. No se inventa un espacio libre.</p>'}
- <p class="storage-provider-status">${s?.connected?'Conectado':s?'Conexión pendiente':'Consultando conexión…'}${s?.mirror?' · '+Number(s.mirror.verified||0)+' documentos verificados':''}${s?.backups?' · '+Number(s.backups.verified||0)+' copias completas':''}</p></article>`;
+ return `<article class="storage-provider-card storage-provider-onedrive"><header class="storage-service-heading"><h3>OneDrive</h3><p>Facturas, documentos y copias de seguridad</p></header>
+ <div class="storage-capacity-row"><div class="storage-capacity-label"><b>Cuenta completa</b><span>${known?gb(q.used)+' de '+gb(q.total):'Capacidad pendiente de consultar'}</span></div><div class="storage-capacity-meter">${known?'<progress aria-label="Espacio ocupado de la cuenta OneDrive" max="'+Number(q.total)+'" value="'+Number(q.used)+'"></progress><span><b>'+gb(q.remaining)+'</b> libres</span>':'<span>'+(!s?'Consultando conexión…':s.connected?'Microsoft no ha facilitado la capacidad.':'Conexión pendiente')+'</span>'}</div><div class="storage-capacity-duration"><span>Duración estimada para Totus</span><b>${years!==null?(years>10?'Más de 10 años':years.toLocaleString('es-ES',{maximumFractionDigits:1})+' años'):'Sin estimación'}</b></div></div>
+ <p class="storage-service-footnote">${s?.mirror?'Totus: '+size(s.mirror.verified_bytes)+' en documentos':'Documentos: consultando…'} · ${s?.backups?size(s.backups.bytes)+' en copias':'copias: consultando…'}. La barra incluye tus otros archivos. Estimación con ${keep} copias y 9 meses de actividad de Totus, sin prever otros usos de la cuenta.</p>
+ <span class="storage-connection-label">${s?.connected?'Conectado':s?'Conexión pendiente':'Consultando…'}${s?.mirror?' · '+Number(s.mirror.verified||0)+' documentos verificados':''}</span></article>`;
 }
