@@ -247,9 +247,10 @@ async function retireVerifiedDocuments(req:Request,full=false,dryRun=false){
   if(error)throw error;
   if(!rows?.length){remaining=0;break;}
   let changed=0;
-  for(const map of rows){
+  const processRow=async(map:any)=>{
+   for(let attempt=0;attempt<3;attempt++){
    try{
-    if(!map.verified_at||protectedFiles[map.source_path]!==map.sha256){skipped++;continue;}
+    if(!map.verified_at||protectedFiles[map.source_path]!==map.sha256){skipped++;return;}
     const {data:doc,error:docError}=await admin.from('ops_documents').select('id,storage_path,size_bytes,sha256').eq('id',map.document_id).maybeSingle();
     if(docError||!doc||doc.storage_path!==map.source_path||Number(doc.size_bytes)!==Number(map.size_bytes)||doc.sha256!==map.sha256)throw new Error('El documento cambió desde su copia. Se conserva el original.');
     const remote=await oneDriveRead(req,'document-file-url',{path:map.source_path});
@@ -265,7 +266,7 @@ async function retireVerifiedDocuments(req:Request,full=false,dryRun=false){
     const latest=await admin.from('ops_documents').select('storage_path,sha256,size_bytes').eq('id',map.document_id).maybeSingle();
     if(latest.error||!latest.data||latest.data.storage_path!==map.source_path||latest.data.sha256!==map.sha256||Number(latest.data.size_bytes)!==Number(map.size_bytes))throw new Error('El documento cambió durante la revisión. No se retira.');
     checked++;
-    if(dryRun)continue;
+    if(dryRun)return;
     if(localBytes){
      const removed=await admin.storage.from('business-documents').remove([map.source_path]);
      if(removed.error)throw new Error('Supabase no confirmó la retirada del duplicado.');
@@ -276,11 +277,25 @@ async function retireVerifiedDocuments(req:Request,full=false,dryRun=false){
     const saved=await admin.from('ops_onedrive_documents').update({retired_from_supabase_at:new Date().toISOString()}).eq('document_id',map.document_id).eq('source_path',map.source_path).eq('sha256',map.sha256).is('retired_from_supabase_at',null).select('document_id');
     if(saved.error)throw new Error('No se pudo registrar la retirada; la copia de OneDrive sigue intacta.');
     if(saved.data?.length){retired++;freed+=localBytes;changed++;}
-   }catch(error){errors.push(error instanceof Error?error.message:'No se pudo comprobar un documento.');}
+    return;
+   }catch(error){
+    const message=error instanceof Error?error.message:'No se pudo comprobar un documento.';
+    if(attempt<2&&/rate limit|429|too many requests/i.test(message)&&Date.now()<deadline-10000){
+     const wait=Number(message.match(/Retry after (\d+)ms/i)?.[1])||3000;
+     await new Promise(resolve=>setTimeout(resolve,Math.min(10000,Math.max(1000,wait+250))));continue;
+    }
+    errors.push(message);return;
+   }
+   }
   }
+  let cursor=0;
+  const concurrency=1; // Keep cleanup bounded and below provider request limits.
+  const worker=async()=>{while(cursor<rows.length&&!errors.length&&Date.now()<deadline){const row=rows[cursor++];await processRow(row);}};
+  await Promise.all(Array.from({length:Math.min(concurrency,rows.length)},worker));
   const count=await admin.from('ops_onedrive_documents').select('document_id',{count:'exact',head:true}).is('retired_from_supabase_at',null);
   if(count.error)throw count.error;remaining=Number(count.count)||0;
   if(dryRun||!full||!changed||errors.length||Date.now()>deadline)break;
+  if(remaining)await new Promise(resolve=>setTimeout(resolve,1000));
  }while(remaining>0);
  if(retired){
   let actor:any=null;
@@ -290,6 +305,16 @@ async function retireVerifiedDocuments(req:Request,full=false,dryRun=false){
   if(logged.error)throw new Error('La retirada se completó pero no pudo registrarse su resumen. Revisa el estado antes de repetir.');
  }
  return {dry_run:dryRun,checked,retired,freed_bytes:freed,remaining,skipped,errors};
+}
+
+
+async function retireDocumentsWithLease(req:Request,full=false,dryRun=false){
+ const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
+ const {data:claim,error}=await admin.from('ops_onedrive_config').update({retirement_lock_until:lease}).eq('id',1).or('retirement_lock_until.is.null,retirement_lock_until.lt.'+at).select('id').maybeSingle();
+ if(error)throw new Error('No se pudo reservar la revisión de duplicados.');
+ if(!claim)throw new Error('Ya hay una limpieza de duplicados en curso. Espera a que termine.');
+ try{return await retireVerifiedDocuments(req,full,dryRun);}
+ finally{await admin.from('ops_onedrive_config').update({retirement_lock_until:null}).eq('id',1).eq('retirement_lock_until',lease);}
 }
 
 async function mirrorAfterBackup(req:Request){
@@ -313,7 +338,7 @@ Deno.serve(async(req)=>{
   const mode=String(body?.mode||"");
   if(!(await canStart(req,mode)))return reply({error:"Acceso denegado."},403);
   if(body?.action==='cleanup')return reply(await cleanupUnusedFiles());
-  if(body?.action==='retire-documents')return reply(await retireVerifiedDocuments(req,body.full===true,body.dry_run===true));
+  if(body?.action==='retire-documents')return reply(await retireDocumentsWithLease(req,body.full===true,body.dry_run===true));
   if(body?.action==='verify'||body?.action==='verify-onedrive')return reply(await verifySavedBackup(String(body?.id||''),body.action==='verify-onedrive'?'onedrive':'supabase',req));
   if(body?.action==='delete'){
    if(mode!=='manual')return reply({error:'La eliminación requiere un administrador identificado.'},403);

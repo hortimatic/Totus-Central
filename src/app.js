@@ -1165,7 +1165,7 @@ async function deleteDocument(id){
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
 if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo puedes eliminar documentos que hayas subido.');
  if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
- if(!await confirmAction('Se eliminarán el documento «'+d.original_name+'» y su archivo. Esta acción es definitiva.'))return;
+ if(!await confirmAction('Se quitará el documento «'+d.original_name+'» de la herramienta. Si ya tiene copia en OneDrive, su archivo se conservará en «99 Archivo de documentos retirados». Si todavía no está copiado, se eliminará su archivo de Supabase.'))return;
  // Keep the metadata when Storage rejects deletion, so the user can retry.
  if(d.storage_path)await removeFile('business-documents',d.storage_path);
  try{await remove('ops_documents',id)}catch(e){await refresh();throw new Error('El archivo se retiró, pero queda su ficha documental. Reintenta eliminar la ficha. '+e.message)}

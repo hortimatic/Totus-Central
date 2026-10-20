@@ -43,3 +43,32 @@ reset();state.removeError=true;result=await retire(req);assert.equal(result.erro
 reset();result=await retire(req);assert.equal(result.retired,1);assert.equal(result.freed_bytes,3);assert.equal(result.remaining,0);assert.ok(!state.exists&&state.retired);assert.equal(state.audits.length,1);
 reset();state.exists=false;result=await retire(req);assert.equal(result.retired,1);assert.equal(result.freed_bytes,0);assert.equal(state.removeCalls,0);
 console.log('DOCUMENT RETIREMENT QA: complete backup required, archive coverage, hashes at both providers, concurrent replacement, dry-run, deletion failure, confirmed removal, audit and interrupted retry verified.');
+
+const wrapperStart=source.indexOf('async function retireDocumentsWithLease('),wrapperEnd=source.indexOf('async function mirrorAfterBackup(',wrapperStart);
+assert.ok(wrapperStart>=0&&wrapperEnd>wrapperStart);
+const wrapperCode=stripTypeScriptTypes(source.slice(wrapperStart,wrapperEnd));
+let lease=null,mode='hold',release,startedResolve;
+let started=new Promise(resolve=>startedResolve=resolve);
+const leaseAdmin={from:()=>{let patch,expected;const q={
+ update(value){patch=value;return q},eq(key,value){if(key==='retirement_lock_until')expected=value;return q},or(){return q},select(){return q},
+ async execute(){
+  if(patch.retirement_lock_until!==null){
+   if(lease&&Date.parse(lease)>Date.now())return {data:null,error:null};
+   lease=patch.retirement_lock_until;return {data:{id:1},error:null};
+  }
+  if(lease===expected)lease=null;
+  return {data:null,error:null};
+ },
+ maybeSingle(){return q.execute()},then(resolve,reject){return q.execute().then(resolve,reject)}
+ };return q}};
+const leasedRetire=new Function('admin','retireVerifiedDocuments',wrapperCode+';return retireDocumentsWithLease;')(leaseAdmin,async()=>{
+ if(mode==='hold'){startedResolve();return await new Promise(resolve=>release=()=>resolve({retired:1}))}
+ if(mode==='fail')throw Error('Injected cleanup failure');
+ lease='another-worker';return {retired:0};
+});
+const first=leasedRetire(req);await started;
+await assert.rejects(()=>leasedRetire(req),/en curso/);
+release();assert.equal((await first).retired,1);assert.equal(lease,null);
+mode='fail';await assert.rejects(()=>leasedRetire(req),/Injected/);assert.equal(lease,null);
+mode='replaced';await leasedRetire(req);assert.equal(lease,'another-worker','An expired worker must not clear a newer lease');
+console.log('DOCUMENT RETIREMENT LEASE QA: concurrent cleanup denied, failed worker released, newer lease preserved.');

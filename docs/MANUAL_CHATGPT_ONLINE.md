@@ -91,8 +91,11 @@ El servidor prueba guardado y lectura antes de copiar documentos. La copia por l
 La organización de documentos es año → tipo → mes. El nombre incluye fecha, proveedor/referencia e identificador para evitar colisiones.
 La tarea de documentos se ejecuta en Supabase cada dos minutos, solo si quedan pendientes. No necesita navegador abierto ni ordenador. Usa una reserva temporal para evitar lotes simultáneos.
 La barra cuenta documentos verificados, no el porcentaje de todo OneDrive. Un error permanece visible en el estado del último lote.
-Durante esta fase los originales y las vistas previas siguen en Supabase. No se ha terminado el cambio de almacenamiento principal ni el traslado de copias por el hecho de tener documentos duplicados.
-No borrar originales hasta comprobar lectura, descarga, recuperación y creación futura en el destino definitivo.
+Los documentos verificados se resuelven desde OneDrive al abrirlos y descargarlos. Un documento nuevo o recién sustituido permanece disponible desde Supabase mientras se copia. La lectura se autoriza con las mismas políticas del usuario en la base de datos; configurar o reconectar OneDrive sigue siendo exclusivo de administración.
+La herramienta comprueba tamaño y SHA-256 al abrir un documento. Si el archivo fue alterado directamente en OneDrive, no se debe actualizar su huella para ocultar el problema: recuperar el original correcto o sustituirlo por el flujo normal.
+Eliminar o sustituir una ficha conserva el archivo anterior de OneDrive en «99 Archivo de documentos retirados», mediante una tarea del servidor. Esa carpeta es un archivo recuperable, no una papelera que se vacíe automáticamente. No se elimina su contenido para ahorrar cuota de Supabase.
+No cambiar manualmente storage_path por una URL de OneDrive: es un identificador estable y la ubicación real se resuelve mediante el índice verificado del servidor.
+La retirada de duplicados de Supabase exige comprobar de nuevo ambos archivos, sus referencias y una copia completa de seguridad verificada en OneDrive. La limpieza real aún requiere la comprobación final en pantalla; no darla por ejecutada porque exista la función o porque una simulación haya pasado.
 
 ## 9. Copias de seguridad
 La programación de las 00:35 Europe/Madrid se ejecuta en Supabase, con cambio de horario automático. Conservar cinco copias ordinarias completas: crear y verificar la nueva antes de retirar la antigua.
@@ -120,7 +123,7 @@ Comprobar que las operaciones quedan registradas con fecha y autor o identificad
 ## 12. Si algo falla
 - Si pide acceso, iniciar sesión en la aplicación correcta; no enviar contraseñas al chat.
 - Si una actualización no aparece, comprobar primero la publicación de GitHub y la versión visible; un commit no significa que la web ya esté publicada.
-- Si falla OneDrive, consultar estado del último lote, renovación de autorización, existencia de la carpeta y permisos. No pedir acceso a todo el disco por defecto.
+- Si falla OneDrive, consultar estado del último lote, existencia de la carpeta y permisos. Administración puede usar «Volver a autorizar OneDrive» para renovar una autorización perdida sin borrar archivos. Si Microsoft indica que la credencial de la aplicación ha caducado, renovar esa credencial mediante el procedimiento seguro de administración; no publicarla en un chat, informe o repositorio. No pedir acceso a todo el disco por defecto.
 - Si falta un justificante, buscar por identificador y referencia antes de subirlo otra vez.
 - Si un filtro y exportación difieren, conservar evidencia y corregir antes de entregar cifras.
 - Si falla una copia, no borrar la última correcta. Revisar espacio, límites de archivo, transporte y resultado del servidor.
@@ -137,3 +140,9 @@ Los documentos ya disponen de espejo verificado. Las copias completas compatible
 El traslado de seguridad se invoca después de la copia nocturna existente de las 00:35, no mediante otro horario frecuente. Las comprobaciones puntuales son distintas de la programación. La copia de Supabase no se elimina por crear una réplica.
 La capacidad total de OneDrive solo se muestra cuando Microsoft permite leerla con los permisos actuales. No solicitar acceso a todos los archivos únicamente para mostrar una cuota ni convertir el tamaño de Totus en el libre total de la cuenta.
 ChatGPT online requiere conexiones autorizadas o sesión propia en el navegador disponible; no hereda sesiones de este ordenador. Consultar https://learn.chatgpt.com/docs/enterprise/chatgpt-work-overview y verificar una lectura real antes de iniciar operaciones.
+
+## 15. Evidencias y límites de esta fase de migración
+La versión 28317f3b superó las pruebas funcionales y visuales completas y se publicó en staging. Las pruebas reales de servidor comprobaron resolución de un documento de OneDrive, creación y lectura de una copia completa, ensayo de 38 tablas y 57 relaciones, y traslado de ida y vuelta de un archivo sintético sin cambiar su contenido.
+La simulación de limpieza examinó cinco documentos y no retiró ninguno. La comprobación de sustitución de una ficha se ejecutó en una subtransacción que se revirtió; no dejó documentos ficticios.
+Al recargar la versión publicada se solicitó acceso. Hasta completar esa entrada y probar las vistas previas reales, no marcar como terminada la retirada de originales de Supabase.
+Las copias actuales tienen un límite técnico de archivo que debe ampliarse con un diseño y pruebas de memoria/CPU apropiados antes de alcanzar su capacidad. OneDrive no elimina por sí solo ese límite ni certifica la recuperación de toda la infraestructura. Las credenciales y la configuración de los servicios requieren el procedimiento privado de reconexión.

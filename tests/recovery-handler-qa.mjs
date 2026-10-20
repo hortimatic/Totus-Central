@@ -56,6 +56,17 @@ globalThis.__recoveryHandlerClient={
   list:async prefix=>({data:[...state.files].filter(([p])=>p.startsWith(bucket+'/'+prefix+'/')).map(([p,b])=>({name:p.split('/').pop(),metadata:{size:b.size}})),error:null})
  })}
 };
+const originalFetch=globalThis.fetch;
+globalThis.fetch=async(address,options)=>{
+ if(String(address)==='https://qa-project.supabase.co/functions/v1/totus-onedrive'){
+  assert.equal(options.headers.Authorization,'Bearer valid');
+  const body=JSON.parse(options.body);assert.equal(body.action,'document-file-url');
+  if(state.cloudOriginal)return new Response(JSON.stringify({provider:'onedrive',url:'https://qa.example.invalid/original.pdf'}));
+  return new Response(JSON.stringify({provider:'supabase'}));
+ }
+ if(String(address)==='https://qa.example.invalid/original.pdf')return new Response(original);
+ throw Error('Unexpected external request in recovery test');
+};
 globalThis.__recoveryHandlerZip=JSZip;
 globalThis.Deno={env:{get:key=>key==='SUPABASE_URL'?'https://qa-project.supabase.co':'server-only-test-key'},serve:fn=>{handler=fn}};
 let code=await fs.readFile(new URL('../supabase/functions/totus-recovery/index.ts',import.meta.url),'utf8');
@@ -84,5 +95,12 @@ for(const failUpload of [true,false]){
  if(failUpload){assert.equal(state.commitCalls,0);assert.deepEqual(state.live,{untouched:true});assert.equal(state.jobs[0].status,'failed')}
  else{assert.equal(state.commitCalls,1);assert.equal(state.jobs[0].status,'committed');assert.equal((await request({job_id:jobId})).status,200);assert.equal(state.commitCalls,1)}
 }
+reset();state.cloudOriginal=true;state.files.delete('business-documents/original/test.pdf');
+const cloudJob=await (await request({job_id:jobId,action:'register'})).json();
+state.files.set('business-backups/'+cloudJob.source_path,new Blob([built.bytes]));
+const cloudResponse=await request({job_id:jobId});
+assert.equal(cloudResponse.status,200,await cloudResponse.text());
+assert.equal(state.commitCalls,1,'A OneDrive original must be included in the checkpoint before restoring');
+globalThis.fetch=originalFetch;
 delete globalThis.Deno;delete globalThis.__recoveryHandlerClient;delete globalThis.__recoveryHandlerZip;
 console.log('RECOVERY HANDLER QA: real handler rejects invalid Auth, inactive/non-admin users, foreign jobs, unsafe paths; checkpoints, file failure and idempotent completion OK');

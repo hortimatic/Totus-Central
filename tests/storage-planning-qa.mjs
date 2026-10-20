@@ -31,3 +31,10 @@ assert.equal(zeroLimit.available,false);
 const nextUpload=planStorage({usage:{...usage,all_buckets_bytes:1020*MB},reference,runs,keep:10});
 assert.equal(nextUpload.days,1,'Need room for new archive before deleting the oldest');
 console.log('STORAGE PLANNING QA: nine-month baseline, rolling ten copies, upload peak, protected downloads, missing data and separate archive cap OK');
+
+const migratedUsage={...usage,documents_bytes:0,all_buckets_bytes:usage.all_buckets_bytes-usage.documents_bytes};
+const migrated=planStorage({usage:migratedUsage,reference,runs,keep:3,activeOriginalBytes:80*MB});
+assert.equal(migrated.currentCopyBytes,80*MB,'Moving originals to OneDrive must not shrink the size of a complete backup');
+assert.equal(migrated.days,limited.days,'The technical archive limit must remain visible after migration');
+assert.equal(migrated.currentFilesBytes,migratedUsage.all_buckets_bytes,'Remote originals must not be counted as physical Supabase usage');
+assert.equal(planStorage({usage:migratedUsage,reference,runs,activeOriginalBytes:-1}).available,false);

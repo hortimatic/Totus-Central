@@ -407,6 +407,32 @@ async function documentFileUrl(path:string,req:Request,job=false){
  return {provider:'onedrive',url:location,size_bytes:Number(mapped.size_bytes),sha256:mapped.sha256};
 }
 
+
+async function syncOnlineManuals(revision:string){
+ if(!/^[a-f0-9]{40}$/.test(revision))throw new Error('La revisión de documentación no es válida.');
+ const access=await token();await root(access);
+ const folderName='04 Manuales y funcionamiento';
+ await ensurePath(access,[folderName],new Set<string>());
+ const files=[
+  ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
+  ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
+  ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_CIERRE_2026-10-20.md']
+ ];
+ for(const [source,name] of files){
+  const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});
+  if(!response.ok)throw new Error('No se pudo leer la documentación publicada de GitHub.');
+  const text=await response.text();
+  if(new TextEncoder().encode(text).byteLength>1024*1024)throw new Error('La documentación supera el tamaño permitido.');
+  const bytes=new TextEncoder().encode('<!-- Fuente: GitHub hortimatic/Totus-Central; revision '+revision+' -->\n'+text);
+  const path='/me/drive/special/approot:/'+encodedPath([folderName,name])+':/content';
+  const write=await graph(access,path,{method:'PUT',headers:{'Content-Type':'text/markdown; charset=utf-8'},body:bytes});
+  if(!write.ok)throw new Error('No se pudo guardar el manual en OneDrive.');
+  const read=await readContent(access,path);
+  if(read.byteLength!==bytes.byteLength||await fileHash(read)!==await fileHash(bytes.buffer))throw new Error('El manual guardado no coincide con GitHub.');
+ }
+ return {verified:true,files:files.length,source_revision:revision};
+}
+
 async function backupFileUrl(runId:string,path:string){
  if(!/^[0-9a-f-]{36}$/i.test(runId)||!path)throw new Error('Referencia de copia no válida.');
  const backup=check(await admin.from('ops_onedrive_backups').select('folder_path,verified_at').eq('run_id',runId).maybeSingle(),'No se pudo comprobar la copia en OneDrive.');
@@ -439,7 +465,8 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals'].includes(action))throw new Error('Acceso denegado.');
+   if(action==='sync-manuals')return json(await syncOnlineManuals(String(body.revision||'')));
    if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
@@ -448,6 +475,7 @@ Deno.serve(async req=>{
   }
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
+  if(action==='sync-manuals'){const result=await syncOnlineManuals(String(body.revision||''));await audit(user.id,user.email||'','manuales_online_actualizados');return json(result);}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');

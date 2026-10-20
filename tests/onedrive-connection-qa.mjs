@@ -10,7 +10,7 @@ try{
   const {sb}=await import('../src/api.js');
   const before=sb.functions.invoke;
   window.odCalls=[];
-  window.odState={configured:false,connected:false,backups:{verified:0,pending:0,bytes:0},mirror:{total:1,verified:0,pending:1,verified_bytes:0},client_id:'test-client',redirect_uri:'https://example.supabase.co/functions/v1/totus-onedrive/callback'};
+  window.odState={configured:false,connected:false,mirror:{total:1,verified:0,pending:1,verified_bytes:0},client_id:'test-client',redirect_uri:'https://example.supabase.co/functions/v1/totus-onedrive/callback'};
   sb.functions.invoke=async(name,options)=>{
    if(name!=='totus-onedrive')return before(name,options);
    const b=options.body;window.odCalls.push(b.action);
@@ -18,7 +18,6 @@ try{
    if(b.action==='configure'){window.odState.configured=true;return {data:{configured:true},error:null};}
    if(b.action==='begin')return {data:{authorization_url:'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?scope=Files.ReadWrite.AppFolder%20offline_access'},error:null};
    if(b.action==='mirror-documents'){window.odState.mirror={total:1,verified:1,pending:0,verified_bytes:20};return {data:{copied:1,...window.odState.mirror},error:null};}
-   if(b.action==='mirror-backups'){window.odState.backups={verified:1,pending:0,bytes:1234};return {data:{copied:1,complete:true,...window.odState.backups},error:null};}
    if(b.action==='test'){
     window.odState.tested_at='2026-10-20T00:00:00Z';
     return {data:{verified:true,tested_at:window.odState.tested_at},error:null};
@@ -48,12 +47,11 @@ try{
  await page.evaluate(()=>{window.odState.connected=true;window.odState.folder_url='https://onedrive.live.com/?test=1';});
  await page.locator('[data-action="onedrive-refresh"]').click();
  await page.locator('[data-action="onedrive-test"]').waitFor();
+ assert.equal(await page.getByRole('button',{name:'Volver a autorizar OneDrive',exact:true}).count(),1,'A connected account must be recoverable without deleting its files');
  await page.locator('[data-action="onedrive-test"]').click();
  await page.getByText('Comprobada',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Copiar siguiente lote de documentos',exact:true}).click();
  await page.getByText('Documentos con copia verificada: 1 de 1',{exact:true}).waitFor();
- await page.getByRole('button',{name:'Actualizar copia en OneDrive',exact:true}).click();
- await page.getByText('Copias completas verificadas en OneDrive: 1 de 5 como máximo',{exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Copiar siguiente lote de documentos',exact:true}).isEnabled(),false);
  assert.equal(await page.getByRole('progressbar',{name:'Documentos copiados y comprobados en OneDrive'}).getAttribute('value'),'1');
  assert.equal(await page.evaluate(()=>JSON.stringify({expenses:window.__mockDb.ops_expenses,documents:window.__mockDb.ops_documents,closings:window.__mockDb.ops_daily_closings})===window.odBusinessBefore),true,'La prueba alteró datos contables');

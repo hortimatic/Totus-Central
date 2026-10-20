@@ -14,7 +14,19 @@ function checked<T>(response:{data:T;error:unknown},label:string):T{
  if(response.error)throw new Error(label+': '+String((response.error as {message?:string})?.message||response.error));
  return response.data;
 }
-const download=async(bucket:string,path:string)=>{
+const download=async(bucket:string,path:string,req?:Request)=>{
+ if(bucket==='business-documents'&&req){
+  const linkResponse=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'document-file-url',path}),signal:AbortSignal.timeout(30000)});
+  const link=await linkResponse.json();
+  if(!linkResponse.ok)throw new Error('No se pudo preparar un original para el punto de recuperación.');
+  if(link.provider==='onedrive'){
+   if(typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('Ubicación de recuperación no válida.');
+   const response=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
+   if(!response.ok)throw new Error('No se pudo leer un original de OneDrive para la recuperación.');
+   return await response.blob();
+  }
+  if(link.provider!=='supabase')throw new Error('Ubicación de recuperación desconocida.');
+ }
  const data=checked(await admin.storage.from(bucket).download(path),'No se pudo leer el archivo');
  if(!data)throw new Error('El archivo no está disponible');
  return data;
@@ -85,7 +97,7 @@ Deno.serve(async req=>{
     }else if(await archiveHash(await download('business-backups',path))!==proof.archive_sha256)throw new Error('El respaldo actual está dañado.');
     return {path,manifest};
    },
-   readFile:download,
+   readFile:(bucket:string,path:string)=>download(bucket,path,req),
    writeCheckpoint:(path:string,bytes:Uint8Array)=>writeBackupObject(path,bytes,(part:string,value:Uint8Array)=>write('business-backups',part,value,'application/octet-stream'),(part:string)=>download('business-backups',part)),
    readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part)),
    setCheckpoint:async(path:string,revision:string)=>{checked(await admin.from('ops_recovery_jobs').update({checkpoint_path:path,before_revision:revision}).eq('id',jobId).eq('status','preparing').select('id').single(),'No se pudo guardar el punto de vuelta atrás');},
