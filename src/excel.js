@@ -278,7 +278,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
 }
 export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories,incomeAdjustments=[]}){
  const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments});
- appendInformationalPayments(wb,args.taxPayments,{from:args.year+'-01-01',to:args.year+'-12-31'});wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
+ wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
 }
 export function buildStoreMonthlyWorkbook(args){
  if(!Number.isInteger(args.month)||args.month<1||args.month>12)throw new Error('Selecciona un mes válido.');
@@ -381,7 +381,7 @@ function appendAuditSheet(wb,args){
  setCell(ws,'A12','Modelo 130 orientativo: cálculo acumulado desde enero, descontando pagos anteriores, retenciones y reducciones. Contrastar con la gestoría.',{font:{name:'Calibri',sz:11},alignment:{wrapText:true,vertical:'top'}});
  ws['!ref']='A1:H17';XLSX.utils.book_append_sheet(wb,ws,'Auditoría gestor');
 }
-export function buildGestorWorkbook(args){const wb=book();appendAuditSheet(wb,args);const lastDataQuarter=[...args.closings.map(x=>x.business_date),...args.expenses.map(x=>x.expense_date),...(args.invoices||[]).map(x=>x.issue_date),...(args.fiscalAdjustments||[]).map(x=>x.adjustment_date),...(args.incomeAdjustments||[]).map(x=>x.income_date)].filter(x=>String(x||'').startsWith(String(args.year)+'-')).reduce((max,x)=>Math.max(max,Math.ceil(Number(String(x).slice(5,7))/3)||0),0);const maxQ=args.firstSemesterOnly===true?2:args.onlyPeriodsWithData===true?Math.max(2,lastDataQuarter):4;for(let q=1;q<=maxQ;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=maxQ;q++)appendGestorBookSheet(wb,q,args);wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
+export function buildGestorWorkbook(args){const wb=book();appendAuditSheet(wb,args);const lastDataQuarter=[...args.closings.map(x=>x.business_date),...args.expenses.map(x=>x.expense_date),...(args.invoices||[]).map(x=>x.issue_date),...(args.fiscalAdjustments||[]).map(x=>x.adjustment_date),...(args.incomeAdjustments||[]).map(x=>x.income_date)].filter(x=>String(x||'').startsWith(String(args.year)+'-')).reduce((max,x)=>Math.max(max,Math.ceil(Number(String(x).slice(5,7))/3)||0),0);const maxQ=args.firstSemesterOnly===true?2:args.onlyPeriodsWithData===true?Math.max(2,lastDataQuarter):4;for(let q=1;q<=maxQ;q++)appendReconciliationSheet(wb,q,args);for(let q=1;q<=maxQ;q++)appendGestorBookSheet(wb,q,args);appendInformationalPayments(wb,args.taxPayments,{from:args.year+'-01-01',to:args.year+'-12-31'});wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;}
 export function exportGestorWorkbook(args){const wb=buildGestorWorkbook(args);write(wb,`Libros_gestor_y_auditoria_${args.year}_Totus.xlsx`);}
 export function workbookBlob(wb){return new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx',cellStyles:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
 
