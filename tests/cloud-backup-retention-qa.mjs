@@ -7,7 +7,19 @@ assert.ok(start>=0&&end>start);
 let state;
 const copies=()=>Array.from({length:6},(_,i)=>({run_id:'r'+i,source_path:'copies/'+i,folder_path:'02 Copias de seguridad/r'+i,verified_at:'2026-10-20',ops_backup_runs:{started_at:String(9-i),status:'success',storage_path:'copies/'+i}}));
 const reset=()=>state={copies:copies(),jobs:[],deleted:[],removed:[],fail:false};
-const admin={from(table){return {select(){return this},not(){return this},eq(_key,value){this.id=value;return this},delete(){this.deleting=true;return this},then(resolve){if(this.deleting){state.removed.push(this.id);return Promise.resolve({data:null,error:null}).then(resolve)}return Promise.resolve({data:structuredClone(table==='ops_recovery_jobs'?state.jobs:state.copies),error:null}).then(resolve)}}};
+const admin={
+ from(table){
+  return {
+   select(){return this},not(){return this},
+   eq(_key,value){this.id=value;return this},
+   delete(){this.deleting=true;return this},
+   then(resolve){
+    if(this.deleting){state.removed.push(this.id);return Promise.resolve({data:null,error:null}).then(resolve)}
+    return Promise.resolve({data:structuredClone(table==='ops_recovery_jobs'?state.jobs:state.copies),error:null}).then(resolve);
+   }
+  };
+ }
+};
 const check=(r,label)=>{if(r.error)throw Error(label);return r.data};
 const graph=async(_access,path,options)=>{assert.equal(options.method,'DELETE');state.deleted.push(path);return new Response(null,{status:state.fail?500:204})};
 const encodedPath=p=>p.map(encodeURIComponent).join('/');
