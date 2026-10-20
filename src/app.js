@@ -2057,7 +2057,7 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
+  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage'){await refreshStoragePanel();if(isAdmin())await refreshOneDrivePanel();}if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
 
   if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
   if(a==='onedrive-credential-save'){
@@ -2305,5 +2305,5 @@ document.addEventListener('keydown',e=>{
 async function refreshOneDrivePanel(){
  if(!isAdmin())throw new Error('Solo administración puede consultar esta conexión.');
  setOneDriveStatus(await oneDriveRequest('status'));
- if(state.route==='administracion'&&getView('administracion').section==='onedrive')render();
+ if(state.route==='administracion'&&['storage','onedrive'].includes(getView('administracion').section))render();
 }

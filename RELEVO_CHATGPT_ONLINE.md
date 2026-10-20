@@ -98,7 +98,7 @@ La limpieza retira únicamente archivos automáticos sin una copia guardada ni r
 
 ## OneDrive: fase de conexión aislada
 La aplicación Microsoft «TotusCentral Staging» se ha registrado con autorización expresa del titular, para cuentas personales. No equivale a un consentimiento de archivos. El código de conexión se prepara solo en staging.
-- Administración → OneDrive permite al administrador guardar la credencial de Microsoft en Supabase Vault, preparar OAuth y probar un archivo sintético.
+- Administración → Almacenamiento → OneDrive permite al administrador guardar la credencial de Microsoft en Supabase Vault, preparar OAuth y probar un archivo sintético.
 - Permisos solicitados: Files.ReadWrite.AppFolder y offline_access. No solicitar acceso general a todo OneDrive para evitar configurar una carpeta.
 - La dirección de retorno es la ruta /functions/v1/totus-onedrive/callback. OAuth usa PKCE y un estado aleatorio de un solo uso, con caducidad de diez minutos.
 - Antes de aceptar permisos de Microsoft, explicar alcance y obtener autorización concreta del titular. Las credenciales nuevas las introduce y envía el titular; no deben aparecer en el chat, GitHub ni archivos locales.
