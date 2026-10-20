@@ -38,3 +38,12 @@ assert.equal(migrated.currentCopyBytes,80*MB,'Moving originals to OneDrive must 
 assert.equal(migrated.days,limited.days,'The technical archive limit must remain visible after migration');
 assert.equal(migrated.currentFilesBytes,migratedUsage.all_buckets_bytes,'Remote originals must not be counted as physical Supabase usage');
 assert.equal(planStorage({usage:migratedUsage,reference,runs,activeOriginalBytes:-1}).available,false);
+
+const cloudRuns=runs.slice(0,2).map(r=>({...r,storage_provider:'onedrive'}));
+const cloudPlan=planStorage({usage:{...usage,documents_bytes:0,assets_bytes:MB,all_buckets_bytes:35*MB},reference,runs:cloudRuns,activeOriginalBytes:80*MB});
+assert.equal(cloudPlan.available,true,'Remote full archives must not count as physical Supabase bytes');
+assert.equal(cloudPlan.remoteBackups,true);
+assert.equal(cloudPlan.retainedBytes,0);
+assert.equal(cloudPlan.otherBackupBytes,34*MB);
+assert.equal(cloudPlan.currentCopyBytes,80*MB,'The full archive must still include originals located in OneDrive');
+assert.equal(cloudPlan.reason,'archive','Remote capacity must never hide the recovery archive safety cap');

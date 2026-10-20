@@ -258,7 +258,7 @@ async function capacityProbe(){
 
 async function retireVerifiedBackupParts(req:Request,id:string){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Referencia de copia no válida.');
- const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,size_bytes,archive_sha256,archive_manifest').eq('id',id).single();
+ const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,size_bytes,archive_sha256,archive_manifest,storage_provider').eq('id',id).single();
  if(error||run?.status!=='success'||run.archive_manifest?.version!==3||!run.storage_path)throw new Error('Solo se retiran fragmentos de una copia completa compatible.');
  const {data:mirror,error:mirrorError}=await admin.from('ops_onedrive_backups').select('verified_at,archive_sha256,archive_size').eq('run_id',id).maybeSingle();
  if(mirrorError||!mirror?.verified_at||mirror.archive_sha256!==run.archive_sha256||Number(mirror.archive_size)!==Number(run.size_bytes))throw new Error('Primero verifica esta copia completa en OneDrive.');
@@ -271,17 +271,19 @@ async function retireVerifiedBackupParts(req:Request,id:string){
  const index=validateBackupIndex(path,JSON.parse(await root.data.text()));
  if(index.sha256!==run.archive_sha256||index.size!==Number(run.size_bytes))throw new Error('El índice no coincide con la copia registrada.');
  const parts=index.parts.filter((part:any)=>objects.some((o:any)=>folder+'/'+o.name===part.path));
- if(!parts.length)return {retired:0,freed_bytes:0};
+ if(!parts.length&&run.storage_provider==='onedrive')return {retired:0,freed_bytes:0};
  // A fresh full read and row-recovery rehearsal must succeed before any removal.
  const verified=await verifySavedBackup(id,'onedrive',req);
  if(!verified.verified||verified.source!=='onedrive')throw new Error('No se ha podido comprobar la recuperación desde OneDrive.');
  const current=await admin.from('ops_backup_runs').select('status,storage_path,archive_sha256').eq('id',id).single();
  if(current.error||current.data?.status!=='success'||current.data.storage_path!==path||current.data.archive_sha256!==run.archive_sha256)throw new Error('La copia cambió durante la comprobación.');
  const paths=parts.map((p:any)=>p.path);
- const removed=await admin.storage.from('business-backups').remove(paths);
+ const removed=paths.length?await admin.storage.from('business-backups').remove(paths):{error:null};
  if(removed.error)throw new Error('No se pudieron retirar los fragmentos duplicados.');
  const remaining=await admin.storage.from('business-backups').list(folder,{search:name,limit:100});
  if(remaining.error||!remaining.data||remaining.data.length>=100||!remaining.data.some((o:any)=>o.name===name)||remaining.data.some((o:any)=>paths.includes(folder+'/'+o.name)))throw new Error('Revisa el inventario antes de repetir la limpieza.');
+ const marked=await admin.from('ops_backup_runs').update({storage_provider:'onedrive',supabase_parts_retired_at:new Date().toISOString()}).eq('id',id).eq('status','success').eq('storage_path',path).eq('archive_sha256',run.archive_sha256).select('id');
+ if(marked.error||marked.data?.length!==1)throw new Error('No se pudo confirmar la ubicación de la copia.');
  const freed=parts.reduce((n:number,p:any)=>n+p.size,0);
  const audit=await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea del servidor',area:'administracion',action:'duplicados_copia_supabase_retirados',detail:{copia:id,fragmentos:paths.length,bytes_liberados:freed,proteccion:'Copia completa verificada en OneDrive; índice conservado en Supabase'}});
  if(audit.error)throw new Error('La limpieza terminó, pero no se pudo registrar el resumen.');
