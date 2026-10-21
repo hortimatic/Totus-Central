@@ -32,3 +32,16 @@ assert.equal(last.wb.Sheets['Por tienda'].F2.v,50,'El pendiente de tienda debe c
 assert.equal(last.wb.Sheets['Por tienda'].C3.v,20,'Los gastos generales sin tienda no pueden desaparecer');
 assert.equal(last.wb.Sheets['Por tienda'].E2.v+last.wb.Sheets['Por tienda'].E3.v,last.wb.Sheets.Resumen.B12.v,'El resultado por tiendas y general debe conciliar con el total');
 console.log('Excel invariants: empty exports, zero, pendientes, generales y total formulas OK');
+
+const fiscalInvoice={id:'invoice',store_id:'s1',expense_date:'2026-01-15',supplier_name:'Proveedor',gross_expense:100,management_only:false,fiscal_reviewed:true};
+const bankEvidence={...fiscalInvoice,id:'payment',management_only:true,source_ref:JSON.stringify({kind:'bank_payment_source',requires_invoice_reconciliation:true,relation_status:'reconciled',related_invoice_expense_id:'invoice'})};
+const internalCost={id:'internal',store_id:'s1',expense_date:'2026-01-15',supplier_name:'Interno',gross_expense:20,management_only:true};
+exportExpensesWorkbook({...settings,expenses:[fiscalInvoice,bankEvidence,internalCost],stores:[{id:'s1',name:'QA shop'}]});
+const sheet=last.wb.Sheets.Gastos;
+const summary=label=>{const address=Object.keys(sheet).find(k=>/^A\d+$/.test(k)&&sheet[k].v===label);assert(address,'Missing clear export summary: '+label);return sheet['K'+address.slice(1)]};
+assert.equal(summary('Total de registros · incluye apuntes de pago').f,'SUM(K5:K7)');
+assert.equal(summary('Gastos sin duplicar apuntes de pago').v,120);
+assert.equal(summary('De ellos: gasto fiscal revisado').v,100);
+assert.equal(summary('De ellos: solo control interno').v,20);
+assert.equal(summary('Apuntes de pago · no sumarlos otra vez como gasto').v,100);
+console.log('EXPENSE EXPORT: original rows preserved, bank evidence identified separately, fiscal and internal subtotals exclude duplicate payments');

@@ -1,43 +1,31 @@
-# Totus Central — estado operativo
+# Totus Central
 
-Aplicación interna de gestión para Hortimatic y NewOldSmok. Código JavaScript y CSS estático con Supabase, sin conexión con PrestaShop ni TPV.
+Herramienta de gestión diaria para Hortimatic y NewOldSmok.
 
-## Entornos (obligatorio)
+## Una aplicación de producción
 
-| Rama | Uso | Backend |
-| --- | --- | --- |
-| `main` | Aplicación normal. No modificar sin autorización expresa. | Supabase producción `zwkpmjjuurgjygcrejiw` |
-| `staging` | Única rama de desarrollo, limpieza y pruebas. | Supabase staging `awmojepsasikxocoeqtu` |
+- Dirección: https://hortimatic.github.io/Totus-Central/
+- Código publicado: rama `main` de este repositorio.
+- Supabase: proyecto contable existente `awmojepsasikxocoeqtu`. Su identificador se conserva para mantener usuarios, contabilidad, relaciones y tareas.
+- OneDrive: carpeta de aplicación de Totus Central. Se accede por su identificador estable, con el permiso AppFolder ya autorizado.
+- La dirección anterior `/staging/` solo redirige a la aplicación principal, conservando parámetros y fragmentos de recuperación. No aloja otra aplicación.
 
-**No crear otras ramas, sitios ni proyectos para pruebas. No promover cambios a main automáticamente.**
+La transición sustituye el código antiguo de main conservando su historia Git. No importa de nuevo datos ni altera importes. El proyecto Supabase antiguo `zwkpmjjuurgjygcrejiw` no es el origen de la contabilidad actual; su retirada definitiva exige comprobar el inventario y la confirmación del titular.
 
-## Estado real
+## Desarrollo y publicación
 
-- Módulos: Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes, Administración.
-- Código: `index.html` y `src/`. Datos y archivos: Supabase del entorno correspondiente.
-- Usuario, configuración y permisos deben revisarse también contra las políticas RLS, funciones SQL y funciones Edge.
-- Las correcciones en GitHub **no implican que la web de staging esté actualizada**. Es necesario confirmar el despliegue real y la URL original.
-- La recuperación v3 restaura datos y archivos en el mismo proyecto, con comprobación de integridad, punto de vuelta y restauración SQL transaccional. Exige que existan las cuentas Auth originales; no sustituye una copia de infraestructura ni recupera contraseñas. Los formatos antiguos se pueden inspeccionar, pero no restaurar.
-- Las copias incluyen como máximo 96 MB de archivo (128 MB descomprimidos) y 8 MB de datos JSON. Si falta un archivo vinculado o se supera el límite, se rechaza la copia completa; nunca se presenta una copia parcial como recuperable.
-- Staging tiene el registro público cerrado y exige al menos 12 caracteres en las nuevas contraseñas. La detección de contraseñas filtradas requiere un plan de Supabase compatible y no está habilitada en el plan Free actual.
-- Los documentos emitidos conservan su archivo original y su logo histórico. Los vínculos de documentos con gastos y facturas se actualizan dentro de la misma transacción.
-- Los tres primeros trimestres de 2026 están cargados y aceptados por el titular. No volver a importarlos ni alterar sus cifras sin contraste y autorización. Octubre se introduce manualmente.
+No modificar estructura, pantallas, datos o cálculos sin explicar primero el cambio al titular. Una petición de producción no autoriza a borrar información histórica ni ampliar permisos de proveedores.
 
-## Pruebas
+`.github/workflows/publish.yml` ejecuta la batería completa antes de publicar un commit de main. Una prueba fallida impide el despliegue. Comprobar también la versión realmente publicada y el funcionamiento autenticado; una prueba simulada no certifica por sí sola la instalación real.
 
-La rama `staging` ejecuta el workflow `.github/workflows/qa.yml`; cubre pruebas estáticas, funcionales, libros contables y simulaciones de interfaz. Estas pruebas **no reemplazan** un ensayo autenticado completo en el staging publicado con datos de prueba, roles y permisos RLS.
+Los módulos siguen siendo Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes y Administración. El alojamiento es estático, sin dependencias de un ordenador local.
 
-El workflow `publish-staging.yml` comprueba la rama antes de actualizar `/staging/`. Verificar su resultado y la versión mostrada en la aplicación; no asumir que un push ya está publicado. La publicación de staging no autoriza cambios en `main` ni en la base de datos de producción.
+## Documentación y recuperación
 
-Los controles de RETA sin efecto en los cálculos se han retirado. Las cuotas efectivamente pagadas se registran como gastos; la tabla histórica se conserva para compatibilidad de las copias.
+Leer [el manual operativo](docs/MANUAL_CHATGPT_ONLINE.md), [el relevo para ChatGPT](RELEVO_CHATGPT_ONLINE.md) y [la revisión para producción](docs/auditorias/REVISION_PRODUCCION_2026-10-21.md).
 
-## Seguridad y revisión
+Supabase conserva datos, usuarios, permisos, programación, logos e índices. OneDrive conserva originales y copias completas. Los datos privados, contraseñas y secretos no pertenecen al repositorio público.
 
-- No incluir claves secretas en `index.html` ni `src/`; la publishable key del navegador no permite ignorar RLS.
-- Registrar cambios de base de datos mediante migraciones y contrastarlos con el esquema actual.
-- Ninguna limpieza puede borrar información histórica, registros fiscales, documentos o copias útiles sin inventario previo y recuperación verificada.
-- Documentación base: `TOTUS_CENTRAL_INSTRUCCIONES_AUDITORIA_STAGING_2026-10-14.txt` en fuentes privadas; revisar `docs/auditorias/` para hallazgos y pendientes.
+Copias nocturnas: 00:35 Europe/Madrid, máximo diez ordinarias verificadas, con protección adicional de puntos de recuperación. El formato v3 permite recuperar datos y archivos en el mismo proyecto; no incorpora contraseñas ni sustituye una copia de infraestructura. Límite: 120 MiB de archivo, 128 MiB expandidos y 8 MiB de datos JSON. Preparar ampliación antes de alcanzar estos límites.
 
-## Relevo online
-
-Ver [RELEVO_CHATGPT_ONLINE.md](RELEVO_CHATGPT_ONLINE.md). Las copias nocturnas se ejecutan en Supabase a las 00:35 Europe/Madrid, sin ordenador encendido; se conservan las diez completadas más recientes. Consultar el estado real en Administración → Copias: no confundir intentos fallidos con copias guardadas ni una copia histórica con un respaldo actualizado.
+No cambiar cifras del histórico aceptado para forzar coincidencia con gestoría. Los originales determinan las facturas; los pagos y el gasto fiscal son conceptos distintos. Mantener los gastos internos y los pagos de impuestos fuera del beneficio fiscal.

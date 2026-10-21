@@ -63,6 +63,27 @@ try{
  assert.equal(await receipt.locator('[data-action="tax-payment-document-download"][data-id="'+taxBefore.id+'"]').count(),1);
  await receipt.close();
 
+
+ // A tax receipt can predate the reverse-link metadata. Its canonical payment
+ // reference must prevent file deletion before any Storage operation.
+ const taxGuard=await browser.newPage();
+ await taxGuard.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const legacyTaxDoc=await taxGuard.evaluate(async()=>{
+  const db=window.__mockDb,id=crypto.randomUUID(),day=new Date().toLocaleDateString('en-CA');
+  db.ops_documents.push({id,document_date:day,doc_type:'impuesto',status:'archivada',original_name:'tax-reference.txt',mime_type:'text/plain',storage_path:'qa/tax-reference.txt',size_bytes:8,uploaded_by:db.profiles[0].id});
+  db.ops_tax_payments.push({id:crypto.randomUUID(),tax_type:'130',fiscal_year:Number(day.slice(0,4)),quarter:Math.ceil(Number(day.slice(5,7))/3),payment_date:day,amount:123,status:'pagado',document_id:id});
+  window.__mockUploads.set('business-documents/qa/tax-reference.txt',new Blob(['TAX FILE']));
+  await(await import('../src/api.js')).loadCore();return id;
+ });
+ await taxGuard.locator('#nav [data-route="documentos"]').click();
+ await taxGuard.locator('[data-action="document-delete"][data-id="'+legacyTaxDoc+'"]').click();
+ await taxGuard.getByText('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.',{exact:true}).waitFor();
+ assert.equal(await taxGuard.locator('[data-confirm="accept"]').count(),0);
+ assert.equal(await taxGuard.evaluate(()=>window.__mockUploads.size),1,'Tax receipt must survive attempted deletion');
+ assert.equal(await taxGuard.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),legacyTaxDoc),true);
+ assert.equal(await taxGuard.evaluate(id=>window.__mockDb.ops_tax_payments[0].document_id===id,legacyTaxDoc),true);
+ await taxGuard.close();
+
  const failure=await browser.newPage();
  await failure.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await failure.locator('#nav [data-route="gastos"]').click();await failure.locator('[data-action="expense-new"]').click();

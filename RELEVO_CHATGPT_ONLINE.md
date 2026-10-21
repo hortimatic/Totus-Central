@@ -1,13 +1,13 @@
 # TotusCentral · entrada para ChatGPT online
 
 ## Primero
-Lee [el manual operativo](https://github.com/hortimatic/Totus-Central/blob/staging/docs/MANUAL_CHATGPT_ONLINE.md), [el registro de peticiones](https://github.com/hortimatic/Totus-Central/blob/staging/docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md) y [el informe de revisión](https://github.com/hortimatic/Totus-Central/blob/staging/docs/auditorias/INFORME_REVISION_2026-10-20.md).
-Trabaja únicamente en [staging](https://hortimatic.github.io/Totus-Central/staging/), repositorio hortimatic/Totus-Central, proyecto Supabase awmojepsasikxocoeqtu. No cambiar main ni producción sin autorización expresa.
+Lee [el manual operativo](https://github.com/hortimatic/Totus-Central/blob/main/docs/MANUAL_CHATGPT_ONLINE.md), [el registro de peticiones](https://github.com/hortimatic/Totus-Central/blob/main/docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md) y [el informe de revisión](https://github.com/hortimatic/Totus-Central/blob/main/docs/auditorias/INFORME_REVISION_2026-10-20.md).
+Trabaja en [Totus Central](https://hortimatic.github.io/Totus-Central/), repositorio hortimatic/Totus-Central, rama main, proyecto Supabase awmojepsasikxocoeqtu. Antes de cambiar código, estructura o datos, explicar el cambio al titular. La URL antigua /staging/ solo redirige a esta misma aplicación.
 
 ## Dónde está cada cosa
 - GitHub: código, migraciones, funciones, pruebas y manuales.
 - Supabase: contabilidad, referencias de archivos, usuarios, permisos, configuración y tareas del servidor. Logos, índices pequeños y relevo privado permanecen en su almacenamiento.
-- OneDrive: originales y copias completas verificadas, en Mis archivos → Apps → TotusCentral Staging.
+- OneDrive: originales y copias completas verificadas, en Mis archivos → Apps → Totus Central.
 - No se necesita este portátil ni un servidor local. No dejar descargas, documentos fiscales o credenciales en equipos como parte del funcionamiento.
 
 El 20/10/2026 se conservaron 547 gastos, 449 cierres y 452 documentos. Los 452 originales y cuatro copias completas se comprobaron en OneDrive; se retiraron sus duplicados pesados de Supabase. Las copias antiguas incompatibles se retiraron después de disponer de sucesoras completas verificadas. El archivo privado de revisión y dos puntos de recuperación se conservaron.
@@ -39,3 +39,7 @@ Mantener el plan gratuito; no contratar servicios automáticamente.
 ## Material privado de relevo
 El archivo privado de revisión se conserva en Supabase Storage, business-backups/relevo, con acceso de administración. No publicarlo ni borrarlo como si fuera una copia ordinaria sobrante.
 Los manuales públicos se sincronizan y verifican en OneDrive → 04 Manuales y funcionamiento. Los originales fiscales y sus datos nunca se incluyen en el repositorio público.
+
+
+## Revisión de producción
+Consultar [REVISION_PRODUCCION_2026-10-21.md](https://github.com/hortimatic/Totus-Central/blob/main/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Conserva la distinción entre pruebas superadas, transición preparada y retirada del proyecto antiguo todavía pendiente de comprobación o confirmación.

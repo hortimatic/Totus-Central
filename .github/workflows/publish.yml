@@ -1,0 +1,76 @@
+name: Publicar Totus Central
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: totus-central-pages
+  cancel-in-progress: false
+jobs:
+  verify:
+    uses: ./.github/workflows/qa.yml
+    permissions:
+      contents: read
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Assemble production with no second application
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,re,shutil
+          from pathlib import Path
+          sha=os.environ['GITHUB_SHA']
+          root=Path('_site')
+          root.mkdir()
+          for name in ['index.html','favicon.svg','fondo_original.png']:
+              shutil.copyfile(name,root/name)
+          shutil.copytree('src',root/'src')
+          html=(root/'index.html').read_text()
+          assert 'ENTORNO DE PRUEBAS' not in html and "build.environment!=='production'" in html
+          html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"').replace('src="src/app.js"',f'src="src/app.js?v={sha}"')
+          (root/'index.html').write_text(html)
+          pattern=re.compile(r"""(\bfrom\s*['"])(\.[^'"]+\.js)(['"])""")
+          for file in (root/'src').rglob('*.js'):
+              file.write_text(pattern.sub(lambda m:f'{m.group(1)}{m.group(2)}?v={sha}{m.group(3)}',file.read_text()))
+          config=(root/'src/config.js').read_text()
+          assert 'awmojepsasikxocoeqtu.supabase.co' in config and 'zwkpmjjuurgjygcrejiw' not in config
+          (root/'build-info.json').write_text(json.dumps({'environment':'production','commit':sha},separators=(',',':'))+'\n')
+          legacy=root/'staging'
+          legacy.mkdir()
+          (legacy/'index.html').write_text('''<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Totus Central</title><link rel="canonical" href="https://hortimatic.github.io/Totus-Central/"><meta http-equiv="refresh" content="0;url=../"><script>location.replace('../'+location.search+location.hash)</script><p>Totus Central tiene una única dirección. <a href="../">Abrir Totus Central</a></p></html>''')
+          (root/'.nojekyll').touch()
+          assert not (legacy/'src').exists()
+          assert not (root/'supabase').exists() and not (root/'tests').exists()
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Verify published production commit
+        env:
+          PAGES_BASE: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            body="$(curl --location --fail --silent --show-error --max-time 15 "${PAGES_BASE%/}/build-info.json?run=$GITHUB_RUN_ID" || true)"
+            if printf '%s' "$body" | grep -Fq "\"commit\":\"$GITHUB_SHA\""; then exit 0; fi
+            sleep 5
+          done
+          echo 'Production commit was not visible after deployment' >&2
+          exit 1

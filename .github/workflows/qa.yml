@@ -1,7 +1,6 @@
 name: Totus Clean QA
 on:
-  push:
-    branches: [main, staging]
+  workflow_call:
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,6 +33,7 @@ jobs:
       - run: node tests/supplier-credit-qa.mjs
       - run: node tests/cross-view-integrity-qa.mjs
       - run: node tests/code-integrity.mjs
+      - run: node tests/production-contract-qa.mjs
       - run: node tests/permissions-qa.mjs
       - run: node tests/roles-and-help-qa.mjs
       - run: node tests/route-smoke.mjs

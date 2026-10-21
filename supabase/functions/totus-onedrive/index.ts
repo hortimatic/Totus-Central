@@ -26,7 +26,7 @@ async function administrator(req:Request){
  return r.data.user;
 }
 async function audit(userId:string,email:string,action:string){
- check(await admin.from('ops_audit_log').insert({user_id:userId,user_email:email,area:'administracion',action,detail:{conexion:'OneDrive',entorno:'staging'}}),'No se pudo registrar la operación de conexión.');
+ check(await admin.from('ops_audit_log').insert({user_id:userId,user_email:email,area:'administracion',action,detail:{conexion:'OneDrive',entorno:'production'}}),'No se pudo registrar la operación de conexión.');
 }
 async function exchange(values:Record<string,string>){
  const c=await config(),clientSecret=await secret('read_client');

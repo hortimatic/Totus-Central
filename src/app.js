@@ -704,7 +704,7 @@ async function printInvoice(id){
  try{w.opener=null}catch{}
  const logo=await invoiceLogoUrl(row);
  const html=invoicePreview(row,logo).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${row.display_number||'Documento'}</title><link rel="stylesheet" href="${new URL('src/styles.css',location.href).href}"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(row.display_number||'Documento')}</title><link rel="stylesheet" href="${new URL('src/styles.css',location.href).href}"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 async function convertProforma(id){
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
@@ -1149,7 +1149,7 @@ async function saveDocument(id=''){
  setView('documentos',{mode:'record',id:row.id});await refresh(current?'Documento actualizado.':'Documento archivado.');
 }
 
-// Importación documental por lote solo para staging.
+// Importación documental: pendientes de revisar, sin crear gastos automáticamente.
 // Los PDF quedan sin tienda ni asociación fiscal hasta que se contraste la factura.
 async function importDocumentZip(zipFile){
  if(!zipFile) return;
@@ -1165,7 +1165,7 @@ async function importDocumentZip(zipFile){
  const quota=await verifiedStorageMetrics(),used=Number(quota.total_bytes),limit=Number(quota.limit_bytes);
  const estimated=missing.reduce((a,f)=>a+Number(f._data?.uncompressedSize||0),0);
  if(used+estimated>limit)throw new Error('El lote supera el almacenamiento disponible. Elimina otros archivos o utiliza un lote menor.');
- if(!await confirmAction('Se revisarán '+missing.length+' archivos en STAGING. Se omitirán los que tengan el mismo contenido que un documento ya guardado. Los nuevos quedarán pendientes de clasificar, sin afectar a producción.',{title:'Importar documentos',acceptLabel:'Importar archivos'}))return;
+ if(!await confirmAction('Se revisarán '+missing.length+' archivos en Totus Central. Se omitirán los que tengan el mismo contenido que un documento ya guardado. Los nuevos quedarán pendientes de clasificar, sin crear gastos ni modificar los cálculos fiscales.',{title:'Importar documentos',acceptLabel:'Importar archivos'}))return;
  const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
  let ok=0,skipped=entries.length-missing.length;const errors=[];
  modal('Importación de documentos',`<div class="stack"><p>Los archivos se guardan como <b>pendientes</b> y no se computan fiscalmente.</p><p id="bulkZipProgress" role="status">Preparando ${missing.length} documentos…</p></div>`);
@@ -1246,7 +1246,7 @@ async function previewDocument(id){
  modal(d.original_name||'Documento',`<div class="stack">${body}<div class="form-actions">${btn('Descargar','document-download','primary',`data-id="${d.id}"`)}</div></div>`);
 }
 function documentIsLinked(id){
- return state.data.expenses.some(x=>x.document_id===id)||state.data.invoices.some(x=>x.source_document_id===id||x.generated_document_id===id)||state.data.documents.some(x=>x.id===id&&x.linked_entity_id);
+ return state.data.expenses.some(x=>x.document_id===id)||state.data.taxPayments.some(x=>x.document_id===id)||state.data.invoices.some(x=>x.source_document_id===id||x.generated_document_id===id)||state.data.documents.some(x=>x.id===id&&x.linked_entity_id);
 }
 async function deleteDocument(id){
  if(!can('documentos','delete'))throw new Error('No tienes permiso para eliminar documentos.');
@@ -1665,7 +1665,7 @@ async function saveBackupSettings(){
  if(!['daily','weekly','monthly'].includes(frequency))throw new Error('Frecuencia incorrecta.');
  const retention=backupRetentionCount(num('backupRetention'));
  const enabled=!!input('backupEnabled')?.checked;
- if(enabled&&!await confirmAction('¿Guardar esta programación de copias de staging? El servidor conservará hasta '+retention+' copias completas con la frecuencia indicada.',{title:'Guardar programación',acceptLabel:'Guardar cambios'}))return;
+ if(enabled&&!await confirmAction('¿Guardar esta programación de copias de Totus Central? El servidor conservará hasta '+retention+' copias completas con la frecuencia indicada.',{title:'Guardar programación',acceptLabel:'Guardar cambios'}))return;
  await rpc('totus_backup_save_settings',{p:{
   enabled,frequency,run_hour:Number(match[1]),run_minute:Number(match[2]),
   weekday:Number(val('backupWeekday')),month_day:Number(val('backupMonthday')),
@@ -1677,7 +1677,7 @@ let cloudBackupRunning=false;
 async function runBackupOnServer(){
  if(!isAdmin())throw new Error('Solo el administrador puede generar copias.');
  if(cloudBackupRunning)throw new Error('Ya hay una copia en curso. Puedes continuar trabajando.');
- if(!await confirmAction('¿Crear ahora una copia privada completa de staging? Se guardará en OneDrive si la conexión está comprobada.',{title:'Crear copia privada',acceptLabel:'Crear copia'}))return;
+ if(!await confirmAction('¿Crear ahora una copia privada completa de Totus Central? Se guardará en OneDrive si la conexión está comprobada.',{title:'Crear copia privada',acceptLabel:'Crear copia'}))return;
  cloudBackupRunning=true;
  toast('Copia iniciada en segundo plano. Puedes continuar trabajando.');
  void sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}}).then(({data,error})=>{

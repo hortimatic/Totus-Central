@@ -34,8 +34,8 @@ for(const file of deployable){
  const content=fs.readFileSync(file,'utf8');
  for(const rule of forbidden)if(rule.pattern.test(content))problems.push(file+': '+rule.label);
 }
-if(!cache['src/config.js'].includes('https://awmojepsasikxocoeqtu.supabase.co'))problems.push('Staging debe permanecer desconectado de producción');
-if(cache['src/config.js'].includes('zwkpmjjuurgjygcrejiw'))problems.push('Staging no debe contener credenciales ni dirección de producción');
+if(!cache['src/config.js'].includes('https://awmojepsasikxocoeqtu.supabase.co'))problems.push('Producción debe conservar la base de datos contable verificada');
+if(cache['src/config.js'].includes('zwkpmjjuurgjygcrejiw'))problems.push('La aplicación no debe apuntar a la base de datos antigua retirada');
 // Hosting agnóstico: la interfaz debe funcionar como archivos estáticos contra Supabase.
 const hostingMarkers=['vercel.app','vercel.com','@vercel/','process.env.vercel','import.meta.env.vercel'];
 for(const file of deployable){

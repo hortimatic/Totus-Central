@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(p,'utf8');
+const html=read('index.html'),app=read('src/app.js'),config=read('src/config.js'),publish=read('.github/workflows/publish.yml');
+assert(html.includes('<title>Totus Central</title>'));
+assert(!/STAGING|ENTORNO DE PRUEBAS/.test(html),'Production must not present itself as a test installation');
+assert(html.includes("build.environment!=='production'"));
+assert(config.includes('https://awmojepsasikxocoeqtu.supabase.co'),'Keep the accounting project, including its identities and archive');
+assert(!config.includes('zwkpmjjuurgjygcrejiw'),'Do not reconnect the retired database');
+assert(!/archivos en STAGING|copias de staging|completa de staging/.test(app));
+assert(app.includes('state.data.taxPayments.some(x=>x.document_id===id)'),'Tax payment links must block document deletion');
+assert(app.includes("${esc(row.display_number||'Documento')}"),'Print title must escape the invoice number');
+assert(publish.includes('needs: verify')&&publish.includes('uses: ./.github/workflows/qa.yml'));
+assert(publish.includes("location.search+location.hash"),'Legacy links must preserve authentication fragments');
+assert(!fs.existsSync('.github/workflows/publish-staging.yml'),'Only one publication workflow');
+assert(read('supabase/functions/team-admin/index.ts').includes("const APP_URL='https://hortimatic.github.io/Totus-Central/'"));
+console.log('PRODUCTION CONTRACT QA: canonical identity, current accounting database, gated deployment, legacy redirect and both document protections OK');

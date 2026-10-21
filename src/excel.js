@@ -1,7 +1,7 @@
 import {informationalTaxPayments,taxPaymentLabel} from './payment-information.js';
 import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
-import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,closingIncomeAmount} from './calculations.js';
+import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,isExpensePaymentEvidence,closingIncomeAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
 import {matchesText} from './report-period.js';
 
@@ -88,9 +88,22 @@ export function exportExpensesWorkbook({expenses,stores,from,to,settings=null,ta
    n(x.base_amount),n(x.vat_amount),n(x.re_amount),n(x.withholding_amount),n(x.gross_expense??x.accounting_amount??x.amount_paid??0),x.management_only?'Interno':'Contable',x.payment_method||'',archiveAccepted(settings,x,'expense')?'Conciliado y aceptado':x.paid_status||'',x.notes||''
  ]);
  const aoa=[['GASTOS'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Proveedor','NIF','Factura','Descripción','Base','IVA','RE','Retención','Total','Tipo','Pago','Estado','Observaciones'],...rows];
- const end=aoa.length;aoa.push(['','','','','','','','','','','TOTAL','','','']);
+ const end=aoa.length;aoa.push(['Total de registros · incluye apuntes de pago']);
+ const summaries=[
+  ['Gastos sin duplicar apuntes de pago',expenses.reduce((s,x)=>s+expenseCostAmount(x),0)],
+  ['De ellos: gasto fiscal revisado',expenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((s,x)=>s+expenseCostAmount(x),0)],
+  ['De ellos: solo control interno',expenses.filter(x=>x.management_only).reduce((s,x)=>s+expenseCostAmount(x),0)],
+  ['Apuntes de pago · no sumarlos otra vez como gasto',expenses.filter(isExpensePaymentEvidence).reduce((s,x)=>s+n(x.gross_expense??x.accounting_amount??x.amount_paid??0),0)]
+ ];
+ summaries.forEach(([label,amount])=>{const row=Array(15).fill('');row[0]=label;row[10]=amount;aoa.push(row)});
  const ws=XLSX.utils.aoa_to_sheet(aoa);ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,15);
  ws[`K${end+1}`]={t:'n',f:rows.length?`SUM(K5:K${end})`:'0',s:totalStyle,z:euro};
+ ws['!merges']=[];
+ for(let r=end+1;r<=aoa.length;r++){
+  ws['!merges'].push({s:{r:r-1,c:0},e:{r:r-1,c:9}});
+  ws['A'+r].s={...totalStyle,alignment:{horizontal:'right',vertical:'center',wrapText:true}};
+  ws['K'+r].s=totalStyle;ws['K'+r].z=euro;
+ }
  for(let r=5;r<=end;r++)for(const col of ['G','H','I','J','K'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,22,16,16,32,13,13,13,13,15,13,15,13,35]);ws['!autofilter']={ref:`A4:O${end}`};ws['!freeze']={ySplit:4};
  XLSX.utils.book_append_sheet(wb,ws,'Gastos');

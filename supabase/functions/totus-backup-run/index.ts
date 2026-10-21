@@ -1,4 +1,4 @@
-// STAGING ONLY. A server-side, authenticated backup job; never exposes the service key to clients.
+// Server-side authenticated backup job; never exposes the service key to clients.
 // Automated calls require the unique secret held in Supabase Vault.
 // Manual calls additionally require an authenticated administrator.
 import {createHash} from 'node:crypto';

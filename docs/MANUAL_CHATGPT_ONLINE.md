@@ -1,13 +1,13 @@
 # Manual operativo de TotusCentral para ChatGPT online
-Versión de trabajo: 20/10/2026. Entorno: staging. Revisar el registro de pendientes antes de dar una función por certificada.
+Versión de producción preparada: 21/10/2026. Revisar el informe de transición y la versión publicada antes de operar.
 
 ## 1. Acceso y responsabilidades
-La web está en GitHub Pages, el código en la rama staging de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
+La web está en GitHub Pages, el código publicado en la rama main de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
 La sesión del portátil no se hereda a ChatGPT online. La app estándar de GitHub de ChatGPT permite consulta; para publicar código se necesita una experiencia con escritura autorizada, como Codex (https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt). La operación diaria puede hacerse por la web con navegador en la nube cuando esté disponible y autorizado (https://help.openai.com/en/articles/20001280-using-cloud-browser-in-chatgpt). El nuevo chat necesita conectores autorizados o acceso por navegador a cada servicio. Verificar lectura y escritura antes de prometer operaciones.
 No guardar contraseñas ni claves en conversaciones, documentos, repositorios, borradores o archivos locales. Las credenciales de Microsoft se mantienen en Vault. No ampliar permisos para resolver un problema de rutas.
 
 ## 2. Antes de cada jornada
-1. Confirmar que se está en staging y comprobar la versión visible.
+1. Abrir https://hortimatic.github.io/Totus-Central/ y comprobar la versión visible.
 2. Revisar Inicio: fecha de los cierres anteriores, efectivo para abrir cada caja y avisos.
 3. Revisar Administración → Copias: fecha de la última copia correcta. Un intento fallido no es una copia.
 4. No volver a importar registros existentes. Buscar primero fecha, tienda, número de factura y proveedor.
@@ -132,12 +132,12 @@ Comprobar que las operaciones quedan registradas con fecha y autor o identificad
 - Si hay discrepancia contable, detener solo la operación afectada y continuar con el trabajo independiente.
 
 ## 13. Protocolo para modificaciones futuras
-Trabajar solo en staging. Guardar código, migraciones y fuentes de funciones en GitHub; mantener secretos y datos privados fuera del repositorio.
+La instalación de uso diario es producción. Antes de cambiar código, estructura o datos, explicar el cambio al titular y ejecutar pruebas aisladas. Guardar código, migraciones y fuentes de funciones en GitHub; mantener secretos y datos privados fuera del repositorio.
 Ejecutar pruebas funcionales y visuales pertinentes, revisar GitHub Actions y comprobar la versión publicada. Registrar pruebas reales y simuladas por separado.
 Consultar docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md. No declarar «100 % terminado» sin cerrar los criterios y las limitaciones reales.
 
 ## 14. Ruta única de OneDrive y seguridad adicional
-La carpeta activa es Mis archivos → Apps → TotusCentral Staging. Se utiliza la carpeta especial de la aplicación, identificada por Microsoft, no una segunda carpeta manual. La estructura inicial vacía TotusCentral se retiró a la papelera después de verificar que sus cuatro subcarpetas no contenían archivos. No volver a crear esa ruta alternativa.
+La carpeta activa es Mis archivos → Apps → Totus Central. Se utiliza la carpeta especial de la aplicación, identificada por Microsoft, no una segunda carpeta manual. La estructura inicial vacía TotusCentral se retiró a la papelera después de verificar que sus cuatro subcarpetas no contenían archivos. No volver a crear esa ruta alternativa.
 Los documentos ya disponen de espejo verificado. Las copias completas compatibles se trasladan también a 02 Copias de seguridad conservando su índice y fragmentos. Cada fragmento se vuelve a leer y comparar; el índice se publica al final. Una copia parcial no cuenta como guardada. Conservar como máximo diez copias completas verificadas en OneDrive.
 La copia nocturna existente se inicia a las 00:35 Madrid. Cuando OneDrive está conectado y comprobado, el archivo nuevo se envía directamente allí mediante sesiones privadas y se verifica por relectura. Supabase conserva un índice pequeño de localización, sin duplicar sus fragmentos. La tarea existente de mantenimiento atiende traslados antiguos y limpiezas pendientes. No hay otro horario frecuente de creación.
 La capacidad total de OneDrive solo se muestra cuando Microsoft permite leerla con los permisos actuales. No solicitar acceso a todos los archivos únicamente para mostrar una cuota ni convertir el tamaño de Totus en el libre total de la cuenta.
@@ -233,3 +233,12 @@ Al crear o terminar un cierre, completar cada caja por separado y «Total ventas
 
 
 En la cabecera de Cajas, «Salidas en metálico» suma las retiradas (cash_withdrawals) de los cierres visibles, aplicando periodo, tienda y búsqueda. No vuelve a sumar sus líneas de caja ni se añade como otra venta o gasto fiscal. «Tarjeta registrada», «Registros», «Borradores» y «Descuadres» se mantienen.
+
+
+## 22. Transición a una única producción · 21/10/2026
+El origen de datos se conserva: proyecto awmojepsasikxocoeqtu. Cambiar el nombre visible de un proyecto no cambia su identificador. No copiar la contabilidad al proyecto antiguo ni reiniciar series o usuarios. La URL de uso diario es https://hortimatic.github.io/Totus-Central/; /staging/ es un acceso de compatibilidad que redirige a la misma aplicación, sin código ni backend propios.
+Las páginas, formularios, importes y permisos se mantienen. La retirada definitiva del proyecto antiguo de Supabase se realiza solo después de inventario, verificación de producción y confirmación específica del titular. El historial de Git conserva la versión anterior sin publicar una segunda web.
+Los documentos usados por pagos de impuestos están protegidos contra un intento de eliminación incluso cuando el documento antiguo no tenga el vínculo inverso rellenado. Para cambiar el justificante, usar el mismo pago; no borrar primero su archivo desde Documentos. El número de factura se imprime como texto seguro, sin interpretar etiquetas HTML.
+Los informes fechados del 20/10 conservan el estado histórico de aquella revisión. Para la puesta en producción consultar REVISION_PRODUCCION_2026-10-21.md y no presentar comprobaciones pendientes como terminadas.
+
+El Excel detallado de Gastos conserva sus filas y columnas originales. «Total de registros» incluye apuntes bancarios y no es el gasto fiscal. Los subtotales distinguen gastos sin duplicar apuntes de pago, gasto fiscal revisado, control interno y apuntes de pago informativos. No sumar esos subtotales entre sí: los dos primeros desgloses pertenecen al gasto sin duplicados. Los impuestos efectivamente pagados se mantienen en su hoja informativa separada.

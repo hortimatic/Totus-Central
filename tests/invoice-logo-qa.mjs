@@ -96,12 +96,18 @@ try {
   await page.locator('[data-action="invoice-preview"]').first().click();
   await page.locator('#modalHost img.invoice-logo').waitFor({state:'visible'});
   await page.waitForFunction(()=>{const i=document.querySelector('#modalHost img.invoice-logo');return i?.complete&&i.naturalWidth===4});
+  const unsafeNumber='QA-</title><script>window.__invoiceTitleInjected=true</script><title>';
+  await page.evaluate(number=>{window.__mockDb.ops_sales_invoices[0].display_number=number},unsafeNumber);
+  // Refresh the shared application state without changing any live data.
+  await page.evaluate(async()=>{await(await import('../src/api.js')).loadCore()});
   const popupWait=page.waitForEvent('popup');
   await page.locator('#modalHost [data-action="invoice-print"]').first().click();
   const popup=await popupWait;
   await popup.locator('img.invoice-logo').waitFor({state:'visible'});
   await popup.waitForFunction(()=>{const i=document.querySelector('img.invoice-logo');return i?.complete&&i.naturalWidth===4});
   assert((await popup.locator('body').innerText()).includes('Cliente ficticio'),'La factura para imprimir ha perdido su cliente');
+  assert.equal(await popup.title(),unsafeNumber,'Invoice number must remain plain title text');
+  assert.equal(await popup.evaluate(()=>window.__invoiceTitleInjected),undefined,'Invoice number must never execute markup');
   const printed=await popup.pdf({format:'A4',printBackground:true});
   assert(printed.subarray(0,5).toString()==='%PDF-','No se genera un PDF de factura imprimible');
   assert(printed.length>4000,'El PDF de factura parece vacío');
