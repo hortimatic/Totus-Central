@@ -221,8 +221,8 @@ Object.assign(FIELD_HELP,{
  'Modelo':'Modelo de Hacienda en el que se declara este importe. En las retenciones: 111 para nóminas o profesionales y 115 para alquiler de local.',
  'Recargo (%)':'Impuesto adicional que aparece en algunas facturas de compra. Copia el porcentaje del documento.'
 });
-const fieldHelp=label=>{
- const help=FIELD_HELP[label]||'Introduce el dato correspondiente a este campo y comprueba que coincide con su justificante o configuración antes de guardar.';
+export const fieldHelp=(label,explanation='')=>{
+ const help=explanation||FIELD_HELP[label]||'Introduce el dato correspondiente a este campo y comprueba que coincide con su justificante o configuración antes de guardar.';
  return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}" title="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}"><svg class="field-help-icon" viewBox="0 0 24 24" role="presentation" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r="1.1" class="field-help-dot"/></svg></summary><span role="note">${esc(help)}</span></details>`;
 };
 

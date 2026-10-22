@@ -7,7 +7,7 @@ export function selectDocuments(data,filters){
  return (data.documents||[]).filter(row=>inRange(row.document_date||row.created_at,filters.from,filters.to)
   &&(!filters.store||filters.store==='all'||row.store_id===filters.store)
   &&(!filters.status||filters.status==='all'||row.status===filters.status)
-  &&(!filters.type||filters.type==='all'||row.doc_type===filters.type)
+  &&(!filters.type||filters.type==='all'||(filters.type==='control_interno'?row.category_code==='control_interno':row.doc_type===filters.type))
   &&matchesText(filters.query,row.original_name,row.supplier_or_customer,row.invoice_number,row.doc_type,row.category_code,row.status,row.notes,data.stores.find(s=>s.id===row.store_id)?.name));
 }
 

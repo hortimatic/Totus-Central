@@ -591,3 +591,23 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 @media(max-width:540px){.credential-card-head{align-items:flex-start}.credential-days{font-size:23px}.credential-timeline{grid-template-columns:1fr}.credential-card{padding:14px}}
 
 .brand b{line-height:1.15}.brand>div>small{line-height:1.2;font-size:11px}.brand>div>.app-version{font-size:10px}
+
+/* Period activity and movable report blocks retain the existing page shell. */
+.activity-chart{width:100%;overflow:hidden;margin-top:16px}
+.activity-chart svg{display:block;width:100%;height:auto;min-height:220px;font:11px system-ui;color:var(--muted)}
+.activity-chart text{fill:var(--muted)}
+.activity-legend{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:18px;font-size:13px}
+.activity-legend span{display:inline-flex;align-items:center;gap:7px}
+.activity-legend i{display:inline-block;width:12px;height:12px;border-radius:50%}
+.activity-data{margin-top:12px}.activity-data summary{cursor:pointer;font-weight:600}.activity-data .table-wrap{max-height:320px;overflow:auto;margin-top:10px}
+.home-activity .filters{padding-inline:0}.home-period-kpis small{line-height:1.4}
+.report-order-hint,.report-block-controls{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.report-order-hint p{margin:0;font-size:13px;color:var(--muted)}
+.report-blocks{display:grid;gap:20px}.report-movable-block{min-width:0}.report-block-controls{padding:0 4px 6px;color:var(--muted);font-size:12px}
+.report-block-controls .btn{padding:5px 9px;min-height:30px;font-size:12px}
+.report-block-controls .btn:disabled{opacity:.4;cursor:default}.report-blocks .card{margin:0}
+.gestor-period-picker{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:16px 0}
+.gestor-period-picker>label{min-width:120px;max-width:190px;flex:1}.gestor-period-picker>button{margin-bottom:0}
+.reports-page h2 .field-help{vertical-align:middle}.summary-row>.field-caption{max-width:78%}
+.internal-expenses-panel .expense-file-actions{min-width:120px}
+@media(max-width:600px){.report-order-hint{align-items:flex-start;flex-direction:column}.report-block-controls{align-items:flex-start}.report-block-controls>span{max-width:40%}.activity-chart svg{min-height:170px}.activity-legend{gap:8px 12px;font-size:12px}.gestor-period-picker>label{max-width:none}.gestor-period-picker>button{flex:1}.home-period-kpis .kpi strong{font-size:22px}}

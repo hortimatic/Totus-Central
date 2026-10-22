@@ -1,3 +1,5 @@
+import {activitySeries,activityChartHtml} from '../dashboard-activity.js';
+import {normalizeReportOrder} from '../report-layout.js';
 import {taxExpenseRecord} from '../tax-expense.js';
 import {incomeBreakdown} from '../income-breakdown.js';
 import {informationalTaxPayments,taxPaymentLabel} from '../payment-information.js';
@@ -10,7 +12,7 @@ import {reportMonths,selectReportData,matchesText,searchText,selectDocuments} fr
 import {state,isAdmin,isManager,getFilters,getView} from '../state.js';
 import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../permissions.js';
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
-import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField} from '../components.js';
+import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField,fieldHelp} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
 import {manualClosingReconciled,sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount} from '../calculations.js';
@@ -74,19 +76,9 @@ function dailySalesByDrawer(row){
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
  const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`;
- const activeStores=stores();
+ const activeStores=stores(),activityFilter=getFilters('inicio'),activity=activitySeries(state.data,activityFilter);
  const monthClosings=state.data.closings.filter(x=>inRange(x.business_date,month.from,month.to));
- const monthExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,month.from,month.to));
  const quarterExpenses=state.data.expenses.filter(x=>inRange(x.expense_date,qFrom,qTo));
- const monthInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&inRange(x.issue_date,month.from,month.to));
- const salesFromClosings=sum(monthClosings.filter(x=>x.include_in_income!==false),closingIncomeAmount);
- const extraInvoices=sum(monthInvoices.filter(x=>x.include_in_income===true),x=>x.total_amount);
- const monthIncomeAdjustments=sum(state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&inRange(x.adjustment_date,month.from,month.to)),x=>x.amount);
- const monthManualIncome=sum(state.data.incomeAdjustments.filter(x=>inRange(x.income_date,month.from,month.to)),x=>x.amount);
- const sales=salesFromClosings+extraInvoices+monthIncomeAdjustments+monthManualIncome;
- const accountingExpenses=sum(monthExpenses.filter(x=>!x.management_only),expenseCostAmount);
- const internalExpenses=sum(monthExpenses.filter(x=>x.management_only),expenseCostAmount);
- const realResult=sales-accountingExpenses-internalExpenses;
  const todays=state.data.closings.filter(x=>x.business_date===today);
  const missingStores=activeStores.filter(s=>!todays.some(x=>x.store_id===s.id&&x.status==='cerrado'));
  const draftClosings=state.data.closings.filter(x=>x.status==='borrador'&&!acceptedClosing(x)).length;
@@ -149,7 +141,8 @@ export function inicio(){
  return `<div class="page dashboard-page">
   <div class="dashboard-hero card card-pad"><div><div class="eyebrow">Inicio · ${fmtDate(today)}</div><h2>Totus Central</h2><p>Mesa de trabajo para consultar, registrar, revisar y decidir sin saltar entre pantallas innecesariamente.</p></div><div class="dashboard-hero-actions">${btn('Nuevo cierre','closing-new','primary')}${btn('Registrar gasto','expense-new','secondary')}${btn('Nueva factura','invoice-new','secondary')}${btn('Subir documento','document-new','secondary')}</div></div>
   <section class="card card-pad opening-panel"><h2>Dinero para abrir las cajas</h2><p>Lo que quedó en cada caja al cerrar. Comprueba la fecha y cuenta el efectivo antes de abrir.</p><div class="opening-grid">${openingCards}</div></section>
-  <div class="kpis">${kpi('Ingresos del mes',money(sales),`${fmtDate(month.from)} → ${fmtDate(month.to)}`)}${kpi('Gastos contables',money(accountingExpenses),internalExpenses?('+'+money(internalExpenses)+' internos'):'Sin gasto interno')}${kpi('Ingresos menos gastos',money(realResult),'No es el saldo de las cajas ni del banco')}${kpi('Pendiente de cobro',money(pendingInvoiceAmount),`${pendingInvoices.length} factura${pendingInvoices.length===1?'':'s'}`)}</div>
+  <div class="kpis home-period-kpis">${kpi(activityFilter.from===month.from&&activityFilter.to===month.to?'Ingresos del mes':'Ingresos del periodo',money(activity.totals.sales),`${fmtDate(activityFilter.from)} → ${fmtDate(activityFilter.to)}`)}${kpi('Gastos contables',money(activity.totals.fiscal),'Gastos fiscalizables registrados')}${kpi('Ingresos menos gastos',money(activity.totals.sales-activity.totals.fiscal),'Antes de gastos internos; no es el saldo del banco')}${kpi('Gastos internos',money(activity.totals.internal),'Solo información · incluye impuestos pagados')}</div>
+  <section class="card card-pad home-activity"><div class="section-head"><div><h2>Ventas y gastos del periodo</h2><p>Elige las fechas y la tienda. La gráfica y los cuatro importes de arriba muestran el mismo periodo.</p></div></div>${dateFilters({...activityFilter,stores:activeStores},'inicio')}${activityChartHtml(activity)}</section>
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Operativa de hoy</h2><p>Cierres y control de gasto del trimestre.</p></div></div><div class="dashboard-store-grid">${storeCards}</div><div class="dashboard-grid">
    <article class="card card-pad"><div class="section-head"><div><h3>Gastos del ${quarter}T</h3><p>Total contabilizado e interno por establecimiento.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div><div class="home-big-number">${money(sum(quarterExpenses,expenseCostAmount))}</div><div class="stack">${expenseByStore}</div></article>
@@ -213,17 +206,22 @@ export function cajas(){
 
 
 function taxPaymentInformationHtml(filters){
- const rows=informationalTaxPayments(state.data.taxPayments,filters);
+ const payments=((!filters.paid||['all','pagado'].includes(filters.paid))?informationalTaxPayments(state.data.taxPayments,filters):[]).map(payment=>({type:'tax',record:payment,date:payment.payment_date,party:'Agencia Tributaria',concept:taxPaymentLabel(payment),period:payment.period_label||[payment.fiscal_year,payment.quarter?payment.quarter+'T':''].filter(Boolean).join(' · '),amount:Number(payment.amount),documentId:payment.document_id}));
+ const expenses=selectReportData(state.data,filters).expenses.filter(row=>row.management_only&&!isExpensePaymentEvidence(row)&&(!filters.paid||filters.paid==='all'||row.paid_status===filters.paid)).map(row=>({type:'expense',record:row,date:row.expense_date,party:row.supplier_name||'Gasto interno',concept:row.description||row.invoice_number||'Control interno',period:storeName(row.store_id),amount:expenseCostAmount(row),documentId:row.document_id}));
+ const rows=[...expenses,...payments].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  if(!rows.length)return '';
- return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Control interno · impuestos pagados</h2><p>Salidas de dinero del autónomo, por fecha de pago. No se restan del beneficio fiscal ni duplican los gastos. Son comunes a las dos tiendas.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
- {label:'Fecha de pago',html:r=>fmtDate(r.payment_date)},
- {label:'Impuesto',html:r=>esc(taxPaymentLabel(r))},
- {label:'Periodo al que corresponde',html:r=>esc(r.period_label||[r.fiscal_year,r.quarter?r.quarter+'T':''].filter(Boolean).join(' · '))},
- {label:'Importe pagado',num:true,html:r=>money(r.amount)},
+ return `<section class="card table-card internal-expenses-panel"><div class="section-head card-pad"><div><h2>Control interno</h2><p>Gastos internos y pagos de impuestos. Se conservan con su justificante y no se restan del beneficio fiscal.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
+ {label:'Fecha',html:r=>fmtDate(r.date)},
+ {label:'Proveedor / concepto',html:r=>'<b>'+esc(r.party)+'</b><div class="small muted">'+esc(r.concept)+'</div>'},
+ {label:'Tienda / periodo',html:r=>esc(r.period)},
+ {label:'Importe',num:true,html:r=>money(r.amount)},
  {label:'Tratamiento',html:()=>'<span class="badge info">Solo información interna · excluido del cálculo fiscal</span>'},
- {label:'Justificante bancario',html:r=>{const doc=state.data.documents.find(d=>d.id===r.document_id);return `<div class="expense-file-actions">${doc?`<span class="small">${esc(doc.original_name)}</span>${btn('Vista previa','tax-payment-document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','tax-payment-document-download','secondary',`data-id="${r.id}"`)}`:''}${btn(doc?'Cambiar justificante':'Adjuntar justificante','tax-payment-receipt','secondary',`data-id="${r.id}"`)}</div>`;}}
- , {label:'Acciones',html:r=>`<div class="expense-row-actions">${btn('Revisar','expense-tax-edit','secondary',`data-id="${r.id}"`)}</div>`}
- ],rows)}<p class="small muted card-pad">Puedes revisar estos pagos aquí o en Fiscalidad → Pagos de impuestos. Es el mismo registro; no se duplica el gasto. Las cuotas de autónomo y la Seguridad Social se registran como gastos, con su tratamiento fiscal.</p></section>`;
+ {label:'Justificante y acciones',html:r=>{
+  const doc=state.data.documents.find(d=>d.id===r.documentId);
+  const preview=doc?btn('Vista previa',r.type==='tax'?'tax-payment-document-preview':'expense-document-preview','secondary',`data-id="${r.type==='tax'?r.record.id:doc.id}"`):'';
+  return `<div class="expense-file-actions">${doc?'<span class="small">'+esc(doc.original_name)+'</span>':''}${preview}${btn(doc?'Revisar':'Adjuntar justificante',r.type==='tax'?'expense-tax-edit':'expense-edit','secondary',`data-id="${r.record.id}"`)}</div>`;
+ }}
+ ],rows)}<p class="small muted card-pad">Se usa la misma ficha de gasto y el mismo sistema de adjuntos. Los pagos de modelos mantienen un único registro compartido con Fiscalidad. Las cuotas de autónomo y la Seguridad Social conservan su tratamiento fiscal como gastos.</p></section>`;
 }
 
 
@@ -277,11 +275,11 @@ export function gastos(){
   ${expenseTabs('registros')}
   ${rows.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?`<p class="note warn">${rows.filter(x=>isUnreconciledPayment(x)&&!acceptedExpense(x)).length} pagos en revisión${linkedPayments?`: ${linkedPayments} con factura vinculada`:''}. Los importes del Excel se conservan como pagos y no duplican el gasto fiscal.</p>`:''}
   <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Registros pendientes',String(pending),'Factura, pago o diferencia por comprobar')}</div>
-  ${(kind==='all'||kind==='internal')&&(paid==='all'||paid==='pagado')?taxPaymentInformationHtml(f):''}
+  ${(kind==='all'||kind==='internal')?taxPaymentInformationHtml({...f,paid}):''}
   <section class="card table-card expense-register-card">
    <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:stores()},'gastos',extras)}
-   ${table(headers,rows,{emptyTitle:'No hay gastos',emptyText:'No existen gastos para los filtros seleccionados.'})}
+   ${table(headers,rows.filter(r=>!r.management_only||isExpensePaymentEvidence(r)),{emptyTitle:kind==='internal'?'Consulta el detalle de control interno':'No hay gastos',emptyText:'No existen otros gastos para los filtros seleccionados.'})}
   </section>
  </div>`;
 }
@@ -421,12 +419,12 @@ export function documentos(){
  const rows=selectDocuments(state.data,f);
  const headers=[
   {label:'Documento',html:r=>`<b>${esc(r.original_name||'Documento')}</b><div class="small muted">${fmtDate(r.document_date||r.created_at)} · ${esc(storeName(r.store_id))}</div>`},
-  {label:'Clasificación',html:r=>`<b>${esc(String(r.doc_type||'—').replaceAll('_',' '))}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
+  {label:'Clasificación',html:r=>`<b>${esc(r.category_code==='control_interno'?'Control interno':String(r.doc_type||'—').replaceAll('_',' '))}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
   {label:'Tamaño',num:true,html:r=>`${(Number(r.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB`},
   {label:'Estado',html:r=>stateBadge(r.status)},
   {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}${!issuedDocumentFileLocked(r.id,state.data.invoices)&&canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||r.uploaded_by===state.session?.user?.id)?btn('Eliminar','document-delete','danger',`data-id="${r.id}"`):''}</div>`}
  ];
- const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
+ const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro','control_interno'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page documents-page">
   <div class="kpis">${kpi('Documentos filtrados',String(rows.length))}${kpi('Tamaño de los documentos filtrados',(rows.reduce((total,doc)=>total+Number(doc.size_bytes||0),0)/1024/1024).toFixed(1).replace('.',',')+' MB','Volumen de los originales filtrados · capacidad total en Almacenamiento')}${kpi('Pendientes',String(rows.filter(x=>x.status==='pendiente').length))}</div>
   <section class="card table-card">
@@ -454,7 +452,7 @@ export function documentRecordHtml(row=null){
     <section class="card card-pad"><div class="section-head"><div><h3>Clasificación</h3></div></div><div class="form-grid" style="margin-top:14px">
       ${selectField('Tienda','docStore',storeOptions,row?.store_id||'')}
       ${formField('Fecha','docDate',row?.document_date||isoToday(),'date')}
-      ${selectField('Tipo','docType',[{value:'factura_recibida',label:'Factura recibida'},{value:'factura_emitida',label:'Factura emitida'},{value:'factura_rectificativa',label:'Factura rectificativa'},{value:'proforma',label:'Proforma'},{value:'ticket',label:'Ticket'},{value:'contrato',label:'Contrato'},{value:'impuesto',label:'Impuesto'},{value:'informe',label:'Informe'},{value:'otro',label:'Otro'}],row?.doc_type||'factura_recibida')}
+      ${selectField('Tipo','docType',[{value:'factura_recibida',label:'Factura recibida'},{value:'factura_emitida',label:'Factura emitida'},{value:'factura_rectificativa',label:'Factura rectificativa'},{value:'proforma',label:'Proforma'},{value:'ticket',label:'Ticket'},{value:'contrato',label:'Contrato'},{value:'impuesto',label:'Impuesto'},{value:'informe',label:'Informe'},{value:'otro',label:'Otro'},{value:'control_interno',label:'Control interno'}],row?.category_code==='control_interno'?'control_interno':row?.doc_type||'factura_recibida')}
       ${selectField('Estado','docStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:'Pagada'},{value:'revisada',label:'Revisada'},{value:'preparada_gestor',label:'Preparada gestor'},{value:'entregada_gestor',label:'Entregada gestor'},{value:'archivada',label:'Archivada'}],row?.status||'pendiente')}
       ${formField('Proveedor / cliente','docParty',row?.supplier_or_customer||'')}
       ${formField('NIF/CIF','docTax',row?.tax_id||'')}
@@ -472,17 +470,17 @@ export function documentRecordHtml(row=null){
 function incomeBreakdownHtml(closings,additional){
  const b=incomeBreakdown(closings,additional);
  if(!closings.length&&!additional)return '';
- const row=(label,value)=>`<div class="summary-row"><span>${label}</span><strong>${money(value)}</strong></div>`;
- return `<section class="card card-pad"><h2>De dónde salen los ingresos</h2>
- ${row('Cobros con tarjeta de los cierres',b.card)}
- ${row('Efectivo retirado de las cajas',b.withdrawals)}
- ${row('Cambio del efectivo en caja · cierre menos apertura',b.cashChange)}
- ${b.cashMovements?row('Gastos y otros movimientos de efectivo · neto',b.cashMovements):''}
- ${b.other?row('Otros cobros de los cierres',b.other):''}
- ${b.difference?row('Diferencias de cierre por comprobar',b.difference):''}
- ${row('Otros ingresos registrados · fuera de los cierres',b.additional)}
- ${row('Total de ingresos del periodo',b.total)}
- <p class="small muted">La tarjeta corresponde al día de la venta. En vuestro Excel se anota al día siguiente, cuando entra en el banco. El efectivo vendido incluye lo retirado y el cambio del dinero que queda en caja, descontando las entradas de dinero ajenas a ventas.</p></section>`;
+ const row=(label,value,help)=>`<div class="summary-row"><span class="field-caption">${label}${fieldHelp(label,help)}</span><strong>${money(value)}</strong></div>`;
+ return `<section class="card card-pad"><h2>De dónde salen los ingresos${fieldHelp('De dónde salen los ingresos','Este desglose explica los ingresos ya registrados; no añade ventas. Las retiradas de caja son movimientos de dinero y solo se muestran para comprobar el efectivo. No se suman otra vez a las ventas.')}</h2>
+ ${row('Cobros con tarjeta de los cierres',b.card,'Ventas cobradas con tarjeta el día de la venta. El ingreso del banco puede llegar al día siguiente; no es una segunda venta.')}
+ ${row('Efectivo retirado de las cajas',b.withdrawals,'Dinero sacado de las cajas durante el periodo. No equivale por sí solo a las ventas en efectivo: también hay que considerar lo que quedó en las cajas y lo que había al abrir.')}
+ ${row('Variación del dinero que queda en caja',b.cashChange,'Es la suma del dinero que quedó al cerrar menos el dinero que había al abrir cada cierre del periodo. Ejemplo: abrir con 100 € y dejar 120 € supone +20 €. Ese efectivo vendido sigue dentro de la caja. Si se dejan 90 €, la variación es −10 €. No es un gasto adicional. En Hortimatic el cierre puede sumar las dos cajas; el detalle de cada caja se consulta en Cajas.')}
+ ${b.cashMovements?row('Pagos y otras entradas o salidas de efectivo',b.cashMovements,'Suma pagos realizados desde caja y otras salidas, y resta aportaciones de dinero ajenas a ventas. Se utiliza para reconstruir los cobros en efectivo, sin convertir una aportación del titular en una venta.'):''}
+ ${b.other?row('Otros cobros de los cierres',b.other,'Cobros por Bizum, internet y otros medios registrados en los cierres. No incluye la tarjeta ni el efectivo mostrado en las otras filas.'):''}
+ ${b.difference?row('Diferencias de cierre por comprobar',b.difference,'Parte de las ventas registradas que no queda explicada por los cobros y movimientos anteriores. Una diferencia debe revisarse en el cierre; no se corrige automáticamente.'):''}
+ ${row('Otros ingresos registrados · fuera de los cierres',b.additional,'Facturas adicionales marcadas para sumar ingresos, ingresos manuales y referencias históricas mensuales. Las facturas que ya están incluidas en un cierre no se suman de nuevo.')}
+ ${row('Total de ingresos del periodo',b.total,'Total de las ventas e ingresos incluidos en este periodo. Debe coincidir con el indicador de ingresos. Consulta Fiscalidad para distinguir ingresos, beneficio e impuestos estimados.')}
+ <p class="small muted">La tarjeta corresponde al día de la venta. En el Excel histórico se anotaba al día siguiente, cuando entraba al banco. Pulsa las «i» para entender cada cifra.</p></section>`;
 }
 
 export function fiscalidad(){
@@ -576,24 +574,31 @@ export function informes(){
  const unreviewed=g.filter(x=>!x.management_only&&x.fiscal_reviewed===false).length;
  const accounting=sum(g.filter(x=>!x.management_only),expenseCostAmount),internal=sum(g.filter(x=>x.management_only),expenseCostAmount);
  const taxInformation=sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount);
- return `<div class="page">
- <section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
+ const saved=state.data.profiles.find(p=>p.id===state.user?.id)?.ui_preferences?.report_blocks;
+ const order=normalizeReportOrder(saved),month=Number(String(f.to||isoToday()).slice(5,7)),quarter=Math.ceil(month/3);
+ const blocks={
+ income:{title:'Desglose de ingresos',html:incomeBreakdownHtml(c,sales-sum(c,closingIncomeAmount))},
+ internal:{title:'Control interno',html:taxPaymentInformationHtml(f)},
+ monthly:{title:'Diarios mensuales',html:`<section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Todos los meses del periodo aplicado. Cada archivo incluye solo las fechas, tienda y búsqueda seleccionadas.</p></div></div><div class="monthly-reports">${periods.map(period=>`<section class="monthly-report"><h3>${esc(period.label)}</h3>${stores().filter(s=>f.store==='all'||s.id===f.store).map(s=>`<div class="summary-row"><b>${esc(s.name)}</b><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}</div></div>`).join('')}</section>`).join('')}</div></section>`},
+ gestor:{title:'Gestoría y auditoría',html:`<section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Elige un mes o trimestre de cualquier año. La tabla y el paquete usan las mismas fechas, tienda y búsqueda aplicadas arriba. Solo los gastos fiscales revisados entran en la tabla de gestoría; el control interno se entrega separado.</p></div></div>
+ <div class="gestor-period-picker" role="group" aria-label="Elegir periodo para gestoría">
+ ${formField('Año del informe','reportPeriodYear',year,'number','min="2000" max="2199" data-draft-ignore')}
+ ${selectField('Trimestre','reportPeriodQuarter',[1,2,3,4].map(q=>({value:String(q),label:q+'º trimestre'})),String(quarter),'data-draft-ignore')}
+ ${btn('Aplicar trimestre','report-period-quarter','secondary')}
+ ${selectField('Mes','reportPeriodMonth',Array.from({length:12},(_,i)=>({value:String(i+1),label:new Date(2026,i,1).toLocaleDateString('es-ES',{month:'long'})})),String(month),'data-draft-ignore')}
+ ${btn('Aplicar mes','report-period-month','secondary')}</div>
+ <p class="note" role="status">Periodo para descargar: <b>${fmtDate(f.from)} → ${fmtDate(f.to)}</b> · ${f.store==='all'?'Todas las tiendas':esc(storeName(f.store))}${f.query?' · Búsqueda: '+esc(f.query):''}</p>
+ <div class="report-actions">${btn('Ver tabla de gestoría','report-gestor-source-preview','secondary')}${btn('Descargar tabla Excel','export-gestor-source','primary')}${btn('Imprimir / guardar PDF','report-gestor-source-print','secondary')}${btn('Descargar paquete del periodo ZIP','export-gestor-period-package','primary')}</div>
+ <p class="small muted">El ZIP incluye la tabla de gestoría, los ingresos, los diarios del periodo y los justificantes vinculados a los gastos y facturas de clientes. Incluye un listado de registros sin adjunto para que puedas completarlos. Nºfra.rec. y Rt quedan para la gestoría.</p>
+ <details class="report-extra"><summary>Descargas anuales y auditoría complementaria</summary><div class="report-actions">${btn('Descargar conciliación anual '+year,'export-gestor-book','secondary',`data-year="${year}"`)}${btn('Preparar paquete anual gestor ZIP','export-gestor-package','secondary',`data-year="${year}"`)}</div></details></section>`},
+ exports:{title:'Exportaciones de trabajo',html:`<section class="card card-pad"><div class="section-head"><div><h2>Exportaciones de trabajo</h2><p>Para análisis puntual con las fechas exactas seleccionadas.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Cierres detallados','export-closings','secondary')}${btn('Gastos detallados','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section>`}
+ };
+ const visible=order.filter(id=>blocks[id]?.html),content=visible.map((id,index)=>`<div class="report-movable-block" data-report-block="${id}"><div class="report-block-controls"><span>${blocks[id].title}</span><div class="inline-actions">${btn('↑ Subir','report-block-up','secondary',`data-block="${id}" aria-label="Subir ${blocks[id].title}" ${index===0?'disabled':''}`)}${btn('↓ Bajar','report-block-down','secondary',`data-block="${id}" aria-label="Bajar ${blocks[id].title}" ${index===visible.length-1?'disabled':''}`)}</div></div>${blocks[id].html}</div>`).join('');
+ return `<div class="page reports-page"><section class="card">${dateFilters({...f,stores:stores()},'informes')}</section>
  ${g.some(x=>isUnreconciledPayment(x)&&!acceptedExpense(x))?'<p class="note warn">Hay pagos del Excel pendientes de vincular o desglosar. Se conservan para consulta, sin volver a restarlos como gasto. El resultado es provisional.</p>':''}
  <div class="kpis">${kpi('Ventas del periodo',money(sales))}${kpi('Gastos registrados',money(accounting))}${kpi('Gastos internos · solo información',money(internal+taxInformation),'Incluye los impuestos pagados, mostrados en el detalle inferior')}${kpi('Resultado antes de pagar impuestos',money(sales-accounting-internal),'Los pagos de impuestos no se descuentan aquí. Para el IRPF, consulta Fiscalidad')}</div>
- ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:'' }
- ${incomeBreakdownHtml(c,sales-sum(c,closingIncomeAmount))}
- ${taxPaymentInformationHtml(f)}
- <div class="split">
-  <section class="card card-pad"><div class="section-head"><div><h2>Diarios mensuales de gastos y ventas</h2><p>Todos los meses del periodo aplicado. Cada archivo incluye solo las fechas, tienda y búsqueda seleccionadas.</p></div></div>
-   <div class="monthly-reports">${periods.map(period=>`<section class="monthly-report"><h3>${esc(period.label)}</h3>${stores().filter(s=>f.store==='all'||s.id===f.store).map(s=>`<div class="summary-row"><b>${esc(s.name)}</b><div class="inline-actions">${btn('Vista previa','report-store-preview','secondary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}${btn('Descargar Excel','export-store-book','primary',`data-store="${s.id}" data-year="${period.year}" data-month="${period.month}"`)}</div></div>`).join('')}</section>`).join('')}</div>
-  </section>
-  <section class="card card-pad"><div class="section-head"><div><h2>Gestoría y auditoría</h2><p>Tabla de compras y gastos con las columnas y el desglose del documento de la gestoría. Solo incluye gastos fiscales revisados del periodo y tienda seleccionados. Nºfra.rec. y Rt quedan para la gestoría.</p></div></div>
-   <div class="report-actions" style="margin-top:14px">${btn('Ver tabla de gestoría','report-gestor-source-preview','secondary')}${btn('Descargar tabla Excel','export-gestor-source','primary')}${btn('Imprimir / guardar PDF','report-gestor-source-print','secondary')}</div>
-   <div class="report-actions" style="margin-top:14px"><details class="report-extra"><summary>Conciliación y auditoría interna</summary><p class="small muted">Libro complementario para contrastar importes; el documento para entregar es la tabla de gestoría.</p>${btn('Descargar conciliación anual '+year,'export-gestor-book','secondary',`data-year="${year}"`)}</details>${btn('Preparar paquete anual gestor ZIP','export-gestor-package','secondary',`data-year="${year}"`)}</div>
-  </section>
- </div>
- <section class="card card-pad"><div class="section-head"><div><h2>Exportaciones de trabajo</h2><p>Para análisis puntual con las fechas exactas seleccionadas.</p></div></div><div class="toolbar" style="margin-top:16px">${btn('Cierres detallados','export-closings','secondary')}${btn('Gastos detallados','export-expenses','secondary')}${btn('Resumen del periodo','export-summary','secondary')}</div></section>
- </div>`;
+ ${unreviewed?`<div class="note">${unreviewed} gastos pendientes de revisión están incluidos en el resultado real, pero excluidos de las deducciones del modelo 130 y del libro fiscal de gestoría hasta cotejar sus facturas.</div>`:''}
+ <div class="report-order-hint"><p>Usa ↑ Subir y ↓ Bajar para ordenar los bloques. Se guarda en tu cuenta para todos tus dispositivos.</p>${btn('Restablecer orden','report-block-reset','secondary')}</div><div class="report-blocks">${content}</div></div>`;
 }
 
 export function administracion(){
@@ -1070,7 +1075,7 @@ export function expenseRecordHtml(row=null){
       ${formField('Proveedor','exSupplier',row?.supplier_name||'')}
       ${formField('NIF/CIF','exTax',row?.supplier_tax_id||'')}
       ${formField('Nº factura / justificante','exInvoice',row?.invoice_number||'')}
-      ${selectField('Tipo documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'},...(!row||taxRecord?[{value:'impuesto',label:'Pago de impuesto · solo control interno'}]:[])],row?.document_kind||'factura')}
+      ${selectField('Tipo documento','exDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'},{value:'control_interno',label:'Control interno'},...(!row||taxRecord?[{value:'impuesto',label:'Pago de impuesto · solo control interno'}]:[])],row?.management_only&&row?.document_kind==='otro'?'control_interno':row?.document_kind||'factura')}
      </div>
      <div class="attachment-box" style="margin-top:14px">
       <div><b>Justificante</b><div class="small muted">${doc?esc(doc.original_name):'Sin archivo vinculado'}</div></div>

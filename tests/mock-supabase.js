@@ -175,6 +175,12 @@ const rpc=async (name,args={})=>{
   drawers.forEach(d=>insert('ops_daily_closing_drawers',{...d,closing_id:row.id}));
   return {data:row.id,error:null};
  }
+ if(name==='totus_save_report_layout'){
+  const order=args.p_order,allowed=['income','internal','monthly','gestor','exports'];
+  if(!Array.isArray(order)||order.length!==5||new Set(order).size!==5||order.some(x=>!allowed.includes(x)))return {data:null,error:{message:'Orden no válido'}};
+  const profile=db.profiles.find(x=>x.id===userId);profile.ui_preferences={...(profile.ui_preferences||{}),report_blocks:[...order]};
+  return {data:[...order],error:null};
+ }
  if(name==='totus_save_expense'){
   const p=args.p_expense,lines=args.p_lines||[];let row=p.id?get('ops_expenses',p.id):null;
   if(!row)row=insert('ops_expenses',{});

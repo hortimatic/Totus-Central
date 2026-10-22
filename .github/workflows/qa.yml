@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
+      - run: node tests/dashboard-report-qa.mjs
       - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/credential-renewal-qa.mjs
       - run: node tests/backup-retention-qa.mjs
@@ -80,6 +81,7 @@ jobs:
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
+      - run: node tests/dashboard-report-browser-qa.mjs
       - run: node tests/closing-workflow-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
