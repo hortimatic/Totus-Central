@@ -2,7 +2,7 @@ import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
 import {archiveHash as componentHash} from './recovery-core.js';
 import {validateTaxExpense} from './tax-expense.js';
 import {workbookPreviewText} from './workbook-preview.js';
-import {oneDriveRequest,setOneDriveStatus,oneDriveCredentialNotice} from './onedrive-connection.js';
+import {oneDriveRequest,setOneDriveStatus,setOneDriveMaintenance,oneDriveCredentialNotice} from './onedrive-connection.js';
 import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
@@ -99,7 +99,7 @@ function render(){
  const renderer=renderers[state.route]||renderers.inicio;
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
- $('#content').innerHTML=oneDriveCredentialNotice({compact:true})+renderer();
+ $('#content').innerHTML=(isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true}))+renderer();
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
@@ -157,6 +157,7 @@ async function refresh(message=''){
  state.loading=true;
  try{
   await loadCore();
+  if(isAdmin())try{setOneDriveMaintenance(await oneDriveRequest('maintenance-status'));}catch{}
   if(message)toast(message,'ok');
   if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else render()
  }

@@ -1,5 +1,9 @@
 import {archiveHash,validateArchivePath} from './recovery-core.js';
-export const SET_FORMAT='totus-backup-set',SET_VERSION=4,SET_COMPONENT_BYTES=32*1024*1024,SET_MAX_COMPONENTS=4096,SET_INDEX_BYTES=2*1024*1024;
+export const SET_FORMAT='totus-backup-set';
+export const SET_VERSION=4;
+export const SET_COMPONENT_BYTES=32*1024*1024;
+export const SET_MAX_COMPONENTS=4096;
+export const SET_INDEX_BYTES=2*1024*1024;
 const HASH=/^[a-f0-9]{64}$/;
 export function componentPath(path,kind,n=0){
  if(!['datos','documentos','codigo'].includes(kind)||!Number.isInteger(n)||n<0||n>=SET_MAX_COMPONENTS)throw new Error('Componente de copia no válido.');

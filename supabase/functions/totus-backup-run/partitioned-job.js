@@ -1,4 +1,4 @@
-import {RECOVERY_TABLES,validateMetadata,MAX_DATABASE_BYTES} from '../../../src/recovery-core.js';
+import {RECOVERY_TABLES,validateMetadata} from '../../../src/recovery-core.js';
 import {componentPath,signBackupSet,SET_COMPONENT_BYTES} from '../../../src/backup-set.js';
 export function createPartitionedBackup({Zip,hash,readOriginal,writeComponent,readCode}){
  async function start(snapshot,path){

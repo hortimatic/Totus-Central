@@ -5,7 +5,8 @@ import {state,isAdmin} from './state.js';
 import {esc} from './utils.js';
 import {btn,kpi} from './components.js';
 
-let connectionStatus=null,connectionOwner='';
+let connectionStatus=null,connectionOwner='',maintenanceStatus=null,maintenanceOwner='';
+export function setOneDriveMaintenance(value){maintenanceStatus=value;maintenanceOwner=state.user?.email||'';}
 export function setOneDriveStatus(value){connectionStatus=value;connectionOwner=state.user?.email||'';}
 export async function oneDriveRequest(action,values={}){
  if(!isAdmin())throw new Error('Solo administración puede configurar OneDrive.');
@@ -25,8 +26,9 @@ const safeLink=value=>{
 };
 export function oneDriveCredentialNotice({compact=false}={}){
  const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
- if(!s)return '';
- const life=credentialLifetime(s.credential_expires_at),fmt=date=>new Date(date+'T12:00:00Z').toLocaleDateString('es-ES',{timeZone:'Europe/Madrid'});
+ const info=maintenanceOwner===(state.user?.email||'')?maintenanceStatus:null;
+ if(!s&&!info)return '';
+ const life=credentialLifetime(info?.credential_expires_at||s?.credential_expires_at),fmt=date=>new Date(date+'T12:00:00Z').toLocaleDateString('es-ES',{timeZone:'Europe/Madrid'});
  if(compact&&(!life.known||life.level==='ok'))return '';
  const headline=!life.known?'Caducidad de la conexión pendiente de registrar':life.expired?'La clave de conexión con Microsoft ha caducado':'Clave de conexión con Microsoft · quedan '+life.days+' días';
  return '<aside class="note '+(['warning','urgent','expired'].includes(life.level)?'warn':'')+'" '+(life.level==='ok'?'role="note"':'role="alert"')+' data-credential-notice><b>'+headline+'</b><p>'+

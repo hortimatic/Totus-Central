@@ -525,6 +525,9 @@ Deno.serve(async req=>{
   if(action==='sync-manuals'){const result=await syncOnlineManuals(String(body.revision||''));await audit(user.id,user.email||'','manuales_online_actualizados');return json(result);}
   if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
+  if(action==='maintenance-status'){
+   const c=await config();return json({credential_expires_at:c.credential_expires_at||null,connected:c.connected});
+  }
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();
