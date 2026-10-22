@@ -1,6 +1,7 @@
 # TotusCentral · entrada para ChatGPT online
 
 ## Primero
+Consulta primero [el informe vigente de producción](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Los informes fechados del 20/10 son antecedentes, no instrucciones para recrear entornos antiguos.
 Lee [el manual operativo](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/MANUAL_CHATGPT_ONLINE.md), [el registro de peticiones](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md) y [el informe de revisión](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/INFORME_REVISION_2026-10-20.md).
 Trabaja en [Totus Central](https://hortimatic.github.io/Totus-Central/), repositorio hortimatic/Totus-Central, rama totus-central, proyecto Supabase awmojepsasikxocoeqtu. Antes de cambiar código, estructura o datos, explicar el cambio al titular. La URL antigua /staging/ solo redirige a esta misma aplicación.
 
@@ -43,3 +44,6 @@ Los manuales públicos se sincronizan y verifican en OneDrive → 04 Manuales y 
 
 ## Revisión de producción
 Consultar [REVISION_PRODUCCION_2026-10-21.md](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Conserva la distinción entre pruebas superadas, transición preparada y retirada del proyecto antiguo todavía pendiente de comprobación o confirmación.
+
+## Estado comprobado el 22/10/2026
+Publicación 460c0365 en la raíz, rama única totus-central y proyecto único Supabase Totus Central (awmojepsasikxocoeqtu). El proyecto antiguo se eliminó tras confirmación específica. La copia nocturna del 22/10 superó lectura e integridad y ensayo temporal de 38 tablas/57 relaciones, sin restaurar sobre la contabilidad. Máximo diez copias, diaria 00:35 Madrid. La credencial Microsoft caduca el 18/04/2027: preparar su renovación segura antes de esa fecha. Revisar los pendientes expresos del informe, sin presentarlos como resueltos.

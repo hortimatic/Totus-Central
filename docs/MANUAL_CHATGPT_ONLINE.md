@@ -1,5 +1,5 @@
 # Manual operativo de TotusCentral para ChatGPT online
-Versión de producción preparada: 21/10/2026. Revisar el informe de transición y la versión publicada antes de operar.
+Actualizado: 22/10/2026. Producción publicada en la raíz; rama única totus-central y proyecto Supabase awmojepsasikxocoeqtu. Consultar el informe de revisión antes de operar.
 
 ## 1. Acceso y responsabilidades
 La web está en GitHub Pages, el código publicado en la rama totus-central de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
@@ -246,3 +246,6 @@ El Excel detallado de Gastos conserva sus filas y columnas originales. «Total d
 
 ## Dirección del titular · 22/10/2026
 La versión antes llamada staging es la producción definitiva. Su propia rama pasa a llamarse totus-central y es la rama principal del repositorio. La propuesta de fusionarla en el main obsoleto quedó cerrada sin fusionar. No copiar datos ni crear otra instalación para este cambio de nombre. Durante el uso diario, anunciar antes cualquier corrección y limitar los cambios a lo solicitado. Para trabajos complejos futuros, crear un nuevo entorno de pruebas aislado a partir de esta base únicamente cuando el titular lo pida. La futura venta por TotusCode es una fase distinta: no habilitar clientes, licencias, pagos o acceso a la contabilidad del titular como parte de esta transición.
+
+## 23. Mantenimiento de la conexión de Microsoft
+El registro de aplicación se llama Totus Central y conserva su identificador. La credencial actual caduca el 18/04/2027; renovarla antes de esa fecha desde los servicios autorizados, con intervención del titular para introducir credenciales cuando corresponda. No escribir valores secretos en el chat ni publicarlos en GitHub. Comprobar guardado, relectura y copia completa después de una renovación. No desconectar ni ampliar permisos por un simple cambio de nombre.

@@ -1,3 +1,5 @@
+> Documento histórico del 20/10/2026. Desde el 22/10 la única producción es Totus Central, rama totus-central, URL raíz y proyecto awmojepsasikxocoeqtu. El proyecto antiguo se eliminó. Para el estado vigente consultar [Revisión de producción](REVISION_PRODUCCION_2026-10-21.md) y el manual actualizado. Las referencias de este documento a staging/main describen el estado histórico, no otro entorno disponible.
+
 # Informe de revisión y estabilización · TotusCentral
 Fecha: 20/10/2026. Alcance: staging. Main y producción no se han modificado.
 
