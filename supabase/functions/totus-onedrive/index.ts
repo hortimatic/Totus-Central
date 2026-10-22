@@ -433,8 +433,8 @@ async function syncOnlineManuals(revision:string){
  const files=[
   ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
   ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
-  ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_CIERRE_2026-10-20.md'],
-  ['docs/auditorias/INFORME_REVISION_2026-10-20.md','INFORME_REVISION_2026-10-20.md']
+  ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_ESTADO.md'],
+  ['docs/auditorias/REVISION_PRODUCCION_2026-10-21.md','INFORME_REVISION.md']
  ];
  for(const [source,name] of files){
   const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});

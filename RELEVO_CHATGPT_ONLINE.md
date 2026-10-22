@@ -1,49 +1,36 @@
-# TotusCentral · entrada para ChatGPT online
+# Totus Central · entrada para ChatGPT online
 
-## Primero
-Consulta primero [el informe vigente de producción](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Los informes fechados del 20/10 son antecedentes, no instrucciones para recrear entornos antiguos.
-Lee [el manual operativo](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/MANUAL_CHATGPT_ONLINE.md), [el registro de peticiones](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md) y [el informe de revisión](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/INFORME_REVISION_2026-10-20.md).
-Trabaja en [Totus Central](https://hortimatic.github.io/Totus-Central/), repositorio hortimatic/Totus-Central, rama totus-central, proyecto Supabase awmojepsasikxocoeqtu. Antes de cambiar código, estructura o datos, explicar el cambio al titular. La URL antigua /staging/ solo redirige a esta misma aplicación.
+## Antes de trabajar
+Leer [el manual operativo](docs/MANUAL_CHATGPT_ONLINE.md) y [el informe técnico vigente](docs/auditorias/REVISION_PRODUCCION_2026-10-21.md).
+La única aplicación es [Totus Central](https://hortimatic.github.io/Totus-Central/). La rama de código vigente es `totus-central`. No recrear ni fusionar main o un entorno antiguo.
 
-## Dónde está cada cosa
-- GitHub: código, migraciones, funciones, pruebas y manuales.
-- Supabase: contabilidad, referencias de archivos, usuarios, permisos, configuración y tareas del servidor. Logos, índices pequeños y relevo privado permanecen en su almacenamiento.
-- OneDrive: originales y copias completas verificadas, en Mis archivos → Apps → Totus Central.
-- No se necesita este portátil ni un servidor local. No dejar descargas, documentos fiscales o credenciales en equipos como parte del funcionamiento.
+El inventario, los resultados particulares y el informe completo de la instalación se conservan en su administración privada. Consultarlos mediante acceso autorizado; no publicarlos ni exportarlos al equipo.
 
-El 20/10/2026 se conservaron 547 gastos, 449 cierres y 452 documentos. Los 452 originales y cuatro copias completas se comprobaron en OneDrive; se retiraron sus duplicados pesados de Supabase. Las copias antiguas incompatibles se retiraron después de disponer de sucesoras completas verificadas. El archivo privado de revisión y dos puntos de recuperación se conservaron.
+## Responsabilidades de los servicios
+- GitHub: código, pruebas, migraciones e instrucciones públicas sin datos contables.
+- Supabase: operaciones, acceso, permisos, configuración y tareas del servidor.
+- OneDrive: originales y respaldos verificados en la carpeta exclusiva de la aplicación.
+
+No se necesita un proceso local ni este portátil para las tareas del servidor. No guardar credenciales, fuentes fiscales ni archivos de trabajo en equipos como parte del funcionamiento.
 
 ## Trabajo diario
-1. Verificar entorno, versión, acceso y última copia correcta.
-2. Consultar Inicio y la fecha del efectivo para abrir cada cajón. Hortimatic: Vape y Head; NewOldSmok: su caja propia.
-3. Introducir cierres, gastos y facturas siguiendo el manual. Buscar duplicados y asociar cada original al gasto correcto.
-4. Revisar filtros, importes, pagos y previsión fiscal. Las cifras de gestoría sirven para contraste, no para sustituir cálculos.
-5. No modificar el histórico aceptado del 1T–3T para forzar coincidencias. Octubre lo introduce manualmente el titular para aprender.
+1. Verificar dirección, versión, sesión y última copia correcta.
+2. Consultar Inicio y la fecha del efectivo que se dejó para abrir cada cajón.
+3. Buscar duplicados antes de introducir cierres, gastos o facturas. Asociar cada documento con su operación correcta.
+4. Separar gastos fiscales, control interno y apuntes de pago. No duplicarlos.
+5. Contrastar fechas de venta y abono bancario. No ajustar operaciones para forzar una coincidencia.
+6. Mantener el histórico aceptado y documentar cualquier corrección autorizada.
 
-## Automatización sin ordenador
-La copia nocturna se programa a las 00:35 Europe/Madrid. Con OneDrive conectado, crea y verifica el archivo directamente allí, sin duplicar sus partes en Supabase. Los traslados antiguos y la retirada de duplicados mantienen sus fases separadas y reservas.
-La tarea de mantenimiento existente de dos minutos continúa las fases pendientes desde Supabase. No crear otro horario de copias ni un proceso en Windows.
-Conservación configurable: de una a diez copias ordinarias completadas, mediante Administración → Copias → Guardar programación. Los puntos de recuperación protegidos se conservan aparte. Una copia fallida o incompleta nunca sustituye a una correcta.
+## Copias y recuperación
+La programación y conservación se gestionan en Administración → Copias. Comprobar la última copia completada, su proveedor y su verificación. Un intento fallido no sustituye a una copia correcta. Los puntos protegidos de recuperación se mantienen según su función.
 
-## Acceso de ChatGPT
-Las sesiones de este escritorio no se heredan. Verificar conexiones autorizadas o navegador en la nube disponible y entrar con el titular cuando proceda. No pedir que escriba contraseñas en el chat.
-Para trabajo operativo puede usarse la web con su sesión autorizada. La disponibilidad del navegador en la nube depende del producto, plan y permisos: [documentación oficial](https://help.openai.com/en/articles/20001280-using-cloud-browser-in-chatgpt).
-La app estándar de GitHub en ChatGPT es de consulta; no asumir que permite publicar cambios. Para escribir código se necesita una experiencia y autorización con escritura, como Codex: [documentación oficial](https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt).
-OneDrive está restringido a la carpeta de aplicación. Los documentos de negocio respetan los permisos del usuario de TotusCentral; configurar o reconectar el proveedor requiere administración.
+El respaldo de aplicación recupera datos en el mismo proyecto. La reconstrucción de un proyecto nuevo, usuarios, contraseñas y secretos requiere otro procedimiento. No ensayar una recuperación sobre la contabilidad real.
 
-## Recuperación y límites
-Se han probado la lectura íntegra de copias, las relaciones y una recuperación SQL completa con reversión, conservando las ubicaciones de OneDrive. La reconstrucción total de otro proyecto y sus identidades/credenciales es un procedimiento distinto.
-Las copias de aplicación son para el mismo proyecto y no incluyen contraseñas ni secretos de infraestructura. Consultar el manual antes de recuperar; no ejecutar ensayos sin límite de tiempo.
-El formato admite 120 MiB de copia y 128 MiB expandidos. La simulación de 112 MiB cubre el volumen estimado de un año fiscal al ritmo observado, sin prometer capacidad ilimitada. Preparar una ampliación por volúmenes o archivo de ejercicios antes del aviso de crecimiento.
-Mantener el plan gratuito; no contratar servicios automáticamente.
+Revisar en privado los límites de formato, capacidad y caducidad de conexiones. Mantener el plan contratado y no ampliar servicios automáticamente.
 
-## Material privado de relevo
-El archivo privado de revisión se conserva en Supabase Storage, business-backups/relevo, con acceso de administración. No publicarlo ni borrarlo como si fuera una copia ordinaria sobrante.
-Los manuales públicos se sincronizan y verifican en OneDrive → 04 Manuales y funcionamiento. Los originales fiscales y sus datos nunca se incluyen en el repositorio público.
+## Acceso y continuidad
+ChatGPT online necesita sus propias conexiones o navegador autorizados; las sesiones de este escritorio no se transfieren. Nunca pedir contraseñas ni códigos en el chat. No ampliar permisos para resolver una ruta o un nombre.
 
+Avisar al titular antes de modificar código, estructura o datos. Los trabajos complejos futuros requieren un nuevo entorno aislado basado en esta producción, cuando se solicite.
 
-## Revisión de producción
-Consultar [REVISION_PRODUCCION_2026-10-21.md](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Conserva la distinción entre pruebas superadas, transición preparada y retirada del proyecto antiguo todavía pendiente de comprobación o confirmación.
-
-## Estado comprobado el 22/10/2026
-Publicación 460c0365 en la raíz, rama única totus-central y proyecto único Supabase Totus Central (awmojepsasikxocoeqtu). El proyecto antiguo se eliminó tras confirmación específica. La copia nocturna del 22/10 superó lectura e integridad y ensayo temporal de 38 tablas/57 relaciones, sin restaurar sobre la contabilidad. Máximo diez copias, diaria 00:35 Madrid. La credencial Microsoft caduca el 18/04/2027: preparar su renovación segura antes de esa fecha. Revisar los pendientes expresos del informe, sin presentarlos como resueltos.
+En OneDrive → Manuales y funcionamiento se verifican las instrucciones con nombres estables: MANUAL_CHATGPT_ONLINE.md, RELEVO_CHATGPT_ONLINE.md, PETICIONES_Y_ESTADO.md e INFORME_REVISION.md. Los documentos públicos fechados anteriores son antecedentes; no indican que siga disponible otra instalación.
