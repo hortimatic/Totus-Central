@@ -13,6 +13,15 @@ Subir un PDF directamente a una carpeta de OneDrive no lo asocia automáticament
 
 ## 2. Conectar ChatGPT sin depender de un ordenador particular
 
+Cuando la cuenta de ChatGPT tenga conectado el complemento Microsoft SharePoint, comprueba sus herramientas para OneDrive personal antes de proponer un navegador o Work. La conexión del complemento es distinta de la integración del servidor de Totus con Microsoft. Verifica el acceso real en cada chat y utiliza los permisos existentes; no vuelvas a crear credenciales.
+
+Para acceder a la carpeta de Totus, usa el listado de archivos y carpetas del OneDrive autorizado y desciende por sus identificadores. Una búsqueda puede devolver originales fuera de la carpeta solicitada: contrasta siempre la ruta antes de asociar un documento. Prefiere las direcciones exactas de Microsoft Graph que devuelva el conector para leer un archivo; una dirección de navegación de OneDrive puede fallar al resolverse.
+
+La extracción de texto de un Markdown puede devolver contenido vacío aun cuando el archivo exista. En ese caso no afirmes haberlo leído: usa el archivo original en el entorno de análisis del chat, si está disponible, o la versión equivalente de GitHub. Los PDF pueden ofrecer texto directamente. Para subir un adjunto utiliza la referencia de archivo que admita el conector; no sustituyas los bytes por texto inventado o base64 no admitido.
+
+Subir un PDF suelto a OneDrive no registra automáticamente un gasto en Totus. Hay que crear o actualizar el registro y su vínculo por la vía autorizada, validar los datos y comprobar el resultado. No uses la credencial privada de las tareas automáticas como conexión permanente del chat.
+
+
 La conexión de Totus Central con OneDrive y el acceso de ChatGPT son autorizaciones diferentes. Una no concede la otra.
 
 1. Entra en ChatGPT en la web y utiliza el entorno de trabajo en la nube que ofrezca tu cuenta. Crea o abre el proyecto dedicado a Totus Central.
@@ -143,6 +152,13 @@ Los periodos ya presentados y aceptados conservan sus estados. No reabrirlos ni 
 Para corregir una factura emitida, utilizar el procedimiento de la herramienta. No editar directamente la base de datos ni borrar documentos emitidos para reutilizar números.
 
 ## 7. Fiscalidad e informes para gestoría
+
+En Informes, el selector de mes o trimestre y año aplica las fechas a la tabla y al paquete ZIP del periodo. Comprueba también tienda y búsqueda. El paquete incluye documentos de gastos y facturas emitidas vinculados a sus registros aunque la fecha del archivo sea distinta; enumera los registros que aún no tienen adjunto. Conserva las descargas anuales complementarias. Los bloques se ordenan con Subir y Bajar; el orden es una preferencia de la cuenta.
+
+En Inicio la gráfica y sus cuatro indicadores comparten el mismo periodo aplicado: ventas e ingresos, gastos fiscalizables registrados y gastos internos separados. Los internos incluyen los impuestos pagados y no se restan del beneficio fiscal. Para gastos internos generales puedes elegir el tipo Control interno en la ficha ordinaria y adjuntar su justificante como cualquier otro gasto.
+
+Consulta [Inicio, control interno e informes](MEJORAS_INICIO_E_INFORMES.md) para el detalle de estos controles.
+
 
 Durante el trimestre, consultar los ingresos, gastos fiscalizables, beneficio fiscal y previsión de impuestos calculada por Totus. Separar el pago previsto, el realmente pagado y los datos de contraste de gestoría. Una cifra facilitada por la gestoría no debe sustituir la previsión propia para hacerla coincidir.
 
