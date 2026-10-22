@@ -47,14 +47,14 @@ export async function openBackupSet(path,index,read,hash=archiveHash,expectedHas
     const length=entry._data?.uncompressedSize;
     if(!Number.isSafeInteger(length)||length<0)throw new Error('Componente ZIP sin tamaño válido.');
     expanded+=length;if(expanded>40*1024*1024)throw new Error('Un componente ZIP supera el límite de seguridad.');
-    if(p.kind==='datos'&&!['database.json','manifest.json'].includes(entry.name)||p.kind==='documentos'&&!entry.name.startsWith('storage/'))throw new Error('Contenido inesperado en un componente.');
+    if(p.kind==='datos'&&!['database.json','manifest.json','LEEME.txt'].includes(entry.name)||p.kind==='documentos'&&!entry.name.startsWith('storage/'))throw new Error('Contenido inesperado en un componente.');
    }
    cached=zip;cachedPath=p.path;return zip;
   }
   for(const p of index.parts){
    const zip=await volume(p);if(!zip)continue;
    for(const entry of Object.values(zip.files)){
-    if(entry.dir)continue;
+    if(entry.dir||entry.name==='LEEME.txt')continue;
     if(files[entry.name])throw new Error('Archivo duplicado entre componentes.');
     const name=entry.name;
     files[name]={name,dir:false,_data:{uncompressedSize:entry._data?.uncompressedSize},async:async type=>{

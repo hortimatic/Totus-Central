@@ -25,6 +25,7 @@ const safeLink=value=>{
  try{const u=new URL(value);return u.protocol==='https:'&&(u.hostname==='onedrive.live.com'||u.hostname.endsWith('.sharepoint.com'))?u.href:'';}catch{return '';}
 };
 export function oneDriveCredentialNotice({compact=false}={}){
+ if(!isAdmin())return '';
  const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
  const info=maintenanceOwner===(state.user?.email||'')?maintenanceStatus:null;
  if(!s&&!info)return '';

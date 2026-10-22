@@ -372,7 +372,7 @@ async function partitionedRun(mode:string,req:Request){
    const source=await admin.from('ops_backup_work').select('snapshot').eq('run_id',job.run_id).single();if(source.error)throw source.error;
    job.state.snapshot=source.data.snapshot;
   }
-  const result=await engine.advance(job.state);
+  const result=await engine.advance(structuredClone(job.state));
   if(!result.complete){
    const save=await admin.from('ops_backup_work').update({state:result.job,updated_at:new Date().toISOString(),lease_until:null}).eq('run_id',job.run_id).eq('lease_until',lease);
    if(save.error)throw save.error;
@@ -391,14 +391,16 @@ async function partitionedRun(mode:string,req:Request){
   return {id:job.run_id,status:'success',size_bytes:result.index.size,components:result.index.parts.length,retention};
  }catch(error){
   // Keep resumable state for temporary failures; previous complete copies remain untouched.
-  const saved=await admin.from('ops_backup_work').update({lease_until:null,updated_at:new Date().toISOString()}).eq('run_id',job.run_id).eq('lease_until',lease);
-  await admin.from('ops_backup_runs').update({error_message:'Pendiente de reintento: '+String(error instanceof Error?error.message:error).slice(0,800)}).eq('id',job.run_id).eq('status','running');
-  if(saved.error)throw saved.error;
   const failures=Number(job.state.failures||0)+1;
+  await admin.from('ops_backup_runs').update({error_message:'Pendiente de reintento: '+String(error instanceof Error?error.message:error).slice(0,800)}).eq('id',job.run_id).eq('status','running');
   if(failures>=5){
-   await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'No se pudo completar la copia después de cinco intentos: '+String(error instanceof Error?error.message:error).slice(0,700)}).eq('id',job.run_id).eq('status','running');
-   await admin.from('ops_backup_work').delete().eq('run_id',job.run_id);
-  }else await admin.from('ops_backup_work').update({state:{...Object.fromEntries(Object.entries(job.state).filter(([k])=>k!=='snapshot')),failures}}).eq('run_id',job.run_id);
+   const marked=await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'No se pudo completar la copia después de cinco intentos: '+String(error instanceof Error?error.message:error).slice(0,700)}).eq('id',job.run_id).eq('status','running');
+   if(marked.error)throw marked.error;
+   const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id).eq('lease_until',lease);if(removed.error)throw removed.error;
+  }else{
+   const saved=await admin.from('ops_backup_work').update({state:{...Object.fromEntries(Object.entries(job.state).filter(([k])=>k!=='snapshot')),failures},lease_until:null,updated_at:new Date().toISOString()}).eq('run_id',job.run_id).eq('lease_until',lease);
+   if(saved.error)throw saved.error;
+  }
   throw error;
  }
 }

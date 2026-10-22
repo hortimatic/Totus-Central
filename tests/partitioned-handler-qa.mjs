@@ -55,6 +55,6 @@ db.ops_backup_work[0].lease_until=null;result=await run('scheduled',req);assert(
 result=await run('scheduled',req);assert.equal(result.status,'success');assert.equal(db.ops_backup_work.length,0);assert.equal(pruned,1);assert.equal(claims,1);
 assert.equal(db.ops_backup_runs[0].archive_manifest.bundle_version,4);assert.equal(JSON.stringify(database),before);
 reset();fail=true;
-for(let i=0;i<5;i++)await assert.rejects(()=>run(i?'scheduled':'manual',req),/Temporary/);
+for(let i=0;i<5;i++){await assert.rejects(()=>run(i?'scheduled':'manual',req),/Temporary/);if(i<4)assert.equal(db.ops_backup_work[0].state.cursor,0,'A failed upload must not advance the saved inventory');}
 assert.equal(db.ops_backup_runs[0].status,'failed');assert.equal(db.ops_backup_work.length,0);assert.equal(pruned,0,'Never rotate previous copies after a failed attempt');
 console.log('PARTITIONED HANDLER: actual coordinator, snapshot isolation, leases, cloud resume, code/data closure, failure retries and rotation only after success OK');
