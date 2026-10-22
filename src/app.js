@@ -620,7 +620,24 @@ function removeExpenseLine(index){
  if(rows.length<=1){toast('Debe quedar al menos una línea.','bad');return}
  document.querySelector(`.expense-line[data-line-index="${index}"]`)?.remove();updateExpenseSummary();
 }
+function updateExpenseDeductionFields(){
+ const excluded=!!input('exManagement')?.checked||['impuesto','control_interno'].includes(val('exDocKind'));
+ for(const row of document.querySelectorAll('.expense-line')){
+  const ix=row.dataset.lineIndex,deductible=input('exLineDed_'+ix),percentage=input('exLineDedPct_'+ix);
+  if(!deductible||!percentage)continue;
+  if(excluded){
+   if(deductible.dataset.beforeInternal===undefined)deductible.dataset.beforeInternal=String(deductible.checked);
+   if(percentage.dataset.beforeInternal===undefined)percentage.dataset.beforeInternal=percentage.value;
+   deductible.checked=false;percentage.value='0';
+  }else{
+   if(deductible.dataset.beforeInternal!==undefined){deductible.checked=deductible.dataset.beforeInternal==='true';delete deductible.dataset.beforeInternal}
+   if(percentage.dataset.beforeInternal!==undefined){percentage.value=percentage.dataset.beforeInternal;delete percentage.dataset.beforeInternal}
+  }
+  deductible.disabled=excluded;percentage.disabled=excluded;
+ }
+}
 function updateExpenseSummary(){
+ updateExpenseDeductionFields();
  if(val('exDocKind')==='impuesto'){for(const id of ['exSumBase','exSumVat','exSumRe','exSumWh'])if(input(id))input(id).textContent=money(0);if(input('exSumTotal'))input('exSumTotal').textContent=money(num('exPaidAmount'));return}
 
  const rows=[...document.querySelectorAll('.expense-line')];let base=0,vat=0,re=0,wh=0;

@@ -46,6 +46,10 @@ try{
  const wb=XLSX.read(await zip.file('02_GASTOS/Tabla_gestoria_2026-01-01_2026-01-31.xlsx').async('nodebuffer'));assert(Object.values(wb.Sheets[wb.SheetNames[0]]).some(c=>c?.v==='E-ENE'));
  await nav('gastos');await page.locator('[data-action="expense-new"]').click();await page.locator('#exDocKind').selectOption('control_interno');
  assert(await page.locator('#exManagement').isChecked());assert(await page.locator('#exManagement').isDisabled());assert(!(await page.locator('#exFiscalReviewed').isChecked()));
+ assert(!(await page.locator('#exLineDed_0').isChecked()));assert(await page.locator('#exLineDed_0').isDisabled());assert.equal(await page.locator('#exLineDedPct_0').inputValue(),'0');
+ await page.locator('#exDocKind').selectOption('factura');await page.locator('#exManagement').uncheck();assert(await page.locator('#exLineDed_0').isChecked());assert.equal(await page.locator('#exLineDedPct_0').inputValue(),'100');
+ await page.locator('#exDocKind').selectOption('control_interno');await page.locator('[data-action="expense-line-add"]').click();assert(await page.locator('#exLineDed_1').isDisabled());assert.equal(await page.locator('#exLineDedPct_1').inputValue(),'0');await page.locator('[data-action="expense-line-remove"]').last().click();
+
  await page.locator('#exSupplier').fill('Gasto interno nuevo QA');await page.locator('#exInvoice').fill('INT-QA');await page.locator('#exLineDesc_0').fill('Control interno general');await page.locator('#exLineBase_0').fill('10');await page.locator('#exLineVat_0').fill('0');
  await page.locator('[data-action="expense-save"]').click();await page.getByText('Gasto guardado.',{exact:true}).waitFor();
  const expense=await page.evaluate(()=>window.__mockDb.ops_expenses.find(e=>e.invoice_number==='INT-QA'));assert.equal(expense.document_kind,'otro');assert.equal(expense.management_only,true);assert.equal(expense.fiscal_reviewed,false);
