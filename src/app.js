@@ -47,6 +47,7 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
+ if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
  let operation='view';
  if(/(^export-|\-export|\-download$|\-zip$|\-print$)/.test(a))operation='export';
  else if(/\-delete$/.test(a))operation='delete';
