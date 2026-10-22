@@ -613,3 +613,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 @media(max-width:600px){.report-order-hint{align-items:flex-start;flex-direction:column}.report-block-controls{align-items:flex-start}.report-block-controls>span{max-width:40%}.activity-chart svg{min-height:170px}.activity-legend{gap:8px 12px;font-size:12px}.gestor-period-picker>label{max-width:none}.gestor-period-picker>button{flex:1}.home-period-kpis .kpi strong{font-size:22px}}
 
 .activity-data:not([open]) .table-wrap{display:none}
+
+.income-breakdown-heading{display:flex;align-items:center;gap:8px;margin-bottom:12px}.income-breakdown-heading h2{margin:0}
