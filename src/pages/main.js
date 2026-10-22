@@ -826,7 +826,7 @@ function adminBackupHtml(){
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Copias guardadas · descargas</h2><p>Solo copias completadas con archivo disponible para descargar. La fecha indica qué momento de los datos conservan.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
    ${table(columns.filter(c=>c.label!=='Incidencias'),paths,{emptyTitle:'Sin copias guardadas',emptyText:'Los intentos fallidos aparecen por separado y no cuentan como copia.'})}
   </section>
-  <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Las copias nuevas se descargan por partes desde su fila. Para comprobar un juego, selecciona su índice y todos sus ZIP. También se conserva la descarga en un ZIP único para copias de hasta 120 MB.</p></div>${btn('Descargar ZIP único','backup-create','primary')}</div>
   <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar
    <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" data-draft-ignore multiple type="file" accept=".totusbackup,.zip,application/zip"></span>
    <span id="backupSelectedFile" role="status" class="small muted">Ningún archivo seleccionado</span></span>
