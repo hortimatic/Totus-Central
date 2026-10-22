@@ -1,3 +1,6 @@
+-- Administrative metadata only. Existing RLS and service-role access stay in force.
+alter table public.ops_onedrive_config add column if not exists credential_expires_at date;
+
 -- Private resumable state. Neither users nor the public API can read snapshots.
 create table if not exists public.ops_backup_work(
  run_id uuid primary key references public.ops_backup_runs(id) on delete cascade,
