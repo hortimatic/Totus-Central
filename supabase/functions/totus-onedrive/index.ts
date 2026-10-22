@@ -1,3 +1,5 @@
+import {credentialAlertSettings} from '../../../src/connection-maintenance.js';
+import {renewMicrosoftCredential} from './credential-renewal.js';
 import {createBackupDocumentLinks} from './backup-source-links.js';
 import {backupRetentionCount} from '../../../src/backup-retention.js';
 import {createDirectBackupTransfer} from './backup-transfer.js';
@@ -435,6 +437,7 @@ async function syncOnlineManuals(revision:string){
  const files=[
   ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
   ['docs/COPIAS_POR_COMPONENTES.md','COPIAS_POR_COMPONENTES.md'],
+  ['docs/GUIA_TRABAJO_DIARIO_CHATGPT.md','GUIA_TRABAJO_DIARIO_CHATGPT.md'],
   ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
   ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_ESTADO.md'],
   ['docs/auditorias/REVISION_PRODUCCION_2026-10-21.md','INFORME_REVISION.md']
@@ -443,10 +446,15 @@ async function syncOnlineManuals(revision:string){
   const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});
   if(!response.ok)throw new Error('No se pudo leer la documentación publicada de GitHub.');
   let text=await response.text();
+  if(name==='GUIA_TRABAJO_DIARIO_CHATGPT.md'){
+   const stores=check(await admin.from('ops_stores').select('id,name'),'No se pudieron documentar las tiendas');
+   const drawers=check(await admin.from('ops_cash_drawers').select('store_id,name'),'No se pudieron documentar las cajas');
+   text='> Configuración actual de esta instalación: '+stores.map((store:any)=>store.name+' ('+drawers.filter((drawer:any)=>drawer.store_id===store.id).map((drawer:any)=>drawer.name).join(', ')+')').join('; ')+'. Verifica estos nombres en la aplicación antes de trabajar.\n\n'+text;
+  }
   if(name==='MANUAL_CHATGPT_ONLINE.md'){
    text=text.replace(/El formato admite 120 MiB[^\n]*/,'Las copias por componentes (juegos v4) separan datos contables, documentos en ZIP numerados y código. Se preparan por lotes reanudables y no tienen el límite conjunto de 120 MiB del formato anterior. Las copias v3 antiguas y las descargas locales tradicionales conservan sus límites originales. Para descargar o recuperar un juego nuevo consulta COPIAS_POR_COMPONENTES.md; conserva siempre el índice y todos sus ZIP.');
-   text=text.replace(/La credencial actual caduca el [^;]+; renovarla antes de esa fecha[^.]*\./,'La fecha vigente de la credencial está registrada en Administración → Almacenamiento; el contador avisa desde 90 días antes y aumenta la urgencia desde 30 días antes. Guardar la fecha no renueva la credencial: la clave debe sustituirse mediante Microsoft antes de que caduque.');
-   text='> Guía vigente para los juegos v4: COPIAS_POR_COMPONENTES.md. Las referencias al ZIP único se mantienen para copias anteriores y la descarga local tradicional.\n\n'+text;
+   text=text.replace(/La credencial actual caduca el [^;]+; renovarla antes de esa fecha[^.]*\./,'La fecha vigente de la credencial está registrada en Administración → Almacenamiento; los avisos usan los umbrales configurados en ese panel (por defecto 90 días antes y aviso urgente 30 días antes). Guardar la fecha no renueva la credencial: la clave debe sustituirse mediante Microsoft antes de que caduque.');
+   text='> Guía de operativa vigente: GUIA_TRABAJO_DIARIO_CHATGPT.md. Para restaurar una copia guardada usa Restaurar esta copia en su fila. COPIAS_POR_COMPONENTES.md explica los juegos v4. Las referencias al ZIP único se mantienen para copias anteriores y archivos externos.\n\n'+text;
   }
   if(new TextEncoder().encode(text).byteLength>1024*1024)throw new Error('La documentación supera el tamaño permitido.');
   const bytes=new TextEncoder().encode('<!-- Fuente: GitHub hortimatic/Totus-Central; revision '+revision+' -->\n'+text);
@@ -537,19 +545,24 @@ Deno.serve(async req=>{
   if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
   if(action==='maintenance-status'){
-   const c=await config();return json({credential_expires_at:c.credential_expires_at||null,connected:c.connected});
+   const c=await config();return json({credential_expires_at:c.credential_expires_at||null,warning_days:c.warning_days??90,urgent_days:c.urgent_days??30,connected:c.connected});
   }
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();
    const backups=await backupMirrorSummary();
-   return json({configured,credential_expires_at:c.credential_expires_at||null,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+   return json({configured,credential_expires_at:c.credential_expires_at||null,warning_days:c.warning_days??90,urgent_days:c.urgent_days??30,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
   }
   if(action==='save-expiry'){
    const expires=String(body.expires_at||'');
    if(!/^\d{4}-\d{2}-\d{2}$/.test(expires)||!Number.isFinite(Date.parse(expires+'T00:00:00Z'))||new Date(expires+'T00:00:00Z').toISOString().slice(0,10)!==expires)throw new Error('Indica una fecha válida.');
-   check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,updated_at:new Date().toISOString()}).eq('id',1),'No se pudo guardar la fecha de caducidad.');
+   const previous=await config(),alerts=credentialAlertSettings({warning_days:body.warning_days??previous.warning_days,urgent_days:body.urgent_days??previous.urgent_days});
+   check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,warning_days:alerts.warningDays,urgent_days:alerts.urgentDays,updated_at:new Date().toISOString()}).eq('id',1),'No se pudo guardar la fecha de caducidad.');
    await audit(user.id,user.email||'','onedrive_caducidad_actualizada');return json({saved:true,credential_expires_at:expires});
+  }
+  if(action==='renew-key'){
+   const result=await renewMicrosoftCredential({config,secret,root,saveExpiry:async(expires:string)=>{check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,updated_at:new Date().toISOString()}).eq('id',1),'La clave funciona, pero falta guardar su fecha.');}},String(body.client_secret||''),String(body.expires_at||''));
+   await audit(user.id,user.email||'','onedrive_clave_renovada');return json(result);
   }
   if(action==='configure'){
    const value=String(body.client_secret||'');

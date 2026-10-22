@@ -32,11 +32,11 @@ try{
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  await page.locator('[data-credential-notice]').waitFor();
  assert((await page.locator('[data-credential-notice]').innerText()).includes('Renueva la clave'));
- await page.locator('details[data-storage-detail="onedrive"] > summary').click();
+ await page.locator('details[data-storage-detail="credential-settings"] > summary').click();
  const expiry=new Date(Date.now()+180*86400000).toISOString().slice(0,10);
  await page.locator('#odCredentialExpiry').fill(expiry);
  await page.locator('[data-action="onedrive-expiry-save"]').click();
- await page.getByText(/Te avisaremos desde el/).waitFor();
+ await page.getByText('Primer aviso · 90 días antes',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Copias',exact:true}).click();
  await page.locator('[data-action="backup-history-download"][data-id="'+id+'"]').click();
  await page.getByRole('heading',{name:'Descargar juego de copia'}).waitFor();

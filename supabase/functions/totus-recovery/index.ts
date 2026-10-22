@@ -74,6 +74,17 @@ async function verifyCheckpointObject(path:string,proof:any,req:Request){
  if(whole.digest('hex')!==proof.archive_sha256)throw new Error('El respaldo completo está dañado.');
 }
 
+async function inspectSavedCopy(backupId:string,req:Request){
+ if(!uuid.test(backupId))throw new Error('Selecciona una copia guardada válida.');
+ const proof=checked(await admin.from('ops_backup_runs').select('id,status,storage_path,archive_sha256').eq('id',backupId).eq('status','success').maybeSingle(),'No se pudo consultar la copia guardada');
+ if(!proof?.storage_path||!proof.archive_sha256)throw new Error('La copia elegida ya no está disponible.');
+ const current=checked(await admin.rpc('totus_export_recovery_snapshot'),'No se pudo contrastar el destino');
+ const handle=await readBackupObject(proof.storage_path,(path:string)=>download('business-backups',path,req),JSZip.archiveHash,proof.archive_sha256);
+ const archive=await readRecoveryArchive(handle,JSZip,{projectRef,instance:current.database_instance,schemaHash:current.schema_hash});
+ if(archive.manifest.version!==3)throw new Error('Esta copia antigua solo permite comprobar sus archivos.');
+ return {proof,archive};
+}
+
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
  if(req.method!=='POST')return reply({error:'Método no permitido'},405);
@@ -88,6 +99,10 @@ Deno.serve(async req=>{
   if(!member?.active||member.role!=='admin')return reply({error:'Solo administración puede recuperar una copia'},403);
   const body=await req.json();jobId=String(body.job_id||'').toLowerCase();
   if(!uuid.test(jobId))return reply({error:'Solicitud no válida'},400);
+  if(body.action==='review-saved'){
+   const {archive}=await inspectSavedCopy(String(body.backup_id||''),req);
+   return reply({verified:true,manifest:archive.manifest,rows:Object.values(archive.database).reduce((sum:number,rows:any)=>sum+rows.length,0),files:Object.values(archive.manifest.storage).reduce((sum:number,paths:any)=>sum+paths.length,0)});
+  }
   const getJob=async()=>checked(await admin.from('ops_recovery_jobs').select('*').eq('id',jobId).maybeSingle(),'No se pudo consultar la recuperación');
   const existing=await getJob();
   if(existing){
@@ -96,18 +111,30 @@ Deno.serve(async req=>{
    if(body.action!=='register'&&!['uploaded','prepared'].includes(existing.status))return reply({error:'Esta solicitud ya está en curso o ha terminado. Consulta su estado.',job_id:jobId},409);
   }
   const prefix='restauraciones/solicitudes/'+user.id;
-  const sourcePath=prefix+'/'+jobId+'.totusbackup';
+  const uploadedPath=prefix+'/'+jobId+'.totusbackup';
+  const sourcePath=existing?.source_path||uploadedPath;
+  if(body.action==='register-saved'){
+   if(existing)throw new Error('La solicitud ya existe. Consulta su estado antes de repetirla.');
+   const {proof}=await inspectSavedCopy(String(body.backup_id||''),req);
+   checked(await admin.from('ops_recovery_jobs').insert({id:jobId,requested_by:user.id,requested_email:user.email.toLowerCase(),source_path:proof.storage_path}),'No se pudo registrar la copia elegida');
+   return reply({job_id:jobId,status:'uploaded',source_path:proof.storage_path});
+  }
   if(body.action==='register'){
    if(!existing)checked(await admin.from('ops_recovery_jobs').insert({id:jobId,requested_by:user.id,requested_email:user.email.toLowerCase(),source_path:sourcePath}),'No se pudo registrar la solicitud');
    return reply({job_id:jobId,status:existing?.status||'uploaded',source_path:sourcePath});
   }
-  const objects=checked(await admin.storage.from('business-backups').list(prefix,{limit:100,search:jobId+'.totusbackup'}),'No se pudo comprobar el tamaño de la copia');
-  const sourceInfo=objects?.find(x=>x.name===jobId+'.totusbackup');
-  if(!sourceInfo||!Number.isFinite(Number(sourceInfo.metadata?.size))||Number(sourceInfo.metadata.size)>MAX_ARCHIVE_BYTES)
-   return reply({error:'La copia no está disponible o supera 120 MB'},400);
+  let sourceHash:string|null=null;
+  if(sourcePath===uploadedPath){
+   const objects=checked(await admin.storage.from('business-backups').list(prefix,{limit:100,search:jobId+'.totusbackup'}),'No se pudo comprobar el tamaño de la copia');
+   const sourceInfo=objects?.find(x=>x.name===jobId+'.totusbackup');
+   if(!sourceInfo||!Number.isFinite(Number(sourceInfo.metadata?.size))||Number(sourceInfo.metadata.size)>MAX_ARCHIVE_BYTES)return reply({error:'La copia no está disponible o supera el límite de carga'},400);
+  }else{
+   const saved=checked(await admin.from('ops_backup_runs').select('id,archive_sha256').eq('status','success').eq('storage_path',sourcePath).maybeSingle(),'No se pudo comprobar la copia elegida');
+   if(!saved?.archive_sha256)throw new Error('La copia elegida ya no está disponible.');sourceHash=saved.archive_sha256;
+  }
   const snapshot=checked(await admin.rpc('totus_export_recovery_snapshot'),'No se pudo preparar la copia actual');
   snapshot.project_ref=projectRef;
-  const archive=await readRecoveryArchive(await readBackupObject(sourcePath,(path:string)=>download('business-backups',path),JSZip.archiveHash),JSZip,{projectRef,instance:snapshot.database_instance,schemaHash:snapshot.schema_hash});
+  const archive=await readRecoveryArchive(await readBackupObject(sourcePath,(path:string)=>download('business-backups',path,req),JSZip.archiveHash,sourceHash),JSZip,{projectRef,instance:snapshot.database_instance,schemaHash:snapshot.schema_hash});
   if(!existing)checked(await admin.from('ops_recovery_jobs').insert({id:jobId,requested_by:user.id,requested_email:user.email.toLowerCase(),source_path:sourcePath}),'No se pudo registrar la solicitud');
   const write=async(bucket:string,path:string,bytes:Uint8Array,type:string)=>{
    checked(await admin.storage.from(bucket).upload(path,bytes,{contentType:type,upsert:false}),'No se pudo guardar el archivo');

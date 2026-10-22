@@ -64,7 +64,7 @@ globalThis.fetch=async(address,options)=>{
   assert.equal(options.headers.Authorization,'Bearer valid');
   const body=JSON.parse(options.body);
   if(body.action==='backup-file-urls'){
-   assert.equal(body.run_id,'saved-copy');
+   assert.ok(['saved-copy','33333333-3333-4333-8333-333333333333'].includes(body.run_id));
    return new Response(JSON.stringify({files:[{path:'automaticas/saved.totusbackup',url:state.unsafeCloudBackup?'http://qa.example.invalid/backup':'https://qa.example.invalid/backup'}]}));
   }
   assert.equal(body.action,'document-file-url');
@@ -119,6 +119,18 @@ for(const problem of ['none','corrupt','unsafe']){
  assert.equal(response.status,problem==='none'?200:500,await response.text());
  assert.equal(state.commitCalls,problem==='none'?1:0,'A missing/corrupt cloud checkpoint must never allow a commit');
 }
+
+
+const savedId='33333333-3333-4333-8333-333333333333';
+reset();state.cloudBackup=true;state.backups=[{id:savedId,status:'success',storage_provider:'onedrive',storage_path:'automaticas/saved.totusbackup',snapshot_revision:snapshot.revision,size_bytes:built.bytes.length,archive_sha256:await archiveHash(built.bytes),archive_manifest:built.manifest}];
+const preview=await request({job_id:jobId,action:'review-saved',backup_id:savedId});
+assert.equal(preview.status,200,await preview.clone().text());assert.equal((await preview.json()).verified,true);
+assert.equal(state.jobs.length,0,'Review must never register or start a recovery');assert.equal(state.commitCalls,0);
+assert.equal((await request({job_id:jobId,action:'review-saved',backup_id:'../../foreign'})).status,500);
+const registration=await request({job_id:jobId,action:'register-saved',backup_id:savedId});
+assert.equal(registration.status,200,await registration.clone().text());assert.equal(state.jobs[0].source_path,'automaticas/saved.totusbackup');
+const direct=await request({job_id:jobId});assert.equal(direct.status,200,await direct.clone().text());assert.equal(state.commitCalls,1);
+reset();state.role='staff';assert.equal((await request({job_id:jobId,action:'review-saved',backup_id:savedId})).status,403);
 
 globalThis.fetch=originalFetch;
 delete globalThis.Deno;delete globalThis.__recoveryHandlerClient;delete globalThis.__recoveryHandlerZip;
