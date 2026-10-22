@@ -12,3 +12,8 @@ console.log('CREDENTIAL MAINTENANCE: date validation and 90/30-day advance warni
 assert.equal(credentialLifetime('2027-04-18',new Date('2027-01-18T12:00Z')).days,90);
 assert.equal(credentialLifetime('2027-04-18',new Date('2027-01-18T12:00Z')).level,'warning');
 assert.equal(credentialLifetime('2027-04-18',new Date('2027-04-18T22:30Z')).expired,true,'Expiry follows the Madrid calendar');
+
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-02-01T12:00Z'),{warning_days:60,urgent_days:14}).level,'ok');
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-03-01T12:00Z'),{warning_days:60,urgent_days:14}).level,'warning');
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-04-10T12:00Z'),{warning_days:60,urgent_days:14}).level,'urgent');
+for(const settings of [{warning_days:30,urgent_days:60},{warning_days:2.5,urgent_days:1},{warning_days:400,urgent_days:1},{warning_days:90,urgent_days:0}])assert.throws(()=>credentialLifetime('2027-04-18',new Date(),settings));

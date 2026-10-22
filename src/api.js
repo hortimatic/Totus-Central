@@ -47,10 +47,10 @@ export async function remove(table,id){
 }
 export async function rpc(name,args={}){const r=await sb.rpc(name,args);assert(r,name);return r.data}
 export async function invokeTeam(payload){const s=(await sb.auth.getSession()).data.session;if(!s)throw new Error('Sesión no válida');const res=await fetch(`${SUPABASE_URL}/functions/v1/team-admin`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify(payload)});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||`Error ${res.status}`);return body}
-export async function invokeRecovery(jobId,action='process'){
+export async function invokeRecovery(jobId,action='process',values={}){
  const session=(await sb.auth.getSession()).data.session;
  if(!session)throw new Error('Sesión no válida');
- const response=await fetch(`${SUPABASE_URL}/functions/v1/totus-recovery`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify({job_id:jobId,action})});
+ const response=await fetch(`${SUPABASE_URL}/functions/v1/totus-recovery`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify({...values,job_id:jobId,action})});
  const body=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(body.error||'No se pudo completar la recuperación. Consulta su estado antes de reintentar.');
  return body;

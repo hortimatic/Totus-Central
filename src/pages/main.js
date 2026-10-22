@@ -606,7 +606,7 @@ export function administracion(){
 function adminUsersHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Usuarios</h2><div class="note">Solo el administrador gestiona usuarios.</div></section>';
  const rows=state.data.team;
- const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'Acciones',html:r=>`<div class="inline-actions">${btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}${r.role!=='admin'?btn('Permisos','user-permissions','secondary',`data-email="${esc(r.email)}"`):''}</div>`}];
+ const headers=[{label:'Usuario',html:r=>`<b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email)}</div>`},{label:'Rol',html:r=>esc(state.data.roles.find(role=>role.code===r.role)?.name||r.role)},{label:'Puesto',html:r=>esc(r.job_title||'—')},{label:'Estado',html:r=>stateBadge(r.active?'activo':'inactivo')},{label:'Acciones',html:r=>`<div class="inline-actions">${btn('Editar','user-edit','secondary',`data-email="${esc(r.email)}"`)}${r.role!=='admin'?btn('Permisos','user-permissions','secondary',`data-email="${esc(r.email)}"`):''}</div>`}];
  return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Usuarios</h2><p>Los permisos generales se configuran en Roles y permisos. Las excepciones se editan en la fila de cada usuario. Administración siempre mantiene control total.</p></div><div class="inline-actions">${btn('Configurar roles','admin-section','secondary','data-section="roles"')}${btn('+ Nuevo usuario','user-new','primary')}</div></div>${table(headers,rows,{emptyTitle:'Sin usuarios'})}</section>`;
 }
 function adminRolesHtml(){
@@ -618,7 +618,7 @@ function adminRolesHtml(){
   const canDelete=!role.is_system&&people.length===0;
   const buttons=[
    role.code!=='admin'?btn('Configurar permisos','role-permissions','primary',`data-role="${esc(role.code)}"`):'<span class="role-fixed-access" title="El administrador dispone de todos los permisos y su acceso es permanente">Acceso completo · permanente</span>',
-   !role.is_system?btn('Cambiar nombre','role-rename','secondary',`data-role="${esc(role.code)}"`):'',
+   role.code!=='admin'?btn('Editar nombre','role-rename','secondary',`data-role="${esc(role.code)}"`):'',
    !role.is_system?btn('Eliminar','role-delete',canDelete?'danger':'secondary',`data-role="${esc(role.code)}" ${canDelete?'':'disabled title="Asigna otro rol a sus usuarios antes de eliminar"'}`):''
   ].join('');
   const summary=PERMISSION_MODULES.map(([module,label])=>{
@@ -633,7 +633,7 @@ function adminRolesHtml(){
  }).join('');
  return `<div class="stack role-page">
  <section class="card card-pad role-guide"><div class="section-head"><div><h2>Roles y permisos</h2><p>Crea puestos con acceso propio. Cada usuario hereda los permisos de su rol; las excepciones se ajustan desde Usuarios → Permisos.</p></div>${btn('+ Crear rol','role-new','primary')}</div>
- <div class="note">El Administrador conserva el control total y no se puede eliminar. Los roles del sistema son permanentes; los personalizados pueden borrarse cuando nadie los utiliza. Los ajustes de seguridad se validan también en Supabase.</div></section>
+ <div class="note">El Administrador conserva el control total y no se puede eliminar. Puedes editar el nombre y los permisos de los puestos existentes. Su código se conserva. Los roles del sistema no se eliminan; los personalizados pueden borrarse cuando nadie los utiliza. Los ajustes de seguridad se validan también en Supabase.</div></section>
  <div class="role-card-grid">${cards}</div></div>`;
 }
 function adminBusinessHtml(){
@@ -797,7 +797,7 @@ function adminBackupHtml(){
   {label:'Tamaño',html:r=>r.size_bytes?((Number(r.size_bytes)/1024/1024).toFixed(2)+' MB'):'—'},
   {label:'Datos / archivos',html:r=>`${Number(r.rows_count||0)} registros · ${Number(r.files_count||0)} archivos`},
   {label:'Incidencias',html:r=>r.error_message?`<span>${esc(r.status==='running'?r.error_message:backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
-  {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}${btn('Eliminar','backup-history-delete','danger',`data-id="${r.id}" ${paths.length<=1?'disabled title="Conserva al menos una copia"':''}`)}</div>`:''}
+  {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}${btn('Restaurar esta copia','backup-history-restore','primary',`data-id="${r.id}"`)}${btn('Eliminar','backup-history-delete','danger',`data-id="${r.id}" ${paths.length<=1?'disabled title="Conserva al menos una copia"':''}`)}</div>`:''}
  ];
  return `<div class="stack">
   <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de '+keep)}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación',keep+' copias más recientes')}</div>
@@ -823,7 +823,7 @@ function adminBackupHtml(){
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
    <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias por componentes separan los datos, los documentos en ZIP numerados y el código. Se comprueban por partes, sin juntar todos los documentos en memoria. Para recuperarlas, selecciona su índice .totusbackup y todos sus ZIP. Las copias anteriores siguen siendo compatibles.</div>
   </section>
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Copias guardadas · descargas</h2><p>Solo copias completadas con archivo disponible para descargar. La fecha indica qué momento de los datos conservan.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Copias guardadas · descargas</h2><p>Elige la fecha que quieres recuperar y pulsa «Restaurar esta copia». Primero verás un resumen; nada se sustituye sin tu confirmación. «Descargar» permite guardar una copia fuera de la herramienta.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
    ${table(columns.filter(c=>c.label!=='Incidencias'),paths,{emptyTitle:'Sin copias guardadas',emptyText:'Los intentos fallidos aparecen por separado y no cuentan como copia.'})}
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Las copias nuevas se descargan por partes desde su fila. Para comprobar un juego, selecciona su índice y todos sus ZIP. También se conserva la descarga en un ZIP único para copias de hasta 120 MB.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>

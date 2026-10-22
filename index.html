@@ -7,20 +7,13 @@
 <title>Totus Central</title>
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="src/styles.css">
-<style>
-/* Versión de la aplicación publicada. */
-.app-version{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:8px 0 14px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#334155;font-size:12px;line-height:1.4}
-.app-version strong{font-size:12px;letter-spacing:.07em}
-.app-version .app-build{font-weight:500;opacity:.85}
-.sidebar-foot .app-version{margin:0 0 12px}
-</style>
+
 </head>
 <body>
 <div id="login" class="login-screen">
   <form id="loginForm" class="login-card">
-    <div class="brand large"><span class="brand-mark">T</span><div><b>Totus Central</b><small>Gestión diaria</small></div></div>
+    <div class="brand large"><span class="brand-mark"><img src="favicon.svg" alt="" width="36" height="36"></span><div><b>Totus Central</b><small>Gestión diaria</small><small class="app-version" role="status"><span class="app-build">versión sin verificar</span></small></div></div>
     <h1>Acceso</h1>
-    <div class="app-version" role="status"><strong>TOTUS CENTRAL</strong><span class="app-build">· versión sin verificar</span></div>
     <p>Entra con tu correo y contraseña.</p>
     <label>Correo<input id="loginEmail" type="email" autocomplete="email" required></label>
     <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required></label>
@@ -40,10 +33,9 @@
 
 <div id="app" class="app hidden">
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">T</span><div><b>Totus Central</b><small>Gestión diaria</small></div></div>
+    <div class="brand"><span class="brand-mark"><img src="favicon.svg" alt="" width="36" height="36"></span><div><b>Totus Central</b><small>Gestión diaria</small><small class="app-version" role="status"><span class="app-build">versión sin verificar</span></small></div></div>
     <nav id="nav"></nav>
     <div class="sidebar-foot">
-      <div class="app-version" role="status"><strong>TOTUS CENTRAL</strong><span class="app-build">· versión sin verificar</span></div>
       <div id="userCard" class="user-card"></div>
       <button class="btn ghost full" data-action="logout">Cerrar sesión</button>
     </div>

@@ -1,3 +1,5 @@
+import {credentialAlertSettings} from '../../../src/connection-maintenance.js';
+import {renewMicrosoftCredential} from './credential-renewal.js';
 import {createBackupDocumentLinks} from './backup-source-links.js';
 import {backupRetentionCount} from '../../../src/backup-retention.js';
 import {createDirectBackupTransfer} from './backup-transfer.js';
@@ -537,19 +539,24 @@ Deno.serve(async req=>{
   if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
   if(action==='maintenance-status'){
-   const c=await config();return json({credential_expires_at:c.credential_expires_at||null,connected:c.connected});
+   const c=await config();return json({credential_expires_at:c.credential_expires_at||null,warning_days:c.warning_days??90,urgent_days:c.urgent_days??30,connected:c.connected});
   }
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();
    const backups=await backupMirrorSummary();
-   return json({configured,credential_expires_at:c.credential_expires_at||null,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+   return json({configured,credential_expires_at:c.credential_expires_at||null,warning_days:c.warning_days??90,urgent_days:c.urgent_days??30,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
   }
   if(action==='save-expiry'){
    const expires=String(body.expires_at||'');
    if(!/^\d{4}-\d{2}-\d{2}$/.test(expires)||!Number.isFinite(Date.parse(expires+'T00:00:00Z'))||new Date(expires+'T00:00:00Z').toISOString().slice(0,10)!==expires)throw new Error('Indica una fecha válida.');
-   check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,updated_at:new Date().toISOString()}).eq('id',1),'No se pudo guardar la fecha de caducidad.');
+   const previous=await config(),alerts=credentialAlertSettings({warning_days:body.warning_days??previous.warning_days,urgent_days:body.urgent_days??previous.urgent_days});
+   check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,warning_days:alerts.warningDays,urgent_days:alerts.urgentDays,updated_at:new Date().toISOString()}).eq('id',1),'No se pudo guardar la fecha de caducidad.');
    await audit(user.id,user.email||'','onedrive_caducidad_actualizada');return json({saved:true,credential_expires_at:expires});
+  }
+  if(action==='renew-key'){
+   const result=await renewMicrosoftCredential({config,secret,root,saveExpiry:async(expires:string)=>{check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,updated_at:new Date().toISOString()}).eq('id',1),'La clave funciona, pero falta guardar su fecha.');}},String(body.client_secret||''),String(body.expires_at||''));
+   await audit(user.id,user.email||'','onedrive_clave_renovada');return json(result);
   }
   if(action==='configure'){
    const value=String(body.client_secret||'');

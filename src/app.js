@@ -1358,7 +1358,7 @@ async function resetRolePermissions(role){
 }
 function roleForm(role=null){
  if(!isAdmin())throw new Error('Acceso restringido.');
- if(role?.is_system)throw new Error('Los roles del sistema están protegidos.');
+ if(role?.code==='admin')throw new Error('El administrador conserva su identidad y acceso permanente.');
  const body=`<div class="stack"><p>${role?'El nombre y la descripción se pueden modificar. El identificador del rol no cambia.':'Crea un nuevo puesto. El identificador técnico se genera a partir de su nombre y debe ser único.'}</p>
  <div class="form-grid">${formField('Nombre del rol','roleName',role?.name||'','text','maxlength="80" required')}
  ${role?formField('Código fijo','roleCode',role.code,'text','disabled'):formField('Código único','roleCode','','text','pattern="[a-z][a-z0-9_]{2,31}" maxlength="32" required')}
@@ -1373,11 +1373,11 @@ async function saveRole(code=''){
  const slug=(code||required('roleCode','Código del rol')).trim().toLowerCase();
  if(!/^[a-z][a-z0-9_]{2,31}$/.test(slug))throw new Error('Código: entre 3 y 32 caracteres, letras sin tilde, números y guiones bajos.');
  if(name.length<3||name.length>80)throw new Error('El nombre debe tener entre 3 y 80 caracteres.');
- if(state.data.roles.some(x=>x.code===slug && (!code||x.is_system)))throw new Error('Este código ya existe o está protegido.');
+ if(state.data.roles.some(x=>x.code===slug && (!code||x.code==='admin')))throw new Error('Este código ya existe o está protegido.');
  const description=val('roleDescription').trim();
  if(code){
   const role=state.data.roles.find(r=>r.code===code);
-  if(!role||role.is_system)throw new Error('No se puede modificar este rol.');
+  if(!role||role.code==='admin')throw new Error('No se puede modificar este rol.');
   const {error}=await sb.from('ops_roles').update({name,description}).eq('code',code);
   if(error)throw new Error('Error al actualizar el rol: '+error.message);
  }else{
@@ -1452,6 +1452,9 @@ async function resetUserPermissions(email){
  closeModal();await refresh('Permisos del rol restablecidos.');
 }
 
+function userPasswordField(label){
+ return '<div class="field"><label for="usPassword">'+esc(label)+'</label><div class="password-control"><input id="usPassword" type="password" minlength="12" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" data-draft-ignore><button class="password-toggle" type="button" data-action="password-visibility" aria-controls="usPassword" aria-label="Mostrar contraseña" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></div></div>';
+}
 function userModal(row=null){
  const self=row&&row.email?.toLowerCase()===state.user?.email?.toLowerCase();
  const body=`<div class="form-grid">
@@ -1462,7 +1465,7 @@ function userModal(row=null){
   ${formField('Puesto','usJob',row?.job_title||'')}
   ${formField('Tienda / centro','usStore',row?.store||'','text','autocomplete="off" data-lpignore="true" data-1p-ignore="true"')}
   <label class="wide">Notas<textarea id="usNotes" rows="3">${esc(row?.employee_notes||'')}</textarea></label>
-  ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="12" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"'):formField('Contraseña inicial','usPassword','','password','minlength="12" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"')}
+  ${userPasswordField(row?'Nueva contraseña (opcional)':'Contraseña inicial')}
  </div>
  ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva. Al cambiar de rol se restablecen los permisos individuales anteriores.</div>`:''}
  <div class="form-actions">
@@ -1797,6 +1800,16 @@ async function verifyBackupFromInput(){
 }
 
 let recoveryCandidate=null,recoveryBusy=false;
+async function reviewStoredRecovery(id){
+ if(!isAdmin())throw new Error('Solo administración puede recuperar una copia.');
+ const run=(state.data.backupRuns||[]).find(r=>r.id===id&&r.status==='success'&&r.storage_path);
+ if(!run)throw new Error('La copia ya no está disponible.');
+ toast('Comprobando la copia elegida en el servidor…');
+ const result=await invokeRecovery(crypto.randomUUID(),'review-saved',{backup_id:id});
+ if(result.verified!==true)throw new Error('La copia no ha superado su comprobación.');
+ recoveryCandidate={savedRunId:id,manifest:result.manifest};
+ modal('Restaurar copia elegida','<div class="stack"><p>Recuperarás la información que existía al guardar esta copia.</p><div class="summary-row"><span>Fecha de la copia</span><b>'+esc(new Date(result.manifest.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b></div><div class="summary-row"><span>Registros</span><b>'+Number(result.rows)+'</b></div><div class="summary-row"><span>Archivos</span><b>'+Number(result.files)+'</b></div><p class="note warn">Los datos actuales se sustituirán por los de esta fecha. Antes se preparará una copia de protección. Las contraseñas actuales se conservan. Todavía no se ha cambiado ningún dato.</p><div class="form-actions">'+btn('Cancelar','close-modal','secondary')+btn('Continuar con la restauración','recovery-confirm','primary')+'</div></div>');
+}
 async function reviewRecoveryFile(){
  if(!isAdmin())throw new Error('Solo administración puede recuperar una copia.');
  const selected=Array.from(input('backupFile')?.files||[]),file=selected.length>1?selected:selected[0];
@@ -1821,8 +1834,8 @@ async function performRecovery(jobId=''){
  try{
   toast('Preparando punto de recuperación y archivos…');
   if(!jobId){
-   const registered=await invokeRecovery(id,'register');
-   if(candidate.selectedSet)await uploadSelectedBackupSet(registered.source_path,candidate.selectedSet,writeBackupStorage);else await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
+   const registered=await invokeRecovery(id,candidate.savedRunId?'register-saved':'register',candidate.savedRunId?{backup_id:candidate.savedRunId}:{});
+   if(candidate.savedRunId){/* The selected cloud copy is protected by its recovery job. */}else if(candidate.selectedSet)await uploadSelectedBackupSet(registered.source_path,candidate.selectedSet,writeBackupStorage);else await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
   }
   const current=await rpc('totus_export_recovery_snapshot');
   const ready=/^[a-f0-9]{64}$/.test(current.revision||'')&&(state.data.backupRuns||[]).some(r=>r.status==='success'&&r.storage_path&&r.snapshot_revision===current.revision);
@@ -2084,6 +2097,7 @@ document.addEventListener('click',async e=>{
  try{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
+  if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
   if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
@@ -2250,9 +2264,13 @@ document.addEventListener('click',async e=>{
   if(a==='onedrive-expiry-save'){
    const expires=val('odCredentialExpiry');
    if(!expires)throw new Error('Indica la fecha de caducidad que aparece en Microsoft.');
-   await oneDriveRequest('save-expiry',{expires_at:expires});await refreshOneDrivePanel();toast('Fecha guardada. Avisaremos desde 90 días antes.');return;
+   await oneDriveRequest('save-expiry',{expires_at:expires,warning_days:Number(val('odWarningDays')),urgent_days:Number(val('odUrgentDays'))});await refreshOneDrivePanel();toast('Fecha y avisos guardados.');return;
   }
   if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
+  if(a==='onedrive-key-renew-save'){
+   const field=$('#odRenewSecret'),value=field?.value||'',expires=val('odRenewExpiry');
+   try{await oneDriveRequest('renew-key',{client_secret:value,expires_at:expires});if(field)field.value='';await refreshOneDrivePanel();toast('Clave comprobada y actualizada.');}finally{if(field)field.value='';}return;
+  }
   if(a==='onedrive-credential-save'){
    const field=$('#odClientSecret'),value=field?.value||'';
    try{await oneDriveRequest('configure',{client_secret:value});if(field)field.value='';await refreshOneDrivePanel();toast('Credencial guardada de forma privada.');}finally{if(field)field.value='';}
@@ -2295,6 +2313,7 @@ document.addEventListener('click',async e=>{
   if(a==='backup-settings-save'){await saveBackupSettings();return}
   if(a==='backup-run-now'){await runBackupOnServer();return}
   if(a==='backup-component-download'){await downloadBackupComponent(el.dataset.id,el.dataset.part);return}
+  if(a==='backup-history-restore'){await reviewStoredRecovery(el.dataset.id);return}
   if(a==='backup-history-download'){await downloadStoredBackup(el.dataset.id);return}
   if(a==='backup-history-verify'){await verifyStoredBackup(el.dataset.id);return}
   if(a==='backup-history-delete'){await deleteStoredBackup(el.dataset.id);return}
