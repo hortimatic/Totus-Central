@@ -56,7 +56,7 @@ export function createDirectBackupTransfer({admin,check,config,token,root,ensure
   return readBoundedBackupContent(content,SET_COMPONENT_BYTES);
  }
  async function verify(runId,path,size,sha256){
-  if(!Number.isSafeInteger(size)||size<1||size>limit||!/^[a-f0-9]{64}$/.test(sha256))throw new Error('Prueba de fragmento no válida.');
+  if(!Number.isSafeInteger(size)||size<1||size>SET_COMPONENT_BYTES||!/^[a-f0-9]{64}$/.test(sha256))throw new Error('Prueba de fragmento no válida.');
   const c=await context(runId,path),access=await token(),bytes=await download(access,c.folder,path);
   if(bytes.length!==size||await fileHash(bytes.buffer)!==sha256)throw new Error('El fragmento de OneDrive no coincide con el original.');
   const isRoot=path===c.source;let index=null;

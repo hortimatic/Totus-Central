@@ -1824,11 +1824,28 @@ async function performRecovery(jobId=''){
   throw new Error((error.message||String(error))+' Revisa el estado en «Recuperaciones» antes de reintentar.');
  }finally{recoveryBusy=false}
 }
+async function downloadRecoveryComponent(id,kind,partNumber){
+ if(!isAdmin())throw new Error('Solo administración.');
+ const job=(state.data.recoveryJobs||[]).find(j=>j.id===id),path=kind==='checkpoint'?job?.checkpoint_path:job?.source_path;
+ if(!path)throw new Error('Copia no disponible.');
+ const handle=await readBackupObject(path,readBackupStorage);
+ if(handle?.format!==SET_FORMAT)throw new Error('La copia no está dividida en componentes.');
+ const n=Number(partNumber);
+ if(n===-1){download(new Blob([JSON.stringify(handle.index)],{type:'application/json'}),path.split('/').pop());return;}
+ if(!Number.isInteger(n)||n<0||n>=handle.index.parts.length)throw new Error('Componente no válido.');
+ const part=handle.index.parts[n],file=await readBackupStorage(part.path);
+ if(file.size!==part.size||await componentHash(file)!==part.sha256)throw new Error('Componente dañado.');
+ download(file,part.path.split('/').pop());
+}
 async function downloadRecoveryFile(id,kind){
  if(!isAdmin())throw new Error('Solo administración puede descargar estas copias.');
  const job=(state.data.recoveryJobs||[]).find(x=>x.id===id),path=kind==='checkpoint'?job?.checkpoint_path:job?.source_path;
  if(!path)throw new Error('El archivo no está disponible.');
  const bytes=await readBackupObject(path,readBackupStorage);
+ if(bytes?.format===SET_FORMAT){
+  const buttons=bytes.index.parts.map((p,n)=>'<div class="summary-row"><span>'+esc(p.kind)+' · '+(p.number+1)+'</span>'+btn('Descargar ZIP','recovery-component-download','secondary','data-id="'+esc(id)+'" data-kind="'+esc(kind)+'" data-part="'+n+'"')+'</div>').join('');
+  modal('Componentes de recuperación','<p>Conserva el índice y todos los ZIP juntos.</p>'+btn('Descargar índice','recovery-component-download','primary','data-id="'+esc(id)+'" data-kind="'+esc(kind)+'" data-part="-1"')+'<div class="stack">'+buttons+'</div>');return;
+ }
  download(new Blob([bytes],{type:'application/octet-stream'}),path.split('/').pop());
 }
 
@@ -2273,6 +2290,7 @@ document.addEventListener('click',async e=>{
   if(a==='recovery-review'){await reviewRecoveryFile();return}
   if(a==='recovery-confirm'){await performRecovery();return}
   if(a==='recovery-continue'){await performRecovery(el.dataset.id);return}
+  if(a==='recovery-component-download'){await downloadRecoveryComponent(el.dataset.id,el.dataset.kind,el.dataset.part);return}
   if(a==='recovery-download'){await downloadRecoveryFile(el.dataset.id,el.dataset.kind);return}
   if(a==='tax-payment-receipt'){taxReceiptForm(el.dataset.id);return}
   if(a==='tax-payment-receipt-save'){await saveTaxReceipt(el.dataset.id);return}

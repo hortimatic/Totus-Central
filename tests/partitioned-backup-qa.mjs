@@ -10,6 +10,7 @@ const code=(await fs.readFile(new URL('../supabase/functions/totus-backup-run/na
 const {NativeBackupZip}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const hash=NativeBackupZip.archiveHash,id='11111111-1111-4111-8111-111111111111',objects=new Map(),original=randomBytes(22*1024*1024);
 const database=Object.fromEntries(RECOVERY_TABLES.map(t=>[t,[]]));
+database.ops_audit_log=[{id:1,detail:{fixture:'x'.repeat(9*1024*1024)}}];
 const paths=Array.from({length:7},(_,i)=>'docs/factura-'+i+'.pdf');
 database.ops_documents=await Promise.all(paths.map(async(storage_path,i)=>({id:String(i),storage_path,sha256:await hash(original)})));
 const snapshot={database,project_ref:'simulation',database_instance:id,schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:'2026-10-22T00:00:00Z',identities:[],storage:{'business-documents':paths,'business-assets':[]}};

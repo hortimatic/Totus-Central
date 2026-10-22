@@ -80,7 +80,7 @@ globalThis.Deno={env:{get:key=>key==='SUPABASE_URL'?'https://qa-project.supabase
 let code=await fs.readFile(new URL('../supabase/functions/totus-recovery/index.ts',import.meta.url),'utf8');
 code=code.replace(/import \{createClient\} from 'npm:[^']+';/,"const createClient=()=>globalThis.__recoveryHandlerClient;")
  .replace(/import \{NativeBackupZip as JSZip\} from '[^']+';/,'const JSZip=globalThis.__recoveryHandlerZip;');
-for(const file of ['recovery-core.js','recovery-runner.js','backup-transport.js'])code=code.replace('../../../src/'+file,new URL('../src/'+file,import.meta.url).href);
+for(const file of ['recovery-core.js','recovery-runner.js','backup-transport.js','backup-set.js'])code=code.replace('../../../src/'+file,new URL('../src/'+file,import.meta.url).href);
 await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(code)).toString('base64'));
 const reset=()=>{state={role:'admin',active:true,jobs:[],files:new Map([['business-documents/original/test.pdf',new Blob([original])]]),live:{untouched:true},commitCalls:0}};
 const request=(body={},token='valid',method='POST')=>handler(new Request('https://qa.invalid',{method,headers:token?{Authorization:'Bearer '+token}: {},...(method==='POST'?{body:JSON.stringify(body)}:{})}));
