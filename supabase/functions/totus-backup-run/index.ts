@@ -424,13 +424,14 @@ async function partitionedRun(mode:string,req:Request){
   }
   // Keep resumable state for temporary failures; previous complete copies remain untouched.
   const failures=Number(job.state.failures||0)+1;
-  await admin.from('ops_backup_runs').update({error_message:'Pendiente de reintento: '+String(error instanceof Error?error.message:error).slice(0,800)}).eq('id',job.run_id).eq('status','running');
+  const retryAt=isRateLimited(error)?new Date(Date.now()+(Number(String(error instanceof Error?error.message:error).match(/Retry after (\d+)ms/i)?.[1])||2000)+250).toISOString():null;
+  await admin.from('ops_backup_runs').update({error_message:isRateLimited(error)?'Esperando al servicio. La copia continuará automáticamente.':'Pendiente de reintento: '+String(error instanceof Error?error.message:error).slice(0,800)}).eq('id',job.run_id).eq('status','running');
   if(failures>=5){
    const marked=await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'No se pudo completar la copia después de cinco intentos: '+String(error instanceof Error?error.message:error).slice(0,700)}).eq('id',job.run_id).eq('status','running');
    if(marked.error)throw marked.error;
    const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id).eq('lease_until',lease);if(removed.error)throw removed.error;
   }else{
-   const saved=await admin.from('ops_backup_work').update({state:{...Object.fromEntries(Object.entries(job.state).filter(([k])=>k!=='snapshot')),failures},lease_until:null,updated_at:new Date().toISOString()}).eq('run_id',job.run_id).eq('lease_until',lease);
+   const saved=await admin.from('ops_backup_work').update({state:{...Object.fromEntries(Object.entries(job.state).filter(([k])=>k!=='snapshot')),failures,last_error:String(error instanceof Error?error.message:error).slice(0,1000)},lease_until:retryAt,updated_at:new Date().toISOString()}).eq('run_id',job.run_id).eq('lease_until',lease);
    if(saved.error)throw saved.error;
   }
   throw error;

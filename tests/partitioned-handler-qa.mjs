@@ -44,7 +44,7 @@ const fakeFetch=async(url,options)=>{
  if(new URL(url).pathname.endsWith('build-info.json'))return Response.json({commit:'c'.repeat(40)});
  if(url.startsWith('https://codeload.github.com/'))return new Response(codeBytes);
  if(url.startsWith('https://download.invalid/')){assert.equal(options.headers,undefined);return new Response(original);}
- if(url.startsWith('https://upload.invalid/')){if(fail)throw Error('Temporary provider failure');objects.set(decodeURIComponent(new URL(url).pathname.slice(1)),Uint8Array.from(options.body));return new Response(null,{status:201});}
+ if(url.startsWith('https://upload.invalid/')){if(fail)throw Error(typeof fail==='string'?fail:'Temporary provider failure');objects.set(decodeURIComponent(new URL(url).pathname.slice(1)),Uint8Array.from(options.body));return new Response(null,{status:201});}
  throw Error(url);
 };
 const run=new Function('admin','NativeBackupZip','createPartitionedBackup','oneDriveAction','oneDriveRead','fetch','SUPABASE_URL','run','pruneBackups','withRateLimitRetry','isRateLimited',extracted+';return partitionedRun;')(admin,NativeBackupZip,createPartitionedBackup,action,()=>{throw Error('unexpected read')},fakeFetch,'https://qa-project.supabase.co',()=>{throw Error('legacy fallback')},async()=>{assert.equal(db.ops_backup_runs[0].status,'success');pruned++;return {maximum:10};},operation=>withRateLimitRetry(operation,{sleep:async()=>{}}),isRateLimited);
@@ -65,3 +65,5 @@ assert.equal(db.ops_backup_runs[0].status,'failed');assert.equal(db.ops_backup_w
 console.log('PARTITIONED HANDLER: actual coordinator, snapshot isolation, leases, cloud resume, code/data closure, failure retries and rotation only after success OK');
 
 reset();fail=true;await assert.rejects(()=>run('manual',req),/Temporary/);fail=false;result=await run('scheduled',req);assert(result.pending);assert.equal(db.ops_backup_work[0].state.failures,0,'Successful progress resets the consecutive-failure count');
+
+reset();fail='Rate limit Retry after 70000ms';const limitedAt=Date.now();await assert.rejects(()=>run('manual',req),/Rate limit/);assert(Date.parse(db.ops_backup_work[0].lease_until)>=limitedAt+70000,'The cloud tick must not retry before Retry-After');result=await run('scheduled',req);assert(result.pending);
