@@ -1,13 +1,14 @@
+import {validateBackupSet,backupSetProof,SET_FORMAT,SET_COMPONENT_BYTES,SET_INDEX_BYTES} from '../../../src/backup-set.js';
 
 import {BACKUP_PART_BYTES,validateBackupIndex} from '../../../src/backup-index.js';
-const UUID=/^[a-f0-9-]{36}$/i,MAX_PARTS=15,MAX_INDEX=16384;
-export async function readBoundedBackupContent(response){
+const UUID=/^[a-f0-9-]{36}$/i,MAX_PARTS=15;
+export async function readBoundedBackupContent(response,limit=BACKUP_PART_BYTES){
  const declared=Number(response.headers.get('content-length'));
- if(Number.isFinite(declared)&&declared>BACKUP_PART_BYTES)throw new Error('El fragmento supera 8 MiB.');
+ if(Number.isFinite(declared)&&declared>limit)throw new Error('El fragmento supera '+(limit/1048576)+' MiB.');
  if(!response.body)throw new Error('Falta el fragmento de copia.');
  const reader=response.body.getReader(),chunks=[];let size=0;
  try{for(;;){const value=await reader.read();if(value.done)break;size+=value.value.byteLength;
-  if(size>BACKUP_PART_BYTES){await reader.cancel();throw new Error('El fragmento supera 8 MiB.');}chunks.push(value.value);
+  if(size>limit){await reader.cancel();throw new Error('El fragmento supera '+(limit/1048576)+' MiB.');}chunks.push(value.value);
  }}finally{reader.releaseLock();}
  if(!size)throw new Error('El fragmento está vacío.');
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}return bytes;
@@ -21,7 +22,7 @@ export function createDirectBackupTransfer({admin,check,config,token,root,ensure
   if(run?.status!=='running'||!source?.endsWith('.totusbackup')||source.length>1024||/[\\\x00-\x1f]/.test(source)||source.split('/').some(p=>!p||p==='.'||p==='..'))throw new Error('La copia no está en preparación.');
   if(path!==null){
    const suffix=String(path).slice(source.length);
-   if(path!==source&&(!String(path).startsWith(source)||!/^\.part-\d{4}$/.test(suffix)||Number(suffix.slice(-4))>=MAX_PARTS))throw new Error('Archivo fuera de la copia en preparación.');
+   if(path!==source&&(!String(path).startsWith(source)||!(/^\.part-\d{4}$/.test(suffix)&&Number(suffix.slice(-4))<MAX_PARTS||/^\.(?:datos|documentos|codigo)-\d{4}\.zip$/.test(suffix))))throw new Error('Archivo fuera de la copia en preparación.');
   }
   const c=await config();if(!c.connected||!c.tested_at)throw new Error('OneDrive no está comprobado.');
   const saved=check(await admin.from('ops_onedrive_backups').select('*').eq('run_id',runId).maybeSingle(),'No se pudo comprobar el destino.');
@@ -31,12 +32,14 @@ export function createDirectBackupTransfer({admin,check,config,token,root,ensure
   return {run,source,saved,folder};
  }
  const route=(folder,path)=>'/me/drive/special/approot:/'+encodedPath([...folder.split('/'),...path.split('/')]);
- async function prepare(runId){
+ async function prepare(runId,requestedPaths=null){
   const c=await context(runId);if(c.saved?.verified_at)throw new Error('Una copia verificada no se sobrescribe.');
   const access=await token();await root(access);
   await ensurePath(access,[...c.folder.split('/'),...c.source.split('/').slice(0,-1)],new Set());
   if(!c.saved)check(await admin.from('ops_onedrive_backups').insert({run_id:runId,source_path:c.source,folder_path:c.folder,archive_sha256:'0'.repeat(64),archive_size:0,total_files:1}),'No se pudo registrar la copia en preparación.');
-  const paths=[c.source,...Array.from({length:MAX_PARTS},(_,i)=>c.source+'.part-'+String(i).padStart(4,'0'))],sessions=[];let next=0;
+  const paths=requestedPaths||[c.source,...Array.from({length:MAX_PARTS},(_,i)=>c.source+'.part-'+String(i).padStart(4,'0'))],sessions=[];let next=0;
+  if(!Array.isArray(paths)||!paths.length||paths.length>20||new Set(paths).size!==paths.length)throw new Error('Inventario de subida no válido.');
+  for(const path of paths)await context(runId,path);
   const worker=async()=>{while(next<paths.length){
    const path=paths[next++],response=await graph(access,route(c.folder,path)+':/createUploadSession',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':'fail'}})});
    if(!response.ok)throw new Error('No se pudo preparar la subida privada (HTTP '+response.status+').');
@@ -50,16 +53,18 @@ export function createDirectBackupTransfer({admin,check,config,token,root,ensure
   if(response.status!==302||!location||new URL(location).protocol!=='https:')throw new Error('No se pudo localizar el fragmento privado.');
   const content=await fetchFile(location,{signal:AbortSignal.timeout(60000)});
   if(!content.ok)throw new Error('No se pudo leer el fragmento privado.');
-  return readBoundedBackupContent(content);
+  return readBoundedBackupContent(content,SET_COMPONENT_BYTES);
  }
  async function verify(runId,path,size,sha256){
-  if(!Number.isSafeInteger(size)||size<1||size>BACKUP_PART_BYTES||!/^[a-f0-9]{64}$/.test(sha256))throw new Error('Prueba de fragmento no válida.');
+  if(!Number.isSafeInteger(size)||size<1||size>SET_COMPONENT_BYTES||!/^[a-f0-9]{64}$/.test(sha256))throw new Error('Prueba de fragmento no válida.');
   const c=await context(runId,path),access=await token(),bytes=await download(access,c.folder,path);
   if(bytes.length!==size||await fileHash(bytes.buffer)!==sha256)throw new Error('El fragmento de OneDrive no coincide con el original.');
   const isRoot=path===c.source;let index=null;
   if(isRoot&&bytes[0]===123){
-   if(bytes.length>MAX_INDEX)throw new Error('Índice demasiado grande.');
-   index=validateBackupIndex(c.source,JSON.parse(new TextDecoder().decode(bytes)));
+   if(bytes.length>SET_INDEX_BYTES)throw new Error('Índice demasiado grande.');
+   const parsed=JSON.parse(new TextDecoder().decode(bytes));
+   index=parsed.format===SET_FORMAT?validateBackupSet(c.source,parsed):validateBackupIndex(c.source,parsed);
+   if(index.format===SET_FORMAT&&await fileHash(new TextEncoder().encode(backupSetProof(index)).buffer)!==index.sha256)throw new Error('El índice del juego no coincide con su huella.');
    const parts=check(await admin.from('ops_onedrive_backup_files').select('source_path,size_bytes,sha256,verified_at').eq('run_id',runId),'No se pudo comprobar el inventario.');
    for(const part of index.parts)if(!parts.some(p=>p.source_path===part.path&&Number(p.size_bytes)===part.size&&p.sha256===part.sha256&&p.verified_at))throw new Error('Falta un fragmento verificado. No se confirma la copia.');
   }else if(isRoot&&(bytes[0]!==80||bytes[1]!==75))throw new Error('La copia pequeña no es un ZIP.');

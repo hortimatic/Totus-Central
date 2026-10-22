@@ -328,6 +328,7 @@ async function pruneMirroredBackups(access:string){
   if(!active.some((c:any)=>c.run_id!==old.run_id&&kept.has(c.run_id)))continue; // Keep at least one verified active cloud copy.
   if(!old.folder_path.startsWith('02 Copias de seguridad/'))throw new Error('Ruta de copia no válida para conservación.');
   const path='/me/drive/special/approot:/'+encodedPath(old.folder_path.split('/'));
+  if(state==='success')check(await admin.from('ops_backup_runs').update({status:'expired',storage_path:null}).eq('id',old.run_id).eq('status','success'),'No se pudo retirar la referencia antigua; se conserva el archivo.');
   const removed=await graph(access,path,{method:'DELETE'});
   if(!removed.ok&&removed.status!==404)throw new Error('No se pudo retirar una copia antigua de OneDrive.');
   check(await admin.from('ops_onedrive_backups').delete().eq('run_id',old.run_id),'No se pudo actualizar la conservación en OneDrive.');
@@ -432,6 +433,7 @@ async function syncOnlineManuals(revision:string){
  await ensurePath(access,[folderName],new Set<string>());
  const files=[
   ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
+  ['docs/COPIAS_POR_COMPONENTES.md','COPIAS_POR_COMPONENTES.md'],
   ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
   ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_ESTADO.md'],
   ['docs/auditorias/REVISION_PRODUCCION_2026-10-21.md','INFORME_REVISION.md']
@@ -439,7 +441,12 @@ async function syncOnlineManuals(revision:string){
  for(const [source,name] of files){
   const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});
   if(!response.ok)throw new Error('No se pudo leer la documentación publicada de GitHub.');
-  const text=await response.text();
+  let text=await response.text();
+  if(name==='MANUAL_CHATGPT_ONLINE.md'){
+   text=text.replace(/El formato admite 120 MiB[^\n]*/,'Las copias por componentes (juegos v4) separan datos contables, documentos en ZIP numerados y código. Se preparan por lotes reanudables y no tienen el límite conjunto de 120 MiB del formato anterior. Las copias v3 antiguas y las descargas locales tradicionales conservan sus límites originales. Para descargar o recuperar un juego nuevo consulta COPIAS_POR_COMPONENTES.md; conserva siempre el índice y todos sus ZIP.');
+   text=text.replace(/La credencial actual caduca el [^;]+; renovarla antes de esa fecha[^.]*\./,'La fecha vigente de la credencial está registrada en Administración → Almacenamiento; el contador avisa desde 90 días antes y aumenta la urgencia desde 30 días antes. Guardar la fecha no renueva la credencial: la clave debe sustituirse mediante Microsoft antes de que caduque.');
+   text='> Guía vigente para los juegos v4: COPIAS_POR_COMPONENTES.md. Las referencias al ZIP único se mantienen para copias anteriores y la descarga local tradicional.\n\n'+text;
+  }
   if(new TextEncoder().encode(text).byteLength>1024*1024)throw new Error('La documentación supera el tamaño permitido.');
   const bytes=new TextEncoder().encode('<!-- Fuente: GitHub hortimatic/Totus-Central; revision '+revision+' -->\n'+text);
   const path='/me/drive/special/approot:/'+encodedPath([folderName,name])+':/content';
@@ -474,7 +481,7 @@ async function backupFileUrls(runId:string){
  const backup=check(await admin.from('ops_onedrive_backups').select('folder_path,verified_at').eq('run_id',runId).maybeSingle(),'No se pudo comprobar la copia.');
  if(!backup?.verified_at)throw new Error('La copia de OneDrive no está completa.');
  const files=check(await admin.from('ops_onedrive_backup_files').select('source_path').eq('run_id',runId),'No se pudo comprobar el inventario.');
- if(!files.length||files.length>20)throw new Error('Inventario de copia no compatible.');
+ if(!files.length||files.length>4097)throw new Error('Inventario de copia no compatible.');
  const access=await token(),result:any[]=[];let next=0;
  const worker=async()=>{while(next<files.length){
   const file=files[next++];
@@ -505,7 +512,7 @@ Deno.serve(async req=>{
    if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url'].includes(action))throw new Error('Acceso denegado.');
    if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
    if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
-   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||'')));
+   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));
    if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));
    if(action==='staged-backup-file-url')return json(await directBackup.stagedUrl(String(body.run_id||''),String(body.path||'')));
    if(action==='sync-manuals')return json(await syncOnlineManuals(String(body.revision||'')));
@@ -518,18 +525,27 @@ Deno.serve(async req=>{
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
   if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
-  if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||'')));
+  if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));
   if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));
   if(action==='staged-backup-file-url')return json(await directBackup.stagedUrl(String(body.run_id||''),String(body.path||'')));
 
   if(action==='sync-manuals'){const result=await syncOnlineManuals(String(body.revision||''));await audit(user.id,user.email||'','manuales_online_actualizados');return json(result);}
   if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
   if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
+  if(action==='maintenance-status'){
+   const c=await config();return json({credential_expires_at:c.credential_expires_at||null,connected:c.connected});
+  }
   if(action==='status'){
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();
    const backups=await backupMirrorSummary();
-   return json({configured,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+   return json({configured,credential_expires_at:c.credential_expires_at||null,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+  }
+  if(action==='save-expiry'){
+   const expires=String(body.expires_at||'');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(expires)||!Number.isFinite(Date.parse(expires+'T00:00:00Z'))||new Date(expires+'T00:00:00Z').toISOString().slice(0,10)!==expires)throw new Error('Indica una fecha válida.');
+   check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,updated_at:new Date().toISOString()}).eq('id',1),'No se pudo guardar la fecha de caducidad.');
+   await audit(user.id,user.email||'','onedrive_caducidad_actualizada');return json({saved:true,credential_expires_at:expires});
   }
   if(action==='configure'){
    const value=String(body.client_secret||'');

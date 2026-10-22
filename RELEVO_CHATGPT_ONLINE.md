@@ -22,6 +22,8 @@ No se necesita un proceso local ni este portátil para las tareas del servidor. 
 6. Mantener el histórico aceptado y documentar cualquier corrección autorizada.
 
 ## Copias y recuperación
+Para los juegos nuevos de copias por componentes y los avisos de conexión, leer primero [la guía vigente](docs/COPIAS_POR_COMPONENTES.md). El índice y todos sus ZIP forman un único juego. Las referencias al ZIP único en el manual se conservan para copias anteriores y descargas locales tradicionales.
+
 La programación y conservación se gestionan en Administración → Copias. Comprobar la última copia completada, su proveedor y su verificación. Un intento fallido no sustituye a una copia correcta. Los puntos protegidos de recuperación se mantienen según su función.
 
 El respaldo de aplicación recupera datos en el mismo proyecto. La reconstrucción de un proyecto nuevo, usuarios, contraseñas y secretos requiere otro procedimiento. No ensayar una recuperación sobre la contabilidad real.
@@ -33,4 +35,4 @@ ChatGPT online necesita sus propias conexiones o navegador autorizados; las sesi
 
 Avisar al titular antes de modificar código, estructura o datos. Los trabajos complejos futuros requieren un nuevo entorno aislado basado en esta producción, cuando se solicite.
 
-En OneDrive → Manuales y funcionamiento se verifican las instrucciones con nombres estables: MANUAL_CHATGPT_ONLINE.md, RELEVO_CHATGPT_ONLINE.md, PETICIONES_Y_ESTADO.md e INFORME_REVISION.md. Los documentos públicos fechados anteriores son antecedentes; no indican que siga disponible otra instalación.
+En OneDrive → Manuales y funcionamiento se verifican las instrucciones con nombres estables: MANUAL_CHATGPT_ONLINE.md, RELEVO_CHATGPT_ONLINE.md, PETICIONES_Y_ESTADO.md, INFORME_REVISION.md y COPIAS_POR_COMPONENTES.md. Los documentos públicos fechados anteriores son antecedentes; no indican que siga disponible otra instalación.

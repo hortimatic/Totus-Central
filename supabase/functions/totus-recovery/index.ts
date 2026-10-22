@@ -1,3 +1,4 @@
+import {SET_FORMAT,SET_INDEX_BYTES} from '../../../src/backup-set.js';
 import {createHash} from 'node:crypto';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {NativeBackupZip as JSZip} from '../totus-backup-run/native-zip.js';
@@ -31,7 +32,7 @@ const download=async(bucket:string,path:string,req?:Request)=>{
  if(bucket==='business-backups'&&req){
   const local=await admin.storage.from(bucket).download(path);
   if(!local.error&&local.data)return local.data;
-  const root=path.replace(/\.part-\d{4}$/,'');
+  const root=path.replace(/(?:\.part-\d{4}|\.(?:datos|documentos|codigo)-\d{4}\.zip)$/,'');
   const proof=checked(await admin.from('ops_backup_runs').select('id').eq('status','success').eq('storage_path',root).maybeSingle(),'No se pudo localizar la copia completa');
   if(!proof)throw new Error('El respaldo solicitado no está disponible.');
   const location=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'backup-file-url',run_id:proof.id,path}),signal:AbortSignal.timeout(30000)});
@@ -51,6 +52,12 @@ async function verifyCheckpointObject(path:string,proof:any,req:Request){
  const root=await download('business-backups',path,req),bytes=new Uint8Array(await root.arrayBuffer());
  if(bytes[0]!==123){
   if(bytes.length!==Number(proof.size_bytes)||createHash('sha256').update(bytes).digest('hex')!==proof.archive_sha256)throw new Error('El respaldo actual está dañado.');
+  return;
+ }
+ if(bytes.length<=SET_INDEX_BYTES&&JSON.parse(new TextDecoder().decode(bytes)).format===SET_FORMAT){
+  const handle=await readBackupObject(path,(part:string)=>download('business-backups',part,req),JSZip.archiveHash,proof.archive_sha256);
+  const archive=await readRecoveryArchive(handle,JSZip,{projectRef});
+  if(handle.byteLength!==Number(proof.size_bytes)||archive.manifest.revision!==proof.archive_manifest?.revision)throw new Error('El juego no coincide con la copia actual verificada.');
   return;
  }
  if(bytes.length>16384)throw new Error('Índice de respaldo no válido.');

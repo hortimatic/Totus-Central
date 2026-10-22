@@ -1,3 +1,4 @@
+import {SET_FORMAT,SET_INDEX_BYTES,openBackupSet} from './backup-set.js';
 import {archiveHash,MAX_ARCHIVE_BYTES} from './recovery-core.js';
 
 // Storage's per-object limit remains unchanged. A large ordinary ZIP is stored
@@ -46,6 +47,10 @@ export async function readBackupObject(path,read,hash=archiveHash,expectedHash=n
  const input=await read(path),bytes=input instanceof Blob?new Uint8Array(await input.arrayBuffer()):new Uint8Array(input);
  if(bytes.length>MAX_ARCHIVE_BYTES)throw new Error('La copia supera la capacidad de recuperación.');
  if(bytes[0]!==123){if(expectedHash&&await hash(bytes)!==expectedHash)throw new Error('La copia no coincide con su huella registrada.');return bytes;}
+ if(bytes.length<=SET_INDEX_BYTES){
+  const candidate=JSON.parse(new TextDecoder().decode(bytes));
+  if(candidate.format===SET_FORMAT)return openBackupSet(path,candidate,read,hash,expectedHash);
+ }
  if(bytes.length>INDEX_LIMIT)throw new Error('Índice de copia demasiado grande.');
  const index=JSON.parse(new TextDecoder().decode(bytes));
  validateBackupIndex(path,index,MAX_ARCHIVE_BYTES);

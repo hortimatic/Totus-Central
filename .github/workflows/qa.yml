@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
+      - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/backup-retention-qa.mjs
       - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
@@ -45,6 +46,7 @@ jobs:
       - run: node tests/backup-part-retirement-qa.mjs
       - run: node tests/cloud-backup-retention-qa.mjs
       - run: node tests/direct-backup-transfer-qa.mjs
+      - run: node tests/backup-manual-sync-qa.mjs
       - run: node tests/filters-qa.mjs
       - run: node tests/fiscal-forecast-qa.mjs
       - run: node tests/document-filter-size-qa.mjs
@@ -54,6 +56,8 @@ jobs:
       - run: node tests/excel-invariants.mjs
       - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib fflate@0.8.3
       - run: node tests/backup-transport-qa.mjs
+      - run: node tests/partitioned-handler-qa.mjs
+      - run: node tests/partitioned-backup-qa.mjs
       - run: node tests/recovery-core-qa.mjs
       - run: node tests/recovery-capacity-qa.mjs
       - run: node tests/native-backup-zip-qa.mjs
@@ -70,6 +74,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/closing-workflow-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs

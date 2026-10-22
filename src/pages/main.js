@@ -1,7 +1,7 @@
 import {taxExpenseRecord} from '../tax-expense.js';
 import {incomeBreakdown} from '../income-breakdown.js';
 import {informationalTaxPayments,taxPaymentLabel} from '../payment-information.js';
-import {oneDrivePanel,oneDriveStorageCard} from '../onedrive-connection.js';
+import {oneDrivePanel,oneDriveStorageCard,oneDriveCredentialNotice} from '../onedrive-connection.js';
 import {planStorage} from '../storage-planning.js';
 import {MAX_SAVED_BACKUPS,backupRetentionCount,backupRunState,backupFailureSummary} from '../backup-retention.js';
 import {archiveAccepted,quarterPresented,lastDrawerBalance} from '../historical-acceptance.js';
@@ -694,7 +694,7 @@ function adminStorageHtml(){
  ${kpi('GitHub · tiempo restante','No depende de los meses cargados','Vuestra contabilidad se guarda en Supabase')}
  </div>
  <p id="storageForecastResult" class="note ${spacePlanning.available&&spacePlanning.days!=null&&spacePlanning.days<365?'warn':''}">${!spacePlanning.available?'Faltan datos para estimar la duración.':spacePlanning.days!=null&&spacePlanning.days<365?'Con las copias actuales, el espacio no alcanza para un año.':'Previsión de archivos. El crecimiento de la base de datos se consulta por separado.'}</p>
- ${planning.available&&planning.reason==='archive'?'<p class="note warn">Copias de seguridad: hay que ampliar su límite técnico antes de '+duration(planning.days).toLowerCase()+'.</p>':''}
+ ${planning.available&&planning.reason==='archive'&&!(state.data.backupRuns||[]).some(r=>r.status==='success'&&r.archive_manifest?.bundle_version===4)?'<p class="note warn">Copias de seguridad: hay que ampliar su límite técnico antes de '+duration(planning.days).toLowerCase()+'.</p>':''}
  <div class="storage-forecast-method"><p>Base de datos: Plazo aún no calculable. Falta medir su crecimiento. GitHub: Sin plazo por cargar datos; repositorio 9,68 MB aproximados, consultado el 20/10/2026.</p>
  <p>${planning.available?mb(planning.monthlyOriginalBytes)+'/mes de documentos y logos. Una copia completa ocupa aproximadamente '+mb(planning.currentCopyBytes)+'.':'Falta la referencia de crecimiento.'} Las ${keep} copias configuradas se guardan en OneDrive cuando está conectado. Se reserva espacio para terminar la nueva antes de borrar la más vieja. Es una simulación; otros proyectos pueden consumir el espacio compartido.</p>
  <h3>Qué puedes descargar y eliminar para liberar espacio</h3>
@@ -766,8 +766,9 @@ function adminStorageHtml(){
  return `<div class="stack storage-dashboard storage-organized storage-compact">
  <header class="storage-page-heading"><div><h2>Almacenamiento</h2><p id="storageMeasuredAt">Actualizado: ${esc(stamp)}</p></div><div class="inline-actions">${btn('Actualizar','storage-refresh','secondary')}</div></header>
  ${locationsHtml}
+ ${oneDriveCredentialNotice()}
  <section class="storage-backup-strip" aria-label="Resumen de copias"><div><h3>Copias de seguridad</h3><p><b>${savedRuns.length} guardadas</b> · máximo ${keep} · ${bc.enabled?({daily:'diaria',weekly:'semanal',monthly:'mensual'}[bc.frequency]||'programada')+' a las '+backupTime+' (Madrid)':'programación desactivada'}</p></div>${btn('Gestionar copias','admin-section','secondary','data-section="backups"')}</section>
- ${planning.available&&planning.reason==='archive'?`<aside class="storage-backup-limit" role="note"><b>Mantenimiento de las copias · no es falta de espacio</b><p>El formato actual admite copias de 120 MB. Al ritmo observado, habrá que ampliarlo en ${duration(planning.days).replace(/^Unos /,'unos ')}. OneDrive seguirá teniendo espacio disponible.</p></aside>`:''}
+ ${planning.available&&planning.reason==='archive'&&!savedRuns.some(r=>r.archive_manifest?.bundle_version===4)?`<aside class="storage-backup-limit" role="note"><b>Mantenimiento de las copias · no es falta de espacio</b><p>El formato actual admite copias de 120 MB. Al ritmo observado, habrá que ampliarlo en ${duration(planning.days).replace(/^Unos /,'unos ')}. OneDrive seguirá teniendo espacio disponible.</p></aside>`:''}
  <details class="storage-detail-panel" data-storage-detail="capacity"><summary>Desglose de archivos de Supabase</summary><p>La base de datos tiene capacidad propia. Las categorías de archivos comparten su cuota; no son espacios independientes.</p>${spaceBars}</details>
  <details class="storage-detail-panel" data-storage-detail="forecast"><summary>Cómo se calcula y qué puedes limpiar</summary>${forecastHtml}</details>
  <details class="storage-detail-panel" data-storage-detail="onedrive"><summary>Conexión y comprobaciones de OneDrive</summary>${oneDrivePanel()}</details>
@@ -795,7 +796,7 @@ function adminBackupHtml(){
   {label:'Estado',html:r=>`<span class="badge ${backupRunState(r)==='saved'?'ok':backupRunState(r)==='running'?'info':'warn'}">${labels[backupRunState(r)]}</span><div class="small muted">${r.storage_provider==='onedrive'?'OneDrive':'Supabase'}</div>`},
   {label:'Tamaño',html:r=>r.size_bytes?((Number(r.size_bytes)/1024/1024).toFixed(2)+' MB'):'—'},
   {label:'Datos / archivos',html:r=>`${Number(r.rows_count||0)} registros · ${Number(r.files_count||0)} archivos`},
-  {label:'Incidencias',html:r=>r.error_message?`<span>${esc(backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
+  {label:'Incidencias',html:r=>r.error_message?`<span>${esc(r.status==='running'?r.error_message:backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
   {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}${btn('Eliminar','backup-history-delete','danger',`data-id="${r.id}" ${paths.length<=1?'disabled title="Conserva al menos una copia"':''}`)}</div>`:''}
  ];
  return `<div class="stack">
@@ -803,6 +804,7 @@ function adminBackupHtml(){
   <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
    <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia completa guardada.'}</p>
    ${lastAttempt?`<p>Último intento: <b>${labels[lastState]}</b> · ${esc(new Date(lastAttempt.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}.</p>`:''}
+   ${lastState==='running'&&lastAttempt?.error_message?'<p class="note" role="status">'+esc(lastAttempt.error_message)+'</p>':''}
    ${['failed','unfinished'].includes(lastState)?`<p class="note warn">${esc(backupFailureSummary(lastAttempt?.error_message||''))} Las copias guardadas anteriores se conservan.</p>`:''}
    ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
    <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de ${keep} copias completadas.</p>
@@ -819,14 +821,14 @@ function adminBackupHtml(){
    </div>
    <div class="note">Destino: <b>OneDrive → Apps → Totus Central → 02 Copias de seguridad</b> cuando la conexión está comprobada. El servidor envía y verifica cada fragmento directamente en OneDrive. En Supabase solo queda el índice pequeño. Si falla la transferencia, se muestra el intento fallido y se conservan las copias anteriores. Si OneDrive no está conectado, el respaldo se guarda en Supabase. Se conservan las ${keep} copias más recientes. Después de completar y verificar una nueva, se elimina la más antigua junto con sus fragmentos. El proceso no incorpora contraseñas.</div>
    <div class="form-actions backup-control-actions">${btn('Guardar programación','backup-settings-save','primary')}${btn('Crear copia privada ahora','backup-run-now','secondary')}</div>
-   <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias admiten hasta 120 MB (128 MB descomprimidos) y se guardan en fragmentos privados verificados. Un exceso se mostrará como fallo y no como respaldo correcto.</div>
+   <div class="note">Las copias nuevas conservan autores, datos y permisos. La recuperación prepara archivos nuevos y guarda antes el estado actual. Las cuentas de acceso mantienen sus contraseñas. Las copias por componentes separan los datos, los documentos en ZIP numerados y el código. Se comprueban por partes, sin juntar todos los documentos en memoria. Para recuperarlas, selecciona su índice .totusbackup y todos sus ZIP. Las copias anteriores siguen siendo compatibles.</div>
   </section>
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Copias guardadas · descargas</h2><p>Solo copias completadas con archivo disponible para descargar. La fecha indica qué momento de los datos conservan.</p></div>${btn('Actualizar historial','backup-refresh','secondary')}</div>
    ${table(columns.filter(c=>c.label!=='Incidencias'),paths,{emptyTitle:'Sin copias guardadas',emptyText:'Los intentos fallidos aparecen por separado y no cuentan como copia.'})}
   </section>
-  <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Puedes continuar descargando una copia directamente a tu ordenador y comprobar cualquier .totusbackup guardado.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
+  <section class="card card-pad"><div class="section-head"><div><h2>Copia local y comprobación</h2><p>Las copias nuevas se descargan por partes desde su fila. Para comprobar un juego, selecciona su índice y todos sus ZIP. También se conserva la descarga en un ZIP único para copias de hasta 120 MB.</p></div>${btn('Descargar copia local','backup-create','primary')}</div>
   <div class="form-grid" style="margin-top:12px"><label class="wide">Seleccionar copia para comprobar
-   <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" data-draft-ignore type="file" accept=".totusbackup,.zip,application/zip"></span>
+   <span class="backup-file-control"><span class="file-picker backup-file-picker">Elegir copia de seguridad<input id="backupFile" data-draft-ignore multiple type="file" accept=".totusbackup,.zip,application/zip"></span>
    <span id="backupSelectedFile" role="status" class="small muted">Ningún archivo seleccionado</span></span>
   </label></div>
   <div class="form-actions">${btn('Verificar integridad','backup-verify','secondary')}${btn('Revisar para recuperar','recovery-review','primary')}</div>

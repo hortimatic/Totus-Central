@@ -1,3 +1,4 @@
+import {createPartitionedBackup} from './partitioned-job.js';
 // Server-side authenticated backup job; never exposes the service key to clients.
 // Automated calls require the unique secret held in Supabase Vault.
 // Manual calls additionally require an authenticated administrator.
@@ -308,6 +309,123 @@ async function run(mode:string,req:Request){
 
 
 
+
+async function partitionedRun(mode:string,req:Request){
+ const active=await admin.from('ops_backup_work').select('run_id,state,updated_at,lease_until').order('updated_at').limit(1).maybeSingle();
+ if(active.error)throw active.error;
+ let job=active.data;
+ if(job){
+  const record=await admin.from('ops_backup_runs').select('status,size_bytes').eq('id',job.run_id).single();if(record.error)throw record.error;
+  if(record.data.status!=='running'){
+   if(job.lease_until&&Date.parse(job.lease_until)>Date.now())return {pending:true,id:job.run_id};
+   const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id);if(removed.error)throw removed.error;
+   if(record.data.status==='success'){
+    const retention=await pruneBackups().catch(error=>({warning:String(error.message||error)}));await oneDriveAction(req,'prune-backups',{}).catch(()=>null);
+    return {id:job.run_id,status:'success',size_bytes:record.data.size_bytes,retention};
+   }
+   return {skipped:true,reason:'El intento anterior ya ha terminado. Puedes crear una copia nueva.'};
+  }
+ }
+ const drive=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
+ if(!drive.data?.connected||!drive.data?.tested_at){
+  if(job)throw new Error('La copia por componentes espera a que OneDrive vuelva a estar disponible.');
+  return run(mode,req);
+ }
+ if(!job){
+  const claim=await admin.rpc('totus_backup_claim',{p_mode:mode});if(claim.error)throw claim.error;
+  if(!claim.data)return {skipped:true,reason:'No corresponde al horario o ya hay una copia en preparación.'};
+  const id=String(claim.data);
+  try{
+   const settings=await admin.from('ops_backup_config').select('destination_folder').eq('id',1).single();if(settings.error)throw settings.error;
+   const source=await admin.rpc('totus_export_recovery_snapshot');if(source.error)throw source.error;
+   const snapshot=source.data;snapshot.project_ref=new URL(SUPABASE_URL).hostname.split('.')[0];
+   const path=String(settings.data.destination_folder||'automaticas')+'/Totus_Central_'+new Date().toISOString().replace(/[:.]/g,'-')+'_'+id.slice(0,8)+'.totusbackup';
+   const buildResponse=await fetch('https://hortimatic.github.io/Totus-Central/build-info.json?backup-version='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
+   if(!buildResponse.ok)throw new Error('No se pudo identificar el código publicado.');
+   const build=await buildResponse.json();snapshot.source_revision=String(build.commit||build.sha||'');
+   if(!/^[a-f0-9]{40}$/.test(snapshot.source_revision))throw new Error('Versión de código no válida.');
+   const engine=createPartitionedBackup({Zip:NativeBackupZip,hash:NativeBackupZip.archiveHash} as any);
+   const {snapshot:originalSnapshot,...state}=await engine.start(snapshot,path);
+   const planned=await admin.from('ops_backup_runs').update({storage_path:path,archive_manifest:{bundle_version:4},error_message:'Preparando documentos por componentes'}).eq('id',id).eq('status','running');if(planned.error)throw planned.error;
+   const created=await admin.from('ops_backup_work').insert({run_id:id,state,snapshot:originalSnapshot}).select('run_id,state').single();if(created.error)throw created.error;job=created.data;
+  }catch(error){
+   await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:error)}).eq('id',id);throw error;
+  }
+ }
+ const at=new Date().toISOString(),lease=new Date(Date.now()+120000).toISOString();
+ const claimed=await admin.from('ops_backup_work').update({lease_until:lease}).eq('run_id',job.run_id).or('lease_until.is.null,lease_until.lt.'+at).select('run_id').maybeSingle();
+ if(claimed.error)throw claimed.error;if(!claimed.data)return {pending:true,id:job.run_id,reason:'El servidor está preparando un componente.'};
+ let completed:any=null;
+ try{
+  const writeComponent=async(path:string,bytes:Uint8Array,sha256:string)=>{
+   // Retrying a stopped batch may find its immutable verified component already saved.
+   const proof=await oneDriveAction(req,'verify-backup-file',{run_id:job.run_id,path,size:bytes.length,sha256}).catch(()=>null);
+   if(proof?.verified===true)return;
+   const prepared=await oneDriveAction(req,'prepare-backup-upload',{run_id:job.run_id,paths:[path]});
+   const session=prepared.sessions?.find((s:any)=>s.path===path);if(!session?.url||new URL(session.url).protocol!=='https:')throw new Error('Destino privado de copia no válido.');
+   const upload=await fetch(session.url,{method:'PUT',headers:{'Content-Type':'application/octet-stream','Content-Range':'bytes 0-'+(bytes.length-1)+'/'+bytes.length},body:bytes,signal:AbortSignal.timeout(60000)});await upload.body?.cancel();
+   const verified=await oneDriveAction(req,'verify-backup-file',{run_id:job.run_id,path,size:bytes.length,sha256});
+   if(verified?.verified!==true||verified.sha256!==sha256||verified.size!==bytes.length)throw new Error('No se ha confirmado un componente de la copia.');
+  };
+  const engine=createPartitionedBackup({Zip:NativeBackupZip,hash:NativeBackupZip.archiveHash,writeComponent,
+   readOriginal:async(bucket:string,path:string)=>{
+    const local=await admin.storage.from(bucket).download(path);if(!local.error&&local.data)return local.data;
+    if(bucket==='business-documents')return oneDriveRead(req,'document-file-url',{path});
+    throw new Error('No se ha encontrado un recurso original.');
+   },
+   readCode:async()=>{
+    const revision=job.state.source_revision;
+    const response=await fetch('https://codeload.github.com/hortimatic/Totus-Central/zip/'+revision,{signal:AbortSignal.timeout(30000)});
+    if(!response.ok)throw new Error('No se pudo incluir el código en la copia.');
+    const maximum=32*1024*1024,declared=Number(response.headers.get('Content-Length'));
+    if(declared>maximum||!response.body)throw new Error('El código supera el tamaño permitido o no está disponible.');
+    const reader=response.body.getReader(),chunks:Uint8Array[]=[];let total=0;
+    try{for(;;){const chunk=await reader.read();if(chunk.done)break;total+=chunk.value.length;if(total>maximum){await reader.cancel();throw new Error('El código supera 32 MB.');}chunks.push(chunk.value);}}finally{reader.releaseLock();}
+    const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+    await NativeBackupZip.loadAsync(bytes);return {bytes,revision};
+   }});
+  if(job.state.stage==='data'||job.state.stage==='complete'){
+   const source=await admin.from('ops_backup_work').select('snapshot').eq('run_id',job.run_id).single();if(source.error)throw source.error;
+   job.state.snapshot=source.data.snapshot;
+  }
+  const result=await engine.advance(structuredClone(job.state));
+  if(!result.complete){
+   const save=await admin.from('ops_backup_work').update({state:result.job,updated_at:new Date().toISOString(),lease_until:null}).eq('run_id',job.run_id).eq('lease_until',lease);
+   if(save.error)throw save.error;
+   await admin.from('ops_backup_runs').update({error_message:'Preparando componentes: '+result.job.cursor+' de '+result.job.files.length+' archivos'}).eq('id',job.run_id).eq('status','running');
+   return {pending:true,id:job.run_id,files_completed:result.job.cursor,files_total:result.job.files.length};
+  }
+  const {snapshot}=result.job;
+  const indexBytes=new TextEncoder().encode(JSON.stringify(result.index));
+  const saved=await admin.storage.from('business-backups').upload(result.job.path,new Blob([indexBytes]),{contentType:'application/json',upsert:true});if(saved.error)throw saved.error;
+  const recorded=await admin.from('ops_backup_runs').update({status:'success',error_message:null,finished_at:new Date().toISOString(),
+   size_bytes:result.index.size,rows_count:Object.values(snapshot.database).reduce((n:number,rows:any)=>n+rows.length,0),files_count:result.job.files.length,
+   snapshot_revision:snapshot.revision,archive_sha256:result.index.sha256,archive_manifest:result.manifest,storage_provider:'onedrive',supabase_parts_retired_at:new Date().toISOString()}).eq('id',job.run_id).eq('status','running');
+  if(recorded.error)throw recorded.error;
+  completed={id:job.run_id,status:'success',size_bytes:result.index.size,components:result.index.parts.length};
+  const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id);if(removed.error)throw removed.error;
+  const retention=await pruneBackups();await oneDriveAction(req,'prune-backups',{}).catch(()=>null);
+  return {id:job.run_id,status:'success',size_bytes:result.index.size,components:result.index.parts.length,retention};
+ }catch(error){
+  if(completed){
+   await admin.from('ops_backup_work').delete().eq('run_id',job.run_id).eq('lease_until',lease);
+   return {...completed,warning:'La copia está verificada; queda pendiente comprobar la limpieza de las copias antiguas.'};
+  }
+  // Keep resumable state for temporary failures; previous complete copies remain untouched.
+  const failures=Number(job.state.failures||0)+1;
+  await admin.from('ops_backup_runs').update({error_message:'Pendiente de reintento: '+String(error instanceof Error?error.message:error).slice(0,800)}).eq('id',job.run_id).eq('status','running');
+  if(failures>=5){
+   const marked=await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'No se pudo completar la copia después de cinco intentos: '+String(error instanceof Error?error.message:error).slice(0,700)}).eq('id',job.run_id).eq('status','running');
+   if(marked.error)throw marked.error;
+   const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id).eq('lease_until',lease);if(removed.error)throw removed.error;
+  }else{
+   const saved=await admin.from('ops_backup_work').update({state:{...Object.fromEntries(Object.entries(job.state).filter(([k])=>k!=='snapshot')),failures},lease_until:null,updated_at:new Date().toISOString()}).eq('run_id',job.run_id).eq('lease_until',lease);
+   if(saved.error)throw saved.error;
+  }
+  throw error;
+ }
+}
+
 async function capacityProbe(){
  const MB=1024*1024,path='simulaciones/capacidad-'+crypto.randomUUID()+'.totusbackup',payload=new Uint8Array(MB);
  crypto.getRandomValues(payload.subarray(0,65536));for(let i=65536;i<payload.length;i+=65536)payload.set(payload.subarray(0,65536),i);
@@ -487,7 +605,7 @@ Deno.serve(async(req)=>{
    return reply(await deleteSavedBackup(String(body?.id||''),req));
   }
   if(body?.action==='prune')return reply(await pruneBackups());
-  const result=await run(mode,req);
+  const result=await partitionedRun(mode,req);
   const onedrive=await mirrorAfterBackup(req,result.id);
   return reply({...result,onedrive});
  }catch(e){return reply({error:String(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?e.message:e)},500);}
