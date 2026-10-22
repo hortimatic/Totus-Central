@@ -289,7 +289,7 @@ async function previewPendingExpenseFile(){
  let content='';
  if(kind==='image'){
   const url=URL.createObjectURL(file);
-  content=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(Array.isArray(file)?'Juego de copia · '+file.length+' componentes':file.name)}"></div>`;
+  content=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(file.name)}"></div>`;
   setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
   const workbook=window.XLSX.read(await file.arrayBuffer(),{type:'array'});
@@ -1808,7 +1808,7 @@ async function reviewRecoveryFile(){
  if(current.database_instance!==archive.manifest.database_instance||current.schema_hash!==archive.manifest.schema_hash)throw new Error('La copia no corresponde a este proyecto o su estructura es incompatible.');
  const rows=Object.values(archive.database).reduce((sum,list)=>sum+list.length,0),files=Object.values(archive.manifest.storage).reduce((sum,list)=>sum+list.length,0);
  recoveryCandidate={file,selectedSet:archive.selectedSet,manifest:archive.manifest};
- modal('Revisar recuperación',`<p><b>${esc(file.name)}</b></p><div class="summary-row"><span>Fecha de la copia</span><strong>${esc(new Date(archive.manifest.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}</strong></div><div class="summary-row"><span>Registros</span><strong>${rows}</strong></div><div class="summary-row"><span>Archivos vinculados</span><strong>${files}</strong></div><p class="note warn">Se sustituirán los datos y permisos por los de esta copia. Las contraseñas de las cuentas actuales se conservan. Antes se guardará una copia del estado anterior y se verificarán los archivos.</p><div class="form-actions">${btn('Cancelar','close-modal','secondary')}${btn('Continuar','recovery-confirm','primary')}</div>`);
+ modal('Revisar recuperación',`<p><b>${esc(Array.isArray(file)?'Juego de copia · '+file.length+' archivos':file.name)}</b></p><div class="summary-row"><span>Fecha de la copia</span><strong>${esc(new Date(archive.manifest.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}</strong></div><div class="summary-row"><span>Registros</span><strong>${rows}</strong></div><div class="summary-row"><span>Archivos vinculados</span><strong>${files}</strong></div><p class="note warn">Se sustituirán los datos y permisos por los de esta copia. Las contraseñas de las cuentas actuales se conservan. Antes se guardará una copia del estado anterior y se verificarán los archivos.</p><div class="form-actions">${btn('Cancelar','close-modal','secondary')}${btn('Continuar','recovery-confirm','primary')}</div>`);
 }
 async function performRecovery(jobId=''){
  if(!isAdmin())throw new Error('Solo administración puede recuperar una copia.');
@@ -1825,7 +1825,7 @@ async function performRecovery(jobId=''){
    if(candidate.selectedSet)await uploadSelectedBackupSet(registered.source_path,candidate.selectedSet,writeBackupStorage);else await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
   }
   const current=await rpc('totus_export_recovery_snapshot');
-  const ready=(state.data.backupRuns||[]).some(r=>r.status==='success'&&r.storage_path&&r.snapshot_revision===current.revision);
+  const ready=/^[a-f0-9]{64}$/.test(current.revision||'')&&(state.data.backupRuns||[]).some(r=>r.status==='success'&&r.storage_path&&r.snapshot_revision===current.revision);
   const {data:checkpoint,error:checkpointError}=ready?{data:{status:'success'},error:null}:await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
   if(checkpointError||checkpoint?.error||checkpoint?.skipped)throw new Error('Antes de recuperar se necesita una copia actual completa. '+(checkpoint?.error||checkpoint?.reason||checkpointError?.message||'Revisa el historial de copias.'));
   if(checkpoint?.pending)throw new Error('La copia de protección se está preparando por componentes en el servidor. Cuando termine, pulsa Continuar en la recuperación registrada; no se ha sustituido ningún dato.');
