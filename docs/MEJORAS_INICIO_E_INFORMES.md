@@ -9,6 +9,7 @@ Los pendientes de cobro siguen disponibles en Facturación y cobros, sin ocupar 
 ## Control interno
 Tipo de documento Control interno en un gasto activa Solo información interna y excluye el registro del cálculo fiscal. Se completa con conceptos, importe, fecha, forma de pago y justificante como los demás gastos. No duplica impuestos: los modelos mantienen el registro único ya utilizado en Fiscalidad. No convertir nóminas, Seguridad Social o RETA en internos sin justificar su tratamiento.
 La clasificación documental Control interno usa el tipo compatible Otro y la categoría control_interno. No cambia las restricciones de los datos históricos.
+Al seleccionar control interno, los campos de deducción de cada línea quedan desactivados y a cero. Inicio, Informes y el resumen del paquete muestran ingresos menos gastos fiscalizables, sin descontar control interno.
 Los gastos internos generales y los impuestos pagados se presentan juntos en el bloque Control interno, con acceso a sus fichas y documentos.
 
 ## Gestoría

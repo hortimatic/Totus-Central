@@ -28,6 +28,7 @@ try{
  assert.equal(await page.locator('.home-activity svg').count(),1);
  await nav('informes');await page.locator('#reportPeriodYear').fill('2026');await page.locator('#reportPeriodMonth').selectOption('1');await page.locator('[data-action="report-period-month"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),'2026-01-01');assert.equal(await page.locator('#informesTo').inputValue(),'2026-01-31');
+ assert.deepEqual((await page.locator('.reports-page > .kpis .kpi strong').allTextContents()).map(text=>text.replace(/\s/g,' ')),['150,00 €','20,00 €','17,00 €','130,00 €'],'Reports must exclude internal expenses and paid taxes from the displayed result');
  assert.equal(await page.locator('.internal-expenses-panel').getByText('Control general',{exact:true}).count(),1);
  await page.getByLabel('Información sobre Variación del dinero que queda en caja',{exact:true}).click();assert((await page.locator('details.field-help[open]').innerText()).includes('abrir con 100 €'));
  await page.getByLabel('Información sobre Variación del dinero que queda en caja',{exact:true}).click();
@@ -45,6 +46,10 @@ try{
  const wb=XLSX.read(await zip.file('02_GASTOS/Tabla_gestoria_2026-01-01_2026-01-31.xlsx').async('nodebuffer'));assert(Object.values(wb.Sheets[wb.SheetNames[0]]).some(c=>c?.v==='E-ENE'));
  await nav('gastos');await page.locator('[data-action="expense-new"]').click();await page.locator('#exDocKind').selectOption('control_interno');
  assert(await page.locator('#exManagement').isChecked());assert(await page.locator('#exManagement').isDisabled());assert(!(await page.locator('#exFiscalReviewed').isChecked()));
+ assert(!(await page.locator('#exLineDed_0').isChecked()));assert(await page.locator('#exLineDed_0').isDisabled());assert.equal(await page.locator('#exLineDedPct_0').inputValue(),'0');
+ await page.locator('#exDocKind').selectOption('factura');await page.locator('#exManagement').uncheck();assert(await page.locator('#exLineDed_0').isChecked());assert.equal(await page.locator('#exLineDedPct_0').inputValue(),'100');
+ await page.locator('#exDocKind').selectOption('control_interno');await page.locator('[data-action="expense-line-add"]').click();assert(await page.locator('#exLineDed_1').isDisabled());assert.equal(await page.locator('#exLineDedPct_1').inputValue(),'0');await page.locator('[data-action="expense-line-remove"]').last().click();
+
  await page.locator('#exSupplier').fill('Gasto interno nuevo QA');await page.locator('#exInvoice').fill('INT-QA');await page.locator('#exLineDesc_0').fill('Control interno general');await page.locator('#exLineBase_0').fill('10');await page.locator('#exLineVat_0').fill('0');
  await page.locator('[data-action="expense-save"]').click();await page.getByText('Gasto guardado.',{exact:true}).waitFor();
  const expense=await page.evaluate(()=>window.__mockDb.ops_expenses.find(e=>e.invoice_number==='INT-QA'));assert.equal(expense.document_kind,'otro');assert.equal(expense.management_only,true);assert.equal(expense.fiscal_reviewed,false);
