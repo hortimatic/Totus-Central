@@ -14,7 +14,7 @@ export function validateBackupSet(path,index){
  if(index?.format!==SET_FORMAT||index.version!==SET_VERSION||!Array.isArray(index.parts)||index.parts.length<2||index.parts.length>SET_MAX_COMPONENTS||!HASH.test(index.sha256||''))throw new Error('Índice del juego de copias no válido.');
  const seen=new Set();let size=0;
  for(const p of index.parts){
-  if(!['datos','documentos','codigo'].includes(p.kind)||p.path!==componentPath(path,p.kind,p.number)||seen.has(p.path)||!Number.isSafeInteger(p.size)||p.size<1||p.size>SET_COMPONENT_BYTES||!HASH.test(p.sha256||''))throw new Error('Componente de copia fuera de inventario.');
+  if(!['datos','documentos','codigo'].includes(p.kind)||!Number.isInteger(p.number)||p.path!==componentPath(path,p.kind,p.number)||seen.has(p.path)||!Number.isSafeInteger(p.size)||p.size<1||p.size>SET_COMPONENT_BYTES||!HASH.test(p.sha256||''))throw new Error('Componente de copia fuera de inventario.');
   seen.add(p.path);size+=p.size;
  }
  if(index.parts.filter(p=>p.kind==='datos').length!==1||index.parts.filter(p=>p.kind==='codigo').length!==1||index.size!==size)throw new Error('Faltan datos o código en el juego de copias.');

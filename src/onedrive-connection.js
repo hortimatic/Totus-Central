@@ -7,7 +7,7 @@ import {btn,kpi} from './components.js';
 
 let connectionStatus=null,connectionOwner='',maintenanceStatus=null,maintenanceOwner='';
 export function setOneDriveMaintenance(value){maintenanceStatus=value;maintenanceOwner=state.user?.email||'';}
-export function setOneDriveStatus(value){connectionStatus=value;connectionOwner=state.user?.email||'';}
+export function setOneDriveStatus(value){connectionStatus=value;connectionOwner=state.user?.email||'';if(value&&Object.hasOwn(value,'credential_expires_at'))setOneDriveMaintenance(value);}
 export async function oneDriveRequest(action,values={}){
  if(!isAdmin())throw new Error('Solo administración puede configurar OneDrive.');
  const {sb}=await import('./api.js');

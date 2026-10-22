@@ -9,7 +9,8 @@ export function createPartitionedBackup({Zip,hash,readOriginal,writeComponent,re
    created_at:snapshot.created_at,tables:[...RECOVERY_TABLES],storage:snapshot.storage,identities:snapshot.identities,
    integrity:{database:await hash(database),identities:await hash(JSON.stringify(snapshot.identities)),storage:{'business-documents':{},'business-assets':{}}}};
   validateMetadata(manifest,snapshot.database);
-  return {version:4,snapshot,path,manifest,cursor:0,parts:[],files:Object.entries(snapshot.storage).flatMap(([bucket,paths])=>paths.map(path=>({bucket,path}))),stage:'documents'};
+  const known=new Map(snapshot.database.ops_documents.filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
+  return {version:4,snapshot,source_revision:snapshot.source_revision,path,manifest,cursor:0,parts:[],files:Object.entries(snapshot.storage).flatMap(([bucket,paths])=>paths.map(path=>({bucket,path,sha256:bucket==='business-documents'?known.get(path)||null:null}))),stage:'documents'};
  }
  async function save(job,kind,zip,number){
   const bytes=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
@@ -21,7 +22,6 @@ export function createPartitionedBackup({Zip,hash,readOriginal,writeComponent,re
  async function advance(job){
   if(job.stage==='documents'){
    const zip=new Zip();let expanded=0,files=0;
-   const expected=new Map(job.snapshot.database.ops_documents.filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
    while(job.cursor<job.files.length&&files<30){
     const file=job.files[job.cursor],input=await readOriginal(file.bucket,file.path);
     if(input==null)throw new Error('Falta un original. Se conservan las copias anteriores.');
@@ -29,7 +29,7 @@ export function createPartitionedBackup({Zip,hash,readOriginal,writeComponent,re
     if(bytes.length>24*1024*1024)throw new Error('Un documento supera 24 MB y necesita dividirse antes de incorporarlo a este formato.');
     if(files&&expanded+bytes.length>24*1024*1024)break;
     const digest=await hash(bytes);
-    if(file.bucket==='business-documents'&&expected.has(file.path)&&expected.get(file.path)!==digest)throw new Error('El documento no coincide con el original del inventario.');
+    if(file.sha256&&file.sha256!==digest)throw new Error('El documento no coincide con el original del inventario.');
     job.manifest.integrity.storage[file.bucket][file.path]=digest;zip.file('storage/'+file.bucket+'/'+file.path,bytes);
     expanded+=bytes.length;files++;job.cursor++;
    }

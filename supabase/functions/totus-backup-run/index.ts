@@ -334,9 +334,9 @@ async function partitionedRun(mode:string,req:Request){
    const build=await buildResponse.json();snapshot.source_revision=String(build.commit||build.sha||'');
    if(!/^[a-f0-9]{40}$/.test(snapshot.source_revision))throw new Error('Versión de código no válida.');
    const engine=createPartitionedBackup({Zip:NativeBackupZip,hash:NativeBackupZip.archiveHash} as any);
-   const state=await engine.start(snapshot,path);
+   const {snapshot:originalSnapshot,...state}=await engine.start(snapshot,path);
    const planned=await admin.from('ops_backup_runs').update({storage_path:path,archive_manifest:{bundle_version:4},error_message:'Preparando documentos por componentes'}).eq('id',id).eq('status','running');if(planned.error)throw planned.error;
-   const created=await admin.from('ops_backup_work').insert({run_id:id,state}).select('*').single();if(created.error)throw created.error;job=created.data;
+   const created=await admin.from('ops_backup_work').insert({run_id:id,state,snapshot:originalSnapshot}).select('run_id,state').single();if(created.error)throw created.error;job=created.data;
   }catch(error){
    await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:error)}).eq('id',id);throw error;
   }
@@ -362,12 +362,16 @@ async function partitionedRun(mode:string,req:Request){
     throw new Error('No se ha encontrado un recurso original.');
    },
    readCode:async()=>{
-    const revision=job.state.snapshot.source_revision;
+    const revision=job.state.source_revision;
     const response=await fetch('https://codeload.github.com/hortimatic/Totus-Central/zip/'+revision,{signal:AbortSignal.timeout(30000)});
     if(!response.ok)throw new Error('No se pudo incluir el código en la copia.');
     const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length>8*1024*1024)throw new Error('El código supera el tamaño permitido.');
     await NativeBackupZip.loadAsync(bytes);return {bytes,revision};
    }});
+  if(job.state.stage==='data'||job.state.stage==='complete'){
+   const source=await admin.from('ops_backup_work').select('snapshot').eq('run_id',job.run_id).single();if(source.error)throw source.error;
+   job.state.snapshot=source.data.snapshot;
+  }
   const result=await engine.advance(job.state);
   if(!result.complete){
    const save=await admin.from('ops_backup_work').update({state:result.job,updated_at:new Date().toISOString(),lease_until:null}).eq('run_id',job.run_id).eq('lease_until',lease);
@@ -394,7 +398,7 @@ async function partitionedRun(mode:string,req:Request){
   if(failures>=5){
    await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:'No se pudo completar la copia después de cinco intentos: '+String(error instanceof Error?error.message:error).slice(0,700)}).eq('id',job.run_id).eq('status','running');
    await admin.from('ops_backup_work').delete().eq('run_id',job.run_id);
-  }else await admin.from('ops_backup_work').update({state:{...job.state,failures}}).eq('run_id',job.run_id);
+  }else await admin.from('ops_backup_work').update({state:{...Object.fromEntries(Object.entries(job.state).filter(([k])=>k!=='snapshot')),failures}}).eq('run_id',job.run_id);
   throw error;
  }
 }

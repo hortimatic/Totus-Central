@@ -1,6 +1,7 @@
 -- Private resumable state. Neither users nor the public API can read snapshots.
 create table if not exists public.ops_backup_work(
  run_id uuid primary key references public.ops_backup_runs(id) on delete cascade,
+ snapshot jsonb not null,
  state jsonb not null,
  updated_at timestamptz not null default now(),
  lease_until timestamptz
