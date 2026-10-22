@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {withRateLimitRetry,isRateLimited} from '../supabase/functions/totus-backup-run/rate-limit.js';
+let calls=0,delays=[];
+const result=await withRateLimitRetry(async()=>{calls++;if(calls===1)throw Error('Rate limit exceeded. Retry after 21078ms.');return 'ok';},{sleep:async ms=>delays.push(ms)});
+assert.equal(result,'ok');assert.equal(calls,2);assert.deepEqual(delays,[21328]);
+calls=0;await assert.rejects(()=>withRateLimitRetry(async()=>{calls++;throw Error('Un documento no coincide');},{sleep:async()=>{}}),/coincide/);assert.equal(calls,1);
+delays=[];await assert.rejects(()=>withRateLimitRetry(async()=>{throw Error('429 Retry after 70000ms');},{sleep:async ms=>delays.push(ms)}),/70000/);assert.deepEqual(delays,[],'Never retry earlier than the service allows');
+calls=0;await assert.rejects(()=>withRateLimitRetry(async()=>{calls++;throw Error('Rate limit Retry after 1ms');},{sleep:async()=>{}}),/Rate/);assert.equal(calls,3);
+assert(isRateLimited(Error('Too many requests')));assert(!isRateLimited(Error('invalid file')));
+console.log('BACKUP RATE LIMIT: Retry-After respected, bounded waits, limited attempts and no retries of integrity errors OK');

@@ -45,6 +45,8 @@ jobs:
       - run: node tests/document-retirement-qa.mjs
       - run: node tests/backup-part-retirement-qa.mjs
       - run: node tests/cloud-backup-retention-qa.mjs
+      - run: node tests/backup-source-links-qa.mjs
+      - run: node tests/backup-rate-limit-qa.mjs
       - run: node tests/direct-backup-transfer-qa.mjs
       - run: node tests/backup-manual-sync-qa.mjs
       - run: node tests/filters-qa.mjs

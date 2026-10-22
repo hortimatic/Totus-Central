@@ -1,3 +1,4 @@
+import {createBackupDocumentLinks} from './backup-source-links.js';
 import {backupRetentionCount} from '../../../src/backup-retention.js';
 import {createDirectBackupTransfer} from './backup-transfer.js';
 import {validateBackupIndex} from '../../../src/backup-index.js';
@@ -494,6 +495,7 @@ async function backupFileUrls(runId:string){
  return {files:result};
 }
 
+const backupDocumentLinks=createBackupDocumentLinks({admin,check,config,token,root});
 const directBackup=createDirectBackupTransfer({admin,check,config,token,root,ensurePath,graph,encodedPath,fileHash});
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
@@ -509,7 +511,8 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['backup-document-urls','mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(action==='backup-document-urls')return json(await backupDocumentLinks(body.paths));
    if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
    if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
    if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));
@@ -524,6 +527,7 @@ Deno.serve(async req=>{
   }
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
+  if(action==='backup-document-urls')return json(await backupDocumentLinks(body.paths));
   if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));
   if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));

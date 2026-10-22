@@ -1,3 +1,4 @@
+import {withRateLimitRetry,isRateLimited} from './rate-limit.js';
 import {createPartitionedBackup} from './partitioned-job.js';
 // Server-side authenticated backup job; never exposes the service key to clients.
 // Automated calls require the unique secret held in Supabase Vault.
@@ -352,23 +353,32 @@ async function partitionedRun(mode:string,req:Request){
    await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:error)}).eq('id',id);throw error;
   }
  }
- const at=new Date().toISOString(),lease=new Date(Date.now()+120000).toISOString();
+ const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
  const claimed=await admin.from('ops_backup_work').update({lease_until:lease}).eq('run_id',job.run_id).or('lease_until.is.null,lease_until.lt.'+at).select('run_id').maybeSingle();
  if(claimed.error)throw claimed.error;if(!claimed.data)return {pending:true,id:job.run_id,reason:'El servidor está preparando un componente.'};
  let completed:any=null;
  try{
-  const writeComponent=async(path:string,bytes:Uint8Array,sha256:string)=>{
+  const writeComponent=async(path:string,bytes:Uint8Array,sha256:string)=>withRateLimitRetry(async()=>{
    // Retrying a stopped batch may find its immutable verified component already saved.
-   const proof=await oneDriveAction(req,'verify-backup-file',{run_id:job.run_id,path,size:bytes.length,sha256}).catch(()=>null);
+   const proof=await oneDriveAction(req,'verify-backup-file',{run_id:job.run_id,path,size:bytes.length,sha256}).catch(error=>{if(isRateLimited(error))throw error;return null;});
    if(proof?.verified===true)return;
    const prepared=await oneDriveAction(req,'prepare-backup-upload',{run_id:job.run_id,paths:[path]});
    const session=prepared.sessions?.find((s:any)=>s.path===path);if(!session?.url||new URL(session.url).protocol!=='https:')throw new Error('Destino privado de copia no válido.');
    const upload=await fetch(session.url,{method:'PUT',headers:{'Content-Type':'application/octet-stream','Content-Range':'bytes 0-'+(bytes.length-1)+'/'+bytes.length},body:bytes,signal:AbortSignal.timeout(60000)});await upload.body?.cancel();
    const verified=await oneDriveAction(req,'verify-backup-file',{run_id:job.run_id,path,size:bytes.length,sha256});
    if(verified?.verified!==true||verified.sha256!==sha256||verified.size!==bytes.length)throw new Error('No se ha confirmado un componente de la copia.');
-  };
+  });
+  const sourcePaths=job.state.stage==='documents'?job.state.files.slice(job.state.cursor,job.state.cursor+30).filter((f:any)=>f.bucket==='business-documents').map((f:any)=>f.path):[];
+  const sourceLinks=sourcePaths.length?await withRateLimitRetry(()=>oneDriveAction(req,'backup-document-urls',{paths:sourcePaths})):{files:[]};
+  const sources=new Map<string,string>((sourceLinks.files||[]).map((f:any)=>[f.path,f.url]));
+  if(sourceLinks.files?.length!==sourcePaths.length)throw new Error('Falta una ubicación del lote de documentos.');
   const engine=createPartitionedBackup({Zip:NativeBackupZip,hash:NativeBackupZip.archiveHash,writeComponent,
    readOriginal:async(bucket:string,path:string)=>{
+    if(bucket==='business-documents'&&sources.has(path)){
+     const location=sources.get(path)!;if(new URL(location).protocol!=='https:')throw new Error('Ubicación de documento no válida.');
+     const response=await withRateLimitRetry(async()=>{const r=await fetch(location,{signal:AbortSignal.timeout(60000)});if(r.status===429){await r.body?.cancel();throw new Error('Rate limit al leer un original. Retry after '+Math.max(1000,Number(r.headers.get('Retry-After')||1)*1000)+'ms.');}return r;});
+     if(!response.ok)throw new Error('No se pudo leer un original del lote.');return response.blob();
+    }
     const local=await admin.storage.from(bucket).download(path);if(!local.error&&local.data)return local.data;
     if(bucket==='business-documents')return oneDriveRead(req,'document-file-url',{path});
     throw new Error('No se ha encontrado un recurso original.');
@@ -390,6 +400,7 @@ async function partitionedRun(mode:string,req:Request){
   }
   const result=await engine.advance(structuredClone(job.state));
   if(!result.complete){
+   result.job.failures=0;
    const save=await admin.from('ops_backup_work').update({state:result.job,updated_at:new Date().toISOString(),lease_until:null}).eq('run_id',job.run_id).eq('lease_until',lease);
    if(save.error)throw save.error;
    await admin.from('ops_backup_runs').update({error_message:'Preparando componentes: '+result.job.cursor+' de '+result.job.files.length+' archivos'}).eq('id',job.run_id).eq('status','running');
