@@ -24,7 +24,7 @@ try{
  const nav=route=>page.locator('#nav [data-route="'+route+'"]').click();
  await nav('inicio');await page.locator('#inicioFrom').fill('2026-01-01');await page.locator('#inicioTo').fill('2026-01-31');await page.locator('[data-action="inicio-apply"]').click();
  await page.getByText('150,00 €',{exact:true}).first().waitFor();
- assert.deepEqual(await page.locator('.home-period-kpis .kpi strong').allTextContents(),['150,00 €','20,00 €','130,00 €','17,00 €']);
+ assert.deepEqual((await page.locator('.home-period-kpis .kpi strong').allTextContents()).map(text=>text.replace(/\s/g,' ')),['150,00 €','20,00 €','130,00 €','17,00 €']);
  assert.equal(await page.locator('.home-activity svg').count(),1);
  await nav('informes');await page.locator('#reportPeriodYear').fill('2026');await page.locator('#reportPeriodMonth').selectOption('1');await page.locator('[data-action="report-period-month"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),'2026-01-01');assert.equal(await page.locator('#informesTo').inputValue(),'2026-01-31');
