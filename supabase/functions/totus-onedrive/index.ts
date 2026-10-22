@@ -328,6 +328,7 @@ async function pruneMirroredBackups(access:string){
   if(!active.some((c:any)=>c.run_id!==old.run_id&&kept.has(c.run_id)))continue; // Keep at least one verified active cloud copy.
   if(!old.folder_path.startsWith('02 Copias de seguridad/'))throw new Error('Ruta de copia no válida para conservación.');
   const path='/me/drive/special/approot:/'+encodedPath(old.folder_path.split('/'));
+  if(state==='success')check(await admin.from('ops_backup_runs').update({status:'expired',storage_path:null}).eq('id',old.run_id).eq('status','success'),'No se pudo retirar la referencia antigua; se conserva el archivo.');
   const removed=await graph(access,path,{method:'DELETE'});
   if(!removed.ok&&removed.status!==404)throw new Error('No se pudo retirar una copia antigua de OneDrive.');
   check(await admin.from('ops_onedrive_backups').delete().eq('run_id',old.run_id),'No se pudo actualizar la conservación en OneDrive.');

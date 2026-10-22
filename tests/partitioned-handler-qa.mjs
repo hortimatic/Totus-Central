@@ -49,11 +49,13 @@ const req=new Request('https://qa.invalid',{method:'POST'});
 reset();let result=await run('manual',req);assert(result.pending);assert.equal(db.ops_backup_runs[0].status,'running');
 assert.equal(db.ops_backup_work[0].state.snapshot,undefined,'Do not rewrite the full database in every batch');
 assert.deepEqual(db.ops_backup_work[0].snapshot.database,database);
+const resumable=structuredClone(db.ops_backup_work[0]);
 const count=objects.size;db.ops_backup_work[0].lease_until=new Date(Date.now()+120000).toISOString();
 result=await run('scheduled',req);assert(result.pending);assert.equal(objects.size,count,'Concurrent lease must not write');
 db.ops_backup_work[0].lease_until=null;result=await run('scheduled',req);assert(result.pending);
 result=await run('scheduled',req);assert.equal(result.status,'success');assert.equal(db.ops_backup_work.length,0);assert.equal(pruned,1);assert.equal(claims,1);
 assert.equal(db.ops_backup_runs[0].archive_manifest.bundle_version,4);assert.equal(JSON.stringify(database),before);
+const finishedFiles=objects.size;db.ops_backup_work.push({...resumable,lease_until:null});result=await run('scheduled',req);assert.equal(result.status,'success');assert.equal(db.ops_backup_work.length,0);assert.equal(objects.size,finishedFiles,'A completed copy must not be rebuilt after interrupted cleanup');
 reset();fail=true;
 for(let i=0;i<5;i++){await assert.rejects(()=>run(i?'scheduled':'manual',req),/Temporary/);if(i<4)assert.equal(db.ops_backup_work[0].state.cursor,0,'A failed upload must not advance the saved inventory');}
 assert.equal(db.ops_backup_runs[0].status,'failed');assert.equal(db.ops_backup_work.length,0);assert.equal(pruned,0,'Never rotate previous copies after a failed attempt');

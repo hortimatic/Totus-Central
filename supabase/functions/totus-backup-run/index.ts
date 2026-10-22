@@ -314,6 +314,18 @@ async function partitionedRun(mode:string,req:Request){
  const active=await admin.from('ops_backup_work').select('run_id,state,updated_at,lease_until').order('updated_at').limit(1).maybeSingle();
  if(active.error)throw active.error;
  let job=active.data;
+ if(job){
+  const record=await admin.from('ops_backup_runs').select('status,size_bytes').eq('id',job.run_id).single();if(record.error)throw record.error;
+  if(record.data.status!=='running'){
+   if(job.lease_until&&Date.parse(job.lease_until)>Date.now())return {pending:true,id:job.run_id};
+   const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id);if(removed.error)throw removed.error;
+   if(record.data.status==='success'){
+    const retention=await pruneBackups().catch(error=>({warning:String(error.message||error)}));await oneDriveAction(req,'prune-backups',{}).catch(()=>null);
+    return {id:job.run_id,status:'success',size_bytes:record.data.size_bytes,retention};
+   }
+   return {skipped:true,reason:'El intento anterior ya ha terminado. Puedes crear una copia nueva.'};
+  }
+ }
  const drive=await admin.from('ops_onedrive_config').select('connected,tested_at').eq('id',1).maybeSingle();
  if(!drive.data?.connected||!drive.data?.tested_at){
   if(job)throw new Error('La copia por componentes espera a que OneDrive vuelva a estar disponible.');
@@ -343,6 +355,7 @@ async function partitionedRun(mode:string,req:Request){
  const at=new Date().toISOString(),lease=new Date(Date.now()+120000).toISOString();
  const claimed=await admin.from('ops_backup_work').update({lease_until:lease}).eq('run_id',job.run_id).or('lease_until.is.null,lease_until.lt.'+at).select('run_id').maybeSingle();
  if(claimed.error)throw claimed.error;if(!claimed.data)return {pending:true,id:job.run_id,reason:'El servidor está preparando un componente.'};
+ let completed:any=null;
  try{
   const writeComponent=async(path:string,bytes:Uint8Array,sha256:string)=>{
    // Retrying a stopped batch may find its immutable verified component already saved.
@@ -389,10 +402,15 @@ async function partitionedRun(mode:string,req:Request){
    size_bytes:result.index.size,rows_count:Object.values(snapshot.database).reduce((n:number,rows:any)=>n+rows.length,0),files_count:result.job.files.length,
    snapshot_revision:snapshot.revision,archive_sha256:result.index.sha256,archive_manifest:result.manifest,storage_provider:'onedrive',supabase_parts_retired_at:new Date().toISOString()}).eq('id',job.run_id).eq('status','running');
   if(recorded.error)throw recorded.error;
+  completed={id:job.run_id,status:'success',size_bytes:result.index.size,components:result.index.parts.length};
   const removed=await admin.from('ops_backup_work').delete().eq('run_id',job.run_id);if(removed.error)throw removed.error;
   const retention=await pruneBackups();await oneDriveAction(req,'prune-backups',{}).catch(()=>null);
   return {id:job.run_id,status:'success',size_bytes:result.index.size,components:result.index.parts.length,retention};
  }catch(error){
+  if(completed){
+   await admin.from('ops_backup_work').delete().eq('run_id',job.run_id).eq('lease_until',lease);
+   return {...completed,warning:'La copia está verificada; queda pendiente comprobar la limpieza de las copias antiguas.'};
+  }
   // Keep resumable state for temporary failures; previous complete copies remain untouched.
   const failures=Number(job.state.failures||0)+1;
   await admin.from('ops_backup_runs').update({error_message:'Pendiente de reintento: '+String(error instanceof Error?error.message:error).slice(0,800)}).eq('id',job.run_id).eq('status','running');
