@@ -1,3 +1,4 @@
+import {credentialLifetime} from './connection-maintenance.js';
 import {backupRetentionCount} from './backup-retention.js';
 
 import {state,isAdmin} from './state.js';
@@ -22,6 +23,16 @@ export async function oneDriveRequest(action,values={}){
 const safeLink=value=>{
  try{const u=new URL(value);return u.protocol==='https:'&&(u.hostname==='onedrive.live.com'||u.hostname.endsWith('.sharepoint.com'))?u.href:'';}catch{return '';}
 };
+export function oneDriveCredentialNotice({compact=false}={}){
+ const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
+ if(!s)return '';
+ const life=credentialLifetime(s.credential_expires_at),fmt=date=>new Date(date+'T12:00:00Z').toLocaleDateString('es-ES',{timeZone:'Europe/Madrid'});
+ if(compact&&(!life.known||life.level==='ok'))return '';
+ const headline=!life.known?'Caducidad de la conexión pendiente de registrar':life.expired?'La clave de conexión con Microsoft ha caducado':'Clave de conexión con Microsoft · quedan '+life.days+' días';
+ return '<aside class="note '+(['warning','urgent','expired'].includes(life.level)?'warn':'')+'" '+(life.level==='ok'?'role="note"':'role="alert"')+' data-credential-notice><b>'+headline+'</b><p>'+
+ (!life.known?'Registra la fecha que aparece en Microsoft para poder avisarte con antelación.':'Caduca el <b>'+fmt(life.date)+'</b>. '+(life.expired?'Hay que renovar la clave para que las operaciones automáticas puedan continuar.':life.level==='ok'?'Te avisaremos desde el '+fmt(life.renewBy)+' (90 días antes).':'Renueva la clave antes de esa fecha para mantener las subidas y las copias automáticas.'))+
+ '</p>'+(compact?'<button class="btn secondary" data-route="administracion" data-maintenance-storage>Abrir Almacenamiento</button>':'<p class="small muted">Fecha registrada de la clave de la aplicación. No es la caducidad de tus archivos ni del espacio de OneDrive.</p>')+'</aside>';
+}
 export function oneDrivePanel(){
  if(!isAdmin())return '<section class="card card-pad"><h2>OneDrive</h2><p>Solo administración puede preparar esta conexión.</p></section>';
  const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
@@ -35,6 +46,7 @@ export function oneDrivePanel(){
  ${s.configured?'<p class="note">Credencial guardada. Falta tu autorización en Microsoft.</p>':`<div class="field"><label for="odClientSecret">Valor de la credencial de Microsoft</label><input id="odClientSecret" type="password" autocomplete="new-password" data-draft-ignore></div>${btn('Guardar credencial','onedrive-credential-save','primary')}`}
  <div class="inline-actions">${btn('Preparar autorización de Microsoft','onedrive-begin','secondary',s.configured?'':'disabled')}</div>`}
  `}
+ ${s?.configured?`<div class="field"><label for="odCredentialExpiry">Fecha de caducidad de la clave en Microsoft</label><input id="odCredentialExpiry" type="date" value="${esc(String(s.credential_expires_at||'').slice(0,10))}"></div>${btn('Guardar fecha de caducidad','onedrive-expiry-save','secondary')}`:''}
  ${s?.connected&&s?.mirror?`<div class="note"><b>Documentos con copia verificada: ${Number(s.mirror.verified)||0} de ${Number(s.mirror.total)||0}</b><p>${Number(s.mirror.pending)||0} pendientes. La copia por lotes se ejecuta en Supabase cada dos minutos y se detiene cuando no queda nada pendiente. Las vistas previas y descargas utilizan OneDrive cuando el documento está verificado. Las nuevas subidas siguen disponibles desde Supabase mientras se completa su traslado.</p><progress aria-label="Documentos copiados y comprobados en OneDrive" max="${Math.max(1,Number(s.mirror.total)||0)}" value="${Number(s.mirror.verified)||0}" style="width:100%"></progress></div>${s.mirror.last_error?'<p class="note warn">Último lote: '+esc(s.mirror.last_error)+'</p>':''}${s.mirror.running?'<p role="status">Copia en curso en el servidor.</p>':''}${btn('Copiar siguiente lote de documentos','onedrive-mirror','secondary',s.tested_at&&s.mirror.pending&&!s.mirror.running?'':'disabled')}`:''}
 ${s?.connected&&s?.backups?`<div class="note"><b>Copias completas verificadas en OneDrive: ${Number(s.backups.verified)||0} de ${Number(s.backups.maximum)||backupRetentionCount(state.data.backupConfig?.retention_days)} como máximo</b><p>${Number(s.backups.pending)||0} en preparación. La copia nocturna de las 00:35 se guarda y verifica directamente aquí. En Supabase solo queda su índice pequeño.</p>${s.backups.last_error?'<p class="warn-text">'+esc(s.backups.last_error)+'</p>':''}${s.backups.running?'<p role="status">Copiando la seguridad en el servidor.</p>':''}</div>${btn('Actualizar copia en OneDrive','onedrive-backup-mirror','secondary',s.tested_at&&!s.backups.running?'':'disabled')}`:''}
  ${s?.quota?.available?`<div class="note"><b>Espacio de tu cuenta OneDrive</b><p>${(Number(s.quota.used)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB usados · ${(Number(s.quota.remaining)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB libres · ${(Number(s.quota.total)/1073741824).toLocaleString('es-ES',{maximumFractionDigits:2})} GB de capacidad.</p></div>`:''}

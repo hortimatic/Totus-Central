@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/qa.mjs
+      - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/backup-retention-qa.mjs
       - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
@@ -54,6 +55,7 @@ jobs:
       - run: node tests/excel-invariants.mjs
       - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib fflate@0.8.3
       - run: node tests/backup-transport-qa.mjs
+      - run: node tests/partitioned-backup-qa.mjs
       - run: node tests/recovery-core-qa.mjs
       - run: node tests/recovery-capacity-qa.mjs
       - run: node tests/native-backup-zip-qa.mjs

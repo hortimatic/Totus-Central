@@ -1,6 +1,8 @@
+import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
+import {archiveHash as componentHash} from './recovery-core.js';
 import {validateTaxExpense} from './tax-expense.js';
 import {workbookPreviewText} from './workbook-preview.js';
-import {oneDriveRequest,setOneDriveStatus} from './onedrive-connection.js';
+import {oneDriveRequest,setOneDriveStatus,oneDriveCredentialNotice} from './onedrive-connection.js';
 import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
@@ -97,7 +99,7 @@ function render(){
  const renderer=renderers[state.route]||renderers.inicio;
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
- $('#content').innerHTML=renderer();
+ $('#content').innerHTML=oneDriveCredentialNotice({compact:true})+renderer();
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
@@ -274,7 +276,7 @@ async function previewPendingExpenseFile(){
  let content='';
  if(kind==='image'){
   const url=URL.createObjectURL(file);
-  content=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(file.name)}"></div>`;
+  content=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(Array.isArray(file)?'Juego de copia · '+file.length+' componentes':file.name)}"></div>`;
   setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
   const workbook=window.XLSX.read(await file.arrayBuffer(),{type:'array'});
@@ -1684,6 +1686,7 @@ async function runBackupOnServer(){
  toast('Copia iniciada en segundo plano. Puedes continuar trabajando.');
  void sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}}).then(({data,error})=>{
   if(error||data?.error)throw new Error('Copia no completada: '+(data?.error||error?.message||'Error desconocido'));
+  if(data?.pending){toast('Copia en preparación por componentes. El servidor continuará aunque cierres la herramienta.');return;}
   if(data?.skipped){toast(data.reason||'Ya hay una copia en curso.');return}
   toast('Copia creada: '+((Number(data.size_bytes||0)/1048576).toFixed(2))+' MB. Pulsa «Actualizar historial» para verla.','ok');
  }).catch(error=>toast(error.message||String(error),'bad')).finally(()=>{cloudBackupRunning=false});
@@ -1701,7 +1704,7 @@ async function deleteStoredBackup(id){
  await refresh(data.cloud_warning||'Copia eliminada de la lista y del almacenamiento.');
 }
 async function readBackupStorage(path){
- const run=(state.data.backupRuns||[]).find(r=>r.storage_path&&(r.storage_path===path||path.startsWith(r.storage_path+'.part-')));
+ const run=(state.data.backupRuns||[]).find(r=>r.storage_path&&(r.storage_path===path||path.startsWith(r.storage_path+'.')));
  if(run?.storage_provider!=='onedrive'){
   const {data,error}=await sb.storage.from('business-backups').download(path);
   if(!error&&data)return data;
@@ -1722,11 +1725,27 @@ async function getStoredBackup(id){
  const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
  if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible para descarga.');
  const bytes=await readBackupObject(run.storage_path,readBackupStorage);
- return {run,blob:new Blob([bytes],{type:'application/octet-stream'})};
+ return {run,blob:bytes?.format===SET_FORMAT?bytes:new Blob([bytes],{type:'application/octet-stream'})};
 }
 async function downloadStoredBackup(id){
  const {run,blob}=await getStoredBackup(id);
+ if(blob?.format===SET_FORMAT){
+  const labels={datos:'Datos contables y configuración',documentos:'Facturas y documentos',codigo:'Código de Totus Central'};
+  const buttons=blob.index.parts.map((part,n)=>'<div class="summary-row"><span>'+esc(labels[part.kind])+' · parte '+(part.number+1)+' · '+(part.size/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB</span>'+btn('Descargar ZIP','backup-component-download','secondary','data-id="'+esc(run.id)+'" data-part="'+n+'"')+'</div>').join('');
+  modal('Descargar juego de copia',`<p>Este juego cuenta como una sola copia. Guarda su índice y todos los ZIP juntos en una carpeta para poder comprobarlo o recuperarlo.</p><div class="inline-actions">${btn('Descargar índice','backup-component-download','primary','data-id="'+esc(run.id)+'" data-part="-1"')}</div><div class="stack">${buttons}</div>`);return;
+ }
  download(blob,run.storage_path.split('/').pop()||'Totus_Central.totusbackup');
+}
+async function downloadBackupComponent(id,partNumber){
+ if(!isAdmin())throw new Error('Solo administración.');
+ const {run,blob}=await getStoredBackup(id);
+ if(blob?.format!==SET_FORMAT)throw new Error('Esta copia no está dividida en componentes.');
+ const n=Number(partNumber);
+ if(n===-1){download(new Blob([JSON.stringify(blob.index)],{type:'application/json'}),run.storage_path.split('/').pop());return;}
+ if(!Number.isInteger(n)||n<0||n>=blob.index.parts.length)throw new Error('Componente no válido.');
+ const part=blob.index.parts[n],file=await readBackupStorage(part.path);
+ if(file.size!==part.size||await componentHash(file)!==part.sha256)throw new Error('El componente no supera la comprobación de integridad.');
+ download(file,part.path.split('/').pop());
 }
 let verifyingStoredBackup=false;
 async function verifyStoredBackup(id){
@@ -1756,7 +1775,7 @@ async function downloadBackup(){
 }
 async function verifyBackupFromInput(){
  if(!isAdmin())throw new Error('Solo el administrador puede comprobar copias.');
- const file=input('backupFile')?.files?.[0];
+ const selected=Array.from(input('backupFile')?.files||[]),file=selected.length>1?selected:selected[0];
  if(!file)throw new Error('Selecciona una copia antes de comprobarla.');
  const result=await inspectBackup(file);
  const rows=Object.values(result.database).reduce((a,entries)=>a+(Array.isArray(entries)?entries.length:0),0);
@@ -1767,7 +1786,7 @@ async function verifyBackupFromInput(){
 let recoveryCandidate=null,recoveryBusy=false;
 async function reviewRecoveryFile(){
  if(!isAdmin())throw new Error('Solo administración puede recuperar una copia.');
- const file=input('backupFile')?.files?.[0];
+ const selected=Array.from(input('backupFile')?.files||[]),file=selected.length>1?selected:selected[0];
  if(!file)throw new Error('Selecciona la copia que quieres recuperar.');
  const archive=await inspectBackup(file);
  if(archive.manifest.version!==3)throw new Error('Esta copia antigua no conserva todos los autores. Solo admite comprobación; la recuperación necesita una copia nueva.');
@@ -1775,7 +1794,7 @@ async function reviewRecoveryFile(){
  const current=await rpc('totus_export_recovery_snapshot');
  if(current.database_instance!==archive.manifest.database_instance||current.schema_hash!==archive.manifest.schema_hash)throw new Error('La copia no corresponde a este proyecto o su estructura es incompatible.');
  const rows=Object.values(archive.database).reduce((sum,list)=>sum+list.length,0),files=Object.values(archive.manifest.storage).reduce((sum,list)=>sum+list.length,0);
- recoveryCandidate={file,manifest:archive.manifest};
+ recoveryCandidate={file,selectedSet:archive.selectedSet,manifest:archive.manifest};
  modal('Revisar recuperación',`<p><b>${esc(file.name)}</b></p><div class="summary-row"><span>Fecha de la copia</span><strong>${esc(new Date(archive.manifest.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}</strong></div><div class="summary-row"><span>Registros</span><strong>${rows}</strong></div><div class="summary-row"><span>Archivos vinculados</span><strong>${files}</strong></div><p class="note warn">Se sustituirán los datos y permisos por los de esta copia. Las contraseñas de las cuentas actuales se conservan. Antes se guardará una copia del estado anterior y se verificarán los archivos.</p><div class="form-actions">${btn('Cancelar','close-modal','secondary')}${btn('Continuar','recovery-confirm','primary')}</div>`);
 }
 async function performRecovery(jobId=''){
@@ -1790,10 +1809,11 @@ async function performRecovery(jobId=''){
   toast('Preparando punto de recuperación y archivos…');
   if(!jobId){
    const registered=await invokeRecovery(id,'register');
-   await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
+   if(candidate.selectedSet)await uploadSelectedBackupSet(registered.source_path,candidate.selectedSet,writeBackupStorage);else await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
   }
   const {data:checkpoint,error:checkpointError}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
   if(checkpointError||checkpoint?.error||checkpoint?.skipped)throw new Error('Antes de recuperar se necesita una copia actual completa. '+(checkpoint?.error||checkpoint?.reason||checkpointError?.message||'Revisa el historial de copias.'));
+  if(checkpoint?.pending)throw new Error('La copia de protección se está preparando por componentes en el servidor. Cuando termine, pulsa Continuar en la recuperación registrada; no se ha sustituido ningún dato.');
   await invokeRecovery(id);
   recoveryCandidate=null;await refresh('Recuperación completada y verificada.');
  }catch(error){
@@ -2015,7 +2035,7 @@ async function reviewUnusedLogos(){
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
  if(a==='close-modal'){
@@ -2195,6 +2215,11 @@ document.addEventListener('click',async e=>{
   if(a==='config-save'){await saveConfig();return}
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
 
+  if(a==='onedrive-expiry-save'){
+   const expires=val('odCredentialExpiry');
+   if(!expires)throw new Error('Indica la fecha de caducidad que aparece en Microsoft.');
+   await oneDriveRequest('save-expiry',{expires_at:expires});await refreshOneDrivePanel();toast('Fecha guardada. Avisaremos desde 90 días antes.');return;
+  }
   if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
   if(a==='onedrive-credential-save'){
    const field=$('#odClientSecret'),value=field?.value||'';
@@ -2237,6 +2262,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-payment-save'){await saveExpensePayment(el.dataset.id);return}
   if(a==='backup-settings-save'){await saveBackupSettings();return}
   if(a==='backup-run-now'){await runBackupOnServer();return}
+  if(a==='backup-component-download'){await downloadBackupComponent(el.dataset.id,el.dataset.part);return}
   if(a==='backup-history-download'){await downloadStoredBackup(el.dataset.id);return}
   if(a==='backup-history-verify'){await verifyStoredBackup(el.dataset.id);return}
   if(a==='backup-history-delete'){await deleteStoredBackup(el.dataset.id);return}
@@ -2299,8 +2325,8 @@ document.addEventListener('change',async e=>{
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
  if(e.target?.id==='backupFile'){
   recoveryCandidate=null;
-  const file=e.target.files?.[0],label=input('backupSelectedFile');
-  if(label)label.textContent=file?file.name+' · '+(file.size/1024).toFixed(1)+' KB':'Ningún archivo seleccionado';
+  const file=e.target.files?.[0],count=e.target.files?.length||0,label=input('backupSelectedFile');
+  if(label)label.textContent=file?(count>1?count+' archivos seleccionados':file.name)+' · '+(file.size/1024).toFixed(1)+' KB':'Ningún archivo seleccionado';
   return;
  }
  if(e.target?.id==='backupFrequency'){

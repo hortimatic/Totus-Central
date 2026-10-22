@@ -46,7 +46,7 @@ export class NativeBackupZip{
    // Compress only the database and manifest.
    const compress=compression==='DEFLATE'&&(name==='database.json'||name==='manifest.json');
    const file=compress?new NativeDeflateFile(name):new NativeStoredFile(name);
-   writer.add(file);file.push(bytes,true);
+   file.mtime=new Date('1980-01-01T00:00:00Z');writer.add(file);file.push(bytes,true);
    this.entries.delete(name);
   }
   writer.end();
@@ -107,7 +107,7 @@ export class SegmentedBackupZip extends NativeBackupZip{
   // uncompressed inventory alongside the finished archive in the hosted worker.
   const compress=name==='database.json'||name==='manifest.json';
   const file=compress?new NativeDeflateFile(name):new NativeStoredFile(name);
-  this.writer.add(file);file.push(bytes,true);
+  file.mtime=new Date('1980-01-01T00:00:00Z');this.writer.add(file);file.push(bytes,true);
   return this;
  }
  async generateAsync(){
@@ -161,7 +161,7 @@ export function cloudBackupZip({path,write,read,partBytes=8*1024*1024,maxBytes=1
    this.names.add(name);
    const bytes=typeof content==='string'?new TextEncoder().encode(content):content instanceof Uint8Array?content:new Uint8Array(content);
    const file=name==='database.json'||name==='manifest.json'?new NativeDeflateFile(name):new NativeStoredFile(name);
-   this.writer.add(file);file.push(bytes,true);await this.flush();
+   file.mtime=new Date('1980-01-01T00:00:00Z');this.writer.add(file);file.push(bytes,true);await this.flush();
    return this;
   }
   async generateAsync(){

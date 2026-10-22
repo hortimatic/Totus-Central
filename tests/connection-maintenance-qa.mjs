@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {credentialLifetime} from '../src/connection-maintenance.js';
+assert.equal(credentialLifetime(null).known,false);
+assert.equal(credentialLifetime('2027-02-30').known,false);
+assert.equal(credentialLifetime('2027-04-18',new Date('2026-10-22T12:00Z')).level,'ok');
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-02-01T12:00Z')).level,'warning');
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-04-01T12:00Z')).level,'urgent');
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-04-19T00:00Z')).level,'expired');
+assert.equal(credentialLifetime('2027-04-18',new Date('2027-04-18T12:00Z')).expired,false);
+console.log('CREDENTIAL MAINTENANCE: date validation and 90/30-day advance warnings OK');

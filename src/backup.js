@@ -1,3 +1,4 @@
+import {readSelectedBackupSet,SET_FORMAT} from './backup-set.js';
 import {rpc,downloadFile} from './api.js';
 import {SUPABASE_URL} from './config.js';
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,loadBoundedRecoveryZip} from './recovery-core.js';
@@ -25,6 +26,11 @@ export async function createBackup(){
 }
 export async function inspectBackup(file){
  if(!file)throw new Error('Selecciona una copia.');
+ if(file.format===SET_FORMAT)return readRecoveryArchive(file,JSZip);
+ if(Array.isArray(file)||typeof FileList!=='undefined'&&file instanceof FileList){
+  const selected=await readSelectedBackupSet(file,JSZip);
+  return {...await readRecoveryArchive(selected.archive,JSZip),selectedSet:selected};
+ }
  const zip=await loadBoundedRecoveryZip(file,JSZip),mf=zip.file('manifest.json'),dbf=zip.file('database.json');
  if(!mf||!dbf)throw new Error('La copia no contiene manifest.json y database.json.');
  const manifest=JSON.parse(await mf.async('string'));

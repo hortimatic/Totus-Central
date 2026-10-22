@@ -474,7 +474,7 @@ async function backupFileUrls(runId:string){
  const backup=check(await admin.from('ops_onedrive_backups').select('folder_path,verified_at').eq('run_id',runId).maybeSingle(),'No se pudo comprobar la copia.');
  if(!backup?.verified_at)throw new Error('La copia de OneDrive no está completa.');
  const files=check(await admin.from('ops_onedrive_backup_files').select('source_path').eq('run_id',runId),'No se pudo comprobar el inventario.');
- if(!files.length||files.length>20)throw new Error('Inventario de copia no compatible.');
+ if(!files.length||files.length>4097)throw new Error('Inventario de copia no compatible.');
  const access=await token(),result:any[]=[];let next=0;
  const worker=async()=>{while(next<files.length){
   const file=files[next++];
@@ -505,7 +505,7 @@ Deno.serve(async req=>{
    if(allowed.error||allowed.data!==true||!['mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url'].includes(action))throw new Error('Acceso denegado.');
    if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
    if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
-   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||'')));
+   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));
    if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));
    if(action==='staged-backup-file-url')return json(await directBackup.stagedUrl(String(body.run_id||''),String(body.path||'')));
    if(action==='sync-manuals')return json(await syncOnlineManuals(String(body.revision||'')));
@@ -518,7 +518,7 @@ Deno.serve(async req=>{
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
   if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
-  if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||'')));
+  if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));
   if(action==='verify-backup-file')return json(await directBackup.verify(String(body.run_id||''),String(body.path||''),Number(body.size),String(body.sha256||'')));
   if(action==='staged-backup-file-url')return json(await directBackup.stagedUrl(String(body.run_id||''),String(body.path||'')));
 
@@ -529,7 +529,13 @@ Deno.serve(async req=>{
    const c=await config(),configured=!!await secret('read_client');
    const {pending_ids,...mirror}=await mirrorSummary();
    const backups=await backupMirrorSummary();
-   return json({configured,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+   return json({configured,credential_expires_at:c.credential_expires_at||null,connected:c.connected,folder_url:c.app_folder_url,tested_at:c.tested_at,test_sha256:c.test_sha256,client_id:c.client_id,redirect_uri:redirect,scope:scopes,quota:c.connected?await driveQuota():{available:false},backups:{...backups,last_error:c.backup_mirror_last_error,running:!!c.backup_mirror_lock_until&&new Date(c.backup_mirror_lock_until).getTime()>Date.now()},mirror:{...mirror,last_error:c.mirror_last_error,last_attempt:c.mirror_last_attempt,running:!!c.mirror_lock_until&&new Date(c.mirror_lock_until).getTime()>Date.now()}});
+  }
+  if(action==='save-expiry'){
+   const expires=String(body.expires_at||'');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(expires)||!Number.isFinite(Date.parse(expires+'T00:00:00Z'))||new Date(expires+'T00:00:00Z').toISOString().slice(0,10)!==expires)throw new Error('Indica una fecha válida.');
+   check(await admin.from('ops_onedrive_config').update({credential_expires_at:expires,updated_at:new Date().toISOString()}).eq('id',1),'No se pudo guardar la fecha de caducidad.');
+   await audit(user.id,user.email||'','onedrive_caducidad_actualizada');return json({saved:true,credential_expires_at:expires});
   }
   if(action==='configure'){
    const value=String(body.client_secret||'');

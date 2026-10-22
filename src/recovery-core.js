@@ -36,7 +36,7 @@ export function recoveryFileReferences(database){
  for(const table of ['ops_document_templates','ops_sales_invoices','ops_business_settings'])walk(database[table]);
  return Object.fromEntries(RECOVERY_BUCKETS.map(b=>[b,[...refs[b]].sort()]));
 }
-function validateMetadata(manifest,database){
+export function validateMetadata(manifest,database){
  if(manifest.format!=='totus-clean-backup'||manifest.version!==3)
   throw new Error('La recuperación necesita una copia nueva de versión 3. Las anteriores se pueden comprobar, pero no conservan todos los autores.');
  if(!UUID.test(manifest.database_instance||'')||!HASH.test(manifest.schema_hash||'')||!HASH.test(manifest.revision||'')||!manifest.project_ref)
@@ -106,6 +106,7 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
 }
 export async function loadBoundedRecoveryZip(input,JSZip){
  if(input instanceof Blob&&input.size>MAX_ARCHIVE_BYTES)throw new Error('La copia supera el límite de recuperación de 120 MB.');
+ if(input?.format==='totus-backup-set')return input.openZip(JSZip);
  const bytes=input instanceof Blob?await input.arrayBuffer():input;
  if(bytes.byteLength>MAX_ARCHIVE_BYTES)throw new Error('La copia supera el límite de recuperación de 120 MB.');
  const zip=await JSZip.loadAsync(bytes);
@@ -117,7 +118,7 @@ export async function loadBoundedRecoveryZip(input,JSZip){
   if(!Number.isSafeInteger(size)||size<0)throw new Error('El ZIP no declara un tamaño de archivo válido.');
   if(entry.name==='database.json'&&size>MAX_DATABASE_BYTES)throw new Error('Los datos de la copia superan el límite de seguridad de 8 MB.');
   expanded+=size;
-  if(expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB.');
+  if(!zip.componentSet&&expanded>MAX_EXPANDED_BYTES)throw new Error('El contenido descomprimido supera el límite de seguridad de 128 MB.');
  }
  return zip;
 }
