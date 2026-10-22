@@ -21,7 +21,7 @@ try{
  await eye.click();assert.equal(await page.locator('#usPassword').getAttribute('type'),'text');assert.equal(await eye.getAttribute('aria-pressed'),'true');assert.equal(await page.locator('#usPassword').inputValue(),'Synthetic-password-only-123');
  await eye.click();assert.equal(await page.locator('#usPassword').getAttribute('type'),'password');
  await page.locator('button[data-action="close-modal"]').click();
- await page.locator('[data-action="admin-section"][data-section="roles"]').click();
+ await page.getByRole('button',{name:'Roles y permisos',exact:true}).click();
  await page.locator('[data-action="role-rename"][data-role="gerente"]').click();
  await page.locator('#roleName').fill('Gerencia de prueba');await page.locator('[data-action="role-save"]').click();
  await page.getByRole('heading',{name:'Gerencia de prueba',exact:true}).waitFor();

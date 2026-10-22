@@ -589,3 +589,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .credential-card details{margin-top:12px}.credential-card summary{cursor:pointer;font-weight:600}
 .credential-card .form-grid{margin-top:12px}
 @media(max-width:540px){.credential-card-head{align-items:flex-start}.credential-days{font-size:23px}.credential-timeline{grid-template-columns:1fr}.credential-card{padding:14px}}
+
+.brand b{line-height:1.15}.brand>div>small{line-height:1.2;font-size:11px}.brand>div>.app-version{font-size:10px}

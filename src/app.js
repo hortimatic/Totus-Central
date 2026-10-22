@@ -1378,8 +1378,8 @@ async function saveRole(code=''){
  if(code){
   const role=state.data.roles.find(r=>r.code===code);
   if(!role||role.code==='admin')throw new Error('No se puede modificar este rol.');
-  const {error}=await sb.from('ops_roles').update({name,description}).eq('code',code);
-  if(error)throw new Error('Error al actualizar el rol: '+error.message);
+  const {data,error}=await sb.from('ops_roles').update({name,description}).eq('code',code).select('code').single();
+  if(error||!data)throw new Error('No se pudo actualizar el nombre del rol. Revisa los permisos de administración.');
  }else{
   const {error}=await sb.from('ops_roles').insert({code:slug,name,description,is_system:false,sort_order:100});
   if(error)throw new Error('No se pudo crear el rol: '+error.message);
