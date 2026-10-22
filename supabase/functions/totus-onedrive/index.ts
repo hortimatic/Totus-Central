@@ -437,6 +437,7 @@ async function syncOnlineManuals(revision:string){
  const files=[
   ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
   ['docs/COPIAS_POR_COMPONENTES.md','COPIAS_POR_COMPONENTES.md'],
+  ['docs/GUIA_TRABAJO_DIARIO_CHATGPT.md','GUIA_TRABAJO_DIARIO_CHATGPT.md'],
   ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
   ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_ESTADO.md'],
   ['docs/auditorias/REVISION_PRODUCCION_2026-10-21.md','INFORME_REVISION.md']
@@ -445,6 +446,11 @@ async function syncOnlineManuals(revision:string){
   const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});
   if(!response.ok)throw new Error('No se pudo leer la documentación publicada de GitHub.');
   let text=await response.text();
+  if(name==='GUIA_TRABAJO_DIARIO_CHATGPT.md'){
+   const stores=check(await admin.from('ops_stores').select('id,name'),'No se pudieron documentar las tiendas');
+   const drawers=check(await admin.from('ops_cash_drawers').select('store_id,name'),'No se pudieron documentar las cajas');
+   text='> Configuración actual de esta instalación: '+stores.map((store:any)=>store.name+' ('+drawers.filter((drawer:any)=>drawer.store_id===store.id).map((drawer:any)=>drawer.name).join(', ')+')').join('; ')+'. Verifica estos nombres en la aplicación antes de trabajar.\n\n'+text;
+  }
   if(name==='MANUAL_CHATGPT_ONLINE.md'){
    text=text.replace(/El formato admite 120 MiB[^\n]*/,'Las copias por componentes (juegos v4) separan datos contables, documentos en ZIP numerados y código. Se preparan por lotes reanudables y no tienen el límite conjunto de 120 MiB del formato anterior. Las copias v3 antiguas y las descargas locales tradicionales conservan sus límites originales. Para descargar o recuperar un juego nuevo consulta COPIAS_POR_COMPONENTES.md; conserva siempre el índice y todos sus ZIP.');
    text=text.replace(/La credencial actual caduca el [^;]+; renovarla antes de esa fecha[^.]*\./,'La fecha vigente de la credencial está registrada en Administración → Almacenamiento; el contador avisa desde 90 días antes y aumenta la urgencia desde 30 días antes. Guardar la fecha no renueva la credencial: la clave debe sustituirse mediante Microsoft antes de que caduque.');
