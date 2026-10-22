@@ -4,11 +4,11 @@ import {BACKUP_PART_BYTES,validateBackupIndex} from '../../../src/backup-index.j
 const UUID=/^[a-f0-9-]{36}$/i,MAX_PARTS=15,MAX_INDEX=16384;
 export async function readBoundedBackupContent(response,limit=BACKUP_PART_BYTES){
  const declared=Number(response.headers.get('content-length'));
- if(Number.isFinite(declared)&&declared>limit)throw new Error('El fragmento supera 8 MiB.');
+ if(Number.isFinite(declared)&&declared>limit)throw new Error('El fragmento supera '+(limit/1048576)+' MiB.');
  if(!response.body)throw new Error('Falta el fragmento de copia.');
  const reader=response.body.getReader(),chunks=[];let size=0;
  try{for(;;){const value=await reader.read();if(value.done)break;size+=value.value.byteLength;
-  if(size>limit){await reader.cancel();throw new Error('El fragmento supera 8 MiB.');}chunks.push(value.value);
+  if(size>limit){await reader.cancel();throw new Error('El fragmento supera '+(limit/1048576)+' MiB.');}chunks.push(value.value);
  }}finally{reader.releaseLock();}
  if(!size)throw new Error('El fragmento está vacío.');
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}return bytes;

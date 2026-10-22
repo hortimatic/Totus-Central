@@ -365,7 +365,11 @@ async function partitionedRun(mode:string,req:Request){
     const revision=job.state.source_revision;
     const response=await fetch('https://codeload.github.com/hortimatic/Totus-Central/zip/'+revision,{signal:AbortSignal.timeout(30000)});
     if(!response.ok)throw new Error('No se pudo incluir el código en la copia.');
-    const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length>8*1024*1024)throw new Error('El código supera el tamaño permitido.');
+    const maximum=32*1024*1024,declared=Number(response.headers.get('Content-Length'));
+    if(declared>maximum||!response.body)throw new Error('El código supera el tamaño permitido o no está disponible.');
+    const reader=response.body.getReader(),chunks:Uint8Array[]=[];let total=0;
+    try{for(;;){const chunk=await reader.read();if(chunk.done)break;total+=chunk.value.length;if(total>maximum){await reader.cancel();throw new Error('El código supera 32 MB.');}chunks.push(chunk.value);}}finally{reader.releaseLock();}
+    const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
     await NativeBackupZip.loadAsync(bytes);return {bytes,revision};
    }});
   if(job.state.stage==='data'||job.state.stage==='complete'){
