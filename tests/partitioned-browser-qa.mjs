@@ -37,7 +37,7 @@ try{
  await page.locator('#odCredentialExpiry').fill(expiry);
  await page.locator('[data-action="onedrive-expiry-save"]').click();
  await page.getByText(/Te avisaremos desde el/).waitFor();
- await page.locator('[data-action="admin-section"][data-section="backups"]').click();
+ await page.getByRole('button',{name:'Copias',exact:true}).click();
  await page.locator('[data-action="backup-history-download"][data-id="'+id+'"]').click();
  await page.getByRole('heading',{name:'Descargar juego de copia'}).waitFor();
  assert.equal(await page.locator('[data-action="backup-component-download"]').count(),result.index.parts.length+1);
