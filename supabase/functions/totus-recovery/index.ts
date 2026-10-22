@@ -1,3 +1,4 @@
+import {createCloudBackupReader} from '../../../src/cloud-backup-reader.js';
 import {SET_FORMAT,SET_INDEX_BYTES} from '../../../src/backup-set.js';
 import {createHash} from 'node:crypto';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
@@ -16,6 +17,19 @@ function checked<T>(response:{data:T;error:unknown},label:string):T{
  if(response.error)throw new Error(label+': '+String((response.error as {message?:string})?.message||response.error));
  return response.data;
 }
+const backupReaders=new WeakMap<Request,ReturnType<typeof createCloudBackupReader>>();
+function readerFor(req:Request){
+ let reader=backupReaders.get(req);if(reader)return reader;
+ reader=createCloudBackupReader({
+  lookup:async(root:string)=>checked(await admin.from('ops_backup_runs').select('id,storage_provider').eq('status','success').eq('storage_path',root).maybeSingle(),'No se pudo localizar la copia completa'),
+  prepare:async(runId:string)=>{
+   const response=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'backup-file-urls',run_id:runId}),signal:AbortSignal.timeout(30000)});
+   if(!response.ok)throw new Error('No se pudo preparar la lectura privada de la copia.');
+   return response.json();
+  },
+  readLocal:async(path:string)=>{const result=await admin.storage.from('business-backups').download(path);return result.error?null:result.data;}
+ });backupReaders.set(req,reader);return reader;
+}
 const download=async(bucket:string,path:string,req?:Request)=>{
  if(bucket==='business-documents'&&req){
   const linkResponse=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'document-file-url',path}),signal:AbortSignal.timeout(30000)});
@@ -29,19 +43,7 @@ const download=async(bucket:string,path:string,req?:Request)=>{
   }
   if(link.provider!=='supabase')throw new Error('Ubicación de recuperación desconocida.');
  }
- if(bucket==='business-backups'&&req){
-  const local=await admin.storage.from(bucket).download(path);
-  if(!local.error&&local.data)return local.data;
-  const root=path.replace(/(?:\.part-\d{4}|\.(?:datos|documentos|codigo)-\d{4}\.zip)$/,'');
-  const proof=checked(await admin.from('ops_backup_runs').select('id').eq('status','success').eq('storage_path',root).maybeSingle(),'No se pudo localizar la copia completa');
-  if(!proof)throw new Error('El respaldo solicitado no está disponible.');
-  const location=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'backup-file-url',run_id:proof.id,path}),signal:AbortSignal.timeout(30000)});
-  const link=await location.json();
-  if(!location.ok||typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('No se pudo localizar el respaldo privado en OneDrive.');
-  const response=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
-  if(!response.ok)throw new Error('No se pudo leer el respaldo privado de OneDrive.');
-  return await response.blob();
- }
+ if(bucket==='business-backups'&&req)return readerFor(req)(path);
  const data=checked(await admin.storage.from(bucket).download(path),'No se pudo leer el archivo');
  if(!data)throw new Error('El archivo no está disponible');
  return data;
