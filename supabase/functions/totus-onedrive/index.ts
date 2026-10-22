@@ -432,6 +432,7 @@ async function syncOnlineManuals(revision:string){
  await ensurePath(access,[folderName],new Set<string>());
  const files=[
   ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
+  ['docs/COPIAS_POR_COMPONENTES.md','COPIAS_POR_COMPONENTES.md'],
   ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
   ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_ESTADO.md'],
   ['docs/auditorias/REVISION_PRODUCCION_2026-10-21.md','INFORME_REVISION.md']
@@ -439,7 +440,12 @@ async function syncOnlineManuals(revision:string){
  for(const [source,name] of files){
   const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});
   if(!response.ok)throw new Error('No se pudo leer la documentación publicada de GitHub.');
-  const text=await response.text();
+  let text=await response.text();
+  if(name==='MANUAL_CHATGPT_ONLINE.md'){
+   text=text.replace(/El formato admite 120 MiB[^\n]*/,'Las copias por componentes (juegos v4) separan datos contables, documentos en ZIP numerados y código. Se preparan por lotes reanudables y no tienen el límite conjunto de 120 MiB del formato anterior. Las copias v3 antiguas y las descargas locales tradicionales conservan sus límites originales. Para descargar o recuperar un juego nuevo consulta COPIAS_POR_COMPONENTES.md; conserva siempre el índice y todos sus ZIP.');
+   text=text.replace(/La credencial actual caduca el [^;]+; renovarla antes de esa fecha[^.]*\./,'La fecha vigente de la credencial está registrada en Administración → Almacenamiento; el contador avisa desde 90 días antes y aumenta la urgencia desde 30 días antes. Guardar la fecha no renueva la credencial: la clave debe sustituirse mediante Microsoft antes de que caduque.');
+   text='> Guía vigente para los juegos v4: COPIAS_POR_COMPONENTES.md. Las referencias al ZIP único se mantienen para copias anteriores y la descarga local tradicional.\n\n'+text;
+  }
   if(new TextEncoder().encode(text).byteLength>1024*1024)throw new Error('La documentación supera el tamaño permitido.');
   const bytes=new TextEncoder().encode('<!-- Fuente: GitHub hortimatic/Totus-Central; revision '+revision+' -->\n'+text);
   const path='/me/drive/special/approot:/'+encodedPath([folderName,name])+':/content';
