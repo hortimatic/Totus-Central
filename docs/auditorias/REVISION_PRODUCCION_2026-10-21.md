@@ -28,8 +28,8 @@ Se añaden pruebas específicas de los tres casos, además de la batería existe
 
 ## Plan de publicación
 
-- Sustituir la versión antigua de main por el árbol revisado, preservando ambas historias Git.
-- Publicar solo https://hortimatic.github.io/Totus-Central/ desde main, con batería completa obligatoria antes del despliegue y comprobación posterior del commit servido.
+- Renombrar la propia rama staging a totus-central y convertirla en la rama principal. No fusionar ni copiar la aplicación al main obsoleto; la propuesta anterior quedó cerrada sin fusionar.
+- Publicar solo https://hortimatic.github.io/Totus-Central/ desde totus-central, con batería completa obligatoria antes del despliegue y comprobación posterior del commit servido.
 - /staging/ conserva únicamente una redirección a esa aplicación; mantiene parámetros y fragmentos para enlaces de acceso antiguos.
 - Mantener el mismo identificador de Supabase y el mismo identificador de aplicación y carpeta de Microsoft. Renombrar sus etiquetas visibles no exige copiar datos ni ampliar permisos.
 - Actualizar el retorno de recuperación de usuarios a la dirección principal.
@@ -51,3 +51,7 @@ El proyecto zwkpmjjuurgjygcrejiw no contiene gastos, cierres, documentos, factur
 - Los informes históricos fechados conservan sus resultados originales. El código de migraciones no se borra por contener nombres antiguos: forma parte del procedimiento de recuperación.
 
 La aceptación operativa se basa en resultados concretos; no se promete ausencia absoluta de fallos futuros. Ante una incidencia, conservar originales e historial, aislar la operación afectada y usar los procedimientos de copia y recuperación.
+
+
+## Actualización de dirección · 22/10/2026
+El titular confirma que se elimina lo antiguo conservando las diez copias de seguridad y la programación nocturna de Totus Central. La propia rama staging se renombró totus-central y se estableció como principal; la propuesta de fusionarla en main se cerró sin fusionar. Los proyectos y archivos de la contabilidad actual no se reemplazan. Las comprobaciones de publicación y la retirada del proyecto antiguo se registrarán cuando hayan concluido; no confundir esta preparación con su finalización.

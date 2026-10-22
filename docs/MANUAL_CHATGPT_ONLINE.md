@@ -2,7 +2,7 @@
 Versión de producción preparada: 21/10/2026. Revisar el informe de transición y la versión publicada antes de operar.
 
 ## 1. Acceso y responsabilidades
-La web está en GitHub Pages, el código publicado en la rama main de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
+La web está en GitHub Pages, el código publicado en la rama totus-central de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
 La sesión del portátil no se hereda a ChatGPT online. La app estándar de GitHub de ChatGPT permite consulta; para publicar código se necesita una experiencia con escritura autorizada, como Codex (https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt). La operación diaria puede hacerse por la web con navegador en la nube cuando esté disponible y autorizado (https://help.openai.com/en/articles/20001280-using-cloud-browser-in-chatgpt). El nuevo chat necesita conectores autorizados o acceso por navegador a cada servicio. Verificar lectura y escritura antes de prometer operaciones.
 No guardar contraseñas ni claves en conversaciones, documentos, repositorios, borradores o archivos locales. Las credenciales de Microsoft se mantienen en Vault. No ampliar permisos para resolver un problema de rutas.
 
@@ -242,3 +242,7 @@ Los documentos usados por pagos de impuestos están protegidos contra un intento
 Los informes fechados del 20/10 conservan el estado histórico de aquella revisión. Para la puesta en producción consultar REVISION_PRODUCCION_2026-10-21.md y no presentar comprobaciones pendientes como terminadas.
 
 El Excel detallado de Gastos conserva sus filas y columnas originales. «Total de registros» incluye apuntes bancarios y no es el gasto fiscal. Los subtotales distinguen gastos sin duplicar apuntes de pago, gasto fiscal revisado, control interno y apuntes de pago informativos. No sumar esos subtotales entre sí: los dos primeros desgloses pertenecen al gasto sin duplicados. Los impuestos efectivamente pagados se mantienen en su hoja informativa separada.
+
+
+## Dirección del titular · 22/10/2026
+La versión antes llamada staging es la producción definitiva. Su propia rama pasa a llamarse totus-central y es la rama principal del repositorio. La propuesta de fusionarla en el main obsoleto quedó cerrada sin fusionar. No copiar datos ni crear otra instalación para este cambio de nombre. Durante el uso diario, anunciar antes cualquier corrección y limitar los cambios a lo solicitado. Para trabajos complejos futuros, crear un nuevo entorno de pruebas aislado a partir de esta base únicamente cuando el titular lo pida. La futura venta por TotusCode es una fase distinta: no habilitar clientes, licencias, pagos o acceso a la contabilidad del titular como parte de esta transición.

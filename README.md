@@ -5,18 +5,18 @@ Herramienta de gestión diaria para Hortimatic y NewOldSmok.
 ## Una aplicación de producción
 
 - Dirección: https://hortimatic.github.io/Totus-Central/
-- Código publicado: rama `main` de este repositorio.
+- Código publicado: rama `totus-central` de este repositorio.
 - Supabase: proyecto contable existente `awmojepsasikxocoeqtu`. Su identificador se conserva para mantener usuarios, contabilidad, relaciones y tareas.
 - OneDrive: carpeta de aplicación de Totus Central. Se accede por su identificador estable, con el permiso AppFolder ya autorizado.
 - La dirección anterior `/staging/` solo redirige a la aplicación principal, conservando parámetros y fragmentos de recuperación. No aloja otra aplicación.
 
-La transición sustituye el código antiguo de main conservando su historia Git. No importa de nuevo datos ni altera importes. El proyecto Supabase antiguo `zwkpmjjuurgjygcrejiw` no es el origen de la contabilidad actual; su retirada definitiva exige comprobar el inventario y la confirmación del titular.
+La transición renombra la propia rama staging como totus-central y la convierte en principal; no copia la aplicación al main obsoleto. No importa de nuevo datos ni altera importes. El proyecto Supabase antiguo `zwkpmjjuurgjygcrejiw` no es el origen de la contabilidad actual; su retirada definitiva exige comprobar el inventario y la confirmación del titular.
 
 ## Desarrollo y publicación
 
 No modificar estructura, pantallas, datos o cálculos sin explicar primero el cambio al titular. Una petición de producción no autoriza a borrar información histórica ni ampliar permisos de proveedores.
 
-`.github/workflows/publish.yml` ejecuta la batería completa antes de publicar un commit de main. Una prueba fallida impide el despliegue. Comprobar también la versión realmente publicada y el funcionamiento autenticado; una prueba simulada no certifica por sí sola la instalación real.
+`.github/workflows/publish.yml` ejecuta la batería completa antes de publicar un commit de totus-central. Una prueba fallida impide el despliegue. Comprobar también la versión realmente publicada y el funcionamiento autenticado; una prueba simulada no certifica por sí sola la instalación real.
 
 Los módulos siguen siendo Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes y Administración. El alojamiento es estático, sin dependencias de un ordenador local.
 

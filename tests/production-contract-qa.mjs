@@ -10,6 +10,7 @@ assert(!config.includes('zwkpmjjuurgjygcrejiw'),'Do not reconnect the retired da
 assert(!/archivos en STAGING|copias de staging|completa de staging/.test(app));
 assert(app.includes('state.data.taxPayments.some(x=>x.document_id===id)'),'Tax payment links must block document deletion');
 assert(app.includes("${esc(row.display_number||'Documento')}"),'Print title must escape the invoice number');
+assert(publish.includes('branches: [totus-central]'),'Only the renamed production branch may publish');
 assert(publish.includes('needs: verify')&&publish.includes('uses: ./.github/workflows/qa.yml'));
 assert(publish.includes("location.search+location.hash"),'Legacy links must preserve authentication fragments');
 assert(!fs.existsSync('.github/workflows/publish-staging.yml'),'Only one publication workflow');

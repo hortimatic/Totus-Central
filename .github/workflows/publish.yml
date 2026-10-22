@@ -1,7 +1,7 @@
 name: Publicar Totus Central
 on:
   push:
-    branches: [main]
+    branches: [totus-central]
   workflow_dispatch:
 permissions:
   contents: read

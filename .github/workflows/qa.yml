@@ -2,7 +2,7 @@ name: Totus Clean QA
 on:
   workflow_call:
   pull_request:
-    branches: [main]
+    branches: [totus-central]
   workflow_dispatch:
 jobs:
   qa:

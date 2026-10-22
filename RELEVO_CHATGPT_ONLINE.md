@@ -1,8 +1,8 @@
 # TotusCentral · entrada para ChatGPT online
 
 ## Primero
-Lee [el manual operativo](https://github.com/hortimatic/Totus-Central/blob/main/docs/MANUAL_CHATGPT_ONLINE.md), [el registro de peticiones](https://github.com/hortimatic/Totus-Central/blob/main/docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md) y [el informe de revisión](https://github.com/hortimatic/Totus-Central/blob/main/docs/auditorias/INFORME_REVISION_2026-10-20.md).
-Trabaja en [Totus Central](https://hortimatic.github.io/Totus-Central/), repositorio hortimatic/Totus-Central, rama main, proyecto Supabase awmojepsasikxocoeqtu. Antes de cambiar código, estructura o datos, explicar el cambio al titular. La URL antigua /staging/ solo redirige a esta misma aplicación.
+Lee [el manual operativo](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/MANUAL_CHATGPT_ONLINE.md), [el registro de peticiones](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md) y [el informe de revisión](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/INFORME_REVISION_2026-10-20.md).
+Trabaja en [Totus Central](https://hortimatic.github.io/Totus-Central/), repositorio hortimatic/Totus-Central, rama totus-central, proyecto Supabase awmojepsasikxocoeqtu. Antes de cambiar código, estructura o datos, explicar el cambio al titular. La URL antigua /staging/ solo redirige a esta misma aplicación.
 
 ## Dónde está cada cosa
 - GitHub: código, migraciones, funciones, pruebas y manuales.
@@ -42,4 +42,4 @@ Los manuales públicos se sincronizan y verifican en OneDrive → 04 Manuales y 
 
 
 ## Revisión de producción
-Consultar [REVISION_PRODUCCION_2026-10-21.md](https://github.com/hortimatic/Totus-Central/blob/main/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Conserva la distinción entre pruebas superadas, transición preparada y retirada del proyecto antiguo todavía pendiente de comprobación o confirmación.
+Consultar [REVISION_PRODUCCION_2026-10-21.md](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/auditorias/REVISION_PRODUCCION_2026-10-21.md). Conserva la distinción entre pruebas superadas, transición preparada y retirada del proyecto antiguo todavía pendiente de comprobación o confirmación.
