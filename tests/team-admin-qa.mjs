@@ -46,3 +46,28 @@ assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager')
 const denied=await scenario({callerRole:'gerente'});assert.equal(denied.status,403);assert.equal(denied.updates.length,0);assert.equal(denied.writes.length,0);
 const short=await scenario({password:'fixture-8'});assert.equal(short.status,400);assert.equal(short.updates.length,0);assert.equal(short.writes.length,0);
 console.log('TEAM ADMIN QA: credential maintenance preserves role, identity and revoked access; pagination and authorization verified.');
+
+// A rejected optional password must not save unrelated profile changes first.
+const appSource=fs.readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
+const clientStart=appSource.indexOf("async function saveUser(email=''){");
+const clientEnd=appSource.indexOf('\nasync function toggleUser(',clientStart);
+assert.ok(clientStart>=0&&clientEnd>clientStart);
+async function clientSave(password,email='admin@qa.invalid'){
+ const calls=[],values={usName:'Nombre editado',usEmail:'new@qa.invalid',usRole:'admin',usPhone:'',usJob:'',usStore:'',usNotes:'',usPassword:password};
+ const context={required:id=>values[id],val:id=>values[id]||'',state:{data:{team:[{email:'admin@qa.invalid',role:'admin',active:true}]}},invokeTeam:async value=>{calls.push(value)},closeModal(){},refresh:async()=>{}};
+ const save=vm.runInNewContext('('+appSource.slice(clientStart,clientEnd)+')',context);
+ try{await save(email);return {calls,error:null}}catch(error){return {calls,error:String(error.message)}}
+}
+for(const email of ['admin@qa.invalid','']){
+ const rejected=await clientSave('short',email);
+ assert.match(rejected.error,/12 caracteres/);
+ assert.equal(rejected.calls.length,0,'Invalid credentials must not partially update the profile');
+}
+const renameOnly=await clientSave('');
+assert.equal(renameOnly.error,null);
+assert.deepEqual(renameOnly.calls.map(x=>x.action),['update_member'],'Renaming must not invoke credential maintenance');
+assert.equal(renameOnly.calls[0].role,'admin');
+assert.equal(renameOnly.calls[0].store,'');
+const withPassword=await clientSave('fixture-only-password');
+assert.deepEqual(withPassword.calls.map(x=>x.action),['update_member','set_password']);
+console.log('USER FORM QA: invalid password makes no writes; name-only save preserves access and role.');

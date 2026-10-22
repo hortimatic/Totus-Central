@@ -1445,9 +1445,9 @@ function userModal(row=null){
   ${selectField('Rol','usRole',(state.data.roles||[]).map(r=>({value:r.code,label:r.name})),row?.role||'gerente')}
   ${formField('Teléfono','usPhone',row?.phone||'')}
   ${formField('Puesto','usJob',row?.job_title||'')}
-  ${formField('Tienda / centro','usStore',row?.store||'')}
+  ${formField('Tienda / centro','usStore',row?.store||'','text','autocomplete="off" data-lpignore="true" data-1p-ignore="true"')}
   <label class="wide">Notas<textarea id="usNotes" rows="3">${esc(row?.employee_notes||'')}</textarea></label>
-  ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="12"'):formField('Contraseña inicial','usPassword','','password','minlength="12"')}
+  ${row?formField('Nueva contraseña (opcional)','usPassword','','password','minlength="12" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"'):formField('Contraseña inicial','usPassword','','password','minlength="12" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"')}
  </div>
  ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva. Al cambiar de rol se restablecen los permisos individuales anteriores.</div>`:''}
  <div class="form-actions">
@@ -1462,6 +1462,9 @@ function userModal(row=null){
 async function saveUser(email=''){
  const payload={full_name:required('usName','Nombre'),email:email||required('usEmail','Email').toLowerCase(),role:val('usRole'),phone:val('usPhone').trim(),job_title:val('usJob').trim(),store:val('usStore').trim(),employee_notes:val('usNotes').trim()};
  const password=val('usPassword');
+ // Validate before updating any profile field; browser autofill must not leave a partial save.
+ if(password&&password.length<12)throw new Error('La contraseña debe tener al menos 12 caracteres.');
+ if(!email&&!password)throw new Error('La contraseña inicial debe tener al menos 12 caracteres.');
  if(email){
    const current=state.data.team.find(x=>x.email===email);
    await invokeTeam({action:'update_member',...payload,active:current?.active!==false});
@@ -1469,9 +1472,8 @@ async function saveUser(email=''){
     const {error:permissionError}=await sb.from('ops_user_permissions').delete().eq('email',email);
     if(permissionError)throw new Error('Se cambió el rol, pero no se pudieron restablecer los permisos anteriores: '+permissionError.message);
    }
-   if(password){if(password.length<12)throw new Error('La contraseña debe tener al menos 12 caracteres.');await invokeTeam({action:'set_password',email,password,full_name:payload.full_name,role:payload.role})}
+   if(password){await invokeTeam({action:'set_password',email,password,full_name:payload.full_name,role:payload.role})}
  }else{
-   if(password.length<12)throw new Error('La contraseña inicial debe tener al menos 12 caracteres.');
    await invokeTeam({action:'create_user',...payload,password});
  }
  closeModal();await refresh('Usuario guardado.');
