@@ -210,7 +210,7 @@ function taxPaymentInformationHtml(filters){
  const expenses=selectReportData(state.data,filters).expenses.filter(row=>row.management_only&&!isExpensePaymentEvidence(row)&&(!filters.paid||filters.paid==='all'||row.paid_status===filters.paid)).map(row=>({type:'expense',record:row,date:row.expense_date,party:row.supplier_name||'Gasto interno',concept:row.description||row.invoice_number||'Control interno',period:storeName(row.store_id),amount:expenseCostAmount(row),documentId:row.document_id}));
  const rows=[...expenses,...payments].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  if(!rows.length)return '';
- return `<section class="card table-card internal-expenses-panel"><div class="section-head card-pad"><div><h2>Control interno</h2><p>Gastos internos y pagos de impuestos. Se conservan con su justificante y no se restan del beneficio fiscal.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
+ return `<section class="card table-card internal-expenses-panel"><div class="section-head card-pad"><div><h2>Control interno</h2><p>Gastos internos y pagos de impuestos. Se conservan con su justificante. No se restan del beneficio fiscal.</p></div><strong>${money(sum(rows,x=>x.amount))}</strong></div>${table([
  {label:'Fecha',html:r=>fmtDate(r.date)},
  {label:'Proveedor / concepto',html:r=>'<b>'+esc(r.party)+'</b><div class="small muted">'+esc(r.concept)+'</div>'},
  {label:'Tienda / periodo',html:r=>esc(r.period)},
@@ -249,7 +249,7 @@ export function gastos(){
    &&(kind==='all'||(kind==='payment'?isExpensePaymentEvidence(x):kind==='internal'?x.management_only&&!isExpensePaymentEvidence(x):!x.management_only))
    &&(paid==='all'||x.paid_status===paid)
    &&matchesText(f.query,/internet inteligente/i.test(x.supplier_name||'')?'Vaperalia':'',x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
- const total=sum(rows,expenseCostAmount);
+ const total=sum(rows.filter(x=>!x.management_only),expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
  const taxInformation=(kind==='all'||kind==='internal')&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
  const pending=rows.filter(x=>!acceptedExpense(x)&&(isUnreconciledPayment(x)||x.paid_status!=='pagado')).length;

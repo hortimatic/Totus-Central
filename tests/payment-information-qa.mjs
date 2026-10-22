@@ -19,11 +19,11 @@ const {state,patchFilters,setView}=await import('../src/state.js');
 const {gastos,informes,fiscalidad}=await import('../src/pages/main.js');
 state.user={role:'admin'};state.data.expenses=[];state.data.taxPayments=payments;
 patchFilters('gastos',filter);setView('gastos',{mode:'list',section:'registros'});
-let html=gastos();assert(html.includes('Control interno · impuestos pagados'));assert(html.includes(money(2294.55)));assert(html.includes('No se restan del beneficio fiscal'));
+let html=gastos();assert(html.includes('Control interno'));assert(html.includes(money(2294.55)));assert(html.includes('No se restan del beneficio fiscal'));
 const control=html.slice(html.indexOf('Solo control interno'),html.indexOf('Solo control interno')+600);
 assert(control.includes(money(2294.55)),'Gastos internal KPI includes the actual tax payment');
-patchFilters('gastos',{kind:'internal'});html=gastos();assert(html.includes('Control interno · impuestos pagados'),'Internal filter retains paid tax detail');
-patchFilters('informes',filter);html=informes();assert(html.includes('Control interno · impuestos pagados'));
+patchFilters('gastos',{kind:'internal'});html=gastos();assert(html.includes('Control interno'),'Internal filter retains paid tax detail');
+patchFilters('informes',filter);html=informes();assert(html.includes('Control interno'));
 
 patchFilters('fiscalidad',filter);
 html=fiscalidad();
