@@ -219,7 +219,9 @@ function taxPaymentInformationHtml(filters){
  {label:'Justificante y acciones',html:r=>{
   const doc=state.data.documents.find(d=>d.id===r.documentId);
   const preview=doc?btn('Vista previa',r.type==='tax'?'tax-payment-document-preview':'expense-document-preview','secondary',`data-id="${r.type==='tax'?r.record.id:doc.id}"`):'';
-  return `<div class="expense-file-actions">${doc?'<span class="small">'+esc(doc.original_name)+'</span>':''}${preview}${btn(doc?'Revisar':'Adjuntar justificante',r.type==='tax'?'expense-tax-edit':'expense-edit','secondary',`data-id="${r.record.id}"`)}</div>`;
+  const download=doc?btn('Descargar',r.type==='tax'?'tax-payment-document-download':'expense-document-download','secondary',`data-id="${r.type==='tax'?r.record.id:doc.id}"`):'';
+  const receipt=r.type==='tax'?btn(doc?'Cambiar justificante':'Adjuntar justificante','tax-payment-receipt','secondary',`data-id="${r.record.id}"`):'';
+  return `<div class="expense-file-actions">${doc?'<span class="small">'+esc(doc.original_name)+'</span>':''}${preview}${download}${receipt}${btn(r.type==='tax'||doc?'Revisar':'Adjuntar justificante',r.type==='tax'?'expense-tax-edit':'expense-edit','secondary',`data-id="${r.record.id}"`)}</div>`;
  }}
  ],rows)}<p class="small muted card-pad">Se usa la misma ficha de gasto y el mismo sistema de adjuntos. Los pagos de modelos mantienen un único registro compartido con Fiscalidad. Las cuotas de autónomo y la Seguridad Social conservan su tratamiento fiscal como gastos.</p></section>`;
 }
