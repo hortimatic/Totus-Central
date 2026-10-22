@@ -28,6 +28,7 @@ try{
  assert.equal(await page.locator('.home-activity svg').count(),1);
  await nav('informes');await page.locator('#reportPeriodYear').fill('2026');await page.locator('#reportPeriodMonth').selectOption('1');await page.locator('[data-action="report-period-month"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),'2026-01-01');assert.equal(await page.locator('#informesTo').inputValue(),'2026-01-31');
+ assert.deepEqual((await page.locator('.reports-page > .kpis .kpi strong').allTextContents()).map(text=>text.replace(/\s/g,' ')),['150,00 €','20,00 €','17,00 €','130,00 €'],'Reports must exclude internal expenses and paid taxes from the displayed result');
  assert.equal(await page.locator('.internal-expenses-panel').getByText('Control general',{exact:true}).count(),1);
  await page.getByLabel('Información sobre Variación del dinero que queda en caja',{exact:true}).click();assert((await page.locator('details.field-help[open]').innerText()).includes('abrir con 100 €'));
  await page.getByLabel('Información sobre Variación del dinero que queda en caja',{exact:true}).click();
