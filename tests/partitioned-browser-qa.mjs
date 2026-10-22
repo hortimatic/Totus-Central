@@ -44,7 +44,8 @@ try{
  const event=page.waitForEvent('download');
  await page.locator('[data-action="backup-component-download"][data-part="-1"]').click();
  const downloaded=await event,received=JSON.parse(await fs.readFile(await downloaded.path(),'utf8'));assert.equal(received.sha256,result.index.sha256);
- await page.locator('[data-action="close-modal"]').first().click();
+ await page.locator('button[data-action="close-modal"]').first().click();
+ await page.getByRole('heading',{name:'Descargar juego de copia'}).waitFor({state:'hidden'});
  assert.equal(await page.locator('#backupFile').getAttribute('multiple'),'');
  await page.locator('#backupFile').setInputFiles([...objects].map(([p,b])=>({name:p.split('/').pop(),mimeType:p.endsWith('.zip')?'application/zip':'application/json',buffer:Buffer.from(b)})));
  await page.locator('[data-action="backup-verify"]').click();
