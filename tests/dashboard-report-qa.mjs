@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {activitySeries,activityChartHtml} from '../src/dashboard-activity.js';
+import {calendarReportPeriod,reportPackagePlan} from '../src/report-package.js';
+import {normalizeReportOrder,moveReportBlock} from '../src/report-layout.js';
+const data={stores:[{id:'a',name:'Tienda A'},{id:'b',name:'Tienda B'}],closings:[{id:'c',business_date:'2026-01-02',store_id:'a',status:'cerrado',cash_sales:100,card_sales:50,include_in_income:true},{id:'draft',business_date:'2026-01-03',store_id:'a',status:'borrador',cash_sales:999,include_in_income:false},{id:'feb',business_date:'2026-02-02',store_id:'a',status:'cerrado',cash_sales:200,include_in_income:true}],expenses:[{id:'e',expense_date:'2026-01-02',store_id:'a',gross_expense:20,management_only:false,document_id:'d'},{id:'i',expense_date:'2026-01-03',store_id:'a',gross_expense:7,management_only:true},{id:'credit',expense_date:'2026-01-04',store_id:'a',gross_expense:-2,management_only:false},{id:'feb',expense_date:'2026-02-02',store_id:'a',gross_expense:33}],invoices:[{id:'iv',issue_date:'2026-01-03',store_id:'a',document_type:'factura',status:'emitida',include_in_income:false,total_amount:30,generated_document_id:'client'},{id:'extra',issue_date:'2026-01-04',store_id:'a',document_type:'factura',status:'emitida',include_in_income:true,total_amount:10}],incomeAdjustments:[{income_date:'2026-01-05',amount:3}],fiscalAdjustments:[{adjustment_date:'2026-01-06',kind:'ingreso_extra',amount:2}],taxPayments:[{id:'t',tax_type:'130',status:'pagado',payment_date:'2026-01-03',amount:10}],documents:[{id:'d',document_date:'2025-12-31'},{id:'client',document_date:'2026-02-01'},{id:'unrelated',document_date:'2026-01-02'}]};
+const f={from:'2026-01-01',to:'2026-01-31',store:'all',query:''};
+const jan=activitySeries(data,f);assert.deepEqual(jan.totals,{sales:165,fiscal:18,internal:17});assert.equal(jan.points.length,31);assert.equal(jan.monthly,false);assert(activityChartHtml(jan).includes('role="img"'));
+assert.equal(activitySeries(data,{...f,from:'2026-01-01',to:'2026-12-31'}).points.length,12);
+assert.equal(activitySeries(data,{...f,store:'b'}).totals.sales,0);assert.equal(activitySeries(data,{...f,store:'a'}).totals.internal,7,'Shared taxes must not be assigned to a shop');
+assert.throws(()=>activitySeries(data,{...f,from:'2026-02-31'}));assert.throws(()=>activitySeries(data,{...f,to:'2025-12-31'}));
+assert.deepEqual(calendarReportPeriod(2028,'month',2),{from:'2028-02-01',to:'2028-02-29'});
+assert.deepEqual(calendarReportPeriod(2026,'quarter',3),{from:'2026-07-01',to:'2026-09-30'});assert.throws(()=>calendarReportPeriod(2026,'quarter',5));
+const plan=reportPackagePlan(data,f);assert.deepEqual(plan.documents.map(x=>x.id),['d','client']);assert.equal(plan.invoices.length,2,'Include issued client invoices even when their income is already in a closing');assert.equal(plan.months.length,1);assert(plan.missingAttachments.some(x=>x.type==='Factura cliente'&&x.number===undefined));
+assert.throws(()=>reportPackagePlan({...data,documents:[]},f),/Faltan fichas/);
+assert.deepEqual(normalizeReportOrder(['gestor','gestor','bad']),['gestor','income','internal','monthly','exports']);
+assert.deepEqual(moveReportBlock(null,'income','up'),['income','internal','monthly','gestor','exports']);
+assert.deepEqual(moveReportBlock(null,'gestor','up'),['income','internal','gestor','monthly','exports']);
+console.log('DASHBOARD / REPORT QA: inclusive periods, three independent series, internal taxes, refunds, no income double-counting, outside-date linked originals, issued client invoices, missing attachments and layout normalization verified.');

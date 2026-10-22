@@ -708,6 +708,7 @@ await check('Paquete gestor ZIP: ambos Excel, CSV conciliados y facturas PDF ori
  });
  await nav('informes');
  const ready=page.waitForEvent('download',{timeout:12000});
+ await page.getByText('Descargas anuales y auditoría complementaria',{exact:true}).click();
  await page.locator('[data-action="export-gestor-package"]').first().click();
  const download=await ready;
  assert(download.suggestedFilename()==='Paquete_gestor_2026.zip','El paquete del gestor no tiene el nombre anual correcto');

@@ -1,3 +1,5 @@
+import {normalizeReportOrder} from './report-layout.js';
+import {calendarReportPeriod,reportPackagePlan} from './report-package.js';
 import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
 import {archiveHash as componentHash} from './recovery-core.js';
 import {validateTaxExpense} from './tax-expense.js';
@@ -45,6 +47,7 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
+ if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
  let operation='view';
  if(/(^export-|\-export|\-download$|\-zip$|\-print$)/.test(a))operation='export';
  else if(/\-delete$/.test(a))operation='delete';
@@ -385,7 +388,7 @@ async function saveExpenseAttachment(id){
  if(!expense)throw new Error('El gasto ya no está disponible. Actualiza el listado.');
  const file=input('exFile')?.files?.[0];
  if(!file)throw new Error('Selecciona primero la factura o justificante.');
- const newDoc=await createStoredDocument(file,{storeId:expense.store_id,date:expense.expense_date,docType:'factura_recibida',status:'pendiente',party:expense.supplier_name,taxId:expense.supplier_tax_id,number:expense.invoice_number,category:'gasto',notes:'Adjunto incorporado al gasto existente; revisión fiscal independiente',linkedType:'expense'});
+ const newDoc=await createStoredDocument(file,{storeId:expense.store_id,date:expense.expense_date,docType:expense.management_only?'otro':'factura_recibida',status:'pendiente',party:expense.supplier_name,taxId:expense.supplier_tax_id,number:expense.invoice_number,category:expense.management_only?'control_interno':'gasto',notes:'Adjunto incorporado al gasto existente; revisión fiscal independiente',linkedType:'expense'});
  try{await update('ops_expenses',id,{document_id:newDoc.id})}
  catch(e){throw await rollbackNewDocument(newDoc,e)}
  // Financial fields, source references and fiscal review remain exactly as saved.
@@ -395,10 +398,11 @@ async function saveExpenseAttachment(id){
 
 
 function updateExpenseTaxTreatment(){
- const tax=val('exDocKind')==='impuesto',panel=input('exTaxPaymentFields');
+ const tax=val('exDocKind')==='impuesto',internal=val('exDocKind')==='control_interno',panel=input('exTaxPaymentFields');
  if(panel)panel.hidden=!tax;
- const management=input('exManagement');if(tax&&management)management.checked=true;
- const fiscal=input('exFiscalReviewed');if(fiscal){fiscal.disabled=tax;if(tax)fiscal.checked=false}
+ const management=input('exManagement');if((tax||internal)&&management)management.checked=true;
+ if(management)management.disabled=tax||internal;
+ const fiscal=input('exFiscalReviewed');if(fiscal){fiscal.disabled=tax||internal||!!management?.checked;if(tax||internal||management?.checked)fiscal.checked=false}
  for(const id of ['exStore','exSupplierId','exTax','exPayment','exPersonnelKind','exPaidStatus','exDate']){
   const el=input(id);if(el)el.disabled=tax;
  }
@@ -469,7 +473,7 @@ async function saveExpense(id=''){
    const ix=el.dataset.lineIndex,base=n(val(`exLineBase_${ix}`)),vat=n(val(`exLineVat_${ix}`)),re=n(val(`exLineRe_${ix}`)),wh=n(val(`exLineWh_${ix}`)),dedPct=n(val(`exLineDedPct_${ix}`));
    validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct,documentKind:val('exDocKind')});
    const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
-   return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!!input(`exLineDed_${ix}`)?.checked,deductible_pct:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
+   return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!input('exManagement')?.checked&&!!input(`exLineDed_${ix}`)?.checked,deductible_pct:input('exManagement')?.checked?0:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
  });
  validateExpenseClassification(lines,state.data.categories,!!input('exManagement')?.checked);
  const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
@@ -479,11 +483,11 @@ async function saveExpense(id=''){
  const file=input('exFile')?.files?.[0]||null;
  let newDoc=null,documentId=oldDoc?.id||null;
  if(file){
-   newDoc=await createStoredDocument(file,{storeId,date,docType:'factura_recibida',status:paidStatus==='pagado'?'pagada':'pendiente',party:supplier,taxId,number:invoiceNumber,category:'gasto',notes:'Justificante de gasto',linkedType:'expense'});
+   newDoc=await createStoredDocument(file,{storeId,date,docType:input('exManagement')?.checked?'otro':'factura_recibida',status:paidStatus==='pagado'?'pagada':'pendiente',party:supplier,taxId,number:invoiceNumber,category:input('exManagement')?.checked?'control_interno':'gasto',notes:'Justificante de gasto',linkedType:'expense'});
    documentId=newDoc.id;
  }
  const first=lines[0];
- const expense={id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
+ const expense={id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')==='control_interno'?'otro':val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
  let savedId;
  try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
  catch(e){throw newDoc?await rollbackNewDocument(newDoc,e):e}
@@ -1143,7 +1147,7 @@ async function saveDocument(id=''){
  const date=required('docDate','Fecha');if(date>isoToday())throw new Error('La fecha del documento no puede ser futura.');
  const storeId=val('docStore')||null,file=input('docFile')?.files?.[0]||null;
  if(file&&current&&issuedDocumentFileLocked(current.id,state.data.invoices))throw new Error('El archivo pertenece a una factura emitida. Conserva el original; para corregir la factura utiliza una rectificativa.');
- const meta={store_id:storeId,doc_type:val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),tax_id:val('docTax').trim(),invoice_number:val('docNumber').trim(),category_code:val('docCategory').trim(),status:val('docStatus'),notes:val('docNotes').trim()};
+ const meta={store_id:storeId,doc_type:val('docType')==='control_interno'?'otro':val('docType'),document_date:date,supplier_or_customer:val('docParty').trim(),tax_id:val('docTax').trim(),invoice_number:val('docNumber').trim(),category_code:val('docType')==='control_interno'?'control_interno':val('docCategory').trim()==='control_interno'?'':val('docCategory').trim(),status:val('docStatus'),notes:val('docNotes').trim()};
  if(!current&&!file)throw new Error('Selecciona un archivo.');
  let row=current,newPath=null;
  if(!current){
@@ -1903,11 +1907,11 @@ async function saveConfig(){
  await update('ops_business_settings',current.id||1,patch);await refresh('Configuración guardada.');
 }
 
-const filterRoute={cajas:'cajas',gastos:'gastos',facturas:'facturacion',documentos:'documentos',fiscal:'fiscalidad',informes:'informes'};
+const filterRoute={inicio:'inicio',cajas:'cajas',gastos:'gastos',facturas:'facturacion',documentos:'documentos',fiscal:'fiscalidad',informes:'informes'};
 function applyFilter(prefix){
  const route=filterRoute[prefix];if(!route)return;
  const from=val(prefix+'From'),to=val(prefix+'To');if(from&&to&&from>to)throw new Error('La fecha Desde no puede ser posterior a Hasta.');
- if(prefix==='informes'&&(!from||!to))throw new Error('Selecciona Desde y Hasta para mostrar los meses del periodo.');
+ if(['inicio','informes'].includes(prefix)&&(!from||!to))throw new Error('Selecciona Desde y Hasta para mostrar los meses del periodo.');
  const patch={from,to,store:val(prefix+'Store'),query:val(prefix+'Query').trim()};
  if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all';if(input('gastosAttachment'))patch.attachment=val('gastosAttachment')||'all'}
  if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
@@ -2039,6 +2043,74 @@ async function exportGestorPackage(year){
  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});download(blob,`Paquete_gestor_${year}.zip`);
  }finally{annualExportInProgress=false;if(document.getElementById('annualPackageProgress'))closeModal();}
 }
+
+let reportLayoutBusy=false;
+async function saveReportBlockOrder(order,focusId=''){
+ if(reportLayoutBusy){toast('Espera a que se guarde el orden.');return}
+ reportLayoutBusy=true;
+ try{
+ const saved=await rpc('totus_save_report_layout',{p_order:normalizeReportOrder(order)});
+ const profile=state.data.profiles.find(p=>p.id===state.user?.id);
+ if(!profile)throw new Error('No se pudo actualizar tu preferencia. Vuelve a iniciar sesión.');
+ profile.ui_preferences={...(profile.ui_preferences||{}),report_blocks:normalizeReportOrder(saved)};
+ render();
+ if(focusId)document.querySelector('[data-report-block="'+focusId+'"] [data-action="report-block-up"]')?.focus();
+ toast('Orden guardado en tu cuenta.','ok');
+ }finally{reportLayoutBusy=false}
+}
+async function moveReportPanel(id,direction){
+ const profile=state.data.profiles.find(p=>p.id===state.user?.id),order=normalizeReportOrder(profile?.ui_preferences?.report_blocks);
+ const visible=[...document.querySelectorAll('[data-report-block]')].map(el=>el.dataset.reportBlock);
+ const index=visible.indexOf(id),next=index+(direction==='up'?-1:1);
+ if(index<0||next<0||next>=visible.length)return;
+ const target=visible[next],i=order.indexOf(id),j=order.indexOf(target);[order[i],order[j]]=[order[j],order[i]];
+ await saveReportBlockOrder(order,id);
+}
+function applyGestorCalendar(kind){
+ const period=calendarReportPeriod(num('reportPeriodYear'),kind,num(kind==='month'?'reportPeriodMonth':'reportPeriodQuarter'));
+ patchFilters('informes',period);render();
+ toast('Periodo aplicado a la tabla y al paquete.','ok');
+}
+async function exportGestorPeriodPackage(){
+ if(annualExportInProgress)throw new Error('Ya se está preparando un paquete. Espera a que termine.');
+ const filters={...getFilters('informes')},plan=reportPackagePlan(state.data,filters);
+ annualExportInProgress=true;
+ modal('Preparando paquete del periodo','<p id="periodPackageProgress" role="status" aria-live="polite">Comprobando los justificantes vinculados…</p>');
+ try{
+  const zip=new window.JSZip(),args={...reportArgs(plan.year),...plan,expenseLines:state.data.expenseLines.filter(l=>plan.expenses.some(x=>x.id===l.expense_id))};
+  const income=zip.folder('01_INGRESOS'),expenses=zip.folder('02_GASTOS'),diaries=zip.folder('03_DIARIOS'),summary=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
+  expenses.file('Tabla_gestoria_'+plan.key+'.xlsx',workbookBlob(buildGestorSourceWorkbook(args)));
+  const rows=[
+   ...plan.closings.filter(x=>x.include_in_income!==false).map(x=>[x.business_date,'Cierre',closingIncomeAmount(x),x.store_id,x.notes||'']),
+   ...plan.invoices.filter(x=>x.include_in_income===true).map(x=>[x.issue_date,'Factura adicional',n(x.total_amount),x.store_id,x.display_number||x.external_number_text||'']),
+   ...plan.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra').map(x=>[x.adjustment_date,'Ajuste de ingreso',n(x.amount),x.store_id,x.description||'']),
+   ...plan.incomeAdjustments.map(x=>[x.income_date,'Ingreso registrado',n(x.amount),x.store_id,x.concept||''])
+  ].sort((a,b)=>a[0].localeCompare(b[0]));
+  income.file('Ingresos_'+plan.key+'.csv',csv(rows,[{label:'Fecha',get:r=>r[0]},{label:'Origen',get:r=>r[1]},{label:'Importe',get:r=>r[2]},{label:'Tienda',get:r=>state.data.stores.find(s=>s.id===r[3])?.name||'General'},{label:'Detalle',get:r=>r[4]}]));
+  for(const store of state.data.stores.filter(s=>s.active!==false&&(plan.store==='all'||s.id===plan.store)))for(const period of plan.months){
+   const wb=buildStoreMonthlyWorkbook({store,year:period.year,month:period.month,closings:plan.closings,expenses:plan.expenses,categories:state.data.categories,incomeAdjustments:plan.incomeAdjustments});
+   diaries.file(safeFileSegment(store.name)+'/'+period.key+' Gastos y ventas.xlsx',workbookBlob(wb));
+  }
+  const internal=plan.expenses.filter(x=>x.management_only).reduce((v,x)=>v+expenseCostAmount(x),0)+plan.taxPayments.reduce((v,x)=>v+n(x.amount),0);
+  const fiscal=plan.expenses.filter(x=>!x.management_only).reduce((v,x)=>v+expenseCostAmount(x),0),sales=rows.reduce((v,x)=>v+x[2],0);
+  summary.file('Resumen_'+plan.key+'.csv','Concepto;Importe\nIngresos;'+sales.toFixed(2)+'\nGastos fiscalizables registrados;'+fiscal.toFixed(2)+'\nControl interno incluido impuestos pagados;'+internal.toFixed(2)+'\nIngresos menos gastos fiscalizables;'+(sales-fiscal).toFixed(2)+'\n');
+  summary.file('Registros_sin_adjunto.csv',csv(plan.missingAttachments,[{label:'Tipo',get:r=>r.type},{label:'Fecha',get:r=>r.date},{label:'Proveedor o cliente',get:r=>r.name||''},{label:'Numero',get:r=>r.number||''}]));
+  const blobs=await collectArchiveDocuments(plan.documents,getDocumentBlob,{onProgress:(done,total)=>{const el=input('periodPackageProgress');if(el)el.textContent='Comprobando documentos '+done+'/'+total+'…'}});
+  const used=new Set(),manifest=[];
+  for(const [index,d] of plan.documents.entries()){
+   const name=uniqueArchiveDocumentPath(d,used);docs.file(name,blobs[index]);
+   manifest.push([d.id,d.original_name||'',name,d.sha256||'',Number(d.size_bytes||blobs[index].size||0)]);
+  }
+  if(manifest.length!==plan.documents.length||used.size!==plan.documents.length)throw new Error('El paquete no contiene todos los documentos previstos.');
+  docs.file('Indice_documentos.csv',csv(manifest,['ID','Archivo original','Ruta ZIP','SHA256','Tamaño bytes'].map((label,i)=>({label,get:r=>r[i]}))));
+  zip.file('LEEME.txt','Totus Central · paquete del periodo\nDesde '+filters.from+' hasta '+filters.to+'\nTienda: '+(filters.store||'all')+'\nBusqueda: '+(filters.query||'sin filtro')+'\nLa tabla fiscal conserva las columnas de gestoria y solo incluye gastos fiscales revisados.\nLos justificantes se seleccionan por su gasto o factura vinculados, aunque el archivo tenga otra fecha.\nLos gastos internos y los impuestos pagados no reducen el beneficio fiscal.\nRegistros sin adjunto: '+plan.missingAttachments.length+'. Consulta 04_RESUMEN/Registros_sin_adjunto.csv.\nEste paquete de documentacion no sustituye una copia de seguridad de la aplicacion.');
+  const el=input('periodPackageProgress');if(el)el.textContent='Comprimiendo el paquete comprobado…';
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});
+  download(blob,'Paquete_gestor_'+plan.key+'.zip');
+  if(plan.missingAttachments.length)toast('Paquete preparado: '+plan.missingAttachments.length+' registros sin adjunto, indicados en el listado.','warn');
+ }finally{annualExportInProgress=false;if(input('periodPackageProgress'))closeModal()}
+}
+
 function exportRows(type){
  const f=getFilters('informes');
  if(!f.from||!f.to)throw new Error('Selecciona Desde y Hasta.');
@@ -2098,6 +2170,10 @@ document.addEventListener('click',async e=>{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
+  if(a==='report-block-up'||a==='report-block-down'){await moveReportPanel(el.dataset.block,a.endsWith('-up')?'up':'down');return}
+  if(a==='report-block-reset'){await saveReportBlockOrder([]);return}
+  if(a==='report-period-quarter'||a==='report-period-month'){applyGestorCalendar(a.endsWith('-month')?'month':'quarter');return}
+  if(a==='export-gestor-period-package'){await exportGestorPeriodPackage();return}
   if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
   if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}

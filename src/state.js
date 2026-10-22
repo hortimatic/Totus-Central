@@ -14,6 +14,7 @@ export const state={
  filters:{
    adminLog:{from:'',to:'',area:'',action:'',actor:'',query:''},
    pricing:{query:''},
+   inicio:dateFilter(),
    cajas:dateFilter(),
    gastos:dateFilter(),
    facturacion:dateFilter(),
