@@ -1,4 +1,4 @@
-import {validateBackupSet,SET_FORMAT,SET_COMPONENT_BYTES,SET_INDEX_BYTES} from '../../../src/backup-set.js';
+import {validateBackupSet,backupSetProof,SET_FORMAT,SET_COMPONENT_BYTES,SET_INDEX_BYTES} from '../../../src/backup-set.js';
 
 import {BACKUP_PART_BYTES,validateBackupIndex} from '../../../src/backup-index.js';
 const UUID=/^[a-f0-9-]{36}$/i,MAX_PARTS=15,MAX_INDEX=16384;
@@ -64,6 +64,7 @@ export function createDirectBackupTransfer({admin,check,config,token,root,ensure
    if(bytes.length>SET_INDEX_BYTES)throw new Error('Índice demasiado grande.');
    const parsed=JSON.parse(new TextDecoder().decode(bytes));
    index=parsed.format===SET_FORMAT?validateBackupSet(c.source,parsed):validateBackupIndex(c.source,parsed);
+   if(index.format===SET_FORMAT&&await fileHash(new TextEncoder().encode(backupSetProof(index)).buffer)!==index.sha256)throw new Error('El índice del juego no coincide con su huella.');
    const parts=check(await admin.from('ops_onedrive_backup_files').select('source_path,size_bytes,sha256,verified_at').eq('run_id',runId),'No se pudo comprobar el inventario.');
    for(const part of index.parts)if(!parts.some(p=>p.source_path===part.path&&Number(p.size_bytes)===part.size&&p.sha256===part.sha256&&p.verified_at))throw new Error('Falta un fragmento verificado. No se confirma la copia.');
   }else if(isRoot&&(bytes[0]!==80||bytes[1]!==75))throw new Error('La copia pequeña no es un ZIP.');

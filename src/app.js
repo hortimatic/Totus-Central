@@ -1812,7 +1812,9 @@ async function performRecovery(jobId=''){
    const registered=await invokeRecovery(id,'register');
    if(candidate.selectedSet)await uploadSelectedBackupSet(registered.source_path,candidate.selectedSet,writeBackupStorage);else await writeBackupObject(registered.source_path,candidate.file,writeBackupStorage,readBackupStorage);
   }
-  const {data:checkpoint,error:checkpointError}=await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
+  const current=await rpc('totus_export_recovery_snapshot');
+  const ready=(state.data.backupRuns||[]).some(r=>r.status==='success'&&r.storage_path&&r.snapshot_revision===current.revision);
+  const {data:checkpoint,error:checkpointError}=ready?{data:{status:'success'},error:null}:await sb.functions.invoke('totus-backup-run',{body:{mode:'manual'}});
   if(checkpointError||checkpoint?.error||checkpoint?.skipped)throw new Error('Antes de recuperar se necesita una copia actual completa. '+(checkpoint?.error||checkpoint?.reason||checkpointError?.message||'Revisa el historial de copias.'));
   if(checkpoint?.pending)throw new Error('La copia de protección se está preparando por componentes en el servidor. Cuando termine, pulsa Continuar en la recuperación registrada; no se ha sustituido ningún dato.');
   await invokeRecovery(id);
