@@ -1,3 +1,4 @@
+import {createCloudBackupReader} from '../../../src/cloud-backup-reader.js';
 import {withRateLimitRetry,isRateLimited} from './rate-limit.js';
 import {createPartitionedBackup} from './partitioned-job.js';
 // Server-side authenticated backup job; never exposes the service key to clients.
@@ -31,23 +32,14 @@ async function canStart(req:Request,mode:string){
 }
 async function verifySavedBackup(id:string,source='supabase',req?:Request){
  let usedOneDrive=source==='onedrive';
- const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,archive_sha256').eq('id',id).single();
+ const {data:run,error}=await admin.from('ops_backup_runs').select('storage_path,status,archive_sha256,storage_provider').eq('id',id).single();
  if(error||!run?.storage_path||run.status!=='success')throw new Error('Copia no disponible.');
- const bytes=await readBackupObject(run.storage_path,async(path:string)=>{
-  if(source==='onedrive'){
-   if(!req)throw new Error('Falta autorización para leer OneDrive.');
-   const headers:Record<string,string>={'Content-Type':'application/json'};
-   for(const name of ['Authorization','x-totus-backup-job']){const value=req.headers.get(name);if(value)headers[name]=value;}
-   const linkResponse=await fetch(SUPABASE_URL+'/functions/v1/totus-onedrive',{method:'POST',headers,body:JSON.stringify({action:'backup-file-url',run_id:id,path}),signal:AbortSignal.timeout(30000)});
-   const link=await linkResponse.json();
-   if(!linkResponse.ok||typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('No se pudo leer la copia de OneDrive.');
-   const download=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
-   if(!download.ok)throw new Error('No se pudo descargar un archivo de OneDrive.');
-   return await download.blob();
-  }
-  const {data,error}=await admin.storage.from('business-backups').download(path);
-  if(error||!data){if(!req)throw new Error('No se pudo leer un archivo de la copia.');usedOneDrive=true;return oneDriveRead(req,'backup-file-url',{run_id:id,path});}return data;
- },NativeBackupZip.archiveHash,run.archive_sha256);
+ const reader=createCloudBackupReader({
+  lookup:async()=>({...run,id,storage_provider:source==='onedrive'?'onedrive':run.storage_provider}),
+  prepare:async(runId:string)=>{if(!req)throw new Error('Falta autorización para leer OneDrive.');usedOneDrive=true;return oneDriveAction(req,'backup-file-urls',{run_id:runId});},
+  readLocal:async(path:string)=>{const result=await admin.storage.from('business-backups').download(path);return result.error?null:result.data;}
+ });
+ const bytes=await readBackupObject(run.storage_path,reader,NativeBackupZip.archiveHash,run.archive_sha256);
  if(!run.archive_sha256)throw new Error('La copia no tiene una huella registrada.');
  const archive=await readRecoveryArchive(bytes,NativeBackupZip,{projectRef:new URL(SUPABASE_URL).hostname.split('.')[0]});
  const {data:rehearsal,error:rehearsalError}=await admin.rpc('totus_verify_recovery_rows',{p_payload:archive.database});
