@@ -611,3 +611,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .reports-page h2 .field-help{vertical-align:middle}.summary-row>.field-caption{max-width:78%}
 .internal-expenses-panel .expense-file-actions{min-width:120px}
 @media(max-width:600px){.report-order-hint{align-items:flex-start;flex-direction:column}.report-block-controls{align-items:flex-start}.report-block-controls>span{max-width:40%}.activity-chart svg{min-height:170px}.activity-legend{gap:8px 12px;font-size:12px}.gestor-period-picker>label{max-width:none}.gestor-period-picker>button{flex:1}.home-period-kpis .kpi strong{font-size:22px}}
+
+.activity-data:not([open]) .table-wrap{display:none}

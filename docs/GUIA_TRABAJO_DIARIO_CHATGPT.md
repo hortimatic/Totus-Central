@@ -157,7 +157,7 @@ En Informes, el selector de mes o trimestre y año aplica las fechas a la tabla 
 
 En Inicio la gráfica y sus cuatro indicadores comparten el mismo periodo aplicado: ventas e ingresos, gastos fiscalizables registrados y gastos internos separados. Los internos incluyen los impuestos pagados y no se restan del beneficio fiscal. Para gastos internos generales puedes elegir el tipo Control interno en la ficha ordinaria y adjuntar su justificante como cualquier otro gasto.
 
-Consulta [Inicio, control interno e informes](MEJORAS_INICIO_E_INFORMES.md) para el detalle de estos controles.
+Consulta [Inicio, control interno e informes](https://github.com/hortimatic/Totus-Central/blob/totus-central/docs/MEJORAS_INICIO_E_INFORMES.md) para el detalle de estos controles.
 
 
 Durante el trimestre, consultar los ingresos, gastos fiscalizables, beneficio fiscal y previsión de impuestos calculada por Totus. Separar el pago previsto, el realmente pagado y los datos de contraste de gestoría. Una cifra facilitada por la gestoría no debe sustituir la previsión propia para hacerla coincidir.
