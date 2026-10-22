@@ -6,7 +6,8 @@ export function credentialLifetime(expiresAt,now=new Date()){
  if(!Number.isFinite(end)||new Date(start).toISOString().slice(0,10)!==date)return {known:false,level:'unknown'};
  const current=now instanceof Date?now.getTime():Number(now);
  if(!Number.isFinite(current))throw new Error('Fecha de comprobación no válida.');
- const days=Math.max(0,Math.ceil((end-current)/86400000)),expired=current>end;
+ const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(current));
+ const todayStart=Date.parse(today+'T00:00:00Z'),days=Math.max(0,Math.round((start-todayStart)/86400000)),expired=todayStart>start;
  return {known:true,date,days,expired,level:expired?'expired':days<=30?'urgent':days<=90?'warning':'ok',
   renewBy:new Date(start-90*86400000).toISOString().slice(0,10)};
 }
