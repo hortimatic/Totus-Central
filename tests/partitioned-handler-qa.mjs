@@ -39,7 +39,7 @@ const action=async(_req,name,b)=>{
  if(name==='prune-backups')return {pruned:true};throw Error(name);
 };
 const fakeFetch=async(url,options)=>{
- if(url.endsWith('build-info.json'))return Response.json({commit:'c'.repeat(40)});
+ if(new URL(url).pathname.endsWith('build-info.json'))return Response.json({commit:'c'.repeat(40)});
  if(url.startsWith('https://codeload.github.com/'))return new Response(codeBytes);
  if(url.startsWith('https://upload.invalid/')){if(fail)throw Error('Temporary provider failure');objects.set(decodeURIComponent(new URL(url).pathname.slice(1)),Uint8Array.from(options.body));return new Response(null,{status:201});}
  throw Error(url);

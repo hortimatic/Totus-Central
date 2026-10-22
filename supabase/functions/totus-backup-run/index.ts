@@ -328,7 +328,7 @@ async function partitionedRun(mode:string,req:Request){
    const source=await admin.rpc('totus_export_recovery_snapshot');if(source.error)throw source.error;
    const snapshot=source.data;snapshot.project_ref=new URL(SUPABASE_URL).hostname.split('.')[0];
    const path=String(settings.data.destination_folder||'automaticas')+'/Totus_Central_'+new Date().toISOString().replace(/[:.]/g,'-')+'_'+id.slice(0,8)+'.totusbackup';
-   const buildResponse=await fetch('https://hortimatic.github.io/Totus-Central/build-info.json',{cache:'no-store',signal:AbortSignal.timeout(20000)});
+   const buildResponse=await fetch('https://hortimatic.github.io/Totus-Central/build-info.json?backup-version='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
    if(!buildResponse.ok)throw new Error('No se pudo identificar el código publicado.');
    const build=await buildResponse.json();snapshot.source_revision=String(build.commit||build.sha||'');
    if(!/^[a-f0-9]{40}$/.test(snapshot.source_revision))throw new Error('Versión de código no válida.');

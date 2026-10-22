@@ -1737,7 +1737,7 @@ async function getStoredBackup(id){
  if(!isAdmin())throw new Error('Solo administrador.');
  const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
  if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible para descarga.');
- const bytes=await readBackupObject(run.storage_path,readBackupStorage);
+ const bytes=await readBackupObject(run.storage_path,readBackupStorage,componentHash,run.archive_sha256||null);
  return {run,blob:bytes?.format===SET_FORMAT?bytes:new Blob([bytes],{type:'application/octet-stream'})};
 }
 async function downloadStoredBackup(id){
