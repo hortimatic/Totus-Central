@@ -99,7 +99,8 @@ function render(){
  const renderer=renderers[state.route]||renderers.inicio;
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
- $('#content').innerHTML=(isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true}))+renderer();
+ const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
+ $('#content').innerHTML='<div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
@@ -153,11 +154,22 @@ async function refreshStoragePanel(){
   if(result.status!=='ok')toast('No se pudo consultar Storage: '+result.message,'bad');
  }finally{storageRefreshInFlight=false}
 }
+function refreshMaintenanceNotice(){
+ if(!isAdmin())return;
+ const owner=state.user?.email;
+ void oneDriveRequest('maintenance-status').then(result=>{
+  if(!isAdmin()||state.user?.email!==owner)return;
+  setOneDriveMaintenance(result);
+  const host=$('#credentialNoticeHost');if(!host)return;
+  const html=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
+  host.innerHTML=html;host.hidden=!html;
+ }).catch(()=>{});
+}
 async function refresh(message=''){
  state.loading=true;
  try{
   await loadCore();
-  if(isAdmin())try{setOneDriveMaintenance(await oneDriveRequest('maintenance-status'));}catch{}
+  refreshMaintenanceNotice();
   if(message)toast(message,'ok');
   if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else render()
  }
