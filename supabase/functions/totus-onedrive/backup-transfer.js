@@ -1,7 +1,7 @@
 import {validateBackupSet,backupSetProof,SET_FORMAT,SET_COMPONENT_BYTES,SET_INDEX_BYTES} from '../../../src/backup-set.js';
 
 import {BACKUP_PART_BYTES,validateBackupIndex} from '../../../src/backup-index.js';
-const UUID=/^[a-f0-9-]{36}$/i,MAX_PARTS=15,MAX_INDEX=16384;
+const UUID=/^[a-f0-9-]{36}$/i,MAX_PARTS=15;
 export async function readBoundedBackupContent(response,limit=BACKUP_PART_BYTES){
  const declared=Number(response.headers.get('content-length'));
  if(Number.isFinite(declared)&&declared>limit)throw new Error('El fragmento supera '+(limit/1048576)+' MiB.');

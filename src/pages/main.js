@@ -804,6 +804,7 @@ function adminBackupHtml(){
   <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
    <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia completa guardada.'}</p>
    ${lastAttempt?`<p>Último intento: <b>${labels[lastState]}</b> · ${esc(new Date(lastAttempt.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))}.</p>`:''}
+   ${lastState==='running'&&lastAttempt?.error_message?'<p class="note" role="status">'+esc(lastAttempt.error_message)+'</p>':''}
    ${['failed','unfinished'].includes(lastState)?`<p class="note warn">${esc(backupFailureSummary(lastAttempt?.error_message||''))} Las copias guardadas anteriores se conservan.</p>`:''}
    ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
    <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de ${keep} copias completadas.</p>

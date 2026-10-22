@@ -1,5 +1,4 @@
 import {createPartitionedBackup} from './partitioned-job.js';
-import {SET_FORMAT} from '../../../src/backup-set.js';
 // Server-side authenticated backup job; never exposes the service key to clients.
 // Automated calls require the unique secret held in Supabase Vault.
 // Manual calls additionally require an authenticated administrator.
@@ -380,7 +379,7 @@ async function partitionedRun(mode:string,req:Request){
   if(!result.complete){
    const save=await admin.from('ops_backup_work').update({state:result.job,updated_at:new Date().toISOString(),lease_until:null}).eq('run_id',job.run_id).eq('lease_until',lease);
    if(save.error)throw save.error;
-   await admin.from('ops_backup_runs').update({error_message:'Preparando componentes: '+result.job.cursor+' de '+result.job.files.length+' documentos'}).eq('id',job.run_id).eq('status','running');
+   await admin.from('ops_backup_runs').update({error_message:'Preparando componentes: '+result.job.cursor+' de '+result.job.files.length+' archivos'}).eq('id',job.run_id).eq('status','running');
    return {pending:true,id:job.run_id,files_completed:result.job.cursor,files_total:result.job.files.length};
   }
   const {snapshot}=result.job;
