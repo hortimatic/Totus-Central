@@ -118,6 +118,7 @@ begin
  if length(trim(coalesce(p_reason,'')))<3 then raise exception 'Indica por qué retiras esta asociación'; end if;
  select * into strict s from public.ops_stock_sources where receipt_id=p_id and id=p_source;
  delete from public.ops_stock_sources where id=p_source;
+ update public.ops_documents set linked_entity_type='',linked_entity_id=null where id=s.document_id and linked_entity_type='stock_receipt' and linked_entity_id=p_id and not exists(select 1 from public.ops_stock_sources where document_id=s.document_id);
  update public.ops_stock_receipts set revision=revision+1,status='pending',result='{"rows":[],"coverage":[],"complete":false}',updated_at=now() where id=p_id returning * into r;
  perform private.totus_stock_revision(p_id,'source_removed',actor);
  update public.ops_stock_revisions set snapshot=snapshot||jsonb_build_object('removed_source',to_jsonb(s),'reason',p_reason)
@@ -229,7 +230,7 @@ create function private.totus_stock_protect_document() returns trigger
 language plpgsql security definer set search_path='' as $$
 begin
  if exists(select 1 from public.ops_stock_sources where document_id=old.id)
-  and (new.storage_path is distinct from old.storage_path or new.sha256 is distinct from old.sha256 or new.size_bytes is distinct from old.size_bytes) then
+  and (new.store_id is distinct from old.store_id or new.storage_path is distinct from old.storage_path or new.sha256 is distinct from old.sha256 or new.size_bytes is distinct from old.size_bytes) then
   raise exception 'Este original forma parte de una recepción. Retira su asociación antes de sustituir el archivo';
  end if;
  return new;

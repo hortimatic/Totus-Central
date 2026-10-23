@@ -56,16 +56,26 @@ export function stockPage(){
  (!view.loaded?'<div class="note">Pulsa Actualizar para consultar las recepciones.</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(r.status)},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'Crea una recepción para empezar a cotejar.'}))+'</section>';
 }
 export async function stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256}){
- const {sb,select,rpc,downloadFile}=await import('./api.js');
+ const {sb,rpc,downloadFile}=await import('./api.js');
  const {extractStockText}=await import('./stock-extract.js');
  const value=id=>document.getElementById(id)?.value||'';
+ const list=async(table,columns,filter)=>{
+  const rows=[];
+  for(let offset=0;offset<100000;offset+=1000){
+   let q=sb.from(table).select(columns);if(filter)q=filter(q);
+   const response=await q.order(table==='ops_stock_receipts'?'received_on':'revision',{ascending:false}).order('id',{ascending:true}).range(offset,offset+999);
+   if(response.error)throw new Error(response.error.message);
+   rows.push(...(response.data||[]));if((response.data||[]).length<1000)return rows;
+  }
+  throw new Error('El listado supera 100.000 registros. No se mostrarán datos incompletos.');
+ };
  const context=async id=>{
   view.context=await rpc('totus_stock_context',{p_id:id});
-  view.history=await select('ops_stock_revisions',{order:'revision',ascending:false,filter:q=>q.eq('receipt_id',id),limit:10000});
+  view.history=await list('ops_stock_revisions','id,receipt_id,revision,action,actor_email,created_at',q=>q.eq('receipt_id',id));
  };
  const refresh=async()=>{
   if(view.mode==='detail'&&view.context)await context(view.context.receipt.id);
-  else{view.receipts=await select('ops_stock_receipts',{order:'received_on',ascending:false});view.loaded=true;}
+  else{view.receipts=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at');view.loaded=true;}
   view.error='';render();
  };
  const attach=async(doc,kind,file)=>{
