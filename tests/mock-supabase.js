@@ -32,7 +32,7 @@ const db={
  ops_document_templates:[{id:uuid(),name:'QA Minimal',code:'MIN',style:'minimal',active:true,default_invoice:true,default_proforma:true,primary_color:'#15243d',secondary_color:'#3b82f6',text_color:'#111827'}]
 };
 const uploaded=new Map();
-for(const table of ['ops_daily_closings','ops_daily_closing_drawers','ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_documents','ops_tax_payments','ops_reta_brackets','ops_fiscal_adjustments','ops_income_adjustments','ops_audit_log','brands','families','products','product_variants','providers','product_provider_prices','product_competitor_prices','consultations','consultation_history','price_history'])db[table]=[];
+for(const table of ['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences','ops_daily_closings','ops_daily_closing_drawers','ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_documents','ops_tax_payments','ops_reta_brackets','ops_fiscal_adjustments','ops_income_adjustments','ops_audit_log','brands','families','products','product_variants','providers','product_provider_prices','product_competitor_prices','consultations','consultation_history','price_history'])db[table]=[];
 window.__mockDb=db;
 window.__mockUploads=uploaded;
 let events=null;

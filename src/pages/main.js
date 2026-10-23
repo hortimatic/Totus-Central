@@ -1,3 +1,4 @@
+import {stockPage} from '../stock-ui.js';
 import {activitySeries,activityChartHtml} from '../dashboard-activity.js';
 import {normalizeReportOrder} from '../report-layout.js';
 import {taxExpenseRecord} from '../tax-expense.js';
@@ -942,7 +943,7 @@ export function providerCost(row){
 }
 
 
-export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
+export const renderers={cotejos:stockPage,inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
 
 export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
  const drawer=state.data.drawers.find(x=>x.id===drawerId);

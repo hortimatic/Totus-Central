@@ -9,6 +9,7 @@ export const ROUTES=[
  {id:'cajas',label:'Cajas',icon:'▣',group:'Trabajo'},
  {id:'gastos',label:'Gastos',icon:'↘',group:'Trabajo'},
  {id:'facturacion',label:'Facturación',icon:'▤',group:'Trabajo'},
+ {id:'cotejos',label:'Recepciones',icon:'⇄',group:'Trabajo'},
  {id:'documentos',label:'Documentos',icon:'▥',group:'Trabajo'},
  {id:'fiscalidad',label:'Fiscalidad',icon:'%',group:'Control'},
  {id:'informes',label:'Informes',icon:'▦',group:'Control'},

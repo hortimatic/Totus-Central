@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node tests/stock-cloud-import-qa.mjs
+      - run: node tests/stock-core-qa.mjs
+      - run: node tests/stock-backup-qa.mjs
       - run: node tests/qa.mjs
       - run: node tests/dashboard-report-qa.mjs
       - run: node tests/connection-maintenance-qa.mjs
@@ -79,6 +82,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/stock-browser-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
       - run: node tests/dashboard-report-browser-qa.mjs
@@ -131,3 +135,28 @@ jobs:
             artifacts/user_screenshot_checks.json
             artifacts/field-sweep.json
           retention-days: 3
+
+  stock-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated stock database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023170949_stock_receipts_with_complete_backups.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023171258_stock_receipt_author_index.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql
