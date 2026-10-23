@@ -1242,7 +1242,7 @@ export function productRecordHtml(row=null){
  const vat=Number(state.data.settings?.default_sales_vat_rate??21),re=Number(state.data.settings?.purchase_re_rate??5.2);
  const cost=providerCost(chosen),pvp=Number(row?.proposed_pvp??row?.current_pvp??0);
  const hasCost=!!chosen&&chosen.net_cost!=null&&Number.isFinite(Number(chosen.net_cost));
- const study=hasCost&&pvp>0?quickPriceStudy({cost,pvp,vat,re}):null;
+ const study=hasCost&&pvp>0?quickPriceStudy({cost,pvp,vat,re,discount:row?.quick_discount??0,competitor:row?.quick_competitor??0}):null;
  const fiscalCost=study?.costReal??null,margin=study?.margin??null,marginPct=study?.marginPct??null;
  const providerName=id=>state.data.providers.find(x=>x.id===id)?.name||'Proveedor';
  const providerRows=prices.map(x=>`<div class="summary-row"><div><b>${esc(providerName(x.provider_id))}</b><div class="small muted">Coste final ${money(providerCost(x))} · base ${money(x.net_cost)} · dto ${Number(x.provider_discount||0).toFixed(1).replace('.',',')} %${x.apply_special_tax?' · + impuesto especial':''}</div></div><div class="inline-actions">${x.selected?'<span class="badge ok">Seleccionado</span>':''}${btn('Editar','provider-price-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','provider-price-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin proveedores</strong><span>Añade al menos un coste de compra.</span></div>';
@@ -1265,6 +1265,8 @@ export function productRecordHtml(row=null){
      ${formField('PVP actual','prPvp',row?.current_pvp??'','number','step="0.01" min="0"')}
      ${formField('PVP propuesto','prProposed',row?.proposed_pvp??'','number','step="0.01" min="0"')}
      ${formField('Unidades/mes','prUnits',row?.units_month??0,'number','min="0"')}
+     ${formField('Descuento de venta %','prDiscount',row?.quick_discount??0,'number','min="0" max="100" step="0.1"')}
+     ${formField('Precio de referencia de la competencia','prCompetitor',row?.quick_competitor??'','number','min="0" step="0.01"')}
      ${selectField('Estado','prStatus',[{value:'PENDIENTE',label:'Pendiente'},{value:'ACEPTADO',label:'Aceptado'}],row?.status||'PENDIENTE')}
      <label class="wide">Notas<textarea id="prNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
     </div></section>
@@ -1275,7 +1277,7 @@ export function productRecordHtml(row=null){
    <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3>
     <div class="summary-row"><span>Coste neto</span><strong>${variable?numericRange(activeVariants.map(v=>v.cost_net),money):hasCost?money(cost):'Sin proveedor'}</strong></div><div class="summary-row"><span>Coste con IVA + RE</span><strong>${variable?variantRange('costReal'):fiscalCost==null?'—':money(fiscalCost)}</strong></div><div class="summary-row"><span>PVP final</span><strong>${variable?numericRange(activeVariants.map(v=>v.pvp),money):pvp>0?money(pvp):'Sin precio'}</strong></div><div class="summary-row"><span>Margen real</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${variable?variantRange('margin'):margin==null?'—':money(margin)}</strong></div><div class="summary-row"><span>Margen real %</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${variable?variantRange('marginPct'):marginPct==null?'—':marginPct.toFixed(1).replace('.',',')+' %'}</strong></div>
     ${variable?'<div class="note">Cada variante tiene su propio coste y PVP. El resumen muestra el intervalo de las variantes activas.</div>':!hasCost?'<div class="note warn">Añade un proveedor y su coste para calcular el margen real.</div>':''}
-    <div class="stack" style="margin-top:14px">${row?btn('Eliminar producto','product-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','product-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','product-back','secondary')}</div>
+    <div class="stack" style="margin-top:14px">${row?btn('Ver historial','product-history','secondary',`data-id="${row.id}"`):''}${row?btn('Eliminar producto','product-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','product-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','product-back','secondary')}</div>
    </section></aside>
   </div>
  </div>`;

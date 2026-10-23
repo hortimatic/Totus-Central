@@ -605,10 +605,22 @@ async function saveProduct(id=''){
  const sku=required('prSku','Referencia'),name=required('prName','Nombre');
  const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
- const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
+ const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
  let saved;
  if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
- setView('pricing',{mode:'record',id:saved.id});await refresh('Producto guardado.');
+ const historySaved=await recordProductHistory(saved.id,null,{action:id?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:saved});
+ setView('pricing',{mode:'record',id:saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
+}
+async function recordProductHistory(productId,variantId,snapshot){
+ try{await insert('price_history',{product_id:productId,variant_id:variantId,user_id:state.user?.id||null,snapshot});return true}
+ catch(error){console.warn('No se pudo registrar el historial de Pricing',error);return false}
+}
+async function productHistory(productId){
+ const rows=await select('price_history',{order:'created_at',filter:q=>q.eq('product_id',productId)});
+ modal('Historial de Pricing',rows.length?rows.map(row=>{
+  const s=row.snapshot||{},v=s.variant,p=s.product;
+  return '<div class="summary-row"><div><b>'+esc(fmtDate(row.created_at))+'</b><div class="small muted">'+esc(s.action||'Cambio de precio')+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):'')+'</div></div>';
+ }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){
  const p=state.data.products.find(x=>x.id===id);if(!p)return;
@@ -893,8 +905,9 @@ function variantForm(productId,row=null){
 async function saveVariant(productId,id=''){
  const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:parseVariantAttributes(val('vrAttributes')),nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:val('vrActive')!=='false'};
  validateVariant(row,state.data.variants,id);
- if(id)await update('product_variants',id,row);else await insert('product_variants',row);
- closeModal();await refresh('Variante guardada.');
+ const saved=id?await update('product_variants',id,row):await insert('product_variants',row);
+ const historySaved=await recordProductHistory(productId,saved.id,{action:id?'VARIANTE_EDITADA':'VARIANTE_CREADA',variant:saved,study:variantStudy(saved,state.data.settings)});
+ closeModal();await refresh(historySaved?'Variante guardada.':'Variante guardada, pero no se pudo registrar su historial.');
 }
 async function deleteVariant(productId,id){
  if(!confirm('¿Eliminar esta variante?'))return;
@@ -2348,6 +2361,7 @@ document.addEventListener('click',async e=>{
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
   if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
   if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
   if(a==='product-back'){resetView('pricing');render();return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
