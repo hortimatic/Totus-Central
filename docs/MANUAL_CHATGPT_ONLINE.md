@@ -1,5 +1,5 @@
 # Manual operativo de TotusCentral para ChatGPT online
-Actualizado: 22/10/2026. Producción publicada en la raíz; rama única totus-central y proyecto Supabase awmojepsasikxocoeqtu. Consultar el informe de revisión antes de operar.
+Actualizado: 23/10/2026. Producción publicada en la raíz; rama única totus-central y proyecto Supabase awmojepsasikxocoeqtu. Consultar el informe de revisión antes de operar.
 
 ## 1. Acceso y responsabilidades
 La web está en GitHub Pages, el código publicado en la rama totus-central de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
@@ -249,3 +249,7 @@ La versión antes llamada staging es la producción definitiva. Su propia rama p
 
 ## 23. Mantenimiento de la conexión de Microsoft
 El registro de aplicación se llama Totus Central y conserva su identificador. La credencial actual caduca el 18/04/2027; renovarla antes de esa fecha desde los servicios autorizados, con intervención del titular para introducir credenciales cuando corresponda. No escribir valores secretos en el chat ni publicarlos en GitHub. Comprobar guardado, relectura y copia completa después de una renovación. No desconectar ni ampliar permisos por un simple cambio de nombre.
+
+
+## Recepciones y cotejo de stock
+Usa la pestaña Recepciones y el manual COTEJOS_CHATGPT.md de esta carpeta. Los documentos se suben o asocian en Totus Central; ChatGPT convencional lee la recepción mediante el conector de Supabase y los originales de OneDrive cuando su lector lo permita. El texto extraído queda disponible como segunda vía. Una página sin texto no se considera leída. Cada resultado se guarda con control de revisión y su historial; el módulo no cambia la contabilidad ni el inventario de PrestaShop.

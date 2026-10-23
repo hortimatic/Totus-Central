@@ -240,3 +240,7 @@ No incluir contraseñas, claves, códigos de autorización, enlaces temporales p
 - Microsoft: [crear credenciales de aplicación](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-add-credentials?tabs=client-secret) y [renovación de credenciales](https://learn.microsoft.com/en-us/entra/identity/monitoring-health/recommendation-renew-expiring-application-credential).
 
 Los menús y capacidades de ChatGPT pueden cambiar. Verificar las herramientas disponibles en la cuenta que se va a utilizar; no prometer acceso por instrucciones escritas.
+
+
+## Recepciones de mercancía
+En Recepciones crea un pedido, añade los documentos de proveedor y las entradas de PrestaShop, y copia la instrucción al chat habitual. No es necesario volver a adjuntar al chat esos documentos si sus conectores pueden leerlos. Consulta COTEJOS_CHATGPT.md para el contrato de lectura y guardado, las cantidades, las variantes y los ajustes. Si falta acceso o lectura de un original, se conserva la recepción pendiente, sin inventar un resultado.
