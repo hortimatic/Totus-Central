@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 try{
@@ -43,8 +44,10 @@ try{
  await page.locator('[data-action="consultation-new"]').click();assert.equal(await page.locator('#pqQuery').inputValue(),'');
  assert.equal(await page.evaluate(()=>JSON.stringify([window.__mockDb.ops_expenses,window.__mockDb.ops_daily_closings,window.__mockDb.ops_sales_invoices])),'[[],[],[]]');
  await page.locator('[data-action="product-edit"]').last().click();
+ await mkdir('artifacts',{recursive:true});await page.screenshot({path:'artifacts/ui_pricing_desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'Pricing must fit mobile');
+ await page.screenshot({path:'artifacts/ui_pricing_mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);
  console.log('PRICING BROWSER: create, live calculation, save, reopen, attributes, inactive/reactivate, draft preservation and mobile OK');
-}finally{await browser.close()}
+}catch(error){console.error('PRICING FAILURE',await page.locator('#toastHost').innerText(),errors);throw error}finally{await browser.close()}

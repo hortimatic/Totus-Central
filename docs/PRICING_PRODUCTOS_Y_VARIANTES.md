@@ -39,3 +39,5 @@ Guardar consulta crea un estudio independiente. Reutilizar carga sus importes y 
 ## Ejemplos recuperados
 Se recuperaron seis productos y tres variantes de los apuntes disponibles: XROS 4 Mini, XLIM y cartuchos de 0,6/0,8/1,2 Ω, y Sales Demo de 0/10/20 mg.
 Los importes documentados son 3,20/5,70 € para 0 y 10 mg y 3,70/6,30 € para 20 mg. Son datos de demostración, no una tarifa vigente. Los campos no documentados se dejaron vacíos; las referencias provisionales llevan DEMO-RECUP y constan en notas.
+
+La comparación de competencia usa precios con descuento y envío y excluye los marcados sin stock. Muestra mínimo, media y máximo. Si no se escribe una referencia manual, el producto simple se compara con el mínimo disponible. La estimación mensual del producto simple multiplica su beneficio unitario por las unidades/mes indicadas; no es un ingreso contable ni una predicción de demanda.

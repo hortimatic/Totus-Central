@@ -1,4 +1,4 @@
-import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost} from './pricing-core.js';
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan} from './report-package.js';
@@ -940,16 +940,17 @@ function updateProductStudy(){
  const costOf=pricingProviderCost;
  const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0];
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
- const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
+ const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
  set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(n(pvp)):'Sin precio');
  set('prSummaryMargin',r?money(r.margin):'—');set('prSummaryPct',r?r.marginPct.toFixed(1).replace('.',',')+' %':'—');
  set('prSummaryCompetition',r?.competitorDiff==null?'—':money(r.competitorDiff));
+ set('prSummaryMonth',r&&num('prUnits')>0?money(r.margin*num('prUnits')):'—');
  for(const id of ['prSummaryMargin','prSummaryPct'])input(id)?.classList.toggle('danger-text',!!r&&r.margin<0);
 }
 function updateVariantStudy(){
  const el=document.getElementById('vrStudy');if(!el)return;
- const result=variantStudy({cost_net:val('vrCost'),pvp:val('vrPvp')},state.data.settings,state.data.products.find(p=>p.id===getView('pricing').id)?.quick_discount??0);
+ const result=variantStudy({cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp')},state.data.settings,state.data.products.find(p=>p.id===getView('pricing').id)?.quick_discount??0);
  el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){

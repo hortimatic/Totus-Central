@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {state} from '../src/state.js';
 import {productRecordHtml,pricing} from '../src/pages/main.js';
-import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant,pricingProviderCost} from '../src/pricing-core.js';
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant,pricingProviderCost,pricingCompetition} from '../src/pricing-core.js';
 const attrs=parseVariantAttributes('Color: Negro; Resistencia: 0,8 Ω\nNicotina: 10 mg');
 assert.deepEqual(attrs,{Color:'Negro',Resistencia:'0,8 Ω',Nicotina:'10 mg'});
 assert.deepEqual(parseVariantAttributes(formatVariantAttributes(attrs)),attrs);
@@ -43,3 +43,8 @@ state.data.providerPrices=[{id:'pp',product_id:'simple',net_cost:3.2,selected:tr
 const proposed=productRecordHtml({id:'simple',name:'Simple',sku:'S',product_type:'simple',current_pvp:5.7,proposed_pvp:6.3,status:'PENDIENTE'});
 assert.match(proposed,/id="prSummaryPvp">6,30/,'Proposed price must override the current price in the study');
 console.log('PRICING RENDER: variant ranges, attributes, provider independence and proposed price precedence OK');
+
+const competition=pricingCompetition([{price:10,discount:10,shipping:2},{price:12},{price:1,stock_status:'No'},{price:null}]);
+assert.deepEqual(competition,{count:2,min:11,mean:11.5,max:12});
+assert.equal(numericRange(['',null],String),'—');
+assert.equal(pricingCompetition([]).min,null);

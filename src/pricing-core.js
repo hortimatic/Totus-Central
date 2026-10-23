@@ -21,7 +21,7 @@ export function variantStudy(variant,settings={},discount=0){
  return quickPriceStudy({cost,pvp,discount,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2});
 }
 export function numericRange(values,format){
- const valid=values.filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);
+ const valid=values.filter(v=>v!=null&&String(v).trim()!==''&&Number.isFinite(Number(v))).map(Number);
  if(!valid.length)return '—';
  const low=Math.min(...valid),high=Math.max(...valid);
  return low===high?format(low):format(low)+' – '+format(high);
@@ -37,4 +37,9 @@ export function validateVariant(row,others=[],id=''){
 
 export function pricingProviderCost(row){
  return Number(row?.net_cost||0)*(1-Number(row?.provider_discount||0)/100)+Number(row?.shipping_unit||0);
+}
+
+export function pricingCompetition(rows=[]){
+ const prices=rows.filter(r=>r.price!=null&&Number.isFinite(Number(r.price))&&Number(r.price)>=0&&!['no','sin stock','agotado','out of stock'].includes(String(r.stock_status||'').trim().toLowerCase())).map(r=>Number(r.price)*(1-Math.min(100,Math.max(0,Number(r.discount)||0))/100)+Math.max(0,Number(r.shipping)||0));
+ return prices.length?{count:prices.length,min:Math.min(...prices),mean:prices.reduce((a,b)=>a+b,0)/prices.length,max:Math.max(...prices)}:{count:0,min:null,mean:null,max:null};
 }
