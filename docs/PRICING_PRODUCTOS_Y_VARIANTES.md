@@ -34,7 +34,7 @@ Los tipos salen de la configuración de Totus Central. Un coste desconocido se m
 En compras nacionales, el impuesto especial incluido por el proveedor ya forma parte del coste: los campos informativos no se vuelven a sumar.
 
 ## Consultas
-Guardar consulta crea un estudio independiente. Reutilizar carga sus importes y actualiza inmediatamente los resultados; Guardar cambios actualiza esa consulta. Nueva consulta limpia el formulario para crear otra. Convertir a producto utiliza el flujo existente con su familia y proveedor.
+Guardar consulta crea un estudio independiente. Reutilizar carga sus importes y actualiza inmediatamente los resultados; Guardar cambios actualiza esa consulta. Guardar como nueva conserva la consulta anterior y crea otra con los datos cargados. Nueva consulta limpia el formulario para crear otra. Convertir a producto utiliza el flujo existente con su familia y proveedor.
 
 ## Ejemplos recuperados
 Se recuperaron seis productos y tres variantes de los apuntes disponibles: XROS 4 Mini, XLIM y cartuchos de 0,6/0,8/1,2 Ω, y Sales Demo de 0/10/20 mg.

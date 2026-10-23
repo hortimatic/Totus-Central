@@ -41,6 +41,8 @@ try{
  await page.locator('#pqPvp').fill('6.3');await page.locator('[data-action="consultation-save"]').click();
  assert.equal(await page.evaluate(()=>window.__mockDb.consultations.length),1,'Editing a reused consultation must not create a duplicate');
  assert.equal(await page.evaluate(()=>Number(window.__mockDb.consultations[0].pvp)),6.3);
+ await page.locator('[data-action="consultation-reuse"]').click();await page.locator('[data-action="consultation-save-copy"]').click();
+ assert.equal(await page.evaluate(()=>window.__mockDb.consultations.length),2,'Reuse must retain the choice to save a separate consultation');
  await page.locator('[data-action="consultation-new"]').click();assert.equal(await page.locator('#pqQuery').inputValue(),'');
  assert.equal(await page.evaluate(()=>JSON.stringify([window.__mockDb.ops_expenses,window.__mockDb.ops_daily_closings,window.__mockDb.ops_sales_invoices])),'[[],[],[]]');
  await page.locator('[data-action="product-edit"]').last().click();

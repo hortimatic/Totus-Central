@@ -56,6 +56,7 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
+ if(a==='consultation-save-copy')return {module:'pricing',operation:'create'};
  if(a==='consultation-reuse')return {module:'pricing',operation:'edit'};
  if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
  let operation='view';
@@ -1007,7 +1008,7 @@ async function reuseConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
  set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);updatePricingQuick();
- const save=document.querySelector('[data-action="consultation-save"]');if(save){save.dataset.id=id;save.textContent='Guardar cambios';}
+ const save=document.querySelector('[data-action="consultation-save"]');if(save){save.dataset.id=id;save.textContent='Guardar cambios';}document.querySelector('[data-action="consultation-save-copy"]')?.classList.remove('hidden');
  await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'ABIERTA',consultation_query:c.query,snapshot:c});
  toast(logged?'Consulta cargada.':'Consulta cargada, pero no se pudo guardar su historial.',logged?'ok':'warn');
@@ -2365,7 +2366,8 @@ document.addEventListener('click',async e=>{
   if(a==='variant-edit'){variantForm(el.dataset.product,state.data.variants.find(x=>x.id===el.dataset.id));return}
   if(a==='variant-save'){await saveVariant(el.dataset.product,el.dataset.id||'');return}
   if(a==='variant-delete'){await deleteVariant(el.dataset.product,el.dataset.id);return}
-  if(a==='consultation-new'){for(const id of ['pqQuery','pqCost','pqPvp','pqCompetitor','pqDiscount']){const field=input(id);if(field)field.value=''}const save=document.querySelector('[data-action="consultation-save"]');if(save){delete save.dataset.id;save.textContent='Guardar consulta'}updatePricingQuick();return}
+  if(a==='consultation-new'){for(const id of ['pqQuery','pqCost','pqPvp','pqCompetitor','pqDiscount']){const field=input(id);if(field)field.value=''}const save=document.querySelector('[data-action="consultation-save"]');if(save){delete save.dataset.id;save.textContent='Guardar consulta'}document.querySelector('[data-action="consultation-save-copy"]')?.classList.add('hidden');updatePricingQuick();return}
+  if(a==='consultation-save-copy'){await saveConsultation();return}
   if(a==='consultation-save'){await saveConsultation(el.dataset.id||'');return}
   if(a==='consultation-reuse'){await reuseConsultation(el.dataset.id);return}
   if(a==='consultation-convert'){consultationConvertForm(el.dataset.id);return}

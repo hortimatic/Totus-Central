@@ -934,7 +934,7 @@ export function pricing(){
   ${formField('Descuento (%)','pqDiscount',0,'number','step="0.1" min="0" max="100"')}
  </div>
  <div class="home-price-metrics" style="margin-top:12px"><div><span>Coste real</span><b id="pqReal">0,00 €</b></div><div><span>Venta final</span><b id="pqSale">0,00 €</b></div><div><span>Margen €</span><b id="pqMargin">0,00 €</b></div><div><span>Margen %</span><b id="pqMarginPct">0,00 %</b></div><div><span>Vs competencia</span><b id="pqCompetition">—</b></div></div>
- <div class="form-actions">${btn('Guardar consulta','consultation-save','primary')}${btn('Nueva consulta','consultation-new','secondary')}</div>
+ <div class="form-actions">${btn('Guardar consulta','consultation-save','primary')}${btn('Guardar como nueva','consultation-save-copy','secondary hidden')}${btn('Nueva consulta','consultation-new','secondary')}</div>
  <div class="stack" style="margin-top:14px">${consultations.length?consultations.map(c=>`<div class="summary-row"><div><b>${esc(c.query)}</b><div class="small muted">PVP ${money(c.pvp)} · Margen ${Number(c.margin_pct||0).toFixed(1).replace('.',',')} %</div></div><div class="inline-actions">${btn('Reutilizar','consultation-reuse','secondary',`data-id="${c.id}"`)}${btn('Convertir a producto','consultation-convert','primary',`data-id="${c.id}"`)}${btn('Eliminar','consultation-delete','danger',`data-id="${c.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin consultas</strong><span>Las consultas guardadas aparecerán aquí.</span></div>'}</div>
  </section>
  </div>`;

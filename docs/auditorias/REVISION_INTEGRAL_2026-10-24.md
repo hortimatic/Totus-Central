@@ -44,3 +44,6 @@ Se inspeccionaron expresamente las políticas RESTRICTIVE: los permisos generale
 ## Evidencia automatizada
 La revisión 5920ba60296f88436893e84a8ef6425b70cd1e29 superó íntegramente las dos tareas de la batería: https://github.com/hortimatic/Totus-Central/actions/runs/40036933191.
 Los cambios posteriores de presentación del historial, contexto de precios y competencia mensual se someten a la misma batería en el PR antes de su publicación. El cierre de entrega identifica su ejecución final; no se extrapola el resultado de una revisión a otra.
+
+## Conservación de funciones
+Se compararon los botones, campos y funciones con la versión de producción anterior: no se retiraron controles ni funciones existentes de los módulos modificados. Al reutilizar una consulta se conservan ambas posibilidades: Guardar cambios y Guardar como nueva. Los nuevos controles se añaden a la organización existente.
