@@ -22,13 +22,13 @@ function resultTable(receipt){
  const rows=receipt.result?.rows||[];
  if(!rows.length)return '<div class="note">Todavía no hay un resultado. Añade los documentos y entrega a ChatGPT la instrucción del paso 2.</div>';
  const summary=stockSummary(receipt.result,view.context?.sources||[]);
- return (summary.issues.length?'<div class="note warn">'+esc(summary.issues.join(' · '))+'</div>':'')+table([
+ return (summary.issues.length?'<div class="note warn">'+esc(summary.issues.map(issue=>(view.context?.sources||[]).reduce((text,source)=>text.replaceAll(source.id,source.document?.original_name||'Documento'),issue)).join(' · '))+'</div>':'')+table([
  {label:'Producto del proveedor',html:r=>esc(r.supplier_name||'Sin identificar')+'<small>'+esc([r.variant,r.unit].filter(Boolean).join(' · '))+'</small>'},
  {label:'Producto de PrestaShop',html:r=>esc(r.prestashop_name||'Sin identificar')},
  {label:'Unidades del proveedor',html:r=>quantity(stockLineResult(r).expected)},
  {label:'Entrada sin ajustes externos',html:r=>quantity(stockLineResult(r).received)},
  {label:'Diferencia',html:r=>quantity(stockLineResult(r).difference)},
- {label:'Revisión y origen',html:r=>{const calculated=stockLineResult(r);return badge(calculated.status)+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>';}}
+ {label:'Revisión y origen',html:r=>{const calculated=stockLineResult(r);return badge(calculated.status)+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Cantidad en el documento del proveedor: '+quantity(r.supplier_qty)+' · Unidades por referencia: '+quantity(r.unit_factor)+'</p>'+(r.conversion_reason?'<p>'+esc(r.conversion_reason)+'</p>':'')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>';}}
  ],rows);
 }
 function receiptDetail(){
