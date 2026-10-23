@@ -1,31 +1,32 @@
 # Totus Central
 
-Herramienta de gestión diaria para Hortimatic y NewOldSmok.
+Gestión diaria para Hortimatic y NewOldSmok: https://hortimatic.github.io/Totus-Central/
 
-## Una aplicación de producción
+## Una producción
+- Rama principal: totus-central.
+- Supabase: awmojepsasikxocoeqtu, con datos, usuarios, permisos y programación.
+- OneDrive: carpeta privada de aplicación, con originales y copias completas verificados.
+- GitHub Pages: aplicación estática; /staging/ solo redirige a la raíz.
+- No depende de un equipo encendido.
 
-- Dirección: https://hortimatic.github.io/Totus-Central/
-- Código publicado: rama `totus-central` de este repositorio.
-- Supabase: proyecto contable existente `awmojepsasikxocoeqtu`. Su identificador se conserva para mantener usuarios, contabilidad, relaciones y tareas.
-- OneDrive: carpeta de aplicación de Totus Central. Se accede por su identificador estable, con el permiso AppFolder ya autorizado.
-- La dirección anterior `/staging/` solo redirige a la aplicación principal, conservando parámetros y fragmentos de recuperación. No aloja otra aplicación.
+## Trabajo y cambios
+Inicio, Pricing, Cajas, Gastos, Facturación, Recepciones, Documentos, Fiscalidad, Informes y Administración.
+No alterar estructura, datos o cálculos sin explicar el cambio al titular. Las facturas originales, los pagos y el gasto fiscal son conceptos distintos; el histórico aceptado no se ajusta para forzar una coincidencia.
 
-La transición renombra la propia rama staging como totus-central y la convierte en principal; no copia la aplicación al main obsoleto. No importa de nuevo datos ni altera importes. El proyecto Supabase antiguo `zwkpmjjuurgjygcrejiw` no es el origen de la contabilidad actual; su retirada definitiva exige comprobar el inventario y la confirmación del titular.
+Para cambiar código, preparar una rama temporal, revisar y ejecutar las pruebas. .github/workflows/publish.yml repite la batería antes de publicar la revisión principal. Comprobar también la versión y los flujos autenticados. Eliminar la rama temporal integrada cuando haya terminado la validación.
 
-## Desarrollo y publicación
+## Recepciones
+Alta con proveedor y documentos de ambos lados, filtros por rango de fechas, resultados descargables y biblioteca de equivalencias confirmadas. ChatGPT coteja con los conectores existentes y los textos de Supabase, sin API de IA de pago. No modifica existencias ni contabilidad.
 
-No modificar estructura, pantallas, datos o cálculos sin explicar primero el cambio al titular. Una petición de producción no autoriza a borrar información histórica ni ampliar permisos de proveedores.
+## Manuales y montaje
+- [Entrada para ChatGPT](RELEVO_CHATGPT_ONLINE.md).
+- [Manual operativo y montaje de la instalación](docs/MANUAL_CHATGPT_ONLINE.md).
+- [Trabajo diario](docs/GUIA_TRABAJO_DIARIO_CHATGPT.md).
+- [Recepciones, biblioteca y conexiones](docs/COTEJOS_CHATGPT.md).
+- [Copias por componentes](docs/COPIAS_POR_COMPONENTES.md).
 
-`.github/workflows/publish.yml` ejecuta la batería completa antes de publicar un commit de totus-central. Una prueba fallida impide el despliegue. Comprobar también la versión realmente publicada y el funcionamiento autenticado; una prueba simulada no certifica por sí sola la instalación real.
+El código incluye el historial de evolución SQL y las cuatro funciones utilizadas. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación.
 
-Los módulos siguen siendo Inicio, Pricing, Cajas, Gastos, Facturación, Documentos, Fiscalidad, Informes y Administración. El alojamiento es estático, sin dependencias de un ordenador local.
-
-## Documentación y recuperación
-
-Leer [el manual operativo](docs/MANUAL_CHATGPT_ONLINE.md), [el relevo para ChatGPT](RELEVO_CHATGPT_ONLINE.md) y [la revisión para producción](docs/auditorias/REVISION_PRODUCCION_2026-10-21.md).
-
-Supabase conserva datos, usuarios, permisos, programación, logos e índices. OneDrive conserva originales y copias completas. Los datos privados, contraseñas y secretos no pertenecen al repositorio público.
-
-Copias nocturnas: 00:35 Europe/Madrid, máximo diez ordinarias verificadas, con protección adicional de puntos de recuperación. El formato v3 permite recuperar datos y archivos en el mismo proyecto; no incorpora contraseñas ni sustituye una copia de infraestructura. Límite: 120 MiB de archivo, 128 MiB expandidos y 8 MiB de datos JSON. Preparar ampliación antes de alcanzar estos límites.
-
-No cambiar cifras del histórico aceptado para forzar coincidencia con gestoría. Los originales determinan las facturas; los pagos y el gasto fiscal son conceptos distintos. Mantener los gastos internos y los pagos de impuestos fuera del beneficio fiscal.
+## Copias y privacidad
+Copia completa diaria a las 00:35 Europe/Madrid; diez juegos ordinarios verificados, más los puntos de recuperación protegidos que correspondan. Cada juego incluye índice, datos, documentos en ZIP numerados y código publicado. Consultar COPIAS_POR_COMPONENTES.md para comprobar o restaurar. Las copias anteriores compatibles siguen siendo recuperables.
+No exporta contraseñas ni sustituye una copia de infraestructura, Auth o Vault. No guardar datos privados, claves de servicio ni secretos de Microsoft en este repositorio.

@@ -13,6 +13,11 @@ Subir un PDF directamente a una carpeta de OneDrive no lo asocia automáticament
 
 ## 2. Conectar ChatGPT sin depender de un ordenador particular
 
+**Primera comprobación del chat:** descubre las herramientas de GitHub, Supabase y SharePoint/OneDrive disponibles. Estos tres complementos se comprobaron habilitados en la cuenta el 23/10/2026. La autorización de Totus con Microsoft es independiente de la conexión de SharePoint del chat. No vuelvas a crear claves por una búsqueda o lectura de formato fallida.
+
+En Recepciones, Supabase proporciona también el texto extraído y su cobertura. Si ese texto es completo, el chat puede cotejarlo sin descargar otra vez el PDF. Si falta texto, necesita leer el original o dejar el documento pendiente. Para OneDrive personal usa sus herramientas de búsqueda/listado del propio drive; no empieces buscando sitios empresariales. Consulta el diagnóstico exacto en COTEJOS_CHATGPT.md.
+
+
 Cuando la cuenta de ChatGPT tenga conectado el complemento Microsoft SharePoint, comprueba sus herramientas para OneDrive personal antes de proponer un navegador o Work. La conexión del complemento es distinta de la integración del servidor de Totus con Microsoft. Verifica el acceso real en cada chat y utiliza los permisos existentes; no vuelvas a crear credenciales.
 
 Para acceder a la carpeta de Totus, usa el listado de archivos y carpetas del OneDrive autorizado y desciende por sus identificadores. Una búsqueda puede devolver originales fuera de la carpeta solicitada: contrasta siempre la ruta antes de asociar un documento. Prefiere las direcciones exactas de Microsoft Graph que devuelva el conector para leer un archivo; una dirección de navegación de OneDrive puede fallar al resolverse.
@@ -244,3 +249,11 @@ Los menús y capacidades de ChatGPT pueden cambiar. Verificar las herramientas d
 
 ## Recepciones de mercancía
 En Recepciones crea un pedido, añade los documentos de proveedor y las entradas de PrestaShop, y copia la instrucción al chat habitual. No es necesario volver a adjuntar al chat esos documentos si sus conectores pueden leerlos. Consulta COTEJOS_CHATGPT.md para el contrato de lectura y guardado, las cantidades, las variantes y los ajustes. Si falta acceso o lectura de un original, se conserva la recepción pendiente, sin inventar un resultado.
+
+## Recepciones: alta rápida, biblioteca y descargas
+
+La explicación vigente está en [COTEJOS_CHATGPT.md](COTEJOS_CHATGPT.md). Nueva recepción permite elegir o crear un proveedor y seleccionar los archivos de ambos lados antes de guardar. Conserva los archivos pendientes en memoria si una subida falla y permite reintentar sin duplicar el pedido. No cierres la pestaña hasta terminar la cola.
+
+El rango de fechas incluye ambos extremos y todos los meses intermedios. Volver conserva los filtros. Quitar del pedido conserva el original documental y vuelve a dejar el cotejo pendiente. Excel e informe incluyen el resultado completo de la revisión visible. La biblioteca guarda equivalencias confirmadas por gerencia, no aprende automáticamente una variante por parecido.
+
+Antes de cada cotejo, ChatGPT consulta public.totus_stock_context y su biblioteca; después de guardar relee la revisión y estado. Si un chat asegura que no puede acceder, debe identificar la herramienta y operación que faltan y probar el texto de Supabase antes de pedir otro producto o una nueva clave.

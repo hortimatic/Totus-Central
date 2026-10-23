@@ -2,15 +2,38 @@
 
 ## Para Diego y su equipo
 1. Entra en https://hortimatic.github.io/Totus-Central/ → Recepciones.
-2. Crea una recepción con tienda, proveedor, referencia y fecha.
-3. Añade la factura o albarán del proveedor y los documentos de entrada de PrestaShop. Selecciona el lado correcto antes de subir cada grupo. Puedes asociar una factura ya archivada: no hace falta duplicarla.
-4. Pulsa **Copiar instrucción para ChatGPT** y pégala en el chat habitual con Supabase conectado.
-5. ChatGPT leerá los documentos y guardará el cotejo. Pulsa **Actualizar** en la recepción para verlo.
-6. Si quedan dudas, contéstalas en el chat. Cada resultado guardado conserva una revisión; un documento nuevo devuelve la recepción a pendiente.
+2. Pulsa **Nueva recepción**, elige tienda y proveedor. Si falta, **+ Nuevo proveedor** lo crea en la lista común y lo deja seleccionado sin perder los archivos elegidos.
+3. Introduce referencia y fecha. Puedes seleccionar varios documentos en **Proveedor** y varios en **PrestaShop** en esa misma pantalla.
+4. Pulsa **Guardar recepción y documentos**. Si una subida falla, la recepción y los documentos correctos se conservan. Usa **Reintentar archivos pendientes**: no crees otro pedido. La cola vive solo en memoria del navegador; si cierras la pestaña tendrás que seleccionar otra vez los archivos pendientes.
+5. Dentro del pedido, pulsa **Copiar instrucción para ChatGPT** y pégala en el chat habitual con Supabase conectado.
+6. ChatGPT lee el contexto, los textos y la biblioteca, coteja y guarda. Pulsa **Actualizar** para verlo.
+7. **Descargar Excel** incluye todas las líneas, cantidades, factores, ajustes, fuentes y una hoja de documentos. **Descargar informe** entrega una página HTML completa que puedes abrir, imprimir o guardar como PDF desde el navegador. Las líneas pendientes siguen pendientes; nunca se convierten en cero.
+8. **← Volver a recepciones** conserva tienda, fechas, estado y búsqueda. El rango Desde/Hasta incluye ambos días y admite varios meses; Limpiar vuelve a todas las fechas.
 
 La entrada de PrestaShop ya representa el recuento hecho por el equipo. No se pide otro recuento por defecto.
-Este módulo no crea gastos, no cambia existencias y no envía reclamaciones.
-Los permisos son los de **Documentos**: ver, crear y editar. Confirmar equivalencias permanentes requiere gerencia.
+El módulo no crea gastos, no cambia existencias y no envía reclamaciones.
+Los permisos son los de **Documentos**: ver, crear, editar y exportar. Crear un proveedor usa el permiso Crear de Gastos. Confirmar equivalencias permanentes requiere gerencia.
+
+### Quitar un documento del pedido
+En cada archivo, **Quitar del pedido** retira su asociación y devuelve el cotejo a pendiente. El original se conserva en Documentos para evitar borrar una factura utilizada por otra operación. No elimina un gasto ni otras asociaciones. Si lo habías añadido por error, selecciona después el archivo correcto.
+
+### Biblioteca de productos
+El listado de Recepciones tiene **Biblioteca de productos**, con búsqueda por tienda, proveedor, nombres y variante.
+Muestra solo equivalencias confirmadas, con factor de conversión y motivo. No es un catálogo de existencias de PrestaShop.
+Para añadir una, abre un cotejo y pulsa **Guardar equivalencia** en una línea revisada. Gerencia debe escribir el motivo y confirmar explícitamente que puede reutilizarse.
+Se aplica únicamente a la misma tienda, proveedor, nombres, variante y unidad. Un cambio de sabor, nicotina, resistencia o tamaño requiere comprobar su propia equivalencia. Que dos nombres cuadren en un pedido no autoriza a generalizarlos.
+En el caso del 22/10/2026 se guardaron las dos referencias concretas de pods Pack3 → unidades. La equivalencia 11 mg/10 mg se confirmó solo para ese pedido; no se convirtió en una regla general.
+
+## Conexiones: comprobar antes de declarar que no se puede
+- **Supabase**: registros, texto extraído y cotejos. **OneDrive**: originales y copias. **GitHub**: código y manuales.
+- El 23/10/2026 se comprobaron los tres complementos habilitados en la cuenta y la lectura de un PDF personal de OneDrive mediante SharePoint. Esto no da a un chat herramientas que no tenga activadas; al iniciar sesión hay que descubrir las herramientas de ese chat.
+- Con Supabase conectado, public.totus_stock_context ya devuelve el texto disponible. Para un documento con extracción completa no hace falta un lector adicional de OneDrive para leer ese texto.
+- Si SharePoint está disponible, busca en **OneDrive personal**, no en sitios empresariales. Usa la dirección Graph exacta del contexto o del resultado de búsqueda. Buscar por sitios de SharePoint no es una prueba de acceso al OneDrive personal.
+- Un archivo Markdown puede devolver metadatos y contenido nulo: léelo en GitHub. No reconectes Microsoft ni cambies permisos por un problema de formato.
+- Si falta una herramienta, indica su nombre y la operación necesaria. Comprueba que el complemento esté activado/seleccionado en el chat. No propongas Work como requisito de este flujo ni contrates una API de IA.
+- Si un PDF está escaneado o incompleto, el texto disponible no demuestra cobertura completa. Usa el original con las herramientas del chat. Si no puedes leerlo, deja pendientes sus líneas e identifica exactamente el archivo o páginas que faltan.
+- **Texto para ChatGPT** muestra el paquete de textos y cobertura para copiarlo cuando un lector concreto no funcione. No sustituye las páginas ilegibles.
+- Nunca publiques archivos ni direcciones temporales, ni solicites la contraseña o la clave de Microsoft.
 
 ## Instrucciones para ChatGPT convencional
 

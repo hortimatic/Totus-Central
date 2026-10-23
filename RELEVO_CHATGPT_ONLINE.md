@@ -1,38 +1,27 @@
-# Totus Central · entrada para ChatGPT online
+# Totus Central · entrada para ChatGPT
 
-## Antes de trabajar
-Leer [el manual operativo](docs/MANUAL_CHATGPT_ONLINE.md) y [el informe técnico vigente](docs/auditorias/REVISION_PRODUCCION_2026-10-21.md).
-La única aplicación es [Totus Central](https://hortimatic.github.io/Totus-Central/). La rama de código vigente es `totus-central`. No recrear ni fusionar main o un entorno antiguo.
+## Empieza aquí
+1. Descubre las herramientas disponibles: Supabase, GitHub y SharePoint/OneDrive. No confundas la navegación web pública con acceso a archivos privados.
+2. Lee [el manual operativo](docs/MANUAL_CHATGPT_ONLINE.md), [el trabajo diario](docs/GUIA_TRABAJO_DIARIO_CHATGPT.md) y, si vas a cotejar, [Recepciones](docs/COTEJOS_CHATGPT.md).
+3. Única producción: https://hortimatic.github.io/Totus-Central/; repositorio hortimatic/Totus-Central, rama totus-central; proyecto Supabase awmojepsasikxocoeqtu.
+4. Consulta datos reales antes de escribir. No dupliques gastos, cierres, documentos ni recepciones. No modifiques el histórico aceptado para cuadrar cifras.
 
-El inventario, los resultados particulares y el informe completo de la instalación se conservan en su administración privada. Consultarlos mediante acceso autorizado; no publicarlos ni exportarlos al equipo.
+## Conexión comprobada y alternativa de lectura
+GitHub, Supabase y SharePoint se verificaron habilitados en la cuenta el 23/10/2026. Se probaron búsqueda y lectura de un PDF personal de OneDrive con SharePoint. Cada chat debe comprobar sus propias herramientas y autorización.
+- Usa las herramientas de OneDrive personal; no busques primero un sitio empresarial inexistente.
+- Prefiere el identificador Graph exacto que devuelva el contexto o la búsqueda.
+- Un lector que devuelve contenido nulo para un Markdown no demuestra un fallo de conexión. Lee los manuales en GitHub.
+- En Recepciones, public.totus_stock_context devuelve textos, cobertura, referencias originales y biblioteca. Si la extracción está completa, usa ese texto aunque el lector de OneDrive de ese chat no admita el formato.
+- Si faltan páginas o un escaneo no tiene texto, lee el original con las herramientas disponibles o deja pendiente lo que no puedas comprobar. No inventes lectura ni cantidades.
+- Si falta una herramienta, concreta cuál y qué operación intentaste. Continúa con las vías disponibles; no pidas nuevas claves ni Work por defecto.
 
-## Responsabilidades de los servicios
-- GitHub: código, pruebas, migraciones e instrucciones públicas sin datos contables.
-- Supabase: operaciones, acceso, permisos, configuración y tareas del servidor.
-- OneDrive: originales y respaldos verificados en la carpeta exclusiva de la aplicación.
+## Operación
+La base de datos está en Supabase. OneDrive guarda originales y copias; GitHub guarda código y manuales.
+Para un cotejo, Diego crea o abre la recepción y pega Copiar instrucción para ChatGPT. Lee el contexto, consulta equivalencias aplicables, coteja, guarda con public.totus_stock_save_result usando la revisión actual y relee para verificar.
+Las entradas de PrestaShop son el recuento declarado por el equipo. No alteres existencias ni contabilidad por cotejar documentos. Guarda equivalencias permanentes solo con confirmación explícita de gerencia para esa variante y unidad.
 
-No se necesita un proceso local ni este portátil para las tareas del servidor. No guardar credenciales, fuentes fiscales ni archivos de trabajo en equipos como parte del funcionamiento.
-
-## Trabajo diario
-1. Verificar dirección, versión, sesión y última copia correcta.
-2. Consultar Inicio y la fecha del efectivo que se dejó para abrir cada cajón.
-3. Buscar duplicados antes de introducir cierres, gastos o facturas. Asociar cada documento con su operación correcta.
-4. Separar gastos fiscales, control interno y apuntes de pago. No duplicarlos.
-5. Contrastar fechas de venta y abono bancario. No ajustar operaciones para forzar una coincidencia.
-6. Mantener el histórico aceptado y documentar cualquier corrección autorizada.
-
-## Copias y recuperación
-Para los juegos nuevos de copias por componentes y los avisos de conexión, leer primero [la guía vigente](docs/COPIAS_POR_COMPONENTES.md). El índice y todos sus ZIP forman un único juego. Las referencias al ZIP único en el manual se conservan para copias anteriores y descargas locales tradicionales.
-
-La programación y conservación se gestionan en Administración → Copias. Comprobar la última copia completada, su proveedor y su verificación. Un intento fallido no sustituye a una copia correcta. Los puntos protegidos de recuperación se mantienen según su función.
-
-El respaldo de aplicación recupera datos en el mismo proyecto. La reconstrucción de un proyecto nuevo, usuarios, contraseñas y secretos requiere otro procedimiento. No ensayar una recuperación sobre la contabilidad real.
-
-Revisar en privado los límites de formato, capacidad y caducidad de conexiones. Mantener el plan contratado y no ampliar servicios automáticamente.
-
-## Acceso y continuidad
-ChatGPT online necesita sus propias conexiones o navegador autorizados; las sesiones de este escritorio no se transfieren. Nunca pedir contraseñas ni códigos en el chat. No ampliar permisos para resolver una ruta o un nombre.
-
-Avisar al titular antes de modificar código, estructura o datos. Los trabajos complejos futuros requieren un nuevo entorno aislado basado en esta producción, cuando se solicite.
-
-En OneDrive → Manuales y funcionamiento se verifican las instrucciones con nombres estables: MANUAL_CHATGPT_ONLINE.md, RELEVO_CHATGPT_ONLINE.md, PETICIONES_Y_ESTADO.md, INFORME_REVISION.md y COPIAS_POR_COMPONENTES.md. Los documentos públicos fechados anteriores son antecedentes; no indican que siga disponible otra instalación.
+## Seguridad y cambios
+No leas secretos ni publiques documentos o direcciones temporales. No dependas de archivos locales. No muevas archivos administrados de OneDrive por fuera del flujo de la herramienta.
+La recuperación de una copia es una operación distinta de verificarla y necesita autorización expresa del titular.
+Para cambios de interfaz, conserva la estructura y los datos, explica el ajuste y comprueba lectura, escritura, descargas y permisos afectados. Los cambios complejos se preparan aparte.
+Al terminar informa qué se hizo, qué comprobaste y qué queda pendiente, sin afirmar que una prueba no ejecutada ha pasado.
