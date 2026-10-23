@@ -53,7 +53,7 @@ try{
   const db=window.__mockDb,r=db.ops_stock_receipts[0],sources=db.ops_stock_sources;
   r.status='matched';r.result={complete:true,coverage:sources.map(s=>({source_id:s.id,complete:true,explanation:'Test read'})),rows:[{id:'r1',supplier_name:'Producto A',prestashop_name:'Producto A PS',variant:'Variante QA',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true,supplier_qty:10,prestashop_qty:10,adjustment_qty:0,adjustment_included:'no',source_refs:sources.map(s=>({source_id:s.id,locator:'Fila 1',line_id:'r1'}))}]};
  });
- await page.locator('[data-action="stock-refresh"]').click();assert(await page.getByText('Producto A PS',{exact:true}).isVisible());
+ await page.locator('[data-action="stock-refresh"]').click();await page.getByText('Producto A PS',{exact:true}).waitFor();
  for(const width of [1440,390]){
   await page.setViewportSize({width,height:1000});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'No page overflow');
@@ -61,6 +61,7 @@ try{
  }
  await page.setViewportSize({width:1440,height:1000});
  await page.locator('[data-action="stock-source-remove"]').last().click();await page.getByRole('button',{name:'Retirar asociación',exact:true}).last().click();
+ await page.getByText('entrada.txt',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('.stock-source').count(),1);
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),2,'Unlink must preserve originals');

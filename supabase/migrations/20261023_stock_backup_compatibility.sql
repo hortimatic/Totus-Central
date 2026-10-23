@@ -12,7 +12,7 @@ AS $function$
  'ops_roles','ops_role_permissions','ops_user_permissions','ops_backup_config',
  'profiles','team_members','team_email_log','team_user_audit_log',
  'ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences']::text[];
-$function$
+$function$;
 
 
 -- Old backups predate the stock module. Restore its four absent tables as empty,
@@ -203,4 +203,4 @@ begin
  update public.ops_recovery_jobs set status='committed',result=counts,finished_at=now(),error=null where id=p_job;
  return counts;
 end;
-$function$
+$function$;
