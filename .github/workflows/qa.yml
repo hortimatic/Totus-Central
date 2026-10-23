@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/stock-cloud-import-qa.mjs
+      - run: node tests/pricing-variants-qa.mjs
       - run: node tests/stock-core-qa.mjs
       - run: node tests/stock-workflow-qa.mjs
       - run: node tests/stock-backup-qa.mjs
@@ -83,6 +84,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
@@ -160,5 +162,6 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023170949_stock_receipts_with_complete_backups.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023171258_stock_receipt_author_index.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023175147_bounded_backup_rehearsal_timeout.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023223642_require_explicit_stock_reading_confirmation.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql

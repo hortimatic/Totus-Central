@@ -1,3 +1,4 @@
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan} from './report-package.js';
@@ -13,9 +14,9 @@ import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
 import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
-import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
+import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
-import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
+import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
 import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {collectArchiveDocuments} from './archive-documents.js';
@@ -55,6 +56,8 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
+ if(a==='consultation-save-copy')return {module:'pricing',operation:'create'};
+ if(a==='consultation-reuse')return {module:'pricing',operation:'edit'};
  if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
  let operation='view';
  if(/(^export-|\-export|\-download$|\-zip$|\-print$)/.test(a))operation='export';
@@ -604,10 +607,29 @@ async function saveProduct(id=''){
  const sku=required('prSku','Referencia'),name=required('prName','Nombre');
  const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
- const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:num('prPvp')||null,proposed_pvp:num('prProposed')||null,units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
+ const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:val('prPvp')===''?null:num('prPvp'),proposed_pvp:val('prProposed')===''?null:num('prProposed'),units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
+ for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
  let saved;
  if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
- setView('pricing',{mode:'record',id:saved.id});await refresh('Producto guardado.');
+ const historySaved=await recordProductHistory(saved.id,null,{action:id?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:saved});
+ setView('pricing',{mode:'record',id:saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
+}
+async function recordProductHistory(productId,variantId,snapshot){
+ try{
+  const variant=snapshot.variant,variants=state.data.variants.filter(v=>v.product_id===productId).map(v=>variant&&v.id===variant.id?variant:v);
+  if(variant&&!variants.some(v=>v.id===variant.id))variants.push(variant);
+  const context={product:snapshot.product||state.data.products.find(p=>p.id===productId),variants,providers:state.data.providerPrices.filter(p=>p.product_id===productId),competitors:state.data.competitors.filter(p=>p.product_id===productId),tax_settings:{vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2},...snapshot};
+  await insert('price_history',{product_id:productId,variant_id:variantId,user_id:state.user?.id||null,snapshot:context});return true
+ }
+ catch(error){console.warn('No se pudo registrar el historial de Pricing',error);return false}
+}
+async function productHistory(productId){
+ const rows=await select('price_history',{order:'created_at',filter:q=>q.eq('product_id',productId)});
+ modal('Historial de Pricing',rows.length?rows.map(row=>{
+  const s=row.snapshot||{},v=s.variant,p=s.product;
+  const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada'}[s.action]||'Cambio de precio';
+  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):'')+'</div></div>';
+ }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){
  const p=state.data.products.find(x=>x.id===id);if(!p)return;
@@ -843,13 +865,14 @@ function providerPriceForm(productId,row=null){
 async function saveProviderPrice(productId,id=''){
  const selected=!!input('ppSelected')?.checked;
  const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
+ if(row.net_cost<0)throw new Error('El coste de compra no puede ser negativo.');
  if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
  if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
- closeModal();await refresh('Coste de proveedor guardado.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ closeModal();await refresh('Coste de proveedor guardado.');refreshPricingPanels(productId);
 }
 async function deleteProviderPrice(productId,id){
  if(!confirm('¿Eliminar este coste de proveedor?'))return;
- await remove('product_provider_prices',id);closeModal();await refresh('Coste eliminado.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ await remove('product_provider_prices',id);closeModal();await refresh('Coste eliminado.');refreshPricingPanels(productId);
 }
 function competitorForm(productId,row=null){
  const body=`<div class="form-grid">
@@ -866,46 +889,83 @@ function competitorForm(productId,row=null){
 }
 async function saveCompetitor(productId,id=''){
  const row={product_id:productId,variant_id:null,competitor_name:required('cpName','Competidor'),url:val('cpUrl').trim(),price:num('cpPrice'),discount:Math.min(100,Math.max(0,num('cpDiscount'))),shipping:Math.max(0,num('cpShipping')),stock_status:val('cpStock').trim()||'Sí',promo_type:val('cpPromo').trim(),capture_date:isoToday(),notes:val('cpNotes').trim()};
+ if(row.price<0)throw new Error('El precio de la competencia no puede ser negativo.');
  if(id)await update('product_competitor_prices',id,row);else await insert('product_competitor_prices',row);
- closeModal();await refresh('Competencia guardada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ closeModal();await refresh('Competencia guardada.');refreshPricingPanels(productId);
 }
 async function deleteCompetitor(productId,id){
  if(!confirm('¿Eliminar este precio de competencia?'))return;
- await remove('product_competitor_prices',id);closeModal();await refresh('Competencia eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ await remove('product_competitor_prices',id);closeModal();await refresh('Competencia eliminada.');refreshPricingPanels(productId);
+}
+function refreshPricingPanels(productId){
+ if(state.route!=='pricing'||getView('pricing').id!==productId)return;
+ const product=state.data.products.find(p=>p.id===productId);if(!product)return;
+ const template=document.createElement('template');template.innerHTML=productRecordHtml(product);
+ for(const selector of ['.pricing-providers','.pricing-competitors','.pricing-variants','.record-side']){
+  const current=document.querySelector('#content '+selector),fresh=template.content.querySelector(selector);
+  if(current&&fresh)current.replaceWith(fresh);
+ }
+ updateProductStudy();
 }
 function variantForm(productId,row=null){
  const body=`<div class="form-grid">
   ${formField('Nombre variante','vrName',row?.name||'')}
+  ${formField('Atributos','vrAttributes',formatVariantAttributes(row?.attributes),'text','placeholder="Color: Negro; Resistencia: 0,8 Ω"')}
+  ${selectField('Estado de la variante','vrActive',[{value:'true',label:'Activa'},{value:'false',label:'Inactiva'}],String(row?.active!==false))}
   ${formField('Referencia / SKU','vrSku',row?.sku||'')}
   ${formField('Nicotina mg/ml','vrNic',row?.nicotine_mg_ml??'','number','step="0.1" min="0"')}
   ${formField('Volumen ml','vrVol',row?.volume_ml??'','number','step="0.1" min="0"')}
   ${formField('Impuesto €/ml (informativo)','vrTaxRate',row?.special_tax_rate_ml??'','number','step="0.01" min="0"')}
   ${formField('Impuesto total (informativo)','vrTaxAmount',row?.special_tax_amount??'','number','step="0.01" min="0"')}
-  ${formField('Coste neto final','vrCost',row?.cost_net??'','number','step="0.01"')}
-  ${formField('PVP','vrPvp',row?.pvp??'','number','step="0.01"')}
- </div><div class="note">El coste neto final debe ser el coste real de compra. El impuesto se guarda como información y no se suma de nuevo automáticamente.</div>
- <div class="form-actions">${btn('Guardar variante','variant-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
- modal(row?'Editar variante':'Nueva variante',body);
+  ${formField('Coste de compra sin IVA ni RE','vrCost',row?.cost_net??'','number','step="0.01" min="0"')}
+  ${formField('PVP','vrPvp',row?.pvp??'','number','step="0.01" min="0"')}
+ </div><div class="note">El coste de compra se introduce sin IVA ni recargo de equivalencia. Si el proveedor nacional ya incluye el impuesto especial en ese coste, no lo sumes otra vez. Los campos de impuesto son solo informativos.</div>
+ <div id="vrStudy" class="note"></div><div class="form-actions">${btn('Guardar variante','variant-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
+ modal(row?'Editar variante':'Nueva variante',body);updateVariantStudy();
 }
 async function saveVariant(productId,id=''){
- const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:id?(state.data.variants.find(x=>x.id===id)?.attributes||{}):{},nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:true};
- if(id)await update('product_variants',id,row);else await insert('product_variants',row);
- closeModal();await refresh('Variante guardada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:parseVariantAttributes(val('vrAttributes')),nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:val('vrActive')!=='false'};
+ validateVariant(row,state.data.variants,id);
+ const saved=id?await update('product_variants',id,row):await insert('product_variants',row);
+ const historySaved=await recordProductHistory(productId,saved.id,{action:id?'VARIANTE_EDITADA':'VARIANTE_CREADA',variant:saved,study:variantStudy(saved,state.data.settings)});
+ closeModal();await refresh(historySaved?'Variante guardada.':'Variante guardada, pero no se pudo registrar su historial.');refreshPricingPanels(productId);
 }
 async function deleteVariant(productId,id){
  if(!confirm('¿Eliminar esta variante?'))return;
- await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
+}
+function updateProductStudy(){
+ if(!document.getElementById('prSummaryPvp')||val('prType')==='variants')return;
+ const productId=getView('pricing').id;
+ const prices=state.data.providerPrices.filter(x=>x.product_id===productId&&!x.variant_id);
+ const costOf=pricingProviderCost;
+ const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0];
+ const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
+ const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
+ const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+ set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(n(pvp)):'Sin precio');
+ set('prSummaryMargin',r?money(r.margin):'—');set('prSummaryPct',r?r.marginPct.toFixed(1).replace('.',',')+' %':'—');
+ set('prSummaryCompetition',r?.competitorDiff==null?'—':money(r.competitorDiff));
+ set('prSummaryMonth',r&&num('prUnits')>0?money(r.margin*num('prUnits')):'—');
+ for(const id of ['prSummaryMargin','prSummaryPct'])input(id)?.classList.toggle('danger-text',!!r&&r.margin<0);
+}
+function updateVariantStudy(){
+ const el=document.getElementById('vrStudy');if(!el)return;
+ const result=variantStudy({cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp')},state.data.settings,state.data.products.find(p=>p.id===getView('pricing').id)?.quick_discount??0);
+ el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){
  const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
  set('pqReal',money(r.costReal));set('pqSale',money(r.finalSale));set('pqMargin',money(r.margin),r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqMarginPct',r.marginPct.toFixed(1).replace('.',',')+' %',r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqCompetition',r.competitorDiff==null?'—':((r.competitorDiff>0?'+':'')+money(r.competitorDiff)),r.competitorDiff==null?'':r.competitorDiff>0?'warn-text':'good-text');
 }
-async function saveConsultation(){
+async function saveConsultation(id=''){
+ if(id&&!state.data.consultations.some(c=>c.id===id))throw new Error('La consulta ya no existe. Vuelve a cargarla.');
  const query=required('pqQuery','Consulta');
  const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
- const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
- const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:'CREADA',consultation_query:query,snapshot:row});
+ const values={query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,updated_at:new Date().toISOString()};
+ const row=id?await update('consultations',id,values):await insert('consultations',{...values,created_by:state.user?.id||null,last_reopened_at:null});
+ const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:id?'ACTUALIZADA':'CREADA',consultation_query:query,snapshot:row});
  await refresh(logged?'Consulta guardada.':'Consulta guardada, pero no se pudo guardar su historial. Revisa el registro antes de continuar.');
 }
 async function recordConsultationHistory(row){
@@ -947,7 +1007,8 @@ async function convertConsultation(id){
 async function reuseConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
- set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);
+ set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);updatePricingQuick();
+ const save=document.querySelector('[data-action="consultation-save"]');if(save){save.dataset.id=id;save.textContent='Guardar cambios';}document.querySelector('[data-action="consultation-save-copy"]')?.classList.remove('hidden');
  await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'ABIERTA',consultation_query:c.query,snapshot:c});
  toast(logged?'Consulta cargada.':'Consulta cargada, pero no se pudo guardar su historial.',logged?'ok':'warn');
@@ -2305,7 +2366,9 @@ document.addEventListener('click',async e=>{
   if(a==='variant-edit'){variantForm(el.dataset.product,state.data.variants.find(x=>x.id===el.dataset.id));return}
   if(a==='variant-save'){await saveVariant(el.dataset.product,el.dataset.id||'');return}
   if(a==='variant-delete'){await deleteVariant(el.dataset.product,el.dataset.id);return}
-  if(a==='consultation-save'){await saveConsultation();return}
+  if(a==='consultation-new'){for(const id of ['pqQuery','pqCost','pqPvp','pqCompetitor','pqDiscount']){const field=input(id);if(field)field.value=''}const save=document.querySelector('[data-action="consultation-save"]');if(save){delete save.dataset.id;save.textContent='Guardar consulta'}document.querySelector('[data-action="consultation-save-copy"]')?.classList.add('hidden');updatePricingQuick();return}
+  if(a==='consultation-save-copy'){await saveConsultation();return}
+  if(a==='consultation-save'){await saveConsultation(el.dataset.id||'');return}
   if(a==='consultation-reuse'){await reuseConsultation(el.dataset.id);return}
   if(a==='consultation-convert'){consultationConvertForm(el.dataset.id);return}
   if(a==='consultation-convert-save'){await convertConsultation(el.dataset.id);return}
@@ -2339,6 +2402,7 @@ document.addEventListener('click',async e=>{
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
   if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
   if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
   if(a==='product-back'){resetView('pricing');render();return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
@@ -2473,6 +2537,8 @@ document.addEventListener('input',e=>{
  if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
  if(id.startsWith('homePrice'))updateHomePrice();
  if(id.startsWith('pq'))updatePricingQuick();
+ if(id.startsWith('vr'))updateVariantStudy();
+ if(id.startsWith('pr'))updateProductStudy();
  if(id.startsWith('exLine')||id==='exPaidAmount')updateExpenseSummary();
  if(id.startsWith('iv')&&input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
 });
@@ -2633,6 +2699,8 @@ document.addEventListener('keydown',async e=>{
  try{
   if(prefix){e.preventDefault();applyFilter(prefix);await refresh()}
   else if(e.target?.id?.startsWith('log')){e.preventDefault();applyAdminLogFilters()}
+  else if(['stockFrom','stockTo','stockFilterStore','stockStatus','stockQuery'].includes(e.target?.id)){e.preventDefault();$('#content [data-action="stock-search"]')?.click()}
+  else if(['stockLibraryStore','stockLibraryQuery'].includes(e.target?.id)){e.preventDefault();$('#content [data-action="stock-library-search"]')?.click()}
   else if(e.target?.id==='pricingQuery'){e.preventDefault();patchFilters('pricing',{query:val('pricingQuery').trim()});render()}
   else if(e.target?.id==='expenseSuppliersQuery'){e.preventDefault();patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim()});render()}
  }catch(error){toast(error.message||String(error),'bad')}

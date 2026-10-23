@@ -286,3 +286,9 @@ El historial SQL contiene evoluciones de una base ya existente: no se presenta c
 - RELEVO_CHATGPT_ONLINE.md, este manual, GUIA_TRABAJO_DIARIO_CHATGPT.md, COTEJOS_CHATGPT.md y COPIAS_POR_COMPONENTES.md.
 - El informe de revisión vigente y las referencias privadas de originales/copias en los servicios autorizados, sin duplicar facturas privadas en el repositorio.
 No borrar ni modificar las fuentes sincronizadas del proyecto por iniciativa del chat. La limpieza de fuentes se hará cuando Diego la pida.
+
+
+## Revisión del 24/10/2026: Pricing y conexión convencional
+Pricing dispone de guía específica en [PRICING_PRODUCTOS_Y_VARIANTES.md](PRICING_PRODUCTOS_Y_VARIANTES.md). Consulta también el índice [ENTREGA_FUENTES.md](ENTREGA_FUENTES.md).
+La prueba real desde «Revisar Totus Central» acreditó lectura GitHub, Supabase y ambos PDF originales en OneDrive con el conector SharePoint, y operaciones reales de Recepciones dentro de una transacción revertida: creación, asociación de dos documentos, guardado y lectura de 39 líneas/100 unidades. Tras ROLLBACK no quedó la recepción de prueba y la original conservó revisión 4. Evidencia: https://github.com/hortimatic/Totus-Central/pull/12#issuecomment-6376148457.
+La prueba no acredita por sí sola transferencia de un binario nuevo ni registro contable persistente. No hace falta Work para esas operaciones demostradas; cada chat debe tener disponibles y autorizados los conectores en su propia sesión.

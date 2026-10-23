@@ -257,3 +257,9 @@ La explicación vigente está en [COTEJOS_CHATGPT.md](COTEJOS_CHATGPT.md). Nueva
 El rango de fechas incluye ambos extremos y todos los meses intermedios. Volver conserva los filtros. Quitar del pedido conserva el original documental y vuelve a dejar el cotejo pendiente. Excel e informe incluyen el resultado completo de la revisión visible. La biblioteca guarda equivalencias confirmadas por gerencia, no aprende automáticamente una variante por parecido.
 
 Antes de cada cotejo, ChatGPT consulta public.totus_stock_context y su biblioteca; después de guardar relee la revisión y estado. Si un chat asegura que no puede acceder, debe identificar la herramienta y operación que faltan y probar el texto de Supabase antes de pedir otro producto o una nueva clave.
+
+
+## Revisión del 24/10/2026: Pricing y conexión convencional
+Pricing dispone de guía específica en [PRICING_PRODUCTOS_Y_VARIANTES.md](PRICING_PRODUCTOS_Y_VARIANTES.md). Consulta también el índice [ENTREGA_FUENTES.md](ENTREGA_FUENTES.md).
+La prueba real desde «Revisar Totus Central» acreditó lectura GitHub, Supabase y ambos PDF originales en OneDrive con el conector SharePoint, y operaciones reales de Recepciones dentro de una transacción revertida: creación, asociación de dos documentos, guardado y lectura de 39 líneas/100 unidades. Tras ROLLBACK no quedó la recepción de prueba y la original conservó revisión 4. Evidencia: https://github.com/hortimatic/Totus-Central/pull/12#issuecomment-6376148457.
+La prueba no acredita por sí sola transferencia de un binario nuevo ni registro contable persistente. No hace falta Work para esas operaciones demostradas; cada chat debe tener disponibles y autorizados los conectores en su propia sesión.

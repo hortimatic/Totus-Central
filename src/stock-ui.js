@@ -13,6 +13,7 @@ const quantity=value=>value==null?'Pendiente':Number(value).toLocaleString('es-E
 const canEdit=()=>canUser(state.user,'documentos','edit',state.data.userPermissions||[]);
 const canManage=()=>['admin','gerente'].includes(state.user?.role)&&canEdit();
 const canCreateSupplier=()=>canUser(state.user,'gastos','create',state.data.userPermissions||[]);
+const stockModal=(title,body,options)=>modal(title,'<div class="stock-modal">'+body+'</div>',options);
 const back=()=>'<div class="stock-toolbar">'+action('← Volver a recepciones','stock-back')+'</div>';
 function supplierField(id,current=''){
  const suppliers=(state.data.suppliers||[]).filter(s=>s.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
@@ -21,7 +22,7 @@ function supplierField(id,current=''){
  return '<div class="stock-supplier-field">'+selectField('Proveedor',id,options,current,'required')+
  (canCreateSupplier()?action('+ Nuevo proveedor','stock-supplier-new','data-target="'+id+'"'):'')+'</div>';
 }
-const uploadInput=(label,id)=>'<label>'+label+'<input id="'+id+'" type="file" accept=".pdf,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.webp" multiple></label>';
+const uploadInput=(label,id)=>'<label class="stock-file-field">'+label+'<input id="'+id+'" type="file" accept=".pdf,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.webp" multiple></label>';
 function sourceCard(source){
  const d=source.document||{},kind=source.source_kind==='supplier'?'Proveedor':'Entrada de PrestaShop';
  const status=source.extraction?.state==='ready'?'Texto disponible':source.extraction?.state==='partial'?'Lectura parcial':'Necesita leer el original';
@@ -55,19 +56,19 @@ function receiptDetail(){
  .map(d=>({value:d.id,label:[d.original_name,d.supplier_or_customer,d.invoice_number].filter(Boolean).join(' · ')}));
  return back()+'<div class="stack stock-page">'+(view.error?'<div class="note warn" role="alert">'+esc(view.error)+'</div>':'')+
  '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(r.status)+(canEdit()?action('Editar datos','stock-edit'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
- '<section class="card card-pad"><h3>1. Documentos del pedido</h3><p>La entrada de PrestaShop es el recuento realizado por el equipo. Estos adjuntos no crean gastos ni cambian existencias.</p>'+
+ '<section class="card card-pad stock-step"><h3>1. Documentos del pedido</h3><p>La entrada de PrestaShop es el recuento realizado por el equipo. Estos adjuntos no crean gastos ni cambian existencias.</p>'+
  sources.map(sourceCard).join('')+(sources.length?'':'<div class="note">Añade la factura o albarán y la entrada de PrestaShop del mismo pedido.</div>')+
  (view.pendingUploads.length?'<div class="note warn"><b>'+view.pendingUploads.length+' archivo(s) pendientes de asociar</b><ul>'+view.pendingUploads.map(p=>'<li>'+esc(p.file.name)+' · '+(p.kind==='supplier'?'Proveedor':'PrestaShop')+'</li>').join('')+'</ul><div class="inline-actions">'+action('Reintentar archivos pendientes','stock-upload-retry-save')+action('Quitar archivos pendientes','stock-upload-discard')+'</div></div>':'')+
  (canEdit()?'<div class="stock-upload form-grid">'+selectField('Estos documentos son de','stockKind',[{value:'supplier',label:'Proveedor · factura o albarán'},{value:'prestashop',label:'PrestaShop · entrada de mercancía'}],'supplier')+
  uploadInput('Subir archivos','stockFiles')+'<div>'+btn('Añadir archivos','stock-upload-save','primary')+'</div></div><details><summary>Usar un documento ya guardado</summary><div class="form-grid">'+selectField('Documento','stockExisting',[{value:'',label:'Selecciona un documento'},...options],'')+'<div>'+action('Asociar documento','stock-existing-save')+'</div></div></details><small>Quitar del pedido conserva el original en Documentos y devuelve el cotejo a pendiente.</small>':'')+'<div id="stockProgress" role="status" aria-live="polite"></div></section>'+
- '<section class="card card-pad"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
- '<section class="card card-pad"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(r.status)+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+'</div></div>'+resultTable(r)+
+ '<section class="card card-pad stock-step"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
+ '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(r.status)+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+'</div></div>'+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se comparan las unidades de la factura con las registradas en PrestaShop. Los paquetes se convierten a unidades cuando su tamaño está confirmado. Si la entrada incluye un ajuste ajeno al pedido, se descuenta para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar queda pendiente.</p></details>'+
  '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small></div>').join('')+'</details></section></div>';
 }
 function libraryPage(){
  const q=stockIdentity(view.libraryQuery),rows=view.equivalences.filter(e=>(view.libraryStore==='all'||e.store_id===view.libraryStore)&&(!q||stockIdentity([e.supplier,e.supplier_name,e.prestashop_name,e.variant,e.unit].join(' ')).includes(q)));
- return back()+'<section class="card card-pad stock-page"><div class="section-head"><div><h2>Biblioteca de productos</h2><p>Equivalencias confirmadas para reutilizar al cotejar. Se conservan por tienda, proveedor, variante y unidad.</p></div>'+action('Actualizar biblioteca','stock-library-refresh')+'</div><div class="filters">'+selectField('Tienda','stockLibraryStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.libraryStore,'data-draft-ignore')+formField('Buscar producto o proveedor','stockLibraryQuery',view.libraryQuery,'text','data-draft-ignore')+action('Buscar','stock-library-search')+'</div><p>'+rows.length+' equivalencia(s). Para añadir una, abre un cotejo y pulsa Guardar equivalencia en su línea. Gerencia confirma cuándo puede reutilizarse.</p>'+table([
+ return back()+'<section class="card card-pad stock-page"><div class="section-head"><div><h2>Biblioteca de productos</h2><p>Equivalencias confirmadas para reutilizar al cotejar. Se conservan por tienda, proveedor, variante y unidad.</p></div>'+action('Actualizar biblioteca','stock-library-refresh')+'</div><div class="filters stock-filters">'+selectField('Tienda','stockLibraryStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.libraryStore,'data-draft-ignore')+formField('Buscar producto o proveedor','stockLibraryQuery',view.libraryQuery,'text','data-draft-ignore')+action('Buscar','stock-library-search')+'</div><p>'+rows.length+' equivalencia(s). Para añadir una, abre un cotejo y pulsa Guardar equivalencia en su línea. Gerencia confirma cuándo puede reutilizarse.</p>'+table([
  {label:'Tienda / proveedor',html:e=>esc(storeName(e.store_id))+'<small>'+esc(e.supplier)+'</small>'},
  {label:'Nombre en proveedor',html:e=>esc(e.supplier_name)},
  {label:'Nombre en PrestaShop',html:e=>esc(e.prestashop_name)},
@@ -82,7 +83,7 @@ export function stockPage(){
  if(view.mode==='library')return libraryPage();
  const rows=filterStockReceipts(view.receipts,view,storeName);
  return '<section class="card card-pad stock-page"><div class="section-head"><div><h2>Recepciones de mercancía</h2><p>Facturas o albaranes del proveedor frente a las entradas de PrestaShop.</p></div><div class="inline-actions">'+action('Biblioteca de productos','stock-library')+action('Actualizar','stock-refresh')+btn('Nueva recepción','stock-new','primary')+'</div></div>'+
- '<div class="filters">'+formField('Desde','stockFrom',view.from,'date','data-draft-ignore')+formField('Hasta','stockTo',view.to,'date','data-draft-ignore')+selectField('Tienda','stockFilterStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.store,'data-draft-ignore')+selectField('Estado','stockStatus',[{value:'all',label:'Todos'},...Object.entries(STOCK_STATES).map(([value,label])=>({value,label}))],view.status,'data-draft-ignore')+formField('Buscar','stockQuery',view.query,'text','data-draft-ignore')+btn('Aplicar filtros','stock-search','primary')+action('Limpiar','stock-filter-clear')+'</div>'+
+ '<div class="filters stock-filters">'+formField('Desde','stockFrom',view.from,'date','data-draft-ignore')+formField('Hasta','stockTo',view.to,'date','data-draft-ignore')+selectField('Tienda','stockFilterStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.store,'data-draft-ignore')+selectField('Estado','stockStatus',[{value:'all',label:'Todos'},...Object.entries(STOCK_STATES).map(([value,label])=>({value,label}))],view.status,'data-draft-ignore')+formField('Buscar','stockQuery',view.query,'text','data-draft-ignore')+btn('Aplicar filtros','stock-search','primary')+action('Limpiar','stock-filter-clear')+'</div>'+
  '<p class="stock-filter-note">'+(view.from||view.to?'Periodo: '+(view.from?esc(fmtDate(view.from)):'desde el inicio')+' → '+(view.to?esc(fmtDate(view.to)):'hasta el último registro'):'Todas las fechas')+' · '+rows.length+' recepción(es)</p>'+
  (view.error?'<div class="note bad" role="alert">'+esc(view.error)+'</div>':'')+
  (!view.loaded?'<div class="note">Cargando recepciones…</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(r.status)},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'No hay pedidos con estos filtros. Puedes limpiar el rango o crear una recepción.'}))+'</section>';
@@ -155,7 +156,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   }
  };
  if(a==='stock-supplier-new'){
-  modal('Crear proveedor','<p>Se añadirá a la lista común de proveedores y quedará seleccionado. Los documentos elegidos se conservan.</p><div class="form-grid">'+formField('Nombre del proveedor','stockSupplierName','','text','maxlength="200" required')+formField('NIF/CIF · opcional','stockSupplierTax','','text','maxlength="30"')+'</div>'+btn('Crear y seleccionar','stock-supplier-save','primary','data-target="'+esc(el.dataset.target||'stockSupplier')+'"'));
+  stockModal('Crear proveedor','<p>Se añadirá a la lista común de proveedores y quedará seleccionado. Los documentos elegidos se conservan.</p><div class="form-grid">'+formField('Nombre del proveedor','stockSupplierName','','text','maxlength="200" required')+formField('NIF/CIF · opcional','stockSupplierTax','','text','maxlength="30"')+'</div>'+btn('Crear y seleccionar','stock-supplier-save','primary','data-target="'+esc(el.dataset.target||'stockSupplier')+'"'));
   return;
  }
  if(a==='stock-supplier-save'){
@@ -179,7 +180,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
   const row=view.context.receipt.result.rows.find(r=>r.id===el.dataset.line);
   if(!row||stockLineResult(row).reasons.length)throw new Error('Primero completa y confirma esta línea.');
-  modal('Guardar equivalencia en la biblioteca','<p>Se reutilizará solo para esta tienda, proveedor, nombres, variante y unidad. Una coincidencia válida solo para este pedido no debe guardarse como regla.</p><div class="stock-equivalence-summary"><b>'+esc(row.supplier_name)+'</b><p>PrestaShop: '+esc(row.prestashop_name)+'</p><p>Variante: '+esc(row.variant||'Sin variante indicada')+' · '+esc(row.unit)+' · '+quantity(row.unit_factor)+' unidad(es) por paquete</p></div><label>Motivo de la confirmación<textarea id="stockEquivalenceEvidence" rows="3" maxlength="5000"></textarea></label><label class="check-field"><input id="stockEquivalenceConfirmed" type="checkbox"> Confirmo que puede reutilizarse en futuros pedidos de esta misma variante.</label>'+btn('Guardar equivalencia','stock-equivalence-save','primary','data-line="'+esc(row.id)+'"'));
+  stockModal('Guardar equivalencia en la biblioteca','<p>Se reutilizará solo para esta tienda, proveedor, nombres, variante y unidad. Una coincidencia válida solo para este pedido no debe guardarse como regla.</p><div class="stock-equivalence-summary"><b>'+esc(row.supplier_name)+'</b><p>PrestaShop: '+esc(row.prestashop_name)+'</p><p>Variante: '+esc(row.variant||'Sin variante indicada')+' · '+esc(row.unit)+' · '+quantity(row.unit_factor)+' unidad(es) por paquete</p></div><label>Motivo de la confirmación<textarea id="stockEquivalenceEvidence" rows="3" maxlength="5000"></textarea></label><label class="check-field"><input id="stockEquivalenceConfirmed" type="checkbox"> Confirmo que puede reutilizarse en futuros pedidos de esta misma variante.</label>'+btn('Guardar equivalencia','stock-equivalence-save','primary','data-line="'+esc(row.id)+'"'));
   return;
  }
  if(a==='stock-equivalence-save'){
@@ -192,7 +193,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   closeModal();await context(r.id);render();toast('Equivalencia guardada para futuros cotejos.');return;
  }
  if(a==='stock-evidence'){
-  modal('Texto para ChatGPT','<p>Este paquete contiene los textos ya disponibles y su cobertura. Puedes copiarlo al chat si su lector de OneDrive no admite un archivo. No sustituye las páginas pendientes del original.</p><textarea class="full stock-text" readonly rows="14">'+esc(stockChatEvidence(view.context))+'</textarea>');
+  stockModal('Texto para ChatGPT','<p>Este paquete contiene los textos ya disponibles y su cobertura. Puedes copiarlo al chat si su lector de OneDrive no admite un archivo. No sustituye las páginas pendientes del original.</p><textarea class="full stock-text" readonly rows="14">'+esc(stockChatEvidence(view.context))+'</textarea>');
   return;
  }
  if(a==='stock-export-html'||a==='stock-export-xlsx'){
@@ -219,7 +220,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-upload-retry-save'){await context(view.context.receipt.id);await processUploads();return;}
  if(a==='stock-edit'){
   const r=view.context.receipt;
-  modal('Editar recepción','<p>Al cambiar sus datos se conservará el historial y el cotejo volverá a quedar pendiente.</p><div class="form-grid">'+selectField('Tienda','stockEditStore',state.data.stores.filter(s=>s.active!==false).map(s=>({value:s.id,label:s.name})),r.store_id)+supplierField('stockEditSupplier',r.supplier)+formField('Pedido o referencia','stockEditReference',r.reference,'text','maxlength="200"')+formField('Fecha','stockEditDate',r.received_on,'date','max="'+isoToday()+'"')+'<label class="wide">Notas<textarea id="stockEditNotes" rows="3" maxlength="5000">'+esc(r.notes)+'</textarea></label></div>'+btn('Guardar cambios','stock-edit-save','primary'));
+  stockModal('Editar recepción','<p>Al cambiar sus datos se conservará el historial y el cotejo volverá a quedar pendiente.</p><div class="form-grid">'+selectField('Tienda','stockEditStore',state.data.stores.filter(s=>s.active!==false).map(s=>({value:s.id,label:s.name})),r.store_id)+supplierField('stockEditSupplier',r.supplier)+formField('Pedido o referencia','stockEditReference',r.reference,'text','maxlength="200"')+formField('Fecha','stockEditDate',r.received_on,'date','max="'+isoToday()+'"')+'<label class="wide">Notas<textarea id="stockEditNotes" rows="3" maxlength="5000">'+esc(r.notes)+'</textarea></label></div>'+btn('Guardar cambios','stock-edit-save','primary'));
   return;
  }
  if(a==='stock-edit-save'){
@@ -252,12 +253,12 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-preview'){await previewDocument(el.dataset.id);return;}
  if(a==='stock-text'){
   const source=view.context.sources.find(s=>s.id===el.dataset.id);if(!source)throw new Error('Documento no encontrado.');
-  modal('Texto disponible del documento','<p>Revisa el original si faltan páginas o las columnas no se interpretan bien.</p><pre class="stock-text">'+esc(source.extracted_text||'No se ha extraído texto. ChatGPT debe leer el archivo original.')+'</pre>');return;
+  stockModal('Texto disponible del documento','<p>Revisa el original si faltan páginas o las columnas no se interpretan bien.</p><pre class="stock-text">'+esc(source.extracted_text||'No se ha extraído texto. ChatGPT debe leer el archivo original.')+'</pre>');return;
  }
- if(a==='stock-prompt-view'){modal('Instrucción para ChatGPT','<textarea readonly rows="9" class="full">'+esc(stockChatPrompt(view.context.receipt))+'</textarea>');return;}
+ if(a==='stock-prompt-view'){stockModal('Instrucción para ChatGPT','<textarea readonly rows="9" class="full">'+esc(stockChatPrompt(view.context.receipt))+'</textarea>');return;}
  if(a==='stock-prompt'){
   try{await navigator.clipboard.writeText(stockChatPrompt(view.context.receipt));toast('Instrucción copiada. Pégala en vuestro chat habitual.');}
-  catch{modal('Copia esta instrucción','<textarea readonly rows="9" class="full">'+esc(stockChatPrompt(view.context.receipt))+'</textarea>');}return;
+  catch{stockModal('Copia esta instrucción','<textarea readonly rows="9" class="full">'+esc(stockChatPrompt(view.context.receipt))+'</textarea>');}return;
  }
  if(a==='stock-source-remove'){
   const source=view.context.sources.find(s=>s.id===el.dataset.id);if(!source)throw new Error('Asociación no encontrada.');

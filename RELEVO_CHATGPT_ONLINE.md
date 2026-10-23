@@ -26,3 +26,9 @@ No leas secretos ni publiques documentos o direcciones temporales. No dependas d
 La recuperación de una copia es una operación distinta de verificarla y necesita autorización expresa del titular.
 Para cambios de interfaz, conserva la estructura y los datos, explica el ajuste y comprueba lectura, escritura, descargas y permisos afectados. Los cambios complejos se preparan aparte.
 Al terminar informa qué se hizo, qué comprobaste y qué queda pendiente, sin afirmar que una prueba no ejecutada ha pasado.
+
+
+## Revisión del 24/10/2026: Pricing y conexión convencional
+Pricing dispone de guía específica en [PRICING_PRODUCTOS_Y_VARIANTES.md](docs/PRICING_PRODUCTOS_Y_VARIANTES.md). Consulta también el índice [ENTREGA_FUENTES.md](docs/ENTREGA_FUENTES.md).
+La prueba real desde «Revisar Totus Central» acreditó lectura GitHub, Supabase y ambos PDF originales en OneDrive con el conector SharePoint, y operaciones reales de Recepciones dentro de una transacción revertida: creación, asociación de dos documentos, guardado y lectura de 39 líneas/100 unidades. Tras ROLLBACK no quedó la recepción de prueba y la original conservó revisión 4. Evidencia: https://github.com/hortimatic/Totus-Central/pull/12#issuecomment-6376148457.
+La prueba no acredita por sí sola transferencia de un binario nuevo ni registro contable persistente. No hace falta Work para esas operaciones demostradas; cada chat debe tener disponibles y autorizados los conectores en su propia sesión.
