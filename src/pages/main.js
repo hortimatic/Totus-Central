@@ -1,4 +1,5 @@
 import {activitySeries,activityChartHtml} from '../dashboard-activity.js';
+import {cotejos} from '../stock-cotejos.js';
 import {normalizeReportOrder} from '../report-layout.js';
 import {taxExpenseRecord} from '../tax-expense.js';
 import {incomeBreakdown} from '../income-breakdown.js';
@@ -942,7 +943,7 @@ export function providerCost(row){
 }
 
 
-export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
+export const renderers={inicio,pricing,cajas,gastos,facturacion,documentos,cotejos,fiscalidad,informes,administracion};
 
 export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
  const drawer=state.data.drawers.find(x=>x.id===drawerId);
