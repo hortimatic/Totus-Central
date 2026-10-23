@@ -158,5 +158,6 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-fixture.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023170949_stock_receipts_with_complete_backups.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023171258_stock_receipt_author_index.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023175147_bounded_backup_rehearsal_timeout.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql

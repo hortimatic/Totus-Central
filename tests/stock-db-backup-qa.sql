@@ -24,3 +24,9 @@ begin
  if proof->>'verified'<>'true' or proof->'counts'->>'ops_stock_sources'<>'0' then raise exception 'Legacy backup rehearsal failed';end if;
  raise notice 'STOCK BACKUP DB QA: exact pre-module backup restores four empty stock tables';
 end $test$;
+
+-- REST hoists this bounded timeout only for the server-side rehearsal RPC.
+do $$ begin
+ if not exists(select 1 from pg_proc where oid='public.totus_verify_recovery_rows(jsonb)'::regprocedure and 'statement_timeout=60s'=any(proconfig)) then raise exception 'Rehearsal timeout not configured'; end if;
+ if exists(select 1 from pg_proc where oid='public.totus_commit_recovery(uuid,jsonb,jsonb)'::regprocedure and 'statement_timeout=60s'=any(proconfig)) then raise exception 'Live recovery timeout was unexpectedly changed'; end if;
+end $$;
