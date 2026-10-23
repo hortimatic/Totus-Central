@@ -26,13 +26,13 @@ try{
  await page.locator('[data-action="variant-edit"]').click();await page.locator('#vrActive').selectOption('true');await page.locator('#vrPvp').fill('6.30');await page.locator('[data-action="variant-save"]').click();
  await page.getByText('Inactiva',{exact:true}).waitFor({state:'hidden'});
  assert.match(await page.locator('.record-side').innerText(),/6,30/);
- await page.locator('[data-action="product-save"]').click();await page.locator('[data-action="product-back"]').click();
+ await page.locator('[data-action="product-save"]').click();await page.locator('[data-action="product-back"]').first().click();
  await page.locator('[data-action="product-edit"]').filter({hasText:'Abrir'}).last().click();
  assert.equal(await page.locator('#prNotes').inputValue(),'Borrador que debe conservarse');
  assert.match(await page.locator('.pricing-variant-row').innerText(),/Nicotina: 10 mg/);
  await page.locator('[data-action="product-history"]').click();await page.getByText('VARIANTE_EDITADA',{exact:true}).first().waitFor();
  await page.locator('.close-btn[data-action="close-modal"]').click();
- await page.locator('[data-action="product-back"]').click();
+ await page.locator('[data-action="product-back"]').first().click();
  await page.locator('#pqQuery').fill('Consulta QA');await page.locator('#pqCost').fill('3.2');await page.locator('#pqPvp').fill('5.7');
  await page.locator('[data-action="consultation-save"]').click();await page.getByText('Consulta guardada.',{exact:true}).waitFor();
  await page.locator('[data-action="consultation-reuse"]').click();

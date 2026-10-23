@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {state} from '../src/state.js';
+import {productRecordHtml,pricing} from '../src/pages/main.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant,pricingProviderCost} from '../src/pricing-core.js';
 const attrs=parseVariantAttributes('Color: Negro; Resistencia: 0,8 Ω\nNicotina: 10 mg');
 assert.deepEqual(attrs,{Color:'Negro',Resistencia:'0,8 Ω',Nicotina:'10 mg'});
@@ -26,3 +28,18 @@ assert.throws(()=>validateVariant(base,[{id:'other',sku:'demo-10'}]));
 assert.equal(validateVariant(base,[{id:'self',sku:'demo-10'}],'self'),base);
 assert.equal(pricingProviderCost({net_cost:10,provider_discount:10,shipping_unit:0.5,apply_special_tax:true,special_tax_amount:5}),9.5);
 console.log('PRICING VARIANTS: attributes, costs, nicotine-specific prices, unknown vs zero, duplicate SKU, informative tax and ranges OK');
+
+state.user={role:'admin',email:'qa@example.invalid'};
+state.data.settings={default_sales_vat_rate:21,purchase_re_rate:5.2};
+state.data.products=[{id:'liquid',name:'Sales QA',sku:'SALES',product_type:'variants',status:'PENDIENTE'}];
+state.data.variants=[{...base,id:'v10',product_id:'liquid',active:true,attributes:attrs},{...base,id:'v20',sku:'DEMO-20',product_id:'liquid',name:'Sales 20 mg',cost_net:3.7,pvp:6.3,active:true}];
+const record=productRecordHtml(state.data.products[0]),listing=pricing();
+assert.match(record,/5,70\s€ – 6,30\s€/);
+assert.match(record,/Nicotina: 10 mg/);
+assert.ok(!record.includes('Añade un proveedor y su coste'),'Variant costs must not require a root provider');
+assert.match(listing,/3,20\s€ – 3,70\s€/);
+assert.match(listing,/5,70\s€ – 6,30\s€/);
+state.data.providerPrices=[{id:'pp',product_id:'simple',net_cost:3.2,selected:true}];
+const proposed=productRecordHtml({id:'simple',name:'Simple',sku:'S',product_type:'simple',current_pvp:5.7,proposed_pvp:6.3,status:'PENDIENTE'});
+assert.match(proposed,/id="prSummaryPvp">6,30/,'Proposed price must override the current price in the study');
+console.log('PRICING RENDER: variant ranges, attributes, provider independence and proposed price precedence OK');

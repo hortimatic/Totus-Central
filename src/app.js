@@ -933,13 +933,14 @@ function updateProductStudy(){
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
  const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
- set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(Number(pvp)):'Sin precio');
+ set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(n(pvp)):'Sin precio');
  set('prSummaryMargin',r?money(r.margin):'—');set('prSummaryPct',r?r.marginPct.toFixed(1).replace('.',',')+' %':'—');
  set('prSummaryCompetition',r?.competitorDiff==null?'—':money(r.competitorDiff));
+ for(const id of ['prSummaryMargin','prSummaryPct'])input(id)?.classList.toggle('danger-text',!!r&&r.margin<0);
 }
 function updateVariantStudy(){
  const el=document.getElementById('vrStudy');if(!el)return;
- const result=variantStudy({cost_net:val('vrCost'),pvp:val('vrPvp')},state.data.settings);
+ const result=variantStudy({cost_net:val('vrCost'),pvp:val('vrPvp')},state.data.settings,state.data.products.find(p=>p.id===getView('pricing').id)?.quick_discount??0);
  el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){
