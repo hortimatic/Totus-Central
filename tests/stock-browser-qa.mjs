@@ -11,6 +11,7 @@ try{
   for(const name of ['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences'])db[name]=[];
   const clone=v=>structuredClone(v);
   db.ops_suppliers=[{id:crypto.randomUUID(),name:'Proveedor previo',active:true},{id:crypto.randomUUID(),name:'Proveedor corregido',active:true}];
+  const {state}=await import('../src/state.js');state.data.suppliers=clone(db.ops_suppliers);
   sb.rpc=async(name,p={})=>{
    if(!name.startsWith('totus_stock_'))return original(name,p);
    const r=db.ops_stock_receipts.find(r=>r.id===p.p_id);

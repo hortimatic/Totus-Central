@@ -58,7 +58,9 @@ state.user=savedUser;state.session=savedSession;state.data.documents[0]=savedDoc
 resetView('documentos');
 
 const app=fs.readFileSync('src/app.js','utf8');
-const handlers=new Set([...app.matchAll(/\ba==='([^']+)'/g)].map(x=>x[1]));
+assert.ok(app.includes("a.startsWith('stock-')"),'Missing stock action delegation');
+const handlerSource=app+'\n'+fs.readFileSync('src/stock-ui.js','utf8');
+const handlers=new Set([...handlerSource.matchAll(/\ba==='([^']+)'/g)].map(x=>x[1]));
 assert.ok(app.includes("a.endsWith('-clear')"),'Missing shared clear handler');
 const unhandled=[...actions].filter(x=>!handlers.has(x)&&!x.endsWith('-apply')&&!x.endsWith('-month')&&!x.endsWith('-clear'));
 assert.deepEqual(unhandled,[],'Missing click handlers');
