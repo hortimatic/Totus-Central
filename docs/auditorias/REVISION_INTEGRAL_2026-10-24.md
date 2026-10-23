@@ -12,7 +12,7 @@
 ## Validación de la revisión
 Base de producción conservada durante la preparación: cad4440f5834e923d2fa0342c8f087fad47edede.
 Rama de revisión y PR: https://github.com/hortimatic/Totus-Central/pull/12.
-La publicación queda condicionada al éxito de la batería final y su comprobación visual. La copia final posterior deberá incluir los datos de demostración y la nueva revisión: la copia nocturna empezó antes de recuperarlos.
+Cada publicación exige la batería completa y comprobación visual; la ejecución correspondiente se consulta en los controles del PR. La copia nocturna empezó antes de recuperar Pricing y no sustituye la copia final posterior a esta revisión, que se identifica en el cierre de entrega.
 
 Se comprobaron RLS en todas las tablas públicas, restricciones validadas, ausencia de huérfanos contables/documentales y cierres duplicados por tienda/fecha.
 Las pruebas de RPC privilegiados y de periodos cerrados se ejecutaron en producción dentro de transacciones revertidas, con límites de tiempo. No se añadieron asientos ficticios ni se abrió un periodo presentado.
@@ -21,7 +21,7 @@ La revisión visual de lectura recorrió Inicio, Pricing, Recepciones, Cajas, Ga
 ## Hallazgo de servidor
 Una nota de lectura manual sin confirmación explícita podía superar la comprobación SQL de un documento parcialmente extraído por el tratamiento de NULL.
 La migración exige extracción lista o confirmación verdadera y nota. No reescribe resultados históricos. Pruebas PostgreSQL aisladas cubren confirmación ausente, metadatos ausentes y lectura manual válida.
-Su aplicación y lectura final se verificarán tras la batería final.
+La migración se aplicó y su lectura final confirmó el comportamiento esperado, conservando la recepción real en revisión 4 y estado Coincidente.
 
 ## Conexión convencional acreditada
 Evidencia: https://github.com/hortimatic/Totus-Central/pull/12#issuecomment-6376148457.
@@ -40,3 +40,7 @@ Una batería satisfactoria acredita las pruebas ejecutadas, no garantiza ausenci
 La migración de lectura se aplicó correctamente. En la recepción real se conservan revisión 4 y estado Coincidente; la evaluación del mismo resultado sin la confirmación manual devuelve Pendiente de revisar. No se guardó ese resultado incompleto.
 Una actualización reversible sobre la variante de demostración con las reglas RLS de administración pasó; otra simulación de un encargado con lectura y sin edición no modificó ninguna variante. Reversión e inspección independiente: cero restos de pruebas, tres variantes activas y contabilidad sin cambios (584 gastos, 486 cierres).
 Se inspeccionaron expresamente las políticas RESTRICTIVE: los permisos generales heredados no anulan la restricción modular. No se retiraron políticas basándose solo en el aviso de políticas múltiples.
+
+## Evidencia automatizada
+La revisión 5920ba60296f88436893e84a8ef6425b70cd1e29 superó íntegramente las dos tareas de la batería: https://github.com/hortimatic/Totus-Central/actions/runs/40036933191.
+Los cambios posteriores de presentación del historial, contexto de precios y competencia mensual se someten a la misma batería en el PR antes de su publicación. El cierre de entrega identifica su ejecución final; no se extrapola el resultado de una revisión a otra.
