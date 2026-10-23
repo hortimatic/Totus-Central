@@ -69,7 +69,7 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
  const hashValue=JSZip.archiveHash||archiveHash;
  const manifest={format:'totus-clean-backup',version:3,scope:'same-project-application-data',
   project_ref:snapshot.project_ref,database_instance:snapshot.database_instance,schema_hash:snapshot.schema_hash,
-  revision:snapshot.revision,created_at:snapshot.created_at,tables:[...RECOVERY_TABLES],
+  revision:snapshot.revision,created_at:snapshot.created_at,tables:isLegacyStockArchive({...snapshot,tables:Object.keys(snapshot.database||{})},snapshot.database)?[...LEGACY_RECOVERY_TABLES]:[...RECOVERY_TABLES],
   storage:snapshot.storage,identities:snapshot.identities,integrity:{storage:{}}};
  validateMetadata(manifest,snapshot.database);
  const zip=new JSZip(),databaseJson=JSON.stringify(snapshot.database);

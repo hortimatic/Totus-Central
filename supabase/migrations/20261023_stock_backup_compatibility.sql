@@ -73,7 +73,7 @@ begin
   fk_count=fk_count+1;
  end loop;
  return jsonb_build_object('verified',true,'mode','temporary-tables-no-live-writes','table_count',cardinality(tabs),'foreign_keys',fk_count,'counts',counts);
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION public.totus_commit_recovery(p_job uuid, p_payload jsonb, p_metadata jsonb)
  RETURNS jsonb
