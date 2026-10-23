@@ -54,7 +54,7 @@ begin
  if auth.uid() is not null then
   if not private.totus_can('documentos',p_action) then raise exception 'No tienes permiso para esta operación'; end if;
   actor=lower(auth.jwt()->>'email');
- elsif session_user='postgres' and nullif(current_setting('request.jwt.claims',true),'') is null then
+ elsif auth.role()='service_role' or (session_user='postgres' and nullif(current_setting('request.jwt.claims',true),'') is null) then
   actor=lower(trim(coalesce(p_email,'')));
   if not exists(select 1 from public.team_members where lower(email)=actor and active and role='admin') then
    raise exception 'El conector debe identificar una cuenta administradora activa';
@@ -254,3 +254,46 @@ begin
 end $$;
 revoke all on function public.totus_stock_edit(uuid,integer,uuid,text,text,date,text,text) from public,anon;
 grant execute on function public.totus_stock_edit(uuid,integer,uuid,text,text,date,text,text) to authenticated,service_role;
+
+-- Verified cloud imports: the server checks the original bytes before this transaction.
+create function public.totus_stock_register_cloud_document(p_id uuid,p_revision integer,p_kind text,p_path text,p_item text,p_name text,p_size bigint,p_sha text,p_text text,p_extraction jsonb,p_actor_email text)
+returns public.ops_stock_receipts language plpgsql security definer set search_path='' as $$
+declare r public.ops_stock_receipts;actor text;doc uuid;source_path text;u uuid;
+begin
+ if coalesce(auth.role(),'')<>'service_role' then raise exception 'Importación reservada al servidor verificador';end if;
+ actor=private.totus_stock_actor('edit',p_actor_email);
+ select * into strict r from public.ops_stock_receipts where id=p_id for update;
+ if exists(select 1 from public.ops_stock_sources s join public.ops_onedrive_documents m on m.document_id=s.document_id where s.receipt_id=p_id and s.source_kind=p_kind and m.onedrive_item_id=p_item) then return r;end if;
+ if r.revision<>p_revision then raise exception 'La recepción ha cambiado. Actualiza antes de asociar el archivo';end if;
+ if p_path not like '01 Documentos/Recepciones/%' or p_path~'(^|/)\.\.?(/|$)|[\\]' or length(p_item)>300 or p_item='' or p_size<=0 or p_size>20971520 or p_sha!~'^[0-9a-f]{64}$' or length(p_name)>250 then raise exception 'Original verificado no válido';end if;
+ select id into u from auth.users where lower(email)=actor;
+ source_path='stock/'||p_id::text||'/'||p_sha||'.'||lower(substring(p_name from '\.([a-zA-Z0-9]+)$'));
+ if source_path is null then raise exception 'El original necesita una extensión de archivo';end if;
+ insert into public.ops_documents(store_id,doc_type,document_date,supplier_or_customer,invoice_number,category_code,status,storage_path,original_name,mime_type,size_bytes,sha256,linked_entity_type,linked_entity_id,notes,uploaded_by)
+ values(r.store_id,'otro',r.received_on,r.supplier,r.reference,'recepcion_mercancia','pendiente',source_path,p_name,
+  case when lower(p_name) like '%.pdf' then 'application/pdf' else 'application/octet-stream' end,p_size,p_sha,'stock_receipt',p_id,'Original importado y verificado desde OneDrive; no crea un gasto.',u) returning id into doc;
+ insert into public.ops_onedrive_documents(document_id,source_path,onedrive_path,onedrive_item_id,size_bytes,sha256,verified_at,retired_from_supabase_at)
+ values(doc,source_path,p_path,p_item,p_size,p_sha,now(),now());
+ select * into r from public.totus_stock_add_source(p_id,p_revision,doc,p_kind,p_text,p_extraction,actor);
+ return r;
+end $$;
+revoke all on function public.totus_stock_register_cloud_document(uuid,integer,text,text,text,text,bigint,text,text,jsonb,text) from public,anon,authenticated;
+grant execute on function public.totus_stock_register_cloud_document(uuid,integer,text,text,text,text,bigint,text,text,jsonb,text) to service_role;
+
+create function public.totus_stock_import_request(p_id uuid,p_revision integer,p_kind text,p_path text,p_item text,p_name text,p_quickxor text,p_text text,p_extraction jsonb,p_actor_email text default null)
+returns bigint language plpgsql security definer set search_path='' as $$
+declare actor text=private.totus_stock_actor('edit',p_actor_email);job_key text;request_id bigint;
+begin
+ if not exists(select 1 from public.team_members where lower(email)=actor and active and role='admin') then raise exception 'Solo administración puede importar desde OneDrive';end if;
+ if p_path not like '01 Documentos/Recepciones/%' or length(p_path)>1024 or length(p_item)>300 or length(p_name)>250 or length(p_text)>250000 or jsonb_typeof(p_extraction) is distinct from 'object' or length(p_extraction::text)>100000 then raise exception 'Solicitud de importación no válida';end if;
+ if not exists(select 1 from public.ops_stock_receipts where id=p_id and revision=p_revision) then raise exception 'Actualiza la recepción antes de importar';end if;
+ select decrypted_secret into strict job_key from vault.decrypted_secrets where name='totus_staging_backup_cron_secret';
+ select net.http_post(
+  url:='https://awmojepsasikxocoeqtu.supabase.co/functions/v1/totus-onedrive',
+  headers:=jsonb_build_object('Content-Type','application/json','x-totus-backup-job',job_key),
+  body:=jsonb_build_object('action','import-stock-document','receipt_id',p_id,'revision',p_revision,'kind',p_kind,'path',p_path,'item_id',p_item,'name',p_name,'quickxor',p_quickxor,'text',p_text,'extraction',p_extraction,'actor_email',actor),
+  timeout_milliseconds:=60000) into request_id;
+ return request_id;
+end $$;
+revoke all on function public.totus_stock_import_request(uuid,integer,text,text,text,text,text,text,jsonb,text) from public,anon;
+grant execute on function public.totus_stock_import_request(uuid,integer,text,text,text,text,text,text,jsonb,text) to authenticated;

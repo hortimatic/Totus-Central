@@ -1,3 +1,4 @@
+import {importStockDocument} from './stock-import.js';
 import {credentialAlertSettings} from '../../../src/connection-maintenance.js';
 import {renewMicrosoftCredential} from './credential-renewal.js';
 import {createBackupDocumentLinks} from './backup-source-links.js';
@@ -520,7 +521,8 @@ Deno.serve(async req=>{
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
    const allowed=await admin.rpc('totus_backup_cron_authorized',{p_key:jobKey});
-   if(allowed.error||allowed.data!==true||!['backup-document-urls','mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url'].includes(action))throw new Error('Acceso denegado.');
+   if(allowed.error||allowed.data!==true||!['backup-document-urls','mirror-documents','mirror-backups','backup-file-url','document-file-url','sync-manuals','prune-backups','backup-file-urls','prepare-backup-upload','verify-backup-file','staged-backup-file-url','import-stock-document'].includes(action))throw new Error('Acceso denegado.');
+   if(action==='import-stock-document')return json(await importStockDocument(body,{admin,check,token,root,graph,encodedPath,readContent,fileHash}));
    if(action==='backup-document-urls')return json(await backupDocumentLinks(body.paths));
    if(action==='prune-backups'){await pruneMirroredBackups(await token());return json({pruned:true});}
    if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
@@ -536,6 +538,7 @@ Deno.serve(async req=>{
   }
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
+  if(action==='import-stock-document')return json(await importStockDocument({...body,actor_email:user.email},{admin,check,token,root,graph,encodedPath,readContent,fileHash}));
   if(action==='backup-document-urls')return json(await backupDocumentLinks(body.paths));
   if(action==='backup-file-urls')return json(await backupFileUrls(String(body.run_id||'')));
   if(action==='prepare-backup-upload')return json(await directBackup.prepare(String(body.run_id||''),body.paths||null));

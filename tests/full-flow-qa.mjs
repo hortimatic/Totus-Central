@@ -26,7 +26,7 @@ await check('Arranque real y autenticación simulada',async()=>{
  await page.goto(base,{waitUntil:'networkidle'});
  await page.locator('#userCard').waitFor({state:'visible'});
  assert((await page.locator('#content').innerText()).includes('Operativa de hoy'),'Pantalla Inicio vacía');
- assert((await page.locator('#nav .nav-btn').count())===9,'La navegación principal debe tener nueve pestañas');
+ assert((await page.locator('#nav .nav-btn').count())===10,'La navegación principal conserva sus nueve pestañas y añade Recepciones');
 });
 // An unauthenticated or broken fixture must fail immediately; subsequent missing buttons are cascading errors.
 if(errors.length){

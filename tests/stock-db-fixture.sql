@@ -7,9 +7,9 @@ create function auth.jwt() returns jsonb language sql stable as $$select coalesc
 create table auth.users(id uuid primary key,email text);
 create table public.ops_stores(id uuid primary key,name text,active boolean);
 create table public.team_members(email text primary key,active boolean,role text);
-create table public.ops_documents(id uuid primary key,store_id uuid references public.ops_stores(id),uploaded_by uuid,storage_path text,size_bytes bigint,sha256 text,original_name text,linked_entity_type text,linked_entity_id uuid);
+create table public.ops_documents(id uuid primary key,store_id uuid references public.ops_stores(id),uploaded_by uuid,storage_path text,size_bytes bigint,sha256 text,original_name text,linked_entity_type text,linked_entity_id uuid,doc_type text,document_date date,supplier_or_customer text,invoice_number text,category_code text,status text,mime_type text,notes text);
 create table public.ops_audit_log(id bigint generated always as identity,user_id uuid,user_email text,area text,action text,detail jsonb);
-create table public.ops_onedrive_documents(document_id uuid references public.ops_documents(id),onedrive_item_id text);
+create table public.ops_onedrive_documents(document_id uuid references public.ops_documents(id),onedrive_item_id text,source_path text,onedrive_path text,size_bytes bigint,sha256 text,verified_at timestamptz,retired_from_supabase_at timestamptz);
 create table public.ops_onedrive_config(id integer primary key,drive_id text);
 create function private.totus_can(text,text) returns boolean language sql as $$select coalesce((auth.jwt()->>'allow')::boolean,false)$$;
 create function private.is_manager() returns boolean language sql as $$select coalesce((auth.jwt()->>'manager')::boolean,false)$$;

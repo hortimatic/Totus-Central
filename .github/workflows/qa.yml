@@ -12,6 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node tests/stock-cloud-import-qa.mjs
       - run: node tests/stock-core-qa.mjs
       - run: node tests/stock-backup-qa.mjs
       - run: node tests/qa.mjs

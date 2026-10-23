@@ -95,3 +95,15 @@ Para confirmar una equivalencia reutilizable usa public.totus_stock_confirm_equi
 En la auditoría del 23/10/2026 se leyeron dos PDF completos mediante sus identificadores Graph. Un manual Markdown devolvió metadatos sin contenido. Se distinguen los errores de lectura de formato de los errores de autorización. No se afirma que un chat tenga un conector que no está disponible en su sesión.
 
 Para corregir tienda, proveedor, referencia, fecha o notas usa **Editar datos** en la ficha. El resultado vuelve a quedar pendiente y se conserva el historial. No se permite cambiar a una tienda incompatible con los documentos asociados.
+
+## Importar documentos que Diego ya tiene en OneDrive (sin ordenador local)
+Si los originales ya están en OneDrive, no los descargues a un equipo ni los envíes al repositorio.
+1. Localízalos mediante SharePoint/OneDrive, leyendo su contenido y metadatos por los identificadores exactos. No te fíes solo del nombre o de una búsqueda amplia.
+2. Crea la recepción con totus_stock_create y conserva su revisión.
+3. Con el conector de OneDrive copia (no muevas) los originales a una subcarpeta exclusiva de **Apps/Totus Central/01 Documentos/Recepciones/**, por ejemplo año/pedido. Usa conflicto fail y una referencia de pedido inequívoca. Los permisos no se amplían.
+4. Espera a que la copia exista y comprueba su item_id, nombre, tamaño y quickXorHash frente al original.
+5. Solicita su asociación con public.totus_stock_import_request: p_id, p_revision, p_kind (supplier o prestashop), p_path relativo a Apps/Totus Central empezando por 01 Documentos/Recepciones/, p_item (el ID de la copia), p_name, p_quickxor del original, p_text, p_extraction y p_actor_email. Solo administración puede solicitar esta importación.
+6. Devuelve un identificador de solicitud. Consulta net._http_response por ese ID con el conector SQL autorizado. Espera respuesta imported:true; un HTTP 200 por sí solo no basta. Si falla, explica el motivo y relee la recepción antes de repetir.
+7. El servidor lee la copia dentro de la carpeta de aplicación, comprueba identidad, huella de copia y tamaño, calcula SHA-256 y registra documento, ubicación y asociación en una transacción. El original queda en las copias completas y en la vista previa habitual. No insertes a mano fichas documentales ni inventes huellas.
+8. Vuelve a leer la revisión antes de asociar el siguiente documento. Si faltan páginas o el texto está recortado, marca extraction.state partial/unread y conserva las dudas para el cotejo.
+No se muestran claves de Microsoft, claves de servicio ni el secreto de programación al chat.

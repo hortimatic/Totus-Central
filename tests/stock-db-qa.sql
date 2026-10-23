@@ -47,6 +47,10 @@ begin
  begin perform public.totus_stock_edit(r.id,r.revision,'22222222-2222-4222-8222-222222222222','Proveedor','Pedido',current_date,'','qa@example.invalid');
  exception when others then failed=true;end;
  if not failed then raise exception 'Metadata edit mixed store documents';end if;
+ perform set_config('request.jwt.claims','{"role":"service_role"}',true);
+ select * into r from public.totus_stock_register_cloud_document(r.id,r.revision,'prestashop','01 Documentos/Recepciones/pedido.pdf','cloud-item','pedido.pdf',3,repeat('a',64),'Producto 10','{"state":"ready"}','qa@example.invalid');
+ if not exists(select 1 from public.ops_stock_sources s join public.ops_onedrive_documents m on m.document_id=s.document_id where s.receipt_id=r.id and m.onedrive_item_id='cloud-item' and m.sha256=repeat('a',64)) then raise exception 'Verified cloud original not associated';end if;
+ perform set_config('request.jwt.claims','',true);
  raise notice 'STOCK DB QA: guarded writes, revisions, source identity, states, adjustments and protected originals OK';
 end $test$;
 -- A public/browser session must not impersonate the SQL connector.
