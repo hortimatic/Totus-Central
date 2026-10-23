@@ -2,7 +2,7 @@ import {canUser} from './permissions.js';
 import {state} from './state.js';
 import {esc,fmtDate,isoToday} from './utils.js';
 import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
-import {STOCK_STATES,stockLineResult,stockChatPrompt} from './stock-core.js';
+import {STOCK_STATES,stockLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
 const view={loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',error:''};
 const storeName=id=>state.data.stores.find(s=>s.id===id)?.name||'Tienda';
 const label=code=>STOCK_STATES[code]||code;
@@ -21,7 +21,8 @@ function receiptForm(){
 function resultTable(receipt){
  const rows=receipt.result?.rows||[];
  if(!rows.length)return '<div class="note">Todavía no hay un resultado. Añade los documentos y entrega a ChatGPT la instrucción del paso 2.</div>';
- return table([
+ const summary=stockSummary(receipt.result,view.context?.sources||[]);
+ return (summary.issues.length?'<div class="note warn">'+esc(summary.issues.join(' · '))+'</div>':'')+table([
  {label:'Producto del proveedor',html:r=>esc(r.supplier_name||'Sin identificar')+'<small>'+esc([r.variant,r.unit].filter(Boolean).join(' · '))+'</small>'},
  {label:'Producto de PrestaShop',html:r=>esc(r.prestashop_name||'Sin identificar')},
  {label:'Unidades del proveedor',html:r=>quantity(stockLineResult(r).expected)},

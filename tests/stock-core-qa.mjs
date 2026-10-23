@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {stockLineResult,stockSummary,graphItemUrl} from '../src/stock-core.js';
+import {stockLineResult,stockSummary} from '../src/stock-core.js';
 import {extractStockText} from '../src/stock-extract.js';
 const row={id:'r1',supplier_qty:10,prestashop_qty:12,adjustment_qty:2,adjustment_included:'yes',adjustment_reason:'Corrección de otra entrega',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true,source_refs:[{source_id:'s1',locator:'p1 l1',line_id:'p1l1'},{source_id:'s2',locator:'fila 1',line_id:'f1'}]};
 assert.equal(stockLineResult(row).difference,0);
@@ -25,5 +25,4 @@ const blank=await extractStockText(file,{pdfLibrary:blankLibrary});assert.equal(
 const text=await extractStockText({name:'data.csv',text:async()=>'producto;cantidad\nA;10'});assert.equal(text.extraction.state,'ready');
 const tooLong=await extractStockText({name:'data.txt',text:async()=>'a'.repeat(250001)});assert.equal(tooLong.extraction.state,'partial');assert.equal(tooLong.text.length,250000);
 assert.equal((await extractStockText({name:'foto.png'})).extraction.state,'unread');
-assert(graphItemUrl('drive','id!x').includes('/items/id!x'));
 console.log('STOCK CORE QA: signed quantities, adjustments, unknown data, source coverage, duplicate origins, scan detection and extraction bounds OK');

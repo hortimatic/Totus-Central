@@ -40,10 +40,6 @@ export function stockSummary(result={},sources=[]){
  const status=issues.length||details.some(r=>r.status==='needs_review')?'needs_review':details.some(r=>r.status==='differences')?'differences':'matched';
  return {status,rows:details,issues,differences:details.filter(r=>r.difference!==null&&r.difference!==0).length};
 }
-export function graphItemUrl(driveId,itemId){
- if(!driveId||!itemId)return null;
- return 'https://graph.microsoft.com/v1.0/drives/'+encodeURIComponent(driveId)+'/items/'+encodeURIComponent(itemId);
-}
 export function stockChatPrompt(receipt){
  return 'Coteja la recepción '+receipt.id+' de Totus Central. Lee primero docs/COTEJOS_CHATGPT.md en hortimatic/Totus-Central, rama totus-central. Usa Supabase awmojepsasikxocoeqtu: public.totus_stock_context para obtener los documentos, su texto y sus identificadores de OneDrive. No modifiques contabilidad ni PrestaShop. Verifica todos los documentos y líneas, conserva las variantes y pide confirmación de equivalencias dudosas. Guarda el resultado con public.totus_stock_save_result indicando la revisión actual. Si algún documento no se puede leer, deja la recepción pendiente; nunca inventes un resultado correcto.';
 }
