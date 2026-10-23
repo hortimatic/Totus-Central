@@ -1,0 +1,18 @@
+create role anon;
+create role authenticated;
+create role service_role bypassrls;
+create schema auth;create schema private;
+create function auth.uid() returns uuid language sql stable as $$select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid$$;
+create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)$$;
+create table auth.users(id uuid primary key,email text);
+create table public.ops_stores(id uuid primary key,name text,active boolean);
+create table public.team_members(email text primary key,active boolean,role text);
+create table public.ops_documents(id uuid primary key,store_id uuid references public.ops_stores(id),uploaded_by uuid,storage_path text,size_bytes bigint,sha256 text,original_name text);
+create table public.ops_audit_log(id bigint generated always as identity,user_id uuid,user_email text,area text,action text,detail jsonb);
+create table public.ops_onedrive_documents(document_id uuid references public.ops_documents(id),onedrive_item_id text);
+create table public.ops_onedrive_config(id integer primary key,drive_id text);
+create function private.totus_can(text,text) returns boolean language sql as $$select coalesce((auth.jwt()->>'allow')::boolean,false)$$;
+create function private.is_manager() returns boolean language sql as $$select coalesce((auth.jwt()->>'manager')::boolean,false)$$;
+insert into public.ops_stores values('11111111-1111-4111-8111-111111111111','Tienda A',true),('22222222-2222-4222-8222-222222222222','Tienda B',true);
+insert into public.team_members values('qa@example.invalid',true,'admin');
+insert into public.ops_documents(id,store_id,sha256) values('33333333-3333-4333-8333-333333333333','11111111-1111-4111-8111-111111111111','supplier'),('44444444-4444-4444-8444-444444444444','11111111-1111-4111-8111-111111111111','entry'),('55555555-5555-4555-8555-555555555555','22222222-2222-4222-8222-222222222222','other-store');

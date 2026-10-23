@@ -615,3 +615,12 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .activity-data:not([open]) .table-wrap{display:none}
 
 .income-breakdown-heading{display:flex;align-items:center;gap:8px;margin-bottom:12px}.income-breakdown-heading h2{margin:0}
+
+/* Stock receipts reuse the application's cards, forms and responsive tables. */
+.stock-source{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line,#e4e9f0);min-width:0}
+.stock-source>div:first-child{min-width:0;overflow-wrap:anywhere}
+.stock-source small,.stock-history small{display:block;color:var(--muted,#667085);margin-top:5px}
+.stock-upload{margin:18px 0;align-items:end}
+.stock-text{white-space:pre-wrap;overflow-wrap:anywhere;max-height:65vh;overflow:auto;padding:12px;background:#f7f9fc;border-radius:8px;font-size:13px}
+.stock-history{padding:10px 0;border-bottom:1px solid #e4e9f0}
+@media(max-width:800px){.stock-source{align-items:flex-start;flex-direction:column}.stock-source .inline-actions{flex-wrap:wrap}}

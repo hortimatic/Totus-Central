@@ -1,5 +1,5 @@
 // Shared browser/server archive format. No credentials, DOM or network side effects.
-export const RECOVERY_TABLES=[
+export const LEGACY_RECOVERY_TABLES=[
  'ops_business_settings','ops_stores','ops_expense_categories','ops_cash_drawers','ops_invoice_series',
  'ops_suppliers','ops_customers','ops_document_templates','ops_documents','ops_daily_closings','ops_daily_closing_drawers',
  'ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_tax_payments','ops_fiscal_adjustments','ops_income_adjustments','ops_reta_brackets','ops_audit_log',
@@ -7,6 +7,15 @@ export const RECOVERY_TABLES=[
  'ops_roles','ops_role_permissions','ops_user_permissions','ops_backup_config',
  'profiles','team_members','team_email_log','team_user_audit_log'
 ];
+export const STOCK_RECOVERY_TABLES=['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences'];
+export const RECOVERY_TABLES=[...LEGACY_RECOVERY_TABLES,...STOCK_RECOVERY_TABLES];
+export const LEGACY_STOCK_SCHEMA_HASH='52e2e40d2b27ca87540ab4f94e52c850235674b555ecd60fe3bb08eb181f8f45';
+export function isLegacyStockArchive(manifest,database){
+ return manifest?.schema_hash===LEGACY_STOCK_SCHEMA_HASH&&Array.isArray(manifest.tables)
+  &&manifest.tables.length===LEGACY_RECOVERY_TABLES.length&&new Set(manifest.tables).size===LEGACY_RECOVERY_TABLES.length
+  &&LEGACY_RECOVERY_TABLES.every(t=>manifest.tables.includes(t)&&Array.isArray(database?.[t]))
+  &&Object.keys(database||{}).length===LEGACY_RECOVERY_TABLES.length;
+}
 export const RECOVERY_BUCKETS=['business-documents','business-assets'];
 export const MAX_ARCHIVE_BYTES=120*1024*1024;
 export const MAX_EXPANDED_BYTES=128*1024*1024;
@@ -43,10 +52,11 @@ export function validateMetadata(manifest,database){
   throw new Error('La copia no identifica su proyecto, estructura o revisión.');
  if(!Array.isArray(manifest.identities)||manifest.identities.some(x=>!UUID.test(x.id||'')||typeof x.email!=='string'))
   throw new Error('El inventario de cuentas de la copia no es válido.');
- if(!database||typeof database!=='object'||Array.isArray(database)||Object.keys(database).length!==RECOVERY_TABLES.length
-  ||RECOVERY_TABLES.some(t=>!Array.isArray(database[t]))||!Array.isArray(manifest.tables)
-  ||manifest.tables.length!==RECOVERY_TABLES.length||new Set(manifest.tables).size!==RECOVERY_TABLES.length
-  ||RECOVERY_TABLES.some(t=>!manifest.tables.includes(t)))throw new Error('Las tablas de la copia están incompletas.');
+ const tables=isLegacyStockArchive(manifest,database)?LEGACY_RECOVERY_TABLES:RECOVERY_TABLES;
+ if(!database||typeof database!=='object'||Array.isArray(database)||Object.keys(database).length!==tables.length
+  ||tables.some(t=>!Array.isArray(database[t]))||!Array.isArray(manifest.tables)
+  ||manifest.tables.length!==tables.length||new Set(manifest.tables).size!==tables.length
+  ||tables.some(t=>!manifest.tables.includes(t)))throw new Error('Las tablas de la copia están incompletas.');
  const refs=recoveryFileReferences(database);
  for(const bucket of RECOVERY_BUCKETS){
   const paths=manifest.storage?.[bucket];
@@ -129,7 +139,7 @@ export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schem
  if(!mf||!db)throw new Error('Faltan el inventario o los datos de la copia.');
  const manifest=JSON.parse(await mf.async('string')),databaseJson=await db.async('string'),database=JSON.parse(databaseJson);
  validateMetadata(manifest,database);
- if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash)
+ if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash&&!isLegacyStockArchive(manifest,database))
   throw new Error('La copia pertenece a otro proyecto o a una estructura incompatible.');
  if(await hashValue(databaseJson)!==manifest.integrity?.database
   ||await hashValue(JSON.stringify(manifest.identities))!==manifest.integrity?.identities)throw new Error('La copia está dañada: falla el control de integridad de datos o cuentas.');

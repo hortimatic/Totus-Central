@@ -1,3 +1,4 @@
+import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan} from './report-package.js';
 import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
@@ -28,14 +29,15 @@ import {renderPdfPreview} from './pdf-preview.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
- facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
+ cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-function can(module,action='view'){return canUser(state.user,module,action,state.data.userPermissions||[])}
+function can(module,action='view'){return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
+ if(action.startsWith('stock-')){const operation=['stock-create-save','stock-new'].includes(action)?'create':['stock-upload-save','stock-existing-save','stock-source-remove'].includes(action)?'edit':'view';return {module:'documentos',operation};}
  if(/^(closing-|export-closings-current)/.test(action))module='cajas';
  else if(/^(expense-|export-expenses-current)/.test(action))module='gastos';
  else if(/^(invoice-|proforma-|rectifying-|external-invoice-|customer-|customers-|template-|series-|billing-)/.test(action))module='facturacion';
@@ -1288,6 +1290,9 @@ async function deleteDocument(id){
  if(!can('documentos','delete'))throw new Error('No tienes permiso para eliminar documentos.');
  const d=state.data.documents.find(x=>x.id===id);if(!d)return;
 if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo puedes eliminar documentos que hayas subido.');
+ const stockLink=await sb.from('ops_stock_sources').select('id').eq('document_id',id).limit(1);
+ if(stockLink.error)throw new Error('No se pudo comprobar si el documento participa en un cotejo. No se ha retirado el archivo.');
+ if(stockLink.data?.length)throw new Error('Este original forma parte de una recepción. Retira primero su asociación desde Recepciones.');
  if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
  if(!await confirmAction('Se quitará el documento «'+d.original_name+'» de la herramienta. Si ya tiene copia en OneDrive, su archivo se conservará en «99 Archivo de documentos retirados». Si todavía no está copiado, se eliminará su archivo de Supabase.'))return;
  // Keep the metadata when Storage rejects deletion, so the user can retry.
@@ -2169,7 +2174,7 @@ async function reviewUnusedLogos(){
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
  if(a==='close-modal'){
@@ -2177,15 +2182,16 @@ document.addEventListener('click',async e=>{
   if(discardPromptActive){closeModal();return}
   if(!await allowDiscardDrafts({modalOnly:true}))return;
  }
- const replacesPage=/(?:-back|-section|-home|-refresh)$/.test(a)||['logout','retry-load','closing-new','closing-edit','expense-new','expense-edit','invoice-new','proforma-new','rectifying-new','external-invoice-new','invoice-edit','invoice-open','invoice-rectify','document-new','document-edit','product-new','product-edit','expense-suppliers'].includes(a);
+ const replacesPage=/(?:-back|-section|-home|-refresh)$/.test(a)||['stock-new','stock-open','stock-search','logout','retry-load','closing-new','closing-edit','expense-new','expense-edit','invoice-new','proforma-new','rectifying-new','external-invoice-new','invoice-edit','invoice-open','invoice-rectify','document-new','document-edit','product-new','product-edit','expense-suppliers'].includes(a);
  if(replacesPage&&!await allowDiscardDrafts())return;
  if(!replacesPage&&/(?:-new|-edit|-permissions)$/.test(a)&&!await allowDiscardDrafts({modalOnly:true}))return;
  if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
- const writes=/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
+ const writes=a==='stock-source-remove'||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  try{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
+  if(a==='stock-new'||a==='stock-back'||a==='stock-search'||a==='stock-refresh'||a==='stock-create-save'||a==='stock-open'||a==='stock-preview'||a==='stock-text'||a==='stock-prompt-view'||a==='stock-prompt'||a==='stock-source-remove'||a==='stock-existing-save'||a==='stock-upload-save'){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
   if(a==='report-block-up'||a==='report-block-down'){await moveReportPanel(el.dataset.block,a.endsWith('-up')?'up':'down');return}
   if(a==='report-block-reset'){await saveReportBlockOrder([]);return}
