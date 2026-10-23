@@ -34,3 +34,7 @@ export function validateVariant(row,others=[],id=''){
  }
  return row;
 }
+
+export function pricingProviderCost(row){
+ return Number(row?.net_cost||0)*(1-Number(row?.provider_discount||0)/100)+Number(row?.shipping_unit||0);
+}

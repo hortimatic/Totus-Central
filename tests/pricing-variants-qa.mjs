@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant} from '../src/pricing-core.js';
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant,pricingProviderCost} from '../src/pricing-core.js';
 const attrs=parseVariantAttributes('Color: Negro; Resistencia: 0,8 Ω\nNicotina: 10 mg');
 assert.deepEqual(attrs,{Color:'Negro',Resistencia:'0,8 Ω',Nicotina:'10 mg'});
 assert.deepEqual(parseVariantAttributes(formatVariantAttributes(attrs)),attrs);
@@ -23,4 +23,5 @@ assert.equal(numericRange([0,0],String),'0');
 assert.throws(()=>validateVariant({...base,cost_net:-1}));
 assert.throws(()=>validateVariant(base,[{id:'other',sku:'demo-10'}]));
 assert.equal(validateVariant(base,[{id:'self',sku:'demo-10'}],'self'),base);
+assert.equal(pricingProviderCost({net_cost:10,provider_discount:10,shipping_unit:0.5,apply_special_tax:true,special_tax_amount:5}),9.5);
 console.log('PRICING VARIANTS: attributes, costs, nicotine-specific prices, unknown vs zero, duplicate SKU, informative tax and ranges OK');
