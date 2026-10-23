@@ -15,7 +15,7 @@ try{
  await page.locator('[data-action="admin-section"][data-section="backups"]').click();
  assert.equal(await page.locator('[data-action="backup-history-restore"]').count(),0);
  await page.evaluate(()=>window.__mockDb.ops_backup_runs.push({id:crypto.randomUUID(),status:'success',mode:'manual',started_at:'2026-10-24T12:00:00Z',finished_at:'2026-10-24T12:01:00Z',storage_path:'qa/graph.totusbackup',storage_provider:'onedrive',size_bytes:100,archive_manifest:{version:4,file_count:1}}));
- await page.locator('[data-action="backup-refresh"]').click();
+ await page.getByRole('button',{name:'Actualizar historial',exact:true}).click();
  await page.locator('[data-action="backup-history-restore"]').waitFor();
  assert.equal(await page.locator('[data-action="backup-history-restore"]').count(),1,'Refresh must show the backup completed on the server');
  assert.equal(await page.evaluate(()=>window.__supabaseCreateCount),1);
