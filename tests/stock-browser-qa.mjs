@@ -60,7 +60,7 @@ try{
   assert(await page.locator('[data-action="stock-upload-save"]').isVisible());
  }
  await page.setViewportSize({width:1440,height:1000});
- await page.locator('[data-action="stock-source-remove"]').last().click();await page.getByRole('button',{name:'Retirar asociación',exact:true}).last().click();
+ await page.locator('[data-action="stock-source-remove"]').last().click();await page.locator('#modalHost [data-confirm="accept"]').click();
  await page.getByText('entrada.txt',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('.stock-source').count(),1);
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
@@ -68,4 +68,4 @@ try{
  await page.locator('[data-action="stock-back"]').click();await page.locator('#stockQuery').fill('inexistente');await page.locator('[data-action="stock-search"]').click();assert(await page.getByText('Sin recepciones',{exact:true}).isVisible());
  assert.deepEqual(errors,[]);
  console.log('STOCK BROWSER: receipt, both uploads, readable text, ChatGPT instruction, result refresh, safe unlink, search, accounting isolation and mobile layout OK');
-}finally{await browser.close()}
+}catch(error){console.log('STOCK BROWSER FAILURE',await page.locator('#modalHost').innerText(),await page.locator('#toastHost').innerText(),errors);throw error;}finally{await browser.close()}
