@@ -106,6 +106,19 @@ export async function reloadStorageUsage(){
   return state.data.storageUsage;
  }
 }
+// Una tabla de cotejos pendiente de migración no debe impedir usar el resto de Totus.
+export async function reloadCotejos(){
+ try{
+  const r=await sb.from('ops_stock_cotejos').select('*').order('created_at',{ascending:false}).limit(500);
+  assert(r,'Cotejos');
+  state.data.cotejos=Array.isArray(r.data)?r.data:[];
+  state.data.cotejosError='';
+ }catch(error){
+  state.data.cotejos=[];
+  state.data.cotejosError=String(error?.message||error);
+ }
+ return state.data.cotejos;
+}
 export async function loadCore(){
  const tasks=[
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
