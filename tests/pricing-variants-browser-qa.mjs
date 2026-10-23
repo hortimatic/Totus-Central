@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.locator('#nav [data-route="pricing"]').click();
+ await page.locator('[data-action="product-new"]').click();
+ await page.locator('#prName').fill('Sales QA');await page.locator('#prSku').fill('SALES-QA');await page.locator('#prType').selectOption('variants');
+ await page.locator('[data-action="product-save"]').click();await page.getByText('Producto guardado.',{exact:true}).waitFor();
+ await page.locator('[data-action="variant-new"]').click();
+ await page.locator('#vrName').fill('Sales 10 mg');await page.locator('#vrSku').fill('SALES-10');
+ await page.locator('#vrAttributes').fill('Nicotina: 10 mg; Volumen: 10 ml');await page.locator('#vrNic').fill('10');await page.locator('#vrVol').fill('10');
+ await page.locator('#vrCost').fill('3.20');await page.locator('#vrPvp').fill('5.70');
+ assert.match(await page.locator('#vrStudy').innerText(),/4,04/);
+ assert.match(await page.locator('#vrStudy').innerText(),/1,66/);
+ await page.locator('[data-action="variant-save"]').click();await page.getByText('Variante guardada.',{exact:true}).waitFor();
+ await page.locator('.pricing-variant-row').filter({hasText:'Sales 10 mg'}).waitFor();
+ assert.match(await page.locator('.record-side').innerText(),/5,70/);
+ await page.locator('#prNotes').fill('Borrador que debe conservarse');
+ await page.locator('[data-action="variant-edit"]').click();
+ assert.equal(await page.locator('#vrAttributes').inputValue(),'Nicotina: 10 mg · Volumen: 10 ml');
+ await page.locator('#vrActive').selectOption('false');await page.locator('[data-action="variant-save"]').click();
+ await page.getByText('Inactiva',{exact:true}).waitFor();
+ assert.equal(await page.locator('#prNotes').inputValue(),'Borrador que debe conservarse','Saving a variant must preserve the parent product draft');
+ await page.locator('[data-action="variant-edit"]').click();await page.locator('#vrActive').selectOption('true');await page.locator('#vrPvp').fill('6.30');await page.locator('[data-action="variant-save"]').click();
+ await page.getByText('Inactiva',{exact:true}).waitFor({state:'hidden'});
+ assert.match(await page.locator('.record-side').innerText(),/6,30/);
+ await page.locator('[data-action="product-save"]').click();await page.locator('[data-action="product-back"]').click();
+ await page.locator('[data-action="product-edit"]').filter({hasText:'Abrir'}).last().click();
+ assert.equal(await page.locator('#prNotes').inputValue(),'Borrador que debe conservarse');
+ assert.match(await page.locator('.pricing-variant-row').innerText(),/Nicotina: 10 mg/);
+ await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'Pricing must fit mobile');
+ assert.deepEqual(errors,[]);
+ console.log('PRICING BROWSER: create, live calculation, save, reopen, attributes, inactive/reactivate, draft preservation and mobile OK');
+}finally{await browser.close()}

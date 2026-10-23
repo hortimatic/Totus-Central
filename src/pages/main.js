@@ -1,3 +1,4 @@
+import {variantStudy,numericRange,formatVariantAttributes} from '../pricing-core.js';
 import {stockPage} from '../stock-ui.js';
 import {activitySeries,activityChartHtml} from '../dashboard-activity.js';
 import {normalizeReportOrder} from '../report-layout.js';
@@ -911,12 +912,14 @@ export function pricing(){
    const chosen=list.find(x=>x.selected)||[...list].sort((a,b)=>providerCost(a)-providerCost(b))[0];
    return providerCost(chosen);
  };
+ const productVariants=prod=>state.data.variants.filter(v=>v.product_id===prod.id&&v.active!==false);
+ const priceRange=(prod,key,format=money)=>numericRange(productVariants(prod).map(v=>key==='marginPct'?variantStudy(v,state.data.settings)?.marginPct:v[key]),format);
  const headers=[
   {label:'Producto',html:r=>`<b>${esc(r.name)}</b><div class="small muted">${esc(r.sku)}</div>`},
   {label:'Familia',html:r=>esc(familyName(r.family_id))},
-  {label:'Coste',num:true,html:r=>moneyCell(costOf(r))},
-  {label:'PVP',num:true,html:r=>moneyCell(r.current_pvp||r.proposed_pvp)},
-  {label:'Margen real',num:true,html:r=>{const price=Number(r.current_pvp??r.proposed_pvp??0),cost=costOf(r);const vat=Number(state.data.settings?.default_sales_vat_rate??21),re=Number(state.data.settings?.purchase_re_rate??5.2);const result=quickPriceStudy({cost,pvp:price,vat,re});return price>0?result.marginPct.toFixed(1).replace('.',',')+' %':'—'}},
+  {label:'Coste',num:true,html:r=>r.product_type==='variants'?esc(priceRange(r,'cost_net')):state.data.providerPrices.some(x=>x.product_id===r.id&&!x.variant_id)?moneyCell(costOf(r)):'—'},
+  {label:'PVP',num:true,html:r=>r.product_type==='variants'?esc(priceRange(r,'pvp')):r.proposed_pvp==null&&r.current_pvp==null?'—':moneyCell(r.proposed_pvp??r.current_pvp)},
+  {label:'Margen real',num:true,html:r=>{if(r.product_type==='variants')return esc(priceRange(r,'marginPct',n=>n.toFixed(1).replace('.',',')+' %'));if(!state.data.providerPrices.some(x=>x.product_id===r.id&&!x.variant_id))return '—';const price=Number(r.proposed_pvp??r.current_pvp??0),cost=costOf(r);const vat=Number(state.data.settings?.default_sales_vat_rate??21),re=Number(state.data.settings?.purchase_re_rate??5.2);const result=quickPriceStudy({cost,pvp:price,vat,re});return price>0?result.marginPct.toFixed(1).replace('.',',')+' %':'—'}},
   {label:'Estado',html:r=>stateBadge(r.status)},{label:'',html:r=>btn('Abrir','product-edit','secondary',`data-id="${r.id}"`)}
  ];
  const consultations=state.data.consultations.slice(0,20);
@@ -1234,17 +1237,23 @@ export function productRecordHtml(row=null){
  const families=state.data.families.map(x=>({value:x.id,label:x.name}));
  const prices=row?state.data.providerPrices.filter(x=>x.product_id===row.id&&!x.variant_id):[];
  const comps=row?state.data.competitors.filter(x=>x.product_id===row.id&&!x.variant_id):[];
- const variants=row?state.data.variants.filter(x=>x.product_id===row.id&&x.active!==false):[];
+ const variants=row?state.data.variants.filter(x=>x.product_id===row.id):[];
  const chosen=prices.find(x=>x.selected)||(prices.length?[...prices].sort((a,b)=>providerCost(a)-providerCost(b))[0]:null);
  const vat=Number(state.data.settings?.default_sales_vat_rate??21),re=Number(state.data.settings?.purchase_re_rate??5.2);
- const cost=providerCost(chosen),pvp=Number(row?.current_pvp??row?.proposed_pvp??0);
+ const cost=providerCost(chosen),pvp=Number(row?.proposed_pvp??row?.current_pvp??0);
  const hasCost=!!chosen&&chosen.net_cost!=null&&Number.isFinite(Number(chosen.net_cost));
  const study=hasCost&&pvp>0?quickPriceStudy({cost,pvp,vat,re}):null;
  const fiscalCost=study?.costReal??null,margin=study?.margin??null,marginPct=study?.marginPct??null;
  const providerName=id=>state.data.providers.find(x=>x.id===id)?.name||'Proveedor';
  const providerRows=prices.map(x=>`<div class="summary-row"><div><b>${esc(providerName(x.provider_id))}</b><div class="small muted">Coste final ${money(providerCost(x))} · base ${money(x.net_cost)} · dto ${Number(x.provider_discount||0).toFixed(1).replace('.',',')} %${x.apply_special_tax?' · + impuesto especial':''}</div></div><div class="inline-actions">${x.selected?'<span class="badge ok">Seleccionado</span>':''}${btn('Editar','provider-price-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','provider-price-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin proveedores</strong><span>Añade al menos un coste de compra.</span></div>';
  const compRows=comps.map(x=>`<div class="summary-row"><div><b>${esc(x.competitor_name)}</b><div class="small muted">${money(x.price)} · dto ${Number(x.discount||0).toFixed(1).replace('.',',')} % · envío ${money(x.shipping)}</div></div><div class="inline-actions">${btn('Editar','competitor-edit','secondary',`data-id="${x.id}" data-product="${row.id}"`)}${btn('Eliminar','competitor-delete','danger',`data-id="${x.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin competencia</strong><span>Añade precios comparables si los necesitas.</span></div>';
- const variantRows=variants.map(v=>`<div class="summary-row"><div><b>${esc(v.name)}</b><div class="small muted">${esc(v.sku)}${v.nicotine_mg_ml!=null?' · '+v.nicotine_mg_ml+' mg/ml':''}${v.pvp!=null?' · PVP '+money(v.pvp):''}</div></div><div class="inline-actions">${btn('Editar','variant-edit','secondary',`data-id="${v.id}" data-product="${row.id}"`)}${btn('Eliminar','variant-delete','danger',`data-id="${v.id}" data-product="${row.id}"`)}</div></div>`).join('')||'<div class="empty"><strong>Sin variantes</strong><span>Producto simple o sin variantes creadas.</span></div>';
+ const activeVariants=variants.filter(v=>v.active!==false),variable=row?.product_type==='variants';
+ const variantRows=variants.map(v=>{
+  const result=variantStudy(v,state.data.settings);
+  return `<div class="pricing-variant-row"><div><b>${esc(v.name)}</b> ${v.active===false?'<span class="badge">Inactiva</span>':''}<div class="small muted">${esc(v.sku)}</div><div class="small">${esc(formatVariantAttributes(v.attributes))}</div></div><div class="pricing-variant-values"><span>Compra sin IVA/RE<b>${v.cost_net==null?'—':money(v.cost_net)}</b></span><span>Coste con IVA + RE<b>${result?money(result.costReal):'—'}</b></span><span>PVP<b>${v.pvp==null?'—':money(v.pvp)}</b></span><span>Beneficio / unidad<b class="${result?.margin<0?'danger-text':''}">${result?money(result.margin):'—'}</b></span><span>Margen<b>${result?result.marginPct.toFixed(1).replace('.',',')+' %':'—'}</b></span></div><div class="inline-actions">${btn('Editar','variant-edit','secondary',`data-id="${v.id}" data-product="${row.id}"`)}${btn('Eliminar','variant-delete','danger',`data-id="${v.id}" data-product="${row.id}"`)}</div></div>`;
+ }).join('')||'<div class="empty"><strong>Sin variantes</strong><span>Añade las presentaciones del producto, con su referencia, coste y PVP.</span></div>';
+ const variantRange=key=>numericRange(activeVariants.map(v=>variantStudy(v,state.data.settings)?.[key]),key==='marginPct'?n=>n.toFixed(1).replace('.',',')+' %':money);
+
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="product-back">← Volver a Pricing</button><div class="eyebrow">Pricing · ${row?'Producto':'Nuevo'}</div><h2>${row?esc(row.name):'Nuevo producto'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
   <div class="record-layout">
@@ -1264,8 +1273,8 @@ export function productRecordHtml(row=null){
     <section class="card card-pad"><div class="section-head"><div><h3>Variantes</h3><p>Nicotina, formatos, colores u otros atributos.</p></div>${btn('+ Añadir variante','variant-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${variantRows}</div></section>`:''}
    </div>
    <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3>
-    <div class="summary-row"><span>Coste neto</span><strong>${hasCost?money(cost):'Sin proveedor'}</strong></div><div class="summary-row"><span>Coste con IVA + RE</span><strong>${fiscalCost==null?'—':money(fiscalCost)}</strong></div><div class="summary-row"><span>PVP final</span><strong>${pvp>0?money(pvp):'Sin precio'}</strong></div><div class="summary-row"><span>Margen real</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${margin==null?'—':money(margin)}</strong></div><div class="summary-row"><span>Margen real %</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${marginPct==null?'—':marginPct.toFixed(1).replace('.',',')+' %'}</strong></div>
-    ${!hasCost?'<div class="note warn">Añade un proveedor y su coste para calcular el margen real.</div>':''}
+    <div class="summary-row"><span>Coste neto</span><strong>${variable?numericRange(activeVariants.map(v=>v.cost_net),money):hasCost?money(cost):'Sin proveedor'}</strong></div><div class="summary-row"><span>Coste con IVA + RE</span><strong>${variable?variantRange('costReal'):fiscalCost==null?'—':money(fiscalCost)}</strong></div><div class="summary-row"><span>PVP final</span><strong>${variable?numericRange(activeVariants.map(v=>v.pvp),money):pvp>0?money(pvp):'Sin precio'}</strong></div><div class="summary-row"><span>Margen real</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${variable?variantRange('margin'):margin==null?'—':money(margin)}</strong></div><div class="summary-row"><span>Margen real %</span><strong class="${margin!=null&&margin<0?'danger-text':''}">${variable?variantRange('marginPct'):marginPct==null?'—':marginPct.toFixed(1).replace('.',',')+' %'}</strong></div>
+    ${variable?'<div class="note">Cada variante tiene su propio coste y PVP. El resumen muestra el intervalo de las variantes activas.</div>':!hasCost?'<div class="note warn">Añade un proveedor y su coste para calcular el margen real.</div>':''}
     <div class="stack" style="margin-top:14px">${row?btn('Eliminar producto','product-delete','danger',`data-id="${row.id}"`):''}${btn('Guardar','product-save','primary',row?`data-id="${row.id}"`:'')}${btn('Cancelar','product-back','secondary')}</div>
    </section></aside>
   </div>

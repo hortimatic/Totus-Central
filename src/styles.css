@@ -669,3 +669,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 @media(max-width:600px){.stock-filters>label,.stock-filters>label:has(#stockQuery),.stock-filters>label:has(#stockLibraryQuery){min-width:0;flex:1 1 100%}.stock-filters>.btn{flex:1}.stock-source{padding:12px}.stock-modal>label.check-field{font-size:13px}}
 
 .stock-supplier-field>label{font-size:12px;font-weight:750;color:#596579}
+
+/* Pricing: preserve the existing cards while making each variant readable. */
+.pricing-variant-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--border,#e2e8f0)}
+.pricing-variant-row>div:first-child{flex:1 1 180px}
+.pricing-variant-values{display:flex;gap:16px;flex-wrap:wrap;flex:2 1 400px}
+.pricing-variant-values span{font-size:12px;color:var(--muted,#64748b)}
+.pricing-variant-values b{display:block;font-size:14px;color:var(--text,#0f172a);margin-top:4px}
+@media(max-width:680px){.pricing-variant-values{flex-basis:100%;gap:12px}.pricing-variant-row .inline-actions{margin-left:auto}}

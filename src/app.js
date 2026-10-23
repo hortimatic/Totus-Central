@@ -1,3 +1,4 @@
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan} from './report-package.js';
@@ -876,25 +877,33 @@ async function deleteCompetitor(productId,id){
 function variantForm(productId,row=null){
  const body=`<div class="form-grid">
   ${formField('Nombre variante','vrName',row?.name||'')}
+  ${formField('Atributos: Color: Negro; Resistencia: 0,8 Ω','vrAttributes',formatVariantAttributes(row?.attributes))}
+  ${selectField('Disponibilidad','vrActive',[{value:'true',label:'Activa'},{value:'false',label:'Inactiva'}],String(row?.active!==false))}
   ${formField('Referencia / SKU','vrSku',row?.sku||'')}
   ${formField('Nicotina mg/ml','vrNic',row?.nicotine_mg_ml??'','number','step="0.1" min="0"')}
   ${formField('Volumen ml','vrVol',row?.volume_ml??'','number','step="0.1" min="0"')}
   ${formField('Impuesto €/ml (informativo)','vrTaxRate',row?.special_tax_rate_ml??'','number','step="0.01" min="0"')}
   ${formField('Impuesto total (informativo)','vrTaxAmount',row?.special_tax_amount??'','number','step="0.01" min="0"')}
-  ${formField('Coste neto final','vrCost',row?.cost_net??'','number','step="0.01"')}
-  ${formField('PVP','vrPvp',row?.pvp??'','number','step="0.01"')}
- </div><div class="note">El coste neto final debe ser el coste real de compra. El impuesto se guarda como información y no se suma de nuevo automáticamente.</div>
- <div class="form-actions">${btn('Guardar variante','variant-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
- modal(row?'Editar variante':'Nueva variante',body);
+  ${formField('Coste de compra sin IVA ni RE','vrCost',row?.cost_net??'','number','step="0.01" min="0"')}
+  ${formField('PVP','vrPvp',row?.pvp??'','number','step="0.01" min="0"')}
+ </div><div class="note">El coste de compra se introduce sin IVA ni recargo de equivalencia. Si el proveedor nacional ya incluye el impuesto especial en ese coste, no lo sumes otra vez. Los campos de impuesto son solo informativos.</div>
+ <div id="vrStudy" class="note"></div><div class="form-actions">${btn('Guardar variante','variant-save','primary',`data-product="${productId}" ${row?`data-id="${row.id}"`:''}`)}</div>`;
+ modal(row?'Editar variante':'Nueva variante',body);updateVariantStudy();
 }
 async function saveVariant(productId,id=''){
- const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:id?(state.data.variants.find(x=>x.id===id)?.attributes||{}):{},nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:true};
+ const row={product_id:productId,name:required('vrName','Nombre'),sku:required('vrSku','Referencia'),attributes:parseVariantAttributes(val('vrAttributes')),nicotine_mg_ml:val('vrNic')===''?null:num('vrNic'),volume_ml:val('vrVol')===''?null:num('vrVol'),special_tax_rate_ml:val('vrTaxRate')===''?null:num('vrTaxRate'),special_tax_amount:val('vrTaxAmount')===''?null:num('vrTaxAmount'),cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp'),active:val('vrActive')!=='false'};
+ validateVariant(row,state.data.variants,id);
  if(id)await update('product_variants',id,row);else await insert('product_variants',row);
- closeModal();await refresh('Variante guardada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ closeModal();await refresh('Variante guardada.');
 }
 async function deleteVariant(productId,id){
  if(!confirm('¿Eliminar esta variante?'))return;
- await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');setView('pricing',{mode:'record',id:productId});setRoute('pricing');render();
+ await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');
+}
+function updateVariantStudy(){
+ const el=document.getElementById('vrStudy');if(!el)return;
+ const result=variantStudy({cost_net:val('vrCost'),pvp:val('vrPvp')},state.data.settings);
+ el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){
  const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
@@ -947,7 +956,7 @@ async function convertConsultation(id){
 async function reuseConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)return;
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
- set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);
+ set('pqQuery',c.query);set('pqCost',c.cost_net);set('pqPvp',c.pvp);set('pqCompetitor',c.competitor);set('pqDiscount',c.discount);updatePricingQuick();
  await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'ABIERTA',consultation_query:c.query,snapshot:c});
  toast(logged?'Consulta cargada.':'Consulta cargada, pero no se pudo guardar su historial.',logged?'ok':'warn');
@@ -2473,6 +2482,7 @@ document.addEventListener('input',e=>{
  if(id==='clReported'||id.startsWith('dr'))updateClosingSummary();
  if(id.startsWith('homePrice'))updateHomePrice();
  if(id.startsWith('pq'))updatePricingQuick();
+ if(id.startsWith('vr'))updateVariantStudy();
  if(id.startsWith('exLine')||id==='exPaidAmount')updateExpenseSummary();
  if(id.startsWith('iv')&&input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
 });
