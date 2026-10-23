@@ -23,6 +23,16 @@ begin
  'source_refs',jsonb_build_array(jsonb_build_object('source_id',s1,'line_id','p1l1','locator','Page 1'),jsonb_build_object('source_id',s2,'line_id','r1','locator','Row 1')))));
  select * into r from public.totus_stock_save_result(r.id,r.revision,result,'qa@example.invalid');
  if r.status<>'matched' then raise exception 'Matched result got %',r.status;end if;
+ -- Regression: SQL NULL must not bypass the manual-reading confirmation.
+ update public.ops_stock_sources set extraction='{"state":"partial"}' where id=s1;
+ select private.totus_stock_result(r.id,jsonb_set(result,'{coverage,0,reading_note}','"Original reviewed"')) into got;
+ if got<>'needs_review' then raise exception 'Missing explicit manual confirmation became green';end if;
+ select private.totus_stock_result(r.id,jsonb_set(jsonb_set(result,'{coverage,0,reading_note}','"Original reviewed"'),'{coverage,0,manually_verified}','true')) into got;
+ if got<>'matched' then raise exception 'Explicit complete manual reading was rejected';end if;
+ update public.ops_stock_sources set extraction='{}' where id=s1;
+ select private.totus_stock_result(r.id,result) into got;
+ if got<>'needs_review' then raise exception 'Missing extraction metadata became green';end if;
+ update public.ops_stock_sources set extraction='{"state":"ready"}' where id=s1;
  select private.totus_stock_result(r.id,jsonb_set(result,'{rows,0,prestashop_qty}','13')) into got;
  if got<>'differences' then raise exception 'Difference not detected';end if;
  select private.totus_stock_result(r.id,jsonb_set(result,'{rows,0,supplier_qty}','null')) into got;

@@ -15,3 +15,9 @@ La copia previa fue verificada con recuperación temporal de 42 tablas y 63 rela
 Los avisos Supabase se revisan por su función: las tablas de servicio sin políticas cliente están cerradas intencionadamente; los RPC privilegiados deben comprobar identidad y permisos. No se borran índices solo por no acumular uso.
 La protección de contraseñas filtradas aparece desactivada en el proyecto gratuito. No se afirma que esté activada.
 Una batería correcta no garantiza ausencia futura de errores. El informe final debe distinguir flujos ejecutados y pendientes. No se crean asientos ficticios en producción.
+
+## Hallazgo adicional de servidor
+Se reprodujo, mediante una evaluación sin escrituras, que al quitar una confirmación explícita de lectura manual de un resultado parcial el servidor todavía lo clasificaba matched. Causa: lógica SQL con valores ausentes (NULL). La interfaz era más estricta.
+La corrección exige confirmación explícita y nota de lectura, o extracción lista. Añade pruebas PostgreSQL aisladas para ausencia de confirmación, ausencia de metadatos y lectura manual válida. No reescribe los resultados históricos.
+## Prueba de chat convencional
+Diego aportó el informe de «Revisar Totus Central»: GitHub fetch_file, Supabase context y consultas, dos PDF originales leídos con SharePoint, escritura en tabla temporal y ROLLBACK. Se confirma lectura documental real y canal de escritura. Se solicita una segunda simulación de los RPC de Recepciones con reversión completa.
