@@ -16,7 +16,7 @@ import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView
 import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
-import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
+import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
 import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {collectArchiveDocuments} from './archive-documents.js';
@@ -607,20 +607,27 @@ async function saveProduct(id=''){
  const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
  const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:val('prPvp')===''?null:num('prPvp'),proposed_pvp:val('prProposed')===''?null:num('prProposed'),units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
+ for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
  let saved;
  if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
  const historySaved=await recordProductHistory(saved.id,null,{action:id?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:saved});
  setView('pricing',{mode:'record',id:saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
- try{await insert('price_history',{product_id:productId,variant_id:variantId,user_id:state.user?.id||null,snapshot});return true}
+ try{
+  const variant=snapshot.variant,variants=state.data.variants.filter(v=>v.product_id===productId).map(v=>variant&&v.id===variant.id?variant:v);
+  if(variant&&!variants.some(v=>v.id===variant.id))variants.push(variant);
+  const context={product:snapshot.product||state.data.products.find(p=>p.id===productId),variants,providers:state.data.providerPrices.filter(p=>p.product_id===productId),competitors:state.data.competitors.filter(p=>p.product_id===productId),tax_settings:{vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2},...snapshot};
+  await insert('price_history',{product_id:productId,variant_id:variantId,user_id:state.user?.id||null,snapshot:context});return true
+ }
  catch(error){console.warn('No se pudo registrar el historial de Pricing',error);return false}
 }
 async function productHistory(productId){
  const rows=await select('price_history',{order:'created_at',filter:q=>q.eq('product_id',productId)});
  modal('Historial de Pricing',rows.length?rows.map(row=>{
   const s=row.snapshot||{},v=s.variant,p=s.product;
-  return '<div class="summary-row"><div><b>'+esc(fmtDate(row.created_at))+'</b><div class="small muted">'+esc(s.action||'Cambio de precio')+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):'')+'</div></div>';
+  const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada'}[s.action]||'Cambio de precio';
+  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):'')+'</div></div>';
  }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){
@@ -857,6 +864,7 @@ function providerPriceForm(productId,row=null){
 async function saveProviderPrice(productId,id=''){
  const selected=!!input('ppSelected')?.checked;
  const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
+ if(row.net_cost<0)throw new Error('El coste de compra no puede ser negativo.');
  if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
  if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
  closeModal();await refresh('Coste de proveedor guardado.');refreshPricingPanels(productId);
@@ -880,6 +888,7 @@ function competitorForm(productId,row=null){
 }
 async function saveCompetitor(productId,id=''){
  const row={product_id:productId,variant_id:null,competitor_name:required('cpName','Competidor'),url:val('cpUrl').trim(),price:num('cpPrice'),discount:Math.min(100,Math.max(0,num('cpDiscount'))),shipping:Math.max(0,num('cpShipping')),stock_status:val('cpStock').trim()||'Sí',promo_type:val('cpPromo').trim(),capture_date:isoToday(),notes:val('cpNotes').trim()};
+ if(row.price<0)throw new Error('El precio de la competencia no puede ser negativo.');
  if(id)await update('product_competitor_prices',id,row);else await insert('product_competitor_prices',row);
  closeModal();await refresh('Competencia guardada.');refreshPricingPanels(productId);
 }
@@ -900,8 +909,8 @@ function refreshPricingPanels(productId){
 function variantForm(productId,row=null){
  const body=`<div class="form-grid">
   ${formField('Nombre variante','vrName',row?.name||'')}
-  ${formField('Atributos: Color: Negro; Resistencia: 0,8 Ω','vrAttributes',formatVariantAttributes(row?.attributes))}
-  ${selectField('Disponibilidad','vrActive',[{value:'true',label:'Activa'},{value:'false',label:'Inactiva'}],String(row?.active!==false))}
+  ${formField('Atributos','vrAttributes',formatVariantAttributes(row?.attributes),'text','placeholder="Color: Negro; Resistencia: 0,8 Ω"')}
+  ${selectField('Estado de la variante','vrActive',[{value:'true',label:'Activa'},{value:'false',label:'Inactiva'}],String(row?.active!==false))}
   ${formField('Referencia / SKU','vrSku',row?.sku||'')}
   ${formField('Nicotina mg/ml','vrNic',row?.nicotine_mg_ml??'','number','step="0.1" min="0"')}
   ${formField('Volumen ml','vrVol',row?.volume_ml??'','number','step="0.1" min="0"')}

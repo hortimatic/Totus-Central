@@ -30,7 +30,7 @@ try{
  await page.locator('[data-action="product-edit"]').filter({hasText:'Abrir'}).last().click();
  assert.equal(await page.locator('#prNotes').inputValue(),'Borrador que debe conservarse');
  assert.match(await page.locator('.pricing-variant-row').innerText(),/Nicotina: 10 mg/);
- await page.locator('[data-action="product-history"]').click();await page.getByText('VARIANTE_EDITADA',{exact:true}).first().waitFor();
+ await page.locator('[data-action="product-history"]').click();await page.getByText('Variante actualizada',{exact:true}).first().waitFor();
  await page.locator('.close-btn[data-action="close-modal"]').click();
  await page.locator('[data-action="product-back"]').first().click();
  await page.locator('#pqQuery').fill('Consulta QA');await page.locator('#pqCost').fill('3.2');await page.locator('#pqPvp').fill('5.7');

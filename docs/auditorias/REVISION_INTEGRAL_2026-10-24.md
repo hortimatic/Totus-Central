@@ -35,3 +35,8 @@ Los avisos Supabase se revisan por su función: tablas de servicio cerradas sin 
 Las diez copias se conservan con rotación en la nube y comprobación antes de retirar la antigua.
 La entrega permite mantener esta instalación; un instalador comercial en una base vacía requiere una prueba independiente de esquema, configuración y recuperación.
 Una batería satisfactoria acredita las pruebas ejecutadas, no garantiza ausencia futura de errores.
+
+## Comprobaciones posteriores
+La migración de lectura se aplicó correctamente. En la recepción real se conservan revisión 4 y estado Coincidente; la evaluación del mismo resultado sin la confirmación manual devuelve Pendiente de revisar. No se guardó ese resultado incompleto.
+Una actualización reversible sobre la variante de demostración con las reglas RLS de administración pasó; otra simulación de un encargado con lectura y sin edición no modificó ninguna variante. Reversión e inspección independiente: cero restos de pruebas, tres variantes activas y contabilidad sin cambios (584 gastos, 486 cierres).
+Se inspeccionaron expresamente las políticas RESTRICTIVE: los permisos generales heredados no anulan la restricción modular. No se retiraron políticas basándose solo en el aviso de políticas múltiples.
