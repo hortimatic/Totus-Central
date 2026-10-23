@@ -65,7 +65,7 @@ try{
  assert.equal(await page.locator('.stock-source').count(),1);
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),2,'Unlink must preserve originals');
- await page.locator('[data-action="stock-back"]').click();await page.locator('#stockQuery').fill('inexistente');await page.locator('[data-action="stock-search"]').click();assert(await page.getByText('Sin recepciones',{exact:true}).isVisible());
+ await page.locator('[data-action="stock-back"]').click();await page.locator('#stockQuery').fill('inexistente');await page.locator('[data-action="stock-search"]').click();await page.getByText('Sin recepciones',{exact:true}).waitFor();
  assert.deepEqual(errors,[]);
  console.log('STOCK BROWSER: receipt, both uploads, readable text, ChatGPT instruction, result refresh, safe unlink, search, accounting isolation and mobile layout OK');
 }catch(error){console.log('STOCK BROWSER FAILURE',await page.locator('#modalHost').innerText(),await page.locator('#toastHost').innerText(),errors);throw error;}finally{await browser.close()}

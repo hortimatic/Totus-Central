@@ -51,7 +51,7 @@ export function stockPage(){
  const q=view.query.trim().toLocaleLowerCase('es');
  const rows=view.receipts.filter(r=>(view.store==='all'||r.store_id===view.store)&&(!q||[r.supplier,r.reference,storeName(r.store_id),label(r.status)].join(' ').toLocaleLowerCase('es').includes(q)));
  return '<section class="card card-pad"><div class="section-head"><div><h2>Recepciones de mercancía</h2><p>Facturas o albaranes del proveedor frente a las entradas de PrestaShop.</p></div><div class="inline-actions">'+action('Actualizar','stock-refresh')+btn('Nueva recepción','stock-new','primary')+'</div></div>'+
- '<div class="filters">'+selectField('Tienda','stockFilterStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.store)+formField('Buscar','stockQuery',view.query)+action('Buscar','stock-search')+'</div>'+
+ '<div class="filters">'+selectField('Tienda','stockFilterStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.store,'data-draft-ignore')+formField('Buscar','stockQuery',view.query,'text','data-draft-ignore')+action('Buscar','stock-search')+'</div>'+
  (view.error?'<div class="note bad" role="alert">'+esc(view.error)+'</div>':'')+
  (!view.loaded?'<div class="note">Pulsa Actualizar para consultar las recepciones.</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(r.status)},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'Crea una recepción para empezar a cotejar.'}))+'</section>';
 }
