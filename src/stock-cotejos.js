@@ -3,6 +3,7 @@
 import {state,getView,getFilters} from './state.js';
 import {esc,fmtDate} from './utils.js';
 import {btn,table,kpi} from './components.js';
+import {stockUploadForm,stockFilesHtml,canStockUpload} from './stock-upload-ui.js';
 
 const STATES={
   pendiente:'Pendiente de revisión',
@@ -44,9 +45,11 @@ export function cotejos(){
   const records=Array.isArray(state.data.cotejos)?state.data.cotejos:[];
   const error=state.data.cotejosError||'';
   const view=getView('cotejos');
-  const note='<p class="note">El análisis se realiza en el chat de ChatGPT. Adjunta allí la factura o albarán y las entradas de stock de PrestaShop, e indica tienda y lote. Esta pantalla solo presenta los cotejos guardados; no altera el stock.</p>';
+  const note='<p class="note">Sube aquí la factura o albarán y las entradas de PrestaShop. Después pide a ChatGPT «Coteja las recepciones pendientes de Totus Central». Los originales quedan archivados. No se modifica el stock.</p>';
+  if(view.mode==='new')return stockUploadForm();
   if(view.id){
     const r=records.find(item=>item.id===view.id);
+    if(view.mode==='add'&&r)return stockUploadForm(r);
     if(!r)return '<div class="page"><section class="card card-pad"><h2>Cotejo no encontrado</h2>'+btn('Volver','stock-back','secondary')+'</section></div>';
     const {rows,totals}=information(r);
     const headers=[
@@ -70,6 +73,7 @@ export function cotejos(){
       (docNames(r.documents)?'<p class="small muted">'+docNames(r.documents)+'</p>':'')+
       (Array.isArray(r.warnings)&&r.warnings.length?'<div class="note warn">'+r.warnings.map(w=>'<p>'+esc(w)+'</p>').join('')+'</div>':'')+
       (r.complete?'':'<p class="note warn">Informe incompleto: no está verificada toda la documentación.</p>')+'</section>'+
+      '<section class="card table-card"><div class="section-head card-pad"><div><h2>Documentos de la recepción</h2><p>Originales archivados y texto preparado para ChatGPT.</p></div>'+(canStockUpload()&&r.status==='pendiente'?btn('Añadir documentos','stock-add-files','secondary','data-id="'+esc(r.id)+'"'):'')+'</div>'+stockFilesHtml(r)+'</section>'+ 
       '<section class="card table-card"><div class="section-head card-pad"><div><h2>Detalle de productos</h2><p>Unidades comparadas solo cuando el producto y el formato están confirmados. Diferencia = entrada atribuible a recepción − cantidad del proveedor.</p></div></div>'+
       table(headers,rows,{emptyTitle:'No hay líneas analizadas',emptyText:'No se ha guardado el detalle de este cotejo.'})+'</section>'+
       '<section class="card card-pad"><h3>Continuar la revisión</h3>'+note+'<p>Para corregir una equivalencia o justificar una regularización, indícalo en el mismo chat del lote: conservaremos la evidencia y actualizaremos el resultado.</p></section></div>';
@@ -92,7 +96,7 @@ export function cotejos(){
     '<section class="card card-pad"><h2>Cotejo de mercancía</h2>'+note+
     '<p class="small muted">La herramienta no necesita una API de IA. ChatGPT lee los documentos y guarda el informe en Supabase; este módulo lo muestra.</p></section>'+
     '<section class="card table-card"><div class="section-head card-pad"><div><h2>Historial de recepciones</h2><p>Selecciona un lote para consultar todas sus líneas, incidencias y fuentes.</p></div>'+
-    btn('Actualizar','stock-refresh','secondary')+'</div>'+
+    (canStockUpload()?btn('+ Nueva recepción','stock-new','primary'):'')+btn('Actualizar','stock-refresh','secondary')+'</div>'+
     (error?'<div class="note warn" role="alert">No se pudieron consultar los cotejos: '+esc(error)+'. Las demás secciones de Totus Central siguen disponibles.</div>':'')+
     '<div class="document-filters"><div class="field"><label for="stockShopFilter">Tienda</label><select id="stockShopFilter">'+
     [['all','Ambas tiendas'],['NewOldSmok','NewOldSmok'],['Hortimatic','Hortimatic']].map(([v,l])=>'<option value="'+v+'" '+((f.shop||'all')===v?'selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
