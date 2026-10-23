@@ -112,9 +112,15 @@ export async function reloadCotejos(){
   const r=await sb.from('ops_stock_cotejos').select('*').order('created_at',{ascending:false}).limit(500);
   assert(r,'Cotejos');
   state.data.cotejos=Array.isArray(r.data)?r.data:[];
+  const files=await sb.from('ops_stock_cotejo_sources')
+   .select('id,cotejo_id,document_id,source_kind,extraction_state,extraction_notes,extracted_pages,created_at')
+   .order('created_at',{ascending:true}).limit(1000);
+  assert(files,'Documentos de recepción');
+  state.data.cotejoSources=Array.isArray(files.data)?files.data:[];
   state.data.cotejosError='';
  }catch(error){
   state.data.cotejos=[];
+  state.data.cotejoSources=[];
   state.data.cotejosError=String(error?.message||error);
  }
  return state.data.cotejos;
