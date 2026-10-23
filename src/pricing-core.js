@@ -15,10 +15,10 @@ export function parseVariantAttributes(text){
 export function formatVariantAttributes(attributes){
  return Object.entries(attributes||{}).map(([key,value])=>key+': '+String(value)).join(' · ');
 }
-export function variantStudy(variant,settings={}){
+export function variantStudy(variant,settings={},discount=0){
  const cost=variant?.cost_net,pvp=variant?.pvp;
  if(cost==null||cost===''||pvp==null||pvp===''||!Number.isFinite(Number(cost))||!Number.isFinite(Number(pvp))||Number(cost)<0||Number(pvp)<0)return null;
- return quickPriceStudy({cost,pvp,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2});
+ return quickPriceStudy({cost,pvp,discount,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2});
 }
 export function numericRange(values,format){
  const valid=values.filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);

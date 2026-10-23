@@ -12,6 +12,7 @@ assert.ok(Math.abs(ten.costReal-4.0384)<1e-10);
 assert.ok(Math.abs(ten.margin-1.6616)<1e-10);
 assert.ok(Math.abs(twenty.margin-1.6306)<1e-10);
 assert.notEqual(twenty.margin,ten.margin,'Different nicotine prices must have independent margins');
+assert.ok(Math.abs(variantStudy(base,{},10).finalSale-5.13)<1e-10);
 assert.equal(variantStudy({...base,cost_net:null}),null);
 assert.equal(variantStudy({...base,pvp:''}),null);
 assert.equal(variantStudy({...base,cost_net:-1}),null);
