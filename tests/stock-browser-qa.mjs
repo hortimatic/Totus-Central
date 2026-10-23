@@ -34,8 +34,8 @@ try{
  const nav=()=>page.locator('#nav [data-route="cotejos"]').click();
  await nav();await page.getByText('Sin recepciones',{exact:true}).waitFor();
  await page.locator('[data-action="stock-new"]').click();
- await page.locator('#stockSupplier').fill('Proveedor prueba');
- await page.locator('#stockReference').fill('Pedido <QA>');
+ await page.locator('#stockSupplier').fill('Proveedor de mercancía · Distribuciones y suministros de la tienda');
+ await page.locator('#stockReference').fill('Factura de prueba 26000000 · pedido 690000 <QA>');
  await page.locator('[data-action="stock-create-save"]').click();
  await page.getByText('Recepción creada. Añade los documentos.',{exact:true}).waitFor();
  await page.locator('#stockFiles').setInputFiles({name:'proveedor.txt',mimeType:'text/plain',buffer:Buffer.from('Referencia A; Producto A; 10 unidades')});
@@ -57,7 +57,7 @@ try{
   r.status='matched';r.result={complete:true,coverage:sources.map(s=>({source_id:s.id,complete:true,explanation:'Test read'})),rows:[{id:'r1',supplier_name:'Producto A',prestashop_name:'Producto A PS',variant:'Variante QA',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true,supplier_qty:10,prestashop_qty:10,adjustment_qty:0,adjustment_included:'no',source_refs:sources.map(s=>({source_id:s.id,locator:'Fila 1',line_id:'r1'}))}]};
  });
  await page.locator('[data-action="stock-refresh"]').click();await page.getByText('Producto A PS',{exact:true}).waitFor();
- for(const width of [1440,390]){
+ for(const width of [1440,1024,890,820,800,390]){
   await page.setViewportSize({width,height:1000});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'No page overflow');
   assert(await page.locator('[data-action="stock-upload-save"]').isVisible());

@@ -624,3 +624,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .stock-text{white-space:pre-wrap;overflow-wrap:anywhere;max-height:65vh;overflow:auto;padding:12px;background:#f7f9fc;border-radius:8px;font-size:13px}
 .stock-history{padding:10px 0;border-bottom:1px solid #e4e9f0}
 @media(max-width:800px){.stock-source{align-items:flex-start;flex-direction:column}.stock-source .inline-actions{flex-wrap:wrap}}
+
+/* Wrap receipt actions before they push long order titles outside the page. */
+.stock-page .section-head{flex-wrap:wrap}
+.stock-page .section-head>.inline-actions{flex-shrink:1}
+.stock-page>.card,.stock-page .section-head>div{min-width:0}
