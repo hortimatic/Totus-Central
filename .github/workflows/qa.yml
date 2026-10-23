@@ -14,6 +14,7 @@ jobs:
           node-version: 22
       - run: node tests/stock-cloud-import-qa.mjs
       - run: node tests/stock-core-qa.mjs
+      - run: node tests/stock-workflow-qa.mjs
       - run: node tests/stock-backup-qa.mjs
       - run: node tests/qa.mjs
       - run: node tests/dashboard-report-qa.mjs

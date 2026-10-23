@@ -629,3 +629,18 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .stock-page .section-head{flex-wrap:wrap}
 .stock-page .section-head>.inline-actions{flex-shrink:1}
 .stock-page>.card,.stock-page .section-head>div{min-width:0}
+
+/* Receipt workflow: local controls follow the existing form and card language. */
+.stock-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.stock-supplier-field{display:flex;align-items:flex-end;gap:8px;min-width:0}
+.stock-supplier-field>label{flex:1;min-width:0}
+.stock-supplier-field>.btn{flex-shrink:0;margin-bottom:0;padding:9px 12px;min-height:40px;font-size:12px}
+.stock-upload-box{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.stock-upload-box legend{padding:0 7px;font-weight:700}
+.stock-upload-box p,.stock-filter-note,.stock-page small{color:var(--muted)}
+.stock-equivalence-summary{padding:12px;background:#f3f6fb;border:1px solid var(--line);border-radius:10px;margin:12px 0}
+.stock-page #stockProgress:not(:empty){padding:10px 0;font-weight:600;color:#24527e}
+.stock-page .data-table td>small{display:block;margin-top:5px}
+.stock-page .data-table td .btn{font-size:12px;padding:6px 9px;margin-top:8px}
+.stock-page .stock-source .btn{font-size:12px;padding:8px 10px}
+@media(max-width:1050px){.stock-supplier-field{align-items:stretch;flex-direction:column}.stock-supplier-field>.btn{align-self:flex-start}.stock-source{align-items:flex-start;flex-direction:column}}

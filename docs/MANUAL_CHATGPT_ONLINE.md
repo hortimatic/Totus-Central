@@ -3,7 +3,8 @@ Actualizado: 23/10/2026. Producción publicada en la raíz; rama única totus-ce
 
 ## 1. Acceso y responsabilidades
 La web está en GitHub Pages, el código publicado en la rama totus-central de hortimatic/Totus-Central. Supabase contiene usuarios, permisos, operaciones, referencias documentales y programación del servidor. OneDrive conserva los originales verificados en la carpeta exclusiva de la aplicación.
-La sesión del portátil no se hereda a ChatGPT online. La app estándar de GitHub de ChatGPT permite consulta; para publicar código se necesita una experiencia con escritura autorizada, como Codex (https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt). La operación diaria puede hacerse por la web con navegador en la nube cuando esté disponible y autorizado (https://help.openai.com/en/articles/20001280-using-cloud-browser-in-chatgpt). El nuevo chat necesita conectores autorizados o acceso por navegador a cada servicio. Verificar lectura y escritura antes de prometer operaciones.
+La sesión del portátil no se hereda a otro chat. Al comenzar, descubre las herramientas de GitHub, Supabase y SharePoint habilitadas en ese chat y verifica una lectura real. La operación diaria de Recepciones usa Supabase para leer textos y guardar el cotejo; SharePoint permite leer los originales de OneDrive personal por sus identificadores Graph. Una búsqueda web pública no equivale a acceso privado. No exigir Work ni una API de IA para este flujo. Antes de cambiar código, comprobar que la conexión de GitHub disponible permite las operaciones de escritura necesarias; no prometer publicar por tener solo lectura.
+
 No guardar contraseñas ni claves en conversaciones, documentos, repositorios, borradores o archivos locales. Las credenciales de Microsoft se mantienen en Vault. No ampliar permisos para resolver un problema de rutas.
 
 ## 2. Antes de cada jornada
@@ -253,3 +254,35 @@ El registro de aplicación se llama Totus Central y conserva su identificador. L
 
 ## Recepciones y cotejo de stock
 Usa la pestaña Recepciones y el manual COTEJOS_CHATGPT.md de esta carpeta. Los documentos se suben o asocian en Totus Central; ChatGPT convencional lee la recepción mediante el conector de Supabase y los originales de OneDrive cuando su lector lo permita. El texto extraído queda disponible como segunda vía. Una página sin texto no se considera leída. Cada resultado se guarda con control de revisión y su historial; el módulo no cambia la contabilidad ni el inventario de PrestaShop.
+
+## 24. Recepciones y preparación del chat · 23/10/2026
+
+Consultar COTEJOS_CHATGPT.md para el flujo vigente: proveedor de la lista común o creación rápida, documentos en el alta, filtros por fecha/estado/tienda, reintento sin duplicados, descargas completas y biblioteca confirmada. Los tres complementos se verificaron habilitados en la cuenta; también se comprobó la búsqueda y lectura de un PDF personal con SharePoint. La disponibilidad en otro chat se comprueba al iniciarlo. Las conexiones no se conceden copiando una contraseña ni pegando un secreto.
+
+Supabase es la base de datos; OneDrive es el archivo documental. El texto extraído de Recepciones permite continuar desde Supabase cuando un lector de OneDrive no admite un formato. Extracción parcial o ausente mantiene la revisión pendiente salvo lectura completa acreditada del original. No usar la ausencia de navegador como prueba de que faltan los conectores.
+
+## 25. Código, montaje y entrega del proyecto
+
+### Instalación vigente
+- Código completo de la aplicación y documentación: hortimatic/Totus-Central, rama totus-central. Obtener una revisión concreta de GitHub conserva la trazabilidad; no confundir el ZIP de código con una copia de datos.
+- Publicación estática: .github/workflows/publish.yml ejecuta .github/workflows/qa.yml y publica la raíz en GitHub Pages. El proceso inyecta la revisión en build-info.json y conserva la antigua dirección solo como redirección.
+- src/config.js contiene URL de Supabase y clave pública del cliente; los permisos reales se aplican en Supabase. Nunca poner una clave de servicio o de Microsoft en este archivo.
+- Las funciones utilizadas están bajo supabase/functions/: team-admin, totus-onedrive, totus-backup-run y totus-recovery. No desplegar funciones antiguas ni reemplazar todo el servidor para un cambio de interfaz.
+- El SQL y su historial están en supabase/ y supabase/migrations/. Comprobar supabase_migrations.schema_migrations del proyecto antes de aplicar nada. No ejecutar de nuevo todos los scripts sobre producción.
+- Microsoft utiliza la aplicación registrada y el retorno del servidor actual. Secretos y renovación de tokens permanecen en el servidor; cualquier instalación con otro propietario requiere su propia autorización. Un manual no transfiere credenciales ni permisos.
+- Programación: copia diaria a las 00:35 Europe/Madrid, continuidad por lotes en el servidor, diez copias verificadas. Los originales y componentes se verifican en OneDrive; Supabase guarda los registros e índices.
+
+### Recuperación de la instalación actual
+1. Conservar los diez juegos completos y una revisión identificada de GitHub.
+2. Comprobar la copia elegida y ensayar las tablas temporales antes de autorizar Restaurar esta copia. La verificación no sustituye datos de producción.
+3. Restaurar solo con autorización del titular y con el punto de recuperación previo que prepara la herramienta.
+4. Revalidar acceso, permisos, originales, una descarga y la creación/verificación de una copia. No incluir contraseñas de usuarios ni secretos en el respaldo público de código.
+
+### Nueva instalación independiente o venta futura
+El historial SQL contiene evoluciones de una base ya existente: no se presenta como un instalador desde una base vacía. Antes de entregar a otro cliente hay que preparar y probar un esquema inicial limpio, permisos, configuración de alojamiento, autenticación de Microsoft propia y recuperación en un proyecto independiente. No copiar datos contables, usuarios, documentos o claves de esta empresa a una demostración. Una copia de aplicación del proyecto actual no sustituye el respaldo de infraestructura, Auth ni Vault. Esta fase requiere una prueba de montaje independiente; no se certifica por las pruebas de la instalación actual.
+
+### Fuentes que conviene conservar cuando Diego decida limpiar el proyecto
+- Una revisión completa del código de GitHub con su README, SQL, funciones y pruebas.
+- RELEVO_CHATGPT_ONLINE.md, este manual, GUIA_TRABAJO_DIARIO_CHATGPT.md, COTEJOS_CHATGPT.md y COPIAS_POR_COMPONENTES.md.
+- El informe de revisión vigente y las referencias privadas de originales/copias en los servicios autorizados, sin duplicar facturas privadas en el repositorio.
+No borrar ni modificar las fuentes sincronizadas del proyecto por iniciativa del chat. La limpieza de fuentes se hará cuando Diego la pida.
