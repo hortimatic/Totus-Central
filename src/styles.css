@@ -644,3 +644,28 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .stock-page .data-table td .btn{font-size:12px;padding:6px 9px;margin-top:8px}
 .stock-page .stock-source .btn{font-size:12px;padding:8px 10px}
 @media(max-width:1050px){.stock-supplier-field{align-items:stretch;flex-direction:column}.stock-supplier-field>.btn{align-self:flex-start}.stock-source{align-items:flex-start;flex-direction:column}}
+
+/* Recepciones: use the same input, spacing and action language as the main shell. */
+.stock-filters{border:1px solid var(--line);border-radius:12px;margin:18px 0 12px;align-items:end}
+.stock-filters>label{display:grid;gap:6px;min-width:140px;flex:1;font-size:12px;font-weight:750;color:#596579}
+.stock-filters>label:has(#stockQuery),.stock-filters>label:has(#stockLibraryQuery){flex:2;min-width:200px}
+.stock-filters input,.stock-filters select,.stock-modal textarea{width:100%;min-width:0;border:1px solid #cfd6e2;border-radius:9px;padding:10px 11px;background:white;color:var(--ink);outline:none}
+.stock-filters input:focus,.stock-filters select:focus,.stock-modal textarea:focus{border-color:#7aa7eb;box-shadow:0 0 0 3px rgba(35,103,209,.12)}
+.stock-filters>.btn{min-height:42px}
+.stock-page h2,.stock-page h3{overflow-wrap:anywhere}
+.stock-step>h3{margin:0 0 10px}.stock-step>p{color:var(--muted);line-height:1.5}
+.stock-step>details{margin-top:16px}.stock-page details>summary{cursor:pointer;font-weight:650;font-size:13px}
+.stock-source{padding:14px;border:1px solid var(--line);border-radius:10px;background:#fbfcff;margin:10px 0}
+.stock-source .inline-actions{flex-shrink:0}
+.stock-page .stock-file-field{padding:12px;border:1px dashed #bdcadd;border-radius:10px;background:#fbfcff;font-size:12px;font-weight:750;color:#596579}
+.stock-file-field input{margin-top:7px;min-height:44px;font-size:12px}
+.stock-file-field input::file-selector-button{border:1px solid #cbd5e1;border-radius:7px;padding:7px 9px;margin-right:8px;background:white;color:#27364a;font:inherit;font-weight:650;cursor:pointer}
+.stock-modal>label{display:grid;gap:6px;margin-top:14px;font-size:13px;font-weight:650}
+.stock-modal>label.check-field{display:flex;align-items:flex-start;gap:9px;font-weight:400;line-height:1.5}
+.stock-modal>label.check-field input{margin:4px 0 0;flex:0 0 auto}
+.stock-modal>.btn{margin-top:16px}.stock-modal>.form-grid{margin-top:14px}
+.stock-modal>.full{display:block;width:100%;min-width:0}
+.stock-page .data-table td details{margin-top:8px}.stock-page .data-table td details p{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+@media(max-width:600px){.stock-filters>label,.stock-filters>label:has(#stockQuery),.stock-filters>label:has(#stockLibraryQuery){min-width:0;flex:1 1 100%}.stock-filters>.btn{flex:1}.stock-source{padding:12px}.stock-modal>label.check-field{font-size:13px}}
+
+.stock-supplier-field>label{font-size:12px;font-weight:750;color:#596579}

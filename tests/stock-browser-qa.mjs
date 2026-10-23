@@ -48,6 +48,7 @@ try{
  await page.locator('#stockNewSupplierFiles').setInputFiles({name:'proveedor.txt',mimeType:'text/plain',buffer:Buffer.from('Referencia A; Producto A; 10 unidades')});
  await page.locator('#stockNewPrestashopFiles').setInputFiles({name:'entrada.txt',mimeType:'text/plain',buffer:Buffer.from('Referencia A; Producto A; 10 unidades recibidas')});
  await page.locator('[data-action="stock-supplier-new"]').click();
+ assert.equal(await page.locator('#stockSupplierName').evaluate(el=>getComputedStyle(el).borderRadius),'9px','Quick supplier uses the shared form style');
  await page.locator('#stockSupplierName').fill('Proveedor de mercancía · Distribuciones y suministros de la tienda');
  await page.locator('[data-action="stock-supplier-save"]').click();
  await page.getByText('Proveedor seleccionado. Puedes continuar con los documentos.',{exact:true}).waitFor();
@@ -93,7 +94,7 @@ try{
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),2,'Unlink must preserve originals');
  await page.locator('[data-action="stock-edit"]').click();await page.locator('#stockEditSupplier').selectOption({label:'Proveedor corregido'});await page.locator('[data-action="stock-edit-save"]').click();await page.getByText('Recepción actualizada. Revisa el cotejo.',{exact:true}).waitFor();
- await page.locator('[data-action="stock-back"]').click();await page.locator('#stockQuery').fill('inexistente');await page.locator('[data-action="stock-search"]').click();await page.getByText('Sin recepciones',{exact:true}).waitFor();
+ await page.locator('[data-action="stock-back"]').click();await page.locator('#stockQuery').fill('inexistente');await page.locator('#stockQuery').press('Enter');await page.getByText('Sin recepciones',{exact:true}).waitFor();
  await page.locator('[data-action="stock-filter-clear"]').click();
  await page.evaluate(()=>{const db=window.__mockDb,r=db.ops_stock_receipts[0];db.ops_stock_receipts.push({...structuredClone(r),id:crypto.randomUUID(),reference:'Pedido febrero QA',received_on:'2026-02-20'});});
  await page.locator('[data-action="stock-refresh"]').click();await page.getByText('Pedido febrero QA',{exact:true}).waitFor();
@@ -103,9 +104,14 @@ try{
  await page.locator('#stockFrom').fill('2026-01-01');await page.locator('#stockTo').fill('2026-02-28');await page.locator('[data-action="stock-search"]').click();
  await page.getByText('Pedido febrero QA',{exact:true}).waitFor();
  assert.equal(await page.locator('[data-action="stock-open"]').count(),2,'Range across months');
+ await page.locator('#stockQuery').fill('inexistente');await page.locator('#stockQuery').press('Enter');await page.getByText('Sin recepciones',{exact:true}).waitFor();
+ await page.locator('[data-action="stock-filter-clear"]').click();
  await page.locator('[data-action="stock-library"]').click();await page.getByText('Biblioteca de productos',{exact:true}).waitFor();
- await page.getByText('Producto A PS',{exact:true}).waitFor();await page.locator('[data-action="stock-back"]').click();
- assert.equal(await page.locator('#stockFrom').inputValue(),'2026-01-01','Back preserves filters');
+ await page.getByText('Producto A PS',{exact:true}).waitFor();
+ await page.locator('#stockLibraryQuery').fill('inexistente');await page.locator('#stockLibraryQuery').press('Enter');await page.getByText('Sin equivalencias',{exact:true}).waitFor();
+ await page.locator('#stockLibraryQuery').fill('Producto A');await page.locator('#stockLibraryQuery').press('Enter');await page.getByText('Producto A PS',{exact:true}).waitFor();
+ await page.locator('[data-action="stock-back"]').click();
+ assert.equal(await page.locator('#stockFrom').inputValue(),'','Back preserves cleared filters');
  await page.locator('[data-action="stock-open"]').last().click();await page.locator('#stockFiles').waitFor();
  await page.locator('#stockFiles').setInputFiles({name:'reintento.txt',mimeType:'text/plain',buffer:Buffer.from('Otra línea QA')});
  await page.evaluate(()=>window.__stockFailOnce=true);
