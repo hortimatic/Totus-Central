@@ -41,6 +41,12 @@ begin
  select * into r from public.totus_stock_remove_source(r.id,r.revision,s2,'Wrong association','qa@example.invalid');
  if r.status<>'pending' or jsonb_array_length(r.result->'rows')<>0 then raise exception 'Source removal retained old green result';end if;
  if not exists(select 1 from public.ops_documents where id='44444444-4444-4444-8444-444444444444') then raise exception 'Original deleted by unlink';end if;
+ select * into r from public.totus_stock_edit(r.id,r.revision,r.store_id,'Proveedor corregido','Pedido 1',current_date,'Nota','qa@example.invalid');
+ if r.supplier<>'Proveedor corregido' or r.status<>'pending' then raise exception 'Receipt metadata edit failed';end if;
+ failed=false;
+ begin perform public.totus_stock_edit(r.id,r.revision,'22222222-2222-4222-8222-222222222222','Proveedor','Pedido',current_date,'','qa@example.invalid');
+ exception when others then failed=true;end;
+ if not failed then raise exception 'Metadata edit mixed store documents';end if;
  raise notice 'STOCK DB QA: guarded writes, revisions, source identity, states, adjustments and protected originals OK';
 end $test$;
 -- A public/browser session must not impersonate the SQL connector.

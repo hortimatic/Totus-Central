@@ -17,6 +17,9 @@ try{
     db.ops_stock_receipts.push(next);revision(next,'created');return {data:clone(next),error:null};
    }
    if(name==='totus_stock_context')return {data:{receipt:clone(r),sources:db.ops_stock_sources.filter(s=>s.receipt_id===r.id).map(s=>({...clone(s),document:clone(db.ops_documents.find(d=>d.id===s.document_id))})),equivalences:[]},error:null};
+   if(name==='totus_stock_edit'){
+    Object.assign(r,{store_id:p.p_store,supplier:p.p_supplier,reference:p.p_reference,received_on:p.p_date,notes:p.p_notes,status:'pending',result:{rows:[],coverage:[],complete:false},revision:r.revision+1});revision(r,'edited');return {data:clone(r),error:null};
+   }
    if(name==='totus_stock_add_source'){
     if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
     db.ops_stock_sources.push({id:crypto.randomUUID(),receipt_id:r.id,document_id:p.p_document,source_kind:p.p_kind,extracted_text:p.p_text,extraction:p.p_extraction});
@@ -65,6 +68,7 @@ try{
  assert.equal(await page.locator('.stock-source').count(),1);
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),2,'Unlink must preserve originals');
+ await page.locator('[data-action="stock-edit"]').click();await page.locator('#stockEditSupplier').fill('Proveedor corregido');await page.locator('[data-action="stock-edit-save"]').click();await page.getByText('Recepción actualizada. Revisa el cotejo.',{exact:true}).waitFor();
  await page.locator('[data-action="stock-back"]').click();await page.locator('#stockQuery').fill('inexistente');await page.locator('[data-action="stock-search"]').click();await page.getByText('Sin recepciones',{exact:true}).waitFor();
  assert.deepEqual(errors,[]);
  console.log('STOCK BROWSER: receipt, both uploads, readable text, ChatGPT instruction, result refresh, safe unlink, search, accounting isolation and mobile layout OK');

@@ -93,3 +93,5 @@ Para confirmar una equivalencia reutilizable usa public.totus_stock_confirm_equi
 
 ## Diagnóstico comprobado
 En la auditoría del 23/10/2026 se leyeron dos PDF completos mediante sus identificadores Graph. Un manual Markdown devolvió metadatos sin contenido. Se distinguen los errores de lectura de formato de los errores de autorización. No se afirma que un chat tenga un conector que no está disponible en su sesión.
+
+Para corregir tienda, proveedor, referencia, fecha o notas usa **Editar datos** en la ficha. El resultado vuelve a quedar pendiente y se conserva el historial. No se permite cambiar a una tienda incompatible con los documentos asociados.

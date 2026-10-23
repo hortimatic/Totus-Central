@@ -237,3 +237,20 @@ begin
 end $$;
 revoke all on function private.totus_stock_protect_document() from public,anon,authenticated;
 create trigger stock_protect_document before update on public.ops_documents for each row execute function private.totus_stock_protect_document();
+
+create function public.totus_stock_edit(p_id uuid,p_revision integer,p_store uuid,p_supplier text,p_reference text,p_date date,p_notes text,p_actor_email text default null)
+returns public.ops_stock_receipts language plpgsql security definer set search_path='' as $$
+declare actor text=private.totus_stock_actor('edit',p_actor_email);r public.ops_stock_receipts;
+begin
+ select * into strict r from public.ops_stock_receipts where id=p_id for update;
+ if r.revision<>p_revision then raise exception 'La recepción ha cambiado. Actualiza antes de editar';end if;
+ if p_date>current_date or not exists(select 1 from public.ops_stores where id=p_store and active) then raise exception 'Fecha o tienda no válida';end if;
+ if exists(select 1 from public.ops_stock_sources s join public.ops_documents d on d.id=s.document_id where s.receipt_id=p_id and d.store_id is not null and d.store_id<>p_store) then
+  raise exception 'Retira los documentos de la otra tienda antes de cambiarla';
+ end if;
+ update public.ops_stock_receipts set store_id=p_store,supplier=trim(p_supplier),reference=trim(coalesce(p_reference,'')),received_on=p_date,notes=coalesce(p_notes,''),
+  revision=revision+1,status='pending',result='{"rows":[],"coverage":[],"complete":false}',updated_at=now() where id=p_id returning * into r;
+ perform private.totus_stock_revision(p_id,'edited',actor);return r;
+end $$;
+revoke all on function public.totus_stock_edit(uuid,integer,uuid,text,text,date,text,text) from public,anon;
+grant execute on function public.totus_stock_edit(uuid,integer,uuid,text,text,date,text,text) to authenticated,service_role;

@@ -37,7 +37,7 @@ function can(module,action='view'){return canUser(state.user,module==='cotejos'?
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
- if(action.startsWith('stock-')){const operation=['stock-create-save','stock-new'].includes(action)?'create':['stock-upload-save','stock-existing-save','stock-source-remove'].includes(action)?'edit':'view';return {module:'documentos',operation};}
+ if(action.startsWith('stock-')){const operation=['stock-create-save','stock-new'].includes(action)?'create':['stock-upload-save','stock-existing-save','stock-source-remove','stock-edit','stock-edit-save'].includes(action)?'edit':'view';return {module:'documentos',operation};}
  if(/^(closing-|export-closings-current)/.test(action))module='cajas';
  else if(/^(expense-|export-expenses-current)/.test(action))module='gastos';
  else if(/^(invoice-|proforma-|rectifying-|external-invoice-|customer-|customers-|template-|series-|billing-)/.test(action))module='facturacion';
@@ -2191,7 +2191,7 @@ document.addEventListener('click',async e=>{
  try{
   if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
-  if(a==='stock-new'||a==='stock-back'||a==='stock-search'||a==='stock-refresh'||a==='stock-create-save'||a==='stock-open'||a==='stock-preview'||a==='stock-text'||a==='stock-prompt-view'||a==='stock-prompt'||a==='stock-source-remove'||a==='stock-existing-save'||a==='stock-upload-save'){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
+  if(a==='stock-edit'||a==='stock-edit-save'||a==='stock-new'||a==='stock-back'||a==='stock-search'||a==='stock-refresh'||a==='stock-create-save'||a==='stock-open'||a==='stock-preview'||a==='stock-text'||a==='stock-prompt-view'||a==='stock-prompt'||a==='stock-source-remove'||a==='stock-existing-save'||a==='stock-upload-save'){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
   if(a==='report-block-up'||a==='report-block-down'){await moveReportPanel(el.dataset.block,a.endsWith('-up')?'up':'down');return}
   if(a==='report-block-reset'){await saveReportBlockOrder([]);return}

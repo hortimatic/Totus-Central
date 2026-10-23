@@ -1,7 +1,7 @@
 import {canUser} from './permissions.js';
 import {state} from './state.js';
 import {esc,fmtDate,isoToday} from './utils.js';
-import {btn,table,formField,selectField,modal,toast,confirmAction} from './components.js';
+import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
 import {STOCK_STATES,stockLineResult,stockChatPrompt} from './stock-core.js';
 const view={loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',error:''};
 const storeName=id=>state.data.stores.find(s=>s.id===id)?.name||'Tienda';
@@ -35,7 +35,7 @@ function receiptDetail(){
  const sources=c.sources||[],canAdd=canUser(state.user,'documentos','edit',state.data.userPermissions||[]);
  const options=state.data.documents.filter(d=>!sources.some(s=>s.document_id===d.id)&&(!d.store_id||d.store_id===r.store_id))
  .map(d=>({value:d.id,label:[d.original_name,d.supplier_or_customer,d.invoice_number].filter(Boolean).join(' · ')}));
- return '<div class="stack"><section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(r.status)+action('Actualizar','stock-refresh')+action('Volver','stock-back')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
+ return '<div class="stack"><section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(r.status)+action('Editar datos','stock-edit')+action('Actualizar','stock-refresh')+action('Volver','stock-back')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
  '<section class="card card-pad"><h3>1. Documentos del pedido</h3><p>La entrada de PrestaShop es el recuento realizado por el equipo. Estos adjuntos no crean gastos ni cambian existencias.</p>'+
  sources.map(sourceCard).join('')+(sources.length?'':'<div class="note">Añade la factura o albarán y la entrada de PrestaShop del mismo pedido.</div>')+
  (canAdd?'<div class="stock-upload form-grid">'+selectField('Estos documentos son de','stockKind',[{value:'supplier',label:'Proveedor · factura o albarán'},{value:'prestashop',label:'PrestaShop · entrada de mercancía'}],'supplier')+
@@ -43,7 +43,7 @@ function receiptDetail(){
  '<section class="card card-pad"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual. Leerá los documentos de esta recepción y guardará aquí el resultado. Después pulsa Actualizar.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+'</div></section>'+
  '<section class="card card-pad"><div class="section-head"><h3>3. Resultado del cotejo</h3>'+badge(r.status)+'</div>'+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se compara lo facturado con las unidades introducidas en PrestaShop. Si una entrada incluye un ajuste externo, se descuenta ese ajuste para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar mantiene la revisión pendiente.</p></details>'+
- '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado'})[h.action]||h.action)+'</small></div>').join('')+'</details></section></div>';
+ '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small></div>').join('')+'</details></section></div>';
 }
 export function stockPage(){
  if(view.mode==='new')return receiptForm();
@@ -85,6 +85,16 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   if(!state.data.documents.some(d=>d.id===doc.id))state.data.documents.push(doc);
   await context(r.id);
  };
+ if(a==='stock-edit'){
+  const r=view.context.receipt;
+  modal('Editar recepción','<p>Al cambiar sus datos se conservará el historial y el cotejo volverá a quedar pendiente.</p><div class="form-grid">'+selectField('Tienda','stockEditStore',state.data.stores.filter(s=>s.active!==false).map(s=>({value:s.id,label:s.name})),r.store_id)+formField('Proveedor','stockEditSupplier',r.supplier,'text','maxlength="200"')+formField('Pedido o referencia','stockEditReference',r.reference,'text','maxlength="200"')+formField('Fecha','stockEditDate',r.received_on,'date','max="'+isoToday()+'"')+'<label class="wide">Notas<textarea id="stockEditNotes" rows="3" maxlength="5000">'+esc(r.notes)+'</textarea></label></div>'+btn('Guardar cambios','stock-edit-save','primary'));
+  return;
+ }
+ if(a==='stock-edit-save'){
+  const r=view.context.receipt;
+  await rpc('totus_stock_edit',{p_id:r.id,p_revision:r.revision,p_store:value('stockEditStore'),p_supplier:value('stockEditSupplier').trim(),p_reference:value('stockEditReference').trim(),p_date:value('stockEditDate'),p_notes:value('stockEditNotes').trim()});
+  closeModal();await context(r.id);render();toast('Recepción actualizada. Revisa el cotejo.');return;
+ }
  if(a==='stock-new'){view.mode='new';render();return;}
  if(a==='stock-back'){view.mode='list';view.context=null;await refresh();return;}
  if(a==='stock-search'){view.query=value('stockQuery');view.store=value('stockFilterStore')||'all';render();return;}
