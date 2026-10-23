@@ -11,7 +11,7 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} fr
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
+import {sb,select,login,logout,recover,loadCore,reloadCotejos,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
 import {renderers,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,esc,download,csv,money} from './utils.js';
@@ -28,18 +28,18 @@ import {renderPdfPreview} from './pdf-preview.js';
 
 const titles={
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
- facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
+ facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],cotejos:['Trabajo','Cotejo de mercancía'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-function can(module,action='view'){return canUser(state.user,module,action,state.data.userPermissions||[])}
+function can(module,action='view'){return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
  if(/^(closing-|export-closings-current)/.test(action))module='cajas';
  else if(/^(expense-|export-expenses-current)/.test(action))module='gastos';
  else if(/^(invoice-|proforma-|rectifying-|external-invoice-|customer-|customers-|template-|series-|billing-)/.test(action))module='facturacion';
- else if(/^(document-|documents-)/.test(action))module='documentos';
+ else if(/^(document-|documents-|stock-)/.test(action))module='documentos';
  else if(/^(tax-payment-|fiscal-|reta-|expense-category-|income-adjustment-)/.test(action))module='fiscalidad';
  else if(/^(pricing-|product-|brand-|family-|families-|provider-|providers-|variant-|competitor-|consultation-|home-price-)/.test(action))module='pricing';
  else if(/^(report-|export-gestor-|export-store-|export-summary)/.test(action))module='informes';
@@ -2169,7 +2169,7 @@ async function reviewUnusedLogos(){
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');if(route==='cotejos')await reloadCotejos();render();if(isStoragePanelVisible())await refreshStoragePanel();return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
  if(a==='close-modal'){
@@ -2199,6 +2199,10 @@ document.addEventListener('click',async e=>{
   if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});await refresh();return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));await refresh();return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));await refresh();return}
+  if(a==='stock-refresh'){await reloadCotejos();render();return}
+  if(a==='stock-search'){patchFilters('cotejos',{query:val('stockQueryFilter').trim()});render();return}
+  if(a==='stock-open'){setView('cotejos',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='stock-back'){setView('cotejos',{mode:'list',id:null});render();return}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
   if(a==='home-price-save'){await saveHomePrice();return}
   if(a==='home-report-quarter'){homeReport('quarter');return}
@@ -2465,6 +2469,8 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id==='stockShopFilter'){patchFilters('cotejos',{shop:e.target.value});render();return}
+ if(e.target?.id==='stockStatusFilter'){patchFilters('cotejos',{status:e.target.value});render();return}
  if(e.target?.id==='clSaveStatus'){const button=document.querySelector('[data-action="closing-save-close"]');if(button)button.textContent=e.target.value==='borrador'?'Guardar borrador':document.querySelectorAll('.drawer-entry').length>1?'Cerrar las cajas':'Cerrar caja';return}
  if(['exDocKind','exTaxPaymentModel','exTaxPaymentYear','exTaxPaymentQuarter','exManagement','exPaidDate'].includes(e.target?.id)){updateExpenseTaxTreatment();return}
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
