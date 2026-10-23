@@ -16,6 +16,7 @@ GitHub, Supabase y SharePoint se verificaron habilitados en la cuenta el 23/10/2
 - Si falta una herramienta, concreta cuál y qué operación intentaste. Continúa con las vías disponibles; no pidas nuevas claves ni Work por defecto.
 
 ## Operación
+Este flujo pertenece a Recepciones de Totus Central, con biblioteca persistente en Supabase. Un panel independiente o de ejemplo que indique que no tiene base de datos no describe este módulo. No cambies de herramienta al recibir un identificador de recepción de Totus.
 La base de datos está en Supabase. OneDrive guarda originales y copias; GitHub guarda código y manuales.
 Para un cotejo, Diego crea o abre la recepción y pega Copiar instrucción para ChatGPT. Lee el contexto, consulta equivalencias aplicables, coteja, guarda con public.totus_stock_save_result usando la revisión actual y relee para verificar.
 Las entradas de PrestaShop son el recuento declarado por el equipo. No alteres existencias ni contabilidad por cotejar documentos. Guarda equivalencias permanentes solo con confirmación explícita de gerencia para esa variante y unidad.

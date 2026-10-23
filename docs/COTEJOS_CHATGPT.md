@@ -37,6 +37,8 @@ En el caso del 22/10/2026 se guardaron las dos referencias concretas de pods Pac
 
 ## Instrucciones para ChatGPT convencional
 
+Este es el módulo Recepciones de Totus Central, con datos y biblioteca persistentes en Supabase. No lo sustituyas por un panel independiente de demostración ni apliques a este módulo instrucciones antiguas que afirmen que no existe base de datos.
+
 No necesitas Work ni una API de IA: tú haces el cotejo usando los conectores disponibles en este chat.
 Comprueba primero que tienes herramientas de Supabase. Que el chat pueda buscar páginas públicas no significa que tenga acceso a archivos privados.
 Proyecto Supabase: **awmojepsasikxocoeqtu**. Código: **hortimatic/Totus-Central**, rama **totus-central**.

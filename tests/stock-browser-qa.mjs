@@ -98,8 +98,10 @@ try{
  await page.evaluate(()=>{const db=window.__mockDb,r=db.ops_stock_receipts[0];db.ops_stock_receipts.push({...structuredClone(r),id:crypto.randomUUID(),reference:'Pedido febrero QA',received_on:'2026-02-20'});});
  await page.locator('[data-action="stock-refresh"]').click();await page.getByText('Pedido febrero QA',{exact:true}).waitFor();
  await page.locator('#stockFrom').fill('2026-01-15');await page.locator('#stockTo').fill('2026-01-15');await page.locator('[data-action="stock-search"]').click();
+ await page.getByText('Pedido febrero QA',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('[data-action="stock-open"]').count(),1,'Date boundaries inclusive');
  await page.locator('#stockFrom').fill('2026-01-01');await page.locator('#stockTo').fill('2026-02-28');await page.locator('[data-action="stock-search"]').click();
+ await page.getByText('Pedido febrero QA',{exact:true}).waitFor();
  assert.equal(await page.locator('[data-action="stock-open"]').count(),2,'Range across months');
  await page.locator('[data-action="stock-library"]').click();await page.getByText('Biblioteca de productos',{exact:true}).waitFor();
  await page.getByText('Producto A PS',{exact:true}).waitFor();await page.locator('[data-action="stock-back"]').click();
