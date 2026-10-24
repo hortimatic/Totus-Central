@@ -178,6 +178,7 @@ const rpc=async (name,args={})=>{
   children.forEach(v=>insert('product_variants',{...v,product_id:row.id}));
   if(args.p_provider){const pp=args.p_provider,provider=db.providers.find(v=>v.name.toLowerCase()===pp.name.toLowerCase())||insert('providers',{name:pp.name,active:true});insert('product_provider_prices',{...pp,provider_id:provider.id,product_id:row.id,selected:true});}
   insert('price_history',{product_id:row.id,user_id:userId,snapshot:{action:old?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:{...row},variants:structuredClone(db.product_variants.filter(v=>v.product_id===row.id))}});
+  if(p.consultation_id)insert('consultation_history',{consultation_id:p.consultation_id,action:'CONVERTIDA',user_id:userId,snapshot:{product_id:row.id}});
   return {data:{product:row,replayed:false},error:null};
  }
  if(name==='totus_save_closing'){

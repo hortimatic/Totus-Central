@@ -39,3 +39,15 @@ grant select,insert on public.providers to authenticated;
 alter table public.providers enable row level security;
 create policy providers_read on public.providers for select to authenticated using(auth.uid() is not null);
 create policy providers_create on public.providers for insert to authenticated with check(private.totus_can('pricing','create'));
+
+create table public.consultations(id uuid primary key,query text not null);
+create table public.consultation_history(id bigint generated always as identity primary key,consultation_id uuid references public.consultations(id),user_id uuid,action text check(action in ('CREADA','ABIERTA','ACTUALIZADA','CONVERTIDA','ELIMINADA')),consultation_query text not null,snapshot jsonb);
+insert into public.consultations values('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Consulta QA');
+grant select on public.consultations to authenticated;
+grant select,insert on public.consultation_history to authenticated;
+grant usage,select on all sequences in schema public to authenticated;
+alter table public.consultation_history enable row level security;
+create policy history_write on public.consultation_history for insert to authenticated with check(auth.uid() is not null and user_id=auth.uid());
+create policy history_read on public.consultation_history for select to authenticated using(auth.uid() is not null);
+
+create policy totus_consultation_history_create on public.consultation_history as restrictive for insert to authenticated with check(private.totus_can('pricing','create'));

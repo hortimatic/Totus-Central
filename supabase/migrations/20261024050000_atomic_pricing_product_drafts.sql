@@ -54,7 +54,12 @@ begin
   v_provider_name:=btrim(p_provider->>'name');
   if nullif(v_provider_name,'') is null then raise exception 'Indica el proveedor.';end if;
   perform pg_advisory_xact_lock(hashtextextended('provider:'||lower(v_provider_name),0));
-  select id into v_provider_id from public.providers where lower(btrim(name))=lower(v_provider_name) order by id limit 1;
+  if nullif(p_provider->>'id','') is not null then
+   select id into v_provider_id from public.providers where id=(p_provider->>'id')::uuid;
+   if v_provider_id is null then raise exception 'Proveedor no disponible.';end if;
+  else
+   select id into v_provider_id from public.providers where lower(btrim(name))=lower(v_provider_name) order by id limit 1;
+  end if;
   if v_provider_id is null then insert into public.providers(name) values(v_provider_name) returning id into v_provider_id;end if;
   perform public.totus_pricing_save_provider(jsonb_build_object('product_id',v_id,'provider_id',v_provider_id,'net_cost',p_provider->'net_cost','provider_discount',coalesce(p_provider->'provider_discount','0'::jsonb),'shipping_unit',coalesce(p_provider->'shipping_unit','0'::jsonb),'moq',0,'selected',true));
  end if;
@@ -64,6 +69,12 @@ begin
   'variants',coalesce((select jsonb_agg(to_jsonb(v)) from public.product_variants v where product_id=v_id),'[]'::jsonb),
   'providers',coalesce((select jsonb_agg(to_jsonb(p)) from public.product_provider_prices p where product_id=v_id),'[]'::jsonb),
   'competitors',coalesce((select jsonb_agg(to_jsonb(c)) from public.product_competitor_prices c where product_id=v_id),'[]'::jsonb)));
+ if nullif(p_product->>'consultation_id','') is not null then
+  if not v_new then raise exception 'La conversión debe crear un producto nuevo.';end if;
+  insert into public.consultation_history(consultation_id,user_id,action,consultation_query,snapshot)
+   select c.id,auth.uid(),'CONVERTIDA',c.query,to_jsonb(c)||jsonb_build_object('product_id',v_id) from public.consultations c where id=(p_product->>'consultation_id')::uuid;
+  if not found then raise exception 'Consulta no disponible. No se ha creado el producto.';end if;
+ end if;
  return jsonb_build_object('product',to_jsonb(v_row),'replayed',false);
 end $$;
 revoke all on function public.totus_pricing_save_product(jsonb,jsonb,jsonb) from public,anon;
@@ -94,3 +105,5 @@ begin
 end $$;
 revoke all on function public.totus_pricing_save_provider(jsonb) from public,anon;
 grant execute on function public.totus_pricing_save_provider(jsonb) to authenticated;
+
+alter policy totus_consultation_history_create on public.consultation_history with check ((select private.totus_can('pricing','create') or private.totus_can('pricing','edit')) and user_id=(select auth.uid()));

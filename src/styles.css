@@ -684,3 +684,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 #prDiscountScenarios h4{margin:12px 0}
 
 #prInitialProvider[hidden]{display:none!important}
+
+.pricing-consultations{max-height:480px;overflow:auto;scrollbar-gutter:stable}
+.pricing-consultations .summary-row[hidden]{display:none!important}
+.pricing-consultation-search{display:grid;gap:6px;margin-top:16px}

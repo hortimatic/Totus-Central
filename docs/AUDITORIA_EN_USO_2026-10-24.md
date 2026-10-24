@@ -16,6 +16,7 @@ Cada caso requiere recorrido de usuario, persistencia/reapertura cuando proceda,
 | P06 | Guardar y continuar al siguiente producto ausente | Recuperar opción conservando Guardar y volver/lista | Original contrastado |
 | P07 | Selección de proveedor puede desmarcar otros antes de fallar el guardado | Validación y operación atómica, con error sin cambios parciales | Confirmado en código; pendiente de prueba |
 | P08 | Historial depende de permiso Crear incluso al editar | Revisar guardas y trazabilidad de un editor sin permiso de alta | Pendiente de prueba |
+| P09 | Convertir consulta usaba estado ACTIVO y guardados separados | Usar estado válido y transacción con proveedor e historial | Detectado en código; prueba añadida |
 | R01 | Volver a recepciones utiliza botón secundario diferente del resto | Usar el patrón de navegación de las fichas existentes | Reproducido |
 | R02 | Alta, subida/reintento, documentos, cotejo, biblioteca, filtros, descargas | Recorrer cada transición y sus errores, conservando originales | Pendiente |
 | G01 | Gastos, cajas, facturación, fiscalidad e informes en uso | Probar recorridos y consistencia; no introducir asientos ficticios | Pendiente |

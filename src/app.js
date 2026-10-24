@@ -1005,7 +1005,7 @@ function consultationConvertForm(id){
   ${formField('Coste neto','ccCost',c.cost_net??0,'number','step="0.01" min="0"')}
   ${formField('PVP','ccPvp',c.pvp??0,'number','step="0.01" min="0"')}
  </div><div class="note" style="margin-top:12px">El impuesto especial de sales no se vuelve a sumar: el coste introducido se conserva como coste de compra.</div><div class="form-actions">${btn('Crear producto','consultation-convert-save','primary',`data-id="${id}"`)}</div>`;
- modal('Convertir consulta en producto',body,{small:true});
+ modal('Convertir consulta en producto','<input type="hidden" id="ccProductId" value="'+crypto.randomUUID()+'">'+body,{small:true});
 }
 async function convertConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)throw new Error('Consulta no encontrada.');
@@ -1014,14 +1014,9 @@ async function convertConsultation(id){
  const providerId=required('ccProvider','Proveedor'),cost=num('ccCost');
  if(cost<=0)throw new Error('Introduce el coste de compra neto antes de convertir la consulta en producto.');
  const pvp=num('ccPvp');if(pvp<=0)throw new Error('Indica un PVP válido antes de convertir la consulta en producto.');
- const product=await insert('products',{name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,units_month:0,status:'ACTIVO',notes:'Creado desde consulta: '+c.query,created_by:state.user?.id||null,updated_at:new Date().toISOString()});
- try{
-  await insert('product_provider_prices',{product_id:product.id,variant_id:null,provider_id:providerId,net_cost:cost,provider_discount:0,shipping_unit:0,moq:0,stock_status:'',price_date:isoToday(),notes:'Coste trasladado desde consulta',selected:true,purchase_origin:'España',apply_special_tax:false,special_tax_amount:0});
- }catch(e){
-  try{await remove('products',product.id)}catch(rollbackError){throw new Error('No se pudo asignar el proveedor al producto; tampoco se pudo revertir el alta: '+rollbackError.message)}
-  throw new Error('No se pudo guardar el coste del proveedor. No se ha creado el producto: '+e.message);
- }
- const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'CONVERTIDA',consultation_query:c.query,snapshot:{...c,product_id:product.id}});
+ const result=await rpc('totus_pricing_save_product',{p_product:{id:required('ccProductId','Identificador del producto'),is_new:true,consultation_id:id,name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,quick_competitor:c.competitor??null,quick_discount:c.discount??0,units_month:0,status:'PENDIENTE',notes:'Creado desde consulta: '+c.query},
+ p_variants:[],p_provider:{id:providerId,name:state.data.providers.find(p=>p.id===providerId)?.name||'',net_cost:cost,provider_discount:0,shipping_unit:0}});
+ const product=result.product,logged=true;
  closeModal();await refresh(logged?'Producto creado desde la consulta.':'Producto creado, pero no se pudo guardar el historial de conversión.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
 }
 
@@ -1033,6 +1028,17 @@ async function reuseConsultation(id){
  await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'ABIERTA',consultation_query:c.query,snapshot:c});
  toast(logged?'Consulta cargada.':'Consulta cargada, pero no se pudo guardar su historial.',logged?'ok':'warn');
+}
+async function consultationHistory(id){
+ const rows=await select('consultation_history',{order:'created_at',filter:q=>q.eq('consultation_id',id)});
+ modal('Historial de la consulta',rows.length?table([
+  {label:'Fecha',value:r=>fmtDateTime(r.created_at)},
+  {label:'Acción',value:r=>({CREADA:'Creada',ABIERTA:'Reutilizada',ACTUALIZADA:'Actualizada',CONVERTIDA:'Convertida en producto',ELIMINADA:'Eliminada'}[r.action]||r.action)},
+  {label:'Consulta',get:'consultation_query'},
+  {label:'PVP',value:r=>r.snapshot?.pvp==null?'—':money(r.snapshot.pvp)},
+  {label:'Coste',value:r=>r.snapshot?.cost_real==null?'—':money(r.snapshot.cost_real)},
+  {label:'Margen',value:r=>r.snapshot?.margin_pct==null?'—':Number(r.snapshot.margin_pct).toFixed(1).replace('.',',')+' %'}
+ ],rows):'<div class="empty"><strong>Sin actividad registrada</strong></div>');
 }
 async function deleteConsultation(id){
  if(!confirm('¿Eliminar esta consulta guardada?'))return;
@@ -2393,6 +2399,7 @@ document.addEventListener('click',async e=>{
   if(a==='consultation-reuse'){await reuseConsultation(el.dataset.id);return}
   if(a==='consultation-convert'){consultationConvertForm(el.dataset.id);return}
   if(a==='consultation-convert-save'){await convertConsultation(el.dataset.id);return}
+  if(a==='consultation-history'){await consultationHistory(el.dataset.id);return}
   if(a==='consultation-delete'){await deleteConsultation(el.dataset.id);return}
   if(a==='customers-manage'){customersManager();return}
   if(a==='customer-new'){customerForm();return}
@@ -2550,6 +2557,7 @@ document.addEventListener('click',async e=>{
 });
 
 document.addEventListener('input',e=>{
+ if(e.target?.id==='pricingConsultationQuery'){const q=searchText(e.target.value);for(const row of document.querySelectorAll('#pricingConsultations [data-consultation-name]'))row.hidden=!!q&&!searchText(row.dataset.consultationName).includes(q);return}
  if(e.target?.id?.startsWith('pd'))updateProductStudy();
  if(e.target?.id==='roleCode')e.target.dataset.manual='1';
  if(e.target?.id==='roleName'){

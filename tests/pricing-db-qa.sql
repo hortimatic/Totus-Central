@@ -70,3 +70,14 @@ begin
  perform public.qa_assert(not exists(select 1 from public.providers where name='Proveedor rollback'),'Initial cost error rolls back supplier');
 end$$;
 reset role;
+
+set role authenticated;
+do $$
+declare p jsonb:='{"id":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","is_new":true,"name":"Conversión QA","sku":"CONVERT-QA","product_type":"simple","status":"PENDIENTE","quick_discount":0,"units_month":0,"current_pvp":5.7,"consultation_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc"}';
+begin
+ perform public.totus_pricing_save_product(p,'[]','{"id":"99999999-9999-4999-8999-999999999999","name":"QA","net_cost":3.2}');
+ perform public.totus_pricing_save_product(p,'[]','{"id":"99999999-9999-4999-8999-999999999999","name":"QA","net_cost":3.2}');
+ perform public.qa_assert((select count(*)=1 from public.consultation_history where action='CONVERTIDA'),'Conversion trace created exactly once');
+ perform public.qa_assert((select status='PENDIENTE' from public.products where sku='CONVERT-QA'),'Conversion uses valid product state');
+end$$;
+reset role;
