@@ -60,7 +60,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   const url=URL.createObjectURL(blob);
   if(downloadOnly){const a=document.createElement('a');a.href=url;a.download=f.original_name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);return;}
   const previewable=['application/pdf','image/png','image/jpeg','image/webp','text/plain','text/csv'].includes(f.mime_type);
-  modal(f.original_name,'<div class="chat-preview"></div>'+button('Descargar archivo','download-preview')+(previewable?'':'<p>Este formato se conserva completo. Descárgalo para abrirlo.</p>'),{label:'Cerrar',run:async()=>{}});
+  modal(f.original_name,'<div class="chat-preview"></div>'+button('Descargar archivo','download-preview')+(previewable?'':'<p>Este formato se conserva completo. Descárgalo para abrirlo.</p>'),{label:'Cerrar',refresh:false,run:async()=>{}});
   dialog.querySelector('[data-chat="download-preview"]').onclick=()=>{const a=document.createElement('a');a.href=url;a.download=f.original_name;a.click();};
   const container=dialog.querySelector('.chat-preview');
   if(f.mime_type.startsWith('image/')){const img=document.createElement('img');img.src=url;img.alt=f.original_name;container.append(img);}
