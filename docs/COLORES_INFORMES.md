@@ -1,0 +1,20 @@
+# Colores del diario mensual
+## Uso
+En Administración → Configuración fiscal → Categorías de gastos → Editar, seleccionar «Color y grupo en el Excel mensual».
+- Automático: conserva el color original de los pagos importados. Sin color original, utiliza la categoría.
+- Otros: verde.
+- SS y nóminas: naranja.
+- Pedidos: azul.
+- Gastos fijos: amarillo.
+- IRPF / impuestos pagados: verde claro.
+La elección se guarda en Supabase y se conserva al cambiar de equipo. Solo administración puede modificarla.
+Una selección explícita sustituye el color automático de esa categoría en los informes que se generen después, incluidos periodos anteriores. Para recuperar el criterio original, seleccionar Automático.
+## Alcance
+El color de cada concepto y el grupo de su subtotal se resuelven juntos. Un alquiler con retención 115 sigue siendo alquiler; no es un pago del modelo. Indemnizaciones se agrupan con nóminas.
+Los colores no deciden si un gasto es fiscalizable, su importe o su conciliación.
+La vista previa del diario y el Excel descargado utilizan el mismo libro. La tabla de gestoría conserva su formato propio y bandas de lectura; no se convierte en el diario mensual.
+Los Excel ya descargados no se modifican automáticamente: deben generarse de nuevo.
+## Auditoría 24/10/2026
+Se detectó: uso del modelo de retención para colorear alquileres como IRPF; colores conservados en source_ref.source.color que se ignoraban; colores ARGB rechazados; posible discrepancia entre el color original y el subtotal; indemnizaciones fuera del grupo de personal.
+Se unifica la regla en src/expense-colors.js. Se conservan importes, fórmulas, columnas, fuentes originales y clasificación fiscal.
+Prueba específica: tests/expense-colors-qa.mjs; comprueba también los estilos del archivo XLSX escrito y reabierto.

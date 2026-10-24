@@ -1,3 +1,4 @@
+import {EXPENSE_REPORT_GROUPS} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
@@ -1243,6 +1244,8 @@ function expenseCategoryForm(row=null){
   ${formField('Grupo AEAT','ecAeat',row?.aeat_group||'')}
   ${formField('Código gestor','ecManager',row?.manager_code||'')}
   ${formField('Orden','ecSort',row?.sort_order??0,'number','min="0"')}
+  ${selectField('Color y grupo en el Excel mensual','ecReportGroup',[{value:'',label:'Automático · conservar el color original si existe'},...EXPENSE_REPORT_GROUPS.map(g=>({value:g.value,label:g.label+' · '+({other:'verde',payroll:'naranja',orders:'azul',fixed:'amarillo',irpf:'verde claro'})[g.value]}))],row?.report_group||'')}
+  <p class="note wide">Solo cambia el color y el grupo del diario mensual, también en su vista previa. No cambia el tratamiento fiscal. Automático conserva los colores importados; si no hay color original, usa la categoría. Elegir un grupo aplica ese color a todos los gastos de esta categoría al generar nuevos informes.</p>
   <label class="check-field"><input id="ecDeductible" type="checkbox" ${row?.deductible_default===false?'':'checked'}> Deducible por defecto</label>
   <label class="check-field"><input id="ecFixed" type="checkbox" ${row?.fixed_asset_default?'checked':''}> Inmovilizado por defecto</label>
   <label class="check-field"><input id="ecActive" type="checkbox" ${row?.active===false?'':'checked'}> Activa</label>
@@ -1253,7 +1256,8 @@ async function saveExpenseCategory(id=''){
  if(!isAdmin())throw new Error('Solo el administrador puede gestionar categorías.');
  const code=required('ecCode','Código').trim().toUpperCase(),name=required('ecName','Nombre');
  const dup=state.data.categories.find(x=>x.id!==id&&String(x.code||'').trim().toUpperCase()===code);if(dup)throw new Error('Ya existe una categoría con ese código.');
- const row={code,name,aeat_group:val('ecAeat').trim(),manager_code:val('ecManager').trim(),sort_order:Math.max(0,Math.round(num('ecSort'))),deductible_default:!!input('ecDeductible')?.checked,fixed_asset_default:!!input('ecFixed')?.checked,active:!!input('ecActive')?.checked};
+ const reportGroup=val('ecReportGroup');if(reportGroup&&!EXPENSE_REPORT_GROUPS.some(g=>g.value===reportGroup))throw new Error('Selecciona un grupo de color válido.');
+ const row={report_group:reportGroup||null,code,name,aeat_group:val('ecAeat').trim(),manager_code:val('ecManager').trim(),sort_order:Math.max(0,Math.round(num('ecSort'))),deductible_default:!!input('ecDeductible')?.checked,fixed_asset_default:!!input('ecFixed')?.checked,active:!!input('ecActive')?.checked};
  if(id)await update('ops_expense_categories',id,row);else await insert('ops_expense_categories',row);
  closeModal();await refresh('Categoría guardada.');
 }
