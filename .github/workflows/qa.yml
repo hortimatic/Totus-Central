@@ -88,6 +88,7 @@ jobs:
       - run: node tests/published-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
+      - run: node tests/full-flow-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
       - run: node tests/dashboard-report-browser-qa.mjs
@@ -109,7 +110,6 @@ jobs:
       - run: node tests/live-refresh-qa.mjs
       - run: node tests/report-period-qa.mjs
       - run: node tests/second-review-qa.mjs
-      - run: node tests/full-flow-qa.mjs
       - run: node tests/rectifying-browser-qa.mjs
       - run: node tests/pdf-preview-qa.mjs
       - run: node tests/invoice-logo-qa.mjs
@@ -167,3 +167,12 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023223642_require_explicit_stock_reading_confirmation.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql
+
+      - name: Verify isolated Pricing database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          createdb -h localhost -U postgres pricing_qa
+          psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-fixture.sql
+          psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f supabase/migrations/20261024050000_atomic_pricing_product_drafts.sql
+          psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-qa.sql

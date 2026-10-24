@@ -14,7 +14,7 @@ const canEdit=()=>canUser(state.user,'documentos','edit',state.data.userPermissi
 const canManage=()=>['admin','gerente'].includes(state.user?.role)&&canEdit();
 const canCreateSupplier=()=>canUser(state.user,'gastos','create',state.data.userPermissions||[]);
 const stockModal=(title,body,options)=>modal(title,'<div class="stock-modal">'+body+'</div>',options);
-const back=()=>'<div class="stock-toolbar">'+action('← Volver a recepciones','stock-back')+'</div>';
+const back=()=>'<div class="record-toolbar"><div>'+btn('← Volver a recepciones','stock-back','link')+'</div></div>';
 function supplierField(id,current=''){
  const suppliers=(state.data.suppliers||[]).filter(s=>s.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
  const options=[{value:'',label:'Selecciona un proveedor'},...suppliers.map(s=>({value:s.name,label:s.name}))];

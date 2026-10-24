@@ -62,7 +62,7 @@ try{
  assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
  assert((await page.locator('#storageObservedBar .storage-segment-docs').evaluate(el=>el.getBoundingClientRect().width))>10,'Los documentos cargados no se reflejan en la barra superior');
  await page.locator('#nav [data-route="inicio"]').click();
- assert((await page.locator('.summary-row',{hasText:'Almacenamiento usado'}).innerText()).includes('4,0 MB'),'Inicio debe incluir los archivos de copias, no solo documentos y logos');
+ assert((await page.locator('.summary-row',{hasText:'Archivos en Supabase'}).innerText()).includes('4,0 MB'),'Inicio debe incluir los archivos de copias, no solo documentos y logos');
  // Replacing an existing document cannot use stale measurements when Storage is unavailable.
  await page.evaluate(async()=>{
   const doc={id:'qa-existing-doc',document_date:'2026-10-17',doc_type:'factura_recibida',status:'pendiente',
@@ -94,7 +94,7 @@ try{
  assert(failed.includes('Reintentar conexión'),'No hay acción para recuperarse');
  // A failed RPC must also remain explicit on Inicio; it must not become a fake 0 MB.
  await page.locator('#nav [data-route="inicio"]').click();
- const homeUsage=await page.locator('.dashboard-page .summary-row',{hasText:'Almacenamiento usado'}).innerText();
+ const homeUsage=await page.locator('.dashboard-page .summary-row',{hasText:'Archivos en Supabase'}).innerText();
  const homeOccupancy=await page.locator('.dashboard-page .summary-row',{hasText:'Ocupación'}).innerText();
  assert(homeUsage.includes('No disponible'),'Inicio oculta el fallo de Storage con un consumo ficticio: '+homeUsage);
  assert(homeOccupancy.includes('Sin medir'),'Inicio muestra un porcentaje falso tras fallo: '+homeOccupancy);

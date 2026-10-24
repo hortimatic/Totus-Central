@@ -163,6 +163,26 @@ const rpc=async (name,args={})=>{
   insert('ops_audit_log',{area:kind,action:'eliminar',entity_id:id,detail:{motivo:reason}});
   return {data:id,error:null};
  }
+ if(name==='totus_pricing_save_provider'){
+  const p=args.p_price;if(p.selected)db.product_provider_prices.filter(x=>x.product_id===p.product_id&&!x.variant_id).forEach(x=>x.selected=false);
+  const row=p.id?Object.assign(get('product_provider_prices',p.id),p):insert('product_provider_prices',p);
+  return {data:row.id,error:null};
+ }
+ if(name==='totus_pricing_save_product'){
+  const p=args.p_product,children=args.p_variants||[],old=get('products',p.id);
+  // Simulate failure before the atomic RPC commits; SQL tests cover late rollback.
+  if(args.p_provider&&window.__mockRejectInsertTable==='product_provider_prices'){delete window.__mockRejectInsertTable;return {data:null,error:{message:'No se pudo guardar el coste del proveedor. No se ha creado el producto: rechazo de prueba'}}}
+  if(window.__mockPricingFailure)return {data:null,error:{message:'Fallo de guardado simulado'}};
+  if(p.is_new&&old)return {data:null,error:{message:'El producto ya existe'}};
+  if(!p.is_new&&(!old||old.updated_at!==(p.expected_updated_at||null)))return {data:null,error:{message:'El producto ha cambiado'}};
+  const {is_new,expected_updated_at,...clean}=p;
+  const row=old?Object.assign(old,clean):insert('products',{...clean,created_by:userId});
+  children.forEach(v=>insert('product_variants',{...v,product_id:row.id}));
+  if(args.p_provider){const pp=args.p_provider,provider=db.providers.find(v=>v.name.toLowerCase()===pp.name.toLowerCase())||insert('providers',{name:pp.name,active:true});insert('product_provider_prices',{...pp,provider_id:provider.id,product_id:row.id,selected:true});}
+  insert('price_history',{product_id:row.id,user_id:userId,snapshot:{action:old?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:{...row},variants:structuredClone(db.product_variants.filter(v=>v.product_id===row.id))}});
+  if(p.consultation_id)insert('consultation_history',{consultation_id:p.consultation_id,action:'CONVERTIDA',user_id:userId,snapshot:{product_id:row.id}});
+  return {data:{product:row,replayed:false},error:null};
+ }
  if(name==='totus_save_closing'){
   const p=args.p_closing,drawers=args.p_drawers||[];let row=p.id?get('ops_daily_closings',p.id):null;
   if(!row)row=insert('ops_daily_closings',{status:'borrador'});

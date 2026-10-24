@@ -1,3 +1,5 @@
+import {discountScenarios} from './pricing-discounts.js';
+import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
@@ -56,6 +58,9 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
+ if(a==='product-draft-add')return {module:'pricing',operation:'create',requiresEdit:!!getView('pricing').id};
+ if(a==='product-draft-remove')return {module:'pricing',operation:getView('pricing').id?'edit':'create'};
+ if(a==='product-save-next')return {module:'pricing',operation:'edit'};
  if(a==='consultation-save-copy')return {module:'pricing',operation:'create'};
  if(a==='consultation-reuse')return {module:'pricing',operation:'edit'};
  if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
@@ -82,6 +87,7 @@ function checkActionPermission(action,el){
  if(!required)return true;
  if(required.adminOnly&&!isAdmin())return false;
  if(required.managerOnly&&!isManager())return false;
+ if(required.requiresEdit&&!can(required.module,'edit'))return false;
  return can(required.module,required.operation);
 }
 function hideForbiddenButtons(){
@@ -210,7 +216,7 @@ function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
 function validateDecimalFields(){
  for(const field of document.querySelectorAll('input[data-decimal="true"]')){
-  if(field.disabled)continue;
+  if(field.disabled||(field.closest('#prDraftVariants')&&val('prType')!=='variants')||(field.closest('#prInitialProvider')&&val('prType')==='variants'))continue;
   const raw=String(field.value||'').trim().replace(/\s/g,'');
   if(!raw)continue;
   // Signo opcional, agrupación de miles ES/EN y decimales con coma o punto.
@@ -603,16 +609,20 @@ async function finalizeInvoice(id){
  await refresh('Documento emitido.');
 }
 
-async function saveProduct(id=''){
+async function saveProduct(id='',next=false){
  const sku=required('prSku','Referencia'),name=required('prName','Nombre');
  const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
  const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:val('prPvp')===''?null:num('prPvp'),proposed_pvp:val('prProposed')===''?null:num('prProposed'),units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
  for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
- let saved;
- if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
- const historySaved=await recordProductHistory(saved.id,null,{action:id?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:saved});
- setView('pricing',{mode:'record',id:saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
+ if(row.product_type==='simple'&&[...document.querySelectorAll('.pricing-draft-variant input')].some(field=>field.value.trim())&&!confirm('Has rellenado variantes. Al guardar como producto simple esas variantes nuevas no se guardarán. ¿Quieres continuar como simple?'))return;
+ const variants=row.product_type==='variants'?readDraftVariants(document,state.data.variants):[];
+ if(variants.length&&!can('pricing','create'))throw new Error('Para añadir variantes necesitas permiso para crear en Pricing.');
+ if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
+ const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
+ const saved=savedResult.product;
+ const siblings=next?state.data.products.filter(p=>p.family_id===saved.family_id):[],position=siblings.findIndex(p=>p.id===saved.id),following=position>=0?siblings[position+1]:null;
+ if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh('Producto guardado.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
  try{
@@ -627,8 +637,15 @@ async function productHistory(productId){
  const rows=await select('price_history',{order:'created_at',filter:q=>q.eq('product_id',productId)});
  modal('Historial de Pricing',rows.length?rows.map(row=>{
   const s=row.snapshot||{},v=s.variant,p=s.product;
-  const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada'}[s.action]||'Cambio de precio';
-  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):'')+'</div></div>';
+  const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada',PROVEEDOR_EDITADO:'Coste de proveedor actualizado'}[s.action]||'Cambio de precio';
+  const savedVariants=Array.isArray(s.variants)?s.variants:[],settings=s.tax_settings?{default_sales_vat_rate:s.tax_settings.vat,purchase_re_rate:s.tax_settings.re}:state.data.settings;
+  const summaries=(v?[v]:savedVariants).map(item=>{const r=variantStudy(item,settings,p?.quick_discount??0);return '<div class="small">'+esc(item.name||item.sku||'Variante')+' · PVP '+(item.pvp==null?'—':money(item.pvp))+' · Coste sin IVA/RE '+(item.cost_net==null?'—':money(item.cost_net))+' · Margen '+(r?r.marginPct.toFixed(1).replace('.',',')+' %':'—')+'</div>'}).join('');
+  const providerRows=Array.isArray(s.providers)?s.providers:[],chosen=providerRows.find(p=>p.selected)||[...providerRows].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0];
+  const simplePvp=p?.proposed_pvp??p?.current_pvp;
+  const simpleStudy=chosen&&simplePvp!=null&&p?.product_type!=='variants'?quickPriceStudy({cost:pricingProviderCost(chosen),pvp:simplePvp,discount:p?.quick_discount??0,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2}):null;
+  const simpleDetails=simpleStudy?'<div class="small">Coste con IVA + RE '+money(simpleStudy.costReal)+' · Beneficio por unidad '+money(simpleStudy.margin)+' · Margen '+simpleStudy.marginPct.toFixed(1).replace('.',',')+' %</div>':'';
+  const legacy=s.pvp!=null||s.cost!=null||s.marginPct!=null?'<div class="small">PVP '+(s.pvp==null?'—':money(s.pvp))+' · Coste '+(s.cost==null?'—':money(s.cost))+' · Margen '+(s.marginPct==null?'—':Number(s.marginPct).toFixed(1).replace('.',',')+' %')+'</div>':'';
+  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div><div class="small muted">'+esc((typeof s.user==='string'?s.user:s.user?.name||s.user?.email)||(row.user_id===state.user?.id?state.user.email:'Usuario no identificado'))+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):p?.current_pvp!=null?' · PVP '+money(p.current_pvp):'')+summaries+simpleDetails+legacy+'</div></div>';
  }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){
@@ -866,8 +883,7 @@ async function saveProviderPrice(productId,id=''){
  const selected=!!input('ppSelected')?.checked;
  const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
  if(row.net_cost<0)throw new Error('El coste de compra no puede ser negativo.');
- if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
- if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
+ await rpc('totus_pricing_save_provider',{p_price:{...row,...(id?{id}:{})}});
  closeModal();await refresh('Coste de proveedor guardado.');refreshPricingPanels(productId);
 }
 async function deleteProviderPrice(productId,id){
@@ -935,14 +951,29 @@ async function deleteVariant(productId,id){
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
 }
 function updateProductStudy(){
- if(!document.getElementById('prSummaryPvp')||val('prType')==='variants')return;
+ const scenario=input('prDiscountScenarios'),productIdForScenarios=getView('pricing').id;
+ if(scenario){
+  const savedVariants=state.data.variants.filter(v=>v.product_id===productIdForScenarios&&v.active!==false);
+  const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {id,name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:num('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:num('pdPvp_'+id)}});
+  const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
+  scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?num('prProposed'):num('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin||35),val('prDiscountVariant'));
+ }
+ if(!document.getElementById('prSummaryPvp'))return;
+ if(val('prType')==='variants'){
+  if(input('prSummaryNote')){input('prSummaryNote').className='note';input('prSummaryNote').textContent='Cada variante tiene su propio coste y PVP. El resumen muestra el intervalo de las variantes activas, aplicando el descuento del producto.';}
+  const results=[...state.data.variants.filter(v=>v.product_id===getView('pricing').id&&v.active!==false).map(v=>{const r=variantStudy(v,state.data.settings,num('prDiscount'));return r?{...r,costNet:v.cost_net}:null}).filter(Boolean),...refreshDraftStudies(state.data.settings,num('prDiscount'))];
+  for(const [id,key] of [['prSummaryCost','costNet'],['prSummaryReal','costReal'],['prSummaryPvp','finalSale'],['prSummaryMargin','margin'],['prSummaryPct','marginPct']])if(input(id))input(id).textContent=draftRange(results,key);
+  return;
+ }
  const productId=getView('pricing').id;
  const prices=state.data.providerPrices.filter(x=>x.product_id===productId&&!x.variant_id);
  const costOf=pricingProviderCost;
- const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0];
+ const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
+ if(input('prSummaryNote')){input('prSummaryNote').className='note'+(chosen?'':' warn');input('prSummaryNote').textContent=chosen?'El coste real incluye IVA y recargo de equivalencia. El descuento de venta se aplica al PVP.':'Añade un proveedor y su coste para calcular el margen real.';}
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
  const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+ set('prSummaryCost',chosen?money(costOf(chosen)):'Sin proveedor');set('prSummaryReal',r?money(r.costReal):'—');
  set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(n(pvp)):'Sin precio');
  set('prSummaryMargin',r?money(r.margin):'—');set('prSummaryPct',r?r.marginPct.toFixed(1).replace('.',',')+' %':'—');
  set('prSummaryCompetition',r?.competitorDiff==null?'—':money(r.competitorDiff));
@@ -984,7 +1015,7 @@ function consultationConvertForm(id){
   ${formField('Coste neto','ccCost',c.cost_net??0,'number','step="0.01" min="0"')}
   ${formField('PVP','ccPvp',c.pvp??0,'number','step="0.01" min="0"')}
  </div><div class="note" style="margin-top:12px">El impuesto especial de sales no se vuelve a sumar: el coste introducido se conserva como coste de compra.</div><div class="form-actions">${btn('Crear producto','consultation-convert-save','primary',`data-id="${id}"`)}</div>`;
- modal('Convertir consulta en producto',body,{small:true});
+ modal('Convertir consulta en producto','<input type="hidden" id="ccProductId" value="'+crypto.randomUUID()+'">'+body,{small:true});
 }
 async function convertConsultation(id){
  const c=state.data.consultations.find(x=>x.id===id);if(!c)throw new Error('Consulta no encontrada.');
@@ -993,15 +1024,10 @@ async function convertConsultation(id){
  const providerId=required('ccProvider','Proveedor'),cost=num('ccCost');
  if(cost<=0)throw new Error('Introduce el coste de compra neto antes de convertir la consulta en producto.');
  const pvp=num('ccPvp');if(pvp<=0)throw new Error('Indica un PVP válido antes de convertir la consulta en producto.');
- const product=await insert('products',{name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,units_month:0,status:'ACTIVO',notes:'Creado desde consulta: '+c.query,created_by:state.user?.id||null,updated_at:new Date().toISOString()});
- try{
-  await insert('product_provider_prices',{product_id:product.id,variant_id:null,provider_id:providerId,net_cost:cost,provider_discount:0,shipping_unit:0,moq:0,stock_status:'',price_date:isoToday(),notes:'Coste trasladado desde consulta',selected:true,purchase_origin:'España',apply_special_tax:false,special_tax_amount:0});
- }catch(e){
-  try{await remove('products',product.id)}catch(rollbackError){throw new Error('No se pudo asignar el proveedor al producto; tampoco se pudo revertir el alta: '+rollbackError.message)}
-  throw new Error('No se pudo guardar el coste del proveedor. No se ha creado el producto: '+e.message);
- }
- const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'CONVERTIDA',consultation_query:c.query,snapshot:{...c,product_id:product.id}});
- closeModal();await refresh(logged?'Producto creado desde la consulta.':'Producto creado, pero no se pudo guardar el historial de conversión.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
+ const result=await rpc('totus_pricing_save_product',{p_product:{id:required('ccProductId','Identificador del producto'),is_new:true,consultation_id:id,name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,quick_competitor:c.competitor??null,quick_discount:c.discount??0,units_month:0,status:'PENDIENTE',notes:'Creado desde consulta: '+c.query},
+ p_variants:[],p_provider:{id:providerId,name:state.data.providers.find(p=>p.id===providerId)?.name||'',net_cost:cost,provider_discount:0,shipping_unit:0}});
+ const product=result.product;
+ closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
 }
 
 async function reuseConsultation(id){
@@ -1012,6 +1038,17 @@ async function reuseConsultation(id){
  await update('consultations',id,{last_reopened_at:new Date().toISOString(),updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:id,user_id:state.user?.id||null,action:'ABIERTA',consultation_query:c.query,snapshot:c});
  toast(logged?'Consulta cargada.':'Consulta cargada, pero no se pudo guardar su historial.',logged?'ok':'warn');
+}
+async function consultationHistory(id){
+ const rows=await select('consultation_history',{order:'created_at',filter:q=>q.eq('consultation_id',id)});
+ modal('Historial de la consulta',rows.length?table([
+  {label:'Fecha',value:r=>fmtDateTime(r.created_at)},
+  {label:'Acción',value:r=>({CREADA:'Creada',ABIERTA:'Reutilizada',ACTUALIZADA:'Actualizada',CONVERTIDA:'Convertida en producto',ELIMINADA:'Eliminada'}[r.action]||r.action)},
+  {label:'Consulta',get:'consultation_query'},
+  {label:'PVP',value:r=>r.snapshot?.pvp==null?'—':money(r.snapshot.pvp)},
+  {label:'Coste',value:r=>r.snapshot?.cost_real==null?'—':money(r.snapshot.cost_real)},
+  {label:'Margen',value:r=>r.snapshot?.margin_pct==null?'—':Number(r.snapshot.margin_pct).toFixed(1).replace('.',',')+' %'}
+ ],rows):'<div class="empty"><strong>Sin actividad registrada</strong></div>');
 }
 async function deleteConsultation(id){
  if(!confirm('¿Eliminar esta consulta guardada?'))return;
@@ -2257,7 +2294,7 @@ document.addEventListener('click',async e=>{
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
  const writes=a==='stock-source-remove'||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  try{
-  if(a.endsWith('-save')||a==='closing-save-close'||a==='closing-save-draft')validateDecimalFields();
+  if(/-save(?:$|-)/.test(a))validateDecimalFields();
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
   if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
@@ -2372,6 +2409,7 @@ document.addEventListener('click',async e=>{
   if(a==='consultation-reuse'){await reuseConsultation(el.dataset.id);return}
   if(a==='consultation-convert'){consultationConvertForm(el.dataset.id);return}
   if(a==='consultation-convert-save'){await convertConsultation(el.dataset.id);return}
+  if(a==='consultation-history'){await consultationHistory(el.dataset.id);return}
   if(a==='consultation-delete'){await deleteConsultation(el.dataset.id);return}
   if(a==='customers-manage'){customersManager();return}
   if(a==='customer-new'){customerForm();return}
@@ -2403,6 +2441,9 @@ document.addEventListener('click',async e=>{
   if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
   if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
   if(a==='product-history'){await productHistory(el.dataset.id);return}
+  if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
+  if(a==='product-draft-remove'){document.querySelector('.pricing-draft-variant[data-draft-id="'+el.dataset.draft+'"]')?.remove();updateProductStudy();return}
+  if(a==='product-save-next'){await saveProduct(el.dataset.id,true);return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
   if(a==='product-back'){resetView('pricing');render();return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
@@ -2526,6 +2567,8 @@ document.addEventListener('click',async e=>{
 });
 
 document.addEventListener('input',e=>{
+ if(e.target?.id==='pricingConsultationQuery'){const q=searchText(e.target.value);for(const row of document.querySelectorAll('#pricingConsultations [data-consultation-name]'))row.hidden=!!q&&!searchText(row.dataset.consultationName).includes(q);return}
+ if(e.target?.id?.startsWith('pd'))updateProductStudy();
  if(e.target?.id==='roleCode')e.target.dataset.manual='1';
  if(e.target?.id==='roleName'){
   const code=input('roleCode');
@@ -2544,6 +2587,14 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id==='prDiscountVariant'){updateProductStudy();return}
+ if(e.target?.id==='prType'){
+  if(input('prInitialProvider'))input('prInitialProvider').hidden=e.target.value==='variants';
+  const section=input('prDraftVariants');if(section)section.hidden=e.target.value!=='variants';
+  if(section?.querySelector('p'))section.querySelector('p').textContent=!can('pricing','create')?'Para añadir variantes necesitas permiso para crear en Pricing.':'Rellena aquí las nuevas variantes. Se guardan junto con el producto.';
+  if(e.target.value==='variants'&&can('pricing','create')&&!document.querySelector('.pricing-draft-variant')&&!state.data.variants.some(v=>v.product_id===getView('pricing').id))input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());
+  updateProductStudy();return;
+ }
  if(e.target?.id==='clSaveStatus'){const button=document.querySelector('[data-action="closing-save-close"]');if(button)button.textContent=e.target.value==='borrador'?'Guardar borrador':document.querySelectorAll('.drawer-entry').length>1?'Cerrar las cajas':'Cerrar caja';return}
  if(['exDocKind','exTaxPaymentModel','exTaxPaymentYear','exTaxPaymentQuarter','exManagement','exPaidDate'].includes(e.target?.id)){updateExpenseTaxTreatment();return}
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});

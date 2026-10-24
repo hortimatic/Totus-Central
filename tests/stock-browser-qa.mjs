@@ -42,6 +42,7 @@ try{
  const nav=()=>page.locator('#nav [data-route="cotejos"]').click();
  await nav();await page.getByText('Sin recepciones',{exact:true}).waitFor();
  await page.locator('[data-action="stock-new"]').click();
+ assert.equal(await page.locator('[data-action="stock-back"]').getAttribute('class'),'btn link','Back link uses the same record navigation as Pricing/invoices');
  await page.locator('#stockSupplier').selectOption({label:'Proveedor previo'});
  await page.locator('#stockReference').fill('Factura de prueba 26000000 · pedido 690000 <QA>');
  await page.locator('#stockDate').fill('2026-01-15');

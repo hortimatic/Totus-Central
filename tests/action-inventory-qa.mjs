@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const view=fs.readFileSync('src/pages/main.js','utf8');
 const app=fs.readFileSync('src/app.js','utf8');
-const stock=fs.readFileSync('src/stock-ui.js','utf8');
+const stock=fs.readFileSync('src/stock-ui.js','utf8')+'\n'+fs.readFileSync('src/pricing-drafts.js','utf8');
 assert.ok(app.includes("a.startsWith('stock-')"),'Missing receipt action delegation');
 const buttons=[...[view,app,stock].flatMap(code=>[...code.matchAll(/\b(?:btn|action)\([^,\n]*,\s*'([a-z0-9-]+)'/g)].map(x=>x[1]))];
 const literals=[...[view,app,stock].flatMap(code=>[...code.matchAll(/data-action="([a-z0-9-]+)"/g)].map(x=>x[1]))];
