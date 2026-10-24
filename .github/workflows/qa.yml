@@ -12,6 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node tests/team-chat-qa.mjs
       - run: node tests/stock-cloud-import-qa.mjs
       - run: node tests/pricing-variants-qa.mjs
       - run: node tests/stock-core-qa.mjs
@@ -89,6 +90,7 @@ jobs:
       - run: node tests/published-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/pricing-taxonomy-layout-qa.mjs
+      - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/full-flow-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs
@@ -182,3 +184,26 @@ jobs:
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-fixture.sql
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f supabase/migrations/20261024050000_atomic_pricing_product_drafts.sql
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-qa.sql
+
+  chat-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated chat database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-qa.sql

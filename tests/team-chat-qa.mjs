@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatTaskPrompt} from '../src/team-chat-core.js';
+assert.equal(chatText('  Hola\r\nEquipo '),'Hola\nEquipo');
+assert.throws(()=>chatText(' '));assert.throws(()=>chatText('x'.repeat(12001)));
+assert.equal(chatChannelInput({name:'Cajas',group_name:'Hortimatic',is_private:true}).is_private,true);
+assert.throws(()=>chatChannelInput({name:''}));
+assert.throws(()=>chatDateRange('2026-10-31','2026-10-01'));
+assert.throws(()=>chatDateRange('2026-02-31',''));
+assert.deepEqual(chatDateRange('2026-10-01','2026-10-31'),{from:'2026-10-01',to:'2026-10-31'});
+assert.equal(chatMessageMatches({created_at:'2026-10-24',body:'Factura eléctrica',author_email:'a@b',pinned:true},{query:'electrica',pinned:true}),true);
+assert.equal(chatMessageMatches({created_at:'2026-10-24',body:'Factura'},{from:'2026-11-01'}),false);
+assert.equal(chatGroups([{name:'Cajas',group_name:'Hortimatic'},{name:'Avisos',group_name:'Equipo'}])[0].name,'Equipo');
+const prompt=chatTaskPrompt({name:'Gastos',id:'channel'},{id:'message',body:'Revisar factura'});
+assert(prompt.includes('No conviertas este mensaje directamente en contabilidad'));
+assert(prompt.includes('No hay un asistente automático activo'));
+console.log('TEAM CHAT CORE QA: text, ranges, grouping, search and explicit accounting/AI boundaries OK');

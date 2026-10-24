@@ -1,3 +1,4 @@
+import {createTeamChat} from './team-chat-ui.js';
 import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
@@ -31,13 +32,15 @@ import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
 import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
 import {renderPdfPreview} from './pdf-preview.js';
 
+const teamChat=createTeamChat({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>toast(message,'bad'),confirm:message=>confirmAction(message)});
 const titles={
+ equipo:['Trabajo','Chat del equipo'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-function can(module,action='view'){return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+function can(module,action='view'){if(module==='equipo')return !!state.user&&state.user.active!==false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
@@ -119,6 +122,7 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
+ teamChat.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -135,11 +139,13 @@ function render(){
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
  if(input('exDocKind'))updateExpenseTaxTreatment();
  captureFormDraft($('#content'));
+ if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
 const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(Boolean);
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
+ if(!modalOnly&&state.route==='equipo'&&teamChat.hasDraft()&&!await confirmAction('Hay mensajes sin enviar en el chat. Se conservarán durante esta sesión; al cerrar sesión o recargar se perderán. ¿Salir del chat?'))return false;
  const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
  if(!roots.length)return true;
  const host=$('#modalHost'),previous=[...host.childNodes],focused=document.activeElement;
@@ -2744,7 +2750,7 @@ async function boot(){
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();
 }
-sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
+sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){teamChat.dispose();state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
 
 // Poll only while the Storage subtab is visible: no background traffic on other pages.
 setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);
