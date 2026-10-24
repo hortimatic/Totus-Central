@@ -2750,7 +2750,7 @@ async function boot(){
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();
 }
-sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){teamChat.dispose();state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
+sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){teamChat.reset();state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
 
 // Poll only while the Storage subtab is visible: no background traffic on other pages.
 setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);

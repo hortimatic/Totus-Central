@@ -11,6 +11,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
  const draftKey=()=>data.channel+':'+(data.parent||'main');
  const remember=()=>{const input=host?.querySelector('#chatBody');if(input)drafts.set(draftKey(),input.value);};
  const hasDraft=()=>{remember();return [...drafts.values()].some(v=>v.trim())||!!dialog?.querySelector('[data-dirty="true"]');};
+ const unlock=()=>{busy=false;const submit=host?.querySelector('.chat-compose [type="submit"]');if(submit)submit.disabled=false;};
  const showError=error=>{data.error=error.message||String(error);onError(data.error);const box=host?.querySelector('[data-chat-error]');if(box){box.hidden=false;box.textContent=data.error;}};
  const ask=async message=>{const held=dialog;held?.close();try{return await confirm(message);}finally{if(held&&dialog===held&&held.isConnected)held.showModal();}};
  const command=(action,values={})=>rpc('totus_chat_command',{p_action:action,p_data:{channel_id:data.channel,...values}});
@@ -72,7 +73,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
    const controls=[...dialog.querySelectorAll('button,input,select,textarea')];controls.forEach(c=>c.disabled=true);
    try{await save.run(values);closeDialog();await refresh();}
    catch(error){const box=dialog?.querySelector('[data-dialog-error]');if(box){box.textContent=error.message;box.hidden=false;}else showError(error);}
-   finally{busy=false;controls.forEach(c=>c.disabled=false);}
+   finally{unlock();controls.forEach(c=>c.disabled=false);}
   });
   dialog.showModal();
  }
@@ -121,7 +122,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
    if(action==='reaction'){await command('reaction',{message_id:id,emoji:el.dataset.emoji});await refresh();return;}
    if(action==='message-delete'){if(await confirm('¿Eliminar tu mensaje? No se eliminarán documentos ni operaciones contables.'))await command('message_delete',{message_id:id,expected_edited_at:m.edited_at});await refresh();return;}
    if(action==='refresh')await refresh();
-  }catch(error){showError(error);}finally{busy=false;}
+  }catch(error){showError(error);}finally{unlock();}
  }
  const onSubmit=e=>{if(e.target.matches('.chat-compose'))send(e).catch(showError);};
  const onInput=e=>{if(e.target.id==='chatBody')remember();};
@@ -137,7 +138,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
   if(host){host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);}
   window.removeEventListener('beforeunload',beforeUnload);host=null;
  }
- return {hasDraft,dispose,async mount(element){
+ return {hasDraft,dispose,reset(){dispose();data=initial();drafts.clear();pending.clear();owner='';},async mount(element){
   dispose();if(owner!==actor()){owner=actor();data=initial();drafts.clear();pending.clear();}
   host=element;host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);
   window.addEventListener('beforeunload',beforeUnload);paint();await refresh();timer=setInterval(tick,15000);

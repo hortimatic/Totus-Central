@@ -73,11 +73,11 @@ language sql stable security definer set search_path='' as $$
  and m.email=private.totus_chat_actor() and m.member_role='manager')
 $$;
 
-alter table public.ops_chat_channels enable msg level security;
-alter table public.ops_chat_members enable msg level security;
-alter table public.ops_chat_messages enable msg level security;
-alter table public.ops_chat_reactions enable msg level security;
-alter table public.ops_chat_events enable msg level security;
+alter table public.ops_chat_channels enable row level security;
+alter table public.ops_chat_members enable row level security;
+alter table public.ops_chat_messages enable row level security;
+alter table public.ops_chat_reactions enable row level security;
+alter table public.ops_chat_events enable row level security;
 create policy chat_channels_read on public.ops_chat_channels for select to authenticated
  using (deleted_at is null and private.totus_chat_actor() is not null and (not is_private or private.totus_chat_member(id)));
 create policy chat_members_read on public.ops_chat_members for select to authenticated using (private.totus_chat_member(channel_id));
