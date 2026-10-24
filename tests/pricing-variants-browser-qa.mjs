@@ -92,13 +92,13 @@ try{
  await simple.locator('[data-action="product-back"]').first().click();await simple.locator('[data-action="product-new"]').click();
  await simple.locator('#prName').fill('Siguiente QA');await simple.locator('#prSku').fill('NEXT-QA');
  await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).last().waitFor();
- const firstId=await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='SIMPLE-QA').id);
+ const firstId=await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='NEXT-QA').id);
  await simple.locator('[data-action="product-back"]').first().click();
  await simple.locator('[data-action="product-edit"][data-id="'+firstId+'"]').click();
  await simple.locator('#prNotes').fill('Guardado antes de pasar al siguiente');
  await simple.locator('[data-action="product-save-next"]').click();
- await simple.locator('#prName').waitFor();assert.equal(await simple.locator('#prName').inputValue(),'Siguiente QA');
- assert.equal(await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='SIMPLE-QA').notes),'Guardado antes de pasar al siguiente');
+ await simple.locator('#prName').waitFor();assert.equal(await simple.locator('#prName').inputValue(),'Simple QA');
+ assert.equal(await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='NEXT-QA').notes),'Guardado antes de pasar al siguiente');
  await simple.locator('[data-action="product-back"]').first().click();
  await simple.locator('#pqQuery').fill('Convertir QA');await simple.locator('#pqCost').fill('3.20');await simple.locator('#pqPvp').fill('5.70');
  await simple.locator('[data-action="consultation-save"]').click();await simple.getByText('Consulta guardada.',{exact:true}).last().waitFor();
