@@ -77,6 +77,7 @@ jobs:
       - run: node tests/workbook-preview-qa.mjs
       - run: node tests/excel-qa.mjs
       - run: node tests/monthly-workbook-qa.mjs
+      - run: node tests/expense-colors-qa.mjs
       - run: node tests/source-workbook-qa.mjs
       - run: node tests/legacy-retention-qa.mjs
       - run: node tests/gestor-workbook-qa.mjs
@@ -92,6 +93,7 @@ jobs:
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
       - run: node tests/dashboard-report-browser-qa.mjs
+      - run: node tests/expense-colors-browser-qa.mjs
       - run: node tests/closing-workflow-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
@@ -167,6 +169,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023223642_require_explicit_stock_reading_confirmation.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/expense-report-db-qa.sql
 
       - name: Verify isolated Pricing database
         env:

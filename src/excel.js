@@ -1,3 +1,4 @@
+import {expenseReportStyle,normalizeExpenseColor,EXPENSE_REPORT_COLORS} from './expense-colors.js';
 import {informationalTaxPayments,taxPaymentLabel} from './payment-information.js';
 import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
@@ -157,16 +158,8 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const WEEKDAYS=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
 const XLSX_WCH_PAD=0.83203125;
-const LEGACY_COLORS={other:'00B050',payroll:'FFC000',orders:'00B0F0',fixed:'FFFF00',irpf:'92D050',total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
-function legacyGroup(expense,categories){
- if(['other','payroll','orders','fixed','irpf'].includes(expense.source_group))return expense.source_group;
- const code=categories.find(x=>x.id===expense.category_id)?.code||'';
- if(code==='MERCH')return'orders';
- if(['PAYROLL','SOCIAL','RETA','FAMILY_COLLAB'].includes(code))return'payroll';
- if(code==='TAX'||['111','115'].includes(String(expense.withholding_model||'')))return'irpf';
- if(code==='OTHER'||code.startsWith('INTERNAL_'))return'other';
- return'fixed';
-}
+const LEGACY_COLORS={...EXPENSE_REPORT_COLORS,total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
+
 function excelDateKey(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
 function moneyStyle(fill){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11},alignment:{horizontal:'right'},numFmt:'#,##0.00',border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
 function textStyle(fill,bold=false,align='left'){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11,bold},alignment:{horizontal:align,vertical:'center'},border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
@@ -227,7 +220,7 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
    if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Pago original fuera del mes o con importe inválido.');
    const invoice=entry.invoice_number?imported.find(x=>x.invoice_number===entry.invoice_number):null;
    const raw=imported.find(x=>{try{const ref=JSON.parse(x.source_ref);return ref.kind==='bank_payment_source'&&ref.source?.row===entry.row}catch{return false}});
-   return {...(invoice||raw||{}),source_row:entry.row,source_group:entry.group,source_color:typeof entry.color==='string'&&/^[A-Fa-f0-9]{6}$/.test(entry.color)?entry.color:undefined,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
+   return {...(invoice||raw||{}),source_row:entry.row,source_group:entry.group,source_color:normalizeExpenseColor(entry.color)||undefined,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
   }).concat(monthExpenses.filter(x=>!belongsToSource(x)));
  }
  const expMonth=monthExpenses.sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||(a.source_row!=null&&b.source_row!=null?a.source_row-b.source_row:String(a.created_at||'').localeCompare(String(b.created_at||''))));
@@ -240,8 +233,8 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
      else setCell(ws,`B${row}`,'',textStyle(stripe,true));
      if(ex){
        invoiceReferences.set(row,ex.invoice_number||'');
-       const g=legacyGroup(ex,categories),amount=legacyExpenseAmount(ex);
-       setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(ex.source_color||LEGACY_COLORS[g],false));
+       const {group:g,color}=expenseReportStyle(ex,categories),amount=legacyExpenseAmount(ex);
+       setCell(ws,`C${row}`,ex.description||ex.supplier_name||'Gasto',textStyle(color,false));
        setCell(ws,`D${row}`,amount,moneyStyle(stripe));groupRefs[g].push(`D${row}`);expenseRefs.push(`D${row}`);
      }else{setCell(ws,`C${row}`,'',textStyle(stripe));setCell(ws,`D${row}`,'',moneyStyle(stripe))}
      if(k===0&&close){

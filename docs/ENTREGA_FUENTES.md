@@ -8,6 +8,7 @@
 6. docs/PRICING_PRODUCTOS_Y_VARIANTES.md: productos, variantes y cálculos comerciales.
 7. docs/AUDITORIA_EN_USO_2026-10-24.md: registro actualizado de defectos reales, correcciones y evidencia; complementa y corrige el alcance de la entrega anterior.
 8. docs/ONEDRIVE_FORMATOS_Y_PRUEBAS.md: lectura binaria, subida, reemplazo y diferencias entre transporte y edición de formatos.
+9. docs/COLORES_INFORMES.md: colores por categoría, originales importados y alcance de los cambios de presentación.
 No elimines las fuentes antiguas hasta verificar que puedes abrir los nuevos documentos. No copies claves ni contraseñas a Fuentes.
 
 ## Dónde está cada cosa
