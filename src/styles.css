@@ -682,3 +682,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 #prDraftVariants[hidden]{display:none!important}
 .pricing-draft-variant .form-grid>label{min-width:0}
 #prDiscountScenarios h4{margin:12px 0}
+
+#prInitialProvider[hidden]{display:none!important}

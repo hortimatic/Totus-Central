@@ -4,15 +4,15 @@ create unique index if not exists variants_normalized_sku on public.product_vari
 alter policy totus_history_create on public.price_history with check
  ((select private.totus_can('pricing','create') or private.totus_can('pricing','edit')) and user_id=(select auth.uid()));
 
-create or replace function public.totus_pricing_save_product(p_product jsonb,p_variants jsonb default '[]'::jsonb)
+create or replace function public.totus_pricing_save_product(p_product jsonb,p_variants jsonb default '[]'::jsonb,p_provider jsonb default null)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare
  v_id uuid:=(p_product->>'id')::uuid;
  v_new boolean:=coalesce((p_product->>'is_new')::boolean,false);
  v_row public.products%rowtype; v_old public.products%rowtype;
  v_variant jsonb; v_item public.product_variants%rowtype;
- v_fingerprint text:=md5((jsonb_build_object('product',p_product-'updated_at'-'expected_updated_at','variants',p_variants))::text);
- v_saved_fingerprint text;
+ v_fingerprint text:=md5((jsonb_build_object('product',p_product-'updated_at'-'expected_updated_at','variants',p_variants,'provider',p_provider))::text);
+ v_saved_fingerprint text; v_provider_id uuid; v_provider_name text;
 begin
  if auth.uid() is null or not private.totus_can('pricing',case when v_new then 'create' else 'edit' end) then
   raise exception 'No tienes permiso para guardar este producto.' using errcode='42501';
@@ -49,6 +49,15 @@ begin
   insert into public.product_variants(id,product_id,sku,name,attributes,nicotine_mg_ml,volume_ml,cost_net,pvp,active)
    values(v_item.id,v_id,btrim(v_item.sku),btrim(v_item.name),coalesce(v_item.attributes,'{}'::jsonb),v_item.nicotine_mg_ml,v_item.volume_ml,v_item.cost_net,v_item.pvp,coalesce(v_item.active,true));
  end loop;
+ if p_provider is not null then
+  if not v_new or v_row.product_type<>'simple' then raise exception 'El coste inicial solo se aplica al crear productos simples.';end if;
+  v_provider_name:=btrim(p_provider->>'name');
+  if nullif(v_provider_name,'') is null then raise exception 'Indica el proveedor.';end if;
+  perform pg_advisory_xact_lock(hashtextextended('provider:'||lower(v_provider_name),0));
+  select id into v_provider_id from public.providers where lower(btrim(name))=lower(v_provider_name) order by id limit 1;
+  if v_provider_id is null then insert into public.providers(name) values(v_provider_name) returning id into v_provider_id;end if;
+  perform public.totus_pricing_save_provider(jsonb_build_object('product_id',v_id,'provider_id',v_provider_id,'net_cost',p_provider->'net_cost','provider_discount',coalesce(p_provider->'provider_discount','0'::jsonb),'shipping_unit',coalesce(p_provider->'shipping_unit','0'::jsonb),'moq',0,'selected',true));
+ end if;
  insert into public.price_history(product_id,user_id,snapshot) values(v_id,auth.uid(),jsonb_build_object(
   'action',case when v_new then 'PRODUCTO_CREADO' else 'PRODUCTO_EDITADO' end,
   'request_fingerprint',v_fingerprint,'product',to_jsonb(v_row),
@@ -57,8 +66,8 @@ begin
   'competitors',coalesce((select jsonb_agg(to_jsonb(c)) from public.product_competitor_prices c where product_id=v_id),'[]'::jsonb)));
  return jsonb_build_object('product',to_jsonb(v_row),'replayed',false);
 end $$;
-revoke all on function public.totus_pricing_save_product(jsonb,jsonb) from public,anon;
-grant execute on function public.totus_pricing_save_product(jsonb,jsonb) to authenticated;
+revoke all on function public.totus_pricing_save_product(jsonb,jsonb,jsonb) from public,anon;
+grant execute on function public.totus_pricing_save_product(jsonb,jsonb,jsonb) to authenticated;
 
 -- Selecting a supplier must not unselect the previous one if saving fails.
 create or replace function public.totus_pricing_save_provider(p_price jsonb) returns uuid

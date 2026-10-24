@@ -214,7 +214,7 @@ function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
 function validateDecimalFields(){
  for(const field of document.querySelectorAll('input[data-decimal="true"]')){
-  if(field.disabled||(field.closest('#prDraftVariants')&&val('prType')!=='variants'))continue;
+  if(field.disabled||(field.closest('#prDraftVariants')&&val('prType')!=='variants')||(field.closest('#prInitialProvider')&&val('prType')==='variants'))continue;
   const raw=String(field.value||'').trim().replace(/\s/g,'');
   if(!raw)continue;
   // Signo opcional, agrupación de miles ES/EN y decimales con coma o punto.
@@ -615,7 +615,7 @@ async function saveProduct(id='',next=false){
  for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
  const variants=row.product_type==='variants'?readDraftVariants(document,state.data.variants):[];
  if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
- const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants});
+ const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
  const saved=savedResult.product,historySaved=true;
  const siblings=next?state.data.products.filter(p=>p.family_id===saved.family_id):[],position=siblings.findIndex(p=>p.id===saved.id),following=position>=0?siblings[position+1]:null;
  if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
@@ -947,7 +947,7 @@ function updateProductStudy(){
  if(scenario){
   const savedVariants=state.data.variants.filter(v=>v.product_id===productIdForScenarios&&v.active!==false);
   const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:num('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:num('pdPvp_'+id)}});
-  const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0];
+  const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
   scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?num('prProposed'):num('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin||35));
  }
  if(!document.getElementById('prSummaryPvp'))return;
@@ -959,10 +959,11 @@ function updateProductStudy(){
  const productId=getView('pricing').id;
  const prices=state.data.providerPrices.filter(x=>x.product_id===productId&&!x.variant_id);
  const costOf=pricingProviderCost;
- const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0];
+ const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
  const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+ set('prSummaryCost',chosen?money(costOf(chosen)):'Sin proveedor');set('prSummaryReal',r?money(r.costReal):'—');
  set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(n(pvp)):'Sin precio');
  set('prSummaryMargin',r?money(r.margin):'—');set('prSummaryPct',r?r.marginPct.toFixed(1).replace('.',',')+' %':'—');
  set('prSummaryCompetition',r?.competitorDiff==null?'—':money(r.competitorDiff));
@@ -2569,6 +2570,7 @@ document.addEventListener('input',e=>{
 
 document.addEventListener('change',async e=>{
  if(e.target?.id==='prType'){
+  if(input('prInitialProvider'))input('prInitialProvider').hidden=e.target.value==='variants';
   const section=input('prDraftVariants');if(section)section.hidden=e.target.value!=='variants';
   if(e.target.value==='variants'&&!document.querySelector('.pricing-draft-variant')&&!state.data.variants.some(v=>v.product_id===getView('pricing').id))input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());
   updateProductStudy();return;

@@ -54,3 +54,19 @@ begin
  perform public.qa_assert((select count(*)=1 from public.product_provider_prices),'No partial supplier rows');
 end$$;
 reset role;
+
+set role authenticated;
+do $$
+declare p jsonb:='{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","is_new":true,"name":"Simple QA","sku":"SIMPLE","product_type":"simple","status":"PENDIENTE","quick_discount":0,"units_month":0,"current_pvp":5.7}';failed boolean:=false;
+begin
+ perform public.totus_pricing_save_product(p,'[]','{"name":"Nuevo proveedor QA","net_cost":3.2,"provider_discount":0,"shipping_unit":0}');
+ perform public.qa_assert((select count(*)=1 from public.providers where name='Nuevo proveedor QA'),'Initial supplier created');
+ perform public.qa_assert((select count(*)=1 from public.product_provider_prices where product_id=(p->>'id')::uuid and selected),'Initial price selected');
+ begin
+  perform public.totus_pricing_save_product(p||'{"id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","sku":"FAIL-SIMPLE"}','[]','{"name":"Proveedor rollback","net_cost":null}');
+ exception when others then failed:=true;end;
+ perform public.qa_assert(failed,'Invalid initial cost fails');
+ perform public.qa_assert(not exists(select 1 from public.products where sku='FAIL-SIMPLE'),'Initial cost error rolls back product');
+ perform public.qa_assert(not exists(select 1 from public.providers where name='Proveedor rollback'),'Initial cost error rolls back supplier');
+end$$;
+reset role;

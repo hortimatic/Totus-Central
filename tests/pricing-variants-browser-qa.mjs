@@ -70,6 +70,28 @@ try{
  await page.setViewportSize({width:390,height:844});
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'Pricing must fit mobile');
  await page.screenshot({path:'artifacts/ui_pricing_mobile.png',fullPage:true});
+ const simple=await browser.newPage({viewport:{width:1024,height:900}});
+ simple.on('pageerror',error=>errors.push(error.message));
+ await simple.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await simple.locator('#nav [data-route="pricing"]').click();await simple.locator('[data-action="product-new"]').click();
+ await simple.locator('#prName').fill('Simple QA');await simple.locator('#prSku').fill('SIMPLE-QA');
+ await simple.locator('#prPvp').fill('5.70');await simple.locator('#prInitialProviderName').fill('Proveedor QA');await simple.locator('#prInitialCost').fill('3.20');
+ assert.match(await simple.locator('#prSummaryReal').innerText(),/4,04/);
+ assert.match(await simple.locator('#prDiscountScenarios').innerText(),/50 %/);
+ await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).waitFor();
+ assert.equal(await simple.evaluate(()=>window.__mockDb.providers.filter(p=>p.name==='Proveedor QA').length),1);
+ assert.equal(await simple.evaluate(()=>window.__mockDb.product_provider_prices.length),1);
+ await simple.locator('[data-action="product-back"]').first().click();await simple.locator('[data-action="product-new"]').click();
+ await simple.locator('#prName').fill('Siguiente QA');await simple.locator('#prSku').fill('NEXT-QA');
+ await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).waitFor();
+ const firstId=await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='SIMPLE-QA').id);
+ await simple.locator('[data-action="product-back"]').first().click();
+ await simple.locator('[data-action="product-edit"][data-id="'+firstId+'"]').click();
+ await simple.locator('#prNotes').fill('Guardado antes de pasar al siguiente');
+ await simple.locator('[data-action="product-save-next"]').click();
+ await simple.locator('#prName').waitFor();assert.equal(await simple.locator('#prName').inputValue(),'Siguiente QA');
+ assert.equal(await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='SIMPLE-QA').notes),'Guardado antes de pasar al siguiente');
+ await simple.close();
  assert.deepEqual(errors,[]);
  console.log('PRICING BROWSER: create, live calculation, save, reopen, attributes, inactive/reactivate, draft preservation and mobile OK');
 }catch(error){console.error('PRICING FAILURE',await page.locator('#toastHost').innerText(),errors);throw error}finally{await browser.close()}
