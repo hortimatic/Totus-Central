@@ -1,4 +1,4 @@
-import {discountScenarios,profitability} from './pricing-discounts.js';
+import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
@@ -637,7 +637,7 @@ async function productHistory(productId){
   const savedVariants=Array.isArray(s.variants)?s.variants:[],settings=s.tax_settings?{default_sales_vat_rate:s.tax_settings.vat,purchase_re_rate:s.tax_settings.re}:state.data.settings;
   const summaries=(v?[v]:savedVariants).map(item=>{const r=variantStudy(item,settings,p?.quick_discount??0);return '<div class="small">'+esc(item.name||item.sku||'Variante')+' · PVP '+(item.pvp==null?'—':money(item.pvp))+' · Coste sin IVA/RE '+(item.cost_net==null?'—':money(item.cost_net))+' · Margen '+(r?r.marginPct.toFixed(1).replace('.',',')+' %':'—')+'</div>'}).join('');
   const legacy=s.pvp!=null||s.cost!=null||s.marginPct!=null?'<div class="small">PVP '+(s.pvp==null?'—':money(s.pvp))+' · Coste '+(s.cost==null?'—':money(s.cost))+' · Margen '+(s.marginPct==null?'—':Number(s.marginPct).toFixed(1).replace('.',',')+' %')+'</div>':'';
-  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div><div class="small muted">'+esc(s.user||state.data.team.find(t=>t.id===row.user_id)?.full_name||row.user_id||'Usuario no indicado')+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):p?.current_pvp!=null?' · PVP '+money(p.current_pvp):'')+summaries+legacy+'</div></div>';
+  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div><div class="small muted">'+esc((typeof s.user==='string'?s.user:s.user?.name||s.user?.email)||(row.user_id===state.user?.id?state.user.email:'Usuario no identificado'))+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):p?.current_pvp!=null?' · PVP '+money(p.current_pvp):'')+summaries+legacy+'</div></div>';
  }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){
@@ -946,9 +946,9 @@ function updateProductStudy(){
  const scenario=input('prDiscountScenarios'),productIdForScenarios=getView('pricing').id;
  if(scenario){
   const savedVariants=state.data.variants.filter(v=>v.product_id===productIdForScenarios&&v.active!==false);
-  const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:num('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:num('pdPvp_'+id)}});
+  const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {id,name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:num('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:num('pdPvp_'+id)}});
   const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
-  scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?num('prProposed'):num('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin||35));
+  scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?num('prProposed'):num('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin||35),val('prDiscountVariant'));
  }
  if(!document.getElementById('prSummaryPvp'))return;
  if(val('prType')==='variants'){
@@ -2569,6 +2569,7 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id==='prDiscountVariant'){updateProductStudy();return}
  if(e.target?.id==='prType'){
   if(input('prInitialProvider'))input('prInitialProvider').hidden=e.target.value==='variants';
   const section=input('prDraftVariants');if(section)section.hidden=e.target.value!=='variants';

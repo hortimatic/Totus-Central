@@ -1235,7 +1235,7 @@ export function invoicePreview(row,logoUrl='',options={}){
 }
 
 export function productRecordHtml(row=null){
- const families=state.data.families.map(x=>({value:x.id,label:x.name}));
+ const families=state.data.families.map(x=>({value:x.id,label:[state.data.brands.find(b=>b.id===x.brand_id)?.name,x.name].filter(Boolean).join(' · ')}));
  const prices=row?state.data.providerPrices.filter(x=>x.product_id===row.id&&!x.variant_id):[];
  const comps=row?state.data.competitors.filter(x=>x.product_id===row.id&&!x.variant_id):[];
  const variants=row?state.data.variants.filter(x=>x.product_id===row.id):[];

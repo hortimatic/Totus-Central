@@ -34,7 +34,7 @@ try{
  assert.equal(await draft.locator('input[id^="pdSku_"]').inputValue(),'SALES-10','Failed save preserves the draft');
  assert.equal(await page.evaluate(()=>window.__mockDb.products.length),0);
  await page.evaluate(()=>window.__mockPricingFailure=false);
- await page.locator('[data-action="product-save"]').click();await page.getByText('Producto guardado.',{exact:true}).waitFor();
+ await page.locator('[data-action="product-save"]').click();await page.getByText('Producto guardado.',{exact:true}).last().waitFor();
  assert.equal(await page.evaluate(()=>window.__mockDb.product_variants.length),1);
  await page.locator('.pricing-variant-row').filter({hasText:'Sales 10 mg'}).waitFor();
  assert.match(await page.locator('.record-side').innerText(),/5,70/);
@@ -78,12 +78,12 @@ try{
  await simple.locator('#prPvp').fill('5.70');await simple.locator('#prInitialProviderName').fill('Proveedor QA');await simple.locator('#prInitialCost').fill('3.20');
  assert.match(await simple.locator('#prSummaryReal').innerText(),/4,04/);
  assert.match(await simple.locator('#prDiscountScenarios').innerText(),/50 %/);
- await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).waitFor();
+ await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).last().waitFor();
  assert.equal(await simple.evaluate(()=>window.__mockDb.providers.filter(p=>p.name==='Proveedor QA').length),1);
  assert.equal(await simple.evaluate(()=>window.__mockDb.product_provider_prices.length),1);
  await simple.locator('[data-action="product-back"]').first().click();await simple.locator('[data-action="product-new"]').click();
  await simple.locator('#prName').fill('Siguiente QA');await simple.locator('#prSku').fill('NEXT-QA');
- await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).waitFor();
+ await simple.locator('[data-action="product-save"]').click();await simple.getByText('Producto guardado.',{exact:true}).last().waitFor();
  const firstId=await simple.evaluate(()=>window.__mockDb.products.find(p=>p.sku==='SIMPLE-QA').id);
  await simple.locator('[data-action="product-back"]').first().click();
  await simple.locator('[data-action="product-edit"][data-id="'+firstId+'"]').click();
