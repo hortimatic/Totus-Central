@@ -138,7 +138,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
    event.preventDefault();if(busy)return;busy=true;
    const values=Object.fromEntries(new FormData(event.target));
    const controls=[...dialog.querySelectorAll('button,input,select,textarea')];controls.forEach(c=>c.disabled=true);
-   try{await save.run(values);closeDialog();await refresh();}
+   try{await save.run(values);closeDialog();if(save.refresh!==false)await refresh();}
    catch(error){const box=dialog?.querySelector('[data-dialog-error]');if(box){box.textContent=error.message;box.hidden=false;}else showError(error);}
    finally{unlock();controls.forEach(c=>c.disabled=false);}
   });
@@ -175,20 +175,20 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
  function groupMenu(name){
   const groups=chatGroups(data.channels,data.layout),at=groups.findIndex(g=>g.name===name),label=data.layout.group_labels?.[name]||name,hidden=(data.layout.hidden_groups||[]).includes(name);
   modal('Organizar '+label,'<p class="muted">Estas preferencias cambian tu organización personal y se guardan en tu cuenta.</p><div class="chat-section-actions">'+
-   ['create','rename','alpha','recent','up','down','hide'].map(action=>'<button type="button" class="btn secondary" data-section-action="'+action+'">'+esc({create:'Crear canal en esta sección',rename:'Cambiar nombre solo para mí',alpha:'Ordenar canales alfabéticamente',recent:'Ordenar por mensajes más recientes',up:'Subir sección',down:'Bajar sección',hide:hidden?'Mostrar sección':'Ocultar sección'}[action])+'</button>').join('')+'</div>',{label:'Cerrar',run:async()=>{}});
+   ['create','rename','alpha','recent','manual','up','down','hide'].map(action=>'<button type="button" class="btn secondary" data-section-action="'+action+'" '+((action==='up'&&at===0||action==='down'&&at===groups.length-1)?'disabled':'')+'>'+esc({create:'Crear canal en esta sección',rename:'Cambiar nombre solo para mí',alpha:'Ordenar canales alfabéticamente',recent:'Ordenar por mensajes más recientes',manual:'Usar posición personal de cada canal',up:'Subir sección',down:'Bajar sección',hide:hidden?'Mostrar sección':'Ocultar sección'}[action])+'</button>').join('')+'</div>',{label:'Cerrar',run:async()=>{}});
   dialog.querySelectorAll('[data-section-action]').forEach(el=>el.onclick=async()=>{
    const action=el.dataset.sectionAction;
    if(action==='create'){modal('Nuevo canal',channelForm({group_name:name}),{label:'Crear canal',run:async v=>selectCreated(await command('create_channel',chatChannelInput({...v,is_private:v.is_private==='true'})),'manager')});return;}
-   if(action==='rename'){modal('Nombre de la sección','<p class="muted">Solo cambia el nombre que tú ves. Los canales y los demás usuarios conservan su organización.</p><label>Nombre<input name="label" maxlength="80" required value="'+esc(label)+'"></label>',{run:async v=>saveLayout({...data.layout,group_labels:{...data.layout.group_labels,[name]:chatText(v.label,80)}})});return;}
+   if(action==='rename'){modal('Nombre de la sección','<p class="muted">Solo cambia el nombre que tú ves. Los canales y los demás usuarios conservan su organización.</p><label>Nombre<input name="label" maxlength="80" required value="'+esc(label)+'"></label>',{refresh:false,run:async v=>saveLayout({...data.layout,group_labels:{...data.layout.group_labels,[name]:chatText(v.label,80)}})});return;}
    if(busy)return;busy=true;
    try{
-    if(action==='alpha'||action==='recent')await saveLayout({...data.layout,group_sort:{...data.layout.group_sort,[name]:action==='alpha'?'alphabetical':'recent'}});
+    if(['alpha','recent','manual'].includes(action))await saveLayout({...data.layout,group_sort:{...data.layout.group_sort,[name]:action==='alpha'?'alphabetical':action}});
     if(action==='up'||action==='down'){
      const order=groups.map(g=>g.name),to=at+(action==='up'?-1:1);
      if(to>=0&&to<order.length){[order[at],order[to]]=[order[to],order[at]];await saveLayout({...data.layout,group_order:order});}
     }
     if(action==='hide')await saveLayout({...data.layout,hidden_groups:hidden?(data.layout.hidden_groups||[]).filter(g=>g!==name):[...new Set([...(data.layout.hidden_groups||[]),name])]});
-    closeDialog();await refresh();
+    closeDialog();
    }catch(error){showError(error);}finally{unlock();}
   });
  }
@@ -204,7 +204,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
    if(action==='sidebar-toggle'){busy=true;await saveLayout({...data.layout,compact_sidebar:!data.layout.compact_sidebar});return;}
    if(action==='group-toggle'){const name=el.dataset.group,closed=data.layout.collapsed_groups||[],wasClosed=!data.channelQuery&&closed.includes(name);data.channelQuery='';busy=true;await saveLayout({...data.layout,collapsed_groups:wasClosed?closed.filter(g=>g!==name):[...new Set([...closed,name])]});return;}
    if(action==='group-menu'){groupMenu(el.dataset.group);return;}
-   if(action==='section-new'){modal('Nueva sección','<label>Nombre<input name="name" maxlength="80" required></label><p class="muted">Organiza tus canales sin cambiar datos o permisos.</p>',{label:'Crear sección',run:async v=>{const name=chatText(v.name,80);await saveLayout({...data.layout,extra_groups:[...new Set([...(data.layout.extra_groups||[]),name])]});}});return;}
+   if(action==='section-new'){modal('Nueva sección','<label>Nombre<input name="name" maxlength="80" required></label><p class="muted">Organiza tus canales sin cambiar datos o permisos.</p>',{label:'Crear sección',refresh:false,run:async v=>{const name=chatText(v.name,80);await saveLayout({...data.layout,extra_groups:[...new Set([...(data.layout.extra_groups||[]),name])]});}});return;}
    if(action==='new'){modal('Nuevo canal',channelForm(),{label:'Crear canal',run:async v=>{const c=await command('create_channel',chatChannelInput({...v,is_private:v.is_private==='true'}));selectCreated(c,'manager');}});return;}
    if(action==='direct'){
     modal('Nuevo mensaje directo','<label>Persona<select name="email" required><option value="">Elige una persona</option>'+data.directory.filter(p=>p.email!==owner).map(p=>'<option value="'+esc(p.email)+'">'+esc(p.name)+'</option>').join('')+'</select></label>',{label:'Abrir conversación',run:async v=>selectCreated(await command('create_direct',{email:v.email}),'member')});return;
