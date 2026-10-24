@@ -15,7 +15,7 @@ begin
  end loop;
  return dataset;
 end;
-$function$
+$function$;
 
 -- Install after chat.sql. Extends complete backup/recovery without altering accounting rows.
 CREATE OR REPLACE FUNCTION private.totus_recovery_tables()
@@ -111,7 +111,7 @@ select not exists(
  or (f.bucket='business-assets' and exists(select 1 from live_assets a where a.path=f.path)))
  )
 );
-$function$
+$function$;
 
 create or replace function private.totus_stock_recovery_payload(p_payload jsonb)
 returns jsonb language plpgsql set search_path='' as $$

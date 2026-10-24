@@ -76,6 +76,6 @@ begin
  'schema_hash',private.totus_recovery_schema_hash(),
  'revision',encode(extensions.digest(data::text,'sha256'),'hex'));
 end;
-$function$
+$function$;
 
 create function public.qa_assert(ok boolean,label text) returns void language plpgsql as $$begin if not coalesce(ok,false) then raise exception 'QA failed: %',label;end if;end$$;
