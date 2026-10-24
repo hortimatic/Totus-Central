@@ -184,6 +184,7 @@ try{
  assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='h').group_name),'Hortimatic','A personal label must not rename channels for everybody');
  await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();await page.locator('dialog [data-section-action="recent"]').click();
  assert.equal(await page.evaluate(()=>qaChat.layout.group_sort.Hortimatic),'recent');
+ await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();await page.locator('dialog [data-section-action="manual"]').click();assert.equal(await page.evaluate(()=>qaChat.layout.group_sort.Hortimatic),'manual');
  await page.locator('#chatChannelQuery').fill('newold');assert.equal(await page.locator('[data-chat="open"][data-id="h"]').count(),0);await page.locator('#chatChannelQuery').fill('');
  await click('sidebar-toggle');assert.equal(await page.locator('.chat-sidebar-collapsed').count(),1);await click('sidebar-toggle');
  // Use a long, realistic history to exercise scroll anchoring and keyboard controls.
@@ -195,6 +196,10 @@ try{
  await click('older');
  const afterAnchor=await page.locator('[data-message="'+anchor+'"]').evaluate(el=>el.getBoundingClientRect().top-el.closest('.chat-messages').getBoundingClientRect().top);
  assert(Math.abs(afterAnchor-beforeAnchor)<=3,'Loading older history jumped away from the visible message');
+ await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();await page.locator('dialog [data-section-action="alpha"]').click();
+ assert(await page.locator('[data-message="'+anchor+'"]').count(),'Organizing sections discarded loaded history');
+ const afterSorting=await page.locator('[data-message="'+anchor+'"]').evaluate(el=>el.getBoundingClientRect().top-el.closest('.chat-messages').getBoundingClientRect().top);
+ assert(Math.abs(afterSorting-afterAnchor)<=3,'Organizing sections moved the reading position');
  await click('scroll-bottom');
  assert(await page.locator('.chat-messages').evaluate(el=>el.scrollHeight-el.clientHeight-el.scrollTop<3),'Latest messages are not reachable');
  await click('scroll-top');await page.locator('.chat-messages').press('PageDown');await page.waitForFunction(()=>document.querySelector('.chat-messages').scrollTop>0);assert(await page.locator('.chat-messages').evaluate(el=>el.scrollTop>0),'Keyboard scrolling failed');
