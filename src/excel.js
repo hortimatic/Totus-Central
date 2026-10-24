@@ -1,4 +1,4 @@
-import {expenseReportStyle,normalizeExpenseColor,EXPENSE_REPORT_COLORS} from './expense-colors.js';
+import {expenseReportStyle,normalizeExpenseColor,EXPENSE_REPORT_COLORS,expenseReportOverride} from './expense-colors.js';
 import {informationalTaxPayments,taxPaymentLabel} from './payment-information.js';
 import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
@@ -220,7 +220,8 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
    if(!String(entry.date).startsWith(period)||!Number.isFinite(Number(entry.amount)))throw new Error('Pago original fuera del mes o con importe inválido.');
    const invoice=entry.invoice_number?imported.find(x=>x.invoice_number===entry.invoice_number):null;
    const raw=imported.find(x=>{try{const ref=JSON.parse(x.source_ref);return ref.kind==='bank_payment_source'&&ref.source?.row===entry.row}catch{return false}});
-   return {...(invoice||raw||{}),source_row:entry.row,source_group:entry.group,source_color:normalizeExpenseColor(entry.color)||undefined,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
+   const displaySource=expenseReportOverride(raw)?raw:invoice||raw;
+   return {...(invoice||raw||{}),source_ref:displaySource?.source_ref,source_row:entry.row,source_group:entry.group,source_color:normalizeExpenseColor(entry.color)||undefined,expense_date:entry.date,description:entry.label,invoice_number:entry.invoice_number||'',gross_expense:Number(entry.amount),withholding_amount:0,management_only:invoice?invoice.management_only:raw?.management_only??true};
   }).concat(monthExpenses.filter(x=>!belongsToSource(x)));
  }
  const expMonth=monthExpenses.sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date))||(a.source_row!=null&&b.source_row!=null?a.source_row-b.source_row:String(a.created_at||'').localeCompare(String(b.created_at||''))));

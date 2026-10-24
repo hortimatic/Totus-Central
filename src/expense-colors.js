@@ -29,7 +29,13 @@ export function categoryReportGroup(category={}){
  if(code==='OTHER'||code.startsWith('INTERNAL_'))return 'other';
  return 'fixed';
 }
+export function expenseReportOverride(expense={}){
+ let source;try{source=typeof expense?.source_ref==='string'?JSON.parse(expense.source_ref):expense?.source_ref}catch{}
+ return validGroup(source?.report_display?.group)||'';
+}
 export function expenseReportStyle(expense={},categories=[]){
+ const override=expenseReportOverride(expense);
+ if(override)return {group:override,color:EXPENSE_REPORT_COLORS[override]};
  const category=categories.find(c=>c.id===expense.category_id)||{};
  if(validGroup(category.report_group))return {group:category.report_group,color:EXPENSE_REPORT_COLORS[category.report_group]};
  const source=originalStyle(expense);

@@ -1,4 +1,4 @@
-import {EXPENSE_REPORT_GROUPS,categoryReportGroup,EXPENSE_REPORT_COLORS} from '../expense-colors.js';
+import {EXPENSE_REPORT_GROUPS,categoryReportGroup,EXPENSE_REPORT_COLORS,expenseReportOverride} from '../expense-colors.js';
 import {discountScenarios} from '../pricing-discounts.js';
 import {draftVariantRow} from '../pricing-drafts.js';
 import {variantStudy,numericRange,formatVariantAttributes,pricingProviderCost,pricingCompetition} from '../pricing-core.js';
@@ -1093,6 +1093,7 @@ export function expenseRecordHtml(row=null){
       ${btn('Vista previa antes de guardar','expense-file-preview','secondary','id="exFilePreview" disabled')}${row?btn('Guardar solo adjunto',taxRecord?'expense-tax-attach-save':'expense-attach-save','primary',`data-id="${row.id}"`):''}</div>
      </div>
     </section>
+    ${!taxRecord?`<section class="card card-pad"><h3>Categoría del pago en el Excel</h3><p>Elige cómo quieres agrupar y colorear este gasto en los diarios mensuales.</p><div class="form-grid" style="margin-top:14px">${selectField('Categoría del pago en el Excel','exReportGroup',[{value:'',label:'Automático · categoría del gasto / color original'},...EXPENSE_REPORT_GROUPS.map(g=>({value:g.value,label:g.label+' · '+({other:'verde',payroll:'naranja',orders:'azul',fixed:'amarillo',irpf:'verde claro'})[g.value]}))],expenseReportOverride(row))}</div><p class="small muted">Esta elección tiene prioridad sobre el color importado y el de la categoría general. Solo cambia su presentación y subtotal en el Excel; no cambia importes, impuestos ni conciliación.</p>${row?`<div class="form-actions">${btn('Guardar solo categoría del Excel','expense-report-group-save','secondary',`data-id="${row.id}"`)}</div><p class="small muted">Disponible también en periodos cerrados. Guarda únicamente esta elección, sin guardar otros cambios que hayas escrito en la ficha. Esos cambios permanecen en pantalla pendientes de guardar.</p>`:'<p class="small muted">Se guarda al pulsar Guardar en el gasto nuevo.</p>'}</section>`:''}
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Conceptos</h3><p>Una factura puede tener varias líneas fiscales. Para un abono de proveedor, selecciona «Rectificativa» e introduce las bases y el importe devuelto con signo negativo; los porcentajes siguen positivos.</p></div>${btn('+ Añadir línea','expense-line-add','secondary')}</div>
      <p id="exTaxConcept" class="note" hidden>Pago de impuesto · solo control interno. Indica el importe y su fecha de pago en «Tratamiento general». No tiene IVA, recargo ni gasto fiscal deducible.</p><div id="expenseLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>expenseLineRow(l,i,categories)).join('')}</div>
     </section>

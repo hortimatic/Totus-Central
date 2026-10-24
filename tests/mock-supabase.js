@@ -201,11 +201,22 @@ const rpc=async (name,args={})=>{
   const profile=db.profiles.find(x=>x.id===userId);profile.ui_preferences={...(profile.ui_preferences||{}),report_blocks:[...order]};
   return {data:[...order],error:null};
  }
+ if(name==='totus_set_expense_report_group'){
+  const row=get('ops_expenses',args.p_id);if(!row)return {data:null,error:{message:'Gasto no encontrado'}};
+  const source=JSON.parse(row.source_ref||'{}');
+  if((source.report_display?.group||null)!==(args.p_expected_group||null))return {data:null,error:{message:'La categoría del Excel ha cambiado'}};
+  if(args.p_group&&!['other','payroll','orders','fixed','irpf'].includes(args.p_group))return {data:null,error:{message:'Categoría no válida'}};
+  if(args.p_group)source.report_display={group:args.p_group};else delete source.report_display;
+  row.source_ref=Object.keys(source).length?JSON.stringify(source):null;
+  insert('ops_audit_log',{area:'gastos',action:'categoria_excel',entity_id:row.id});
+  return {data:row.id,error:null};
+ }
  if(name==='totus_save_expense'){
   const p=args.p_expense,lines=args.p_lines||[];let row=p.id?get('ops_expenses',p.id):null;
   if(!row)row=insert('ops_expenses',{});
   const base=sum(lines,l=>l.base_amount),vat=sum(lines,l=>l.base_amount*l.vat_rate/100),re=sum(lines,l=>l.base_amount*l.re_rate/100),wh=sum(lines,l=>l.base_amount*l.withholding_rate/100);
   Object.assign(row,p,{id:row.id,base_amount:base,vat_amount:vat,re_amount:re,withholding_amount:wh,accounting_amount:base+vat+re-wh,gross_expense:base+vat+re-wh});
+  if(Object.hasOwn(p,'report_group')){const source=JSON.parse(row.source_ref||'{}');if(p.report_group)source.report_display={group:p.report_group};else delete source.report_display;row.source_ref=Object.keys(source).length?JSON.stringify(source):null;delete row.report_group;}
   syncDocumentLink('ops_expenses',row);
   db.ops_expense_lines=db.ops_expense_lines.filter(l=>l.expense_id!==row.id);
   lines.forEach(l=>insert('ops_expense_lines',{...l,expense_id:row.id,vat_amount:l.base_amount*l.vat_rate/100,re_amount:l.base_amount*l.re_rate/100,withholding_amount:l.base_amount*l.withholding_rate/100,irpf_imputable:l.base_amount}));
