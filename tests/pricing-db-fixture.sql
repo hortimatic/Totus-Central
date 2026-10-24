@@ -51,3 +51,6 @@ create policy history_write on public.consultation_history for insert to authent
 create policy history_read on public.consultation_history for select to authenticated using(auth.uid() is not null);
 
 create policy totus_consultation_history_create on public.consultation_history as restrictive for insert to authenticated with check(private.totus_can('pricing','create'));
+
+alter table public.products add constraint products_product_type_check check(product_type in ('simple','variants'));
+alter table public.products add constraint products_status_check check(status in ('PENDIENTE','ACEPTADO'));

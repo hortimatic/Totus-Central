@@ -41,3 +41,17 @@ Se recuperaron seis productos y tres variantes de los apuntes disponibles: XROS 
 Los importes documentados son 3,20/5,70 € para 0 y 10 mg y 3,70/6,30 € para 20 mg. Son datos de demostración, no una tarifa vigente. Los campos no documentados se dejaron vacíos; las referencias provisionales llevan DEMO-RECUP y constan en notas.
 
 La comparación de competencia usa precios con descuento y envío y excluye los marcados sin stock. Muestra mínimo, media y máximo. Si no se escribe una referencia manual, el producto simple se compara con el mínimo disponible. La estimación mensual del producto simple multiplica su beneficio unitario por las unidades/mes indicadas; no es un ingreso contable ni una predicción de demanda.
+
+## Alta completa y recuperación funcional · revisión del 24/10/2026
+
+Al elegir **Con variantes**, el editor aparece antes de guardar el producto. Añade cada referencia con nombre, atributos (por ejemplo «Nicotina: 10 mg; Volumen: 10 ml» o «Resistencia: 0,8 Ω»), compra sin IVA/RE y su PVP. Los precios pueden ser distintos para cada nivel de nicotina. Se pueden quitar filas nuevas sin eliminar variantes ya guardadas. Cambiar de tipo conserva los campos del borrador; solo se guardan variantes cuando el tipo final es «Con variantes».
+
+En un producto simple puedes indicar también el proveedor inicial, el coste, el descuento de compra y el envío por unidad. El proveedor admite un nombre existente o uno nuevo. Es opcional, pero sin coste no hay margen calculable. Los costes nacionales no añaden de nuevo impuestos especiales ya incluidos en la compra.
+
+**Guardar** usa una transacción: producto, variantes nuevas, coste inicial e historial se guardan juntos o se revierten juntos. Ante un error se conserva el formulario para corregirlo. La referencia de una variante no puede repetirse cambiando mayúsculas o espacios. Si otra persona modifica el producto, se rechaza el guardado antiguo en lugar de sobrescribirlo. No borres variantes existentes para recrear el producto.
+
+**Descuentos y rentabilidad** compara promociones del 0 al 50 %, de cinco en cinco. Si hay varias variantes, elige cuál comparar. Cada fila indica precio final, beneficio por unidad y margen. La clasificación original usa pérdida, crítico (menos del 18 %), ajustado (menos del 25 %), sano y muy sano (objetivo de familia, 35 % si no se definió). Estas simulaciones no cambian precios guardados.
+
+**Guardar y siguiente** guarda primero y abre el siguiente producto de la misma familia; si no hay otro, vuelve a la lista. Guardar y Cancelar siguen disponibles.
+
+Las consultas guardadas ya no se limitan visualmente a las veinte primeras: tienen búsqueda y un área con desplazamiento. **Historial** muestra su uso y sus precios anteriores. Convertir una consulta crea un producto **Pendiente** con su coste y deja trazabilidad en la misma transacción; no utiliza el estado incorrecto «ACTIVO».

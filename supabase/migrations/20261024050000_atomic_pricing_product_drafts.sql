@@ -17,7 +17,7 @@ begin
  if auth.uid() is null or not private.totus_can('pricing',case when v_new then 'create' else 'edit' end) then
   raise exception 'No tienes permiso para guardar este producto.' using errcode='42501';
  end if;
- if v_id is null or jsonb_typeof(p_variants)<>'array' or jsonb_array_length(p_variants)>200 then raise exception 'Solicitud de producto no válida.'; end if;
+ if v_id is null or jsonb_typeof(p_variants) is distinct from 'array' or jsonb_array_length(p_variants)>200 then raise exception 'Solicitud de producto no válida.'; end if;
  perform pg_advisory_xact_lock(hashtextextended(v_id::text,0));
  select * into v_old from public.products where id=v_id for update;
  if v_new and v_old.id is not null then
@@ -33,6 +33,7 @@ begin
  if nullif(btrim(p_product->>'sku'),'') is null or nullif(btrim(p_product->>'name'),'') is null then raise exception 'Indica nombre y referencia.'; end if;
  v_row:=jsonb_populate_record(null::public.products,p_product);
  if v_row.current_pvp<0 or v_row.proposed_pvp<0 or v_row.quick_competitor<0 or v_row.quick_discount is null or v_row.quick_discount not between 0 and 100 or v_row.units_month is null or v_row.units_month<0 then raise exception 'Precios, descuento o unidades no válidos.'; end if;
+ if exists(select 1 from unnest(array[v_row.current_pvp,v_row.proposed_pvp,v_row.quick_competitor,v_row.quick_discount]) n where n::text in ('NaN','Infinity','-Infinity')) then raise exception 'Los importes deben ser números finitos.';end if;
  if v_row.product_type='simple' and jsonb_array_length(p_variants)>0 then raise exception 'Las variantes necesitan un producto con variantes.'; end if;
  if v_row.product_type='variants' and jsonb_array_length(p_variants)=0 and not exists(select 1 from public.product_variants where product_id=v_id) then raise exception 'Añade al menos una variante.'; end if;
  if v_new then
@@ -46,6 +47,7 @@ begin
  for v_variant in select value from jsonb_array_elements(p_variants) loop
   v_item:=jsonb_populate_record(null::public.product_variants,v_variant);
   if v_item.id is null or nullif(btrim(v_item.name),'') is null or nullif(btrim(v_item.sku),'') is null or v_item.cost_net is null or v_item.pvp is null or v_item.cost_net<0 or v_item.pvp<0 or v_item.nicotine_mg_ml<0 or v_item.volume_ml<0 or jsonb_typeof(coalesce(v_item.attributes,'{}'::jsonb))<>'object' then raise exception 'Variante incompleta o con valores no válidos.'; end if;
+  if exists(select 1 from unnest(array[v_item.cost_net,v_item.pvp,v_item.nicotine_mg_ml,v_item.volume_ml]) n where n::text in ('NaN','Infinity','-Infinity')) then raise exception 'Los importes de variante deben ser números finitos.';end if;
   insert into public.product_variants(id,product_id,sku,name,attributes,nicotine_mg_ml,volume_ml,cost_net,pvp,active)
    values(v_item.id,v_id,btrim(v_item.sku),btrim(v_item.name),coalesce(v_item.attributes,'{}'::jsonb),v_item.nicotine_mg_ml,v_item.volume_ml,v_item.cost_net,v_item.pvp,coalesce(v_item.active,true));
  end loop;
@@ -89,6 +91,7 @@ declare
 begin
  if auth.uid() is null or not private.totus_can('pricing',case when v_new then 'create' else 'edit' end) then raise exception 'No tienes permiso para guardar el coste.' using errcode='42501';end if;
  if v.product_id is null or v.provider_id is null or v.net_cost is null or v.net_cost<0 or v.provider_discount is null or v.provider_discount not between 0 and 100 or v.shipping_unit is null or v.shipping_unit<0 or v.moq is null or v.moq<0 then raise exception 'Proveedor o importes no válidos.';end if;
+ if exists(select 1 from unnest(array[v.net_cost,v.provider_discount,v.shipping_unit]) n where n::text in ('NaN','Infinity','-Infinity')) then raise exception 'Los importes deben ser números finitos.';end if;
  perform pg_advisory_xact_lock(hashtextextended(v.product_id::text,0));
  if not exists(select 1 from public.products where id=v.product_id) then raise exception 'Producto no disponible.';end if;
  if not v_new and not exists(select 1 from public.product_provider_prices where id=v.id and product_id=v.product_id and variant_id is null) then raise exception 'Coste no disponible. Vuelve a abrirlo.';end if;
