@@ -8,7 +8,7 @@ create table public.ops_stores(id uuid primary key,name text);
 insert into auth.users values('11111111-1111-4111-8111-111111111111','admin@example.invalid'),('22222222-2222-4222-8222-222222222222','staff@example.invalid'),('33333333-3333-4333-8333-333333333333','other@example.invalid');
 insert into public.team_members(email,role,active) values('admin@example.invalid','admin',true),('staff@example.invalid','encargado',true),('other@example.invalid','encargado',true);
 grant usage on schema auth to authenticated,service_role;
-grant usage on schema private to service_role;
+-- No private-schema access is pre-granted to the backend: chat.sql must install it.
 create function public.qa_assert(ok boolean,label text) returns void language plpgsql as $$begin if not coalesce(ok,false) then raise exception 'QA failed: %',label;end if;end$$;
 create function public.qa_denied(query text,fragment text) returns void language plpgsql security invoker as $$
 declare failed boolean=false;begin

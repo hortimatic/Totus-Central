@@ -1,5 +1,7 @@
 -- Equipo chat: additive installation candidate. Not applied to production.
--- Before activation, include ALL five tables in snapshot/recovery and rehearse.
+-- All seven chat tables are included in complete snapshot/recovery.
+-- The backend can invoke only the private functions explicitly granted to it.
+grant usage on schema private to service_role;
 create table public.ops_chat_channels (
  id uuid primary key default gen_random_uuid(),
  channel_kind text not null default 'channel' check(channel_kind in ('channel','direct','assistant')),

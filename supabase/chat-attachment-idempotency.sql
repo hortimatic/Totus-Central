@@ -1,3 +1,5 @@
+-- Existing backend role only. No grant to human users or anonymous clients.
+grant usage on schema private to service_role;
 -- Repeated removal must not consume another attachment's pending count.
 create or replace function private.totus_chat_file_remove(p_id uuid)
 returns void language plpgsql security definer set search_path='' as $$
