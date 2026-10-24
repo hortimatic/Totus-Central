@@ -615,6 +615,7 @@ async function saveProduct(id='',next=false){
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
  const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:val('prPvp')===''?null:num('prPvp'),proposed_pvp:val('prProposed')===''?null:num('prProposed'),units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
  for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
+ if(row.product_type==='simple'&&[...document.querySelectorAll('.pricing-draft-variant input')].some(field=>field.value.trim())&&!confirm('Has rellenado variantes. Al guardar como producto simple esas variantes nuevas no se guardarán. ¿Quieres continuar como simple?'))return;
  const variants=row.product_type==='variants'?readDraftVariants(document,state.data.variants):[];
  if(variants.length&&!can('pricing','create'))throw new Error('Para añadir variantes necesitas permiso para crear en Pricing.');
  if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');

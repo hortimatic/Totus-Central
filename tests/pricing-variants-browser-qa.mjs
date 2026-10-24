@@ -18,7 +18,11 @@ try{
  assert.match(await draft.locator('[data-draft-study]').innerText(),/1,66/);
  assert.match(await page.locator('#prDiscountScenarios').innerText(),/50 %/);
  assert.match(await page.locator('#prDiscountScenarios').innerText(),/Descuento no recomendado/);
- await page.locator('#prType').selectOption('simple');await page.locator('#prType').selectOption('variants');
+ await page.locator('#prType').selectOption('simple');
+ page.once('dialog',dialog=>dialog.dismiss());
+ await page.locator('[data-action="product-save"]').click();
+ assert.equal(await page.evaluate(()=>window.__mockDb.products.length),0,'Cancelling a type change must preserve all unsaved variants');
+ await page.locator('#prType').selectOption('variants');
  assert.equal(await draft.locator('input[id^="pdSku_"]').inputValue(),'SALES-10','Changing type preserves unsaved variant values');
  await page.locator('[data-action="product-draft-add"]').click();
  const extra=page.locator('.pricing-draft-variant').last();
