@@ -54,6 +54,20 @@ select public.qa_assert(public.totus_chat_agent_reply(:'request_id','aaaaaaaa-aa
 reset role;
 select public.qa_assert((select count(*) from auth.users)=3,'assistant has no fake login');
 select public.qa_assert((select count(*) from public.ops_chat_messages where author_kind='assistant')=1,'one honest assistant identity');
+reset role;
+set role authenticated;
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+select public.totus_chat_command('send',jsonb_build_object('channel_id',:'direct_id','client_id',gen_random_uuid(),'body','Two pending attachments','expected_files',2)) as removal_message \gset
+select (:'removal_message'::jsonb->>'id') as removal_message_id \gset
+select public.totus_chat_file_begin(:'removal_message_id',gen_random_uuid(),'first.pdf',10,repeat('a',64),'application/pdf') as removal_file \gset
+select (:'removal_file'::jsonb->>'id') as removal_file_id \gset
+select public.totus_chat_file_begin(:'removal_message_id',gen_random_uuid(),'second.pdf',10,repeat('b',64),'application/pdf');
+select public.totus_chat_file_remove(:'removal_file_id');
+select public.totus_chat_file_remove(:'removal_file_id');
+select public.qa_assert((select expected_files from public.ops_chat_messages where id=:'removal_message_id')=1,'retrying removal preserves the other pending attachment');
+reset role;
+select public.qa_assert((select count(*) from public.ops_chat_events where entity_id=:'removal_file_id' and action='file_detached')=1,'attachment removal is audited once');
+reset role;
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333"}',true);
 select public.qa_assert((select count(*) from public.ops_chat_agent_requests)=0,'foreign user sees no assistant requests');

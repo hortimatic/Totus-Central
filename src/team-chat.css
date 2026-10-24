@@ -45,3 +45,8 @@
 .chat-inbox{list-style:none;margin:0;padding:0;display:grid;gap:12px}.chat-inbox li{padding:12px;background:#f4f7fc;border-radius:8px}.chat-inbox p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
 #teamChatUnread{display:inline-block;background:#2563eb;color:white;border-radius:12px;font-size:10px;padding:1px 6px;margin-left:auto;min-width:16px;text-align:center}
 @media(max-width:700px){.chat-file{align-items:flex-start;flex-direction:column}.chat-compose-tools{gap:8px}.chat-compose-tools select{max-width:160px}}
+
+/* Match the shared form controls without changing other modules. */
+.chat-search input,.chat-search select,.chat-compose textarea,.chat-compose-tools select,.chat-dialog input:not([type=file]):not([type=checkbox]),.chat-dialog textarea,.chat-dialog select{box-sizing:border-box;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#23314b;font:inherit;font-size:13px;padding:8px 10px;min-height:36px}
+.chat-search input:focus,.chat-search select:focus,.chat-compose textarea:focus,.chat-dialog input:focus,.chat-dialog textarea:focus,.chat-dialog select:focus{outline:2px solid #93b4ef;outline-offset:1px}
+#teamChatUnread[hidden]{display:none!important}
