@@ -121,6 +121,7 @@ try{
   state.data.userPermissions=[{email:state.user.email,module:'pricing',can_view:true,can_create:false,can_edit:true,can_delete:false,can_export:false}];
  });
  await simple.locator('#nav [data-route="pricing"]').click();
+ if(await simple.locator('[data-action="product-back"]').count())await simple.locator('[data-action="product-back"]').first().click();
  await simple.locator('[data-action="product-edit"]').first().click();await simple.locator('#prType').selectOption('variants');
  assert.equal(await simple.locator('[data-action="product-draft-add"]').count(),0,'Editor without create must not be offered new variant insertion');
  assert.equal(await simple.locator('.pricing-draft-variant').count(),0,'Type change must not insert an unauthorized draft');
