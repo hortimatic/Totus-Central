@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node tests/chat-files-qa.mjs
+      - run: node tests/chat-files-edge-qa.mjs
+      - run: node tests/chat-file-reader-qa.mjs
       - run: node tests/team-chat-qa.mjs
       - run: node tests/stock-cloud-import-qa.mjs
       - run: node tests/pricing-variants-qa.mjs
@@ -70,6 +73,7 @@ jobs:
       - run: node tests/cloud-backup-reader-qa.mjs
       - run: node tests/partitioned-handler-qa.mjs
       - run: node tests/partitioned-backup-qa.mjs
+      - run: node tests/chat-recovery-qa.mjs
       - run: node tests/recovery-core-qa.mjs
       - run: node tests/recovery-capacity-qa.mjs
       - run: node tests/native-backup-zip-qa.mjs
@@ -207,3 +211,31 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-fixture.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-advanced-db-qa.sql
+
+  chat-recovery-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify complete chat recovery in disposable database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023170949_stock_receipts_with_complete_backups.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023175147_bounded_backup_rehearsal_timeout.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-recovery-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat-recovery.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-recovery-db-qa.sql

@@ -17,3 +17,6 @@ declare failed boolean=false;begin
  end;
  if not failed then raise exception 'QA expected denial: %',query;end if;
 end$$;
+
+create table public.ops_onedrive_config(id integer primary key,drive_id text);
+insert into public.ops_onedrive_config values(1,'drive-qa');

@@ -23,8 +23,8 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
  function fileHtml(f,mine){
   const id='data-file="'+esc(f.id)+'"';
   return '<div class="chat-file"><div><b>'+esc(f.original_name)+'</b><small>'+fileSize(f.size_bytes)+' · '+(f.status==='ready'?'Guardado en OneDrive':'Subida pendiente')+'</small></div><div class="inline-actions">'+
-  (f.status==='ready'?button('Ver','file-preview',id)+button('Descargar','file-download',id):mine?button('Completar subida','file-retry',id):'')+
-  (mine||manager()?button('Retirar','file-remove',id,'danger'):'')+'</div></div>';
+  (f.status==='ready'?button('Ver','file-preview',id)+button('Descargar','file-download',id):mine&&!current()?.archived?button('Completar subida','file-retry',id):'')+
+  (!current()?.archived&&(mine||manager())?button('Retirar','file-remove',id,'danger'):'')+'</div></div>';
  }
  function pickedFilesHtml(){
   return (picks.get(draftKey())||[]).map((p,i)=>'<div class="chat-picked"><span>'+esc(p.file.name)+' · '+fileSize(p.file.size)+'</span>'+button('Quitar','pick-remove','data-index="'+i+'"')+'</div>').join('');

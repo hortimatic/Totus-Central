@@ -82,5 +82,14 @@ export function createTeamChatFiles({admin,scoped,check,token,root,ensurePath,gr
   }
   throw new Error('No se pudo localizar un adjunto verificado de la copia.');
  }
- return {handle,resolvePath};
+ async function reconcilePending(){
+  const rows=check(await admin.from('ops_chat_files').select('*').eq('status','uploading').is('deleted_at',null).order('last_checked_at',{ascending:true,nullsFirst:true}).limit(3),'No se pudo comprobar las subidas pendientes.');
+  let completed=0;
+  for(const f of rows){
+   try{await verify(f,{id:f.uploaded_by});completed++;}
+   catch{await admin.from('ops_chat_files').update({last_checked_at:new Date().toISOString(),last_error:'La subida no se ha completado o sus permisos han cambiado. Puedes reintentar con el mismo original.'}).eq('id',f.id).eq('status','uploading');}
+  }
+  return {completed};
+ }
+ return {handle,resolvePath,reconcilePending};
 }

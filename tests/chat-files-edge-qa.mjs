@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {createTeamChatFiles} from '../supabase/functions/totus-onedrive/team-chat-files.js';
+import {chatFileHash} from '../src/chat-files.js';
+const original=new Blob(['%PDF-1.7\nQA']),sha256=await chatFileHash(original),file={id:'11111111-1111-4111-8111-111111111111',message_id:'message',uploaded_by:'owner',storage_path:'chat/channel/file/f.pdf',onedrive_path:'04 Chat/Group/file.pdf',size_bytes:original.size,sha256,mime_type:'application/pdf',original_name:'factura.pdf',status:'uploading'};
+let denied=false,wrongBytes=false,local=false,verified=0;
+const check=r=>{if(r.error)throw Error('Denied');return r.data;};
+const query=()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:denied?null:{...file},error:null})});
+const client={from:query,rpc:async()=>({data:{...file},error:null})};
+const admin={from:query,rpc:async(name,args)=>{assert.equal(name,'totus_chat_file_verified');assert.equal(args.p_actor,'owner');verified++;file.status='ready';return {data:{...file},error:null};},storage:{from:()=>({download:async()=>({data:original,error:null}),createSignedUrl:async()=>({data:{signedUrl:'https://db.invalid/signed'},error:null})})}};
+const edge=createTeamChatFiles({admin,scoped:async()=>({client,user:{id:'owner'}}),check,token:async()=>'server-only-token',root:async()=>{},ensurePath:async()=>{},encodedPath:p=>p.map(encodeURIComponent).join('/'),fileHash:async bytes=>chatFileHash(new Blob([bytes])),headers:{},graph:async(access,path,options)=>{
+ assert.equal(access,'server-only-token');
+ if(path.endsWith('/content'))return local?new Response('',{status:404}):new Response(null,{status:302,headers:{Location:'https://files.1drv.com/original'}});
+ return new Response(JSON.stringify({id:'one-drive-id',file:{},size:original.size}));
+},fetchFile:async(address,options)=>{assert.equal(options.headers?.Authorization,undefined);return new Response(wrongBytes?'alterado':original);}});
+const req=new Request('https://edge.invalid');
+await assert.rejects(()=>edge.handle(req,{action:'chat-file-content',file_id:file.id}),/no ha terminado/);
+const completed=await edge.handle(req,{action:'chat-file-complete',file_id:file.id});assert.equal((await completed.json()).file.status,'ready');assert.equal(verified,1);
+const content=await edge.handle(req,{action:'chat-file-content',file_id:file.id});assert.equal(await content.text(),await original.text());assert.equal(content.headers.get('X-Content-Type-Options'),'nosniff');
+wrongBytes=true;await assert.rejects(()=>edge.handle(req,{action:'chat-file-content',file_id:file.id}),/original/);wrongBytes=false;
+denied=true;await assert.rejects(()=>edge.handle(req,{action:'chat-file-content',file_id:file.id}),/acceso/);denied=false;
+file.storage_path='recovery/job/file.pdf';local=true;const restored=await edge.handle(req,{action:'chat-file-content',file_id:file.id});assert.equal(await restored.text(),await original.text());
+const location=await edge.resolvePath(file.storage_path,req,true);assert.equal(location.provider,'supabase');
+console.log('CHAT FILE EDGE QA: caller scope, server verification, wrong-original denial, private download, no credential forwarding and restored-file fallback OK');

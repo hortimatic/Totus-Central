@@ -542,6 +542,7 @@ Deno.serve(async req=>{
    if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
+   if(action==='mirror-documents')await chatFiles.reconcilePending();
    if(result.copied||result.cleanup?.archived)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending,retirados:result.cleanup?.archived||0}}),'No se pudo registrar el lote automático.');
    return json(result);
   }

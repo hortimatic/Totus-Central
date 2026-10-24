@@ -1,3 +1,22 @@
+CREATE OR REPLACE FUNCTION private.totus_recovery_dataset()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+declare tab text; rows jsonb; dataset jsonb='{}';
+begin
+ perform pg_catalog.pg_advisory_xact_lock(724021126::bigint);
+ for tab in select unnest(private.totus_recovery_tables()) order by 1 loop
+  execute format('lock table public.%I in share mode',tab);
+ end loop;
+ foreach tab in array private.totus_recovery_tables() loop
+  execute format('select coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text),''[]''::jsonb) from public.%I t',tab) into rows;
+  dataset=dataset||jsonb_build_object(tab,rows);
+ end loop;
+ return dataset;
+end;
+$function$
+
 -- Install after chat.sql. Extends complete backup/recovery without altering accounting rows.
 CREATE OR REPLACE FUNCTION private.totus_recovery_tables()
  RETURNS text[]
@@ -123,6 +142,7 @@ declare job public.ops_recovery_jobs; tab text; tabs text[]=private.totus_recove
  columns_sql text; truncate_sql text; trigger_state jsonb; seq record; next_id bigint;
  onedrive_before jsonb; expected jsonb; counts jsonb='{}'; item jsonb;
 begin
+ perform pg_catalog.pg_advisory_xact_lock(724021126::bigint);
  perform 1 from public.ops_onedrive_config where id=1 for update;
  if exists(select 1 from public.ops_onedrive_config where id=1 and retirement_lock_until>now()) then
   raise exception 'Espera a que termine la limpieza de duplicados antes de recuperar una copia';
