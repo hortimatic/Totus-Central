@@ -20,3 +20,5 @@ assert.equal(chatGroups([{id:'a',name:'A',group_name:'Hortimatic',last_seq:1},{i
 assert.equal(chatGroups([{name:'A',group_name:'Hortimatic',last_seq:1},{name:'Z',group_name:'Hortimatic',last_seq:20}],layoutSample)[0].channels[0].name,'Z');
 assert.equal(chatLayout({collapsed_groups:123,group_labels:[],group_order:null}).collapsed_groups.length,0);
 assert.equal(chatLayout({group_sort:{Hortimatic:'unsafe'}}).group_sort.Hortimatic,undefined);
+
+assert.equal(chatGroups([{name:'Real',group_name:'constructor'}])[0].label,'constructor','Section labels must not inherit object properties');

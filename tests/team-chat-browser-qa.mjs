@@ -209,9 +209,10 @@ try{
  const geometry=[];
  for(const width of [1920,1440,1280,1024,900,768,700,390,320]){
   await page.setViewportSize({width,height:1000});
-  const dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,buttons:[...document.querySelectorAll('.team-chat button')].filter(b=>b.getBoundingClientRect().width&&b.scrollWidth>b.clientWidth+2).map(b=>b.textContent)}));
+  const dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,sidebarOverflow:document.querySelector('.chat-sidebar').scrollWidth-document.querySelector('.chat-sidebar').clientWidth,buttons:[...document.querySelectorAll('.team-chat button')].filter(b=>b.getBoundingClientRect().width&&b.scrollWidth>b.clientWidth+2).map(b=>b.textContent)}));
   assert(dimensions.scroll<=width+1,'Page overflow at '+width+': '+JSON.stringify(dimensions));
   assert.deepEqual(dimensions.buttons,[],'Button clipping at '+width);
+  assert(dimensions.sidebarOverflow<=1,'Horizontal scrolling inside channel list at '+width);
   geometry.push(dimensions);await page.screenshot({path:'artifacts/ui_chat_'+width+'.png',fullPage:true});
  }
  assert.equal(await page.evaluate(()=>qaChat.calls.some(c=>!c.name.startsWith('totus_chat_'))),false,'Must never call accounting functions');

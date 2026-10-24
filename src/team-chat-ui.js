@@ -202,7 +202,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   try{
    const m=data.messages.find(m=>m.id===id);
    if(action==='sidebar-toggle'){busy=true;await saveLayout({...data.layout,compact_sidebar:!data.layout.compact_sidebar});return;}
-   if(action==='group-toggle'){const name=el.dataset.group,closed=data.layout.collapsed_groups||[];busy=true;await saveLayout({...data.layout,collapsed_groups:closed.includes(name)?closed.filter(g=>g!==name):[...closed,name]});return;}
+   if(action==='group-toggle'){const name=el.dataset.group,closed=data.layout.collapsed_groups||[],wasClosed=!data.channelQuery&&closed.includes(name);data.channelQuery='';busy=true;await saveLayout({...data.layout,collapsed_groups:wasClosed?closed.filter(g=>g!==name):[...new Set([...closed,name])]});return;}
    if(action==='group-menu'){groupMenu(el.dataset.group);return;}
    if(action==='section-new'){modal('Nueva sección','<label>Nombre<input name="name" maxlength="80" required></label><p class="muted">Organiza tus canales sin cambiar datos o permisos.</p>',{label:'Crear sección',run:async v=>{const name=chatText(v.name,80);await saveLayout({...data.layout,extra_groups:[...new Set([...(data.layout.extra_groups||[]),name])]});}});return;}
    if(action==='new'){modal('Nuevo canal',channelForm(),{label:'Crear canal',run:async v=>{const c=await command('create_channel',chatChannelInput({...v,is_private:v.is_private==='true'}));selectCreated(c,'manager');}});return;}

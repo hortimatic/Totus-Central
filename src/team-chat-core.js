@@ -24,7 +24,7 @@ export function chatMessageMatches(message,{query='',from='',to='',pinned=false,
 export function chatLayout(value={}){
  const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
  const names=v=>[...new Set((Array.isArray(v)?v:[]).filter(s=>typeof s==='string'&&s.trim()&&s.length<=80))].slice(0,100);
- const map=(v,allowed)=>Object.fromEntries(Object.entries(v&&typeof v==='object'&&!Array.isArray(v)?v:{}).filter(([k,s])=>k&&k.length<=80&&typeof s==='string'&&s.trim()&&s.length<=80&&(!allowed||allowed.includes(s))).slice(0,100));
+ const map=(v,allowed)=>Object.assign(Object.create(null),Object.fromEntries(Object.entries(v&&typeof v==='object'&&!Array.isArray(v)?v:{}).filter(([k,s])=>k&&k.length<=80&&typeof s==='string'&&s.trim()&&s.length<=80&&(!allowed||allowed.includes(s))).slice(0,100)));
  return {compact_sidebar:source.compact_sidebar===true,collapsed_groups:names(source.collapsed_groups),hidden_groups:names(source.hidden_groups),extra_groups:names(source.extra_groups),group_order:names(source.group_order),group_labels:map(source.group_labels),group_sort:map(source.group_sort,['alphabetical','recent','manual'])};
 }
 export function chatGroups(channels,layout={}){
