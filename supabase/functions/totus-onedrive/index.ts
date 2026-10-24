@@ -1,3 +1,4 @@
+import {createTeamChatFiles} from './team-chat-files.js';
 import {importStockDocument} from './stock-import.js';
 import {credentialAlertSettings} from '../../../src/connection-maintenance.js';
 import {renewMicrosoftCredential} from './credential-renewal.js';
@@ -419,7 +420,7 @@ async function documentFileUrl(path:string,req:Request,job=false){
   if(result.error||!result.data)throw new Error('Acceso denegado.');
   doc=result.data;
  }
- if(!doc)throw new Error('Documento no disponible.');
+ if(!doc){const chat=await chatFiles.resolvePath(path,req,job);if(chat)return chat;throw new Error('Documento no disponible.');}
  const mapped=check(await admin.from('ops_onedrive_documents').select('source_path,onedrive_path,size_bytes,sha256,verified_at').eq('document_id',doc.id).maybeSingle(),'No se pudo comprobar la ubicación del documento.');
  if(!mapped||mapped.source_path!==doc.storage_path)return {provider:'supabase'};
  if(!mapped.verified_at||mapped.source_path!==doc.storage_path||Number(mapped.size_bytes)!==Number(doc.size_bytes)||!doc.sha256||mapped.sha256!==doc.sha256)throw new Error('La copia de OneDrive no coincide con el documento. No se ha abierto otro archivo.');
@@ -505,7 +506,15 @@ async function backupFileUrls(runId:string){
  return {files:result};
 }
 
-const backupDocumentLinks=createBackupDocumentLinks({admin,check,config,token,root});
+async function chatScoped(req:Request){
+ const authorization=req.headers.get('Authorization')||'';
+ const identity=await admin.auth.getUser(authorization.replace(/^Bearer\s+/i,''));
+ if(identity.error||!identity.data.user)throw new Error('Acceso denegado.');
+ const client=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:authorization}},auth:{persistSession:false,autoRefreshToken:false}});
+ return {client,user:identity.data.user};
+}
+const chatFiles=createTeamChatFiles({admin,scoped:chatScoped,check,token,root,ensurePath,graph,encodedPath,fileHash,headers});
+const backupDocumentLinks=createBackupDocumentLinks({admin,check,config,token,root,resolveExtra:(path:string)=>chatFiles.resolvePath(path,new Request(url),true)});
 const directBackup=createDirectBackupTransfer({admin,check,config,token,root,ensurePath,graph,encodedPath,fileHash});
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
@@ -533,9 +542,11 @@ Deno.serve(async req=>{
    if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req,true));
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
+   if(action==='mirror-documents')await chatFiles.reconcilePending();
    if(result.copied||result.cleanup?.archived)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending,retirados:result.cleanup?.archived||0}}),'No se pudo registrar el lote automático.');
    return json(result);
   }
+  if(action.startsWith('chat-file-'))return await chatFiles.handle(req,body);
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
   const user=await administrator(req);
   if(action==='import-stock-document')return json(await importStockDocument({...body,actor_email:user.email},{admin,check,token,root,graph,encodedPath,readContent,fileHash}));

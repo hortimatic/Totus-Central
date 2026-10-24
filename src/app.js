@@ -1,3 +1,5 @@
+import {requestChatFile,subscribeChat,createChatNotifier} from './chat-api.js';
+import {createTeamChat} from './team-chat-ui.js';
 import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
@@ -31,13 +33,25 @@ import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
 import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
 import {renderPdfPreview} from './pdf-preview.js';
 
+let chatUnread=0,pendingChatTarget=null;
+function updateChatBadge(count){
+ if(count!==null)chatUnread=Number(count)||0;
+ const badge=document.getElementById('teamChatUnread');
+ if(badge){badge.textContent=chatUnread>99?'99+':String(chatUnread);badge.hidden=chatUnread===0;badge.setAttribute('aria-label',chatUnread+' mensajes sin leer');}
+}
+function updateChatChannels(channels){updateChatBadge(channels.filter(c=>c.member_role&&!c.archived&&!c.muted&&c.notify_level!=='none').reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0));}
+const teamChat=createTeamChat({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>toast(message,'bad'),confirm:message=>confirmAction(message),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels});
+const chatNotifier=createChatNotifier({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,onOpen:async message=>{
+ if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
+}});
 const titles={
+ equipo:['Trabajo','Chat del equipo'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-function can(module,action='view'){return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+function can(module,action='view'){if(module==='equipo')return !!state.user&&state.user.active!==false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
@@ -105,7 +119,7 @@ function renderNav(){
  const nav=$('#nav');let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
   const group=r.group!==current?(current=r.group,`<div class="eyebrow" style="padding:15px 12px 5px;color:#718096">${esc(r.group)}</div>`):'';
-  return group+`<button class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}"><span class="nav-icon">${r.icon}</span>${esc(r.label)}</button>`
+  return group+`<button class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}"><span class="nav-icon">${r.icon}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</button>`
  }).join('');
 }
 function render(){
@@ -119,6 +133,7 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
+ teamChat.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -135,11 +150,15 @@ function render(){
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
  if(input('exDocKind'))updateExpenseTaxTreatment();
  captureFormDraft($('#content'));
+ if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
+  const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await teamChat.openMessage(target.channel_id,target.id,target.parent_id);
+ }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
-const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(Boolean);
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(state.route!=='equipo'||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
+ if(!modalOnly&&state.route==='equipo'&&teamChat.hasDraft()&&!await confirmAction('Hay mensajes sin enviar en el chat. Se conservarán durante esta sesión; al cerrar sesión o recargar se perderán. ¿Salir del chat?'))return false;
  const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
  if(!roots.length)return true;
  const host=$('#modalHost'),previous=[...host.childNodes],focused=document.activeElement;
@@ -2742,13 +2761,14 @@ async function boot(){
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
- await refresh();
+ await refresh();chatNotifier.start();
 }
-sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
+sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
 
 // Poll only while the Storage subtab is visible: no background traffic on other pages.
 setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);
 document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='visible'&&state.user)chatNotifier.check();
  if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error);
 });
 setInterval(()=>{if(document.visibilityState==='visible'&&state.route==='administracion'&&getView('administracion').section==='log'&&!state.loading&&!document.activeElement?.id?.startsWith('log')&&!input('modalHost')?.children.length)refreshAuditPanel()},30000);

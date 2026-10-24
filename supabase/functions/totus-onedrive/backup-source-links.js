@@ -1,13 +1,18 @@
 const HASH=/^[a-f0-9]{64}$/;
 const validPath=p=>typeof p==='string'&&p&&p.length<=1024&&!/[\\\x00-\x1f]/.test(p)&&p.split('/').every(s=>s&&s!=='.'&&s!=='..');
-export function createBackupDocumentLinks({admin,check,config,token,root,fetchGraph=fetch}){
+export function createBackupDocumentLinks({admin,check,config,token,root,resolveExtra=null,fetchGraph=fetch}){
  return async function backupDocumentLinks(paths){
   if(!Array.isArray(paths)||paths.length>30||new Set(paths).size!==paths.length||paths.some(p=>!validPath(p)))throw new Error('Lote de documentos no válido.');
   if(!paths.length)return {files:[]};
   const docs=check(await admin.from('ops_documents').select('id,storage_path,size_bytes,sha256').in('storage_path',paths),'No se pudo comprobar el inventario de documentos.');
-  if(docs.length!==paths.length)throw new Error('Un documento del lote ya no está disponible.');
+  const extra=[];
+  for(const path of paths.filter(p=>!docs.some(d=>d.storage_path===p))){
+   const file=resolveExtra?await resolveExtra(path):null;
+   if(!file)throw new Error('Un documento del lote ya no está disponible.');
+   extra.push({path,...file});
+  }
   const maps=check(await admin.from('ops_onedrive_documents').select('document_id,source_path,onedrive_item_id,size_bytes,sha256,verified_at').in('document_id',docs.map(d=>d.id)),'No se pudo comprobar la ubicación de los documentos.');
-  const remote=[],local=[],files=[];
+  const remote=[],local=[],files=[...extra];
   for(const doc of docs){
    const m=maps.find(m=>m.document_id===doc.id);
    if(m&&m.source_path===doc.storage_path){

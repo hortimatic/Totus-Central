@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import {RECOVERY_TABLES,LEGACY_RECOVERY_TABLES,STOCK_RECOVERY_TABLES,LEGACY_STOCK_SCHEMA_HASH,validateMetadata,isLegacyStockArchive,recoveryFileReferences} from '../src/recovery-core.js';
+import {RECOVERY_TABLES,PRE_CHAT_RECOVERY_TABLES,CHAT_RECOVERY_TABLES,LEGACY_RECOVERY_TABLES,STOCK_RECOVERY_TABLES,LEGACY_STOCK_SCHEMA_HASH,validateMetadata,isLegacyStockArchive,recoveryFileReferences} from '../src/recovery-core.js';
 const database=Object.fromEntries(RECOVERY_TABLES.map(t=>[t,[]]));
 const manifest={format:'totus-clean-backup',version:3,project_ref:'test',database_instance:'11111111-1111-4111-8111-111111111111',schema_hash:'a'.repeat(64),revision:'b'.repeat(64),identities:[],tables:[...RECOVERY_TABLES],storage:{'business-documents':[],'business-assets':[]}};
-assert.equal(RECOVERY_TABLES.length,42);assert.equal(new Set(RECOVERY_TABLES).size,42);
+assert.equal(PRE_CHAT_RECOVERY_TABLES.length,42);assert.equal(CHAT_RECOVERY_TABLES.length,7);assert.equal(RECOVERY_TABLES.length,49);assert.equal(new Set(RECOVERY_TABLES).size,49);
 assert.equal(STOCK_RECOVERY_TABLES.length,4);
 validateMetadata(manifest,database);
 for(const missing of STOCK_RECOVERY_TABLES){
@@ -18,4 +18,4 @@ assert.throws(()=>validateMetadata(oldManifest,missingAccounting),/incompletas/)
 database.ops_documents.push({id:'doc',storage_path:'2026/stock/pedido.pdf'});
 database.ops_stock_sources.push({id:'source',document_id:'doc'});
 assert.deepEqual(recoveryFileReferences(database)['business-documents'],['2026/stock/pedido.pdf']);
-console.log('STOCK BACKUP QA: all 42 tables required; exact legacy 38-table contract supported; missing accounting and partial module rejected; originals included');
+console.log('STOCK BACKUP QA: all 49 tables required; exact legacy 38-table contract supported; missing accounting and partial module rejected; originals included');

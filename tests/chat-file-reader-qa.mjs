@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {createRecoveryDocumentReader} from '../supabase/functions/totus-recovery/chat-file-reader.js';
+const calls=[],blob=new Blob(['original']);
+const admin={storage:{from:bucket=>({download:async path=>{calls.push(['local',bucket,path]);return {data:blob,error:null};}})}};
+const read=createRecoveryDocumentReader({admin,oneDriveRequest:async body=>{calls.push(['remote',body]);return {files:[{path:body.paths[0],url:'https://download.invalid/source',size_bytes:blob.size}]};},fetchFile:async()=>new Response(blob)});
+assert.equal(await (await read('chat/channel/file/factura.pdf')).text(),'original');
+assert.equal(calls[0][1].action,'backup-document-urls');
+calls.length=0;assert.equal(await (await read('recovery/job/file.pdf')).text(),'original');assert.equal(calls.length,1);assert.equal(calls[0][0],'local');
+await assert.rejects(()=>read('../escape.pdf'));
+const missing=createRecoveryDocumentReader({admin,oneDriveRequest:async()=>({files:[]})});
+await assert.rejects(()=>missing('chat/x/y.pdf'));
+console.log('RECOVERY CHAT FILE QA: private originals use administrator backup scope; prepared targets read before DB commit; unsafe/missing originals rejected');

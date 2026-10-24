@@ -67,9 +67,9 @@ globalThis.fetch=async(address,options)=>{
    assert.ok(['saved-copy','33333333-3333-4333-8333-333333333333'].includes(body.run_id));
    return new Response(JSON.stringify({files:[{path:'automaticas/saved.totusbackup',url:state.unsafeCloudBackup?'http://qa.example.invalid/backup':'https://qa.example.invalid/backup'}]}));
   }
-  assert.equal(body.action,'document-file-url');
-  if(state.cloudOriginal)return new Response(JSON.stringify({provider:'onedrive',url:'https://qa.example.invalid/original.pdf'}));
-  return new Response(JSON.stringify({provider:'supabase'}));
+  assert.equal(body.action,'backup-document-urls');
+  assert.deepEqual(body.paths,['original/test.pdf']);
+  return new Response(JSON.stringify({files:[{path:'original/test.pdf',provider:state.cloudOriginal?'onedrive':'supabase',url:'https://qa.example.invalid/original.pdf',size_bytes:original.length}]}));
  }
  if(String(address)==='https://qa.example.invalid/original.pdf')return new Response(original);
  if(String(address)==='https://qa.example.invalid/backup')return new Response(state.corruptCloudBackup?new Uint8Array([0]):built.bytes);
@@ -81,6 +81,7 @@ let code=await fs.readFile(new URL('../supabase/functions/totus-recovery/index.t
 code=code.replace(/import \{createClient\} from 'npm:[^']+';/,"const createClient=()=>globalThis.__recoveryHandlerClient;")
  .replace(/import \{NativeBackupZip as JSZip\} from '[^']+';/,'const JSZip=globalThis.__recoveryHandlerZip;');
 for(const file of ['recovery-core.js','recovery-runner.js','backup-transport.js','backup-set.js','cloud-backup-reader.js'])code=code.replace('../../../src/'+file,new URL('../src/'+file,import.meta.url).href);
+code=code.replace('./chat-file-reader.js',new URL('../supabase/functions/totus-recovery/chat-file-reader.js',import.meta.url).href);
 await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(code)).toString('base64'));
 const reset=()=>{state={role:'admin',active:true,jobs:[],files:new Map([['business-documents/original/test.pdf',new Blob([original])]]),live:{untouched:true},commitCalls:0}};
 const request=(body={},token='valid',method='POST')=>handler(new Request('https://qa.invalid',{method,headers:token?{Authorization:'Bearer '+token}: {},...(method==='POST'?{body:JSON.stringify(body)}:{})}));
