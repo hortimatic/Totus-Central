@@ -21,8 +21,17 @@ export function chatMessageMatches(message,{query='',from='',to='',pinned=false,
  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
  return (!from||day>=from)&&(!to||day<=to)&&(!pinned||message.pinned)&&(!tasks||message.task_state)&&(!query||norm(message.body+' '+message.author_email).includes(norm(query)));
 }
-export function chatGroups(channels){
- return [...new Set([...CHAT_GROUPS,...channels.map(c=>c.group_name)])].map(name=>({name,channels:channels.filter(c=>c.group_name===name).sort((a,b)=>Number(!!b.favourite)-Number(!!a.favourite)||Number(a.sort_order||0)-Number(b.sort_order||0)||a.name.localeCompare(b.name,'es'))})).filter(g=>g.channels.length);
+export function chatLayout(value={}){
+ const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+ const names=v=>[...new Set((Array.isArray(v)?v:[]).filter(s=>typeof s==='string'&&s.trim()&&s.length<=80))].slice(0,100);
+ const map=(v,allowed)=>Object.assign(Object.create(null),Object.fromEntries(Object.entries(v&&typeof v==='object'&&!Array.isArray(v)?v:{}).filter(([k,s])=>k&&k.length<=80&&typeof s==='string'&&s.trim()&&s.length<=80&&(!allowed||allowed.includes(s))).slice(0,100)));
+ return {compact_sidebar:source.compact_sidebar===true,collapsed_groups:names(source.collapsed_groups),hidden_groups:names(source.hidden_groups),extra_groups:names(source.extra_groups),group_order:names(source.group_order),group_labels:map(source.group_labels),group_sort:map(source.group_sort,['alphabetical','recent','manual'])};
+}
+export function chatGroups(channels,layout={}){
+ layout=chatLayout(layout);
+ const names=[...new Set([...(layout.group_order||[]),...CHAT_GROUPS,...channels.map(c=>c.group_name),...(layout.extra_groups||[])])];
+ return names.map(name=>({name,label:layout.group_labels?.[name]||name,channels:channels.filter(c=>c.group_name===name).sort((a,b)=>Number(!!b.favourite)-Number(!!a.favourite)||
+  (layout.group_sort?.[name]==='recent'?Number(b.last_seq||0)-Number(a.last_seq||0):layout.group_sort?.[name]==='alphabetical'?0:Number(a.sort_order||0)-Number(b.sort_order||0))||a.name.localeCompare(b.name,'es'))})).filter(g=>g.channels.length||(layout.extra_groups||[]).includes(g.name));
 }
 export function chatTaskPrompt(channel,message){
  const id=message.agent_request?.id;
