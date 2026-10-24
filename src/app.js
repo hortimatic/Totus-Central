@@ -1,4 +1,4 @@
-import {EXPENSE_REPORT_GROUPS} from './expense-colors.js';
+import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
@@ -12,7 +12,7 @@ import {workbookPreviewText} from './workbook-preview.js';
 import {oneDriveRequest,setOneDriveStatus,setOneDriveMaintenance,oneDriveCredentialNotice} from './onedrive-connection.js';
 import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
-import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue} from './form-drafts.js';
+import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,markFormFieldSaved} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
@@ -471,6 +471,17 @@ async function saveTaxExpenseFromGastos(id=''){
  resetView('gastos');await refresh('Impuesto guardado como solo control interno, sin duplicar el gasto fiscal.');
 }
 
+async function saveExpenseReportGroup(id){
+ const existing=state.data.expenses.find(x=>x.id===id);
+ if(!existing)throw new Error('Gasto no encontrado. Actualiza el listado.');
+ const group=val('exReportGroup');
+ if(group&&!EXPENSE_REPORT_GROUPS.some(g=>g.value===group))throw new Error('Selecciona una categoría del Excel válida.');
+ await rpc('totus_set_expense_report_group',{p_id:id,p_group:group||null,p_expected_group:expenseReportOverride(existing)||null});
+ await loadCore();
+ markFormFieldSaved($('#content'),'exReportGroup');
+ toast('Categoría del Excel guardada. Vuelve a generar el informe para ver el cambio.','ok');
+}
+
 async function saveExpense(id=''){
  if(val('exDocKind')==='impuesto'){await saveTaxExpenseFromGastos(getView('gastos').taxPaymentId||'');return}
  if(getView('gastos').taxPaymentId)throw new Error('Este registro es un pago de impuesto. Conserva su tipo y tratamiento interno.');
@@ -506,7 +517,7 @@ async function saveExpense(id=''){
    documentId=newDoc.id;
  }
  const first=lines[0];
- const expense={id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')==='control_interno'?'otro':val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
+ const expense={report_group:val('exReportGroup')||null,id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')==='control_interno'?'otro':val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
  let savedId;
  try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
  catch(e){throw newDoc?await rollbackNewDocument(newDoc,e):e}
@@ -2298,7 +2309,7 @@ document.addEventListener('click',async e=>{
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
  const writes=a==='stock-source-remove'||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  try{
-  if(/-save(?:$|-)/.test(a))validateDecimalFields();
+  if(/-save(?:$|-)/.test(a)&&a!=='expense-report-group-save')validateDecimalFields();
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
   if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
@@ -2352,6 +2363,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-tax-attach-save'){await saveTaxExpenseAttachment(el.dataset.id);return}
   if(a==='expense-edit'){setView('gastos',{mode:'record',id:el.dataset.id,taxPaymentId:null});render();return}
   if(a==='expense-attach-save'){await saveExpenseAttachment(el.dataset.id);return}
+  if(a==='expense-report-group-save'){await saveExpenseReportGroup(el.dataset.id);return}
   if(a==='expense-save'){await saveExpense(el.dataset.id||'');return}
   if(a==='expense-back'){resetView('gastos');render();return}
   if(a==='expense-line-add'){addExpenseLine();return}

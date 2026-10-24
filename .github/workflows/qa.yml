@@ -94,6 +94,7 @@ jobs:
       - run: node tests/production-polish-browser-qa.mjs
       - run: node tests/dashboard-report-browser-qa.mjs
       - run: node tests/expense-colors-browser-qa.mjs
+      - run: node tests/expense-payment-color-browser-qa.mjs
       - run: node tests/closing-workflow-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
@@ -170,6 +171,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/expense-report-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/expense-payment-color-db-qa.sql
 
       - name: Verify isolated Pricing database
         env:

@@ -54,3 +54,15 @@ const sourced=buildStoreMonthlyWorkbook({...args,expenses:[],incomeAdjustments:[
 assert.equal(sourced['C'+find(sourced,'Imported order')].s.fill.fgColor.rgb,'00B0F0');
 assert.equal(sum(sourced,'Pedidos '),25);assert.equal(sum(sourced,'Gastos fijos'),0);
 console.log('EXPENSE COLORS: category defaults, rent retention, original nested/ARGB fills, override, refund, subtotal consistency and XLSX round-trip verified.');
+
+const manualOverride={...expenses[1],source_ref:JSON.stringify({kind:'invoice_original',report_display:{group:'fixed'}})};
+assert.deepEqual(expenseReportStyle(manualOverride,overridden),{group:'fixed',color:'FFFF00'},'Per-payment override wins over category preferences');
+const paymentArgs={...args,expenses:[manualOverride]};
+const changedSheet=buildStoreMonthlyWorkbook(paymentArgs).Sheets.Octubre;
+assert.equal(changedSheet['C'+find(changedSheet,'Order')].s.fill.fgColor.rgb,'FFFF00');
+assert.equal(sum(changedSheet,'Gastos fijos'),100);
+const invoice={...manualOverride,id:'linked-invoice',invoice_number:'REF',source_ref:JSON.stringify({batch:'qa',report_display:{group:'payroll'}})};
+const payment={id:'linked-payment',store_id:'h',category_id:'INTERNAL_PERSONAL',expense_date:date,source_ref:JSON.stringify({batch:'qa',kind:'bank_payment_source',source:{row:4},report_display:{group:'orders'}})};
+const sourcedOverride=buildStoreMonthlyWorkbook({...args,expenses:[invoice,payment],incomeAdjustments:[{store_id:'h',notes:JSON.stringify({...source,payment_entries:[{date,row:4,label:'Imported chosen payment',invoice_number:'REF',amount:25,group:'fixed',color:'FFFF00'}]})}]}).Sheets.Octubre;
+assert.equal(sourcedOverride['C'+find(sourcedOverride,'Imported chosen payment')].s.fill.fgColor.rgb,'00B0F0','Original payment override must survive invoice/source reconstruction');
+assert.equal(sum(sourcedOverride,'Pedidos '),25);

@@ -1,8 +1,8 @@
 // Ephemeral DOM baselines only: no form values or attachments are persisted.
 const baselines=new WeakMap();
-function fields(root){
+function fields(root,includeDisabled=false){
  return [...root.querySelectorAll('input,select,textarea')]
-  .filter(el=>!el.disabled&&!el.readOnly&&!el.hasAttribute('data-draft-ignore')&&!['button','submit','hidden'].includes(el.type)&&!el.closest('[data-filter-prefix]'))
+  .filter(el=>(includeDisabled||!el.disabled)&&!el.readOnly&&!el.hasAttribute('data-draft-ignore')&&!['button','submit','hidden'].includes(el.type)&&!el.closest('[data-filter-prefix]'))
   .map((el,index)=>({key:el.id||el.name||String(index),value:el.type==='file'
    ?[...el.files].map(f=>[f.name,f.size,f.lastModified,f.type])
    :['checkbox','radio'].includes(el.type)?el.checked:el.multiple?[...el.selectedOptions].map(o=>o.value):el.value}));
@@ -23,4 +23,13 @@ export function setPristineFormValue(root,key,value){
  const field=[...(root?.querySelectorAll('input,select,textarea')||[])].find(el=>el.id===key);
  if(!baseline||!field||field.value!==baseline.value)return false;
  field.value=String(value??'');baseline.value=field.value;return true;
+}
+
+/** Accept only one saved field; keep every other edit/attachment dirty. */
+export function markFormFieldSaved(root,key){
+ if(!root)return false;
+ const baseline=baselines.get(root)?.find(row=>row.key===key);
+ const current=fields(root,true).find(row=>row.key===key);
+ if(!baseline||!current)return false;
+ baseline.value=current.value;return true;
 }
