@@ -16,7 +16,7 @@ Esta rama contiene el núcleo de canales y conversaciones. **No está publicado 
 - Búsqueda en el historial por texto, fechas de Madrid, fijados y tareas.
 - Paginación de 50 mensajes y envío con identificador estable para reintentar sin duplicar.
 - Borradores durante la sesión; aviso antes de abandonar o cerrar con mensajes pendientes.
-- No leídos y marcado manual como leído.
+- No leídos, marcado manual como leído y silencio de canales en el contador global del chat.
 - Tareas con estado y resultado obligatorio al terminarlas.
 - Instrucción copiable para trabajar desde ChatGPT convencional.
 - Registro servidor de operaciones; permisos de canal comprobados en el servidor.
@@ -28,10 +28,11 @@ Esta rama contiene el núcleo de canales y conversaciones. **No está publicado 
 2. Completar subida privada de adjuntos a OneDrive con comprobación de bytes/huella, acceso por canal, reintentos, bajas autorizadas y recuperación. No reutilizar una URL pública ni conceder acceso a documentos privados de otros módulos.
 3. Preparar listado de tareas/contexto y devolución de resultados desde ChatGPT con identidad autorizada y herramientas acotadas. No suplantar a un administrador pasando su correo como identidad. El botón actual prepara una instrucción; no acredita todavía que ChatGPT pueda leer estas tablas o responder en ellas con los permisos normales.
 4. Probar con dos usuarios reales separados en un entorno aislado y comprobar acceso denegado tras retirar un miembro o desactivar una cuenta.
-5. Añadir preferencias y entrega de avisos. El ajuste de silencio ya se guarda por miembro; esta entrega no envía notificaciones de sistema, correos ni avisos con la web cerrada.
-6. Revisar capacidad/volumen, retención y exportación del historial; los mensajes no se borran por antigüedad.
-7. Revisar diseño con datos ficticios en ordenador y móvil, ejecutar batería de la herramienta y revisar errores de consola.
-8. Generar la migración desde el entorno de desarrollo validado; `supabase/chat.sql` es un instalador candidato para pruebas aisladas, no una migración aplicada.
+5. Añadir preferencias y entrega de avisos. El ajuste de silencio ya se guarda por miembro y excluye ese canal del contador global del chat; esta entrega no envía notificaciones de sistema, correos ni avisos con la web cerrada.
+6. Completar adjuntos, menciones con avisos y mensajes directos con su propio control de participantes; no confundir canales privados con una bandeja de conversaciones personales ya terminada.
+7. Revisar capacidad/volumen, retención y exportación del historial; los mensajes no se borran por antigüedad.
+8. Revisar diseño con datos ficticios en ordenador y móvil, ejecutar batería de la herramienta y revisar errores de consola.
+9. Generar la migración desde el entorno de desarrollo validado; `supabase/chat.sql` es un instalador candidato para pruebas aisladas, no una migración aplicada.
 
 No hay controles de adjuntar o contabilizar que aparenten funcionar sin esas comprobaciones.
 
