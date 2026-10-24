@@ -161,8 +161,9 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   finally{unlock();}
  }
  function selectCreated(c,role){
+  remember();data.query='';data.from='';data.to='';data.mode='all';data.more=false;
   data.channels=[...data.channels.filter(row=>row.id!==c.id),{...c,member_role:role}];data.channel=c.id;data.parent=null;data.messages=[];
-  unsubscribe();unsubscribe=subscribe(c.id,()=>{clearTimeout(realtimeTimer);realtimeTimer=setTimeout(tick,300);});
+  unsubscribe();unsubscribe=subscribe(c.id,()=>{clearTimeout(realtimeTimer);realtimeTimer=setTimeout(tick,300);});paint();
  }
  async function openMessage(channelId,messageId,parentId=null){
   await open(channelId);data.parent=parentId||messageId;data.messages=[];await refresh();

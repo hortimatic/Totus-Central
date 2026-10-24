@@ -1,3 +1,4 @@
+alter table public.ops_onedrive_documents add constraint qa_onedrive_document_unique unique(document_id);
 create schema extensions;create extension pgcrypto with schema extensions;
 create schema storage;
 create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,unique(bucket_id,name));
