@@ -13,14 +13,14 @@ try{
  assert.equal(await page.locator('#ecReportGroup').inputValue(),'');
  await page.locator('#ecReportGroup').selectOption('orders');
  await page.locator('[data-action="expense-category-save"]').click();
- await page.getByText('Categoría guardada.',{exact:true}).waitFor();
+ await page.getByText('Categoría guardada.',{exact:true}).last().waitFor();
  assert.equal(await page.evaluate(id=>window.__mockDb.ops_expense_categories.find(c=>c.id===id).report_group,id),'orders');
  await page.locator('[data-action="expense-category-edit"][data-id="'+id+'"]').click();
  assert.equal(await page.locator('#ecReportGroup').inputValue(),'orders','Reopening retrieves saved preference');
  await page.screenshot({path:'artifacts/review_expense_color_selector.png',fullPage:true});
  await page.locator('#ecReportGroup').selectOption('');
  await page.locator('[data-action="expense-category-save"]').click();
- await page.getByText('Categoría guardada.',{exact:true}).waitFor();
+ await page.getByText('Categoría guardada.',{exact:true}).last().waitFor();
  assert.equal(await page.evaluate(id=>window.__mockDb.ops_expense_categories.find(c=>c.id===id).report_group,id),null);
  assert.deepEqual(errors,[]);
  console.log('EXPENSE COLOR BROWSER: six choices, save/reopen and automatic reset verified in isolated mock.');
