@@ -88,6 +88,7 @@ jobs:
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/published-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
+      - run: node tests/pricing-taxonomy-layout-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/full-flow-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs

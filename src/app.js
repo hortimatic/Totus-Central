@@ -815,7 +815,7 @@ function familiesManager(){
  const brands=[...state.data.brands].sort((a,b)=>a.name.localeCompare(b.name,'es'));
  const families=[...state.data.families].sort((a,b)=>a.name.localeCompare(b.name,'es'));
  const brandName=id=>brands.find(x=>x.id===id)?.name||'—';
- const body=`<div class="split">
+ const body=`<div class="split pricing-taxonomy">
   <section><div class="section-head"><div><h3>Marcas</h3><p>Maestro usado por las familias.</p></div>${btn('+ Marca','brand-new','primary')}</div><div class="stack" style="margin-top:12px">${brands.length?brands.map(b=>`<div class="summary-row"><div><b>${esc(b.name)}</b><div class="small muted">${families.filter(f=>f.brand_id===b.id).length} familias</div></div><div class="inline-actions">${btn('Editar','brand-edit','secondary',`data-id="${b.id}"`)}${btn('Eliminar','brand-delete','danger',`data-id="${b.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin marcas</strong></div>'}</div></section>
   <section><div class="section-head"><div><h3>Familias</h3><p>Agrupa productos y margen objetivo.</p></div>${btn('+ Familia','family-new','primary')}</div><div class="stack" style="margin-top:12px">${families.length?families.map(f=>`<div class="summary-row"><div><b>${esc(f.name)}</b><div class="small muted">${esc(brandName(f.brand_id))} · ${esc(f.category||'')} · margen ${Number(f.default_margin||0).toFixed(1).replace('.',',')} %</div></div><div class="inline-actions">${btn('Editar','family-edit','secondary',`data-id="${f.id}"`)}${btn('Eliminar','family-delete','danger',`data-id="${f.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin familias</strong></div>'}</div></section>
  </div>`;
