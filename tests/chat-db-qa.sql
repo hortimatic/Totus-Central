@@ -31,7 +31,7 @@ select public.qa_assert((select count(*) from public.ops_chat_reactions)=1,'reac
 select public.totus_chat_command('reaction',jsonb_build_object('channel_id',:'channel','message_id',:'message','emoji','👍'));
 select public.qa_assert((select count(*) from public.ops_chat_reactions)=0,'reaction toggled');
 select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'channel',null,'Respuesta')->'messages')=1,'search finds thread replies');
-select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'channel',null,'',current_date+1,null)->'messages')=0,'future date filter');
+select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'channel',null,'',(timezone('Europe/Madrid',now())::date+1),null)->'messages')=0,'future date filter');
 select public.totus_chat_command('read',jsonb_build_object('channel_id',:'channel','seq',999999));
 select public.qa_assert((select max(last_read_seq) from public.ops_chat_members where email='staff@example.invalid')=(select max(seq) from public.ops_chat_messages),'read cursor is bounded');
 select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333"}',true);
