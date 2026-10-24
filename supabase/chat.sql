@@ -113,7 +113,7 @@ begin
   channel=nullif(p_data->>'channel_id','')::uuid;
   if not coalesce(private.totus_chat_member(channel),false) then raise exception 'No tienes acceso a este canal.';end if;
   select * into strict c from public.ops_chat_channels where id=channel for update;
-  if p_action not in ('read','mute','channel_update','channel_delete') and c.archived then raise exception 'El canal está archivado.';end if;
+  if p_action not in ('read','mute','channel_update','channel_delete','member_save','member_remove') and c.archived then raise exception 'El canal está archivado.';end if;
   if p_action in ('channel_update','channel_delete','member_save','member_remove') then
    if not private.totus_chat_manager(channel) then raise exception 'Solo responsables del canal.';end if;
    if p_action='channel_update' then

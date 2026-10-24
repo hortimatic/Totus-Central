@@ -12,19 +12,19 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
  const remember=()=>{const input=host?.querySelector('#chatBody');if(input)drafts.set(draftKey(),input.value);};
  const hasDraft=()=>{remember();return [...drafts.values()].some(v=>v.trim())||!!dialog?.querySelector('[data-dirty="true"]');};
  const unlock=()=>{busy=false;const submit=host?.querySelector('.chat-compose [type="submit"]');if(submit)submit.disabled=false;};
- const showError=error=>{data.error=error.message||String(error);onError(data.error);const box=host?.querySelector('[data-chat-error]');if(box){box.hidden=false;box.textContent=data.error;}};
+ const showError=error=>{data.error=error.message||String(error);if(/No tienes acceso a este canal|Usuario de equipo no activo/i.test(data.error)){data.messages=[];data.members=[];data.channel=null;data.parent=null;data.channels=[];paint();drafts.clear();pending.clear();}onError(data.error);const box=host?.querySelector('[data-chat-error]');if(box){box.hidden=false;box.textContent=data.error;}};
  const ask=async message=>{const held=dialog;held?.close();try{return await confirm(message);}finally{if(held&&dialog===held&&held.isConnected)held.showModal();}};
  const command=(action,values={})=>rpc('totus_chat_command',{p_action:action,p_data:{channel_id:data.channel,...values}});
  function messageHtml(m){
-  const mine=m.author_email===owner,deleted=!!m.deleted_at,id='data-id="'+esc(m.id)+'"';
-  const reactions=CHAT_REACTIONS.map(emoji=>{const all=(m.reactions||[]).filter(r=>r.emoji===emoji);return button(emoji+(all.length?' '+all.length:''),'reaction',id+' data-emoji="'+emoji+'" aria-label="'+esc('Reaccionar '+emoji)+'" aria-pressed="'+all.some(r=>r.email===owner)+'"','secondary chat-reaction');}).join('');
+  const mine=m.author_email===owner,deleted=!!m.deleted_at,writable=!current()?.archived,id='data-id="'+esc(m.id)+'"';
+  const reactions=(writable?CHAT_REACTIONS:[]).map(emoji=>{const all=(m.reactions||[]).filter(r=>r.emoji===emoji);return button(emoji+(all.length?' '+all.length:''),'reaction',id+' data-emoji="'+emoji+'" aria-label="'+esc('Reaccionar '+emoji)+'" aria-pressed="'+all.some(r=>r.email===owner)+'"','secondary chat-reaction');}).join('');
   return '<article class="chat-message '+(mine?'chat-mine':'')+'" data-message="'+esc(m.id)+'"><header><b>'+esc(m.author_email)+'</b><time datetime="'+esc(m.created_at)+'">'+esc(date(m.created_at))+'</time>'+(m.edited_at?'<small>Editado</small>':'')+(m.pinned?'<span class="badge info">Fijado</span>':'')+'</header><div class="chat-body">'+esc(m.body)+'</div>'+
    (m.task_state?'<div class="chat-task"><span class="badge '+(m.task_state==='done'?'good':'warn')+'">'+esc(CHAT_TASK_STATES[m.task_state])+'</span>'+(m.task_result?'<p>'+esc(m.task_result)+'</p>':'')+'</div>':'')+
    (deleted?'':'<footer><div class="chat-reactions">'+reactions+'</div><div class="chat-message-actions">'+
-   (!data.parent?button(m.replies?m.replies+' respuestas':'Responder','thread',id):'')+
-   (mine?button('Editar','edit',id)+button('Eliminar','message-delete',id,'danger'):'')+
-   (manager()?button(m.pinned?'Desfijar':'Fijar','pin',id):'')+
-   (mine||manager()?button(m.task_state?'Gestionar tarea':'Crear tarea','task',id):'')+
+   (!data.parent?button(m.replies?m.replies+' respuestas':writable?'Responder':'Ver conversación','thread',id):'')+
+   (mine&&writable?button('Editar','edit',id)+button('Eliminar','message-delete',id,'danger'):'')+
+   (manager()&&writable?button(m.pinned?'Desfijar':'Fijar','pin',id):'')+
+   (writable&&(mine||manager())?button(m.task_state?'Gestionar tarea':'Crear tarea','task',id):'')+
    (m.task_state?button('Preparar para ChatGPT','prompt',id):'')+'</div></footer>')+'</article>';
  }
  function paint(){
@@ -84,10 +84,10 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
  }
  async function send(event){
   event.preventDefault();if(busy)return;
-  remember();const key=draftKey(),body=chatText(drafts.get(key)),channel=data.channel,parent=data.parent;
+  remember();const key=draftKey(),body=chatText(drafts.get(key)),channel=data.channel,parent=data.parent,sendingOwner=owner;
   const previous=pending.get(key),client_id=previous?.body===body?previous.client_id:crypto.randomUUID();
   pending.set(key,{body,client_id});busy=true;paint();
-  try{await command('send',{channel_id:channel,parent_id:parent,body,client_id});drafts.delete(key);pending.delete(key);const area=host.querySelector('#chatBody');if(area)area.value='';await refresh();}
+  try{await command('send',{channel_id:channel,parent_id:parent,body,client_id});if(owner!==sendingOwner)return;drafts.delete(key);pending.delete(key);const area=host?.querySelector('#chatBody');if(area)area.value='';await refresh();}
   catch(error){showError(error);}
   finally{busy=false;const submit=host?.querySelector('.chat-compose [type="submit"]');if(submit)submit.disabled=false;}
  }

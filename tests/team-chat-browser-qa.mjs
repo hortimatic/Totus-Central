@@ -96,6 +96,7 @@ try{
  await page.getByRole('heading',{name:'Pedidos de clientes',exact:true}).waitFor();
  await click('settings');await page.locator('dialog [name="archived"]').selectOption('true');await page.locator('dialog [type="submit"]').click();
  assert.equal(await page.locator('.chat-compose').count(),0);
+ assert.equal(await page.locator('.chat-message [data-chat="edit"],.chat-message [data-chat="reaction"]').count(),0,'Archived channels must show read-only actions');
  await click('settings');await page.locator('dialog [name="archived"]').selectOption('false');await page.locator('dialog [type="submit"]').click();
  await page.locator('#chatBody').waitFor();
  await click('settings');await page.locator('dialog [data-chat="retire"]').click();

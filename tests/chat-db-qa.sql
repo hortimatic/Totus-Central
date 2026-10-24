@@ -48,6 +48,24 @@ select public.totus_chat_command('channel_delete',jsonb_build_object('channel_id
 select public.qa_assert((select count(*) from public.ops_chat_messages)=0,'retired channel inaccessible');
 reset role;
 select public.qa_assert((select count(*) from public.ops_chat_messages)=2,'retirement preserves history');
+set role authenticated;
+select public.totus_chat_command('create_channel','{"name":"General abierto"}') as open_channel \gset
+select (:'open_channel'::jsonb->>'id') as open_id \gset
+select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333"}',true);
+select public.qa_denied(format('select public.totus_chat_context(%L::uuid)',:'open_id'),'No tienes acceso');
+select public.totus_chat_command('join',jsonb_build_object('channel_id',:'open_id'));
+select set_config('qa.open_id',:'open_id',true);
+do $begin for n in 1..55 loop
+ perform public.totus_chat_command('send',jsonb_build_object('channel_id',current_setting('qa.open_id'),'client_id',gen_random_uuid(),'body','Paginación '||n));
+end loop;end$;
+select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'open_id')->'messages')=51,'keyset page includes one lookahead');
+select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'open_id',(public.totus_chat_context(:'open_id')->'messages'->0->>'seq')::bigint)->'messages')=4,'older keyset page without overlap');
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+select public.totus_chat_command('member_remove',jsonb_build_object('channel_id',:'open_id','email','other@example.invalid'));
+select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333"}',true);
+select public.qa_denied(format('select public.totus_chat_context(%L::uuid)',:'open_id'),'No tienes acceso');
+reset role;
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 update public.team_members set active=false where email='admin@example.invalid';
 set role authenticated;
 select public.qa_denied('select public.totus_chat_context()','no activo');
