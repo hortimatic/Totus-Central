@@ -163,6 +163,11 @@ const rpc=async (name,args={})=>{
   insert('ops_audit_log',{area:kind,action:'eliminar',entity_id:id,detail:{motivo:reason}});
   return {data:id,error:null};
  }
+ if(name==='totus_pricing_save_provider'){
+  const p=args.p_price;if(p.selected)db.product_provider_prices.filter(x=>x.product_id===p.product_id&&!x.variant_id).forEach(x=>x.selected=false);
+  const row=p.id?Object.assign(get('product_provider_prices',p.id),p):insert('product_provider_prices',p);
+  return {data:row.id,error:null};
+ }
  if(name==='totus_pricing_save_product'){
   const p=args.p_product,children=args.p_variants||[],old=get('products',p.id);
   if(window.__mockPricingFailure)return {data:null,error:{message:'Fallo de guardado simulado'}};

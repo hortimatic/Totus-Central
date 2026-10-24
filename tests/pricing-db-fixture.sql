@@ -32,3 +32,6 @@ create policy team_all on public.price_history for all to authenticated using (a
 create policy permission_create on public.price_history as restrictive for insert to authenticated with check(private.totus_can('pricing','create'));
 create policy permission_edit on public.price_history as restrictive for update to authenticated using(private.totus_can('pricing','edit')) with check(private.totus_can('pricing','edit'));
 drop policy permission_create on public.price_history;create policy totus_history_create on public.price_history as restrictive for insert to authenticated with check(private.totus_can('pricing','create'));
+create table public.providers(id uuid primary key);
+insert into public.providers values('99999999-9999-4999-8999-999999999999');
+alter table public.product_provider_prices add foreign key(provider_id) references public.providers(id);

@@ -59,3 +59,29 @@ begin
 end $$;
 revoke all on function public.totus_pricing_save_product(jsonb,jsonb) from public,anon;
 grant execute on function public.totus_pricing_save_product(jsonb,jsonb) to authenticated;
+
+-- Selecting a supplier must not unselect the previous one if saving fails.
+create or replace function public.totus_pricing_save_provider(p_price jsonb) returns uuid
+language plpgsql security invoker set search_path='' as $$
+declare
+ v public.product_provider_prices%rowtype:=jsonb_populate_record(null::public.product_provider_prices,p_price);
+ v_id uuid; v_new boolean:=v.id is null;
+begin
+ if auth.uid() is null or not private.totus_can('pricing',case when v_new then 'create' else 'edit' end) then raise exception 'No tienes permiso para guardar el coste.' using errcode='42501';end if;
+ if v.product_id is null or v.provider_id is null or v.net_cost is null or v.net_cost<0 or v.provider_discount is null or v.provider_discount not between 0 and 100 or v.shipping_unit is null or v.shipping_unit<0 or v.moq is null or v.moq<0 then raise exception 'Proveedor o importes no válidos.';end if;
+ perform pg_advisory_xact_lock(hashtextextended(v.product_id::text,0));
+ if not exists(select 1 from public.products where id=v.product_id) then raise exception 'Producto no disponible.';end if;
+ if not v_new and not exists(select 1 from public.product_provider_prices where id=v.id and product_id=v.product_id and variant_id is null) then raise exception 'Coste no disponible. Vuelve a abrirlo.';end if;
+ if v.selected then update public.product_provider_prices set selected=false where product_id=v.product_id and variant_id is null and selected;end if;
+ if v_new then
+  insert into public.product_provider_prices(product_id,provider_id,net_cost,provider_discount,shipping_unit,moq,stock_status,price_date,notes,selected,purchase_origin,apply_special_tax,special_tax_amount)
+   values(v.product_id,v.provider_id,v.net_cost,v.provider_discount,v.shipping_unit,v.moq,coalesce(v.stock_status,''),v.price_date,coalesce(v.notes,''),coalesce(v.selected,false),coalesce(v.purchase_origin,'España'),false,0) returning id into v_id;
+ else
+  update public.product_provider_prices set provider_id=v.provider_id,net_cost=v.net_cost,provider_discount=v.provider_discount,shipping_unit=v.shipping_unit,moq=v.moq,stock_status=coalesce(v.stock_status,''),price_date=v.price_date,notes=coalesce(v.notes,''),selected=coalesce(v.selected,false),purchase_origin=coalesce(v.purchase_origin,'España'),apply_special_tax=false,special_tax_amount=0
+   where id=v.id returning id into v_id;
+ end if;
+ insert into public.price_history(product_id,user_id,snapshot) values(v.product_id,auth.uid(),jsonb_build_object('action','PROVEEDOR_EDITADO','provider_price_id',v_id,'product',(select to_jsonb(p) from public.products p where id=v.product_id),'providers',(select jsonb_agg(to_jsonb(p)) from public.product_provider_prices p where product_id=v.product_id)));
+ return v_id;
+end $$;
+revoke all on function public.totus_pricing_save_provider(jsonb) from public,anon;
+grant execute on function public.totus_pricing_save_provider(jsonb) to authenticated;

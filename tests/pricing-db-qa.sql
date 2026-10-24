@@ -40,3 +40,17 @@ begin
 end$$;
 reset role;
 select 'PRICING DB: atomic save, rollback, duplicate guard, retry, concurrent edit and RLS passed' as result;
+
+set role authenticated;
+set request.jwt.claims='{"sub":"11111111-1111-4111-8111-111111111111","create":true,"edit":true}';
+do $$
+declare p jsonb:='{"product_id":"22222222-2222-4222-8222-222222222222","provider_id":"99999999-9999-4999-8999-999999999999","net_cost":2,"provider_discount":0,"shipping_unit":0,"moq":0,"selected":true}';
+ v_saved_id uuid;failed boolean:=false;
+begin
+ v_saved_id:=public.totus_pricing_save_provider(p);
+ begin perform public.totus_pricing_save_provider(p||'{"provider_id":"88888888-8888-4888-8888-888888888888"}');exception when foreign_key_violation then failed:=true;end;
+ perform public.qa_assert(failed,'Supplier save failure reproduced after unselection');
+ perform public.qa_assert((select selected from public.product_provider_prices where product_provider_prices.id=v_saved_id),'Supplier selection restored after failed insert');
+ perform public.qa_assert((select count(*)=1 from public.product_provider_prices),'No partial supplier rows');
+end$$;
+reset role;

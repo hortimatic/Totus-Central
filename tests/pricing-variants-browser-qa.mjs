@@ -16,6 +16,8 @@ try{
  await draft.locator('input[id^="pdCost_"]').fill('3.20');await draft.locator('input[id^="pdPvp_"]').fill('5.70');
  assert.match(await draft.locator('[data-draft-study]').innerText(),/4,04/);
  assert.match(await draft.locator('[data-draft-study]').innerText(),/1,66/);
+ assert.match(await page.locator('#prDiscountScenarios').innerText(),/50 %/);
+ assert.match(await page.locator('#prDiscountScenarios').innerText(),/Descuento no recomendado/);
  await page.locator('#prType').selectOption('simple');await page.locator('#prType').selectOption('variants');
  assert.equal(await draft.locator('input[id^="pdSku_"]').inputValue(),'SALES-10','Changing type preserves unsaved variant values');
  await page.locator('[data-action="product-draft-add"]').click();

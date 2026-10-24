@@ -1,3 +1,4 @@
+import {discountScenarios,profitability} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
@@ -58,6 +59,7 @@ function permissionForAction(action,el){
  if(!module)return null;
  const a=action.toLowerCase();
  if(a==='product-draft-remove'||a==='product-draft-add')return {module:'pricing',operation:getView('pricing').id?'edit':'create'};
+ if(a==='product-save-next')return {module:'pricing',operation:'edit'};
  if(a==='consultation-save-copy')return {module:'pricing',operation:'create'};
  if(a==='consultation-reuse')return {module:'pricing',operation:'edit'};
  if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
@@ -605,7 +607,7 @@ async function finalizeInvoice(id){
  await refresh('Documento emitido.');
 }
 
-async function saveProduct(id=''){
+async function saveProduct(id='',next=false){
  const sku=required('prSku','Referencia'),name=required('prName','Nombre');
  const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
@@ -615,7 +617,8 @@ async function saveProduct(id=''){
  if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
  const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants});
  const saved=savedResult.product,historySaved=true;
- setView('pricing',{mode:'record',id:saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
+ const siblings=next?state.data.products.filter(p=>p.family_id===saved.family_id):[],position=siblings.findIndex(p=>p.id===saved.id),following=position>=0?siblings[position+1]:null;
+ if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
  try{
@@ -631,7 +634,10 @@ async function productHistory(productId){
  modal('Historial de Pricing',rows.length?rows.map(row=>{
   const s=row.snapshot||{},v=s.variant,p=s.product;
   const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada'}[s.action]||'Cambio de precio';
-  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):'')+'</div></div>';
+  const savedVariants=Array.isArray(s.variants)?s.variants:[],settings=s.tax_settings?{default_sales_vat_rate:s.tax_settings.vat,purchase_re_rate:s.tax_settings.re}:state.data.settings;
+  const summaries=(v?[v]:savedVariants).map(item=>{const r=variantStudy(item,settings,p?.quick_discount??0);return '<div class="small">'+esc(item.name||item.sku||'Variante')+' · PVP '+(item.pvp==null?'—':money(item.pvp))+' · Coste sin IVA/RE '+(item.cost_net==null?'—':money(item.cost_net))+' · Margen '+(r?r.marginPct.toFixed(1).replace('.',',')+' %':'—')+'</div>'}).join('');
+  const legacy=s.pvp!=null||s.cost!=null||s.marginPct!=null?'<div class="small">PVP '+(s.pvp==null?'—':money(s.pvp))+' · Coste '+(s.cost==null?'—':money(s.cost))+' · Margen '+(s.marginPct==null?'—':Number(s.marginPct).toFixed(1).replace('.',',')+' %')+'</div>':'';
+  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div><div class="small muted">'+esc(s.user||state.data.team.find(t=>t.id===row.user_id)?.full_name||row.user_id||'Usuario no indicado')+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):p?.current_pvp!=null?' · PVP '+money(p.current_pvp):'')+summaries+legacy+'</div></div>';
  }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){
@@ -869,8 +875,7 @@ async function saveProviderPrice(productId,id=''){
  const selected=!!input('ppSelected')?.checked;
  const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
  if(row.net_cost<0)throw new Error('El coste de compra no puede ser negativo.');
- if(selected){const r=await sb.from('product_provider_prices').update({selected:false}).eq('product_id',productId).is('variant_id',null);if(r.error)throw r.error}
- if(id)await update('product_provider_prices',id,row);else await insert('product_provider_prices',row);
+ await rpc('totus_pricing_save_provider',{p_price:{...row,...(id?{id}:{})}});
  closeModal();await refresh('Coste de proveedor guardado.');refreshPricingPanels(productId);
 }
 async function deleteProviderPrice(productId,id){
@@ -938,6 +943,13 @@ async function deleteVariant(productId,id){
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
 }
 function updateProductStudy(){
+ const scenario=input('prDiscountScenarios'),productIdForScenarios=getView('pricing').id;
+ if(scenario){
+  const savedVariants=state.data.variants.filter(v=>v.product_id===productIdForScenarios&&v.active!==false);
+  const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:num('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:num('pdPvp_'+id)}});
+  const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0];
+  scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?num('prProposed'):num('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin||35));
+ }
  if(!document.getElementById('prSummaryPvp'))return;
  if(val('prType')==='variants'){
   const results=[...state.data.variants.filter(v=>v.product_id===getView('pricing').id&&v.active!==false).map(v=>{const r=variantStudy(v,state.data.settings,num('prDiscount'));return r?{...r,costNet:v.cost_net}:null}).filter(Boolean),...refreshDraftStudies(state.data.settings,num('prDiscount'))];
@@ -2413,6 +2425,7 @@ document.addEventListener('click',async e=>{
   if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
   if(a==='product-draft-remove'){document.querySelector('.pricing-draft-variant[data-draft-id="'+el.dataset.draft+'"]')?.remove();updateProductStudy();return}
+  if(a==='product-save-next'){await saveProduct(el.dataset.id,true);return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
   if(a==='product-back'){resetView('pricing');render();return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
