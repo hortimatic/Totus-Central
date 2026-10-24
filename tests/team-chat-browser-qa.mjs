@@ -9,11 +9,12 @@ try{
  await page.evaluate(async()=>{
   const {createTeamChat}=await import('../src/team-chat-ui.js');
   window.qaChat={channels:[{id:'h',name:'Cajas · Hortimatic',group_name:'Hortimatic',description:'Vape y Head',member_role:'manager',is_private:true,unread:2,last_seq:2},{id:'n',name:'Cajas · NewOldSmok',group_name:'NewOldSmok',member_role:'manager',last_seq:0}],
-   messages:[{id:'m1',seq:1,channel_id:'h',author_email:'tienda@example.invalid',body:'Vape 139,36 · Head 161,97\nTarjeta 347,75 · Salida 150,00',created_at:'2026-10-24T12:07:00Z',replies:0,reactions:[]},{id:'m2',seq:2,channel_id:'h',author_email:'admin@example.invalid',body:'<script>window.qaUnsafe=true</script> Revisión de cajas',created_at:'2026-10-24T12:08:00Z',replies:0,reactions:[]}],members:[{email:'admin@example.invalid',member_role:'manager'}],calls:[],owner:'admin@example.invalid',seq:2};
+   messages:[{id:'m1',seq:1,channel_id:'h',author_email:'tienda@example.invalid',body:'Vape 139,36 · Head 161,97\nTarjeta 347,75 · Salida 150,00',created_at:'2026-10-24T12:07:00Z',replies:0,reactions:[]},{id:'m2',seq:2,channel_id:'h',author_email:'admin@example.invalid',body:'<script>window.qaUnsafe=true</script> Revisión de cajas',created_at:'2026-10-24T12:08:00Z',replies:0,reactions:[]}],members:[{email:'admin@example.invalid',member_role:'manager'}],calls:[],owner:'admin@example.invalid',seq:2,failInitial:true};
   const q=window.qaChat;
   const rpc=async(name,p)=>{
    q.calls.push({name,p:structuredClone(p)});
    if(name==='totus_chat_context'){
+    if(q.failInitial){q.failInitial=false;throw Error('Sin conexión inicial. Reintenta.');}
     let rows=q.messages.filter(m=>m.channel_id===p.p_channel);
     if(p.p_parent)rows=rows.filter(m=>m.id===p.p_parent||m.parent_id===p.p_parent);
     else if(!p.p_query&&p.p_mode==='all')rows=rows.filter(m=>!m.parent_id);
@@ -51,6 +52,8 @@ try{
   await window.chatController.mount(document.querySelector('#chatHarness'));
  });
  const click=a=>page.locator('[data-chat="'+a+'"]').click();
+ await page.getByRole('button',{name:'Reintentar',exact:true}).waitFor();
+ await click('refresh');
  await page.locator('[data-chat="open"][data-id="h"]').click();
  await page.getByLabel('Mensaje para Cajas · Hortimatic').waitFor();
  assert.equal(await page.evaluate(()=>window.qaUnsafe),undefined,'Messages must be escaped');
