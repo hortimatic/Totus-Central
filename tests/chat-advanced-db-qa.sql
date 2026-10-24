@@ -65,6 +65,7 @@ select public.totus_chat_file_begin(:'removal_message_id',gen_random_uuid(),'sec
 select public.totus_chat_file_remove(:'removal_file_id');
 select public.totus_chat_file_remove(:'removal_file_id');
 select public.qa_assert((select expected_files from public.ops_chat_messages where id=:'removal_message_id')=1,'retrying removal preserves the other pending attachment');
+reset role;
 select public.qa_assert((select count(*) from public.ops_chat_events where entity_id=:'removal_file_id' and action='file_detached')=1,'attachment removal is audited once');
 reset role;
 set role authenticated;
