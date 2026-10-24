@@ -170,6 +170,8 @@ const rpc=async (name,args={})=>{
  }
  if(name==='totus_pricing_save_product'){
   const p=args.p_product,children=args.p_variants||[],old=get('products',p.id);
+  // Simulate failure before the atomic RPC commits; SQL tests cover late rollback.
+  if(args.p_provider&&window.__mockRejectInsertTable==='product_provider_prices'){delete window.__mockRejectInsertTable;return {data:null,error:{message:'No se pudo guardar el coste del proveedor. No se ha creado el producto: rechazo de prueba'}}}
   if(window.__mockPricingFailure)return {data:null,error:{message:'Fallo de guardado simulado'}};
   if(p.is_new&&old)return {data:null,error:{message:'El producto ya existe'}};
   if(!p.is_new&&(!old||old.updated_at!==(p.expected_updated_at||null)))return {data:null,error:{message:'El producto ha cambiado'}};

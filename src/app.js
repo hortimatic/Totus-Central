@@ -633,11 +633,15 @@ async function productHistory(productId){
  const rows=await select('price_history',{order:'created_at',filter:q=>q.eq('product_id',productId)});
  modal('Historial de Pricing',rows.length?rows.map(row=>{
   const s=row.snapshot||{},v=s.variant,p=s.product;
-  const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada'}[s.action]||'Cambio de precio';
+  const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada',PROVEEDOR_EDITADO:'Coste de proveedor actualizado'}[s.action]||'Cambio de precio';
   const savedVariants=Array.isArray(s.variants)?s.variants:[],settings=s.tax_settings?{default_sales_vat_rate:s.tax_settings.vat,purchase_re_rate:s.tax_settings.re}:state.data.settings;
   const summaries=(v?[v]:savedVariants).map(item=>{const r=variantStudy(item,settings,p?.quick_discount??0);return '<div class="small">'+esc(item.name||item.sku||'Variante')+' · PVP '+(item.pvp==null?'—':money(item.pvp))+' · Coste sin IVA/RE '+(item.cost_net==null?'—':money(item.cost_net))+' · Margen '+(r?r.marginPct.toFixed(1).replace('.',',')+' %':'—')+'</div>'}).join('');
+  const providerRows=Array.isArray(s.providers)?s.providers:[],chosen=providerRows.find(p=>p.selected)||[...providerRows].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0];
+  const simplePvp=p?.proposed_pvp??p?.current_pvp;
+  const simpleStudy=chosen&&simplePvp!=null&&p?.product_type!=='variants'?quickPriceStudy({cost:pricingProviderCost(chosen),pvp:simplePvp,discount:p?.quick_discount??0,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2}):null;
+  const simpleDetails=simpleStudy?'<div class="small">Coste con IVA + RE '+money(simpleStudy.costReal)+' · Beneficio por unidad '+money(simpleStudy.margin)+' · Margen '+simpleStudy.marginPct.toFixed(1).replace('.',',')+' %</div>':'';
   const legacy=s.pvp!=null||s.cost!=null||s.marginPct!=null?'<div class="small">PVP '+(s.pvp==null?'—':money(s.pvp))+' · Coste '+(s.cost==null?'—':money(s.cost))+' · Margen '+(s.marginPct==null?'—':Number(s.marginPct).toFixed(1).replace('.',',')+' %')+'</div>':'';
-  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div><div class="small muted">'+esc((typeof s.user==='string'?s.user:s.user?.name||s.user?.email)||(row.user_id===state.user?.id?state.user.email:'Usuario no identificado'))+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):p?.current_pvp!=null?' · PVP '+money(p.current_pvp):'')+summaries+legacy+'</div></div>';
+  return '<div class="summary-row"><div><b>'+esc(fmtDateTime(row.created_at))+'</b><div class="small muted">'+esc(label)+'</div><div class="small muted">'+esc((typeof s.user==='string'?s.user:s.user?.name||s.user?.email)||(row.user_id===state.user?.id?state.user.email:'Usuario no identificado'))+'</div></div><div>'+esc(v?.name||p?.name||'Producto')+(v?.pvp!=null?' · PVP '+money(v.pvp):p?.proposed_pvp!=null?' · PVP propuesto '+money(p.proposed_pvp):p?.current_pvp!=null?' · PVP '+money(p.current_pvp):'')+summaries+simpleDetails+legacy+'</div></div>';
  }).join(''):'<div class="empty"><strong>Sin cambios guardados</strong><span>El historial se registra al guardar el producto o sus variantes.</span></div>');
 }
 async function deleteProduct(id){

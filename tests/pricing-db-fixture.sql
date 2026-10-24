@@ -54,3 +54,7 @@ create policy totus_consultation_history_create on public.consultation_history a
 
 alter table public.products add constraint products_product_type_check check(product_type in ('simple','variants'));
 alter table public.products add constraint products_status_check check(status in ('PENDIENTE','ACEPTADO'));
+
+create table public.ops_business_settings(id integer primary key,default_sales_vat_rate numeric,purchase_re_rate numeric);
+insert into public.ops_business_settings values(1,21,5.2);
+grant select on public.ops_business_settings to authenticated;

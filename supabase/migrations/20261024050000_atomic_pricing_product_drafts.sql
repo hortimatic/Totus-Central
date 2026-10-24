@@ -67,7 +67,7 @@ begin
  end if;
  insert into public.price_history(product_id,user_id,snapshot) values(v_id,auth.uid(),jsonb_build_object(
   'action',case when v_new then 'PRODUCTO_CREADO' else 'PRODUCTO_EDITADO' end,
-  'request_fingerprint',v_fingerprint,'product',to_jsonb(v_row),
+  'request_fingerprint',v_fingerprint,'tax_settings',(select jsonb_build_object('vat',default_sales_vat_rate,'re',purchase_re_rate) from public.ops_business_settings order by id limit 1),'product',to_jsonb(v_row),
   'variants',coalesce((select jsonb_agg(to_jsonb(v)) from public.product_variants v where product_id=v_id),'[]'::jsonb),
   'providers',coalesce((select jsonb_agg(to_jsonb(p)) from public.product_provider_prices p where product_id=v_id),'[]'::jsonb),
   'competitors',coalesce((select jsonb_agg(to_jsonb(c)) from public.product_competitor_prices c where product_id=v_id),'[]'::jsonb)));
@@ -103,7 +103,7 @@ begin
   update public.product_provider_prices set provider_id=v.provider_id,net_cost=v.net_cost,provider_discount=v.provider_discount,shipping_unit=v.shipping_unit,moq=v.moq,stock_status=coalesce(v.stock_status,''),price_date=v.price_date,notes=coalesce(v.notes,''),selected=coalesce(v.selected,false),purchase_origin=coalesce(v.purchase_origin,'España'),apply_special_tax=false,special_tax_amount=0
    where id=v.id returning id into v_id;
  end if;
- insert into public.price_history(product_id,user_id,snapshot) values(v.product_id,auth.uid(),jsonb_build_object('action','PROVEEDOR_EDITADO','provider_price_id',v_id,'product',(select to_jsonb(p) from public.products p where id=v.product_id),'providers',(select jsonb_agg(to_jsonb(p)) from public.product_provider_prices p where product_id=v.product_id)));
+ insert into public.price_history(product_id,user_id,snapshot) values(v.product_id,auth.uid(),jsonb_build_object('action','PROVEEDOR_EDITADO','tax_settings',(select jsonb_build_object('vat',default_sales_vat_rate,'re',purchase_re_rate) from public.ops_business_settings order by id limit 1),'provider_price_id',v_id,'product',(select to_jsonb(p) from public.products p where id=v.product_id),'providers',(select jsonb_agg(to_jsonb(p)) from public.product_provider_prices p where product_id=v.product_id)));
  return v_id;
 end $$;
 revoke all on function public.totus_pricing_save_provider(jsonb) from public,anon;
