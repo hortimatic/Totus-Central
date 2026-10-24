@@ -292,3 +292,11 @@ No borrar ni modificar las fuentes sincronizadas del proyecto por iniciativa del
 Pricing dispone de guía específica en [PRICING_PRODUCTOS_Y_VARIANTES.md](PRICING_PRODUCTOS_Y_VARIANTES.md). Consulta también el índice [ENTREGA_FUENTES.md](ENTREGA_FUENTES.md).
 La prueba real desde «Revisar Totus Central» acreditó lectura GitHub, Supabase y ambos PDF originales en OneDrive con el conector SharePoint, y operaciones reales de Recepciones dentro de una transacción revertida: creación, asociación de dos documentos, guardado y lectura de 39 líneas/100 unidades. Tras ROLLBACK no quedó la recepción de prueba y la original conservó revisión 4. Evidencia: https://github.com/hortimatic/Totus-Central/pull/12#issuecomment-6376148457.
 La prueba no acredita por sí sola transferencia de un binario nuevo ni registro contable persistente. No hace falta Work para esas operaciones demostradas; cada chat debe tener disponibles y autorizados los conectores en su propia sesión.
+
+
+## Corrección de alcance y flujos · 24/10/2026
+La entrega anterior pasó pruebas pero dejó incompleto el recorrido de alta con variantes y la conversión de consultas. No tomar «revisión integral» como garantía de que una función se haya usado de extremo a extremo. Consultar el registro AUDITORIA_EN_USO_2026-10-24.md y exigir selección → cumplimentación → guardado → reapertura → error → permisos.
+
+Pricing vuelve a permitir introducir variantes y coste inicial antes del primer guardado; las altas y conversiones usan transacción. No reemplazarlo por un formulario reducido ni eliminar opciones existentes por simplificación. Las nuevas funciones públicas son SECURITY INVOKER y requieren sesión autenticada y permisos normales; no inventar JWT ni suplantar un usuario para ejecutarlas por SQL. Las pruebas de base se hacen en PostgreSQL aislado, no en la contabilidad real.
+
+Para documentos, leer ONEDRIVE_FORMATOS_Y_PRUEBAS.md. El conector puede devolver un file_uri binario que se reutiliza en subida. Leer texto de XLSX o PDF no equivale a editar o verificar todas sus hojas/páginas. La carpeta técnica «90 Pruebas de conexion» se mantiene separada de los originales contables y sus archivos QA no se asocian a gastos ni recepciones.

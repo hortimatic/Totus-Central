@@ -6,7 +6,8 @@
 4. docs/GUIA_TRABAJO_DIARIO_CHATGPT.md: gastos, cajas y documentos.
 5. docs/COTEJOS_CHATGPT.md: recepciones y biblioteca.
 6. docs/PRICING_PRODUCTOS_Y_VARIANTES.md: productos, variantes y cálculos comerciales.
-7. docs/auditorias/REVISION_INTEGRAL_2026-10-24.md: alcance, resultados y pendientes.
+7. docs/AUDITORIA_EN_USO_2026-10-24.md: registro actualizado de defectos reales, correcciones y evidencia; complementa y corrige el alcance de la entrega anterior.
+8. docs/ONEDRIVE_FORMATOS_Y_PRUEBAS.md: lectura binaria, subida, reemplazo y diferencias entre transporte y edición de formatos.
 No elimines las fuentes antiguas hasta verificar que puedes abrir los nuevos documentos. No copies claves ni contraseñas a Fuentes.
 
 ## Dónde está cada cosa
@@ -66,6 +67,8 @@ Las migraciones describen la evolución de esta base existente. Un montaje comer
 - src/pdf-preview.js
 - src/permissions.js
 - src/pricing-core.js
+- src/pricing-drafts.js
+- src/pricing-discounts.js
 - src/recovery-core.js
 - src/recovery-runner.js
 - src/report-layout.js
