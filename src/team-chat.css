@@ -50,3 +50,28 @@
 .chat-search input,.chat-search select,.chat-compose textarea,.chat-compose-tools select,.chat-dialog input:not([type=file]):not([type=checkbox]),.chat-dialog textarea,.chat-dialog select{box-sizing:border-box;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#23314b;font:inherit;font-size:13px;padding:8px 10px;min-height:36px}
 .chat-search input:focus,.chat-search select:focus,.chat-compose textarea:focus,.chat-dialog input:focus,.chat-dialog textarea:focus,.chat-dialog select:focus{outline:2px solid #93b4ef;outline-offset:1px}
 #teamChatUnread[hidden]{display:none!important}
+
+/* Keep the conversation controls and composer in view on desktop. */
+.chat-scroll-tools{display:flex;justify-content:flex-end;gap:6px;padding:6px 14px;border-bottom:1px solid #e4e9f1;background:#f8faff;flex-shrink:0}
+.team-chat .chat-scroll-tools .btn{min-height:28px;padding:4px 8px;font-size:11px}
+.chat-messages:focus-visible{outline:2px solid #93b4ef;outline-offset:-3px}
+@media(min-width:1100px){
+ .team-chat{height:calc(100dvh - 126px);min-height:520px;align-items:stretch}
+ .chat-sidebar{height:100%;max-height:none;min-height:0;box-sizing:border-box;overscroll-behavior:contain}
+ .chat-conversation{height:100%;min-height:min-content;display:flex;flex-direction:column}
+ .chat-heading,.chat-search,.chat-banner,.chat-thread-bar,.chat-compose{flex-shrink:0}
+ .chat-heading{padding:12px 14px;gap:8px}.chat-heading h2{font-size:18px}.chat-heading p{font-size:12px;line-height:1.4}
+ .chat-banner{padding:8px 14px;line-height:1.4;font-size:11px}
+ .chat-search{padding:8px 14px;gap:6px}.chat-search label{min-width:94px}.chat-search label:first-child{min-width:140px}
+ .chat-messages{height:auto;min-height:120px;flex:1 1 0;scrollbar-gutter:stable;padding:12px 14px}
+ .chat-compose{padding:10px 14px;gap:6px}.chat-compose textarea{min-height:56px;max-height:140px}.chat-compose small{line-height:1.4}
+ .chat-compose-tools .chat-pick-btn{padding:6px 10px}.chat-compose-tools select{min-height:32px;padding:5px 8px}
+ .chat-picked-list:empty,[data-chat-progress]:empty{display:none}
+}
+
+.chat-group-head{display:flex;align-items:center;justify-content:space-between;gap:4px;margin:18px 0 5px}.chat-group-head>button:first-child{display:flex;min-width:0;flex:1;border:0;background:transparent;color:#68758b;font:inherit;font-size:11px;font-weight:700;text-align:left;cursor:pointer;padding:6px 0}.chat-group-head span{overflow-wrap:anywhere}.team-chat .chat-group-head .btn{min-height:26px;padding:2px 7px}.chat-section-actions{display:grid;gap:8px}.chat-section-actions .btn{text-align:left}
+
+.chat-channel-search{display:grid;gap:5px;font-size:11px;color:#68758b;margin-top:14px}.chat-channel-search input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:7px 8px;font:inherit;background:white;color:#23314b}.team-chat .chat-sidebar-head>[data-chat=sidebar-toggle]{min-width:28px;padding:4px 6px;min-height:30px}.chat-sidebar-collapsed{grid-template-columns:48px minmax(0,1fr)}.chat-sidebar-collapsed .chat-sidebar{padding:8px;overflow:hidden}.chat-sidebar-collapsed .chat-sidebar-head>*:not([data-chat=sidebar-toggle]),.chat-sidebar-collapsed .chat-sidebar>section,.chat-sidebar-collapsed .chat-sidebar>.chat-archive,.chat-sidebar-collapsed .chat-sidebar>.chat-channel-search,.chat-sidebar-collapsed .chat-sidebar>.chat-sidebar-tools{display:none}.chat-sidebar-collapsed .chat-sidebar-head{justify-content:center}.chat-section-actions .btn{white-space:normal}
+@media(max-width:700px){.chat-sidebar-collapsed{grid-template-columns:minmax(0,1fr)}.chat-sidebar-collapsed .chat-sidebar{max-height:48px;height:48px}.chat-sidebar-collapsed .chat-sidebar-head{justify-content:flex-start}}
+
+.chat-help{display:flex;align-items:start;justify-content:space-between;gap:10px;flex-wrap:wrap}.chat-help summary{cursor:pointer;color:#245bb5}.chat-help details{max-width:100%}.chat-help p{margin:8px 0 0;max-width:600px}.chat-heading p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}

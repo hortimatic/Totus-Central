@@ -1,3 +1,4 @@
+alter table public.profiles add column if not exists ui_preferences jsonb not null default '{}'::jsonb;
 alter table public.ops_onedrive_documents add constraint qa_onedrive_document_unique unique(document_id);
 create schema extensions;create extension pgcrypto with schema extensions;
 create schema storage;

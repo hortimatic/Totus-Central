@@ -20,3 +20,6 @@ end$$;
 
 create table public.ops_onedrive_config(id integer primary key,drive_id text);
 insert into public.ops_onedrive_config values(1,'drive-qa');
+
+create table public.profiles(id uuid primary key references auth.users(id),ui_preferences jsonb not null default '{}'::jsonb);
+insert into public.profiles(id) select id from auth.users;

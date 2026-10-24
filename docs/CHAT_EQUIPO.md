@@ -19,5 +19,11 @@ Es una bandeja de solicitudes para vuestro ChatGPT convencional. No es un usuari
 ## Copias y recuperación
 El formato completo incorpora las siete tablas de conversaciones y sus originales privados, incluidos adjuntos retirados del canal. Las copias anteriores de 38 y 42 tablas siguen siendo compatibles, con las validaciones de inventario correspondientes. Restaurar una copia antigua no puede recuperar conversaciones que todavía no existían en aquella fecha. Las copias completas administradas contienen conversaciones privadas: limitar su descarga a responsables autorizados.
 
+## Organización personal
+El botón ☰ oculta o muestra la lista de canales. Puedes buscar por canal o sección y plegar cada sección. Su menú ⋯ permite crear un canal, cambiar el nombre que tú ves, ordenar por nombre o por mensajes recientes, subir o bajar la sección y ocultarla. Estas preferencias se guardan en tu cuenta de Supabase y conservan el orden al cambiar de ordenador. No cambian nombres, mensajes o permisos para los demás. «Ver ocultos y archivados» permite recuperar una sección que hayas ocultado.
+
+## Desplazamiento
+En escritorio el historial ocupa el espacio disponible y la zona de escribir permanece visible cuando la altura permite mostrar todos los controles. «Subir» vuelve al comienzo de los mensajes cargados; «Cargar anteriores» incorpora historia sin perder el mensaje que estabas leyendo. «Ir al final» consulta los mensajes recientes y vuelve al final del historial. Se puede enfocar el historial y usar las teclas de desplazamiento. En pantallas pequeñas los controles se adaptan y el contenido puede recorrer la página.
+
 ## Pruebas y publicación
-El desarrollo se realiza en feature/equipo-chat y PR #18. Las comprobaciones automáticas abarcan permisos reales en PostgreSQL, mensajería, adjuntos, reintentos, bandeja del asistente y compatibilidad de recuperación. Este documento describe el módulo candidato; su presencia en GitHub no acredita que ya esté publicado o desplegado.
+Los PR #18 y #19 documentan el módulo inicial, las pruebas reales de adjuntos y las dos pruebas del ChatGPT convencional. Las ampliaciones de organización y desplazamiento llevan sus pruebas de navegador y permisos de cuenta. La fecha o un fichero en GitHub no acreditan por sí solos el despliegue: comprobar la versión publicada y el resultado de su ejecución.

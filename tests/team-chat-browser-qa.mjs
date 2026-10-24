@@ -27,8 +27,9 @@ try{
     if(p.p_mode==='pinned')rows=rows.filter(m=>m.pinned);
     if(p.p_mode==='tasks')rows=rows.filter(m=>m.task_state);
     if(p.p_before)rows=rows.filter(m=>m.seq<p.p_before);
-    return structuredClone({channels:q.channels,messages:rows.slice(-51),members:q.members,directory:q.directory});
+    return structuredClone({channels:q.channels,messages:rows.slice(-51),members:q.members,directory:q.directory,layout:q.layout||{}});
    }
+   if(name==='totus_chat_save_layout'){q.layout=structuredClone(p.p_layout);return q.layout;}
    if(name==='totus_chat_inbox')return structuredClone(q.messages.filter(m=>m.author_email!==q.owner&&!m.deleted_at&&m.seq>(q.channels.find(c=>c.id===m.channel_id)?.last_read_seq||0)&&!q.channels.find(c=>c.id===m.channel_id)?.muted).map(m=>({...m,channel_name:q.channels.find(c=>c.id===m.channel_id).name,desktop_enabled:true})));
    if(name==='totus_chat_file_remove'){q.files.find(f=>f.id===p.p_id).deleted_at=new Date().toISOString();q.messages.forEach(m=>m.files=(m.files||[]).filter(f=>f.id!==p.p_id));return {};}
    if(name!=='totus_chat_command')throw Error('Unexpected accounting operation '+name);
@@ -169,6 +170,42 @@ try{
  });
  assert.equal(await page.evaluate(()=>qaNotifications.length),1,'Desktop notification not delivered once');
  assert.equal(await page.evaluate(()=>qaNotifications[0].options.body),'Tienes un mensaje nuevo.','Notifications should not expose financial detail');
+
+ // Personal organization survives remounting without changing channel names.
+ await page.locator('[data-chat="group-toggle"][data-group="Hortimatic"]').click();
+ assert.equal(await page.locator('[data-chat="open"][data-id="h"]').count(),0);
+ await page.evaluate(async()=>{chatController.dispose();await chatController.mount(document.querySelector('#chatHarness'));});
+ assert.equal(await page.locator('[data-chat="open"][data-id="h"]').count(),0,'Collapsed section not restored');
+ await page.locator('[data-chat="group-toggle"][data-group="Hortimatic"]').click();
+ await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();
+ await page.locator('dialog [data-section-action="rename"]').click();
+ await page.locator('dialog [name="label"]').fill('Mi tienda');await page.locator('dialog [type="submit"]').click();
+ await page.getByRole('button',{name:'▾ Mi tienda',exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='h').group_name),'Hortimatic','A personal label must not rename channels for everybody');
+ await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();await page.locator('dialog [data-section-action="recent"]').click();
+ assert.equal(await page.evaluate(()=>qaChat.layout.group_sort.Hortimatic),'recent');
+ await page.locator('#chatChannelQuery').fill('newold');assert.equal(await page.locator('[data-chat="open"][data-id="h"]').count(),0);await page.locator('#chatChannelQuery').fill('');
+ await click('sidebar-toggle');assert.equal(await page.locator('.chat-sidebar-collapsed').count(),1);await click('sidebar-toggle');
+ // Use a long, realistic history to exercise scroll anchoring and keyboard controls.
+ await page.evaluate(()=>{for(let i=0;i<120;i++)qaChat.messages.push({id:'scroll-'+i,seq:++qaChat.seq,channel_id:'h',author_email:'tienda@example.invalid',body:'Mensaje de historial '+i+' — '+('Texto largo de prueba. '.repeat(4)),created_at:new Date().toISOString(),reactions:[],replies:0});});
+ await page.locator('[data-chat="open"][data-id="h"]').click();
+ await click('scroll-top');
+ const anchor=await page.locator('.chat-message').first().getAttribute('data-message');
+ const beforeAnchor=await page.locator('[data-message="'+anchor+'"]').evaluate(el=>el.getBoundingClientRect().top-el.closest('.chat-messages').getBoundingClientRect().top);
+ await click('older');
+ const afterAnchor=await page.locator('[data-message="'+anchor+'"]').evaluate(el=>el.getBoundingClientRect().top-el.closest('.chat-messages').getBoundingClientRect().top);
+ assert(Math.abs(afterAnchor-beforeAnchor)<=3,'Loading older history jumped away from the visible message');
+ await click('scroll-bottom');
+ assert(await page.locator('.chat-messages').evaluate(el=>el.scrollHeight-el.clientHeight-el.scrollTop<3),'Latest messages are not reachable');
+ await click('scroll-top');await page.locator('.chat-messages').press('PageDown');await page.waitForFunction(()=>document.querySelector('.chat-messages').scrollTop>0);assert(await page.locator('.chat-messages').evaluate(el=>el.scrollTop>0),'Keyboard scrolling failed');
+ await page.locator('#chatHarness').evaluate(el=>{el.style.marginLeft='245px';el.style.marginTop='82px';});
+ for(const size of [{width:1440,height:900},{width:1280,height:720},{width:1920,height:1080}]){
+  await page.setViewportSize(size);
+  const screen=await page.evaluate(()=>({page:document.documentElement.scrollHeight,viewport:innerHeight,compose:document.querySelector('.chat-compose').getBoundingClientRect().bottom,messages:document.querySelector('.chat-messages').clientHeight}));
+  assert(screen.compose<=screen.viewport+1,'Composer below viewport '+JSON.stringify({size,screen}));
+  assert(screen.messages>=115,'History too small '+JSON.stringify({size,screen}));
+ }
+ await page.locator('#chatHarness').evaluate(el=>{el.style.marginLeft='';el.style.marginTop='';});
  const geometry=[];
  for(const width of [1920,1440,1280,1024,900,768,700,390,320]){
   await page.setViewportSize({width,height:1000});

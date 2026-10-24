@@ -212,6 +212,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-advanced-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-layout-db-qa.sql
 
   chat-recovery-database:
     runs-on: ubuntu-latest
