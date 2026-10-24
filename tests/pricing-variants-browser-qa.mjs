@@ -9,6 +9,7 @@ try{
  await page.locator('[data-action="product-new"]').click();
  await page.locator('#prName').fill('Sales QA');await page.locator('#prSku').fill('SALES-QA');await page.locator('#prType').selectOption('variants');
  await page.locator('#prDraftVariants').waitFor({state:'visible'});
+ assert.match(await page.locator('#prSummaryNote').innerText(),/Cada variante/);
  const draft=page.locator('.pricing-draft-variant').first();
  await draft.locator('input[id^="pdName_"]').fill('Sales 10 mg');await draft.locator('input[id^="pdSku_"]').fill('SALES-10');
  await draft.locator('input[id^="pdAttrs_"]').fill('Nicotina: 10 mg; Volumen: 10 ml');

@@ -960,6 +960,7 @@ function updateProductStudy(){
  }
  if(!document.getElementById('prSummaryPvp'))return;
  if(val('prType')==='variants'){
+  if(input('prSummaryNote')){input('prSummaryNote').className='note';input('prSummaryNote').textContent='Cada variante tiene su propio coste y PVP. El resumen muestra el intervalo de las variantes activas, aplicando el descuento del producto.';}
   const results=[...state.data.variants.filter(v=>v.product_id===getView('pricing').id&&v.active!==false).map(v=>{const r=variantStudy(v,state.data.settings,num('prDiscount'));return r?{...r,costNet:v.cost_net}:null}).filter(Boolean),...refreshDraftStudies(state.data.settings,num('prDiscount'))];
   for(const [id,key] of [['prSummaryCost','costNet'],['prSummaryReal','costReal'],['prSummaryPvp','finalSale'],['prSummaryMargin','margin'],['prSummaryPct','marginPct']])if(input(id))input(id).textContent=draftRange(results,key);
   return;
@@ -968,6 +969,7 @@ function updateProductStudy(){
  const prices=state.data.providerPrices.filter(x=>x.product_id===productId&&!x.variant_id);
  const costOf=pricingProviderCost;
  const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
+ if(input('prSummaryNote')){input('prSummaryNote').className='note'+(chosen?'':' warn');input('prSummaryNote').textContent=chosen?'El coste real incluye IVA y recargo de equivalencia. El descuento de venta se aplica al PVP.':'Añade un proveedor y su coste para calcular el margen real.';}
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
  const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
