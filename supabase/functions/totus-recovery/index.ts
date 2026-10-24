@@ -1,3 +1,4 @@
+import {createRecoveryDocumentReader} from './chat-file-reader.js';
 import {createCloudBackupReader} from '../../../src/cloud-backup-reader.js';
 import {SET_FORMAT,SET_INDEX_BYTES} from '../../../src/backup-set.js';
 import {createHash} from 'node:crypto';
@@ -32,16 +33,11 @@ function readerFor(req:Request){
 }
 const download=async(bucket:string,path:string,req?:Request)=>{
  if(bucket==='business-documents'&&req){
-  const linkResponse=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify({action:'document-file-url',path}),signal:AbortSignal.timeout(30000)});
-  const link=await linkResponse.json();
-  if(!linkResponse.ok)throw new Error('No se pudo preparar un original para el punto de recuperación.');
-  if(link.provider==='onedrive'){
-   if(typeof link.url!=='string'||new URL(link.url).protocol!=='https:')throw new Error('Ubicación de recuperación no válida.');
-   const response=await fetch(link.url,{signal:AbortSignal.timeout(60000)});
-   if(!response.ok)throw new Error('No se pudo leer un original de OneDrive para la recuperación.');
-   return await response.blob();
-  }
-  if(link.provider!=='supabase')throw new Error('Ubicación de recuperación desconocida.');
+  const reader=createRecoveryDocumentReader({admin,oneDriveRequest:async body=>{
+   const response=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
+   const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo preparar un original para la recuperación.');return result;
+  }});
+  return reader(path);
  }
  if(bucket==='business-backups'&&req)return readerFor(req)(path);
  const data=checked(await admin.storage.from(bucket).download(path),'No se pudo leer el archivo');
@@ -147,7 +143,7 @@ Deno.serve(async req=>{
     if(expectedPath)q=q.eq('storage_path',expectedPath);
     const proof=checked(await q.order('started_at',{ascending:false}).limit(1).maybeSingle(),'No se pudo consultar el respaldo actual');
     if(!proof){
-     const size=currentSnapshot.database.ops_documents.reduce((n:number,d:any)=>n+Number(d.size_bytes||0),0);
+     const size=[...currentSnapshot.database.ops_documents,...(currentSnapshot.database.ops_chat_files||[]).filter((f:any)=>f.status==='ready')].reduce((n:number,d:any)=>n+Number(d.size_bytes||0),0);
      if(size>32*1024*1024)throw new Error('Crea una copia completa actual antes de recuperar los datos.');
      return null;
     }
@@ -161,7 +157,7 @@ Deno.serve(async req=>{
    readCheckpoint:(path:string)=>readBackupObject(path,(part:string)=>download('business-backups',part,req),JSZip.archiveHash),
    setCheckpoint:async(path:string,revision:string)=>{checked(await admin.from('ops_recovery_jobs').update({checkpoint_path:path,before_revision:revision}).eq('id',jobId).eq('status','preparing').select('id').single(),'No se pudo guardar el punto de vuelta atrás');},
    writeFile:async(file:{bucket:string;path:string;target:string},bytes:Uint8Array)=>{
-    const doc=file.bucket==='business-documents'?archive.database.ops_documents.find((d:{storage_path:string})=>d.storage_path===file.path):null;
+    const doc=file.bucket==='business-documents'?[...archive.database.ops_documents,...(archive.database.ops_chat_files||[]).filter((f:any)=>f.status==='ready')].find((d:{storage_path:string})=>d.storage_path===file.path):null;
     const mime=doc?.mime_type&&/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(doc.mime_type)?doc.mime_type:contentType(file.path);
     await write(file.bucket,file.target,bytes,mime);
    },

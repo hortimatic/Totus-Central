@@ -1,4 +1,4 @@
-import {RECOVERY_TABLES,LEGACY_RECOVERY_TABLES,isLegacyStockArchive,validateMetadata} from '../../../src/recovery-core.js';
+import {recoveryTablesFor,validateMetadata} from '../../../src/recovery-core.js';
 import {componentPath,signBackupSet,SET_COMPONENT_BYTES} from '../../../src/backup-set.js';
 export function createPartitionedBackup({Zip,hash,readOriginal,writeComponent,readCode}){
  async function start(snapshot,path){
@@ -6,10 +6,10 @@ export function createPartitionedBackup({Zip,hash,readOriginal,writeComponent,re
   if(new TextEncoder().encode(database).length>32*1024*1024)throw new Error('Los datos contables necesitan ampliar su capacidad de recuperación.');
   const manifest={format:'totus-clean-backup',version:3,bundle_version:4,scope:'same-project-application-data',
    project_ref:snapshot.project_ref,database_instance:snapshot.database_instance,schema_hash:snapshot.schema_hash,revision:snapshot.revision,
-   created_at:snapshot.created_at,tables:isLegacyStockArchive({...snapshot,tables:Object.keys(snapshot.database||{})},snapshot.database)?[...LEGACY_RECOVERY_TABLES]:[...RECOVERY_TABLES],storage:snapshot.storage,identities:snapshot.identities,
+   created_at:snapshot.created_at,tables:[...recoveryTablesFor({...snapshot,tables:Object.keys(snapshot.database||{})},snapshot.database)],storage:snapshot.storage,identities:snapshot.identities,
    integrity:{database:await hash(database),identities:await hash(JSON.stringify(snapshot.identities)),storage:{'business-documents':{},'business-assets':{}}}};
   validateMetadata(manifest,snapshot.database);
-  const known=new Map(snapshot.database.ops_documents.filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
+  const known=new Map([...snapshot.database.ops_documents,...(snapshot.database.ops_chat_files||[]).filter(f=>f.status==='ready')].filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
   return {version:4,snapshot,source_revision:snapshot.source_revision,path,manifest,cursor:0,parts:[],files:Object.entries(snapshot.storage).flatMap(([bucket,paths])=>paths.map(path=>({bucket,path,sha256:bucket==='business-documents'?known.get(path)||null:null}))),stage:'documents'};
  }
  async function save(job,kind,zip,number){

@@ -8,7 +8,19 @@ export const LEGACY_RECOVERY_TABLES=[
  'profiles','team_members','team_email_log','team_user_audit_log'
 ];
 export const STOCK_RECOVERY_TABLES=['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences'];
-export const RECOVERY_TABLES=[...LEGACY_RECOVERY_TABLES,...STOCK_RECOVERY_TABLES];
+export const PRE_CHAT_RECOVERY_TABLES=[...LEGACY_RECOVERY_TABLES,...STOCK_RECOVERY_TABLES];
+export const CHAT_RECOVERY_TABLES=["ops_chat_channels","ops_chat_members","ops_chat_messages","ops_chat_reactions","ops_chat_events","ops_chat_files","ops_chat_agent_requests"];
+export const RECOVERY_TABLES=[...PRE_CHAT_RECOVERY_TABLES,...CHAT_RECOVERY_TABLES];
+export const LEGACY_CHAT_SCHEMA_HASH='557e56cd01a94a52e443ddd1184b3088089c1864fddeaab91bf44ae6e2a2e1fd';
+export function isLegacyChatArchive(manifest,database){
+ return manifest?.schema_hash===LEGACY_CHAT_SCHEMA_HASH&&Array.isArray(manifest.tables)
+ &&manifest.tables.length===PRE_CHAT_RECOVERY_TABLES.length&&new Set(manifest.tables).size===PRE_CHAT_RECOVERY_TABLES.length
+ &&PRE_CHAT_RECOVERY_TABLES.every(t=>manifest.tables.includes(t)&&Array.isArray(database?.[t]))
+ &&Object.keys(database||{}).length===PRE_CHAT_RECOVERY_TABLES.length;
+}
+export function recoveryTablesFor(manifest,database){
+ return isLegacyStockArchive(manifest,database)?LEGACY_RECOVERY_TABLES:isLegacyChatArchive(manifest,database)?PRE_CHAT_RECOVERY_TABLES:RECOVERY_TABLES;
+}
 export const LEGACY_STOCK_SCHEMA_HASH='52e2e40d2b27ca87540ab4f94e52c850235674b555ecd60fe3bb08eb181f8f45';
 export function isLegacyStockArchive(manifest,database){
  return manifest?.schema_hash===LEGACY_STOCK_SCHEMA_HASH&&Array.isArray(manifest.tables)
@@ -33,7 +45,7 @@ export function validateArchivePath(path){
 }
 export function recoveryFileReferences(database){
  const refs=Object.fromEntries(RECOVERY_BUCKETS.map(b=>[b,new Set()]));
- for(const doc of database.ops_documents||[])if(doc.storage_path)refs['business-documents'].add(validateArchivePath(doc.storage_path));
+ for(const doc of [...(database.ops_documents||[]),...(database.ops_chat_files||[]).filter(f=>f.status==='ready')])if(doc.storage_path)refs['business-documents'].add(validateArchivePath(doc.storage_path));
  const walk=value=>{
   if(Array.isArray(value)){value.forEach(walk);return}
   if(!value||typeof value!=='object')return;
@@ -52,7 +64,7 @@ export function validateMetadata(manifest,database){
   throw new Error('La copia no identifica su proyecto, estructura o revisión.');
  if(!Array.isArray(manifest.identities)||manifest.identities.some(x=>!UUID.test(x.id||'')||typeof x.email!=='string'))
   throw new Error('El inventario de cuentas de la copia no es válido.');
- const tables=isLegacyStockArchive(manifest,database)?LEGACY_RECOVERY_TABLES:RECOVERY_TABLES;
+ const tables=recoveryTablesFor(manifest,database);
  if(!database||typeof database!=='object'||Array.isArray(database)||Object.keys(database).length!==tables.length
   ||tables.some(t=>!Array.isArray(database[t]))||!Array.isArray(manifest.tables)
   ||manifest.tables.length!==tables.length||new Set(manifest.tables).size!==tables.length
@@ -69,7 +81,7 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
  const hashValue=JSZip.archiveHash||archiveHash;
  const manifest={format:'totus-clean-backup',version:3,scope:'same-project-application-data',
   project_ref:snapshot.project_ref,database_instance:snapshot.database_instance,schema_hash:snapshot.schema_hash,
-  revision:snapshot.revision,created_at:snapshot.created_at,tables:isLegacyStockArchive({...snapshot,tables:Object.keys(snapshot.database||{})},snapshot.database)?[...LEGACY_RECOVERY_TABLES]:[...RECOVERY_TABLES],
+  revision:snapshot.revision,created_at:snapshot.created_at,tables:[...recoveryTablesFor({...snapshot,tables:Object.keys(snapshot.database||{})},snapshot.database)],
   storage:snapshot.storage,identities:snapshot.identities,integrity:{storage:{}}};
  validateMetadata(manifest,snapshot.database);
  const zip=new JSZip(),databaseJson=JSON.stringify(snapshot.database);
@@ -79,7 +91,7 @@ export async function buildRecoveryArchive(snapshot,JSZip,readFile){
  let expanded=new TextEncoder().encode(databaseJson).byteLength;
  await zip.file('database.json',databaseJson);
  const pending=[];
- const originalHashes=new Map((snapshot.database.ops_documents||[]).filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
+ const originalHashes=new Map([...(snapshot.database.ops_documents||[]),...(snapshot.database.ops_chat_files||[]).filter(f=>f.status==='ready')].filter(d=>d.storage_path&&d.sha256).map(d=>[d.storage_path,d.sha256]));
  for(const bucket of RECOVERY_BUCKETS){
   manifest.integrity.storage[bucket]={};
   for(const path of manifest.storage[bucket])pending.push({bucket,path});
@@ -139,12 +151,12 @@ export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schem
  if(!mf||!db)throw new Error('Faltan el inventario o los datos de la copia.');
  const manifest=JSON.parse(await mf.async('string')),databaseJson=await db.async('string'),database=JSON.parse(databaseJson);
  validateMetadata(manifest,database);
- if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash&&!isLegacyStockArchive(manifest,database))
+ if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash&&!isLegacyStockArchive(manifest,database)&&!isLegacyChatArchive(manifest,database))
   throw new Error('La copia pertenece a otro proyecto o a una estructura incompatible.');
  if(await hashValue(databaseJson)!==manifest.integrity?.database
   ||await hashValue(JSON.stringify(manifest.identities))!==manifest.integrity?.identities)throw new Error('La copia está dañada: falla el control de integridad de datos o cuentas.');
  const expected=new Set(['manifest.json','database.json']);
- for(const doc of database.ops_documents)if(doc.storage_path&&doc.sha256&&doc.sha256!==manifest.integrity?.storage?.['business-documents']?.[doc.storage_path])throw new Error('La copia está dañada: un documento no coincide con su huella registrada.');
+ for(const doc of [...database.ops_documents,...(database.ops_chat_files||[]).filter(f=>f.status==='ready')])if(doc.storage_path&&doc.sha256&&doc.sha256!==manifest.integrity?.storage?.['business-documents']?.[doc.storage_path])throw new Error('La copia está dañada: un documento no coincide con su huella registrada.');
  for(const bucket of RECOVERY_BUCKETS)for(const path of manifest.storage[bucket]){
   const name='storage/'+bucket+'/'+path;expected.add(name);
   const entry=zip.file(name);
@@ -176,6 +188,6 @@ export async function prepareRecoveryPlan(archive,jobId,{reusable}={}){
   }));
  };
  const database=JSON.parse(JSON.stringify(archive.database));
- for(const table of ['ops_documents','ops_document_templates','ops_sales_invoices','ops_business_settings'])database[table]=walk(database[table]);
+ for(const table of ['ops_documents','ops_chat_files','ops_document_templates','ops_sales_invoices','ops_business_settings'])if(database[table])database[table]=walk(database[table]);
  return {database,files};
 }

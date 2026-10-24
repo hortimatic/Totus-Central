@@ -10,8 +10,12 @@ export function createTeamChatFiles({admin,scoped,check,token,root,ensurePath,gr
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}return bytes;
  }
  async function content(f,access){
-  const response=await graph(access,pathFor(f)+':/content');
+  let restored=null;
+  if(f.storage_path.startsWith('recovery/')){const local=await admin.storage.from('business-documents').download(f.storage_path);if(!local.error&&local.data){if(local.data.size>CHAT_FILE_LIMIT)throw new Error('El adjunto supera 20 MB.');restored=new Uint8Array(await local.data.arrayBuffer());}}
+  const response=restored?null:await graph(access,pathFor(f)+':/content');
   let data;
+  if(restored)data=restored;
+  else
   if(response.status===302){
    const address=microsoftTransferUrl(response.headers.get('Location'));
    const remote=await fetchFile(address,{signal:AbortSignal.timeout(30000),redirect:'error'});
@@ -66,6 +70,10 @@ export function createTeamChatFiles({admin,scoped,check,token,root,ensurePath,gr
   const client=job?admin:(await scoped(req)).client;
   const f=check(await client.from('ops_chat_files').select('*').eq('storage_path',path).eq('status','ready').maybeSingle(),'No se pudo comprobar el adjunto de la copia.');
   if(!f)return null;
+  if(f.storage_path.startsWith('recovery/')){
+   const local=await admin.storage.from('business-documents').createSignedUrl(path,300);
+   if(!local.error&&local.data?.signedUrl)return {provider:'supabase',url:local.data.signedUrl,size_bytes:Number(f.size_bytes),sha256:f.sha256};
+  }
   const response=await graph(await token(),pathFor(f)+':/content');
   if(response.status===302)return {provider:'onedrive',url:microsoftTransferUrl(response.headers.get('Location')),size_bytes:Number(f.size_bytes),sha256:f.sha256};
   if(response.status===404){

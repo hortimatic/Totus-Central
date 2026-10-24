@@ -22,6 +22,7 @@ create table public.ops_chat_members (
  last_read_seq bigint not null default 0 check(last_read_seq>=0),
  muted boolean not null default false,
  notify_level text not null default 'all' check(notify_level in ('all','mentions','none')),
+ desktop_enabled boolean not null default false,
  favourite boolean not null default false, hidden boolean not null default false,
  sort_order integer not null default 0 check(sort_order between -100000 and 100000),
  unique(channel_id,email)
@@ -91,6 +92,7 @@ create table public.ops_chat_agent_requests (
  reply_message_id uuid references public.ops_chat_messages(id),
  created_at timestamptz not null default now(),updated_at timestamptz not null default now(),
  lease_until timestamptz,claim_id uuid,
+ context_hash text,
  result_note text not null default '' check(length(result_note)<=12000),
  unique(message_id)
 );
@@ -208,13 +210,14 @@ begin
     then raise exception 'La respuesta no pertenece a este canal.';end if;
    select * into msg from public.ops_chat_messages where author_id=auth.uid() and client_id=(p_data->>'client_id')::uuid;
    if found then
-    if msg.channel_id<>channel or msg.body<>value or msg.parent_id is distinct from nullif(p_data->>'parent_id','')::uuid
+    if msg.channel_id<>channel or msg.body<>value or msg.expected_files<>coalesce((p_data->>'expected_files')::integer,0) or msg.parent_id is distinct from nullif(p_data->>'parent_id','')::uuid
       then raise exception 'El identificador de envío ya corresponde a otro mensaje.';end if;
     return to_jsonb(msg);
    end if;
    insert into public.ops_chat_messages(channel_id,author_id,author_email,client_id,body,parent_id,expected_files)
    values(channel,auth.uid(),actor,(p_data->>'client_id')::uuid,value,nullif(p_data->>'parent_id','')::uuid,coalesce((p_data->>'expected_files')::integer,0)) returning * into msg;
    mid=msg.id;result=to_jsonb(msg);
+   update public.ops_chat_members set hidden=false where channel_id=channel;
    select coalesce(array_agg(distinct lower(v[1])),'{}'::text[]) into mentions from regexp_matches(value,'@\{([^}]+)\}','g') v;
    if exists(select 1 from unnest(mentions) mentioned where not exists(select 1 from public.ops_chat_members cm where cm.channel_id=channel and cm.email=mentioned))
     then raise exception 'Una mención no pertenece a los miembros del canal.';end if;
@@ -232,7 +235,7 @@ begin
   elsif p_action in ('agent_request','agent_cancel') then
    mid=(p_data->>'message_id')::uuid;
    select * into strict msg from public.ops_chat_messages where id=mid and channel_id=channel and deleted_at is null;
-   if msg.author_id is distinct from auth.uid() and not private.totus_chat_manager(channel) then raise exception 'Solo el autor o un responsable puede enviar esta solicitud.';end if;
+   if msg.author_kind='assistant' or (msg.author_id is distinct from auth.uid() and not private.totus_chat_manager(channel)) then raise exception 'Solo el autor o un responsable puede enviar una solicitud de una persona.';end if;
    if p_action='agent_request' then
     insert into public.ops_chat_agent_requests(channel_id,message_id,requested_by,requested_email)
     values(channel,mid,auth.uid(),actor) on conflict(message_id) do nothing;
@@ -245,10 +248,11 @@ begin
    update public.ops_chat_members set
     last_read_seq=case when p_action='read' then greatest(last_read_seq,least(coalesce((p_data->>'seq')::bigint,0),
       coalesce((select max(seq) from public.ops_chat_messages where channel_id=channel),0))) else last_read_seq end,
-    muted=case when p_action='mute' then coalesce((p_data->>'muted')::boolean,false) else muted end,
+    muted=case when p_action='member_preferences' and p_data?'notify_level' then p_data->>'notify_level'='none' when p_action='mute' then coalesce((p_data->>'muted')::boolean,false) else muted end,
     notify_level=case when p_action='member_preferences' then coalesce(p_data->>'notify_level',notify_level) when p_action='mute' then case when (p_data->>'muted')::boolean then 'none' else 'all' end else notify_level end,
     favourite=case when p_action='member_preferences' then coalesce((p_data->>'favourite')::boolean,favourite) else favourite end,
     hidden=case when p_action='member_preferences' then coalesce((p_data->>'hidden')::boolean,hidden) else hidden end,
+    desktop_enabled=case when p_action='member_preferences' then coalesce((p_data->>'desktop_enabled')::boolean,desktop_enabled) else desktop_enabled end,
     sort_order=case when p_action='member_preferences' then coalesce((p_data->>'sort_order')::integer,sort_order) else sort_order end
     where channel_id=channel and email=actor returning to_jsonb(ops_chat_members) into result;
   else
@@ -258,6 +262,7 @@ begin
     if msg.author_id is distinct from auth.uid() then raise exception 'Solo puedes modificar tus propios mensajes.';end if;
     if msg.edited_at is distinct from nullif(p_data->>'expected_edited_at','')::timestamptz then raise exception 'El mensaje cambió. Actualiza antes de editar.';end if;
     if p_action='edit' then
+     if exists(select 1 from public.ops_chat_agent_requests where message_id=mid and status in ('working','completed')) then raise exception 'Envía otro mensaje para cambiar una solicitud ya atendida por el asistente.';end if;
      select coalesce(array_agg(distinct lower(v[1])),'{}'::text[]) into mentions from regexp_matches(p_data->>'body','@\{([^}]+)\}','g') v;
      if exists(select 1 from unnest(mentions) mentioned where not exists(select 1 from public.ops_chat_members cm where cm.channel_id=channel and cm.email=mentioned))
       then raise exception 'Una mención no pertenece a los miembros del canal.';end if;
@@ -296,7 +301,7 @@ begin
  if length(p_query)>200 or (p_from is not null and p_to is not null and p_from>p_to) or p_mode not in ('all','pinned','tasks','mentions') then raise exception 'Filtro no válido.';end if;
  select coalesce(jsonb_agg(to_jsonb(c)||jsonb_build_object(
    'name',case when c.channel_kind='direct' then coalesce((select coalesce(nullif(t.full_name,''),m.email) from public.ops_chat_members m join public.team_members t on lower(t.email)=m.email where m.channel_id=c.id and m.email<>actor limit 1),c.name) else c.name end,
-   'notify_level',me.notify_level,'favourite',me.favourite,'hidden',me.hidden,'sort_order',me.sort_order,
+   'desktop_enabled',me.desktop_enabled,'notify_level',me.notify_level,'favourite',me.favourite,'hidden',me.hidden,'sort_order',me.sort_order,
    'last_seq',coalesce((select max(seq) from public.ops_chat_messages m where m.channel_id=c.id),0),'member_role',me.member_role,'muted',me.muted,'last_read_seq',coalesce(me.last_read_seq,0),
    'mentions',(select count(*) from public.ops_chat_messages m where m.channel_id=c.id and m.seq>coalesce(me.last_read_seq,0) and actor=any(m.mentioned_emails) and m.deleted_at is null),
    'unread',(select count(*) from public.ops_chat_messages m where m.channel_id=c.id and m.seq>coalesce(me.last_read_seq,0)
@@ -445,7 +450,7 @@ declare actor text=private.totus_chat_actor();
 begin
  if actor is null then raise exception 'Usuario de equipo no activo.';end if;
  return coalesce((select jsonb_agg(to_jsonb(r) order by r.seq desc) from (
- select m.*,c.name as channel_name,c.channel_kind from public.ops_chat_messages m
+ select m.*,c.name as channel_name,c.channel_kind,cm.desktop_enabled from public.ops_chat_messages m
  join public.ops_chat_channels c on c.id=m.channel_id
  join public.ops_chat_members cm on cm.channel_id=c.id and cm.email=actor
  where c.deleted_at is null and not c.archived and m.deleted_at is null and m.author_email<>actor
@@ -465,6 +470,13 @@ create function private.totus_chat_bridge_allowed() returns boolean language sql
 $$;
 revoke all on function private.totus_chat_bridge_allowed() from public,anon,authenticated;
 grant execute on function private.totus_chat_bridge_allowed() to service_role;
+
+create function private.totus_chat_agent_source_hash(p_request uuid) returns text language sql stable security definer set search_path='' as $$
+ select encode(extensions.digest(jsonb_build_object('body',m.body,'deleted',m.deleted_at,'expected_files',m.expected_files,'files',
+ coalesce((select jsonb_agg(jsonb_build_array(f.id,f.sha256,f.status,f.deleted_at) order by f.id) from public.ops_chat_files f where f.message_id=m.id),'[]'::jsonb))::text,'sha256'),'hex')
+ from public.ops_chat_agent_requests r join public.ops_chat_messages m on m.id=r.message_id where r.id=p_request
+$$;
+revoke all on function private.totus_chat_agent_source_hash(uuid) from public,anon,authenticated;
 
 create function private.totus_chat_agent_context(p_request uuid default null,p_claim uuid default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
@@ -493,7 +505,7 @@ begin
  if exists(select 1 from public.ops_chat_messages m where m.id=r.message_id and m.expected_files>(select count(*) from public.ops_chat_files f where f.message_id=m.id and f.status='ready' and f.deleted_at is null)) then raise exception 'Espera a que terminen las subidas de esta solicitud.';end if;
  if p_claim is not null then
   if r.lease_until>now() and r.claim_id is distinct from p_claim then raise exception 'Otra ejecución está atendiendo esta solicitud.';end if;
-  update public.ops_chat_agent_requests set status='working',claim_id=p_claim,lease_until=now()+interval '15 minutes',updated_at=now() where id=r.id returning * into r;
+  update public.ops_chat_agent_requests set status='working',claim_id=p_claim,lease_until=now()+interval '15 minutes',context_hash=private.totus_chat_agent_source_hash(r.id),updated_at=now() where id=r.id returning * into r;
  end if;
  select jsonb_build_object('request',to_jsonb(r),'channel',(select to_jsonb(c) from public.ops_chat_channels c where c.id=r.channel_id),
  'message',(select to_jsonb(m) from public.ops_chat_messages m where m.id=r.message_id),
@@ -517,10 +529,12 @@ begin
  select * into strict r from public.ops_chat_agent_requests where id=p_request for update;
  if r.status='completed' then return jsonb_build_object('message_id',r.reply_message_id,'already_completed',true);end if;
  if p_claim is null or r.claim_id is distinct from p_claim or r.lease_until<now() then raise exception 'Recoge la solicitud antes de responder.';end if;
+ if r.context_hash is distinct from private.totus_chat_agent_source_hash(r.id) then raise exception 'La solicitud o sus archivos cambiaron. Vuelve a consultar el contexto antes de responder.';end if;
  perform private.totus_chat_agent_context(p_request,p_claim);
  select * into strict source from public.ops_chat_messages where id=r.message_id;
  insert into public.ops_chat_messages(channel_id,author_id,author_kind,author_email,client_id,body,parent_id,assistant_request_id)
  values(r.channel_id,null,'assistant','chatgpt@totus.invalid',r.id,btrim(p_body),coalesce(source.parent_id,source.id),r.id) returning id into mid;
+ update public.ops_chat_members set hidden=false where channel_id=r.channel_id;
  update public.ops_chat_agent_requests set status='completed',reply_message_id=mid,updated_at=now(),lease_until=null,result_note='Respuesta guardada por la conexión autorizada' where id=r.id;
  insert into public.ops_chat_events(channel_id,actor_email,action,entity_id,detail)
  values(r.channel_id,'chatgpt@totus.invalid','assistant_reply',mid,jsonb_build_object('request_id',r.id,'requested_by',r.requested_by));
@@ -530,3 +544,16 @@ create function public.totus_chat_agent_reply(p_request uuid,p_claim uuid,p_body
 returns jsonb language sql security invoker set search_path='' as $$select private.totus_chat_agent_reply(p_request,p_claim,p_body)$$;
 revoke all on function private.totus_chat_agent_reply(uuid,uuid,text),public.totus_chat_agent_reply(uuid,uuid,text) from public,anon,authenticated;
 grant execute on function private.totus_chat_agent_reply(uuid,uuid,text),public.totus_chat_agent_reply(uuid,uuid,text) to service_role;
+
+-- Realtime is only a transport; RLS remains authoritative. Polling is a fallback.
+do $realtime$
+declare tab text;
+begin
+ if exists(select 1 from pg_publication where pubname='supabase_realtime') then
+  foreach tab in array array['ops_chat_messages','ops_chat_files','ops_chat_agent_requests','ops_chat_members'] loop
+   if not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename=tab) then
+    execute format('alter publication supabase_realtime add table public.%I',tab);
+   end if;
+  end loop;
+ end if;
+end $realtime$;
