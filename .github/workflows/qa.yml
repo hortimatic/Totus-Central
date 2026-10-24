@@ -169,6 +169,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023223642_require_explicit_stock_reading_confirmation.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/expense-report-db-qa.sql
 
       - name: Verify isolated Pricing database
         env:

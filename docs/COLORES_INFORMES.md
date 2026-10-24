@@ -18,3 +18,7 @@ Los Excel ya descargados no se modifican automáticamente: deben generarse de nu
 Se detectó: uso del modelo de retención para colorear alquileres como IRPF; colores conservados en source_ref.source.color que se ignoraban; colores ARGB rechazados; posible discrepancia entre el color original y el subtotal; indemnizaciones fuera del grupo de personal.
 Se unifica la regla en src/expense-colors.js. Se conservan importes, fórmulas, columnas, fuentes originales y clasificación fiscal.
 Prueba específica: tests/expense-colors-qa.mjs; comprueba también los estilos del archivo XLSX escrito y reabierto.
+
+## Copias de seguridad
+La preferencia opcional report_group se guarda con las categorías. Se excluye únicamente esta columna de presentación y su restricción del identificador de estructura, como ya se hacía con ui_preferences. Las copias antiguas conservan su compatibilidad y restauran Automático; las nuevas preservan la elección. La validación de valores y el resto de controles de recuperación se mantienen.
+Verificado en producción que el identificador vuelve a 557e56cd01a94a52e443ddd1184b3088089c1864fddeaab91bf44ae6e2a2e1fd, el mismo de las últimas copias verificadas. No se ejecuta restauración sobre la contabilidad en uso. Prueba aislada: tests/expense-report-db-qa.sql.
