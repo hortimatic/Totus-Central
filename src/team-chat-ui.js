@@ -52,10 +52,11 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
   const before=older&&data.messages.length?Math.min(...data.messages.map(m=>m.seq)):null;
   const result=await rpc('totus_chat_context',{p_channel:current()?.member_role?channel:null,p_parent:parent,p_before:before,p_query:data.query,p_from:data.from||null,p_to:data.to||null,p_mode:data.mode});
   if(token!==generation||!host||owner!==actor())return;
+  const previous=JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more]);
   const batch=result.messages||[],more=batch.length>50,rows=more?batch.slice(1):batch;
   data.channels=result.channels||[];data.members=result.members||[];data.loaded=true;data.error='';
   if(channel){data.more=more;data.messages=older?[...new Map([...rows,...data.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.seq-b.seq):rows;}
-  paint();
+  if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more]))paint();
  }
  async function open(id){
   remember();data.channel=id;data.parent=null;data.messages=[];data.more=false;data.query='';data.from='';data.to='';data.mode='all';paint();await refresh();
@@ -131,7 +132,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
  const onKey=e=>{if(e.target.id==='chatBody'&&e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send(e).catch(showError);}if(e.target.closest('.chat-search')&&e.key==='Enter'){e.preventDefault();host.querySelector('[data-chat="search"]').click();}};
  const beforeUnload=e=>{if(hasDraft()){e.preventDefault();e.returnValue='';}};
  async function tick(){
-  if(!host||busy||dialog||document.visibilityState!=='visible'||data.messages.length>50)return;
+  if(!host||busy||dialog||document.visibilityState!=='visible'||data.messages.length>50||host.contains(document.activeElement)&&document.activeElement.matches('input,textarea,select'))return;
   try{await refresh();}catch(error){showError(error);}
  }
  function dispose(){
