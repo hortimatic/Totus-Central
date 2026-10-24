@@ -55,9 +55,9 @@ select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-33333333
 select public.qa_denied(format('select public.totus_chat_context(%L::uuid)',:'open_id'),'No tienes acceso');
 select public.totus_chat_command('join',jsonb_build_object('channel_id',:'open_id'));
 select set_config('qa.open_id',:'open_id',true);
-do $begin for n in 1..55 loop
+do $$begin for n in 1..55 loop
  perform public.totus_chat_command('send',jsonb_build_object('channel_id',current_setting('qa.open_id'),'client_id',gen_random_uuid(),'body','Paginación '||n));
-end loop;end$;
+end loop;end$$;
 select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'open_id')->'messages')=51,'keyset page includes one lookahead');
 select public.qa_assert(jsonb_array_length(public.totus_chat_context(:'open_id',(public.totus_chat_context(:'open_id')->'messages'->0->>'seq')::bigint)->'messages')=4,'older keyset page without overlap');
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
