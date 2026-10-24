@@ -69,6 +69,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
   host.append(dialog);dialog.querySelector('[data-chat-close]').onclick=closeDialog;
   dialog.querySelector('[data-chat="dialog-cancel"]').onclick=closeDialog;
   dialog.addEventListener('input',event=>event.target.dataset.dirty='true');
+  dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
   dialog.addEventListener('submit',async event=>{
    event.preventDefault();if(busy)return;busy=true;
    const values=Object.fromEntries(new FormData(event.target));

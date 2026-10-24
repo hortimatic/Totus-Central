@@ -95,6 +95,7 @@ try{
  await click('read');await click('mute');await page.getByRole('button',{name:'Activar avisos',exact:true}).waitFor();
  await click('members');await page.locator('dialog [name="email"]').fill('companero@example.invalid');await page.locator('dialog [type="submit"]').click();
  assert.equal(await page.evaluate(()=>qaChat.members.length),2);
+ await click('new');await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),0,'Escape must clean up the dialog');
  await click('new');await page.locator('dialog [name="name"]').fill('Pedidos de clientes');await page.locator('dialog [name="group_name"]').fill('Hortimatic');await page.locator('dialog [name="is_private"]').selectOption('true');await page.locator('dialog [type="submit"]').click();
  await page.getByRole('heading',{name:'Pedidos de clientes',exact:true}).waitFor();
  await click('settings');await page.locator('dialog [name="archived"]').selectOption('true');await page.locator('dialog [type="submit"]').click();
