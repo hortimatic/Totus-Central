@@ -55,7 +55,7 @@ export function createTeamChatFiles({admin,scoped,check,token,root,ensurePath,gr
    const existing=await graph(access,pathFor(f));
    if(existing.status===200)return json({file:await verify(f,user),complete:true});
    if(existing.status!==404)throw new Error('No se pudo comprobar la carpeta del chat.');
-   const response=await graph(access,pathFor(f)+':/createUploadSession',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':'fail',name:f.onedrive_path.split('/').pop(),fileSize:Number(f.size_bytes)}})});
+   const response=await graph(access,pathFor(f)+':/createUploadSession',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':'fail'}})});
    if(!response.ok)throw new Error('Microsoft no pudo preparar la subida (HTTP '+response.status+').');
    const value=await response.json();return json({file:f,upload_url:microsoftTransferUrl(value.uploadUrl),expires_at:value.expirationDateTime});
   }
