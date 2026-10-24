@@ -1,4 +1,4 @@
-import {expenseReportStyle,normalizeExpenseColor} from './expense-colors.js';
+import {expenseReportStyle,normalizeExpenseColor,EXPENSE_REPORT_COLORS} from './expense-colors.js';
 import {informationalTaxPayments,taxPaymentLabel} from './payment-information.js';
 import {archiveAccepted} from './historical-acceptance.js';
 import {fmtDate,n} from './utils.js';
@@ -158,7 +158,7 @@ export function exportSummaryWorkbook({closings,expenses,stores,invoices=[],fisc
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const WEEKDAYS=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
 const XLSX_WCH_PAD=0.83203125;
-const LEGACY_COLORS={other:'00B050',payroll:'FFC000',orders:'00B0F0',fixed:'FFFF00',irpf:'92D050',total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
+const LEGACY_COLORS={...EXPENSE_REPORT_COLORS,total:'FF0000',stripe:'DCE6F1',header:'4F81BD',grid:'95B3D7'};
 
 function excelDateKey(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
 function moneyStyle(fill){return {fill:fill?{fgColor:{rgb:fill}}:undefined,font:{name:'Calibri',sz:11},alignment:{horizontal:'right'},numFmt:'#,##0.00',border:{top:{style:'thin',color:{rgb:'95B3D7'}},bottom:{style:'thin',color:{rgb:'95B3D7'}}}}}
