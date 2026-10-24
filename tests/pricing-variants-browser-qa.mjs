@@ -116,6 +116,15 @@ try{
  await simple.locator('[data-action="consultation-convert-save"]').click();await simple.getByText('Producto creado desde la consulta.',{exact:true}).waitFor();
  assert.equal(await simple.locator('#prStatus').inputValue(),'PENDIENTE');
  assert.equal(await simple.evaluate(()=>window.__mockDb.consultation_history.filter(h=>h.action==='CONVERTIDA').length),1);
+ await simple.evaluate(async()=>{
+  const {state}=await import('../src/state.js');state.user={...state.user,role:'gerente'};
+  state.data.userPermissions=[{email:state.user.email,module:'pricing',can_view:true,can_create:false,can_edit:true,can_delete:false,can_export:false}];
+ });
+ await simple.locator('#nav [data-route="pricing"]').click();
+ await simple.locator('[data-action="product-edit"]').first().click();await simple.locator('#prType').selectOption('variants');
+ assert.equal(await simple.locator('[data-action="product-draft-add"]').count(),0,'Editor without create must not be offered new variant insertion');
+ assert.equal(await simple.locator('.pricing-draft-variant').count(),0,'Type change must not insert an unauthorized draft');
+ assert.match(await simple.locator('#prDraftVariants').innerText(),/necesitas permiso/);
  await simple.close();
  assert.deepEqual(errors,[]);
  console.log('PRICING BROWSER: create, live calculation, save, reopen, attributes, inactive/reactivate, draft preservation and mobile OK');

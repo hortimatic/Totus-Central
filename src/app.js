@@ -58,7 +58,8 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
- if(a==='product-draft-remove'||a==='product-draft-add')return {module:'pricing',operation:getView('pricing').id?'edit':'create'};
+ if(a==='product-draft-add')return {module:'pricing',operation:'create',requiresEdit:!!getView('pricing').id};
+ if(a==='product-draft-remove')return {module:'pricing',operation:getView('pricing').id?'edit':'create'};
  if(a==='product-save-next')return {module:'pricing',operation:'edit'};
  if(a==='consultation-save-copy')return {module:'pricing',operation:'create'};
  if(a==='consultation-reuse')return {module:'pricing',operation:'edit'};
@@ -86,6 +87,7 @@ function checkActionPermission(action,el){
  if(!required)return true;
  if(required.adminOnly&&!isAdmin())return false;
  if(required.managerOnly&&!isManager())return false;
+ if(required.requiresEdit&&!can(required.module,'edit'))return false;
  return can(required.module,required.operation);
 }
 function hideForbiddenButtons(){
@@ -614,6 +616,7 @@ async function saveProduct(id='',next=false){
  const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:val('prPvp')===''?null:num('prPvp'),proposed_pvp:val('prProposed')===''?null:num('prProposed'),units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
  for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
  const variants=row.product_type==='variants'?readDraftVariants(document,state.data.variants):[];
+ if(variants.length&&!can('pricing','create'))throw new Error('Para añadir variantes necesitas permiso para crear en Pricing.');
  if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
  const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
  const saved=savedResult.product,historySaved=true;
@@ -2585,7 +2588,8 @@ document.addEventListener('change',async e=>{
  if(e.target?.id==='prType'){
   if(input('prInitialProvider'))input('prInitialProvider').hidden=e.target.value==='variants';
   const section=input('prDraftVariants');if(section)section.hidden=e.target.value!=='variants';
-  if(e.target.value==='variants'&&!document.querySelector('.pricing-draft-variant')&&!state.data.variants.some(v=>v.product_id===getView('pricing').id))input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());
+  if(section?.querySelector('p'))section.querySelector('p').textContent=!can('pricing','create')?'Para añadir variantes necesitas permiso para crear en Pricing.':'Rellena aquí las nuevas variantes. Se guardan junto con el producto.';
+  if(e.target.value==='variants'&&can('pricing','create')&&!document.querySelector('.pricing-draft-variant')&&!state.data.variants.some(v=>v.product_id===getView('pricing').id))input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());
   updateProductStudy();return;
  }
  if(e.target?.id==='clSaveStatus'){const button=document.querySelector('[data-action="closing-save-close"]');if(button)button.textContent=e.target.value==='borrador'?'Guardar borrador':document.querySelectorAll('.drawer-entry').length>1?'Cerrar las cajas':'Cerrar caja';return}
