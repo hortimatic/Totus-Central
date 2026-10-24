@@ -144,6 +144,6 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false}
  return {hasDraft,dispose,reset(){dispose();data=initial();drafts.clear();pending.clear();owner='';},async mount(element){
   dispose();if(owner!==actor()){owner=actor();data=initial();drafts.clear();pending.clear();}
   host=element;host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);
-  window.addEventListener('beforeunload',beforeUnload);paint();try{await refresh();}catch(error){showError(error);}if(host===element)timer=setInterval(tick,15000);
+  window.addEventListener('beforeunload',beforeUnload);paint();try{await refresh();}catch(error){showError(error);paint();}if(host===element)timer=setInterval(tick,15000);
  }};
 }
