@@ -620,9 +620,9 @@ async function saveProduct(id='',next=false){
  if(variants.length&&!can('pricing','create'))throw new Error('Para añadir variantes necesitas permiso para crear en Pricing.');
  if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
  const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
- const saved=savedResult.product,historySaved=true;
+ const saved=savedResult.product;
  const siblings=next?state.data.products.filter(p=>p.family_id===saved.family_id):[],position=siblings.findIndex(p=>p.id===saved.id),following=position>=0?siblings[position+1]:null;
- if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
+ if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh('Producto guardado.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
  try{
@@ -1026,8 +1026,8 @@ async function convertConsultation(id){
  const pvp=num('ccPvp');if(pvp<=0)throw new Error('Indica un PVP válido antes de convertir la consulta en producto.');
  const result=await rpc('totus_pricing_save_product',{p_product:{id:required('ccProductId','Identificador del producto'),is_new:true,consultation_id:id,name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,quick_competitor:c.competitor??null,quick_discount:c.discount??0,units_month:0,status:'PENDIENTE',notes:'Creado desde consulta: '+c.query},
  p_variants:[],p_provider:{id:providerId,name:state.data.providers.find(p=>p.id===providerId)?.name||'',net_cost:cost,provider_discount:0,shipping_unit:0}});
- const product=result.product,logged=true;
- closeModal();await refresh(logged?'Producto creado desde la consulta.':'Producto creado, pero no se pudo guardar el historial de conversión.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
+ const product=result.product;
+ closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
 }
 
 async function reuseConsultation(id){
