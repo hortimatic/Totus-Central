@@ -157,7 +157,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
    outbox.push(...selected.map(item=>({...item,channel_id:channel,message_id:saved.id})));
    if(selected.length)await uploadPending(saved.id);
    await refresh();
-  }catch(error){showError(error);try{await refresh();}catch{}}
+  }catch(error){try{await refresh();}catch{}showError(error);}
   finally{unlock();}
  }
  function selectCreated(c,role){

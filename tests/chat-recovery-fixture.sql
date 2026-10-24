@@ -29,7 +29,7 @@ AS $function$
     and c.relname=any(private.totus_recovery_tables())
     and not (c.relname='ops_expense_categories' and k.conname='ops_expense_categories_report_group_check'))
  )::text,'sha256'),'hex');
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.totus_recovery_dataset()
  RETURNS jsonb
@@ -47,7 +47,7 @@ begin
  end loop;
  return dataset;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.totus_export_recovery_snapshot()
  RETURNS jsonb

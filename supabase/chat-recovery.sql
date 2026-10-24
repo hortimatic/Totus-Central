@@ -32,7 +32,7 @@ AS $function$
  'ops_roles','ops_role_permissions','ops_user_permissions','ops_backup_config',
  'profiles','team_members','team_email_log','team_user_audit_log',
  'ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences','ops_chat_channels','ops_chat_members','ops_chat_messages','ops_chat_reactions','ops_chat_events','ops_chat_files','ops_chat_agent_requests']::text[];
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.totus_recovery_file_refs(data jsonb)
  RETURNS TABLE(bucket text, path text)
@@ -50,7 +50,7 @@ AS $function$
    jsonb_build_array(data->'ops_document_templates',data->'ops_sales_invoices',data->'ops_business_settings'),
    'lax $.**.logo_path') j
  where jsonb_typeof(j)='string' and nullif(j #>> '{}','') is not null;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.totus_verified_onedrive_file(p_path text, p_payload jsonb DEFAULT NULL::jsonb)
  RETURNS boolean
@@ -70,7 +70,7 @@ select exists(
  and (p_payload is null or exists(select 1 from jsonb_array_elements(coalesce(p_payload->'ops_chat_files','[]'::jsonb)) saved
  where saved->>'storage_path'=f.storage_path and saved->>'sha256'=f.sha256 and (saved->>'size_bytes')::bigint=f.size_bytes and saved->>'status'='ready'))
 );
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.totus_recovery_files_ready(p_payload jsonb, p_job uuid)
  RETURNS boolean
@@ -260,5 +260,5 @@ begin
  update public.ops_recovery_jobs set status='committed',result=counts,finished_at=now(),error=null where id=p_job;
  return counts;
 end;
-$function$
+$function$;
 
