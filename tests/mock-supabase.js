@@ -163,6 +163,17 @@ const rpc=async (name,args={})=>{
   insert('ops_audit_log',{area:kind,action:'eliminar',entity_id:id,detail:{motivo:reason}});
   return {data:id,error:null};
  }
+ if(name==='totus_pricing_save_product'){
+  const p=args.p_product,children=args.p_variants||[],old=get('products',p.id);
+  if(window.__mockPricingFailure)return {data:null,error:{message:'Fallo de guardado simulado'}};
+  if(p.is_new&&old)return {data:null,error:{message:'El producto ya existe'}};
+  if(!p.is_new&&(!old||old.updated_at!==(p.expected_updated_at||null)))return {data:null,error:{message:'El producto ha cambiado'}};
+  const {is_new,expected_updated_at,...clean}=p;
+  const row=old?Object.assign(old,clean):insert('products',{...clean,created_by:userId});
+  children.forEach(v=>insert('product_variants',{...v,product_id:row.id}));
+  insert('price_history',{product_id:row.id,user_id:userId,snapshot:{action:old?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:{...row},variants:structuredClone(db.product_variants.filter(v=>v.product_id===row.id))}});
+  return {data:{product:row,replayed:false},error:null};
+ }
  if(name==='totus_save_closing'){
   const p=args.p_closing,drawers=args.p_drawers||[];let row=p.id?get('ops_daily_closings',p.id):null;
   if(!row)row=insert('ops_daily_closings',{status:'borrador'});

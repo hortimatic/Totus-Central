@@ -1,3 +1,4 @@
+import {draftVariantRow} from '../pricing-drafts.js';
 import {variantStudy,numericRange,formatVariantAttributes,pricingProviderCost,pricingCompetition} from '../pricing-core.js';
 import {stockPage} from '../stock-ui.js';
 import {activitySeries,activityChartHtml} from '../dashboard-activity.js';
@@ -1256,7 +1257,7 @@ export function productRecordHtml(row=null){
 
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="product-back">← Volver a Pricing</button><div class="eyebrow">Pricing · ${row?'Producto':'Nuevo'}</div><h2>${row?esc(row.name):'Nuevo producto'}</h2></div><div>${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
-  <div class="record-layout">
+  <input type="hidden" id="prSaveId" value="${esc(row?.id||crypto.randomUUID())}"><input type="hidden" id="prExpectedUpdate" value="${esc(row?.updated_at||'')}"><div class="record-layout">
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>Producto</h3><p>Datos maestros y PVP.</p></div></div><div class="form-grid" style="margin-top:14px">
      ${formField('Nombre','prName',row?.name||'')}${formField('Referencia / SKU','prSku',row?.sku||'')}
@@ -1270,6 +1271,7 @@ export function productRecordHtml(row=null){
      ${selectField('Estado','prStatus',[{value:'PENDIENTE',label:'Pendiente'},{value:'ACEPTADO',label:'Aceptado'}],row?.status||'PENDIENTE')}
      <label class="wide">Notas<textarea id="prNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
     </div></section>
+    <section id="prDraftVariants" class="card card-pad" ${row?.product_type==='variants'?'':'hidden'}><div class="section-head"><div><h3>Variantes del producto</h3><p>Rellena aquí las nuevas variantes. Se guardan junto con el producto.</p></div>${btn('+ Añadir variante','product-draft-add','secondary')}</div><div id="prDraftRows" class="stack" style="margin-top:14px">${!row?draftVariantRow():''}</div></section>
     ${row?`<section class="card card-pad pricing-providers"><div class="section-head"><div><h3>Proveedores</h3><p>Comparativa real de coste de compra.</p></div>${btn('+ Añadir proveedor','provider-price-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${providerRows}</div></section>
     <section class="card card-pad pricing-competitors"><div class="section-head"><div><h3>Competencia</h3><p>Precios externos y promociones.</p></div>${btn('+ Añadir competencia','competitor-new','secondary',`data-product="${row.id}"`)}</div>${competition.count?`<div class="note">Precios disponibles con descuento y envío: mínimo ${money(competition.min)} · media ${money(competition.mean)} · máximo ${money(competition.max)}.</div>`:''}<div style="margin-top:12px">${compRows}</div></section>
     <section class="card card-pad pricing-variants"><div class="section-head"><div><h3>Variantes</h3><p>Nicotina, formatos, colores u otros atributos.</p></div>${btn('+ Añadir variante','variant-new','secondary',`data-product="${row.id}"`)}</div><div style="margin-top:12px">${variantRows}</div></section>`:''}

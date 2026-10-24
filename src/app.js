@@ -1,3 +1,4 @@
+import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
@@ -56,6 +57,7 @@ function permissionForAction(action,el){
  else if(action.startsWith('export-'))module='informes';
  if(!module)return null;
  const a=action.toLowerCase();
+ if(a==='product-draft-remove'||a==='product-draft-add')return {module:'pricing',operation:getView('pricing').id?'edit':'create'};
  if(a==='consultation-save-copy')return {module:'pricing',operation:'create'};
  if(a==='consultation-reuse')return {module:'pricing',operation:'edit'};
  if(a.startsWith('report-block-'))return {module:'informes',operation:'view'};
@@ -210,7 +212,7 @@ function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
 function validateDecimalFields(){
  for(const field of document.querySelectorAll('input[data-decimal="true"]')){
-  if(field.disabled)continue;
+  if(field.disabled||(field.closest('#prDraftVariants')&&val('prType')!=='variants'))continue;
   const raw=String(field.value||'').trim().replace(/\s/g,'');
   if(!raw)continue;
   // Signo opcional, agrupación de miles ES/EN y decimales con coma o punto.
@@ -609,9 +611,10 @@ async function saveProduct(id=''){
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
  const row={name,sku,family_id:val('prFamily')||null,product_type:val('prType'),current_pvp:val('prPvp')===''?null:num('prPvp'),proposed_pvp:val('prProposed')===''?null:num('prProposed'),units_month:Math.max(0,Math.round(num('prUnits'))),status:val('prStatus')||'PENDIENTE',quick_competitor:val('prCompetitor')===''?null:num('prCompetitor'),quick_discount:Math.min(100,Math.max(0,num('prDiscount'))),notes:val('prNotes').trim(),updated_at:new Date().toISOString()};
  for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
- let saved;
- if(id)saved=await update('products',id,row);else saved=await insert('products',{...row,created_by:state.user?.id||null});
- const historySaved=await recordProductHistory(saved.id,null,{action:id?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:saved});
+ const variants=row.product_type==='variants'?readDraftVariants(document,state.data.variants):[];
+ if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
+ const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants});
+ const saved=savedResult.product,historySaved=true;
  setView('pricing',{mode:'record',id:saved.id});await refresh(historySaved?'Producto guardado.':'Producto guardado, pero no se pudo registrar su historial.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
@@ -935,7 +938,12 @@ async function deleteVariant(productId,id){
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
 }
 function updateProductStudy(){
- if(!document.getElementById('prSummaryPvp')||val('prType')==='variants')return;
+ if(!document.getElementById('prSummaryPvp'))return;
+ if(val('prType')==='variants'){
+  const results=[...state.data.variants.filter(v=>v.product_id===getView('pricing').id&&v.active!==false).map(v=>{const r=variantStudy(v,state.data.settings,num('prDiscount'));return r?{...r,costNet:v.cost_net}:null}).filter(Boolean),...refreshDraftStudies(state.data.settings,num('prDiscount'))];
+  for(const [id,key] of [['prSummaryCost','costNet'],['prSummaryReal','costReal'],['prSummaryPvp','finalSale'],['prSummaryMargin','margin'],['prSummaryPct','marginPct']])if(input(id))input(id).textContent=draftRange(results,key);
+  return;
+ }
  const productId=getView('pricing').id;
  const prices=state.data.providerPrices.filter(x=>x.product_id===productId&&!x.variant_id);
  const costOf=pricingProviderCost;
@@ -2403,6 +2411,8 @@ document.addEventListener('click',async e=>{
   if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
   if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
   if(a==='product-history'){await productHistory(el.dataset.id);return}
+  if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
+  if(a==='product-draft-remove'){document.querySelector('.pricing-draft-variant[data-draft-id="'+el.dataset.draft+'"]')?.remove();updateProductStudy();return}
   if(a==='product-save'){await saveProduct(el.dataset.id||'');return}
   if(a==='product-back'){resetView('pricing');render();return}
   if(a==='product-delete'){await deleteProduct(el.dataset.id);return}
@@ -2526,6 +2536,7 @@ document.addEventListener('click',async e=>{
 });
 
 document.addEventListener('input',e=>{
+ if(e.target?.id?.startsWith('pd'))updateProductStudy();
  if(e.target?.id==='roleCode')e.target.dataset.manual='1';
  if(e.target?.id==='roleName'){
   const code=input('roleCode');
@@ -2544,6 +2555,11 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id==='prType'){
+  const section=input('prDraftVariants');if(section)section.hidden=e.target.value!=='variants';
+  if(e.target.value==='variants'&&!document.querySelector('.pricing-draft-variant')&&!state.data.variants.some(v=>v.product_id===getView('pricing').id))input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());
+  updateProductStudy();return;
+ }
  if(e.target?.id==='clSaveStatus'){const button=document.querySelector('[data-action="closing-save-close"]');if(button)button.textContent=e.target.value==='borrador'?'Guardar borrador':document.querySelectorAll('.drawer-entry').length>1?'Cerrar las cajas':'Cerrar caja';return}
  if(['exDocKind','exTaxPaymentModel','exTaxPaymentYear','exTaxPaymentQuarter','exManagement','exPaidDate'].includes(e.target?.id)){updateExpenseTaxTreatment();return}
  if(e.target?.id?.startsWith('iv')&&input('invoiceDraftPreview'))queueMicrotask(()=>{updateInvoiceSummary();updateDraftInvoicePreview()});
