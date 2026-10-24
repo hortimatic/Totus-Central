@@ -41,6 +41,7 @@ jobs:
       - run: node tests/supplier-credit-qa.mjs
       - run: node tests/cross-view-integrity-qa.mjs
       - run: node tests/code-integrity.mjs
+      - run: node tests/published-module-graph-qa.mjs
       - run: node tests/production-contract-qa.mjs
       - run: node tests/permissions-qa.mjs
       - run: node tests/roles-and-help-qa.mjs
@@ -84,6 +85,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/published-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs

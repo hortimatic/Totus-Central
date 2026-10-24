@@ -43,9 +43,12 @@ jobs:
           assert 'ENTORNO DE PRUEBAS' not in html and "build.environment!=='production'" in html
           html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"').replace('src="src/app.js"',f'src="src/app.js?v={sha}"')
           (root/'index.html').write_text(html)
-          pattern=re.compile(r"""(\bfrom\s*['"])(\.[^'"]+\.js)(['"])""")
+          pattern=re.compile(r"""(\bfrom\s*['"])(\.[^'"]+\.(?:m?js))(['"])""")
+          dynamic_pattern=re.compile(r"""(\bimport\s*\(\s*['"])(\.[^'"]+\.(?:m?js))(['"])""")
+          version=lambda m:f'{m.group(1)}{m.group(2)}?v={sha}{m.group(3)}'
           for file in (root/'src').rglob('*.js'):
-              file.write_text(pattern.sub(lambda m:f'{m.group(1)}{m.group(2)}?v={sha}{m.group(3)}',file.read_text()))
+              source=pattern.sub(version,file.read_text())
+              file.write_text(dynamic_pattern.sub(version,source))
           config=(root/'src/config.js').read_text()
           assert 'awmojepsasikxocoeqtu.supabase.co' in config and 'zwkpmjjuurgjygcrejiw' not in config
           (root/'build-info.json').write_text(json.dumps({'environment':'production','commit':sha},separators=(',',':'))+'\n')

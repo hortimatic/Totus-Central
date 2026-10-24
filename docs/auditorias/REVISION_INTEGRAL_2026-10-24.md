@@ -47,3 +47,6 @@ Los cambios posteriores de presentación del historial, contexto de precios y co
 
 ## Conservación de funciones
 Se compararon los botones, campos y funciones con la versión de producción anterior: no se retiraron controles ni funciones existentes de los módulos modificados. Al reutilizar una consulta se conservan ambas posibilidades: Guardar cambios y Guardar como nueva. Los nuevos controles se añaden a la organización existente.
+
+## Comprobación de la web publicada
+La revisión de navegador detectó una segunda instancia de Supabase: el empaquetado añadía la revisión a las importaciones estáticas, pero omitía las cargas diferidas de OneDrive y Recepciones. La corrección aplica la misma revisión a ambas formas de carga, manteniendo las funciones y su carga bajo demanda. Se añade una prueba del script real de publicación y otra en navegador contra esa salida empaquetada, incluida la actualización del historial de copias y la comprobación de una única instancia de cliente.
