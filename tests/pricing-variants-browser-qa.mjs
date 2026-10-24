@@ -99,6 +99,11 @@ try{
  const expectedName=await simple.evaluate(id=>window.__mockDb.products.find(p=>p.id===id).name,nextId);
  await simple.locator('[data-action="product-edit"][data-id="'+firstId+'"]').click();
  await simple.locator('#prNotes').fill('Guardado antes de pasar al siguiente');
+ await simple.locator('#prPvp').fill('importe no válido');
+ await simple.locator('[data-action="product-save-next"]').click();
+ await simple.getByText(/contiene un importe no válido/).last().waitFor();
+ assert.notEqual(await simple.evaluate(id=>window.__mockDb.products.find(p=>p.id===id).notes,firstId),'Guardado antes de pasar al siguiente','Invalid amount must not save through the next button');
+ await simple.locator('#prPvp').fill('5,70');
  await simple.locator('[data-action="product-save-next"]').click();
  await simple.locator('[data-action="product-save"][data-id="'+nextId+'"]').waitFor();
  assert.equal(await simple.locator('#prName').inputValue(),expectedName,'Save-and-next follows the displayed catalog order');
