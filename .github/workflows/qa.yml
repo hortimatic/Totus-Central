@@ -74,6 +74,7 @@ jobs:
       - run: node tests/cloud-backup-reader-qa.mjs
       - run: node tests/partitioned-handler-qa.mjs
       - run: node tests/partitioned-backup-qa.mjs
+      - run: node tests/tasks-recovery-qa.mjs
       - run: node tests/chat-recovery-qa.mjs
       - run: node tests/recovery-core-qa.mjs
       - run: node tests/recovery-capacity-qa.mjs
@@ -95,6 +96,7 @@ jobs:
       - run: node tests/published-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/pricing-taxonomy-layout-qa.mjs
+      - run: node tests/tasks-browser-qa.mjs
       - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/full-flow-qa.mjs
@@ -243,3 +245,6 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat-recovery.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-recovery-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks-recovery.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-recovery-db-qa.sql

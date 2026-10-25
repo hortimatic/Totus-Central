@@ -17,7 +17,7 @@ export function taskMatches(task,date){
  if(task.repeat_kind==='once')return days===0;
  if(task.repeat_kind==='daily')return days%every===0;
  if(task.repeat_kind==='weekly')return Math.floor(days/7)%every===0&&(task.weekdays||[]).includes(new Date(date+'T12:00Z').getUTCDay());
- if(task.repeat_kind==='monthly'){const a=task.starts_on.split('-').map(Number),b=date.split('-').map(Number),months=(b[0]-a[0])*12+b[1]-a[1];return months%every===0&&b[2]===Math.min(a[2],new Date(Date.UTC(b[0],b[1],0)).getUTCDate());}
+ if(task.repeat_kind==='monthly'){const a=task.starts_on.split('-').map(Number),b=date.split('-').map(Number),months=(b[0]-a[0])*12+b[1]-a[1];return months%every===0&&b[2]===Math.min(task.month_day||a[2],new Date(Date.UTC(b[0],b[1],0)).getUTCDate());}
  return false;
 }
 export function taskInput(v){

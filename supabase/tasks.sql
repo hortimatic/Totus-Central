@@ -1,6 +1,7 @@
 -- Install after chat.sql. Tasks are operational, never accounting entries.
 create table public.ops_tasks(
  id uuid primary key default gen_random_uuid(),
+ client_id uuid not null default gen_random_uuid(),
  title text not null check(length(btrim(title)) between 1 and 160),
  description text not null default '' check(length(description)<=12000),
  store_id uuid references public.ops_stores(id),
@@ -18,6 +19,8 @@ create table public.ops_tasks(
  archived boolean not null default false,
  created_at timestamptz not null default now(),
  updated_at timestamptz not null default clock_timestamp(),
+ unique(created_by,client_id),
+ month_day integer not null check(month_day between 1 and 31),
  check(ends_on is null or ends_on>=starts_on),
  check(weekdays<@array[0,1,2,3,4,5,6] and (repeat_kind<>'weekly' or cardinality(weekdays)>0)),
  check(jsonb_typeof(checklist)='array' and jsonb_array_length(checklist)<=30)
@@ -74,7 +77,7 @@ begin
  elsif t.repeat_kind='weekly' then return (diff/7)%t.repeat_every=0 and extract(dow from d)::integer=any(t.weekdays);
  else
  months=(extract(year from d)::integer-extract(year from t.starts_on)::integer)*12+extract(month from d)::integer-extract(month from t.starts_on)::integer;
- return months%t.repeat_every=0 and extract(day from d)=least(extract(day from t.starts_on),extract(day from (date_trunc('month',d)+interval '1 month - 1 day')));
+ return months%t.repeat_every=0 and extract(day from d)=least(t.month_day,extract(day from (date_trunc('month',d)+interval '1 month - 1 day')));
  end if;
 end;
 $$;
@@ -99,7 +102,7 @@ begin
  select t.id task_id,d::date scheduled_on,coalesce(o.overrides->>'title',t.title) title,
  coalesce(o.overrides->>'description',t.description) description,
  t.store_id,t.assigned_email,t.priority,t.repeat_kind,t.starts_on,t.ends_on,t.repeat_every,t.weekdays,
- t.checklist,t.source_message_id,t.archived,t.updated_at task_version,
+ t.month_day,t.checklist,t.source_message_id,t.archived,t.updated_at task_version,
  coalesce(o.state,'pending') state,coalesce(o.result,'') result,coalesce(o.checked,'{}') checked,
  o.updated_at occurrence_version,private.totus_task_manage(t) can_manage,
  (select jsonb_build_object('channel_id',m.channel_id,'id',m.id,'parent_id',m.parent_id) from public.ops_chat_messages m where m.id=t.source_message_id) source
@@ -134,6 +137,11 @@ begin
   if t.updated_at::text is distinct from p_data->>'task_version' and t.updated_at is distinct from nullif(p_data->>'task_version','')::timestamptz then raise exception 'La tarea ha cambiado. Actualiza antes de guardar.';end if;
  else manager=true;end if;
  if p_action='save' then
+  if tid is null and nullif(p_data->>'client_id','') is not null then
+   perform pg_catalog.pg_advisory_xact_lock(hashtextextended(auth.uid()::text||p_data->>'client_id',1));
+   select id into sid from public.ops_tasks where created_by=auth.uid() and client_id=(p_data->>'client_id')::uuid;
+   if sid is not null then return jsonb_build_object('id',sid,'existing',true);end if;
+  end if;
   if not manager then raise exception 'Solo quien crea la tarea o Gerencia puede editar su configuración.';end if;
   v=p_data->'task';
   if jsonb_typeof(v)<>'object' then raise exception 'Falta la configuración.';end if;
@@ -159,6 +167,8 @@ begin
    d=(p_data->>'scheduled_on')::date;
    if d is null or not private.totus_task_due(t,d) then raise exception 'Ocasión no válida.';end if;
    if p_data->>'scope'='one' then
+    select * into o from public.ops_task_occurrences where task_id=tid and scheduled_on=d for update;
+    if o.updated_at is distinct from nullif(p_data->>'occurrence_version','')::timestamptz then raise exception 'Otro usuario ha actualizado esta ocasión. Actualiza antes de guardar.';end if;
     insert into public.ops_task_occurrences(task_id,scheduled_on,overrides,updated_by)
     values(tid,d,jsonb_build_object('title',v->>'title','description',v->>'description'),auth.uid())
     on conflict(task_id,scheduled_on) do update set overrides=excluded.overrides,updated_at=clock_timestamp(),updated_by=auth.uid();
@@ -176,8 +186,8 @@ begin
    else raise exception 'Elige solo esta ocasión o esta y las siguientes.';end if;
   end if;
   if tid is null then
-   insert into public.ops_tasks(title,description,store_id,assigned_email,created_by,created_email,starts_on,ends_on,repeat_kind,repeat_every,weekdays,priority,checklist,source_message_id)
-   values(btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,auth.uid(),actor,startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
+   insert into public.ops_tasks(client_id,month_day,title,description,store_id,assigned_email,created_by,created_email,starts_on,ends_on,repeat_kind,repeat_every,weekdays,priority,checklist,source_message_id)
+   values(coalesce(nullif(p_data->>'client_id','')::uuid,gen_random_uuid()),case when t.repeat_kind='monthly' and rule='monthly' then t.month_day else extract(day from startdate)::integer end,btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,auth.uid(),actor,startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
    tid=t.id;result=jsonb_build_object('id',tid);
    if sourceid is not null and rule='once' and src.task_state is not null then
     insert into public.ops_task_occurrences(task_id,scheduled_on,state,result,updated_by) values(tid,startdate,src.task_state,src.task_result,auth.uid());

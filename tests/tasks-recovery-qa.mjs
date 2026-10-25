@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import JSZip from 'jszip';
+import {PRE_TASK_RECOVERY_TABLES,RECOVERY_TABLES,LEGACY_TASK_SCHEMA_HASH,buildRecoveryArchive,readRecoveryArchive,validateMetadata} from '../src/recovery-core.js';
+const database=Object.fromEntries(RECOVERY_TABLES.map(t=>[t,[]])),snapshot={database,project_ref:'qa',database_instance:'11111111-1111-4111-8111-111111111111',schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:'2026-10-25T12:00:00Z',identities:[],storage:{'business-documents':[],'business-assets':[]}};
+database.ops_tasks=[{id:'t',title:'Calendario'}];database.ops_task_occurrences=[{id:'o',task_id:'t',state:'done'}];
+const current=await buildRecoveryArchive({snapshot,JSZip,readFile:()=>{throw new Error('no files');}});
+assert.equal((await readRecoveryArchive(current.bytes,JSZip)).manifest.tables.length,52);
+const old={...snapshot,database:Object.fromEntries(PRE_TASK_RECOVERY_TABLES.map(t=>[t,[]])),schema_hash:LEGACY_TASK_SCHEMA_HASH};
+const legacy=await buildRecoveryArchive({snapshot:old,JSZip,readFile:()=>{}});assert.equal((await readRecoveryArchive(legacy.bytes,JSZip,{schemaHash:'c'.repeat(64)})).manifest.tables.length,49);
+const broken={...database};delete broken.ops_task_events;assert.throws(()=>validateMetadata({...current.manifest},broken));
+console.log('TASK ARCHIVE QA: all task tables, strict partial rejection and old 49-table compatibility OK');

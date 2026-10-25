@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
+const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
+ await page.evaluate(async()=>{
+  const {createTasks}=await import('../src/tasks-ui.js');const {taskToday}=await import('../src/tasks-core.js');
+  document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="../src/tasks.css">');
+  window.calls=[];window.rows=[{task_id:'t1',scheduled_on:taskToday(),starts_on:taskToday(),ends_on:null,repeat_kind:'daily',repeat_every:1,weekdays:[],checklist:['Contar'],checked:[],title:'Revisar Vape',description:'Caja de tienda',state:'pending',store_id:'h',assigned_email:'a@qa.invalid',priority:'high',can_manage:true,task_version:'v1',occurrence_version:null}];
+  window.controller=createTasks({actor:()=> 'a@qa.invalid',confirm:async()=>true,onError:e=>{window.lastError=e;},rpc:async(name,args)=>{
+   window.calls.push({name,args});
+   if(name==='totus_tasks_context')return {rows:window.rows,stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
+   if(name==='totus_task_from_message')return null;
+   if(name==='totus_task_command')return {id:'t1'};
+   throw new Error(name);
+  }});await window.controller.mount(document.getElementById('root'));
+ });
+ await page.getByRole('button',{name:/Revisar Vape/}).click();
+ await page.getByLabel('Estado',{exact:true}).selectOption('done');
+ await page.getByRole('checkbox',{name:'Contar',exact:true}).check();
+ await page.getByRole('button',{name:'Guardar',exact:true}).click();
+ assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='occurrence'&&c.args.p_data.checked[0]===0)));
+ await page.getByRole('button',{name:'Nueva tarea',exact:true}).click();
+ await page.getByLabel('Título',{exact:true}).fill('Limpieza mensual');
+ await page.getByLabel('Repetir',{exact:true}).selectOption('weekly');
+ assert(await page.getByText('Lunes',{exact:true}).last().isVisible());
+ await page.getByLabel('Título',{exact:true}).fill('Prueba semanal');
+ await page.getByRole('button',{name:'Guardar',exact:true}).click();
+ assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='save'&&c.args.p_data.task.title==='Prueba semanal'&&c.args.p_data.client_id)));
+ // Opening a new dialog after closing the previous one must never remove the new dialog.
+ await page.getByRole('button',{name:/Revisar Vape/}).click();
+ await page.getByRole('button',{name:'Editar configuración'}).click();
+ await page.waitForTimeout(100);
+ assert(await page.getByRole('heading',{name:'Editar tarea',exact:true}).isVisible());
+ assert(await page.getByLabel('Tienda',{exact:true}).last().isDisabled());
+ await page.getByLabel('Aplicar cambios').selectOption('future');
+ assert(await page.getByLabel('Tienda',{exact:true}).last().isEnabled());
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ await page.getByRole('button',{name:'Lista',exact:true}).click();
+ assert(await page.locator('.tasks-list').isVisible());
+ await page.getByLabel('Tienda',{exact:true}).selectOption('n');
+ await page.getByRole('button',{name:'Aplicar',exact:true}).click();
+ assert.equal(await page.locator('.task-chip').count(),0);
+ await page.getByRole('button',{name:'Limpiar',exact:true}).click();
+ await page.getByRole('button',{name:'Semana',exact:true}).click();
+ assert.equal(await page.locator('.task-day').count(),7);
+ await mkdir('artifacts',{recursive:true});await page.screenshot({path:'artifacts/tasks-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ await page.getByRole('button',{name:'Nueva tarea',exact:true}).click();
+ assert(await page.evaluate(()=>{const r=document.querySelector('dialog').getBoundingClientRect();return r.width<=innerWidth&&r.bottom<=innerHeight;}));
+ await page.screenshot({path:'artifacts/tasks-mobile.png',fullPage:true});
+ assert.deepEqual(errors,[]);console.log('TASK BROWSER QA: create, repetition, state, checklist, edit dialog, filters, week/list, desktop and mobile OK');
+}finally{await browser.close();}
