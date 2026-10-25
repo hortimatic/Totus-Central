@@ -209,7 +209,7 @@ begin
   end if;
   if tid is null then
    insert into public.ops_tasks(client_id,month_day,title,description,store_id,assigned_email,created_by,created_email,starts_on,ends_on,repeat_kind,repeat_every,weekdays,priority,checklist,source_message_id)
-   values(coalesce(nullif(p_data->>'client_id','')::uuid,gen_random_uuid()),case when t.repeat_kind='monthly' and rule='monthly' then t.month_day else extract(day from startdate)::integer end,btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,private.totus_task_uid(),actor,startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
+   values(coalesce(nullif(p_data->>'client_id','')::uuid,gen_random_uuid()),case when t.repeat_kind='monthly' and rule='monthly' then t.month_day else extract(day from startdate)::integer end,btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,coalesce(t.created_by,private.totus_task_uid()),coalesce(t.created_email,actor),startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
    tid=t.id;result=jsonb_build_object('id',tid);
    if sourceid is not null and src.task_state is null then update public.ops_chat_messages set task_state='pending' where id=sourceid;end if;
    if sourceid is not null and rule='once' and src.task_state is not null then
