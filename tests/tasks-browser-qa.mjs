@@ -8,11 +8,12 @@ try{
  await page.evaluate(async()=>{
   const {createTasks}=await import('../src/tasks-ui.js');const {taskToday}=await import('../src/tasks-core.js');
   document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="../src/tasks.css">');
-  window.calls=[];window.rows=[{task_id:'t1',scheduled_on:taskToday(),starts_on:taskToday(),ends_on:null,repeat_kind:'daily',repeat_every:1,weekdays:[],checklist:['Contar'],checked:[],title:'Revisar Vape',description:'Caja de tienda',state:'pending',store_id:'h',assigned_email:'a@qa.invalid',priority:'high',can_manage:true,task_version:'v1',occurrence_version:null}];
-  window.controller=createTasks({actor:()=> 'a@qa.invalid',confirm:async()=>true,onError:e=>{window.lastError=e;},rpc:async(name,args)=>{
+  window.calls=[];window.confirmations=[];window.rows=[{task_id:'t1',scheduled_on:taskToday(),starts_on:taskToday(),ends_on:null,repeat_kind:'daily',repeat_every:1,weekdays:[],checklist:['Contar'],checked:[],title:'Revisar Vape',description:'Caja de tienda',state:'pending',store_id:'h',assigned_email:'a@qa.invalid',priority:'high',can_manage:true,task_version:'v1',occurrence_version:null}];
+  window.controller=createTasks({actor:()=> 'a@qa.invalid',confirm:async message=>{window.confirmations.push(message);return true;},onError:e=>{window.lastError=e;},rpc:async(name,args)=>{
    window.calls.push({name,args});
    if(name==='totus_tasks_context')return {rows:window.rows,stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
    if(name==='totus_task_from_message')return null;
+   if(name==='totus_task_history')return [];
    if(name==='totus_task_command')return {id:'t1'};
    throw new Error(name);
   }});await window.controller.mount(document.getElementById('chatHarness'));
@@ -46,6 +47,15 @@ try{
  await page.getByRole('button',{name:'Limpiar',exact:true}).click();
  await page.getByRole('button',{name:'Semana',exact:true}).click();
  assert.equal(await page.locator('.task-day').count(),7);
+ await page.getByRole('button',{name:/Revisar Vape/}).click();
+ await page.locator('dialog [name="result"]').fill('Notas que todavía no he guardado');
+ await page.getByRole('button',{name:'Historial',exact:true}).click();
+ assert(await page.getByRole('heading',{name:'Historial de la tarea',exact:true}).isVisible());
+ assert(await page.evaluate(()=>window.confirmations.some(m=>m.includes('cambios sin guardar'))),'History must not silently discard task notes');
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ await page.getByRole('button',{name:/Revisar Vape/}).click();
+ await page.getByRole('button',{name:'Archivar tarea',exact:true}).click();
+ assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='archive')));
  await mkdir('artifacts',{recursive:true});await page.screenshot({path:'artifacts/tasks-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,wide:[...document.querySelectorAll('.tasks-module *')].filter(e=>e.getBoundingClientRect().right>innerWidth&&!e.closest('.tasks-calendar')).slice(0,8).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right}))}));assert(overflow.scroll<=overflow.width+1,JSON.stringify(overflow));
