@@ -140,13 +140,14 @@ begin
  else manager=true;end if;
  if p_action='save' then
   if tid is null and nullif(p_data->>'client_id','') is not null then
-   perform pg_catalog.pg_advisory_xact_lock(hashtextextended(auth.uid()::text||p_data->>'client_id',1));
+   perform pg_catalog.pg_advisory_xact_lock(hashtextextended(auth.uid()::text||(p_data->>'client_id'),1));
    select id into sid from public.ops_tasks where created_by=auth.uid() and client_id=(p_data->>'client_id')::uuid;
    if sid is not null then return jsonb_build_object('id',sid,'existing',true);end if;
   end if;
   if not manager then raise exception 'Solo quien crea la tarea o Gerencia puede editar su configuración.';end if;
   v=p_data->'task';
   if jsonb_typeof(v)<>'object' then raise exception 'Falta la configuración.';end if;
+  if length(btrim(coalesce(v->>'title',''))) not between 1 and 160 or length(coalesce(v->>'description',''))>12000 then raise exception 'Revisa el título y la descripción.';end if;
   startdate=(v->>'starts_on')::date;enddate=nullif(v->>'ends_on','')::date;
   rule=v->>'repeat_kind';step=(v->>'repeat_every')::integer;
   select coalesce(array_agg(distinct value::integer),'{}') into days from jsonb_array_elements_text(v->'weekdays');
