@@ -10,7 +10,7 @@ Gestión diaria para Hortimatic y NewOldSmok: https://hortimatic.github.io/Totus
 - No depende de un equipo encendido.
 
 ## Trabajo y cambios
-Inicio, Pricing, Cajas, Gastos, Facturación, Recepciones, Documentos, Fiscalidad, Informes y Administración.
+Inicio, Pricing, Cajas, Gastos, Facturación, Recepciones, Chat del equipo, Tareas, Documentos, Fiscalidad, Informes y Administración.
 No alterar estructura, datos o cálculos sin explicar el cambio al titular. Las facturas originales, los pagos y el gasto fiscal son conceptos distintos; el histórico aceptado no se ajusta para forzar una coincidencia.
 
 Para cambiar código, preparar una rama temporal, revisar y ejecutar las pruebas. .github/workflows/publish.yml repite la batería antes de publicar la revisión principal. Comprobar también la versión y los flujos autenticados. Eliminar la rama temporal integrada cuando haya terminado la validación.
@@ -30,3 +30,6 @@ El código incluye el historial de evolución SQL y las cuatro funciones utiliza
 ## Copias y privacidad
 Copia completa diaria a las 00:35 Europe/Madrid; diez juegos ordinarios verificados, más los puntos de recuperación protegidos que correspondan. Cada juego incluye índice, datos, documentos en ZIP numerados y código publicado. Consultar COPIAS_POR_COMPONENTES.md para comprobar o restaurar. Las copias anteriores compatibles siguen siendo recuperables.
 No exporta contraseñas ni sustituye una copia de infraestructura, Auth o Vault. No guardar datos privados, claves de servicio ni secretos de Microsoft en este repositorio.
+
+## Tareas operativas
+Calendario mensual/semanal y lista por tienda y usuario; repeticiones, comprobaciones y estado por ocasión; vínculo con conversaciones y documentos del chat. Sin fichajes ni escritura contable. [Manual](docs/TAREAS_EQUIPO.md).

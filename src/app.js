@@ -1,4 +1,5 @@
 import {createTasks} from './tasks-ui.js';
+import {taskToday} from './tasks-core.js';
 import {requestChatFile,subscribeChat,createChatNotifier} from './chat-api.js';
 import {createTeamChat} from './team-chat-ui.js';
 import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
@@ -152,6 +153,10 @@ function render(){
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
  if(input('exDocKind'))updateExpenseTaxTreatment();
  captureFormDraft($('#content'));
+ if(state.route==='inicio'){
+  const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
+  if(target)rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
+ }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);}).catch(e=>toast(e.message,'bad'));
  if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
   const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await teamChat.openMessage(target.channel_id,target.id,target.parent_id);

@@ -86,3 +86,8 @@ Las migraciones describen la evolución de esta base existente. Un montaje comer
 - src/utils.js
 - src/workbook-preview.js
 Los componentes de terceros se conservan con sus licencias y versiones. No borrar compatibilidad de copias por su antigüedad.
+
+## Ampliación Tareas y organización del chat
+Conservar también docs/TAREAS_EQUIPO.md y docs/PLAN_TAREAS_Y_AUDITORIA.md, incluidos en el ZIP de código. El módulo utiliza src/tasks-core.js, src/tasks-ui.js y src/tasks.css.
+La instalación ampliada requiere supabase/tasks.sql tras chat.sql, y supabase/tasks-recovery.sql tras chat-recovery.sql. En la instalación existente se aplican además los parches incrementales chat-organization.sql y chat-search.sql, sin reinstalar las tablas del chat.
+La recuperación actual incluye 52 tablas y reconoce las copias históricas de 38, 42 y 49 tablas por sus contratos exactos.
