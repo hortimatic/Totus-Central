@@ -1,4 +1,6 @@
 \set ON_ERROR_STOP on
+-- Real team profiles also have created_at; qualify joins to avoid fixture-only success.
+alter table public.team_members add column if not exists created_at timestamptz default now();
 begin;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
 set role authenticated;
