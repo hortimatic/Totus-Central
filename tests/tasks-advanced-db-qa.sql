@@ -24,6 +24,11 @@ select public.qa_assert((select task_state='done' from public.ops_chat_messages 
 select public.qa_assert(jsonb_array_length(public.totus_task_history((:'linked'::jsonb->>'id')::uuid))=2,'history readable');
 select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}',true);
 select public.qa_denied(format('select public.totus_task_from_message(%L)',:'message'::jsonb->>'id'),'No tienes acceso');
+select public.qa_denied('select public.totus_task_agent(''admin@example.invalid'',''context'',''{"from":"2026-10-01","to":"2026-10-31"}'')','permission denied');
 reset role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select public.qa_assert(jsonb_array_length(public.totus_task_agent('admin@example.invalid','context','{"from":"2026-10-25","to":"2026-10-25"}')->'rows')>0,'trusted connector reads with explicit delegation');
+select public.qa_assert(coalesce(current_setting('totus.task_actor',true),'')='','delegation cleared after request');
+select public.qa_denied('select public.totus_task_agent(''missing@example.invalid'',''context'',''{"from":"2026-10-01","to":"2026-10-31"}'')','no está activo');
 rollback;
 select 'TASK ADVANCED QA: duplicate retry, split series, monthly anchor, old history, private attachments, source linkage and audited completion OK';

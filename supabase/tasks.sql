@@ -56,17 +56,35 @@ create table public.ops_task_events(
 create index ops_task_events_task on public.ops_task_events(task_id,created_at);
 create index ops_task_events_actor on public.ops_task_events(actor_id);
 
+-- Delegation is available only to the existing trusted connector/server, never ordinary web accounts.
+create function private.totus_task_actor() returns text language plpgsql stable security definer set search_path='' as $$
+begin
+ if auth.uid() is not null then return private.totus_chat_actor();end if;
+ if not private.totus_chat_bridge_allowed() then return null;end if;
+ return (select lower(t.email) from public.team_members t join auth.users u on lower(u.email)=lower(t.email)
+ where t.active and lower(t.email)=lower(current_setting('totus.task_actor',true)) limit 1);
+end;
+$$;
+create function private.totus_task_uid() returns uuid language sql stable security definer set search_path='' as $$
+ select coalesce(auth.uid(),(select id from auth.users where lower(email)=private.totus_task_actor() limit 1))
+$$;
+create function private.totus_task_channel(p_channel uuid) returns boolean language sql stable security definer set search_path='' as $$
+ select private.totus_task_actor() is not null and exists(select 1 from public.ops_chat_members m join public.ops_chat_channels c on c.id=m.channel_id
+ where m.channel_id=p_channel and m.email=private.totus_task_actor() and c.deleted_at is null)
+$$;
+revoke all on function private.totus_task_actor(),private.totus_task_uid(),private.totus_task_channel(uuid) from public,anon,authenticated;
+grant execute on function private.totus_task_actor(),private.totus_task_uid(),private.totus_task_channel(uuid) to authenticated;
 create function private.totus_task_visible(t public.ops_tasks) returns boolean
 language sql stable security definer set search_path='' as $$
- select private.totus_chat_actor() is not null
- and (t.created_by=auth.uid() or t.assigned_email=private.totus_chat_actor()
- or exists(select 1 from public.team_members where lower(email)=private.totus_chat_actor() and role in ('admin','gerente')))
- and (t.source_message_id is null or exists(select 1 from public.ops_chat_messages m where m.id=t.source_message_id and private.totus_chat_member(m.channel_id)))
+ select private.totus_task_actor() is not null
+ and (t.created_by=private.totus_task_uid() or t.assigned_email=private.totus_task_actor()
+ or exists(select 1 from public.team_members where lower(email)=private.totus_task_actor() and role in ('admin','gerente')))
+ and (t.source_message_id is null or exists(select 1 from public.ops_chat_messages m where m.id=t.source_message_id and private.totus_task_channel(m.channel_id)))
 $$;
 create function private.totus_task_manage(t public.ops_tasks) returns boolean
 language sql stable security definer set search_path='' as $$
- select private.totus_task_visible(t) and (t.created_by=auth.uid()
- or exists(select 1 from public.team_members where lower(email)=private.totus_chat_actor() and role in ('admin','gerente')))
+ select private.totus_task_visible(t) and (t.created_by=private.totus_task_uid()
+ or exists(select 1 from public.team_members where lower(email)=private.totus_task_actor() and role in ('admin','gerente')))
 $$;
 create function private.totus_task_due(t public.ops_tasks,d date) returns boolean
 language plpgsql immutable set search_path='' as $$
@@ -94,7 +112,7 @@ grant all on public.ops_tasks,public.ops_task_occurrences,public.ops_task_events
 
 create function private.totus_tasks_context(p_from date,p_to date) returns jsonb
 language plpgsql security definer set search_path='' as $$
-declare actor text=private.totus_chat_actor(); result jsonb;
+declare actor text=private.totus_task_actor(); result jsonb;
 begin
  if actor is null then raise exception 'Usuario de equipo no activo.';end if;
  if p_from is null or p_to is null or p_to<p_from or p_to-p_from>62 then raise exception 'Elige un periodo de hasta 63 días.';end if;
@@ -124,7 +142,7 @@ language sql security invoker set search_path='' as $$select private.totus_tasks
 
 create function private.totus_task_command(p_action text,p_data jsonb) returns jsonb
 language plpgsql security definer set search_path='' as $$
-declare actor text=private.totus_chat_actor(); t public.ops_tasks; o public.ops_task_occurrences;
+declare actor text=private.totus_task_actor(); t public.ops_tasks; o public.ops_task_occurrences;
  tid uuid=nullif(p_data->>'task_id','')::uuid; sid uuid; d date; v jsonb; src public.ops_chat_messages; sourceid uuid;
  a text; startdate date; enddate date; rule text; step integer; days integer[]; items jsonb; result jsonb; manager boolean;
 begin
@@ -140,8 +158,8 @@ begin
  else manager=true;end if;
  if p_action='save' then
   if tid is null and nullif(p_data->>'client_id','') is not null then
-   perform pg_catalog.pg_advisory_xact_lock(hashtextextended(auth.uid()::text||(p_data->>'client_id'),1));
-   select id into sid from public.ops_tasks where created_by=auth.uid() and client_id=(p_data->>'client_id')::uuid;
+   perform pg_catalog.pg_advisory_xact_lock(hashtextextended(private.totus_task_uid()::text||(p_data->>'client_id'),1));
+   select id into sid from public.ops_tasks where created_by=private.totus_task_uid() and client_id=(p_data->>'client_id')::uuid;
    if sid is not null then return jsonb_build_object('id',sid,'existing',true);end if;
   end if;
   if not manager then raise exception 'Solo quien crea la tarea o Gerencia puede editar su configuración.';end if;
@@ -159,7 +177,7 @@ begin
   sourceid=coalesce(t.source_message_id,nullif(p_data->>'source_message_id','')::uuid);
   if sourceid is not null then
    select * into strict src from public.ops_chat_messages where id=sourceid and deleted_at is null;
-   if not private.totus_chat_member(src.channel_id) or (a is not null and not exists(select 1 from public.ops_chat_members where channel_id=src.channel_id and email=a)) then raise exception 'El responsable debe tener acceso a la conversación de origen.';end if;
+   if not private.totus_task_channel(src.channel_id) or (a is not null and not exists(select 1 from public.ops_chat_members where channel_id=src.channel_id and email=a)) then raise exception 'El responsable debe tener acceso a la conversación de origen.';end if;
    if tid is null then
     perform pg_catalog.pg_advisory_xact_lock(hashtextextended(sourceid::text,0));
     select id into sid from public.ops_tasks where source_message_id=sourceid and not archived order by created_at limit 1;
@@ -173,8 +191,8 @@ begin
     select * into o from public.ops_task_occurrences where task_id=tid and scheduled_on=d for update;
     if o.updated_at is distinct from nullif(p_data->>'occurrence_version','')::timestamptz then raise exception 'Otro usuario ha actualizado esta ocasión. Actualiza antes de guardar.';end if;
     insert into public.ops_task_occurrences(task_id,scheduled_on,overrides,updated_by)
-    values(tid,d,jsonb_build_object('title',v->>'title','description',v->>'description'),auth.uid())
-    on conflict(task_id,scheduled_on) do update set overrides=excluded.overrides,updated_at=clock_timestamp(),updated_by=auth.uid();
+    values(tid,d,jsonb_build_object('title',v->>'title','description',v->>'description'),private.totus_task_uid())
+    on conflict(task_id,scheduled_on) do update set overrides=excluded.overrides,updated_at=clock_timestamp(),updated_by=private.totus_task_uid();
     result=jsonb_build_object('id',tid);
    elsif p_data->>'scope'='future' then
     -- Split series: previous occurrences and their saved states remain on the old definition.
@@ -190,11 +208,11 @@ begin
   end if;
   if tid is null then
    insert into public.ops_tasks(client_id,month_day,title,description,store_id,assigned_email,created_by,created_email,starts_on,ends_on,repeat_kind,repeat_every,weekdays,priority,checklist,source_message_id)
-   values(coalesce(nullif(p_data->>'client_id','')::uuid,gen_random_uuid()),case when t.repeat_kind='monthly' and rule='monthly' then t.month_day else extract(day from startdate)::integer end,btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,auth.uid(),actor,startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
+   values(coalesce(nullif(p_data->>'client_id','')::uuid,gen_random_uuid()),case when t.repeat_kind='monthly' and rule='monthly' then t.month_day else extract(day from startdate)::integer end,btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,private.totus_task_uid(),actor,startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
    tid=t.id;result=jsonb_build_object('id',tid);
    if sourceid is not null and src.task_state is null then update public.ops_chat_messages set task_state='pending' where id=sourceid;end if;
    if sourceid is not null and rule='once' and src.task_state is not null then
-    insert into public.ops_task_occurrences(task_id,scheduled_on,state,result,updated_by) values(tid,startdate,src.task_state,src.task_result,auth.uid());
+    insert into public.ops_task_occurrences(task_id,scheduled_on,state,result,updated_by) values(tid,startdate,src.task_state,src.task_result,private.totus_task_uid());
    end if;
   end if;
  elsif p_action='occurrence' then
@@ -208,8 +226,8 @@ begin
   if exists(select 1 from unnest(days) i where i<0 or i>=jsonb_array_length(t.checklist)) then raise exception 'Paso de comprobación no válido.';end if;
   if p_data->>'state'='done' and cardinality(days)<>jsonb_array_length(t.checklist) then raise exception 'Completa los pasos antes de terminar.';end if;
   insert into public.ops_task_occurrences(task_id,scheduled_on,state,result,checked,updated_by)
-  values(tid,d,p_data->>'state',coalesce(p_data->>'result',''),days,auth.uid())
-  on conflict(task_id,scheduled_on) do update set state=excluded.state,result=excluded.result,checked=excluded.checked,updated_by=auth.uid(),updated_at=clock_timestamp();
+  values(tid,d,p_data->>'state',coalesce(p_data->>'result',''),days,private.totus_task_uid())
+  on conflict(task_id,scheduled_on) do update set state=excluded.state,result=excluded.result,checked=excluded.checked,updated_by=private.totus_task_uid(),updated_at=clock_timestamp();
   if t.source_message_id is not null and t.repeat_kind='once' then
    update public.ops_chat_messages set task_state=case when p_data->>'state'='cancelled' then null else p_data->>'state' end,task_result=coalesce(p_data->>'result','') where id=t.source_message_id;
   end if;
@@ -220,7 +238,7 @@ begin
   result=jsonb_build_object('id',tid);
  end if;
  insert into public.ops_task_events(task_id,scheduled_on,actor_id,action,detail)
- values(tid,d,auth.uid(),p_action,jsonb_build_object('scope',p_data->>'scope','state',p_data->>'state'));
+ values(tid,d,private.totus_task_uid(),p_action,jsonb_build_object('scope',p_data->>'scope','state',p_data->>'state','origin',case when auth.uid() is null then 'trusted-connector' else 'web' end));
  return result;
 end;
 $$;
@@ -233,7 +251,7 @@ create function private.totus_task_from_message(p_message uuid) returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare result jsonb;
 begin
- if private.totus_chat_actor() is null or not exists(select 1 from public.ops_chat_messages m where m.id=p_message and m.deleted_at is null and private.totus_chat_member(m.channel_id)) then raise exception 'No tienes acceso a este mensaje.';end if;
+ if private.totus_task_actor() is null or not exists(select 1 from public.ops_chat_messages m where m.id=p_message and m.deleted_at is null and private.totus_task_channel(m.channel_id)) then raise exception 'No tienes acceso a este mensaje.';end if;
  select jsonb_build_object('task_id',t.id,'scheduled_on',t.starts_on) into result from public.ops_tasks t
  where t.source_message_id=p_message and not t.archived and private.totus_task_visible(t) order by created_at desc limit 1;
  return result;
@@ -259,3 +277,26 @@ $$;
 create function public.totus_task_history(p_task uuid) returns jsonb language sql security invoker set search_path='' as $$select private.totus_task_history(p_task)$$;
 revoke all on function private.totus_task_history(uuid),public.totus_task_history(uuid) from public,anon,authenticated;
 grant execute on function private.totus_task_history(uuid),public.totus_task_history(uuid) to authenticated;
+
+create function private.totus_task_agent(p_actor_email text,p_action text,p_data jsonb default '{}') returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare previous text=current_setting('totus.task_actor',true);result jsonb;
+begin
+ if not private.totus_chat_bridge_allowed() or auth.uid() is not null then raise exception 'Conexión de tareas no autorizada.';end if;
+ if not exists(select 1 from public.team_members t join auth.users u on lower(u.email)=lower(t.email) where t.active and lower(t.email)=lower(btrim(p_actor_email))) then raise exception 'El usuario delegado no está activo.';end if;
+ perform set_config('totus.task_actor',lower(btrim(p_actor_email)),true);
+ if p_action='context' then result=private.totus_tasks_context((p_data->>'from')::date,(p_data->>'to')::date);
+ elsif p_action='history' then result=private.totus_task_history((p_data->>'task_id')::uuid);
+ elsif p_action='from_message' then result=private.totus_task_from_message((p_data->>'message_id')::uuid);
+ else result=private.totus_task_command(p_action,p_data);
+ end if;
+ perform set_config('totus.task_actor',coalesce(previous,''),true);
+ return result;
+exception when others then
+ perform set_config('totus.task_actor',coalesce(previous,''),true);raise;
+end;
+$$;
+create function public.totus_task_agent(p_actor_email text,p_action text,p_data jsonb default '{}') returns jsonb
+language sql security invoker set search_path='' as $$select private.totus_task_agent(p_actor_email,p_action,p_data)$$;
+revoke all on function private.totus_task_agent(text,text,jsonb),public.totus_task_agent(text,text,jsonb) from public,anon,authenticated;
+grant execute on function private.totus_task_agent(text,text,jsonb),public.totus_task_agent(text,text,jsonb) to service_role;
