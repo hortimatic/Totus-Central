@@ -36,14 +36,14 @@ import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
 import {renderPdfPreview} from './pdf-preview.js';
 
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null;
-const tasks=createTasks({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>toast(m,'bad'),confirm:m=>confirmAction(m),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
+const tasks=createTasks({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>toast(m,'bad'),confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
 function updateChatBadge(count){
  if(count!==null)chatUnread=Number(count)||0;
  const badge=document.getElementById('teamChatUnread');
  if(badge){badge.textContent=chatUnread>99?'99+':String(chatUnread);badge.hidden=chatUnread===0;badge.setAttribute('aria-label',chatUnread+' mensajes sin leer');}
 }
 function updateChatChannels(channels){updateChatBadge(channels.filter(c=>c.member_role&&!c.archived&&!c.muted&&c.notify_level!=='none').reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0));}
-const teamChat=createTeamChat({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>toast(message,'bad'),confirm:message=>confirmAction(message),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
+const teamChat=createTeamChat({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>toast(message,'bad'),confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
 const chatNotifier=createChatNotifier({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,onOpen:async message=>{
  if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
 }});
