@@ -140,11 +140,19 @@ $$;
 create function public.totus_tasks_context(p_from date,p_to date) returns jsonb
 language sql security invoker set search_path='' as $$select private.totus_tasks_context(p_from,p_to)$$;
 
+-- Audit only changed fields, so daily status updates do not duplicate long descriptions.
+create function private.totus_task_changes(p_before jsonb,p_after jsonb) returns jsonb
+language sql immutable set search_path='' as $$
+ select jsonb_build_object('before',coalesce(jsonb_object_agg(key,p_before->key),'{}'::jsonb),'after',coalesce(jsonb_object_agg(key,p_after->key),'{}'::jsonb))
+ from (select key from jsonb_object_keys(coalesce(p_before,'{}')||coalesce(p_after,'{}')) key
+ where p_before->key is distinct from p_after->key) changed
+$$;
+revoke all on function private.totus_task_changes(jsonb,jsonb) from public,anon,authenticated;
 create function private.totus_task_command(p_action text,p_data jsonb) returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare actor text=private.totus_task_actor(); t public.ops_tasks; o public.ops_task_occurrences;
  tid uuid=nullif(p_data->>'task_id','')::uuid; sid uuid; d date; v jsonb; src public.ops_chat_messages; sourceid uuid;
- before_task jsonb;before_occurrence jsonb;
+ before_task jsonb;before_occurrence jsonb;task_changes jsonb;occurrence_changes jsonb;
  a text; startdate date; enddate date; rule text; step integer; days integer[]; items jsonb; result jsonb; manager boolean;
 begin
  if actor is null then raise exception 'Usuario de equipo no activo.';end if;
@@ -159,8 +167,8 @@ begin
  else manager=true;end if;
  if tid is not null then
   before_task=to_jsonb(t);
-  select to_jsonb(o) into before_occurrence from public.ops_task_occurrences o
-  where o.task_id=tid and o.scheduled_on=nullif(p_data->>'scheduled_on','')::date;
+  select to_jsonb(previous_occurrence) into before_occurrence from public.ops_task_occurrences previous_occurrence
+  where previous_occurrence.task_id=tid and previous_occurrence.scheduled_on=nullif(p_data->>'scheduled_on','')::date;
  end if;
  if p_action='save' then
   if tid is null and nullif(p_data->>'client_id','') is not null then
@@ -244,8 +252,10 @@ begin
   update public.ops_tasks set archived=coalesce((p_data->>'archived')::boolean,true),updated_at=clock_timestamp() where id=tid;
   result=jsonb_build_object('id',tid);
  end if;
+ task_changes=private.totus_task_changes(before_task,(select to_jsonb(current_task) from public.ops_tasks current_task where id=tid));
+ occurrence_changes=private.totus_task_changes(before_occurrence,(select to_jsonb(current_occurrence) from public.ops_task_occurrences current_occurrence where task_id=tid and scheduled_on=d));
  insert into public.ops_task_events(task_id,scheduled_on,actor_id,action,detail)
- values(tid,d,private.totus_task_uid(),p_action,jsonb_build_object('scope',p_data->>'scope','state',p_data->>'state','origin',case when auth.uid() is null then 'trusted-connector' else 'web' end,'before',jsonb_build_object('task',before_task,'occurrence',before_occurrence),'after',jsonb_build_object('task',(select to_jsonb(current_task) from public.ops_tasks current_task where id=tid),'occurrence',(select to_jsonb(current_occurrence) from public.ops_task_occurrences current_occurrence where task_id=tid and scheduled_on=d))));
+ values(tid,d,private.totus_task_uid(),p_action,jsonb_build_object('scope',p_data->>'scope','state',p_data->>'state','origin',case when auth.uid() is null then 'trusted-connector' else 'web' end,'before',jsonb_build_object('task',task_changes->'before','occurrence',occurrence_changes->'before'),'after',jsonb_build_object('task',task_changes->'after','occurrence',occurrence_changes->'after')));
  return result;
 end;
 $$;
