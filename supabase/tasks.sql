@@ -17,6 +17,7 @@ create table public.ops_tasks(
  checklist jsonb not null default '[]',
  source_message_id uuid references public.ops_chat_messages(id),
  archived boolean not null default false,
+ superseded boolean not null default false,
  created_at timestamptz not null default now(),
  updated_at timestamptz not null default clock_timestamp(),
  unique(created_by,client_id),
@@ -112,6 +113,7 @@ begin
  ) x),'[]'::jsonb),
  'people',coalesce((select jsonb_agg(jsonb_build_object('email',email,'name',coalesce(nullif(full_name,''),email)) order by email) from public.team_members where active),'[]'::jsonb),
  'stores',coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name) order by name) from public.ops_stores),'[]'::jsonb),
+ 'archived_tasks',coalesce((select jsonb_agg(jsonb_build_object('task_id',t.id,'title',t.title,'task_version',t.updated_at,'can_manage',private.totus_task_manage(t)) order by t.updated_at desc) from public.ops_tasks t where t.archived and not t.superseded and private.totus_task_visible(t)),'[]'::jsonb),
  'actor',actor) into result;
  if jsonb_array_length(result->'rows')>5000 then raise exception 'Demasiadas tareas; reduce el periodo.';end if;
  return result;
@@ -176,7 +178,7 @@ begin
    elsif p_data->>'scope'='future' then
     -- Split series: previous occurrences and their saved states remain on the old definition.
     if d=t.starts_on then
-     update public.ops_tasks set archived=true,updated_at=clock_timestamp() where id=tid;
+     update public.ops_tasks set archived=true,superseded=true,updated_at=clock_timestamp() where id=tid;
     else update public.ops_tasks set ends_on=d-1,updated_at=clock_timestamp() where id=tid;end if;
     -- Never silently orphan future completed work or exceptions.
     if exists(select 1 from public.ops_task_occurrences where task_id=tid and scheduled_on>=d) then
@@ -189,6 +191,7 @@ begin
    insert into public.ops_tasks(client_id,month_day,title,description,store_id,assigned_email,created_by,created_email,starts_on,ends_on,repeat_kind,repeat_every,weekdays,priority,checklist,source_message_id)
    values(coalesce(nullif(p_data->>'client_id','')::uuid,gen_random_uuid()),case when t.repeat_kind='monthly' and rule='monthly' then t.month_day else extract(day from startdate)::integer end,btrim(v->>'title'),coalesce(v->>'description',''),nullif(v->>'store_id','')::uuid,a,auth.uid(),actor,startdate,enddate,rule,step,days,v->>'priority',items,sourceid) returning * into t;
    tid=t.id;result=jsonb_build_object('id',tid);
+   if sourceid is not null and src.task_state is null then update public.ops_chat_messages set task_state='pending' where id=sourceid;end if;
    if sourceid is not null and rule='once' and src.task_state is not null then
     insert into public.ops_task_occurrences(task_id,scheduled_on,state,result,updated_by) values(tid,startdate,src.task_state,src.task_result,auth.uid());
    end if;
@@ -211,7 +214,7 @@ begin
   end if;
   result=jsonb_build_object('id',tid);
  else
-  if tid is null or not manager then raise exception 'No puedes archivar esta tarea.';end if;
+  if tid is null or not manager or t.superseded then raise exception 'No puedes archivar esta tarea.';end if;
   update public.ops_tasks set archived=coalesce((p_data->>'archived')::boolean,true),updated_at=clock_timestamp() where id=tid;
   result=jsonb_build_object('id',tid);
  end if;
@@ -238,3 +241,20 @@ $$;
 create function public.totus_task_from_message(p_message uuid) returns jsonb language sql security invoker set search_path='' as $$select private.totus_task_from_message(p_message)$$;
 revoke all on function private.totus_task_from_message(uuid),public.totus_task_from_message(uuid) from public,anon,authenticated;
 grant execute on function private.totus_task_from_message(uuid),public.totus_task_from_message(uuid) to authenticated;
+
+create function private.totus_task_history(p_task uuid) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare t public.ops_tasks;result jsonb;
+begin
+ select * into strict t from public.ops_tasks where id=p_task;
+ if not private.totus_task_visible(t) then raise exception 'No tienes acceso a esta tarea.';end if;
+ select coalesce(jsonb_agg(to_jsonb(e) order by e.created_at desc),'[]'::jsonb) into result from
+ (select action,scheduled_on,detail,created_at,coalesce(nullif(tm.full_name,''),tm.email) actor
+ from public.ops_task_events e left join auth.users u on u.id=e.actor_id left join public.team_members tm on lower(tm.email)=lower(u.email)
+ where task_id=p_task order by created_at desc limit 100) e;
+ return result;
+end;
+$$;
+create function public.totus_task_history(p_task uuid) returns jsonb language sql security invoker set search_path='' as $$select private.totus_task_history(p_task)$$;
+revoke all on function private.totus_task_history(uuid),public.totus_task_history(uuid) from public,anon,authenticated;
+grant execute on function private.totus_task_history(uuid),public.totus_task_history(uuid) to authenticated;

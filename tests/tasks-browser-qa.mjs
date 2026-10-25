@@ -15,7 +15,7 @@ try{
    if(name==='totus_task_from_message')return null;
    if(name==='totus_task_command')return {id:'t1'};
    throw new Error(name);
-  }});await window.controller.mount(document.getElementById('root'));
+  }});await window.controller.mount(document.getElementById('chatHarness'));
  });
  await page.getByRole('button',{name:/Revisar Vape/}).click();
  await page.getByLabel('Estado',{exact:true}).selectOption('done');

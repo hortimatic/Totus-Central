@@ -179,7 +179,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRefreshInFlight=false;
 function isStoragePanelVisible(){
