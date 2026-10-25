@@ -12,3 +12,5 @@ assert.throws(()=>taskInput({...base,starts_on:'2026-02-30'}));assert.throws(()=
 assert.throws(()=>taskInput({...base,ends_on:'2025-01-01'}));
 assert.equal(taskVisibleRows([{title:'Pedido',description:'',store_id:'h',state:'done',assigned_email:'a'}],{store:'n'}).length,0);
 console.log('TASK CORE QA: civil dates, leap years, monthly clamping, interval weeks, DST, validation and filters OK');
+
+assert.throws(()=>taskInput({...base,starts_on:'2026-10-25',ends_on:'2026-10-25',repeat_kind:'weekly',weekdays:[1]}),/ningún día/);

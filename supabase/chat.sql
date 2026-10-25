@@ -1,4 +1,4 @@
--- Equipo chat: additive installation candidate. Not applied to production.
+-- Canonical chat installation. Existing installations use the incremental patches; do not recreate their tables.
 -- All seven chat tables are included in complete snapshot/recovery.
 -- The backend can invoke only the private functions explicitly granted to it.
 grant usage on schema private to service_role;

@@ -30,6 +30,7 @@ export function taskInput(v){
  if(repeat_kind==='weekly'&&(!weekdays.length||weekdays.some(x=>!Number.isInteger(x)||x<0||x>6)))throw new Error('Elige los días de la semana.');
  const checklist=Array.isArray(v.checklist)?v.checklist:String(v.checklist||'').split('\n').map(x=>x.trim()).filter(Boolean);
  if(checklist.length>30||checklist.some(x=>typeof x!=='string'||!x.trim()||x.length>300))throw new Error('Máximo 30 pasos de 300 caracteres.');
+ if(repeat_kind==='weekly'&&ends_on&&!Array.from({length:7},(_,i)=>addTaskDays(starts_on,i)).some(d=>d<=ends_on&&weekdays.includes(new Date(d+'T12:00Z').getUTCDay())))throw new Error('No hay ningún día de tarea entre las fechas elegidas.');
  return {title,description,starts_on,ends_on,repeat_kind,repeat_every,weekdays,checklist,priority:v.priority||'normal',store_id:v.store_id||null,assigned_email:String(v.assigned_email||'').trim().toLowerCase()||null};
 }
 export function taskVisibleRows(rows,{store='',person='',status='',query=''}={}){

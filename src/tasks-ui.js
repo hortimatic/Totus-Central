@@ -5,7 +5,7 @@ const btn=(label,action,attrs='',kind='secondary')=>'<button type="button" class
 const display=d=>new Date(d+'T12:00:00Z').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 /** Operational controller. No accounting mutations or browser persistence. */
 export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=async()=>false}){
- let host=null,dialog=null,busy=false,epoch=0,anchor=taskToday(),view='month',filter={store:'',person:'',status:'',query:''},data={rows:[],stores:[],people:[]},timer=null;
+ let host=null,dialog=null,busy=false,epoch=0,anchor=taskToday(),view='month',filter={store:'',person:'',status:'',query:''},data={rows:[],stores:[],people:[]},timer=null,owner='';
  const person=e=>data.people.find(p=>p.email===e)?.name||e||'Sin asignar';
  const store=id=>data.stores.find(s=>s.id===id)?.name||'General';
  const row=(id,d)=>data.rows.find(r=>r.task_id===id&&r.scheduled_on===d);
@@ -70,7 +70,7 @@ export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=as
    busy=true;await refresh();
   }catch(e){error(e);}finally{busy=false;}
  }
- return {async mount(el){host=el;host.addEventListener('click',click);try{await refresh();}catch(e){paint();error(e);}timer=setInterval(()=>{if(host&&!busy&&!dialog&&document.visibilityState==='visible'&&!host.contains(document.activeElement))refresh().catch(error);},30000);},
+ return {async mount(el){if(owner!==actor()){owner=actor();data={rows:[],stores:[],people:[]};anchor=taskToday();view='month';filter={store:'',person:'',status:'',query:''};}host=el;host.addEventListener('click',click);try{await refresh();}catch(e){paint();error(e);}timer=setInterval(()=>{if(host&&!busy&&!dialog&&document.visibilityState==='visible'&&!host.contains(document.activeElement))refresh().catch(error);},30000);},
   dispose(){++epoch;clearInterval(timer);host?.removeEventListener('click',click);host=null;close();},
   reset(){this.dispose();anchor=taskToday();view='month';filter={store:'',person:'',status:'',query:''};data={rows:[],stores:[],people:[]};},
   async fromMessage(message){const existing=await rpc('totus_task_from_message',{p_message:message.id});if(existing){anchor=existing.scheduled_on;await refresh();const r=row(existing.task_id,existing.scheduled_on);if(r)detail(r);}else{if(!data.people.length)await refresh();edit(null,message);}},

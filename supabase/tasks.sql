@@ -174,6 +174,7 @@ begin
   if startdate is null or jsonb_typeof(items)<>'array' or jsonb_array_length(items)>30
    or exists(select 1 from jsonb_array_elements(items) i where jsonb_typeof(i)<>'string' or length(btrim(i#>>'{}')) not between 1 and 300)
    then raise exception 'Revisa las fechas y los pasos de la tarea.';end if;
+  if rule='weekly' and enddate is not null and not exists(select 1 from generate_series(0,6) i where startdate+i<=enddate and extract(dow from startdate+i)::integer=any(days)) then raise exception 'No hay ningún día de tarea entre las fechas elegidas.';end if;
   sourceid=coalesce(t.source_message_id,nullif(p_data->>'source_message_id','')::uuid);
   if sourceid is not null then
    select * into strict src from public.ops_chat_messages where id=sourceid and deleted_at is null;
