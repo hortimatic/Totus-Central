@@ -48,7 +48,7 @@ try{
  assert.equal(await page.locator('.task-day').count(),7);
  await mkdir('artifacts',{recursive:true});await page.screenshot({path:'artifacts/tasks-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
- assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,wide:[...document.querySelectorAll('.tasks-module *')].filter(e=>e.getBoundingClientRect().right>innerWidth&&!e.closest('.tasks-calendar')).slice(0,8).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right}))}));assert(overflow.scroll<=overflow.width+1,JSON.stringify(overflow));
  await page.getByRole('button',{name:'Nueva tarea',exact:true}).click();
  assert(await page.evaluate(()=>{const r=document.querySelector('dialog').getBoundingClientRect();return r.width<=innerWidth&&r.bottom<=innerHeight;}));
  await page.screenshot({path:'artifacts/tasks-mobile.png',fullPage:true});
