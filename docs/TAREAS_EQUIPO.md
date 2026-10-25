@@ -8,7 +8,7 @@ Elige Una sola vez, Diaria, Semanal o Mensual, el intervalo y una fecha final op
 No hay relojes ni fichajes.
 ## Realización
 Abre una tarjeta, marca los pasos, elige Pendiente, En curso, Completada o Cancelada y anota el resultado. Guardar actualiza esa ocasión, no todas las repeticiones. Para completar se exigen todos los pasos. El responsable, la persona creadora y Gerencia pueden actualizar según sus permisos actuales.
-Historial muestra las últimas 100 operaciones de la definición de tarea. Las modificaciones realizadas quedan registradas con fecha y usuario. Si otro usuario ha guardado antes, se rechaza el cambio antiguo: vuelve a abrir la ficha y revisa lo actualizado.
+Historial muestra las últimas 100 operaciones de la definición de tarea. Las modificaciones realizadas quedan registradas con fecha, usuario y los valores anteriores y posteriores, disponibles en la consulta técnica del historial. Si otro usuario ha guardado antes, se rechaza el cambio antiguo: vuelve a abrir la ficha y revisa lo actualizado.
 ## Cambiar una repetición
 Editar configuración ofrece **Solo esta ocasión** (título y descripción) o **Esta y las siguientes** (organización y repetición). La segunda divide la serie para conservar el historial anterior. Si ya existen estados o excepciones guardados desde esa fecha, no se sobrescriben: cambia solo esa ocasión o elige una fecha posterior a las ocasiones registradas.
 Archivar retira la tarea y próximas ocasiones del calendario, conservando datos. Archivadas permite recuperarla. Las definiciones sustituidas al modificar una serie no se reactivan para evitar duplicar repeticiones.

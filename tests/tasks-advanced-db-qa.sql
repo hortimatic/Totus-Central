@@ -26,6 +26,7 @@ select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-33333333
 select public.qa_denied(format('select public.totus_task_from_message(%L)',:'message'::jsonb->>'id'),'No tienes acceso');
 select public.qa_denied('select public.totus_task_agent(''admin@example.invalid'',''context'',''{"from":"2026-10-01","to":"2026-10-31"}'')','permission denied');
 reset role;
+select public.qa_assert(exists(select 1 from public.ops_task_events where detail->'after'->'task'->>'title'='Privado' and detail->'before'->'task' is not null),'audit records previous and new values');
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select public.qa_assert(jsonb_array_length(public.totus_task_agent('admin@example.invalid','context','{"from":"2026-10-25","to":"2026-10-25"}')->'rows')>0,'trusted connector reads with explicit delegation');
 select public.qa_assert(coalesce(current_setting('totus.task_actor',true),'')='','delegation cleared after request');

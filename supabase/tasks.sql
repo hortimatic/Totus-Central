@@ -144,6 +144,7 @@ create function private.totus_task_command(p_action text,p_data jsonb) returns j
 language plpgsql security definer set search_path='' as $$
 declare actor text=private.totus_task_actor(); t public.ops_tasks; o public.ops_task_occurrences;
  tid uuid=nullif(p_data->>'task_id','')::uuid; sid uuid; d date; v jsonb; src public.ops_chat_messages; sourceid uuid;
+ before_task jsonb;before_occurrence jsonb;
  a text; startdate date; enddate date; rule text; step integer; days integer[]; items jsonb; result jsonb; manager boolean;
 begin
  if actor is null then raise exception 'Usuario de equipo no activo.';end if;
@@ -156,6 +157,11 @@ begin
   manager=private.totus_task_manage(t);
   if t.updated_at::text is distinct from p_data->>'task_version' and t.updated_at is distinct from nullif(p_data->>'task_version','')::timestamptz then raise exception 'La tarea ha cambiado. Actualiza antes de guardar.';end if;
  else manager=true;end if;
+ if tid is not null then
+  before_task=to_jsonb(t);
+  select to_jsonb(o) into before_occurrence from public.ops_task_occurrences o
+  where o.task_id=tid and o.scheduled_on=nullif(p_data->>'scheduled_on','')::date;
+ end if;
  if p_action='save' then
   if tid is null and nullif(p_data->>'client_id','') is not null then
    perform pg_catalog.pg_advisory_xact_lock(hashtextextended(private.totus_task_uid()::text||(p_data->>'client_id'),1));
@@ -239,7 +245,7 @@ begin
   result=jsonb_build_object('id',tid);
  end if;
  insert into public.ops_task_events(task_id,scheduled_on,actor_id,action,detail)
- values(tid,d,private.totus_task_uid(),p_action,jsonb_build_object('scope',p_data->>'scope','state',p_data->>'state','origin',case when auth.uid() is null then 'trusted-connector' else 'web' end));
+ values(tid,d,private.totus_task_uid(),p_action,jsonb_build_object('scope',p_data->>'scope','state',p_data->>'state','origin',case when auth.uid() is null then 'trusted-connector' else 'web' end,'before',jsonb_build_object('task',before_task,'occurrence',before_occurrence),'after',jsonb_build_object('task',(select to_jsonb(current_task) from public.ops_tasks current_task where id=tid),'occurrence',(select to_jsonb(current_occurrence) from public.ops_task_occurrences current_occurrence where task_id=tid and scheduled_on=d))));
  return result;
 end;
 $$;
