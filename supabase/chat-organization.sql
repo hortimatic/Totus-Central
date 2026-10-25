@@ -21,21 +21,7 @@ begin
    if jsonb_typeof(p_layout->key)<>'object' or (select count(*) from jsonb_object_keys(p_layout->key))>100 then raise exception 'Opciones de sección no válidas.';end if;
    for pair in select * from jsonb_each(p_layout->key) loop
     if length(btrim(pair.key)) not between 1 and 80 or jsonb_typeof(pair.value)<>'string' then raise exception 'Opciones de sección no válidas.';end if;
-    if key='channel_groups' and pair.key !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12} and (pair.value#>>'{}') not in ('alphabetical','recent','manual') then raise exception 'Orden no válido.';end if;
-    if key in ('group_labels','channel_groups') and length(btrim(pair.value#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
-   end loop;
-  end if;
- end loop;
- perform private.totus_chat_write_lock();
- update public.profiles set ui_preferences=jsonb_set(coalesce(ui_preferences,'{}'::jsonb),'{team_chat}',p_layout,true) where id=auth.uid();
- if not found then raise exception 'No se encontró tu perfil de usuario.';end if;
- return p_layout;
-end $$;
-create or replace function public.totus_chat_save_layout(p_layout jsonb)
-returns jsonb language sql security invoker set search_path='' as $$select private.totus_chat_save_layout(p_layout)$$;
-revoke all on function private.totus_chat_save_layout(jsonb),public.totus_chat_save_layout(jsonb) from public,anon;
-grant execute on function private.totus_chat_save_layout(jsonb),public.totus_chat_save_layout(jsonb) to authenticated;
- then raise exception 'Canal no válido.';end if;
+    if key='channel_groups' and pair.key !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' then raise exception 'Canal no válido.';end if;
     if key='group_sort' and (pair.value#>>'{}') not in ('alphabetical','recent','manual') then raise exception 'Orden no válido.';end if;
     if key in ('group_labels','channel_groups') and length(btrim(pair.value#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
    end loop;
@@ -46,7 +32,7 @@ grant execute on function private.totus_chat_save_layout(jsonb),public.totus_cha
  if not found then raise exception 'No se encontró tu perfil de usuario.';end if;
  return p_layout;
 end $$;
-create function public.totus_chat_save_layout(p_layout jsonb)
+create or replace function public.totus_chat_save_layout(p_layout jsonb)
 returns jsonb language sql security invoker set search_path='' as $$select private.totus_chat_save_layout(p_layout)$$;
 revoke all on function private.totus_chat_save_layout(jsonb),public.totus_chat_save_layout(jsonb) from public,anon;
 grant execute on function private.totus_chat_save_layout(jsonb),public.totus_chat_save_layout(jsonb) to authenticated;
