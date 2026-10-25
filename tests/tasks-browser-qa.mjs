@@ -18,6 +18,7 @@ try{
    throw new Error(name);
   }});await window.controller.mount(document.getElementById('chatHarness'));
  });
+ await page.waitForFunction(()=>{const input=document.querySelector('.tasks-filters select');return input&&getComputedStyle(input).borderRadius==='10px'&&input.getBoundingClientRect().height>=40;});
  await page.getByRole('button',{name:/Revisar Vape/}).click();
  await page.locator('dialog [name="state"]').selectOption('done');
  await page.getByRole('checkbox',{name:'Contar',exact:true}).check();
