@@ -14,8 +14,8 @@ export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=as
  const error=e=>{onError(e.message);const box=dialog?.querySelector('[data-error]')||host?.querySelector('[data-error]');if(box){box.textContent=e.message;box.hidden=false;}};
  function modal(title,body,save){
   close();dialog=document.createElement('dialog');dialog.className='tasks-dialog';dialog.innerHTML='<form><header><h2>'+esc(title)+'</h2>'+btn('Cerrar','close')+'</header><div class="tasks-dialog-body">'+body+'<p role="alert" data-error hidden></p></div><footer>'+btn('Cancelar','close')+(save?'<button class="btn primary" type="submit">Guardar</button>':'')+'</footer></form>';document.body.append(dialog);dialog.showModal();
-  dialog.querySelectorAll('[data-task="close"]').forEach(b=>b.onclick=()=>close());
-  dialog.addEventListener('input',()=>dialog.dataset.dirty='true');const currentDialog=dialog;dialog.addEventListener('close',()=>currentDialog.remove(),{once:true});
+  dialog.querySelectorAll('[data-task="close"]').forEach(b=>b.onclick=()=>requestClose().catch(error));
+  dialog.addEventListener('input',()=>dialog.dataset.dirty='true');const currentDialog=dialog;const requestClose=async()=>{if(currentDialog.dataset.dirty==='true'){currentDialog.close();if(!await confirm('¿Salir de la ficha sin guardar los cambios?')){currentDialog.showModal();return;}}close();};dialog.addEventListener('cancel',e=>{e.preventDefault();requestClose().catch(error);});
   dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;const form=e.currentTarget;form.querySelector('[type="submit"]').disabled=true;try{await save(form);close();await refresh();}catch(e){error(e);}finally{busy=false;if(form.isConnected)form.querySelector('[type="submit"]').disabled=false;}};
  }
  async function command(action,payload){return rpc('totus_task_command',{p_action:action,p_data:payload});}

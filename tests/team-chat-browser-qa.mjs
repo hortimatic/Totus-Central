@@ -187,6 +187,13 @@ try{
  await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();await page.locator('dialog [data-section-action="manual"]').click();assert.equal(await page.evaluate(()=>qaChat.layout.group_sort.Hortimatic),'manual');
  await page.locator('#chatChannelQuery').fill('newold');assert.equal(await page.locator('[data-chat="open"][data-id="h"]').count(),0);await page.locator('#chatChannelQuery').fill('');
  await click('sidebar-toggle');assert.equal(await page.locator('.chat-sidebar-collapsed').count(),1);await click('sidebar-toggle');
+ // Place an existing channel inside a personal section, preserving the shared channel group.
+ await click('section-new');await page.locator('dialog [name="name"]').fill('Mis cierres');await page.locator('dialog [type="submit"]').click();
+ await click('preferences');await page.locator('dialog [name="personal_group"]').selectOption('Mis cierres');await page.locator('dialog [type="submit"]').click();
+ assert.equal(await page.evaluate(()=>qaChat.layout.channel_groups.h),'Mis cierres');
+ assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='h').group_name),'Hortimatic');
+ await page.locator('[data-chat="group-menu"][data-group="Mis cierres"]').waitFor();
+ await click('preferences');await page.locator('dialog [name="personal_group"]').selectOption('Hortimatic');await page.locator('dialog [type="submit"]').click();
  // Use a long, realistic history to exercise scroll anchoring and keyboard controls.
  await page.evaluate(()=>{for(let i=0;i<120;i++)qaChat.messages.push({id:'scroll-'+i,seq:++qaChat.seq,channel_id:'h',author_email:'tienda@example.invalid',body:'Mensaje de historial '+i+' — '+('Texto largo de prueba. '.repeat(4)),created_at:new Date().toISOString(),reactions:[],replies:0});});
  await page.locator('[data-chat="open"][data-id="h"]').click();

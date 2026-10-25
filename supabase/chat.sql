@@ -338,7 +338,7 @@ begin
  and (p_before is null or m.seq<p_before)
  and (p_parent is null or m.parent_id=p_parent or m.id=p_parent)
  and (p_parent is not null or length(p_query)>0 or p_mode<>'all' or m.parent_id is null)
- and (p_query='' or (m.deleted_at is null and (strpos(lower(m.body),lower(p_query))>0 or strpos(lower(m.author_email),lower(p_query))>0)))
+ and (p_query='' or (m.deleted_at is null and (strpos(translate(lower(m.body),'áéíóúüñ','aeiouun'),translate(lower(p_query),'áéíóúüñ','aeiouun'))>0 or strpos(lower(m.author_email),lower(p_query))>0)))
  and (p_from is null or (m.created_at at time zone 'Europe/Madrid')::date>=p_from)
  and (p_to is null or (m.created_at at time zone 'Europe/Madrid')::date<=p_to)
  and (p_mode<>'mentions' or actor=any(m.mentioned_emails))

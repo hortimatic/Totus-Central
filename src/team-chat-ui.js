@@ -120,7 +120,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   const batch=result.messages||[],more=batch.length>50,rows=more?batch.slice(1):batch;
   data.channels=result.channels||[];data.members=result.members||[];data.directory=result.directory||data.directory;data.layout=chatLayout(result.layout);data.loaded=true;data.error='';onUnread(data.channels);
   if(channel){data.more=more;data.messages=older?[...new Map([...rows,...data.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.seq-b.seq):rows;}
-  if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more]))paint();
+  if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout]))paint();
   if(older){const pane=host?.querySelector('.chat-messages');if(pane)pane.scrollTop=previousTop+pane.scrollHeight-previousHeight;}
  }
  async function open(id){
