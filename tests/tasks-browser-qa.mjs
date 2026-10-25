@@ -18,13 +18,13 @@ try{
   }});await window.controller.mount(document.getElementById('chatHarness'));
  });
  await page.getByRole('button',{name:/Revisar Vape/}).click();
- await page.getByLabel('Estado',{exact:true}).selectOption('done');
+ await page.locator('dialog [name="state"]').selectOption('done');
  await page.getByRole('checkbox',{name:'Contar',exact:true}).check();
  await page.getByRole('button',{name:'Guardar',exact:true}).click();
  assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='occurrence'&&c.args.p_data.checked[0]===0)));
  await page.getByRole('button',{name:'Nueva tarea',exact:true}).click();
  await page.getByLabel('Título',{exact:true}).fill('Limpieza mensual');
- await page.getByLabel('Repetir',{exact:true}).selectOption('weekly');
+ await page.locator('dialog [name="repeat_kind"]').selectOption('weekly');
  assert(await page.getByText('Lunes',{exact:true}).last().isVisible());
  await page.getByLabel('Título',{exact:true}).fill('Prueba semanal');
  await page.getByRole('button',{name:'Guardar',exact:true}).click();
@@ -34,9 +34,9 @@ try{
  await page.getByRole('button',{name:'Editar configuración'}).click();
  await page.waitForTimeout(100);
  assert(await page.getByRole('heading',{name:'Editar tarea',exact:true}).isVisible());
- assert(await page.getByLabel('Tienda',{exact:true}).last().isDisabled());
- await page.getByLabel('Aplicar cambios').selectOption('future');
- assert(await page.getByLabel('Tienda',{exact:true}).last().isEnabled());
+ assert(await page.locator('dialog [name="store_id"]').isDisabled());
+ await page.locator('dialog [name="scope"]').selectOption('future');
+ assert(await page.locator('[data-filter="store"]').last().isEnabled());
  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
  await page.getByRole('button',{name:'Lista',exact:true}).click();
  assert(await page.locator('.tasks-list').isVisible());

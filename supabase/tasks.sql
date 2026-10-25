@@ -99,7 +99,7 @@ begin
  if actor is null then raise exception 'Usuario de equipo no activo.';end if;
  if p_from is null or p_to is null or p_to<p_from or p_to-p_from>62 then raise exception 'Elige un periodo de hasta 63 días.';end if;
  select jsonb_build_object(
- 'rows',coalesce((select jsonb_agg(to_jsonb(x) order by x.scheduled_on,x.priority,x.title) from (
+ 'rows',coalesce((select jsonb_agg(to_jsonb(x) order by x.scheduled_on,case x.priority when 'high' then 0 when 'normal' then 1 else 2 end,x.title) from (
  select t.id task_id,d::date scheduled_on,coalesce(o.overrides->>'title',t.title) title,
  coalesce(o.overrides->>'description',t.description) description,
  t.store_id,t.assigned_email,t.priority,t.repeat_kind,t.starts_on,t.ends_on,t.repeat_every,t.weekdays,
