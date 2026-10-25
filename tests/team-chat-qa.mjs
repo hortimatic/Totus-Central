@@ -22,3 +22,6 @@ assert.equal(chatLayout({collapsed_groups:123,group_labels:[],group_order:null})
 assert.equal(chatLayout({group_sort:{Hortimatic:'unsafe'}}).group_sort.Hortimatic,undefined);
 
 assert.equal(chatGroups([{name:'Real',group_name:'constructor'}])[0].label,'constructor','Section labels must not inherit object properties');
+
+const personal=chatGroups([{id:'channel',name:'Cajas',group_name:'Hortimatic'}],{channel_groups:{channel:'Mis cierres'},extra_groups:['Mis cierres']});
+assert.equal(personal.find(g=>g.name==='Mis cierres').channels[0].name,'Cajas');

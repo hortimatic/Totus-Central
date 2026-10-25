@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {taskInput,taskMatches,taskRange,addTaskDays,taskVisibleRows} from '../src/tasks-core.js';
+const base=taskInput({title:'Revisar caja',starts_on:'2026-01-31',repeat_kind:'monthly',repeat_every:1,checklist:'Contar\nRevisar',weekdays:[]});
+assert(taskMatches(base,'2026-02-28'));assert(taskMatches(base,'2026-03-31'));assert(!taskMatches(base,'2026-03-28'));
+assert(taskMatches({...base,starts_on:'2024-01-31'},'2024-02-29'));
+const weekly={...base,starts_on:'2026-10-25',repeat_kind:'weekly',weekdays:[1,3],repeat_every:2};
+assert(taskMatches(weekly,'2026-10-26'));assert(!taskMatches(weekly,'2026-11-02'));assert(taskMatches(weekly,'2026-11-09'));
+assert.deepEqual(taskRange('2026-10-25','week'),{from:'2026-10-19',to:'2026-10-25'});
+assert.deepEqual(taskRange('2026-02-01'),{from:'2026-01-26',to:'2026-03-01'});
+assert.equal(addTaskDays('2026-03-28',2),'2026-03-30');assert.equal(addTaskDays('2026-10-24',2),'2026-10-26');
+assert.throws(()=>taskInput({...base,starts_on:'2026-02-30'}));assert.throws(()=>taskInput({...base,repeat_kind:'weekly',weekdays:[]}));
+assert.throws(()=>taskInput({...base,ends_on:'2025-01-01'}));
+assert.equal(taskVisibleRows([{title:'Pedido',description:'',store_id:'h',state:'done',assigned_email:'a'}],{store:'n'}).length,0);
+console.log('TASK CORE QA: civil dates, leap years, monthly clamping, interval weeks, DST, validation and filters OK');
+
+assert.throws(()=>taskInput({...base,starts_on:'2026-10-25',ends_on:'2026-10-25',repeat_kind:'weekly',weekdays:[1]}),/ningún día/);

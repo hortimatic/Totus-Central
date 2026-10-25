@@ -27,3 +27,7 @@ En escritorio el historial ocupa el espacio disponible y la zona de escribir per
 
 ## Pruebas y publicación
 Los PR #18 y #19 documentan el módulo inicial, las pruebas reales de adjuntos y las dos pruebas del ChatGPT convencional. Las ampliaciones de organización y desplazamiento llevan sus pruebas de navegador y permisos de cuenta. La fecha o un fichero en GitHub no acreditan por sí solos el despliegue: comprobar la versión publicada y el resultado de su ejecución.
+
+## Secciones personales y tareas con calendario
+En Preferencias de un canal puedes elegir **Sección personal** para colocarlo en una sección existente o creada por ti. Esta organización solo afecta a tu cuenta, se conserva entre ordenadores y no cambia el grupo compartido ni los permisos.
+Crear tarea abre ahora el módulo Tareas: fecha, responsable, tienda, prioridad y repetición. Volver a pulsarlo abre la misma tarea. El mensaje y sus adjuntos permanecen en su conversación original. Consulta [Tareas del equipo](TAREAS_EQUIPO.md).

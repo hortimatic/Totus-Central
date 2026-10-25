@@ -10,7 +10,16 @@ export const LEGACY_RECOVERY_TABLES=[
 export const STOCK_RECOVERY_TABLES=['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences'];
 export const PRE_CHAT_RECOVERY_TABLES=[...LEGACY_RECOVERY_TABLES,...STOCK_RECOVERY_TABLES];
 export const CHAT_RECOVERY_TABLES=["ops_chat_channels","ops_chat_members","ops_chat_messages","ops_chat_reactions","ops_chat_events","ops_chat_files","ops_chat_agent_requests"];
-export const RECOVERY_TABLES=[...PRE_CHAT_RECOVERY_TABLES,...CHAT_RECOVERY_TABLES];
+export const PRE_TASK_RECOVERY_TABLES=[...PRE_CHAT_RECOVERY_TABLES,...CHAT_RECOVERY_TABLES];
+export const TASK_RECOVERY_TABLES=['ops_tasks','ops_task_occurrences','ops_task_events'];
+export const RECOVERY_TABLES=[...PRE_TASK_RECOVERY_TABLES,...TASK_RECOVERY_TABLES];
+export const LEGACY_TASK_SCHEMA_HASH='512d6a886f2d35281b96dc6e9217342e1985fcfa821a7ad80c6cc872525f22c3';
+export function isLegacyTaskArchive(manifest,database){
+ return manifest?.schema_hash===LEGACY_TASK_SCHEMA_HASH&&Array.isArray(manifest.tables)
+ &&manifest.tables.length===PRE_TASK_RECOVERY_TABLES.length&&new Set(manifest.tables).size===PRE_TASK_RECOVERY_TABLES.length
+ &&PRE_TASK_RECOVERY_TABLES.every(t=>manifest.tables.includes(t)&&Array.isArray(database?.[t]))
+ &&Object.keys(database||{}).length===PRE_TASK_RECOVERY_TABLES.length;
+}
 export const LEGACY_CHAT_SCHEMA_HASH='557e56cd01a94a52e443ddd1184b3088089c1864fddeaab91bf44ae6e2a2e1fd';
 export function isLegacyChatArchive(manifest,database){
  return manifest?.schema_hash===LEGACY_CHAT_SCHEMA_HASH&&Array.isArray(manifest.tables)
@@ -19,7 +28,7 @@ export function isLegacyChatArchive(manifest,database){
  &&Object.keys(database||{}).length===PRE_CHAT_RECOVERY_TABLES.length;
 }
 export function recoveryTablesFor(manifest,database){
- return isLegacyStockArchive(manifest,database)?LEGACY_RECOVERY_TABLES:isLegacyChatArchive(manifest,database)?PRE_CHAT_RECOVERY_TABLES:RECOVERY_TABLES;
+ return isLegacyStockArchive(manifest,database)?LEGACY_RECOVERY_TABLES:isLegacyChatArchive(manifest,database)?PRE_CHAT_RECOVERY_TABLES:isLegacyTaskArchive(manifest,database)?PRE_TASK_RECOVERY_TABLES:RECOVERY_TABLES;
 }
 export const LEGACY_STOCK_SCHEMA_HASH='52e2e40d2b27ca87540ab4f94e52c850235674b555ecd60fe3bb08eb181f8f45';
 export function isLegacyStockArchive(manifest,database){
@@ -151,7 +160,7 @@ export async function readRecoveryArchive(input,JSZip,{projectRef,instance,schem
  if(!mf||!db)throw new Error('Faltan el inventario o los datos de la copia.');
  const manifest=JSON.parse(await mf.async('string')),databaseJson=await db.async('string'),database=JSON.parse(databaseJson);
  validateMetadata(manifest,database);
- if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash&&!isLegacyStockArchive(manifest,database)&&!isLegacyChatArchive(manifest,database))
+ if(projectRef&&manifest.project_ref!==projectRef||instance&&manifest.database_instance!==instance||schemaHash&&manifest.schema_hash!==schemaHash&&!isLegacyStockArchive(manifest,database)&&!isLegacyChatArchive(manifest,database)&&!isLegacyTaskArchive(manifest,database))
   throw new Error('La copia pertenece a otro proyecto o a una estructura incompatible.');
  if(await hashValue(databaseJson)!==manifest.integrity?.database
   ||await hashValue(JSON.stringify(manifest.identities))!==manifest.integrity?.identities)throw new Error('La copia está dañada: falla el control de integridad de datos o cuentas.');

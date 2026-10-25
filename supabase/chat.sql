@@ -1,4 +1,4 @@
--- Equipo chat: additive installation candidate. Not applied to production.
+-- Canonical chat installation. Existing installations use the incremental patches; do not recreate their tables.
 -- All seven chat tables are included in complete snapshot/recovery.
 -- The backend can invoke only the private functions explicitly granted to it.
 grant usage on schema private to service_role;
@@ -338,7 +338,7 @@ begin
  and (p_before is null or m.seq<p_before)
  and (p_parent is null or m.parent_id=p_parent or m.id=p_parent)
  and (p_parent is not null or length(p_query)>0 or p_mode<>'all' or m.parent_id is null)
- and (p_query='' or (m.deleted_at is null and (strpos(lower(m.body),lower(p_query))>0 or strpos(lower(m.author_email),lower(p_query))>0)))
+ and (p_query='' or (m.deleted_at is null and (strpos(translate(lower(m.body),'áéíóúüñ','aeiouun'),translate(lower(p_query),'áéíóúüñ','aeiouun'))>0 or strpos(lower(m.author_email),lower(p_query))>0)))
  and (p_from is null or (m.created_at at time zone 'Europe/Madrid')::date>=p_from)
  and (p_to is null or (m.created_at at time zone 'Europe/Madrid')::date<=p_to)
  and (p_mode<>'mentions' or actor=any(m.mentioned_emails))
@@ -587,7 +587,7 @@ begin
  if private.totus_chat_actor() is null then raise exception 'Usuario de equipo no activo.';end if;
  if p_layout is null or jsonb_typeof(p_layout)<>'object' or octet_length(p_layout::text)>16000 then raise exception 'Organización no válida.';end if;
  for key in select jsonb_object_keys(p_layout) loop
-  if key not in ('collapsed_groups','group_order','hidden_groups','extra_groups','group_labels','group_sort','compact_sidebar') then raise exception 'Preferencia no válida.';end if;
+  if key not in ('collapsed_groups','group_order','hidden_groups','extra_groups','group_labels','group_sort','compact_sidebar','channel_groups') then raise exception 'Preferencia no válida.';end if;
  end loop;
  if p_layout?'compact_sidebar' and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
  foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups'] loop
@@ -598,13 +598,14 @@ begin
    end loop;
   end if;
  end loop;
- foreach key in array array['group_labels','group_sort'] loop
+ foreach key in array array['group_labels','group_sort','channel_groups'] loop
   if p_layout?key then
    if jsonb_typeof(p_layout->key)<>'object' or (select count(*) from jsonb_object_keys(p_layout->key))>100 then raise exception 'Opciones de sección no válidas.';end if;
    for pair in select * from jsonb_each(p_layout->key) loop
     if length(btrim(pair.key)) not between 1 and 80 or jsonb_typeof(pair.value)<>'string' then raise exception 'Opciones de sección no válidas.';end if;
+    if key='channel_groups' and pair.key !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' then raise exception 'Canal no válido.';end if;
     if key='group_sort' and (pair.value#>>'{}') not in ('alphabetical','recent','manual') then raise exception 'Orden no válido.';end if;
-    if key='group_labels' and length(btrim(pair.value#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
+    if key in ('group_labels','channel_groups') and length(btrim(pair.value#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
    end loop;
   end if;
  end loop;
