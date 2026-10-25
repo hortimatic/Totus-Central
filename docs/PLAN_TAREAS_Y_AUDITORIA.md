@@ -11,4 +11,7 @@
 ## Protección de producción
 Cambios preparados en feature/tareas-calendario; no cambiar contabilidad ni importar datos ficticios en módulos contables. Probar base de datos desechable en CI antes de aplicar migración. No restaurar una copia sobre datos reales para probar. Sin relojes ni control horario.
 ## Estado
-En implementación. Este documento es un registro del alcance, no una certificación de pruebas terminadas.
+Implementación y pruebas terminadas. Los cuatro bloques de la revisión 40224188950 han finalizado correctamente: 121 programas de comprobación y 30 ejecuciones SQL de instalación/prueba, con PostgreSQL desechable para permisos y restauración. La publicación repite la batería antes de servir la nueva versión.
+Prueba real desde ChatGPT convencional, con escritura revertida y comprobación posterior sin residuos: https://github.com/hortimatic/Totus-Central/pull/22#issuecomment-6401830749.
+Informe de revisión: docs/auditorias/TAREAS_CHAT_Y_REVISION_2026-10-25.md.
+La verificación final del despliegue y la copia ampliada se registra en el cierre del PR #22.
