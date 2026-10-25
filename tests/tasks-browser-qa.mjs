@@ -36,11 +36,11 @@ try{
  assert(await page.getByRole('heading',{name:'Editar tarea',exact:true}).isVisible());
  assert(await page.locator('dialog [name="store_id"]').isDisabled());
  await page.locator('dialog [name="scope"]').selectOption('future');
- assert(await page.locator('[data-filter="store"]').last().isEnabled());
+ assert(await page.locator('dialog [name="store_id"]').isEnabled());
  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
  await page.getByRole('button',{name:'Lista',exact:true}).click();
  assert(await page.locator('.tasks-list').isVisible());
- await page.getByLabel('Tienda',{exact:true}).selectOption('n');
+ await page.locator('[data-filter="store"]').selectOption('n');
  await page.getByRole('button',{name:'Aplicar',exact:true}).click();
  assert.equal(await page.locator('.task-chip').count(),0);
  await page.getByRole('button',{name:'Limpiar',exact:true}).click();
