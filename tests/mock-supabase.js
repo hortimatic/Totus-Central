@@ -13,6 +13,8 @@ const db={
  ops_recovery_jobs:[],
  team_email_log:[],
  team_user_audit_log:[],
+ ops_chat_events:[],
+ ops_task_events:[],
  ops_roles:[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}],
  ops_role_permissions:[],
  ops_user_permissions:[],

@@ -87,11 +87,6 @@ jobs:
       - run: node tests/native-backup-zip-qa.mjs
       - run: node tests/recovery-handler-qa.mjs
       - run: npx playwright install --with-deps chromium
-      - run: node tests/audit-register-browser-qa.mjs
-      - run: node tests/expense-credit-browser-qa.mjs
-      - run: node tests/expense-rounding-browser-qa.mjs
-      - run: node tests/template-copy-browser-qa.mjs
-      - run: node tests/configuration-journeys-browser-qa.mjs
       - run: node tests/workbook-preview-qa.mjs
       - run: node tests/excel-qa.mjs
       - run: node tests/monthly-workbook-qa.mjs
@@ -104,6 +99,11 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/audit-register-browser-qa.mjs
+      - run: node tests/expense-credit-browser-qa.mjs
+      - run: node tests/expense-rounding-browser-qa.mjs
+      - run: node tests/template-copy-browser-qa.mjs
+      - run: node tests/configuration-journeys-browser-qa.mjs
       - run: node tests/published-browser-qa.mjs
       - run: node tests/form-boundaries-browser-qa.mjs
       - run: node tests/session-startup-browser-qa.mjs
