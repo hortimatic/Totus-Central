@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
 try{
- for(const width of [1440,390]){
+ for(const width of [1440,390,320]){
   const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/tests/header-tools-fixture.html',{waitUntil:'networkidle'});
   assert.equal(await page.locator('[data-clock]').innerText(),'13:00:00');
