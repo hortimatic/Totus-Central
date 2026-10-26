@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {chromium} from 'playwright';
+import JSZip from 'jszip';
+const browser=await chromium.launch({headless:true});
+try{
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:1000}});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.locator('#userCard').waitFor({state:'visible'});
+ await page.evaluate(async()=>{
+  const db=window.__mockDb,store=db.ops_stores[0].id;
+  const doc=(id,date,content)=>{const file=new File([content],id+'.txt',{type:'text/plain'});
+   window.__mockUploads.set('business-documents/'+id+'.txt',file);
+   db.ops_documents.push({id,store_id:store,document_date:date,original_name:id+'.txt',storage_path:id+'.txt',size_bytes:file.size,mime_type:'text/plain',doc_type:'factura_recibida'});
+  };
+  doc('previous-year-invoice','2025-12-31','ORIGINAL DE FACTURA VINCULADA AL GASTO 2026');
+  doc('previous-year-tax','2025-12-31','JUSTIFICANTE DE IMPUESTO PAGADO EN 2026');
+  db.ops_expenses.push({id:'annual-expense',store_id:store,expense_date:'2026-01-02',supplier_name:'Proveedor anual QA',description:'Compra QA',invoice_number:'ANNUAL-QA',gross_expense:100,accounting_amount:100,amount_paid:100,base_amount:100,management_only:false,fiscal_reviewed:true,document_id:'previous-year-invoice'});
+  db.ops_expense_lines.push({id:'annual-line',expense_id:'annual-expense',base_amount:100,irpf_imputable:100,deductible_irpf:true,deductible_pct:100,description:'Compra QA'});
+  db.ops_expenses.push({id:'annual-internal',store_id:store,expense_date:'2026-01-03',supplier_name:'Interno QA',description:'Control QA',gross_expense:20,management_only:true,fiscal_reviewed:false});
+  db.ops_daily_closings.push({id:'annual-close',store_id:store,business_date:'2026-01-01',cash_sales:1000,card_sales:0,include_in_income:true,status:'cerrado'});
+  db.ops_tax_payments.push({id:'annual-tax',tax_type:'130',fiscal_year:2025,quarter:4,status:'pagado',payment_date:'2026-01-10',amount:30,document_id:'previous-year-tax'});
+  await (await import('../src/api.js')).loadCore();
+ });
+ await page.locator('#nav [data-route="informes"]').click();
+ await page.getByText('Descargas anuales y auditoría complementaria',{exact:true}).click();
+ const ready=page.waitForEvent('download',{timeout:20000});
+ await page.locator('[data-action="export-gestor-package"]').first().click();
+ const download=await ready;
+ assert.equal(download.suggestedFilename(),'Paquete_gestor_2026.zip');
+ const zip=await JSZip.loadAsync(await fs.readFile(await download.path()));
+ const summary=await zip.file('04_RESUMEN/Resumen_2026.csv').async('string');
+ assert(summary.includes('Gastos internos;50.00'));
+ assert(summary.includes('De ellos: impuestos pagados;30.00'));
+ assert(summary.includes('Ingresos menos gastos fiscales revisados;900.00'));
+ assert(summary.includes('Saldo de control tras gastos internos e impuestos;850.00'));
+ const originals=Object.values(zip.files).filter(f=>!f.dir&&f.name.startsWith('05_DOCUMENTOS/')&&f.name.endsWith('.txt'));
+ assert.equal(originals.length,2,'Both cross-year originals must be in the actual ZIP');
+ const texts=await Promise.all(originals.map(f=>f.async('string')));
+ assert(texts.includes('ORIGINAL DE FACTURA VINCULADA AL GASTO 2026'));
+ assert(texts.includes('JUSTIFICANTE DE IMPUESTO PAGADO EN 2026'));
+ const missing=await zip.file('04_RESUMEN/Registros_sin_adjunto.csv').async('string');
+ assert(missing.includes('Interno QA'));
+ assert.deepEqual(errors,[]);
+ console.log('ANNUAL ZIP BROWSER QA: actual download includes cross-year expense/tax originals, paid taxes once, separate fiscal result and missing-document index');
+}finally{await browser.close()}
