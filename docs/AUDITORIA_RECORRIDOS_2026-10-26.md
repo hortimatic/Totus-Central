@@ -63,10 +63,11 @@ Las acciones de negocio que ya se registraban en servidor conservan su traza ori
 Los eventos del chat que se pueden consultar dependen de los canales administrados por la cuenta; las tareas dependen de su visibilidad. La actividad de copias corresponde a las copias aún conservadas. Cuando el servidor no registró el autor de una copia se indica expresamente, sin atribuirla al administrador actual.
 Los cambios de código, autor, revisión y publicación se consultan en GitHub, no se presentan como si fuesen cambios contables.
 El detalle conserva los códigos originales aunque la tabla use nombres más legibles.
+La actualización automática consulta las novedades del historial general y de usuarios sin volver a descargar toda la historia. Chat y tareas se releen bajo sus permisos vigentes. Las copias se consultan sin descargar sus manifiestos completos. El botón Actualizar vuelve a leer todo el historial, por ejemplo después de una importación con fechas antiguas.
 
 ## Reproducción y protocolo de cambios
 
-Las pruebas nuevas son `audit-register-qa`, `audit-register-browser-qa`, `expense-totals-qa`, `expense-credit-browser-qa`, `expense-rounding-browser-qa`, `template-copy-qa`, `template-copy-browser-qa` y `configuration-journeys-browser-qa`, todas en `tests/` e incluidas en el flujo de revisión.
+Las pruebas nuevas son `audit-register-qa`, `audit-loading-qa`, `audit-register-browser-qa`, `expense-totals-qa`, `expense-credit-browser-qa`, `expense-rounding-browser-qa`, `template-copy-qa`, `template-copy-browser-qa` y `configuration-journeys-browser-qa`, todas en `tests/` e incluidas en el flujo de revisión.
 Ejecutar los recorridos y la batería `.github/workflows/qa.yml`, revisar sus resultados y los trabajos de base de datos desechable antes de publicar. No aceptar solo comprobaciones estáticas o un número de pruebas como prueba de ausencia absoluta de fallos.
 Publicar mediante la rama de revisión y el control de calidad de GitHub. Releer el estado actual antes de editar; no sobrescribir cambios ajenos. Conservar los datos, fórmulas fiscales y funciones que no forman parte de la corrección. Si falla una comprobación, resolverla antes de dar el caso por cerrado.
 

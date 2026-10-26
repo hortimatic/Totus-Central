@@ -48,6 +48,7 @@ jobs:
       - run: node tests/functional-regression.mjs
       - run: node tests/supplier-credit-qa.mjs
       - run: node tests/audit-register-qa.mjs
+      - run: node tests/audit-loading-qa.mjs
       - run: node tests/expense-totals-qa.mjs
       - run: node tests/template-copy-qa.mjs
       - run: node tests/cross-view-integrity-qa.mjs

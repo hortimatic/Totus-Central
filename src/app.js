@@ -238,10 +238,10 @@ async function refresh(message=''){
  finally{state.loading=false}
 }
 let auditRefreshInFlight=false;
-async function refreshAuditPanel(){
+async function refreshAuditPanel({full=false}={}){
  if(auditRefreshInFlight)return false;
  auditRefreshInFlight=true;
- try{await reloadAudit();return true}
+ try{await reloadAudit({full});return true}
  catch(error){state.data.auditError=error.message;return false}
  finally{
   auditRefreshInFlight=false;
@@ -2580,7 +2580,7 @@ document.addEventListener('click',async e=>{
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};setView('administracion',{logPage:0});render();return}
   if(a==='admin-log-page'){setView('administracion',{logPage:Math.max(0,Number(el.dataset.page)||0)});render();return}
-  if(a==='admin-log-refresh'){if(await refreshAuditPanel())toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
+  if(a==='admin-log-refresh'){if(await refreshAuditPanel({full:true}))toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='admin-period-close'){await setClosedPeriod();return}

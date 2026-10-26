@@ -5,6 +5,11 @@ const ACTION_LABELS={crear:'Crear registro',actualizar:'Actualizar registro',eli
  created:'Crear tarea',updated:'Actualizar tarea',occurrence:'Actualizar tarea del día',completed:'Completar tarea',done:'Completar tarea',archived:'Archivar tarea',
  copia_iniciada:'Copia iniciada',copia_success:'Copia completada',copia_failed:'Copia fallida',copia_error:'Error en la copia',copia_cancelled:'Copia cancelada'};
 export const auditActionLabel=action=>ACTION_LABELS[action]||String(action||'—');
+export function mergeAuditRows(previous=[],incoming=[]){
+ const rows=new Map(previous.map(r=>[String(r.id),r]));
+ for(const row of incoming)rows.set(String(row.id),row);
+ return [...rows.values()];
+}
 
 // Keep original events intact. Other module histories remain subject to their RLS.
 export function combineAuditEvents({events=[],users=[],chat=[],tasks=[],backups=[],people=[]}={}){

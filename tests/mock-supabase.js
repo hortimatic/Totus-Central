@@ -49,7 +49,7 @@ function syncDocumentLink(table,row){
  }
 }
 class Query{
- constructor(table){this.table=table;this.mode='select';this.value=null;this.filters=[];this.orderBy=null;this.rangeBy=null;}
+ constructor(table){this.table=table;this.mode='select';this.value=null;this.filters=[];this.orderBy=[];this.rangeBy=null;}
  select(){return this}
  insert(v){this.mode='insert';this.value=v;return this}
  update(v){this.mode='update';this.value=v;return this}
@@ -57,8 +57,9 @@ class Query{
  delete(){this.mode='delete';return this}
  eq(k,v){this.filters.push([k,v,'eq']);return this}
  neq(k,v){this.filters.push([k,v,'neq']);return this}
+ gte(k,v){this.filters.push([k,v,'gte']);return this}
  is(k,v){this.filters.push([k,v,'is']);return this}
- order(k,{ascending=false}={}){this.orderBy=[k,ascending];return this}
+ order(k,{ascending=false}={}){this.orderBy.push([k,ascending]);return this}
  range(a,b){this.rangeBy=[a,b];return this}
  limit(n){this.rangeBy=[0,n-1];return this}
  result(){
@@ -73,7 +74,7 @@ class Query{
     if(row.font_family!==undefined&&!['helvetica','times','courier'].includes(row.font_family))return {data:null,error:{message:'ops_document_templates_font_family_check'}};
    }
   }
-  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
+  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='gte'?r[k]>=v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
   if(this.mode==='insert'){
    if(window.__mockRejectInsertTable===this.table){
     window.__mockRejectInsertTable=null;
@@ -92,7 +93,7 @@ class Query{
   }
   if(this.mode==='update'){for(const r of matches){Object.assign(r,this.value);syncDocumentLink(this.table,r)}return {data:matches,error:null}}
   if(this.mode==='delete'){for(const r of matches){const i=target.indexOf(r);if(i>=0)target.splice(i,1)}return {data:matches,error:null}}
-  if(this.orderBy){const [key,ascending]=this.orderBy;matches=[...matches].sort((a,b)=>String(a[key]??'').localeCompare(String(b[key]??''))*(ascending?1:-1))}
+  if(this.orderBy.length)matches=[...matches].sort((a,b)=>{for(const [key,ascending] of this.orderBy){const cmp=typeof a[key]==='number'&&typeof b[key]==='number'?a[key]-b[key]:String(a[key]??'').localeCompare(String(b[key]??''));if(cmp)return cmp*(ascending?1:-1)}return 0;});
   if(this.rangeBy)matches=matches.slice(this.rangeBy[0],this.rangeBy[1]+1);
   return {data:matches,error:null};
  }
