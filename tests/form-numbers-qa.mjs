@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {validateFormNumber} from '../src/form-numbers.js';
+assert.equal(validateFormNumber(''),null);
+assert.equal(validateFormNumber('0',{min:'0',max:'100'}),0);
+assert.equal(validateFormNumber('100',{min:'0',max:'100'}),100);
+assert.equal(validateFormNumber('1.234,50'),1234.5);
+assert.equal(validateFormNumber('-25,50'),-25.5,'Credits stay possible without a minimum');
+for(const bad of ['12abc','1e3','Infinity','9'.repeat(400)])assert.throws(()=>validateFormNumber(bad),{name:'ValidationError'});
+assert.throws(()=>validateFormNumber('150',{min:'0',max:'100',label:'Descuento (%)'}),/Descuento.*inferior a 100/);
+assert.throws(()=>validateFormNumber('-1',{min:'0'}),/superior a 0/);
+assert.equal(validateFormNumber('1,25',{min:null,max:null}),1.25);
+console.log('FORM NUMBERS QA: strict finite ES/EN amounts, declared bounds, optional blanks and negative credits preserved');

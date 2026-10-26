@@ -711,3 +711,6 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  .pricing-taxonomy .summary-row{grid-template-columns:minmax(0,1fr);gap:8px}
  .pricing-taxonomy .summary-row>.inline-actions{justify-self:end}
 }
+
+/* Do not show a sign-in form before the saved session has been checked. */
+.checking-session #loginForm > :not(.brand):not(#loginMessage){display:none}.checking-session #loginMessage{color:var(--muted);font-size:14px}

@@ -1,4 +1,5 @@
 import {createTasks} from './tasks-ui.js';
+import {validateFormNumber} from './form-numbers.js';
 import {taskToday} from './tasks-core.js';
 import {requestChatFile,subscribeChat,createChatNotifier} from './chat-api.js';
 import {createTeamChat} from './team-chat-ui.js';
@@ -243,16 +244,12 @@ function val(id){return input(id)?.value??''}
 function required(id,label){const v=val(id).trim();if(!v)throw new Error(`${label} es obligatorio.`);return v}
 function num(id){return n(val(id))}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
-function validateDecimalFields(){
- for(const field of document.querySelectorAll('input[data-decimal="true"]')){
+function validateDecimalFields(root=document){
+ for(const field of root.querySelectorAll('input[data-decimal="true"]')){
   if(field.disabled||(field.closest('#prDraftVariants')&&val('prType')!=='variants')||(field.closest('#prInitialProvider')&&val('prType')==='variants'))continue;
-  const raw=String(field.value||'').trim().replace(/\s/g,'');
-  if(!raw)continue;
-  // Signo opcional, agrupación de miles ES/EN y decimales con coma o punto.
-  const valid=/^-?\d+(?:[.,]\d+)?$/.test(raw)
-   ||/^-?\d{1,3}(?:\.\d{3})+[,]\d+$/.test(raw)
-   ||/^-?\d{1,3}(?:,\d{3})+[.]\d+$/.test(raw);
-  if(!valid){field.focus();const err=new Error('El campo "'+(field.closest('label')?.textContent||field.id).trim()+'" contiene un importe no válido.');err.name='ValidationError';throw err}
+  const label=(field.closest('label')?.querySelector('.field-caption')?.firstChild?.textContent||field.closest('label')?.textContent||field.id).trim();
+  try{validateFormNumber(field.value,{min:field.getAttribute('min'),max:field.getAttribute('max'),label})}
+  catch(error){field.focus();throw error}
  }
 }
 
@@ -2351,7 +2348,7 @@ document.addEventListener('click',async e=>{
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
  const writes=a==='stock-source-remove'||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  try{
-  if(/-save(?:$|-)/.test(a)&&a!=='expense-report-group-save')validateDecimalFields();
+  if(/-save(?:$|-)/.test(a)&&a!=='expense-report-group-save')validateDecimalFields(el.closest('[data-modal-content]')||$('#content'));
   if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
   if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
@@ -2761,10 +2758,14 @@ $('#saveRecoveryPassword').addEventListener('click',async()=>{
  finally{button.disabled=false}
 });
 
+let signingIn=false;
 $('#loginForm').addEventListener('submit',async e=>{
- e.preventDefault();const m=$('#loginMessage');m.textContent='Comprobando acceso…';
+ e.preventDefault();if(signingIn)return;signingIn=true;
+ const button=$('#loginForm button[type="submit"]');button.disabled=true;
+ const m=$('#loginMessage');m.textContent='Comprobando acceso…';
  try{state.session=await login(val('loginEmail').trim().toLowerCase(),val('loginPassword'));await boot()}
  catch(err){m.textContent=err.message}
+ finally{signingIn=false;button.disabled=false}
 });
 $('#recoverBtn').addEventListener('click',async()=>{
  const email=val('loginEmail').trim().toLowerCase();if(!email){$('#loginMessage').textContent='Escribe primero tu correo.';return}
@@ -2772,9 +2773,12 @@ $('#recoverBtn').addEventListener('click',async()=>{
 });
 
 async function boot(){
+ $('#login').classList.add('checking-session');
+ $('#loginMessage').textContent='Comprobando tu acceso…';
+ try{
  if(recoveringPassword){showPasswordRecovery();return}
  const session=(await sb.auth.getSession()).data.session;state.session=session;
- if(!session){$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
+ if(!session){$('#loginMessage').textContent='';$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
  const [teamRows,profileRows]=await Promise.all([
   select('team_members',{limit:1,allowTruncated:true,filter:q=>q.eq('email',session.user.email.toLowerCase())}),
   select('profiles',{limit:1,allowTruncated:true,filter:q=>q.eq('id',session.user.id)})
@@ -2785,6 +2789,7 @@ async function boot(){
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();chatNotifier.start();
+ }finally{$('#login').classList.remove('checking-session')}
 }
 sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
 
