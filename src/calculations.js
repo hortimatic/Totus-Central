@@ -25,14 +25,23 @@ export function closingIncomeAmount(closing){
  return ['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((total,key)=>total+Number(closing[key]||0),0);
 }
 export function parseDecimal(value){
+ if(typeof value==='number'){
+  if(!Number.isFinite(value))throw new Error('Introduce un número válido y finito.');
+  return value;
+ }
  let s=String(value??'').trim().replace(/\s/g,'');
  if(!s)return 0;
+ const valid=/^[+-]?\d+(?:[.,]\d+)?$/.test(s)
+  ||/^[+-]?\d{1,3}(?:\.\d{3})+[,]\d+$/.test(s)
+  ||/^[+-]?\d{1,3}(?:,\d{3})+[.]\d+$/.test(s);
+ if(!valid)throw new Error('Introduce un número válido, con coma o punto decimal.');
  if(s.includes(',')&&s.includes('.')){
   if(s.lastIndexOf(',')>s.lastIndexOf('.'))s=s.replace(/\./g,'').replace(',','.');
   else s=s.replace(/,/g,'');
  }else s=s.replace(',','.');
- const n=Number.parseFloat(s);
- return Number.isFinite(n)?n:0;
+ const n=Number(s);
+ if(!Number.isFinite(n))throw new Error('Introduce un número válido y finito.');
+ return n;
 }
 
 // paid_amount is always a positive magnitude: receipts on positive invoices,
@@ -52,8 +61,12 @@ export function validateInvoiceSettlement(total,amount,status,date,today){
 
 export function quickPriceStudy({cost=0,pvp=0,competitor=0,discount=0,vat=21,re=5.2}={}){
  cost=parseDecimal(cost);pvp=parseDecimal(pvp);competitor=parseDecimal(competitor);
- discount=Math.min(100,Math.max(0,parseDecimal(discount)));
+ discount=parseDecimal(discount);
  vat=parseDecimal(vat);re=parseDecimal(re);
+ for(const [label,value] of [['Coste',cost],['PVP',pvp],['Competencia',competitor]])
+  if(value<0)throw new Error(label+': no se admiten importes negativos.');
+ for(const [label,value] of [['Descuento',discount],['IVA',vat],['Recargo',re]])
+  if(value<0||value>100)throw new Error(label+': indica un porcentaje entre 0 y 100.');
  const finalSale=pvp*(1-discount/100);
  const saleNet=finalSale/(1+vat/100);
  const costReal=cost*(1+vat/100+re/100);
@@ -62,7 +75,14 @@ export function quickPriceStudy({cost=0,pvp=0,competitor=0,discount=0,vat=21,re=
  const margin=finalSale-costReal;
  const marginPct=finalSale>0?margin/finalSale*100:0;
  const competitorDiff=competitor>0?finalSale-competitor:null;
+ if(![finalSale,saleNet,costReal,margin,marginPct].every(Number.isFinite)||(competitorDiff!==null&&!Number.isFinite(competitorDiff)))
+  throw new Error('Los importes son demasiado grandes para calcular un resultado válido.');
  return {cost,pvp,competitor,discount,vat,re,finalSale,saleNet,costReal,margin,marginPct,competitorDiff};
+}
+
+// In-progress typing may be incomplete. Never show a fabricated zero margin.
+export function previewQuickPriceStudy(values){
+ try{return quickPriceStudy(values)}catch{return null}
 }
 
 /** Validates a received invoice payment before allowing a database write. */

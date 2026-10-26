@@ -8,7 +8,7 @@ import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from '
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
-import {calendarReportPeriod,reportPackagePlan} from './report-package.js';
+import {calendarReportPeriod,reportPackagePlan,annualReportPlan} from './report-package.js';
 import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
 import {archiveHash as componentHash} from './recovery-core.js';
 import {validateTaxExpense} from './tax-expense.js';
@@ -24,7 +24,7 @@ import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,r
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
-import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
+import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,previewQuickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
@@ -1011,7 +1011,7 @@ function updateProductStudy(){
  const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
  if(input('prSummaryNote')){input('prSummaryNote').className='note'+(chosen?'':' warn');input('prSummaryNote').textContent=chosen?'El coste real incluye IVA y recargo de equivalencia. El descuento de venta se aplica al PVP.':'Añade un proveedor y su coste para calcular el margen real.';}
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
- const r=chosen&&pvp!==''?quickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
+ const r=chosen&&pvp!==''?previewQuickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
  set('prSummaryCost',chosen?money(costOf(chosen)):'Sin proveedor');set('prSummaryReal',r?money(r.costReal):'—');
  set('prSummaryPvp',r?money(r.finalSale):pvp!==''?money(n(pvp)):'Sin precio');
@@ -1026,13 +1026,15 @@ function updateVariantStudy(){
  el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){
- const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+ const r=priceFormPreview('pq');
+ if(!r)return;
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
  set('pqReal',money(r.costReal));set('pqSale',money(r.finalSale));set('pqMargin',money(r.margin),r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqMarginPct',r.marginPct.toFixed(1).replace('.',',')+' %',r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqCompetition',r.competitorDiff==null?'—':((r.competitorDiff>0?'+':'')+money(r.competitorDiff)),r.competitorDiff==null?'':r.competitorDiff>0?'warn-text':'good-text');
 }
 async function saveConsultation(id=''){
  if(id&&!state.data.consultations.some(c=>c.id===id))throw new Error('La consulta ya no existe. Vuelve a cargarla.');
  const query=required('pqQuery','Consulta');
+ required('pqCost','Coste de compra');required('pqPvp','PVP');
  const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const values={query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,updated_at:new Date().toISOString()};
  const row=id?await update('consultations',id,values):await insert('consultations',{...values,created_by:state.user?.id||null,last_reopened_at:null});
@@ -2089,8 +2091,21 @@ function applyFilter(prefix){
  patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
+function priceFormPreview(prefix){
+ const error=input(prefix+'Error');
+ try{
+  const result=quickPriceStudy({cost:val(prefix+'Cost'),pvp:val(prefix+'Pvp'),competitor:val(prefix+'Competitor'),discount:val(prefix+'Discount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+  if(error){error.hidden=true;error.textContent=''}
+  return result;
+ }catch(e){
+  for(const suffix of ['Real','Sale','Margin','MarginPct','Competition']){const el=input(prefix+suffix);if(el){el.textContent='—';el.className=''}}
+  if(error){error.textContent=e.message;error.hidden=false}
+  return null;
+ }
+}
 function updateHomePrice(){
- const result=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+ const result=priceFormPreview('homePrice');
+ if(!result)return;
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
  set('homePriceReal',money(result.costReal));
  set('homePriceSale',money(result.finalSale));
@@ -2100,6 +2115,7 @@ function updateHomePrice(){
 }
 async function saveHomePrice(){
  const query=required('homePriceQuery','Producto / referencia');
+ required('homePriceCost','Coste de compra');required('homePricePvp','PVP');
  const r=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:'CREADA',consultation_query:query,snapshot:{...row,source:'inicio'}});
@@ -2181,6 +2197,7 @@ async function exportGestorPackage(year){
  annualExportInProgress=true;
  modal('Preparando paquete anual','<p id="annualPackageProgress" role="status" aria-live="polite">Preparando libros y documentos…</p>');
  try{
+ const annual=annualReportPlan(state.data,year);
  const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
  const incomeRows=[
@@ -2193,12 +2210,9 @@ async function exportGestorPackage(year){
  const gestor=buildGestorWorkbook(args);gastos.file(`Libros_gestor_y_auditoria_${year}_Totus.xlsx`,workbookBlob(gestor));
  gastos.file(`Tabla_gestoria_${year}.xlsx`,workbookBlob(buildGestorSourceWorkbook({...args,from:`${year}-01-01`,to:`${year}-12-31`,store:'all'})));
  for(const store of stores)for(let month=1;month<=12;month++){const wb=buildStoreMonthlyWorkbook({store,year,month,closings:state.data.closings,expenses:state.data.expenses,categories:state.data.categories,incomeAdjustments:state.data.incomeAdjustments});diarios.file(`${safeFileSegment(store.name)}/${year}-${String(month).padStart(2,'0')} Gastos y ventas.xlsx`,workbookBlob(wb))}
- const yearClosings=state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))),yearExpenses=state.data.expenses.filter(x=>String(x.expense_date).startsWith(String(year)));
- const yearInvoices=state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&String(x.issue_date).startsWith(String(year)));
- const yearAdjustments=state.data.fiscalAdjustments.filter(x=>x.kind==='ingreso_extra'&&String(x.adjustment_date).startsWith(String(year)));
- const sales=yearClosings.reduce((v,x)=>v+closingIncomeAmount(x),0)+yearInvoices.reduce((v,x)=>v+n(x.total_amount),0)+yearAdjustments.reduce((v,x)=>v+n(x.amount),0)+state.data.incomeAdjustments.filter(x=>String(x.income_date).startsWith(String(year))).reduce((v,x)=>v+n(x.amount),0),accounting=yearExpenses.filter(x=>!x.management_only&&x.fiscal_reviewed!==false).reduce((v,x)=>v+expenseCostAmount(x),0),internal=yearExpenses.filter(x=>x.management_only).reduce((v,x)=>v+expenseCostAmount(x),0);
- resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${sales.toFixed(2)}\nGastos fiscales revisados;${accounting.toFixed(2)}\nGastos internos;${internal.toFixed(2)}\nResultado real;${(sales-accounting-internal).toFixed(2)}\n`);
- const yearDocs=state.data.documents.filter(x=>String(x.document_date||x.created_at).startsWith(String(year)));
+ resumen.file(`Resumen_${year}.csv`,`Concepto;Importe\nVentas;${annual.sales.toFixed(2)}\nGastos fiscales revisados;${annual.accounting.toFixed(2)}\nGastos internos;${annual.internal.toFixed(2)}\nDe ellos: impuestos pagados;${annual.taxInformation.toFixed(2)}\nIngresos menos gastos fiscales revisados;${annual.fiscalBalance.toFixed(2)}\nSaldo de control tras gastos internos e impuestos;${annual.cashBalance.toFixed(2)}\n`);
+ resumen.file('Registros_sin_adjunto.csv',csv(annual.missingAttachments,[{label:'Tipo',get:r=>r.type},{label:'Fecha',get:r=>r.date},{label:'Proveedor o cliente',get:r=>r.name||''},{label:'Numero',get:r=>r.number||''}]));
+ const yearDocs=annual.documents;
  const usedPaths=new Set(),manifest=[];
  const originals=await collectArchiveDocuments(yearDocs,getDocumentBlob,{onProgress:(done,total)=>{const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent=`Comprobando documentos ${done}/${total}…`;}});
  for(const [index,d] of yearDocs.entries()){
