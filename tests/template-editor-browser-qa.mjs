@@ -53,9 +53,15 @@ try{
  assert.equal(saved.logo_position,'right');assert.equal(saved.logo_width_mm,24);assert.equal(saved.font_family,'courier');assert.equal(saved.notes_default,'INTERNAL_DO_NOT_PRINT');assert.equal(saved.header_text,values.tpHeader);assert.equal(saved.show_company_email,false);
  await page.locator('[data-action="template-preview"][data-id="'+id+'"]').click();
  const savedPopup=page.waitForEvent('popup');await page.locator('[data-action="template-preview-print"]').click();const printed=await savedPopup;await printed.locator('.invoice-title').waitFor();assert.match(await printed.locator('body').innerText(),/FACTURA QA/);await printed.close();
- await page.locator('#modalHost .close-btn').click();await page.locator('[data-action="billing-section"][data-section="documentos"]').click();await page.locator('[data-action="invoice-new"]').first().click();
+ await page.locator('#modalHost .close-btn').click();
+ const other=await page.evaluate(async()=>{const original=window.__mockDb.ops_document_templates[0],copy={...original,id:crypto.randomUUID(),code:'OTHER_QA',default_invoice:false,default_proforma:false,notes_default:'OTHER_PRIVATE_NOTE'};window.__mockDb.ops_document_templates.push(copy);await(await import('../src/api.js')).loadCore();return copy.id;});
+ await page.locator('[data-action="billing-section"][data-section="documentos"]').click();await page.locator('[data-action="invoice-new"]').first().click();
  assert.equal(await page.locator('#ivNotes').inputValue(),'INTERNAL_DO_NOT_PRINT','Template notes must populate the private invoice notes');
  assert(!(await page.locator('#invoiceDraftPreview').innerText()).includes('INTERNAL_DO_NOT_PRINT'));
+ await page.locator('details.invoice-presentation > summary').click();await page.locator('#ivTemplate').selectOption(other);
+ assert.equal(await page.locator('#ivNotes').inputValue(),'OTHER_PRIVATE_NOTE');
+ await page.locator('#ivNotes').fill('CUSTOM_PRIVATE_NOTE');await page.locator('#ivTemplate').selectOption(id);
+ assert.equal(await page.locator('#ivNotes').inputValue(),'CUSTOM_PRIVATE_NOTE','Changing template must preserve user-written notes');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_sales_invoices.length),0);assert.deepEqual(errors,[]);
  console.log('TEMPLATE EDITOR QA: all design fields, physical logo size/position, fonts, colours, privacy, multiline text, draft/print/PDF, invalid image, save/reopen and four viewport sizes');
 }finally{await browser.close()}

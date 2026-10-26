@@ -9,7 +9,8 @@ assert(config.includes('https://awmojepsasikxocoeqtu.supabase.co'),'Keep the acc
 assert(!config.includes('zwkpmjjuurgjygcrejiw'),'Do not reconnect the retired database');
 assert(!/archivos en STAGING|copias de staging|completa de staging/.test(app));
 assert(app.includes('state.data.taxPayments.some(x=>x.document_id===id)'),'Tax payment links must block document deletion');
-assert(app.includes("${esc(row.display_number||'Documento')}"),'Print title must escape the invoice number');
+assert(app.includes("writeInvoicePrintWindow(w,html,row.display_number||'Documento')"),'Invoice printing must delegate its number to the shared renderer');
+assert(app.includes('<title>${esc(title)}</title>'),'Shared print renderer must escape invoice and template titles');
 assert(publish.includes('branches: [totus-central]'),'Only the renamed production branch may publish');
 assert(publish.includes('needs: verify')&&publish.includes('uses: ./.github/workflows/qa.yml'));
 assert(publish.includes("location.search+location.hash"),'Legacy links must preserve authentication fragments');
