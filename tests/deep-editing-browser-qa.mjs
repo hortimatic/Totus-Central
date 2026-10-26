@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const ids=await page.evaluate(async()=>{
+  const d=window.__mockDb,store=d.ops_stores[0],supplier=d.ops_suppliers[0],category=d.ops_expense_categories[0],template=d.ops_document_templates[0],series=d.ops_invoice_series[0];
+  store.active=false;supplier.active=false;category.active=false;template.store_id=store.id;
+  const date=new Date().toLocaleDateString('en-CA');
+  d.ops_expenses.push({id:'common-qa',store_id:null,supplier_id:supplier.id,supplier_name:supplier.name,expense_date:date,document_kind:'factura',invoice_number:'COMMON-QA',category_id:category.id,description:'Compra común QA',gross_expense:121,accounting_amount:121,amount_paid:0,paid_status:'pendiente',payment_method:'transferencia',source:'manual'});
+  d.ops_expense_lines.push({id:'line-qa',expense_id:'common-qa',category_id:category.id,description:'Compra común QA',base_amount:100,vat_rate:21,vat_amount:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,sort_order:10});
+  await(await import('../src/api.js')).loadCore();return {store:store.id,supplier:supplier.id,category:category.id,template:template.id,series:series.id,templateName:template.name};
+ });
+ await page.locator('#nav [data-route="gastos"]').click();await page.locator('[data-action="expense-edit"][data-id="common-qa"]').first().click();
+ assert.equal(await page.locator('#exStore').inputValue(),'');
+ assert.equal(await page.locator('#exSupplierId').inputValue(),ids.supplier);
+ assert.equal(await page.locator('[id^="exLineCategory_"]').first().inputValue(),ids.category);
+ await page.locator('#exNotes').fill('Solo se cambia una observación');await page.locator('[data-action="expense-save"]').first().click();
+ await page.waitForFunction(()=>window.__mockDb.ops_expenses.find(x=>x.id==='common-qa')?.notes==='Solo se cambia una observación',null,{timeout:5000}).catch(async e=>{console.error(await page.locator('#toastHost').innerText());throw e;});
+ const saved=await page.evaluate(()=>({expense:window.__mockDb.ops_expenses.find(x=>x.id==='common-qa'),line:window.__mockDb.ops_expense_lines.find(x=>x.expense_id==='common-qa')}));
+ assert.equal(saved.expense.store_id,null);assert.equal(saved.expense.supplier_id,ids.supplier);assert.equal(saved.line.category_id,ids.category);
+ await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
+ await page.locator('[data-action="template-edit"][data-id="'+ids.template+'"]').click();assert.equal(await page.locator('#tpStore').inputValue(),ids.store);
+ await page.locator('#tpName').fill('Cambio pendiente QA');await page.locator('[data-action="template-duplicate"]').click();
+ await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="cancel"]').click();
+ assert.equal(await page.locator('#tpName').inputValue(),'Cambio pendiente QA');assert.equal(await page.evaluate(()=>window.__mockDb.ops_document_templates.length),1);
+ await page.locator('[data-action="template-duplicate"]').click();await page.locator('[data-confirm="accept"]').click();
+ await page.waitForFunction(()=>window.__mockDb.ops_document_templates.length===2);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_document_templates[0].name),ids.templateName);
+ await page.locator('[data-action="template-edit"][data-id="'+ids.template+'"]').click();await page.locator('#tpFooter').fill('Pie nuevo QA');await page.locator('[data-action="template-save"]').click();
+ await page.waitForFunction(id=>window.__mockDb.ops_document_templates.find(x=>x.id===id)?.footer_text==='Pie nuevo QA',ids.template);
+ assert.equal(await page.evaluate(id=>window.__mockDb.ops_document_templates.find(x=>x.id===id).store_id,ids.template),ids.store);
+ await page.locator('[data-action="billing-section"][data-section="series"]').click();await page.locator('[data-action="series-edit"][data-id="'+ids.series+'"]').click();
+ assert.equal(await page.locator('#srStore').inputValue(),ids.store);await page.locator('[data-action="series-save"]').click();
+ await page.locator('#modalHost').waitFor({state:'hidden'});assert.equal(await page.evaluate(id=>window.__mockDb.ops_invoice_series.find(x=>x.id===id).store_id,ids.series),ids.store);
+ assert.deepEqual(errors,[]);console.log('DEEP EDITING BROWSER QA: common expense save retains inactive supplier/category, duplication protects drafts, template/series retain inactive store');
+}finally{await browser.close()}

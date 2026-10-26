@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
 import JSZip from 'jszip';
+import XLSX from 'xlsx-js-style';
 const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:1000}});
@@ -9,7 +10,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('#userCard').waitFor({state:'visible'});
  await page.evaluate(async()=>{
-  const db=window.__mockDb,store=db.ops_stores[0].id;
+  const db=window.__mockDb,store=db.ops_stores[0].id;db.ops_stores[0].active=false;
   const doc=(id,date,content)=>{const file=new File([content],id+'.txt',{type:'text/plain'});
    window.__mockUploads.set('business-documents/'+id+'.txt',file);
    db.ops_documents.push({id,store_id:store,document_date:date,original_name:id+'.txt',storage_path:id+'.txt',size_bytes:file.size,mime_type:'text/plain',doc_type:'factura_recibida'});
@@ -21,6 +22,7 @@ try{
   db.ops_expenses.push({id:'annual-internal',store_id:store,expense_date:'2026-01-03',supplier_name:'Interno QA',description:'Control QA',gross_expense:20,management_only:true,fiscal_reviewed:false});
   db.ops_daily_closings.push({id:'annual-close',store_id:store,business_date:'2026-01-01',cash_sales:1000,card_sales:0,include_in_income:true,status:'cerrado'});
   db.ops_tax_payments.push({id:'annual-tax',tax_type:'130',fiscal_year:2025,quarter:4,status:'pagado',payment_date:'2026-01-10',amount:30,document_id:'previous-year-tax'});
+  db.ops_expenses.push({id:'annual-common',store_id:null,expense_date:'2026-01-04',supplier_name:'Común QA',description:'Común QA',invoice_number:'COMMON-DIARY-QA',gross_expense:5,management_only:true});
   await (await import('../src/api.js')).loadCore();
  });
  await page.locator('#nav [data-route="informes"]').click();
@@ -30,11 +32,14 @@ try{
  const download=await ready;
  assert.equal(download.suggestedFilename(),'Paquete_gestor_2026.zip');
  const zip=await JSZip.loadAsync(await fs.readFile(await download.path()));
+ assert(zip.file('03_DIARIOS/Hortimatic/2026-01 Gastos y ventas.xlsx'),'Inactive store January diary must remain in annual archive');
+ const common=zip.file('03_DIARIOS/Comun_al_autonomo/2026-01 Gastos y ventas.xlsx');assert(common,'Common expenses must have their own diary');
+ const commonBook=XLSX.read(await common.async('nodebuffer'));assert(Object.values(commonBook.Sheets.Enero).some(x=>x?.v==='COMMON-DIARY-QA'),'Common expense invoice must appear in actual XLSX');
  const summary=await zip.file('04_RESUMEN/Resumen_2026.csv').async('string');
- assert(summary.includes('Gastos internos;50.00'));
+ assert(summary.includes('Gastos internos;55.00'));
  assert(summary.includes('De ellos: impuestos pagados;30.00'));
  assert(summary.includes('Ingresos menos gastos fiscales revisados;900.00'));
- assert(summary.includes('Saldo de control tras gastos internos e impuestos;850.00'));
+ assert(summary.includes('Saldo de control tras gastos internos e impuestos;845.00'));
  const originals=Object.values(zip.files).filter(f=>!f.dir&&f.name.startsWith('05_DOCUMENTOS/')&&f.name.endsWith('.txt'));
  assert.equal(originals.length,2,'Both cross-year originals must be in the actual ZIP');
  const texts=await Promise.all(originals.map(f=>f.async('string')));
@@ -42,6 +47,19 @@ try{
  assert(texts.includes('JUSTIFICANTE DE IMPUESTO PAGADO EN 2026'));
  const missing=await zip.file('04_RESUMEN/Registros_sin_adjunto.csv').async('string');
  assert(missing.includes('Interno QA'));
+ await page.locator('#informesFrom').fill('2026-01-01');await page.locator('#informesTo').fill('2026-01-31');
+ await page.locator('#informesStore').selectOption({label:'Hortimatic'});await page.locator('[data-action="informes-apply"]').click();
+ assert.equal(await page.locator('[data-action="export-store-book"][data-store="'+await page.locator('#informesStore').inputValue()+'"]').count(),1);
+ await page.locator('#informesStore').selectOption('all');await page.locator('[data-action="informes-apply"]').click();
+ assert.equal(await page.locator('[data-action="export-store-book"][data-store="__common__"]').count(),1);
+ await page.locator('[data-action="report-store-preview"][data-store="__common__"]').click();
+ await page.locator('#modalHost .workbook-scroll').waitFor();
+ assert((await page.locator('#modalHost').innerText()).includes('COMMON-DIARY-QA'));
+ await page.locator('#modalHost .close-btn').click();
+ const periodReady=page.waitForEvent('download',{timeout:20000});await page.locator('[data-action="export-gestor-period-package"]').click();
+ const periodZip=await JSZip.loadAsync(await fs.readFile(await (await periodReady).path()));
+ assert(periodZip.file('03_DIARIOS/Hortimatic/2026-01 Gastos y ventas.xlsx'),'Inactive store diary must remain in period archive');
+ assert(periodZip.file('03_DIARIOS/Comun_al_autonomo/2026-01 Gastos y ventas.xlsx'),'Common diary must remain in period archive');
  assert.deepEqual(errors,[]);
  console.log('ANNUAL ZIP BROWSER QA: actual download includes cross-year expense/tax originals, paid taxes once, separate fiscal result and missing-document index');
 }finally{await browser.close()}
