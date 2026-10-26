@@ -40,7 +40,7 @@ export function parseDecimal(value){
  * The quick calculation keeps its existing arithmetic and supports both comma and dot decimals.
  */
 export function validateQuickPriceInput({cost,pvp,competitor='',discount=''}={}){
- const decimal=(label,raw,{optional=false,positive=false,max=Infinity}={})=>{
+ const decimal=(label,raw,{optional=false,max=Infinity}={})=>{
   if(raw==null||String(raw).trim()===''){
    if(optional)return 0;
    throw new Error(label+': introduce un importe válido.');
@@ -58,14 +58,13 @@ export function validateQuickPriceInput({cost,pvp,competitor='',discount=''}={})
    normalized=text.lastIndexOf(',')>text.lastIndexOf('.')?text.replace(/\./g,'').replace(',','.'):text.replace(/,/g,'');
   }else normalized=text.replace(',','.');
   const amount=Number(normalized);
-  if(!Number.isFinite(amount)||amount>Number.MAX_SAFE_INTEGER||amount<0||(positive&&amount===0)||amount>max){
-   throw new Error(label+': '+(positive?'debe ser mayor que cero':max===100?'debe estar entre 0 y 100':'no puede ser negativo')+'.');
-  }
+  if(!Number.isFinite(amount)||amount>Number.MAX_SAFE_INTEGER)throw new Error(label+': importe fuera de rango.');
+  if(amount<0||amount>max)throw new Error(label+': '+(max===100?'debe estar entre 0 y 100':'no puede ser negativo')+'.');
   return amount;
  };
  return {
   cost:decimal('Coste de compra',cost),
-  pvp:decimal('PVP',pvp,{positive:true}),
+  pvp:decimal('PVP',pvp),
   competitor:decimal('Competencia',competitor,{optional:true}),
   discount:decimal('Descuento',discount,{optional:true,max:100})
  };

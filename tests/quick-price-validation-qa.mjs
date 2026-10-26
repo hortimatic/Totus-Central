@@ -7,12 +7,13 @@ const valid=[
  [{cost:'1.234,56',pvp:'2.345,67',discount:'0'},{cost:1234.56,pvp:2345.67,competitor:0,discount:0}],
  [{cost:'1,234.56',pvp:'2,345.67',competitor:'',discount:''},{cost:1234.56,pvp:2345.67,competitor:0,discount:0}],
  [{cost:'0',pvp:'1',discount:'100'},{cost:0,pvp:1,competitor:0,discount:100}],
+ [{cost:'10',pvp:'0'},{cost:10,pvp:0,competitor:0,discount:0}],
  [{cost:5,pvp:6,discount:0},{cost:5,pvp:6,competitor:0,discount:0}]
 ];
 for(const [args,expected] of valid)assert.deepEqual(validateQuickPriceInput(args),expected,JSON.stringify(args));
 for(const args of [
  {cost:'-10',pvp:'20'}, {cost:'12abc',pvp:'20'}, {cost:'abc',pvp:'20'},
- {cost:'',pvp:'20'}, {cost:'10',pvp:''}, {cost:'10',pvp:'0'},
+ {cost:'',pvp:'20'}, {cost:'10',pvp:''},
  {cost:'10',pvp:'-20'}, {cost:'10',pvp:'20',competitor:'x'},
  {cost:'10',pvp:'20',competitor:'-1'}, {cost:'10',pvp:'20',discount:'105'},
  {cost:'10',pvp:'20',discount:'-1'}, {cost:'10',pvp:'20',discount:'foo'},
