@@ -39,6 +39,16 @@ Se añaden `007_document_removal_protocol.sql`, `008_business_write_replay.sql` 
 
 ## Trabajo pendiente antes del cierre integral
 
+Actualización del 27/10: la revisión d093eb88 ha superado el flujo automático completo de GitHub (ejecución 40414815711). Sigue separada de producción. No equivale a cerrar los puntos pendientes de esta lista.
+
+El barrido aislado posterior completó 93 programas de lógica y 64 programas de navegador sin fallos. Incluyó distribución de 130 vistas, ventanas emergentes y 663 campos en 78 vistas. Los contadores acreditan esos ensayos concretos; no sustituyen los recorridos pendientes ni la comprobación del despliegue final.
+
+Las comprobaciones de sesión se ampliaron posteriormente a un archivo seleccionado sin guardar y a logos retrasados en las vistas de plantilla, factura y borrador. El primer caso reprodujo otra apertura tardía tras cerrar sesión. Las vistas conservan ahora la identidad y página solicitantes y descartan su resultado si ya no están activas. Las impresiones pendientes cierran su ventana al perder ese contexto. Pasaron las pruebas ampliadas de sesión y el editor de plantillas con impresión y PDF.
+
+Se reprodujo además una retirada desactualizada de justificante: otra sesión cambiaba `document_id` durante la confirmación y el botón quitaba su sustituto. La actualización ahora condiciona la misma escritura por identificador de gasto y documento confirmado; cero filas informa de ficha cambiada o falta de permiso. Un ensayo SQL con el rol autenticado verifica rechazo de la retirada antigua, retirada válida, conservación de ambos originales y de los importes. La prueba de pantalla cubre también cancelación. No hay cambios de estructura ni permisos por esta corrección.
+
+En Chat se ha reproducido y corregido una vista previa antigua que podía aparecer después de cambiar de cuenta mientras se verificaba el archivo. Las respuestas, subidas y cuadros pendientes comprueban ahora la identidad y la vigencia del controlador antes de modificar la pantalla. Las pruebas incluyen descarga con comparación de bytes, reintento individual, retirada de asociación conservando el original, cancelación de archivos pendientes y solicitud al asistente, eliminación de mensaje propio y organización personal de secciones. Subir, bajar, ocultar y recuperar secciones conserva los canales compartidos. Son pruebas aisladas con datos ficticios, no operaciones contables reales.
+
 1. Completar la revisión de integración y regresiones de los protocolos nuevos antes de publicarlos. La protección de gastos/cajas/facturación no acredita idempotencia de todas las operaciones de otros módulos.
 2. Comprobar el despliegue coordinado del protocolo documental, su worker y la recuperación compatible. Las FK `ON DELETE SET NULL` por sí solas no protegen los originales; no retirar las nuevas guardas por un error de interfaz.
 3. Completar la matriz por acción/configuración, revisando las afirmaciones de cada recorrido y no solo sus pulsaciones. Comprobar los recorridos que queden sin evidencia.

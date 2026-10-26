@@ -66,6 +66,44 @@ try{
  await previewPage.evaluate(()=>window.releasePreviewText());await previewPage.waitForTimeout(100);
  assert.equal(await previewPage.locator('#modalHost').locator(':scope > *').count(),0,'A delayed preview must not reopen a document after sign-out');
  await previewPage.close();
+ const pendingPreview=await browser.newPage();
+ await pendingPreview.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await pendingPreview.locator('#nav [data-route="gastos"]').click();await pendingPreview.locator('[data-action="expense-new"]').click();
+ await pendingPreview.locator('#exFile').setInputFiles({name:'privado-sin-guardar.txt',mimeType:'text/plain',buffer:Buffer.from('Archivo ficticio sin guardar')});
+ await pendingPreview.evaluate(()=>{const text=Blob.prototype.text;Blob.prototype.text=async function(){window.pendingPreviewStarted=true;await new Promise(resolve=>window.releasePendingPreview=resolve);return text.call(this);};});
+ await pendingPreview.locator('[data-action="expense-file-preview"]').click();
+ await pendingPreview.waitForFunction(()=>window.pendingPreviewStarted===true);
+ await pendingPreview.evaluate(async()=>{await(await import('../src/api.js')).sb.auth.signOut();});
+ await pendingPreview.evaluate(()=>window.releasePendingPreview());await pendingPreview.waitForTimeout(100);
+ assert.equal(await pendingPreview.locator('#modalHost').locator(':scope > *').count(),0,'An unsubmitted file preview must not reopen after sign-out');
+ await pendingPreview.close();
+ for(const mode of ['template','invoice','draft']){
+  const logoPage=await browser.newPage();
+  await logoPage.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+  const ids=await logoPage.evaluate(async()=>{
+   const api=await import('../src/api.js'),db=window.__mockDb,template=db.ops_document_templates[0],id=crypto.randomUUID();
+   template.logo_path='qa-only/session-logo.png';template.show_logo=true;
+   db.ops_sales_invoices.push({id,document_type:'factura',status:'borrador',issue_date:new Date().toLocaleDateString('en-CA'),template_id:template.id,customer_name:'Cliente ficticio privacidad',total_amount:121,paid_amount:0});
+   await api.loadCore();
+   const from=api.sb.storage.from.bind(api.sb.storage);window.releaseLogoReads=[];
+   api.sb.storage.from=(...args)=>{const bucket=from(...args);if(args[0]==='business-assets')bucket.createSignedUrl=async()=>{
+    window.logoPreviewStarted=true;await new Promise(resolve=>window.releaseLogoReads.push(resolve));
+    return {data:{signedUrl:'data:image/png;base64,iVBORw0KGgo='},error:null};
+   };return bucket;};
+   return {template:template.id,invoice:id};
+  });
+  await logoPage.locator('#nav [data-route="facturacion"]').click();
+  if(mode==='template'){
+   await logoPage.locator('[data-action="billing-section"][data-section="plantillas"]').click();
+   await logoPage.locator('[data-action="template-preview"][data-id="'+ids.template+'"]').click();
+  }else if(mode==='invoice')await logoPage.locator('[data-action="invoice-preview"][data-id="'+ids.invoice+'"]').click();
+  else{await logoPage.locator('[data-action="invoice-new"]').click();await logoPage.locator('[data-action="invoice-draft-preview"]').click();}
+  await logoPage.waitForFunction(()=>window.logoPreviewStarted===true);
+  await logoPage.evaluate(async()=>{await(await import('../src/api.js')).sb.auth.signOut();window.releaseLogoReads.forEach(resolve=>resolve());});
+  await logoPage.waitForTimeout(100);
+  assert.equal(await logoPage.locator('#modalHost').locator(':scope > *').count(),0,'Delayed '+mode+' preview must not reopen after sign-out');
+  await logoPage.close();
+ }
  const switchPage=await browser.newPage();
  await switchPage.route('**/tests/mock-supabase.js',async route=>{
   const response=await route.fetch();const text=(await response.text()).replace('events=fn;return','window.__qaAuthCallback=fn;events=fn;return');

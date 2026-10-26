@@ -46,8 +46,15 @@ export async function insert(table,row){
  const candidate={...row};if(UUID_INSERT_TABLES.has(table)&&candidate.id==null)candidate.id=crypto.randomUUID();
  return verifiedWrite(async()=>{const r=await sb.from(table).insert(candidate).select().single();assert(r,`Crear ${table}`);return r.data},()=>readWriteRecord(table,candidate.id),saved=>matchesSavedFields(saved,candidate));
 }
-export async function update(table,id,row){
- return verifiedWrite(async()=>{const r=await sb.from(table).update(row).eq('id',id).select().single();assert(r,`Actualizar ${table}`);return r.data},()=>readWriteRecord(table,id),saved=>matchesSavedFields(saved,row));
+export async function update(table,id,row,{expected={}}={}){
+ return verifiedWrite(async()=>{
+  let query=sb.from(table).update(row).eq('id',id);
+  for(const [key,value] of Object.entries(expected))query=value===null?query.is(key,null):query.eq(key,value);
+  const r=await query.select().single();
+  if((!r.error&&!r.data)||(Object.keys(expected).length&&r.error?.code==='PGRST116'))
+   assert({error:{code:'PGRST116',message:'El registro ha cambiado o ya no tienes permiso. Actualiza la ficha antes de repetir la operación.'}},`Actualizar ${table}`);
+  assert(r,`Actualizar ${table}`);return r.data;
+ },()=>readWriteRecord(table,id),saved=>matchesSavedFields(saved,row));
 }
 export async function remove(table,id){
  if(id===undefined||id===null||id==='')throw new Error('Falta el identificador del registro que deseas eliminar.');

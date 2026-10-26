@@ -40,6 +40,37 @@ try{
  assert.equal(await attachment.evaluate(id=>window.__mockDb.ops_documents.filter(d=>d.id===id).length,after.expense.document_id),1);
  await attachment.close();
 
+ const detach=await browser.newPage(),detachErrors=[];detach.on('pageerror',e=>detachErrors.push(e.message));
+ await detach.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const detachIds=await detach.evaluate(async()=>{
+  const db=window.__mockDb,expense=crypto.randomUUID(),before=crypto.randomUUID(),after=crypto.randomUUID(),day=new Date().toLocaleDateString('en-CA');
+  for(const [id,name] of [[before,'original.txt'],[after,'sustituto.txt']]){
+   db.ops_documents.push({id,document_date:day,doc_type:'factura_recibida',status:'archivada',original_name:name,mime_type:'text/plain',storage_path:'qa/'+id+'.txt',size_bytes:8});
+   window.__mockUploads.set('business-documents/qa/'+id+'.txt',new Blob(['ORIGINAL']));
+  }
+  db.ops_expenses.push({id:expense,store_id:db.ops_stores[0].id,expense_date:day,supplier_name:'QA asociación concurrente',description:'Ensayo ficticio',gross_expense:45,accounting_amount:45,management_only:true,paid_status:'pagado',document_id:before});
+  await(await import('../src/api.js')).loadCore();return {expense,before,after};
+ });
+ await detach.locator('#nav [data-route="gastos"]').click();
+ await detach.locator('[data-action="expense-edit"][data-id="'+detachIds.expense+'"]').click();
+ await detach.evaluate(()=>window.confirm=()=>false);
+ await detach.locator('[data-action="expense-document-unlink"]').click();
+ assert.equal(await detach.evaluate(id=>window.__mockDb.ops_expenses.find(x=>x.id===id).document_id,detachIds.expense),detachIds.before,'Cancel must preserve the association');
+ await detach.evaluate(ids=>window.confirm=()=>{window.__mockDb.ops_expenses.find(x=>x.id===ids.expense).document_id=ids.after;return true;},detachIds);
+ await detach.locator('[data-action="expense-document-unlink"]').click();
+ await detach.getByText(/El registro ha cambiado o ya no tienes permiso/).waitFor();
+ assert.equal(await detach.evaluate(id=>window.__mockDb.ops_expenses.find(x=>x.id===id).document_id,detachIds.expense),detachIds.after,'A stale detach must not clear a replacement association');
+ await detach.evaluate(async()=>{window.confirm=()=>true;await(await import('../src/api.js')).loadCore();});
+ await detach.locator('[data-action="expense-back"]').first().click();
+ await detach.locator('[data-action="expense-edit"][data-id="'+detachIds.expense+'"]').click();
+ await detach.locator('[data-action="expense-document-unlink"]').click();
+ await detach.getByText('Justificante desvinculado. El archivo original se conserva en Documentos.',{exact:true}).waitFor();
+ assert.deepEqual(await detach.evaluate(ids=>{
+  const db=window.__mockDb,e=db.ops_expenses.find(x=>x.id===ids.expense);
+  return {document:e.document_id,amount:e.gross_expense,accounting:e.accounting_amount,originals:db.ops_documents.filter(d=>[ids.before,ids.after].includes(d.id)).length,files:window.__mockUploads.size};
+ },detachIds),{document:null,amount:45,accounting:45,originals:2,files:2});
+ assert.deepEqual(detachErrors,[]);await detach.close();
+
 
  const receipt=await browser.newPage();
  await receipt.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});

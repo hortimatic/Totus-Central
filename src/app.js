@@ -48,6 +48,11 @@ import {renderPdfPreview} from './pdf-preview.js';
 
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
 const businessWriter=createBusinessWriter({rpc});
+// A delayed preview belongs to the account and rendered page that requested it.
+function activePreviewPage(){
+ const page=$('#content > .page'),owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
+ return ()=>!!state.user&&!!page?.isConnected&&owner===JSON.stringify([state.session?.user?.id,state.user?.email]);
+}
 async function resumeBusinessForm(route){
  const result=await businessWriter.resume($('#content > .page'));
  if(!result){await businessWriter.ensure();return false;}
@@ -361,6 +366,7 @@ function showExpenseGestorDetail(id){
   ${actions}</div>`);
 }
 async function previewPendingExpenseFile(){
+ const isCurrent=activePreviewPage();
  const file=input('exFile')?.files?.[0];
  if(!file)throw new Error('Selecciona primero una factura para verla.');
  const settings=state.data.settings||{},usage=state.data.storageUsage||{};
@@ -385,7 +391,7 @@ async function previewPendingExpenseFile(){
  }else{
   content='<p class="note">Este archivo se puede guardar y descargar. No hay vista previa integrada para este formato.</p>';
  }
- modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div>${content}<div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
+ if(isCurrent())modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div>${content}<div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
 }
 
 function expenseSuppliersManager(){setView('gastos',{mode:'list',id:null,section:'proveedores'});setRoute('gastos');render()}
@@ -594,7 +600,7 @@ async function unlinkExpenseDocument(expenseId,documentId){
  const expense=state.data.expenses.find(x=>String(x.id)===String(expenseId));
  if(!expense||String(expense.document_id)!==String(documentId))throw new Error('El justificante ya no pertenece a este gasto. Actualiza la ficha.');
  if(!confirm('¿Desvincular el justificante? El original se conservará en Documentos; podrás eliminarlo allí por separado.'))return;
- await update('ops_expenses',expenseId,{document_id:null});
+ await update('ops_expenses',expenseId,{document_id:null},{expected:{document_id:documentId}});
  await refresh('Justificante desvinculado. El archivo original se conserva en Documentos.');
 }
 async function deleteExpense(id){
@@ -819,7 +825,7 @@ async function updateDraftInvoicePreview(){
   draftPreviewResizeObserver?.disconnect();draftPreviewResizeObserver=new ResizeObserver(fit);draftPreviewResizeObserver.observe(host);
  }
 }
-async function showDraftInvoicePreview(){modal('Vista previa del documento sin guardar',`<div class="note">Esta vista no guarda ni emite el documento.</div>${await draftPreviewHtml()}`)}
+async function showDraftInvoicePreview(){const isCurrent=activePreviewPage(),html=await draftPreviewHtml();if(isCurrent())modal('Vista previa del documento sin guardar',`<div class="note">Esta vista no guarda ni emite el documento.</div>${html}`)}
 function exportCurrentModule(module){
  const f=getFilters(module);
  if(module==='cajas'){
@@ -858,15 +864,18 @@ async function invoiceLogoUrl(row){
  try{return await signedUrl('business-assets',tpl.logo_path,300)}catch{return ''}
 }
 async function showInvoicePreview(id){
+ const isCurrent=activePreviewPage();
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
  const logo=await invoiceLogoUrl(row);
- modal('Vista previa',invoicePreview(row,logo));
+ if(isCurrent())modal('Vista previa',invoicePreview(row,logo));
 }
 async function printInvoice(id){
+ const isCurrent=activePreviewPage();
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
  const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
  try{w.opener=null}catch{}
  const logo=await invoiceLogoUrl(row);
+ if(!isCurrent()){w.close();return;}
  const html=invoicePreview(row,logo).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
  writeInvoicePrintWindow(w,html,row.display_number||'Documento');
 }
@@ -1240,8 +1249,21 @@ async function updateTemplateDraftPreview(){
  }catch(error){context.savedLogo=null;if(context===templatePreviewContext&&sequence===context.sequence){context.html='';host.innerHTML='';input('templatePreviewMessage').textContent='No se puede mostrar la vista previa: '+error.message;}}
 }
 async function printTemplatePreview(){
+ const isCurrent=activePreviewPage();
  const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
- try{w.opener=null;await updateTemplateDraftPreview();const context=templatePreviewContext;if(!context?.html)throw new Error('Espera a que se cargue una vista previa válida.');let html=context.html;if(context.file&&context.url){const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('No se pudo leer el logo seleccionado.'));reader.readAsDataURL(context.file);});html=html.replaceAll(context.url,data);}writeInvoicePrintWindow(w,html,'Ejemplo de plantilla · sin emitir');}catch(error){w.close();throw error;}
+ try{
+  w.opener=null;await updateTemplateDraftPreview();
+  if(!isCurrent()){w.close();return;}
+  const context=templatePreviewContext;
+  if(!context?.html)throw new Error('Espera a que se cargue una vista previa válida.');
+  let html=context.html;
+  if(context.file&&context.url){
+   const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('No se pudo leer el logo seleccionado.'));reader.readAsDataURL(context.file);});
+   if(!isCurrent()||context!==templatePreviewContext){w.close();return;}
+   html=html.replaceAll(context.url,data);
+  }
+  writeInvoicePrintWindow(w,html,'Ejemplo de plantilla · sin emitir');
+ }catch(error){w.close();if(isCurrent())throw error;}
 }
 function writeInvoicePrintWindow(w,html,title){
  const stylesheet=document.querySelector('link[rel="stylesheet"][href*="styles.css"]')?.href||new URL('src/styles.css',location.href).href;
@@ -1258,8 +1280,10 @@ async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=fal
  const r=await q;if(r.error)throw new Error('No se pudieron actualizar las plantillas predeterminadas: '+r.error.message);
 }
 async function previewTemplate(id){
+ const isCurrent=activePreviewPage();
  const tpl=state.data.templates.find(x=>x.id===id);if(!tpl)return;
  let logo='';if(tpl.logo_path&&tpl.show_logo!==false)logo=await signedUrl('business-assets',tpl.logo_path,300);
+ if(!isCurrent())return;
  const example=templateExample(tpl,'factura',isoToday()),html=invoicePreview(example.row,logo,{template:tpl,lines:example.lines,actions:false});
  modal('Vista previa · '+tpl.name,`<div id="templateSavedPreview">${html}</div><div class="form-actions">${btn('Imprimir / Guardar PDF','template-preview-print','primary')}</div>`);
  templatePreviewContext={panel:$('#modalHost [data-modal-content]'),html};
