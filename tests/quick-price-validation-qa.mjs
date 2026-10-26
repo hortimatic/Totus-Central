@@ -18,6 +18,7 @@ for(const args of [
  {cost:'10',pvp:'20',discount:'-1'}, {cost:'10',pvp:'20',discount:'foo'},
  {cost:'10',pvp:'20',discount:'10abc'}, {cost:'1.2.3',pvp:'20'},
  {cost:'1 2',pvp:'20'}, {cost:'1 234',pvp:'20'},
+ {cost:'9'.repeat(400),pvp:'20'}, {cost:String(Number.MAX_SAFE_INTEGER+1),pvp:'20'},
  {cost:'1e4',pvp:'20'}, {cost:'NaN',pvp:'20'}, {cost:'Infinity',pvp:'20'}
 ]) assert.throws(()=>validateQuickPriceInput(args),Error,JSON.stringify(args));
 const data=validateQuickPriceInput({cost:'10',pvp:'24,20',competitor:'25',discount:'10'});

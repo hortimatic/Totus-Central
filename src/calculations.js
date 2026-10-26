@@ -53,8 +53,12 @@ export function validateQuickPriceInput({cost,pvp,competitor='',discount=''}={})
   if(!decimalForm.test(text)&&!groupedEs.test(text)&&!groupedEn.test(text)){
    throw new Error(label+': escribe un número válido con punto o coma decimal.');
   }
-  const amount=parseDecimal(text);
-  if(!Number.isFinite(amount)||amount<0||(positive&&amount===0)||amount>max){
+  let normalized=text;
+  if(text.includes(',')&&text.includes('.')){
+   normalized=text.lastIndexOf(',')>text.lastIndexOf('.')?text.replace(/\./g,'').replace(',','.'):text.replace(/,/g,'');
+  }else normalized=text.replace(',','.');
+  const amount=Number(normalized);
+  if(!Number.isFinite(amount)||amount>Number.MAX_SAFE_INTEGER||amount<0||(positive&&amount===0)||amount>max){
    throw new Error(label+': '+(positive?'debe ser mayor que cero':max===100?'debe estar entre 0 y 100':'no puede ser negativo')+'.');
   }
   return amount;
