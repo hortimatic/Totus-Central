@@ -11,10 +11,10 @@ try{
   window.calls=[];window.confirmations=[];window.rows=[{task_id:'t1',scheduled_on:taskToday(),starts_on:taskToday(),ends_on:null,repeat_kind:'daily',repeat_every:1,weekdays:[],checklist:['Contar'],checked:[],title:'Revisar Vape',description:'Caja de tienda',state:'pending',store_id:'h',assigned_email:'a@qa.invalid',priority:'high',can_manage:true,task_version:'v1',occurrence_version:null}];
   window.controller=createTasks({actor:()=> 'a@qa.invalid',confirm:async message=>{window.confirmations.push(message);return true;},onError:e=>{window.lastError=e;},rpc:async(name,args)=>{
    window.calls.push({name,args});
-   if(name==='totus_tasks_context')return {rows:window.rows,stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
+   if(name==='totus_tasks_context')return {rows:window.rows,archived_tasks:window.archivedRows||[],stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
    if(name==='totus_task_from_message')return null;
    if(name==='totus_task_history')return [];
-   if(name==='totus_task_command')return {id:'t1'};
+   if(name==='totus_task_command'){if(args.p_action==='archive'&&args.p_data.archived===false)window.archivedRows=[];return {id:'t1'};}
    throw new Error(name);
   }});await window.controller.mount(document.getElementById('chatHarness'));
  });
@@ -57,6 +57,23 @@ try{
  await page.getByRole('button',{name:/Revisar Vape/}).click();
  await page.getByRole('button',{name:'Archivar tarea',exact:true}).click();
  assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='archive')));
+ const range=()=>page.evaluate(()=>window.calls.filter(c=>c.name==='totus_tasks_context').at(-1).args);
+ const beforeRange=await range();
+ await page.locator('[data-task="next"]').click();await page.waitForFunction(from=>window.calls.filter(c=>c.name==='totus_tasks_context').at(-1).args.p_from!==from,beforeRange.p_from);
+ assert((await range()).p_from>beforeRange.p_from,'Next must request a later calendar range');
+ await page.locator('[data-task="prev"]').click();await page.waitForFunction(from=>window.calls.filter(c=>c.name==='totus_tasks_context').at(-1).args.p_from===from,beforeRange.p_from);
+ await page.locator('[data-task="today"]').click();
+ await page.locator('[data-task="mine"]').click();assert.equal(await page.locator('[data-filter="person"]').inputValue(),'a@qa.invalid');
+ await page.evaluate(()=>window.archivedRows=[{task_id:'archived-qa',title:'Tarea archivada ficticia',task_version:'v1',can_manage:true}]);
+ await page.locator('[data-task="refresh"]').click();
+ await page.locator('[data-task="archived"]').click();await page.getByRole('heading',{name:'Tareas archivadas',exact:true}).waitFor();
+ await page.locator('dialog [data-task="restore"]').click();
+ assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='archive'&&c.args.p_data.task_id==='archived-qa'&&c.args.p_data.archived===false)));
+ await page.locator('[data-task="archived"]').click();await page.getByText('No hay tareas archivadas.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ const day=await page.locator('[data-task="day-new"]').first().getAttribute('data-date');
+ await page.locator('[data-task="day-new"]').first().click();assert.equal(await page.locator('dialog [name="starts_on"]').inputValue(),day);
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();
  await mkdir('artifacts',{recursive:true});await page.screenshot({path:'artifacts/tasks-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,wide:[...document.querySelectorAll('.tasks-module *')].filter(e=>e.getBoundingClientRect().right>innerWidth&&!e.closest('.tasks-calendar')).slice(0,8).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right}))}));assert(overflow.scroll<=overflow.width+1,JSON.stringify(overflow));

@@ -24,6 +24,18 @@ try{
  await page.locator('[data-action="expense-category-edit"][data-id="'+category.id+'"]').click();
  await page.locator('#ecReportGroup').selectOption('fixed');await page.locator('[data-action="expense-category-save"]').click();
  await page.waitForFunction(id=>window.__mockDb.ops_expense_categories.find(c=>c.id===id).report_group==='fixed',category.id);
+ await page.locator('#periodCloseDate').fill('2026-09-30');await page.locator('#periodCloseReason').fill('Corto');
+ await page.locator('[data-action="admin-period-close"]').click();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].closed_through||null),null,'A short reason must not close a period');
+ await page.locator('#periodCloseReason').fill('Motivo ficticio de cierre para auditoría');
+ await page.locator('[data-action="admin-period-close"]').click();await page.locator('[data-confirm="cancel"]').click();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].closed_through||null),null,'Cancelling the confirmation must preserve the period');
+ await page.locator('[data-action="admin-period-close"]').click();await page.locator('[data-confirm="accept"]').click();
+ await page.waitForFunction(()=>window.__mockDb.ops_business_settings[0].closed_through==='2026-09-30');
+ await page.locator('#periodCloseReason').fill('Motivo ficticio de reapertura para auditoría');
+ await page.locator('[data-action="admin-period-reopen"]').click();await page.locator('[data-confirm="accept"]').click();
+ await page.waitForFunction(()=>window.__mockDb.ops_business_settings[0].closed_through===null);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_audit_log.filter(e=>e.action==='periodo_cierre').length),2);
  await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="series"]').click();
  const initial=await page.evaluate(()=>window.__mockDb.ops_invoice_series.length);
  await page.locator('[data-action="series-new"]').click();await page.locator('#srCode').fill('SERIEQA');await page.locator('#srPrefix').fill('QA-');

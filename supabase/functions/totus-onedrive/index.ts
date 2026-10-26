@@ -1,4 +1,5 @@
 import {createTeamChatFiles} from './team-chat-files.js';
+import {createDocumentRemovalWorker} from './document-removal-worker.js';
 import {importStockDocument} from './stock-import.js';
 import {credentialAlertSettings} from '../../../src/connection-maintenance.js';
 import {renewMicrosoftCredential} from './credential-renewal.js';
@@ -177,7 +178,10 @@ async function inventoryRows(table:string,columns:string,key:string){
 }
 
 async function mirrorSummary(){
- const documents=await inventoryRows('ops_documents','id,storage_path,size_bytes,sha256','id');
+ const removals=check(await admin.rpc('totus_pending_document_removals'),'No se pudieron comprobar las retiradas documentales.');
+ if(!Array.isArray(removals))throw new Error('Estado de retiradas documentales no válido.');
+ const retiring=new Set(removals.map((row:any)=>row.id));
+ const documents=(await inventoryRows('ops_documents','id,storage_path,size_bytes,sha256','id')).filter((row:any)=>!retiring.has(row.id));
  const copied=await inventoryRows('ops_onedrive_documents','document_id,source_path,size_bytes,sha256','document_id');
  
  const index=new Map(copied.map((r:any)=>[r.document_id,r]));
@@ -223,6 +227,19 @@ async function mirrorDocuments(){
 
 
 
+async function cleanupPendingDocumentRemovals(){
+ const worker=createDocumentRemovalWorker({
+  rpc:async(name:string,args:Record<string,unknown>)=>check(await admin.rpc(name,args).abortSignal(AbortSignal.timeout(15000)),'No se pudo completar la retirada documental.'),
+  removeFile:async(bucket:string,path:string)=>{
+   const files=admin.storage.from(bucket);
+   check(await files.remove([path]),'No se pudo retirar el archivo de Supabase.');
+   const slash=path.lastIndexOf('/'),folder=slash<0?'':path.slice(0,slash),name=path.slice(slash+1);
+   const remaining=check(await files.list(folder,{search:name,limit:100,offset:0}),'No se pudo comprobar la retirada del archivo.');
+   if(!Array.isArray(remaining)||remaining.length>=100||remaining.some((file:any)=>file.name===name))throw new Error('El archivo sigue en Supabase. Se conserva su ficha para reintentar.');
+  }
+ });
+ return await worker();
+}
 async function cleanupRetiredDocuments(){
  const rows=check(await admin.from('ops_onedrive_cleanup').select('*').is('archived_at',null).order('created_at').limit(5),'No se pudo leer el archivo de documentos retirados.');
  if(!rows.length)return {archived:0,kept:0,failed:0};
@@ -270,9 +287,10 @@ async function runDocumentMirror(){
  const claimed=check(await admin.from('ops_onedrive_config').update({mirror_lock_until:lease,mirror_last_attempt:at,mirror_last_error:null}).eq('id',1).or('mirror_lock_until.is.null,mirror_lock_until.lt.'+at).select('id').maybeSingle(),'No se pudo reservar el lote documental.');
  if(!claimed)throw new Error('Ya hay una copia de documentos en curso. Actualiza su estado en unos minutos.');
  try{
+  const removals=await cleanupPendingDocumentRemovals();
   const cleanup=await cleanupRetiredDocuments();
-  const result={...await mirrorDocuments(),cleanup};
-  check(await admin.from('ops_onedrive_config').update({mirror_last_error:cleanup.failed?'Hay archivos retirados pendientes de limpieza. Se reintentará automáticamente.':null}).eq('id',1),'No se pudo actualizar el resultado.');
+  const result={...await mirrorDocuments(),cleanup,removals};
+  check(await admin.from('ops_onedrive_config').update({mirror_last_error:cleanup.failed||removals.failed?'Hay retiradas pendientes de completar. Se reintentarán automáticamente.':null}).eq('id',1),'No se pudo actualizar el resultado.');
   return result;
  }catch(error){
   await admin.from('ops_onedrive_config').update({mirror_last_error:error instanceof Error?error.message:'No se pudo copiar el lote.'}).eq('id',1);

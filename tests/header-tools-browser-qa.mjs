@@ -12,6 +12,9 @@ try{
   assert(await page.evaluate(()=>document.querySelector('#headerTools').getBoundingClientRect().left>document.querySelector('.topbar h1').getBoundingClientRect().left),'Controls belong on the right');
   assert(await page.evaluate(()=>document.querySelector('[data-calendar]').getBoundingClientRect().right<=innerWidth),'Calendar must fit on mobile');
   await page.locator('[data-header="next"]').click();assert.equal(await page.locator('[data-header="day"]').count(),30);
+  await page.locator('[data-header="prev"]').click();assert.equal(await page.locator('[data-header="day"]').count(),31);
+  await page.locator('[data-header="today"]').click();assert.equal(await page.locator('[aria-current="date"]').getAttribute('data-date'),'2026-10-26');
+  await page.locator('[data-header="next"]').click();
   await page.locator('[data-date="2026-11-03"]').click();
   assert.deepEqual(await page.evaluate(()=>window.headerCalls[0]),['tareas','2026-11-03']);
   await page.locator('[data-header="chat"]').click();assert.equal((await page.evaluate(()=>window.headerCalls[1]))[0],'equipo');

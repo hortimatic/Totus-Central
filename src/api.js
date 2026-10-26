@@ -138,7 +138,10 @@ export async function loadCore(){
  };
  await Promise.all(Array.from({length:Math.min(4,tasks.length)},worker));
  if(failure)throw failure;
+ const documentRemovals=await rpc('totus_pending_document_removals');
+ if(!Array.isArray(documentRemovals))throw new Error('No se pudo comprobar el estado de las retiradas documentales.');
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
+ state.data.documentRemovals=documentRemovals;
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;

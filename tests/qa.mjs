@@ -36,6 +36,8 @@ const stateSource=text('src/state.js'),apiSource=text('src/api.js');
 const stateDataMatch=stateSource.match(/data:\{([\s\S]*?)\}\n\};/);
 const declaredData=new Set([...(stateDataMatch?.[1]||'').matchAll(/([A-Za-z0-9_]+)\s*:/g)].map(m=>m[1]));
 const loadedData=new Set([...apiSource.matchAll(/\['([A-Za-z0-9_]+)','[^']+'/g)].map(m=>m[1]));
+// RPC-loaded collections are published explicitly after all required reads.
+for(const match of apiSource.matchAll(/state\.data\.([A-Za-z0-9_]+)\s*=\s*([A-Za-z0-9_]+);/g))loadedData.add(match[1]);
 const usedData=new Set([...(appSource+'\n'+pageSource+'\n'+text('src/excel.js')+'\n'+text('src/backup.js')).matchAll(/state\.data\.([A-Za-z0-9_]+)/g)].map(m=>m[1]));
 for(const key of usedData){
  if(!declaredData.has(key))errors.push('state.data usado pero no inicializado: '+key);

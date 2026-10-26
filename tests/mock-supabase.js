@@ -38,6 +38,7 @@ const uploaded=new Map();
 for(const table of ['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences','ops_daily_closings','ops_daily_closing_drawers','ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_documents','ops_tax_payments','ops_reta_brackets','ops_fiscal_adjustments','ops_income_adjustments','ops_audit_log','brands','families','products','product_variants','providers','product_provider_prices','product_competitor_prices','consultations','consultation_history','price_history'])db[table]=[];
 window.__mockDb=db;
 window.__mockUploads=uploaded;
+const documentRemovals=new Map();window.__mockDocumentRemovals=documentRemovals;
 let events=null;
 function syncDocumentLink(table,row){
  const field=table==='ops_expenses'?'document_id':table==='ops_sales_invoices'?'source_document_id':null;
@@ -106,6 +107,20 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ if(name==='totus_pending_document_removals')return {data:[...documentRemovals.values()],error:null};
+ if(name==='totus_begin_document_removal'){
+  const doc=get('ops_documents',args.p_id);if(!doc)return {data:null,error:{message:'El documento ya no está disponible. Actualiza el listado.'}};
+  if(doc.storage_path!==args.p_path||(doc.sha256||'')!==(args.p_sha256||''))return {data:null,error:{message:'El archivo ha cambiado desde que abriste la ficha.',code:'40001'}};
+  const linked=db.ops_expenses.some(r=>r.document_id===doc.id)||db.ops_tax_payments.some(r=>r.document_id===doc.id)||db.ops_sales_invoices.some(r=>r.source_document_id===doc.id||r.generated_document_id===doc.id)||db.ops_fiscal_adjustments.some(r=>r.document_id===doc.id)||db.ops_stock_sources.some(r=>r.document_id===doc.id);
+  if(linked)return {data:null,error:{message:'Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.'}};
+  documentRemovals.set(doc.id,{id:doc.id,storage_path:doc.storage_path,sha256:doc.sha256||''});return {data:{id:doc.id,status:'pending'},error:null};
+ }
+ if(name==='totus_finish_document_removal'){
+  const doc=get('ops_documents',args.p_id);if(!doc)return {data:{id:args.p_id,status:'already_removed'},error:null};
+  if(!documentRemovals.has(doc.id)||doc.storage_path!==args.p_path)return {data:null,error:{message:'No coincide la solicitud de eliminación con el archivo actual.'}};
+  if(uploaded.has('business-documents/'+doc.storage_path))return {data:null,error:{message:'El archivo sigue en Supabase. Su ficha se conserva para reintentar la eliminación.'}};
+  db.ops_documents.splice(db.ops_documents.indexOf(doc),1);documentRemovals.delete(doc.id);return {data:{id:doc.id,status:'removed'},error:null};
+ }
  const writeTargets={totus_save_expense:['ops_expenses','p_expense'],totus_save_closing:['ops_daily_closings','p_closing'],totus_save_sales_document:['ops_sales_invoices','p_document']};
  if(writeTargets[name]){
   const [table,key]=writeTargets[name],payload=args[key]||{},row=payload.id?get(table,payload.id):null;
@@ -121,6 +136,19 @@ const rpc=async (name,args={})=>{
   const {RECOVERY_TABLES,recoveryFileReferences}=await import('../src/recovery-core.js');
   const database=Object.fromEntries(RECOVERY_TABLES.map(table=>[table,structuredClone(db[table]||[]).sort((a,b)=>String(a.id||a.code||a.email).localeCompare(String(b.id||b.code||b.email)))]));
   return {data:{database,storage:recoveryFileReferences(database),identities:db.profiles.map(p=>({id:p.id,email:p.email})),database_instance:userId,schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:new Date().toISOString()},error:null};
+ }
+ if(name==='totus_set_closed_period'){
+  if(role!=='admin')return {data:null,error:{message:'Solo administración puede cerrar o reabrir un periodo'}};
+  Object.assign(db.ops_business_settings[0],{closed_through:args.p_through,period_close_notes:args.p_reason});
+  insert('ops_audit_log',{area:'fiscalidad',action:'periodo_cierre',detail:{through:args.p_through,reason:args.p_reason}});
+  return {data:null,error:null};
+ }
+ if(name==='totus_set_expense_payment'){
+  const row=get('ops_expenses',args.p_id);
+  if(!row)return {data:null,error:{message:'Gasto no encontrado'}};
+  Object.assign(row,{paid_status:args.p_status,amount_paid:args.p_amount,paid_date:args.p_status==='pendiente'?null:args.p_date});
+  insert('ops_audit_log',{area:'gastos',action:'pago_registrado',entity_id:row.id,detail:{status:args.p_status,amount:args.p_amount,date:args.p_date}});
+  return {data:null,error:null};
  }
  if(name==='totus_backup_save_settings'){
   if(role!=='admin')return {data:null,error:{message:'Solo administrador'}};
@@ -291,7 +319,19 @@ const mockCloudBackup=async()=>{
 const client={
  auth:{getSession:async()=>({data:{session},error:null}),signInWithPassword:async()=>({data:{session},error:null}),signOut:async()=>{events?.('SIGNED_OUT',null);return {error:null}},resetPasswordForEmail:async()=>({data:{},error:null}),onAuthStateChange:fn=>{events=fn;return {data:{subscription:{unsubscribe(){}}}}}},
  from:table=>new Query(table),
- rpc:async(name,args)=>databaseResult(await rpc(name,args)),
+ rpc:async(name,args)=>{
+  if(name==='totus_business_write_contract')return databaseResult({data:{request_replay:1},error:null});
+  const key={totus_save_expense:'p_expense',totus_save_closing:'p_closing',totus_save_sales_document:'p_document'}[name];
+  const request=key&&args?.[key]?.request_id;
+  const cache=window.__mockBusinessRequests||=(new Map());
+  const cached=request&&cache.get(request);
+  if(cached)return databaseResult(cached.fingerprint===JSON.stringify(args)?structuredClone(cached.response):{data:null,error:{message:'Solicitud utilizada con otros datos',code:'P0001'}});
+  const executable=request?structuredClone(args):args;
+  if(request)delete executable[key].request_id;
+  const response=await rpc(name,executable);
+  if(request&&!response.error)cache.set(request,{fingerprint:JSON.stringify(args),response:structuredClone(response)});
+  return databaseResult(response);
+ },
  functions:{invoke:async (name,options)=>{
  if(name!=='totus-backup-run')return {data:null,error:{message:'Función no simulada'}};
  if(options?.body?.action!=='delete')return await mockCloudBackup();

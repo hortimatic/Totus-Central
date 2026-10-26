@@ -46,7 +46,7 @@ assert.equal((await remove('ops_suppliers','exists')).id,'exists');
 assert.equal(rows.length,0);
 await assert.rejects(remove('ops_suppliers','exists'),/No se eliminó/,'Missing record must not report deletion');
 assert.equal(deleteCalls,3);
-client.rpc=async()=>({data:{status:'ok',source:'supabase_storage_objects'},error:null});
+client.rpc=async name=>({data:name==='totus_pending_document_removals'?[]:{status:'ok',source:'supabase_storage_objects'},error:null});
 startup=true;await loadCore();
 assert.ok(reads>30);assert.equal(active,0);assert.ok(peak>1&&peak<=4,'Sign-in must not open dozens of concurrent database requests');
 console.log('API INTEGRITY QA: deterministic pagination, no silent truncation, denied/missing deletes and bounded startup connections verified');
