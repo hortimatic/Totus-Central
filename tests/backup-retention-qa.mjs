@@ -24,6 +24,11 @@ assert.equal(backupRunState({status:'running',started_at:new Date(Date.now()-4*6
 
 assert.equal(MAX_SAVED_BACKUPS,10);assert.equal(DEFAULT_SAVED_BACKUPS,5);
 assert.equal(backupRetentionCount(10),10);
+const bundleNames=['0.totusbackup','0.totusbackup.datos-0000.zip','0.totusbackup.documentos-0001.zip','0.totusbackup.codigo-0000.zip'];
+assert.deepEqual(backupObjectPaths('automaticas/0.totusbackup',[
+ ...bundleNames.map(name=>({name})),
+ ...['0.totusbackup.documentos-0001.zip.other','0.totusbackup.documentos-00001.zip','0.totusbackup.documentos-evil.zip','10.totusbackup.datos-0000.zip','0.totusbackup.otra-0000.zip'].map(name=>({name}))
+]),bundleNames.map(name=>'automaticas/'+name),'Partitioned backups must retire every exact component without touching other files');
 for(const bad of [0,11,5.5,'wrong',null])assert.throws(()=>backupRetentionCount(bad));
 assert.deepEqual(oldestBackupCandidates(runs,[],10).map(r=>r.id),['2','1','0']);
 assert.equal(oldestBackupCandidates(runs.slice(0,10),[],10).length,0);

@@ -26,6 +26,7 @@ jobs:
       - run: node tests/dashboard-report-qa.mjs
       - run: node tests/annual-package-consistency-qa.mjs
       - run: node tests/quick-price-validation-qa.mjs
+      - run: node tests/form-numbers-qa.mjs
       - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/credential-renewal-qa.mjs
       - run: node tests/backup-retention-qa.mjs
@@ -96,6 +97,8 @@ jobs:
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/published-browser-qa.mjs
+      - run: node tests/form-boundaries-browser-qa.mjs
+      - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/pricing-taxonomy-layout-qa.mjs
       - run: node tests/tasks-browser-qa.mjs

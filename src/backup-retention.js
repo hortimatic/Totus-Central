@@ -29,7 +29,7 @@ export function oldestBackupCandidates(runs,protectedPaths=[],keep=DEFAULT_SAVED
 export function backupObjectPaths(path,objects){
  const slash=path.lastIndexOf('/'),folder=path.slice(0,slash),name=path.slice(slash+1);
  if(slash<1||!name.endsWith('.totusbackup'))throw new Error('Ruta de copia inválida.');
- return objects.filter(o=>o.name===name||o.name.startsWith(name+'.')&&/^\\.(?:datos|documentos|codigo)-\\d{4}\\.zip$/.test(o.name.slice(name.length))||o.name.startsWith(name+'.part-')&&/^\d{4}$/.test(o.name.slice((name+'.part-').length))).map(o=>folder+'/'+o.name);
+ return objects.filter(o=>o.name===name||o.name.startsWith(name+'.')&&/^\.(?:datos|documentos|codigo)-\d{4}\.zip$/.test(o.name.slice(name.length))||o.name.startsWith(name+'.part-')&&/^\d{4}$/.test(o.name.slice((name+'.part-').length))).map(o=>folder+'/'+o.name);
 }
 
 export function obsoleteBackupCandidates(runs,protectedPaths=[]){
