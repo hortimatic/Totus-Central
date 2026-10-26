@@ -1,0 +1,6 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../src/styles.css"><title>Cabecera · simulación</title><header class="topbar"><div><small>Trabajo</small><h1 id="pageTitle">Recepciones de mercancía</h1></div><div id="topActions"></div></header><main><p>Simulación sin datos reales</p></main><script type="module">
+import {createHeaderTools} from '../src/header-tools.js';
+window.headerCalls=[];window.headerOwner='qa@example.com';
+window.header=createHeaderTools({actor:()=>window.headerOwner,onNavigate:(...v)=>window.headerCalls.push(v),now:()=>new Date('2026-10-26T12:00:00Z'),rpc:async()=>({rows:[{state:'pending',assigned_email:'qa@example.com'},{state:'working',assigned_email:null},{state:'done',assigned_email:'qa@example.com'},{state:'pending',assigned_email:'other@example.com'}]})});
+window.header.start();window.header.setChatUnread(3);
+</script></html>

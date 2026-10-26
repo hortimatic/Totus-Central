@@ -76,6 +76,7 @@ export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=as
   dispose(){++epoch;clearInterval(timer);host?.removeEventListener('click',click);host=null;close();},
   reset(){this.dispose();anchor=taskToday();view='month';filter={store:'',person:'',status:'',query:''};data={rows:[],stores:[],people:[]};},
   async fromMessage(message){const existing=await rpc('totus_task_from_message',{p_message:message.id});if(existing){anchor=existing.scheduled_on;await refresh();const r=row(existing.task_id,existing.scheduled_on);if(r)detail(r);}else{if(!data.people.length)await refresh();edit(null,message);}},
+  async openDate(date){anchor=date;view='week';await refresh();},
   hasDraft(){return dialog?.dataset.dirty==='true';}
  };
 }
