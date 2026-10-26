@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({acceptDownloads:true});const errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.evaluate(()=>{
+  window.__mockDb.ops_audit_log=Array.from({length:1105},(_,i)=>({id:'event-'+String(i).padStart(4,'0'),created_at:new Date(Date.UTC(2026,0,1,0,i)).toISOString(),area:'gastos',action:'actualizar',user_email:'qa@example.invalid',detail:{concepto:'Alquiler'}}));
+  window.__mockDb.ops_chat_events=[{id:'chat1',channel_id:'ch1',actor_email:'qa@example.invalid',created_at:'2026-10-26T10:00:00Z',action:'message_sent',detail:{}}];
+  window.__mockDb.ops_task_events=[{id:'task1',actor_id:'cccccccc-cccc-4ccc-cccc-cccccccccccc',task_id:'t1',created_at:'2026-10-26T10:01:00Z',action:'done',detail:{}}];
+ });
+ await page.locator('#nav [data-route="administracion"]').click();
+ await page.locator('[data-action="admin-section"][data-section="log"]').click();
+ await page.locator('[data-action="admin-log-refresh"]').click();
+ await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
+ assert.match(await page.locator('#content').innerText(),/1107 eventos/);
+ assert.equal(await page.locator('#content tbody tr').count(),100);
+ await page.locator('#logQuery').fill('Filtro todavía sin aplicar');
+ await page.locator('[data-action="admin-log-refresh"]').click();
+ await page.getByText('Eventos actualizados.',{exact:true}).last().waitFor();
+ assert.equal(await page.locator('#logQuery').inputValue(),'Filtro todavía sin aplicar','Refresh must preserve unfinished filters');
+ assert.equal(await page.locator('#content tbody tr').count(),100,'Typing must not apply filters implicitly');
+ await page.locator('#logQuery').fill('');
+ await page.locator('[data-action="admin-log-page"]').last().click();
+ assert.match(await page.locator('#content').innerText(),/Página 2 de 12/);
+ await page.locator('#logFrom').fill('2026-01-01');await page.locator('#logTo').fill('2026-01-01');
+ await page.locator('[data-action="admin-log-filter"]').click();
+ assert.match(await page.locator('#content').innerText(),/Resultados: 1105/);
+ assert.match(await page.locator('#content').innerText(),/Página 1 de 12/);
+ const ready=page.waitForEvent('download');await page.locator('[data-action="admin-log-export"]').click();
+ const file=await ready;const csv=await fs.readFile(await file.path(),'utf8');
+ assert.equal(csv.trim().split(/\r?\n/).length,1106,'Export must include every filtered event, not just visible page');
+ await page.locator('[data-action="admin-log-clear"]').click();await page.locator('#logArea').selectOption('tareas');
+ await page.locator('[data-action="admin-log-filter"]').click();
+ assert.equal(await page.locator('#content tbody tr').count(),1);
+ assert.match(await page.locator('#content tbody').innerText(),/qa@example.com/);
+ await page.locator('[data-action="admin-log-detail"]').click();
+ assert.match(await page.locator('#modalHost').innerText(),/Historial de tareas/);
+ assert.deepEqual(errors,[]);
+ console.log('AUDIT REGISTER BROWSER QA: history beyond 1000, pagination, date filter, complete CSV, task actor/detail');
+}finally{await browser.close()}

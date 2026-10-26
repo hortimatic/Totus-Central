@@ -1,4 +1,7 @@
 import {createHeaderTools} from './header-tools.js';
+import {filterAuditEvents} from './audit-register.js';
+import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
+import {templateCopyCode} from './template-copy.js';
 import {createTasks} from './tasks-ui.js';
 import {validateFormNumber} from './form-numbers.js';
 import {taskToday} from './tasks-core.js';
@@ -240,7 +243,16 @@ async function refreshAuditPanel(){
  auditRefreshInFlight=true;
  try{await reloadAudit();return true}
  catch(error){state.data.auditError=error.message;return false}
- finally{auditRefreshInFlight=false;if(state.route==='administracion'&&getView('administracion').section==='log')render()}
+ finally{
+  auditRefreshInFlight=false;
+  if(state.route==='administracion'&&getView('administracion').section==='log'){
+   const fields=['logFrom','logTo','logActor','logArea','logAction','logQuery'].map(id=>[id,input(id)?.value]);
+   const focused=document.activeElement,focusId=focused?.id,selection=focused?.tagName==='INPUT'&&focused.type==='text'?[focused.selectionStart,focused.selectionEnd]:null;
+   render();
+   for(const [id,value] of fields)if(value!==undefined&&input(id))input(id).value=value;
+   if(focusId&&input(focusId)){input(focusId).focus({preventScroll:true});if(selection)input(focusId).setSelectionRange(...selection);}
+  }
+ }
 }
 function input(id){return document.getElementById(id)}
 function val(id){return input(id)?.value??''}
@@ -534,7 +546,8 @@ async function saveExpense(id=''){
    return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!input('exManagement')?.checked&&!!input(`exLineDed_${ix}`)?.checked,deductible_pct:input('exManagement')?.checked?0:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
  });
  validateExpenseClassification(lines,state.data.categories,!!input('exManagement')?.checked);
- const total=lines.reduce((acc,l)=>acc+l.base_amount+l.base_amount*l.vat_rate/100+l.base_amount*l.re_rate/100-l.base_amount*l.withholding_rate/100,0);
+ for(const line of lines)Object.assign(line,expenseLineAmounts(line));
+ const total=expenseTotals(lines).total;
  const amountPaid=val('exPaidAmount')===''?(paidStatus==='pagado'?total:0):num('exPaidAmount');
  validateExpensePayment(total,amountPaid,paidStatus,val('exDocKind'));
  const current=id?state.data.expenses.find(x=>x.id===id):null,oldDoc=current?.document_id?state.data.documents.find(x=>x.id===current.document_id):null;
@@ -728,10 +741,10 @@ function updateExpenseSummary(){
  updateExpenseDeductionFields();
  if(val('exDocKind')==='impuesto'){for(const id of ['exSumBase','exSumVat','exSumRe','exSumWh'])if(input(id))input(id).textContent=money(0);if(input('exSumTotal'))input('exSumTotal').textContent=money(num('exPaidAmount'));return}
 
- const rows=[...document.querySelectorAll('.expense-line')];let base=0,vat=0,re=0,wh=0;
- for(const el of rows){const ix=el.dataset.lineIndex,b=Math.max(0,n(val(`exLineBase_${ix}`))),v=Math.max(0,n(val(`exLineVat_${ix}`))),r=Math.max(0,n(val(`exLineRe_${ix}`))),w=Math.max(0,n(val(`exLineWh_${ix}`)));base+=b;vat+=b*v/100;re+=b*r/100;wh+=b*w/100}
+ const rows=[...document.querySelectorAll('.expense-line')].map(el=>{const ix=el.dataset.lineIndex;return {base_amount:n(val(`exLineBase_${ix}`)),vat_rate:n(val(`exLineVat_${ix}`)),re_rate:n(val(`exLineRe_${ix}`)),withholding_rate:n(val(`exLineWh_${ix}`))}});
+ const {base,vat,re,withholding:wh,total}=expenseTotals(rows);
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
- set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',base+vat+re-wh);
+ set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',total);
 }
 function updateClosingSummary(){
  const rows=[...document.querySelectorAll('.drawer-entry')];let total=0;
@@ -1234,8 +1247,8 @@ async function saveTemplate(id=''){
 async function duplicateTemplate(id){
  const src=state.data.templates.find(x=>x.id===id);if(!src)return;
  const copy={...src};delete copy.id;delete copy.created_at;delete copy.updated_at;
- copy.name=src.name+' · copia';copy.code=(src.code+'-COPIA').slice(0,50);copy.default_invoice=false;copy.default_proforma=false;copy.active=true;
- let suffix=2;while(state.data.templates.some(x=>x.code===copy.code)){copy.code=(src.code+'-COPIA-'+suffix++).slice(0,50)}
+ copy.style=({modern:'brand',minimal:'clean',classic:'compact'})[src.style]||src.style;
+ copy.name=src.name+' · copia';copy.code=templateCopyCode(src.code,state.data.templates);copy.default_invoice=false;copy.default_proforma=false;copy.active=true;
  await insert('ops_document_templates',copy);closeModal();await refresh('Plantilla duplicada.');
 }
 
@@ -1269,9 +1282,10 @@ function seriesForm(row=null){
 async function saveSeries(id=''){
  if(!isAdmin())throw new Error('Solo el administrador puede gestionar series.');
  const current=id?state.data.series.find(x=>x.id===id):null,used=current?state.data.invoices.filter(x=>x.series_id===id).length:0;
- const row={active:!!input('srActive')?.checked,next_number:Math.max(1,Math.round(num('srNext')))};
+ const integer=(id,label,min,max)=>{const value=num(id);if(!Number.isSafeInteger(value)||value<min||value>max)throw new Error(label+': introduce un número entero entre '+min+' y '+max+'.');return value;};
+ const row={active:!!input('srActive')?.checked,next_number:integer('srNext','Siguiente número',1,2147483647)};
  if(!used){
-   row.store_id=val('srStore')||null;row.year=Math.round(num('srYear'));row.code=required('srCode','Código').trim().toUpperCase();row.prefix=required('srPrefix','Prefijo').trim();row.document_type=val('srDocType');row.series_kind=row.document_type==='proforma'?'invoice':val('srKind');row.padding=Math.min(10,Math.max(1,Math.round(num('srPadding'))));
+   row.store_id=val('srStore')||null;row.year=integer('srYear','Año',2020,2100);row.code=required('srCode','Código').trim().toUpperCase();row.prefix=required('srPrefix','Prefijo').trim();row.document_type=val('srDocType');row.series_kind=row.document_type==='proforma'?'invoice':val('srKind');row.padding=integer('srPadding','Dígitos',1,10);
    if(row.year<2020||row.year>2100)throw new Error('Año de serie no válido.');
    const dup=state.data.series.find(x=>x.id!==id&&Number(x.year)===row.year&&String(x.code).toUpperCase()===row.code);if(dup)throw new Error('Ya existe ese código de serie para el mismo año.');
  }
@@ -1797,18 +1811,11 @@ function applyAdminLogFilters(){
  const from=val('logFrom'),to=val('logTo');
  if(from&&to&&from>to)throw new Error('La fecha inicial del Log no puede ser posterior a la final.');
  state.filters.adminLog={from,to,area:val('logArea'),action:val('logAction'),actor:val('logActor').trim(),query:val('logQuery').trim()};
+ setView('administracion',{logPage:0});
  render();
 }
 function filteredLogRows(){
- const f=state.filters.adminLog||{};
- const key=searchText;
- return (state.data.audit||[]).filter(r=>{
-  const day=r.created_at?new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}):'';
-  return (!f.from||day>=f.from)&&(!f.to||day<=f.to)
-   &&(!f.area||f.area===r.area)&&(!f.action||f.action===r.action)
-   &&(!f.actor||key(r.user_email).includes(key(f.actor)))
-   &&(!f.query||key([r.user_email,r.action,r.area,JSON.stringify(r.detail||{})].join(' ')).includes(key(f.query)));
- });
+ return filterAuditEvents(state.data.audit||[],state.filters.adminLog||{});
 }
 function showLogEntry(id){
  const row=(state.data.audit||[]).find(r=>String(r.id)===String(id));
@@ -2571,7 +2578,8 @@ document.addEventListener('click',async e=>{
   if(a==='storage-refresh'){await refreshStoragePanel();return}
   if(a==='admin-unused-logos'){await reviewUnusedLogos();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
-  if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};render();return}
+  if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};setView('administracion',{logPage:0});render();return}
+  if(a==='admin-log-page'){setView('administracion',{logPage:Math.max(0,Number(el.dataset.page)||0)});render();return}
   if(a==='admin-log-refresh'){if(await refreshAuditPanel())toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
