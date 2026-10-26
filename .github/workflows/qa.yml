@@ -27,6 +27,8 @@ jobs:
       - run: node tests/annual-package-consistency-qa.mjs
       - run: node tests/quick-price-validation-qa.mjs
       - run: node tests/form-numbers-qa.mjs
+      - run: node tests/write-safety-qa.mjs
+      - run: node tests/write-version-qa.mjs
       - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/credential-renewal-qa.mjs
       - run: node tests/backup-retention-qa.mjs
@@ -107,6 +109,10 @@ jobs:
       - run: node tests/expense-credit-browser-qa.mjs
       - run: node tests/expense-rounding-browser-qa.mjs
       - run: node tests/template-copy-browser-qa.mjs
+      - run: node tests/write-lock-browser-qa.mjs
+      - run: node tests/stale-form-browser-qa.mjs
+      - run: node tests/ambiguous-write-browser-qa.mjs
+      - run: node tests/pricing-directory-browser-qa.mjs
       - run: node tests/deep-editing-browser-qa.mjs
       - run: node tests/template-editor-browser-qa.mjs
       - run: node tests/configuration-journeys-browser-qa.mjs

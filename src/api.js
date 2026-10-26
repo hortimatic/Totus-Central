@@ -2,8 +2,9 @@ import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
 import {setRolePermissions} from './permissions.js';
 import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
+import {assertService,matchesSavedFields,verifiedWrite} from './write-safety.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-const assert=({error},ctx)=>{if(error)throw new Error(`${ctx}: ${error.message}`)};
+const assert=assertService;
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
 export async function logout(){await sb.auth.signOut()}
 export async function recover(email){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});assert(r,'Recuperación')}
@@ -36,14 +37,22 @@ export async function select(table,{order,ascending=false,limit=100000,filter,al
   throw new Error(table+': se alcanzó el límite de '+limit+' filas. No se mostrarán datos incompletos.');
  return rows;
 }
-export async function insert(table,row){const r=await sb.from(table).insert(row).select().single();assert(r,`Crear ${table}`);return r.data}
-export async function update(table,id,row){const r=await sb.from(table).update(row).eq('id',id).select().single();assert(r,`Actualizar ${table}`);return r.data}
+const UUID_INSERT_TABLES=new Set(['brands','families','providers','consultations','ops_documents','ops_tax_payments','ops_customers','ops_document_templates','ops_invoice_series','ops_suppliers','ops_expense_categories','ops_stores','ops_cash_drawers','ops_fiscal_adjustments','ops_income_adjustments','price_history','product_variants','product_provider_prices','product_competitor_prices']);
+async function readWriteRecord(table,id){
+ if(id===undefined||id===null)return null;
+ const result=await sb.from(table).select().eq('id',id).maybeSingle();assert(result,`Comprobar ${table}`);return result.data;
+}
+export async function insert(table,row){
+ const candidate={...row};if(UUID_INSERT_TABLES.has(table)&&candidate.id==null)candidate.id=crypto.randomUUID();
+ return verifiedWrite(async()=>{const r=await sb.from(table).insert(candidate).select().single();assert(r,`Crear ${table}`);return r.data},()=>readWriteRecord(table,candidate.id),saved=>matchesSavedFields(saved,candidate));
+}
+export async function update(table,id,row){
+ return verifiedWrite(async()=>{const r=await sb.from(table).update(row).eq('id',id).select().single();assert(r,`Actualizar ${table}`);return r.data},()=>readWriteRecord(table,id),saved=>matchesSavedFields(saved,row));
+}
 export async function remove(table,id){
  if(id===undefined||id===null||id==='')throw new Error('Falta el identificador del registro que deseas eliminar.');
- const r=await sb.from(table).delete().eq('id',id).select('id');
- assert(r,`Eliminar ${table}`);
- if(!Array.isArray(r.data)||r.data.length!==1)
-  throw new Error(`No se eliminó el registro de ${table}. Puede faltar permiso, estar ya borrado o tener referencias protegidas. Actualiza y comprueba su estado.`);
+ const r=await sb.from(table).delete().eq('id',id).select('id');assert(r,`Eliminar ${table}`);
+ if(!Array.isArray(r.data)||r.data.length!==1)throw new Error(`No se eliminó el registro de ${table}. Puede faltar permiso, estar ya borrado o tener referencias protegidas. Actualiza y comprueba su estado.`);
  return r.data[0];
 }
 export async function rpc(name,args={}){const r=await sb.rpc(name,args);assert(r,name);return r.data}

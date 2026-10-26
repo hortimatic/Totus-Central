@@ -97,14 +97,25 @@ class Query{
   if(this.rangeBy)matches=matches.slice(this.rangeBy[0],this.rangeBy[1]+1);
   return {data:matches,error:null};
  }
- async single(){const r=this.result();return {data:Array.isArray(r.data)?r.data[0]||null:r.data,error:r.error}}
+ async single(){const r=databaseResult(this.result());return {data:Array.isArray(r.data)?r.data[0]||null:r.data,error:r.error}}
  async maybeSingle(){return this.single()}
- then(ok,fail){return Promise.resolve(this.result()).then(ok,fail)}
+ then(ok,fail){return Promise.resolve(databaseResult(this.result())).then(ok,fail)}
 }
+function databaseResult(result){return result.error&&!Object.hasOwn(result.error,'code')?{...result,error:{...result.error,code:'P0001'}}:result;}
 const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ const writeTargets={totus_save_expense:['ops_expenses','p_expense'],totus_save_closing:['ops_daily_closings','p_closing'],totus_save_sales_document:['ops_sales_invoices','p_document']};
+ if(writeTargets[name]){
+  const [table,key]=writeTargets[name],payload=args[key]||{},row=payload.id?get(table,payload.id):null;
+  if(payload.id&&Object.hasOwn(payload,'expected_updated_at')){
+   if(!row)return {data:null,error:{message:'El registro ya no existe. Actualiza el listado antes de continuar.',code:'P0001'}};
+   const same=(row.updated_at==null&&payload.expected_updated_at==null)||Date.parse(row.updated_at)===Date.parse(payload.expected_updated_at);
+   if(!same)return {data:null,error:{message:'Este registro ha cambiado desde que abriste la ficha. Actualiza y revisa los cambios antes de guardar.',code:'40001'}};
+  }
+  const clean={...payload};delete clean.expected_updated_at;args={...args,[key]:clean};
+ }
  if(name==='totus_export_recovery_snapshot'){
   if(role!=='admin')return {data:null,error:{message:'Solo administración'}};
   const {RECOVERY_TABLES,recoveryFileReferences}=await import('../src/recovery-core.js');
@@ -280,7 +291,7 @@ const mockCloudBackup=async()=>{
 const client={
  auth:{getSession:async()=>({data:{session},error:null}),signInWithPassword:async()=>({data:{session},error:null}),signOut:async()=>{events?.('SIGNED_OUT',null);return {error:null}},resetPasswordForEmail:async()=>({data:{},error:null}),onAuthStateChange:fn=>{events=fn;return {data:{subscription:{unsubscribe(){}}}}}},
  from:table=>new Query(table),
- rpc,
+ rpc:async(name,args)=>databaseResult(await rpc(name,args)),
  functions:{invoke:async (name,options)=>{
  if(name!=='totus-backup-run')return {data:null,error:{message:'Función no simulada'}};
  if(options?.body?.action!=='delete')return await mockCloudBackup();

@@ -1,4 +1,6 @@
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
+import {cleanupAllowed} from './write-safety.js';
+import {rememberWriteVersion,expectedWriteVersion} from './write-version.js';
 import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
@@ -150,6 +152,8 @@ function render(){
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
  $('#content').innerHTML='<div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
+ const records={cajas:state.data.closings,gastos:state.data.expenses,facturacion:state.data.invoices};
+ rememberWriteVersion($('#content > .page'),records[state.route]?.find(row=>row.id===getView(state.route).id));
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
@@ -298,7 +302,7 @@ async function saveClosing(id='',status='borrador'){
   const difference=Math.round(calculated*100)-Math.round(num('clReported')*100);
   if(Math.abs(difference)>1)throw new Error('El cierre no cuadra: diferencia '+money(difference/100)+'. Revisa Total ventas y los importes de cada caja.');
  }
- const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status};
+ const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status,...expectedWriteVersion($('#content > .page'),id)};
  const savedId=await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
  setView('cajas',{mode:'record',id:savedId,reconcileSource:false});
  await refresh(status==='cerrado'?(reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
@@ -434,14 +438,21 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
 }
 async function destroyDocument(doc){
  if(!doc)return;
- if(doc.storage_path)await removeFile('business-documents',doc.storage_path);
  await remove('ops_documents',doc.id);
+ if(doc.storage_path)try{await removeFile('business-documents',doc.storage_path)}catch(error){
+  // Only a rejected new operation reaches this rollback. Restore the metadata
+  // when cleanup fails, keeping the pending file visible for a safe retry.
+  try{await insert('ops_documents',doc)}catch(restore){throw new Error(error.message+' El archivo queda pendiente de revisión porque no se pudo recuperar su ficha: '+restore.message)}
+  throw error;
+ }
 }
 async function rollbackUploadedFile(bucket,path,error){
+ if(!cleanupAllowed(error))return new Error(error.message+' El archivo subido se conserva porque no se ha podido confirmar el resultado. Actualiza y comprueba el registro antes de reenviar.');
  try{await removeFile(bucket,path);return error}
  catch(cleanup){console.error('Archivo pendiente de retirar',{bucket,path,error:cleanup});return new Error(error.message+' El archivo subido no se ha podido retirar del almacenamiento. No se ha presentado la operación como completada.')}
 }
 async function rollbackNewDocument(doc,error){
+ if(!cleanupAllowed(error))return new Error(error.message+' El justificante se conserva porque el registro podría haberse guardado. Actualiza y comprueba el resultado antes de reenviar.');
  try{await destroyDocument(doc);return error}
  catch(cleanup){return new Error(error.message+' No se ha podido completar la retirada del adjunto: '+cleanup.message+'. Revisa su ficha en Documentos antes de reintentar.')}
 }
@@ -564,7 +575,7 @@ async function saveExpense(id=''){
  const first=lines[0];
  const expense={report_group:val('exReportGroup')||null,id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')==='control_interno'?'otro':val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
  let savedId;
- try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
+ try{savedId=await rpc('totus_save_expense',{p_expense:{...expense,...expectedWriteVersion($('#content > .page'),id)},p_lines:lines})}
  catch(e){throw newDoc?await rollbackNewDocument(newDoc,e):e}
  setView('gastos',{mode:'record',id:savedId});await refresh('Gasto guardado.');
 }
@@ -629,7 +640,7 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  doc.rectified_invoice_id=invoiceKind==='rectifying'&&!isProforma?val('ivRectifiedInvoice')||null:null;
  doc.rectification_reason=invoiceKind==='rectifying'&&!isProforma?val('ivRectificationReason').trim():'';
  let savedId;
- try{savedId=await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines})}
+ try{savedId=await rpc('totus_save_sales_document',{p_document:{...doc,...expectedWriteVersion($('#content > .page'),id)},p_lines:lines})}
  catch(e){throw newSource?await rollbackNewDocument(newSource,e):e}
  setView('facturacion',{mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
  await refresh(isProforma?'Proforma guardada.':'Documento guardado.');
@@ -2399,12 +2410,20 @@ document.addEventListener('click',async e=>{
  const replacesPage=/(?:-back|-section|-home|-refresh)$/.test(a)||['stock-new','stock-open','stock-library','logout','retry-load','closing-new','closing-edit','expense-new','expense-edit','invoice-new','proforma-new','rectifying-new','external-invoice-new','invoice-edit','invoice-open','invoice-rectify','document-new','document-edit','product-new','product-edit','expense-suppliers'].includes(a);
  if(replacesPage&&!await allowDiscardDrafts())return;
  if(!replacesPage&&/(?:-new|-edit|-permissions)$/.test(a)&&!await allowDiscardDrafts({modalOnly:true}))return;
+ if(a==='template-duplicate'&&!await allowDiscardDrafts({modalOnly:true}))return;
  if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
- const writes=a==='stock-source-remove'||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
+ const writes=['stock-source-remove','stock-upload-discard','template-duplicate','series-toggle','user-toggle','user-reset','user-permissions-reset','report-block-up','report-block-down','report-block-reset','admin-period-close','admin-period-reopen','onedrive-begin','onedrive-mirror','onedrive-backup-mirror','onedrive-test','admin-unused-logos'].includes(a)||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
+ let ownsWriteLock=false;
  try{
   if(/-save(?:$|-)/.test(a)&&a!=='expense-report-group-save')validateDecimalFields(el.closest('[data-modal-content]')||$('#content'));
-  if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
+  if(writes){
+   // Draft/discard checks above can yield. Recheck here before taking ownership:
+   // another click may already have resumed and started a write in the meantime.
+   if(writeInProgress){toast('Espera a que termine la operación en curso.');return}
+   writeInProgress=true;ownsWriteLock=true;
+   document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true});
+  }
   if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
   if(a==='report-block-up'||a==='report-block-down'){await moveReportPanel(el.dataset.block,a.endsWith('-up')?'up':'down');return}
@@ -2528,7 +2547,7 @@ document.addEventListener('click',async e=>{
   if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
   if(a==='template-preview'){await previewTemplate(el.dataset.id);return}
   if(a==='template-preview-print'){await printTemplatePreview();return}
-  if(a==='template-duplicate'){if(!await allowDiscardDrafts({modalOnly:true}))return;await duplicateTemplate(el.dataset.id);return}
+  if(a==='template-duplicate'){await duplicateTemplate(el.dataset.id);return}
   if(a==='template-new'){templateForm();return}
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
@@ -2675,7 +2694,7 @@ document.addEventListener('click',async e=>{
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
- finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(writes)writeInProgress=false;preserveMainDraftOnRefresh=false}
+ finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(ownsWriteLock)writeInProgress=false;preserveMainDraftOnRefresh=false}
 });
 
 document.addEventListener('input',e=>{

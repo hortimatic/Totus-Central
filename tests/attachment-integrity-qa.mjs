@@ -92,7 +92,7 @@ try{
  await failure.locator('#exFile').setInputFiles({name:'recoverable.txt',mimeType:'text/plain',buffer:Buffer.from('Keep this file')});
  await failure.evaluate(()=>{
   const client=window.supabase.createClient(),original=client.rpc;let rejected=false;
-  client.rpc=async(...args)=>{if(args[0]==='totus_save_expense'&&!rejected){rejected=true;return {data:null,error:{message:'Injected transaction failure'}}}return original(...args)};
+  client.rpc=async(...args)=>{if(args[0]==='totus_save_expense'&&!rejected){rejected=true;return {data:null,error:{message:'Injected transaction failure',code:'P0001'}}}return original(...args)};
   window.__mockStorageRemoveError=true;
  });
  await failure.locator('[data-action="expense-save"]').first().click();
