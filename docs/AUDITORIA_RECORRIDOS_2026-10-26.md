@@ -60,7 +60,7 @@ La comprobación visual por clic de las pestañas tradicionales cubre 76 estados
 ## Qué significa el registro de actividad
 
 Las acciones de negocio que ya se registraban en servidor conservan su traza original. El visor suma historiales existentes, sin reconstruir ficticiamente acciones antiguas que nunca quedaron registradas.
-Los eventos del chat que se pueden consultar dependen de los canales administrados por la cuenta; las tareas dependen de su visibilidad. La actividad de copias corresponde a las copias aún conservadas. Cuando el servidor no registró el autor de una copia se indica expresamente, sin atribuirla al administrador actual.
+Los eventos del chat que se pueden consultar dependen de los canales administrados por la cuenta; las tareas dependen de su visibilidad. La actividad de copias procede de sus índices históricos, incluidos intentos fallidos y copias retiradas: eso no significa que sus archivos sigan ocupando espacio. La programación real conserva diez copias completas y continúa activa a las 00:35. Cuando el servidor no registró el autor de una copia se indica expresamente, sin atribuirla al administrador actual. Si no existe fecha final, no se inventa.
 Los cambios de código, autor, revisión y publicación se consultan en GitHub, no se presentan como si fuesen cambios contables.
 El detalle conserva los códigos originales aunque la tabla use nombres más legibles.
 La actualización automática consulta las novedades del historial general y de usuarios sin volver a descargar toda la historia. Chat y tareas se releen bajo sus permisos vigentes. Las copias se consultan sin descargar sus manifiestos completos. El botón Actualizar vuelve a leer todo el historial, por ejemplo después de una importación con fechas antiguas.
