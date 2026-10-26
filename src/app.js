@@ -1,3 +1,4 @@
+import {editableReferences} from './reference-options.js';
 import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
@@ -272,6 +273,7 @@ function validateDecimalFields(root=document){
 
 async function saveClosing(id='',status='borrador'){
  if(!['borrador','cerrado'].includes(status))throw new Error('Selecciona un estado válido para el cierre.');
+ if(id&&state.data.closingDrawers.some(d=>d.closing_id===id&&state.data.drawers.some(x=>x.id===d.drawer_id&&x.active===false)))throw new Error('Este cierre conserva una caja inactiva. Reactívala en Administración → Negocio antes de editar el cierre. Sus importes no se han eliminado.');
  const reconcilingSource=!!getView('cajas').reconcileSource;
  const store=required('clStore','Tienda'),date=required('clDate','Fecha');
  if(date>isoToday())throw new Error('La fecha del cierre no puede ser futura.');
@@ -302,6 +304,7 @@ async function saveClosing(id='',status='borrador'){
  await refresh(status==='cerrado'?(reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
 }
 async function reopenClosing(id){
+ if(state.data.closingDrawers.some(d=>d.closing_id===id&&state.data.drawers.some(x=>x.id===d.drawer_id&&x.active===false)))throw new Error('Reactiva la caja en Administración → Negocio antes de reabrir este cierre. Sus importes se conservan.');
  if(!confirm('¿Reabrir este cierre para corregirlo? La acción quedará registrada.'))return;
  const row=state.data.closings.find(x=>x.id===id);if(!row)return;
  const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,notes:x.notes||''}));
@@ -368,7 +371,7 @@ async function previewPendingExpenseFile(){
 function expenseSuppliersManager(){setView('gastos',{mode:'list',id:null,section:'proveedores'});setRoute('gastos');render()}
 
 function expenseSupplierForm(row=null){
- const categories=[{value:'',label:'Sin categoría'},...state.data.categories.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
+ const categories=[{value:'',label:'Sin categoría'},...editableReferences(state.data.categories,row?.default_category_id).map(x=>({value:x.id,label:x.name||x.code||'Categoría'}))];
  const body=`<div class="form-grid">
   ${formField('Nombre','esName',row?.name||'')}
   ${formField('NIF/CIF','esTax',row?.tax_id||'')}
@@ -528,7 +531,7 @@ async function saveExpense(id=''){
  if(getView('gastos').taxPaymentId)throw new Error('Este registro es un pago de impuesto. Conserva su tipo y tratamiento interno.');
  const existing=id?state.data.expenses.find(x=>x.id===id):null;
  if(existing&&state.data.settings?.closed_through&&existing.expense_date<=state.data.settings.closed_through)throw new Error('Este gasto pertenece a un periodo cerrado. Usa «Registrar pago» para actualizar su pago; administración debe reabrir el periodo para corregir importes.');
- const storeId=required('exStore','Tienda'),date=required('exDate','Fecha'),supplier=required('exSupplier','Proveedor');
+ const storeId=val('exStore')||null,date=required('exDate','Fecha'),supplier=required('exSupplier','Proveedor');
  if(date>isoToday())throw new Error('La fecha del gasto no puede ser futura.');
  const invoiceNumber=val('exInvoice').trim(),taxId=val('exTax').trim();
  if(invoiceNumber){
@@ -918,7 +921,7 @@ async function deleteProvider(id){
 }
 function providerPriceForm(productId,row=null){
  if(!state.data.providers.length){toast('Crea primero un proveedor.','bad');providersManager();return}
- const providers=state.data.providers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}));
+ const providers=editableReferences(state.data.providers,row?.provider_id).map(x=>({value:x.id,label:x.name}));
  const body=`<div class="form-grid">
   ${selectField('Proveedor','ppProvider',providers,row?.provider_id||providers[0]?.value||'')}
   ${formField('Coste proveedor','ppNet',row?.net_cost??'','number','step="0.01"')}
@@ -1148,7 +1151,7 @@ async function deleteCustomer(id){
 }
 function templateForm(row=null){
  clearTemplatePreview();
- const stores=[{value:'',label:'General'},...state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}))];
+ const stores=[{value:'',label:'General'},...editableReferences(state.data.stores,row?.store_id).map(s=>({value:s.id,label:s.name}))];
  const body=`<div class="template-editor"><div class="template-editor-layout"><div class="template-editor-fields"><div class="form-grid">
   ${formField('Nombre','tpName',row?.name||'')}
   ${formField('Código','tpCode',row?.code||'')}
@@ -1306,7 +1309,7 @@ async function deleteTemplate(id){
 }
 function seriesForm(row=null){
  const used=row?state.data.invoices.filter(x=>x.series_id===row.id).length:0,locked=used?'disabled':'';
- const stores=[{value:'',label:'General'},...state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}))];
+ const stores=[{value:'',label:'General'},...editableReferences(state.data.stores,row?.store_id).map(s=>({value:s.id,label:s.name}))];
  const body=`<div class="form-grid">
   ${selectField('Tienda','srStore',stores,row?.store_id||'',locked)}
   ${formField('Año','srYear',row?.year??new Date().getFullYear(),'number',locked+' min="2020" max="2100"')}
@@ -1798,7 +1801,7 @@ async function saveTaxPayment(id='',model,year,quarter){
 }
 async function deleteTaxPayment(id){if(!confirm('¿Eliminar este registro fiscal?'))return;await remove('ops_tax_payments',id);closeModal();await refresh('Registro fiscal eliminado.')}
 function fiscalAdjustmentForm(row=null){
- const fiscalStores=[{value:'',label:'General / todas'},...state.data.stores.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
+ const fiscalStores=[{value:'',label:'General / todas'},...editableReferences(state.data.stores,row?.store_id).map(x=>({value:x.id,label:x.name}))];
  const body=`<div class="form-grid">
   ${selectField('Tienda','faStore',fiscalStores,row?.store_id||'')}
   ${formField('Fecha','faDate',row?.adjustment_date||isoToday(),'date')}
@@ -2247,7 +2250,7 @@ async function exportGestorPackage(year){
  modal('Preparando paquete anual','<p id="annualPackageProgress" role="status" aria-live="polite">Preparando libros y documentos…</p>');
  try{
  const annual=annualReportPlan(state.data,year);
- const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores.filter(x=>x.active!==false);
+ const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores;
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
  const incomeRows=[
   ...state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))).map(x=>[fmtDate(x.business_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Cierre',closingIncomeAmount(x),x.notes||'']),
@@ -2320,7 +2323,7 @@ async function exportGestorPeriodPackage(){
    ...plan.incomeAdjustments.map(x=>[x.income_date,'Ingreso registrado',n(x.amount),x.store_id,x.concept||''])
   ].sort((a,b)=>a[0].localeCompare(b[0]));
   income.file('Ingresos_'+plan.key+'.csv',csv(rows,[{label:'Fecha',get:r=>r[0]},{label:'Origen',get:r=>r[1]},{label:'Importe',get:r=>r[2]},{label:'Tienda',get:r=>state.data.stores.find(s=>s.id===r[3])?.name||'General'},{label:'Detalle',get:r=>r[4]}]));
-  for(const store of state.data.stores.filter(s=>s.active!==false&&(plan.store==='all'||s.id===plan.store)))for(const period of plan.months){
+  for(const store of state.data.stores.filter(s=>plan.store==='all'||s.id===plan.store))for(const period of plan.months){
    const wb=buildStoreMonthlyWorkbook({store,year:period.year,month:period.month,closings:plan.closings,expenses:plan.expenses,categories:state.data.categories,incomeAdjustments:plan.incomeAdjustments});
    diaries.file(safeFileSegment(store.name)+'/'+period.key+' Gastos y ventas.xlsx',workbookBlob(wb));
   }
@@ -2525,7 +2528,7 @@ document.addEventListener('click',async e=>{
   if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
   if(a==='template-preview'){await previewTemplate(el.dataset.id);return}
   if(a==='template-preview-print'){await printTemplatePreview();return}
-  if(a==='template-duplicate'){await duplicateTemplate(el.dataset.id);return}
+  if(a==='template-duplicate'){if(!await allowDiscardDrafts({modalOnly:true}))return;await duplicateTemplate(el.dataset.id);return}
   if(a==='template-new'){templateForm();return}
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}

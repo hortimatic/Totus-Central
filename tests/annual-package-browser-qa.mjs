@@ -9,7 +9,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('#userCard').waitFor({state:'visible'});
  await page.evaluate(async()=>{
-  const db=window.__mockDb,store=db.ops_stores[0].id;
+  const db=window.__mockDb,store=db.ops_stores[0].id;db.ops_stores[0].active=false;
   const doc=(id,date,content)=>{const file=new File([content],id+'.txt',{type:'text/plain'});
    window.__mockUploads.set('business-documents/'+id+'.txt',file);
    db.ops_documents.push({id,store_id:store,document_date:date,original_name:id+'.txt',storage_path:id+'.txt',size_bytes:file.size,mime_type:'text/plain',doc_type:'factura_recibida'});
@@ -30,6 +30,7 @@ try{
  const download=await ready;
  assert.equal(download.suggestedFilename(),'Paquete_gestor_2026.zip');
  const zip=await JSZip.loadAsync(await fs.readFile(await download.path()));
+ assert(zip.file('03_DIARIOS/Hortimatic/2026-01 Gastos y ventas.xlsx'),'Inactive store January diary must remain in annual archive');
  const summary=await zip.file('04_RESUMEN/Resumen_2026.csv').async('string');
  assert(summary.includes('Gastos internos;50.00'));
  assert(summary.includes('De ellos: impuestos pagados;30.00'));
@@ -42,6 +43,11 @@ try{
  assert(texts.includes('JUSTIFICANTE DE IMPUESTO PAGADO EN 2026'));
  const missing=await zip.file('04_RESUMEN/Registros_sin_adjunto.csv').async('string');
  assert(missing.includes('Interno QA'));
+ await page.locator('#informesFrom').fill('2026-01-01');await page.locator('#informesTo').fill('2026-01-31');
+ await page.locator('#informesStore').selectOption({label:'Hortimatic'});await page.locator('[data-action="informes-apply"]').click();
+ const periodReady=page.waitForEvent('download',{timeout:20000});await page.locator('[data-action="export-gestor-period-package"]').click();
+ const periodZip=await JSZip.loadAsync(await fs.readFile(await (await periodReady).path()));
+ assert(periodZip.file('03_DIARIOS/Hortimatic/2026-01 Gastos y ventas.xlsx'),'Inactive store diary must remain in period archive');
  assert.deepEqual(errors,[]);
  console.log('ANNUAL ZIP BROWSER QA: actual download includes cross-year expense/tax originals, paid taxes once, separate fiscal result and missing-document index');
 }finally{await browser.close()}
