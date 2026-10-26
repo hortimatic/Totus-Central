@@ -47,6 +47,11 @@ jobs:
       - run: node tests/gestor-source-qa.mjs
       - run: node tests/functional-regression.mjs
       - run: node tests/supplier-credit-qa.mjs
+      - run: node tests/audit-register-qa.mjs
+      - run: node tests/audit-loading-qa.mjs
+      - run: node tests/expense-totals-qa.mjs
+      - run: node tests/template-copy-qa.mjs
+      - run: node tests/template-render-qa.mjs
       - run: node tests/cross-view-integrity-qa.mjs
       - run: node tests/code-integrity.mjs
       - run: node tests/published-module-graph-qa.mjs
@@ -96,6 +101,12 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/audit-register-browser-qa.mjs
+      - run: node tests/expense-credit-browser-qa.mjs
+      - run: node tests/expense-rounding-browser-qa.mjs
+      - run: node tests/template-copy-browser-qa.mjs
+      - run: node tests/template-editor-browser-qa.mjs
+      - run: node tests/configuration-journeys-browser-qa.mjs
       - run: node tests/published-browser-qa.mjs
       - run: node tests/form-boundaries-browser-qa.mjs
       - run: node tests/session-startup-browser-qa.mjs

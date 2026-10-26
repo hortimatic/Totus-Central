@@ -1,4 +1,5 @@
 import {EXPENSE_REPORT_GROUPS,categoryReportGroup,EXPENSE_REPORT_COLORS,expenseReportOverride} from '../expense-colors.js';
+import {filterAuditEvents,auditActionLabel} from '../audit-register.js';
 import {discountScenarios} from '../pricing-discounts.js';
 import {draftVariantRow} from '../pricing-drafts.js';
 import {variantStudy,numericRange,formatVariantAttributes,pricingProviderCost,pricingCompetition} from '../pricing-core.js';
@@ -862,26 +863,23 @@ function adminRecoveryHistoryHtml(){
 }
 function adminLogHtml(){
  const f=state.filters.adminLog||{},all=state.data.audit||[];
- const from=f.from||'',to=f.to||'',query=searchText(f.query),actor=searchText(f.actor);
+ const from=f.from||'',to=f.to||'';
  const areas=[...new Set(all.map(x=>String(x.area||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const actions=[...new Set(all.map(x=>String(x.action||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
- const rows=all.filter(r=>{
-  const date=r.created_at?new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}):'';
-  return (!from||date>=from)&&(!to||date<=to)
-   &&(!f.area||r.area===f.area)&&(!f.action||r.action===f.action)
-   &&(!actor||matchesText(actor,r.user_email))
-   &&(!query||matchesText(query,r.area,r.action,r.user_email,JSON.stringify(r.detail||{})));
- }).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+ const rows=filterAuditEvents(all,f);
+ const pageSize=100,pages=Math.max(1,Math.ceil(rows.length/pageSize));
+ const page=Math.max(0,Math.min(pages-1,Number(getView('administracion').logPage)||0));
+ const visible=rows.slice(page*pageSize,(page+1)*pageSize);
  const headers=[
   {label:'Fecha y hora',html:r=>esc(new Date(r.created_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))},
   {label:'Usuario',html:r=>esc(r.user_email||'—')},
   {label:'Área',html:r=>esc(r.area||'—')},
-  {label:'Acción',html:r=>esc(r.action||'—')},
+  {label:'Acción',html:r=>`<span title="${esc(r.action||'')}">${esc(auditActionLabel(r.action))}</span>`},
   {label:'Detalle',html:r=>`<span class="small muted">${esc(JSON.stringify(r.detail||{}).slice(0,130))}${JSON.stringify(r.detail||{}).length>130?'…':''}</span>`},
   {label:'',html:r=>btn('Ver detalle','admin-log-detail','secondary',`data-id="${esc(r.id)}"`)}
  ];
  return `<div class="stack">
-  <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Cambios guardados en los datos y gestión de usuarios. Actualización automática cada 30 segundos mientras consultas este panel. Los cambios de código se consultan en GitHub.</p></div><div class="inline-actions">
+  <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Cambios guardados, usuarios, tareas, actividad del chat y copias visibles para tu cuenta. Actualización cada 30 segundos. El historial de código se consulta en GitHub; esta pantalla no acredita acciones que nunca se registraron.</p></div><div class="inline-actions">
   ${btn('Actualizar','admin-log-refresh','secondary')}
   ${btn('Exportar CSV filtrado','admin-log-export','primary')}
   </div></div>
@@ -890,12 +888,13 @@ function adminLogHtml(){
    <div class="field"><label for="logTo">Hasta</label><input id="logTo" type="date" value="${esc(to)}"></div>
    <div class="field"><label for="logActor">Usuario o email</label><input id="logActor" value="${esc(f.actor||'')}" placeholder="Buscar usuario"></div>
    <div class="field"><label for="logArea">Área</label><select id="logArea"><option value="">Todas</option>${areas.map(v=>`<option value="${esc(v)}" ${f.area===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
-   <div class="field"><label for="logAction">Acción</label><select id="logAction"><option value="">Todas</option>${actions.map(v=>`<option value="${esc(v)}" ${f.action===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
+   <div class="field"><label for="logAction">Acción</label><select id="logAction"><option value="">Todas</option>${actions.map(v=>`<option value="${esc(v)}" ${f.action===v?'selected':''}>${esc(auditActionLabel(v))}</option>`).join('')}</select></div>
    <div class="field search"><label for="logQuery">Texto en detalle</label><input id="logQuery" value="${esc(f.query||'')}" placeholder="Buscar evento"></div>
    <div class="log-filter-actions">${btn('Aplicar filtros','admin-log-filter','primary')}${btn('Limpiar filtros','admin-log-clear','secondary')}</div>
   </div>
-  ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">Última lectura: ${state.data.auditUpdatedAt?esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Sin actualizar'} · Hasta 1000 eventos recientes · Resultados: ${rows.length} · Se conservan las trazas originales; esta pantalla no permite borrarlas.</div>
-  ${table(headers,rows,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
+  ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">Última lectura: ${state.data.auditUpdatedAt?esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Sin actualizar'} · Historial consultado: ${all.length} eventos · Resultados: ${rows.length} · El CSV incluye todos los resultados filtrados. Se conservan las trazas originales.</div>
+  ${table(headers,visible,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
+  <div class="card-pad inline-actions">${btn('Anterior','admin-log-page','secondary',`data-page="${page-1}" ${page===0?'disabled':''}`)}<span>Página ${page+1} de ${pages}</span>${btn('Siguiente','admin-log-page','secondary',`data-page="${page+1}" ${page+1>=pages?'disabled':''}`)}</div>
   </section>
  </div>`;
 }
@@ -1157,6 +1156,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const activeTemplates=state.data.templates.filter(x=>x.active!==false&&(!x.store_id||x.store_id===selectedStore));
  const defaultTemplate=activeTemplates.find(x=>x.store_id===selectedStore&&(isProforma?x.default_proforma:x.default_invoice))
    ||activeTemplates.find(x=>!x.store_id&&(isProforma?x.default_proforma:x.default_invoice));
+ const configuredTemplate=state.data.templates.find(t=>t.id===row?.template_id)||defaultTemplate;
  const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name+(x.store_id?' · '+storeName(x.store_id):' · General')}))];
  const customers=[{value:'',label:'Cliente nuevo / manual'},...state.data.customers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):isRect&&rectified?state.data.invoiceLines.filter(x=>x.invoice_id===rectified.id).sort((a,b)=>a.sort_order-b.sort_order).map(x=>({...x,quantity:-Number(x.quantity)})):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
@@ -1197,7 +1197,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
       ${!isProforma?formField(isRect?'Importe cobrado o devuelto':'Importe cobrado','ivPaidAmount',row?.paid_amount??0,'number','step="0.01" min="0"'):''}
       ${isRect?'<p class="note wide">En una rectificativa negativa, este importe corresponde al dinero devuelto al cliente y se escribe en positivo. Deja Pendiente si todavía no se ha devuelto.</p>':''}
       ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${(row?.include_in_income??(isRect?rectified?.include_in_income:false))?'checked':''} ${issued?'disabled':''}> Sumar esta factura a ingresos porque no está incluida en los cierres diarios</label>`:''}
-      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" ${issued?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
+      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" data-template-default="${esc(configuredTemplate?.notes_default||'')}" ${issued?'disabled':''}>${esc(row?.notes??configuredTemplate?.notes_default??'')}</textarea></label>
      </div></section>
     <details class="card card-pad design-details invoice-presentation"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid invoice-presentation-fields" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2" ${lock}>${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2" ${lock}>${esc(row?.footer_text||'')}</textarea></label></div></details>
    </div>
@@ -1209,15 +1209,18 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
 export function invoicePreview(row,logoUrl='',options={}){
  const lines=[...(options.lines||state.data.invoiceLines.filter(x=>x.invoice_id===row.id))].sort((a,b)=>a.sort_order-b.sort_order);
  const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
- const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id)||{});
+ const tpl=frozen||options.template||(state.data.templates.find(x=>x.id===row.template_id)||{});
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
  const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=frozen?.issuer||state.data.settings||{};
  const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',row.terms_text||tpl.payment_terms_default||''].filter(Boolean).join(' · ');
  const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='courier'?'Courier New, monospace':tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=({brand:'modern',clean:'minimal',compact:'classic'})[tpl.style]||tpl.style||'modern';
+ const logoPosition=['center','right'].includes(tpl.logo_position)?tpl.logo_position:'left';
+ const logo=logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo" style="width:${Math.max(10,Math.min(70,Number(tpl.logo_width_mm)||34))}mm;max-width:100%">`:'';
  return `<article class="invoice-preview invoice-style-${esc(style)}" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)};--invoice-text:${esc(textColor)};--invoice-font:${esc(font)}">
+  ${logo&&logoPosition!=='left'?`<div class="invoice-logo-banner invoice-logo-${logoPosition}">${logo}</div>`:''}
   <header class="invoice-document-head">
    <div class="invoice-company">
-    ${logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo" style="max-width:${Math.max(70,Math.min(260,Number(tpl.logo_width_mm||34)*4))}px">`:''}
+    ${logoPosition==='left'?logo:''}
     <div><b class="invoice-company-name">${esc(biz.business_name||'')}</b><div>${esc(biz.tax_id||'')}</div><div>${esc(biz.business_address||'')}</div>${tpl.show_company_email!==false&&biz.business_email?`<div>${esc(biz.business_email)}</div>`:''}${tpl.show_company_phone!==false&&biz.business_phone?`<div>${esc(biz.business_phone)}</div>`:''}</div>
    </div>
    <div class="invoice-identity"><div class="invoice-title">${esc(title)}</div><div class="invoice-number">${esc(row.display_number||row.external_number_text||'BORRADOR')}</div><div>Emisión: <b>${fmtDate(row.issue_date)}</b></div>${row.operation_date?`<div>Operación: <b>${fmtDate(row.operation_date)}</b></div>`:''}${row.due_date?`<div>Vencimiento: <b>${fmtDate(row.due_date)}</b></div>`:''}</div>

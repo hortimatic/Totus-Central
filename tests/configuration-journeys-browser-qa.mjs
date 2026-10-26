@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true}),page=await browser.newPage();const errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.locator('#nav [data-route="administracion"]').click();
+ await page.locator('[data-action="admin-section"][data-section="negocio"]').click();
+ await page.locator('#cfgBusiness').fill('Titular ficticio QA');
+ await page.locator('[data-action="config-save"]').click();
+ await page.waitForFunction(()=>window.__mockDb.ops_business_settings[0].business_name==='Titular ficticio QA');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate),21);
+ await page.locator('[data-action="admin-section"][data-section="fiscal"]').click();
+ await page.locator('#cfgVat').fill('125');await page.locator('[data-action="config-save"]').click();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate),21);
+ await page.locator('#cfgVat').fill('10');await page.locator('[data-action="config-save"]').click();
+ await page.waitForFunction(()=>window.__mockDb.ops_business_settings[0].default_sales_vat_rate===10);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_business_settings[0].business_name),'Titular ficticio QA');
+ await page.locator('[data-action="expense-category-new"]').click();
+ await page.locator('#ecCode').fill('QA_CATEGORY');await page.locator('#ecName').fill('Categoría ficticia QA');await page.locator('#ecReportGroup').selectOption('orders');
+ await page.locator('[data-action="expense-category-save"]').click();
+ const category=await page.evaluate(()=>window.__mockDb.ops_expense_categories.find(c=>c.code==='QA_CATEGORY'));
+ assert.equal(category.report_group,'orders');
+ await page.locator('[data-action="expense-category-edit"][data-id="'+category.id+'"]').click();
+ await page.locator('#ecReportGroup').selectOption('fixed');await page.locator('[data-action="expense-category-save"]').click();
+ await page.waitForFunction(id=>window.__mockDb.ops_expense_categories.find(c=>c.id===id).report_group==='fixed',category.id);
+ await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="series"]').click();
+ const initial=await page.evaluate(()=>window.__mockDb.ops_invoice_series.length);
+ await page.locator('[data-action="series-new"]').click();await page.locator('#srCode').fill('SERIEQA');await page.locator('#srPrefix').fill('QA-');
+ for(const [id,value] of [['srNext','1.5'],['srYear','2026.5'],['srPadding','4.5']]){
+  await page.locator('#srNext').fill('1');await page.locator('#srYear').fill('2026');await page.locator('#srPadding').fill('4');
+  await page.locator('#'+id).fill(value);await page.locator('[data-action="series-save"]').click();
+  assert.equal(await page.evaluate(()=>window.__mockDb.ops_invoice_series.length),initial,'Fractional numbering must be rejected, not silently rounded');
+ }
+ await page.locator('#srPadding').fill('4');await page.locator('[data-action="series-save"]').click();
+ await page.waitForFunction(n=>window.__mockDb.ops_invoice_series.length===n+1,initial);
+ const series=await page.evaluate(()=>window.__mockDb.ops_invoice_series.find(s=>s.code==='SERIEQA'));
+ assert.equal(series.year,2026);assert.equal(series.next_number,1);assert.equal(series.padding,4);
+ assert.deepEqual(errors,[]);
+ console.log('CONFIGURATION JOURNEYS: business/fiscal isolation, invalid rates, category colours, integer invoice numbering and persistence');
+}finally{await browser.close()}

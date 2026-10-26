@@ -1,6 +1,7 @@
 // Sandbox mock for browser end-to-end tests. No network or real Totus data.
 (()=>{
 const uuid=()=>crypto.randomUUID();
+const cents=v=>Math.sign(v)*Math.round((Math.abs(v)+Number.EPSILON)*100)/100;
 const storeA='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
 const storeB='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
 const userId='cccccccc-cccc-4ccc-cccc-cccccccccccc';
@@ -12,6 +13,8 @@ const db={
  ops_recovery_jobs:[],
  team_email_log:[],
  team_user_audit_log:[],
+ ops_chat_events:[],
+ ops_task_events:[],
  ops_roles:[{code:'admin',name:'Administrador',is_system:true,sort_order:0},{code:'gerente',name:'Gerencia',is_system:true,sort_order:10},{code:'encargado',name:'Encargado',is_system:true,sort_order:20}],
  ops_role_permissions:[],
  ops_user_permissions:[],
@@ -29,7 +32,7 @@ const db={
   {id:uuid(),store_id:storeA,code:'PH26',prefix:'PH-',padding:4,year:2026,next_number:1,document_type:'proforma',series_kind:'invoice',active:true},
   {id:uuid(),store_id:storeB,code:'N26',prefix:'N-',padding:4,year:2026,next_number:1,document_type:'factura',series_kind:'invoice',active:true}
  ],
- ops_document_templates:[{id:uuid(),name:'QA Minimal',code:'MIN',style:'minimal',active:true,default_invoice:true,default_proforma:true,primary_color:'#15243d',secondary_color:'#3b82f6',text_color:'#111827'}]
+ ops_document_templates:[{id:uuid(),name:'QA Minimal',code:'MIN',style:'clean',active:true,default_invoice:true,default_proforma:true,primary_color:'#15243d',secondary_color:'#3b82f6',text_color:'#111827'}]
 };
 const uploaded=new Map();
 for(const table of ['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences','ops_daily_closings','ops_daily_closing_drawers','ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_documents','ops_tax_payments','ops_reta_brackets','ops_fiscal_adjustments','ops_income_adjustments','ops_audit_log','brands','families','products','product_variants','providers','product_provider_prices','product_competitor_prices','consultations','consultation_history','price_history'])db[table]=[];
@@ -46,7 +49,7 @@ function syncDocumentLink(table,row){
  }
 }
 class Query{
- constructor(table){this.table=table;this.mode='select';this.value=null;this.filters=[];this.orderBy=null;this.rangeBy=null;}
+ constructor(table){this.table=table;this.mode='select';this.value=null;this.filters=[];this.orderBy=[];this.rangeBy=null;}
  select(){return this}
  insert(v){this.mode='insert';this.value=v;return this}
  update(v){this.mode='update';this.value=v;return this}
@@ -54,8 +57,9 @@ class Query{
  delete(){this.mode='delete';return this}
  eq(k,v){this.filters.push([k,v,'eq']);return this}
  neq(k,v){this.filters.push([k,v,'neq']);return this}
+ gte(k,v){this.filters.push([k,v,'gte']);return this}
  is(k,v){this.filters.push([k,v,'is']);return this}
- order(k,{ascending=false}={}){this.orderBy=[k,ascending];return this}
+ order(k,{ascending=false}={}){this.orderBy.push([k,ascending]);return this}
  range(a,b){this.rangeBy=[a,b];return this}
  limit(n){this.rangeBy=[0,n-1];return this}
  result(){
@@ -70,7 +74,7 @@ class Query{
     if(row.font_family!==undefined&&!['helvetica','times','courier'].includes(row.font_family))return {data:null,error:{message:'ops_document_templates_font_family_check'}};
    }
   }
-  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
+  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='gte'?r[k]>=v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
   if(this.mode==='insert'){
    if(window.__mockRejectInsertTable===this.table){
     window.__mockRejectInsertTable=null;
@@ -89,7 +93,7 @@ class Query{
   }
   if(this.mode==='update'){for(const r of matches){Object.assign(r,this.value);syncDocumentLink(this.table,r)}return {data:matches,error:null}}
   if(this.mode==='delete'){for(const r of matches){const i=target.indexOf(r);if(i>=0)target.splice(i,1)}return {data:matches,error:null}}
-  if(this.orderBy){const [key,ascending]=this.orderBy;matches=[...matches].sort((a,b)=>String(a[key]??'').localeCompare(String(b[key]??''))*(ascending?1:-1))}
+  if(this.orderBy.length)matches=[...matches].sort((a,b)=>{for(const [key,ascending] of this.orderBy){const cmp=typeof a[key]==='number'&&typeof b[key]==='number'?a[key]-b[key]:String(a[key]??'').localeCompare(String(b[key]??''));if(cmp)return cmp*(ascending?1:-1)}return 0;});
   if(this.rangeBy)matches=matches.slice(this.rangeBy[0],this.rangeBy[1]+1);
   return {data:matches,error:null};
  }
@@ -214,12 +218,12 @@ const rpc=async (name,args={})=>{
  if(name==='totus_save_expense'){
   const p=args.p_expense,lines=args.p_lines||[];let row=p.id?get('ops_expenses',p.id):null;
   if(!row)row=insert('ops_expenses',{});
-  const base=sum(lines,l=>l.base_amount),vat=sum(lines,l=>l.base_amount*l.vat_rate/100),re=sum(lines,l=>l.base_amount*l.re_rate/100),wh=sum(lines,l=>l.base_amount*l.withholding_rate/100);
-  Object.assign(row,p,{id:row.id,base_amount:base,vat_amount:vat,re_amount:re,withholding_amount:wh,accounting_amount:base+vat+re-wh,gross_expense:base+vat+re-wh});
+  const base=cents(sum(lines,l=>l.base_amount)),vat=cents(sum(lines,l=>cents(l.base_amount*l.vat_rate/100))),re=cents(sum(lines,l=>cents(l.base_amount*l.re_rate/100))),wh=cents(sum(lines,l=>cents(l.base_amount*l.withholding_rate/100)));
+  Object.assign(row,p,{id:row.id,base_amount:base,vat_amount:vat,re_amount:re,withholding_amount:wh,accounting_amount:cents(base+vat+re),gross_expense:cents(base+vat+re)});
   if(Object.hasOwn(p,'report_group')){const source=JSON.parse(row.source_ref||'{}');if(p.report_group)source.report_display={group:p.report_group};else delete source.report_display;row.source_ref=Object.keys(source).length?JSON.stringify(source):null;delete row.report_group;}
   syncDocumentLink('ops_expenses',row);
   db.ops_expense_lines=db.ops_expense_lines.filter(l=>l.expense_id!==row.id);
-  lines.forEach(l=>insert('ops_expense_lines',{...l,expense_id:row.id,vat_amount:l.base_amount*l.vat_rate/100,re_amount:l.base_amount*l.re_rate/100,withholding_amount:l.base_amount*l.withholding_rate/100,irpf_imputable:l.base_amount}));
+  lines.forEach(l=>insert('ops_expense_lines',{...l,expense_id:row.id,vat_amount:cents(l.base_amount*l.vat_rate/100),re_base:l.re_rate?l.base_amount:0,re_amount:cents(l.base_amount*l.re_rate/100),withholding_base:l.withholding_rate?l.base_amount:0,withholding_amount:cents(l.base_amount*l.withholding_rate/100),irpf_imputable:l.deductible_irpf&&!l.fixed_asset?cents((l.base_amount+cents(l.base_amount*l.vat_rate/100)+cents(l.base_amount*l.re_rate/100))*(l.deductible_pct??100)/100):0}));
   return {data:row.id,error:null};
  }
  if(name==='totus_save_sales_document'){

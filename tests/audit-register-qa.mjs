@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {combineAuditEvents,filterAuditEvents,mergeAuditRows} from '../src/audit-register.js';
+const events=Array.from({length:1105},(_,i)=>({id:String(i),created_at:new Date(Date.UTC(2026,0,1,0,i)).toISOString(),area:'gastos',action:'actualizar',detail:{concepto:'Alquiler'},user_email:'qa@example.invalid'}));
+const rows=combineAuditEvents({events,users:[{id:1,created_at:'2026-10-26T10:00:00Z',actor_email:'admin@example.invalid',action:'editar',target_email:'qa@example.invalid',status:'ok'}],chat:[{id:'c1',created_at:'2026-10-26T10:01:00Z',actor_email:'chat@example.invalid',action:'message_sent',channel_id:'private-channel',detail:{}}],tasks:[{id:'t1',created_at:'2026-10-26T10:02:00Z',actor_id:'p1',action:'completed',task_id:'task1',detail:{}}],people:[{id:'p1',email:'task@example.invalid'}],backups:[{id:'b1',started_at:'2026-10-26T00:35:00Z',finished_at:'2026-10-26T00:45:00Z',mode:'automatic',status:'success',files_count:2,rows_count:4}]});
+assert.equal(rows.length,1110);
+assert.equal(filterAuditEvents(rows,{from:'2026-01-01',to:'2026-01-01'}).length,1105,'Older events must not disappear after the 1000th');
+assert.equal(filterAuditEvents(rows,{area:'tareas',actor:'TASK@EXAMPLE.INVALID'})[0].id,'task:t1');
+assert.equal(filterAuditEvents(rows,{area:'chat'}).length,1);
+assert.equal(filterAuditEvents(rows,{area:'copias'}).length,2);
+assert.equal(filterAuditEvents(rows,{area:'gastos',query:'alquilér'}).length,1105);
+assert.equal(filterAuditEvents([{created_at:'2026-10-25T23:30:00Z',area:'x'}],{from:'2026-10-26',to:'2026-10-26'}).length,1,'Date filters use Madrid days');
+assert.equal(events.length,1105,'Do not mutate original history');
+assert.equal(mergeAuditRows(events,[events[0],{...events[1],action:'changed'}]).length,1105,'Inclusive timestamp refreshes must not duplicate events');
+assert.equal(mergeAuditRows(events,[{...events[1],action:'changed'}]).find(r=>r.id===events[1].id).action,'changed');
+console.log('AUDIT REGISTER QA: complete histories, module sources, actors, Madrid boundaries and combined filters');

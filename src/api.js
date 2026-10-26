@@ -1,6 +1,7 @@
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
 import {setRolePermissions} from './permissions.js';
+import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const assert=({error},ctx)=>{if(error)throw new Error(`${ctx}: ${error.message}`)};
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
@@ -12,13 +13,13 @@ const TABLE_KEYS={
  ops_roles:['code'],ops_role_permissions:['role','module'],
  ops_user_permissions:['email','module'],team_members:['email']
 };
-export async function select(table,{order,ascending=false,limit=100000,filter,allowTruncated=false}={}){
+export async function select(table,{order,ascending=false,limit=100000,filter,allowTruncated=false,columns='*'}={}){
  if(!Number.isSafeInteger(limit)||limit<1)throw new Error('Límite de consulta no válido.');
  const keys=TABLE_KEYS[table]||['id'];
  const sorts=[...new Set([...(order?[order]:[]),...keys])];
  const rows=[],pageSize=1000;let from=0;
  while(from<limit){
-  let q=sb.from(table).select('*');
+  let q=sb.from(table).select(columns);
   if(filter)q=filter(q);
   for(let i=0;i<sorts.length;i++)q=q.order(sorts[i],{ascending:i===0&&order?ascending:true});
   const size=Math.min(pageSize,limit-from);
@@ -135,12 +136,22 @@ export async function loadCore(){
  await reloadStorageUsage();
  if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{state.data.auditError=error.message});
 }
-export async function reloadAudit(){
+let auditHistoryCache=null;
+export async function reloadAudit({full=false}={}){
  if(!['admin','gerente'].includes(state.user?.role))return;
- const [events,users]=await Promise.all([
-  select('ops_audit_log',{order:'created_at',ascending:false,limit:1000,allowTruncated:true}),
-  state.user.role==='admin'?select('team_user_audit_log',{order:'created_at',ascending:false,limit:1000,allowTruncated:true}):Promise.resolve([])
+ const owner=state.user.email+':'+state.user.role;
+ const cache=!full&&auditHistoryCache?.owner===owner?auditHistoryCache:null;
+ const since=rows=>rows?.reduce((last,r)=>String(r.created_at||'')>last?String(r.created_at):last,'')||'';
+ const history=(table,rows)=>select(table,{order:'created_at',ascending:false,filter:since(rows)?q=>q.gte('created_at',since(rows)):undefined});
+ const [newEvents,newUsers,chat,tasks]=await Promise.all([
+  history('ops_audit_log',cache?.events),
+  state.user.role==='admin'?history('team_user_audit_log',cache?.users):Promise.resolve([]),
+  select('ops_chat_events',{order:'created_at',ascending:false}),
+  select('ops_task_events',{order:'created_at',ascending:false})
  ]);
- state.data.audit=[...events,...users.map(row=>({id:'team:'+row.id,created_at:row.created_at,user_email:row.actor_email,area:'usuarios',action:row.action,detail:{usuario:row.target_email,resultado:row.status,detalle:row.detail}}))].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,1000);
+ const backups=state.user.role==='admin'?await select('ops_backup_runs',{order:'started_at',ascending:false,columns:'id,mode,status,started_at,finished_at,files_count,rows_count,error_message'}):[];
+ const events=mergeAuditRows(cache?.events,newEvents),users=mergeAuditRows(cache?.users,newUsers);
+ auditHistoryCache={owner,events,users};
+ state.data.audit=combineAuditEvents({events,users,chat,tasks,backups,people:[...(state.data.team||[]),...(state.data.profiles||[])]});
  state.data.auditError='';state.data.auditUpdatedAt=new Date().toISOString();
 }

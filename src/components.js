@@ -230,10 +230,11 @@ export const formField=(label,id,value='',type='text',extra='')=>{const decimal=
 export const selectField=(label,id,options,value='',extra='')=>`<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label)}</span><select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
+ document.dispatchEvent(new CustomEvent('totus-modal-closing',{detail:{panel:host.querySelector('[data-modal-content]')}}));
  host.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal ${small?'small-modal':''}" data-modal-content="true"><div class="modal-head"><h2>${esc(title)}</h2><button class="close-btn" data-action="close-modal">×</button></div><div class="modal-body">${body}</div></section></div>`;
  const panel=host.querySelector('[data-modal-content]');queueMicrotask(()=>{if(panel?.isConnected)captureFormDraft(panel)});
 }
-export function closeModal(){document.getElementById('modalHost').innerHTML=''}
+export function closeModal(){const host=document.getElementById('modalHost');document.dispatchEvent(new CustomEvent('totus-modal-closing',{detail:{panel:host.querySelector('[data-modal-content]')}}));host.innerHTML=''}
 export function confirmAction(message,{phrase='',title='Confirmar eliminación',acceptLabel='Eliminar definitivamente'}={}){
  return new Promise(resolve=>{
   modal(title,`<p>${esc(message)}</p>${phrase?formField('Escribe '+phrase,'confirmPhrase'):''}<div class="form-actions"><button class="btn secondary" data-confirm="cancel">Cancelar</button><button class="btn danger" data-confirm="accept" ${phrase?'disabled':''}>${esc(acceptLabel)}</button></div>`,{small:true});
