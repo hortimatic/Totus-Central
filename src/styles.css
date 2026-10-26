@@ -726,3 +726,5 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 @media(max-width:700px){.header-tools{gap:3px}.header-tools>button{padding:4px 5px;min-height:34px}.header-clock b{font-size:12px}.header-clock small{display:none}.header-count{font-size:10px;min-width:14px;padding:1px 3px}.topbar #pageTitle{font-size:17px}.header-calendar{position:fixed;right:12px;top:72px}}
 
 @media(max-width:700px){.topbar{column-gap:6px;padding-left:10px;padding-right:10px}.header-tools{gap:2px}.header-tools>button{font-size:12px;gap:3px;padding:4px}.header-clock b{font-size:11px}.header-count{font-size:9px;min-width:12px;padding:1px 2px}.topbar .session-logout-mobile{padding:6px;font-size:11px}.topbar .mobile-only.icon-btn{padding:5px;width:30px;min-width:30px}}
+
+.topbar{min-width:0}.topbar>div:first-of-type{flex:1;min-width:0}.header-tools{flex:0 0 auto}
