@@ -99,6 +99,7 @@ jobs:
       - run: node tests/published-browser-qa.mjs
       - run: node tests/form-boundaries-browser-qa.mjs
       - run: node tests/session-startup-browser-qa.mjs
+      - run: node tests/header-tools-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/pricing-taxonomy-layout-qa.mjs
       - run: node tests/tasks-browser-qa.mjs
