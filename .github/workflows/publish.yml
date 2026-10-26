@@ -74,7 +74,8 @@ jobs:
           set -euo pipefail
           for attempt in {1..12}; do
             body="$(curl --location --fail --silent --show-error --max-time 15 "${PAGES_BASE%/}/build-info.json?run=$GITHUB_RUN_ID" || true)"
-            if printf '%s' "$body" | grep -Fq "\"commit\":\"$GITHUB_SHA\""; then exit 0; fi
+            html="$(curl --location --fail --silent --show-error --max-time 15 "${PAGES_BASE%/}/?run=$GITHUB_RUN_ID" || true)"
+            if printf '%s' "$body" | grep -Fq "\"commit\":\"$GITHUB_SHA\"" && printf '%s' "$html" | grep -Fq "src/app.js?v=$GITHUB_SHA"; then exit 0; fi
             sleep 5
           done
           echo 'Production commit was not visible after deployment' >&2

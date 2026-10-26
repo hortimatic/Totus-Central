@@ -62,16 +62,33 @@
 
 <script type="module" src="src/app.js"></script>
 <script>
-/* La versión se obtiene del artefacto realmente publicado, no de una rama local. */
+/* Identificar el código cargado, incluso si el navegador conserva un HTML antiguo. */
 (async function(){
+  const script=document.querySelector('script[type="module"][src*="src/app.js"]');
+  const loaded=script?new URL(script.getAttribute('src'),location.href).searchParams.get('v'):null;
+  const verified=/^[0-9a-f]{40}$/.test(loaded||'');
+  const labels=document.querySelectorAll('.app-build');
+  labels.forEach(el=>{el.textContent=verified?'· versión '+loaded.slice(0,8):'· versión local sin verificar'});
   try{
     const response=await fetch('./build-info.json?fresh='+Date.now(),{cache:'no-store'});
     if(!response.ok)throw new Error('Publicación no verificada');
     const build=await response.json();
     if(build.environment!=='production'||!/^[0-9a-f]{40}$/.test(build.commit))throw new Error('Sello inválido');
-    document.querySelectorAll('.app-build').forEach(el=>{el.textContent='· versión '+build.commit.slice(0,8)});
+    if(verified&&loaded!==build.commit){
+      const target=new URL(location.href);
+      target.searchParams.set('release',build.commit);
+      target.searchParams.set('totus_refresh',String(Date.now()));
+      labels.forEach(el=>{
+        const link=document.createElement('a');
+        link.href=target.href;
+        link.textContent='Actualizar';
+        link.title='Hay una versión nueva. Guarda tu trabajo antes de actualizar.';
+        link.setAttribute('aria-label','Cargar la nueva versión de Totus Central');
+        el.append(' · ',link);
+      });
+    }
   }catch{
-    document.querySelectorAll('.app-build').forEach(el=>{el.textContent='· publicación sin verificar'});
+    labels.forEach(el=>{el.title='No se ha podido comprobar si hay una versión nueva.'});
   }
 })();
 </script>

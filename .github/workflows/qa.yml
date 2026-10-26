@@ -52,6 +52,7 @@ jobs:
       - run: node tests/expense-totals-qa.mjs
       - run: node tests/template-copy-qa.mjs
       - run: node tests/template-render-qa.mjs
+        - run: node tests/loaded-version-qa.mjs
       - run: node tests/cross-view-integrity-qa.mjs
       - run: node tests/code-integrity.mjs
       - run: node tests/published-module-graph-qa.mjs
