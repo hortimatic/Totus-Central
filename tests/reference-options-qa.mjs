@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {editableReferences,expenseStoreSelection} from '../src/reference-options.js';
+import {editableReferences,expenseStoreSelection,reportDiaryStores,reportDiaryStore} from '../src/reference-options.js';
 import {state} from '../src/state.js';
 import {closingRecordHtml,expenseRecordHtml,invoiceRecordHtml} from '../src/pages/main.js';
 const rows=[{id:'a',name:'Activa',active:true},{id:'b',name:'Anterior',active:false},{id:'c',name:'Otra anterior',active:false}];
@@ -10,6 +10,10 @@ assert.equal(expenseStoreSelection(null,rows),'a');
 assert.equal(expenseStoreSelection({store_id:null},rows),'');
 assert.equal(expenseStoreSelection({store_id:'b'},rows),'b');
 assert.equal(expenseStoreSelection(null,rows,true),'');
+assert.equal(reportDiaryStores(rows,[]).length,3);
+assert.equal(reportDiaryStores(rows,[{store_id:null}]).at(-1).id,null);
+assert.equal(reportDiaryStore(rows,'__common__').id,null);
+assert.equal(reportDiaryStore(rows,'b').name,'Anterior');
 state.user={role:'admin'};state.session={user:{id:'user'}};state.data.settings={};
 state.data.stores=rows;state.data.drawers=[{id:'old-drawer',store_id:'b',name:'Caja anterior',active:false}];
 state.data.closingDrawers=[{id:'detail',closing_id:'close',drawer_id:'old-drawer',opening_cash:50,closing_cash:60,card_sales:20}];

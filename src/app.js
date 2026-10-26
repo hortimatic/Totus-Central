@@ -1,4 +1,4 @@
-import {editableReferences} from './reference-options.js';
+import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
 import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
@@ -2211,7 +2211,7 @@ function previewWorkbookExact(wb,title,downloadButton){
  document.querySelector('#modalHost .modal')?.classList.add('workbook-modal');
 }
 function reportStorePreview(storeId,year,month){
- const store=state.data.stores.find(x=>x.id===storeId);if(!store)return;
+ const store=reportDiaryStore(state.data.stores,storeId);if(!store)return;
  const wb=buildStoreMonthlyWorkbook({store,year,month,...selectReportData(state.data,getFilters('informes')),categories:state.data.categories});
  previewWorkbookExact(wb,`${store.name} · ${year}-${String(month).padStart(2,'0')}`,btn('Descargar Excel','export-store-book','primary',`data-store="${storeId}" data-year="${year}" data-month="${month}"`));
 }
@@ -2240,7 +2240,7 @@ function printGestorSource(){
  w.addEventListener('load',()=>{w.focus();w.print()},{once:true});
 }
 function exportStoreBook(storeId,year,month){
- const store=state.data.stores.find(x=>x.id===storeId);if(!store)throw new Error('Establecimiento no encontrado.');
+ const store=reportDiaryStore(state.data.stores,storeId);if(!store)throw new Error('Establecimiento no encontrado.');
  exportStoreMonthlyWorkbook({store,year,month,...selectReportData(state.data,getFilters('informes')),categories:state.data.categories});
 }
 let annualExportInProgress=false;
@@ -2250,7 +2250,7 @@ async function exportGestorPackage(year){
  modal('Preparando paquete anual','<p id="annualPackageProgress" role="status" aria-live="polite">Preparando libros y documentos…</p>');
  try{
  const annual=annualReportPlan(state.data,year);
- const zip=new window.JSZip(),args=reportArgs(year),stores=state.data.stores;
+ const zip=new window.JSZip(),args=reportArgs(year),stores=reportDiaryStores(state.data.stores,annual.expenses);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
  const incomeRows=[
   ...state.data.closings.filter(x=>x.include_in_income!==false&&String(x.business_date).startsWith(String(year))).map(x=>[fmtDate(x.business_date),state.data.stores.find(s=>s.id===x.store_id)?.name||'','Cierre',closingIncomeAmount(x),x.notes||'']),
@@ -2323,7 +2323,7 @@ async function exportGestorPeriodPackage(){
    ...plan.incomeAdjustments.map(x=>[x.income_date,'Ingreso registrado',n(x.amount),x.store_id,x.concept||''])
   ].sort((a,b)=>a[0].localeCompare(b[0]));
   income.file('Ingresos_'+plan.key+'.csv',csv(rows,[{label:'Fecha',get:r=>r[0]},{label:'Origen',get:r=>r[1]},{label:'Importe',get:r=>r[2]},{label:'Tienda',get:r=>state.data.stores.find(s=>s.id===r[3])?.name||'General'},{label:'Detalle',get:r=>r[4]}]));
-  for(const store of state.data.stores.filter(s=>plan.store==='all'||s.id===plan.store))for(const period of plan.months){
+  for(const store of reportDiaryStores(state.data.stores,plan.expenses).filter(s=>plan.store==='all'||s.id===plan.store))for(const period of plan.months){
    const wb=buildStoreMonthlyWorkbook({store,year:period.year,month:period.month,closings:plan.closings,expenses:plan.expenses,categories:state.data.categories,incomeAdjustments:plan.incomeAdjustments});
    diaries.file(safeFileSegment(store.name)+'/'+period.key+' Gastos y ventas.xlsx',workbookBlob(wb));
   }
