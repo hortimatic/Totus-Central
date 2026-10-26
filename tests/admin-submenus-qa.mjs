@@ -189,7 +189,10 @@ try{
  await page.locator('[data-action="admin-log-clear"]').click();
  assert(await page.locator('#content .data-table tbody tr').count()===3,'No se limpiaron filtros');
  await page.locator('[data-action="admin-log-refresh"]').click();
- assert(await page.locator('#content .data-table tbody tr').count()===3,'Actualizar Log perdió registros');
+ await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
+ const refreshedIds=await page.evaluate(async()=>(await import('../src/state.js')).state.data.audit.map(row=>String(row.id)));
+ for(const id of ['l1','l2','l3'])assert(refreshedIds.includes(id),'Actualizar Log perdió el registro '+id);
+ assert(await page.locator('#content .data-table tbody tr').count()>=3,'Actualizar Log perdió registros visibles');
  steps.push('log:clear+refresh');
  assert(!errors.length,'Errores JavaScript: '+errors.join('; '));
  console.log('ADMIN SUBMENUS QA: '+steps.join(', ')+' OK');

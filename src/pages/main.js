@@ -1156,6 +1156,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
  const activeTemplates=state.data.templates.filter(x=>x.active!==false&&(!x.store_id||x.store_id===selectedStore));
  const defaultTemplate=activeTemplates.find(x=>x.store_id===selectedStore&&(isProforma?x.default_proforma:x.default_invoice))
    ||activeTemplates.find(x=>!x.store_id&&(isProforma?x.default_proforma:x.default_invoice));
+ const configuredTemplate=state.data.templates.find(t=>t.id===row?.template_id)||defaultTemplate;
  const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name+(x.store_id?' · '+storeName(x.store_id):' · General')}))];
  const customers=[{value:'',label:'Cliente nuevo / manual'},...state.data.customers.filter(x=>x.active!==false).map(x=>({value:x.id,label:x.name}))];
  const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):isRect&&rectified?state.data.invoiceLines.filter(x=>x.invoice_id===rectified.id).sort((a,b)=>a.sort_order-b.sort_order).map(x=>({...x,quantity:-Number(x.quantity)})):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:21}];
@@ -1196,7 +1197,7 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
       ${!isProforma?formField(isRect?'Importe cobrado o devuelto':'Importe cobrado','ivPaidAmount',row?.paid_amount??0,'number','step="0.01" min="0"'):''}
       ${isRect?'<p class="note wide">En una rectificativa negativa, este importe corresponde al dinero devuelto al cliente y se escribe en positivo. Deja Pendiente si todavía no se ha devuelto.</p>':''}
       ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${(row?.include_in_income??(isRect?rectified?.include_in_income:false))?'checked':''} ${issued?'disabled':''}> Sumar esta factura a ingresos porque no está incluida en los cierres diarios</label>`:''}
-      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" ${issued?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
+      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" data-template-default="${esc(configuredTemplate?.notes_default||'')}" ${issued?'disabled':''}>${esc(row?.notes??configuredTemplate?.notes_default??'')}</textarea></label>
      </div></section>
     <details class="card card-pad design-details invoice-presentation"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid invoice-presentation-fields" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2" ${lock}>${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2" ${lock}>${esc(row?.footer_text||'')}</textarea></label></div></details>
    </div>
@@ -1208,15 +1209,18 @@ export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoic
 export function invoicePreview(row,logoUrl='',options={}){
  const lines=[...(options.lines||state.data.invoiceLines.filter(x=>x.invoice_id===row.id))].sort((a,b)=>a.sort_order-b.sort_order);
  const frozen=row.status!=='borrador'&&row.template_snapshot&&Object.keys(row.template_snapshot||{}).length?row.template_snapshot:null;
- const tpl=frozen||(state.data.templates.find(x=>x.id===row.template_id)||{});
+ const tpl=frozen||options.template||(state.data.templates.find(x=>x.id===row.template_id)||{});
  const title=row.document_type==='proforma'?(tpl.proforma_title||'FACTURA PROFORMA'):(row.invoice_kind==='rectifying'?'FACTURA RECTIFICATIVA':(tpl.invoice_title||'FACTURA'));
  const primary=tpl.primary_color||'#17365D',secondary=tpl.secondary_color||'#4472C4',biz=frozen?.issuer||state.data.settings||{};
  const paymentText=[row.payment_method?('Forma de pago: '+row.payment_method):'',row.paid_status&&row.document_type!=='proforma'?('Estado: '+row.paid_status):'',tpl.bank_details||'',row.terms_text||tpl.payment_terms_default||''].filter(Boolean).join(' · ');
  const textColor=tpl.text_color||'#17202A',font=tpl.font_family==='courier'?'Courier New, monospace':tpl.font_family==='georgia'?'Georgia, serif':tpl.font_family==='times'?'Times New Roman, serif':'Arial, Helvetica, sans-serif',style=({brand:'modern',clean:'minimal',compact:'classic'})[tpl.style]||tpl.style||'modern';
+ const logoPosition=['center','right'].includes(tpl.logo_position)?tpl.logo_position:'left';
+ const logo=logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo" style="width:${Math.max(10,Math.min(70,Number(tpl.logo_width_mm)||34))}mm;max-width:100%">`:'';
  return `<article class="invoice-preview invoice-style-${esc(style)}" style="--invoice-primary:${esc(primary)};--invoice-secondary:${esc(secondary)};--invoice-text:${esc(textColor)};--invoice-font:${esc(font)}">
+  ${logo&&logoPosition!=='left'?`<div class="invoice-logo-banner invoice-logo-${logoPosition}">${logo}</div>`:''}
   <header class="invoice-document-head">
    <div class="invoice-company">
-    ${logoUrl&&tpl.show_logo!==false?`<img src="${esc(logoUrl)}" alt="Logo" class="invoice-logo" style="max-width:${Math.max(70,Math.min(260,Number(tpl.logo_width_mm||34)*4))}px">`:''}
+    ${logoPosition==='left'?logo:''}
     <div><b class="invoice-company-name">${esc(biz.business_name||'')}</b><div>${esc(biz.tax_id||'')}</div><div>${esc(biz.business_address||'')}</div>${tpl.show_company_email!==false&&biz.business_email?`<div>${esc(biz.business_email)}</div>`:''}${tpl.show_company_phone!==false&&biz.business_phone?`<div>${esc(biz.business_phone)}</div>`:''}</div>
    </div>
    <div class="invoice-identity"><div class="invoice-title">${esc(title)}</div><div class="invoice-number">${esc(row.display_number||row.external_number_text||'BORRADOR')}</div><div>Emisión: <b>${fmtDate(row.issue_date)}</b></div>${row.operation_date?`<div>Operación: <b>${fmtDate(row.operation_date)}</b></div>`:''}${row.due_date?`<div>Vencimiento: <b>${fmtDate(row.due_date)}</b></div>`:''}</div>

@@ -2,6 +2,7 @@ import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
 import {templateCopyCode} from './template-copy.js';
+import {templateExample} from './template-preview.js';
 import {createTasks} from './tasks-ui.js';
 import {validateFormNumber} from './form-numbers.js';
 import {taskToday} from './tasks-core.js';
@@ -841,7 +842,7 @@ async function printInvoice(id){
  try{w.opener=null}catch{}
  const logo=await invoiceLogoUrl(row);
  const html=invoicePreview(row,logo).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(row.display_number||'Documento')}</title><link rel="stylesheet" href="${new URL('src/styles.css',location.href).href}"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ writeInvoicePrintWindow(w,html,row.display_number||'Documento');
 }
 async function convertProforma(id){
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
@@ -1146,8 +1147,9 @@ async function deleteCustomer(id){
  await remove('ops_customers',id);closeModal();await refresh('Cliente eliminado.');
 }
 function templateForm(row=null){
+ clearTemplatePreview();
  const stores=[{value:'',label:'General'},...state.data.stores.filter(x=>x.active!==false).map(s=>({value:s.id,label:s.name}))];
- const body=`<div class="form-grid">
+ const body=`<div class="template-editor"><div class="template-editor-layout"><div class="template-editor-fields"><div class="form-grid">
   ${formField('Nombre','tpName',row?.name||'')}
   ${formField('Código','tpCode',row?.code||'')}
   ${selectField('Tienda','tpStore',stores,row?.store_id||'')}
@@ -1163,7 +1165,7 @@ function templateForm(row=null){
   <label class="wide">Logo<input id="tpLogo" type="file" accept="image/png,image/jpeg,image/webp"></label>
   <label class="wide">Cabecera<textarea id="tpHeader" rows="2">${esc(row?.header_text||'')}</textarea></label>
   <label class="wide">Pie<textarea id="tpFooter" rows="2">${esc(row?.footer_text||'')}</textarea></label>
-  <label class="wide">Notas por defecto<textarea id="tpNotes" rows="2">${esc(row?.notes_default||'')}</textarea></label>
+  <label class="wide">Notas internas por defecto<textarea id="tpNotes" rows="2">${esc(row?.notes_default||'')}</textarea><small>No se imprimen en la factura.</small></label>
   <label class="wide">Condiciones de pago<textarea id="tpTerms" rows="2">${esc(row?.payment_terms_default||'')}</textarea></label>
   <label class="wide">Datos bancarios<textarea id="tpBank" rows="2">${esc(row?.bank_details||'')}</textarea></label>
   <label class="check-field"><input id="tpShowLogo" type="checkbox" ${row?.show_logo===false?'':'checked'}> Mostrar logo</label>
@@ -1172,9 +1174,52 @@ function templateForm(row=null){
   <label class="check-field"><input id="tpShowPhone" type="checkbox" ${row?.show_company_phone===false?'':'checked'}> Mostrar teléfono</label>
   <label class="check-field"><input id="tpDefaultInvoice" type="checkbox" ${row?.default_invoice?'checked':''}> Predeterminada factura</label>
   <label class="check-field"><input id="tpDefaultProforma" type="checkbox" ${row?.default_proforma?'checked':''}> Predeterminada proforma</label>
- </div>${row?.logo_name?`<div class="note" style="margin-top:12px">Logo actual: ${esc(row.logo_name)}</div>`:''}
- <div class="form-actions">${row?btn('Duplicar','template-duplicate','secondary',`data-id="${row.id}"`):''}${btn('Guardar plantilla','template-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ </div>${row?.logo_name?`<div class="note" style="margin-top:12px">Logo actual: ${esc(row.logo_name)}</div>`:''}</div>
+ <aside class="template-editor-preview"><h3>Vista previa sin guardar</h3><p class="small muted">Los cambios se ven aquí sin subir el logo ni crear facturas.</p><div class="inline-actions">${selectField('Documento de ejemplo','tpPreviewType',[{value:'factura',label:'Factura'},{value:'proforma',label:'Proforma'}],'factura','data-draft-ignore')}${btn('Imprimir / Guardar PDF','template-preview-print','secondary')}</div><div id="templatePreviewMessage" class="small muted" role="status"></div><div id="templateDraftPreview" class="invoice-live-preview"></div></aside></div>
+ <div class="form-actions template-editor-actions">${row?btn('Duplicar','template-duplicate','secondary',`data-id="${row.id}"`):''}${btn('Cancelar','close-modal','secondary')}${btn('Guardar plantilla','template-save','primary',row?`data-id="${row.id}"`:'')}</div></div>`;
  modal(row?'Editar plantilla':'Nueva plantilla',body);
+ templatePreviewContext={panel:$('#modalHost [data-modal-content]'),host:input('templateDraftPreview'),current:row||{},sequence:0,html:'',url:null,file:null};
+ updateTemplateDraftPreview();
+}
+let templatePreviewContext=null;
+const logoValidation=new WeakMap();
+function validateLogoFile(file){
+ if(!logoValidation.has(file))logoValidation.set(file,(async()=>{const url=URL.createObjectURL(file);try{const image=new Image();image.src=url;await image.decode();if(!image.naturalWidth||!image.naturalHeight)throw new Error();}catch{throw new Error('El archivo no contiene una imagen válida. Selecciona otro logo.');}finally{URL.revokeObjectURL(url);}})());
+ return logoValidation.get(file);
+}
+function clearTemplatePreview(){const c=templatePreviewContext;if(!c)return;c.observer?.disconnect();if(c.url)URL.revokeObjectURL(c.url);templatePreviewContext=null;}
+document.addEventListener('totus-modal-closing',e=>{if(templatePreviewContext?.panel===e.detail?.panel)clearTemplatePreview();});
+function readTemplateFields(){
+ return {name:val('tpName').trim(),code:val('tpCode').trim().toUpperCase(),store_id:val('tpStore')||null,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),text_color:val('tpTextColor'),font_family:val('tpFont'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,show_payment_details:input('tpShowPayment')?.checked!==false,show_company_email:input('tpShowEmail')?.checked!==false,show_company_phone:input('tpShowPhone')?.checked!==false,default_invoice:!!input('tpDefaultInvoice')?.checked,default_proforma:!!input('tpDefaultProforma')?.checked,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),notes_default:val('tpNotes').trim(),payment_terms_default:val('tpTerms').trim(),bank_details:val('tpBank').trim()};
+}
+async function updateTemplateDraftPreview(){
+ const context=templatePreviewContext,host=input('templateDraftPreview');if(!context||context.host!==host||!host?.isConnected)return;
+ const sequence=++context.sequence,template=readTemplateFields();
+ try{
+  let logo='';const file=input('tpLogo')?.files?.[0]||null;
+  if(file&&(!['image/png','image/jpeg','image/webp'].includes(file.type)||!file.size||file.size>5*1024*1024))throw new Error('Selecciona un logo PNG, JPG o WEBP de hasta 5 MB.');
+  if(file)await validateLogoFile(file);
+  if(context!==templatePreviewContext||sequence!==context.sequence||!host.isConnected)return;
+  if(file!==context.file){if(context.url)URL.revokeObjectURL(context.url);context.file=file;context.url=file?URL.createObjectURL(file):null;}
+  if(template.show_logo){
+   if(context.url)logo=context.url;
+   else if(context.current.logo_path){if(!context.savedLogo||context.savedLogoExpires<Date.now()){context.savedLogo=signedUrl('business-assets',context.current.logo_path,300);context.savedLogoExpires=Date.now()+240000;}logo=await context.savedLogo;}
+  }
+  if(context!==templatePreviewContext||sequence!==context.sequence||!host.isConnected)return;
+  const example=templateExample(template,val('tpPreviewType'),isoToday());
+  context.html=invoicePreview(example.row,logo,{template,lines:example.lines,actions:false});
+  host.innerHTML=context.html;input('templatePreviewMessage').textContent='Ejemplo de 121,00 € · sin guardar ni emitir.';
+  const fit=()=>{if(host.isConnected&&host.clientWidth)host.style.setProperty('--preview-scale',String(Math.min(1,host.clientWidth/794)))};fit();
+  if(!context.observer){context.observer=new ResizeObserver(fit);context.observer.observe(host);}
+ }catch(error){context.savedLogo=null;if(context===templatePreviewContext&&sequence===context.sequence){context.html='';host.innerHTML='';input('templatePreviewMessage').textContent='No se puede mostrar la vista previa: '+error.message;}}
+}
+async function printTemplatePreview(){
+ const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
+ try{w.opener=null;await updateTemplateDraftPreview();const context=templatePreviewContext;if(!context?.html)throw new Error('Espera a que se cargue una vista previa válida.');let html=context.html;if(context.file&&context.url){const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('No se pudo leer el logo seleccionado.'));reader.readAsDataURL(context.file);});html=html.replaceAll(context.url,data);}writeInvoicePrintWindow(w,html,'Ejemplo de plantilla · sin emitir');}catch(error){w.close();throw error;}
+}
+function writeInvoicePrintWindow(w,html,title){
+ const stylesheet=document.querySelector('link[rel="stylesheet"][href*="styles.css"]')?.href||new URL('src/styles.css',location.href).href;
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><link rel="stylesheet" href="${esc(stylesheet)}"><style>body{padding:28px;background:white}.btn,.form-actions{display:none!important}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=false}={}){
  if(!invoice&&!proforma)return;
@@ -1188,14 +1233,10 @@ async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=fal
 }
 async function previewTemplate(id){
  const tpl=state.data.templates.find(x=>x.id===id);if(!tpl)return;
- let logo='';if(tpl.logo_path&&tpl.show_logo!==false){try{logo=await signedUrl('business-assets',tpl.logo_path,300)}catch{}}
- const fakeId='__template_preview__'+id;
- const line={id:'__preview_line__',invoice_id:fakeId,sort_order:10,description:'Ejemplo de concepto o producto',quantity:2,unit_price_base:50,discount_pct:0,vat_rate:21,total_amount:121};
- state.data.invoiceLines.push(line);
- try{
-   const row={id:fakeId,template_id:id,status:'borrador',document_type:'factura',invoice_kind:'invoice',display_number:'EJEMPLO-0001',issue_date:isoToday(),customer_name:'Cliente de ejemplo',customer_tax_id:'12345678Z',customer_address:'Dirección del cliente',customer_email:'cliente@ejemplo.es',concept:'Vista previa de plantilla',payment_method:'transferencia',paid_status:'pendiente',paid_amount:0,base_amount:100,vat_amount:21,total_amount:121};
-   modal('Vista previa · '+tpl.name,invoicePreview(row,logo));
- }finally{state.data.invoiceLines=state.data.invoiceLines.filter(x=>x.id!=='__preview_line__')}
+ let logo='';if(tpl.logo_path&&tpl.show_logo!==false)logo=await signedUrl('business-assets',tpl.logo_path,300);
+ const example=templateExample(tpl,'factura',isoToday()),html=invoicePreview(example.row,logo,{template:tpl,lines:example.lines,actions:false});
+ modal('Vista previa · '+tpl.name,`<div id="templateSavedPreview">${html}</div><div class="form-actions">${btn('Imprimir / Guardar PDF','template-preview-print','primary')}</div>`);
+ templatePreviewContext={panel:$('#modalHost [data-modal-content]'),html};
 }
 
 function logoReferencedElsewhere(path,excludeTemplateId=''){
@@ -1216,6 +1257,7 @@ async function saveTemplate(id=''){
   if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('El logo debe ser PNG, JPG o WEBP.');
   if(!file.size)throw new Error('El logo seleccionado está vacío.');
   if(file.size>5*1024*1024)throw new Error('El logo supera 5 MB.');
+  await validateLogoFile(file);
   const usage=await verifiedStorageMetrics();
   if(Number(usage.total_bytes)+file.size-Number(current?.logo_size_bytes||0)>Number(usage.limit_bytes))
    throw new Error('No queda suficiente almacenamiento para el logo.');
@@ -1229,7 +1271,7 @@ async function saveTemplate(id=''){
   logoPath=uploadedPath;logoName=file.name;logoMime=file.type;logoSize=file.size;
  }
  let savedTemplate=null;
- const row={name,code,store_id:storeId,style:val('tpStyle'),primary_color:val('tpPrimary'),secondary_color:val('tpSecondary'),text_color:val('tpTextColor'),font_family:val('tpFont'),logo_position:val('tpLogoPos'),logo_width_mm:Math.min(70,Math.max(10,n(val('tpLogoWidth'))||34)),show_logo:input('tpShowLogo')?.checked!==false,show_payment_details:input('tpShowPayment')?.checked!==false,show_company_email:input('tpShowEmail')?.checked!==false,show_company_phone:input('tpShowPhone')?.checked!==false,default_invoice:defaultInvoice,default_proforma:defaultProforma,invoice_title:val('tpInvoiceTitle').trim()||'FACTURA',proforma_title:val('tpProformaTitle').trim()||'FACTURA PROFORMA',header_text:val('tpHeader').trim(),footer_text:val('tpFooter').trim(),notes_default:val('tpNotes').trim(),payment_terms_default:val('tpTerms').trim(),bank_details:val('tpBank').trim(),logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
+ const row={...readTemplateFields(),name,code,store_id:storeId,default_invoice:defaultInvoice,default_proforma:defaultProforma,logo_path:logoPath,logo_name:logoName,logo_mime:logoMime,logo_size_bytes:logoSize,active:true,updated_at:new Date().toISOString()};
  try{
   savedTemplate=id?await update('ops_document_templates',id,row):await insert('ops_document_templates',row);
  }catch(e){throw uploadedPath?await rollbackUploadedFile('business-assets',uploadedPath,e):e}
@@ -2482,6 +2524,7 @@ document.addEventListener('click',async e=>{
   if(a==='customer-save'){await saveCustomer(el.dataset.id||'');return}
   if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
   if(a==='template-preview'){await previewTemplate(el.dataset.id);return}
+  if(a==='template-preview-print'){await printTemplatePreview();return}
   if(a==='template-duplicate'){await duplicateTemplate(el.dataset.id);return}
   if(a==='template-new'){templateForm();return}
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
@@ -2633,6 +2676,7 @@ document.addEventListener('click',async e=>{
 });
 
 document.addEventListener('input',e=>{
+ if(e.target?.id?.startsWith('tp')&&input('templateDraftPreview'))updateTemplateDraftPreview();
  if(e.target?.id==='pricingConsultationQuery'){const q=searchText(e.target.value);for(const row of document.querySelectorAll('#pricingConsultations [data-consultation-name]'))row.hidden=!!q&&!searchText(row.dataset.consultationName).includes(q);return}
  if(e.target?.id?.startsWith('pd'))updateProductStudy();
  if(e.target?.id==='roleCode')e.target.dataset.manual='1';
@@ -2653,6 +2697,11 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id?.startsWith('tp')&&input('templateDraftPreview'))updateTemplateDraftPreview();
+ if(e.target?.id==='ivTemplate'){
+  const notes=input('ivNotes'),next=state.data.templates.find(t=>t.id===e.target.value)?.notes_default||'';
+  if(notes&&!notes.disabled){if(!notes.value||notes.value===notes.dataset.templateDefault)notes.value=next;notes.dataset.templateDefault=next;}
+ }
  if(e.target?.id==='prDiscountVariant'){updateProductStudy();return}
  if(e.target?.id==='prType'){
   if(input('prInitialProvider'))input('prInitialProvider').hidden=e.target.value==='variants';

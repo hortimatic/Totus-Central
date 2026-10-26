@@ -18,6 +18,12 @@ No se han creado gastos, cierres, facturas, usuarios ni tareas ficticios en prod
 | Filtros del Log en edición | Actualizar podía borrar valores escritos todavía sin aplicar. | La actualización conserva valores, foco y selección. Escribir no aplica un filtro hasta pulsar Aplicar. |
 | Duplicar plantillas con códigos largos | Un código de 50 caracteres provocaba un bucle al truncar también el sufijo de copia. | Se reserva espacio para el sufijo y se comprueba unicidad sin bucle ilimitado. Se mantienen estilo, contenido y originales predeterminados. |
 | Numeración de series decimal | Año, dígitos y siguiente número se redondeaban silenciosamente. | Se exigen números enteros válidos antes de guardar, sin cambiar el valor elegido. |
+| Posición y tamaño del logo | La posición guardada no se utilizaba al generar la factura; el tamaño se aproximaba en píxeles. | Centro y derecha se aplican a la cabecera; izquierda conserva la disposición junto al titular. El ancho se expresa en milímetros. |
+| Tipografía de la plantilla | Clásica imponía Georgia aunque se eligiese otra fuente. | Los tres estilos respetan la fuente seleccionada. |
+| Vista previa e impresión de plantilla | El ejemplo ofrecía imprimir una factura que no existía como registro: el botón no hacía nada. | Ejemplo independiente de los registros contables, imprimible y exportable a PDF sin guardar. La impresión usa los estilos de la versión actual. |
+| Edición de colores y comprobación del diseño | Selectores casi invisibles; no había comprobación en vivo de los cambios sin guardar. | Colores visibles, vista previa con factura/proforma, todos los campos conservados y acciones completas visibles en cuatro tamaños. |
+| Logo dañado | Se comprobaba tipo/tamaño, pero no que la imagen se pudiese leer. | Validación de imagen antes de subir. El logo local se previsualiza sin enviarlo al servidor y el PDF no depende de una URL temporal del editor. |
+| Notas predeterminadas | Se guardaban sin aplicarse a las notas de una nueva factura. | Se identifican como internas y se trasladan a ese campo, conservando las notas personalizadas al cambiar de plantilla. Nunca se imprimen. |
 
 ## Recorridos revisados por módulo
 
@@ -68,6 +74,7 @@ La actualización automática consulta las novedades del historial general y de 
 ## Reproducción y protocolo de cambios
 
 Las pruebas nuevas son `audit-register-qa`, `audit-loading-qa`, `audit-register-browser-qa`, `expense-totals-qa`, `expense-credit-browser-qa`, `expense-rounding-browser-qa`, `template-copy-qa`, `template-copy-browser-qa` y `configuration-journeys-browser-qa`, todas en `tests/` e incluidas en el flujo de revisión.
+La revisión profunda del editor añade `template-render-qa` y `template-editor-browser-qa`: colores, tres estilos, fuentes, posiciones/tamaño del logo, imagen inválida, cabecera/pie con saltos, campos ocultos, notas internas, cambios sin guardar, factura/proforma, PDF real, guardado y reapertura. Se comprueban 1440, 768, 390 y 320 píxeles y que Guardar/Cancelar no queden recortados.
 Ejecutar los recorridos y la batería `.github/workflows/qa.yml`, revisar sus resultados y los trabajos de base de datos desechable antes de publicar. No aceptar solo comprobaciones estáticas o un número de pruebas como prueba de ausencia absoluta de fallos.
 Publicar mediante la rama de revisión y el control de calidad de GitHub. Releer el estado actual antes de editar; no sobrescribir cambios ajenos. Conservar los datos, fórmulas fiscales y funciones que no forman parte de la corrección. Si falla una comprobación, resolverla antes de dar el caso por cerrado.
 
