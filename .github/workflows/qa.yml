@@ -19,6 +19,7 @@ jobs:
       - run: node tests/team-chat-qa.mjs
       - run: node tests/stock-cloud-import-qa.mjs
       - run: node tests/pricing-variants-qa.mjs
+      - run: node tests/quick-price-validation-qa.mjs
       - run: node tests/stock-core-qa.mjs
       - run: node tests/stock-workflow-qa.mjs
       - run: node tests/stock-backup-qa.mjs

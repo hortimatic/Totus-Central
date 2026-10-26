@@ -35,6 +35,38 @@ export function parseDecimal(value){
  return Number.isFinite(n)?n:0;
 }
 
+
+/** Strict validation for manually entered price consultations (not imported product data).
+ * The quick calculation keeps its existing arithmetic and supports both comma and dot decimals.
+ */
+export function validateQuickPriceInput({cost,pvp,competitor='',discount=''}={}){
+ const decimal=(label,raw,{optional=false,positive=false,max=Infinity}={})=>{
+  if(raw==null||String(raw).trim()===''){
+   if(optional)return 0;
+   throw new Error(label+': introduce un importe válido.');
+  }
+  const text=String(raw).trim().replace(/\s/g,'');
+  // A single separator is a decimal separator. When both exist, the last one is decimal.
+  const decimalForm=/^\+?\d+(?:[.,]\d+)?$/;
+  const groupedEs=/^\+?\d{1,3}(?:\.\d{3})+,\d+$/;
+  const groupedEn=/^\+?\d{1,3}(?:,\d{3})+\.\d+$/;
+  if(!decimalForm.test(text)&&!groupedEs.test(text)&&!groupedEn.test(text)){
+   throw new Error(label+': escribe un número válido con punto o coma decimal.');
+  }
+  const amount=parseDecimal(text);
+  if(!Number.isFinite(amount)||amount<0||(positive&&amount===0)||amount>max){
+   throw new Error(label+': '+(positive?'debe ser mayor que cero':max===100?'debe estar entre 0 y 100':'no puede ser negativo')+'.');
+  }
+  return amount;
+ };
+ return {
+  cost:decimal('Coste de compra',cost),
+  pvp:decimal('PVP',pvp,{positive:true}),
+  competitor:decimal('Competencia',competitor,{optional:true}),
+  discount:decimal('Descuento',discount,{optional:true,max:100})
+ };
+}
+
 // paid_amount is always a positive magnitude: receipts on positive invoices,
 // refunds on negative rectifying invoices. Never subtract a refund from receivables.
 export const isInvoiceRefund=row=>row?.invoice_kind==='rectifying'&&Number(row.total_amount)<0;

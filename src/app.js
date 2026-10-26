@@ -24,7 +24,7 @@ import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,r
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
-import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
+import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,validateQuickPriceInput,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
@@ -1026,14 +1026,23 @@ function updateVariantStudy(){
  el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){
- const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
+ const inputs={cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount')};
+ let r;
+ try{
+  r=quickPriceStudy({...validateQuickPriceInput(inputs),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+  set('pqPriceError','');
+ }catch(error){
+  for(const id of ['pqReal','pqSale','pqMargin','pqMarginPct','pqCompetition'])set(id,'—');
+  set('pqPriceError',inputs.cost!==''&&inputs.pvp!==''?error.message:'');
+  return;
+ }
  set('pqReal',money(r.costReal));set('pqSale',money(r.finalSale));set('pqMargin',money(r.margin),r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqMarginPct',r.marginPct.toFixed(1).replace('.',',')+' %',r.margin<0?'danger-text':r.marginPct<18?'warn-text':'good-text');set('pqCompetition',r.competitorDiff==null?'—':((r.competitorDiff>0?'+':'')+money(r.competitorDiff)),r.competitorDiff==null?'':r.competitorDiff>0?'warn-text':'good-text');
 }
 async function saveConsultation(id=''){
  if(id&&!state.data.consultations.some(c=>c.id===id))throw new Error('La consulta ya no existe. Vuelve a cargarla.');
  const query=required('pqQuery','Consulta');
- const r=quickPriceStudy({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+ const r=quickPriceStudy({...validateQuickPriceInput({cost:val('pqCost'),pvp:val('pqPvp'),competitor:val('pqCompetitor'),discount:val('pqDiscount')}),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const values={query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,updated_at:new Date().toISOString()};
  const row=id?await update('consultations',id,values):await insert('consultations',{...values,created_by:state.user?.id||null,last_reopened_at:null});
  const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:id?'ACTUALIZADA':'CREADA',consultation_query:query,snapshot:row});
@@ -2090,8 +2099,17 @@ function applyFilter(prefix){
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
 function updateHomePrice(){
- const result=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const set=(id,text,cls='')=>{const el=document.getElementById(id);if(el){el.textContent=text;el.className=cls}};
+ const inputs={cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount')};
+ let result;
+ try{
+  result=quickPriceStudy({...validateQuickPriceInput(inputs),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+  set('homePriceError','');
+ }catch(error){
+  for(const id of ['homePriceReal','homePriceSale','homePriceMargin','homePriceMarginPct','homePriceCompetition'])set(id,'—');
+  set('homePriceError',inputs.cost!==''&&inputs.pvp!==''?error.message:'');
+  return;
+ }
  set('homePriceReal',money(result.costReal));
  set('homePriceSale',money(result.finalSale));
  set('homePriceMargin',money(result.margin),result.margin<0?'danger-text':result.marginPct<18?'warn-text':'good-text');
@@ -2100,7 +2118,7 @@ function updateHomePrice(){
 }
 async function saveHomePrice(){
  const query=required('homePriceQuery','Producto / referencia');
- const r=quickPriceStudy({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount'),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
+ const r=quickPriceStudy({...validateQuickPriceInput({cost:val('homePriceCost'),pvp:val('homePricePvp'),competitor:val('homePriceCompetitor'),discount:val('homePriceDiscount')}),vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2});
  const row=await insert('consultations',{query,cost_net:r.cost,pvp:r.pvp,competitor:r.competitor,discount:r.discount,cost_real:r.costReal,final_sale:r.finalSale,margin:r.margin,margin_pct:r.marginPct,created_by:state.user?.id||null,last_reopened_at:null,updated_at:new Date().toISOString()});
  const logged=await recordConsultationHistory({consultation_id:row.id,user_id:state.user?.id||null,action:'CREADA',consultation_query:query,snapshot:{...row,source:'inicio'}});
  await refresh(logged?'Consulta guardada.':'Consulta guardada, pero no se pudo guardar su historial.');
