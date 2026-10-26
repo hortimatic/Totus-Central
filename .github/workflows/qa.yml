@@ -32,6 +32,7 @@ jobs:
       - run: node tests/document-removal-protocol-qa.mjs
       - run: node tests/document-removal-worker-qa.mjs
       - run: node tests/business-write-qa.mjs
+      - run: node tests/draft-income-qa.mjs
       - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/credential-renewal-qa.mjs
       - run: node tests/backup-retention-qa.mjs

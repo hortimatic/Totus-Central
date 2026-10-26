@@ -29,8 +29,8 @@ import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,markFormFieldSaved} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
-import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
-import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
+import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
+import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
 import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
@@ -52,7 +52,7 @@ async function resumeBusinessForm(route){
  const result=await businessWriter.resume($('#content > .page'));
  if(!result){await businessWriter.ensure();return false;}
  const doc=result.args.p_document;
- setView(route,{mode:'record',id:result.id,...(doc?{docType:doc.document_type,invoiceKind:doc.invoice_kind,origin:doc.origin}:{})});
+ setView(route,{mode:'record',id:result.id,...(route==='cajas'?{reconcileSource:false}:{}),...(doc?{docType:doc.document_type,invoiceKind:doc.invoice_kind,origin:doc.origin}:{})});
  await refresh('Guardado confirmado. No se ha creado otro registro.');return true;
 }
 const headerTools=createHeaderTools({rpc,actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{if(!state.user||!can(route,'view')||!await allowDiscardDrafts())return;closeModal();if(route==='tareas')pendingTaskDate=date;setRoute(route);render();}});
@@ -238,20 +238,25 @@ function refreshMaintenanceNotice(){
   host.innerHTML=html;host.hidden=!html;
  }).catch(()=>{});
 }
+let refreshGeneration=0;
+const sessionViewOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
 async function refresh(message=''){
+ if(!state.user)return;
+ const owner=sessionViewOwner(),generation=++refreshGeneration,current=()=>sessionViewOwner()===owner&&generation===refreshGeneration;
  state.loading=true;
  try{
-  await loadCore();
+  if(await loadCore()===false||!current())return;
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
   if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else render()
  }
  catch(e){
+  if(!current())return;
   console.error(e);toast(e.message,'bad');
   const content=$('#content');
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
- finally{state.loading=false}
+ finally{if(current())state.loading=false}
 }
 let auditRefreshInFlight=false;
 async function refreshAuditPanel({full=false}={}){
@@ -1022,7 +1027,7 @@ async function saveVariant(productId,id=''){
  closeModal();await refresh(historySaved?'Variante guardada.':'Variante guardada, pero no se pudo registrar su historial.');refreshPricingPanels(productId);
 }
 async function deleteVariant(productId,id){
- if(!confirm('¿Eliminar esta variante?'))return;
+ if(!confirm('¿Eliminar esta variante y sus precios e historial asociados? Las demás variantes del producto se conservan.'))return;
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
 }
 function updateProductStudy(){
@@ -1508,6 +1513,7 @@ async function previewDocument(id){
  }else{
    body='<div class="note">Este formato no admite vista previa integrada, pero sí descarga.</div>';
  }
+ if(!loadingPanel?.isConnected)return;
  modal(d.original_name||'Documento',`<div class="stack">${body}<div class="form-actions">${btn('Descargar','document-download','primary',`data-id="${d.id}"`)}</div></div>`);
 }
 function documentIsLinked(id){
@@ -2879,7 +2885,22 @@ async function boot(){
  await refresh();chatNotifier.start();headerTools.start();
  }finally{$('#login').classList.remove('checking-session')}
 }
-sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
+function clearSessionView(){
+ ++refreshGeneration;state.user=null;resetSessionData();setRolePermissions([]);
+ headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
+ closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
+ $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
+}
+sb.auth.onAuthStateChange((event,session)=>{
+ state.session=session;
+ if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}
+ if(event==='SIGNED_OUT'){clearSessionView();return;}
+ if(event==='SIGNED_IN'&&state.user&&session?.user?.id!==state.user.id){
+  clearSessionView();
+  // Supabase auth callbacks must finish before starting authenticated IO.
+  setTimeout(()=>boot().catch(e=>{$('#loginMessage').textContent=e.message;}),0);
+ }
+});
 
 // Poll only while the Storage subtab is visible: no background traffic on other pages.
 setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);

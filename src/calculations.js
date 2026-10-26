@@ -17,12 +17,22 @@ export function sourceClosingReconciled(closing){
  return cents(cash)>=0&&cents(cash)===cents(closing.cash_sales)&&cents(total)===cents(approval.total);
 }
 /** A raw register snapshot may contain carried cash; it is not a verified sale. */
-export function closingIncomeAmount(closing){
+export function closingSalesAmount(closing){
  if(!closing||closing.include_in_income===false)return 0;
  if(closing.entry_mode==='source_snapshot'&&!sourceClosingReconciled(closing)){
   throw new Error('El dato «al fin» del origen no es una venta verificada. Concilia el cierre y conserva la referencia fiscal del mes.');
  }
  return ['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((total,key)=>total+Number(closing[key]||0),0);
+}
+// Operational sales remain visible while a manual closing is being completed.
+// Only accepted closings enter income and tax forecasts. Missing status is kept
+// compatible with legacy calculation inputs; database rows have a valid status.
+export function closingContributesIncome(closing){
+ return !!closing&&closing.include_in_income!==false
+  &&(closing.entry_mode==='source_snapshot'||!closing.status||closing.status==='cerrado');
+}
+export function closingIncomeAmount(closing){
+ return closingContributesIncome(closing)?closingSalesAmount(closing):0;
 }
 export function parseDecimal(value){
  if(typeof value==='number'){

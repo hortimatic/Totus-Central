@@ -1,6 +1,5 @@
 import {monthRange} from './utils.js';
-const range=monthRange();
-const dateFilter=()=>({from:range.from,to:range.to,store:'all',query:''});
+const dateFilter=()=>({...monthRange(),store:'all',query:''});
 export const state={
  session:null,user:null,route:'inicio',loading:false,
  views:{
@@ -32,4 +31,10 @@ export const setView=(route,patch)=>Object.assign(state.views[route]||(state.vie
 export const resetView=route=>Object.assign(state.views[route]||(state.views[route]={}),{mode:'list',id:null});
 export const getFilters=route=>state.filters[route]||{};
 export const patchFilters=(route,patch)=>Object.assign(state.filters[route]||(state.filters[route]={}),patch);
-export const resetData=()=>Object.keys(state.data).forEach(k=>state.data[k]=Array.isArray(state.data[k])?[]:null);
+const initialData=structuredClone(state.data),initialViews=structuredClone(state.views),initialFilters=structuredClone(state.filters);
+export const resetData=()=>{state.data=structuredClone(initialData)};
+export function resetSessionData(){
+ resetData();state.views=structuredClone(initialViews);state.filters=structuredClone(initialFilters);
+ for(const [route,filter] of Object.entries(state.filters))if(Object.hasOwn(filter,'from')&&route!=='adminLog')state.filters[route]=dateFilter();
+ state.route='inicio';state.loading=false;
+}

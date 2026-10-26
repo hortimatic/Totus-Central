@@ -43,6 +43,32 @@ try{
  await click('product-back');
  await click('providers-manage');await click('provider-delete',provider.id);await saved('Proveedor eliminado.');assert.equal((await read('providers')).length,0);
  await click('families-manage');await click('family-delete',family.id);await page.getByText('No se puede eliminar: la familia tiene 1 productos vinculados.',{exact:true}).waitFor();assert.equal((await read('families')).length,1);
+ await click('close-modal');
+ const variableProduct=await page.evaluate(async family=>{
+  const id=crypto.randomUUID();window.__mockDb.products.push({id,name:'Líquido QA con variantes',sku:'QA-LIQUIDO-VAR',family_id:family.id,product_type:'variants',status:'PENDIENTE'});
+  window.__mockDb.product_variants.push({id:crypto.randomUUID(),product_id:id,name:'Sin nicotina QA',sku:'QA-LIQUIDO-0',nicotine_mg_ml:0,volume_ml:10,cost_net:2,pvp:5,active:true,attributes:{Nicotina:'0 mg'}});
+  await (await import('../src/api.js')).loadCore();document.querySelector('#nav [data-route="pricing"]').click();return id;
+ },family);
+ await click('product-edit',variableProduct);await page.locator('[data-action="variant-new"][data-product="'+variableProduct+'"]').click();
+ await page.locator('#vrName').fill('Con nicotina 20 mg QA');await page.locator('#vrSku').fill('QA-LIQUIDO-20');
+ await page.locator('#vrAttributes').fill('Nicotina: 20 mg; Volumen: 10 ml');await page.locator('#vrNic').fill('20');await page.locator('#vrVol').fill('10');
+ await page.locator('#vrCost').fill('3,25');await page.locator('#vrPvp').fill('7,50');
+ await page.locator('[data-action="variant-save"]').click();await saved('Variante guardada.');
+ const variant=(await read('product_variants')).find(v=>v.sku==='QA-LIQUIDO-20');
+ assert.equal(variant.cost_net,3.25);assert.equal(variant.pvp,7.5);assert.equal(variant.nicotine_mg_ml,20);
+ assert.equal((await read('product_variants')).filter(v=>v.product_id===variableProduct).length,2);
+ await click('variant-edit',variant.id);await page.locator('#vrPvp').fill('7,95');await page.locator('[data-action="variant-save"]').click();await saved('Variante guardada.');
+ assert.equal((await read('product_variants')).find(v=>v.id===variant.id).pvp,7.95);
+ await click('variant-delete',variant.id);await saved('Variante eliminada.');
+ assert.equal((await read('product_variants')).filter(v=>v.product_id===variableProduct).length,1,'Deleting one nicotine level must preserve its sibling');
+ await click('product-back');await page.locator('#pricingQuery').fill('liquido');await click('pricing-search');
+ assert.equal(await page.locator('[data-action="product-edit"]').count(),1,'Accent-insensitive product search must narrow the list');
+ await click('product-edit',variableProduct);
+ page.removeAllListeners('dialog');let confirmation='NO';
+ page.on('dialog',d=>d.type()==='prompt'?d.accept(confirmation):d.accept());
+ await click('product-delete',variableProduct);assert((await read('products')).some(p=>p.id===variableProduct),'Wrong confirmation must preserve the product');
+ confirmation='ELIMINAR PRODUCTO';await click('product-delete',variableProduct);await saved('Producto eliminado.');
+ assert(!(await read('products')).some(p=>p.id===variableProduct));assert((await read('products')).some(p=>p.id===product),'Deleting a product must preserve its neighbour');
  assert.deepEqual(errors,[]);
  console.log('PRICING DIRECTORY QA: brands/families, linked deletion guards, supplier costs and competitor create/edit/delete preserve their saved values');
 }finally{await browser.close()}

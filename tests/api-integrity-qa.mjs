@@ -31,7 +31,8 @@ const client={
  }
 };
 globalThis.window={supabase:{createClient:()=>client}};
-const {select,remove,loadCore}=await import('../src/api.js');
+const {select,remove,loadCore,reloadStorageUsage}=await import('../src/api.js');
+const {state}=await import('../src/state.js');
 const paged=await select('ops_daily_closings',{order:'business_date',ascending:false});
 assert.equal(paged.length,2305);
 assert.equal(new Set(paged.map(x=>x.id)).size,2305,'Paginated queries duplicate rows');
@@ -49,4 +50,18 @@ assert.equal(deleteCalls,3);
 client.rpc=async name=>({data:name==='totus_pending_document_removals'?[]:{status:'ok',source:'supabase_storage_objects'},error:null});
 startup=true;await loadCore();
 assert.ok(reads>30);assert.equal(active,0);assert.ok(peak>1&&peak<=4,'Sign-in must not open dozens of concurrent database requests');
+const from=client.from.bind(client);let release,reached;
+const gate=new Promise(resolve=>release=resolve),started=new Promise(resolve=>reached=resolve);
+client.from=table=>{const q=from(table);if(table==='ops_business_settings'){const then=q.then.bind(q);q.then=(resolve,reject)=>{reached();return gate.then(()=>then(resolve,reject));};}return q;};
+state.user={id:'old-qa',email:'old@example.invalid',role:'encargado'};
+const pending=loadCore();await started;
+state.user={id:'new-qa',email:'new@example.invalid',role:'encargado'};const freshStores=[];state.data.stores=freshStores;
+release();assert.equal(await pending,false);assert.equal(state.data.stores,freshStores,'A previous account load must not publish its business snapshot');
+client.from=from;
+let releaseUsage,reachedUsage;
+const usageGate=new Promise(resolve=>releaseUsage=resolve),usageStarted=new Promise(resolve=>reachedUsage=resolve);
+client.rpc=async()=>{reachedUsage();await usageGate;return {data:{status:'ok',source:'supabase_storage_objects',total_bytes:999},error:null};};
+const pendingUsage=reloadStorageUsage();await usageStarted;
+state.user={id:'third-qa',email:'third@example.invalid',role:'encargado'};const freshUsage={status:'unmeasured'};state.data.storageUsage=freshUsage;
+releaseUsage();await pendingUsage;assert.equal(state.data.storageUsage,freshUsage,'An old account measurement must not replace current Storage state');
 console.log('API INTEGRITY QA: deterministic pagination, no silent truncation, denied/missing deletes and bounded startup connections verified');

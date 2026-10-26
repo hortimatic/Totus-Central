@@ -105,18 +105,24 @@ export async function removeFile(bucket,path){
   throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
 }
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
+const dataOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
+let coreReadGeneration=0,auditReadGeneration=0;
 export async function reloadStorageUsage(){
+ const owner=dataOwner();
  try{
   const data=await rpc('totus_storage_usage');
   if(!data||data.status!=='ok'||data.source!=='supabase_storage_objects')throw new Error('Respuesta de Storage no verificable.');
+  if(dataOwner()!==owner)return state.data.storageUsage;
   state.data.storageUsage={...data,status:'ok',fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }catch(e){
+  if(dataOwner()!==owner)return state.data.storageUsage;
   state.data.storageUsage={status:'error',message:String(e?.message||e),fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }
 }
 export async function loadCore(){
+ const owner=dataOwner(),generation=++coreReadGeneration,current=()=>dataOwner()===owner&&generation===coreReadGeneration;
  const tasks=[
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
@@ -130,15 +136,17 @@ export async function loadCore(){
  // and publish state only when every required table has loaded successfully.
  const results=new Array(tasks.length);let next=0,failure=null;
  const worker=async()=>{
-  while(!failure&&next<tasks.length){
+  while(current()&&!failure&&next<tasks.length){
    const index=next++,[,table,order]=tasks[index];
    try{results[index]=await select(table,{order,ascending:false})}
    catch(error){failure||=error}
   }
  };
  await Promise.all(Array.from({length:Math.min(4,tasks.length)},worker));
+ if(!current())return false;
  if(failure)throw failure;
  const documentRemovals=await rpc('totus_pending_document_removals');
+ if(!current())return false;
  if(!Array.isArray(documentRemovals))throw new Error('No se pudo comprobar el estado de las retiradas documentales.');
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
  state.data.documentRemovals=documentRemovals;
@@ -146,24 +154,31 @@ export async function loadCore(){
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
  await reloadStorageUsage();
- if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{state.data.auditError=error.message});
+ if(!current())return false;
+ if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{if(current())state.data.auditError=error.message});
+ return current();
 }
 let auditHistoryCache=null;
 export async function reloadAudit({full=false}={}){
  if(!['admin','gerente'].includes(state.user?.role))return;
- const owner=state.user.email+':'+state.user.role;
+ const owner=dataOwner(),generation=++auditReadGeneration;
  const cache=!full&&auditHistoryCache?.owner===owner?auditHistoryCache:null;
  const since=rows=>rows?.reduce((last,r)=>String(r.created_at||'')>last?String(r.created_at):last,'')||'';
  const history=(table,rows)=>select(table,{order:'created_at',ascending:false,filter:since(rows)?q=>q.gte('created_at',since(rows)):undefined});
- const [newEvents,newUsers,chat,tasks]=await Promise.all([
+ const [newEvents,newUsers,chat,tasks,stock]=await Promise.all([
   history('ops_audit_log',cache?.events),
   state.user.role==='admin'?history('team_user_audit_log',cache?.users):Promise.resolve([]),
   select('ops_chat_events',{order:'created_at',ascending:false}),
-  select('ops_task_events',{order:'created_at',ascending:false})
+  select('ops_task_events',{order:'created_at',ascending:false}),
+  // Historical snapshots can contain whole receipts; the log only needs their
+  // immutable event reference. Re-read under current RLS on every refresh.
+  select('ops_stock_revisions',{order:'created_at',ascending:false,columns:'id,receipt_id,revision,action,actor_email,created_at'})
  ]);
+ if(dataOwner()!==owner||generation!==auditReadGeneration)return;
  const backups=state.user.role==='admin'?await select('ops_backup_runs',{order:'started_at',ascending:false,columns:'id,mode,status,started_at,finished_at,files_count,rows_count,error_message'}):[];
+ if(dataOwner()!==owner||generation!==auditReadGeneration)return;
  const events=mergeAuditRows(cache?.events,newEvents),users=mergeAuditRows(cache?.users,newUsers);
  auditHistoryCache={owner,events,users};
- state.data.audit=combineAuditEvents({events,users,chat,tasks,backups,people:[...(state.data.team||[]),...(state.data.profiles||[])]});
+ state.data.audit=combineAuditEvents({events,users,chat,tasks,stock,backups,people:[...(state.data.team||[]),...(state.data.profiles||[])]});
  state.data.auditError='';state.data.auditUpdatedAt=new Date().toISOString();
 }

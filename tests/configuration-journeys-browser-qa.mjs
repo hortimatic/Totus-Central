@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import XLSX from 'xlsx-js-style';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage();const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
@@ -48,6 +50,47 @@ try{
  await page.waitForFunction(n=>window.__mockDb.ops_invoice_series.length===n+1,initial);
  const series=await page.evaluate(()=>window.__mockDb.ops_invoice_series.find(s=>s.code==='SERIEQA'));
  assert.equal(series.year,2026);assert.equal(series.next_number,1);assert.equal(series.padding,4);
+ await page.locator('#nav [data-route="informes"]').click();
+ const reportOrder=()=>page.locator('[data-report-block]').evaluateAll(es=>es.map(e=>e.dataset.reportBlock));
+ const initialOrder=await reportOrder();assert(initialOrder.length>=2);
+ await page.locator('[data-action="report-block-down"][data-block="'+initialOrder[0]+'"]').click();
+ await page.waitForFunction(first=>document.querySelectorAll('[data-report-block]')[1]?.dataset.reportBlock===first,initialOrder[0]);
+ assert.equal((await reportOrder())[1],initialOrder[0]);
+ assert.deepEqual((await page.evaluate(()=>window.__mockDb.profiles[0].ui_preferences.report_blocks)).filter(key=>initialOrder.includes(key)),await reportOrder());
+ await page.locator('[data-action="report-block-reset"]').click();
+ await page.waitForFunction(first=>document.querySelector('[data-report-block]')?.dataset.reportBlock===first,initialOrder[0]);
+ assert.deepEqual(await reportOrder(),initialOrder);
+ assert.deepEqual((await page.evaluate(()=>window.__mockDb.profiles[0].ui_preferences.report_blocks)).filter(key=>initialOrder.includes(key)),initialOrder);
+ await page.locator('#nav [data-route="cajas"]').click();await page.locator('[data-action="closing-new"]').click();
+ await page.locator('#clNotes').fill('Borrador ficticio para terminar después');
+ await page.locator('[id^="drCard_"]').first().fill('45');
+ await page.locator('[data-action="closing-save-draft"]').click();await page.getByText('Borrador guardado.',{exact:true}).last().waitFor();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings.length),1);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings[0].status),'borrador');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings[0].card_sales),45);
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings[0].notes),'Borrador ficticio para terminar después');
+ await page.locator('#nav [data-route="inicio"]').click();await page.locator('[data-action="admin-users-home"]').click();
+ assert(await page.getByRole('heading',{name:'Usuarios',exact:true}).isVisible());
+ const period=await page.evaluate(async()=>{
+  const date=(await import('../src/utils.js')).isoToday(),year=Number(date.slice(0,4)),q=Math.ceil(Number(date.slice(5,7))/3);
+  return {year,from:`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to:`${year}-${String(q*3).padStart(2,'0')}-${new Date(year,q*3,0).getDate()}`};
+ });
+ await page.locator('#nav [data-route="inicio"]').click();await page.locator('[data-action="home-report-quarter"]').click();
+ assert.equal(await page.locator('#informesFrom').inputValue(),period.from);assert.equal(await page.locator('#informesTo').inputValue(),period.to);
+ await page.locator('#nav [data-route="inicio"]').click();await page.locator('[data-action="home-report-year"]').click();
+ assert.equal(await page.locator('#informesFrom').inputValue(),period.year+'-01-01');assert.equal(await page.locator('#informesTo').inputValue(),period.year+'-12-31');
+ assert.equal((await page.locator('.reports-page > .kpis .kpi strong').first().innerText()).replace(/\s/g,' '),'0,00 €','An unfinished closing must not contribute report income');
+ for(const action of ['export-closings','export-expenses','export-gestor-source']){
+  const ready=page.waitForEvent('download');await page.locator('[data-action="'+action+'"]').first().click();
+  const file=await ready;assert(file.suggestedFilename().endsWith('.xlsx'));
+  const book=XLSX.read(fs.readFileSync(await file.path()));assert(book.SheetNames.length>0,'Export must contain a readable workbook');
+  if(action==='export-closings'){
+   const values=Object.values(book.Sheets.Cierres).filter(c=>c&&typeof c==='object').map(c=>c.v);
+   assert(values.includes('borrador'));assert(values.includes('Borrador ficticio para terminar después'));
+   assert.equal(book.Sheets.Cierres.D5.v,45,'Detailed export must retain the entered card amount');
+   assert.equal(book.Sheets.Cierres.H5.v,45,'Detailed working export must retain the entered sales and their draft status');
+  }
+ }
  assert.deepEqual(errors,[]);
  console.log('CONFIGURATION JOURNEYS: business/fiscal isolation, invalid rates, category colours, integer invoice numbering and persistence');
 }finally{await browser.close()}
