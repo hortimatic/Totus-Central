@@ -45,7 +45,7 @@ export function validateQuickPriceInput({cost,pvp,competitor='',discount=''}={})
    if(optional)return 0;
    throw new Error(label+': introduce un importe válido.');
   }
-  const text=String(raw).trim().replace(/\s/g,'');
+  const text=String(raw).trim();
   // A single separator is a decimal separator. When both exist, the last one is decimal.
   const decimalForm=/^\+?\d+(?:[.,]\d+)?$/;
   const groupedEs=/^\+?\d{1,3}(?:\.\d{3})+,\d+$/;
