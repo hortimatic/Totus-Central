@@ -7,7 +7,7 @@ export function calendarDays(year,month){
 }
 
 /** Read-only header controls. Existing navigation handles drafts and permissions. */
-export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
+export function createHeaderTools({rpc,actor,can=()=>true,onNavigate,now=()=>new Date()}){
  let host=null,clockTimer=null,taskTimer=null,owner='',generation=0,running=false,chat=0,tasks=null;
  let month=now().toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}).slice(0,7),taskError='';
  const today=()=>now().toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'});
@@ -15,6 +15,7 @@ export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
  function badges(){
   if(!host)return;
   const c=host.querySelector('[data-chat-count]'),t=host.querySelector('[data-task-count]');
+  host.querySelector('[data-header="chat"]').hidden=!can('equipo');host.querySelector('[data-header="tasks"]').hidden=!can('tareas');
   c.textContent=chat>99?'99+':String(chat);c.classList.toggle('has-alert',chat>0);
   t.textContent=tasks===null?'—':tasks>99?'99+':String(tasks);t.classList.toggle('has-alert',tasks>0);
   host.querySelector('[data-header="chat"]').setAttribute('aria-label',`Chat: ${chat} mensajes sin leer`);
@@ -34,6 +35,7 @@ export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
  }
  function close(focus=false){if(!host)return;host.querySelector('[data-calendar]').hidden=true;const b=host.querySelector('[data-header="calendar"]');b.setAttribute('aria-expanded','false');if(focus)b.focus();}
  async function check(){
+  if(!can('tareas')){tasks=0;taskError='';badges();return;}
   const who=actor();if(running||!who||document.visibilityState==='hidden')return;
   const token=generation;running=true;
   try{

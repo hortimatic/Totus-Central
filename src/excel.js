@@ -16,7 +16,7 @@ const totalStyle={font:{bold:true},fill:{fgColor:{rgb:'E2E8F0'}},border:{top:{st
 function styleHeader(ws,row,cols){for(let c=0;c<cols;c++){const cell=ws[XLSX.utils.encode_cell({r:row,c})];if(cell)cell.s=headerStyle}}
 function autoWidths(ws,widths){ws['!cols']=widths.map(w=>({wch:w}))}
 function book(){return XLSX.utils.book_new()}
-function write(wb,name){XLSX.writeFile(wb,name,{cellStyles:true})}
+function write(wb,name){XLSX.writeFile(wb,name,{cellStyles:true});if(typeof document!=='undefined')document.dispatchEvent(new CustomEvent('totus-download-prepared',{detail:{format:'xlsx'}}))}
 function storeName(stores,id){return stores.find(s=>s.id===id)?.name||''}
 function drawerName(drawers,id){return drawers.find(d=>d.id===id)?.name||''}
 

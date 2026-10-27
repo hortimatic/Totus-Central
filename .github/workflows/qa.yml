@@ -66,6 +66,7 @@ jobs:
       - run: node tests/production-contract-qa.mjs
       - run: node tests/permissions-qa.mjs
       - run: node tests/roles-and-help-qa.mjs
+      - run: node tests/operational-admin-qa.mjs
       - run: node tests/route-smoke.mjs
       - run: node tests/action-inventory-qa.mjs
       - run: node tests/api-integrity-qa.mjs
@@ -119,6 +120,7 @@ jobs:
       - run: node tests/business-write-browser-qa.mjs
       - run: node tests/historical-payment-browser-qa.mjs
       - run: node tests/user-permissions-browser-qa.mjs
+      - run: node tests/operational-admin-browser-qa.mjs
       - run: node tests/stock-async-browser-qa.mjs
       - run: node tests/pricing-directory-browser-qa.mjs
       - run: node tests/deep-editing-browser-qa.mjs
@@ -252,10 +254,11 @@ jobs:
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-fixture.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/chat.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/operational-permissions-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-advanced-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-layout-db-qa.sql
-          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-advanced-db-qa.sql
 

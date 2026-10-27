@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {canUser,permissionsFor,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../src/permissions.js';
-assert.equal(PERMISSION_MODULES.length,9);
+assert.equal(PERMISSION_MODULES.length,11);
 assert.deepEqual(PERMISSION_ACTIONS.map(x=>x[0]),['view','create','edit','delete','export']);
 const admin={email:'admin@example.invalid',role:'admin'};
 const manager={email:'manager@example.invalid',role:'gerente'};

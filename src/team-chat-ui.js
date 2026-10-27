@@ -1,26 +1,27 @@
 import {uploadChatFile,chatFileMetadata,chatFileHash} from './chat-files.js';
 import {chatText,chatChannelInput,chatDateRange,chatGroups,chatLayout,chatTaskPrompt,CHAT_REACTIONS,CHAT_TASK_STATES,CHAT_GROUPS} from './team-chat-core.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const button=(label,action,attrs='',kind='secondary')=>'<button type="button" class="btn '+kind+'" data-chat="'+action+'" '+attrs+'>'+esc(label)+'</button>';
+const chatButton=(label,action,attrs='',kind='secondary')=>'<button type="button" class="btn '+kind+'" data-chat="'+action+'" '+attrs+'>'+esc(label)+'</button>';
 const date=value=>new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madrid',dateStyle:'short',timeStyle:'short'});
 const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:''});
 /** Isolated controller. No accounting writes, credentials, local storage or AI calls. */
-export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null}){
+export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null}){
  let host=null,data=initial(),busy=false,timer=null,generation=0,lifecycle=0,owner='',drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[],readTimer=null,readFlight=null;
+ const button=(label,action,attrs='',kind='secondary')=>{const permission=['new','direct','assistant','attach','uploads-retry','agent-request'].includes(action)?'create':['message-delete','file-remove','channel-delete'].includes(action)?'delete':['edit','pin','task','settings','agent-cancel'].includes(action)?'edit':['file-download','download-preview'].includes(action)?'export':'view';return can(permission)?chatButton(label,action,attrs,kind):'';};
  const scope=()=>({host,owner,lifecycle});
  const active=s=>s.host===host&&!!host&&s.owner===owner&&owner===actor()&&s.lifecycle===lifecycle;
  const contextChanged=()=>Object.assign(new Error('La conversación ya no está activa.'),{contextChanged:true});
  const scoped=async run=>{const s=scope();if(!active(s))throw contextChanged();try{const result=await run();if(!active(s))throw contextChanged();return result;}catch(error){if(!active(s))throw contextChanged();throw error;}};
  const rpc=(name,args)=>scoped(()=>rawRpc(name,args));
  const current=()=>data.channels.find(c=>c.id===data.channel);
- const manager=()=>current()?.member_role==='manager'&&(!current()?.channel_kind||current()?.channel_kind==='channel');
+ const manager=()=>can('edit')&&current()?.member_role==='manager'&&(!current()?.channel_kind||current()?.channel_kind==='channel');
  const draftKey=()=>data.channel+':'+(data.parent||'main');
  const remember=()=>{const input=host?.querySelector('#chatBody');if(input)drafts.set(draftKey(),input.value);};
  const hasDraft=()=>{remember();return [...drafts.values()].some(v=>v.trim())||[...picks.values()].some(files=>files.length)||outbox.length>0||!!dialog?.querySelector('[data-dirty="true"]');};
  const unlock=(stamp)=>{if(stamp!==lifecycle)return;busy=false;const submit=host?.querySelector('.chat-compose [type="submit"]');if(submit)submit.disabled=false;};
  const showError=error=>{if(error?.contextChanged)return;data.error=error.message||String(error);if(/No tienes acceso a este canal|Usuario de equipo no activo/i.test(data.error)){data.messages=[];data.members=[];data.channel=null;data.parent=null;data.channels=[];paint();drafts.clear();pending.clear();picks.clear();outbox=[];}onError(data.error);const box=host?.querySelector('[data-chat-error]');if(box){box.hidden=false;box.textContent=data.error;}};
  const ask=async message=>{const held=dialog;held?.close();try{return await confirm(message);}finally{if(held&&dialog===held&&held.isConnected)held.showModal();}};
- const command=(action,values={})=>rpc('totus_chat_command',{p_action:action,p_data:{channel_id:data.channel,...values}});
+ const command=(action,values={})=>{const permission=['read','mute','member_preferences','join'].includes(action)?'view':['create_direct','create_assistant','create_channel','send','agent_request'].includes(action)?'create':['channel_delete','member_remove','message_delete','files_cancel'].includes(action)?'delete':'edit';if(!can(permission))throw new Error('No tienes permiso para esta acción en el chat.');return rpc('totus_chat_command',{p_action:action,p_data:{channel_id:data.channel,...values}});};
 
  // Only acknowledge messages actually displayed, in the active visible conversation.
  function scheduleRead(){clearTimeout(readTimer);readTimer=setTimeout(markVisibleRead,350);}
@@ -86,7 +87,7 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
   const previewable=['application/pdf','image/png','image/jpeg','image/webp','text/plain','text/csv'].includes(f.mime_type);
   modal(f.original_name,'<div class="chat-preview"></div>'+button('Descargar archivo','download-preview')+(previewable?'':'<p>Este formato se conserva completo. Descárgalo para abrirlo.</p>'),{label:'Cerrar',refresh:false,run:async()=>{}});
   const held=dialog;held.addEventListener('close',()=>URL.revokeObjectURL(url),{once:true});
-  dialog.querySelector('[data-chat="download-preview"]').onclick=()=>{const a=document.createElement('a');a.href=url;a.download=f.original_name;a.click();};
+  const downloadButton=dialog.querySelector('[data-chat="download-preview"]');if(downloadButton)downloadButton.onclick=()=>{const a=document.createElement('a');a.href=url;a.download=f.original_name;a.click();};
   const container=dialog.querySelector('.chat-preview');
   if(f.mime_type.startsWith('image/')){const img=document.createElement('img');img.src=url;img.alt=f.original_name;container.append(img);}
   else if(f.mime_type==='application/pdf'){const frame=document.createElement('iframe');frame.src=url;frame.title=f.original_name;container.append(frame);}
@@ -115,7 +116,7 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
   remember();
   const focus=document.activeElement,focusId=host.contains(focus)?focus.id:null,start=focus?.selectionStart,end=focus?.selectionEnd;
   const old=host.querySelector('.chat-messages'),scroll=old?.scrollTop||0,atEnd=!old||old.scrollHeight-old.clientHeight-old.scrollTop<80;
-  const c=current(),joined=!!c?.member_role,editable=c&&!c.archived&&joined;
+  const c=current(),joined=!!c?.member_role,editable=c&&!c.archived&&joined&&can('create');
   const needle=data.channelQuery.trim().toLocaleLowerCase('es');
   const personalGroup=c=>data.layout.channel_groups?.[c.id]||c.group_name;
   const list=data.channels.filter(c=>data.archived?c.archived||c.hidden||(data.layout.hidden_groups||[]).includes(personalGroup(c)):!c.archived&&!c.hidden&&!(data.layout.hidden_groups||[]).includes(personalGroup(c))).filter(c=>!needle||[c.name,personalGroup(c),data.layout.group_labels?.[personalGroup(c)]].some(v=>String(v||'').toLocaleLowerCase('es').includes(needle)));
@@ -129,7 +130,7 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
    '<div class="chat-scroll-tools" aria-label="Recorrer mensajes">'+button('↑ Subir','scroll-top')+button('↓ Ir al final','scroll-bottom')+'</div><div class="chat-messages" tabindex="0" role="log" aria-label="Mensajes" aria-live="polite" aria-relevant="additions">'+(data.more?button('Cargar anteriores','older'):'')+data.messages.map(messageHtml).join('')+(!data.messages.length?'<div class="empty"><strong>Sin mensajes</strong><span>'+(data.query||data.from||data.to||data.mode!=='all'?'Prueba otros filtros.':'Escribe el primer mensaje del canal.')+'</span></div>':'')+'</div>'+
    (editable?'<form class="chat-compose"><label for="chatBody">'+(data.parent?'Responder en esta conversación':'Mensaje para '+esc(c.name))+'</label><textarea id="chatBody" rows="3" maxlength="12000" placeholder="Escribe aquí. Enter añade una línea; Ctrl+Enter envía.">'+esc(drafts.get(draftKey())||'')+'</textarea><div class="chat-compose-tools"><label class="chat-pick-btn">Adjuntar archivos<input type="file" id="chatFiles" multiple accept="'+acceptFiles+'"></label><label>Mencionar<select id="chatMention"><option value="">Elige una persona</option>'+data.members.map(member=>'<option value="'+esc(member.email)+'">'+esc(person(member.email))+'</option>').join('')+'</select></label></div><div class="chat-picked-list">'+pickedFilesHtml()+'</div><div data-chat-progress role="status" aria-live="polite"></div>'+
     (outbox.some(p=>p.channel_id===data.channel||!p.channel_id)?'<div class="note warn">Hay archivos pendientes de subir. '+button('Reintentar archivos pendientes','uploads-retry')+'</div>':'')+
-    '<div><small>Hasta 10 archivos · 20 MB por archivo · arrastrar o pegar también funciona.</small><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Enviar</button></div></form>':'<p class="chat-banner">Canal archivado: disponible para consulta.</p>')))+
+    '<div><small>Hasta 10 archivos · 20 MB por archivo · arrastrar o pegar también funciona.</small><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Enviar</button></div></form>':'<p class="chat-banner">'+(c.archived?'Canal archivado: disponible para consulta.':'Tu permiso permite consultar esta conversación.')+'</p>')))+
    '</section></div>';
   if(focusId){const next=host.querySelector('#'+focusId);if(next){next.focus({preventScroll:true});if(typeof start==='number'&&next.setSelectionRange&&next.type!=='date')next.setSelectionRange(start,end);}}
   const pane=host.querySelector('.chat-messages');if(pane)pane.scrollTop=atEnd?pane.scrollHeight:scroll;
