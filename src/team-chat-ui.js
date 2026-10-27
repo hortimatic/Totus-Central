@@ -6,7 +6,7 @@ const date=value=>new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madri
 const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:''});
 /** Isolated controller. No accounting writes, credentials, local storage or AI calls. */
 export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null}){
- let host=null,data=initial(),busy=false,timer=null,generation=0,lifecycle=0,owner='',drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[];
+ let host=null,data=initial(),busy=false,timer=null,generation=0,lifecycle=0,owner='',drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[],readTimer=null,readFlight=null;
  const scope=()=>({host,owner,lifecycle});
  const active=s=>s.host===host&&!!host&&s.owner===owner&&owner===actor()&&s.lifecycle===lifecycle;
  const contextChanged=()=>Object.assign(new Error('La conversación ya no está activa.'),{contextChanged:true});
@@ -22,6 +22,22 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
  const ask=async message=>{const held=dialog;held?.close();try{return await confirm(message);}finally{if(held&&dialog===held&&held.isConnected)held.showModal();}};
  const command=(action,values={})=>rpc('totus_chat_command',{p_action:action,p_data:{channel_id:data.channel,...values}});
 
+ // Only acknowledge messages actually displayed, in the active visible conversation.
+ function scheduleRead(){clearTimeout(readTimer);readTimer=setTimeout(markVisibleRead,350);}
+ async function markVisibleRead(){
+  const s=scope(),c=current(),pane=host?.querySelector('.chat-messages');
+  if(!active(s)||document.visibilityState!=='visible'||dialog||!c?.member_role||!pane||data.query||data.from||data.to||data.mode!=='all'||pane.scrollHeight-pane.clientHeight-pane.scrollTop>40)return;
+  const channel=c.id,seq=Math.max(0,...data.messages.map(m=>Number(m.seq)||0));
+  if(!seq||seq<=Number(c.last_read_seq||0)||readFlight)return;
+  const flight={channel,seq};readFlight=flight;
+  try{
+   await rpc('totus_chat_command',{p_action:'read',p_data:{channel_id:channel,seq}});
+   if(active(s)&&data.channel===channel)await refresh();
+  }catch(error){if(!error?.contextChanged)onError('No se ha podido actualizar el estado de lectura. Se reintentará al actualizar la conversación.');}
+  finally{if(readFlight===flight)readFlight=null;}
+ }
+ const onReadScroll=e=>{if(e.target.matches?.('.chat-messages'))scheduleRead();};
+ const onVisible=()=>{if(document.visibilityState==='visible')scheduleRead();};
  const acceptFiles='.pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.csv,.txt,.md,.zip';
  const person=email=>data.directory.find(p=>p.email===email)?.name||data.members.find(p=>p.email===email)?.display_name||email;
  const fileSize=value=>Number(value)<1048576?Math.ceil(Number(value)/1024)+' KB':(Number(value)/1048576).toFixed(1).replace('.',',')+' MB';
@@ -117,6 +133,7 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
    '</section></div>';
   if(focusId){const next=host.querySelector('#'+focusId);if(next){next.focus({preventScroll:true});if(typeof start==='number'&&next.setSelectionRange&&next.type!=='date')next.setSelectionRange(start,end);}}
   const pane=host.querySelector('.chat-messages');if(pane)pane.scrollTop=atEnd?pane.scrollHeight:scroll;
+  scheduleRead();
  }
  async function refresh({older=false}={}){
   const token=++generation,channel=data.channel,parent=data.parent;
@@ -130,6 +147,7 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
   if(channel){data.more=more;data.messages=older?[...new Map([...rows,...data.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.seq-b.seq):rows;}
   if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout]))paint();
   if(older){const pane=host?.querySelector('.chat-messages');if(pane)pane.scrollTop=previousTop+pane.scrollHeight-previousHeight;}
+  scheduleRead();
  }
  async function open(id){
   remember();data.channel=id;data.parent=null;data.messages=[];data.more=false;data.query='';data.from='';data.to='';data.mode='all';paint();await refresh();unsubscribe();unsubscribe=subscribe(id,()=>{clearTimeout(realtimeTimer);realtimeTimer=setTimeout(tick,300);});
@@ -297,17 +315,17 @@ export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=
  const onKey=e=>{if(e.target.id==='chatBody'&&e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send(e).catch(showError);}if(e.target.closest('.chat-search')&&e.key==='Enter'){e.preventDefault();host.querySelector('[data-chat="search"]').click();}};
  const beforeUnload=e=>{if(hasDraft()){e.preventDefault();e.returnValue='';}};
  async function tick(){
-  if(!host||busy||dialog||document.visibilityState!=='visible'||data.messages.length>50||host.contains(document.activeElement)&&document.activeElement.matches('input,textarea,select'))return;
+  if(!host||busy||dialog||document.visibilityState!=='visible'||data.messages.length>50||host.contains(document.activeElement)&&document.activeElement.id!=='chatBody'&&document.activeElement.matches('input,textarea,select'))return;
   try{await refresh();}catch(error){showError(error);}
  }
  function dispose(){
-  remember();generation++;lifecycle++;busy=false;unsubscribe();unsubscribe=()=>{};clearTimeout(realtimeTimer);clearInterval(timer);timer=null;closeDialog();
-  if(host){host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);host.removeEventListener('dragover',onDrag);host.removeEventListener('drop',onDrop);host.removeEventListener('paste',onPaste);}
-  window.removeEventListener('beforeunload',beforeUnload);host=null;
+  remember();generation++;lifecycle++;busy=false;unsubscribe();unsubscribe=()=>{};clearTimeout(realtimeTimer);clearTimeout(readTimer);readFlight=null;clearInterval(timer);timer=null;closeDialog();
+  if(host){host.removeEventListener('scroll',onReadScroll,true);host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);host.removeEventListener('dragover',onDrag);host.removeEventListener('drop',onDrop);host.removeEventListener('paste',onPaste);}
+  window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('focus',onVisible);document.removeEventListener('visibilitychange',onVisible);host=null;
  }
  return {hasDraft,dispose,openMessage,reset(){dispose();data=initial();drafts.clear();pending.clear();picks.clear();outbox=[];owner='';},async mount(element){
   dispose();if(owner!==actor()){owner=actor();data=initial();drafts.clear();pending.clear();picks.clear();outbox=[];}
-  host=element;host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);host.addEventListener('dragover',onDrag);host.addEventListener('drop',onDrop);host.addEventListener('paste',onPaste);
-  window.addEventListener('beforeunload',beforeUnload);paint();try{await refresh();}catch(error){showError(error);paint();}if(host===element)timer=setInterval(tick,15000);
+  host=element;host.addEventListener('scroll',onReadScroll,true);host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);host.addEventListener('dragover',onDrag);host.addEventListener('drop',onDrop);host.addEventListener('paste',onPaste);
+  window.addEventListener('beforeunload',beforeUnload);window.addEventListener('focus',onVisible);document.addEventListener('visibilitychange',onVisible);paint();try{await refresh();}catch(error){showError(error);paint();}if(host===element)timer=setInterval(tick,15000);
  }};
 }

@@ -81,7 +81,8 @@ state.filters.fiscalidad={from:currentMonth.from,to:currentMonth.to,store:'all',
 state.filters.informes={from:currentMonth.from,to:currentMonth.to,store:'all',query:''};
 const kpiAmount=(markup,label)=>{
  const escaped=label.replace(/[.*+?^${()|[\]\\]/g,'\\$&');
- return markup.match(new RegExp(escaped+'<\\/span><strong>([\\s\\S]*?)<\\/strong>'))?.[1]||'';
+ const visible=markup.replace(/<details class="field-help">[\s\S]*?<\/details>/g,'');
+ return visible.match(new RegExp(escaped+'\\s*<\\/span><strong>([\\s\\S]*?)<\\/strong>'))?.[1]||'';
 };
 assert.match(kpiAmount(inicio(),'Ingresos del mes'),/175,00\s*€/,'Inicio excluye ingresos manuales');
 assert.match(kpiAmount(inicio(),'Ingresos acumulados'),/175,00\s*€/,'Inicio trimestral difiere del libro');

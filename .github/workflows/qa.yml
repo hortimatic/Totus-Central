@@ -137,6 +137,8 @@ jobs:
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
       - run: node tests/dashboard-report-browser-qa.mjs
+      - run: node tests/information-layout-browser-qa.mjs
+      - run: node tests/chat-auto-read-browser-qa.mjs
       - run: node tests/annual-package-browser-qa.mjs
       - run: node tests/quick-price-validation-browser-qa.mjs
       - run: node tests/expense-colors-browser-qa.mjs

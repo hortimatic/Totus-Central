@@ -97,7 +97,7 @@ Object.assign(FIELD_HELP,{
  "Entradas extraordinarias":"Efectivo introducido en caja sin proceder de las ventas de la jornada.",
  "Salidas extraordinarias":"Efectivo retirado por motivos distintos a los cobros y gastos habituales.",
  "Total TPV / control":"Total indicado por el sistema de venta para contrastar con los cobros desglosados.",
- "Categoría":"Agrupa el gasto para control e informes. Las categorías internas no deben computar como gasto fiscal.",
+ "Categoría":"Clasifica el concepto del gasto para búsquedas e informes. El campo Tratamiento general decide por separado si reduce el beneficio fiscal; el color solo cambia su presentación en el Excel.",
  "Descripción":"Describe qué se compra o factura. Quedará visible en fichas e informes.",
  "Modelo":"Modelo tributario asociado a una retención, si existe. No lo selecciones si no corresponde.",
  "Años amortización":"Plazo estimado de amortización para compras que deban tratarse como inmovilizado.",
@@ -130,7 +130,7 @@ Object.assign(FIELD_HELP,{
  "Documento por defecto":"Tipo habitual de justificante del proveedor.",
  "Modelo retención":"Modelo tributario que podría corresponder a la retención del proveedor.",
  "Marca":"Fabricante o marca comercial del producto.",
- "Margen objetivo (%)":"Margen esperado sobre el precio neto de venta.",
+ "Margen objetivo (%)":"Porcentaje del precio de venta que quieres conservar después del coste. Se utiliza para proponer un PVP; no es un recargo añadido al coste.",
  "Coste proveedor":"Precio sin impuestos ofrecido por este proveedor.",
  "Descuento proveedor (%)":"Descuento que el proveedor aplica a su tarifa.",
  "Transporte por unidad":"Coste de transporte imputado a cada unidad.",
@@ -222,12 +222,24 @@ Object.assign(FIELD_HELP,{
  'Recargo (%)':'Impuesto adicional que aparece en algunas facturas de compra. Copia el porcentaje del documento.'
 });
 export const fieldHelp=(label,explanation='')=>{
- const help=explanation||FIELD_HELP[label]||'Introduce el dato correspondiente a este campo y comprueba que coincide con su justificante o configuración antes de guardar.';
+ const help=explanation||FIELD_HELP[label]||'';
+ if(!help)return "";
  return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}" title="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}"><svg class="field-help-icon" viewBox="0 0 24 24" role="presentation" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r="1.1" class="field-help-dot"/></svg></summary><span role="note">${esc(help)}</span></details>`;
 };
 
-export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label)}</span><input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
-export const selectField=(label,id,options,value='',extra='')=>`<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label)}</span><select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
+const FIELD_CONTEXT_HELP={
+ exDate:'Fecha del gasto o factura que se utiliza para incluirlo en el periodo de los informes. La fecha efectiva del pago se anota aparte en Fecha de pago.',
+ clDate:'Día de las ventas de este cierre. La tarjeta corresponde a ese día de venta, aunque el banco la abone al día siguiente.',
+ docDate:'Fecha del documento para localizarlo en el archivo. Clasificarlo aquí no crea por sí solo un gasto ni un ingreso fiscal.',
+ prType:'Simple: un solo producto y precio. Con variantes: permite definir opciones como nicotina, capacidad o resistencia y los precios de cada combinación.',
+ faDate:'Fecha que determina en qué periodo se aplica este ajuste fiscal. No cambia las fechas de las facturas originales.',
+ iaDate:'Día del ingreso que no está ya incluido en un cierre o factura. No lo dupliques si ya está registrado en otra parte.',
+ exDocKind:'Clase del justificante. Elige Control interno para un documento informativo; revisa también el tratamiento general antes de guardar.',
+ exPaidDate:'Día en que realmente se pagó. No sustituye la fecha de la factura ni cambia por sí solo su periodo fiscal.',
+ reportPeriodYear:'Año del mes o trimestre que vas a aplicar. Pulsa Aplicar trimestre o Aplicar mes para cambiar el periodo de descarga.'
+};
+export const formField=(label,id,value='',type='text',extra='')=>{const decimal=type==='number'&&/step=["']0\.\d+/.test(extra);return `<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label,FIELD_CONTEXT_HELP[id])}</span><input id="${esc(id)}" type="${decimal?'text':esc(type)}" ${decimal?'inputmode="decimal" data-decimal="true"':''} value="${esc(value??'')}" ${extra}></label>`;};
+export const selectField=(label,id,options,value='',extra='')=>`<label><span class="field-caption">${esc(DISPLAY_LABELS[label]||label)}${fieldHelp(label,FIELD_CONTEXT_HELP[id])}</span><select id="${esc(id)}" ${extra}>${options.map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
 export function modal(title,body,{small=false}={}){
  const host=document.getElementById('modalHost');
  document.dispatchEvent(new CustomEvent('totus-modal-closing',{detail:{panel:host.querySelector('[data-modal-content]')}}));
