@@ -39,6 +39,10 @@ try{
  await page.locator('[data-action="consultation-save"]').click();
  await page.waitForFunction(()=>window.__mockDb.consultations.length===2);
  assert.equal(await page.evaluate(()=>window.__mockDb.consultations[1].cost_net),12.5);
+ const deleteId=await page.evaluate(()=>window.__mockDb.consultations[1].id);
+ await page.evaluate(()=>window.confirm=()=>false);await page.locator('[data-action="consultation-delete"][data-id="'+deleteId+'"]').click();assert.equal(await count(),2);
+ await page.evaluate(()=>window.confirm=()=>true);await page.locator('[data-action="consultation-delete"][data-id="'+deleteId+'"]').click();await page.getByText('Consulta eliminada.',{exact:true}).waitFor();
+ assert.equal(await count(),1);assert.equal(await page.evaluate(id=>window.__mockDb.consultations[0].id===id,row.id),true,'Deleting a consultation must preserve its neighbour');
  assert.deepEqual(errors,[],'Invalid typing should not throw uncaught preview errors');
  console.log('QUICK PRICE BROWSER QA: Inicio and Pricing reject malformed/negative/out-of-range inputs, show inline errors, clear stale metrics and persist only valid values');
 }finally{await browser.close()}

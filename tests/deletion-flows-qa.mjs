@@ -65,16 +65,20 @@ try{
  await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();
  await page.locator('[data-confirm="cancel"]').click();
  assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc),'Cancelar eliminó el documento');
+ await page.evaluate(()=>window.__mockArchiveError=true);await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();await page.locator('[data-confirm="accept"]').click();
+ await page.getByText('No se pudo verificar el archivo recuperable. El original se conserva.',{exact:true}).waitFor();
+ assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc));assert.equal(await page.evaluate(()=>window.__mockUploads.size),1,'Archive failure must preserve the only uploaded original');
+ await page.evaluate(()=>window.__mockArchiveError=false);
  await page.evaluate(()=>window.__mockStorageRemoveError=true);
  await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();
  await page.locator('[data-confirm="accept"]').click();
- await page.getByText('Eliminar archivo: Storage no disponible',{exact:true}).waitFor();
+ await page.getByText('No se pudo retirar el archivo de Supabase.',{exact:true}).waitFor();
  assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc),'Un fallo de Storage eliminó la ficha');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),1,'Un fallo de Storage alteró el archivo');
  await page.evaluate(()=>window.__mockStorageRemoveError=false);
  await page.evaluate(()=>window.__mockStorageRemoveNoop=true);
  await page.locator('[data-action="document-delete"][data-id="'+ids.doc+'"]').click();await page.locator('[data-confirm="accept"]').click();
- await page.getByText('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.',{exact:true}).waitFor();
+ await page.getByText('El archivo sigue en Supabase. Se conserva su ficha para reintentar.',{exact:true}).waitFor();
  assert(await page.evaluate(id=>window.__mockDb.ops_documents.some(d=>d.id===id),ids.doc),'A silent Storage refusal removed the metadata');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),1);
  await page.evaluate(()=>window.__mockStorageRemoveNoop=false);
@@ -84,6 +88,7 @@ try{
  await page.waitForTimeout(75);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),0,'No se eliminó el archivo de la base');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),0,'Quedó archivo físico tras eliminar documento');
+ assert.equal(await page.evaluate(async id=>(await window.__mockArchivedDocuments.get(id).blob.text()),ids.doc),'QA text','The retired original must remain recoverable after removing its active record');
  await page.evaluate(()=>{
   for(const name of ['template','issued','unused','newly-linked'])window.__mockUploads.set('business-assets/logos/'+name+'.png',new Blob(['logo']));
   window.__mockDb.ops_document_templates.push({id:'logo-template',logo_path:'logos/template.png'});

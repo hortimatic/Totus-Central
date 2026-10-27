@@ -5,15 +5,20 @@ const button=(label,action,attrs='',kind='secondary')=>'<button type="button" cl
 const date=value=>new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madrid',dateStyle:'short',timeStyle:'short'});
 const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:''});
 /** Isolated controller. No accounting writes, credentials, local storage or AI calls. */
-export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null}){
- let host=null,data=initial(),busy=false,timer=null,generation=0,owner='',drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[];
+export function createTeamChat({rpc:rawRpc,actor,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null}){
+ let host=null,data=initial(),busy=false,timer=null,generation=0,lifecycle=0,owner='',drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[];
+ const scope=()=>({host,owner,lifecycle});
+ const active=s=>s.host===host&&!!host&&s.owner===owner&&owner===actor()&&s.lifecycle===lifecycle;
+ const contextChanged=()=>Object.assign(new Error('La conversación ya no está activa.'),{contextChanged:true});
+ const scoped=async run=>{const s=scope();if(!active(s))throw contextChanged();try{const result=await run();if(!active(s))throw contextChanged();return result;}catch(error){if(!active(s))throw contextChanged();throw error;}};
+ const rpc=(name,args)=>scoped(()=>rawRpc(name,args));
  const current=()=>data.channels.find(c=>c.id===data.channel);
  const manager=()=>current()?.member_role==='manager'&&(!current()?.channel_kind||current()?.channel_kind==='channel');
  const draftKey=()=>data.channel+':'+(data.parent||'main');
  const remember=()=>{const input=host?.querySelector('#chatBody');if(input)drafts.set(draftKey(),input.value);};
  const hasDraft=()=>{remember();return [...drafts.values()].some(v=>v.trim())||[...picks.values()].some(files=>files.length)||outbox.length>0||!!dialog?.querySelector('[data-dirty="true"]');};
- const unlock=()=>{busy=false;const submit=host?.querySelector('.chat-compose [type="submit"]');if(submit)submit.disabled=false;};
- const showError=error=>{data.error=error.message||String(error);if(/No tienes acceso a este canal|Usuario de equipo no activo/i.test(data.error)){data.messages=[];data.members=[];data.channel=null;data.parent=null;data.channels=[];paint();drafts.clear();pending.clear();picks.clear();outbox=[];}onError(data.error);const box=host?.querySelector('[data-chat-error]');if(box){box.hidden=false;box.textContent=data.error;}};
+ const unlock=(stamp)=>{if(stamp!==lifecycle)return;busy=false;const submit=host?.querySelector('.chat-compose [type="submit"]');if(submit)submit.disabled=false;};
+ const showError=error=>{if(error?.contextChanged)return;data.error=error.message||String(error);if(/No tienes acceso a este canal|Usuario de equipo no activo/i.test(data.error)){data.messages=[];data.members=[];data.channel=null;data.parent=null;data.channels=[];paint();drafts.clear();pending.clear();picks.clear();outbox=[];}onError(data.error);const box=host?.querySelector('[data-chat-error]');if(box){box.hidden=false;box.textContent=data.error;}};
  const ask=async message=>{const held=dialog;held?.close();try{return await confirm(message);}finally{if(held&&dialog===held&&held.isConnected)held.showModal();}};
  const command=(action,values={})=>rpc('totus_chat_command',{p_action:action,p_data:{channel_id:data.channel,...values}});
 
@@ -38,9 +43,12 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
  function progress(text){const el=host?.querySelector('[data-chat-progress]');if(el)el.textContent=text;}
  async function uploadPending(messageId=null){
   if(!requestFile)throw new Error('No está disponible la conexión de archivos.');
+  const s=scope();
   for(const item of [...outbox].filter(p=>!messageId||p.message_id===messageId)){
+   if(!active(s))throw contextChanged();
    progress('Subiendo '+item.file.name+'…');
-   await uploadChatFile(item.file,{messageId:item.message_id,clientId:item.client_id,request:requestFile,onProgress:percent=>progress(item.file.name+' · '+percent+' %')});
+   await uploadChatFile(item.file,{messageId:item.message_id,clientId:item.client_id,request:(...args)=>{if(!active(s))return Promise.reject(contextChanged());return scoped(()=>requestFile(...args));},onProgress:percent=>{if(active(s))progress(item.file.name+' · '+percent+' %');}});
+   if(!active(s))throw contextChanged();
    outbox=outbox.filter(p=>p!==item);
   }
   progress('Archivos comprobados y guardados en OneDrive.');
@@ -55,18 +63,18 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   }});
  }
  async function previewFile(f,downloadOnly=false){
-  const readingOwner=owner,blob=await requestFile('chat-file-content',{file_id:f.id});if(!host||owner!==readingOwner)return;
-  if(!(blob instanceof Blob)||blob.size!==Number(f.size_bytes)||await chatFileHash(blob)!==f.sha256)throw new Error('El archivo recibido no coincide con el adjunto.');
+  const blob=await scoped(()=>requestFile('chat-file-content',{file_id:f.id}));
+  if(!(blob instanceof Blob)||blob.size!==Number(f.size_bytes)||await scoped(()=>chatFileHash(blob))!==f.sha256)throw new Error('El archivo recibido no coincide con el adjunto.');
   const url=URL.createObjectURL(blob);
   if(downloadOnly){const a=document.createElement('a');a.href=url;a.download=f.original_name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);return;}
   const previewable=['application/pdf','image/png','image/jpeg','image/webp','text/plain','text/csv'].includes(f.mime_type);
   modal(f.original_name,'<div class="chat-preview"></div>'+button('Descargar archivo','download-preview')+(previewable?'':'<p>Este formato se conserva completo. Descárgalo para abrirlo.</p>'),{label:'Cerrar',refresh:false,run:async()=>{}});
+  const held=dialog;held.addEventListener('close',()=>URL.revokeObjectURL(url),{once:true});
   dialog.querySelector('[data-chat="download-preview"]').onclick=()=>{const a=document.createElement('a');a.href=url;a.download=f.original_name;a.click();};
   const container=dialog.querySelector('.chat-preview');
   if(f.mime_type.startsWith('image/')){const img=document.createElement('img');img.src=url;img.alt=f.original_name;container.append(img);}
   else if(f.mime_type==='application/pdf'){const frame=document.createElement('iframe');frame.src=url;frame.title=f.original_name;container.append(frame);}
-  else if(f.mime_type.startsWith('text/')){const pre=document.createElement('pre');pre.textContent=await blob.text();container.append(pre);}
-  const held=dialog;held.addEventListener('close',()=>URL.revokeObjectURL(url),{once:true});
+  else if(f.mime_type.startsWith('text/')){const text=await scoped(()=>blob.text());if(dialog!==held||!held.isConnected)return;const pre=document.createElement('pre');pre.textContent=text;container.append(pre);}
 
  }
 
@@ -136,12 +144,13 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   dialog.addEventListener('input',event=>event.target.dataset.dirty='true');
   dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
   dialog.addEventListener('submit',async event=>{
+   const stamp=lifecycle;
    event.preventDefault();if(busy)return;busy=true;
    const values=Object.fromEntries(new FormData(event.target));
    const controls=[...dialog.querySelectorAll('button,input,select,textarea')];controls.forEach(c=>c.disabled=true);
    try{await save.run(values);closeDialog();if(save.refresh!==false)await refresh();}
-   catch(error){const box=dialog?.querySelector('[data-dialog-error]');if(box){box.textContent=error.message;box.hidden=false;}else showError(error);}
-   finally{unlock();controls.forEach(c=>c.disabled=false);}
+   catch(error){if(error?.contextChanged)return;const box=dialog?.querySelector('[data-dialog-error]');if(box){box.textContent=error.message;box.hidden=false;}else showError(error);}
+   finally{unlock(stamp);controls.forEach(c=>c.disabled=false);}
   });
   dialog.showModal();
  }
@@ -149,6 +158,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   return '<label>Nombre<input name="name" required maxlength="80" value="'+esc(c.name)+'"></label><label>Grupo<input name="group_name" required maxlength="80" value="'+esc(c.group_name||'Equipo')+'" list="chatGroupOptions"><datalist id="chatGroupOptions">'+['Equipo','Hortimatic','NewOldSmok','Totuscode'].map(g=>'<option value="'+g+'">').join('')+'</datalist></label><label>Descripción<textarea name="description" maxlength="500">'+esc(c.description)+'</textarea></label><label>Acceso<select name="is_private"><option value="false">Abierto · el equipo puede unirse</option><option value="true" '+(c.is_private?'selected':'')+'>Privado · solo invitados</option></select></label>'+(c.id?'<label>Estado<select name="archived"><option value="false">Activo</option><option value="true" '+(c.archived?'selected':'')+'>Archivado · solo lectura</option></select></label>':'');
  }
  async function send(event){
+  const stamp=lifecycle;
   event.preventDefault();if(busy)return;
   remember();const key=draftKey(),selected=[...(picks.get(key)||[])],body=chatText(drafts.get(key)?.trim()||(selected.length?'Documentos adjuntos':'')),channel=data.channel,parent=data.parent,sendingOwner=owner;
   const previous=pending.get(key),client_id=previous?.body===body?previous.client_id:crypto.randomUUID();
@@ -161,8 +171,8 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
    outbox.push(...selected.map(item=>({...item,channel_id:channel,message_id:saved.id})));
    if(selected.length)await uploadPending(saved.id);
    await refresh();
-  }catch(error){try{await refresh();}catch{}showError(error);}
-  finally{unlock();}
+  }catch(error){if(error?.contextChanged)return;try{await refresh();}catch{}showError(error);}
+  finally{unlock(stamp);}
  }
  function selectCreated(c,role){
   remember();data.query='';data.from='';data.to='';data.mode='all';data.more=false;
@@ -178,6 +188,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   modal('Organizar '+label,'<p class="muted">Estas preferencias cambian tu organización personal y se guardan en tu cuenta.</p><div class="chat-section-actions">'+
    ['create','rename','alpha','recent','manual','up','down','hide'].map(action=>'<button type="button" class="btn secondary" data-section-action="'+action+'" '+((action==='up'&&at===0||action==='down'&&at===groups.length-1)?'disabled':'')+'>'+esc({create:'Crear canal en esta sección',rename:'Cambiar nombre solo para mí',alpha:'Ordenar canales alfabéticamente',recent:'Ordenar por mensajes más recientes',manual:'Usar posición personal de cada canal',up:'Subir sección',down:'Bajar sección',hide:hidden?'Mostrar sección':'Ocultar sección'}[action])+'</button>').join('')+'</div>',{label:'Cerrar',run:async()=>{}});
   dialog.querySelectorAll('[data-section-action]').forEach(el=>el.onclick=async()=>{
+   const stamp=lifecycle;
    const action=el.dataset.sectionAction;
    if(action==='create'){modal('Nuevo canal',channelForm({group_name:name}),{label:'Crear canal',run:async v=>selectCreated(await command('create_channel',chatChannelInput({...v,is_private:v.is_private==='true'})),'manager')});return;}
    if(action==='rename'){modal('Nombre de la sección','<p class="muted">Solo cambia el nombre que tú ves. Los canales y los demás usuarios conservan su organización.</p><label>Nombre<input name="label" maxlength="80" required value="'+esc(label)+'"></label>',{refresh:false,run:async v=>saveLayout({...data.layout,group_labels:{...data.layout.group_labels,[name]:chatText(v.label,80)}})});return;}
@@ -190,13 +201,14 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
     }
     if(action==='hide')await saveLayout({...data.layout,hidden_groups:hidden?(data.layout.hidden_groups||[]).filter(g=>g!==name):[...new Set([...(data.layout.hidden_groups||[]),name])]});
     closeDialog();
-   }catch(error){showError(error);}finally{unlock();}
+   }catch(error){showError(error);}finally{unlock(stamp);}
   });
  }
  async function openMessage(channelId,messageId,parentId=null){
   await open(channelId);data.parent=parentId||messageId;data.messages=[];await refresh();
  }
  async function handle(event){
+  const stamp=lifecycle;
   if(event.target.closest('dialog'))return;
   const el=event.target.closest('[data-chat]');if(!el)return;const action=el.dataset.chat,id=el.dataset.id;
   if(busy)return;
@@ -226,7 +238,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
    if(action==='inbox'){
     const inbox=await rpc('totus_chat_inbox',{p_mentions:false});
     modal('Mensajes sin leer',inbox.length?'<ul class="chat-inbox">'+inbox.map(item=>'<li><b>'+esc(item.channel_name)+'</b><p>'+esc(item.body.slice(0,180))+'</p>'+button('Abrir conversación','inbox-open','data-channel="'+esc(item.channel_id)+'" data-message="'+esc(item.id)+'" data-parent="'+esc(item.parent_id||'')+'"')+'</li>').join('')+'</ul>':'<p>No tienes mensajes pendientes de leer según tus preferencias.</p>',{label:'Cerrar',run:async()=>{}});
-    dialog.querySelectorAll('[data-chat="inbox-open"]').forEach(btn=>btn.onclick=async()=>{const {channel,message,parent}=btn.dataset;closeDialog();busy=true;try{await openMessage(channel,message,parent);}catch(e){showError(e);}finally{unlock();}});return;
+    dialog.querySelectorAll('[data-chat="inbox-open"]').forEach(btn=>btn.onclick=async()=>{const stamp=lifecycle,{channel,message,parent}=btn.dataset;closeDialog();busy=true;try{await openMessage(channel,message,parent);}catch(e){showError(e);}finally{unlock(stamp);}});return;
    }
    if(action==='attach'){fileDialog(null,id);return;}
    if(action==='file-retry'){const f=data.messages.flatMap(m=>m.files||[]).find(f=>f.id===el.dataset.file);fileDialog(f,f.message_id);return;}
@@ -270,7 +282,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
    if(action==='reaction'){await command('reaction',{message_id:id,emoji:el.dataset.emoji});await refresh();return;}
    if(action==='message-delete'){if(await confirm('¿Eliminar tu mensaje? No se eliminarán documentos ni operaciones contables.'))await command('message_delete',{message_id:id,expected_edited_at:m.edited_at});await refresh();return;}
    if(action==='refresh')await refresh();
-  }catch(error){showError(error);}finally{unlock();}
+  }catch(error){showError(error);}finally{unlock(stamp);}
  }
  const onSubmit=e=>{if(e.target.matches('.chat-compose'))send(e).catch(showError);};
  const onInput=e=>{if(e.target.id==='chatBody')remember();if(e.target.id==='chatChannelQuery'){data.channelQuery=e.target.value;paint();}};
@@ -289,7 +301,7 @@ export function createTeamChat({rpc,actor,onError=()=>{},confirm=async()=>false,
   try{await refresh();}catch(error){showError(error);}
  }
  function dispose(){
-  remember();generation++;unsubscribe();unsubscribe=()=>{};clearTimeout(realtimeTimer);clearInterval(timer);timer=null;closeDialog();
+  remember();generation++;lifecycle++;busy=false;unsubscribe();unsubscribe=()=>{};clearTimeout(realtimeTimer);clearInterval(timer);timer=null;closeDialog();
   if(host){host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);host.removeEventListener('dragover',onDrag);host.removeEventListener('drop',onDrop);host.removeEventListener('paste',onPaste);}
   window.removeEventListener('beforeunload',beforeUnload);host=null;
  }

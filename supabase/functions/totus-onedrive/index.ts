@@ -1,4 +1,5 @@
 import {createTeamChatFiles} from './team-chat-files.js';
+import {createDocumentRemovalWorker} from './document-removal-worker.js';
 import {importStockDocument} from './stock-import.js';
 import {credentialAlertSettings} from '../../../src/connection-maintenance.js';
 import {renewMicrosoftCredential} from './credential-renewal.js';
@@ -177,7 +178,10 @@ async function inventoryRows(table:string,columns:string,key:string){
 }
 
 async function mirrorSummary(){
- const documents=await inventoryRows('ops_documents','id,storage_path,size_bytes,sha256','id');
+ const removals=check(await admin.rpc('totus_pending_document_removals'),'No se pudieron comprobar las retiradas documentales.');
+ if(!Array.isArray(removals))throw new Error('Estado de retiradas documentales no válido.');
+ const retiring=new Set(removals.map((row:any)=>row.id));
+ const documents=(await inventoryRows('ops_documents','id,storage_path,size_bytes,sha256','id')).filter((row:any)=>!retiring.has(row.id));
  const copied=await inventoryRows('ops_onedrive_documents','document_id,source_path,size_bytes,sha256','document_id');
  
  const index=new Map(copied.map((r:any)=>[r.document_id,r]));
@@ -185,17 +189,8 @@ async function mirrorSummary(){
  const pending=documents.filter((d:any)=>d.storage_path&&!matches(d));
  return {total:documents.filter((d:any)=>d.storage_path).length,verified:documents.filter((d:any)=>d.storage_path&&matches(d)).length,pending:pending.length,pending_ids:pending.map((d:any)=>d.id),verified_bytes:copied.filter((c:any)=>documents.some((d:any)=>d.id===c.document_id&&matches(d))).reduce((s:number,c:any)=>s+Number(c.size_bytes),0)};
 }
-async function mirrorDocuments(){
- const c=await config();if(!c.connected||!c.tested_at)throw new Error('Primero comprueba el guardado y lectura de OneDrive.');
- const access=await token();await root(access);
- const summary=await mirrorSummary();
- const ids=summary.pending_ids.slice(0,5);
- if(!ids.length)return {copied:0,total:summary.total,verified:summary.verified,pending:0};
- const documents=check(await admin.from('ops_documents').select('*').in('id',ids).order('id'),'No se pudieron leer los documentos pendientes.');
- const known=new Set<string>();let count=0;const deadline=Date.now()+80000;
+async function mirrorOneDocument(access:string,doc:any,known:Set<string>){
  const types:Record<string,string>={factura_recibida:'Facturas de proveedores',factura_rectificativa:'Abonos y rectificativas',informe:'Informes',impuesto:'Impuestos',proforma:'Proformas',otro:'Otros documentos'};
- for(const doc of documents){
-  if(count&&Date.now()>deadline)break;
   if(Number(doc.size_bytes)>20*1024*1024)throw new Error('Un documento supera el límite de copia por lote de 20 MB. Sus originales siguen en Supabase.');
   const source=check(await admin.storage.from('business-documents').download(doc.storage_path),'No se pudo leer un original de Supabase.');
   const bytes=await source.arrayBuffer(),digest=await fileHash(bytes);
@@ -215,6 +210,19 @@ async function mirrorDocuments(){
   const latest=check(await admin.from('ops_documents').select('storage_path,size_bytes,sha256').eq('id',doc.id).maybeSingle(),'No se pudo volver a comprobar el documento.');
   if(!latest||latest.storage_path!==doc.storage_path||Number(latest.size_bytes)!==bytes.byteLength||(latest.sha256&&latest.sha256!==digest))throw new Error('El documento cambió durante la copia; vuelve a comprobarlo.');
   check(await admin.from('ops_onedrive_documents').upsert({document_id:doc.id,source_path:doc.storage_path,onedrive_path:relative.join('/'),onedrive_item_id:item.id,size_bytes:bytes.byteLength,sha256:digest,verified_at:new Date().toISOString()},{onConflict:'document_id'}),'No se pudo registrar la copia verificada.');
+}
+
+async function mirrorDocuments(){
+ const c=await config();if(!c.connected||!c.tested_at)throw new Error('Primero comprueba el guardado y lectura de OneDrive.');
+ const access=await token();await root(access);
+ const summary=await mirrorSummary();
+ const ids=summary.pending_ids.slice(0,5);
+ if(!ids.length)return {copied:0,total:summary.total,verified:summary.verified,pending:0};
+ const documents=check(await admin.from('ops_documents').select('*').in('id',ids).order('id'),'No se pudieron leer los documentos pendientes.');
+ const known=new Set<string>();let count=0;const deadline=Date.now()+80000;
+ for(const doc of documents){
+  if(count&&Date.now()>deadline)break;
+  await mirrorOneDocument(access,doc,known);
   count++;
  }
  const after=await mirrorSummary();
@@ -223,6 +231,39 @@ async function mirrorDocuments(){
 
 
 
+async function verifyDocumentRemovalArchive(requested:any){
+ const doc=check(await admin.from('ops_documents').select('*').eq('id',requested.id).maybeSingle(),'No se pudo comprobar el documento que se retira.');
+ if(!doc)return {id:requested.id,status:'already_removed'};
+ if(doc.storage_path!==requested.storage_path||(doc.sha256||'')!==(requested.sha256||''))throw new Error('El original cambió; no se ha retirado otro archivo.');
+ const c=await config();if(!c.connected||!c.tested_at)throw new Error('Conecta y comprueba OneDrive antes de retirar el documento.');
+ const access=await token();await root(access);
+ let mirrored=check(await admin.from('ops_onedrive_documents').select('*').eq('document_id',doc.id).maybeSingle(),'No se pudo comprobar el original recuperable.');
+ if(!mirrored?.verified_at||mirrored.source_path!==doc.storage_path||Number(mirrored.size_bytes)!==Number(doc.size_bytes)||(doc.sha256&&mirrored.sha256!==doc.sha256)){
+  await mirrorOneDocument(access,doc,new Set<string>());
+  mirrored=check(await admin.from('ops_onedrive_documents').select('*').eq('document_id',doc.id).maybeSingle(),'No se pudo registrar el original recuperable.');
+ }
+ if(!mirrored?.onedrive_path||!mirrored.onedrive_item_id||!/^[a-f0-9]{64}$/.test(mirrored.sha256||''))throw new Error('No existe un original recuperable verificado.');
+ const path='/me/drive/special/approot:/'+encodedPath(mirrored.onedrive_path.split('/'));
+ const response=await graph(access,path);
+ if(!response.ok||(await response.json()).id!==mirrored.onedrive_item_id)throw new Error('El archivo de OneDrive no coincide con su registro. No se ha completado la retirada.');
+ const bytes=await readContent(access,path+':/content'),digest=await fileHash(bytes);
+ if(bytes.byteLength!==Number(doc.size_bytes)||digest!==mirrored.sha256||(doc.sha256&&digest!==doc.sha256))throw new Error('El archivo recuperable está dañado. No se ha retirado el original.');
+ return check(await admin.rpc('totus_verify_document_removal_archive',{p_id:doc.id,p_path:doc.storage_path,p_sha256:doc.sha256||'',p_archive_item_id:mirrored.onedrive_item_id,p_archive_sha256:digest}),'No se pudo confirmar el archivo recuperable.');
+}
+async function cleanupPendingDocumentRemovals(){
+ const worker=createDocumentRemovalWorker({
+  rpc:async(name:string,args:Record<string,unknown>)=>check(await admin.rpc(name,args).abortSignal(AbortSignal.timeout(15000)),'No se pudo completar la retirada documental.'),
+  verifyArchive:verifyDocumentRemovalArchive,
+  removeFile:async(bucket:string,path:string)=>{
+   const files=admin.storage.from(bucket);
+   check(await files.remove([path]),'No se pudo retirar el archivo de Supabase.');
+   const slash=path.lastIndexOf('/'),folder=slash<0?'':path.slice(0,slash),name=path.slice(slash+1);
+   const remaining=check(await files.list(folder,{search:name,limit:100,offset:0}),'No se pudo comprobar la retirada del archivo.');
+   if(!Array.isArray(remaining)||remaining.length>=100||remaining.some((file:any)=>file.name===name))throw new Error('El archivo sigue en Supabase. Se conserva su ficha para reintentar.');
+  }
+ });
+ return await worker();
+}
 async function cleanupRetiredDocuments(){
  const rows=check(await admin.from('ops_onedrive_cleanup').select('*').is('archived_at',null).order('created_at').limit(5),'No se pudo leer el archivo de documentos retirados.');
  if(!rows.length)return {archived:0,kept:0,failed:0};
@@ -265,14 +306,15 @@ async function cleanupRetiredDocuments(){
  return {archived,kept,failed};
 }
 
-async function runDocumentMirror(){
+async function runDocumentMirror(removalsOnly=false){
  const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
  const claimed=check(await admin.from('ops_onedrive_config').update({mirror_lock_until:lease,mirror_last_attempt:at,mirror_last_error:null}).eq('id',1).or('mirror_lock_until.is.null,mirror_lock_until.lt.'+at).select('id').maybeSingle(),'No se pudo reservar el lote documental.');
  if(!claimed)throw new Error('Ya hay una copia de documentos en curso. Actualiza su estado en unos minutos.');
  try{
+  const removals=await cleanupPendingDocumentRemovals();
   const cleanup=await cleanupRetiredDocuments();
-  const result={...await mirrorDocuments(),cleanup};
-  check(await admin.from('ops_onedrive_config').update({mirror_last_error:cleanup.failed?'Hay archivos retirados pendientes de limpieza. Se reintentará automáticamente.':null}).eq('id',1),'No se pudo actualizar el resultado.');
+  const result={...(removalsOnly?{copied:0}:await mirrorDocuments()),cleanup,removals};
+  check(await admin.from('ops_onedrive_config').update({mirror_last_error:cleanup.failed||removals.failed?'Hay retiradas pendientes de completar. Se reintentarán automáticamente.':null}).eq('id',1),'No se pudo actualizar el resultado.');
   return result;
  }catch(error){
   await admin.from('ops_onedrive_config').update({mirror_last_error:error instanceof Error?error.message:'No se pudo copiar el lote.'}).eq('id',1);
@@ -404,6 +446,20 @@ async function runBackupMirror(){
 
 // Resolve only a document visible through the caller's existing database policies.
 // Scheduled backup workers have already passed their dedicated Vault-key check.
+async function completeDocumentRemoval(body:any,req:Request){
+ const authorization=req.headers.get('Authorization')||'';
+ if(!/^Bearer\s+\S+/i.test(authorization))throw new Error('Acceso denegado.');
+ const id=String(body.id||''),path=String(body.path||''),sha256=String(body.sha256||'');
+ const scoped=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:authorization}},auth:{persistSession:false,autoRefreshToken:false}});
+ const begun=check(await scoped.rpc('totus_begin_document_removal',{p_id:id,p_path:path,p_sha256:sha256}),'No se pudo comprobar la autorización de la retirada.');
+ if(begun?.id!==id||!['pending','already_removed'].includes(begun?.status))throw new Error('La autorización de la retirada no es válida.');
+ if(begun.status==='already_removed')return begun;
+ const result=await runDocumentMirror(true);
+ const current=check(await admin.from('ops_documents').select('id').eq('id',id).maybeSingle(),'No se pudo comprobar el resultado de la retirada.');
+ if(!current)return {id,status:'removed'};
+ const failure=result.removals.errors.find((error:any)=>error.id===id);
+ throw new Error((failure?.message||'La retirada continúa pendiente y se reintentará automáticamente.')+' La ficha se conserva y no se ha completado la retirada.');
+}
 async function documentFileUrl(path:string,req:Request,job=false){
  if(!path||path.length>1024||path.split('/').some(p=>!p||p==='.'||p==='..')||/[\\\x00-\x1f]/.test(path))throw new Error('Ruta de documento no válida.');
  let doc:any;
@@ -548,6 +604,7 @@ Deno.serve(async req=>{
   }
   if(action.startsWith('chat-file-'))return await chatFiles.handle(req,body);
   if(action==='document-file-url')return json(await documentFileUrl(String(body.path||''),req));
+  if(action==='complete-document-removal')return json(await completeDocumentRemoval(body,req));
   const user=await administrator(req);
   if(action==='import-stock-document')return json(await importStockDocument({...body,actor_email:user.email},{admin,check,token,root,graph,encodedPath,readContent,fileHash}));
   if(action==='backup-document-urls')return json(await backupDocumentLinks(body.paths));

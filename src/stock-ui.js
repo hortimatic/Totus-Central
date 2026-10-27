@@ -4,7 +4,12 @@ import {esc,fmtDate,isoToday,download} from './utils.js';
 import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
 import {STOCK_STATES,stockLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
 import {filterStockReceipts,sameStockEquivalence,stockIdentity,stockExportRows,stockReportHtml,stockChatEvidence} from './stock-workflow.js';
-const view={loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',from:'',to:'',status:'all',error:'',pendingUploads:[],equivalences:[],libraryQuery:'',libraryStore:'all'};
+const initialView=()=>({loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',from:'',to:'',status:'all',error:'',pendingUploads:[],equivalences:[],libraryQuery:'',libraryStore:'all'});
+const view=initialView();let owner='',navigationEpoch=0;
+const actorKey=()=>String(state.user?.email||'').toLowerCase();
+function syncOwner(){if(owner!==actorKey()){owner=actorKey();navigationEpoch++;Object.assign(view,initialView());}}
+const readScope=()=>JSON.stringify([actorKey(),state.route,navigationEpoch]);
+const currentRead=scope=>scope===readScope();
 const storeName=id=>state.data.stores.find(s=>s.id===id)?.name||'Tienda';
 const label=code=>STOCK_STATES[code]||code;
 const badge=code=>'<span class="badge '+(code==='matched'?'good':code==='differences'?'bad':'warn')+'">'+esc(label(code))+'</span>';
@@ -52,7 +57,7 @@ function resultTable(receipt){
 function receiptDetail(){
  const c=view.context,r=c?.receipt;if(!r)return '<section class="card card-pad" role="status">Cargando recepción…</section>';
  const sources=c.sources||[];
- const options=state.data.documents.filter(d=>!sources.some(s=>s.document_id===d.id)&&(!d.store_id||d.store_id===r.store_id))
+ const options=state.data.documents.filter(d=>!state.data.documentRemovals?.some(p=>p.id===d.id)&&!sources.some(s=>s.document_id===d.id)&&(!d.store_id||d.store_id===r.store_id))
  .map(d=>({value:d.id,label:[d.original_name,d.supplier_or_customer,d.invoice_number].filter(Boolean).join(' · ')}));
  return back()+'<div class="stack stock-page">'+(view.error?'<div class="note warn" role="alert">'+esc(view.error)+'</div>':'')+
  '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(r.status)+(canEdit()?action('Editar datos','stock-edit'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
@@ -78,6 +83,7 @@ function libraryPage(){
  ],rows,{emptyTitle:'Sin equivalencias',emptyText:'Las coincidencias de un pedido no se guardan como regla permanente sin confirmarlas.'})+'</section>';
 }
 export function stockPage(){
+ syncOwner();
  if(view.mode==='new')return receiptForm();
  if(view.mode==='detail')return receiptDetail();
  if(view.mode==='library')return libraryPage();
@@ -89,6 +95,9 @@ export function stockPage(){
  (!view.loaded?'<div class="note">Cargando recepciones…</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(r.status)},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'No hay pedidos con estos filtros. Puedes limpiar el rango o crear una recepción.'}))+'</section>';
 }
 export async function stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256}){
+ syncOwner();
+ if(['stock-new','stock-back','stock-open','stock-library','stock-library-refresh','stock-refresh'].includes(a))navigationEpoch++;
+ const actionScope=readScope();
  const {sb,rpc,downloadFile,insert,select}=await import('./api.js');
  const {validateDocumentFile}=await import('./file-utils.js');
  const {extractStockText}=await import('./stock-extract.js');
@@ -104,15 +113,30 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   throw new Error('El listado supera 100.000 registros. No se mostrarán datos incompletos.');
  };
  const context=async id=>{
-  view.context=await rpc('totus_stock_context',{p_id:id});
-  view.history=await list('ops_stock_revisions','id,receipt_id,revision,action,actor_email,created_at',q=>q.eq('receipt_id',id));
+  const scope=readScope(),next=await rpc('totus_stock_context',{p_id:id});
+  const history=await list('ops_stock_revisions','id,receipt_id,revision,action,actor_email,created_at',q=>q.eq('receipt_id',id));
+  if(!currentRead(scope))return false;
+  view.context=next;view.history=history;return true;
  };
- const loadLibrary=async()=>{view.equivalences=await list('ops_stock_equivalences','*');};
+ const loadLibrary=async()=>{
+  const scope=readScope(),rows=await list('ops_stock_equivalences','*');
+  if(!currentRead(scope))return false;
+  view.equivalences=rows;return true;
+ };
+ const retainLibrarySearch=()=>{
+  const query=document.getElementById('stockLibraryQuery'),store=document.getElementById('stockLibraryStore');
+  if(query)view.libraryQuery=query.value;if(store)view.libraryStore=store.value||'all';
+  const active=document.activeElement,id=[query?.id,store?.id].includes(active?.id)?active?.id:null;
+  const start=active?.selectionStart,end=active?.selectionEnd;
+  return ()=>{const field=id?document.getElementById(id):null;if(!field)return;field.focus({preventScroll:true});if(Number.isInteger(start)&&Number.isInteger(end)&&typeof field.setSelectionRange==='function')field.setSelectionRange(start,end);};
+ };
  const refresh=async()=>{
-  if(view.mode==='library')await loadLibrary();
-  else if(view.mode==='detail'&&view.context)await context(view.context.receipt.id);
-  else{view.receipts=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at');view.loaded=true;}
-  view.error='';render();
+  const scope=readScope();
+  let restoreFocus=()=>{};
+  if(view.mode==='library'){if(!await loadLibrary())return;restoreFocus=retainLibrarySearch();}
+  else if(view.mode==='detail'&&view.context){if(!await context(view.context.receipt.id))return;}
+  else{const rows=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at');if(!currentRead(scope))return;view.receipts=rows;view.loaded=true;}
+  view.error='';render();restoreFocus();
  };
  const attach=async(doc,kind,file)=>{
   let extracted;try{extracted=await extractStockText(file)}catch(error){extracted={text:'',extraction:{state:'unread',warnings:[String(error.message||error)],reader:'failed'}}}
@@ -138,7 +162,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
    while(view.pendingUploads.length){
     const item=view.pendingUploads[0],r=view.context.receipt,hash=item.hash||await fileSha256(item.file);
     const progress=document.getElementById('stockProgress');if(progress)progress.textContent='Guardando '+item.file.name+' · '+view.pendingUploads.length+' pendiente(s)…';
-    let doc=state.data.documents.find(d=>d.sha256===hash&&(!d.store_id||d.store_id===r.store_id));
+    let doc=state.data.documents.find(d=>!state.data.documentRemovals?.some(p=>p.id===d.id)&&d.sha256===hash&&(!d.store_id||d.store_id===r.store_id));
     const linked=doc&&view.context.sources.find(s=>s.document_id===doc.id);
     if(linked){
      if(linked.source_kind!==item.kind)throw new Error('Este documento ya está asociado al otro lado del pedido.');
@@ -174,8 +198,8 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   closeModal();toast('Proveedor seleccionado. Puedes continuar con los documentos.');return;
  }
  if(a==='stock-filter-clear'){Object.assign(view,{from:'',to:'',query:'',store:'all',status:'all'});render();return;}
- if(a==='stock-library'||a==='stock-library-refresh'){await loadLibrary();view.mode='library';render();return;}
- if(a==='stock-library-search'){view.libraryQuery=value('stockLibraryQuery');view.libraryStore=value('stockLibraryStore')||'all';render();return;}
+ if(a==='stock-library'||a==='stock-library-refresh'){if(!await loadLibrary())return;const restoreFocus=retainLibrarySearch();view.mode='library';render();restoreFocus();return;}
+ if(a==='stock-library-search'){const restoreFocus=retainLibrarySearch();render();restoreFocus();return;}
  if(a==='stock-equivalence-new'){
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
   const row=view.context.receipt.result.rows.find(r=>r.id===el.dataset.line);
@@ -214,7 +238,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   download(new Blob([xlsx.write(book,{type:'array',bookType:'xlsx'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),stem+'.xlsx');return;
  }
  if(a==='stock-upload-discard'){
-  if(!await confirmAction('Se retirarán solo los archivos pendientes de subir. Los documentos ya guardados se conservan.',{title:'Quitar archivos pendientes',acceptLabel:'Quitar pendientes'}))return;
+  if(!await confirmAction('Se quitará la lista de archivos pendientes de asociar. Los documentos ya guardados se conservan en Documentos.',{title:'Quitar archivos pendientes',acceptLabel:'Quitar pendientes'}))return;
   view.pendingUploads=[];view.error='';render();return;
  }
  if(a==='stock-upload-retry-save'){await context(view.context.receipt.id);await processUploads();return;}
@@ -244,12 +268,13 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   const queue=[...[...(document.getElementById('stockNewSupplierFiles')?.files||[])].map(file=>({file,kind:'supplier'})),...[...(document.getElementById('stockNewPrestashopFiles')?.files||[])].map(file=>({file,kind:'prestashop'}))];
   await preflight(queue);
   const r=await rpc('totus_stock_create',{p_store:store,p_supplier:supplier,p_reference:value('stockReference').trim(),p_date:date,p_notes:value('stockNotes').trim()});
+  if(!currentRead(actionScope))return;
   view.context={receipt:r,sources:[],equivalences:[]};view.history=[];view.pendingUploads=queue;view.mode='detail';view.error='';
   try{await context(r.id);}catch(error){view.error='La recepción se ha guardado. Actualiza antes de continuar: '+error.message;render();return;}
   if(queue.length)await processUploads();else{render();toast('Recepción creada. Añade los documentos.');}
   return;
  }
- if(a==='stock-open'){await context(el.dataset.id);view.pendingUploads=[];view.error='';view.mode='detail';render();return;}
+ if(a==='stock-open'){if(!await context(el.dataset.id))return;view.pendingUploads=[];view.error='';view.mode='detail';render();return;}
  if(a==='stock-preview'){await previewDocument(el.dataset.id);return;}
  if(a==='stock-text'){
   const source=view.context.sources.find(s=>s.id===el.dataset.id);if(!source)throw new Error('Documento no encontrado.');

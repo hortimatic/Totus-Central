@@ -22,7 +22,7 @@ import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField,fieldHelp} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
-import {manualClosingReconciled,sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount} from '../calculations.js';
+import {manualClosingReconciled,sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount,closingSalesAmount} from '../calculations.js';
 
 const stores=()=>state.data.stores.filter(x=>x.active!==false);
 const storeName=id=>state.data.stores.find(x=>x.id===id)?.name||'—';
@@ -137,8 +137,8 @@ export function inicio(){
  })).join('');
  const storeCards=activeStores.map(store=>{
   const close=todays.find(x=>x.store_id===store.id),storeMonth=monthClosings.filter(x=>x.store_id===store.id);
-  const monthSales=sum(storeMonth,closingIncomeAmount);
-  const todaySales=closingIncomeAmount(close);
+  const monthSales=sum(storeMonth,closingSalesAmount);
+  const todaySales=closingSalesAmount(close);
   return `<article class="store-status-card"><div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div><div class="metric-list" style="margin-top:12px"><div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div><div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div><div class="metric-box"><span>Dinero dejado · total tienda</span><b>${close?money(close.actual_cash):'—'}</b></div><div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div></div><div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div></article>`;
  }).join('');
  const expenseByStore=activeStores.map(store=>{const rows=quarterExpenses.filter(x=>x.store_id===store.id),regular=rows.filter(x=>!x.management_only),internal=rows.filter(x=>x.management_only);return `<div class="summary-row"><div><b>${esc(store.name)}</b><div class="small muted">${regular.length} contabilizados · ${internal.length} internos</div></div><strong>${money(sum(rows,expenseCostAmount))}</strong></div>`}).join('');
@@ -418,6 +418,7 @@ function seriesSectionHtml(){
  return `<section class="card table-card"><div class="section-head card-pad"><div><h2>Series</h2><p>Las dos tiendas comparten la serie ordinaria del titular. Las proformas y rectificativas tienen series propias. Las series usadas conservan su identidad y numeración.</p></div>${isAdmin()?btn('+ Nueva serie','series-new','primary'):''}</div>${table(headers,rows,{emptyTitle:'Sin series',emptyText:'Crea las series de facturas, rectificativas y proformas.'})}</section>`;
 }
 
+const documentRemovalPending=id=>state.data.documentRemovals?.some(row=>row.id===id)||false;
 export function documentos(){
  const view=getView('documentos');
  if(view.mode==='record'){
@@ -431,8 +432,8 @@ export function documentos(){
   {label:'Documento',html:r=>`<b>${esc(r.original_name||'Documento')}</b><div class="small muted">${fmtDate(r.document_date||r.created_at)} · ${esc(storeName(r.store_id))}</div>`},
   {label:'Clasificación',html:r=>`<b>${esc(r.category_code==='control_interno'?'Control interno':String(r.doc_type||'—').replaceAll('_',' '))}</b><div class="small muted">${esc(r.supplier_or_customer||'')} ${r.invoice_number?'· '+esc(r.invoice_number):''}</div>`},
   {label:'Tamaño',num:true,html:r=>`${(Number(r.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB`},
-  {label:'Estado',html:r=>stateBadge(r.status)},
-  {label:'',html:r=>`<div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}${!issuedDocumentFileLocked(r.id,state.data.invoices)&&canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||r.uploaded_by===state.session?.user?.id)?btn('Eliminar','document-delete','danger',`data-id="${r.id}"`):''}</div>`}
+  {label:'Estado',html:r=>documentRemovalPending(r.id)?'<span class="badge warn">Eliminación pendiente</span>':stateBadge(r.status)},
+  {label:'',html:r=>`<div class="inline-actions">${documentRemovalPending(r.id)?'':btn('Vista previa','document-preview','secondary',`data-id="${r.id}"`)+btn('Descargar','document-download','secondary',`data-id="${r.id}"`)}${btn('Abrir','document-edit','secondary',`data-id="${r.id}"`)}${!issuedDocumentFileLocked(r.id,state.data.invoices)&&canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||r.uploaded_by===state.session?.user?.id)?btn(documentRemovalPending(r.id)?'Reintentar eliminación':'Eliminar','document-delete','danger',`data-id="${r.id}"`):''}</div>`}
  ];
  const extra=`<div class="field"><label>Estado</label><select id="documentosStatus"><option value="all">Todos</option>${['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].map(v=>`<option value="${v}" ${status===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div><div class="field"><label>Tipo</label><select id="documentosType"><option value="all">Todos</option>${['factura_recibida','factura_emitida','factura_rectificativa','proforma','ticket','contrato','impuesto','informe','otro','control_interno'].map(v=>`<option value="${v}" ${type===v?'selected':''}>${v.replaceAll('_',' ')}</option>`).join('')}</select></div>`;
  return `<div class="page documents-page">
@@ -446,6 +447,7 @@ export function documentos(){
 }
 
 export function documentRecordHtml(row=null){
+ if(row&&documentRemovalPending(row.id))return `<div class="page record-page"><div class="record-toolbar"><div><button class="btn link" data-action="document-back">← Volver a documentos</button><div class="eyebrow">Documentos · Ficha</div><h2>${esc(row.original_name||'Documento')}</h2></div><span class="badge warn">Eliminación pendiente</span></div><section class="card card-pad"><h3>Completar la eliminación</h3><p>La eliminación quedó pendiente. El servidor volverá a intentarla sin depender de este ordenador. Puedes reintentar ahora; la ficha se conserva hasta terminar y el archivo no se puede asociar a otro registro.</p><dl><dt>Proveedor / cliente</dt><dd>${esc(row.supplier_or_customer||'—')}</dd><dt>Número</dt><dd>${esc(row.invoice_number||'—')}</dd><dt>Fecha</dt><dd>${fmtDate(row.document_date||row.created_at)}</dd><dt>Tamaño</dt><dd>${(Number(row.size_bytes||0)/1024/1024).toFixed(2).replace('.',',')} MB</dd><dt>Notas</dt><dd>${esc(row.notes||'—')}</dd></dl><div class="inline-actions">${canUser(state.user,'documentos','delete',state.data.userPermissions)&&(isManager()||row.uploaded_by===state.session?.user?.id)?btn('Reintentar eliminación','document-delete','danger',`data-id="${row.id}"`):''}${btn('Volver','document-back','secondary')}</div></section></div>`;
  const fileLocked=issuedDocumentFileLocked(row?.id,state.data.invoices);
  const canEdit=!row?canUser(state.user,'documentos','create',state.data.userPermissions):((isManager()||(row.uploaded_by&&row.uploaded_by===state.session?.user?.id))&&canUser(state.user,'documentos','edit',state.data.userPermissions));
  if(row&&!canEdit)return `<div class="page record-page"><div class="record-toolbar"><h2>${esc(row.original_name||'Documento')}</h2></div><section class="card card-pad"><p class="note">Puedes consultar y descargar este archivo. La edición corresponde a quien lo subió o a gerencia.</p><div class="inline-actions">${btn('Vista previa','document-preview','secondary',`data-id="${row.id}"`)}${btn('Descargar','document-download','secondary',`data-id="${row.id}"`)}${btn('Volver','document-back','secondary')}</div></section></div>`;

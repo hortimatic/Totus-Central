@@ -2,8 +2,9 @@ import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
 import {setRolePermissions} from './permissions.js';
 import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
+import {assertService,matchesSavedFields,verifiedWrite} from './write-safety.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-const assert=({error},ctx)=>{if(error)throw new Error(`${ctx}: ${error.message}`)};
+const assert=assertService;
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
 export async function logout(){await sb.auth.signOut()}
 export async function recover(email){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});assert(r,'Recuperación')}
@@ -36,14 +37,29 @@ export async function select(table,{order,ascending=false,limit=100000,filter,al
   throw new Error(table+': se alcanzó el límite de '+limit+' filas. No se mostrarán datos incompletos.');
  return rows;
 }
-export async function insert(table,row){const r=await sb.from(table).insert(row).select().single();assert(r,`Crear ${table}`);return r.data}
-export async function update(table,id,row){const r=await sb.from(table).update(row).eq('id',id).select().single();assert(r,`Actualizar ${table}`);return r.data}
+const UUID_INSERT_TABLES=new Set(['brands','families','providers','consultations','ops_documents','ops_tax_payments','ops_customers','ops_document_templates','ops_invoice_series','ops_suppliers','ops_expense_categories','ops_stores','ops_cash_drawers','ops_fiscal_adjustments','ops_income_adjustments','price_history','product_variants','product_provider_prices','product_competitor_prices']);
+async function readWriteRecord(table,id){
+ if(id===undefined||id===null)return null;
+ const result=await sb.from(table).select().eq('id',id).maybeSingle();assert(result,`Comprobar ${table}`);return result.data;
+}
+export async function insert(table,row){
+ const candidate={...row};if(UUID_INSERT_TABLES.has(table)&&candidate.id==null)candidate.id=crypto.randomUUID();
+ return verifiedWrite(async()=>{const r=await sb.from(table).insert(candidate).select().single();assert(r,`Crear ${table}`);return r.data},()=>readWriteRecord(table,candidate.id),saved=>matchesSavedFields(saved,candidate));
+}
+export async function update(table,id,row,{expected={}}={}){
+ return verifiedWrite(async()=>{
+  let query=sb.from(table).update(row).eq('id',id);
+  for(const [key,value] of Object.entries(expected))query=value===null?query.is(key,null):query.eq(key,value);
+  const r=await query.select().single();
+  if((!r.error&&!r.data)||(Object.keys(expected).length&&r.error?.code==='PGRST116'))
+   assert({error:{code:'PGRST116',message:'El registro ha cambiado o ya no tienes permiso. Actualiza la ficha antes de repetir la operación.'}},`Actualizar ${table}`);
+  assert(r,`Actualizar ${table}`);return r.data;
+ },()=>readWriteRecord(table,id),saved=>matchesSavedFields(saved,row));
+}
 export async function remove(table,id){
  if(id===undefined||id===null||id==='')throw new Error('Falta el identificador del registro que deseas eliminar.');
- const r=await sb.from(table).delete().eq('id',id).select('id');
- assert(r,`Eliminar ${table}`);
- if(!Array.isArray(r.data)||r.data.length!==1)
-  throw new Error(`No se eliminó el registro de ${table}. Puede faltar permiso, estar ya borrado o tener referencias protegidas. Actualiza y comprueba su estado.`);
+ const r=await sb.from(table).delete().eq('id',id).select('id');assert(r,`Eliminar ${table}`);
+ if(!Array.isArray(r.data)||r.data.length!==1)throw new Error(`No se eliminó el registro de ${table}. Puede faltar permiso, estar ya borrado o tener referencias protegidas. Actualiza y comprueba su estado.`);
  return r.data[0];
 }
 export async function rpc(name,args={}){const r=await sb.rpc(name,args);assert(r,name);return r.data}
@@ -57,6 +73,12 @@ export async function invokeRecovery(jobId,action='process',values={}){
  return body;
 }
 export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
+export async function completeDocumentRemoval(document){
+ const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'complete-document-removal',id:document.id,path:document.storage_path||'',sha256:document.sha256||''}});
+ if(error){let message='La retirada no se ha podido confirmar. Su solicitud se conserva para reintentar.';try{message=(await error.context.json()).error||message;}catch{}throw new Error(message);}
+ if(data?.error)throw new Error(data.error);
+ return data;
+}
 async function documentLocation(path){
  const session=(await sb.auth.getSession()).data.session;
  if(!session)throw new Error('Sesión no válida.');
@@ -96,18 +118,24 @@ export async function removeFile(bucket,path){
   throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
 }
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
+const dataOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
+let coreReadGeneration=0,auditReadGeneration=0;
 export async function reloadStorageUsage(){
+ const owner=dataOwner();
  try{
   const data=await rpc('totus_storage_usage');
   if(!data||data.status!=='ok'||data.source!=='supabase_storage_objects')throw new Error('Respuesta de Storage no verificable.');
+  if(dataOwner()!==owner)return state.data.storageUsage;
   state.data.storageUsage={...data,status:'ok',fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }catch(e){
+  if(dataOwner()!==owner)return state.data.storageUsage;
   state.data.storageUsage={status:'error',message:String(e?.message||e),fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }
 }
 export async function loadCore(){
+ const owner=dataOwner(),generation=++coreReadGeneration,current=()=>dataOwner()===owner&&generation===coreReadGeneration;
  const tasks=[
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
@@ -121,37 +149,49 @@ export async function loadCore(){
  // and publish state only when every required table has loaded successfully.
  const results=new Array(tasks.length);let next=0,failure=null;
  const worker=async()=>{
-  while(!failure&&next<tasks.length){
+  while(current()&&!failure&&next<tasks.length){
    const index=next++,[,table,order]=tasks[index];
    try{results[index]=await select(table,{order,ascending:false})}
    catch(error){failure||=error}
   }
  };
  await Promise.all(Array.from({length:Math.min(4,tasks.length)},worker));
+ if(!current())return false;
  if(failure)throw failure;
+ const documentRemovals=await rpc('totus_pending_document_removals');
+ if(!current())return false;
+ if(!Array.isArray(documentRemovals))throw new Error('No se pudo comprobar el estado de las retiradas documentales.');
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
+ state.data.documentRemovals=documentRemovals;
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
  await reloadStorageUsage();
- if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{state.data.auditError=error.message});
+ if(!current())return false;
+ if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{if(current())state.data.auditError=error.message});
+ return current();
 }
 let auditHistoryCache=null;
 export async function reloadAudit({full=false}={}){
  if(!['admin','gerente'].includes(state.user?.role))return;
- const owner=state.user.email+':'+state.user.role;
+ const owner=dataOwner(),generation=++auditReadGeneration;
  const cache=!full&&auditHistoryCache?.owner===owner?auditHistoryCache:null;
  const since=rows=>rows?.reduce((last,r)=>String(r.created_at||'')>last?String(r.created_at):last,'')||'';
  const history=(table,rows)=>select(table,{order:'created_at',ascending:false,filter:since(rows)?q=>q.gte('created_at',since(rows)):undefined});
- const [newEvents,newUsers,chat,tasks]=await Promise.all([
+ const [newEvents,newUsers,chat,tasks,stock]=await Promise.all([
   history('ops_audit_log',cache?.events),
   state.user.role==='admin'?history('team_user_audit_log',cache?.users):Promise.resolve([]),
   select('ops_chat_events',{order:'created_at',ascending:false}),
-  select('ops_task_events',{order:'created_at',ascending:false})
+  select('ops_task_events',{order:'created_at',ascending:false}),
+  // Historical snapshots can contain whole receipts; the log only needs their
+  // immutable event reference. Re-read under current RLS on every refresh.
+  select('ops_stock_revisions',{order:'created_at',ascending:false,columns:'id,receipt_id,revision,action,actor_email,created_at'})
  ]);
+ if(dataOwner()!==owner||generation!==auditReadGeneration)return;
  const backups=state.user.role==='admin'?await select('ops_backup_runs',{order:'started_at',ascending:false,columns:'id,mode,status,started_at,finished_at,files_count,rows_count,error_message'}):[];
+ if(dataOwner()!==owner||generation!==auditReadGeneration)return;
  const events=mergeAuditRows(cache?.events,newEvents),users=mergeAuditRows(cache?.users,newUsers);
  auditHistoryCache={owner,events,users};
- state.data.audit=combineAuditEvents({events,users,chat,tasks,backups,people:[...(state.data.team||[]),...(state.data.profiles||[])]});
+ state.data.audit=combineAuditEvents({events,users,chat,tasks,stock,backups,people:[...(state.data.team||[]),...(state.data.profiles||[])]});
  state.data.auditError='';state.data.auditUpdatedAt=new Date().toISOString();
 }

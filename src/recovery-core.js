@@ -179,7 +179,9 @@ export async function prepareRecoveryPlan(archive,jobId,{reusable}={}){
  if(!UUID.test(jobId))throw new Error('Identificador de recuperación no válido.');
  const files=[],maps=Object.fromEntries(RECOVERY_BUCKETS.map(b=>[b,new Map()]));
  for(const bucket of RECOVERY_BUCKETS)for(const path of archive.manifest.storage[bucket]){
-  if(reusable?.version===3&&reusable.revision&&reusable.project_ref===archive.manifest.project_ref
+  // Document paths may be held by an interrupted removal in another session.
+  // Restore them into this job's immutable namespace, never onto that old path.
+  if(bucket!=='business-documents'&&reusable?.version===3&&reusable.revision&&reusable.project_ref===archive.manifest.project_ref
    &&reusable.database_instance===archive.manifest.database_instance&&reusable.schema_hash===archive.manifest.schema_hash
    &&reusable.integrity?.storage?.[bucket]?.[path]===archive.manifest.integrity.storage[bucket][path]){
    maps[bucket].set(path,path);continue;

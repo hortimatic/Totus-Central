@@ -1,6 +1,5 @@
 import {monthRange} from './utils.js';
-const range=monthRange();
-const dateFilter=()=>({from:range.from,to:range.to,store:'all',query:''});
+const dateFilter=()=>({...monthRange(),store:'all',query:''});
 export const state={
  session:null,user:null,route:'inicio',loading:false,
  views:{
@@ -22,7 +21,7 @@ export const state={
    fiscalidad:dateFilter(),
    informes:dateFilter()
  },
- data:{auditError:'',auditUpdatedAt:null,backupConfig:null,backupRuns:[],recoveryJobs:[],roles:[],rolePermissions:[],userPermissions:[],settings:null,storageUsage:{documents_bytes:0,documents_count:0,assets_bytes:0,assets_count:0,total_bytes:0,limit_bytes:500*1024*1024},team:[],profiles:[],stores:[],drawers:[],categories:[],suppliers:[],closings:[],closingDrawers:[],expenses:[],expenseLines:[],customers:[],series:[],invoices:[],invoiceLines:[],documents:[],taxPayments:[],fiscalAdjustments:[],incomeAdjustments:[],audit:[],templates:[],brands:[],families:[],products:[],variants:[],providers:[],providerPrices:[],competitors:[],consultations:[]}
+ data:{auditError:'',auditUpdatedAt:null,backupConfig:null,backupRuns:[],recoveryJobs:[],roles:[],rolePermissions:[],userPermissions:[],settings:null,storageUsage:{documents_bytes:0,documents_count:0,assets_bytes:0,assets_count:0,total_bytes:0,limit_bytes:500*1024*1024},team:[],profiles:[],stores:[],drawers:[],categories:[],suppliers:[],closings:[],closingDrawers:[],expenses:[],expenseLines:[],customers:[],series:[],invoices:[],invoiceLines:[],documents:[],documentRemovals:[],taxPayments:[],fiscalAdjustments:[],incomeAdjustments:[],audit:[],templates:[],brands:[],families:[],products:[],variants:[],providers:[],providerPrices:[],competitors:[],consultations:[]}
 };
 export const isAdmin=()=>state.user?.role==='admin';
 export const isManager=()=>['admin','gerente'].includes(state.user?.role);
@@ -32,4 +31,10 @@ export const setView=(route,patch)=>Object.assign(state.views[route]||(state.vie
 export const resetView=route=>Object.assign(state.views[route]||(state.views[route]={}),{mode:'list',id:null});
 export const getFilters=route=>state.filters[route]||{};
 export const patchFilters=(route,patch)=>Object.assign(state.filters[route]||(state.filters[route]={}),patch);
-export const resetData=()=>Object.keys(state.data).forEach(k=>state.data[k]=Array.isArray(state.data[k])?[]:null);
+const initialData=structuredClone(state.data),initialViews=structuredClone(state.views),initialFilters=structuredClone(state.filters);
+export const resetData=()=>{state.data=structuredClone(initialData)};
+export function resetSessionData(){
+ resetData();state.views=structuredClone(initialViews);state.filters=structuredClone(initialFilters);
+ for(const [route,filter] of Object.entries(state.filters))if(Object.hasOwn(filter,'from')&&route!=='adminLog')state.filters[route]=dateFilter();
+ state.route='inicio';state.loading=false;
+}

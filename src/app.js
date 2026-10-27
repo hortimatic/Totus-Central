@@ -1,4 +1,8 @@
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
+import {cleanupAllowed} from './write-safety.js';
+import {createBusinessWriter} from './business-write.js';
+import {rememberWriteVersion,expectedWriteVersion} from './write-version.js';
+import {retireStoredDocument} from './document-removal.js';
 import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
@@ -25,9 +29,9 @@ import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,markFormFieldSaved} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
-import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser} from './permissions.js';
-import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
+import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
+import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
+import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
@@ -43,6 +47,23 @@ import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
 import {renderPdfPreview} from './pdf-preview.js';
 
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
+const businessWriter=createBusinessWriter({rpc});
+// A delayed preview belongs to the account and rendered page that requested it.
+function activeActor(){
+ const owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
+ return ()=>!!state.user&&owner===JSON.stringify([state.session?.user?.id,state.user?.email]);
+}
+function activePreviewPage(){
+ const page=$('#content > .page'),isOwner=activeActor();
+ return ()=>!!page?.isConnected&&isOwner();
+}
+async function resumeBusinessForm(route){
+ const result=await businessWriter.resume($('#content > .page'));
+ if(!result){await businessWriter.ensure();return false;}
+ const doc=result.args.p_document;
+ setView(route,{mode:'record',id:result.id,...(route==='cajas'?{reconcileSource:false}:{}),...(doc?{docType:doc.document_type,invoiceKind:doc.invoice_kind,origin:doc.origin}:{})});
+ await refresh('Guardado confirmado. No se ha creado otro registro.');return true;
+}
 const headerTools=createHeaderTools({rpc,actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{if(!state.user||!can(route,'view')||!await allowDiscardDrafts())return;closeModal();if(route==='tareas')pendingTaskDate=date;setRoute(route);render();}});
 const tasks=createTasks({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>toast(m,'bad'),confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
 function updateChatBadge(count){
@@ -150,6 +171,8 @@ function render(){
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
  $('#content').innerHTML='<div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
+ const records={cajas:state.data.closings,gastos:state.data.expenses,facturacion:state.data.invoices};
+ rememberWriteVersion($('#content > .page'),records[state.route]?.find(row=>row.id===getView(state.route).id));
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
  // Scrolling to a subtab used to reset after each rerender on mobile, hiding the active item.
  const tabs=$('#content .module-tabs'),active=tabs?.querySelector('.tab.active');
@@ -224,20 +247,25 @@ function refreshMaintenanceNotice(){
   host.innerHTML=html;host.hidden=!html;
  }).catch(()=>{});
 }
+let refreshGeneration=0;
+const sessionViewOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
 async function refresh(message=''){
+ if(!state.user)return;
+ const owner=sessionViewOwner(),generation=++refreshGeneration,current=()=>sessionViewOwner()===owner&&generation===refreshGeneration;
  state.loading=true;
  try{
-  await loadCore();
+  if(await loadCore()===false||!current())return;
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
   if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else render()
  }
  catch(e){
+  if(!current())return;
   console.error(e);toast(e.message,'bad');
   const content=$('#content');
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
- finally{state.loading=false}
+ finally{if(current())state.loading=false}
 }
 let auditRefreshInFlight=false;
 async function refreshAuditPanel({full=false}={}){
@@ -272,6 +300,7 @@ function validateDecimalFields(root=document){
 
 
 async function saveClosing(id='',status='borrador'){
+ if(await resumeBusinessForm('cajas'))return;
  if(!['borrador','cerrado'].includes(status))throw new Error('Selecciona un estado válido para el cierre.');
  if(id&&state.data.closingDrawers.some(d=>d.closing_id===id&&state.data.drawers.some(x=>x.id===d.drawer_id&&x.active===false)))throw new Error('Este cierre conserva una caja inactiva. Reactívala en Administración → Negocio antes de editar el cierre. Sus importes no se han eliminado.');
  const reconcilingSource=!!getView('cajas').reconcileSource;
@@ -298,8 +327,8 @@ async function saveClosing(id='',status='borrador'){
   const difference=Math.round(calculated*100)-Math.round(num('clReported')*100);
   if(Math.abs(difference)>1)throw new Error('El cierre no cuadra: diferencia '+money(difference/100)+'. Revisa Total ventas y los importes de cada caja.');
  }
- const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status};
- const savedId=await rpc('totus_save_closing',{p_closing:payload,p_drawers:drawers});
+ const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status,...expectedWriteVersion($('#content > .page'),id)};
+ const savedId=await businessWriter.execute($('#content > .page'),'totus_save_closing',{p_closing:payload,p_drawers:drawers},'p_closing');
  setView('cajas',{mode:'record',id:savedId,reconcileSource:false});
  await refresh(status==='cerrado'?(reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
 }
@@ -341,6 +370,7 @@ function showExpenseGestorDetail(id){
   ${actions}</div>`);
 }
 async function previewPendingExpenseFile(){
+ const isCurrent=activePreviewPage();
  const file=input('exFile')?.files?.[0];
  if(!file)throw new Error('Selecciona primero una factura para verla.');
  const settings=state.data.settings||{},usage=state.data.storageUsage||{};
@@ -365,7 +395,7 @@ async function previewPendingExpenseFile(){
  }else{
   content='<p class="note">Este archivo se puede guardar y descargar. No hay vista previa integrada para este formato.</p>';
  }
- modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div>${content}<div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
+ if(isCurrent())modal('Vista previa · '+file.name,`<div class="stack"><div class="note">Archivo seleccionado pero todavía NO guardado. ${(file.size/1024).toFixed(1)} KB</div>${content}<div class="form-actions">${btn('Volver al gasto','close-modal','secondary')}</div></div>`);
 }
 
 function expenseSuppliersManager(){setView('gastos',{mode:'list',id:null,section:'proveedores'});setRoute('gastos');render()}
@@ -434,14 +464,15 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
 }
 async function destroyDocument(doc){
  if(!doc)return;
- if(doc.storage_path)await removeFile('business-documents',doc.storage_path);
- await remove('ops_documents',doc.id);
+ await retireStoredDocument(doc,{rpc,completeRemoval:completeDocumentRemoval});
 }
 async function rollbackUploadedFile(bucket,path,error){
+ if(!cleanupAllowed(error))return new Error(error.message+' El archivo subido se conserva porque no se ha podido confirmar el resultado. Actualiza y comprueba el registro antes de reenviar.');
  try{await removeFile(bucket,path);return error}
  catch(cleanup){console.error('Archivo pendiente de retirar',{bucket,path,error:cleanup});return new Error(error.message+' El archivo subido no se ha podido retirar del almacenamiento. No se ha presentado la operación como completada.')}
 }
 async function rollbackNewDocument(doc,error){
+ if(!cleanupAllowed(error))return new Error(error.message+' El justificante se conserva porque el registro podría haberse guardado. Actualiza y comprueba el resultado antes de reenviar.');
  try{await destroyDocument(doc);return error}
  catch(cleanup){return new Error(error.message+' No se ha podido completar la retirada del adjunto: '+cleanup.message+'. Revisa su ficha en Documentos antes de reintentar.')}
 }
@@ -527,6 +558,7 @@ async function saveExpenseReportGroup(id){
 }
 
 async function saveExpense(id=''){
+ if(await resumeBusinessForm('gastos'))return;
  if(val('exDocKind')==='impuesto'){await saveTaxExpenseFromGastos(getView('gastos').taxPaymentId||'');return}
  if(getView('gastos').taxPaymentId)throw new Error('Este registro es un pago de impuesto. Conserva su tipo y tratamiento interno.');
  const existing=id?state.data.expenses.find(x=>x.id===id):null;
@@ -564,7 +596,7 @@ async function saveExpense(id=''){
  const first=lines[0];
  const expense={report_group:val('exReportGroup')||null,id:id||null,store_id:storeId,expense_date:date,supplier_id:val('exSupplierId')||null,supplier_name:supplier,supplier_tax_id:taxId,invoice_number:invoiceNumber,category_id:first.category_id,description:lines.map(l=>l.description).join(' · '),payment_method:val('exPayment'),paid_status:paidStatus,paid_date:paidDate,vat_rate:first.vat_rate,re_rate:first.re_rate,withholding_rate:first.withholding_rate,withholding_model:first.withholding_model,amount_paid:amountPaid,deductible_irpf:lines.every(l=>l.deductible_irpf),deductible_pct:first.deductible_pct,fixed_asset:lines.some(l=>l.fixed_asset),amortization_years:first.amortization_years,document_id:documentId,notes:val('exNotes').trim(),document_kind:val('exDocKind')==='control_interno'?'otro':val('exDocKind')||'factura',source:'manual',fiscal_reviewed:!input('exManagement')?.checked&&!!input('exFiscalReviewed')?.checked,management_only:!!input('exManagement')?.checked,personnel_kind:val('exPersonnelKind').trim()||null};
  let savedId;
- try{savedId=await rpc('totus_save_expense',{p_expense:expense,p_lines:lines})}
+ try{savedId=await businessWriter.execute($('#content > .page'),'totus_save_expense',{p_expense:{...expense,...expectedWriteVersion($('#content > .page'),id)},p_lines:lines},'p_expense')}
  catch(e){throw newDoc?await rollbackNewDocument(newDoc,e):e}
  setView('gastos',{mode:'record',id:savedId});await refresh('Gasto guardado.');
 }
@@ -572,7 +604,7 @@ async function unlinkExpenseDocument(expenseId,documentId){
  const expense=state.data.expenses.find(x=>String(x.id)===String(expenseId));
  if(!expense||String(expense.document_id)!==String(documentId))throw new Error('El justificante ya no pertenece a este gasto. Actualiza la ficha.');
  if(!confirm('¿Desvincular el justificante? El original se conservará en Documentos; podrás eliminarlo allí por separado.'))return;
- await update('ops_expenses',expenseId,{document_id:null});
+ await update('ops_expenses',expenseId,{document_id:null},{expected:{document_id:documentId}});
  await refresh('Justificante desvinculado. El archivo original se conserva en Documentos.');
 }
 async function deleteExpense(id){
@@ -587,6 +619,7 @@ function externalSequenceNumber(text){
  const m=String(text||'').match(/(\d+)\s*$/);return m?Number(m[1]):0;
 }
 async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='totus'){
+ if(await resumeBusinessForm('facturacion'))return;
  const issue=required('ivDate','Fecha de emisión'),operation=val('ivOperation')||null,due=val('ivDue')||null,paidDate=val('ivPaidDate')||null;
  if(issue>isoToday())throw new Error('La fecha de emisión no puede ser futura.');
  if(operation&&operation>isoToday())throw new Error('La fecha de operación no puede ser futura.');
@@ -629,7 +662,7 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  doc.rectified_invoice_id=invoiceKind==='rectifying'&&!isProforma?val('ivRectifiedInvoice')||null:null;
  doc.rectification_reason=invoiceKind==='rectifying'&&!isProforma?val('ivRectificationReason').trim():'';
  let savedId;
- try{savedId=await rpc('totus_save_sales_document',{p_document:doc,p_lines:lines})}
+ try{savedId=await businessWriter.execute($('#content > .page'),'totus_save_sales_document',{p_document:{...doc,...expectedWriteVersion($('#content > .page'),id)},p_lines:lines},'p_document')}
  catch(e){throw newSource?await rollbackNewDocument(newSource,e):e}
  setView('facturacion',{mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
  await refresh(isProforma?'Proforma guardada.':'Documento guardado.');
@@ -796,7 +829,7 @@ async function updateDraftInvoicePreview(){
   draftPreviewResizeObserver?.disconnect();draftPreviewResizeObserver=new ResizeObserver(fit);draftPreviewResizeObserver.observe(host);
  }
 }
-async function showDraftInvoicePreview(){modal('Vista previa del documento sin guardar',`<div class="note">Esta vista no guarda ni emite el documento.</div>${await draftPreviewHtml()}`)}
+async function showDraftInvoicePreview(){const isCurrent=activePreviewPage(),html=await draftPreviewHtml();if(isCurrent())modal('Vista previa del documento sin guardar',`<div class="note">Esta vista no guarda ni emite el documento.</div>${html}`)}
 function exportCurrentModule(module){
  const f=getFilters(module);
  if(module==='cajas'){
@@ -835,15 +868,18 @@ async function invoiceLogoUrl(row){
  try{return await signedUrl('business-assets',tpl.logo_path,300)}catch{return ''}
 }
 async function showInvoicePreview(id){
+ const isCurrent=activePreviewPage();
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
  const logo=await invoiceLogoUrl(row);
- modal('Vista previa',invoicePreview(row,logo));
+ if(isCurrent())modal('Vista previa',invoicePreview(row,logo));
 }
 async function printInvoice(id){
+ const isCurrent=activePreviewPage();
  const row=state.data.invoices.find(x=>x.id===id);if(!row)return;
  const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
  try{w.opener=null}catch{}
  const logo=await invoiceLogoUrl(row);
+ if(!isCurrent()){w.close();return;}
  const html=invoicePreview(row,logo).replace(/<div class="form-actions">[\s\S]*?<\/div>\s*<\/div>$/,'</div>');
  writeInvoicePrintWindow(w,html,row.display_number||'Documento');
 }
@@ -1004,7 +1040,7 @@ async function saveVariant(productId,id=''){
  closeModal();await refresh(historySaved?'Variante guardada.':'Variante guardada, pero no se pudo registrar su historial.');refreshPricingPanels(productId);
 }
 async function deleteVariant(productId,id){
- if(!confirm('¿Eliminar esta variante?'))return;
+ if(!confirm('¿Eliminar esta variante y sus precios e historial asociados? Las demás variantes del producto se conservan.'))return;
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
 }
 function updateProductStudy(){
@@ -1217,8 +1253,21 @@ async function updateTemplateDraftPreview(){
  }catch(error){context.savedLogo=null;if(context===templatePreviewContext&&sequence===context.sequence){context.html='';host.innerHTML='';input('templatePreviewMessage').textContent='No se puede mostrar la vista previa: '+error.message;}}
 }
 async function printTemplatePreview(){
+ const isCurrent=activePreviewPage();
  const w=window.open('','_blank');if(!w)throw new Error('El navegador ha bloqueado la ventana de impresión.');
- try{w.opener=null;await updateTemplateDraftPreview();const context=templatePreviewContext;if(!context?.html)throw new Error('Espera a que se cargue una vista previa válida.');let html=context.html;if(context.file&&context.url){const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('No se pudo leer el logo seleccionado.'));reader.readAsDataURL(context.file);});html=html.replaceAll(context.url,data);}writeInvoicePrintWindow(w,html,'Ejemplo de plantilla · sin emitir');}catch(error){w.close();throw error;}
+ try{
+  w.opener=null;await updateTemplateDraftPreview();
+  if(!isCurrent()){w.close();return;}
+  const context=templatePreviewContext;
+  if(!context?.html)throw new Error('Espera a que se cargue una vista previa válida.');
+  let html=context.html;
+  if(context.file&&context.url){
+   const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('No se pudo leer el logo seleccionado.'));reader.readAsDataURL(context.file);});
+   if(!isCurrent()||context!==templatePreviewContext){w.close();return;}
+   html=html.replaceAll(context.url,data);
+  }
+  writeInvoicePrintWindow(w,html,'Ejemplo de plantilla · sin emitir');
+ }catch(error){w.close();if(isCurrent())throw error;}
 }
 function writeInvoicePrintWindow(w,html,title){
  const stylesheet=document.querySelector('link[rel="stylesheet"][href*="styles.css"]')?.href||new URL('src/styles.css',location.href).href;
@@ -1235,8 +1284,10 @@ async function clearOtherTemplateDefaults(id,storeId,{invoice=false,proforma=fal
  const r=await q;if(r.error)throw new Error('No se pudieron actualizar las plantillas predeterminadas: '+r.error.message);
 }
 async function previewTemplate(id){
+ const isCurrent=activePreviewPage();
  const tpl=state.data.templates.find(x=>x.id===id);if(!tpl)return;
  let logo='';if(tpl.logo_path&&tpl.show_logo!==false)logo=await signedUrl('business-assets',tpl.logo_path,300);
+ if(!isCurrent())return;
  const example=templateExample(tpl,'factura',isoToday()),html=invoicePreview(example.row,logo,{template:tpl,lines:example.lines,actions:false});
  modal('Vista previa · '+tpl.name,`<div id="templateSavedPreview">${html}</div><div class="form-actions">${btn('Imprimir / Guardar PDF','template-preview-print','primary')}</div>`);
  templatePreviewContext={panel:$('#modalHost [data-modal-content]'),html};
@@ -1398,11 +1449,20 @@ async function saveDocument(id=''){
 
 // Importación documental: pendientes de revisar, sin crear gastos automáticamente.
 // Los PDF quedan sin tienda ni asociación fiscal hasta que se contraste la factura.
+let documentImportActive=false;
 async function importDocumentZip(zipFile){
+ if(!zipFile)return;
+ if(documentImportActive)throw new Error('Ya hay una importación de documentos en curso. Espera a que termine antes de seleccionar otro lote.');
+ documentImportActive=true;
+ try{return await performDocumentZipImport(zipFile)}finally{documentImportActive=false;}
+}
+async function performDocumentZipImport(zipFile){
  if(!zipFile) return;
+ const isCurrent=activeActor();if(!isCurrent())return;
  if(!window.JSZip) throw new Error('No está disponible el lector ZIP.');
  if(zipFile.size>150*1024*1024) throw new Error('El archivo ZIP supera el máximo de 150 MB.');
  const zip=await window.JSZip.loadAsync(zipFile);
+ if(!isCurrent())return;
  const entries=Object.values(zip.files).filter(f=>!f.dir&&/\.(pdf|xlsx|docx)$/i.test(f.name)&&!f.name.startsWith('__MACOSX/'));
  if(!entries.length)throw new Error('El ZIP no contiene PDF, Excel o Word admitidos.');
  if(entries.length>500)throw new Error('Máximo 500 documentos por lote.');
@@ -1410,22 +1470,27 @@ async function importDocumentZip(zipFile){
  const missing=entries;
  const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
  const quota=await verifiedStorageMetrics(),used=Number(quota.total_bytes),limit=Number(quota.limit_bytes);
+ if(!isCurrent())return;
  const estimated=missing.reduce((a,f)=>a+Number(f._data?.uncompressedSize||0),0);
  if(used+estimated>limit)throw new Error('El lote supera el almacenamiento disponible. Elimina otros archivos o utiliza un lote menor.');
  if(!await confirmAction('Se revisarán '+missing.length+' archivos en Totus Central. Se omitirán los que tengan el mismo contenido que un documento ya guardado. Los nuevos quedarán pendientes de clasificar, sin crear gastos ni modificar los cálculos fiscales.',{title:'Importar documentos',acceptLabel:'Importar archivos'}))return;
+ if(!isCurrent())return;
  const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
  let ok=0,skipped=entries.length-missing.length;const errors=[];
  modal('Importación de documentos',`<div class="stack"><p>Los archivos se guardan como <b>pendientes</b> y no se computan fiscalmente.</p><p id="bulkZipProgress" role="status">Preparando ${missing.length} documentos…</p></div>`);
  const report=(message)=>{const el=document.getElementById('bulkZipProgress');if(el)el.textContent=message};
  for(let i=0;i<missing.length;i++){
+  if(!isCurrent())return;
   const e=missing[i],name=e.name.split('/').pop();
   try{
    const raw=await e.async('blob');
+   if(!isCurrent())return;
    if(raw.size>max)throw new Error('Supera el límite de '+(max/1048576).toFixed(0)+' MB por archivo');
    const ext=name.toLowerCase().split('.').pop();
    const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':ext==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/pdf';
    const file=new File([raw],name,{type:mime});
    const hash=await fileSha256(file);
+   if(!isCurrent())return;
    if(knownHashes.has(hash)){skipped++;report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);continue;}
    const segments=e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
    const folder=Object.keys(months).find(m=>segments.includes(m));
@@ -1440,11 +1505,13 @@ async function importDocumentZip(zipFile){
    const party=name.replace(/\.pdf$/i,'').replace(/\b\d{1,2}[-._]\d{1,2}[-._]20\d\d\b/g,'').trim().slice(0,150);
    const notes=`[ORIGEN-ZIP:${e.name}] ${provisional?'Fecha provisional tomada del mes de carpeta (o enero si no consta). ':''}DOCUMENTO SIN CONCILIAR: confirmar tienda, proveedor, fecha, número de factura, importe e impuestos antes de asociarlo.`;
    const doc=await createStoredDocument(file,{storeId:null,date,docType:reportFile?'informe':'factura_recibida',status:'pendiente',party,notes});
+   if(!isCurrent())return;
    state.data.documents.push(doc);knownHashes.add(hash);ok++;
-  }catch(err){errors.push(name+': '+(err?.message||String(err)))}
+  }catch(err){if(!isCurrent())return;errors.push(name+': '+(err?.message||String(err)))}
   if((i+1)%5===0||i===missing.length-1)report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);
  }
  await refresh();
+ if(!isCurrent())return;
  modal('Resultado de importación ZIP',`<div class="stack"><p><b>${ok}</b> documentos guardados; <b>${skipped}</b> duplicados omitidos; <b>${errors.length}</b> errores.</p>${errors.length?'<div class="note">'+esc(errors.slice(0,20).join(' | '))+'</div>':''}<p>Todos los archivos siguen pendientes de revisar y no afectan a los informes fiscales.</p></div>`);
 }
 
@@ -1490,6 +1557,7 @@ async function previewDocument(id){
  }else{
    body='<div class="note">Este formato no admite vista previa integrada, pero sí descarga.</div>';
  }
+ if(!loadingPanel?.isConnected)return;
  modal(d.original_name||'Documento',`<div class="stack">${body}<div class="form-actions">${btn('Descargar','document-download','primary',`data-id="${d.id}"`)}</div></div>`);
 }
 function documentIsLinked(id){
@@ -1502,11 +1570,10 @@ if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo p
  const stockLink=await sb.from('ops_stock_sources').select('id').eq('document_id',id).limit(1);
  if(stockLink.error)throw new Error('No se pudo comprobar si el documento participa en un cotejo. No se ha retirado el archivo.');
  if(stockLink.data?.length)throw new Error('Este original forma parte de una recepción. Retira primero su asociación desde Recepciones.');
- if(documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
+ if(!state.data.documentRemovals?.some(row=>row.id===id)&&documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
  if(!await confirmAction('Se quitará el documento «'+d.original_name+'» de la herramienta. Si ya tiene copia en OneDrive, su archivo se conservará en «99 Archivo de documentos retirados». Si todavía no está copiado, se eliminará su archivo de Supabase.'))return;
- // Keep the metadata when Storage rejects deletion, so the user can retry.
- if(d.storage_path)await removeFile('business-documents',d.storage_path);
- try{await remove('ops_documents',id)}catch(e){await refresh();throw new Error('El archivo se retiró, pero queda su ficha documental. Reintenta eliminar la ficha. '+e.message)}
+ try{await retireStoredDocument(d,{rpc,completeRemoval:completeDocumentRemoval})}
+ catch(error){if(error.documentRemovalPending)await refresh();throw error}
  resetView('documentos');await refresh('Documento eliminado.');
 }
 async function zipFilteredDocuments(){
@@ -2399,12 +2466,20 @@ document.addEventListener('click',async e=>{
  const replacesPage=/(?:-back|-section|-home|-refresh)$/.test(a)||['stock-new','stock-open','stock-library','logout','retry-load','closing-new','closing-edit','expense-new','expense-edit','invoice-new','proforma-new','rectifying-new','external-invoice-new','invoice-edit','invoice-open','invoice-rectify','document-new','document-edit','product-new','product-edit','expense-suppliers'].includes(a);
  if(replacesPage&&!await allowDiscardDrafts())return;
  if(!replacesPage&&/(?:-new|-edit|-permissions)$/.test(a)&&!await allowDiscardDrafts({modalOnly:true}))return;
+ if(a==='template-duplicate'&&!await allowDiscardDrafts({modalOnly:true}))return;
  if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
- const writes=a==='stock-source-remove'||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
+ const writes=['stock-source-remove','stock-upload-discard','template-duplicate','series-toggle','user-toggle','user-reset','user-permissions-reset','report-block-up','report-block-down','report-block-reset','admin-period-close','admin-period-reopen','onedrive-begin','onedrive-mirror','onedrive-backup-mirror','onedrive-test','admin-unused-logos'].includes(a)||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
+ let ownsWriteLock=false;
  try{
   if(/-save(?:$|-)/.test(a)&&a!=='expense-report-group-save')validateDecimalFields(el.closest('[data-modal-content]')||$('#content'));
-  if(writes){writeInProgress=true;document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true})}
+  if(writes){
+   // Draft/discard checks above can yield. Recheck here before taking ownership:
+   // another click may already have resumed and started a write in the meantime.
+   if(writeInProgress){toast('Espera a que termine la operación en curso.');return}
+   writeInProgress=true;ownsWriteLock=true;
+   document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true});
+  }
   if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
   if(a==='report-block-up'||a==='report-block-down'){await moveReportPanel(el.dataset.block,a.endsWith('-up')?'up':'down');return}
@@ -2528,7 +2603,7 @@ document.addEventListener('click',async e=>{
   if(a==='customer-delete'){await deleteCustomer(el.dataset.id);return}
   if(a==='template-preview'){await previewTemplate(el.dataset.id);return}
   if(a==='template-preview-print'){await printTemplatePreview();return}
-  if(a==='template-duplicate'){if(!await allowDiscardDrafts({modalOnly:true}))return;await duplicateTemplate(el.dataset.id);return}
+  if(a==='template-duplicate'){await duplicateTemplate(el.dataset.id);return}
   if(a==='template-new'){templateForm();return}
   if(a==='template-edit'){templateForm(state.data.templates.find(x=>x.id===el.dataset.id));return}
   if(a==='template-save'){await saveTemplate(el.dataset.id||'');return}
@@ -2675,7 +2750,7 @@ document.addEventListener('click',async e=>{
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
- finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(writes)writeInProgress=false;preserveMainDraftOnRefresh=false}
+ finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(ownsWriteLock)writeInProgress=false;preserveMainDraftOnRefresh=false}
 });
 
 document.addEventListener('input',e=>{
@@ -2752,6 +2827,11 @@ document.addEventListener('change',async e=>{
   setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return;
  }
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){const date=e.target.value||isoToday();setView('cajas',{date});for(const drawer of state.data.drawers.filter(d=>d.store_id===val('clStore')&&d.active!==false))setPristineFormValue($('#content'),`drOpen_${drawer.id}`,openingDrawerCash(drawer.store_id,drawer.id,date));updateClosingSummary();return}
+ if(e.target?.id==='ivRectifiedInvoice'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){
+  const originalId=e.target.value||null;
+  if(!await allowDiscardDrafts({ignore:['ivRectifiedInvoice']})){e.target.value=originalFormValue($('#content'),'ivRectifiedInvoice');return;}
+  setView('facturacion',{rectifiedInvoiceId:originalId});render();return;
+ }
  if(['ivStore','ivDate'].includes(e.target?.id)&&getView('facturacion').mode==='record'){
   const view=getView('facturacion'),saved=state.data.invoices.find(x=>x.id===view.id),storeId=val('ivStore'),docType=saved?.document_type||view.docType||'factura',kind=saved?.invoice_kind||view.invoiceKind||'invoice',year=Number(val('ivDate').slice(0,4));setView('facturacion',{storeId});
   let series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&Number(s.year)===year&&(!s.store_id||s.store_id===storeId)&&(docType==='proforma'||s.series_kind===kind));
@@ -2854,7 +2934,22 @@ async function boot(){
  await refresh();chatNotifier.start();headerTools.start();
  }finally{$('#login').classList.remove('checking-session')}
 }
-sb.auth.onAuthStateChange((event,session)=>{state.session=session;if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return}if(event==='SIGNED_OUT'){headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;state.user=null;$('#app').classList.add('hidden');$('#login').classList.remove('hidden')}});
+function clearSessionView(){
+ ++refreshGeneration;state.user=null;resetSessionData();setRolePermissions([]);
+ headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
+ closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
+ $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
+}
+sb.auth.onAuthStateChange((event,session)=>{
+ state.session=session;
+ if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}
+ if(event==='SIGNED_OUT'){clearSessionView();return;}
+ if(event==='SIGNED_IN'&&state.user&&session?.user?.id!==state.user.id){
+  clearSessionView();
+  // Supabase auth callbacks must finish before starting authenticated IO.
+  setTimeout(()=>boot().catch(e=>{$('#loginMessage').textContent=e.message;}),0);
+ }
+});
 
 // Poll only while the Storage subtab is visible: no background traffic on other pages.
 setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);

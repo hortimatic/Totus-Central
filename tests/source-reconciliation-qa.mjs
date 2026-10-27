@@ -32,6 +32,11 @@ try{
  assert.equal(saved.cash_sales+saved.card_sales,120,'Reconciliation does not add cards or cash floats to sales again');
  assert.deepEqual(JSON.parse(saved.source_ref),fixture.origin,'Original evidence survives reconciliation');
  await page.locator('[data-action="closing-back"]').click();await page.getByText('Conciliado y aceptado',{exact:true}).waitFor();
+ await page.locator('[data-action="closing-edit"][data-id="'+fixture.id+'"]').click();await page.locator('[data-action="closing-view-source"]').click();
+ await page.getByRole('heading',{name:'Datos originales del cierre',exact:true}).waitFor();
+ assert.match(await page.locator('#modalHost').innerText(),/Vape/);assert.match(await page.locator('#modalHost').innerText(),/Head/);
+ assert.deepEqual(await page.evaluate(id=>JSON.parse(window.__mockDb.ops_daily_closings.find(c=>c.id===id).source_ref),fixture.id),fixture.origin,'Reading original evidence must not rewrite it');
+ await page.locator('[data-action="close-modal"]').filter({visible:true}).last().click();
  await page.reload({waitUntil:'networkidle'});
  await page.locator('#nav [data-route="cajas"]').click();
  await page.locator('[data-action="closing-new"]').first().click();
