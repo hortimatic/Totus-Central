@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
-import {attachChatExpenseDocument} from './assistant-attachments.ts'
+import {attachChatExpenseDocument,readExpenseContext,reviewExpenseDocument} from './assistant-attachments.ts'
 
 // This endpoint never receives user credentials. A short-lived, single-use
 // server ticket authorizes exactly one queued operation from the SQL connector.
@@ -25,35 +25,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   claimed=true
   const {email,password}=work.credentials
   if(email!=='chatgpt@totuscentral.invalid'||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
-  if(work.action==='setup'){
-   let existing:any=null
-   for(let page=1;page<=20;page++){
-    const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000})
-    if(error)throw new Error('No se pudo comprobar la cuenta')
-    existing=data.users.find((u:any)=>u.email===email)
-    if(existing||data.users.length<1000)break
-   }
-   if(existing&&!existing.app_metadata?.totus_assistant)throw new Error('La dirección ya pertenece a otra cuenta')
-   if(!existing){
-    const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,
-     app_metadata:{totus_assistant:true},user_metadata:{full_name:'ChatGPT · Asistente Totus',role:'encargado'}})
-    if(error)throw new Error('No se pudo crear la cuenta propia')
-    existing=data.user
-   }
-   // Existing application role, with explicit per-user permissions for all modules.
-   const {error:memberError}=await admin.from('team_members').upsert({email,full_name:'ChatGPT · Asistente Totus',role:'encargado',active:true,job_title:'Asistente autorizado',employee_notes:'Cuenta técnica con sesión Auth propia. Operaciones solo por petición del titular; sin borrado ni administración.'},{onConflict:'email'})
-   if(memberError)throw new Error('No se pudo registrar la ficha del asistente')
-   const modules=['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion','equipo','tareas']
-   const {error:permissionsError}=await admin.from('ops_user_permissions').upsert(modules.map(module=>({
-    email,module,can_view:['inicio','gastos','documentos','equipo'].includes(module),can_create:['gastos','documentos'].includes(module),
-    can_edit:['gastos','documentos'].includes(module),can_delete:false,can_export:false
-   })),{onConflict:'email,module'})
-   if(permissionsError)throw new Error('No se pudieron limitar los permisos')
-   const {error:profileError}=await admin.from('profiles').update({full_name:'ChatGPT · Asistente Totus',role:'encargado',active:true}).eq('id',existing.id)
-   if(profileError)throw new Error('No se pudo activar la ficha')
-   const {error:logError}=await admin.from('team_user_audit_log').insert({actor_email:'Sistema / alta autorizada por titular',target_email:email,action:'assistant_account_created',status:'ok',detail:'Cuenta Auth propia, permisos limitados a gastos y documentos. Sin suplantación del administrador.'})
-   if(logError)throw new Error('No se pudo registrar el alta')
-  }
+  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document'].includes(work.action))throw new Error('Acción no admitida')
   scoped=clientFactory(url,key,opts)
   const {data:session,error:loginError}=await scoped.auth.signInWithPassword({email,password})
   if(loginError||!session.session||session.user?.app_metadata?.totus_assistant!==true)throw new Error('No se pudo autenticar la cuenta propia')
@@ -65,7 +37,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   if(['save_expense','validate_expense'].includes(work.action)){
    const {expense,lines}=work.payload||{}
    if(!expense||!Array.isArray(lines)||!expense.request_id)throw new Error('Gasto, líneas y request_id obligatorios')
-   if(expense.fiscal_reviewed!==false)throw new Error('El asistente debe guardar pendiente de revisión fiscal')
+   if(expense.fiscal_reviewed!==undefined&&typeof expense.fiscal_reviewed!=='boolean')throw new Error('Revisión fiscal no válida')
    if(expense.id&&!Object.hasOwn(expense,'expected_updated_at'))throw new Error('Relee la ficha antes de editarla')
    const rpc=work.action==='save_expense'?'totus_save_expense':'totus_assistant_validate_expense'
    const {data:saved,error:saveError}=await scoped.rpc(rpc,{p_expense:expense,p_lines:lines})
@@ -78,7 +50,9 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
     result={...result,expense_id:saved,expense:expenseRow,lines:lineRows,persisted:true}
    }
   } else if(work.action==='attach_chat_file')result={...result,...await attachChatExpenseDocument(scoped,work.payload,confirmed.user)}
-  else if(!['setup','session_check'].includes(work.action))throw new Error('Acción no admitida')
+  else if(work.action==='expense_context')result={...result,...await readExpenseContext(scoped,work.payload)}
+  else if(work.action==='review_document')result={...result,...await reviewExpenseDocument(scoped,work.payload)}
+  else if(work.action!=='session_check')throw new Error('Acción no admitida')
   const {error:finishError}=await admin.rpc('totus_assistant_complete',{p_job:job,p_result:result,p_error:null})
   if(finishError)throw new Error('Operación ejecutada; no se pudo guardar su resultado. Consulta antes de reintentar.')
   return respond({job_id:job,status:'completed'})

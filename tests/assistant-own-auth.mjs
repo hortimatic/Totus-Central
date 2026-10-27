@@ -4,7 +4,8 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 const original=readFileSync(new URL('../supabase/functions/totus-assistant/index.ts',import.meta.url),'utf8');
 const source=original.replace(/import \{ createClient \} from '[^']+'/,"const createClient=()=>{throw new Error('No live client in tests')}");
-const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source.replace("import {attachChatExpenseDocument} from './assistant-attachments.ts'", "const attachChatExpenseDocument=()=>{throw new Error('Unexpected attachment') }"))).toString('base64'));
+const isolated=source.replace(/import \{[^}]+\} from '.\/assistant-attachments.ts'/,"const attachChatExpenseDocument=()=>{throw new Error('Unexpected attachment')}; const readExpenseContext=()=>{throw new Error('Unexpected context')}; const reviewExpenseDocument=()=>{throw new Error('Unexpected review')}");
+const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(isolated)).toString('base64'));
 const job='11111111-1111-4111-8111-111111111111',ticket='a'.repeat(64);
 const env={get:k=>({SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'server-test',SUPABASE_ANON_KEY:'public-test'})[k]};
 function setup(action='session_check',overrides={}){
@@ -31,10 +32,12 @@ function setup(action='session_check',overrides={}){
  return {calls,results,work,factory:(url,key)=>key==='server-test'?admin:scoped,run:()=>handle(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({job,ticket})}),env,(url,key)=>key==='server-test'?admin:scoped)};
 }
 test('single-use ticket rejection never logs in',async()=>{const q=setup('session_check',{badTicket:true});assert.equal((await q.run()).status,401);assert(!q.calls.some(x=>x[0]==='login'))});
-test('setup creates a real account with explicit deny permissions and verified login',async()=>{const q=setup('setup');assert.equal((await q.run()).status,200);assert(q.calls.some(x=>x[0]==='createUser'));const permissions=q.calls.find(x=>x[0]==='upsert'&&x[1]==='ops_user_permissions')[2];assert.equal(permissions.length,11);assert(permissions.every(x=>!x.can_delete&&!x.can_export));assert.equal(permissions.find(x=>x.module==='administracion').can_view,false);assert.equal(q.results[0].p_result.user_id,'own-assistant-id')});
+test('runtime cannot provision accounts or reset their permissions',async()=>{const q=setup('setup');assert.equal((await q.run()).status,400);assert(!q.calls.some(x=>x[0]==='createUser'||x[0]==='upsert'||x[0]==='login'))});
 test('save uses authenticated user client, not service-role writes',async()=>{const q=setup('save_expense');assert.equal((await q.run()).status,200);assert(q.calls.some(x=>x[0]==='user_rpc'&&x[1]==='totus_save_expense'));assert(!q.calls.some(x=>x[0]==='admin_rpc'&&x[1]==='totus_save_expense'));assert.equal(q.results[0].p_result.expense.created_by,'own-assistant-id');assert(q.calls.some(x=>x[0]==='logout'))});
-test('cannot auto-accept fiscal review or bypass validation',async()=>{const q=setup('save_expense');q.work.payload.expense.fiscal_reviewed=true;assert.equal((await q.run()).status,400);assert(!q.calls.some(x=>x[0]==='user_rpc'));assert.match(q.results[0].p_error,/pendiente de revisión/)});
+test('explicit fiscal review uses the same normal validator as the application',async()=>{const q=setup('save_expense');q.work.payload.expense.fiscal_reviewed=true;assert.equal((await q.run()).status,200);const call=q.calls.find(x=>x[0]==='user_rpc');assert.equal(call[1],'totus_save_expense');assert.equal(call[2].p_expense.fiscal_reviewed,true)});
+test('invalid fiscal boolean cannot reach the normal validator',async()=>{const q=setup('save_expense');q.work.payload.expense.fiscal_reviewed='true';assert.equal((await q.run()).status,400);assert(!q.calls.some(x=>x[0]==='user_rpc'))});
 test('validation errors remain failed, never success',async()=>{const q=setup('save_expense',{saveError:true});assert.equal((await q.run()).status,400);assert.equal(q.results[0].p_error,'validación rechazada')});
 test('simulation calls reversible validation, not save',async()=>{const q=setup('validate_expense');assert.equal((await q.run()).status,200);assert(q.calls.some(x=>x[0]==='user_rpc'&&x[1]==='totus_assistant_validate_expense'));assert.equal(q.results[0].p_result.persisted,false)});
 test('inactive account cannot save',async()=>{const q=setup('save_expense',{inactive:true});assert.equal((await q.run()).status,400);assert(!q.calls.some(x=>x[0]==='user_rpc'))});
 test('wrong ticket shape rejected before privileged client construction',async()=>{const response=await handle(new Request('https://example.invalid',{method:'POST',body:'{}'}),env,()=>{throw new Error('must not construct')});assert.equal(response.status,401)});
+

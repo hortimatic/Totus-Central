@@ -69,3 +69,35 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
  return {expense_id,document_id:document.id,expense:saved,document:linked,sha256_verified:true,bytes_verified:bytes.byteLength,
   fiscal_fields_preserved:true,source_chat_file_id:file_id,storage_provider:storageProvider,onedrive_mirror:storageProvider==='onedrive'?'verified':'scheduled',already_attached:!!expense.document_id}
 }
+
+export async function readExpenseContext(client:any,payload:any) {
+ const id=payload?.expense_id
+ if(!/^[0-9a-f-]{36}$/i.test(id||''))throw new Error('Referencia de gasto no válida')
+ const check=(r:any,msg:string)=>{if(r.error)throw new Error(msg+': '+r.error.message);return r.data}
+ const expense=check(await client.from('ops_expenses').select('*').eq('id',id).single(),'No se pudo consultar el gasto')
+ const lines=check(await client.from('ops_expense_lines').select('*').eq('expense_id',id).order('sort_order'),'No se pudieron consultar los conceptos')
+ const document=expense.document_id?check(await client.from('ops_documents').select('*').eq('id',expense.document_id).single(),'No se pudo consultar el justificante'):null
+ const settings=check(await client.from('ops_business_settings').select('fiscal_regime,estimation_method,default_sales_vat_rate,purchase_re_rate').eq('id',1).maybeSingle(),'No se pudo consultar el régimen configurado')
+ return {expense,lines,document,fiscal_settings:settings,
+  review_states:{document_status:document?.status||'sin_adjunto',fiscal_reviewed:expense.fiscal_reviewed,payment_status:expense.paid_status},
+  guidance:'Cotejar documento, revisar fiscalidad y comprobar pago son pasos independientes. No inventar datos que falten.'}
+}
+export async function reviewExpenseDocument(client:any,payload:any) {
+ const {expense_id,document_id,expected_sha256,expected_status,status,reason}=payload||{}
+ for(const id of [expense_id,document_id])if(!/^[0-9a-f-]{36}$/i.test(id||''))throw new Error('Referencias de gasto y documento obligatorias')
+ if(!/^[0-9a-f]{64}$/.test(expected_sha256||''))throw new Error('Comprueba la huella del original antes de revisar')
+ if(!['pendiente','pagada','revisada','preparada_gestor','entregada_gestor','archivada'].includes(status)||!expected_status)throw new Error('Estado documental no válido')
+ if(typeof reason!=='string'||reason.trim().length<15||reason.length>2000)throw new Error('Describe el cotejo realizado y las salvedades')
+ const check=(r:any,msg:string)=>{if(r.error)throw new Error(msg+': '+r.error.message);return r.data}
+ const expense=check(await client.from('ops_expenses').select('*').eq('id',expense_id).single(),'No se pudo consultar el gasto')
+ const doc=check(await client.from('ops_documents').select('*').eq('id',document_id).single(),'No se pudo consultar el documento')
+ if(expense.document_id!==document_id||doc.linked_entity_type!=='expense'||doc.linked_entity_id!==expense_id||doc.sha256!==expected_sha256)throw new Error('El justificante o su vínculo ha cambiado')
+ const note='[Revisión documental] '+reason.trim()
+ if(doc.status===status&&String(doc.notes||'').split('\n').includes(note))return {document:doc,expense_id,already_reviewed:true,fiscal_reviewed:expense.fiscal_reviewed,payment_status:expense.paid_status}
+ if(doc.status!==expected_status)throw new Error('El estado documental ha cambiado; vuelve a consultar')
+ const notes=[doc.notes,note].filter(Boolean).join('\n')
+ const saved=check(await client.from('ops_documents').update({status,notes}).eq('id',document_id).eq('sha256',expected_sha256).eq('status',expected_status).eq('notes',doc.notes||'').select('*').maybeSingle(),'No se pudo guardar la revisión documental')
+ if(!saved)throw new Error('El documento ha cambiado; no se ha sobrescrito su revisión')
+ return {document:saved,expense_id,already_reviewed:false,fiscal_reviewed:expense.fiscal_reviewed,payment_status:expense.paid_status,
+  guidance:'Estado del documento actualizado. La revisión fiscal y el pago no se modifican con esta acción.'}
+}

@@ -1,91 +1,103 @@
-# Cuenta propia de ChatGPT para Gastos
-Fecha: 27/10/2026. Complemento del manual vigente. No sustituye las instrucciones contables.
+# ChatGPT y Totus Central: conexión de Gastos
+Vigente: 28/10/2026. Este documento sustituye las instrucciones anteriores de esta conexión.
 
-## Identidad y autorización
-La cuenta visible es **ChatGPT · Asistente Totus**. Es una cuenta técnica Auth real, no un rol universal ni la sesión del administrador. Su dirección terminada en .invalid es un identificador interno: no es un buzón para recuperación por correo. La contraseña aleatoria (68 caracteres, dentro del máximo de Auth) se guarda cifrada en Supabase Vault; nunca debe copiarse a un chat, GitHub, OneDrive ni archivos locales. El administrador puede desactivar la ficha en Usuarios. El servidor comprueba de nuevo que esté activa en cada trabajo; las funciones normales conservan su autorización.
+## Al comenzar cualquier chat
+Lee este manual desde la rama vigente de GitHub. Comprueba primero:
+```sql
+select private.totus_assistant_capabilities();
+```
+El contrato vigente es versión 2. Usa el conector Supabase autorizado del propietario. Las consultas SQL entran como conexión administrativa y NO son una sesión personal: auth.uid() nulo en SQL no demuestra que el worker esté desconectado. Las operaciones siguientes abren y verifican una sesión Auth REAL de la cuenta **ChatGPT · Asistente Totus**. No simulan la identidad del titular.
 
-Se usa el rol existente Encargado con permisos individuales explícitos: Inicio y Equipo de consulta (solo canales con membresía), Gastos y Documentos de consulta/alta/edición; todas las acciones de los demás módulos denegadas, sin borrados ni exportaciones. La conexión ofrece setup, session_check, validate_expense, save_expense y attach_chat_file; no expone pagos, restauraciones ni seguridad. No prometer que este cambio demuestra todos los demás recorridos de la herramienta.
+La cuenta tiene permisos individuales para Gastos y Documentos, y lectura de Inicio y Equipo. Solo puede leer adjuntos de canales en los que sea miembro. No tiene administración ni borrados. El worker no crea cuentas, no reactiva usuarios y no cambia permisos: se ha retirado la antigua acción setup.
 
-## Cómo trabaja ChatGPT convencional
-Usa el conector Supabase ya autenticado del propietario. Este conector entra como postgres y puede presentar solicitudes; no es una sesión personal de Totus. El servidor crea una solicitud cifrada con un ticket aleatorio de 256 bits, uso único y caducidad de dos minutos, y la envía mediante pg_net al worker totus-assistant. El worker verifica y consume el ticket, inicia una sesión real con signInWithPassword de la cuenta técnica, comprueba getUser y llama totus_save_expense mediante ese cliente autenticado normal. No modifica claims ni fabrica JWT. Cierra la sesión propia al terminar. La clave de servicio se utiliza únicamente para aprovisionamiento, lectura del trabajo y publicación de su resultado, no para guardar el gasto.
-
-La función antigua private.totus_connector_save_expense, que delegaba temporalmente la identidad del titular, se ha retirado.
-
-### Comprobación de sesión
-En Supabase execute_sql:
+## Presentar operaciones y recoger resultados
 ```sql
 select private.totus_assistant_submit('session_check') as request;
-```
-Conserva job_id. En otra llamada, después de unos segundos:
-```sql
+-- En una llamada posterior, con el job_id devuelto:
 select private.totus_assistant_result('<job_id>'::uuid);
 ```
-Los estados son queued, running, completed, failed. Solo completed con authenticated=true y session_verified=true demuestra sesión válida. El resultado nunca contiene contraseña ni tokens. Una petición expirada que no arrancó puede permanecer queued; consulta la respuesta net del http_request_id antes de reenviar. No hagas bucles rápidos.
+La solicitud inicial queued NO significa completada. Espera unos segundos, sin bucles rápidos, y recoge completed o failed. Si una solicitud no arranca, consulta el http_request_id y su caducidad antes de reenviar. Si hubo un resultado incierto, comprueba registros antes de repetir.
+La conexión admite exactamente:
+- session_check: comprueba identidad real.
+- expense_context: consulta gasto, líneas, documento, estados y régimen configurado.
+- validate_expense: validación del guardado dentro de una subtransacción que se revierte; persisted=false.
+- save_expense: alta o edición mediante totus_save_expense con la sesión propia.
+- attach_chat_file: incorpora el PDF de un mensaje al gasto.
+- review_document: actualiza el estado documental y registra el cotejo sin cambiar la fiscalidad ni el pago.
 
-### Preparar, validar y guardar un gasto
-1. El usuario debe autorizar la operación real. Consulta original y duplicados; los originales de factura prevalecen sobre errores del Excel. No inventes fechas de pago, proveedor, impuestos ni aceptación fiscal.
-2. Construye el JSON del contrato normal totus_save_expense. expense debe incluir request_id UUID fijo para todos los reintentos de la misma operación y fiscal_reviewed=false. lines es el array normal. La edición exige id y expected_updated_at recién leídos.
-3. Usa validate_expense con el objeto {"expense": {...}, "lines": [...]}. Reproduce el guardado dentro de una subtransacción que se revierte; persisted=false. El resultado incluye actor, importe y líneas para contrastar. No es una factura ya guardada.
-4. Para el alta autorizada, presenta el mismo payload con save_expense. Relee el resultado por job_id: expense_id, expense y lines. Contrasta created_by de la cuenta técnica, importes, tienda, referencia y estado. El gasto sigue siendo editable por el usuario normal según permisos y protecciones históricas existentes.
-5. Reutiliza el document_id del original administrado en Totus si ya está en el chat interno. Comprueba que corresponde al PDF exacto y que su vínculo OneDrive es válido. No basta con subir un archivo a OneDrive. La acción attach_chat_file descrita al final incorpora el PDF del chat al circuito normal. Para archivos que no están en ese circuito hay que usar y verificar primero su incorporación normal; no se ha habilitado una subida genérica de cualquier formato.
-6. fiscal_reviewed=false significa pendiente de revisión; NO presupongas que es un borrador excluido de todos los indicadores. Comprueba la lógica fiscal vigente antes de afirmar su efecto. Nunca uses management_only artificialmente para ocultar un gasto fiscal.
-7. Si el guardado terminó pero falló la relectura o publicación de resultado, consulta primero por número/proveedor y por el request_id. Reenvía solo el mismo UUID y contenido, no generes otro que duplique el alta.
-8. No uses INSERT/UPDATE directo en las tablas contables, set_config de identidad, JWT inventados ni claves de servicio.
+## Registrar una factura
+1. Comprueba la petición del usuario, original, titular destinatario, tienda, proveedor/NIF, número, fecha, conceptos, base, IVA, recargo, retención y total. Consulta duplicados por proveedor y número. Las facturas originales prevalecen sobre errores de importe del Excel; una fecha del Excel puede corresponder al pago, no a la factura.
+2. Consulta tiendas, categorías y proveedores existentes antes de elegir referencias. No inventes identificadores ni valores. Conserva conceptos de coste cero cuando estén en el original.
+3. Prepara {"expense":{...},"lines":[...]} con el contrato normal totus_save_expense. Incluye request_id UUID estable para ESA operación. No cambies el UUID ni el contenido al repetirla por fallo de transporte.
+4. Envía validate_expense y contrasta su resultado. La simulación no crea contabilidad permanente y no debe usar documentos reales como soportes de gastos ficticios.
+5. Envía save_expense cuando la operación esté autorizada. Relee expense_id, cabecera, líneas y created_by. La cuenta de origen debe ser la del asistente.
+6. Adjunta el original y comprueba el enlace doble y su integridad.
+7. Completa el cotejo y la revisión fiscal según evidencias. Si falta información, conserva el estado pendiente y explica exactamente qué falta.
 
-Ejemplo de estructura (todos los valores son ficticios):
+Campos de save_expense: los mismos del formulario y contrato existente, incluidos categoría, tratamiento interno/fiscal, deducción, porcentajes, activos, retención/modelo, pago, notas y report_group. fiscal_reviewed acepta true o false, no cadenas de texto. Un gasto nuevo permanece sin revisar por defecto; se marca true únicamente tras una revisión real/autorizada y con documentación suficiente. No hay ya una prohibición artificial de guardar true.
+
+Para editar: lee expense_context, conserva todos los campos y líneas que no quieras cambiar, envía id y expected_updated_at recién leídos. Usa un request_id NUEVO para una modificación intencionada; conserva ese mismo UUID si solo estás reintentando. El servidor rechaza una ficha antigua o una solicitud reutilizada con contenido diferente.
+
+## Adjuntar el PDF de un chat
 ```sql
-select private.totus_assistant_submit('validate_expense',
- jsonb_build_object(
-  'expense',jsonb_build_object(
-   'store_id','<uuid-tienda>',
-   'expense_date','2026-10-27',
-   'supplier_name','Proveedor de ejemplo',
-   'invoice_number','EJEMPLO-1',
-   'paid_status','pendiente',
-   'amount_paid',0,
-   'fiscal_reviewed',false,
-   'request_id','<uuid-operacion>'
-  ),
-  'lines','[{"description":"Ejemplo","base_amount":19.99,"vat_rate":21,"vat_amount":4.20,"irpf_imputable":24.19,"deductible_irpf":true}]'::jsonb
- ));
+select private.totus_assistant_submit('attach_chat_file', jsonb_build_object(
+ 'expense_id','<uuid-gasto>',
+ 'file_id','<uuid-ops_chat_files>',
+ 'request_id','<uuid-estable-del-adjunto>',
+ 'expected_updated_at','<updated_at-recién-leído>'
+));
 ```
-No utilices estos datos de ejemplo como contabilidad ni presupongas su tratamiento fiscal para una factura real.
+La cuenta debe tener acceso al canal del archivo. El servidor usa chat-file-content para verificar original, tamaño, firma PDF y SHA-256; después aplica el circuito normal «Guardar solo adjunto»: sube y relee el archivo privado, registra ops_documents y actualiza únicamente document_id con control de concurrencia. No cambia importes, líneas, impuestos, pago ni revisión fiscal. No sustituye automáticamente otro adjunto.
 
-## Implementación y mantenimiento
-- Código: supabase/functions/totus-assistant/index.ts.
-- Instalación consolidada: supabase/review_patches/015_assistant_own_auth.sql.
-- Pruebas: node --test tests/assistant-own-auth.mjs (Node 24 o compatible con stripTypeScriptTypes).
-- verify_jwt=false es deliberado SOLO para este worker: autentica el ticket propio dentro de la función, no acepta solicitudes anónimas sin ticket válido. No trasladar este ajuste a otras funciones.
-- Los auxiliares públicos claim/complete están revocados a PUBLIC/anon/authenticated y concedidos solo a service_role. Los auxiliares privados submit/result son del conector administrativo. Validación reversible requiere la cuenta técnica autenticada.
-- Credencial y trabajos temporales están cifrados en Vault; se purgan los trabajos de más de siete días al presentar otro. No se añaden tablas de negocio ni cambia su huella de recuperación.
-- Vault no equivale al paquete contable descargable. Recuperación en otro servidor: instalar código/SQL, aprovisionar una cuenta nueva con setup y credencial nueva; no copiar contraseñas en manuales.
-- El alta configura la cuenta; NO vuelvas a ejecutar setup como prueba rutinaria porque reestablece sus permisos operativos. Para comprobar, usa session_check.
-- Si la cuenta está desactivada, no reactivarla sin petición del titular. Si se cambia su contraseña manualmente, la conexión fallará hasta renovar el secreto por un procedimiento administrativo seguro.
-- No mostrar secretos en consultas, logs, diagnósticos o capturas.
-- La interfaz y los cálculos existentes no se rediseñan con este cambio.
+Comprueba document_id, linked_entity_type=expense, linked_entity_id, uploaded_by, sha256_verified y bytes_verified. Repetir la misma solicitud reutiliza archivo y documento. Si hubo un fallo tras una subida, el documento se conserva para revisar: no generes otro UUID para ocultarlo.
 
-## Evidencia real
-Cuenta creada y getUser confirmado con UUID propio; validación de 19,99 + 4,20 = 24,19 ejecutada a través de sesión Auth real, created_by propio, línea correcta y reversión comprobada sin restos en ops_expenses. Tickets incorrectos y reutilizados rechazados; auxiliares sensibles sin EXECUTE para navegador/anon. Ocho pruebas unitarias pasan.
-Las comprobaciones reales detectaron y corrigieron: envoltura Deno.serve, Vault sin privilegio UPDATE (se usa bloqueo asesor, sin ampliar permisos de Vault), máximo 72 caracteres de contraseña Auth e identificador ambiguo en la validación reversible. No confundir estas pruebas de integración con una auditoría completa de toda Totus.
-El caso real de Hostinger debe confirmarse por su gasto, línea, documento y auditoría, no deducirse de esta prueba ficticia.
+El archivo pasa por el bucket privado business-documents igual que en la interfaz. El espejo automático lo organiza y verifica en OneDrive. scheduled no equivale a espejo terminado; consulta el registro de copia. El original del chat se conserva. La lectura y vista previa deben resolver la ubicación vigente y comprobar huella y tamaño. No se guardan documentos de trabajo ni credenciales en el ordenador.
 
-## Ampliación: adjuntar PDF del chat a un gasto existente
-La acción **attach_chat_file** completa el circuito de «Guardar solo adjunto» con la sesión Auth propia. Parámetros:
+Esta acción admite PDF del chat. No afirmar que habilita cualquier formato o una importación genérica de archivos sueltos de OneDrive; esos casos utilizan su incorporación documental normal.
+
+## Consultar contexto y cotejar
 ```sql
-select private.totus_assistant_submit('attach_chat_file',
- jsonb_build_object(
-  'expense_id','<uuid-gasto>',
-  'file_id','<uuid-ops_chat_files>',
-  'request_id','<uuid-estable-del-adjunto>',
-  'expected_updated_at','<updated_at-recién-leído>'
- ));
+select private.totus_assistant_submit('expense_context',
+ jsonb_build_object('expense_id','<uuid-gasto>'));
 ```
-Consulta después private.totus_assistant_result(job_id). La cuenta necesita permiso de consulta de Equipo y membresía en el canal del archivo, además de permisos de Gastos y Documentos. No se concede acceso a todos los canales: el administrador incorpora la cuenta solo donde se autoriza trabajar. Si no hay acceso, la operación falla sin subir archivos.
+El resultado incluye expense, lines, document, fiscal_settings y review_states. Los tres estados son independientes:
+- Documento revisado: se ha cotejado el original y su transcripción.
+- Gasto fiscal revisado: se ha comprobado su tratamiento fiscal.
+- Pago comprobado: hay evidencia suficiente de importe y fecha.
 
-El servidor lee el original mediante chat-file-content, verifica tamaño/SHA-256/firma PDF, guarda y relee el archivo privado y registra la ficha documental como usuario normal. Actualiza únicamente document_id con comprobación simultánea de versión y ausencia de otro adjunto. No cambia importes, líneas, fiscalidad, notas ni pago. No sustituye un justificante previo automáticamente. Si algo falla después de subir o registrar, el documento se conserva para revisión y el mismo request_id permite reanudar sin duplicarlo; no generar otro UUID al reintentar.
+Para dejar constancia documental:
+```sql
+select private.totus_assistant_submit('review_document', jsonb_build_object(
+ 'expense_id','<uuid-gasto>','document_id','<uuid-documento>',
+ 'expected_sha256','<sha256-verificado>','expected_status','pendiente',
+ 'status','revisada','reason','Conceptos e importes cotejados con el original; indicar salvedades.'
+));
+```
+La operación comprueba vínculo, huella, estado y notas antes de escribir. Un reintento idéntico no duplica la nota. No cambia la aceptación fiscal, deducibilidad ni pago.
 
-El resultado debe confirmar document_id, enlace inverso expense, uploaded_by de la cuenta técnica, sha256_verified y fiscal_fields_preserved. No afirmar éxito basándose solamente en queued. Comprueba también vista previa/lectura del archivo.
+La tabla distingue «Documento cotejado · revisión fiscal pendiente». Una fiscalidad pendiente no significa que el PDF no se haya subido ni cotejado.
 
-La subida utiliza el mismo almacenamiento privado temporal de Supabase que la interfaz normal. La organización permanente y verificación en OneDrive siguen el espejo existente: el resultado inicial indica onedrive_mirror=scheduled, no una copia ya terminada. No se utiliza el portátil para archivos o credenciales. Si el documento ya ha sido trasladado a OneDrive, el reintento lo relee desde su ubicación verificada.
+## Fiscalidad y pago: no completar con suposiciones
+Lee el régimen configurado y la factura concreta. IVA soportado, gasto deducible de IRPF y retenciones son conceptos distintos. No clasifiques automáticamente como no deducible solo por desconocimiento; conserva una propuesta identificada como pendiente de revisión cuando proceda. Tampoco marques aceptada una operación con dudas materiales para obtener un estado verde.
 
-La frase «la conexión SQL no tiene auth.uid» no significa que esta operación esté bloqueada: SQL presenta el trabajo y el worker ejecuta el cambio con la sesión real. Usa la acción documentada, no intentes guardar ni adjuntar directamente por SQL.
+Una factura marcada PAID prueba que el emisor la considera pagada, pero no siempre acredita la fecha y medio necesarios para la conciliación interna. No inventes una fecha de pago ni uses la fecha de hoy para cerrarla. Explica la diferencia entre estado del emisor y pago conciliado en Totus. Las fechas de gasto y pago se validan con el calendario Europe/Madrid, incluso después de medianoche.
+
+El titular ha indicado mantener el caso de Hostinger pendiente de aclaración fiscal. Su cotejo documental está completado. No cambiar esa decisión sin nuevos datos o indicación expresa.
+
+## Seguridad y mantenimiento
+La contraseña de la cuenta técnica permanece cifrada en Supabase Vault; el chat no debe leerla ni recibirla. Cada trabajo lleva un ticket servidor de un uso, aleatorio de 256 bits y con caducidad. El worker verifica ese ticket, inicia sesión con signInWithPassword, confirma getUser, ejecuta con los permisos de la cuenta y cierra su sesión al terminar. No usa la clave de servicio para guardar el gasto ni falsea claims. La clave de servicio solo atiende la infraestructura interna de trabajos/credencial.
+
+No utilizar INSERT/UPDATE SQL directo para registros contables, fabricar JWT, establecer identidades con set_config, reenviar claves o ampliar permisos para evitar un error. Las consultas SQL de lectura y las funciones privadas documentadas del conector sí son la vía prevista. El runtime ya no ofrece setup ni aprovisionamiento de usuarios.
+
+El administrador puede desactivar la cuenta desde Usuarios. Para reinstalar en otro servidor: un administrador crea una cuenta técnica propia mediante el procedimiento normal de usuarios, configura sus permisos y guarda en Vault la credencial coincidente de forma segura. Nunca pegar contraseñas en chats o manuales. Los respaldos documentales no sustituyen la configuración de secretos de un servidor nuevo.
+
+## Archivos y verificación
+- supabase/functions/totus-assistant/index.ts
+- supabase/functions/totus-assistant/assistant-attachments.ts
+- supabase/review_patches/015_assistant_own_auth.sql y 016: base histórica.
+- supabase/review_patches/017_assistant_complete_expense_workflow.sql: contrato actual y retirada de setup.
+- supabase/review_patches/018_expense_business_calendar.sql: fechas de negocio en gastos/pagos.
+- tests/assistant-own-auth.mjs, assistant-attachments.mjs, assistant-expense-view.mjs.
+- tests/assistant-business-calendar.sql: comprobaciones de integración de solo lectura, con transacción reversible.
+
+Ejecutar las pruebas Node con Node 24. La verificación de este circuito no equivale a una auditoría completa de todos los módulos de Totus. Antes de prometer una función nueva, comprobar que existe, probar su recorrido y registrar sus límites reales.
