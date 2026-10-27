@@ -1,5 +1,7 @@
 # Totus Central · entrada para ChatGPT
 
+> Para cambios técnicos, leer también el [protocolo de mantenimiento de la revisión del 27/10](docs/PROTOCOLO_MANTENIMIENTO_2026-10-27.md). Comprobar si la revisión está instalada antes de aplicarlo.
+
 ## Empieza aquí
 1. Descubre las herramientas disponibles: Supabase, GitHub y SharePoint/OneDrive. No confundas la navegación web pública con acceso a archivos privados.
 2. Lee [el manual operativo](docs/MANUAL_CHATGPT_ONLINE.md), [el trabajo diario](docs/GUIA_TRABAJO_DIARIO_CHATGPT.md) y, si vas a cotejar, [Recepciones](docs/COTEJOS_CHATGPT.md).

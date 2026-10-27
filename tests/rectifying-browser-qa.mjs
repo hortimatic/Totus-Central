@@ -15,6 +15,15 @@ try{
   state.data.invoices.push(original);state.data.invoiceLines.push(line);state.data.series.push(series);
  });
  await page.locator('#nav [data-route="facturacion"]').click();
+ await page.locator('[data-action="rectifying-new"]').click();assert.equal(await page.locator('#ivRectifiedInvoice').inputValue(),'');
+ await page.locator('#ivCustomer').fill('Texto ficticio sin guardar');
+ await page.locator('#ivRectifiedInvoice').selectOption('11111111-1111-4111-8111-111111111199');
+ await page.locator('[data-confirm="cancel"]').click();assert.equal(await page.locator('#ivCustomer').inputValue(),'Texto ficticio sin guardar');assert.equal(await page.locator('#ivRectifiedInvoice').inputValue(),'');
+ await page.locator('#ivRectifiedInvoice').selectOption('11111111-1111-4111-8111-111111111199');await page.locator('[data-confirm="accept"]').click();
+ await page.waitForFunction(()=>document.getElementById('ivCustomer').value==='Cliente devolución');
+ assert.equal(await page.locator('#ivCustomer').inputValue(),'Cliente devolución');assert.equal(await page.locator('#ivQty_0').inputValue(),'-1');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_sales_invoices.length),1,'Selecting the original must not save a rectification');
+ await page.locator('[data-action="invoice-back"]').first().click();
  await page.locator('[data-action="invoice-open"]').click();
  await page.locator('[data-action="invoice-rectify"]').click();
  assert.equal(await page.locator('#ivRectifiedInvoice').inputValue(),'11111111-1111-4111-8111-111111111199');

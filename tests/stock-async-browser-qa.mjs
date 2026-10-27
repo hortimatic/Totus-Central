@@ -22,8 +22,12 @@ try{
  };
  await delayedRefresh();const field=await page.locator('#stockLibraryQuery').elementHandle();
  await page.locator('#stockLibraryQuery').fill('Búsqueda escrita mientras carga');
+ await page.locator('#stockLibraryQuery').evaluate(el=>el.setSelectionRange(3,8));
  await page.evaluate(()=>window.releaseLibrary());await page.waitForFunction(el=>!el.isConnected,field);
  assert.equal(await page.locator('#stockLibraryQuery').inputValue(),'Búsqueda escrita mientras carga','A late library refresh erased the query being written');
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'stockLibraryQuery','A late library refresh must preserve keyboard focus while typing');
+ assert.deepEqual(await page.locator('#stockLibraryQuery').evaluate(el=>[el.selectionStart,el.selectionEnd]),[3,8],'The selected text must survive a late refresh');
+ await page.locator('#stockLibraryQuery').press('Enter');assert.equal(await page.evaluate(()=>document.activeElement?.id),'stockLibraryQuery','Applying a library query with Enter must keep the search usable');
  await delayedRefresh();await page.locator('[data-action="stock-back"]').click();await page.getByText('Recepciones de mercancía',{exact:true}).waitFor();
  await page.evaluate(()=>window.releaseLibrary());await page.waitForTimeout(100);
  assert.equal(await page.getByRole('heading',{name:'Biblioteca de productos',exact:true}).count(),0,'A completed old read reopened the library after leaving it');

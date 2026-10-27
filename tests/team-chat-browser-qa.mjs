@@ -53,6 +53,7 @@ try{
    if(p.p_action==='channel_update')Object.assign(c,d);
    if(p.p_action==='channel_delete')q.channels=q.channels.filter(c=>c.id!==d.channel_id);
    if(p.p_action==='member_save')q.members.push({email:d.email,member_role:d.member_role});
+   if(p.p_action==='join')c.member_role='member';
    if(p.p_action==='member_remove')q.members=q.members.filter(m=>m.email!==d.email);
    if(p.p_action==='mute')c.muted=d.muted;
    if(p.p_action==='member_preferences')Object.assign(c,d,{muted:d.notify_level==='none'});
@@ -255,6 +256,15 @@ try{
  await page.locator('[data-chat-input="archived"]').uncheck();
  await page.locator('[data-chat="open"][data-id="h"]').waitFor();
  assert.deepEqual(await page.evaluate(()=>qaChat.channels.map(c=>({id:c.id,group:c.group_name}))),sectionsBefore);
+ await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();
+ await page.locator('dialog [data-section-action="create"]').click();
+ await page.locator('dialog [name="name"]').fill('Canal ficticio desde sección');await page.locator('dialog [type="submit"]').click();
+ await page.waitForFunction(()=>qaChat.channels.some(c=>c.name==='Canal ficticio desde sección'));
+ assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.name==='Canal ficticio desde sección').group_name),'Hortimatic');
+ await page.evaluate(()=>qaChat.channels.find(c=>c.id==='n').member_role=null);
+ await page.locator('[data-chat="open"][data-id="n"]').click();await click('join');
+ await page.locator('#chatBody').waitFor();assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='n').member_role),'member');
+ await page.locator('[data-chat="open"][data-id="h"]').click();
  // Use a long, realistic history to exercise scroll anchoring and keyboard controls.
  await page.evaluate(()=>{for(let i=0;i<120;i++)qaChat.messages.push({id:'scroll-'+i,seq:++qaChat.seq,channel_id:'h',author_email:'tienda@example.invalid',body:'Mensaje de historial '+i+' — '+('Texto largo de prueba. '.repeat(4)),created_at:new Date().toISOString(),reactions:[],replies:0});});
  await page.locator('[data-chat="open"][data-id="h"]').click();

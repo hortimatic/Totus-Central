@@ -39,6 +39,12 @@ Se añaden `007_document_removal_protocol.sql`, `008_business_write_replay.sql` 
 
 ## Trabajo pendiente antes del cierre integral
 
+Ampliación del 27/10: la revisión 4545478d superó también toda la batería de GitHub (40419429586). En recorridos adicionales se reprodujeron dos defectos: seleccionar otro ZIP mientras se importaba el primero duplicaba originales, y elegir la factura desde «Nueva rectificativa» no rellenaba sus datos como sí ocurría desde la factura emitida. El importador limita una operación simultánea por página, libera su bloqueo al cancelar/terminar y deja de iniciar archivos posteriores al cerrar sesión. La rectificativa nueva reutiliza la selección del original y confirma antes de sustituir texto introducido. No se ha cambiado la estructura visual ni el formato de los datos.
+
+Las pruebas adicionales verifican duplicados posteriores, cancelación y cierre de sesión durante la lectura de un lote; previsualización y bytes originales de justificantes y facturas externas; continuar una recuperación y descargar su índice/componentes, rechazando un componente alterado; impresión PDF de gestoría; desactivar/reactivar un usuario ficticio y recuperación sin enviar correo; rechazo/aceptación de una clave Microsoft ficticia sin persistirla en el navegador; borrado protegido de proveedores y consultas; selección de periodos antiguos y conservación de líneas de facturación. Los adaptadores de recuperación y Microsoft no sustituyen sus servicios reales ni acreditan una restauración de producción.
+
+La matriz automática observó 321 de las 325 etiquetas detectadas. Las cuatro restantes se revisaron en código: dos alias que no emite la interfaz, una etiqueta que corresponde a una casilla de permisos y un botón heredado oculto por las reglas actuales de navegación móvil. No se han borrado para maquillar el recuento. Esta matriz registra ejecuciones; las afirmaciones concretas y los ensayos del servidor se conservan por separado. No es una certificación matemática de ausencia de errores.
+
 Actualización del 27/10: la revisión d093eb88 ha superado el flujo automático completo de GitHub (ejecución 40414815711). Sigue separada de producción. No equivale a cerrar los puntos pendientes de esta lista.
 
 El barrido aislado posterior completó 93 programas de lógica y 64 programas de navegador sin fallos. Incluyó distribución de 130 vistas, ventanas emergentes y 663 campos en 78 vistas. Los contadores acreditan esos ensayos concretos; no sustituyen los recorridos pendientes ni la comprobación del despliegue final.
@@ -56,3 +62,8 @@ En Chat se ha reproducido y corregido una vista previa antigua que podía aparec
 5. Consolidar informe, código y manuales en las ubicaciones autorizadas; comprobar lo entregado y retirar los recursos temporales de auditoría.
 
 Mientras estos puntos sigan abiertos, no etiquetar la herramienta como «100 % revisada» ni presentar una simulación como prueba de una operación real no ejecutada.
+
+## Protección adicional de originales — 27/10
+Se detectó que una retirada podía alcanzar Storage sin acreditar primero un original recuperable. La revisión añade acreditación exclusiva del servidor, lectura de bytes y contraste de huella/tamaño en OneDrive, y completa la retirada desde el servidor bajo la misma reserva del proceso documental. El navegador conserva los permisos del solicitante y deja pendiente un fallo; no borra por su cuenta el original. Se probaron archivo ausente, bytes alterados, identificador incorrecto, conexión ausente, respuesta perdida y reintento. El ensayo SQL aislado rechaza retirar antes de acreditar, comprueba permisos y evita duplicar el evento de auditoría. Los adaptadores ficticios SQL no equivalen a releer archivos reales.
+
+La pasada completa posterior de lógica terminó con93 programas correctos. El barrido de navegador está en curso; no confundirlo con el anterior de63/64. El fallo de foco de Recepciones quedó reproducido y corregido, con conservación del texto, cursor y selección.

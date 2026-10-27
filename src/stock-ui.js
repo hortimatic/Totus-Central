@@ -126,13 +126,17 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  const retainLibrarySearch=()=>{
   const query=document.getElementById('stockLibraryQuery'),store=document.getElementById('stockLibraryStore');
   if(query)view.libraryQuery=query.value;if(store)view.libraryStore=store.value||'all';
+  const active=document.activeElement,id=[query?.id,store?.id].includes(active?.id)?active?.id:null;
+  const start=active?.selectionStart,end=active?.selectionEnd;
+  return ()=>{const field=id?document.getElementById(id):null;if(!field)return;field.focus({preventScroll:true});if(Number.isInteger(start)&&Number.isInteger(end)&&typeof field.setSelectionRange==='function')field.setSelectionRange(start,end);};
  };
  const refresh=async()=>{
   const scope=readScope();
-  if(view.mode==='library'){if(!await loadLibrary())return;retainLibrarySearch();}
+  let restoreFocus=()=>{};
+  if(view.mode==='library'){if(!await loadLibrary())return;restoreFocus=retainLibrarySearch();}
   else if(view.mode==='detail'&&view.context){if(!await context(view.context.receipt.id))return;}
   else{const rows=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at');if(!currentRead(scope))return;view.receipts=rows;view.loaded=true;}
-  view.error='';render();
+  view.error='';render();restoreFocus();
  };
  const attach=async(doc,kind,file)=>{
   let extracted;try{extracted=await extractStockText(file)}catch(error){extracted={text:'',extraction:{state:'unread',warnings:[String(error.message||error)],reader:'failed'}}}
@@ -194,8 +198,8 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   closeModal();toast('Proveedor seleccionado. Puedes continuar con los documentos.');return;
  }
  if(a==='stock-filter-clear'){Object.assign(view,{from:'',to:'',query:'',store:'all',status:'all'});render();return;}
- if(a==='stock-library'||a==='stock-library-refresh'){if(!await loadLibrary())return;retainLibrarySearch();view.mode='library';render();return;}
- if(a==='stock-library-search'){view.libraryQuery=value('stockLibraryQuery');view.libraryStore=value('stockLibraryStore')||'all';render();return;}
+ if(a==='stock-library'||a==='stock-library-refresh'){if(!await loadLibrary())return;const restoreFocus=retainLibrarySearch();view.mode='library';render();restoreFocus();return;}
+ if(a==='stock-library-search'){const restoreFocus=retainLibrarySearch();render();restoreFocus();return;}
  if(a==='stock-equivalence-new'){
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
   const row=view.context.receipt.result.rows.find(r=>r.id===el.dataset.line);

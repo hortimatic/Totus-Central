@@ -1,4 +1,6 @@
 # Manual operativo de TotusCentral para ChatGPT online
+
+> Para cambios técnicos, leer también el [protocolo de mantenimiento de la revisión del 27/10](PROTOCOLO_MANTENIMIENTO_2026-10-27.md). Comprobar si la revisión está instalada antes de aplicarlo.
 Actualizado: 23/10/2026. Producción publicada en la raíz; rama única totus-central y proyecto Supabase awmojepsasikxocoeqtu. Consultar el informe de revisión antes de operar.
 
 ## 1. Acceso y responsabilidades

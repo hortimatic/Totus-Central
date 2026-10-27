@@ -73,6 +73,12 @@ export async function invokeRecovery(jobId,action='process',values={}){
  return body;
 }
 export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
+export async function completeDocumentRemoval(document){
+ const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'complete-document-removal',id:document.id,path:document.storage_path||'',sha256:document.sha256||''}});
+ if(error){let message='La retirada no se ha podido confirmar. Su solicitud se conserva para reintentar.';try{message=(await error.context.json()).error||message;}catch{}throw new Error(message);}
+ if(data?.error)throw new Error(data.error);
+ return data;
+}
 async function documentLocation(path){
  const session=(await sb.auth.getSession()).data.session;
  if(!session)throw new Error('Sesión no válida.');

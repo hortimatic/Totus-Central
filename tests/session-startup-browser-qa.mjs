@@ -2,6 +2,18 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
 try{
+ const retryPage=await browser.newPage();
+ await retryPage.addInitScript(()=>window.__qaFailCore=true);
+ await retryPage.route('**/tests/mock-supabase.js',async route=>{
+  const response=await route.fetch(),text=(await response.text()).replace('const target=db[this.table];',"if(window.__qaFailCore&&this.table==='ops_business_settings'){window.__qaFailCore=false;return {data:null,error:{code:'08006',message:'Carga ficticia interrumpida'}};}const target=db[this.table];");
+  await route.fulfill({response,body:text});
+ });
+ await retryPage.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await retryPage.getByRole('heading',{name:'No se han podido cargar los datos',exact:true}).waitFor();
+ assert.equal(await retryPage.evaluate(()=>window.__mockDb.ops_business_settings.length),1,'Failed reading must not delete stored settings');
+ await retryPage.locator('[data-action="retry-load"]').click();await retryPage.locator('#nav [data-route="inicio"]').waitFor();
+ assert.equal(await retryPage.locator('[data-action="retry-load"]').count(),0);assert.equal(await retryPage.locator('#pageTitle').innerText(),'Inicio');
+ await retryPage.close();
  for(const mode of ['saved','absent','error']){
   const page=await browser.newPage();let release;
   const gate=new Promise(resolve=>release=resolve);

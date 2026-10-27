@@ -91,6 +91,37 @@ try{
    assert.equal(book.Sheets.Cierres.H5.v,45,'Detailed working export must retain the entered sales and their draft status');
   }
  }
+ const printReady=page.waitForEvent('popup');await page.locator('[data-action="report-gestor-source-print"]').click();
+ const reportPrint=await printReady;await reportPrint.locator('table').first().waitFor();
+ const printedPdf=await reportPrint.pdf({format:'A4',printBackground:true});assert.equal(printedPdf.subarray(0,5).toString(),'%PDF-');
+ const {PDFDocument}=await import('pdf-lib');assert((await PDFDocument.load(printedPdf)).getPageCount()>0);await reportPrint.close();
+ await page.locator('#reportPeriodYear').fill('2025');await page.locator('#reportPeriodQuarter').selectOption('2');
+ await page.locator('[data-action="report-period-quarter"]').click();
+ assert.equal(await page.locator('#informesFrom').inputValue(),'2025-04-01');assert.equal(await page.locator('#informesTo').inputValue(),'2025-06-30');
+ await page.locator('#nav [data-route="gastos"]').click();await page.locator('[data-action="expense-suppliers"]').click();
+ await page.locator('[data-action="expense-supplier-new"]').click();await page.locator('#esName').fill('Proveedor ficticio para borrar');
+ await page.locator('[data-action="expense-supplier-save"]').click();
+ const supplierId=await page.evaluate(()=>window.__mockDb.ops_suppliers.find(s=>s.name==='Proveedor ficticio para borrar').id);
+ const supplierDelete=page.locator('[data-action="expense-supplier-delete"][data-id="'+supplierId+'"]');
+ await page.evaluate(()=>window.confirm=()=>false);await supplierDelete.click();
+ assert(await page.evaluate(id=>window.__mockDb.ops_suppliers.some(s=>s.id===id),supplierId),'Cancelled deletion removed supplier');
+ await page.evaluate(async id=>{window.confirm=()=>true;window.__mockDb.ops_expenses.push({id:'supplier-linked-qa',supplier_id:id,expense_date:'2025-01-01',description:'Referencia ficticia',gross_expense:10});await(await import('../src/api.js')).loadCore();},supplierId);
+ await supplierDelete.click();await page.getByText(/No se puede eliminar: hay 1 gastos vinculados/).waitFor();
+ assert(await page.evaluate(id=>window.__mockDb.ops_suppliers.some(s=>s.id===id),supplierId),'Linked supplier was removed');
+ await page.evaluate(async()=>{window.__mockDb.ops_expenses=window.__mockDb.ops_expenses.filter(e=>e.id!=='supplier-linked-qa');await(await import('../src/api.js')).loadCore();});
+ await supplierDelete.click();await page.getByText('Proveedor eliminado.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(id=>window.__mockDb.ops_suppliers.some(s=>s.id===id),supplierId),false);
+ await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="documentos"]').click();await page.locator('[data-action="invoice-new"]').first().click();
+ await page.locator('#ivDesc_0').fill('Primera línea ficticia');await page.locator('[data-action="invoice-line-add"]').click();
+ await page.locator('#ivDesc_1').fill('Segunda línea conservar');await page.locator('#ivQty_1').fill('2');await page.locator('#ivUnit_1').fill('7');
+ await page.locator('[data-action="invoice-line-remove"][data-index="0"]').click();
+ assert.equal(await page.locator('#invoiceLines .invoice-line').count(),1);
+ const remaining=page.locator('#invoiceLines .invoice-line');
+ assert.equal(await remaining.locator('[id^="ivDesc_"]').inputValue(),'Segunda línea conservar');assert.equal(await remaining.locator('[id^="ivQty_"]').inputValue(),'2');assert.equal(await remaining.locator('[id^="ivUnit_"]').inputValue(),'7');
+ await page.locator('#ivCustomer').fill('Cliente ficticio conservar línea');await page.locator('[data-action="invoice-save"]').first().click();
+ await page.waitForFunction(()=>window.__mockDb.ops_sales_invoices.some(i=>i.customer_name==='Cliente ficticio conservar línea'));
+ const preservedLine=await page.evaluate(()=>{const db=window.__mockDb,i=db.ops_sales_invoices.find(i=>i.customer_name==='Cliente ficticio conservar línea');return {invoice:i,lines:db.ops_sales_invoice_lines.filter(l=>l.invoice_id===i.id)};});
+ assert.equal(preservedLine.lines.length,1);assert.equal(preservedLine.lines[0].description,'Segunda línea conservar');assert.equal(preservedLine.lines[0].quantity,2);assert.equal(preservedLine.lines[0].unit_price_base,7);assert.equal(preservedLine.invoice.base_amount,14);
  assert.deepEqual(errors,[]);
  console.log('CONFIGURATION JOURNEYS: business/fiscal isolation, invalid rates, category colours, integer invoice numbering and persistence');
 }finally{await browser.close()}

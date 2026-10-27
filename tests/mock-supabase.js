@@ -35,6 +35,8 @@ const db={
  ops_document_templates:[{id:uuid(),name:'QA Minimal',code:'MIN',style:'clean',active:true,default_invoice:true,default_proforma:true,primary_color:'#15243d',secondary_color:'#3b82f6',text_color:'#111827'}]
 };
 const uploaded=new Map();
+const archivedDocuments=new Map(),removedDocuments=new Map();
+window.__mockArchivedDocuments=archivedDocuments;
 for(const table of ['ops_stock_receipts','ops_stock_sources','ops_stock_revisions','ops_stock_equivalences','ops_daily_closings','ops_daily_closing_drawers','ops_expenses','ops_expense_lines','ops_sales_invoices','ops_sales_invoice_lines','ops_documents','ops_tax_payments','ops_reta_brackets','ops_fiscal_adjustments','ops_income_adjustments','ops_audit_log','brands','families','products','product_variants','providers','product_provider_prices','product_competitor_prices','consultations','consultation_history','price_history'])db[table]=[];
 window.__mockDb=db;
 window.__mockUploads=uploaded;
@@ -109,7 +111,7 @@ const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString()
 const rpc=async (name,args={})=>{
  if(name==='totus_pending_document_removals')return {data:[...documentRemovals.values()],error:null};
  if(name==='totus_begin_document_removal'){
-  const doc=get('ops_documents',args.p_id);if(!doc)return {data:null,error:{message:'El documento ya no está disponible. Actualiza el listado.'}};
+   const doc=get('ops_documents',args.p_id);if(!doc){const removed=removedDocuments.get(args.p_id);return removed?.storage_path===args.p_path&&removed.sha256===(args.p_sha256||'')?{data:{id:args.p_id,status:'already_removed'},error:null}:{data:null,error:{message:'El documento ya no está disponible. Actualiza el listado.'}};}
   if(doc.storage_path!==args.p_path||(doc.sha256||'')!==(args.p_sha256||''))return {data:null,error:{message:'El archivo ha cambiado desde que abriste la ficha.',code:'40001'}};
   const linked=db.ops_expenses.some(r=>r.document_id===doc.id)||db.ops_tax_payments.some(r=>r.document_id===doc.id)||db.ops_sales_invoices.some(r=>r.source_document_id===doc.id||r.generated_document_id===doc.id)||db.ops_fiscal_adjustments.some(r=>r.document_id===doc.id)||db.ops_stock_sources.some(r=>r.document_id===doc.id);
   if(linked)return {data:null,error:{message:'Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.'}};
@@ -119,7 +121,7 @@ const rpc=async (name,args={})=>{
   const doc=get('ops_documents',args.p_id);if(!doc)return {data:{id:args.p_id,status:'already_removed'},error:null};
   if(!documentRemovals.has(doc.id)||doc.storage_path!==args.p_path)return {data:null,error:{message:'No coincide la solicitud de eliminación con el archivo actual.'}};
   if(uploaded.has('business-documents/'+doc.storage_path))return {data:null,error:{message:'El archivo sigue en Supabase. Su ficha se conserva para reintentar la eliminación.'}};
-  db.ops_documents.splice(db.ops_documents.indexOf(doc),1);documentRemovals.delete(doc.id);return {data:{id:doc.id,status:'removed'},error:null};
+   removedDocuments.set(doc.id,{storage_path:doc.storage_path,sha256:doc.sha256||''});db.ops_documents.splice(db.ops_documents.indexOf(doc),1);documentRemovals.delete(doc.id);return {data:{id:doc.id,status:'removed'},error:null};
  }
  const writeTargets={totus_save_expense:['ops_expenses','p_expense'],totus_save_closing:['ops_daily_closings','p_closing'],totus_save_sales_document:['ops_sales_invoices','p_document']};
  if(writeTargets[name]){
@@ -333,6 +335,21 @@ const client={
   return databaseResult(response);
  },
  functions:{invoke:async (name,options)=>{
+ if(name==='totus-onedrive'&&options?.body?.action==='complete-document-removal'){
+  const request=options.body,args={p_id:request.id,p_path:request.path,p_sha256:request.sha256||''};
+  const begun=await rpc('totus_begin_document_removal',args);if(begun.error||begun.data?.status==='already_removed')return begun;
+  const doc=get('ops_documents',request.id),blob=uploaded.get('business-documents/'+request.path)||archivedDocuments.get(request.id)?.blob;
+  if(window.__mockArchiveError||!blob)return {data:{error:'No se pudo verificar el archivo recuperable. El original se conserva.'},error:null};
+  const bytes=await blob.arrayBuffer(),sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(x=>x.toString(16).padStart(2,'0')).join('');
+  if(doc.sha256&&doc.sha256!==sha||doc.size_bytes!=null&&Number(doc.size_bytes)!==blob.size)return {data:{error:'El archivo recuperable no coincide con el documento.'},error:null};
+  archivedDocuments.set(doc.id,{blob,sha256:sha,storage_path:doc.storage_path});
+  const store=storageBucket('business-documents'),removed=await store.remove([request.path]);
+  if(removed.error)return {data:{error:'No se pudo retirar el archivo de Supabase.'},error:null};
+  const slash=request.path.lastIndexOf('/'),folder=slash<0?'':request.path.slice(0,slash),name=request.path.slice(slash+1);
+  const remaining=await store.list(folder,{search:name,limit:100,offset:0});
+  if(remaining.error||!Array.isArray(remaining.data)||remaining.data.length>=100||remaining.data.some(file=>file.name===name))return {data:{error:'El archivo sigue en Supabase. Se conserva su ficha para reintentar.'},error:null};
+  return await rpc('totus_finish_document_removal',args);
+ }
  if(name!=='totus-backup-run')return {data:null,error:{message:'Función no simulada'}};
  if(options?.body?.action!=='delete')return await mockCloudBackup();
  const saved=db.ops_backup_runs.filter(r=>r.status==='success'&&r.storage_path);
@@ -353,6 +370,7 @@ window.fetch=async (url,opts)=>{
   const p=JSON.parse(opts?.body||'{}');
   if(p.action==='create_user'){db.team_members.push({id:uuid(),email:p.email,full_name:p.full_name,role:p.role,active:true});return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   if(p.action==='update_member'){const row=db.team_members.find(x=>x.email===p.email);if(row)Object.assign(row,p);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
+  if(p.action==='set_active'){const row=db.team_members.find(x=>x.email===p.email);if(row)row.active=p.active;return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   if(p.action==='hard_delete'){const ix=db.team_members.findIndex(x=>x.email===p.email);if(ix>=0)db.team_members.splice(ix,1);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}});
  }

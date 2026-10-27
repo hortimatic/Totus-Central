@@ -31,7 +31,7 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,mar
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile} from './api.js';
+import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
@@ -49,9 +49,13 @@ import {renderPdfPreview} from './pdf-preview.js';
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
 const businessWriter=createBusinessWriter({rpc});
 // A delayed preview belongs to the account and rendered page that requested it.
+function activeActor(){
+ const owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
+ return ()=>!!state.user&&owner===JSON.stringify([state.session?.user?.id,state.user?.email]);
+}
 function activePreviewPage(){
- const page=$('#content > .page'),owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
- return ()=>!!state.user&&!!page?.isConnected&&owner===JSON.stringify([state.session?.user?.id,state.user?.email]);
+ const page=$('#content > .page'),isOwner=activeActor();
+ return ()=>!!page?.isConnected&&isOwner();
 }
 async function resumeBusinessForm(route){
  const result=await businessWriter.resume($('#content > .page'));
@@ -460,7 +464,7 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
 }
 async function destroyDocument(doc){
  if(!doc)return;
- await retireStoredDocument(doc,{rpc,removeFile});
+ await retireStoredDocument(doc,{rpc,completeRemoval:completeDocumentRemoval});
 }
 async function rollbackUploadedFile(bucket,path,error){
  if(!cleanupAllowed(error))return new Error(error.message+' El archivo subido se conserva porque no se ha podido confirmar el resultado. Actualiza y comprueba el registro antes de reenviar.');
@@ -1445,11 +1449,20 @@ async function saveDocument(id=''){
 
 // Importación documental: pendientes de revisar, sin crear gastos automáticamente.
 // Los PDF quedan sin tienda ni asociación fiscal hasta que se contraste la factura.
+let documentImportActive=false;
 async function importDocumentZip(zipFile){
+ if(!zipFile)return;
+ if(documentImportActive)throw new Error('Ya hay una importación de documentos en curso. Espera a que termine antes de seleccionar otro lote.');
+ documentImportActive=true;
+ try{return await performDocumentZipImport(zipFile)}finally{documentImportActive=false;}
+}
+async function performDocumentZipImport(zipFile){
  if(!zipFile) return;
+ const isCurrent=activeActor();if(!isCurrent())return;
  if(!window.JSZip) throw new Error('No está disponible el lector ZIP.');
  if(zipFile.size>150*1024*1024) throw new Error('El archivo ZIP supera el máximo de 150 MB.');
  const zip=await window.JSZip.loadAsync(zipFile);
+ if(!isCurrent())return;
  const entries=Object.values(zip.files).filter(f=>!f.dir&&/\.(pdf|xlsx|docx)$/i.test(f.name)&&!f.name.startsWith('__MACOSX/'));
  if(!entries.length)throw new Error('El ZIP no contiene PDF, Excel o Word admitidos.');
  if(entries.length>500)throw new Error('Máximo 500 documentos por lote.');
@@ -1457,22 +1470,27 @@ async function importDocumentZip(zipFile){
  const missing=entries;
  const max=Number(state.data.settings?.document_max_bytes||20*1024*1024);
  const quota=await verifiedStorageMetrics(),used=Number(quota.total_bytes),limit=Number(quota.limit_bytes);
+ if(!isCurrent())return;
  const estimated=missing.reduce((a,f)=>a+Number(f._data?.uncompressedSize||0),0);
  if(used+estimated>limit)throw new Error('El lote supera el almacenamiento disponible. Elimina otros archivos o utiliza un lote menor.');
  if(!await confirmAction('Se revisarán '+missing.length+' archivos en Totus Central. Se omitirán los que tengan el mismo contenido que un documento ya guardado. Los nuevos quedarán pendientes de clasificar, sin crear gastos ni modificar los cálculos fiscales.',{title:'Importar documentos',acceptLabel:'Importar archivos'}))return;
+ if(!isCurrent())return;
  const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
  let ok=0,skipped=entries.length-missing.length;const errors=[];
  modal('Importación de documentos',`<div class="stack"><p>Los archivos se guardan como <b>pendientes</b> y no se computan fiscalmente.</p><p id="bulkZipProgress" role="status">Preparando ${missing.length} documentos…</p></div>`);
  const report=(message)=>{const el=document.getElementById('bulkZipProgress');if(el)el.textContent=message};
  for(let i=0;i<missing.length;i++){
+  if(!isCurrent())return;
   const e=missing[i],name=e.name.split('/').pop();
   try{
    const raw=await e.async('blob');
+   if(!isCurrent())return;
    if(raw.size>max)throw new Error('Supera el límite de '+(max/1048576).toFixed(0)+' MB por archivo');
    const ext=name.toLowerCase().split('.').pop();
    const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':ext==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/pdf';
    const file=new File([raw],name,{type:mime});
    const hash=await fileSha256(file);
+   if(!isCurrent())return;
    if(knownHashes.has(hash)){skipped++;report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);continue;}
    const segments=e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
    const folder=Object.keys(months).find(m=>segments.includes(m));
@@ -1487,11 +1505,13 @@ async function importDocumentZip(zipFile){
    const party=name.replace(/\.pdf$/i,'').replace(/\b\d{1,2}[-._]\d{1,2}[-._]20\d\d\b/g,'').trim().slice(0,150);
    const notes=`[ORIGEN-ZIP:${e.name}] ${provisional?'Fecha provisional tomada del mes de carpeta (o enero si no consta). ':''}DOCUMENTO SIN CONCILIAR: confirmar tienda, proveedor, fecha, número de factura, importe e impuestos antes de asociarlo.`;
    const doc=await createStoredDocument(file,{storeId:null,date,docType:reportFile?'informe':'factura_recibida',status:'pendiente',party,notes});
+   if(!isCurrent())return;
    state.data.documents.push(doc);knownHashes.add(hash);ok++;
-  }catch(err){errors.push(name+': '+(err?.message||String(err)))}
+  }catch(err){if(!isCurrent())return;errors.push(name+': '+(err?.message||String(err)))}
   if((i+1)%5===0||i===missing.length-1)report(`Procesados ${i+1}/${missing.length} · Guardados ${ok} · Fallidos ${errors.length} · Ya existentes ${skipped}`);
  }
  await refresh();
+ if(!isCurrent())return;
  modal('Resultado de importación ZIP',`<div class="stack"><p><b>${ok}</b> documentos guardados; <b>${skipped}</b> duplicados omitidos; <b>${errors.length}</b> errores.</p>${errors.length?'<div class="note">'+esc(errors.slice(0,20).join(' | '))+'</div>':''}<p>Todos los archivos siguen pendientes de revisar y no afectan a los informes fiscales.</p></div>`);
 }
 
@@ -1552,7 +1572,7 @@ if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo p
  if(stockLink.data?.length)throw new Error('Este original forma parte de una recepción. Retira primero su asociación desde Recepciones.');
  if(!state.data.documentRemovals?.some(row=>row.id===id)&&documentIsLinked(id))throw new Error('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.');
  if(!await confirmAction('Se quitará el documento «'+d.original_name+'» de la herramienta. Si ya tiene copia en OneDrive, su archivo se conservará en «99 Archivo de documentos retirados». Si todavía no está copiado, se eliminará su archivo de Supabase.'))return;
- try{await retireStoredDocument(d,{rpc,removeFile})}
+ try{await retireStoredDocument(d,{rpc,completeRemoval:completeDocumentRemoval})}
  catch(error){if(error.documentRemovalPending)await refresh();throw error}
  resetView('documentos');await refresh('Documento eliminado.');
 }
@@ -2807,6 +2827,11 @@ document.addEventListener('change',async e=>{
   setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return;
  }
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){const date=e.target.value||isoToday();setView('cajas',{date});for(const drawer of state.data.drawers.filter(d=>d.store_id===val('clStore')&&d.active!==false))setPristineFormValue($('#content'),`drOpen_${drawer.id}`,openingDrawerCash(drawer.store_id,drawer.id,date));updateClosingSummary();return}
+ if(e.target?.id==='ivRectifiedInvoice'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){
+  const originalId=e.target.value||null;
+  if(!await allowDiscardDrafts({ignore:['ivRectifiedInvoice']})){e.target.value=originalFormValue($('#content'),'ivRectifiedInvoice');return;}
+  setView('facturacion',{rectifiedInvoiceId:originalId});render();return;
+ }
  if(['ivStore','ivDate'].includes(e.target?.id)&&getView('facturacion').mode==='record'){
   const view=getView('facturacion'),saved=state.data.invoices.find(x=>x.id===view.id),storeId=val('ivStore'),docType=saved?.document_type||view.docType||'factura',kind=saved?.invoice_kind||view.invoiceKind||'invoice',year=Number(val('ivDate').slice(0,4));setView('facturacion',{storeId});
   let series=state.data.series.filter(s=>s.active!==false&&s.document_type===docType&&Number(s.year)===year&&(!s.store_id||s.store_id===storeId)&&(docType==='proforma'||s.series_kind===kind));
