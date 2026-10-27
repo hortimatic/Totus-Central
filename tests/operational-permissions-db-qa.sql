@@ -4,6 +4,8 @@ insert into public.ops_roles values('admin'),('gerente'),('encargado'),('persona
 create table public.ops_role_permissions(role text references public.ops_roles(code),module text check(module in ('inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion')),can_view boolean,can_create boolean,can_edit boolean,can_delete boolean,can_export boolean,primary key(role,module));
 create table public.ops_user_permissions(email text references public.team_members(email),module text check(module in ('inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion')),can_view boolean,can_create boolean,can_edit boolean,can_delete boolean,can_export boolean,primary key(email,module));
 create table public.ops_audit_log(id uuid primary key default gen_random_uuid(),user_id uuid references public.profiles(id),user_email text,area text,action text,detail jsonb,created_at timestamptz default now());
+create table public.ops_backup_config(id integer primary key,enabled boolean,updated_at timestamptz default now());
+insert into public.ops_backup_config(id,enabled) values(1,false);
 \ir ../supabase/review_patches/011_operational_permissions_activity.sql
 begin;
 insert into public.ops_role_permissions values('encargado','equipo',false,false,false,false,false);
@@ -32,4 +34,9 @@ select public.qa_assert((select user_email from public.ops_audit_log where id='c
 update public.ops_user_permissions set can_view=false where email='staff@example.invalid' and module='tareas';
 set role authenticated;
 select public.qa_denied('select public.totus_tasks_context(''2026-10-01'',''2026-10-31'')','Usuario de equipo');
+reset role;
+update public.ops_backup_config set enabled=true where id=1;
+select public.qa_assert(exists(select 1 from public.ops_audit_log where detail->>'tabla'='ops_backup_config' and detail->'campos' ? 'enabled'),'Backup settings audited by the server');
+update public.profiles set ui_preferences='{"qa":true}'::jsonb where id='22222222-2222-4222-8222-222222222222';
+select public.qa_assert(exists(select 1 from public.ops_audit_log where detail->>'tabla'='profiles' and detail->'campos' ? 'ui_preferences'),'Preferences audited without raw values');
 rollback;

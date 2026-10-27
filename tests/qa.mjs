@@ -41,7 +41,7 @@ for(const match of apiSource.matchAll(/state\.data\.([A-Za-z0-9_]+)\s*=\s*([A-Za
 const usedData=new Set([...(appSource+'\n'+pageSource+'\n'+text('src/excel.js')+'\n'+text('src/backup.js')).matchAll(/state\.data\.([A-Za-z0-9_]+)/g)].map(m=>m[1]));
 for(const key of usedData){
  if(!declaredData.has(key))errors.push('state.data usado pero no inicializado: '+key);
- if(!loadedData.has(key)&&!['audit','storageUsage','auditError','auditUpdatedAt'].includes(key))errors.push('state.data usado pero no cargado por loadCore: '+key);
+ if(!loadedData.has(key)&&!['audit','storageUsage','auditError','auditUpdatedAt','activityLogError'].includes(key))errors.push('state.data usado pero no cargado por loadCore: '+key);
 }
 
 const {state,setView}=await import(pathToFileURL(path.resolve(root,'src/state.js')).href);

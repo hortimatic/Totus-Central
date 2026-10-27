@@ -66,7 +66,7 @@ async function resumeBusinessForm(route){
  await refresh('Guardado confirmado. No se ha creado otro registro.');return true;
 }
 const headerTools=createHeaderTools({rpc,can:module=>can(module,'view'),actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{if(!state.user||!can(route,'view')||!await allowDiscardDrafts())return;closeModal();if(route==='tareas')pendingTaskDate=date;setRoute(route);render();}});
-const tasks=createTasks({rpc,can:action=>can('tareas',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>toast(m,'bad'),confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
+const tasks=createTasks({rpc,can:action=>can('tareas',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>{toast(m,'bad');activityLog.record('tareas','error_operacion','tarea');},confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
 function updateChatBadge(count){
  if(count!==null)chatUnread=Number(count)||0;
  headerTools.setChatUnread(count);
@@ -74,7 +74,7 @@ function updateChatBadge(count){
  if(badge){badge.textContent=chatUnread>99?'99+':String(chatUnread);badge.hidden=chatUnread===0;badge.setAttribute('aria-label',chatUnread+' mensajes sin leer');}
 }
 function updateChatChannels(channels){updateChatBadge(channels.filter(c=>c.member_role&&!c.archived&&!c.muted&&c.notify_level!=='none').reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0));}
-const teamChat=createTeamChat({rpc,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>toast(message,'bad'),confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
+const teamChat=createTeamChat({rpc,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>{toast(message,'bad');activityLog.record('equipo','error_operacion','chat');},confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
 const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,onOpen:async message=>{
  if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
 }});
@@ -2670,7 +2670,7 @@ document.addEventListener('click',async e=>{
    if(!expires)throw new Error('Indica la fecha de caducidad que aparece en Microsoft.');
    await oneDriveRequest('save-expiry',{expires_at:expires,warning_days:Number(val('odWarningDays')),urgent_days:Number(val('odUrgentDays'))});await refreshOneDrivePanel();toast('Fecha y avisos guardados.');return;
   }
-  if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
+  if(a==='onedrive-refresh'){await refreshOneDrivePanel();activityLog.record('administracion','consultar_estado','onedrive');return}
   if(a==='onedrive-key-renew-save'){
    const field=$('#odRenewSecret'),value=field?.value||'',expires=val('odRenewExpiry');
    try{await oneDriveRequest('renew-key',{client_secret:value,expires_at:expires});if(field)field.value='';await refreshOneDrivePanel();toast('Clave comprobada y actualizada.');}finally{if(field)field.value='';}return;
@@ -2703,7 +2703,7 @@ document.addEventListener('click',async e=>{
    await refreshOneDrivePanel();toast('Archivo guardado y vuelto a leer correctamente desde OneDrive.');return;
   }
 
-  if(a==='storage-refresh'){await refreshStoragePanel();return}
+  if(a==='storage-refresh'){await refreshStoragePanel();activityLog.record('administracion','consultar_estado','almacenamiento');return}
   if(a==='admin-unused-logos'){await reviewUnusedLogos();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};setView('administracion',{logPage:0});render();return}
