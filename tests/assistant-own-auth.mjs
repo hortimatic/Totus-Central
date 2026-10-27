@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 const original=readFileSync(new URL('../supabase/functions/totus-assistant/index.ts',import.meta.url),'utf8');
 const source=original.replace(/import \{ createClient \} from '[^']+'/,"const createClient=()=>{throw new Error('No live client in tests')}");
-const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source.replace("import {attachChatExpenseDocument} from './assistant-attachments.ts'", "const attachChatExpenseDocument=()=>{throw new Error('Unexpected attachment') }"))).toString('base64'));
 const job='11111111-1111-4111-8111-111111111111',ticket='a'.repeat(64);
 const env={get:k=>({SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'server-test',SUPABASE_ANON_KEY:'public-test'})[k]};
 function setup(action='session_check',overrides={}){

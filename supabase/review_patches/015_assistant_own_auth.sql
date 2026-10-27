@@ -6,7 +6,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 DECLARE job uuid=gen_random_uuid(); token text=encode(extensions.gen_random_bytes(32),'hex'); request bigint; cred uuid;
 BEGIN
  IF session_user<>'postgres' OR current_user<>'postgres' OR auth.uid() IS NOT NULL THEN RAISE EXCEPTION 'Conector administrativo requerido'; END IF;
- IF p_action NOT IN ('setup','session_check','validate_expense','save_expense') THEN RAISE EXCEPTION 'Acción no admitida'; END IF;
+ IF p_action NOT IN ('setup','session_check','validate_expense','save_expense','attach_chat_file') THEN RAISE EXCEPTION 'Acción no admitida'; END IF;
  IF octet_length(p_payload::text)>131072 THEN RAISE EXCEPTION 'Solicitud demasiado grande'; END IF;
  IF p_action IN ('save_expense','validate_expense') AND nullif(p_payload#>>'{expense,request_id}','') IS NULL THEN RAISE EXCEPTION 'request_id obligatorio'; END IF;
  SELECT id INTO cred FROM vault.secrets WHERE name='totus_assistant_credentials';

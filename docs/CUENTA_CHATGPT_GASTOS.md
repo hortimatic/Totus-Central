@@ -27,7 +27,7 @@ Los estados son queued, running, completed, failed. Solo completed con authentic
 2. Construye el JSON del contrato normal totus_save_expense. expense debe incluir request_id UUID fijo para todos los reintentos de la misma operación y fiscal_reviewed=false. lines es el array normal. La edición exige id y expected_updated_at recién leídos.
 3. Usa validate_expense con el objeto {"expense": {...}, "lines": [...]}. Reproduce el guardado dentro de una subtransacción que se revierte; persisted=false. El resultado incluye actor, importe y líneas para contrastar. No es una factura ya guardada.
 4. Para el alta autorizada, presenta el mismo payload con save_expense. Relee el resultado por job_id: expense_id, expense y lines. Contrasta created_by de la cuenta técnica, importes, tienda, referencia y estado. El gasto sigue siendo editable por el usuario normal según permisos y protecciones históricas existentes.
-5. Reutiliza el document_id del original administrado en Totus si ya está en el chat interno. Comprueba que corresponde al PDF exacto y que su vínculo OneDrive es válido. No basta con subir un archivo a OneDrive. Esta primera conexión no incorpora una nueva acción de subida documental genérica; para archivos ajenos al circuito actual hay que usar y verificar la incorporación normal antes de guardar su document_id.
+5. Reutiliza el document_id del original administrado en Totus si ya está en el chat interno. Comprueba que corresponde al PDF exacto y que su vínculo OneDrive es válido. No basta con subir un archivo a OneDrive. La acción attach_chat_file descrita al final incorpora el PDF del chat al circuito normal. Para archivos que no están en ese circuito hay que usar y verificar primero su incorporación normal; no se ha habilitado una subida genérica de cualquier formato.
 6. fiscal_reviewed=false significa pendiente de revisión; NO presupongas que es un borrador excluido de todos los indicadores. Comprueba la lógica fiscal vigente antes de afirmar su efecto. Nunca uses management_only artificialmente para ocultar un gasto fiscal.
 7. Si el guardado terminó pero falló la relectura o publicación de resultado, consulta primero por número/proveedor y por el request_id. Reenvía solo el mismo UUID y contenido, no generes otro que duplique el alta.
 8. No uses INSERT/UPDATE directo en las tablas contables, set_config de identidad, JWT inventados ni claves de servicio.
@@ -68,3 +68,24 @@ No utilices estos datos de ejemplo como contabilidad ni presupongas su tratamien
 Cuenta creada y getUser confirmado con UUID propio; validación de 19,99 + 4,20 = 24,19 ejecutada a través de sesión Auth real, created_by propio, línea correcta y reversión comprobada sin restos en ops_expenses. Tickets incorrectos y reutilizados rechazados; auxiliares sensibles sin EXECUTE para navegador/anon. Ocho pruebas unitarias pasan.
 Las comprobaciones reales detectaron y corrigieron: envoltura Deno.serve, Vault sin privilegio UPDATE (se usa bloqueo asesor, sin ampliar permisos de Vault), máximo 72 caracteres de contraseña Auth e identificador ambiguo en la validación reversible. No confundir estas pruebas de integración con una auditoría completa de toda Totus.
 El caso real de Hostinger debe confirmarse por su gasto, línea, documento y auditoría, no deducirse de esta prueba ficticia.
+
+## Ampliación: adjuntar PDF del chat a un gasto existente
+La acción **attach_chat_file** completa el circuito de «Guardar solo adjunto» con la sesión Auth propia. Parámetros:
+```sql
+select private.totus_assistant_submit('attach_chat_file',
+ jsonb_build_object(
+  'expense_id','<uuid-gasto>',
+  'file_id','<uuid-ops_chat_files>',
+  'request_id','<uuid-estable-del-adjunto>',
+  'expected_updated_at','<updated_at-recién-leído>'
+ ));
+```
+Consulta después private.totus_assistant_result(job_id). La cuenta necesita permiso de consulta de Equipo y membresía en el canal del archivo, además de permisos de Gastos y Documentos. No se concede acceso a todos los canales: el administrador incorpora la cuenta solo donde se autoriza trabajar. Si no hay acceso, la operación falla sin subir archivos.
+
+El servidor lee el original mediante chat-file-content, verifica tamaño/SHA-256/firma PDF, guarda y relee el archivo privado y registra la ficha documental como usuario normal. Actualiza únicamente document_id con comprobación simultánea de versión y ausencia de otro adjunto. No cambia importes, líneas, fiscalidad, notas ni pago. No sustituye un justificante previo automáticamente. Si algo falla después de subir o registrar, el documento se conserva para revisión y el mismo request_id permite reanudar sin duplicarlo; no generar otro UUID al reintentar.
+
+El resultado debe confirmar document_id, enlace inverso expense, uploaded_by de la cuenta técnica, sha256_verified y fiscal_fields_preserved. No afirmar éxito basándose solamente en queued. Comprueba también vista previa/lectura del archivo.
+
+La subida utiliza el mismo almacenamiento privado temporal de Supabase que la interfaz normal. La organización permanente y verificación en OneDrive siguen el espejo existente: el resultado inicial indica onedrive_mirror=scheduled, no una copia ya terminada. No se utiliza el portátil para archivos o credenciales. Si el documento ya ha sido trasladado a OneDrive, el reintento lo relee desde su ubicación verificada.
+
+La frase «la conexión SQL no tiene auth.uid» no significa que esta operación esté bloqueada: SQL presenta el trabajo y el worker ejecuta el cambio con la sesión real. Usa la acción documentada, no intentes guardar ni adjuntar directamente por SQL.

@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
+import {attachChatExpenseDocument} from './assistant-attachments.ts'
 
 // This endpoint never receives user credentials. A short-lived, single-use
 // server ticket authorizes exactly one queued operation from the SQL connector.
@@ -44,7 +45,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
    if(memberError)throw new Error('No se pudo registrar la ficha del asistente')
    const modules=['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion','equipo','tareas']
    const {error:permissionsError}=await admin.from('ops_user_permissions').upsert(modules.map(module=>({
-    email,module,can_view:['inicio','gastos','documentos'].includes(module),can_create:['gastos','documentos'].includes(module),
+    email,module,can_view:['inicio','gastos','documentos','equipo'].includes(module),can_create:['gastos','documentos'].includes(module),
     can_edit:['gastos','documentos'].includes(module),can_delete:false,can_export:false
    })),{onConflict:'email,module'})
    if(permissionsError)throw new Error('No se pudieron limitar los permisos')
@@ -76,7 +77,8 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
     if(readError||lineError||expenseRow.created_by!==confirmed.user.id&&!expense.id)throw new Error('Guardado realizado; relectura pendiente. Consulta antes de reintentar.')
     result={...result,expense_id:saved,expense:expenseRow,lines:lineRows,persisted:true}
    }
-  } else if(!['setup','session_check'].includes(work.action))throw new Error('Acción no admitida')
+  } else if(work.action==='attach_chat_file')result={...result,...await attachChatExpenseDocument(scoped,work.payload,confirmed.user)}
+  else if(!['setup','session_check'].includes(work.action))throw new Error('Acción no admitida')
   const {error:finishError}=await admin.rpc('totus_assistant_complete',{p_job:job,p_result:result,p_error:null})
   if(finishError)throw new Error('Operación ejecutada; no se pudo guardar su resultado. Consulta antes de reintentar.')
   return respond({job_id:job,status:'completed'})
