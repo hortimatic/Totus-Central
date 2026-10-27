@@ -6,7 +6,16 @@ create table public.ops_user_permissions(email text references public.team_membe
 create table public.ops_audit_log(id uuid primary key default gen_random_uuid(),user_id uuid references public.profiles(id),user_email text,area text,action text,detail jsonb,created_at timestamptz default now());
 create table public.ops_backup_config(id integer primary key,enabled boolean,updated_at timestamptz default now());
 insert into public.ops_backup_config(id,enabled) values(1,false);
+create function private.totus_recovery_tables() returns text[] language sql stable as $$select array['profiles','ops_role_permissions','ops_user_permissions']::text[]$$;
+\ir ../supabase/migrations/20261024182743_preserve_recovery_hash_for_report_preferences.sql
+select set_config('qa.recovery_hash_before',private.totus_recovery_schema_hash(),false);
 \ir ../supabase/review_patches/011_operational_permissions_activity.sql
+\ir ../supabase/review_patches/012_preserve_backup_permission_catalog_compatibility.sql
+select public.qa_assert(private.totus_recovery_schema_hash()=current_setting('qa.recovery_hash_before'),'Widened module catalogue preserves compatibility with existing backups');
+begin;
+alter table public.profiles add constraint qa_unrelated_structure check(id<>'00000000-0000-0000-0000-000000000000'::uuid);
+select public.qa_assert(private.totus_recovery_schema_hash()<>current_setting('qa.recovery_hash_before'),'Other structural constraints must still invalidate incompatible backups');
+rollback;
 begin;
 insert into public.ops_role_permissions values('encargado','equipo',false,false,false,false,false);
 set role authenticated;
