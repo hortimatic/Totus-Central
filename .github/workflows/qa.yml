@@ -291,3 +291,13 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks-recovery.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-recovery-db-qa.sql
+
+  assistant-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify own Auth connection and expense attachments
+        run: node --test tests/assistant-own-auth.mjs tests/assistant-attachments.mjs

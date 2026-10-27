@@ -34,6 +34,7 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
    if(previous.error||!(previous.data instanceof Blob)||await sha256(new Uint8Array(await previous.data.arrayBuffer()))!==file.sha256)throw new Error('No se pudo guardar el archivo; comprueba el resultado antes de reintentar')
   }
  }
+ let storageProvider='supabase'
  let stored=await storage.download(path)
  if(stored.error&&doc){
   const location=check(await client.functions.invoke('totus-onedrive',{body:{action:'document-file-url',path}}),'No se pudo localizar el documento archivado')
@@ -41,6 +42,7 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
   const remote=await fetch(location.url,{signal:AbortSignal.timeout(30000)})
   if(!remote.ok)throw new Error('No se pudo releer el documento de OneDrive')
   stored={data:await remote.blob(),error:null}
+  storageProvider='onedrive'
  }
  const proof=check(stored,'No se pudo releer el justificante guardado')
  if(!(proof instanceof Blob)||proof.size!==bytes.byteLength||await sha256(new Uint8Array(await proof.arrayBuffer()))!==file.sha256)throw new Error('El justificante guardado no supera la comprobación de integridad')
@@ -65,5 +67,5 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
  const ignored=new Set(['document_id','updated_at'])
  for(const key of Object.keys(expense))if(!ignored.has(key)&&JSON.stringify(saved[key])!==JSON.stringify(expense[key]))throw new Error('Comprueba el gasto: se detectó un cambio adicional concurrente')
  return {expense_id,document_id:document.id,expense:saved,document:linked,sha256_verified:true,bytes_verified:bytes.byteLength,
-  fiscal_fields_preserved:true,source_chat_file_id:file_id,storage_provider:'supabase',onedrive_mirror:'scheduled',already_attached:!!expense.document_id}
+  fiscal_fields_preserved:true,source_chat_file_id:file_id,storage_provider:storageProvider,onedrive_mirror:storageProvider==='onedrive'?'verified':'scheduled',already_attached:!!expense.document_id}
 }
