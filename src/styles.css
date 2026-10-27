@@ -735,6 +735,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .header-tools{display:flex;align-items:center;gap:6px;margin-left:auto;position:relative;flex-shrink:0}
 .header-tools>button{display:flex;align-items:center;gap:5px;min-height:38px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:white;color:var(--text);font:inherit;cursor:pointer}
 .header-tools>button[hidden]{display:none!important}
+.activity-status[hidden]{display:none!important}
 .header-tools>button:hover{background:#f1f5f9}.header-clock{display:grid;text-align:right;line-height:1.2}.header-clock b{font-size:14px;font-variant-numeric:tabular-nums}.header-clock small{font-size:10px;color:var(--muted)}
 .header-count{font-size:11px;min-width:17px;text-align:center;background:#eef2f7;border-radius:20px;padding:1px 4px}.header-count.has-alert{background:#2563eb;color:white}
 .header-calendar{position:absolute;right:0;top:calc(100% + 8px);width:min(320px,calc(100vw - 24px));padding:14px;background:white;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);z-index:80;color:var(--text)}
