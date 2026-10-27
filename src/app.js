@@ -1,4 +1,5 @@
 import {createActivityLog} from './activity-log.js';
+import {createCloudBackupReader} from './cloud-backup-reader.js';
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
 import {cleanupAllowed} from './write-safety.js';
 import {createBusinessWriter} from './business-write.js';
@@ -2042,7 +2043,16 @@ async function getStoredBackup(id){
  if(!isAdmin())throw new Error('Solo administrador.');
  const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
  if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible para descarga.');
- const bytes=await readBackupObject(run.storage_path,readBackupStorage,componentHash,run.archive_sha256||null);
+ const reader=createCloudBackupReader({
+  lookup:async root=>root===run.storage_path?run:null,
+  prepare:async runId=>{
+   const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'backup-file-urls',run_id:runId}});
+   if(error||data?.error){let message=data?.error||'No se pudo preparar la lectura de la copia de OneDrive.';try{message=(await error.context.json()).error||message;}catch{}throw new Error(message);}
+   return data;
+  },
+  readLocal:async path=>{const {data,error}=await sb.storage.from('business-backups').download(path);return error?null:data;}
+ });
+ const bytes=await readBackupObject(run.storage_path,reader,componentHash,run.archive_sha256||null);
  return {run,blob:bytes?.format===SET_FORMAT?bytes:new Blob([bytes],{type:'application/octet-stream'})};
 }
 async function downloadStoredBackup(id){
