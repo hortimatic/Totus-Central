@@ -1,10 +1,11 @@
 import {taskToday,taskRange,taskInput,taskVisibleRows,addTaskDays,TASK_STATES,TASK_PRIORITIES} from './tasks-core.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const opt=(v,label,selected)=>'<option value="'+esc(v)+'" '+(String(v??'')===String(selected??'')?'selected':'')+'>'+esc(label)+'</option>';
-const btn=(label,action,attrs='',kind='secondary')=>'<button type="button" class="btn '+kind+'" data-task="'+action+'" '+attrs+'>'+esc(label)+'</button>';
+const taskButton=(label,action,attrs='',kind='secondary')=>'<button type="button" class="btn '+kind+'" data-task="'+action+'" '+attrs+'>'+esc(label)+'</button>';
 const display=d=>new Date(d+'T12:00:00Z').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 /** Operational controller. No accounting mutations or browser persistence. */
-export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=async()=>false}){
+export function createTasks({rpc,actor,can=()=>true,onError=()=>{},onSource=()=>{},confirm=async()=>false}){
+ const btn=(label,action,attrs='',kind='secondary')=>{const permission=['new','day-new'].includes(action)?'create':['archive','restore'].includes(action)?'delete':action==='edit'?'edit':'view';return can(permission)?taskButton(label,action,attrs,kind):'';};
  let host=null,dialog=null,busy=false,epoch=0,anchor=taskToday(),view='month',filter={store:'',person:'',status:'',query:''},data={rows:[],stores:[],people:[]},timer=null,owner='';
  const person=e=>data.people.find(p=>p.email===e)?.name||e||'Sin asignar';
  const store=id=>data.stores.find(s=>s.id===id)?.name||'General';
@@ -20,7 +21,7 @@ export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=as
   dialog.addEventListener('input',()=>dialog.dataset.dirty='true');const currentDialog=dialog;const requestClose=async()=>{if(currentDialog.dataset.dirty==='true'){currentDialog.close();if(!await confirm('¿Salir de la ficha sin guardar los cambios?')){currentDialog.showModal();return;}}close();};dialog.addEventListener('cancel',e=>{e.preventDefault();requestClose().catch(error);});
   dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;const form=e.currentTarget;form.querySelector('[type="submit"]').disabled=true;try{await save(form);close();await refresh();}catch(e){error(e);}finally{busy=false;if(form.isConnected)form.querySelector('[type="submit"]').disabled=false;}};
  }
- async function command(action,payload){return rpc('totus_task_command',{p_action:action,p_data:payload});}
+ async function command(action,payload){const permission=action==='archive'?'delete':action==='save'&&!payload.task_id?'create':'edit';if(!can(permission))throw new Error('No tienes permiso para esta acción en Tareas.');return rpc('totus_task_command',{p_action:action,p_data:payload});}
  function card(r){
   const overdue=r.scheduled_on<taskToday()&&!['done','cancelled'].includes(r.state);
   return '<button type="button" class="task-chip '+esc(r.state)+(overdue?' overdue':'')+'" data-task="detail" data-id="'+esc(r.task_id)+'" data-date="'+r.scheduled_on+'"><strong>'+esc(r.title)+'</strong><small>'+esc(store(r.store_id))+' · '+esc(person(r.assigned_email))+'</small><span>'+esc(TASK_STATES[r.state])+(overdue?' · Vencida':'')+(r.priority==='high'?' · Prioridad alta':'')+'</span></button>';
@@ -34,6 +35,7 @@ export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=as
  }
  async function refresh(){const token=++epoch,who=actor(),range=taskRange(anchor,view);const next=await rpc('totus_tasks_context',{p_from:range.from,p_to:range.to});if(token!==epoch||who!==actor()||!host)return;data=next;paint();}
  function edit(r=null,source=null,date=null){
+  if(!can(r?'edit':'create'))throw new Error('No tienes permiso para crear o editar tareas.');
   const start=r?.scheduled_on||date||taskToday(),task=r||{},isNew=!r,client_id=crypto.randomUUID(),assigned=r?(r.assigned_email||''):actor();
   modal(isNew?'Nueva tarea':'Editar tarea','<div class="tasks-form"><label>Título<input name="title" maxlength="160" required value="'+esc(task.title||source?.body?.slice(0,160)||'')+'"></label><label>Descripción<textarea name="description" maxlength="12000" rows="4">'+esc(task.description||source?.body||'')+'</textarea></label>'+
   (!isNew?'<label>Aplicar cambios<select name="scope"><option value="one">Solo esta ocasión (título y descripción)</option><option value="future">Esta y las siguientes</option></select></label>':'')+
@@ -45,7 +47,7 @@ export function createTasks({rpc,actor,onError=()=>{},onSource=()=>{},confirm=as
   dialog.querySelector('[name="scope"]')?.addEventListener('change',update);dialog.querySelector('[name="repeat_kind"]').addEventListener('change',update);update();
  }
  function detail(r){
-  const canWork=r.can_manage||r.assigned_email===actor();
+  const canWork=can('edit')&&(r.can_manage||r.assigned_email===actor());
   modal(r.title,'<p>'+esc(display(r.scheduled_on))+' · '+esc(store(r.store_id))+' · '+esc(person(r.assigned_email))+'</p><p class="tasks-description">'+esc(r.description)+'</p>'+
   '<div class="tasks-checklist">'+r.checklist.map((text,i)=>'<label class="task-check"><input type="checkbox" name="checked" value="'+i+'" '+(r.checked.includes(i)?'checked':'')+' '+(!canWork?'disabled':'')+'>'+esc(text)+'</label>').join('')+'</div><label>Estado<select name="state" '+(!canWork?'disabled':'')+'>'+Object.entries(TASK_STATES).map(([k,v])=>opt(k,v,r.state)).join('')+'</select></label><label>Resultado o notas<textarea name="result" maxlength="12000" rows="4" '+(!canWork?'readonly':'')+'>'+esc(r.result)+'</textarea></label><div class="inline-actions">'+(r.can_manage?btn('Editar configuración','edit')+btn('Archivar tarea','archive','','danger'):'')+(r.source?btn('Ver conversación y adjuntos','source'):'')+btn('Historial','history')+'</div>',
   canWork?async form=>{const v=Object.fromEntries(new FormData(form));await command('occurrence',{task_id:r.task_id,task_version:r.task_version,scheduled_on:r.scheduled_on,occurrence_version:r.occurrence_version,state:v.state,result:v.result,checked:[...form.querySelectorAll('[name="checked"]:checked')].map(x=>Number(x.value))});}:null);

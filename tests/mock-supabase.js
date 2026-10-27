@@ -164,6 +164,7 @@ const rpc=async (name,args={})=>{
   for(const [table,rows] of Object.entries(args.p_payload||{}))if(Array.isArray(rows))db[table]=structuredClone(rows);
   return {data:{restored:true},error:null};
  }
+ if(name==='totus_record_activity'){db.ops_audit_log.push({id:crypto.randomUUID(),user_email:session.user.email,area:args.p_area,action:args.p_action,created_at:new Date().toISOString(),detail:{referencia:args.p_reference}});return {data:null,error:null};}
  if(name==='totus_storage_usage'){
   if(window.__mockStorageFailure)return {data:null,error:{message:'Servicio Storage temporalmente no disponible'}};
   const keys=[...uploaded.keys()],measure=bucket=>keys.filter(k=>k.startsWith(bucket+'/')).reduce((total,k)=>total+Number(uploaded.get(k)?.size||0),0);

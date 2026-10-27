@@ -158,7 +158,7 @@ try{
  await page.locator('#nav [data-route="administracion"]').click();
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
  await page.locator('[data-action="admin-log-refresh"]').click();await page.getByText('Eventos actualizados.',{exact:true}).last().waitFor();
- await page.locator('#logArea').selectOption('recepciones');await page.locator('[data-action="admin-log-filter"]').click();
+ await page.locator('#logArea').selectOption('recepciones');await page.locator('#logQuery').fill('Historial de recepciones');await page.locator('[data-action="admin-log-filter"]').click();
  assert.equal(await page.locator('[data-action="admin-log-detail"]').count(),await page.evaluate(()=>window.__mockDb.ops_stock_revisions.length),'General log must include each existing receipt revision once');
  await page.locator('[data-action="admin-log-detail"]').first().click();
  assert((await page.locator('#modalHost').innerText()).includes('Historial de recepciones'));

@@ -1,14 +1,16 @@
 // Única definición de permisos de interfaz. El servidor (RLS/RPC) siempre decide.
 export const PERMISSION_MODULES=[
  ['inicio','Inicio'],['pricing','Precios'],['cajas','Cajas'],['gastos','Gastos'],
- ['facturacion','Facturación'],['documentos','Documentos'],['fiscalidad','Fiscalidad'],
+ ['facturacion','Facturación'],['documentos','Documentos y recepciones'],['equipo','Chat del equipo'],['tareas','Tareas'],['fiscalidad','Fiscalidad'],
  ['informes','Informes'],['administracion','Administración']
 ];
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];
 let roleOverrides=[];
 export function setRolePermissions(rows=[]){roleOverrides=Array.isArray(rows)?rows:[]}
 export function defaultRolePermissions(role,module){
+ if(!role||!PERMISSION_MODULES.some(([code])=>code===module))return {view:false,create:false,edit:false,delete:false,export:false};
  if(role==='admin')return {view:true,create:true,edit:true,delete:true,export:true};
+ if(['equipo','tareas'].includes(module))return {view:true,create:true,edit:true,delete:true,export:true};
  if(role==='gerente')return module==='fiscalidad'
   ?{view:true,create:true,edit:true,delete:false,export:true}
   :module==='administracion'

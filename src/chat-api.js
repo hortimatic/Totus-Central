@@ -16,9 +16,10 @@ export function subscribeChat(channelId,onChange){
  channel.subscribe();
  return ()=>{sb.removeChannel(channel).catch(()=>{});};
 }
-export function createChatNotifier({rpc,actor,onCount,onOpen,NotificationClass=globalThis.Notification}){
+export function createChatNotifier({rpc,actor,can=()=>true,onCount,onOpen,NotificationClass=globalThis.Notification}){
  let timer=null,owner='',running=false,seen=new Set(),primed=false;
  async function check(){
+  if(!can()){onCount(0,[]);return;}
   if(running||!actor()||document.visibilityState!=='visible')return;
   if(owner!==actor()){owner=actor();seen.clear();primed=false;}
   const checkOwner=owner;running=true;

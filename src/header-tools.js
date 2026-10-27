@@ -7,7 +7,7 @@ export function calendarDays(year,month){
 }
 
 /** Read-only header controls. Existing navigation handles drafts and permissions. */
-export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
+export function createHeaderTools({rpc,actor,can=()=>true,onNavigate,now=()=>new Date()}){
  let host=null,clockTimer=null,taskTimer=null,owner='',generation=0,running=false,chat=0,tasks=null;
  let month=now().toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}).slice(0,7),taskError='';
  const today=()=>now().toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'});
@@ -15,6 +15,7 @@ export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
  function badges(){
   if(!host)return;
   const c=host.querySelector('[data-chat-count]'),t=host.querySelector('[data-task-count]');
+  host.querySelector('[data-header="chat"]').hidden=!can('equipo');host.querySelector('[data-header="tasks"]').hidden=!can('tareas');
   c.textContent=chat>99?'99+':String(chat);c.classList.toggle('has-alert',chat>0);
   t.textContent=tasks===null?'—':tasks>99?'99+':String(tasks);t.classList.toggle('has-alert',tasks>0);
   host.querySelector('[data-header="chat"]').setAttribute('aria-label',`Chat: ${chat} mensajes sin leer`);
@@ -34,6 +35,7 @@ export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
  }
  function close(focus=false){if(!host)return;host.querySelector('[data-calendar]').hidden=true;const b=host.querySelector('[data-header="calendar"]');b.setAttribute('aria-expanded','false');if(focus)b.focus();}
  async function check(){
+  if(!can('tareas')){tasks=0;taskError='';badges();return;}
   const who=actor();if(running||!who||document.visibilityState==='hidden')return;
   const token=generation;running=true;
   try{
@@ -56,9 +58,10 @@ export function createHeaderTools({rpc,actor,onNavigate,now=()=>new Date()}){
  const key=e=>{if(e.key==='Escape'&&host&&!host.querySelector('[data-calendar]').hidden){e.preventDefault();close(true);}};
  const visible=()=>{if(document.visibilityState==='visible'){tick();check();}};
  return {
+  refreshAccess(){badges();},
   setChatUnread(value){if(value!==null)chat=Math.max(0,Number(value)||0);badges();},
   start(){
-   if(owner===actor()&&clockTimer){tick();return;}
+   if(owner===actor()&&clockTimer){tick();badges();return;}
    this.stop();owner=actor();if(!owner)return;
    host=document.createElement('div');host.id='headerTools';host.className='header-tools';
    host.innerHTML=button('Abrir calendario','calendar','<span class="header-clock"><b data-clock></b><small data-clock-date></small></span><span aria-hidden="true">▦</span>')+button('Chat: mensajes sin leer','chat','<span aria-hidden="true">☏</span><span data-chat-count class="header-count">0</span>')+button('Tareas para hoy pendientes','tasks','<span aria-hidden="true">☑</span><span data-task-count class="header-count">—</span>')+'<div data-calendar class="header-calendar" role="dialog" aria-label="Calendario" hidden></div>';

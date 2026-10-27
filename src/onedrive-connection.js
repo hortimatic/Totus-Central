@@ -7,7 +7,7 @@ import {btn,kpi} from './components.js';
 
 let connectionStatus=null,connectionOwner='',maintenanceStatus=null,maintenanceOwner='';
 export function setOneDriveMaintenance(value){maintenanceStatus=value;maintenanceOwner=state.user?.email||'';}
-export function setOneDriveStatus(value){connectionStatus=value;connectionOwner=state.user?.email||'';if(value&&Object.hasOwn(value,'credential_expires_at'))setOneDriveMaintenance(value);}
+export function setOneDriveStatus(value){connectionStatus=value?{...value,fetched_at:new Date().toISOString()}:value;connectionOwner=state.user?.email||'';if(value&&Object.hasOwn(value,'credential_expires_at'))setOneDriveMaintenance(value);}
 export async function oneDriveRequest(action,values={}){
  if(!isAdmin())throw new Error('Solo administración puede configurar OneDrive.');
  const {sb}=await import('./api.js');
@@ -41,6 +41,7 @@ export function oneDriveCredentialNotice({compact=false}={}){
 export function oneDrivePanel(){
  if(!isAdmin())return '<section class="card card-pad"><h2>OneDrive</h2><p>Solo administración puede preparar esta conexión.</p></section>';
  const s=isAdmin()&&connectionOwner===(state.user?.email||'')?connectionStatus:null;
+ if(s?.error)return '<section class="card card-pad" role="status"><h2>OneDrive</h2><p class="note warn">No se pudo actualizar su estado: '+esc(s.error)+'. Los archivos no se han modificado; los datos anteriores no se muestran como actuales.</p>'+btn('Reintentar conexión','onedrive-refresh','secondary')+'</section>';
  const folder=safeLink(s?.folder_url);
  return `<div class="stack"><section class="card card-pad">
  <div class="section-head"><div><h2>OneDrive · documentos y copias</h2><p>Conexión del almacenamiento externo con TotusCentral.</p></div>${btn('Actualizar conexión','onedrive-refresh','secondary')}</div>

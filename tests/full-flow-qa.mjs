@@ -73,12 +73,12 @@ await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
  await page.locator('[data-action="admin-section"][data-section="roles"]').first().click();
  assert((await page.locator('#content').innerText()).includes('Gerencia'),'Falta la matriz de roles');
  await page.locator('[data-action="role-permissions"][data-role="gerente"]').click();
- assert(await page.locator('[id^="roleperm_"]').count()===45,'Deben existir 9 módulos × 5 permisos');
+ assert(await page.locator('[id^="roleperm_"]').count()===55,'Deben existir 11 módulos × 5 permisos');
  await page.locator('#rolepreset_gastos').selectOption('read');
  await page.locator('[data-action="role-permissions-save"]').click();
  await page.waitForTimeout(100);
  const saved=await page.evaluate(()=>window.__mockDb.ops_role_permissions);
- assert(saved.length===9,'No se guardaron los nueve módulos del rol');
+ assert(saved.length===11,'No se guardaron los nueve módulos del rol');
  assert(saved.find(x=>x.role==='gerente'&&x.module==='gastos')?.can_create===false,'No persistió el permiso de Gastos');
  await page.locator('[data-action="role-permissions"][data-role="gerente"]').click();
  assert(!(await page.locator('#roleperm_gastos_create').isChecked()),'La edición no recupera los permisos guardados');
@@ -783,9 +783,9 @@ await check('Roles personalizados: crear, asignar permisos, editar, listar en us
  await page.waitForTimeout(160);
  const initial=await page.evaluate(()=>({roles:window.__mockDb.ops_roles,rights:window.__mockDb.ops_role_permissions}));
  assert(initial.roles.some(x=>x.code===newCode),'El rol no está guardado');
- assert(initial.rights.filter(x=>x.role===newCode).length===9,'La plantilla debe guardar 9 módulos');
+ assert(initial.rights.filter(x=>x.role===newCode).length===11,'La plantilla debe guardar 11 módulos');
  await page.locator('[data-action="role-permissions"][data-role="'+newCode+'"]').click();
- assert((await page.locator('[id^="roleperm_"]').count())===45,'No se muestran los permisos por módulo');
+ assert((await page.locator('[id^="roleperm_"]').count())===55,'No se muestran los permisos por módulo');
  await page.locator('#roleBulkPreset').selectOption('work');
  await page.locator('[data-action="role-bulk-apply"]').click();
  assert(await page.locator('#roleperm_gastos_create').isChecked(),'La plantilla de operativa no activa Crear');

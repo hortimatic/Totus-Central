@@ -15,7 +15,8 @@ try{
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
  await page.locator('[data-action="admin-log-refresh"]').click();
  await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
- assert.match(await page.locator('#content').innerText(),/1107 eventos/);
+ const historyCount=Number((await page.locator('#content').innerText()).match(/Historial consultado: (\d+) eventos/)?.[1]);
+ assert.ok(historyCount>=1107,'History must include all 1105 seeded changes and both chat/task events, alongside newly recorded navigation');
  assert.equal(await page.locator('#content tbody tr').count(),100);
  await page.locator('#logQuery').fill('Filtro todavía sin aplicar');
  await page.locator('[data-action="admin-log-refresh"]').click();

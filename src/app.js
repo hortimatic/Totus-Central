@@ -1,3 +1,5 @@
+import {createActivityLog} from './activity-log.js';
+import {createCloudBackupReader} from './cloud-backup-reader.js';
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
 import {cleanupAllowed} from './write-safety.js';
 import {createBusinessWriter} from './business-write.js';
@@ -64,8 +66,8 @@ async function resumeBusinessForm(route){
  setView(route,{mode:'record',id:result.id,...(route==='cajas'?{reconcileSource:false}:{}),...(doc?{docType:doc.document_type,invoiceKind:doc.invoice_kind,origin:doc.origin}:{})});
  await refresh('Guardado confirmado. No se ha creado otro registro.');return true;
 }
-const headerTools=createHeaderTools({rpc,actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{if(!state.user||!can(route,'view')||!await allowDiscardDrafts())return;closeModal();if(route==='tareas')pendingTaskDate=date;setRoute(route);render();}});
-const tasks=createTasks({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>toast(m,'bad'),confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
+const headerTools=createHeaderTools({rpc,can:module=>can(module,'view'),actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{if(!state.user||!can(route,'view')||!await allowDiscardDrafts())return;closeModal();if(route==='tareas')pendingTaskDate=date;setRoute(route);render();}});
+const tasks=createTasks({rpc,can:action=>can('tareas',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>{toast(m,'bad');activityLog.record('tareas','error_operacion','tarea');},confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
 function updateChatBadge(count){
  if(count!==null)chatUnread=Number(count)||0;
  headerTools.setChatUnread(count);
@@ -73,8 +75,8 @@ function updateChatBadge(count){
  if(badge){badge.textContent=chatUnread>99?'99+':String(chatUnread);badge.hidden=chatUnread===0;badge.setAttribute('aria-label',chatUnread+' mensajes sin leer');}
 }
 function updateChatChannels(channels){updateChatBadge(channels.filter(c=>c.member_role&&!c.archived&&!c.muted&&c.notify_level!=='none').reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0));}
-const teamChat=createTeamChat({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>toast(message,'bad'),confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
-const chatNotifier=createChatNotifier({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,onOpen:async message=>{
+const teamChat=createTeamChat({rpc,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>{toast(message,'bad');activityLog.record('equipo','error_operacion','chat');},confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
+const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,onOpen:async message=>{
  if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
 }});
 const titles={
@@ -84,7 +86,10 @@ const titles={
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-function can(module,action='view'){if(module==='equipo'||module==='tareas')return !!state.user&&state.user.active!==false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;}});
+setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
+document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
+function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
@@ -157,6 +162,7 @@ function renderNav(){
 }
 function render(){
  if(!state.user)return;
+ headerTools.refreshAccess();
  if(!can(state.route,'view')){
   const first=ROUTES.find(routeAllowed);
   if(!first){$('#nav').innerHTML='';setHeader('Acceso','Sin permisos');$('#content').innerHTML='<section class="card card-pad" role="alert"><h2>No tienes módulos asignados</h2><p>Solicita al administrador permiso para acceder a la herramienta.</p></section>';return}
@@ -166,6 +172,7 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
+ activityLog.navigate(state.route==='cotejos'?'recepciones':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':'');
  teamChat.dispose();tasks.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
@@ -187,7 +194,7 @@ function render(){
  captureFormDraft($('#content'));
  if(state.route==='inicio'){
   const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
-  if(target)rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
+  if(target&&can('tareas','view'))rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
  if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
@@ -227,7 +234,7 @@ async function refreshStoragePanel(){
  storageRefreshInFlight=true;
  try{
   const result=await reloadStorageUsage();
-  if(isAdmin())try{setOneDriveStatus(await oneDriveRequest('status'));}catch{}
+  if(isAdmin())try{setOneDriveStatus(await oneDriveRequest('status'));}catch(error){setOneDriveStatus({error:error.message,checked_at:new Date().toISOString()});}
   if(isStoragePanelVisible()){
    const scroll=document.scrollingElement?.scrollTop||0;
    render();
@@ -337,7 +344,7 @@ async function reopenClosing(id){
  if(!confirm('¿Reabrir este cierre para corregirlo? La acción quedará registrada.'))return;
  const row=state.data.closings.find(x=>x.id===id);if(!row)return;
  const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,notes:x.notes||''}));
- await rpc('totus_save_closing',{p_closing:{id,store_id:row.store_id,business_date:row.business_date,reported_total_sales:row.reported_total_sales,notes:row.notes||'',status:'borrador'},p_drawers:drawers});
+ await businessWriter.execute($('#content > .page'),'totus_save_closing',{p_closing:{id,store_id:row.store_id,business_date:row.business_date,reported_total_sales:row.reported_total_sales,notes:row.notes||'',status:'borrador',...expectedWriteVersion($('#content > .page'),id)},p_drawers:drawers},'p_closing');
  await refresh('Cierre reabierto.');
 }
 async function deleteClosing(id){
@@ -1533,6 +1540,7 @@ async function previewDocument(id){
   return;
  }
  if(!loadingPanel?.isConnected)return;
+ activityLog.record('documentos','consultar_documento',id);
  const mime=String(d.mime_type||blob.type||'').toLowerCase(),name=String(d.original_name||'').toLowerCase();
  let body='';const kind=previewKind(name,mime);
  if(kind==='pdf'){
@@ -2035,7 +2043,16 @@ async function getStoredBackup(id){
  if(!isAdmin())throw new Error('Solo administrador.');
  const run=(state.data.backupRuns||[]).find(r=>String(r.id)===String(id));
  if(!run||run.status!=='success'||!run.storage_path)throw new Error('La copia no está disponible para descarga.');
- const bytes=await readBackupObject(run.storage_path,readBackupStorage,componentHash,run.archive_sha256||null);
+ const reader=createCloudBackupReader({
+  lookup:async root=>root===run.storage_path?run:null,
+  prepare:async runId=>{
+   const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'backup-file-urls',run_id:runId}});
+   if(error||data?.error){let message=data?.error||'No se pudo preparar la lectura de la copia de OneDrive.';try{message=(await error.context.json()).error||message;}catch{}throw new Error(message);}
+   return data;
+  },
+  readLocal:async path=>{const {data,error}=await sb.storage.from('business-backups').download(path);return error?null:data;}
+ });
+ const bytes=await readBackupObject(run.storage_path,reader,componentHash,run.archive_sha256||null);
  return {run,blob:bytes?.format===SET_FORMAT?bytes:new Blob([bytes],{type:'application/octet-stream'})};
 }
 async function downloadStoredBackup(id){
@@ -2207,6 +2224,7 @@ function applyFilter(prefix){
  if(prefix==='gastos'){patch.kind=val('gastosKind')||'all';patch.paid=val('gastosPaid')||'all';if(input('gastosAttachment'))patch.attachment=val('gastosAttachment')||'all'}
  if(prefix==='documentos'){patch.status=val('documentosStatus')||'all';patch.type=val('documentosType')||'all'}
 
+ activityLog.record(route==='facturacion'?'facturacion':route,'aplicar_filtros');
  patchFilters(route,patch);render();
 }
 function thisMonth(prefix){const route=filterRoute[prefix];if(!route)return;const r=monthRange();patchFilters(route,{from:r.from,to:r.to});render()}
@@ -2457,7 +2475,7 @@ document.addEventListener('click',async e=>{
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
  const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
  const a=el.dataset.action;if(!a)return;
- if(!checkActionPermission(a,el)){toast('No tienes permiso para esta operación.','bad');return}
+ if(!checkActionPermission(a,el)){activityLog.record(permissionForAction(a,el)?.module||state.route,'acceso_denegado',a);toast('No tienes permiso para esta operación.','bad');return}
  if(a==='close-modal'){
   if(el.classList.contains('modal-backdrop')&&e.target!==el)return;
   if(discardPromptActive){closeModal();return}
@@ -2663,7 +2681,7 @@ document.addEventListener('click',async e=>{
    if(!expires)throw new Error('Indica la fecha de caducidad que aparece en Microsoft.');
    await oneDriveRequest('save-expiry',{expires_at:expires,warning_days:Number(val('odWarningDays')),urgent_days:Number(val('odUrgentDays'))});await refreshOneDrivePanel();toast('Fecha y avisos guardados.');return;
   }
-  if(a==='onedrive-refresh'){await refreshOneDrivePanel();return}
+  if(a==='onedrive-refresh'){await refreshOneDrivePanel();activityLog.record('administracion','consultar_estado','onedrive');return}
   if(a==='onedrive-key-renew-save'){
    const field=$('#odRenewSecret'),value=field?.value||'',expires=val('odRenewExpiry');
    try{await oneDriveRequest('renew-key',{client_secret:value,expires_at:expires});if(field)field.value='';await refreshOneDrivePanel();toast('Clave comprobada y actualizada.');}finally{if(field)field.value='';}return;
@@ -2696,7 +2714,7 @@ document.addEventListener('click',async e=>{
    await refreshOneDrivePanel();toast('Archivo guardado y vuelto a leer correctamente desde OneDrive.');return;
   }
 
-  if(a==='storage-refresh'){await refreshStoragePanel();return}
+  if(a==='storage-refresh'){await refreshStoragePanel();activityLog.record('administracion','consultar_estado','almacenamiento');return}
   if(a==='admin-unused-logos'){await reviewUnusedLogos();return}
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};setView('administracion',{logPage:0});render();return}
@@ -2749,7 +2767,7 @@ document.addEventListener('click',async e=>{
   if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
   if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
- }catch(err){if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
+ }catch(err){activityLog.record(permissionForAction(a,el)?.module||state.route,'error_operacion',a);if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
  finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(ownsWriteLock)writeInProgress=false;preserveMainDraftOnRefresh=false}
 });
 
@@ -2936,7 +2954,7 @@ async function boot(){
 }
 function clearSessionView(){
  ++refreshGeneration;state.user=null;resetSessionData();setRolePermissions([]);
- headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
+ activityLog.reset();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
 }
@@ -2954,7 +2972,7 @@ sb.auth.onAuthStateChange((event,session)=>{
 // Poll only while the Storage subtab is visible: no background traffic on other pages.
 setInterval(()=>{if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error)},60000);
 document.addEventListener('visibilitychange',()=>{
- if(document.visibilityState==='visible'&&state.user)chatNotifier.check();
+ if(document.visibilityState==='visible'&&state.user){chatNotifier.check();activityLog.retry();}
  if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error);
 });
 setInterval(()=>{if(document.visibilityState==='visible'&&state.route==='administracion'&&getView('administracion').section==='log'&&!state.loading&&!document.activeElement?.id?.startsWith('log')&&!input('modalHost')?.children.length)refreshAuditPanel()},30000);
@@ -2981,6 +2999,6 @@ document.addEventListener('keydown',async e=>{
 
 async function refreshOneDrivePanel(){
  if(!isAdmin())throw new Error('Solo administración puede consultar esta conexión.');
- setOneDriveStatus(await oneDriveRequest('status'));
+ try{setOneDriveStatus(await oneDriveRequest('status'));}catch(error){setOneDriveStatus({error:error.message});if(state.route==='administracion'&&getView('administracion').section==='storage')render();throw error;}
  if(state.route==='administracion'&&['storage','onedrive'].includes(getView('administracion').section))render();
 }
