@@ -31,5 +31,7 @@ try{
  for(const module of ['equipo','tareas'])assert.equal(await restricted.locator('#nav [data-route="'+module+'"]').count(),0,'Denied module must disappear from navigation');
  for(const target of ['chat','tasks'])await restricted.locator('[data-header="'+target+'"]').waitFor({state:'hidden',timeout:2000});
  assert.equal(await restricted.locator('#nav [data-route="gastos"]').isVisible(),true,'Unrelated permitted module remains available');
+ await restricted.locator('#nav [data-route="inicio"]').click();
+ assert.equal(await restricted.locator('#tasksHomeSummary').innerText(),'Tu cuenta no tiene acceso al calendario de tareas.','Denied calendar must not remain in an endless loading state');
  assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 11 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
 }finally{await browser.close();}

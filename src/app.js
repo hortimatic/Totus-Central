@@ -194,6 +194,7 @@ function render(){
  captureFormDraft($('#content'));
  if(state.route==='inicio'){
   const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
+  if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
   if(target&&can('tareas','view'))rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
