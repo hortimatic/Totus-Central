@@ -86,7 +86,7 @@ const titles={
  informes:['Control','Informes'],administracion:['Sistema','Administración']
 };
 
-const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;}});
+const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
 function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
@@ -177,7 +177,7 @@ function render(){
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
- $('#content').innerHTML='<div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
+ $('#content').innerHTML='<div class="note warn activity-status" data-activity-status role="status"'+(state.data.activityLogError?'':' hidden')+'>'+esc(state.data.activityLogError||'')+'</div><div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
  const records={cajas:state.data.closings,gastos:state.data.expenses,facturacion:state.data.invoices};
  rememberWriteVersion($('#content > .page'),records[state.route]?.find(row=>row.id===getView(state.route).id));
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});

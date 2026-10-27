@@ -33,5 +33,12 @@ try{
  assert.equal(await restricted.locator('#nav [data-route="gastos"]').isVisible(),true,'Unrelated permitted module remains available');
  await restricted.locator('#nav [data-route="inicio"]').click();
  assert.equal(await restricted.locator('#tasksHomeSummary').innerText(),'Tu cuenta no tiene acceso al calendario de tareas.','Denied calendar must not remain in an endless loading state');
+ await page.evaluate(async()=>{const {sb}=await import('../src/api.js'),previous=sb.rpc;window.qaActivityFailure=true;sb.rpc=async(name,args)=>name==='totus_record_activity'&&window.qaActivityFailure?{data:null,error:{message:'Fallo ficticio de registro'}}:previous(name,args);});
+ await nav('gastos');await page.locator('[data-activity-status]').waitFor({state:'visible'});
+ assert.match(await page.locator('[data-activity-status]').innerText(),/actividad sin confirmar/);
+ await page.getByPlaceholder('Buscar por texto',{exact:true}).fill('Conservar este filtro sin aplicar');
+ await page.evaluate(()=>{window.qaActivityFailure=false;document.dispatchEvent(new Event('visibilitychange'));});
+ await page.locator('[data-activity-status]').waitFor({state:'hidden'});
+ assert.equal(await page.getByPlaceholder('Buscar por texto',{exact:true}).inputValue(),'Conservar este filtro sin aplicar','Retry warning must update without redrawing unsaved fields');
  assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 11 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
 }finally{await browser.close();}
