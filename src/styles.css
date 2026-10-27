@@ -543,14 +543,14 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .expense-row-meta .badge{white-space:normal;line-height:1.35;max-width:160px}
 .expense-register-card .compact-detail{gap:5px;font-size:12px;line-height:1.45}
 .expense-row-actions{display:flex;flex-direction:column;align-items:stretch;gap:7px;width:114px}
-.expense-row-actions .btn,.expense-page .expense-file-actions .btn{min-height:32px;height:auto;padding:7px 5px;font-size:12px;font-weight:600;line-height:1.2;border-radius:8px;white-space:nowrap;flex:none}
+.expense-row-actions .btn,.expense-register-card .expense-file-actions .btn{min-height:32px;height:auto;padding:7px 5px;font-size:12px;font-weight:600;line-height:1.2;border-radius:8px;white-space:nowrap;flex:none}
 .expense-row-actions .btn.secondary{border-color:#cddbeb;background:#f3f7fc;color:#204e83}
 .expense-row-actions .btn.secondary:hover{background:#e7f0fb;border-color:#9fbadd}
 .expense-row-actions .btn.danger{background:#fff;border-color:#edced0;color:#a93d44;font-weight:600}
 .expense-row-actions .btn.danger:hover{background:#fff1f2;border-color:#dfa6ac}
 .expense-document-name{overflow-wrap:anywhere;line-height:1.45;margin-bottom:9px}
-.expense-page .expense-file-actions{gap:6px;align-items:center}
-.expense-page .expense-file-actions .btn{width:auto}
+.expense-register-card .expense-file-actions{gap:6px;align-items:center}
+.expense-register-card .expense-file-actions .btn{width:auto}
 @media(max-width:640px){.expense-register-card .data-table th,.expense-register-card .data-table td{padding:12px 10px}.expense-row-actions{width:110px}}
 
 .expense-invoice-card .expense-file-actions{display:grid;grid-template-columns:repeat(2,max-content);min-width:190px;gap:6px}
@@ -606,8 +606,24 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .report-blocks{display:grid;gap:20px}.report-movable-block{min-width:0}.report-block-controls{padding:0 4px 6px;color:var(--muted);font-size:12px}
 .report-block-controls .btn{padding:5px 9px;min-height:30px;font-size:12px}
 .report-block-controls .btn:disabled{opacity:.4;cursor:default}.report-blocks .card{margin:0}
-.gestor-period-picker{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:16px 0}
-.gestor-period-picker>label{min-width:120px;max-width:190px;flex:1}.gestor-period-picker>button{margin-bottom:0}
+.gestor-period-picker{display:grid;grid-template-columns:minmax(110px,.65fr) repeat(2,minmax(230px,1.5fr));align-items:end;gap:16px;margin:20px 0}
+.gestor-period-picker label{display:flex;flex-direction:column;gap:7px;min-width:0;color:#52627a;font-size:13px;font-weight:600}
+.gestor-period-option{display:grid;grid-template-columns:minmax(110px,1fr) auto;align-items:end;gap:10px}
+.gestor-period-picker input,.gestor-period-picker select{box-sizing:border-box;width:100%;height:40px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 10px;color:#1e293b;font:inherit}
+.gestor-period-picker .btn{min-height:40px;white-space:nowrap}
+.report-export-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}
+.report-export-grid>article{display:flex;flex-direction:column;align-items:flex-start;padding:16px;border:1px solid var(--line);border-radius:10px;background:#fafbfd;gap:10px}
+.report-export-grid h3,.report-export-grid p{margin:0}
+.report-export-grid p{font-size:13px;line-height:1.55;color:var(--muted);flex:1}
+.report-export-grid .btn{margin-top:4px}
+.fiscal-calculation .summary-row>.field-caption{flex:1;max-width:calc(100% - 130px);line-height:1.5}
+.fiscal-calculation .summary-row>strong{flex:0 0 auto;white-space:nowrap}
+@media(max-width:1000px){.gestor-period-picker{grid-template-columns:1fr 1fr}
+.gestor-period-year{grid-column:1/-1;max-width:180px}}
+@media(max-width:700px){.gestor-period-picker,.report-export-grid{grid-template-columns:1fr}
+.gestor-period-year{grid-column:auto;max-width:none}
+.gestor-period-option{grid-template-columns:1fr auto}
+.fiscal-calculation .summary-row>.field-caption{max-width:calc(100% - 100px)}}
 .reports-page h2 .field-help{vertical-align:middle}.summary-row>.field-caption{max-width:78%}
 .internal-expenses-panel .expense-file-actions{min-width:120px}
 @media(max-width:600px){.report-order-hint{align-items:flex-start;flex-direction:column}.report-block-controls{align-items:flex-start}.report-block-controls>span{max-width:40%}.activity-chart svg{min-height:170px}.activity-legend{gap:8px 12px;font-size:12px}.gestor-period-picker>label{max-width:none}.gestor-period-picker>button{flex:1}.home-period-kpis .kpi strong{font-size:22px}}
