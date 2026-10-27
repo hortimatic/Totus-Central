@@ -24,5 +24,12 @@ try{
  await page.waitForFunction(()=>window.__mockDb.ops_audit_log.some(x=>x.action==='abrir_modulo'&&x.area==='cajas'));
  assert(await page.evaluate(()=>window.__mockDb.ops_audit_log.some(x=>x.action==='abrir_seccion'&&x.detail.referencia==='log')));
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();await page.evaluate(async()=>{(await import('../src/api.js')).sb.functions.invoke=async()=>({error:{context:{json:async()=>({error:'Fallo ficticio de OneDrive'})}}});});await page.locator('[data-storage-detail="onedrive"] > summary').click();await page.locator('[data-action="onedrive-refresh"]').click();await page.getByText(/No se pudo actualizar su estado/).waitFor();
- assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 11 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log verified.');
+ const restricted=await browser.newPage();restricted.on('pageerror',e=>errors.push(e.message));
+ await restricted.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});
+ await restricted.evaluate(async()=>{window.__mockDb.ops_user_permissions=['equipo','tareas'].map(module=>({email:'qa@example.com',module,can_view:false,can_create:false,can_edit:false,can_delete:false,can_export:false}));await(await import('../src/api.js')).loadCore();});
+ await restricted.locator('#nav [data-route="gastos"]').click();
+ for(const module of ['equipo','tareas'])assert.equal(await restricted.locator('#nav [data-route="'+module+'"]').count(),0,'Denied module must disappear from navigation');
+ for(const target of ['chat','tasks'])await restricted.locator('[data-header="'+target+'"]').waitFor({state:'hidden',timeout:2000});
+ assert.equal(await restricted.locator('#nav [data-route="gastos"]').isVisible(),true,'Unrelated permitted module remains available');
+ assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 11 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
 }finally{await browser.close();}

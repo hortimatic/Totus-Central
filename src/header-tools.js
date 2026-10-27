@@ -58,9 +58,10 @@ export function createHeaderTools({rpc,actor,can=()=>true,onNavigate,now=()=>new
  const key=e=>{if(e.key==='Escape'&&host&&!host.querySelector('[data-calendar]').hidden){e.preventDefault();close(true);}};
  const visible=()=>{if(document.visibilityState==='visible'){tick();check();}};
  return {
+  refreshAccess(){badges();},
   setChatUnread(value){if(value!==null)chat=Math.max(0,Number(value)||0);badges();},
   start(){
-   if(owner===actor()&&clockTimer){tick();return;}
+   if(owner===actor()&&clockTimer){tick();badges();return;}
    this.stop();owner=actor();if(!owner)return;
    host=document.createElement('div');host.id='headerTools';host.className='header-tools';
    host.innerHTML=button('Abrir calendario','calendar','<span class="header-clock"><b data-clock></b><small data-clock-date></small></span><span aria-hidden="true">▦</span>')+button('Chat: mensajes sin leer','chat','<span aria-hidden="true">☏</span><span data-chat-count class="header-count">0</span>')+button('Tareas para hoy pendientes','tasks','<span aria-hidden="true">☑</span><span data-task-count class="header-count">—</span>')+'<div data-calendar class="header-calendar" role="dialog" aria-label="Calendario" hidden></div>';
