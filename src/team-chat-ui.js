@@ -31,7 +31,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
  function scheduleRead(){clearTimeout(readTimer);readTimer=setTimeout(markVisibleRead,350);}
  async function markVisibleRead(){
   const s=scope(),c=current(),pane=host?.querySelector('.chat-messages');
-  if(!active(s)||document.visibilityState!=='visible'||dialog||!c?.member_role||!pane||!pane.getClientRects().length||data.query||data.from||data.to||data.mode!=='all'||pane.scrollHeight-pane.clientHeight-pane.scrollTop>40)return;
+  if(!active(s)||composing||document.visibilityState!=='visible'||dialog||!c?.member_role||!pane||!pane.getClientRects().length||data.query||data.from||data.to||data.mode!=='all'||pane.scrollHeight-pane.clientHeight-pane.scrollTop>40)return;
   const channel=c.id,seq=Math.max(0,...data.messages.map(m=>Number(m.seq)||0));
   if(!seq||seq<=Number(c.last_read_seq||0)||readFlight)return;
   const flight={channel,seq};readFlight=flight;

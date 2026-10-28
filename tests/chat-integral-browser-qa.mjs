@@ -29,8 +29,11 @@ try{
  await page.evaluate(()=>{window.originalEditor=document.querySelector('#chatBody');integral.notify();});
  await page.waitForTimeout(450);assert(await page.evaluate(()=>window.originalEditor===document.querySelector('#chatBody')),'Editor identity must survive background changes');
  // Composition input cannot be destroyed, or its Enter key send prematurely.
+ const imeReads=await page.evaluate(()=>{integral.channels[0].last_read_seq=0;return integral.calls.filter(c=>c.p?.p_action==='read').length;});
  await page.locator('#chatBody').dispatchEvent('compositionstart');
- await page.evaluate(()=>{integral.messages[0].body='Texto actualizado';integral.notify();});await page.waitForTimeout(450);
+ await page.evaluate(()=>{integral.messages[0].body='Texto actualizado';integral.notify();});await page.waitForTimeout(850);
+ assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='read').length),imeReads,'Composition defers painting, so unseen rows must not be acknowledged');
+ await page.evaluate(()=>integral.channels[0].last_read_seq=9999);
  assert(await page.evaluate(()=>window.originalEditor===document.querySelector('#chatBody')));
  const sendsBefore=await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='send').length);
  await page.locator('#chatBody').dispatchEvent('keydown',{key:'Enter',ctrlKey:true,isComposing:true});assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='send').length),sendsBefore);
