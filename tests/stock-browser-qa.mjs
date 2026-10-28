@@ -113,6 +113,8 @@ try{
  await page.locator('[data-action="stock-refresh"]').click();
  await page.locator('[data-action="stock-review-new"]').click();
  await page.locator('#stockReviewNote').fill('El recuento ha confirmado dos unidades pendientes de reclamar al proveedor.');
+ assert.equal(await page.locator('#stockReviewConfirmed').isChecked(),false,'Review confirmation must require a deliberate action');
+ await page.locator('#stockReviewConfirmed').check();
  await page.locator('[data-action="stock-review-save"]').click();
  await page.getByText('Revisión guardada con justificación e historial.',{exact:true}).waitFor();
  assert((await page.locator('.stock-page').innerText()).includes('Revisado'));
