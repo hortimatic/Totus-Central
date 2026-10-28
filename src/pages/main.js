@@ -1,3 +1,4 @@
+import {closingDrawerValue,incompleteClosing} from '../cash-closing.js';
 import {editableReferences,expenseStoreSelection,reportDiaryStores} from '../reference-options.js';
 import {EXPENSE_REPORT_GROUPS,categoryReportGroup,EXPENSE_REPORT_COLORS,expenseReportOverride} from '../expense-colors.js';
 import {filterAuditEvents,auditActionLabel} from '../audit-register.js';
@@ -54,7 +55,7 @@ function retainedCashByDrawer(row){
    opening=matches[0]?.opening;closing=matches.at(-1)?.closing;
   }else{
    const saved=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
-   opening=saved?.opening_cash;closing=saved?.closing_cash;
+   opening=closingDrawerValue(row,drawer.id,'opening_cash',saved?.opening_cash);closing=closingDrawerValue(row,drawer.id,'closing_cash',saved?.closing_cash);
   }
   return `<div class="drawer-cash-summary"><b>${esc(drawer.displayName||drawer.name)}</b><span>Para empezar ese día <b>${amount(opening)}</b></span><span>Lo que se deja al terminar <b>${amount(closing)}</b></span></div>`;
  }).join('');
@@ -71,11 +72,11 @@ function dailySalesByDrawer(row){
    if(match.length&&match.every(d=>d.al_fin!=null))sales=match.reduce((n,d)=>n+Number(d.al_fin),0);
   }else{
    const d=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
-   if(d)sales=Number(d.closing_cash||0)+Number(d.cash_withdrawals||0)+Number(d.cash_expenses_declared||0)+Number(d.cash_extra_out||0)-Number(d.opening_cash||0)-Number(d.cash_extra_in||0)+Number(d.card_sales||0)+Number(d.bizum_sales||0)+Number(d.online_sales||0)+Number(d.other_income||0);
+   if(d&&closingDrawerValue(row,drawer.id,'opening_cash',d.opening_cash)!=null&&closingDrawerValue(row,drawer.id,'closing_cash',d.closing_cash)!=null)sales=Number(d.closing_cash||0)+Number(d.cash_withdrawals||0)+Number(d.cash_expenses_declared||0)+Number(d.cash_extra_out||0)-Number(d.opening_cash||0)-Number(d.cash_extra_in||0)+Number(d.card_sales||0)+Number(d.bizum_sales||0)+Number(d.online_sales||0)+Number(d.other_income||0);
   }
   return `<span>${esc(drawer.displayName||drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>`;
  }).join('');
- const total=row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
+ const total=incompleteClosing(row)?null:row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
  const collections=row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(source.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
  return `<div class="compact-detail">${sourceClosingReconciled(row)?'<span>Total conciliado de la tienda; cobros y retiradas sin reparto por caja.</span>':detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><div class="compact-detail cash-collection-summary">${collections}</div></div>`;
 }
@@ -137,9 +138,9 @@ export function inicio(){
  })).join('');
  const storeCards=activeStores.map(store=>{
   const close=todays.find(x=>x.store_id===store.id),storeMonth=monthClosings.filter(x=>x.store_id===store.id);
-  const monthSales=sum(storeMonth,closingSalesAmount);
-  const todaySales=closingSalesAmount(close);
-  return `<article class="store-status-card"><div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div><div class="metric-list" style="margin-top:12px"><div class="metric-box"><span>Hoy</span><b>${close?money(todaySales):'—'}</b></div><div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div><div class="metric-box"><span>Dinero dejado · total tienda</span><b>${close?money(close.actual_cash):'—'}</b></div><div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div></div><div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div></article>`;
+  const monthSales=sum(storeMonth.filter(c=>!incompleteClosing(c)),closingSalesAmount);
+  const todaySales=incompleteClosing(close)?null:closingSalesAmount(close);
+  return `<article class="store-status-card"><div class="section-head"><div><h3>${esc(store.name)}</h3><p>${close?fmtDate(close.business_date):'Sin cierre de hoy'}</p></div>${close?stateBadge(close.status):'<span class="badge warn">Pendiente</span>'}</div><div class="metric-list" style="margin-top:12px"><div class="metric-box"><span>Hoy</span><b>${close?(todaySales==null?'Por completar':money(todaySales)):'—'}</b></div><div class="metric-box"><span>Mes</span><b>${money(monthSales)}</b></div><div class="metric-box"><span>Dinero dejado · total tienda</span><b>${close?money(close.actual_cash):'—'}</b></div><div class="metric-box"><span>Diferencia</span><b class="${close&&Math.abs(Number(close.difference||0))>.01?'danger-text':'good-text'}">${close?money(close.difference||0):'—'}</b></div></div><div class="form-actions">${close?btn('Abrir cierre','closing-edit','secondary',`data-id="${close.id}"`):btn('Registrar cierre','closing-new','primary',`data-store="${store.id}"`)}</div></article>`;
  }).join('');
  const expenseByStore=activeStores.map(store=>{const rows=quarterExpenses.filter(x=>x.store_id===store.id),regular=rows.filter(x=>!x.management_only),internal=rows.filter(x=>x.management_only);return `<div class="summary-row"><div><b>${esc(store.name)}</b><div class="small muted">${regular.length} contabilizados · ${internal.length} internos</div></div><strong>${money(sum(rows,expenseCostAmount))}</strong></div>`}).join('');
  const invoiceRows=pendingInvoices.slice(0,4).map(x=>`<div class="summary-row"><div><b>${esc(x.display_number||x.external_number_text||'Factura')}</b><div class="small muted">${esc(x.customer_name||'Cliente')} · ${money(Math.max(0,Number(x.total_amount||0)-Number(x.paid_amount||0)))} pendientes${x.due_date?' · vence '+fmtDate(x.due_date):''}</div></div><div class="inline-actions">${btn('Vista previa','invoice-preview','secondary',`data-id="${x.id}"`)}</div></div>`).join('');
@@ -196,8 +197,8 @@ export function cajas(){
   {label:'Dinero de cada caja',html:r=>r.entry_mode==='source_snapshot'?`<div class="compact-detail">${retainedCashByDrawer(r)}<span>Retirada total tienda <b>${readClosingSource(r).withdrawals==null?'Sin anotación':money(r.cash_withdrawals)}</b></span>${readClosingSource(r).missing_drawers?.length?'<span class="warn-text">Ver detalle por caja</span>':''}</div>`:`<div class="compact-detail">${retainedCashByDrawer(r)}<span>${String(r.source_ref||'').startsWith('EXCEL2026-')?'Salida de caja (Excel)':'Retiradas'} <b>${money(r.cash_withdrawals)}</b></span><span>Gastos caja <b>${money(r.cash_expenses_declared)}</b></span></div>`},
   {label:'Total ventas',html:r=>{
    const rawSource=r.entry_mode==='source_snapshot'&&!sourceClosingReconciled(r);
-   const total=rawSource?r.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(r[key]||0),0);
-   return `<div class="compact-detail"><span><b>${total==null?'Sin importe anotado':money(total)}</b></span>${r.entry_mode==='source_snapshot'?`<span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span>`:`<span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${money(r.difference||0)}</b></span>${Math.abs(Number(r.difference||0))>.01?`<span>Total anotado <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span>`:''}`}</div>`;
+   const total=incompleteClosing(r)?null:rawSource?r.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(r[key]||0),0);
+   return `<div class="compact-detail"><span><b>${total==null?'Sin importe anotado':money(total)}</b></span>${r.entry_mode==='source_snapshot'?`<span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span>`:`<span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${incompleteClosing(r)?'Por completar':money(r.difference||0)}</b></span>${Math.abs(Number(r.difference||0))>.01?`<span>Total anotado <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span>`:''}`}</div>`;
   }},
   {label:'Estado',html:r=>acceptedClosing(r)?`${acceptedBadge}${r.entry_mode!=='source_snapshot'&&r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
   {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Ver detalle','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
@@ -962,12 +963,13 @@ function drawerEditor(drawer,row,locked=false){
  let saved=row?state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id):null;
  if(!saved&&row?.entry_mode==='source_snapshot'&&getView('cajas').reconcileSource){
   const normalize=name=>String(name).toLocaleLowerCase('es').replace(/^caja\s+/,'').trim();
-  const origin=JSON.parse(row.source_ref),captured=(origin.daily_drawers??origin.drawers).find(d=>normalize(d.name)===normalize(drawer.name));
+  const origin=JSON.parse(row.source_ref),captured=(origin.daily_drawers??origin.drawers).filter(d=>normalize(d.name)===normalize(drawer.name));
   const single=(origin.expected_drawers??origin.drawers.length)===1;
-  saved={opening_cash:captured?.opening??'',closing_cash:captured?.closing??'',card_sales:single?(origin.card_sales??''):'',cash_withdrawals:single?(origin.withdrawals??''):''};
+  saved={opening_cash:captured[0]?.opening??'',closing_cash:captured.at(-1)?.closing??'',card_sales:single?(origin.card_sales??''):'',cash_withdrawals:single?(origin.withdrawals??''):''};
  }
- const targetDate=row?.business_date||getView('cajas').date||isoToday();
- const open=saved?.opening_cash??openingDrawerCash(drawer.store_id,drawer.id,targetDate);
+ if(saved&&row)saved={...saved,opening_cash:closingDrawerValue(row,drawer.id,'opening_cash',saved.opening_cash),closing_cash:closingDrawerValue(row,drawer.id,'closing_cash',saved.closing_cash)};
+ const targetDate=getView('cajas').date||row?.business_date||isoToday();
+ const open=saved?saved.opening_cash??'':openingDrawerCash(drawer.store_id,drawer.id,targetDate);
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>El efectivo que dejas aquí será la apertura de esta misma caja el próximo día.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
@@ -990,8 +992,8 @@ export function closingRecordHtml(row=null){
  if(row?.entry_mode==='source_snapshot'&&!sourceReconcile)return sourceClosingRecordHtml(row);
  const storeOptions=editableReferences(state.data.stores,row?.store_id).map(s=>({value:s.id,label:s.name}));
  const view=getView('cajas');
- const sid=row?.store_id||view.storeId||storeOptions[0]?.value||'';
- const recordDate=row?.business_date||view.date||isoToday();
+ const sid=view.storeId||row?.store_id||storeOptions[0]?.value||'';
+ const recordDate=view.date||row?.business_date||isoToday();
  const drawers=state.data.drawers.filter(x=>x.store_id===sid&&(x.active!==false||state.data.closingDrawers.some(d=>d.closing_id===row?.id&&d.drawer_id===x.id)));
  const calculated=Number(row?.cash_sales||0)+Number(row?.card_sales||0)+Number(row?.bizum_sales||0)+Number(row?.online_sales||0)+Number(row?.other_income||0);
  const locked=row?.status==='cerrado'&&!sourceReconcile;

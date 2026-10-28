@@ -1,4 +1,5 @@
 import {createActivityLog} from './activity-log.js';
+import {DRAWER_FORM_FIELDS,previewClosing} from './cash-closing.js';
 import {createCloudBackupReader} from './cloud-backup-reader.js';
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
 import {cleanupAllowed} from './write-safety.js';
@@ -191,6 +192,7 @@ function render(){
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
  if(input('exDocKind'))updateExpenseTaxTreatment();
+ if(state.route==='cajas'&&document.querySelector('.drawer-entry'))updateClosingSummary();
  captureFormDraft($('#content'));
  if(state.route==='inicio'){
   const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
@@ -318,12 +320,13 @@ async function saveClosing(id='',status='borrador'){
  if(reconcilingSource&&val('clReported').trim()===''){input('clReported')?.focus();throw new Error('Indica las ventas totales del día para comprobar el cierre. La referencia fiscal mensual se conserva sin duplicar ingresos.');}
  const drawerEls=[...document.querySelectorAll('.drawer-entry')];
  if(!drawerEls.length)throw new Error('La tienda no tiene cajas activas configuradas.');
- const drawers=drawerEls.map(el=>{
+ const preview=closingFormPreview();if(!preview.valid)throw new Error(preview.error);
+ const drawers=drawerEls.map((el,index)=>{
    const d=el.dataset.drawerId;
    const raw=suffix=>document.getElementById(`dr${suffix}_${d}`)?.value??'';
    const missing=reconcilingSource&&['Open','Close','Card','Bizum','Online','Other','Withdraw','CashExpense','ExtraIn','ExtraOut'].find(suffix=>raw(suffix).trim()==='');
    if(missing){document.getElementById(`dr${missing}_${d}`)?.focus();throw new Error('Completa todos los importes de cada caja para conciliar; escribe 0 solo cuando confirmes que no hubo movimiento.');}
-   const read=suffix=>n(raw(suffix));
+   const read=suffix=>preview.drawers[index][DRAWER_FORM_FIELDS.find(([name])=>name===suffix)[1]];
    if(status==='cerrado'&&raw('Open').trim()===''){document.getElementById(`drOpen_${d}`)?.focus();throw new Error('Indica el dinero de apertura de cada caja; escribe 0 solo si confirmas que estaba vacía.');}
    if(status==='cerrado'&&raw('Close')==='')throw new Error('Falta el efectivo final de una caja.');
    const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:state.data.closingDrawers.find(x=>x.closing_id===id&&x.drawer_id===d)?.notes||''};
@@ -331,6 +334,7 @@ async function saveClosing(id='',status='borrador'){
    return row;
  });
  if(status==='cerrado'){
+  if(preview.negativeDrawers.length)throw new Error('Hay una caja con ventas en efectivo negativas. Revisa su apertura, efectivo final y retiradas; no se compensa con la otra caja.');
   if(val('clReported').trim()==='')throw new Error('Indica el total de ventas antes de conciliar el cierre.');
   const calculated=drawers.reduce((sum,d)=>sum+d.closing_cash+d.cash_withdrawals+d.cash_expenses_declared+d.cash_extra_out-d.cash_extra_in-d.opening_cash+d.card_sales+d.bizum_sales+d.online_sales+d.other_income,0);
   const difference=Math.round(calculated*100)-Math.round(num('clReported')*100);
@@ -338,7 +342,7 @@ async function saveClosing(id='',status='borrador'){
  }
  const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status,...expectedWriteVersion($('#content > .page'),id)};
  const savedId=await businessWriter.execute($('#content > .page'),'totus_save_closing',{p_closing:payload,p_drawers:drawers},'p_closing');
- setView('cajas',{mode:'record',id:savedId,reconcileSource:false});
+ setView('cajas',{mode:'record',id:savedId,reconcileSource:false,storeId:null,date:null});
  await refresh(status==='cerrado'?(reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
 }
 async function reopenClosing(id){
@@ -793,11 +797,11 @@ function updateExpenseSummary(){
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
  set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',total);
 }
+function closingFormPreview(){return previewClosing([...document.querySelectorAll('.drawer-entry')].map(el=>Object.fromEntries([['drawer_id',el.dataset.drawerId],...DRAWER_FORM_FIELDS.map(([suffix,field])=>[field,input('dr'+suffix+'_'+el.dataset.drawerId)?.value??''])])),val('clReported'))}
 function updateClosingSummary(){
- const rows=[...document.querySelectorAll('.drawer-entry')];let total=0;
- for(const el of rows){const d=el.dataset.drawerId,read=s=>n(document.getElementById(`dr${s}_${d}`)?.value||0);const cash=read('Close')+read('Withdraw')+read('CashExpense')+read('ExtraOut')-read('ExtraIn')-read('Open');total+=cash+read('Card')+read('Bizum')+read('Online')+read('Other')}
- const reported=val('clReported')===''?null:num('clReported'),diff=reported==null?0:Math.round((total-reported)*100)/100,fmt=v=>money(v);
- const t=document.getElementById('clCalcTotal'),r=document.getElementById('clReportedTotal'),d=document.getElementById('clDifference');if(t)t.textContent=fmt(total);if(r)r.textContent=reported==null?'—':fmt(reported);if(d){d.textContent=reported==null?'Sin total para comparar':fmt(diff);d.className=reported==null?'muted':Math.abs(diff)>.01?'danger-text':'good-text'}
+ const result=closingFormPreview(),t=input('clCalcTotal'),d=input('clDifference');
+ if(t)t.textContent=!result.valid?'—':result.complete?money(result.total):'Por completar';
+ if(d){d.textContent=!result.valid?result.error:!result.complete?'Completa apertura y efectivo final de cada caja':result.negativeDrawers.length?'Revisa el efectivo de cada caja':result.difference==null?'Sin total para comparar':money(result.difference);d.className=!result.valid||result.negativeDrawers.length||Math.abs(result.difference||0)>.01?'danger-text':!result.complete||result.difference==null?'muted':'good-text'}
 }
 function updateInvoiceSummary(){
  const draft=readInvoiceDraft(),base=draft.row.base_amount,vat=draft.row.vat_amount;
@@ -2525,8 +2529,8 @@ document.addEventListener('click',async e=>{
   if(a==='home-report-year'){homeReport('year');return}
   if(a==='admin-storage-home'){openAdminSection('storage');await refreshStoragePanel();return}
   if(a==='admin-users-home'){openAdminSection('usuarios');return}
-  if(a==='closing-new'){setView('cajas',{mode:'record',id:null,storeId:el.dataset.store||null});setRoute('cajas');render();return}
-  if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:false});render();return}
+  if(a==='closing-new'){setView('cajas',{mode:'record',id:null,storeId:el.dataset.store||null,date:null,reconcileSource:false});setRoute('cajas');render();return}
+  if(a==='closing-edit'){setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:false,storeId:null,date:null});render();return}
   if(a==='closing-view-source'){
    const row=state.data.closings.find(x=>x.id===el.dataset.id);if(!row)throw new Error('No se encuentra el cierre.');
    modal('Datos originales del cierre',sourceClosingRecordHtml(row,{embedded:true}));return;
@@ -2535,7 +2539,7 @@ document.addEventListener('click',async e=>{
   if(a==='closing-reconcile-source'){
    if(!can('cajas','edit'))throw new Error('No tienes permiso para conciliar cierres.');
    closeModal();
-   setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:true});render();return;
+   setView('cajas',{mode:'record',id:el.dataset.id,reconcileSource:true,storeId:null,date:null});render();return;
   }
   if(a==='closing-save-close'){await saveClosing(el.dataset.id||'',val('clSaveStatus')||'cerrado');return}
   if(a==='closing-reopen'){await reopenClosing(el.dataset.id);return}
@@ -2847,9 +2851,9 @@ document.addEventListener('change',async e=>{
    return;
  }
  if(e.target?.id==='documentBulkZip'){const file=e.target.files?.[0];e.target.value='';importDocumentZip(file).catch(err=>toast(err.message||String(err),'bad'));return}
- if(e.target?.id==='clStore'&&getView('cajas').mode==='record'&&!getView('cajas').id){
+ if(e.target?.id==='clStore'&&getView('cajas').mode==='record'){
   if(!await allowDiscardDrafts({ignore:['clStore']})){e.target.value=originalFormValue($('#content'),'clStore');return}
-  setView('cajas',{mode:'record',id:null,storeId:e.target.value,date:val('clDate')||isoToday()});render();return;
+  setView('cajas',{mode:'record',storeId:e.target.value,date:val('clDate')||isoToday()});render();return;
  }
  if(e.target?.id==='clDate'&&getView('cajas').mode==='record'&&!getView('cajas').id){const date=e.target.value||isoToday();setView('cajas',{date});for(const drawer of state.data.drawers.filter(d=>d.store_id===val('clStore')&&d.active!==false))setPristineFormValue($('#content'),`drOpen_${drawer.id}`,openingDrawerCash(drawer.store_id,drawer.id,date));updateClosingSummary();return}
  if(e.target?.id==='ivRectifiedInvoice'&&getView('facturacion').mode==='record'&&!getView('facturacion').id){

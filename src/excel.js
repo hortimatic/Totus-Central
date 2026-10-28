@@ -1,6 +1,7 @@
 import {expenseReportStyle,normalizeExpenseColor,EXPENSE_REPORT_COLORS,expenseReportOverride} from './expense-colors.js';
 import {informationalTaxPayments,taxPaymentLabel} from './payment-information.js';
 import {archiveAccepted} from './historical-acceptance.js';
+import {closingDrawerValue,closingMissingFields,incompleteClosing,closingStateLabel} from './cash-closing.js';
 import {fmtDate,n} from './utils.js';
 import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,expenseCostAmount,isExpensePaymentEvidence,closingIncomeAmount,closingSalesAmount} from './calculations.js';
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
@@ -23,17 +24,17 @@ function drawerName(drawers,id){return drawers.find(d=>d.id===id)?.name||''}
 export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,from,to,settings=null}){
  const wb=book();
  const rows=closings.map(c=>c.entry_mode==='source_snapshot'?[
-  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','',c.include_in_income===false?'':closingIncomeAmount(c),n(c.actual_cash),archiveAccepted(settings,c,'closing')?'Conciliado y aceptado':'Histórico pendiente de revisión',c.notes||''
+  fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','',c.include_in_income===false?'':closingIncomeAmount(c),n(c.actual_cash),closingStateLabel(c,settings),c.notes||''
  ]:[
-  fmtDate(c.business_date),storeName(stores,c.store_id),n(c.cash_sales),n(c.card_sales),n(c.bizum_sales),n(c.online_sales),n(c.other_income),
-  closingSalesAmount(c),n(c.actual_cash),archiveAccepted(settings,c,'closing')?'Conciliado y aceptado':c.status||'',c.notes||''
+  fmtDate(c.business_date),storeName(stores,c.store_id),incompleteClosing(c)?'':n(c.cash_sales),n(c.card_sales),n(c.bizum_sales),n(c.online_sales),n(c.other_income),
+  incompleteClosing(c)?'':['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((sum,key)=>sum+n(c[key]),0),Object.values(closingMissingFields(c)).some(fields=>fields.includes('closing_cash'))?'':n(c.actual_cash),closingStateLabel(c,settings),c.notes||''
  ]);
  const aoa=[['CIERRES DE CAJA'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Efectivo','Tarjeta','Bizum','Online','Otros','Total ventas','Efectivo final','Estado','Observaciones'],...rows];
  const totalRow=aoa.length;
  aoa.push(['','','','','','','','TOTAL','','','']);
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['A1'].s=titleStyle;ws['A2'].s=subStyle;styleHeader(ws,3,11);
- ws[`H${totalRow+1}`]=closings.length&&closings.every(c=>c.entry_mode==='source_snapshot'&&c.include_in_income===false)?{t:'s',v:'Ventas no sumadas aquí',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',v:closings.reduce((t,c)=>t+closingSalesAmount(c),0),s:totalStyle,z:euro};
+ ws[`H${totalRow+1}`]=closings.length&&closings.every(c=>c.entry_mode==='source_snapshot'&&c.include_in_income===false)?{t:'s',v:'Ventas no sumadas aquí',s:totalStyle}:{t:'n',f:rows.length?`SUM(H5:H${totalRow})`:'0',v:rows.reduce((t,row)=>t+(typeof row[7]==='number'?row[7]:0),0),s:totalStyle,z:euro};
  for(let r=5;r<=totalRow;r++)for(const col of ['C','D','E','F','G','H','I'])if(ws[`${col}${r}`])ws[`${col}${r}`].z=euro;
  autoWidths(ws,[12,18,13,13,13,13,13,15,15,12,35]);
  ws['!freeze']={xSplit:0,ySplit:4};
@@ -43,8 +44,9 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
  const byId=new Map(closings.map(c=>[c.id,c]));
  const detail=closingDrawers.filter(d=>byId.has(d.closing_id)).map(d=>{
    const c=byId.get(d.closing_id);
-   const total=n(d.closing_cash)+n(d.cash_withdrawals)+n(d.cash_expenses_declared)+n(d.cash_extra_out)-n(d.cash_extra_in)-n(d.opening_cash)+n(d.card_sales)+n(d.bizum_sales)+n(d.online_sales)+n(d.other_income);
-   return [fmtDate(c.business_date),storeName(stores,c.store_id),drawerName(drawers,d.drawer_id),n(d.opening_cash),n(d.closing_cash),n(d.card_sales),n(d.bizum_sales),n(d.online_sales),n(d.other_income),n(d.cash_withdrawals),n(d.cash_expenses_declared),n(d.cash_extra_in),n(d.cash_extra_out),total];
+   const opening=closingDrawerValue(c,d.drawer_id,'opening_cash',d.opening_cash),closing=closingDrawerValue(c,d.drawer_id,'closing_cash',d.closing_cash);
+   const total=opening==null||closing==null?'':n(closing)+n(d.cash_withdrawals)+n(d.cash_expenses_declared)+n(d.cash_extra_out)-n(d.cash_extra_in)-n(opening)+n(d.card_sales)+n(d.bizum_sales)+n(d.online_sales)+n(d.other_income);
+   return [fmtDate(c.business_date),storeName(stores,c.store_id),drawerName(drawers,d.drawer_id),opening??'',closing??'',n(d.card_sales),n(d.bizum_sales),n(d.online_sales),n(d.other_income),n(d.cash_withdrawals),n(d.cash_expenses_declared),n(d.cash_extra_in),n(d.cash_extra_out),total];
  });
  const wa=XLSX.utils.aoa_to_sheet([['Fecha','Tienda','Caja','Apertura','Cierre','Tarjeta','Bizum','Online','Otros','Salidas','Gastos caja','Entradas extra','Salidas extra','Total'],...detail]);
  styleHeader(wa,0,14);for(let r=2;r<=detail.length+1;r++)for(const col of ['D','E','F','G','H','I','J','K','L','M','N'])if(wa[`${col}${r}`])wa[`${col}${r}`].z=euro;

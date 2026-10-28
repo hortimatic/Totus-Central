@@ -39,6 +39,7 @@ jobs:
       - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/closing-workflow-qa.mjs
+      - run: node tests/closing-readings-qa.mjs
       - run: node tests/source-closing-qa.mjs
       - run: node tests/historical-acceptance-qa.mjs
       - run: node tests/income-breakdown-qa.mjs
@@ -147,6 +148,7 @@ jobs:
       - run: node tests/expense-colors-browser-qa.mjs
       - run: node tests/expense-payment-color-browser-qa.mjs
       - run: node tests/closing-workflow-browser-qa.mjs
+      - run: node tests/closing-integral-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
       - run: node tests/onedrive-connection-qa.mjs
@@ -191,6 +193,8 @@ jobs:
             artifacts/user_*.png
             artifacts/layout-audit.json
             artifacts/pricing-integral.json
+            artifacts/closing-integral.json
+            artifacts/closing_*.png
             artifacts/subtab-walk.json
             artifacts/user_screenshot_checks.json
             artifacts/field-sweep.json
@@ -242,6 +246,31 @@ jobs:
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-qa.sql
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f supabase/review_patches/019_pricing_provider_retries.sql
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-provider-retries-db-qa.sql
+
+  closing-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated closing database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -c 'CREATE ROLE anon; CREATE ROLE authenticated;'
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/closing-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261019120841_preserve_closing_income_selection_on_reconciliation.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/020_closing_drafts_and_drawer_checks.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/closing-db-qa.sql
 
   chat-database:
     runs-on: ubuntu-latest
