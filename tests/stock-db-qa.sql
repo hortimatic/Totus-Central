@@ -75,6 +75,46 @@ begin
  if r.status<>'reviewed' or r.result->'review'->>'reviewed_by'<>'qa@example.invalid'
   or r.result->'rows'->0->>'prestashop_qty'<>'13' then
   raise exception 'Review closure lost data or actor';end if;
+ -- Correct receipt units without overwriting the supplier or PrestaShop originals.
+ failed=false;
+ BEGIN PERFORM public.totus_stock_correct_units(r.id,r.revision,'r1',10,10,'nota corta','qa@example.invalid');
+ EXCEPTION WHEN OTHERS THEN failed=true;END;
+ IF NOT failed THEN RAISE EXCEPTION 'A unit correction without justification was accepted';END IF;
+ failed=false;
+ BEGIN PERFORM public.totus_stock_correct_units(r.id,r.revision-1,'r1',10,10,
+  'Se han contado y confirmado las unidades en recepción.', 'qa@example.invalid');
+ EXCEPTION WHEN OTHERS THEN failed=true;END;
+ IF NOT failed THEN RAISE EXCEPTION 'Stale unit correction revision was accepted';END IF;
+ select * into r from public.totus_stock_correct_units(r.id,r.revision,'r1',10,10,
+  'El recuento de producto confirma diez unidades recibidas; la entrada original registró once.',
+  'qa@example.invalid');
+ IF r.status<>'differences' OR r.result ? 'review'
+  OR r.result#>>'{rows,0,prestashop_qty}'<>'13'
+  OR r.result#>>'{rows,0,unit_correction,received}'<>'10'
+  OR r.result#>>'{rows,0,unit_correction,original_received}'<>'11' THEN
+  RAISE EXCEPTION 'Correction failed to preserve original and reopen review';END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.ops_stock_revisions WHERE receipt_id=r.id
+  AND revision=r.revision AND action='units_corrected'
+  AND snapshot#>>'{unit_change,reason}' =
+   'El recuento de producto confirma diez unidades recibidas; la entrada original registró once.') THEN
+  RAISE EXCEPTION 'Unit correction not persisted in auditable history';END IF;
+ -- If a reviewer confirms again, green status must not hide either original difference.
+ select * into r from public.totus_stock_mark_reviewed(r.id,r.revision,
+  'Corregidas las unidades del cotejo y documentado el origen de la diferencia; ver historial.',
+  'qa@example.invalid');
+ IF r.status<>'reviewed' OR r.result#>>'{rows,0,unit_correction,received}'<>'10'
+  THEN RAISE EXCEPTION 'Review closed without preserving corrected units';END IF;
+ -- Returning to the documentary counts must remove the correction and invalidate approval.
+ select * into r from public.totus_stock_correct_units(r.id,r.revision,'r1',10,11,
+  'Se revierte la corrección después de revisar los documentos originales.',
+  'qa@example.invalid');
+ IF r.result#>'{rows,0,unit_correction}' IS NOT NULL OR r.status<>'differences'
+  THEN RAISE EXCEPTION 'Reset did not restore documentary quantities and reopening';END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.ops_stock_revisions
+  WHERE receipt_id=r.id AND action='units_corrected'
+   AND snapshot#>>'{unit_change,reason}' =
+   'El recuento de producto confirma diez unidades recibidas; la entrada original registró once.')
+ THEN RAISE EXCEPTION 'Original justification disappeared after reset';END IF;
  if not exists(select 1 from public.ops_stock_revisions
   where receipt_id=r.id and revision=r.revision and action='reviewed'
    and snapshot#>>'{receipt,result,review,note}' =
