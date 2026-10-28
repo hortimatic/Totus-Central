@@ -1,13 +1,13 @@
 import {uploadChatFile,chatFileMetadata,chatFileHash} from './chat-files.js';
-import {chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatGroups,chatLayout,chatTaskPrompt,CHAT_REACTIONS,CHAT_TASK_STATES,CHAT_GROUPS} from './team-chat-core.js';
+import {chatChannelMatches,chatSearchText,chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatGroups,chatLayout,chatTaskPrompt,CHAT_REACTIONS,CHAT_TASK_STATES,CHAT_GROUPS} from './team-chat-core.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const chatButton=(label,action,attrs='',kind='secondary')=>'<button type="button" class="btn '+kind+'" data-chat="'+action+'" '+attrs+'>'+esc(label)+'</button>';
 const date=value=>new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madrid',dateStyle:'short',timeStyle:'short'});
-const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:''});
+const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:'',channelView:'all',filterDraft:null,hasNew:false});
 /** Isolated controller. No accounting writes, credentials, local storage or AI calls. */
-export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null}){
+export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null,stores=()=>[]}){
  let host=null,data=initial(),busy=false,timer=null,generation=0,lifecycle=0,owner='',drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[],readTimer=null,readFlight=null;
- const button=(label,action,attrs='',kind='secondary')=>{const permission=['new','direct','assistant','attach','uploads-retry','agent-request'].includes(action)?'create':['message-delete','file-remove','channel-delete'].includes(action)?'delete':['edit','pin','task','settings','agent-cancel'].includes(action)?'edit':['file-download','download-preview'].includes(action)?'export':'view';return can(permission)?chatButton(label,action,attrs,kind):'';};
+ const button=(label,action,attrs='',kind='secondary')=>{const permission=['new','direct','assistant','attach','uploads-retry','agent-request'].includes(action)?'create':['message-delete','file-remove','channel-delete','retire','files-cancel'].includes(action)?'delete':['edit','pin','task','settings','agent-cancel'].includes(action)?'edit':['file-download','download-preview'].includes(action)?'export':'view';return can(permission)?chatButton(label,action,attrs,kind):'';};
  const scope=()=>({host,owner,lifecycle});
  const active=s=>s.host===host&&!!host&&s.owner===owner&&owner===actor()&&s.lifecycle===lifecycle;
  const contextChanged=()=>Object.assign(new Error('La conversación ya no está activa.'),{contextChanged:true});
@@ -33,7 +33,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const flight={channel,seq};readFlight=flight;
   try{
    await rpc('totus_chat_command',{p_action:'read',p_data:{channel_id:channel,seq}});
-   if(active(s)&&data.channel===channel)await refresh();
+   if(active(s)&&data.channel===channel)await refresh({preserveHistory:data.messages.length>50});
   }catch(error){if(!error?.contextChanged)onError('No se ha podido actualizar el estado de lectura. Se reintentará al actualizar la conversación.');}
   finally{if(readFlight===flight)readFlight=null;}
  }
@@ -118,17 +118,17 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const focus=document.activeElement,focusId=host.contains(focus)?focus.id:null,start=focus?.selectionStart,end=focus?.selectionEnd;
   const old=host.querySelector('.chat-messages'),scroll=old?.scrollTop||0,atEnd=!old||old.scrollHeight-old.clientHeight-old.scrollTop<80;
   const c=current(),joined=!!c?.member_role,editable=c&&!c.archived&&joined&&can('create');
-  const needle=data.channelQuery.trim().toLocaleLowerCase('es');
+  const needle=chatSearchText(data.channelQuery.trim());
   const personalGroup=c=>data.layout.channel_groups?.[c.id]||c.group_name;
-  const list=data.channels.filter(c=>c.channel_kind!=='assistant').filter(c=>data.archived?c.archived||c.hidden||(data.layout.hidden_groups||[]).includes(personalGroup(c)):!c.archived&&!c.hidden&&!(data.layout.hidden_groups||[]).includes(personalGroup(c))).filter(c=>!needle||[c.name,personalGroup(c),data.layout.group_labels?.[personalGroup(c)]].some(v=>String(v||'').toLocaleLowerCase('es').includes(needle)));
+  const list=data.channels.filter(c=>c.channel_kind!=='assistant').filter(c=>data.archived?c.archived||c.hidden||(data.layout.hidden_groups||[]).includes(personalGroup(c)):!c.archived&&!c.hidden&&!(data.layout.hidden_groups||[]).includes(personalGroup(c))).filter(c=>chatChannelMatches(c,data.layout,needle,data.channelView));
   const unread=data.channels.filter(c=>c.channel_kind!=='assistant'&&c.member_role&&!c.muted&&!c.archived).reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0);
-  host.innerHTML='<div class="team-chat '+(data.layout.compact_sidebar?'chat-sidebar-collapsed':'')+'"><aside class="card chat-sidebar"><div class="chat-sidebar-head">'+button('☰','sidebar-toggle','aria-label="'+(data.layout.compact_sidebar?'Mostrar canales':'Ocultar canales')+'" title="'+(data.layout.compact_sidebar?'Mostrar canales':'Ocultar canales')+'"')+'<h2>Chat<small class="chat-unread-total" role="status">'+unread+' sin leer</small></h2>'+button('+ Canal','new','','primary')+'</div><div class="chat-sidebar-tools">'+button('Mensaje directo','direct')+button('+ Sección','section-new')+button('Avisos','inbox')+'</div><label class="chat-channel-search">Buscar canal o sección<input id="chatChannelQuery" value="'+esc(data.channelQuery)+'" placeholder="Nombre del canal"></label><label class="chat-archive"><input type="checkbox" data-chat-input="archived" '+(data.archived?'checked':'')+'>Ver ocultos y archivados</label>'+chatGroups(list,data.layout).filter(g=>data.archived||(data.layout.hidden_groups||[]).includes(g.name)===false).map(g=>'<section><div class="chat-group-head"><button type="button" data-chat="group-toggle" data-group="'+esc(g.name)+'" aria-expanded="'+(!!needle||!(data.layout.collapsed_groups||[]).includes(g.name))+'"><span>'+(!needle&&(data.layout.collapsed_groups||[]).includes(g.name)?'▸ ':'▾ ')+esc(g.label)+'</span></button>'+button('⋯','group-menu','data-group="'+esc(g.name)+'" aria-label="Organizar sección '+esc(g.label)+'"')+'</div>'+(!needle&&(data.layout.collapsed_groups||[]).includes(g.name)?'':g.channels.map(ch=>'<button class="chat-channel '+(ch.id===data.channel?'active':'')+'" type="button" draggable="true" title="Arrastra para ordenar tus canales" data-chat="open" data-id="'+esc(ch.id)+'"><span>'+(ch.favourite?'★ ':ch.channel_kind==='assistant'?'✦ ':ch.channel_kind==='direct'?'↔ ':ch.is_private?'🔒 ':'# ')+esc(ch.name)+'</span>'+(Number(ch.unread)&&ch.member_role?'<b>'+Number(ch.unread)+'</b>':'')+'</button>').join(''))+'</section>').join('')+(data.loaded&&!list.length?'<p class="muted">No hay canales. Crea el primero para empezar.</p>':'')+'</aside><section class="card chat-conversation" aria-label="Conversación del equipo"><div class="chat-banner chat-help"><span>Mensajes del equipo · no registra contabilidad.</span><details><summary>Cómo usar ChatGPT</summary><p>Escribe una solicitud aquí y pide a vuestro ChatGPT habitual que la atienda. Podrá responder en este canal con las conexiones autorizadas. No hay respuesta automática ni se registran gastos o cierres sin vuestra autorización.</p></details></div><div class="note warn" data-chat-error role="alert" '+(data.error?'':'hidden')+'>'+esc(data.error)+'</div>'+
+  host.innerHTML='<div class="team-chat '+(data.layout.compact_sidebar?'chat-sidebar-collapsed':'')+'"><aside class="card chat-sidebar"><div class="chat-sidebar-head">'+button('☰','sidebar-toggle','aria-label="'+(data.layout.compact_sidebar?'Mostrar canales':'Ocultar canales')+'" title="'+(data.layout.compact_sidebar?'Mostrar canales':'Ocultar canales')+'"')+'<h2>Chat<small class="chat-unread-total" role="status">'+unread+' sin leer</small></h2></div><div class="chat-create-area"><span class="chat-tools-caption">Crear</span><div class="chat-sidebar-tools" aria-label="Crear conversaciones y secciones">'+button('+ Canal','new','','primary')+button('Mensaje directo','direct')+button('+ Sección','section-new')+'</div></div><div class="chat-inbox-access">'+button('Avisos'+(unread?' · '+unread:''),'inbox','aria-label="Abrir avisos'+(unread?' · '+unread+' mensajes sin leer':'')+'"')+'</div><div class="chat-channel-filters"><label class="chat-channel-search">Buscar canal o sección<input id="chatChannelQuery" value="'+esc(data.channelQuery)+'" placeholder="Nombre del canal o persona"></label><label class="chat-channel-view">Mostrar<select id="chatChannelView">'+[['all','Todas las conversaciones'],['unread','Sin leer'],['favourites','Favoritos'],['direct','Mensajes directos']].map(([value,label])=>'<option value="'+value+'" '+(data.channelView===value?'selected':'')+'>'+label+'</option>').join('')+'</select></label><label class="chat-archive"><input type="checkbox" data-chat-input="archived" '+(data.archived?'checked':'')+'>Ver ocultos y archivados</label></div>'+chatGroups(list,data.layout).filter(g=>g.channels.length||!needle&&data.channelView==='all').filter(g=>data.archived||(data.layout.hidden_groups||[]).includes(g.name)===false).map(g=>'<section><div class="chat-group-head"><button type="button" data-chat="group-toggle" data-group="'+esc(g.name)+'" aria-expanded="'+(!!needle||!(data.layout.collapsed_groups||[]).includes(g.name))+'"><span>'+(!needle&&(data.layout.collapsed_groups||[]).includes(g.name)?'▸ ':'▾ ')+esc(g.label)+' <small class="chat-group-count" aria-hidden="true">'+g.channels.length+'</small></span></button>'+button('⋯','group-menu','data-group="'+esc(g.name)+'" aria-label="Organizar sección '+esc(g.label)+'"')+'</div>'+(!needle&&(data.layout.collapsed_groups||[]).includes(g.name)?'':g.channels.map(ch=>'<button class="chat-channel '+(ch.id===data.channel?'active':'')+'" type="button" draggable="true" title="Arrastra para ordenar tus canales" data-chat="open" data-id="'+esc(ch.id)+'"><span>'+(ch.favourite?'★ ':ch.channel_kind==='assistant'?'✦ ':ch.channel_kind==='direct'?'↔ ':ch.is_private?'🔒 ':'# ')+esc(ch.name)+'</span>'+(Number(ch.unread)&&ch.member_role?'<b>'+Number(ch.unread)+'</b>':'')+'</button>').join(''))+'</section>').join('')+(data.loaded&&!list.length?'<div class="chat-sidebar-empty"><b>'+(needle||data.channelView!=='all'?'Sin coincidencias':'Sin conversaciones')+'</b><span>'+(needle||data.channelView!=='all'?'Prueba otro nombre o cambia el filtro.':'Crea un canal o inicia un mensaje directo.')+'</span></div>':'')+'</aside><section class="card chat-conversation" aria-label="Conversación del equipo"><div class="chat-banner chat-help"><span>Mensajes del equipo · no registra contabilidad.</span><details><summary>Cómo usar ChatGPT</summary><p>Escribe una solicitud aquí y pide a vuestro ChatGPT habitual que la atienda. Podrá responder en este canal con las conexiones autorizadas. No hay respuesta automática ni se registran gastos o cierres sin vuestra autorización.</p></details></div><div class="note warn" data-chat-error role="alert" '+(data.error?'':'hidden')+'>'+esc(data.error)+'</div>'+
    (!c?'<div class="empty"><strong>'+(data.error?'No se pudieron cargar los canales':data.loaded?'Elige un canal':'Cargando canales…')+'</strong><span>Organiza conversaciones y tareas por tienda.</span>'+(data.error?button('Reintentar','refresh'):'')+'</div>':
    '<header class="chat-heading"><div><h2>'+esc(c.name)+'</h2><p title="'+esc(c.description||c.group_name)+'">'+esc(c.description||c.group_name)+(c.is_private?' · Solo miembros':' · Canal abierto al equipo')+(c.archived?' · Archivado':'')+'</p></div><div class="inline-actions">'+button('Actualizar','refresh')+(joined?button('Miembros','members')+button('Preferencias','preferences')+button('Marcar leído','read')+button(c.muted?'Activar avisos':'Silenciar','mute'):'')+(manager()?button('Configurar','settings'):'')+'</div></header>'+
    (!joined?'<div class="empty"><strong>Únete para leer y participar</strong>'+button('Unirme al canal','join','','primary')+'</div>':
-   '<div class="chat-search"><label>Buscar<input id="chatQuery" maxlength="200" value="'+esc(data.query)+'" placeholder="Mensaje o persona"></label><label>Desde<input id="chatFrom" type="date" value="'+esc(data.from)+'"></label><label>Hasta<input id="chatTo" type="date" value="'+esc(data.to)+'"></label><label>Mostrar<select id="chatMode"><option value="all">Todos</option><option value="pinned" '+(data.mode==='pinned'?'selected':'')+'>Fijados</option><option value="tasks" '+(data.mode==='tasks'?'selected':'')+'>Tareas</option><option value="mentions" '+(data.mode==='mentions'?'selected':'')+'>Menciones</option></select></label>'+button('Buscar','search','','primary')+button('Limpiar','clear')+'</div>'+
+   '<div class="chat-search"><label>Buscar<input id="chatQuery" maxlength="200" value="'+esc(data.filterDraft?.query??data.query)+'" placeholder="Mensaje o persona"></label><label>Desde<input id="chatFrom" type="date" value="'+esc(data.filterDraft?.from??data.from)+'"></label><label>Hasta<input id="chatTo" type="date" value="'+esc(data.filterDraft?.to??data.to)+'"></label><label>Mostrar<select id="chatMode"><option value="all">Todos</option><option value="pinned" '+((data.filterDraft?.mode??data.mode)==='pinned'?'selected':'')+'>Fijados</option><option value="tasks" '+((data.filterDraft?.mode??data.mode)==='tasks'?'selected':'')+'>Tareas</option><option value="mentions" '+((data.filterDraft?.mode??data.mode)==='mentions'?'selected':'')+'>Menciones</option></select></label>'+button('Buscar','search','','primary')+button('Limpiar','clear')+'</div>'+
    (data.parent?'<div class="chat-thread-bar">'+button('← Conversación principal','thread-back')+'<b>Respuestas al mensaje</b></div>':'')+
-   '<div class="chat-scroll-tools" aria-label="Recorrer mensajes">'+button('↑ Subir','scroll-top')+button('↓ Ir al final','scroll-bottom')+'</div><div class="chat-messages" tabindex="0" role="log" aria-label="Mensajes" aria-live="polite" aria-relevant="additions">'+(data.more?button('Cargar anteriores','older'):'')+data.messages.map(messageHtml).join('')+(!data.messages.length?'<div class="empty"><strong>Sin mensajes</strong><span>'+(data.query||data.from||data.to||data.mode!=='all'?'Prueba otros filtros.':'Escribe el primer mensaje del canal.')+'</span></div>':'')+'</div>'+
+   '<div class="chat-scroll-tools" aria-label="Recorrer mensajes">'+(data.hasNew?button('Mensajes nuevos · Ver al final','scroll-bottom','','primary'):'')+button('↑ Subir','scroll-top')+button('↓ Ir al final','scroll-bottom')+'</div><div class="chat-messages" tabindex="0" role="log" aria-label="Mensajes" aria-live="polite" aria-relevant="additions">'+(data.more?button('Cargar anteriores','older'):'')+data.messages.map(messageHtml).join('')+(!data.messages.length?'<div class="empty"><strong>Sin mensajes</strong><span>'+(data.query||data.from||data.to||data.mode!=='all'?'Prueba otros filtros.':'Escribe el primer mensaje del canal.')+'</span></div>':'')+'</div>'+
    (editable?'<form class="chat-compose"><label for="chatBody">'+(data.parent?'Responder en esta conversación':'Mensaje para '+esc(c.name))+'</label><textarea id="chatBody" rows="3" maxlength="12000" placeholder="Escribe aquí. Enter añade una línea; Ctrl+Enter envía.">'+esc(drafts.get(draftKey())||'')+'</textarea><div class="chat-compose-tools"><label class="chat-pick-btn">Adjuntar archivos<input type="file" id="chatFiles" multiple accept="'+acceptFiles+'"></label><label>Mencionar<select id="chatMention"><option value="">Elige una persona</option>'+data.members.map(member=>'<option value="'+esc(member.email)+'">'+esc(person(member.email))+'</option>').join('')+'</select></label></div><div class="chat-picked-list">'+pickedFilesHtml()+'</div><div data-chat-progress role="status" aria-live="polite"></div>'+
     (outbox.some(p=>p.channel_id===data.channel||!p.channel_id)?'<div class="note warn">Hay archivos pendientes de subir. '+button('Reintentar archivos pendientes','uploads-retry')+'</div>':'')+
     '<div><small>Hasta 10 archivos · 20 MB por archivo · arrastrar o pegar también funciona.</small><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Enviar</button></div></form>':'<p class="chat-banner">'+(c.archived?'Canal archivado: disponible para consulta.':'Tu permiso permite consultar esta conversación.')+'</p>')))+
@@ -137,32 +137,34 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const pane=host.querySelector('.chat-messages');if(pane)pane.scrollTop=atEnd?pane.scrollHeight:scroll;
   scheduleRead();
  }
- async function refresh({older=false}={}){
+ async function refresh({older=false,preserveHistory=false}={}){
   const token=++generation,channel=data.channel,parent=data.parent;
   const previousPane=host?.querySelector('.chat-messages'),previousHeight=previousPane?.scrollHeight||0,previousTop=previousPane?.scrollTop||0;
   const before=older&&data.messages.length?Math.min(...data.messages.map(m=>m.seq)):null;
   const result=await rpc('totus_chat_context',{p_channel:current()?.member_role?channel:null,p_parent:parent,p_before:before,p_query:data.query,p_from:data.from||null,p_to:data.to||null,p_mode:data.mode});
   if(token!==generation||!host||owner!==actor())return;
-  const previous=JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout]);
+  const previous=JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout,data.hasNew]);
   const batch=result.messages||[],more=batch.length>50,rows=more?batch.slice(1):batch;
   data.channels=result.channels||[];data.members=result.members||[];data.directory=result.directory||data.directory;data.layout=chatLayout(result.layout);data.loaded=true;data.error='';onUnread(data.channels.filter(c=>c.channel_kind!=='assistant'));
-  if(channel){data.more=more;data.messages=older?[...new Map([...rows,...data.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.seq-b.seq):rows;}
-  if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout]))paint();
+  if(channel&&preserveHistory){const known=new Set(data.messages.map(m=>m.id)),latest=new Map(rows.map(m=>[m.id,m]));data.hasNew=data.hasNew||rows.some(m=>!known.has(m.id)&&Number(m.seq)>Math.max(0,...data.messages.map(m=>Number(m.seq))));data.messages=data.messages.map(m=>latest.get(m.id)||m);}
+  else if(channel){data.hasNew=false;data.more=more;data.messages=older?[...new Map([...rows,...data.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.seq-b.seq):rows;}
+  if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout,data.hasNew]))paint();
   if(older){const pane=host?.querySelector('.chat-messages');if(pane)pane.scrollTop=previousTop+pane.scrollHeight-previousHeight;}
   scheduleRead();
  }
  async function open(id){
-  remember();data.channel=id;data.parent=null;data.messages=[];data.more=false;data.query='';data.from='';data.to='';data.mode='all';paint();await refresh();unsubscribe();unsubscribe=subscribe(id,()=>{clearTimeout(realtimeTimer);realtimeTimer=setTimeout(tick,300);});
+  remember();data.channel=id;data.parent=null;data.messages=[];data.more=false;data.query='';data.from='';data.to='';data.mode='all';data.filterDraft=null;data.hasNew=false;paint();await refresh();unsubscribe();unsubscribe=subscribe(id,()=>{clearTimeout(realtimeTimer);realtimeTimer=setTimeout(tick,300);});
  }
  function closeDialog(){dialog?.close();dialog?.remove();dialog=null;}
+ async function requestDialogClose(){const held=dialog;if(!held)return;if(held.querySelector('[data-dirty="true"]')&&!await ask('¿Descartar los cambios de esta ventana?'))return;if(dialog===held)closeDialog();}
  function modal(title,body,save){
   closeDialog();
   dialog=document.createElement('dialog');dialog.className='chat-dialog';
-  dialog.innerHTML='<form><header><h2>'+esc(title)+'</h2><button type="button" class="btn secondary" data-chat-close aria-label="Cerrar">×</button></header><div class="chat-dialog-body">'+body+'</div><p role="alert" data-dialog-error hidden></p><footer>'+button('Cancelar','dialog-cancel')+'<button class="btn primary" type="submit">'+esc(save?.label||'Guardar')+'</button></footer></form>';
-  host.append(dialog);dialog.querySelector('[data-chat-close]').onclick=closeDialog;
-  dialog.querySelector('[data-chat="dialog-cancel"]').onclick=closeDialog;
+  dialog.innerHTML='<form><header><h2>'+esc(title)+'</h2><button type="button" class="btn secondary" data-chat-close aria-label="Cerrar">×</button></header><div class="chat-dialog-body">'+body+'</div><p role="alert" data-dialog-error hidden></p><footer>'+(save?.label==='Cerrar'?'':button('Cancelar','dialog-cancel'))+'<button class="btn primary" type="submit">'+esc(save?.label||'Guardar')+'</button></footer></form>';
+  host.append(dialog);dialog.querySelector('[data-chat-close]').onclick=requestDialogClose;
+  const cancel=dialog.querySelector('[data-chat="dialog-cancel"]');if(cancel)cancel.onclick=requestDialogClose;
   dialog.addEventListener('input',event=>event.target.dataset.dirty='true');
-  dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
+  dialog.addEventListener('cancel',event=>{event.preventDefault();requestDialogClose().catch(showError);});
   dialog.addEventListener('submit',async event=>{
    const stamp=lifecycle;
    event.preventDefault();if(busy)return;busy=true;
@@ -175,7 +177,9 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   dialog.showModal();
  }
  function channelForm(c={}){
-  return '<label>Nombre<input name="name" required maxlength="80" value="'+esc(c.name)+'"></label><label>Grupo<input name="group_name" required maxlength="80" value="'+esc(c.group_name||'Equipo')+'" list="chatGroupOptions"><datalist id="chatGroupOptions">'+['Equipo','Hortimatic','NewOldSmok','Totuscode'].map(g=>'<option value="'+g+'">').join('')+'</datalist></label><label>Descripción<textarea name="description" maxlength="500">'+esc(c.description)+'</textarea></label><label>Acceso<select name="is_private"><option value="false">Abierto · el equipo puede unirse</option><option value="true" '+(c.is_private?'selected':'')+'>Privado · solo invitados</option></select></label>'+(c.id?'<label>Estado<select name="archived"><option value="false">Activo</option><option value="true" '+(c.archived?'selected':'')+'>Archivado · solo lectura</option></select></label>':'');
+  const storeList=[...(stores()||[])];if(c.store_id&&!storeList.some(store=>store.id===c.store_id))storeList.push({id:c.store_id,name:'Tienda vinculada'});
+  const options=[...new Set([...CHAT_GROUPS.filter(g=>g!=='Mensajes directos'),...data.channels.map(ch=>ch.group_name),...(data.layout.extra_groups||[])])];
+  return '<fieldset class="chat-form-section"><legend>Identificación</legend><label>Nombre del canal<input name="name" required maxlength="80" value="'+esc(c.name)+'" placeholder="Por ejemplo: Pedidos pendientes"></label><label>Descripción<textarea name="description" maxlength="500" rows="2" placeholder="Para qué se usa este canal">'+esc(c.description)+'</textarea></label></fieldset><fieldset class="chat-form-section"><legend>Organización y acceso</legend><label>Sección<input name="group_name" required maxlength="80" value="'+esc(c.group_name||'Equipo')+'" list="chatGroupOptions"><datalist id="chatGroupOptions">'+options.map(g=>'<option value="'+esc(g)+'">').join('')+'</datalist></label><label>Tienda<select name="store_id"><option value="">General · sin tienda concreta</option>'+storeList.filter(store=>store.active!==false||store.id===c.store_id).map(store=>'<option value="'+esc(store.id)+'" '+(store.id===c.store_id?'selected':'')+'>'+esc(store.name)+'</option>').join('')+'</select></label><label>Quién puede acceder<select name="is_private"><option value="false">Abierto · el equipo puede unirse</option><option value="true" '+(c.is_private?'selected':'')+'>Privado · solo las personas invitadas</option></select></label><p class="small muted">Los canales privados requieren invitación desde Miembros. Mover un canal en tu lista no cambia quién puede leerlo.</p>'+(c.id?'<label>Estado<select name="archived"><option value="false">Activo</option><option value="true" '+(c.archived?'selected':'')+'>Archivado · solo lectura</option></select></label>':'')+'</fieldset>';
  }
  async function send(event){
   const stamp=lifecycle;
@@ -195,7 +199,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   finally{unlock(stamp);}
  }
  function selectCreated(c,role){
-  remember();data.query='';data.from='';data.to='';data.mode='all';data.more=false;
+  remember();data.channelView='all';data.archived=false;data.query='';data.from='';data.to='';data.mode='all';data.filterDraft=null;data.more=false;
   data.channels=[...data.channels.filter(row=>row.id!==c.id),{...c,member_role:role}];data.channel=c.id;data.parent=null;data.messages=[];
   unsubscribe();unsubscribe=subscribe(c.id,()=>{clearTimeout(realtimeTimer);realtimeTimer=setTimeout(tick,300);});paint();
  }
@@ -206,7 +210,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
  function groupMenu(name){
   const groups=chatGroups(data.channels,data.layout),at=groups.findIndex(g=>g.name===name),label=data.layout.group_labels?.[name]||name,hidden=(data.layout.hidden_groups||[]).includes(name);
   modal('Organizar '+label,'<p class="muted">Estas preferencias cambian tu organización personal y se guardan en tu cuenta.</p><div class="chat-section-actions">'+
-   ['create','rename','alpha','recent','manual','up','down','hide'].map(action=>'<button type="button" class="btn secondary" data-section-action="'+action+'" '+((action==='up'&&at===0||action==='down'&&at===groups.length-1)?'disabled':'')+'>'+esc({create:'Crear canal en esta sección',rename:'Cambiar nombre solo para mí',alpha:'Ordenar canales alfabéticamente',recent:'Ordenar por mensajes más recientes',manual:'Usar posición personal de cada canal',up:'Subir sección',down:'Bajar sección',hide:hidden?'Mostrar sección':'Ocultar sección'}[action])+'</button>').join('')+'</div>',{label:'Cerrar',run:async()=>{}});
+   ['create','rename','alpha','recent','manual','up','down','hide',...((data.layout.extra_groups||[]).includes(name)&&!groups[at].channels.length?['remove']:[])].filter(action=>action!=='create'||can('create')).map(action=>'<button type="button" class="btn secondary" data-section-action="'+action+'" '+((action==='up'&&at===0||action==='down'&&at===groups.length-1)?'disabled':'')+'>'+esc({create:'Crear canal en esta sección',rename:'Cambiar nombre solo para mí',alpha:'Ordenar canales alfabéticamente',recent:'Ordenar por mensajes más recientes',manual:'Usar posición personal de cada canal',up:'Subir sección',down:'Bajar sección',hide:hidden?'Mostrar sección':'Ocultar sección',remove:'Eliminar sección vacía'}[action])+'</button>').join('')+'</div>',{label:'Cerrar',run:async()=>{}});
   dialog.querySelectorAll('[data-section-action]').forEach(el=>el.onclick=async()=>{
    const stamp=lifecycle;
    const action=el.dataset.sectionAction;
@@ -219,13 +223,18 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
      const order=groups.map(g=>g.name),to=at+(action==='up'?-1:1);
      if(to>=0&&to<order.length){[order[at],order[to]]=[order[to],order[at]];await saveLayout({...data.layout,group_order:order});}
     }
+    if(action==='remove'){if(groups[at].channels.length)throw Error('Mueve primero los canales a otra sección.');const next={...data.layout};for(const key of ['extra_groups','group_order','collapsed_groups','hidden_groups'])next[key]=(next[key]||[]).filter(value=>value!==name);for(const key of ['group_labels','group_sort']){next[key]={...next[key]};delete next[key][name];}await saveLayout(next);}
     if(action==='hide')await saveLayout({...data.layout,hidden_groups:hidden?(data.layout.hidden_groups||[]).filter(g=>g!==name):[...new Set([...(data.layout.hidden_groups||[]),name])]});
     closeDialog();
    }catch(error){showError(error);}finally{unlock(stamp);}
   });
  }
  async function openMessage(channelId,messageId,parentId=null){
-  await open(channelId);data.parent=parentId||messageId;data.messages=[];await refresh();
+  data.channelView='all';data.channelQuery='';
+  await open(channelId);
+  if(parentId||!data.messages.some(message=>message.id===messageId)){data.parent=parentId||messageId;data.messages=[];await refresh();}
+  const selected=[...host.querySelectorAll('[data-message]')].find(node=>node.dataset.message===messageId);
+  if(selected){selected.classList.add('chat-message-selected');selected.setAttribute('tabindex','-1');selected.scrollIntoView({block:'center'});selected.focus({preventScroll:true});}
  }
  async function handle(event){
   const stamp=lifecycle;
@@ -237,7 +246,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    if(action==='sidebar-toggle'){busy=true;await saveLayout({...data.layout,compact_sidebar:!data.layout.compact_sidebar});return;}
    if(action==='group-toggle'){const name=el.dataset.group,closed=data.layout.collapsed_groups||[],wasClosed=!data.channelQuery&&closed.includes(name);data.channelQuery='';busy=true;await saveLayout({...data.layout,collapsed_groups:wasClosed?closed.filter(g=>g!==name):[...new Set([...closed,name])]});return;}
    if(action==='group-menu'){groupMenu(el.dataset.group);return;}
-   if(action==='section-new'){modal('Nueva sección','<label>Nombre<input name="name" maxlength="80" required></label><p class="muted">Organiza tus canales sin cambiar datos o permisos.</p>',{label:'Crear sección',refresh:false,run:async v=>{const name=chatText(v.name,80);await saveLayout({...data.layout,extra_groups:[...new Set([...(data.layout.extra_groups||[]),name])]});}});return;}
+   if(action==='section-new'){modal('Nueva sección','<label>Nombre<input name="name" maxlength="80" required></label><p class="muted">Organiza tus canales sin cambiar datos o permisos.</p>',{label:'Crear sección',refresh:false,run:async v=>{const name=chatText(v.name,80);if(chatGroups(data.channels,data.layout).some(g=>chatSearchText(g.name)===chatSearchText(name)))throw Error('Ya existe una sección con ese nombre.');data.channelView='all';data.channelQuery='';data.archived=false;await saveLayout({...data.layout,extra_groups:[...new Set([...(data.layout.extra_groups||[]),name])]});}});return;}
    if(action==='new'){modal('Nuevo canal',channelForm(),{label:'Crear canal',run:async v=>{const c=await command('create_channel',chatChannelInput({...v,is_private:v.is_private==='true'}));selectCreated(c,'manager');}});return;}
    if(action==='direct'){
     modal('Nuevo mensaje directo','<label>Persona<select name="email" required><option value="">Elige una persona</option>'+data.directory.filter(p=>p.email!==owner).map(p=>'<option value="'+esc(p.email)+'">'+esc(p.name)+'</option>').join('')+'</select></label>',{label:'Abrir conversación',run:async v=>selectCreated(await command('create_direct',{email:v.email}),'member')});return;
@@ -257,14 +266,14 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    }
    if(action==='inbox'){
     const inbox=(await rpc('totus_chat_inbox',{p_mentions:false})).filter(m=>m.channel_kind!=='assistant');
-    modal('Mensajes sin leer',inbox.length?'<ul class="chat-inbox">'+inbox.map(item=>'<li><b>'+esc(item.channel_name)+'</b><p>'+esc(item.body.slice(0,180))+'</p>'+button('Abrir conversación','inbox-open','data-channel="'+esc(item.channel_id)+'" data-message="'+esc(item.id)+'" data-parent="'+esc(item.parent_id||'')+'"')+'</li>').join('')+'</ul>':'<p>No tienes mensajes pendientes de leer según tus preferencias.</p>',{label:'Cerrar',run:async()=>{}});
+    modal('Mensajes sin leer',inbox.length?'<ul class="chat-inbox">'+inbox.map(item=>'<li><b>'+esc(item.channel_name)+'</b><small>'+esc(person(item.author_email))+' · '+esc(date(item.created_at))+'</small><p>'+esc(item.body.slice(0,180))+'</p>'+button('Abrir conversación','inbox-open','data-channel="'+esc(item.channel_id)+'" data-message="'+esc(item.id)+'" data-parent="'+esc(item.parent_id||'')+'"')+'</li>').join('')+'</ul>':'<p>No tienes mensajes pendientes de leer según tus preferencias.</p>',{label:'Cerrar',run:async()=>{}});
     dialog.querySelectorAll('[data-chat="inbox-open"]').forEach(btn=>btn.onclick=async()=>{const stamp=lifecycle,{channel,message,parent}=btn.dataset;closeDialog();busy=true;try{await openMessage(channel,message,parent);}catch(e){showError(e);}finally{unlock(stamp);}});return;
    }
    if(action==='attach'){fileDialog(null,id);return;}
    if(action==='file-retry'){const f=data.messages.flatMap(m=>m.files||[]).find(f=>f.id===el.dataset.file);fileDialog(f,f.message_id);return;}
    if(action==='settings'){
-    const c=current();modal('Configurar canal',channelForm(c)+'<hr><p>Eliminar retira el canal del uso diario. Conserva documentos y registros contables.</p>'+button('Eliminar canal','retire','','danger'),{run:v=>command('channel_update',{...chatChannelInput({...v,is_private:v.is_private==='true'}),archived:v.archived==='true'})});
-    dialog.querySelector('[data-chat="retire"]').onclick=async()=>{if(await ask('¿Retirar este canal? Sus mensajes quedarán conservados para recuperación.')){try{await command('channel_delete');closeDialog();data.channel=null;data.messages=[];await refresh();}catch(e){showError(e);}}};return;
+    const c=current();modal('Configurar canal',channelForm(c)+'<hr><p>Eliminar retira el canal del uso diario. Conserva documentos y registros contables.</p>'+button('Eliminar canal','retire','','danger'),{run:v=>command('channel_update',{...chatChannelInput({...v,is_private:v.is_private==='true'}),update_store:true,archived:v.archived==='true'})});
+    const retireButton=dialog.querySelector('[data-chat="retire"]');if(retireButton)retireButton.onclick=async()=>{if(await ask('¿Retirar este canal? Sus mensajes quedarán conservados para recuperación.')){try{await command('channel_delete');closeDialog();data.channel=null;data.messages=[];await refresh();}catch(e){showError(e);}}};return;
    }
    if(action==='members'){
     const list=data.members.map(m=>'<li><span>'+esc(person(m.email))+'<small>'+esc(m.email)+'</small>'+'</span><small>'+esc(m.member_role==='manager'?'Responsable':'Miembro')+'</small></li>').join('');
@@ -292,8 +301,8 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    if(action==='thread'){remember();data.parent=id;data.messages=[];await refresh();return;}
    if(action==='thread-back'){remember();data.parent=null;data.messages=[];await refresh();return;}
    if(action==='join'){await command('join');await refresh();await refresh();return;}
-   if(action==='search'){const range=chatDateRange(host.querySelector('#chatFrom').value,host.querySelector('#chatTo').value);data.query=host.querySelector('#chatQuery').value.trim();Object.assign(data,range,{mode:host.querySelector('#chatMode').value});await refresh();return;}
-   if(action==='clear'){Object.assign(data,{query:'',from:'',to:'',mode:'all'});await refresh();return;}
+   if(action==='search'){const range=chatDateRange(host.querySelector('#chatFrom').value,host.querySelector('#chatTo').value);data.query=host.querySelector('#chatQuery').value.trim();Object.assign(data,range,{mode:host.querySelector('#chatMode').value,filterDraft:null});await refresh();return;}
+   if(action==='clear'){Object.assign(data,{query:'',from:'',to:'',mode:'all',filterDraft:null});await refresh();return;}
    if(action==='scroll-top'||action==='scroll-bottom'){if(action==='scroll-bottom'){const channel=data.channel;await refresh();if(data.channel!==channel)return;}const pane=host?.querySelector('.chat-messages');if(pane){pane.scrollTop=action==='scroll-top'?0:pane.scrollHeight;pane.focus({preventScroll:true});}return;}
    if(action==='older'){await refresh({older:true});return;}
    if(action==='read'){await command('read',{seq:current().last_seq||0});await refresh();return;}
@@ -305,8 +314,11 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   }catch(error){showError(error);}finally{unlock(stamp);}
  }
  const onSubmit=e=>{if(e.target.matches('.chat-compose'))send(e).catch(showError);};
- const onInput=e=>{if(e.target.id==='chatBody')remember();if(e.target.id==='chatChannelQuery'){data.channelQuery=e.target.value;paint();}};
+ const rememberFilters=()=>{if(host?.querySelector('#chatQuery'))data.filterDraft={query:host.querySelector('#chatQuery').value,from:host.querySelector('#chatFrom').value,to:host.querySelector('#chatTo').value,mode:host.querySelector('#chatMode').value};};
+ const onInput=e=>{if(e.target.closest('.chat-search'))rememberFilters();if(e.target.id==='chatBody')remember();if(e.target.id==='chatChannelQuery'){data.channelQuery=e.target.value;paint();}};
  const onChange=e=>{
+  if(e.target.closest('.chat-search'))rememberFilters();
+  if(e.target.id==='chatChannelView'){data.channelView=e.target.value;paint();}
   if(e.target.dataset.chatInput==='archived'){data.archived=e.target.checked;paint();}
   if(e.target.id==='chatFiles'){try{addFiles([...e.target.files]);}catch(error){showError(error);}}
   if(e.target.id==='chatMention'&&e.target.value){const area=host.querySelector('#chatBody');area.value+=(area.value?' ':'')+'@{'+e.target.value+'} ';remember();e.target.value='';area.focus();}
@@ -320,8 +332,8 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
  const onKey=e=>{if(e.target.id==='chatBody'&&e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send(e).catch(showError);}if(e.target.closest('.chat-search')&&e.key==='Enter'){e.preventDefault();host.querySelector('[data-chat="search"]').click();}};
  const beforeUnload=e=>{if(hasDraft()){e.preventDefault();e.returnValue='';}};
  async function tick(){
-  if(!host||busy||dialog||document.visibilityState!=='visible'||data.messages.length>50||host.contains(document.activeElement)&&document.activeElement.id!=='chatBody'&&document.activeElement.matches('input,textarea,select'))return;
-  try{await refresh();}catch(error){showError(error);}
+  if(!host||busy||dialog||document.visibilityState!=='visible'||host.contains(document.activeElement)&&document.activeElement.id!=='chatBody'&&document.activeElement.matches('input,textarea,select'))return;
+  try{await refresh({preserveHistory:data.messages.length>50});}catch(error){showError(error);}
  }
  function dispose(){
   remember();generation++;lifecycle++;busy=false;unsubscribe();unsubscribe=()=>{};clearTimeout(realtimeTimer);clearTimeout(readTimer);readFlight=null;clearInterval(timer);timer=null;closeDialog();

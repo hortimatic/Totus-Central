@@ -136,6 +136,7 @@ jobs:
       - run: node tests/pricing-taxonomy-layout-qa.mjs
       - run: node tests/tasks-browser-qa.mjs
       - run: node tests/team-chat-browser-qa.mjs
+      - run: node tests/chat-usability-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/full-flow-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs
@@ -300,6 +301,8 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/022_chat_channel_order.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-advanced-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/023_chat_channel_store.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-store-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-layout-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-advanced-db-qa.sql

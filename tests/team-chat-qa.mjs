@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatLayout,chatTaskPrompt} from '../src/team-chat-core.js';
+import {chatChannelMatches,chatSearchText,chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatLayout,chatTaskPrompt} from '../src/team-chat-core.js';
 assert.equal(chatText('  Hola\r\nEquipo '),'Hola\nEquipo');
 assert.throws(()=>chatText(' '));assert.throws(()=>chatText('x'.repeat(12001)));
 assert.equal(chatChannelInput({name:'Cajas',group_name:'Hortimatic',is_private:true}).is_private,true);
@@ -33,3 +33,11 @@ assert.equal(moveRows[2].group_name,'NewOldSmok','A personal move cannot change 
 assert.deepEqual(chatMoveChannel(moveRows,moved,'missing','a'),moved);
 assert.deepEqual(chatLayout(JSON.parse(JSON.stringify(moved))),moved,'Order survives server roundtrip');
 assert.deepEqual(chatGroups(moveRows,{...moved,group_sort:{Hortimatic:'alphabetical'}}).find(g=>g.name==='Hortimatic').channels.map(c=>c.id),['a','b','c'],'Alphabetical choice overrides prior drag order');
+
+assert.equal(chatSearchText('  ALCALÁ  ').trim(),'alcala');
+const caf={id:'cafe',name:'Café · pedidos',group_name:'Hortimatic',unread:2,favourite:true,channel_kind:'channel'};
+assert.equal(chatChannelMatches(caf,{},'cafe','unread'),true);
+assert.equal(chatChannelMatches(caf,{},'','favourites'),true);
+assert.equal(chatChannelMatches(caf,{},'','direct'),false);
+assert.equal(chatChannelMatches({...caf,unread:0},{},'','unread'),false);
+assert.equal(chatChannelMatches(caf,{group_labels:{Hortimatic:'Alcalá'}},'alcala'),true);

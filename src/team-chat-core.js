@@ -51,3 +51,10 @@ export function chatMoveChannel(channels,layout,sourceId,targetId){
  order.splice(order.indexOf(targetId),0,sourceId);
  return chatLayout({...layout,group_sort:{...layout.group_sort,[group]:'manual'},channel_order:order,channel_groups:{...layout.channel_groups,[sourceId]:group}});
 }
+
+export const chatSearchText=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
+export function chatChannelMatches(channel,layout,query='',view='all'){
+ const group=layout.channel_groups?.[channel.id]||channel.group_name;
+ const matches=!query||[channel.name,group,layout.group_labels?.[group]].some(value=>chatSearchText(value).includes(chatSearchText(query.trim())));
+ return matches&&(view==='all'||view==='unread'&&Number(channel.unread)>0||view==='favourites'&&channel.favourite||view==='direct'&&channel.channel_kind==='direct');
+}
