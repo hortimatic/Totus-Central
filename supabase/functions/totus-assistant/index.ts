@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import {attachChatExpenseDocument,readExpenseContext,reviewExpenseDocument} from './assistant-attachments.ts'
+import {readTeamChat,sendTeamChat} from './assistant-chat.ts'
 
 // This endpoint never receives user credentials. A short-lived, single-use
 // server ticket authorizes exactly one queued operation from the SQL connector.
@@ -25,7 +26,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   claimed=true
   const {email,password}=work.credentials
   if(email!=='chatgpt@totuscentral.invalid'||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
-  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document'].includes(work.action))throw new Error('Acción no admitida')
+  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send'].includes(work.action))throw new Error('Acción no admitida')
   scoped=clientFactory(url,key,opts)
   const {data:session,error:loginError}=await scoped.auth.signInWithPassword({email,password})
   if(loginError||!session.session||session.user?.app_metadata?.totus_assistant!==true)throw new Error('No se pudo autenticar la cuenta propia')
@@ -52,6 +53,8 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   } else if(work.action==='attach_chat_file')result={...result,...await attachChatExpenseDocument(scoped,work.payload,confirmed.user)}
   else if(work.action==='expense_context')result={...result,...await readExpenseContext(scoped,work.payload)}
   else if(work.action==='review_document')result={...result,...await reviewExpenseDocument(scoped,work.payload)}
+  else if(work.action==='chat_read')result={...result,...await readTeamChat(scoped,work.payload,confirmed.user)}
+  else if(work.action==='chat_send')result={...result,...await sendTeamChat(scoped,work.payload,confirmed.user)}
   else if(work.action!=='session_check')throw new Error('Acción no admitida')
   const {error:finishError}=await admin.rpc('totus_assistant_complete',{p_job:job,p_result:result,p_error:null})
   if(finishError)throw new Error('Operación ejecutada; no se pudo guardar su resultado. Consulta antes de reintentar.')
