@@ -48,6 +48,34 @@ begin
  exception when others then failed=true;end;
  if not failed then raise exception 'Protected original changed';end if;
  if (select count(*) from public.ops_stock_revisions where receipt_id=r.id)<>4 then raise exception 'Missing audit revisions';end if;
+ -- Review closure is audited and keeps the signed documentary data untouched.
+ select * into r from public.totus_stock_save_result(r.id,r.revision,
+  jsonb_set(result,'{rows,0,prestashop_qty}','13'), 'qa@example.invalid');
+ if r.status<>'differences' then raise exception 'Difference precondition missing';end if;
+ failed=false;
+ begin perform public.totus_stock_mark_reviewed(r.id,r.revision,'nota corta','qa@example.invalid');
+ exception when others then failed=true;end;
+ if not failed then raise exception 'Review accepted without meaningful justification';end if;
+ failed=false;
+ begin perform public.totus_stock_mark_reviewed(r.id,r.revision-1,'Recuento verificado y unidades pendientes anotadas para el equipo.','qa@example.invalid');
+ exception when others then failed=true;end;
+ if not failed then raise exception 'Stale review revision accepted';end if;
+ select * into r from public.totus_stock_mark_reviewed(r.id,r.revision,
+  'Recuento contrastado: una unidad pendiente de entrega; diferencias preservadas.',
+  'qa@example.invalid');
+ if r.status<>'reviewed' or r.result->'review'->>'reviewed_by'<>'qa@example.invalid'
+  or r.result->'rows'->0->>'prestashop_qty'<>'13' then
+  raise exception 'Review closure lost data or actor';end if;
+ if not exists(select 1 from public.ops_stock_revisions where receipt_id=r.id and revision=r.revision and action='reviewed')
+  then raise exception 'Review closure not audited';end if;
+ failed=false;
+ begin perform public.totus_stock_mark_reviewed(r.id,r.revision,'Recuento verificado y registrado previamente.','qa@example.invalid');
+ exception when others then failed=true;end;
+ if not failed then raise exception 'Review double-closed';end if;
+ select * into r from public.totus_stock_save_result(r.id,r.revision,
+  r.result,'qa@example.invalid');
+ if r.status<>'differences' or r.result ? 'review' then
+  raise exception 'A changed cotejo retained the old review sign-off';end if;
  select * into r from public.totus_stock_remove_source(r.id,r.revision,s2,'Wrong association','qa@example.invalid');
  if r.status<>'pending' or jsonb_array_length(r.result->'rows')<>0 then raise exception 'Source removal retained old green result';end if;
  if not exists(select 1 from public.ops_documents where id='44444444-4444-4444-8444-444444444444') then raise exception 'Original deleted by unlink';end if;
