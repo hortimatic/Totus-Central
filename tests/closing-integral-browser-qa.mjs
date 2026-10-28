@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import XLSX from 'xlsx-js-style';
 const browser=await chromium.launch({headless:true}),results=[];
 const attempt=async(name,run)=>{try{await run();results.push({name,ok:true})}catch(error){results.push({name,ok:false,error:error.message})}};
 async function fresh(){const p=await browser.newPage({viewport:{width:1440,height:950}});p.setDefaultTimeout(6000);p.on('dialog',dialog=>dialog.accept());await p.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});await p.locator('#nav [data-route="cajas"]').click();await p.locator('[data-action="closing-new"]').click();return p}
-async function drawers(p,values=[{Open:10,Close:20,Card:30},{Open:10,Close:20,Card:30}]){const ids=await p.locator('.drawer-entry').evaluateAll(es=>es.map(e=>e.dataset.drawerId));for(let i=0;i<ids.length;i++)for(const field of ['Open','Close','Card','Bizum','Online','Other','Withdraw','CashExpense','ExtraIn','ExtraOut'])await p.locator('#dr'+field+'_'+ids[i]).fill(String(values[i]?.[field]??0));return ids}
+async function drawers(p,values=[{Open:10,Close:20,Card:30},{Open:10,Close:20,Card:30}]){const ids=await p.locator('.drawer-entry').evaluateAll(es=>es.sort((a,b)=>Number(b.querySelector('h3').textContent.includes('Vape'))-Number(a.querySelector('h3').textContent.includes('Vape'))).map(e=>e.dataset.drawerId));for(let i=0;i<ids.length;i++)for(const field of ['Open','Close','Card','Bizum','Online','Other','Withdraw','CashExpense','ExtraIn','ExtraOut'])await p.locator('#dr'+field+'_'+ids[i]).fill(String(values[i]?.[field]??0));return ids}
 try{
  await attempt('a partial draft preserves unknown closing cash after reopening',async()=>{const p=await fresh();try{const ids=await drawers(p);await p.locator('#drClose_'+ids[0]).fill('');await p.locator('[data-action="closing-save-draft"]').click();await p.getByText('Borrador guardado.',{exact:true}).waitFor();assert.equal(await p.locator('#drClose_'+ids[0]).inputValue(),'','Unknown cash became a recorded zero');assert.match(await p.locator('#clCalcTotal').innerText(),/completar/i)}finally{await p.close()}});
  await attempt('negative cash in one till cannot be offset by the other till',async()=>{const p=await fresh();try{await drawers(p,[{Open:100,Close:50},{Open:0,Close:100}]);await p.locator('#clReported').fill('50');await p.locator('[data-action="closing-save-close"]').click();assert.equal(await p.evaluate(()=>window.__mockDb.ops_daily_closings.filter(c=>c.status==='cerrado').length),0,'Two tills hid an impossible negative cash sale')}finally{await p.close()}});
@@ -27,7 +28,17 @@ try{
   assert.equal(await p.locator('#drOpen_'+ids[0]).inputValue(),'');await p.locator('[data-action="closing-back"]').click();
   await p.evaluate(()=>window.XLSX.writeFile=wb=>{window.__qaExport=Object.fromEntries(wb.SheetNames.map(k=>[k,window.XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,defval:''})]))});
   await p.locator('[data-action="export-closings-current"]').click();const wb=await p.evaluate(()=>window.__qaExport);
-  assert.equal(wb.Cierres[4][7],'');assert.equal(wb['Detalle por caja'][1][3],'');assert.equal(wb['Detalle por caja'][1][4],'');assert.equal(wb['Detalle por caja'][1][13],'');assert.equal(wb['Detalle por caja'][1][5],30);
+  const detail=wb['Detalle por caja'].find(row=>row[2]==='Caja Vape');
+  assert.equal(wb.Cierres[4][7],'');assert.equal(detail[3],'');assert.equal(detail[4],'');assert.equal(detail[13],'');assert.equal(detail[5],30);
+ }finally{await p.close()}});
+ await attempt('downloaded Excel contains the actual saved totals and both till balances',async()=>{const p=await fresh();try{
+  await drawers(p,[{Open:100,Close:120,Card:200,Withdraw:50},{Open:20,Close:30,Card:40,Withdraw:15}]);
+  await p.locator('#clReported').fill('335');await p.locator('[data-action="closing-save-close"]').click();await p.getByText('Cierre cerrado y cuadrado.',{exact:true}).last().waitFor();
+  await p.locator('[data-action="closing-back"]').click();const event=p.waitForEvent('download');await p.locator('[data-action="export-closings-current"]').click();
+  const file=await event;assert.match(file.suggestedFilename(),/^cierres_.*\.xlsx$/);
+  const wb=XLSX.read(await readFile(await file.path()),{type:'buffer'}),rows=XLSX.utils.sheet_to_json(wb.Sheets.Cierres,{header:1}),detail=XLSX.utils.sheet_to_json(wb.Sheets['Detalle por caja']);
+  assert.equal(rows[4][7],335);assert.equal(wb.Sheets.Cierres.H6.v,335);assert.equal(rows[4][9],'Conciliado y aceptado');
+  assert.equal(detail.find(r=>r.Caja==='Caja Vape').Cierre,120);assert.equal(detail.find(r=>r.Caja==='Caja Head').Cierre,30);assert.equal(detail.reduce((s,r)=>s+r.Salidas,0),65);
  }finally{await p.close()}});
  await attempt('desktop and mobile list and editor have no horizontal page overflow',async()=>{const p=await fresh();try{
   await drawers(p);await p.locator('#clReported').fill('80');await p.locator('[data-action="closing-save-close"]').click();await p.getByText('Cierre cerrado y cuadrado.',{exact:true}).last().waitFor();
