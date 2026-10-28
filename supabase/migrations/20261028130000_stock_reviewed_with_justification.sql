@@ -1,10 +1,6 @@
--- Revision closure is independent of the documentary differences.
--- Keep existing quantities, source references and the audit/history tables unchanged.
-ALTER TABLE public.ops_stock_receipts
- DROP CONSTRAINT ops_stock_receipts_status_check;
-ALTER TABLE public.ops_stock_receipts
- ADD CONSTRAINT ops_stock_receipts_status_check
- CHECK (status IN ('pending','needs_review','differences','matched','reviewed'));
+-- Human sign-off lives in the existing result JSONB, not in a new database
+-- status value. This preserves the *exact* recovery schema hash and old backups.
+-- Documentary comparison keeps its original server-computed status.
 
 -- Saving a new documentary comparison invalidates any earlier human sign-off.
 -- The comparison calculator remains untouched, and never returns 'reviewed'.
@@ -56,6 +52,9 @@ BEGIN
  IF r.status NOT IN ('needs_review','differences') THEN
   RAISE EXCEPTION 'Solo se pueden cerrar recepciones cotejadas con incidencias';
  END IF;
+ IF r.result ? 'review' THEN
+  RAISE EXCEPTION 'La recepción ya está revisada. Un nuevo cotejo o corrección exige otra revisión';
+ END IF;
  IF r.result->'complete' IS DISTINCT FROM 'true'::jsonb
   OR jsonb_typeof(r.result->'rows') IS DISTINCT FROM 'array'
   OR jsonb_array_length(r.result->'rows')=0 THEN
@@ -102,7 +101,7 @@ BEGIN
    'note',note,'reviewed_by',actor,'reviewed_at',now(),
    'comparison_status',calculated,'comparison_revision',r.revision
   ),true),
-  status='reviewed',revision=revision+1,updated_at=now()
+  revision=revision+1,updated_at=now()
  WHERE id=p_id RETURNING * INTO r;
  PERFORM private.totus_stock_revision(p_id,'reviewed',actor);
  RETURN r;
@@ -138,7 +137,7 @@ BEGIN
  END IF;
  SELECT * INTO STRICT r FROM public.ops_stock_receipts WHERE id=p_id FOR UPDATE;
  IF r.revision<>p_revision THEN RAISE EXCEPTION 'La recepción ha cambiado. Vuelve a leer antes de corregir';END IF;
- IF r.status NOT IN ('needs_review','differences','reviewed') OR r.result->'complete' IS DISTINCT FROM 'true'::jsonb
+ IF r.status NOT IN ('needs_review','differences') OR r.result->'complete' IS DISTINCT FROM 'true'::jsonb
   THEN RAISE EXCEPTION 'Primero debe existir un cotejo completo';END IF;
  SELECT e.value,(e.ordinality-1)::integer INTO line,idx
  FROM jsonb_array_elements(r.result->'rows') WITH ORDINALITY e(value,ordinality)
