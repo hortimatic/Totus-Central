@@ -31,7 +31,7 @@ export function chatGroups(channels,layout={}){
  layout=chatLayout(layout);
  channels=channels.map(c=>({...c,group_name:layout.channel_groups[c.id]||c.group_name}));
  const names=[...new Set([...(layout.group_order||[]),...CHAT_GROUPS,...channels.map(c=>c.group_name),...(layout.extra_groups||[])])];
- return names.map(name=>({name,label:layout.group_labels?.[name]||name,channels:channels.filter(c=>c.group_name===name).sort((a,b)=>(layout.channel_order.includes(a.id)||layout.channel_order.includes(b.id)?(layout.channel_order.indexOf(a.id)<0?10000:layout.channel_order.indexOf(a.id))-(layout.channel_order.indexOf(b.id)<0?10000:layout.channel_order.indexOf(b.id)):0)||Number(!!b.favourite)-Number(!!a.favourite)||
+ return names.map(name=>({name,label:layout.group_labels?.[name]||name,channels:channels.filter(c=>c.group_name===name).sort((a,b)=>(!['recent','alphabetical'].includes(layout.group_sort?.[name])&&(layout.channel_order.includes(a.id)||layout.channel_order.includes(b.id))?(layout.channel_order.indexOf(a.id)<0?10000:layout.channel_order.indexOf(a.id))-(layout.channel_order.indexOf(b.id)<0?10000:layout.channel_order.indexOf(b.id)):0)||Number(!!b.favourite)-Number(!!a.favourite)||
   (layout.group_sort?.[name]==='recent'?Number(b.last_seq||0)-Number(a.last_seq||0):layout.group_sort?.[name]==='alphabetical'?0:Number(a.sort_order||0)-Number(b.sort_order||0))||a.name.localeCompare(b.name,'es'))})).filter(g=>g.channels.length||(layout.extra_groups||[]).includes(g.name));
 }
 export function chatTaskPrompt(channel,message){
@@ -49,5 +49,5 @@ export function chatMoveChannel(channels,layout,sourceId,targetId){
  const group=layout.channel_groups[target.id]||target.group_name;
  const order=chatGroups(channels,layout).flatMap(g=>g.channels.map(c=>c.id)).filter(id=>id!==sourceId);
  order.splice(order.indexOf(targetId),0,sourceId);
- return chatLayout({...layout,channel_order:order,channel_groups:{...layout.channel_groups,[sourceId]:group}});
+ return chatLayout({...layout,group_sort:{...layout.group_sort,[group]:'manual'},channel_order:order,channel_groups:{...layout.channel_groups,[sourceId]:group}});
 }

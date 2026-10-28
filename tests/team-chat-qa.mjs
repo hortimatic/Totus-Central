@@ -32,3 +32,4 @@ assert.deepEqual(chatGroups(moveRows,moved).find(g=>g.name==='Hortimatic').chann
 assert.equal(moveRows[2].group_name,'NewOldSmok','A personal move cannot change the shared channel');
 assert.deepEqual(chatMoveChannel(moveRows,moved,'missing','a'),moved);
 assert.deepEqual(chatLayout(JSON.parse(JSON.stringify(moved))),moved,'Order survives server roundtrip');
+assert.deepEqual(chatGroups(moveRows,{...moved,group_sort:{Hortimatic:'alphabetical'}}).find(g=>g.name==='Hortimatic').channels.map(c=>c.id),['a','b','c'],'Alphabetical choice overrides prior drag order');
