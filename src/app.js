@@ -97,8 +97,9 @@ function permissionForAction(action,el){
  if(action.startsWith('stock-')){
   if(['stock-supplier-new','stock-supplier-save'].includes(action))return {module:'gastos',operation:'create'};
   if(action.startsWith('stock-export-'))return {module:'documentos',operation:'export'};
-  const managerOnly=['stock-equivalence-new','stock-equivalence-save'].includes(action);
-  const operation=['stock-create-save','stock-new'].includes(action)?'create':managerOnly||['stock-upload-save','stock-upload-retry-save','stock-upload-discard','stock-existing-save','stock-source-remove','stock-edit','stock-edit-save'].includes(action)?'edit':'view';
+  const deletion=['stock-delete-new','stock-delete-save'].includes(action);
+  const managerOnly=deletion||['stock-equivalence-new','stock-equivalence-save'].includes(action);
+  const operation=deletion?'delete':['stock-create-save','stock-new'].includes(action)?'create':managerOnly||['stock-pair-new','stock-pair-save','stock-upload-save','stock-upload-retry-save','stock-upload-discard','stock-existing-save','stock-source-remove','stock-edit','stock-edit-save'].includes(action)?'edit':'view';
   return {module:'documentos',operation,managerOnly};
  }
  if(/^(closing-|export-closings-current)/.test(action))module='cajas';
