@@ -9,6 +9,10 @@ select public.qa_denied('select public.totus_chat_save_layout(''{"role":"admin"}
 select public.qa_denied('select public.totus_chat_save_layout(''{"group_sort":{"Hortimatic":"execute"}}'')','Orden no válido');
 select public.qa_denied('select public.totus_chat_save_layout(''{"collapsed_groups":"wrong"}'')','Lista de secciones');
 select public.qa_denied('select public.totus_chat_save_layout(''{"channel_groups":{"bad":"Mi sección"}}'')','Canal no válido');
+select public.totus_chat_save_layout(public.totus_chat_context()->'layout'||'{"sound_enabled":true,"desktop_enabled":false}'::jsonb);
+select public.qa_assert((public.totus_chat_context()->'layout'->>'sound_enabled')::boolean,'sound preference persists');
+select public.qa_denied('select public.totus_chat_save_layout(''{"sound_enabled":"yes"}'')','Aviso no válido');
+select public.qa_denied('select public.totus_chat_save_layout(''{"desktop_enabled":null}'')','Aviso no válido');
 select public.qa_denied('select public.totus_chat_save_layout(null)','Organización no válida');
 select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
 select public.qa_assert(public.totus_chat_context()->'layout'='{}'::jsonb,'a teammate never receives another account layout');

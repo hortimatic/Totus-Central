@@ -63,3 +63,9 @@ Los accesos Canal, Mensaje directo y Sección están agrupados en Crear; Avisos 
 Los filtros de mensajes no se aplican hasta pulsar Buscar. Si llegan mensajes mientras se consulta historial antiguo, usar Mensajes nuevos · Ver al final; no hace falta perder la posición de lectura. La apertura desde avisos señala el mensaje en su canal cuando está en la página actual.
 
 La automatización de ChatGPT y un contador de costes quedan expresamente para una futura revisión. La operativa convencional por solicitud se mantiene.
+# Sonido e iconos
+
+En Chat, **Sonido y avisos** permite probar, activar o desactivar sonido y notificaciones de escritorio. Las preferencias se guardan por cuenta; el permiso depende de cada navegador. Totus debe permanecer abierto. No hay atención automática de ChatGPT ni avisos push con la aplicación cerrada.
+
+Los responsables pueden elegir **Icono del canal** al crear o configurar el canal. El icono es parte del nombre compartido; no cambia su identificador, sus miembros o los datos de la conversación. No renombres canales por iniciativa propia.
+

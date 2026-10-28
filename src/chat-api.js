@@ -16,26 +16,4 @@ export function subscribeChat(channelId,onChange){
  channel.subscribe();
  return ()=>{sb.removeChannel(channel).catch(()=>{});};
 }
-export function createChatNotifier({rpc,actor,can=()=>true,onCount,onOpen,NotificationClass=globalThis.Notification}){
- let timer=null,owner='',running=false,seen=new Set(),primed=false;
- async function check(){
-  if(!can()){onCount(0,[]);return;}
-  if(running||!actor()||document.visibilityState!=='visible')return;
-  if(owner!==actor()){owner=actor();seen.clear();primed=false;}
-  const checkOwner=owner;running=true;
-  try{
-   const messages=await rpc('totus_chat_inbox',{p_mentions:false});
-   if(checkOwner!==actor()||!Array.isArray(messages))return;
-   const visibleMessages=messages.filter(m=>m.channel_kind!=='assistant');
-   onCount(visibleMessages.length,visibleMessages);
-   if(primed&&NotificationClass?.permission==='granted'){
-    for(const message of visibleMessages.filter(m=>m.desktop_enabled&&!seen.has(m.id)).slice(0,5)){
-     const note=new NotificationClass('Totus Central · '+message.channel_name,{body:'Tienes un mensaje nuevo.',tag:'totus-'+message.id,icon:'favicon.svg'});
-     note.onclick=()=>{window.focus();onOpen(message);note.close();};
-    }
-   }
-   messages.forEach(m=>seen.add(m.id));if(seen.size>2000)seen=new Set(messages.map(m=>m.id));primed=true;
-  }catch{onCount(null,[]);}finally{running=false;}
- }
- return {check,start(){clearInterval(timer);check();timer=setInterval(check,30000);},stop(){clearInterval(timer);timer=null;owner='';seen.clear();primed=false;}};
-}
+export {createChatNotifier} from './chat-alerts.js';
