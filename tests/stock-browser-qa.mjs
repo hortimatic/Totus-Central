@@ -15,7 +15,7 @@ try{
   sb.rpc=async(name,p={})=>{
    if(!name.startsWith('totus_stock_'))return original(name,p);
    const r=db.ops_stock_receipts.find(r=>r.id===p.p_id);
-   const revision=(r,action)=>db.ops_stock_revisions.push({id:crypto.randomUUID(),receipt_id:r.id,revision:r.revision,action,actor_email:'qa@example.com',created_at:new Date().toISOString()});
+   const revision=(r,action)=>db.ops_stock_revisions.push({id:crypto.randomUUID(),receipt_id:r.id,revision:r.revision,action,actor_email:'qa@example.com',created_at:new Date().toISOString(),review:r.result?.review?clone(r.result.review):null});
    if(name==='totus_stock_create'){
     const next={id:crypto.randomUUID(),store_id:p.p_store,supplier:p.p_supplier,reference:p.p_reference,received_on:p.p_date,notes:p.p_notes,revision:1,status:'pending',result:{rows:[],coverage:[],complete:false}};
     db.ops_stock_receipts.push(next);revision(next,'created');return {data:clone(next),error:null};
@@ -115,8 +115,11 @@ try{
  await page.locator('#stockReviewNote').fill('El recuento ha confirmado dos unidades pendientes de reclamar al proveedor.');
  await page.locator('[data-action="stock-review-save"]').click();
  await page.getByText('Revisión guardada con justificación e historial.',{exact:true}).waitFor();
- assert((await page.locator('.stock-page').innerText()).includes('Revisado con incidencias'));
+ assert((await page.locator('.stock-page').innerText()).includes('Revisado'));
+ assert.equal(await page.locator('.stock-step .badge.good').filter({hasText:'Revisado'}).count(),1,'Signed-off receipt must have green status badge');
  assert((await page.locator('.stock-page').innerText()).includes('dos unidades pendientes de reclamar'));
+ await page.locator('summary').filter({hasText:'Historial de revisiones'}).click();
+ assert((await page.locator('.stock-history').filter({hasText:'Revisado con justificación'}).innerText()).includes('dos unidades pendientes de reclamar'),'Historical review must include original note');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].prestashop_qty),8,'Human sign-off must not change units');
  const reviewedReport=page.waitForEvent('download');await page.locator('[data-action="stock-export-html"]').click();
  const reviewHtml=await readFile(await (await reviewedReport).path(),'utf8');
@@ -124,6 +127,8 @@ try{
  await page.locator('[data-action="stock-source-remove"]').last().click();await page.locator('#modalHost [data-confirm="accept"]').click();
  await page.getByText('entrada.txt',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('.stock-source').count(),1);
+ await page.locator('summary').filter({hasText:'Historial de revisiones'}).click();
+ assert((await page.locator('.stock-history').filter({hasText:'Revisado con justificación'}).innerText()).includes('dos unidades pendientes de reclamar'),'Later documentary changes must not erase historical justification');
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),2,'Unlink must preserve originals');
  await page.locator('summary').filter({hasText:'Usar un documento ya guardado'}).click();
