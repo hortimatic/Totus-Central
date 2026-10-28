@@ -596,12 +596,13 @@ async function saveExpense(id=''){
  if(paidDate&&paidDate>isoToday())throw new Error('La fecha de pago no puede ser futura.');
  const lineEls=[...document.querySelectorAll('.expense-line')];
  if(!lineEls.length)throw new Error('Añade al menos un concepto.');
+ const savedLines=existing?state.data.expenseLines.filter(x=>x.expense_id===existing.id).sort((a,b)=>a.sort_order-b.sort_order):[];
  const lines=lineEls.map((el,i)=>{
    const ix=el.dataset.lineIndex,base=num(`exLineBase_${ix}`),vat=num(`exLineVat_${ix}`),re=num(`exLineRe_${ix}`),wh=num(`exLineWh_${ix}`),dedPct=num(`exLineDedPct_${ix}`);
    required(`exLineBase_${ix}`,`Base de la línea ${i+1} (indica 0 si es cero)`);
    validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct,documentKind:val('exDocKind')});
    const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
-   return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!input('exManagement')?.checked&&!!input(`exLineDed_${ix}`)?.checked,deductible_pct:input('exManagement')?.checked?0:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
+   return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!input('exManagement')?.checked&&!!input(`exLineDed_${ix}`)?.checked,deductible_pct:input('exManagement')?.checked?0:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:savedLines[Number(ix)]?.notes||''};
  });
  validateExpenseClassification(lines,state.data.categories,!!input('exManagement')?.checked);
  for(const line of lines)Object.assign(line,expenseLineAmounts(line));
