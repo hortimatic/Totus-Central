@@ -40,6 +40,12 @@ try{
   assert.equal(rows[4][7],335);assert.equal(wb.Sheets.Cierres.H6.v,335);assert.equal(rows[4][9],'Conciliado y aceptado');
   assert.equal(detail.find(r=>r.Caja==='Caja Vape').Cierre,120);assert.equal(detail.find(r=>r.Caja==='Caja Head').Cierre,30);assert.equal(detail.reduce((s,r)=>s+r.Salidas,0),65);
  }finally{await p.close()}});
+ await attempt('verified historical sales stay visible in Excel without duplicating monthly fiscal income',async()=>{const p=await fresh();try{
+  await drawers(p);await p.locator('#clReported').fill('80');await p.locator('[data-action="closing-save-close"]').click();await p.getByText('Cierre cerrado y cuadrado.',{exact:true}).last().waitFor();
+  const income=await p.evaluate(async()=>{const db=window.__mockDb;db.ops_daily_closings[0].include_in_income=false;await(await import('/src/api.js')).loadCore();return (await import('/src/calculations.js')).closingIncomeAmount(db.ops_daily_closings[0])});assert.equal(income,0);
+  await p.locator('[data-action="closing-back"]').click();await p.evaluate(()=>window.XLSX.writeFile=wb=>window.__qaHistorical=window.XLSX.utils.sheet_to_json(wb.Sheets.Cierres,{header:1}));
+  await p.locator('[data-action="export-closings-current"]').click();assert.equal((await p.evaluate(()=>window.__qaHistorical))[4][7],80,'Fiscal exclusion incorrectly hid operational sales');
+ }finally{await p.close()}});
  await attempt('desktop and mobile list and editor have no horizontal page overflow',async()=>{const p=await fresh();try{
   await drawers(p);await p.locator('#clReported').fill('80');await p.locator('[data-action="closing-save-close"]').click();await p.getByText('Cierre cerrado y cuadrado.',{exact:true}).last().waitFor();
   for(const width of [320,360,375,390,414,480,600,700,768,820,900,1024,1100,1280,1440,1920,2560]){

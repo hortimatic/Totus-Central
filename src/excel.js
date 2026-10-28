@@ -27,7 +27,7 @@ export function exportClosingsWorkbook({closings,closingDrawers,stores,drawers,f
   fmtDate(c.business_date),storeName(stores,c.store_id),'',readClosingSource(c).card_sales??'','','','',c.include_in_income===false?'':closingIncomeAmount(c),n(c.actual_cash),closingStateLabel(c,settings),c.notes||''
  ]:[
   fmtDate(c.business_date),storeName(stores,c.store_id),incompleteClosing(c)?'':n(c.cash_sales),n(c.card_sales),n(c.bizum_sales),n(c.online_sales),n(c.other_income),
-  incompleteClosing(c)?'':closingSalesAmount(c),Object.values(closingMissingFields(c)).some(fields=>fields.includes('closing_cash'))?'':n(c.actual_cash),closingStateLabel(c,settings),c.notes||''
+  incompleteClosing(c)?'':['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((sum,key)=>sum+n(c[key]),0),Object.values(closingMissingFields(c)).some(fields=>fields.includes('closing_cash'))?'':n(c.actual_cash),closingStateLabel(c,settings),c.notes||''
  ]);
  const aoa=[['CIERRES DE CAJA'],[`Periodo: ${fmtDate(from)} - ${fmtDate(to)}`],[],['Fecha','Tienda','Efectivo','Tarjeta','Bizum','Online','Otros','Total ventas','Efectivo final','Estado','Observaciones'],...rows];
  const totalRow=aoa.length;

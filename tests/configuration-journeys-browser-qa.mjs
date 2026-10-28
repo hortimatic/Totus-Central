@@ -86,9 +86,9 @@ try{
   const book=XLSX.read(fs.readFileSync(await file.path()));assert(book.SheetNames.length>0,'Export must contain a readable workbook');
   if(action==='export-closings'){
    const values=Object.values(book.Sheets.Cierres).filter(c=>c&&typeof c==='object').map(c=>c.v);
-   assert(values.includes('borrador'));assert(values.includes('Borrador ficticio para terminar después'));
+   assert(values.includes('Borrador'));assert(values.includes('Borrador ficticio para terminar después'));
    assert.equal(book.Sheets.Cierres.D5.v,45,'Detailed export must retain the entered card amount');
-   assert.equal(book.Sheets.Cierres.H5.v,45,'Detailed working export must retain the entered sales and their draft status');
+   assert.equal(book.Sheets.Cierres.H5?.v??'','','A card-only draft must not invent total sales while opening and final cash are unknown');
   }
  }
  const printReady=page.waitForEvent('popup');await page.locator('[data-action="report-gestor-source-print"]').click();

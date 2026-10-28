@@ -32,6 +32,10 @@ PostgreSQL desechable. No se crean cierres de prueba en producción.
    igual que el listado y la siguiente apertura.
 7. El servidor comparaba la fecha con el día UTC. Utiliza el calendario de
    España, para no rechazar la jornada actual después de medianoche.
+8. Un cierre importado convertido a manual y ya conciliado podía mostrar cero
+   ventas en Excel al estar cubierto por una referencia fiscal mensual. La
+   descarga de Cajas muestra sus ventas operativas; Fiscalidad mantiene la
+   exclusión para no duplicar el ingreso mensual. Son criterios distintos.
 
 El parche conserva autorización, protección de periodos cerrados, solicitudes
 idempotentes, bloqueo de fichas antiguas, auditoría y selección fiscal existente.
