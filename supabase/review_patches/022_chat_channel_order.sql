@@ -83,3 +83,16 @@ BEGIN
  if not exists(select 1 from public.ops_chat_channels c where c.id=r.channel_id and (not c.is_private or exists(select 1 from public.ops_chat_members am where am.channel_id=c.id and am.email=''chatgpt@totuscentral.invalid''))) then raise exception ''Invita al usuario ChatGPT a este canal privado.'';end if;');
  EXECUTE definition;
 END $patch$;
+
+-- Queue listing must not confuse the PL/pgSQL record r with the SQL alias.
+DO $patch$
+DECLARE definition text; section text; first_pos integer; last_pos integer;
+BEGIN
+ SELECT pg_get_functiondef('private.totus_chat_agent_context(uuid,uuid)'::regprocedure) INTO definition;
+ first_pos=strpos(definition,'if p_request is null then');
+ last_pos=first_pos+strpos(substr(definition,first_pos),'end if;')+6;
+ IF first_pos=0 OR last_pos<=first_pos THEN RAISE EXCEPTION 'Unexpected queue definition'; END IF;
+ section=substr(definition,first_pos,last_pos-first_pos);
+ definition=replace(definition,section,replace(replace(section,'r.','queued.'),'ops_chat_agent_requests r join','ops_chat_agent_requests queued join'));
+ EXECUTE definition;
+END $patch$;

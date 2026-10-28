@@ -40,6 +40,7 @@ select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select public.qa_denied(format('select public.totus_chat_agent_context(%L,%L)',:'request_id',gen_random_uuid()),'terminen las subidas');
 select public.qa_denied(format('select public.totus_chat_file_verified(%L,%L,%L)',:'file_id','item','22222222-2222-4222-8222-222222222222'),'permiso');
 select public.totus_chat_file_verified(:'file_id','item-test','11111111-1111-4111-8111-111111111111');
+select public.qa_assert(jsonb_array_length(public.totus_chat_agent_context())>=1,'Queue listing uses an unambiguous SQL alias');
 select public.totus_chat_agent_context(:'request_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') as context \gset
 select public.qa_assert(:'context'::jsonb->'permissions'->>'accounting_writes'='false','agent scope is reply/propose');
 select public.qa_denied(format('select public.totus_chat_agent_context(%L,%L)',:'request_id','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),'Otra ejecución');
