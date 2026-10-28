@@ -1,0 +1,51 @@
+begin;
+select set_config('request.jwt.claims','{"sub":"99999999-9999-4999-8999-999999999999","create":true,"edit":true}',true);
+do $qa$
+declare
+ p jsonb:=jsonb_build_object('store_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','business_date',private.totus_business_today(),'status','borrador','notes','Nota ficticia');
+ d jsonb:='[{"drawer_id":"11111111-1111-4111-8111-111111111111","opening_cash":100,"closing_cash":null,"card_sales":30},{"drawer_id":"22222222-2222-4222-8222-222222222222","opening_cash":0,"closing_cash":20}]';
+ v_saved uuid; r public.ops_daily_closings%rowtype; blocked boolean;
+begin
+ v_saved:=public.totus_save_closing(p,d);
+ select * into r from public.ops_daily_closings where ops_daily_closings.id=v_saved;
+ perform qa_assert(r.status='borrador' and r.cash_sales=0 and r.source_ref::jsonb->'draft_missing_fields'->'11111111-1111-4111-8111-111111111111'='["closing_cash"]'::jsonb,'Unknown reading survives draft');
+ p:=p||jsonb_build_object('id',v_saved,'status','cerrado','reported_total_sales',50);
+ blocked:=false;begin perform public.totus_save_closing(p,d);exception when others then blocked:=sqlerrm like '%efectivo final%';end;
+ perform qa_assert(blocked,'Missing closing must be refused');
+ d:=jsonb_set(d,'{0,closing_cash}','50');
+ blocked:=false;begin perform public.totus_save_closing(p,d);exception when others then blocked:=sqlerrm like '%negativas%';end;
+ perform qa_assert(blocked,'Negative till cannot be offset by another till');
+ d:=jsonb_set(d,'{0,closing_cash}','100');
+ update public.ops_daily_closings set include_in_income=false,source_ref=(source_ref::jsonb||'{"kind":"closing_source_snapshot","original":"preserved"}'::jsonb)::text where ops_daily_closings.id=v_saved;
+ perform public.totus_save_closing(p,d);
+ select * into r from public.ops_daily_closings where ops_daily_closings.id=v_saved;
+ perform qa_assert(r.status='cerrado' and r.cash_sales=20 and r.card_sales=30 and r.difference=0,'Balanced totals persisted');
+ perform qa_assert(not r.include_in_income and r.source_ref::jsonb->>'original'='preserved' and not(r.source_ref::jsonb?'draft_missing_fields'),'Fiscal selection and original preserved; missing flag removed');
+ perform qa_assert((select count(*)=2 from public.ops_daily_closing_drawers where closing_id=v_saved),'Exactly two till details');
+ blocked:=false;begin perform public.totus_save_closing(p,d-0);exception when others then blocked:=sqlerrm like '%todas las cajas%';end;
+ perform qa_assert(blocked,'Cannot omit an active till when closing');
+ blocked:=false;begin perform public.totus_save_closing(p,jsonb_set(d,'{0,drawer_id}','"33333333-3333-4333-8333-333333333333"'));exception when others then blocked:=sqlerrm like '%establecimiento%';end;
+ perform qa_assert(blocked,'Wrong store refused');
+ blocked:=false;begin perform public.totus_save_closing(p,jsonb_set(d,'{1,drawer_id}','"11111111-1111-4111-8111-111111111111"'));exception when others then blocked:=sqlerrm like '%repetir%';end;
+ perform qa_assert(blocked,'Duplicate till refused');
+ blocked:=false;begin perform public.totus_save_closing(p||'{"reported_total_sales":51}',d);exception when others then blocked:=sqlerrm like '%descuadrado%';end;
+ perform qa_assert(blocked,'Sales mismatch refused');
+ blocked:=false;begin perform public.totus_save_closing(p,jsonb_set(d,'{0,card_sales}','"NaN"'));exception when others then blocked:=sqlerrm like '%finitos%';end;
+ perform qa_assert(blocked,'NaN refused');
+ blocked:=false;begin perform public.totus_save_closing(p,jsonb_set(d,'{0,card_sales}','-1'));exception when others then blocked:=sqlerrm like '%negativos%';end;
+ perform qa_assert(blocked,'Negative input refused');
+ blocked:=false;begin perform public.totus_save_closing(p,null);exception when others then blocked:=sqlerrm like '%al menos%';end;
+ perform qa_assert(blocked,'Null drawer payload refused');
+ blocked:=false;begin perform public.totus_save_closing(p||jsonb_build_object('business_date',private.totus_business_today()+1),d);exception when others then blocked:=sqlerrm like '%futura%';end;
+ perform qa_assert(blocked,'Future Spanish business date refused');
+ p:=p||'{"status":"borrador"}';d:=jsonb_set(d,'{0,opening_cash}','0');d:=jsonb_set(d,'{0,closing_cash}','0');
+ perform public.totus_save_closing(p,d);
+ perform qa_assert((select source_ref::jsonb->'draft_missing_fields' is null from public.ops_daily_closings where ops_daily_closings.id=v_saved),'Explicit zero is known, not missing');
+ perform set_config('request.jwt.claims','{}',true);
+ blocked:=false;begin perform public.totus_save_closing(p,d);exception when others then blocked:=sqlerrm like '%administración%';end;
+ perform qa_assert(blocked,'Unprivileged write refused');
+ perform qa_assert((select count(*)=3 from qa_audit),'Only successful operations audited');
+end
+$qa$;
+rollback;
+select 'CLOSING DATABASE QA PASSED';
