@@ -1,4 +1,6 @@
 // Pure chat rules. A message is never an accounting entry.
+export const CHAT_CHANNEL_ICONS=[['','Sin icono'],['📣','Avisos'],['💬','Conversación'],['🧾','Facturas y gastos'],['💶','Cajas'],['📦','Pedidos'],['🏪','Tienda'],['🛒','Clientes'],['✅','Tareas'],['📋','Revisiones'],['🚚','Recepciones'],['🔧','Soporte'],['📁','Documentos'],['⭐','Destacado']];
+export function chatChannelIdentity(name=''){const icon=CHAT_CHANNEL_ICONS.find(([v])=>v&&name.startsWith(v+' '))?.[0]||'';return {icon,name:icon?name.slice(icon.length+1):name};}
 export const CHAT_GROUPS=['Mensajes directos','Equipo','Hortimatic','NewOldSmok','Totuscode'];
 export const CHAT_REACTIONS=['👍','✅','👀','❤️'];
 export const CHAT_TASK_STATES={pending:'Pendiente',working:'En curso',done:'Terminado'};
@@ -8,7 +10,7 @@ export function chatText(value,max=12000){
  return text;
 }
 export function chatChannelInput(input){
- const name=chatText(input.name,80),group=chatText(input.group_name||'Equipo',80);
+ const plain=chatText(input.name,80),icon=CHAT_CHANNEL_ICONS.some(([v])=>v===input.icon)?input.icon:'',name=chatText((icon?icon+' ':'')+plain,80),group=chatText(input.group_name||'Equipo',80);
  return {name,group_name:group,description:String(input.description||'').trim().slice(0,500),is_private:input.is_private===true,store_id:input.store_id||null};
 }
 export function chatDateRange(from='',to=''){
@@ -25,7 +27,7 @@ export function chatLayout(value={}){
  const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
  const names=v=>[...new Set((Array.isArray(v)?v:[]).filter(s=>typeof s==='string'&&s.trim()&&s.length<=80))].slice(0,100);
  const map=(v,allowed)=>Object.assign(Object.create(null),Object.fromEntries(Object.entries(v&&typeof v==='object'&&!Array.isArray(v)?v:{}).filter(([k,s])=>k&&k.length<=80&&typeof s==='string'&&s.trim()&&s.length<=80&&(!allowed||allowed.includes(s))).slice(0,100)));
- return {compact_sidebar:source.compact_sidebar===true,collapsed_groups:names(source.collapsed_groups),hidden_groups:names(source.hidden_groups),extra_groups:names(source.extra_groups),group_order:names(source.group_order),group_labels:map(source.group_labels),group_sort:map(source.group_sort,['alphabetical','recent','manual']),channel_groups:map(source.channel_groups),channel_order:names(source.channel_order)};
+ return {...(typeof source.sound_enabled==='boolean'?{sound_enabled:source.sound_enabled}:{}),...(typeof source.desktop_enabled==='boolean'?{desktop_enabled:source.desktop_enabled}:{}),compact_sidebar:source.compact_sidebar===true,collapsed_groups:names(source.collapsed_groups),hidden_groups:names(source.hidden_groups),extra_groups:names(source.extra_groups),group_order:names(source.group_order),group_labels:map(source.group_labels),group_sort:map(source.group_sort,['alphabetical','recent','manual']),channel_groups:map(source.channel_groups),channel_order:names(source.channel_order)};
 }
 export function chatGroups(channels,layout={}){
  layout=chatLayout(layout);
