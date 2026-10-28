@@ -17,6 +17,12 @@ export function pairUnmatchedStockRows(rows,{supplierLineId,prestashopLineId,not
  if(!unmatched.supplier.includes(supplier)||!unmatched.prestashop.includes(prestashop)){
   throw new Error('La correspondencia cambió. Actualiza la recepción antes de asignar.');
  }
+ const variant=value=>string(value).toLocaleLowerCase('es').replace(/\\s+/g,'');
+ const supplierVariant=variant(supplier.variant),prestashopVariant=variant(prestashop.variant);
+ if(issueKind==='same_product'&&supplierVariant&&prestashopVariant&&
+    !prestashopVariant.startsWith('sinequivalencia')&&supplierVariant!==prestashopVariant){
+  throw new Error('Los formatos o variantes difieren. Revisa el catálogo o la referencia del proveedor antes de asignar.');
+ }
  if(!['same_product','prestashop_catalog','supplier_catalog'].includes(issueKind)){
   throw new Error('Indica si se trata del mismo producto o de una incidencia de catálogo.');
  }
