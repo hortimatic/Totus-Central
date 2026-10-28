@@ -1,5 +1,12 @@
 // Deterministic comparison only. Product matching is confirmed by a person or ChatGPT.
-export const STOCK_STATES={pending:'Pendiente de cotejo',needs_review:'Falta revisar',differences:'Con diferencias',matched:'Sin diferencias documentales'};
+export const STOCK_STATES={pending:'Pendiente de cotejo',needs_review:'Falta revisar',differences:'Con diferencias',matched:'Sin diferencias documentales',reviewed:'Revisado'};
+// Human closure is an audited overlay, not a change to documentary status.
+export function stockReceiptStatus(receipt={}){
+ const review=receipt.result?.review??receipt.review;
+ return ['needs_review','differences'].includes(receipt.status)&&review&&
+  String(review.note||'').trim()&&String(review.reviewed_by||'').trim()
+  ?'reviewed':receipt.status;
+}
 const quantity=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1000000?v:null;
 export function stockLineResult(row={}){
  const f=quantity(row.supplier_qty),p=quantity(row.prestashop_qty),a=quantity(row.adjustment_qty);
@@ -15,6 +22,19 @@ export function stockLineResult(row={}){
  const received=p===null||a===null||!['yes','no'].includes(row.adjustment_included)?null:p-(row.adjustment_included==='yes'?a:0);
  const difference=expected===null||received===null?null:Math.round((received-expected)*1000000)/1000000;
  return {expected,received,difference,reasons,status:reasons.length?'needs_review':difference!==0?'differences':'matched'};
+}
+// Adjustments to a documented count are separate review evidence, not edits
+// to the invoice or to the PrestaShop movement. Preserve both calculations.
+export function stockCorrectedLineResult(row={}){
+ const original=stockLineResult(row),change=row.unit_correction;
+ const valid=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1000000;
+ if(!change||!valid(change.expected)||!valid(change.received)||!String(change.reason||'').trim()){
+  return {...original,hasCorrection:false,originalExpected:original.expected,originalReceived:original.received,originalDifference:original.difference};
+ }
+ return {...original,expected:change.expected,received:change.received,
+  difference:Math.round((change.received-change.expected)*1000000)/1000000,
+  originalExpected:original.expected,originalReceived:original.received,originalDifference:original.difference,
+  hasCorrection:true};
 }
 export function stockSummary(result={},sources=[]){
  const rows=Array.isArray(result.rows)?result.rows:[],coverage=Array.isArray(result.coverage)?result.coverage:[];
