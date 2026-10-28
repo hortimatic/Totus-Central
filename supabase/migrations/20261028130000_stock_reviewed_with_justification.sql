@@ -70,7 +70,7 @@ BEGIN
   IF covered IS NULL OR covered->'complete' IS DISTINCT FROM 'true'::jsonb
    OR length(trim(coalesce(covered->>'explanation','')))=0
    OR (source.extraction->>'state' IS DISTINCT FROM 'ready'
-    AND NOT (covered->'manually_verified'='true'::jsonb AND length(trim(coalesce(covered->>'reading_note','')))>0)) THEN
+    AND NOT (covered->'manually_verified' IS NOT DISTINCT FROM 'true'::jsonb AND length(trim(coalesce(covered->>'reading_note','')))>0)) THEN
    RAISE EXCEPTION 'Completa y verifica todos los documentos antes de cerrar la revisión';
   END IF;
  END LOOP;
