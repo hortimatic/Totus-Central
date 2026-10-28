@@ -2,7 +2,7 @@ import {canUser} from './permissions.js';
 import {state} from './state.js';
 import {esc,fmtDate,isoToday,download} from './utils.js';
 import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
-import {STOCK_STATES,stockLineResult,stockCorrectedLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
+import {STOCK_STATES,stockReceiptStatus,stockLineResult,stockCorrectedLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
 import {filterStockReceipts,sameStockEquivalence,stockIdentity,stockExportRows,stockReportHtml,stockChatEvidence} from './stock-workflow.js';
 const initialView=()=>({loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',from:'',to:'',status:'all',error:'',pendingUploads:[],equivalences:[],libraryQuery:'',libraryStore:'all'});
 const view=initialView();let owner='',navigationEpoch=0;
@@ -59,18 +59,18 @@ function receiptDetail(){
  const sources=c.sources||[];
  const options=state.data.documents.filter(d=>!state.data.documentRemovals?.some(p=>p.id===d.id)&&!sources.some(s=>s.document_id===d.id)&&(!d.store_id||d.store_id===r.store_id))
  .map(d=>({value:d.id,label:[d.original_name,d.supplier_or_customer,d.invoice_number].filter(Boolean).join(' · ')}));
- const review=r.status==='reviewed'?r.result?.review:null;
+ const review=stockReceiptStatus(r)==='reviewed'?r.result?.review:null;
  const reviewPanel=review?'<div class="note"><b>Revisado</b> · '+esc(review.reviewed_by||'')+' · '+esc(review.reviewed_at||'')+'<p><b>Justificación de la revisión:</b> '+esc(review.note||'')+'</p><small>Revisión cerrada y justificada. Las diferencias originales permanecen visibles y no implican una entrega adicional. Si cambia el cotejo o sus documentos habrá que revisarlo de nuevo.</small></div>':'';
- const reviewButton=canManage()&&['needs_review','differences'].includes(r.status)&&r.result?.rows?.length?action('Marcar como revisado','stock-review-new'):'';
+ const reviewButton=canManage()&&['needs_review','differences'].includes(r.status)&&!r.result?.review&&r.result?.rows?.length?action('Marcar como revisado','stock-review-new'):'';
  return back()+'<div class="stack stock-page">'+(view.error?'<div class="note warn" role="alert">'+esc(view.error)+'</div>':'')+
- '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(r.status)+(canEdit()?action('Editar datos','stock-edit'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
+ '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(stockReceiptStatus(r))+(canEdit()?action('Editar datos','stock-edit'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
  '<section class="card card-pad stock-step"><h3>1. Documentos del pedido</h3><p>La entrada de PrestaShop es el recuento realizado por el equipo. Estos adjuntos no crean gastos ni cambian existencias.</p>'+
  sources.map(sourceCard).join('')+(sources.length?'':'<div class="note">Añade la factura o albarán y la entrada de PrestaShop del mismo pedido.</div>')+
  (view.pendingUploads.length?'<div class="note warn"><b>'+view.pendingUploads.length+' archivo(s) pendientes de asociar</b><ul>'+view.pendingUploads.map(p=>'<li>'+esc(p.file.name)+' · '+(p.kind==='supplier'?'Proveedor':'PrestaShop')+'</li>').join('')+'</ul><div class="inline-actions">'+action('Reintentar archivos pendientes','stock-upload-retry-save')+action('Quitar archivos pendientes','stock-upload-discard')+'</div></div>':'')+
  (canEdit()?'<div class="stock-upload form-grid">'+selectField('Estos documentos son de','stockKind',[{value:'supplier',label:'Proveedor · factura o albarán'},{value:'prestashop',label:'PrestaShop · entrada de mercancía'}],'supplier')+
  uploadInput('Subir archivos','stockFiles')+'<div>'+btn('Añadir archivos','stock-upload-save','primary')+'</div></div><details><summary>Usar un documento ya guardado</summary><div class="form-grid">'+selectField('Documento','stockExisting',[{value:'',label:'Selecciona un documento'},...options],'')+'<div>'+action('Asociar documento','stock-existing-save')+'</div></div></details><small>Quitar del pedido conserva el original en Documentos y devuelve el cotejo a pendiente.</small>':'')+'<div id="stockProgress" role="status" aria-live="polite"></div></section>'+
  '<section class="card card-pad stock-step"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
- '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(r.status)+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+'</div></div>'+reviewPanel+resultTable(r)+
+ '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(stockReceiptStatus(r))+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+'</div></div>'+reviewPanel+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se comparan las unidades de la factura con las registradas en PrestaShop. Los paquetes se convierten a unidades cuando su tamaño está confirmado. Si la entrada incluye un ajuste ajeno al pedido, se descuenta para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar queda pendiente.</p></details>'+
  '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',units_corrected:'Unidades corregidas con justificación',reviewed:'Revisado con justificación',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small>'+(h.action==='reviewed'&&h.review?.note?'<p><b>Justificación guardada:</b> '+esc(h.review.note)+'</p>':'')+(h.action==='units_corrected'&&h.unit_change?.reason?'<p><b>Corrección de unidades: </b>'+esc(h.unit_change.line_id||'')+' · '+esc(h.unit_change.previous_expected)+' / '+esc(h.unit_change.previous_received)+' → '+esc(h.unit_change.corrected_expected)+' / '+esc(h.unit_change.corrected_received)+'<br><b>Motivo:</b> '+esc(h.unit_change.reason)+'</p>':'')+'</div>').join('')+'</details></section></div>';
 }
@@ -95,7 +95,7 @@ export function stockPage(){
  '<div class="filters stock-filters">'+formField('Desde','stockFrom',view.from,'date','data-draft-ignore')+formField('Hasta','stockTo',view.to,'date','data-draft-ignore')+selectField('Tienda','stockFilterStore',[{value:'all',label:'Todas'},...state.data.stores.map(s=>({value:s.id,label:s.name}))],view.store,'data-draft-ignore')+selectField('Estado','stockStatus',[{value:'all',label:'Todos'},...Object.entries(STOCK_STATES).map(([value,label])=>({value,label}))],view.status,'data-draft-ignore')+formField('Buscar','stockQuery',view.query,'text','data-draft-ignore')+btn('Aplicar filtros','stock-search','primary')+action('Limpiar','stock-filter-clear')+'</div>'+
  '<p class="stock-filter-note">'+(view.from||view.to?'Periodo: '+(view.from?esc(fmtDate(view.from)):'desde el inicio')+' → '+(view.to?esc(fmtDate(view.to)):'hasta el último registro'):'Todas las fechas')+' · '+rows.length+' recepción(es)</p>'+
  (view.error?'<div class="note bad" role="alert">'+esc(view.error)+'</div>':'')+
- (!view.loaded?'<div class="note">Cargando recepciones…</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(r.status)},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'No hay pedidos con estos filtros. Puedes limpiar el rango o crear una recepción.'}))+'</section>';
+ (!view.loaded?'<div class="note">Cargando recepciones…</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(stockReceiptStatus(r))},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'No hay pedidos con estos filtros. Puedes limpiar el rango o crear una recepción.'}))+'</section>';
 }
 export async function stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256}){
  syncOwner();
@@ -138,7 +138,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   let restoreFocus=()=>{};
   if(view.mode==='library'){if(!await loadLibrary())return;restoreFocus=retainLibrarySearch();}
   else if(view.mode==='detail'&&view.context){if(!await context(view.context.receipt.id))return;}
-  else{const rows=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at');if(!currentRead(scope))return;view.receipts=rows;view.loaded=true;}
+  else{const rows=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at,review:result->review');if(!currentRead(scope))return;view.receipts=rows;view.loaded=true;}
   view.error='';render();restoreFocus();
  };
  const attach=async(doc,kind,file)=>{
@@ -206,7 +206,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-units-new'){
   if(!canManage())throw new Error('Solo gerencia puede corregir unidades.');
   const r=view.context?.receipt,row=r?.result?.rows?.find(x=>x.id===el.dataset.line);
-  if(!r||!row||!['needs_review','differences','reviewed'].includes(r.status))throw new Error('Necesitas una recepción cotejada para corregir unidades.');
+  if(!r||!row||!['needs_review','differences'].includes(r.status))throw new Error('Necesitas una recepción cotejada para corregir unidades.');
   const x=stockCorrectedLineResult(row);
   if(x.originalExpected===null||x.originalReceived===null)throw new Error('Falta comprobar las cantidades de los documentos originales.');
   stockModal('Corregir unidades justificadamente',
@@ -242,7 +242,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-review-save'){
   if(!canManage())throw new Error('Solo gerencia puede cerrar una revisión.');
   const r=view.context?.receipt,note=value('stockReviewNote').trim();
-  if(!r||!['needs_review','differences'].includes(r.status))throw new Error('Actualiza la recepción antes de revisarla.');
+  if(!r||!['needs_review','differences'].includes(r.status)||r.result?.review)throw new Error('Actualiza la recepción antes de revisarla.');
   if(note.length<20||note.length>5000)throw new Error('La justificación debe tener entre 20 y 5000 caracteres.');
   if(!document.getElementById('stockReviewConfirmed')?.checked)throw new Error('Confirma que has revisado y justificado todas las incidencias.');
   await rpc('totus_stock_mark_reviewed',{p_id:r.id,p_revision:r.revision,p_note:note});
