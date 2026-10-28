@@ -1,5 +1,5 @@
 // Deterministic comparison only. Product matching is confirmed by a person or ChatGPT.
-export const STOCK_STATES={pending:'Pendiente de cotejo',needs_review:'Falta revisar',differences:'Con diferencias',matched:'Sin diferencias documentales'};
+export const STOCK_STATES={pending:'Pendiente de cotejo',needs_review:'Falta revisar',differences:'Con diferencias',matched:'Sin diferencias documentales',reviewed:'Revisado con incidencias'};
 const quantity=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1000000?v:null;
 export function stockLineResult(row={}){
  const f=quantity(row.supplier_qty),p=quantity(row.prestashop_qty),a=quantity(row.adjustment_qty);
