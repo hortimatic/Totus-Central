@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {filterStockReceipts,sameStockEquivalence,stockExportRows,stockReportHtml,stockChatEvidence} from '../src/stock-workflow.js';
+import {unmatchedStockRows,pairUnmatchedStockRows} from '../src/stock-manual-matching.js';
 const receipts=[{id:'a',received_on:'2026-01-01',supplier:'Proveedor',store_id:'A',status:'matched'},{id:'b',received_on:'2026-02-28',supplier:'Otro',store_id:'B',status:'needs_review'},{id:'c',received_on:'2026-03-01',supplier:'Proveedor',store_id:'A',status:'pending'}];
 assert.equal(filterStockReceipts(receipts,{from:'2026-01-01',to:'2026-02-28'}).length,2);
 assert.equal(filterStockReceipts(receipts,{from:'2026-02-28',to:'2026-02-28'})[0].id,'b');
@@ -38,3 +39,62 @@ assert(sameStockEquivalence(e,row,r));assert(!sameStockEquivalence({...e,variant
 assert(!sameStockEquivalence({...e,store_id:'B'},row,r));
 assert.equal(JSON.parse(stockChatEvidence(context)).revision,4);
 console.log('STOCK WORKFLOW: inclusive ranges, store/status/text filters, guarded equivalences, complete exports, HTML safety, unknown quantities and evidence package OK');
+
+
+// Manual pairing combines two *existing* sources; it must not fabricate
+// quantities, merge sizes automatically, or change the input document rows.
+const pendingSupplier={
+ id:'supplier-l1',supplier_name:'Proveedor Gold Nuggets 25 g',
+ prestashop_name:'',supplier_qty:5,prestashop_qty:0,match_confirmed:false,
+ unit:'unidad',unit_confirmed:true,unit_factor:1,variant:'25 g',
+ source_refs:[{source_id:'s1',line_id:'factura-l1',locator:'Factura página 1'}]
+};
+const pendingPrestashop={
+ id:'prestashop-l1',supplier_name:'',prestashop_name:'Golden Nuggets 25 gr',
+ supplier_qty:0,prestashop_qty:1,match_confirmed:false,variant:'25 g',
+ source_refs:[{source_id:'s2',line_id:'entrada-l1',locator:'Entrada página 2'}]
+};
+const pending50g={
+ id:'prestashop-50g',supplier_name:'',prestashop_name:'Golden Nuggets 50 gr',
+ supplier_qty:0,prestashop_qty:5,match_confirmed:false,variant:'50 g',
+ source_refs:[{source_id:'s2',line_id:'entrada-l2',locator:'Entrada página 2'}]
+};
+const originalRows=[pendingSupplier,pendingPrestashop,pending50g];
+const candidates=unmatchedStockRows(originalRows);
+assert.equal(candidates.supplier.length,1);assert.equal(candidates.prestashop.length,2);
+assert.throws(()=>pairUnmatchedStockRows(originalRows,{
+ supplierLineId:'supplier-l1',prestashopLineId:'prestashop-l1',
+ issueKind:'same_product',note:'breve',actor:'qa@example.invalid'
+}),/20 a 5000/);
+const paired=pairUnmatchedStockRows(originalRows,{
+ supplierLineId:'supplier-l1',prestashopLineId:'prestashop-l1',
+ issueKind:'same_product',
+ note:'Revisadas referencias, etiqueta y tamaño 25 g en ambos documentos.',
+ actor:'qa@example.invalid'
+});
+assert.equal(paired.rows.length,2,'The other variant must remain separate');
+assert.equal(paired.row.prestashop_qty,1);
+assert.equal(paired.row.supplier_qty,5);
+assert.equal(paired.row.match_confirmed,true);
+assert.equal(paired.row.source_refs.length,2,'Both original source lines survive');
+assert.equal(originalRows[0].prestashop_qty,0,'Input must not be mutated');
+assert.equal(originalRows[1].supplier_qty,0,'Input must not be mutated');
+assert.equal(unmatchedStockRows(paired.rows).prestashop[0].id,'prestashop-50g');
+assert.equal(paired.row.manual_assignment.kind,'same_product');
+assert.throws(()=>pairUnmatchedStockRows(paired.rows,{
+ supplierLineId:'supplier-l1',prestashopLineId:'prestashop-50g',
+ issueKind:'same_product',note:'No se puede asignar dos veces el mismo producto.',
+ actor:'qa@example.invalid'
+}),/cambió/);
+assert.throws(()=>pairUnmatchedStockRows(originalRows,{
+ supplierLineId:'prestashop-50g',prestashopLineId:'prestashop-l1',
+ issueKind:'same_product',note:'No corresponde una fuente PrestaShop a factura.',
+ actor:'qa@example.invalid'
+}),/cambió/);
+const manualContext=structuredClone(context);
+manualContext.receipt.result.rows=[paired.row];
+const manualExport=stockExportRows(manualContext,'Hortimatic')[0];
+assert(manualExport['Asignación manual'].includes('25 g'));
+assert.equal(manualExport['Diferencia'],-4);
+assert(!manualExport['Incidencia de catálogo']);
+console.log('STOCK MANUAL PAIRING: isolated sources, preserved variants, confirmation, immutable original rows and exports OK');
