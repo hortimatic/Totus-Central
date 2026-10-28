@@ -159,3 +159,20 @@ begin
  if not denied then raise exception 'Unauthenticated connector impersonation';end if;
 end $test$;
 reset role;
+
+
+-- The delete RPC must reject an ordinary SQL/test session without
+-- an authenticated manager, regardless of the supplied receipt UUID.
+do $stock_delete_guard$
+declare denied boolean=false;
+begin
+ if to_regprocedure('public.totus_stock_delete(uuid,integer,text,text)') is null
+    then raise exception 'Missing protected receipt delete function';end if;
+ begin
+  perform public.totus_stock_delete('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
+   1,'Not a real receipt',repeat('Reason for removal ',3));
+ exception when insufficient_privilege then denied=true;
+ end;
+ if not denied then raise exception 'Receipt delete was accepted without authorized manager';end if;
+ raise notice 'STOCK DELETE QA: unauthenticated delete denied';
+end $stock_delete_guard$;
