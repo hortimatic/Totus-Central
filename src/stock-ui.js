@@ -4,6 +4,7 @@ import {esc,fmtDate,isoToday,download} from './utils.js';
 import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
 import {STOCK_STATES,stockReceiptStatus,stockLineResult,stockCorrectedLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
 import {filterStockReceipts,sameStockEquivalence,stockIdentity,stockExportRows,stockReportHtml,stockChatEvidence} from './stock-workflow.js';
+import {unmatchedStockRows,pairUnmatchedStockRows} from './stock-manual-matching.js';
 const initialView=()=>({loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',from:'',to:'',status:'all',error:'',pendingUploads:[],equivalences:[],libraryQuery:'',libraryStore:'all'});
 const view=initialView();let owner='',navigationEpoch=0;
 const actorKey=()=>String(state.user?.email||'').toLowerCase();
@@ -17,6 +18,7 @@ const action=(label,name,attrs='')=>btn(label,name,'secondary',attrs);
 const quantity=value=>value==null?'Pendiente':Number(value).toLocaleString('es-ES',{maximumFractionDigits:6});
 const canEdit=()=>canUser(state.user,'documentos','edit',state.data.userPermissions||[]);
 const canManage=()=>['admin','gerente'].includes(state.user?.role)&&canEdit();
+const canDelete=()=>canManage()&&canUser(state.user,'documentos','delete',state.data.userPermissions||[]);
 const canCreateSupplier=()=>canUser(state.user,'gastos','create',state.data.userPermissions||[]);
 const stockModal=(title,body,options)=>modal(title,'<div class="stock-modal">'+body+'</div>',options);
 const back=()=>'<div class="record-toolbar"><div>'+btn('← Volver a recepciones','stock-back','link')+'</div></div>';
@@ -50,7 +52,7 @@ function resultTable(receipt){
  {label:'Unidades recibidas del pedido',num:true,html:r=>{const x=stockCorrectedLineResult(r);return quantity(x.received)+(x.hasCorrection?'<small>Entrada original: '+quantity(x.originalReceived)+'</small>':'');}},
  {label:'Diferencia',num:true,html:r=>{const x=stockCorrectedLineResult(r);return quantity(x.difference)+(x.hasCorrection?'<small>Diferencia documental: '+quantity(x.originalDifference)+'</small>':'');}},
  {label:'Revisión y origen',html:r=>{const calculated=stockLineResult(r),saved=(view.context.equivalences||[]).find(e=>sameStockEquivalence(e,r,receipt)&&Number(e.unit_factor)===Number(r.unit_factor));
- return badge(calculated.status)+(r.unit_correction?.reason?'<small><b>Corrección justificada:</b> '+esc(r.unit_correction.reason)+' · '+esc(r.unit_correction.corrected_by||'')+'</small>':'')+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Cantidad en factura: '+quantity(r.supplier_qty)+' · Unidades por paquete: '+quantity(r.unit_factor)+'</p>'+(r.conversion_reason?'<p>'+esc(r.conversion_reason)+'</p>':'')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>'+
+ return badge(calculated.status)+(r.unit_correction?.reason?'<small><b>Corrección justificada:</b> '+esc(r.unit_correction.reason)+' · '+esc(r.unit_correction.corrected_by||'')+'</small>':'')+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+(r.manual_assignment?.reason?'<small><b>Asignación manual:</b> '+esc(r.manual_assignment.reason)+(r.manual_assignment.kind==='prestashop_catalog'?' · Revisar ficha PrestaShop':r.manual_assignment.kind==='supplier_catalog'?' · Revisar referencia del proveedor':'')+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Cantidad en factura: '+quantity(r.supplier_qty)+' · Unidades por paquete: '+quantity(r.unit_factor)+'</p>'+(r.conversion_reason?'<p>'+esc(r.conversion_reason)+'</p>':'')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>'+
  (saved?'<small>En la biblioteca de productos</small>':canManage()&&!calculated.reasons.length?action('Guardar equivalencia','stock-equivalence-new','data-line="'+esc(r.id)+'"'):'')+(canManage()&&stockLineResult(r).expected!==null&&stockLineResult(r).received!==null?action('Corregir unidades','stock-units-new','data-line="'+esc(r.id)+'"'):'');}}
  ],rows);
 }
@@ -59,18 +61,20 @@ function receiptDetail(){
  const sources=c.sources||[];
  const options=state.data.documents.filter(d=>!state.data.documentRemovals?.some(p=>p.id===d.id)&&!sources.some(s=>s.document_id===d.id)&&(!d.store_id||d.store_id===r.store_id))
  .map(d=>({value:d.id,label:[d.original_name,d.supplier_or_customer,d.invoice_number].filter(Boolean).join(' · ')}));
+ const unmatched=unmatchedStockRows(r.result?.rows||[]);
+ const pairButton=canEdit()&&unmatched.supplier.length&&unmatched.prestashop.length?action('Asignar productos sin pareja','stock-pair-new'):'';
  const review=stockReceiptStatus(r)==='reviewed'?r.result?.review:null;
  const reviewPanel=review?'<div class="note"><b>Revisado</b> · '+esc(review.reviewed_by||'')+' · '+esc(review.reviewed_at||'')+'<p><b>Justificación de la revisión:</b> '+esc(review.note||'')+'</p><small>Revisión cerrada y justificada. Las diferencias originales permanecen visibles y no implican una entrega adicional. Si cambia el cotejo o sus documentos habrá que revisarlo de nuevo.</small></div>':'';
  const reviewButton=canManage()&&['needs_review','differences'].includes(r.status)&&!r.result?.review&&r.result?.rows?.length?action('Marcar como revisado','stock-review-new'):'';
  return back()+'<div class="stack stock-page">'+(view.error?'<div class="note warn" role="alert">'+esc(view.error)+'</div>':'')+
- '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(stockReceiptStatus(r))+(canEdit()?action('Editar datos','stock-edit'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
+ '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(stockReceiptStatus(r))+(canEdit()?action('Editar datos','stock-edit'):'')+(canDelete()?action('Eliminar recepción','stock-delete-new'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
  '<section class="card card-pad stock-step"><h3>1. Documentos del pedido</h3><p>La entrada de PrestaShop es el recuento realizado por el equipo. Estos adjuntos no crean gastos ni cambian existencias.</p>'+
  sources.map(sourceCard).join('')+(sources.length?'':'<div class="note">Añade la factura o albarán y la entrada de PrestaShop del mismo pedido.</div>')+
  (view.pendingUploads.length?'<div class="note warn"><b>'+view.pendingUploads.length+' archivo(s) pendientes de asociar</b><ul>'+view.pendingUploads.map(p=>'<li>'+esc(p.file.name)+' · '+(p.kind==='supplier'?'Proveedor':'PrestaShop')+'</li>').join('')+'</ul><div class="inline-actions">'+action('Reintentar archivos pendientes','stock-upload-retry-save')+action('Quitar archivos pendientes','stock-upload-discard')+'</div></div>':'')+
  (canEdit()?'<div class="stock-upload form-grid">'+selectField('Estos documentos son de','stockKind',[{value:'supplier',label:'Proveedor · factura o albarán'},{value:'prestashop',label:'PrestaShop · entrada de mercancía'}],'supplier')+
  uploadInput('Subir archivos','stockFiles')+'<div>'+btn('Añadir archivos','stock-upload-save','primary')+'</div></div><details><summary>Usar un documento ya guardado</summary><div class="form-grid">'+selectField('Documento','stockExisting',[{value:'',label:'Selecciona un documento'},...options],'')+'<div>'+action('Asociar documento','stock-existing-save')+'</div></div></details><small>Quitar del pedido conserva el original en Documentos y devuelve el cotejo a pendiente.</small>':'')+'<div id="stockProgress" role="status" aria-live="polite"></div></section>'+
  '<section class="card card-pad stock-step"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
- '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(stockReceiptStatus(r))+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+'</div></div>'+reviewPanel+resultTable(r)+
+ '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(stockReceiptStatus(r))+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+pairButton+'</div></div>'+reviewPanel+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se comparan las unidades de la factura con las registradas en PrestaShop. Los paquetes se convierten a unidades cuando su tamaño está confirmado. Si la entrada incluye un ajuste ajeno al pedido, se descuenta para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar queda pendiente.</p></details>'+
  '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',units_corrected:'Unidades corregidas con justificación',reviewed:'Revisado con justificación',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small>'+(h.action==='reviewed'&&h.review?.note?'<p><b>Justificación guardada:</b> '+esc(h.review.note)+'</p>':'')+(h.action==='units_corrected'&&h.unit_change?.reason?'<p><b>Corrección de unidades: </b>'+esc(h.unit_change.line_id||'')+' · '+esc(h.unit_change.previous_expected)+' / '+esc(h.unit_change.previous_received)+' → '+esc(h.unit_change.corrected_expected)+' / '+esc(h.unit_change.corrected_received)+'<br><b>Motivo:</b> '+esc(h.unit_change.reason)+'</p>':'')+'</div>').join('')+'</details></section></div>';
 }
@@ -247,6 +251,80 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   if(!document.getElementById('stockReviewConfirmed')?.checked)throw new Error('Confirma que has revisado y justificado todas las incidencias.');
   await rpc('totus_stock_mark_reviewed',{p_id:r.id,p_revision:r.revision,p_note:note});
   closeModal();await context(r.id);render();toast('Revisión guardada con justificación e historial.');return;
+ }
+ if(a==='stock-pair-new'){
+  if(!canEdit())throw new Error('Necesitas permiso de edición para asignar productos.');
+  const receipt=view.context?.receipt,unmatched=unmatchedStockRows(receipt?.result?.rows||[]);
+  if(!unmatched.supplier.length||!unmatched.prestashop.length)throw new Error('No quedan líneas sin pareja en ambos documentos.');
+  const supplierOptions=unmatched.supplier.map(row=>({value:row.id,label:row.supplier_name+' · '+quantity(row.supplier_qty)+' unidad(es)'}));
+  const prestashopOptions=unmatched.prestashop.map(row=>({value:row.id,label:row.prestashop_name+' · '+quantity(row.prestashop_qty)+' unidad(es)'}));
+  stockModal('Asignar productos sin pareja','<p>Selecciona una línea de cada documento. Sus cantidades y referencias originales se conservarán. No se modifican las existencias de PrestaShop ni los PDF.</p>'+
+   '<div class="form-grid">'+selectField('Producto del proveedor','stockPairSupplier',supplierOptions,supplierOptions[0].value)+
+   selectField('Producto de PrestaShop','stockPairPrestashop',prestashopOptions,prestashopOptions[0].value)+
+   selectField('Tipo de correspondencia','stockPairKind',[
+    {value:'same_product',label:'Mismo producto, denominación distinta'},
+    {value:'prestashop_catalog',label:'Posible error en ficha de PrestaShop'},
+    {value:'supplier_catalog',label:'Posible error en referencia del proveedor'}
+   ],'same_product')+'</div>'+
+   '<label>Comprobación y motivo<textarea id="stockPairReason" rows="4" maxlength="5000" placeholder="Indica cómo has comprobado la referencia, el formato y la variante exacta."></textarea></label>'+
+   '<label class="check-field"><input type="checkbox" id="stockPairConfirmed"> He comprobado que es el mismo artículo y la misma variante; si los formatos difieren, queda documentado el motivo.</label>'+
+   (canManage()?'<label class="check-field"><input type="checkbox" id="stockPairSaveLibrary"> Además, confirmo que esta equivalencia puede reutilizarse en futuros pedidos de la misma tienda y proveedor.</label>':'<p>Solo gerencia puede añadir reglas reutilizables a la biblioteca.</p>')+
+   btn('Guardar asignación','stock-pair-save','primary'));
+  return;
+ }
+ if(a==='stock-pair-save'){
+  if(!canEdit())throw new Error('Necesitas permiso de edición para asignar productos.');
+  if(!document.getElementById('stockPairConfirmed')?.checked)throw new Error('Confirma expresamente la correspondencia y variante.');
+  const r=view.context?.receipt;
+  if(!r)throw new Error('Actualiza la recepción.');
+  const assigned=pairUnmatchedStockRows(r.result.rows,{
+   supplierLineId:value('stockPairSupplier'),prestashopLineId:value('stockPairPrestashop'),
+   issueKind:value('stockPairKind'),note:value('stockPairReason'),actor:state.user?.email
+  });
+  const library=document.getElementById('stockPairSaveLibrary')?.checked===true;
+  if(library&&!canManage())throw new Error('Solo gerencia puede confirmar equivalencias permanentes.');
+  await rpc('totus_stock_save_result',{p_id:r.id,p_revision:r.revision,p_result:{...r.result,rows:assigned.rows}});
+  let libraryError='';
+  if(library){
+   const line=assigned.row;
+   try{
+    if(!(view.context.equivalences||[]).some(e=>sameStockEquivalence(e,line,r)&&Number(e.unit_factor)===Number(line.unit_factor))){
+     await rpc('totus_stock_confirm_equivalence',{
+      p_store:r.store_id,p_supplier:r.supplier,p_supplier_name:line.supplier_name,
+      p_prestashop_name:line.prestashop_name,p_variant:line.variant||'',p_unit:line.unit,
+      p_factor:line.unit_factor,p_evidence:'Confirmación manual del cotejo '+r.reference+': '+line.manual_assignment.reason
+     });
+    }
+   }catch(error){libraryError=String(error.message||error);}
+  }
+  closeModal();await context(r.id);render();
+  if(libraryError)throw new Error('La asignación se ha guardado en el cotejo, pero la biblioteca NO se ha actualizado: '+libraryError);
+  toast(library?'Asignación y equivalencia guardadas.':'Asignación guardada en esta recepción.');return;
+ }
+ if(a==='stock-delete-new'){
+  if(!canDelete())throw new Error('Solo gerencia con permiso de eliminación puede retirar recepciones.');
+  const r=view.context?.receipt;
+  if(!r)throw new Error('Actualiza la recepción.');
+  const docs=(view.context.sources||[]).map(s=>s.document?.original_name||'Documento').filter(Boolean);
+  stockModal('Eliminar recepción','<div class="note warn"><b>Esta acción es irreversible para la ficha de recepción.</b><p>Se retirarán el cotejo, sus asociaciones y el historial de revisiones. Se registrará la eliminación en auditoría.</p><p><b>Los PDF originales NO se borrarán.</b> Quedarán en Documentos para que puedas retirarlos por el procedimiento protegido, si no están utilizados en otro registro.</p></div>'+
+   (docs.length?'<p><b>Documentos que se conservarán:</b></p><ul>'+docs.map(n=>'<li>'+esc(n)+'</li>').join('')+'</ul>':'<p>Esta recepción no tiene documentos asociados.</p>')+
+   '<p><b>'+esc(r.supplier)+' · '+esc(r.reference)+'</b></p>'+
+   '<label>Motivo de eliminación<textarea id="stockDeleteReason" rows="3" maxlength="5000"></textarea></label>'+
+   '<label>Escribe ELIMINAR para confirmar<input id="stockDeleteConfirm" autocomplete="off"></label>'+
+   btn('Eliminar esta recepción','stock-delete-save','primary'));
+  return;
+ }
+ if(a==='stock-delete-save'){
+  if(!canDelete())throw new Error('Solo gerencia con permiso de eliminación puede retirar recepciones.');
+  if(value('stockDeleteConfirm').trim()!=='ELIMINAR')throw new Error('Escribe ELIMINAR para confirmar.');
+  const r=view.context?.receipt,reason=value('stockDeleteReason').trim();
+  if(!r||reason.length<20||reason.length>5000)throw new Error('Indica un motivo de eliminación de 20 a 5000 caracteres.');
+  const deletion=await rpc('totus_stock_delete',{p_id:r.id,p_revision:r.revision,p_reference:r.reference,p_reason:reason});
+  closeModal();view.pendingUploads=[];view.context=null;view.mode='list';await refresh();
+  const docs=deletion?.retained_documents||[];
+  stockModal('Recepción eliminada','<p>La recepción se ha retirado y la operación queda auditada.</p>'+
+   (docs.length?'<p><b>Archivos conservados en Documentos:</b></p><ul>'+docs.map(d=>'<li>'+esc(d.name||'Documento')+'</li>').join('')+'</ul><p>Si deseas borrar alguno, abre Documentos y utiliza Eliminar; su protección comprueba las asociaciones y el original recuperable.</p>':'<p>No había archivos vinculados.</p>'));
+  return;
  }
  if(a==='stock-equivalence-new'){
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
