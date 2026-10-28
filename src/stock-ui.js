@@ -283,6 +283,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   });
   const library=document.getElementById('stockPairSaveLibrary')?.checked===true;
   if(library&&!canManage())throw new Error('Solo gerencia puede confirmar equivalencias permanentes.');
+  if(library&&value('stockPairKind')!=='same_product')throw new Error('Una posible incidencia de catálogo no debe guardarse como equivalencia permanente sin corregirla primero.');
   await rpc('totus_stock_save_result',{p_id:r.id,p_revision:r.revision,p_result:{...r.result,rows:assigned.rows}});
   let libraryError='';
   if(library){
