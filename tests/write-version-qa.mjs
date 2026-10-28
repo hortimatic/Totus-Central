@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {rememberWriteVersion,expectedWriteVersion} from '../src/write-version.js';
+import {rememberWriteVersion,expectedWriteVersion,advanceWriteVersion} from '../src/write-version.js';
 const root={},original={id:'qa-record',updated_at:'2026-10-26T10:00:00Z'};
 rememberWriteVersion(root,original);
 original.updated_at='2026-10-26T11:00:00Z';
@@ -9,4 +9,11 @@ assert.deepEqual(expectedWriteVersion({},'qa-record'),{});
 rememberWriteVersion(root,original);
 assert.deepEqual(expectedWriteVersion(root,'qa-record'),{expected_updated_at:'2026-10-26T11:00:00Z'});
 rememberWriteVersion(root,null);assert.deepEqual(expectedWriteVersion(root,'qa-record'),{});
+const before={id:'qa-record',updated_at:'v1',amount:100,source_ref:'original'},after={...before,updated_at:'v2',source_ref:'color'};
+rememberWriteVersion(root,before);
+assert(advanceWriteVersion(root,before,after,{ignore:['source_ref']}));
+assert.deepEqual(expectedWriteVersion(root,before.id),{expected_updated_at:'v2'});
+rememberWriteVersion(root,before);
+assert(!advanceWriteVersion(root,before,{...after,amount:200},{ignore:['source_ref']}));
+assert.deepEqual(expectedWriteVersion(root,before.id),{expected_updated_at:'v1'});
 console.log('WRITE VERSION QA: versions stay attached to their original rendered form until it is replaced');

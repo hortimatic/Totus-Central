@@ -8,6 +8,7 @@ const browser=await chromium.launch({headless:true});
 try{
  for(const width of [1440,320]){
   const page=await browser.newPage({viewport:{width,height:960}});
+  await page.addInitScript(()=>{delete Map.prototype.getOrInsertComputed});
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
   await page.evaluate(async bytes=>{
    const {renderPdfPreview}=await import('/src/pdf-preview.js');

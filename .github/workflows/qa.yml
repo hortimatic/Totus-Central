@@ -151,6 +151,7 @@ jobs:
       - run: node tests/closing-integral-browser-qa.mjs
       - run: node tests/tax-expense-browser-qa.mjs
       - run: node tests/expense-layout-qa.mjs
+      - run: node tests/expense-integral-browser-qa.mjs
       - run: node tests/onedrive-connection-qa.mjs
       - run: node tests/storage-live-qa.mjs
       - run: node tests/storage-organization-qa.mjs
