@@ -220,7 +220,10 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023171258_stock_receipt_author_index.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023175147_bounded_backup_rehearsal_timeout.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261023223642_require_explicit_stock_reading_confirmation.sql
+          psql -h localhost -U postgres -At -v ON_ERROR_STOP=1 -c "select private.totus_recovery_schema_hash()" > /tmp/stock_recovery_hash_before
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261028130000_stock_reviewed_with_justification.sql
+          psql -h localhost -U postgres -At -v ON_ERROR_STOP=1 -c "select private.totus_recovery_schema_hash()" > /tmp/stock_recovery_hash_after
+          cmp /tmp/stock_recovery_hash_before /tmp/stock_recovery_hash_after
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/stock-db-backup-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/expense-report-db-qa.sql
