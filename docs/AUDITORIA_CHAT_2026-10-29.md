@@ -8,6 +8,7 @@ Revisión del controlador, estilos, persistencia, carga inicial, recuperación d
 - Las actualizaciones reconstruían el editor. Se conserva su nodo y selección; se suspende el repintado durante composición IME y se impide enviar con un Enter de composición.
 - La preservación de historial solo se activaba con más de 50 mensajes. También se aplica cuando se está leyendo por encima del final con menos mensajes.
 - Una apertura asíncrona antigua podía instalar su suscripción sobre una apertura más reciente. Se valida la generación y sesión antes de suscribir.
+- El contador de avisos tomaba la longitud de la vista previa, limitada a 100 mensajes. Usa ahora la suma de no leídos de los canales, respetando pertenencia, silencios, archivados y solo menciones.
 - El móvil apilaba canales y conversación, obligando a recorrer demasiada página. Navegación propia entre lista y conversación, sin cambiar la disposición de ordenador.
 - El arranque descargaba todos los manifiestos de copias: muestra medida de 4.465.193 bytes frente a 37.446 bytes de metadatos, aproximadamente 99,2 % menos para esa consulta. No es una medición del tiempo total de arranque. Se conservan indicadores de formato, estado, huellas y rutas; la restauración obtiene los conjuntos originales verificados.
 

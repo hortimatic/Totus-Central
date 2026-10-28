@@ -24,3 +24,8 @@ let emitted=0;globalThis.AudioContext=class{state='running';currentTime=0;destin
 await prepareChatSound();assert.equal(await playChatSound(),true);assert.equal(emitted,1);
 globalThis.Notification={permission:'denied'};await assert.rejects(requestChatDesktopPermission(),/no autorizados/);
 console.log('CHAT ALERTS QA: background, opt-out, no old/repeated/current-user alerts, logout, icons and audio OK');
+
+// Preview pagination cannot cap the unread badge; mute and mentions still apply.
+let total;
+const totals=createChatNotifier({actor:()=>actor,onCount:n=>total=n,onOpen:()=>{},rpc:async name=>name==='totus_chat_inbox'?Array.from({length:100},(_,i)=>m('preview'+i)):{layout:{},channels:[{id:'a',member_role:'member',unread:170},{id:'b',member_role:'member',unread:80,notify_level:'mentions',mentions:3},{id:'muted',member_role:'member',muted:true,unread:999},{id:'public',unread:400},{id:'old',member_role:'member',archived:true,unread:200}]} });
+await totals.check();assert.equal(total,173);totals.stop();
