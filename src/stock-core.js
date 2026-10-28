@@ -16,6 +16,19 @@ export function stockLineResult(row={}){
  const difference=expected===null||received===null?null:Math.round((received-expected)*1000000)/1000000;
  return {expected,received,difference,reasons,status:reasons.length?'needs_review':difference!==0?'differences':'matched'};
 }
+// Adjustments to a documented count are separate review evidence, not edits
+// to the invoice or to the PrestaShop movement. Preserve both calculations.
+export function stockCorrectedLineResult(row={}){
+ const original=stockLineResult(row),change=row.unit_correction;
+ const valid=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1000000;
+ if(!change||!valid(change.expected)||!valid(change.received)||!String(change.reason||'').trim()){
+  return {...original,hasCorrection:false,originalExpected:original.expected,originalReceived:original.received,originalDifference:original.difference};
+ }
+ return {...original,expected:change.expected,received:change.received,
+  difference:Math.round((change.received-change.expected)*1000000)/1000000,
+  originalExpected:original.expected,originalReceived:original.received,originalDifference:original.difference,
+  hasCorrection:true};
+}
 export function stockSummary(result={},sources=[]){
  const rows=Array.isArray(result.rows)?result.rows:[],coverage=Array.isArray(result.coverage)?result.coverage:[];
  const sourceIds=new Set(sources.map(s=>s.id)),used=new Set(),issues=[];
