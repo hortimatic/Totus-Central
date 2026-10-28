@@ -210,8 +210,11 @@ const rpc=async (name,args={})=>{
   return {data:id,error:null};
  }
  if(name==='totus_pricing_save_provider'){
-  const p=args.p_price;if(p.selected)db.product_provider_prices.filter(x=>x.product_id===p.product_id&&!x.variant_id).forEach(x=>x.selected=false);
-  const row=p.id?Object.assign(get('product_provider_prices',p.id),p):insert('product_provider_prices',p);
+  const {request_id,...p}=args.p_price,fingerprint=JSON.stringify(p),prior=request_id?get('product_provider_prices',request_id):null;
+  if(!p.id&&prior){const history=db.price_history.find(h=>h.snapshot?.provider_price_id===request_id);return history?.snapshot?.request_fingerprint===fingerprint?{data:request_id,error:null}:{data:null,error:{message:'La operación ya se guardó con otros datos.'}}}
+  if(p.selected)db.product_provider_prices.filter(x=>x.product_id===p.product_id&&!x.variant_id).forEach(x=>x.selected=false);
+  const row=p.id?Object.assign(get('product_provider_prices',p.id),p):insert('product_provider_prices',{...p,...(request_id?{id:request_id}:{})});
+  insert('price_history',{product_id:p.product_id,user_id:userId,snapshot:{action:'PROVEEDOR_EDITADO',provider_price_id:row.id,request_fingerprint:request_id?fingerprint:null}});
   return {data:row.id,error:null};
  }
  if(name==='totus_pricing_save_product'){
@@ -225,7 +228,7 @@ const rpc=async (name,args={})=>{
   const row=old?Object.assign(old,clean):insert('products',{...clean,created_by:userId});
   children.forEach(v=>insert('product_variants',{...v,product_id:row.id}));
   if(args.p_provider){const pp=args.p_provider,provider=db.providers.find(v=>v.name.toLowerCase()===pp.name.toLowerCase())||insert('providers',{name:pp.name,active:true});insert('product_provider_prices',{...pp,provider_id:provider.id,product_id:row.id,selected:true});}
-  insert('price_history',{product_id:row.id,user_id:userId,snapshot:{action:old?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:{...row},variants:structuredClone(db.product_variants.filter(v=>v.product_id===row.id))}});
+  insert('price_history',{product_id:row.id,user_id:userId,snapshot:{action:old?'PRODUCTO_EDITADO':'PRODUCTO_CREADO',product:{...row},variants:structuredClone(db.product_variants.filter(v=>v.product_id===row.id)),providers:structuredClone(db.product_provider_prices.filter(v=>v.product_id===row.id)),tax_settings:{vat:db.ops_business_settings[0].default_sales_vat_rate,re:db.ops_business_settings[0].purchase_re_rate}}});
   if(p.consultation_id)insert('consultation_history',{consultation_id:p.consultation_id,action:'CONVERTIDA',user_id:userId,snapshot:{product_id:row.id}});
   return {data:{product:row,replayed:false},error:null};
  }

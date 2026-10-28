@@ -1,4 +1,4 @@
-import {previewQuickPriceStudy} from './calculations.js';
+import {previewQuickPriceStudy,parseDecimal} from './calculations.js';
 
 export function parseVariantAttributes(text){
  const entries=String(text||'').split(/[;·\n]/).map(s=>s.trim()).filter(Boolean);
@@ -17,8 +17,18 @@ export function formatVariantAttributes(attributes){
 }
 export function variantStudy(variant,settings={},discount=0){
  const cost=variant?.cost_net,pvp=variant?.pvp;
- if(cost==null||cost===''||pvp==null||pvp===''||!Number.isFinite(Number(cost))||!Number.isFinite(Number(pvp))||Number(cost)<0||Number(pvp)<0)return null;
+ if(cost==null||String(cost).trim()===''||pvp==null||String(pvp).trim()==='')return null;
  return previewQuickPriceStudy({cost,pvp,discount,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2});
+}
+
+// A live input is not a stored amount: invalid or missing costs stay unknown.
+export function pricingProviderPreview(row){
+ if(row?.net_cost==null||String(row.net_cost).trim()==='')return null;
+ try{
+  const net_cost=parseDecimal(row.net_cost),provider_discount=parseDecimal(row.provider_discount??0),shipping_unit=parseDecimal(row.shipping_unit??0);
+  if(net_cost<0||provider_discount<0||provider_discount>100||shipping_unit<0)return null;
+  return {...row,net_cost,provider_discount,shipping_unit};
+ }catch{return null}
 }
 export function numericRange(values,format){
  const valid=values.filter(v=>v!=null&&String(v).trim()!==''&&Number.isFinite(Number(v))).map(Number);

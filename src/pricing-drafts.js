@@ -30,9 +30,9 @@ export function refreshDraftStudies(settings,discount=0){
  for(const el of document.querySelectorAll('.pricing-draft-variant')){
   const id=el.dataset.draftId,read=prefix=>document.getElementById(prefix+'_'+id)?.value??'';
   const cost=read('pdCost'),pvp=read('pdPvp');
-  const r=variantStudy({cost_net:cost===''?null:n(cost),pvp:pvp===''?null:n(pvp)},settings,discount);
+  const r=variantStudy({cost_net:cost===''?null:cost,pvp:pvp===''?null:pvp},settings,discount);
   el.querySelector('[data-draft-study]').textContent=r?'Coste con IVA + RE: '+money(r.costReal)+' · Beneficio: '+money(r.margin)+' · Margen: '+r.marginPct.toFixed(1).replace('.',',')+' %':'Introduce coste y PVP para calcular el beneficio.';
-  if(r)results.push({...r,costNet:n(cost)});
+  if(r)results.push({...r,costNet:r.cost});
  }
  return results;
 }
