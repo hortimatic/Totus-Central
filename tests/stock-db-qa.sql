@@ -72,7 +72,7 @@ begin
  select * into r from public.totus_stock_mark_reviewed(r.id,r.revision,
   'Recuento contrastado: una unidad pendiente de entrega; diferencias preservadas.',
   'qa@example.invalid');
- if r.status<>'reviewed' or r.result->'review'->>'reviewed_by'<>'qa@example.invalid'
+ if r.status<>'differences' or r.result->'review'->>'reviewed_by'<>'qa@example.invalid'
   or r.result->'rows'->0->>'prestashop_qty'<>'13' then
   raise exception 'Review closure lost data or actor';end if;
  if not exists(select 1 from public.ops_stock_revisions
@@ -111,7 +111,7 @@ begin
  select * into r from public.totus_stock_mark_reviewed(r.id,r.revision,
   'Corregidas las unidades del cotejo y documentado el origen de la diferencia; ver historial.',
   'qa@example.invalid');
- IF r.status<>'reviewed' OR r.result#>>'{rows,0,unit_correction,received}'<>'10'
+ IF r.status<>'differences' OR r.result#>>'{rows,0,unit_correction,received}'<>'10' OR r.result->'review' IS NULL
   THEN RAISE EXCEPTION 'Review closed without preserving corrected units';END IF;
  -- Returning to the documentary counts must remove the correction and invalidate approval.
  select * into r from public.totus_stock_correct_units(r.id,r.revision,'r1',10,11,
