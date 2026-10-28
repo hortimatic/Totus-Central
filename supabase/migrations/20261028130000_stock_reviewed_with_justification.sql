@@ -133,7 +133,7 @@ BEGIN
   RAISE EXCEPTION 'La corrección necesita justificación de 20 a 5000 caracteres';
  END IF;
  IF p_expected IS NULL OR p_received IS NULL OR
-  abs(p_expected)>1000000 OR abs(p_received)>1000000 THEN
+  p_expected<0 OR p_received<0 OR p_expected>1000000 OR p_received>1000000 THEN
   RAISE EXCEPTION 'Indica las dos cantidades corregidas válidas';
  END IF;
  SELECT * INTO STRICT r FROM public.ops_stock_receipts WHERE id=p_id FOR UPDATE;
