@@ -8,7 +8,7 @@ La conexión automática con ChatGPT queda aplazada por petición del usuario. E
 3. Búsqueda de canales y secciones tolerante a acentos y mayúsculas. Mensaje claro cuando no hay coincidencias.
 4. Recuento de conversaciones por sección, sin recortar los nombres ni alterar la lectura accesible del botón.
 5. Formulario de canal dividido en identificación, organización y acceso; incluye tienda y explicaciones del acceso privado.
-6. Corregido el guardado de la tienda al editar el canal. Un cliente antiguo que omite el campo conserva la tienda. Una referencia inexistente es rechazada por la base.
+6. Corregido el guardado de la tienda al editar el canal. Un cliente antiguo que omite el campo o envía su valor vacío conserva la tienda; el cambio requiere intención explícita del formulario nuevo. Una referencia inexistente es rechazada por la base.
 7. Protección del borrador al cerrar una ventana con cambios, mediante Cancelar, X o Escape.
 8. Una sección personal vacía se puede eliminar sin borrar canales. Se impiden duplicados de nombre, incluso con distinta capitalización o acentos.
 9. Cambiar filtros laterales y crear un canal no lo deja oculto por el filtro anterior.

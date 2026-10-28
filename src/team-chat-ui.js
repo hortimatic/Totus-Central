@@ -272,7 +272,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    if(action==='attach'){fileDialog(null,id);return;}
    if(action==='file-retry'){const f=data.messages.flatMap(m=>m.files||[]).find(f=>f.id===el.dataset.file);fileDialog(f,f.message_id);return;}
    if(action==='settings'){
-    const c=current();modal('Configurar canal',channelForm(c)+'<hr><p>Eliminar retira el canal del uso diario. Conserva documentos y registros contables.</p>'+button('Eliminar canal','retire','','danger'),{run:v=>command('channel_update',{...chatChannelInput({...v,is_private:v.is_private==='true'}),archived:v.archived==='true'})});
+    const c=current();modal('Configurar canal',channelForm(c)+'<hr><p>Eliminar retira el canal del uso diario. Conserva documentos y registros contables.</p>'+button('Eliminar canal','retire','','danger'),{run:v=>command('channel_update',{...chatChannelInput({...v,is_private:v.is_private==='true'}),update_store:true,archived:v.archived==='true'})});
     const retireButton=dialog.querySelector('[data-chat="retire"]');if(retireButton)retireButton.onclick=async()=>{if(await ask('¿Retirar este canal? Sus mensajes quedarán conservados para recuperación.')){try{await command('channel_delete');closeDialog();data.channel=null;data.messages=[];await refresh();}catch(e){showError(e);}}};return;
    }
    if(action==='members'){
