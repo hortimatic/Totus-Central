@@ -32,6 +32,9 @@ export function pairUnmatchedStockRows(rows,{supplierLineId,prestashopLineId,not
   throw new Error('Cada artículo debe conservar la referencia a su documento.');
  }
  const sourceRefs=[...supplier.source_refs,...prestashop.source_refs];
+ if(sourceRefs.some(ref=>!string(ref.source_id)||!string(ref.line_id)||!string(ref.locator))){
+  throw new Error('Faltan referencias completas de los documentos originales.');
+ }
  const refKeys=sourceRefs.map(ref=>[ref.source_id,ref.line_id].join(':'));
  if(refKeys.some((key,index)=>!key||refKeys.indexOf(key)!==index)){
   throw new Error('La asignación duplicaría una línea del documento.');
