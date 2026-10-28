@@ -75,6 +75,15 @@ begin
  if r.status<>'reviewed' or r.result->'review'->>'reviewed_by'<>'qa@example.invalid'
   or r.result->'rows'->0->>'prestashop_qty'<>'13' then
   raise exception 'Review closure lost data or actor';end if;
+ if not exists(select 1 from public.ops_stock_revisions
+  where receipt_id=r.id and revision=r.revision and action='reviewed'
+   and snapshot#>>'{receipt,result,review,note}' =
+    'Recuento contrastado: una unidad pendiente de entrega; diferencias preservadas.')
+  then raise exception 'Review closure not audited with original note';end if;
+ failed=false;
+ begin perform public.totus_stock_mark_reviewed(r.id,r.revision,'Recuento verificado y registrado previamente.','qa@example.invalid');
+ exception when others then failed=true;end;
+ if not failed then raise exception 'Review double-closed';end if;
  -- Correct receipt units without overwriting the supplier or PrestaShop originals.
  failed=false;
  BEGIN PERFORM public.totus_stock_correct_units(r.id,r.revision,'r1',10,10,'nota corta','qa@example.invalid');
@@ -115,15 +124,6 @@ begin
    AND snapshot#>>'{unit_change,reason}' =
    'El recuento de producto confirma diez unidades recibidas; la entrada original registró once.')
  THEN RAISE EXCEPTION 'Original justification disappeared after reset';END IF;
- if not exists(select 1 from public.ops_stock_revisions
-  where receipt_id=r.id and revision=r.revision and action='reviewed'
-   and snapshot#>>'{receipt,result,review,note}' =
-    'Recuento contrastado: una unidad pendiente de entrega; diferencias preservadas.')
-  then raise exception 'Review closure not audited with original note';end if;
- failed=false;
- begin perform public.totus_stock_mark_reviewed(r.id,r.revision,'Recuento verificado y registrado previamente.','qa@example.invalid');
- exception when others then failed=true;end;
- if not failed then raise exception 'Review double-closed';end if;
  select * into r from public.totus_stock_save_result(r.id,r.revision,
   r.result,'qa@example.invalid');
  if r.status<>'differences' or r.result ? 'review' then
