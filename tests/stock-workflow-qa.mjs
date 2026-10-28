@@ -19,7 +19,7 @@ const unknown=structuredClone(context);unknown.receipt.result.rows[0].supplier_q
 assert.equal(stockExportRows(unknown)[0]['Unidades esperadas'],null);assert(stockReportHtml(unknown).includes('Pendiente'));
 // Human review changes the receipt state without erasing documentary discrepancies.
 const reviewed=structuredClone(context);
-reviewed.receipt.status='reviewed';
+reviewed.receipt.status='differences';
 reviewed.receipt.result.rows[0].prestashop_qty=7;
 reviewed.receipt.result.review={note:'Contadas las unidades; diferencia identificada y registrada para reposición.',reviewed_by:'gerencia@example.invalid',reviewed_at:'2026-10-28T13:00:00Z',comparison_status:'differences'};
 const reviewedRows=stockExportRows(reviewed,'Hortimatic');
