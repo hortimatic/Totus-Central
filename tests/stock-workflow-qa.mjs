@@ -47,6 +47,7 @@ const pendingSupplier={
  id:'supplier-l1',supplier_name:'Proveedor Gold Nuggets 25 g',
  prestashop_name:'',supplier_qty:5,prestashop_qty:0,match_confirmed:false,
  unit:'unidad',unit_confirmed:true,unit_factor:1,variant:'25 g',
+ adjustment_qty:0,adjustment_included:'no',adjustment_reason:'',conversion_reason:'',
  source_refs:[{source_id:'s1',line_id:'factura-l1',locator:'Factura página 1'}]
 };
 const pendingPrestashop={
