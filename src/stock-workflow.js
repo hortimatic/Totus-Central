@@ -28,7 +28,7 @@ export function stockExportRows(context,storeName=''){
    'Responsable de corrección':adjusted.hasCorrection?(correction?.corrected_by||''):'',
    'Fecha de corrección':adjusted.hasCorrection?(correction?.corrected_at||''):'',
    'Estado de la línea':STOCK_STATES[x.status],
-   'Conversión confirmada':line.conversion_reason||'','Motivo del ajuste':line.adjustment_reason||'','Pendiente de revisar':x.reasons.join(' · '),
+   'Conversión confirmada':line.conversion_reason||'','Motivo del ajuste':line.adjustment_reason||'','Pendiente de revisar':x.reasons.join(' · '),'Asignación manual':line.manual_assignment?.reason||'','Incidencia de catálogo':line.manual_assignment?.kind==='prestashop_catalog'?'Revisar ficha PrestaShop':line.manual_assignment?.kind==='supplier_catalog'?'Revisar referencia del proveedor':'',
    'Documentos y líneas de origen':(line.source_refs||[]).map(ref=>(sources.find(s=>s.id===ref.source_id)?.document?.original_name||'Documento')+' · '+ref.locator).join('\n')};
  });
 }
