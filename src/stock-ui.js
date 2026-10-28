@@ -59,6 +59,9 @@ function receiptDetail(){
  const sources=c.sources||[];
  const options=state.data.documents.filter(d=>!state.data.documentRemovals?.some(p=>p.id===d.id)&&!sources.some(s=>s.document_id===d.id)&&(!d.store_id||d.store_id===r.store_id))
  .map(d=>({value:d.id,label:[d.original_name,d.supplier_or_customer,d.invoice_number].filter(Boolean).join(' · ')}));
+ const review=r.status==='reviewed'?r.result?.review:null;
+ const reviewPanel=review?'<div class="note"><b>Revisado con incidencias</b> · '+esc(review.reviewed_by||'')+' · '+esc(review.reviewed_at||'')+'<p><b>Justificación de la revisión:</b> '+esc(review.note||'')+'</p><small>El cotejo y sus diferencias siguen visibles. Una nueva versión documental requerirá otra revisión.</small></div>':'';
+ const reviewButton=canManage()&&['needs_review','differences'].includes(r.status)&&r.result?.rows?.length?action('Marcar como revisado','stock-review-new'):'';
  return back()+'<div class="stack stock-page">'+(view.error?'<div class="note warn" role="alert">'+esc(view.error)+'</div>':'')+
  '<section class="card card-pad"><div class="section-head"><div><h2>'+esc(r.supplier)+' · '+esc(r.reference||'Sin referencia')+'</h2><p>'+esc(storeName(r.store_id))+' · '+esc(fmtDate(r.received_on))+' · Revisión '+r.revision+'</p></div><div class="inline-actions">'+badge(r.status)+(canEdit()?action('Editar datos','stock-edit'):'')+action('Actualizar','stock-refresh')+'</div></div>'+(r.notes?'<p>'+esc(r.notes)+'</p>':'')+'</section>'+
  '<section class="card card-pad stock-step"><h3>1. Documentos del pedido</h3><p>La entrada de PrestaShop es el recuento realizado por el equipo. Estos adjuntos no crean gastos ni cambian existencias.</p>'+
@@ -67,9 +70,9 @@ function receiptDetail(){
  (canEdit()?'<div class="stock-upload form-grid">'+selectField('Estos documentos son de','stockKind',[{value:'supplier',label:'Proveedor · factura o albarán'},{value:'prestashop',label:'PrestaShop · entrada de mercancía'}],'supplier')+
  uploadInput('Subir archivos','stockFiles')+'<div>'+btn('Añadir archivos','stock-upload-save','primary')+'</div></div><details><summary>Usar un documento ya guardado</summary><div class="form-grid">'+selectField('Documento','stockExisting',[{value:'',label:'Selecciona un documento'},...options],'')+'<div>'+action('Asociar documento','stock-existing-save')+'</div></div></details><small>Quitar del pedido conserva el original en Documentos y devuelve el cotejo a pendiente.</small>':'')+'<div id="stockProgress" role="status" aria-live="polite"></div></section>'+
  '<section class="card card-pad stock-step"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
- '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(r.status)+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+'</div></div>'+resultTable(r)+
+ '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(r.status)+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+'</div></div>'+reviewPanel+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se comparan las unidades de la factura con las registradas en PrestaShop. Los paquetes se convierten a unidades cuando su tamaño está confirmado. Si la entrada incluye un ajuste ajeno al pedido, se descuenta para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar queda pendiente.</p></details>'+
- '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small></div>').join('')+'</details></section></div>';
+ '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',reviewed:'Revisado con justificación',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small></div>').join('')+'</details></section></div>';
 }
 function libraryPage(){
  const q=stockIdentity(view.libraryQuery),rows=view.equivalences.filter(e=>(view.libraryStore==='all'||e.store_id===view.libraryStore)&&(!q||stockIdentity([e.supplier,e.supplier_name,e.prestashop_name,e.variant,e.unit].join(' ')).includes(q)));
@@ -200,6 +203,21 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-filter-clear'){Object.assign(view,{from:'',to:'',query:'',store:'all',status:'all'});render();return;}
  if(a==='stock-library'||a==='stock-library-refresh'){if(!await loadLibrary())return;const restoreFocus=retainLibrarySearch();view.mode='library';render();restoreFocus();return;}
  if(a==='stock-library-search'){const restoreFocus=retainLibrarySearch();render();restoreFocus();return;}
+ if(a==='stock-review-new'){
+  if(!canManage())throw new Error('Solo gerencia puede cerrar una revisión.');
+  const r=view.context?.receipt;
+  if(!r||!['needs_review','differences'].includes(r.status)||!r.result?.rows?.length)throw new Error('Esta recepción no tiene incidencias cotejadas pendientes de cierre.');
+  stockModal('Marcar recepción como revisada','<p>Se conservarán los faltantes, las diferencias y las correspondencias no confirmadas. Este cierre documenta que gerencia ha revisado las incidencias; no modifica existencias ni contabilidad.</p><label>Justificación de la revisión (obligatoria)<textarea id="stockReviewNote" rows="5" maxlength="5000" placeholder="Qué se ha comprobado, por qué se mantiene la diferencia y qué acción corresponde al equipo"></textarea></label>'+btn('Guardar revisión justificada','stock-review-save','primary'));
+  return;
+ }
+ if(a==='stock-review-save'){
+  if(!canManage())throw new Error('Solo gerencia puede cerrar una revisión.');
+  const r=view.context?.receipt,note=value('stockReviewNote').trim();
+  if(!r||!['needs_review','differences'].includes(r.status))throw new Error('Actualiza la recepción antes de revisarla.');
+  if(note.length<20||note.length>5000)throw new Error('La justificación debe tener entre 20 y 5000 caracteres.');
+  await rpc('totus_stock_mark_reviewed',{p_id:r.id,p_revision:r.revision,p_note:note});
+  closeModal();await context(r.id);render();toast('Revisión guardada con justificación e historial.');return;
+ }
  if(a==='stock-equivalence-new'){
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
   const row=view.context.receipt.result.rows.find(r=>r.id===el.dataset.line);
