@@ -20,7 +20,12 @@ const pending=delayed.check();delayed.stop();release([m('stale')]);await pending
 assert.equal(chatLayout({sound_enabled:true,desktop_enabled:false}).sound_enabled,true);assert.equal(chatLayout({sound_enabled:'yes'}).sound_enabled,undefined);
 assert.equal(chatChannelInput({name:'Pedidos',icon:'📦'}).name,'📦 Pedidos');assert.deepEqual(chatChannelIdentity('📦 Pedidos'),{icon:'📦',name:'Pedidos'});assert.equal(chatChannelInput({name:'Pedidos',icon:'<script>'}).name,'Pedidos');
 assert.throws(()=>chatChannelInput({name:'a'.repeat(80),icon:'📦'}));
-let emitted=0;globalThis.AudioContext=class{state='running';currentTime=0;destination={};resume(){return Promise.resolve();}createOscillator(){return {type:'',frequency:{setValueAtTime(){}},connect(){},start(){emitted++;},stop(){},disconnect(){}};}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},disconnect(){}};}};
+let emitted=0;globalThis.AudioContext=class{state='running';currentTime=0;destination={};resume(){return Promise.resolve();}close(){return Promise.resolve();}createOscillator(){return {type:'',frequency:{setValueAtTime(){}},connect(){},start(){emitted++;},stop(){},disconnect(){}};}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},disconnect(){}};}};
 await prepareChatSound();assert.equal(await playChatSound(),true);assert.equal(emitted,1);
 globalThis.Notification={permission:'denied'};await assert.rejects(requestChatDesktopPermission(),/no autorizados/);
 console.log('CHAT ALERTS QA: background, opt-out, no old/repeated/current-user alerts, logout, icons and audio OK');
+
+// Preview pagination cannot cap the unread badge; mute and mentions still apply.
+let total;
+const totals=createChatNotifier({actor:()=>actor,onCount:n=>total=n,onOpen:()=>{},rpc:async name=>name==='totus_chat_inbox'?Array.from({length:100},(_,i)=>m('preview'+i)):{layout:{},channels:[{id:'a',member_role:'member',unread:170},{id:'b',member_role:'member',unread:80,notify_level:'mentions',mentions:3},{id:'muted',member_role:'member',muted:true,unread:999},{id:'public',unread:400},{id:'old',member_role:'member',archived:true,unread:200}]} });
+await totals.check();assert.equal(total,173);totals.stop();

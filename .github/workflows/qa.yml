@@ -72,6 +72,7 @@ jobs:
       - run: node tests/route-smoke.mjs
       - run: node tests/action-inventory-qa.mjs
       - run: node tests/api-integrity-qa.mjs
+      - run: node tests/backup-bootstrap-qa.mjs
       - run: node tests/onedrive-document-access-qa.mjs
       - run: node tests/onedrive-retired-documents-qa.mjs
       - run: node tests/document-retirement-qa.mjs
@@ -139,6 +140,7 @@ jobs:
       - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/chat-reference-layout-qa.mjs
       - run: node tests/chat-usability-browser-qa.mjs
+      - run: node tests/chat-integral-browser-qa.mjs
       - run: node tests/chat-alerts-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/full-flow-qa.mjs

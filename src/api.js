@@ -137,7 +137,7 @@ export async function reloadStorageUsage(){
 export async function loadCore(){
  const owner=dataOwner(),generation=++coreReadGeneration,current=()=>dataOwner()===owner&&generation===coreReadGeneration;
  const tasks=[
- ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
+ ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at','id,mode,period_key,status,started_at,finished_at,storage_path,size_bytes,rows_count,files_count,error_message,snapshot_revision,archive_sha256,storage_provider,supabase_parts_retired_at,archive_version:archive_manifest->version,archive_bundle_version:archive_manifest->bundle_version'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
  ['customers','ops_customers','name'],['series','ops_invoice_series','year'],['invoices','ops_sales_invoices','issue_date'],['invoiceLines','ops_sales_invoice_lines'],['documents','ops_documents','created_at'],
  ['taxPayments','ops_tax_payments','created_at'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],
@@ -150,8 +150,8 @@ export async function loadCore(){
  const results=new Array(tasks.length);let next=0,failure=null;
  const worker=async()=>{
   while(current()&&!failure&&next<tasks.length){
-   const index=next++,[,table,order]=tasks[index];
-   try{results[index]=await select(table,{order,ascending:false})}
+   const index=next++,[,table,order,columns]=tasks[index];
+   try{results[index]=await select(table,{order,ascending:false,columns})}
    catch(error){failure||=error}
   }
  };
@@ -162,6 +162,9 @@ export async function loadCore(){
  if(!current())return false;
  if(!Array.isArray(documentRemovals))throw new Error('No se pudo comprobar el estado de las retiradas documentales.');
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
+ // Bootstrap needs only the archive format, never multi-megabyte file manifests.
+ // Original manifests remain in Supabase; restore reads the verified cloud set.
+ state.data.backupRuns=state.data.backupRuns.map(({archive_version,archive_bundle_version,...run})=>({...run,archive_manifest:archive_version==null&&archive_bundle_version==null?null:{version:archive_version,bundle_version:archive_bundle_version}}));
  state.data.documentRemovals=documentRemovals;
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;

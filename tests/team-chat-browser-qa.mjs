@@ -12,7 +12,7 @@ try{
   const {createTeamChat}=await import('../src/team-chat-ui.js');
   const {chatFileMetadata}=await import('../src/chat-files.js');
   window.qaChat={channels:[{id:'h',name:'Cajas · Hortimatic',group_name:'Hortimatic',description:'Vape y Head',member_role:'manager',is_private:true,unread:2,last_seq:2},{id:'n',name:'Cajas · NewOldSmok',group_name:'NewOldSmok',member_role:'manager',last_seq:0}],
-   messages:[{id:'m1',seq:1,channel_id:'h',author_email:'tienda@example.invalid',body:'Vape 139,36 · Head 161,97\nTarjeta 347,75 · Salida 150,00',created_at:'2026-10-24T12:07:00Z',replies:0,reactions:[]},{id:'m2',seq:2,channel_id:'h',author_email:'admin@example.invalid',body:'<script>window.qaUnsafe=true</script> Revisión de cajas',created_at:'2026-10-24T12:08:00Z',replies:0,reactions:[]}],members:[{email:'admin@example.invalid',member_role:'manager'}],calls:[],owner:'admin@example.invalid',seq:2,failInitial:true};
+   messages:[{id:'m1',seq:1,channel_id:'h',author_email:'tienda@example.invalid',body:'Vape 139,36 · Head 161,97\nTarjeta 347,75 · Salida 150,00',created_at:'2026-10-24T12:07:00Z',replies:0,reactions:[]},{id:'m2',seq:2,channel_id:'h',author_email:'admin@example.invalid',body:'<script>window.qaUnsafe=true</script> Revisión de cajas',created_at:'2026-10-24T12:08:00Z',replies:0,reactions:[]}],members:[{email:'admin@example.invalid',member_role:'manager'},{email:'chatgpt@totuscentral.invalid',member_role:'member'}],calls:[],owner:'admin@example.invalid',seq:2,failInitial:true};
   const q=window.qaChat;q.directory=[{email:'admin@example.invalid',name:'Administración'},{email:'companero@example.invalid',name:'Compañero'},{email:'tienda@example.invalid',name:'Equipo de tienda'}];q.files=[];
   const rpc=async(name,p)=>{
    q.calls.push({name,p:structuredClone(p)});
@@ -57,7 +57,7 @@ try{
    if(p.p_action==='member_remove')q.members=q.members.filter(m=>m.email!==d.email);
    if(p.p_action==='mute')c.muted=d.muted;
    if(p.p_action==='member_preferences')Object.assign(c,d,{muted:d.notify_level==='none'});
-   if(p.p_action==='agent_request')m.agent_request={id:crypto.randomUUID(),status:'pending'};
+   if(p.p_action==='agent_request'){if((m.files||[]).some(f=>f.status!=='ready'))throw Error('An agent request cannot precede verified attachments');m.agent_request={id:crypto.randomUUID(),status:'pending'};}
    if(p.p_action==='agent_cancel')m.agent_request.status='cancelled';
    if(p.p_action==='files_cancel')m.expected_files=(m.files||[]).filter(f=>f.status==='ready').length;
    if(p.p_action==='read'){c.unread=0;c.last_read_seq=d.seq;}
@@ -109,7 +109,7 @@ try{
  await page.locator('dialog [data-chat-close]').click();
  await page.locator('[data-message="m1"] [data-chat="thread"]').click();
  await page.locator('#chatBody').fill('Comprobación del cierre');
- await page.locator('.chat-compose [type="submit"]').click();
+ await page.locator('.chat-compose [type="submit"]:not([name])').click();
  await page.getByText('Comprobación del cierre',{exact:true}).waitFor();await click('thread-back');
  await page.locator('#chatBody').fill('Borrador sin perder');
  await page.locator('[data-chat="open"][data-id="n"]').click();
@@ -117,9 +117,9 @@ try{
  assert.equal(await page.locator('#chatBody').inputValue(),'Borrador sin perder');
  await page.locator('#chatBody').fill('Envío con corte de conexión');
  await page.evaluate(()=>window.qaChat.failAfterCommit=true);
- await page.locator('.chat-compose [type="submit"]').click();
+ await page.locator('.chat-compose [type="submit"]:not([name])').click();
  await page.getByRole('alert').filter({hasText:'Conexión interrumpida'}).waitFor();
- await page.locator('.chat-compose [type="submit"]').click();
+ await page.locator('.chat-compose [type="submit"]:not([name])').click();
  await page.getByText('Envío con corte de conexión',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>qaChat.messages.filter(m=>m.body==='Envío con corte de conexión').length),1,'Retry duplicated message');
  await page.locator('#chatQuery').fill('Tarjeta');await click('search');assert.equal(await page.locator('.chat-message').count(),1);await click('clear');
@@ -129,7 +129,7 @@ try{
  assert.equal(await page.locator('[data-message="m1"] [data-chat="reaction"]').first().getAttribute('aria-pressed'),'true');
  await click('read');await click('mute');await page.getByRole('button',{name:'Activar avisos',exact:true}).waitFor();
  await click('members');await page.locator('dialog [name="email"]').fill('companero@example.invalid');await page.locator('dialog [type="submit"]').click();
- assert.equal(await page.evaluate(()=>qaChat.members.length),2);
+ assert.equal(await page.evaluate(()=>qaChat.members.length),3);
  await click('new');await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),0,'Escape must clean up the dialog');
  await click('new');await page.locator('dialog [name="name"]').fill('Pedidos de clientes');await page.locator('dialog [name="group_name"]').fill('Hortimatic');await page.locator('dialog [name="is_private"]').selectOption('true');await page.locator('dialog [type="submit"]').click();
  await page.getByRole('heading',{name:'Pedidos de clientes',exact:true}).waitFor();
@@ -152,11 +152,17 @@ try{
  await click('pick-remove');assert.equal(await page.locator('.chat-picked').count(),0);assert.equal(await page.evaluate(()=>qaChat.files.length),0);
  await page.locator('#chatFiles').setInputFiles({name:'Factura de prueba.pdf',mimeType:'application/pdf',buffer:Buffer.from(pdfBytes)});
  await page.evaluate(()=>qaChat.failFileFinalize=true);
- await page.locator('.chat-compose [type="submit"]').click();
+ await page.locator('.chat-compose [type="submit"]:not([name])').click();
  await page.getByRole('alert').filter({hasText:'Verificación interrumpida'}).waitFor();
  await click('uploads-retry');await page.getByText('Guardado en OneDrive',{exact:false}).waitFor();
  assert.equal(await page.evaluate(()=>qaChat.files.length),1,'Attachment retry created duplicate originals');
  await page.locator('[data-chat="file-preview"]').first().click();await page.locator('dialog iframe').waitFor();await page.locator('dialog [data-chat-close]').click();
+ // A combined send must wait for all attachments before it can request a response.
+ await page.locator('#chatBody').fill('Solicitud con original verificado');
+ await page.locator('#chatFiles').setInputFiles({name:'Solicitud QA.txt',mimeType:'text/plain',buffer:Buffer.from('Contenido ficticio para ChatGPT')});
+ await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();
+ await page.waitForFunction(()=>qaChat.messages.some(m=>m.body==='Solicitud con original verificado'&&m.agent_request?.status==='pending'));
+ assert(await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Solicitud con original verificado').files.every(f=>f.status==='ready')));
  const readyDownload=page.waitForEvent('download');await page.locator('[data-chat="file-download"]').first().click();
  const downloaded=await readyDownload;assert.equal(downloaded.suggestedFilename(),'Factura de prueba.pdf');assert.deepEqual(await readFile(await downloaded.path()),Buffer.from(pdfBytes));
  await page.evaluate(()=>{
@@ -194,7 +200,7 @@ try{
  await page.evaluate(()=>{qaChat.messages.find(m=>m.id==='m2').expected_files=2;});await click('refresh');
  await page.locator('[data-message="m2"] [data-chat="files-cancel"]').click();await page.locator('[data-message="m2"] [data-chat="files-cancel"]').waitFor({state:'hidden'});
  assert.equal(await page.locator('[data-message="m2"] .chat-file').count(),1,'Cancelling outstanding uploads must preserve ready attachments');
- await page.locator('#chatBody').fill('Mensaje ficticio para retirar');await page.locator('.chat-compose [type="submit"]').click();
+ await page.locator('#chatBody').fill('Mensaje ficticio para retirar');await page.locator('.chat-compose [type="submit"]:not([name])').click();
  const temporary=page.locator('.chat-message').filter({hasText:'Mensaje ficticio para retirar'});await temporary.locator('[data-chat="message-delete"]').click();
  assert(await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Mensaje eliminado')?.deleted_at));
  await click('preferences');await page.locator('dialog [name="sort_order"]').fill('-10');await page.locator('dialog [name="favourite"]').selectOption('true');await page.locator('dialog [type="submit"]').click();

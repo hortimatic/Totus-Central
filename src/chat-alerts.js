@@ -38,7 +38,10 @@ export function createChatNotifier({rpc,actor,can=()=>true,onCount,onOpen,isRead
    if(version===preferenceVersion)preferences=context?.layout||preferences;
    const visible=messages.filter(m=>m.channel_kind!=='assistant'),ids=new Set(visible.map(m=>m.id));
    for(const [id,note] of notes)if(!ids.has(id)||visible.some(m=>m.id===id&&isReading(m))){note.close();notes.delete(id);}
-   onCount(visible.length,visible);
+   // The inbox is a bounded preview (100 rows), not the total unread count.
+   const channels=Array.isArray(context?.channels)?context.channels:null;
+   const unread=channels?channels.filter(c=>c.channel_kind!=='assistant'&&c.member_role&&!c.muted&&!c.archived).reduce((n,c)=>n+Math.max(0,Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0)||0),0):visible.length;
+   onCount(unread,visible);
    const fresh=primed?visible.filter(m=>!seen.has(m.id)&&!isReading(m)):[];
    if(fresh.length&&preferences.sound_enabled)await sound().catch(()=>{});
    if(stamp!==epoch||checkOwner!==actor()||!can())return;
