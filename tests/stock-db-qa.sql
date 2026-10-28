@@ -159,3 +159,109 @@ begin
  if not denied then raise exception 'Unauthenticated connector impersonation';end if;
 end $test$;
 reset role;
+
+
+-- The delete RPC must reject an ordinary SQL/test session without
+-- an authenticated manager, regardless of the supplied receipt UUID.
+do $stock_delete_guard$
+declare denied boolean=false;
+begin
+ if to_regprocedure('public.totus_stock_delete(uuid,integer,text,text)') is null
+    then raise exception 'Missing protected receipt delete function';end if;
+ begin
+  perform public.totus_stock_delete('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
+   1,'Not a real receipt',repeat('Reason for removal ',3));
+ exception when insufficient_privilege then denied=true;
+ end;
+ if not denied then raise exception 'Receipt delete was accepted without authorized manager';end if;
+ raise notice 'STOCK DELETE QA: unauthenticated delete denied';
+end $stock_delete_guard$;
+
+
+-- Isolated PostgreSQL fixture ONLY. No production receipts are touched.
+-- Positive and negative authorization, stale version, shared originals and audit.
+DO $stock_delete_positive$
+DECLARE
+  r1 public.ops_stock_receipts;
+  r2 public.ops_stock_receipts;
+  shared_doc uuid=gen_random_uuid();
+  exclusive_doc uuid=gen_random_uuid();
+  source_one uuid;
+  source_two uuid;
+  result jsonb;
+  blocked boolean;
+BEGIN
+ PERFORM set_config('request.jwt.claims',
+ '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"qa@example.invalid","role":"authenticated","allow":true,"manager":true}',true);
+ INSERT INTO auth.users(id,email) VALUES
+ ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','qa@example.invalid')
+ ON CONFLICT(id) DO NOTHING;
+ SELECT * INTO r1 FROM public.totus_stock_create('11111111-1111-4111-8111-111111111111',
+  'Proveedor ficticio','Recibo QA borrar',current_date,'','qa@example.invalid');
+ SELECT * INTO r2 FROM public.totus_stock_create('11111111-1111-4111-8111-111111111111',
+  'Proveedor ficticio','Recibo QA conservar',current_date,'','qa@example.invalid');
+ INSERT INTO public.ops_documents(id,store_id,original_name,linked_entity_type,linked_entity_id,sha256)
+ VALUES
+ (shared_doc,'11111111-1111-4111-8111-111111111111','Original QA compartido','stock_receipt',r1.id,'shared-fixture'),
+ (exclusive_doc,'11111111-1111-4111-8111-111111111111','Original QA exclusivo','stock_receipt',r1.id,'exclusive-fixture');
+
+ SELECT * INTO r1 FROM public.totus_stock_add_source(r1.id,r1.revision,shared_doc,'supplier','Documento QA','{"state":"ready"}','qa@example.invalid');
+ SELECT * INTO r1 FROM public.totus_stock_add_source(r1.id,r1.revision,exclusive_doc,'prestashop','Entrada QA','{"state":"ready"}','qa@example.invalid');
+ SELECT * INTO r2 FROM public.totus_stock_add_source(r2.id,r2.revision,shared_doc,'supplier','Compartido QA','{"state":"ready"}','qa@example.invalid');
+
+ -- A previous revision must not delete the record.
+ blocked=false;
+ BEGIN
+  PERFORM public.totus_stock_delete(r1.id,r1.revision-1,r1.reference,
+     'Ensayo de revisión desactualizada; no borrar los documentos');
+ EXCEPTION WHEN OTHERS THEN blocked=true;
+ END;
+ IF NOT blocked OR NOT EXISTS(SELECT 1 FROM public.ops_stock_receipts WHERE id=r1.id) THEN
+   RAISE EXCEPTION 'Stale revision was allowed to delete a receipt';
+ END IF;
+
+ -- Manager role and delete permission must be checked at the server.
+ PERFORM set_config('request.jwt.claims',
+ '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"qa@example.invalid","role":"authenticated","allow":true,"manager":false}',true);
+ blocked=false;
+ BEGIN
+  PERFORM public.totus_stock_delete(r1.id,r1.revision,r1.reference,
+     'Ensayo sin permisos de gerencia para eliminar una recepción ficticia');
+ EXCEPTION WHEN insufficient_privilege THEN blocked=true;
+ END;
+ IF NOT blocked THEN RAISE EXCEPTION 'Ordinary editor could delete a receipt'; END IF;
+
+ PERFORM set_config('request.jwt.claims',
+ '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"qa@example.invalid","role":"authenticated","allow":false,"manager":true}',true);
+ blocked=false;
+ BEGIN
+  PERFORM public.totus_stock_delete(r1.id,r1.revision,r1.reference,
+     'Ensayo sin permiso de borrado para eliminar una recepción ficticia');
+ EXCEPTION WHEN insufficient_privilege THEN blocked=true;
+ END;
+ IF NOT blocked THEN RAISE EXCEPTION 'Manager without delete permission succeeded'; END IF;
+
+ PERFORM set_config('request.jwt.claims',
+ '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"qa@example.invalid","role":"authenticated","allow":true,"manager":true}',true);
+ result=public.totus_stock_delete(r1.id,r1.revision,r1.reference,
+     'Eliminación de ficha ficticia tras comprobar originales compartidos y exclusivos');
+ IF result->>'deleted'<>'true' OR jsonb_array_length(result->'retained_documents')<>2 THEN
+    RAISE EXCEPTION 'Deletion response incomplete: %',result;
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.ops_stock_receipts WHERE id=r1.id)
+ OR EXISTS(SELECT 1 FROM public.ops_stock_sources WHERE receipt_id=r1.id)
+ OR EXISTS(SELECT 1 FROM public.ops_stock_revisions WHERE receipt_id=r1.id)
+ THEN RAISE EXCEPTION 'Deleted receipt still has records'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.ops_stock_receipts WHERE id=r2.id)
+ OR (SELECT linked_entity_id FROM public.ops_documents WHERE id=shared_doc) IS DISTINCT FROM r2.id
+ OR (SELECT linked_entity_type FROM public.ops_documents WHERE id=exclusive_doc) IS DISTINCT FROM ''
+ OR (SELECT linked_entity_id FROM public.ops_documents WHERE id=exclusive_doc) IS NOT NULL
+ THEN RAISE EXCEPTION 'Shared or exclusive document association corrupted'; END IF;
+ IF (SELECT count(*) FROM public.ops_documents WHERE id IN (shared_doc,exclusive_doc))<>2
+ THEN RAISE EXCEPTION 'Original document missing after receipt deletion'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.ops_audit_log
+   WHERE action='stock_receipt_deleted' AND entity_id=r1.id AND detail->>'reason' IS NOT NULL)
+ THEN RAISE EXCEPTION 'Audit record missing'; END IF;
+ RAISE NOTICE 'STOCK DELETE QA: authorized deletion, stale version, shared originals and audited recovery PASSED';
+ PERFORM set_config('request.jwt.claims','',true);
+END $stock_delete_positive$;
