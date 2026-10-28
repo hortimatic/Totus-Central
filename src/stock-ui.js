@@ -207,7 +207,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   if(!canManage())throw new Error('Solo gerencia puede cerrar una revisión.');
   const r=view.context?.receipt;
   if(!r||!['needs_review','differences'].includes(r.status)||!r.result?.rows?.length)throw new Error('Esta recepción no tiene incidencias cotejadas pendientes de cierre.');
-  stockModal('Marcar recepción como revisada','<p>Describe cómo se ha comprobado y resuelto o justificado cada incidencia. La recepción quedará como Revisado (verde), pero se conservarán todos los faltantes, diferencias y correspondencias sin confirmar. No modifica existencias ni contabilidad.</p><label>Justificación de la revisión (obligatoria)<textarea id="stockReviewNote" rows="5" maxlength="5000" placeholder="Qué se ha comprobado, cómo se ha resuelto o justificado cada incidencia y qué acciones corresponden al equipo"></textarea></label>'+btn('Guardar revisión justificada','stock-review-save','primary'));
+  stockModal('Marcar recepción como revisada','<p>Describe cómo se ha comprobado y resuelto o justificado cada incidencia. La recepción quedará como Revisado (verde), pero se conservarán todos los faltantes, diferencias y correspondencias sin confirmar. No modifica existencias ni contabilidad.</p><label>Justificación de la revisión (obligatoria)<textarea id="stockReviewNote" rows="5" maxlength="5000" placeholder="Qué se ha comprobado, cómo se ha resuelto o justificado cada incidencia y qué acciones corresponden al equipo"></textarea></label><label class="check-field"><input id="stockReviewConfirmed" type="checkbox"> Confirmo que he comprobado todas las incidencias y que la nota recoge su resolución o justificación.</label>'+btn('Guardar revisión justificada','stock-review-save','primary'));
   return;
  }
  if(a==='stock-review-save'){
@@ -215,6 +215,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   const r=view.context?.receipt,note=value('stockReviewNote').trim();
   if(!r||!['needs_review','differences'].includes(r.status))throw new Error('Actualiza la recepción antes de revisarla.');
   if(note.length<20||note.length>5000)throw new Error('La justificación debe tener entre 20 y 5000 caracteres.');
+  if(!document.getElementById('stockReviewConfirmed')?.checked)throw new Error('Confirma que has revisado y justificado todas las incidencias.');
   await rpc('totus_stock_mark_reviewed',{p_id:r.id,p_revision:r.revision,p_note:note});
   closeModal();await context(r.id);render();toast('Revisión guardada con justificación e historial.');return;
  }
