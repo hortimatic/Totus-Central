@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
-import {stockLineResult,stockSummary} from '../src/stock-core.js';
+import {stockLineResult,stockCorrectedLineResult,stockSummary} from '../src/stock-core.js';
 import {extractStockText} from '../src/stock-extract.js';
 const row={id:'r1',supplier_qty:10,prestashop_qty:12,adjustment_qty:2,adjustment_included:'yes',adjustment_reason:'Corrección de otra entrega',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true,source_refs:[{source_id:'s1',locator:'p1 l1',line_id:'p1l1'},{source_id:'s2',locator:'fila 1',line_id:'f1'}]};
 assert.equal(stockLineResult(row).difference,0);
+const overridden={...row,unit_correction:{expected:10,received:8,reason:'Comprobación detallada con albarán y recuento verificado.',corrected_by:'qa@example.invalid'}};
+assert.equal(stockLineResult(overridden).difference,0,'The original documentary result must never change');
+assert.equal(stockCorrectedLineResult(overridden).difference,-2,'Corrected units are separate');
+assert.equal(stockCorrectedLineResult(overridden).originalReceived,10);
+assert.equal(stockCorrectedLineResult(overridden).hasCorrection,true);
+assert.equal(stockCorrectedLineResult(row).hasCorrection,false);
+
 assert.equal(stockLineResult({...row,adjustment_included:'no'}).difference,2);
 for(const change of [{supplier_qty:null},{prestashop_qty:null},{adjustment_qty:null},{adjustment_included:'unknown'},{unit:''},{unit_factor:0},{unit_confirmed:false},{match_confirmed:false},{adjustment_reason:''},{unit_factor:12,conversion_reason:''}]){
  assert.equal(stockLineResult({...row,...change}).status,'needs_review');
