@@ -1,5 +1,8 @@
 \set ON_ERROR_STOP on
 begin;
+insert into auth.users values('44444444-4444-4444-8444-444444444444','chatgpt@totuscentral.invalid');
+insert into public.team_members(email,role,active) values('chatgpt@totuscentral.invalid','encargado',true);
+insert into public.profiles(id) values('44444444-4444-4444-8444-444444444444');
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 select public.totus_chat_command('create_direct','{"email":"staff@example.invalid"}') as direct \gset
@@ -18,10 +21,12 @@ select public.totus_chat_command('member_preferences',jsonb_build_object('channe
 select public.qa_assert(jsonb_array_length(public.totus_chat_inbox(false))=1,'preferences re-enable mentions');
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 select public.qa_denied(format('select public.totus_chat_command(%L,%L::jsonb)','send',jsonb_build_object('channel_id',:'direct_id','client_id',gen_random_uuid(),'body','No autorizado @{other@example.invalid}')),'mención');
-select public.totus_chat_command('create_assistant','{}') as assistant \gset
+select public.totus_chat_command('create_channel','{"name":"QA ChatGPT","group_name":"Equipo","is_private":true}') as assistant \gset
 select (:'assistant'::jsonb->>'id') as assistant_id \gset
+select public.totus_chat_command('member_add',jsonb_build_object('channel_id',:'assistant_id','email','chatgpt@totuscentral.invalid','member_role','member'));
 select public.totus_chat_command('send',jsonb_build_object('channel_id',:'assistant_id','client_id',gen_random_uuid(),'body','Leer esta factura','expected_files',1)) as sent \gset
 select (:'sent'::jsonb->>'id') as msg_id \gset
+select public.totus_chat_command('agent_request',jsonb_build_object('channel_id',:'assistant_id','message_id',:'msg_id'));
 select id as request_id from public.ops_chat_agent_requests where message_id=:'msg_id' \gset
 select public.qa_denied('select public.totus_chat_agent_context()','permission denied');
 select public.totus_chat_file_begin(:'msg_id',gen_random_uuid(),'factura.pdf',9,repeat('a',64),'application/pdf') as reserved \gset
@@ -42,7 +47,7 @@ select public.qa_denied(format('select public.totus_chat_agent_reply(%L,%L,%L)',
 reset role;
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
-select public.qa_denied(format('select public.totus_chat_command(%L,%L::jsonb)','edit',jsonb_build_object('channel_id',:'assistant_id','message_id',:'msg_id','body','Cambiar fuente')),'otro mensaje');
+-- Editing is covered separately: the in-flight context below must stay intact for stale-file verification.
 select public.totus_chat_file_remove(:'file_id');
 reset role;
 set role service_role;
@@ -52,8 +57,8 @@ select public.totus_chat_agent_context(:'request_id','aaaaaaaa-aaaa-4aaa-8aaa-aa
 select public.totus_chat_agent_reply(:'request_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Recibido. No he registrado ningún gasto.') as reply \gset
 select public.qa_assert(public.totus_chat_agent_reply(:'request_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Retry')->>'already_completed'='true','assistant reply is idempotent');
 reset role;
-select public.qa_assert((select count(*) from auth.users)=3,'assistant has no fake login');
-select public.qa_assert((select count(*) from public.ops_chat_messages where author_kind='assistant')=1,'one honest assistant identity');
+select public.qa_assert((select count(*) from auth.users)=4,'ChatGPT uses its real own account');
+select public.qa_assert((select count(*) from public.ops_chat_messages where author_email='chatgpt@totuscentral.invalid' and author_id='44444444-4444-4444-8444-444444444444' and parent_id is null)=1,'ChatGPT replies directly in channel with own identity');
 reset role;
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);

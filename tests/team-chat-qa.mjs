@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatLayout,chatTaskPrompt} from '../src/team-chat-core.js';
+import {chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatLayout,chatTaskPrompt} from '../src/team-chat-core.js';
 assert.equal(chatText('  Hola\r\nEquipo '),'Hola\nEquipo');
 assert.throws(()=>chatText(' '));assert.throws(()=>chatText('x'.repeat(12001)));
 assert.equal(chatChannelInput({name:'Cajas',group_name:'Hortimatic',is_private:true}).is_private,true);
@@ -25,3 +25,10 @@ assert.equal(chatGroups([{name:'Real',group_name:'constructor'}])[0].label,'cons
 
 const personal=chatGroups([{id:'channel',name:'Cajas',group_name:'Hortimatic'}],{channel_groups:{channel:'Mis cierres'},extra_groups:['Mis cierres']});
 assert.equal(personal.find(g=>g.name==='Mis cierres').channels[0].name,'Cajas');
+
+const moveRows=[{id:'a',name:'A',group_name:'Hortimatic'},{id:'b',name:'B',group_name:'Hortimatic'},{id:'c',name:'C',group_name:'NewOldSmok'}];
+const moved=chatMoveChannel(moveRows,{},'c','a');
+assert.deepEqual(chatGroups(moveRows,moved).find(g=>g.name==='Hortimatic').channels.map(c=>c.id),['c','a','b']);
+assert.equal(moveRows[2].group_name,'NewOldSmok','A personal move cannot change the shared channel');
+assert.deepEqual(chatMoveChannel(moveRows,moved,'missing','a'),moved);
+assert.deepEqual(chatLayout(JSON.parse(JSON.stringify(moved))),moved,'Order survives server roundtrip');

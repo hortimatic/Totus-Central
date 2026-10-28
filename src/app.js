@@ -82,7 +82,7 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
  if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
 }});
 const titles={
- equipo:['Trabajo','Chat del equipo'],tareas:['Trabajo','Tareas'],
+ equipo:['Trabajo','Chat'],tareas:['Trabajo','Tareas'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración']

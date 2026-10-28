@@ -298,6 +298,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/operational-permissions-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/022_chat_channel_order.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-advanced-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-layout-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-db-qa.sql
