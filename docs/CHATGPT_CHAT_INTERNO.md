@@ -68,7 +68,7 @@ La rapidez procede de evitar duplicados y de consultar fuentes persistentes, no 
 
 ## Ajuste del módulo Chat · 28/10/2026
 - El acceso habitual es **Chat**. Se retira la entrada duplicada «Asistente de Totus»; su historial no se borra.
-- ChatGPT utiliza su cuenta `chatgpt@totuscentral.invalid`, siempre activa y con permiso del módulo. Puede atender canales públicos y privados únicamente cuando sea miembro invitado. No se usa la identidad de un administrador.
+- ChatGPT utiliza su cuenta `chatgpt@totuscentral.invalid`, siempre activa y con permiso del módulo. Para canales privados debe estar invitado. El circuito de solicitudes de canales públicos puede incorporarlo al responder a una solicitud válida; la lectura con su sesión propia requiere pertenencia al canal. No se usa la identidad de un administrador.
 - La respuesta de `totus_chat_agent_reply` se publica como mensaje principal del canal, conserva el vínculo con la solicitud y admite reintentos sin duplicarla.
 - Editar un mensaje propio cancela una solicitud pendiente/en curso para evitar respuestas con datos antiguos. Las respuestas históricas se conservan. El borrado sigue siendo lógico y no borra facturas ni contabilidad.
 - Arrastrar un canal sobre otro guarda su orden y sección personal en la cuenta. No cambia los miembros ni el acceso compartido. Las preferencias del canal siguen disponibles para organizar sin ratón.
@@ -87,3 +87,24 @@ En Chat, **Sonido y avisos** permite probar, activar o desactivar sonido y notif
 
 Los responsables pueden elegir **Icono del canal** al crear o configurar el canal. El icono es parte del nombre compartido; no cambia su identificador, sus miembros o los datos de la conversación. No renombres canales por iniciativa propia.
 
+
+
+## Recorrido verificado y mejoras · 29/10/2026
+
+### Para el equipo
+1. En Chat, abrir el canal, escribir y adjuntar los originales. **Enviar** mantiene el envío normal. **Enviar y pedir a ChatGPT** guarda el mensaje, termina y verifica los adjuntos y crea después la solicitud. No es una llamada a un modelo ni añade consumo de API.
+2. Avisar al ChatGPT convencional: **«Tienes una petición en Totus Central; consulta las solicitudes y responde allí»**. No hace falta pegar el documento ni la conversación en otro chat.
+3. Si la solicitud se dirige a un canal privado, invitar primero a ChatGPT desde **Miembros**. El aviso no concede acceso por sí solo.
+4. Si falla la creación de la solicitud, el aviso distingue el mensaje ya guardado de la petición no creada. Tras corregir el motivo, pulsar **Pedir a ChatGPT** en ese mensaje; no reenviar el original.
+5. **Citar** inserta una cita y permite contestar en el canal principal. **Responder** sigue abriendo el hilo; ambas funciones se conservan.
+6. En móvil, **← Canales** vuelve a la lista. Elegir un canal abre solo su conversación para dejar espacio al historial y al editor. En ordenador se conservan las dos columnas.
+7. **Atajos** muestra las combinaciones de teclado. Ctrl/⌘+Enter envía; Enter y Shift+Enter añaden una línea. Durante la composición de texto no se envía por accidente.
+
+### Para ChatGPT convencional
+Usar el circuito prioritario de esta guía: listar → reservar la solicitud exacta con UUID nuevo → leer originales y alcance → responder mediante `totus_chat_agent_reply` → releer solicitud y respuesta. Las funciones de `private.totus_assistant_submit` para operaciones con Auth propio no sustituyen el circuito de solicitudes. No enviar una respuesta directa adicional mediante `chat_send` si ya se respondió mediante la solicitud.
+
+El 29/10 se ejecutó un ensayo autorizado con contenido ficticio, iniciado desde la interfaz normal y atendido por «Recepción y Gastos», sin navegador ni Work en ese chat: lectura, reserva, respuesta principal y relectura correctas. La comprobación independiente confirmó una sola respuesta del usuario técnico, sin hilo, y solicitud completada. No se modificó contabilidad ni documentos. El canal de ensayo se archiva para no mezclarlo con el trabajo diario.
+
+Un ensayo superado acredita ese recorrido; no garantiza disponibilidad permanente de Microsoft, Supabase u OpenAI. Ante un bloqueo de seguridad de herramientas, comunicar el error y la operación pendiente. **No variar llamadas para eludirlo, suplantar administración ni ampliar permisos.**
+
+Los borradores permanecen solo en memoria de la pestaña; no constituyen una copia de seguridad y no se guardan en el disco. La aplicación avisa antes de salir si hay trabajo pendiente.

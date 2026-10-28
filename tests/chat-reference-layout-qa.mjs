@@ -36,7 +36,7 @@ try{
  }
  await page.setViewportSize({width:900,height:1000});await page.locator('[data-chat=sidebar-toggle]').click();await page.waitForFunction(()=>getComputedStyle(document.querySelector('.team-chat')).gridTemplateColumns.startsWith('48px'));
  await page.locator('[data-chat=sidebar-toggle]').click();await page.waitForFunction(()=>!document.querySelector('.team-chat').classList.contains('chat-sidebar-collapsed'));
- await page.setViewportSize({width:390,height:1000});await page.locator('[data-chat=sidebar-toggle]').click();assert.equal(await page.locator('.chat-sidebar').evaluate(el=>Math.round(el.getBoundingClientRect().height)),48);
+ await page.setViewportSize({width:390,height:1000});await page.locator('[data-chat=mobile-channels]').click();await page.locator('[data-chat=sidebar-toggle]').click();assert.equal(await page.locator('.chat-sidebar').evaluate(el=>Math.round(el.getBoundingClientRect().height)),48);
  await page.locator('[data-chat=sidebar-toggle]').click();
  assert.deepEqual(errors,[]);await page.evaluate(()=>referenceChat.reset());
  console.log('CHAT REFERENCE LAYOUT QA: Madrid day grouping, avatars, preserved files, hover/keyboard actions and long messages at eight widths OK');

@@ -112,7 +112,7 @@
 @media(min-width:1100px){
  .team-chat{height:calc(100dvh - 126px);min-height:520px;align-items:stretch}
  .chat-sidebar{height:100%;max-height:none;min-height:0;box-sizing:border-box}
- .chat-conversation{height:100%;min-height:min-content;display:flex;flex-direction:column}
+ .chat-conversation{height:100%;min-height:0;display:flex;flex-direction:column}
  .chat-heading,.chat-search,.chat-banner,.chat-thread-bar,.chat-compose{flex-shrink:0}
  .chat-messages{height:auto;min-height:120px;flex:1 1 0}
  .chat-compose textarea{min-height:56px;max-height:140px}
@@ -130,4 +130,27 @@
  .chat-file{align-items:flex-start;flex-direction:column}.chat-compose-tools{gap:8px}.chat-compose-tools select{max-width:160px}.chat-compose>div{align-items:flex-end}
  .chat-scroll-tools>.primary{width:100%}.chat-dialog-body{padding:16px}.chat-members li{flex-wrap:wrap}
  .team-chat.chat-sidebar-collapsed{grid-template-columns:minmax(0,1fr)}.chat-sidebar-collapsed .chat-sidebar{max-height:48px;height:48px}.chat-sidebar-collapsed .chat-sidebar-head{justify-content:flex-start}
+}
+
+/* Daily-use polish: flexible controls, legible quotes, no minimum-content page growth. */
+.chat-heading .inline-actions{justify-content:flex-end;flex-wrap:wrap;gap:5px}
+.chat-heading h2{overflow-wrap:anywhere}
+.chat-compose>div:last-child{justify-content:flex-end;flex-wrap:wrap}
+.chat-compose>div:last-child>small{flex:1 1 180px}
+.chat-compose>div:last-child>.btn{white-space:normal;line-height:1.35}
+.chat-shortcuts{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;font-size:13px;margin:0}
+.chat-shortcuts dt{font-weight:700}.chat-shortcuts dd{margin:0}
+.chat-messages{scrollbar-gutter:stable;overflow-anchor:none}
+@media(min-width:1100px){.chat-conversation>.chat-messages{min-height:100px}.chat-heading{padding-top:12px;padding-bottom:12px}}
+@media(max-width:700px){.chat-compose>div:last-child>.btn{flex:1 1 130px}.chat-shortcuts{grid-template-columns:1fr;gap:6px}.chat-shortcuts dd{margin-bottom:10px}}
+
+.team-chat .chat-mobile-navigation{display:none}
+@media(max-width:700px){
+ .chat-show-conversation>.chat-sidebar{display:none}
+ .chat-show-channels>.chat-conversation{display:none}
+ .team-chat .chat-mobile-navigation{display:inline-flex;margin-bottom:6px}
+ .chat-show-channels>.chat-sidebar{max-height:calc(100dvh - 130px)}
+ .chat-show-conversation>.chat-conversation{height:calc(100dvh - 120px);min-height:650px;display:flex;flex-direction:column}
+ .chat-show-conversation .chat-messages{height:auto;flex:1 1 0;min-height:120px}
+ .chat-show-conversation .chat-compose,.chat-show-conversation .chat-heading,.chat-show-conversation .chat-search,.chat-show-conversation .chat-scroll-tools,.chat-show-conversation .chat-banner{flex-shrink:0}
 }

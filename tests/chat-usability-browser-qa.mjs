@@ -79,7 +79,7 @@ try{
  await click('inbox');assert.equal(await page.locator('dialog footer button').count(),1);await page.locator('dialog [data-chat-close]').click();
  // Deep forms stay within the mobile viewport, not only the main empty screen.
  for(const width of [320,390,768,1024,1440,1920]){
-  await page.setViewportSize({width,height:900});await click('new');
+  await page.setViewportSize({width,height:900});if(width<=700&&await page.locator('[data-chat=mobile-channels]').isVisible())await click('mobile-channels');await click('new');
   if(width===390)await page.screenshot({path:'artifacts/ui_chat_usabilidad_formulario_movil.png',fullPage:true});
   const box=await page.locator('dialog').boundingBox();assert(box.x>=0&&box.x+box.width<=width+1,'Creation dialog overflow '+width);
   assert(await page.locator('dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Creation form horizontal overflow '+width);

@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {backupRunState,obsoleteBackupCandidates} from '../src/backup-retention.js';
+let columns='';
+const rows=[{id:'current',status:'running',started_at:'2026-01-01',archive_version:3,archive_bundle_version:4},{id:'old',status:'success',storage_path:'old',archive_version:2,archive_bundle_version:null},{id:'legacy',status:'success',storage_path:'legacy',archive_version:null,archive_bundle_version:null}];
+const client={from(table){return {select(value){if(table==='ops_backup_runs')columns=value;return this;},order(){return this;},range(){return this;},then(done,fail){return Promise.resolve({data:table==='ops_backup_runs'?rows:[],error:null}).then(done,fail);}};},rpc:async name=>({data:name==='totus_pending_document_removals'?[]:{status:'ok',source:'supabase_storage_objects'},error:null})};
+globalThis.window={supabase:{createClient:()=>client}};
+const {loadCore}=await import('../src/api.js');const {state}=await import('../src/state.js');state.user={email:'qa@qa.invalid',role:'encargado'};
+assert.equal(await loadCore(),true);
+assert(columns.includes('archive_version:archive_manifest->version'));
+assert(columns.includes('archive_bundle_version:archive_manifest->bundle_version'));
+assert(!columns.split(',').includes('archive_manifest'),'Bootstrap must not retrieve full manifests');
+assert.equal(state.data.backupRuns[0].archive_manifest.bundle_version,4);
+assert.equal(backupRunState(state.data.backupRuns[0]),'running','Split backups must not be mislabelled as failed');
+assert.equal(state.data.backupRuns[1].archive_manifest.version,2);
+assert.equal(state.data.backupRuns[2].archive_manifest,null,'A legacy missing manifest must remain null');
+assert.equal(obsoleteBackupCandidates(state.data.backupRuns).length,0,'No new deletion eligibility may be invented');
+console.log('BACKUP BOOTSTRAP QA: format metadata retained, full manifests excluded and legacy/running states preserved');
