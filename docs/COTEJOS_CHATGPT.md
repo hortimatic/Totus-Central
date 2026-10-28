@@ -72,6 +72,11 @@ Usa public.totus_stock_save_result(p_id, p_revision, p_result, p_actor_email).
 Vuelve a leer la revisión justo antes de guardar. Si otra persona la ha cambiado, relee y coteja; nunca sobrescribas a ciegas.
 El servidor calcula el estado y las diferencias; no se envía un estado elegido por el chat.
 
+### Cerrar una revisión justificada (gerencia)
+Después del cotejo, si se han comprobado todas las incidencias, gerencia puede usar **Marcar como revisado** y dejar una nota obligatoria indicando qué se comprobó y cómo se resolvió o justificó cada discrepancia. Debe confirmar expresamente la revisión. El estado final se muestra **Revisado** en **verde**; esto certifica la revisión humana, **no afirma que las cantidades documentales coincidan ni que PrestaShop se haya modificado**. Los faltantes y el estado calculado siguen en las líneas, el Excel y el informe.
+
+El cierre guarda persona, fecha y nota en la revisión auditable; las **justificaciones anteriores se pueden consultar en el Historial de revisiones**, incluso si se añaden documentos o se rehace el cotejo. Si los documentos, el cotejo o los datos de la recepción cambian, la conformidad deja de estar vigente y se requiere un nuevo cierre. El cierre se rechaza si faltan originales debidamente leídos, cobertura o cantidades. Nunca se fuerza el estado «Sin diferencias» ni se modifican existencias ni contabilidad.
+
 Ejemplo de p_result, con identificadores de fuente reales de esa recepción:
 ~~~json
 {
