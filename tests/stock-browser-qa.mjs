@@ -35,7 +35,7 @@ try{
    }
    if(name==='totus_stock_correct_units'){
     if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
-    if(!['needs_review','differences','reviewed'].includes(r.status))return {data:null,error:{message:'La recepción no está cotejada'}};
+    if(!['needs_review','differences'].includes(r.status))return {data:null,error:{message:'La recepción no está cotejada'}};
     if((p.p_reason||'').trim().length<20)return {data:null,error:{message:'Justificación obligatoria'}};
     const line=r.result.rows.find(x=>x.id===p.p_line_id),originalExpected=line.supplier_qty*line.unit_factor,originalReceived=line.prestashop_qty-(line.adjustment_included==='yes'?line.adjustment_qty:0);
     const previousExpected=line.unit_correction?.expected??originalExpected,previousReceived=line.unit_correction?.received??originalReceived;
@@ -47,10 +47,10 @@ try{
    }
    if(name==='totus_stock_mark_reviewed'){
     if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
-    if(!['needs_review','differences'].includes(r.status)||!r.result?.rows?.length)return {data:null,error:{message:'Sin cotejo pendiente de revisión'}};
+    if(!['needs_review','differences'].includes(r.status)||r.result.review||!r.result?.rows?.length)return {data:null,error:{message:'Sin cotejo pendiente de revisión'}};
     if((p.p_note||'').trim().length<20)return {data:null,error:{message:'Justificación obligatoria'}};
     r.result.review={note:p.p_note,reviewed_by:'qa@example.com',reviewed_at:new Date().toISOString(),comparison_status:r.status};
-    r.status='reviewed';r.revision++;revision(r,'reviewed');return {data:clone(r),error:null};
+    r.revision++;revision(r,'reviewed');return {data:clone(r),error:null};
    }
    if(name==='totus_stock_remove_source'){
     db.ops_stock_sources=db.ops_stock_sources.filter(s=>s.id!==p.p_source);r.revision++;r.status='pending';r.result={rows:[],coverage:[],complete:false};revision(r,'source_removed');return {data:clone(r),error:null};
@@ -162,7 +162,7 @@ try{
  await page.locator('#stockReviewNote').fill('La diferencia inicial de dos unidades se documentó, se verificó la recepción y se revisó la corrección interna.');
  await page.locator('#stockReviewConfirmed').check();
  await page.locator('[data-action="stock-review-save"]').click();
- await page.waitForFunction(()=>window.__mockDb.ops_stock_receipts[0].status==='reviewed'&&window.__mockDb.ops_stock_receipts[0].result.review?.note?.includes('diferencia inicial'));
+ await page.waitForFunction(()=>window.__mockDb.ops_stock_receipts[0].result.review?.note?.includes('diferencia inicial'));
  await page.locator('#stockReviewNote').waitFor({state:'detached'});
  assert.equal(await page.locator('.stock-step .badge.good').filter({hasText:'Revisado'}).count(),1);
  await page.locator('[data-action="stock-units-new"]').click();
