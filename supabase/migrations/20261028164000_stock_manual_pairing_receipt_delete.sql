@@ -66,6 +66,20 @@ BEGIN
      AND NOT EXISTS(SELECT 1 FROM public.ops_stock_sources s
                     WHERE s.document_id=d.id);
 
+  -- If a document belongs to another remaining receipt too, keep its
+  -- visible link pointing at that surviving receipt instead of a deleted ID.
+  UPDATE public.ops_documents d
+     SET linked_entity_id=(
+       SELECT s.receipt_id
+       FROM public.ops_stock_sources s
+       WHERE s.document_id=d.id
+       ORDER BY s.created_at,s.id LIMIT 1
+     )
+   WHERE d.linked_entity_type='stock_receipt'
+     AND d.linked_entity_id=p_id
+     AND EXISTS(SELECT 1 FROM public.ops_stock_sources s
+                WHERE s.document_id=d.id);
+
   -- Revisions must be removed before the receipt because of FK NO ACTION.
   DELETE FROM public.ops_stock_revisions WHERE receipt_id=p_id;
   DELETE FROM public.ops_stock_receipts WHERE id=p_id;
