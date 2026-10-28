@@ -345,4 +345,4 @@ jobs:
         with:
           node-version: 24
       - name: Verify own Auth connection and expense attachments
-        run: node --test tests/assistant-own-auth.mjs tests/assistant-attachments.mjs tests/assistant-expense-view.mjs
+        run: node --test tests/assistant-own-auth.mjs tests/assistant-attachments.mjs tests/assistant-expense-view.mjs tests/assistant-chat.mjs
