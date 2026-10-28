@@ -46,6 +46,9 @@ Hostinger permanece pendiente de aclaración fiscal por indicación del titular.
     edición como si fuera otra factura duplicada. Se exceptúa únicamente el
     apunte interno que acredita el vínculo a esa misma factura. Crear una factura
     realmente duplicada continúa rechazándose en pantalla y servidor.
+13. Al editar una factura se vaciaban las notas conservadas de sus líneas, aunque
+    no se ofrecen para edición en la ficha. Ahora se mantienen esas notas en las
+    líneas existentes; las líneas nuevas comienzan sin notas históricas.
 
 ## Seguridad y datos
 
