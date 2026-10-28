@@ -89,6 +89,17 @@ reset role;
 select public.qa_assert((select count(*) from public.ops_chat_events where entity_id=:'removal_file_id' and action='file_detached')=1,'attachment removal is audited once');
 reset role;
 set role authenticated;
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+select public.totus_chat_command('member_save',jsonb_build_object('channel_id',:'assistant_id','email','staff@example.invalid','member_role','member'));
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
+select public.totus_chat_command('send',jsonb_build_object('channel_id',:'assistant_id','client_id',gen_random_uuid(),'body','Mensaje ficticio para moderación')) as moderate \gset
+select (:'moderate'::jsonb->>'id') as moderate_id \gset
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+select public.qa_denied(format('select public.totus_chat_command(%L,%L::jsonb)','edit',jsonb_build_object('channel_id',:'assistant_id','message_id',:'moderate_id','body','No sustituir texto ajeno')),'propios mensajes');
+select public.totus_chat_command('message_delete',jsonb_build_object('channel_id',:'assistant_id','message_id',:'moderate_id'));
+reset role;
+select public.qa_assert((select deleted_at is not null from public.ops_chat_messages where id=:'moderate_id'),'Channel manager can moderate without editing another author');
+set role authenticated;
 select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333"}',true);
 select public.qa_assert((select count(*) from public.ops_chat_agent_requests)=0,'foreign user sees no assistant requests');
 select public.qa_assert((select count(*) from public.ops_chat_files)=0,'foreign user sees no private files');

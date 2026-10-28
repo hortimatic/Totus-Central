@@ -105,6 +105,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    (deleted?'':'<footer><div class="chat-reactions">'+reactions+'</div><div class="chat-message-actions">'+
    (!data.parent?button(m.replies?m.replies+(Number(m.replies)===1?' respuesta':' respuestas'):writable?'Responder':'Ver conversación','thread',id):'')+
    (mine&&writable?button('Adjuntar','attach',id)+button('Editar','edit',id)+button('Eliminar','message-delete',id,'danger'):'')+
+   (!mine&&manager()&&writable?button('Eliminar','message-delete',id,'danger'):'')+
    (manager()&&writable?button(m.pinned?'Desfijar':'Fijar','pin',id):'')+
    (writable&&(mine||manager())?button(m.task_state?'Gestionar tarea':'Crear tarea','task',id):'')+
    (writable&&(mine||manager())&&m.author_kind!=='assistant'&&(!m.agent_request||m.agent_request.status==='cancelled')?button('Pedir a ChatGPT','agent-request',id):'')+
@@ -299,7 +300,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    if(action==='mute'){await command('mute',{muted:!current().muted});await refresh();return;}
    if(action==='pin'){await command('pin',{message_id:id,pinned:!m.pinned});await refresh();return;}
    if(action==='reaction'){await command('reaction',{message_id:id,emoji:el.dataset.emoji});await refresh();return;}
-   if(action==='message-delete'){if(await confirm('¿Eliminar tu mensaje? No se eliminarán documentos ni operaciones contables.'))await command('message_delete',{message_id:id,expected_edited_at:m.edited_at});await refresh();return;}
+   if(action==='message-delete'){if(await confirm('¿Eliminar este mensaje? No se eliminarán documentos ni operaciones contables.'))await command('message_delete',{message_id:id,expected_edited_at:m.edited_at});await refresh();return;}
    if(action==='refresh')await refresh();
   }catch(error){showError(error);}finally{unlock(stamp);}
  }

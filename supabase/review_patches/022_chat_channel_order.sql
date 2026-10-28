@@ -64,6 +64,8 @@ BEGIN
  definition=replace(definition,
  'if exists(select 1 from public.ops_chat_agent_requests where message_id=mid and status in (''working'',''completed'')) then raise exception ''Envía otro mensaje para cambiar una solicitud ya atendida por el asistente.'';end if;',
  'update public.ops_chat_agent_requests set status=''cancelled'',lease_until=null,updated_at=now(),result_note=''Mensaje editado; respuesta anterior conservada'' where message_id=mid and status in (''pending'',''working'');');
+ definition=replace(definition,'if msg.author_id is distinct from auth.uid() then raise exception ''Solo puedes modificar tus propios mensajes.'';end if;',
+ 'if msg.author_id is distinct from auth.uid() and (p_action<>''message_delete'' or not private.totus_chat_manager(channel)) then raise exception ''Solo puedes modificar tus propios mensajes.'';end if;');
  definition=replace(definition,'on conflict(message_id) do nothing;',
  'on conflict(message_id) do update set status=''pending'',requested_by=excluded.requested_by,requested_email=excluded.requested_email,claim_id=null,lease_until=null,context_hash=null,updated_at=now(),result_note='''' where public.ops_chat_agent_requests.status=''cancelled'';');
  EXECUTE definition;

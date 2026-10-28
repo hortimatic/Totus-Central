@@ -1,15 +1,15 @@
 # Trabajar con ChatGPT y el chat interno de Totus Central
 
 ## Lo que ya se ha comprobado
-El ChatGPT convencional de la cuenta ha recogido una solicitud, respondido en el mismo hilo y repetido la respuesta sin duplicarla. En otro ensayo ha consultado los metadatos de un PNG privado de OneDrive y obtenido la referencia de sus bytes originales. No examinó sus píxeles ni hizo OCR. Las pruebas están documentadas en los PR #18 y #19.
+El ChatGPT convencional de la cuenta ha recogido una solicitud, respondido en el mismo hilo en las pruebas históricas (ahora la respuesta se publica directamente en el canal) y repetido la respuesta sin duplicarla. En otro ensayo ha consultado los metadatos de un PNG privado de OneDrive y obtenido la referencia de sus bytes originales. No examinó sus píxeles ni hizo OCR. Las pruebas están documentadas en los PR #18 y #19.
 
-La atención se inicia cuando vosotros se lo pedís a ChatGPT. El contacto «Asistente de Totus» no es una cuenta humana con contraseña ni un modelo ejecutándose permanentemente. No hay API de pago activada.
+La atención se inicia cuando vosotros se lo pedís a ChatGPT. ChatGPT tiene su propia cuenta de Totus; no es un modelo ejecutándose permanentemente. Se ha retirado el contacto duplicado «Asistente de Totus». No hay API de pago activada.
 
 ## Pasos para el equipo
 1. Entrar con la cuenta propia de Totus. El responsable añade a cada persona en «Miembros» del canal correspondiente. Los canales privados no se abren automáticamente a toda la plantilla.
-2. Escribir en el canal o en «Asistente de Totus». Adjuntar los archivos y esperar a «Guardado en OneDrive». Si aparece «Subida pendiente», reintentar con el mismo original antes de pedir su lectura.
-3. En un canal normal, pulsar «Pedir a ChatGPT» en el mensaje. El contacto del asistente crea la solicitud al enviar. «Preparar para ChatGPT» ofrece el texto con la referencia concreta para copiarlo.
-4. Abrir vuestro ChatGPT convencional, preferiblemente «Revisar Totus Central», y pedirle atender esa solicitud concreta. Usar las conexiones GitHub, Supabase y Microsoft autorizadas de esa cuenta.
+2. Escribir en el canal. Adjuntar los archivos y esperar a «Guardado en OneDrive». Si aparece «Subida pendiente», reintentar con el mismo original antes de pedir su lectura.
+3. En un canal normal, pulsar «Pedir a ChatGPT» en el mensaje. «Preparar para ChatGPT» ofrece el texto con la referencia concreta para copiarlo.
+4. Abrir vuestro ChatGPT convencional, en el chat del proyecto que utilicéis para ese trabajo, y pedirle atender esa solicitud concreta. Usar las conexiones GitHub, Supabase y Microsoft autorizadas de esa cuenta.
 5. Si ChatGPT solicita aprobación, autorizar solo el ensayo o documento indicado. Un bloqueo de seguridad no significa que haya fallado OneDrive: conservar el error exacto y no intentar eludirlo ni conceder permisos nuevos para forzar la operación.
 6. Volver a Totus y abrir las respuestas del mensaje. La respuesta debe aparecer identificada como «Asistente de Totus · ChatGPT». «Pendiente» significa que aún no se ha recogido; «En curso» tiene una reserva temporal; «Respondida» implica que se ha guardado una respuesta.
 7. Revisar la propuesta. Registrar un gasto, caja o recepción es una operación adicional que requiere vuestra autorización directa y los procedimientos validados de su módulo. Subir una factura al chat no la registra por sí solo en contabilidad.
