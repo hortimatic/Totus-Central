@@ -31,7 +31,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
  function scheduleRead(){clearTimeout(readTimer);readTimer=setTimeout(markVisibleRead,350);}
  async function markVisibleRead(){
   const s=scope(),c=current(),pane=host?.querySelector('.chat-messages');
-  if(!active(s)||document.visibilityState!=='visible'||dialog||!c?.member_role||!pane||data.query||data.from||data.to||data.mode!=='all'||pane.scrollHeight-pane.clientHeight-pane.scrollTop>40)return;
+  if(!active(s)||document.visibilityState!=='visible'||dialog||!c?.member_role||!pane||!pane.getClientRects().length||data.query||data.from||data.to||data.mode!=='all'||pane.scrollHeight-pane.clientHeight-pane.scrollTop>40)return;
   const channel=c.id,seq=Math.max(0,...data.messages.map(m=>Number(m.seq)||0));
   if(!seq||seq<=Number(c.last_read_seq||0)||readFlight)return;
   const flight={channel,seq};readFlight=flight;
@@ -107,7 +107,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    (m.agent_request?'<div class="chat-assistant-status"><span class="badge '+(m.agent_request.status==='completed'?'good':'warn')+'">'+esc(({pending:'Esperando a ChatGPT',working:'ChatGPT está trabajando',completed:'ChatGPT ha respondido',cancelled:'Solicitud cancelada'})[m.agent_request.status])+'</span><small>Respuesta desde vuestro ChatGPT · atención iniciada por vosotros</small></div>':'')+
    (m.task_state?'<div class="chat-task"><span class="badge '+(m.task_state==='done'?'good':'warn')+'">'+esc(CHAT_TASK_STATES[m.task_state])+'</span>'+(m.task_result?'<p>'+esc(m.task_result)+'</p>':'')+'</div>':'')+
    (deleted?'':'<footer><div class="chat-reactions">'+reactions+'</div><div class="chat-message-actions">'+
-   (writable?button('Citar','quote',id):'')+
+   (writable&&can('create')?button('Citar','quote',id):'')+
    (!data.parent?button(m.replies?m.replies+(Number(m.replies)===1?' respuesta':' respuestas'):writable?'Responder':'Ver conversación','thread',id):'')+
    (mine&&writable?button('Adjuntar','attach',id)+button('Editar','edit',id)+button('Eliminar','message-delete',id,'danger'):'')+
    (!mine&&manager()&&writable?button('Eliminar','message-delete',id,'danger'):'')+
@@ -390,7 +390,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   if(host){host.removeEventListener('scroll',onReadScroll,true);host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);host.removeEventListener('compositionstart',onCompositionStart);host.removeEventListener('compositionend',onCompositionEnd);host.removeEventListener('dragstart',onDragStart);host.removeEventListener('dragend',onDragEnd);host.removeEventListener('dragover',onDrag);host.removeEventListener('drop',onDrop);host.removeEventListener('paste',onPaste);}
   window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('focus',onVisible);document.removeEventListener('visibilitychange',onVisible);host=null;
  }
- return {hasDraft,dispose,openMessage,isReading(message){const pane=host?.querySelector('.chat-messages');return !!pane&&document.visibilityState==='visible'&&document.hasFocus()&&data.channel===message.channel_id&&!data.query&&!data.from&&!data.to&&data.mode==='all'&&(!message.parent_id&&!data.parent||message.parent_id===data.parent)&&pane.scrollHeight-pane.clientHeight-pane.scrollTop<40&&!dialog;},reset(){dispose();data=initial();drafts.clear();pending.clear();picks.clear();outbox=[];owner='';},async mount(element){
+ return {hasDraft,dispose,openMessage,isReading(message){const pane=host?.querySelector('.chat-messages');return !!pane&&pane.getClientRects().length>0&&document.visibilityState==='visible'&&document.hasFocus()&&data.channel===message.channel_id&&!data.query&&!data.from&&!data.to&&data.mode==='all'&&(!message.parent_id&&!data.parent||message.parent_id===data.parent)&&pane.scrollHeight-pane.clientHeight-pane.scrollTop<40&&!dialog;},reset(){dispose();data=initial();drafts.clear();pending.clear();picks.clear();outbox=[];owner='';},async mount(element){
   dispose();if(owner!==actor()){owner=actor();data=initial();drafts.clear();pending.clear();picks.clear();outbox=[];}
   host=element;host.addEventListener('scroll',onReadScroll,true);host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);host.addEventListener('compositionstart',onCompositionStart);host.addEventListener('compositionend',onCompositionEnd);host.addEventListener('dragstart',onDragStart);host.addEventListener('dragend',onDragEnd);host.addEventListener('dragover',onDrag);host.addEventListener('drop',onDrop);host.addEventListener('paste',onPaste);
   window.addEventListener('beforeunload',beforeUnload);window.addEventListener('focus',onVisible);document.addEventListener('visibilitychange',onVisible);paint();try{await refresh();}catch(error){showError(error);paint();}if(host===element)timer=setInterval(tick,15000);
