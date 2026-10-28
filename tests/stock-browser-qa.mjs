@@ -33,6 +33,13 @@ try{
     db.ops_stock_sources.push({id:crypto.randomUUID(),receipt_id:r.id,document_id:p.p_document,source_kind:p.p_kind,extracted_text:p.p_text,extraction:p.p_extraction});
     r.revision++;r.status='pending';revision(r,'source_added');return {data:clone(r),error:null};
    }
+   if(name==='totus_stock_mark_reviewed'){
+    if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
+    if(!['needs_review','differences'].includes(r.status)||!r.result?.rows?.length)return {data:null,error:{message:'Sin cotejo pendiente de revisión'}};
+    if((p.p_note||'').trim().length<20)return {data:null,error:{message:'Justificación obligatoria'}};
+    r.result.review={note:p.p_note,reviewed_by:'qa@example.com',reviewed_at:new Date().toISOString(),comparison_status:r.status};
+    r.status='reviewed';r.revision++;revision(r,'reviewed');return {data:clone(r),error:null};
+   }
    if(name==='totus_stock_remove_source'){
     db.ops_stock_sources=db.ops_stock_sources.filter(s=>s.id!==p.p_source);r.revision++;r.status='pending';r.result={rows:[],coverage:[],complete:false};revision(r,'source_removed');return {data:clone(r),error:null};
    }
@@ -101,6 +108,19 @@ try{
  await page.locator('#stockEquivalenceConfirmed').check();
  await page.locator('[data-action="stock-equivalence-save"]').click();await page.getByText('Equivalencia guardada para futuros cotejos.',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_equivalences.length),1);
+ // Fictitious manual review: keep a documentary shortage, require a note and display it.
+ await page.evaluate(()=>{const r=window.__mockDb.ops_stock_receipts[0];r.status='differences';r.result.rows[0].prestashop_qty=8;});
+ await page.locator('[data-action="stock-refresh"]').click();
+ await page.locator('[data-action="stock-review-new"]').click();
+ await page.locator('#stockReviewNote').fill('El recuento ha confirmado dos unidades pendientes de reclamar al proveedor.');
+ await page.locator('[data-action="stock-review-save"]').click();
+ await page.getByText('Revisión guardada con justificación e historial.',{exact:true}).waitFor();
+ assert((await page.locator('.stock-page').innerText()).includes('Revisado con incidencias'));
+ assert((await page.locator('.stock-page').innerText()).includes('dos unidades pendientes de reclamar'));
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].prestashop_qty),8,'Human sign-off must not change units');
+ const reviewedReport=page.waitForEvent('download');await page.locator('[data-action="stock-export-html"]').click();
+ const reviewHtml=await readFile(await (await reviewedReport).path(),'utf8');
+ assert(reviewHtml.includes('dos unidades pendientes de reclamar')&&reviewHtml.includes('Con diferencias'));
  await page.locator('[data-action="stock-source-remove"]').last().click();await page.locator('#modalHost [data-confirm="accept"]').click();
  await page.getByText('entrada.txt',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('.stock-source').count(),1);
