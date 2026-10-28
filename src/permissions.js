@@ -1,7 +1,7 @@
 // Única definición de permisos de interfaz. El servidor (RLS/RPC) siempre decide.
 export const PERMISSION_MODULES=[
  ['inicio','Inicio'],['pricing','Precios'],['cajas','Cajas'],['gastos','Gastos'],
- ['facturacion','Facturación'],['documentos','Documentos y recepciones'],['equipo','Chat del equipo'],['tareas','Tareas'],['fiscalidad','Fiscalidad'],
+ ['facturacion','Facturación'],['documentos','Documentos y recepciones'],['equipo','Chat'],['tareas','Tareas'],['fiscalidad','Fiscalidad'],
  ['informes','Informes'],['administracion','Administración']
 ];
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];

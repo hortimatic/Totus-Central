@@ -949,7 +949,7 @@ export function providerCost(row){
 }
 
 
-export const renderers={tareas:()=>'<section id="tasksRoot" aria-label="Tareas del equipo"><div class="card card-pad" role="status"><h2>Tareas del equipo</h2><p>Cargando el calendario y las tareas disponibles para tu cuenta…</p></div></section>',equipo:()=>'<section id="teamChatRoot" aria-label="Chat del equipo"><div class="card card-pad" role="status"><h2>Chat del equipo</h2><p>Cargando los canales disponibles para tu cuenta…</p></div></section>',cotejos:stockPage,inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
+export const renderers={tareas:()=>'<section id="tasksRoot" aria-label="Tareas del equipo"><div class="card card-pad" role="status"><h2>Tareas del equipo</h2><p>Cargando el calendario y las tareas disponibles para tu cuenta…</p></div></section>',equipo:()=>'<section id="teamChatRoot" aria-label="Chat"><div class="card card-pad" role="status"><h2>Chat</h2><p>Cargando los canales disponibles para tu cuenta…</p></div></section>',cotejos:stockPage,inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
 
 export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
  const drawer=state.data.drawers.find(x=>x.id===drawerId);

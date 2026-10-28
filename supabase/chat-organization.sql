@@ -5,10 +5,10 @@ begin
  if private.totus_chat_actor() is null then raise exception 'Usuario de equipo no activo.';end if;
  if p_layout is null or jsonb_typeof(p_layout)<>'object' or octet_length(p_layout::text)>16000 then raise exception 'Organización no válida.';end if;
  for key in select jsonb_object_keys(p_layout) loop
-  if key not in ('collapsed_groups','group_order','hidden_groups','extra_groups','group_labels','group_sort','compact_sidebar','channel_groups') then raise exception 'Preferencia no válida.';end if;
+  if key not in ('collapsed_groups','group_order','hidden_groups','extra_groups','group_labels','group_sort','compact_sidebar','channel_groups','channel_order') then raise exception 'Preferencia no válida.';end if;
  end loop;
  if p_layout?'compact_sidebar' and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
- foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups'] loop
+ foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups','channel_order'] loop
   if p_layout?key then
    if jsonb_typeof(p_layout->key)<>'array' or jsonb_array_length(p_layout->key)>100 then raise exception 'Lista de secciones no válida.';end if;
    for item in select value from jsonb_array_elements(p_layout->key) loop

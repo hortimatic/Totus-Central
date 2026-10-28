@@ -3,7 +3,7 @@ begin;
 update public.profiles set ui_preferences='{"reports":["keep"]}' where id='11111111-1111-4111-8111-111111111111';
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
-select public.totus_chat_save_layout('{"collapsed_groups":["Hortimatic"],"group_order":["NewOldSmok","Hortimatic"],"group_labels":{"Hortimatic":"Mi tienda"},"group_sort":{"Hortimatic":"recent"},"hidden_groups":[],"extra_groups":["Mi sección"],"channel_groups":{"11111111-1111-4111-8111-111111111111":"Mi sección"}}');
+select public.totus_chat_save_layout('{"channel_order":["11111111-1111-4111-8111-111111111111"],"collapsed_groups":["Hortimatic"],"group_order":["NewOldSmok","Hortimatic"],"group_labels":{"Hortimatic":"Mi tienda"},"group_sort":{"Hortimatic":"recent"},"hidden_groups":[],"extra_groups":["Mi sección"],"channel_groups":{"11111111-1111-4111-8111-111111111111":"Mi sección"}}');
 select public.qa_assert(public.totus_chat_context()->'layout'->'group_order'->>0='NewOldSmok','layout is returned for its owner');
 select public.qa_denied('select public.totus_chat_save_layout(''{"role":"admin"}'')','Preferencia no válida');
 select public.qa_denied('select public.totus_chat_save_layout(''{"group_sort":{"Hortimatic":"execute"}}'')','Orden no válido');
@@ -13,6 +13,7 @@ select public.qa_denied('select public.totus_chat_save_layout(null)','Organizaci
 select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
 select public.qa_assert(public.totus_chat_context()->'layout'='{}'::jsonb,'a teammate never receives another account layout');
 select public.totus_chat_save_layout('{"group_order":["Equipo"]}');
+select public.qa_denied('select public.totus_chat_save_layout(''{"channel_order":"bad"}'')','Lista de secciones');
 reset role;
 select public.qa_assert((select ui_preferences->'reports' from public.profiles where id='11111111-1111-4111-8111-111111111111')='["keep"]'::jsonb,'report preferences remain intact');
 select public.qa_assert((select ui_preferences->'team_chat'->'group_order'->>0 from public.profiles where id='11111111-1111-4111-8111-111111111111')='NewOldSmok','another user cannot overwrite the owner');

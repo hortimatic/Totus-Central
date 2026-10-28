@@ -26,9 +26,10 @@ export function createChatNotifier({rpc,actor,can=()=>true,onCount,onOpen,Notifi
   try{
    const messages=await rpc('totus_chat_inbox',{p_mentions:false});
    if(checkOwner!==actor()||!Array.isArray(messages))return;
-   onCount(messages.length,messages);
+   const visibleMessages=messages.filter(m=>m.channel_kind!=='assistant');
+   onCount(visibleMessages.length,visibleMessages);
    if(primed&&NotificationClass?.permission==='granted'){
-    for(const message of messages.filter(m=>m.desktop_enabled&&!seen.has(m.id)).slice(0,5)){
+    for(const message of visibleMessages.filter(m=>m.desktop_enabled&&!seen.has(m.id)).slice(0,5)){
      const note=new NotificationClass('Totus Central · '+message.channel_name,{body:'Tienes un mensaje nuevo.',tag:'totus-'+message.id,icon:'favicon.svg'});
      note.onclick=()=>{window.focus();onOpen(message);note.close();};
     }

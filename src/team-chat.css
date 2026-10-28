@@ -77,3 +77,9 @@
 .chat-help{display:flex;align-items:start;justify-content:space-between;gap:10px;flex-wrap:wrap}.chat-help summary{cursor:pointer;color:#245bb5}.chat-help details{max-width:100%}.chat-help p{margin:8px 0 0;max-width:600px}.chat-heading p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 
 .chat-sidebar-head{gap:6px}.chat-sidebar-head h2{font-size:16px;min-width:0}.team-chat .chat-sidebar-head>[data-chat=new]{font-size:11px;padding:6px 8px;min-height:30px}
+
+/* Channel ordering keeps the same controls and readable labels at every width. */
+.chat-channel[draggable="true"]{cursor:grab;touch-action:pan-y}
+.chat-channel[draggable="true"]:active{cursor:grabbing}
+.chat-message-actions{gap:.35rem;flex-wrap:wrap}
+.chat-message-actions .btn{min-height:32px;padding:.35rem .6rem}

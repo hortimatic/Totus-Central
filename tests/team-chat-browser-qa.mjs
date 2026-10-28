@@ -144,9 +144,7 @@ try{
  await click('direct');await page.locator('dialog [name="email"]').selectOption('companero@example.invalid');await page.locator('dialog [type="submit"]').click();
  await page.getByRole('heading',{name:'Compañero',exact:true}).waitFor();
  assert.equal(await page.locator('[data-chat="settings"]').count(),0,'Direct messages cannot invite extra people');
- await click('assistant');await page.getByRole('heading',{name:'Asistente de Totus',exact:true}).waitFor();
- await page.locator('#chatBody').fill('Solicitud de prueba sin operaciones contables');await page.locator('.chat-compose [type="submit"]').click();
- await page.getByText('Esperando a ChatGPT',{exact:true}).waitFor();
+ assert.equal(await page.locator('[data-chat="assistant"]').count(),0,'No synthetic assistant entry');
  await page.locator('[data-chat="open"][data-id="h"]').click();
  await page.locator('#chatMention').selectOption('companero@example.invalid');assert((await page.locator('#chatBody').inputValue()).includes('@{companero@example.invalid}'));
  await page.locator('#chatBody').fill('Adjunto de prueba');
@@ -289,6 +287,13 @@ try{
   assert(screen.messages>=115,'History too small '+JSON.stringify({size,screen}));
  }
  await page.locator('#chatHarness').evaluate(el=>{el.style.marginLeft='';el.style.marginTop='';});
+ // Dragging reorders a personal view, never the shared channel membership.
+ await page.locator('[data-chat="open"][data-id="n"]').dragTo(page.locator('[data-chat="open"][data-id="h"]'));
+ await page.waitForFunction(()=>qaChat.layout.channel_order?.includes('n')&&qaChat.layout.channel_order.indexOf('n')<qaChat.layout.channel_order.indexOf('h'));
+ assert.equal(await page.evaluate(()=>qaChat.layout.channel_groups.n),'Hortimatic');
+ assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='n').group_name),'NewOldSmok');
+ await click('refresh');
+ assert((await page.locator('.chat-channel').evaluateAll(nodes=>nodes.map(n=>n.dataset.id))).indexOf('n')<(await page.locator('.chat-channel').evaluateAll(nodes=>nodes.map(n=>n.dataset.id))).indexOf('h'),'Drag order survives reload');
  const geometry=[];
  for(const width of [1920,1440,1280,1024,900,768,700,390,320]){
   await page.setViewportSize({width,height:1000});
