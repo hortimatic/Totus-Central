@@ -139,3 +139,22 @@ Si los originales ya están en OneDrive, no los descargues a un equipo ni los en
 7. El servidor lee la copia dentro de la carpeta de aplicación, comprueba identidad, huella de copia y tamaño, calcula SHA-256 y registra documento, ubicación y asociación en una transacción. El original queda en las copias completas y en la vista previa habitual. No insertes a mano fichas documentales ni inventes huellas.
 8. Vuelve a leer la revisión antes de asociar el siguiente documento. Si faltan páginas o el texto está recortado, marca extraction.state partial/unread y conserva las dudas para el cotejo.
 No se muestran claves de Microsoft, claves de servicio ni el secreto de programación al chat.
+
+
+## Asignación manual de artículos no relacionados (mejora propuesta 28/10/2026)
+Dentro de una recepción con facturas y entradas cotejadas, el botón **Asignar productos sin pareja** muestra exclusivamente una línea de proveedor y una línea de PrestaShop que aún no tengan pareja. La gerencia o una persona autorizada a editar Documentos puede seleccionar las dos, escribir una justificación de al menos 20 caracteres y confirmar expresamente que es el mismo artículo y variante.
+
+La asignación:
+- Conserva las dos cantidades originales, referencias de línea, PDF y documentos.
+- No altera PrestaShop ni genera gastos, productos nuevos o movimientos de caja.
+- Actualiza el cotejo con revisión vigente y registra el actor en la revisión auditable.
+- Puede señalar «Posible error en ficha de PrestaShop» o «Posible error en referencia del proveedor», dejando visible la incidencia en el cotejo y en Excel.
+- No equipara automáticamente concentraciones, gramos, sabores o tamaños: **la diferencia de variante requiere comprobación humana**, aunque los nombres se parezcan.
+- Permite opcionalmente a gerencia guardar la pareja confirmada en la biblioteca existente, solo si se clasifica como el mismo producto y se confirma que sirve para otros pedidos. Una incidencia de catálogo no se memoriza automáticamente.
+
+## Eliminar una recepción creada por error (mejora propuesta 28/10/2026)
+**Eliminar recepción** se reserva a gerencia con permiso de eliminación de Documentos. Exige escribir ELIMINAR, un motivo de entre 20 y 5000 caracteres y coincidir con la revisión y referencia actuales. El servidor guarda un registro de auditoría con la ficha original y retira únicamente la recepción, sus asociaciones y sus revisiones.
+
+Los PDF NO se borran como efecto lateral. Los documentos exclusivos quedan desvinculados y siguen disponibles en **Documentos**. El diálogo final los enumera y ofrece abrir el módulo para eliminarlos por el procedimiento protegido ya existente, que comprueba vínculos y original recuperable. Los archivos compartidos se conservan con su enlace vigente. Nunca se borran facturas emitidas, documentos ajenos, originales del chat ni copias de seguridad mediante este botón.
+
+**Operación segura:** no probar eliminaciones reales en producción. Las pruebas destructivas se ejecutan con datos ficticios y en entorno aislado. La función de eliminación requiere migración, revisión técnica y comprobación de regresiones antes de publicar.
