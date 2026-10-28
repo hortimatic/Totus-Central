@@ -55,3 +55,11 @@ La rapidez procede de evitar duplicados y de consultar fuentes persistentes, no 
 - Editar un mensaje propio cancela una solicitud pendiente/en curso para evitar respuestas con datos antiguos. Las respuestas históricas se conservan. El borrado sigue siendo lógico y no borra facturas ni contabilidad.
 - Arrastrar un canal sobre otro guarda su orden y sección personal en la cuenta. No cambia los miembros ni el acceso compartido. Las preferencias del canal siguen disponibles para organizar sin ratón.
 - **Activación de ChatGPT:** tener una cuenta o mandar un correo no inicia por sí solo una ejecución. Hasta disponer de un disparador de ChatGPT configurado y probado, hay que abrir el chat convencional y pedirle que atienda las solicitudes. No hay una API de pago ni un proceso en el portátil.
+
+
+## Organización diaria del chat
+Los accesos Canal, Mensaje directo y Sección están agrupados en Crear; Avisos tiene su propia bandeja. Mostrar permite filtrar sin leer, favoritos o directos sin cambiar permisos. Las secciones personales vacías pueden retirarse desde su menú; no se elimina ninguna conversación. La tienda se elige al crear o configurar un canal y se conserva como contexto para sus tareas.
+
+Los filtros de mensajes no se aplican hasta pulsar Buscar. Si llegan mensajes mientras se consulta historial antiguo, usar Mensajes nuevos · Ver al final; no hace falta perder la posición de lectura. La apertura desde avisos señala el mensaje en su canal cuando está en la página actual.
+
+La automatización de ChatGPT y un contador de costes quedan expresamente para una futura revisión. La operativa convencional por solicitud se mantiene.

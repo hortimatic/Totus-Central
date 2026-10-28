@@ -192,7 +192,7 @@ begin
    if c.channel_kind<>'channel' or not private.totus_chat_manager(channel) then raise exception 'Solo responsables de un canal pueden configurarlo.';end if;
    if p_action='channel_update' then
     update public.ops_chat_channels set name=btrim(p_data->>'name'),group_name=btrim(p_data->>'group_name'),
-     description=coalesce(p_data->>'description',''),is_private=coalesce((p_data->>'is_private')::boolean,is_private),
+     description=coalesce(p_data->>'description',''),store_id=case when p_data?'store_id' then nullif(p_data->>'store_id','')::uuid else store_id end,is_private=coalesce((p_data->>'is_private')::boolean,is_private),
      archived=coalesce((p_data->>'archived')::boolean,archived) where id=channel returning to_jsonb(ops_chat_channels) into result;
     if (p_data->>'archived')::boolean then update public.ops_chat_agent_requests set status='cancelled',updated_at=now(),result_note='Canal archivado' where channel_id=channel and status in ('pending','working');end if;
    elsif p_action='channel_delete' then
