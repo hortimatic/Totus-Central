@@ -8,7 +8,7 @@ const browser=await chromium.launch({headless:true});
 try{
  for(const width of [1440,320]){
   const page=await browser.newPage({viewport:{width,height:960}});
-  await page.addInitScript(()=>{delete Map.prototype.getOrInsertComputed});
+  await page.addInitScript(()=>{delete Map.prototype.getOrInsertComputed;delete Map.prototype.getOrInsert});
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
   await page.evaluate(async bytes=>{
    const {renderPdfPreview}=await import('/src/pdf-preview.js');
@@ -16,6 +16,11 @@ try{
    await renderPdfPreview(new Blob([new Uint8Array(bytes)],{type:'application/pdf'}),host);
   },bytes);
   await page.locator('[data-pdf-rendered="1"]').waitFor();
+  assert.equal(page.workers().length,1,'PDF must use its isolated worker');
+  assert.deepEqual(await page.workers()[0].evaluate(()=>{
+   const m=new Map(),first=m.getOrInsertComputed('key',()=>42);
+   return [first,m.getOrInsertComputed('key',()=>0),m.getOrInsert('other',7),m.getOrInsert('other',0)];
+  }),[42,42,7,7],'Map compatibility must be installed in the worker too');
   assert(await page.locator('[data-pdf-prev]').isDisabled());
   const painted=await page.locator('canvas').evaluate(c=>{const p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let count=0;for(let i=0;i<p.length;i+=4)if(p[i]<20&&p[i+1]<20&&p[i+2]>200)count++;return count});
   assert(painted>1000,'The preview frame exists but PDF content was not painted');

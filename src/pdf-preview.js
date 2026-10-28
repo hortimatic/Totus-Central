@@ -11,7 +11,9 @@ export async function renderPdfPreview(blob,host){
   library ||= import('./vendor/pdfjs/pdf.mjs');
   const pdfjs=await library;
   if(!host.isConnected)return;
-  pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdfjs/pdf.worker.mjs',import.meta.url).href;
+  const workerUrl=new URL('./pdf-worker.js',import.meta.url);
+  workerUrl.search=new URL(import.meta.url).search;
+  pdfjs.GlobalWorkerOptions.workerSrc=workerUrl.href;
   loading=pdfjs.getDocument({data:new Uint8Array(await blob.arrayBuffer()),isEvalSupported:false,useSystemFonts:true});
   observer=new MutationObserver(()=>{if(!host.isConnected)dispose()});
   observer.observe(host.ownerDocument.body,{childList:true,subtree:true});
