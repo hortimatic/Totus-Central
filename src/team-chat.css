@@ -35,7 +35,7 @@
 .chat-channel b{background:#2563eb;color:white;border-radius:12px;padding:1px 6px;font-size:10px;flex-shrink:0}
 .chat-channel[draggable=true]{cursor:grab;touch-action:pan-y}.chat-channel[draggable=true]:active{cursor:grabbing}
 .chat-sidebar-empty{display:grid;gap:5px;font-size:12px;padding:20px 8px;color:#68758b}.chat-sidebar-empty b{color:#23314b}
-.chat-sidebar-collapsed{grid-template-columns:48px minmax(0,1fr)}
+.team-chat.chat-sidebar-collapsed{grid-template-columns:48px minmax(0,1fr)}
 .chat-sidebar-collapsed .chat-sidebar{padding:8px;overflow:hidden}
 .chat-sidebar-collapsed .chat-sidebar-head>*:not([data-chat=sidebar-toggle]),.chat-sidebar-collapsed .chat-sidebar>section,.chat-sidebar-collapsed .chat-create-area,.chat-sidebar-collapsed .chat-inbox-access,.chat-sidebar-collapsed .chat-channel-filters{display:none}
 .chat-sidebar-collapsed .chat-sidebar-head{justify-content:center}
@@ -129,5 +129,5 @@
  .chat-message footer{align-items:flex-start;flex-direction:column}.chat-body{font-size:13px;padding:9px 11px}
  .chat-file{align-items:flex-start;flex-direction:column}.chat-compose-tools{gap:8px}.chat-compose-tools select{max-width:160px}.chat-compose>div{align-items:flex-end}
  .chat-scroll-tools>.primary{width:100%}.chat-dialog-body{padding:16px}.chat-members li{flex-wrap:wrap}
- .chat-sidebar-collapsed .chat-sidebar{max-height:48px;height:48px}.chat-sidebar-collapsed .chat-sidebar-head{justify-content:flex-start}
+ .team-chat.chat-sidebar-collapsed{grid-template-columns:minmax(0,1fr)}.chat-sidebar-collapsed .chat-sidebar{max-height:48px;height:48px}.chat-sidebar-collapsed .chat-sidebar-head{justify-content:flex-start}
 }
