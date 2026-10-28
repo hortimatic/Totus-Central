@@ -15,7 +15,7 @@ try{
   sb.rpc=async(name,p={})=>{
    if(!name.startsWith('totus_stock_'))return original(name,p);
    const r=db.ops_stock_receipts.find(r=>r.id===p.p_id);
-   const revision=(r,action)=>db.ops_stock_revisions.push({id:crypto.randomUUID(),receipt_id:r.id,revision:r.revision,action,actor_email:'qa@example.com',created_at:new Date().toISOString(),review:r.result?.review?clone(r.result.review):null});
+   const revision=(r,action,unitChange=null)=>db.ops_stock_revisions.push({id:crypto.randomUUID(),receipt_id:r.id,revision:r.revision,action,actor_email:'qa@example.com',created_at:new Date().toISOString(),review:r.result?.review?clone(r.result.review):null,unit_change:unitChange});
    if(name==='totus_stock_create'){
     const next={id:crypto.randomUUID(),store_id:p.p_store,supplier:p.p_supplier,reference:p.p_reference,received_on:p.p_date,notes:p.p_notes,revision:1,status:'pending',result:{rows:[],coverage:[],complete:false}};
     db.ops_stock_receipts.push(next);revision(next,'created');return {data:clone(next),error:null};
@@ -32,6 +32,18 @@ try{
     if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
     db.ops_stock_sources.push({id:crypto.randomUUID(),receipt_id:r.id,document_id:p.p_document,source_kind:p.p_kind,extracted_text:p.p_text,extraction:p.p_extraction});
     r.revision++;r.status='pending';revision(r,'source_added');return {data:clone(r),error:null};
+   }
+   if(name==='totus_stock_correct_units'){
+    if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
+    if(!['needs_review','differences','reviewed'].includes(r.status))return {data:null,error:{message:'La recepción no está cotejada'}};
+    if((p.p_reason||'').trim().length<20)return {data:null,error:{message:'Justificación obligatoria'}};
+    const line=r.result.rows.find(x=>x.id===p.p_line_id),originalExpected=line.supplier_qty*line.unit_factor,originalReceived=line.prestashop_qty-(line.adjustment_included==='yes'?line.adjustment_qty:0);
+    const previousExpected=line.unit_correction?.expected??originalExpected,previousReceived=line.unit_correction?.received??originalReceived;
+    if(p.p_expected===originalExpected&&p.p_received===originalReceived)delete line.unit_correction;
+    else line.unit_correction={expected:p.p_expected,received:p.p_received,reason:p.p_reason,corrected_by:'qa@example.com',corrected_at:new Date().toISOString(),original_expected:originalExpected,original_received:originalReceived};
+    delete r.result.review;r.status='differences';r.revision++;
+    revision(r,'units_corrected',{line_id:line.id,previous_expected:previousExpected,previous_received:previousReceived,corrected_expected:p.p_expected,corrected_received:p.p_received,reason:p.p_reason});
+    return {data:clone(r),error:null};
    }
    if(name==='totus_stock_mark_reviewed'){
     if(r.revision!==p.p_revision)return {data:null,error:{message:'La recepción ha cambiado'}};
@@ -126,6 +138,39 @@ try{
  const reviewedReport=page.waitForEvent('download');await page.locator('[data-action="stock-export-html"]').click();
  const reviewHtml=await readFile(await (await reviewedReport).path(),'utf8');
  assert(reviewHtml.includes('dos unidades pendientes de reclamar')&&reviewHtml.includes('Con diferencias'));
+ // A closed review can be corrected, but it must reopen until reviewed again.
+ await page.locator('[data-action="stock-units-new"]').click();
+ assert.equal(await page.locator('#stockUnitsReceived').inputValue(),'8');
+ await page.locator('#stockUnitsReceived').fill('10');
+ await page.locator('#stockUnitsReason').fill('El recuento físico identifica dos unidades omitidas en la entrada original; se incorporan solo al cotejo.');
+ await page.locator('[data-action="stock-units-save"]').click();
+ await page.getByText('Unidades corregidas con justificación y registro en historial.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].status),'differences','A correction reopens a previously closed review');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].prestashop_qty),8,'Original PrestaShop units must remain immutable');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].unit_correction.received),10);
+ assert((await page.locator('.stock-page').innerText()).includes('Entrada original: 8'));
+ await page.locator('summary').filter({hasText:'Historial de revisiones'}).click();
+ assert((await page.locator('.stock-history').filter({hasText:'Unidades corregidas con justificación'}).innerText()).includes('dos unidades omitidas'));
+ const correctedExcel=page.waitForEvent('download');await page.locator('[data-action="stock-export-xlsx"]').click();
+ const correctedBook=XLSX.read(await readFile(await (await correctedExcel).path()),{type:'buffer'});
+ const correctedRows=XLSX.utils.sheet_to_json(correctedBook.Sheets.Cotejo);
+ assert.equal(correctedRows[0]['Unidades en PrestaShop'],8);
+ assert.equal(correctedRows[0]['Unidades recibidas corregidas'],10);
+ assert.equal(correctedRows[0]['Diferencia'],-2);
+ assert.equal(correctedRows[0]['Diferencia tras corrección'],0);
+ await page.locator('[data-action="stock-review-new"]').click();
+ await page.locator('#stockReviewNote').fill('La diferencia inicial de dos unidades se documentó, se verificó la recepción y se revisó la corrección interna.');
+ await page.locator('#stockReviewConfirmed').check();
+ await page.locator('[data-action="stock-review-save"]').click();
+ await page.getByText('Revisión guardada con justificación e historial.',{exact:true}).waitFor();
+ assert.equal(await page.locator('.stock-step .badge.good').filter({hasText:'Revisado'}).count(),1);
+ await page.locator('[data-action="stock-units-new"]').click();
+ await page.locator('#stockUnitsReceived').fill('8');
+ await page.locator('#stockUnitsReason').fill('Se retira la corrección para recuperar el cotejo documental y comprobar de nuevo las unidades.');
+ await page.locator('[data-action="stock-units-save"]').click();
+ await page.getByText('Unidades corregidas con justificación y registro en historial.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].unit_correction),undefined,'Reset removes active adjustment');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].status),'differences');
  await page.locator('[data-action="stock-source-remove"]').last().click();await page.locator('#modalHost [data-confirm="accept"]').click();
  await page.getByText('entrada.txt',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('.stock-source').count(),1);
