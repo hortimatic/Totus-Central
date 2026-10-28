@@ -133,7 +133,7 @@ try{
  assert.equal(await page.locator('.stock-step .badge.good').filter({hasText:'Revisado'}).count(),1,'Signed-off receipt must have green status badge');
  assert((await page.locator('.stock-page').innerText()).includes('dos unidades pendientes de reclamar'));
  await page.locator('summary').filter({hasText:'Historial de revisiones'}).click();
- assert((await page.locator('.stock-history').filter({hasText:'Revisado con justificación'}).innerText()).includes('dos unidades pendientes de reclamar'),'Historical review must include original note');
+ assert((await page.locator('.stock-history').filter({hasText:'Revisado con justificación'}).filter({hasText:'dos unidades pendientes de reclamar'}).first().innerText()).includes('dos unidades pendientes de reclamar'),'Historical review must include original note');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].prestashop_qty),8,'Human sign-off must not change units');
  const reviewedReport=page.waitForEvent('download');await page.locator('[data-action="stock-export-html"]').click();
  const reviewHtml=await readFile(await (await reviewedReport).path(),'utf8');
@@ -177,7 +177,7 @@ try{
  await page.getByText('entrada.txt',{exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.locator('.stock-source').count(),1);
  await page.locator('summary').filter({hasText:'Historial de revisiones'}).click();
- assert((await page.locator('.stock-history').filter({hasText:'Revisado con justificación'}).innerText()).includes('dos unidades pendientes de reclamar'),'Later documentary changes must not erase historical justification');
+ assert((await page.locator('.stock-history').filter({hasText:'Revisado con justificación'}).filter({hasText:'dos unidades pendientes de reclamar'}).first().innerText()).includes('dos unidades pendientes de reclamar'),'Later documentary changes must not erase historical justification');
  assert.equal(await page.getByText('Producto A PS',{exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.length),2,'Unlink must preserve originals');
  await page.locator('summary').filter({hasText:'Usar un documento ya guardado'}).click();
