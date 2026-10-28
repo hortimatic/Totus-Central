@@ -11,3 +11,11 @@ export function expectedWriteVersion(root,id){
  const snapshot=root&&versions.get(root);
  return snapshot&&snapshot.id===id?{expected_updated_at:snapshot.updated_at}:{};
 }
+// Advance after a field-only save only if no unrelated server field changed.
+export function advanceWriteVersion(root,before,after,{ignore=[]}={}){
+ const snapshot=versions.get(root);
+ if(!snapshot||snapshot.id!==before?.id||after?.id!==before.id||snapshot.updated_at!==(before.updated_at??null))return false;
+ const keys=[...new Set([...Object.keys(before),...Object.keys(after)])].filter(k=>k!=='updated_at'&&!ignore.includes(k));
+ if(keys.some(k=>JSON.stringify(before[k])!==JSON.stringify(after[k])))return false;
+ rememberWriteVersion(root,after);return true;
+}

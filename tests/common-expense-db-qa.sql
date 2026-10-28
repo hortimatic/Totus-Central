@@ -55,4 +55,44 @@ BEGIN
  IF (SELECT count(*) FROM public.ops_audit_log WHERE entity_id=saved AND area='gastos')<>2 THEN RAISE EXCEPTION 'Scope changes not audited'; END IF;
  IF has_function_privilege('anon','public.totus_save_expense(jsonb,jsonb)','EXECUTE') THEN RAISE EXCEPTION 'Anonymous access expanded'; END IF;
 END $test$;
+\ir ../supabase/review_patches/021_expense_input_completeness.sql
+\ir ../supabase/review_patches/021_expense_input_completeness.sql
+DO $test$
+DECLARE e jsonb; l jsonb; bad jsonb; saved uuid;
+BEGIN
+ e=jsonb_build_object('expense_date',current_date,'supplier_name','QA completeness','paid_status','pendiente','amount_paid',0);
+ l=jsonb_build_array(jsonb_build_object('description','Explicit zero','base_amount',0));
+ saved=public.totus_save_expense(e,l);
+ IF saved IS NULL THEN RAISE EXCEPTION 'Explicit zero was rejected'; END IF;
+ UPDATE public.ops_expenses SET invoice_number='QA-LINKED',supplier_tax_id='QA-TAX' WHERE id=saved;
+ INSERT INTO public.ops_expenses(supplier_name,supplier_tax_id,invoice_number,management_only,source_ref)
+ VALUES('Bank evidence','QA-TAX','QA-LINKED',true,jsonb_build_object('kind','bank_payment_source','related_invoice_expense_id',saved)::text);
+ PERFORM public.totus_save_expense(e||jsonb_build_object('id',saved,'invoice_number','QA-LINKED','supplier_tax_id','QA-TAX'),l);
+ BEGIN
+  PERFORM public.totus_save_expense(e||jsonb_build_object('invoice_number','QA-LINKED','supplier_tax_id','QA-TAX'),l);
+  RAISE EXCEPTION 'Unrelated duplicate accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Ya existe esa factura%' THEN RAISE; END IF; END;
+ FOREACH bad IN ARRAY ARRAY[
+  '{"description":"Missing base"}'::jsonb,
+  '{"description":"Null base","base_amount":null}'::jsonb,
+  '{"description":"Nonfinite","base_amount":"NaN"}'::jsonb,
+  '{"description":"Invalid VAT","base_amount":0,"vat_rate":101}'::jsonb,
+  '{"description":"Invalid RE","base_amount":0,"re_rate":101}'::jsonb,
+  '{"description":"Invalid retention","base_amount":0,"withholding_rate":101}'::jsonb
+ ] LOOP
+  BEGIN
+   PERFORM public.totus_save_expense(e,jsonb_build_array(bad));
+   RAISE EXCEPTION 'Incomplete or invalid concept accepted';
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Completa la base%' THEN RAISE; END IF; END;
+ END LOOP;
+ BEGIN
+  PERFORM public.totus_save_expense(e||'{"paid_status":"parcial","amount_paid":1}'::jsonb,l);
+  RAISE EXCEPTION 'Undated partial payment accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Indica la fecha de pago' THEN RAISE; END IF; END;
+ PERFORM set_config('request.jwt.claims','{}',true);
+ BEGIN
+  PERFORM public.totus_save_expense(e,l);RAISE EXCEPTION 'Anonymous expense accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Solo administración%' THEN RAISE; END IF; END;
+ IF has_function_privilege('anon','public.totus_save_expense(jsonb,jsonb)','EXECUTE') THEN RAISE EXCEPTION 'Anonymous privileges widened'; END IF;
+END $test$;
 ROLLBACK;

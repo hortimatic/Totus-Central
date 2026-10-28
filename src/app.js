@@ -4,11 +4,12 @@ import {createCloudBackupReader} from './cloud-backup-reader.js';
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
 import {cleanupAllowed} from './write-safety.js';
 import {createBusinessWriter} from './business-write.js';
-import {rememberWriteVersion,expectedWriteVersion} from './write-version.js';
+import {rememberWriteVersion,expectedWriteVersion,advanceWriteVersion} from './write-version.js';
 import {retireStoredDocument} from './document-removal.js';
 import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
+import {selectExpenses} from './expense-selection.js';
 import {templateCopyCode} from './template-copy.js';
 import {templateExample} from './template-preview.js';
 import {createTasks} from './tasks-ui.js';
@@ -38,7 +39,7 @@ import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,r
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
-import {closingIncomeAmount,expenseCostAmount,quickPriceStudy,previewQuickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
+import {parseDecimal,closingIncomeAmount,expenseCostAmount,quickPriceStudy,previewQuickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
 import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
@@ -427,10 +428,10 @@ function expenseSupplierForm(row=null){
   ${formField('Provincia','esProvince',row?.province||'')}
   ${selectField('Categoría por defecto','esCategory',categories,row?.default_category_id||'')}
   ${selectField('Pago por defecto','esPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.default_payment_method||'transferencia')}
-  ${selectField('Documento por defecto','esDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'}],row?.default_document_kind||'factura')}
-  ${formField('IVA (%)','esVat',row?.default_vat_rate??21,'number','step="0.1" min="0"')}
-  ${formField('Recargo (%)','esRe',row?.default_re_rate??0,'number','step="0.1" min="0"')}
-  ${formField('Retención (%)','esWh',row?.default_withholding_rate??0,'number','step="0.1" min="0"')}
+  ${selectField('Documento por defecto','esDocKind',[{value:'factura',label:'Factura'},{value:'rectificativa',label:'Rectificativa'},{value:'ticket',label:'Ticket'},{value:'nomina',label:'Nómina'},{value:'seguridad_social',label:'Seguridad Social'},{value:'recibo',label:'Recibo'},{value:'otro',label:'Otro'},{value:'control_interno',label:'Control interno'}],row?.default_document_kind||'factura')}
+  ${formField('IVA (%)','esVat',row?.default_vat_rate??21,'number','step="0.1" min="0" max="100"')}
+  ${formField('Recargo (%)','esRe',row?.default_re_rate??0,'number','step="0.1" min="0" max="100"')}
+  ${formField('Retención (%)','esWh',row?.default_withholding_rate??0,'number','step="0.1" min="0" max="100"')}
   ${selectField('Modelo retención','esWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'111 · Nóminas y profesionales'},{value:'115',label:'115 · Alquiler del local'}],row?.default_withholding_model||'')}
   ${formField('% deducible','esDedPct',row?.default_deductible_pct??100,'number','min="0" max="100"')}
   <label><input id="esDeductible" type="checkbox" ${row?.default_deductible_irpf===false?'':'checked'}> Deducible IRPF por defecto</label>
@@ -563,10 +564,15 @@ async function saveTaxExpenseFromGastos(id=''){
 async function saveExpenseReportGroup(id){
  const existing=state.data.expenses.find(x=>x.id===id);
  if(!existing)throw new Error('Gasto no encontrado. Actualiza el listado.');
+ const before=structuredClone(existing);
  const group=val('exReportGroup');
  if(group&&!EXPENSE_REPORT_GROUPS.some(g=>g.value===group))throw new Error('Selecciona una categoría del Excel válida.');
  await rpc('totus_set_expense_report_group',{p_id:id,p_group:group||null,p_expected_group:expenseReportOverride(existing)||null});
  await loadCore();
+ const saved=state.data.expenses.find(x=>x.id===id);
+ const sourceWithoutColor=value=>{try{const parsed=JSON.parse(value||'{}');delete parsed.report_display;return JSON.stringify(parsed)}catch{return value}};
+ if(saved&&sourceWithoutColor(before.source_ref)===sourceWithoutColor(saved.source_ref))
+  advanceWriteVersion($('#content > .page'),before,saved,{ignore:['source_ref']});
  markFormFieldSaved($('#content'),'exReportGroup');
  toast('Categoría del Excel guardada. Vuelve a generar el informe para ver el cambio.','ok');
 }
@@ -581,16 +587,18 @@ async function saveExpense(id=''){
  if(date>isoToday())throw new Error('La fecha del gasto no puede ser futura.');
  const invoiceNumber=val('exInvoice').trim(),taxId=val('exTax').trim();
  if(invoiceNumber){
-   const duplicate=state.data.expenses.find(x=>x.id!==id&&String(x.invoice_number||'').trim().toLowerCase()===invoiceNumber.toLowerCase()&&((taxId&&String(x.supplier_tax_id||'').trim().toLowerCase()===taxId.toLowerCase())||(!taxId&&String(x.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase())));
+   const linkedPayment=x=>{try{return !!id&&x.management_only&&JSON.parse(x.source_ref||'{}').kind==='bank_payment_source'&&JSON.parse(x.source_ref).related_invoice_expense_id===id}catch{return false}};
+   const duplicate=state.data.expenses.find(x=>x.id!==id&&!linkedPayment(x)&&String(x.invoice_number||'').trim().toLowerCase()===invoiceNumber.toLowerCase()&&((taxId&&String(x.supplier_tax_id||'').trim().toLowerCase()===taxId.toLowerCase())||(!taxId&&String(x.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase())));
    if(duplicate)throw new Error('Ya existe un gasto con esta factura para el mismo proveedor.');
  }
  const paidStatus=val('exPaidStatus')||'pagado',paidDate=paidStatus==='pendiente'?null:(val('exPaidDate')||null);
- if(paidStatus==='pagado'&&!paidDate)throw new Error('Indica la fecha en que se pagó el gasto.');
+ if(paidStatus!=='pendiente'&&!paidDate)throw new Error('Indica la fecha en que se pagó el gasto.');
  if(paidDate&&paidDate>isoToday())throw new Error('La fecha de pago no puede ser futura.');
  const lineEls=[...document.querySelectorAll('.expense-line')];
  if(!lineEls.length)throw new Error('Añade al menos un concepto.');
  const lines=lineEls.map((el,i)=>{
-   const ix=el.dataset.lineIndex,base=n(val(`exLineBase_${ix}`)),vat=n(val(`exLineVat_${ix}`)),re=n(val(`exLineRe_${ix}`)),wh=n(val(`exLineWh_${ix}`)),dedPct=n(val(`exLineDedPct_${ix}`));
+   const ix=el.dataset.lineIndex,base=num(`exLineBase_${ix}`),vat=num(`exLineVat_${ix}`),re=num(`exLineRe_${ix}`),wh=num(`exLineWh_${ix}`),dedPct=num(`exLineDedPct_${ix}`);
+   required(`exLineBase_${ix}`,`Base de la línea ${i+1} (indica 0 si es cero)`);
    validateExpenseLineAmounts({base,vat,re,withholding:wh,deductiblePct:dedPct,documentKind:val('exDocKind')});
    const description=required(`exLineDesc_${ix}`,`Descripción de la línea ${i+1}`);
    return {sort_order:(i+1)*10,category_id:val(`exLineCategory_${ix}`)||null,description,base_amount:base,vat_rate:vat,vat_amount:0,re_base:0,re_rate:re,re_amount:0,irpf_imputable:0,withholding_base:0,withholding_rate:wh,withholding_amount:0,withholding_model:val(`exLineModel_${ix}`)||null,deductible_irpf:!input('exManagement')?.checked&&!!input(`exLineDed_${ix}`)?.checked,deductible_pct:input('exManagement')?.checked?0:dedPct,fixed_asset:!!input(`exLineFixed_${ix}`)?.checked,amortization_years:val(`exLineAmort_${ix}`)===''?null:n(val(`exLineAmort_${ix}`)),notes:''};
@@ -793,7 +801,13 @@ function updateExpenseSummary(){
  updateExpenseDeductionFields();
  if(val('exDocKind')==='impuesto'){for(const id of ['exSumBase','exSumVat','exSumRe','exSumWh'])if(input(id))input(id).textContent=money(0);if(input('exSumTotal'))input('exSumTotal').textContent=money(num('exPaidAmount'));return}
 
- const rows=[...document.querySelectorAll('.expense-line')].map(el=>{const ix=el.dataset.lineIndex;return {base_amount:n(val(`exLineBase_${ix}`)),vat_rate:n(val(`exLineVat_${ix}`)),re_rate:n(val(`exLineRe_${ix}`)),withholding_rate:n(val(`exLineWh_${ix}`))}});
+ let rows;
+ try{
+  rows=[...document.querySelectorAll('.expense-line')].map(el=>{const ix=el.dataset.lineIndex;return {base_amount:parseDecimal(val(`exLineBase_${ix}`)),vat_rate:parseDecimal(val(`exLineVat_${ix}`)),re_rate:parseDecimal(val(`exLineRe_${ix}`)),withholding_rate:parseDecimal(val(`exLineWh_${ix}`))}});
+ }catch{
+  for(const id of ['exSumBase','exSumVat','exSumRe','exSumWh','exSumTotal'])if(input(id))input(id).textContent='Revisa los importes';
+  return;
+ }
  const {base,vat,re,withholding:wh,total}=expenseTotals(rows);
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
  set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',total);
@@ -854,15 +868,9 @@ function exportCurrentModule(module){
  // In the invoices/receipts subtab the exported expenses must match the visible
  // attachment filter. In the normal expense subtab that filter is not displayed.
  const invoiceSection=getView('gastos').section==='facturas';
- const attachmentFilter=invoiceSection?(f.attachment||'all'):'all';
- const documentsById=new Map(state.data.documents.map(d=>[String(d.id),d]));
- const search=searchText(f.query);
- const expenses=state.data.expenses.filter(x=>(!f.from||x.expense_date>=f.from)&&(!f.to||x.expense_date<=f.to)&&(f.store==='all'||x.store_id===f.store)&&(f.kind==='all'||!f.kind||(f.kind==='internal'?x.management_only:!x.management_only))&&(f.paid==='all'||!f.paid||x.paid_status===f.paid)
-  &&(attachmentFilter==='all'||(attachmentFilter==='attached'?documentsById.has(String(x.document_id)):!documentsById.has(String(x.document_id))))
-  &&(!search||(invoiceSection
-   ?[x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,documentsById.get(String(x.document_id))?.original_name]
-   :[x.supplier_name,x.invoice_number,x.description,x.payment_method,x.supplier_tax_id,x.notes,state.data.stores.find(s=>s.id===x.store_id)?.name]).filter(Boolean).map(searchText).join(' ').includes(search)));
- return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,taxPayments:state.data.taxPayments,reportFilter:f,from:f.from,to:f.to});
+ const expenses=selectExpenses(state.data,f,{invoices:invoiceSection});
+ const includeTax=!invoiceSection&&(!f.kind||['all','internal'].includes(f.kind))&&(!f.paid||['all','pagado'].includes(f.paid));
+ return exportExpensesWorkbook({settings:state.data.settings,expenses,stores:state.data.stores,taxPayments:includeTax?state.data.taxPayments:[],reportFilter:f,from:f.from,to:f.to});
 }
 
 function addInvoiceLine(){
@@ -2497,6 +2505,8 @@ document.addEventListener('click',async e=>{
  if(replacesPage&&!await allowDiscardDrafts())return;
  if(!replacesPage&&/(?:-new|-edit|-permissions)$/.test(a)&&!await allowDiscardDrafts({modalOnly:true}))return;
  if(a==='template-duplicate'&&!await allowDiscardDrafts({modalOnly:true}))return;
+ if(['expense-attach-save','expense-tax-attach-save'].includes(a)&&hasFormDraft($('#content'),['exFile'])
+  &&!await confirmAction('Se guardará únicamente el archivo seleccionado. Los demás cambios de esta ficha no se guardarán y se descartarán al actualizarla. Si quieres conservarlos, cancela y usa Guardar.',{title:'Guardar solo el adjunto',acceptLabel:'Guardar adjunto y descartar los otros cambios'}))return;
  if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
  const writes=['stock-source-remove','stock-upload-discard','template-duplicate','series-toggle','user-toggle','user-reset','user-permissions-reset','report-block-up','report-block-down','report-block-reset','admin-period-close','admin-period-reopen','onedrive-begin','onedrive-mirror','onedrive-backup-mirror','onedrive-test','admin-unused-logos'].includes(a)||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
@@ -2877,8 +2887,9 @@ document.addEventListener('change',async e=>{
  if(e.target?.id==='exSupplierId'){
    const s=state.data.suppliers.find(x=>x.id===e.target.value);if(!s)return;
    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
-   set('exSupplier',s.name);set('exTax',s.tax_id);set('exPayment',s.default_payment_method||'tarjeta');
-   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;const category=state.data.categories.find(c=>c.id===s.default_category_id);if(String(category?.code||'').startsWith('INTERNAL_')){const m=input('exManagement'),p=input('exLineDedPct_'+ix);if(m)m.checked=true;if(d)d.checked=false;if(p)p.value='0'}updateExpenseSummary()}
+   set('exSupplier',s.name);set('exTax',s.tax_id||'');set('exPayment',s.default_payment_method||'tarjeta');
+   if(!getView('gastos').id&&s.default_document_kind)set('exDocKind',s.default_document_kind);
+   const first=document.querySelector('.expense-line');if(first){const ix=first.dataset.lineIndex;set('exLineCategory_'+ix,s.default_category_id||'');set('exLineVat_'+ix,s.default_vat_rate??21);set('exLineRe_'+ix,s.default_re_rate??0);set('exLineWh_'+ix,s.default_withholding_rate??0);set('exLineModel_'+ix,s.default_withholding_model||'');set('exLineDedPct_'+ix,s.default_deductible_pct??100);const d=document.getElementById('exLineDed_'+ix);if(d)d.checked=s.default_deductible_irpf!==false;const category=state.data.categories.find(c=>c.id===s.default_category_id);if(String(category?.code||'').startsWith('INTERNAL_')){const m=input('exManagement'),p=input('exLineDedPct_'+ix);if(m)m.checked=true;if(d)d.checked=false;if(p)p.value='0'}updateExpenseTaxTreatment()}
  }
  if(/^exLineCategory_\d+$/.test(e.target?.id||'')){
    const category=state.data.categories.find(x=>String(x.id)===String(e.target.value));
@@ -2890,7 +2901,7 @@ document.addEventListener('change',async e=>{
      if(percentage)percentage.value='0';
      toast('Concepto interno: excluido de fiscalidad y gestoría.','ok');
    }
-   updateExpenseSummary();
+   updateExpenseTaxTreatment();
  }
  if(e.target?.id==='ivCustomerId'){
    const c=state.data.customers.find(x=>x.id===e.target.value);if(!c)return;

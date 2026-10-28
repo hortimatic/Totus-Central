@@ -22,6 +22,7 @@ import {canUser,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../
 import {sum,money,fmtDate,inRange,monthRange,isoToday,esc} from '../utils.js';
 import {kpi,table,dateFilters,btn,moneyCell,stateBadge,formField,selectField,fieldHelp} from '../components.js';
 import {expenseAttachedInvoices} from '../expense-register.js';
+import {selectExpenses} from '../expense-selection.js';
 import {quickPriceStudy,isInvoiceRefund,invoiceOutstanding,issuedDocumentFileLocked} from '../calculations.js';
 import {manualClosingReconciled,sourceClosingReconciled,computeModel130Accumulated,estimatePriorModel130,isReviewedFiscalExpense,deductibleExpenseTotal,expenseCostAmount,isUnreconciledPayment,isExpensePaymentEvidence,closingIncomeAmount,closingSalesAmount} from '../calculations.js';
 
@@ -264,10 +265,7 @@ export function gastos(){
  if(view.section==='proveedores')return expenseSuppliersHtml();
  const f=getFilters('gastos');
  const kind=f.kind||'all',paid=f.paid||'all';
- const rows=state.data.expenses.filter(x=>inRange(x.expense_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)
-   &&(kind==='all'||(kind==='payment'?isExpensePaymentEvidence(x):kind==='internal'?x.management_only&&!isExpensePaymentEvidence(x):!x.management_only))
-   &&(paid==='all'||x.paid_status===paid)
-   &&matchesText(f.query,/internet inteligente/i.test(x.supplier_name||'')?'Vaperalia':'',x.supplier_name,x.supplier_tax_id,x.invoice_number,x.description,x.payment_method,x.notes,storeName(x.store_id)));
+ const rows=selectExpenses(state.data,f);
  const total=sum(rows.filter(x=>!x.management_only),expenseCostAmount);
  const internal=sum(rows.filter(x=>x.management_only),expenseCostAmount);
  const taxInformation=(kind==='all'||kind==='internal')&&(paid==='all'||paid==='pagado')?sum(informationalTaxPayments(state.data.taxPayments,f),x=>x.amount):0;
@@ -314,7 +312,7 @@ function expenseInvoiceSectionHtml(){
  const rows=expenseAttachedInvoices(state.data.expenses,state.data.documents)
   .filter(({expense,document,date,searchable})=>
    inRange(date,f.from,f.to)
-   &&(f.store==='all'||(expense?.store_id||document?.store_id)===f.store)
+   &&(f.store==='all'||(expense?expense.store_id:document?.store_id)===f.store)
    &&(kind==='all'||(expense&&(kind==='payment'?isExpensePaymentEvidence(expense):kind==='internal'?!!expense.management_only&&!isExpensePaymentEvidence(expense):!expense.management_only)))
    &&(paid==='all'||expense?.paid_status===paid)
    &&(attachment==='all'||(attachment==='attached'?!!document:!document))

@@ -558,6 +558,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .expense-invoice-card .data-table td{vertical-align:top;padding:14px 12px}
 .expense-invoice-card .data-table tbody tr:nth-child(even){background:#fafbfd}
 .expense-invoice-card .expense-file-actions .btn.danger{background:#fff;color:#a93d44;border-color:#edced0}
+.expense-page .section-head{flex-wrap:wrap}
+.expense-page .section-head>div{min-width:0;overflow-wrap:anywhere}
+.expense-page .section-head>.inline-actions{flex:0 1 auto}
 
 /* Keep optional tax metadata in the existing form without affecting other records. */
 #exTaxPaymentFields[hidden],#expenseLines[hidden],#exTaxConcept[hidden]{display:none!important}
