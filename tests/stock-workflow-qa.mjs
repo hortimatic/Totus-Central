@@ -67,6 +67,12 @@ assert.throws(()=>pairUnmatchedStockRows(originalRows,{
  supplierLineId:'supplier-l1',prestashopLineId:'prestashop-l1',
  issueKind:'same_product',note:'breve',actor:'qa@example.invalid'
 }),/20 a 5000/);
+assert.throws(()=>pairUnmatchedStockRows(originalRows,{
+ supplierLineId:'supplier-l1',prestashopLineId:'prestashop-50g',
+ issueKind:'same_product',
+ note:'Se pretende unir erróneamente el envase de 25 gramos con el de 50 gramos.',
+ actor:'qa@example.invalid'
+}),/formatos o variantes/,'Mismatched size cannot become a silent same-product equivalence');
 const paired=pairUnmatchedStockRows(originalRows,{
  supplierLineId:'supplier-l1',prestashopLineId:'prestashop-l1',
  issueKind:'same_product',
