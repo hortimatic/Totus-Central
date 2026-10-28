@@ -39,11 +39,14 @@ BEGIN
      'id',d.id,'name',d.original_name,
      'shared',EXISTS(SELECT 1 FROM public.ops_stock_sources other
                      WHERE other.document_id=d.id AND other.receipt_id<>p_id)
-   ) ORDER BY d.original_name),'[]'::jsonb),count(*)
-   INTO retained,source_count
-  FROM public.ops_stock_sources s
-  JOIN public.ops_documents d ON d.id=s.document_id
-  WHERE s.receipt_id=p_id;
+   ) ORDER BY d.original_name),'[]'::jsonb)
+   INTO retained
+  FROM public.ops_documents d
+  WHERE (d.linked_entity_type='stock_receipt' AND d.linked_entity_id=p_id)
+     OR EXISTS(SELECT 1 FROM public.ops_stock_sources s
+               WHERE s.document_id=d.id AND s.receipt_id=p_id);
+  SELECT count(*) INTO source_count
+    FROM public.ops_stock_sources WHERE receipt_id=p_id;
 
   SELECT count(*) INTO history_count
     FROM public.ops_stock_revisions WHERE receipt_id=p_id;
