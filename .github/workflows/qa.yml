@@ -131,6 +131,7 @@ jobs:
       - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/header-tools-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
+      - run: node tests/pricing-integral-browser-qa.mjs
       - run: node tests/pricing-taxonomy-layout-qa.mjs
       - run: node tests/tasks-browser-qa.mjs
       - run: node tests/team-chat-browser-qa.mjs
@@ -189,6 +190,7 @@ jobs:
             artifacts/layout_*.png
             artifacts/user_*.png
             artifacts/layout-audit.json
+            artifacts/pricing-integral.json
             artifacts/subtab-walk.json
             artifacts/user_screenshot_checks.json
             artifacts/field-sweep.json
@@ -232,6 +234,8 @@ jobs:
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-fixture.sql
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f supabase/migrations/20261024050000_atomic_pricing_product_drafts.sql
           psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-db-qa.sql
+          psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f supabase/review_patches/019_pricing_provider_retries.sql
+          psql -h localhost -U postgres -d pricing_qa -v ON_ERROR_STOP=1 -f tests/pricing-provider-retries-db-qa.sql
 
   chat-database:
     runs-on: ubuntu-latest

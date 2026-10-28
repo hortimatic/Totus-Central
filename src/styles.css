@@ -687,6 +687,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .stock-supplier-field>label{font-size:12px;font-weight:750;color:#596579}
 
 /* Pricing: preserve the existing cards while making each variant readable. */
+/* Only animate drawer movement; a viewport change must not animate its height over the page. */
+.sidebar{transition-property:transform}
 .pricing-variant-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--border,#e2e8f0)}
 .pricing-variant-row>div:first-child{flex:1 1 180px}
 .pricing-variant-values{display:flex;gap:16px;flex-wrap:wrap;flex:2 1 400px}
@@ -698,12 +700,23 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 #prDraftVariants[hidden]{display:none!important}
 .pricing-draft-variant .form-grid>label{min-width:0}
 #prDiscountScenarios h4{margin:12px 0}
+#prDiscountScenarios,#prDiscountScenarios>section{min-width:0}
 
 #prInitialProvider[hidden]{display:none!important}
 
 .pricing-consultations{max-height:480px;overflow:auto;scrollbar-gutter:stable}
 .pricing-consultations .summary-row[hidden]{display:none!important}
 .pricing-consultation-search{display:grid;gap:6px;margin-top:16px}
+.pricing-page .section-head{flex-wrap:wrap;gap:12px}
+.pricing-page .section-head>.inline-actions{flex-wrap:wrap}
+.pricing-consultation-search{font-size:12px;font-weight:750;color:#596579}
+.pricing-consultation-search input{width:100%;min-width:0;min-height:42px;border:1px solid #cfd6e2;border-radius:9px;padding:10px 11px;background:#fff;color:var(--ink);outline:none}
+.pricing-consultation-search input:focus{border-color:#7aa7eb;box-shadow:0 0 0 3px rgba(35,103,209,.12)}
+.pricing-consultations .summary-row>div:first-child{overflow-wrap:anywhere}
+.pricing-consultations .inline-actions{display:grid;grid-template-columns:repeat(4,max-content);gap:7px}
+.pricing-consultations .inline-actions .btn{white-space:nowrap;overflow-wrap:normal;font-size:13px;padding:8px 10px}
+@media(max-width:700px){.pricing-consultations .inline-actions{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))}.pricing-consultations .inline-actions .btn{min-height:40px}}
+@media(max-width:360px){.pricing-consultations .inline-actions{grid-template-columns:minmax(0,1fr)}}
 
 /* Pricing taxonomy: balanced columns and compact actions, scoped to this dialog. */
 .pricing-taxonomy{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}

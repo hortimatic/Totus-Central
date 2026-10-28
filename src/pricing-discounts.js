@@ -1,11 +1,12 @@
 import {quickPriceStudy} from './calculations.js';
 import {esc,money} from './utils.js';
+import {variantStudy} from './pricing-core.js';
 export function profitability(study,target=35){
  if(!study)return 'Sin coste o precio';
  return study.margin<0?'Pérdida':study.marginPct<18?'Crítico':study.marginPct<25?'Ajustado':study.marginPct<target?'Sano':'Muy sano';
 }
 export function discountScenarios(items,settings={},target=35,selected=''){
- const available=items.filter(x=>x.cost_net!=null&&x.pvp!=null&&Number(x.pvp)>0);
+ const available=items.map(item=>{const study=variantStudy(item,settings);return study&&study.pvp>0?{...item,cost_net:study.cost,pvp:study.pvp}:null}).filter(Boolean);
  if(!available.length)return '<p class="note">Indica el coste de compra y el PVP para comparar descuentos.</p>';
  const index=Math.max(0,available.findIndex(x=>String(x.id||x.sku||x.name)===String(selected)));
  const selector=available.length>1?'<label>Variante para comparar descuentos<select id="prDiscountVariant">'+available.map((x,i)=>'<option value="'+esc(String(x.id||x.sku||x.name))+'" '+(i===index?'selected':'')+'>'+esc(x.name||x.sku||'Variante')+'</option>').join('')+'</select></label>':'';

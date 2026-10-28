@@ -18,7 +18,7 @@ import {createTeamChat} from './team-chat-ui.js';
 import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
-import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingCompetition} from './pricing-core.js';
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingProviderPreview,pricingCompetition} from './pricing-core.js';
 import {stockAction} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan,annualReportPlan} from './report-package.js';
@@ -296,6 +296,7 @@ function input(id){return document.getElementById(id)}
 function val(id){return input(id)?.value??''}
 function required(id,label){const v=val(id).trim();if(!v)throw new Error(`${label} es obligatorio.`);return v}
 function num(id){return n(val(id))}
+function pricingCount(id,label){const value=validateFormNumber(val(id),{min:0,label})??0;if(!Number.isInteger(value))throw new Error(label+': indica un número entero.');return value}
 function actionEl(e){return e.target.closest('[data-action],[data-route]')}
 function validateDecimalFields(root=document){
  for(const field of root.querySelectorAll('input[data-decimal="true"]')){
@@ -708,6 +709,7 @@ async function finalizeInvoice(id){
 }
 
 async function saveProduct(id='',next=false){
+ pricingCount('prUnits','Unidades/mes');
  const sku=required('prSku','Referencia'),name=required('prName','Nombre');
  const duplicate=state.data.products.find(x=>x.id!==id&&String(x.sku||'').trim().toLowerCase()===sku.trim().toLowerCase());
  if(duplicate)throw new Error('Ya existe un producto con esa referencia.');
@@ -966,11 +968,11 @@ async function deleteProvider(id){
 function providerPriceForm(productId,row=null){
  if(!state.data.providers.length){toast('Crea primero un proveedor.','bad');providersManager();return}
  const providers=editableReferences(state.data.providers,row?.provider_id).map(x=>({value:x.id,label:x.name}));
- const body=`<div class="form-grid">
+ const body=`<input type="hidden" id="ppRequestId" value="${esc(crypto.randomUUID())}"><div class="form-grid">
   ${selectField('Proveedor','ppProvider',providers,row?.provider_id||providers[0]?.value||'')}
-  ${formField('Coste proveedor','ppNet',row?.net_cost??'','number','step="0.01"')}
+  ${formField('Coste proveedor','ppNet',row?.net_cost??'','number','step="0.01" min="0"')}
   ${formField('Descuento proveedor (%)','ppDiscount',row?.provider_discount??0,'number','step="0.1" min="0" max="100"')}
-  ${formField('Transporte por unidad','ppShipping',row?.shipping_unit??0,'number','step="0.01"')}
+  ${formField('Transporte por unidad','ppShipping',row?.shipping_unit??0,'number','step="0.01" min="0"')}
   ${formField('Pedido mínimo','ppMoq',row?.moq??0,'number','min="0"')}
   ${formField('Stock / plazo','ppStock',row?.stock_status||'')}
   ${formField('Origen compra','ppOrigin',row?.purchase_origin||'España')}
@@ -981,10 +983,11 @@ function providerPriceForm(productId,row=null){
  modal(row?'Editar coste de proveedor':'Añadir proveedor al producto',body);
 }
 async function saveProviderPrice(productId,id=''){
+ required('ppNet','Coste de compra');pricingCount('ppMoq','Pedido mínimo');
  const selected=!!input('ppSelected')?.checked;
  const row={product_id:productId,variant_id:null,provider_id:required('ppProvider','Proveedor'),net_cost:num('ppNet'),provider_discount:Math.min(100,Math.max(0,num('ppDiscount'))),shipping_unit:Math.max(0,num('ppShipping')),moq:Math.max(0,Math.round(num('ppMoq'))),stock_status:val('ppStock').trim(),price_date:isoToday(),notes:val('ppNotes').trim(),selected,purchase_origin:val('ppOrigin').trim()||'España',apply_special_tax:false,special_tax_amount:0};
  if(row.net_cost<0)throw new Error('El coste de compra no puede ser negativo.');
- await rpc('totus_pricing_save_provider',{p_price:{...row,...(id?{id}:{})}});
+ await rpc('totus_pricing_save_provider',{p_price:{...row,...(id?{id}:{request_id:required('ppRequestId','Identificador de la operación')})}});
  closeModal();await refresh('Coste de proveedor guardado.');refreshPricingPanels(productId);
 }
 async function deleteProviderPrice(productId,id){
@@ -994,9 +997,9 @@ async function deleteProviderPrice(productId,id){
 function competitorForm(productId,row=null){
  const body=`<div class="form-grid">
   ${formField('Competidor','cpName',row?.competitor_name||'')}
-  ${formField('Precio','cpPrice',row?.price??'','number','step="0.01"')}
+  ${formField('Precio','cpPrice',row?.price??'','number','step="0.01" min="0"')}
   ${formField('Descuento (%)','cpDiscount',row?.discount??0,'number','step="0.1" min="0" max="100"')}
-  ${formField('Envío','cpShipping',row?.shipping??0,'number','step="0.01"')}
+  ${formField('Envío','cpShipping',row?.shipping??0,'number','step="0.01" min="0"')}
   ${formField('Stock','cpStock',row?.stock_status||'Sí')}
   ${formField('Promoción','cpPromo',row?.promo_type||'')}
   ${formField('URL','cpUrl',row?.url||'','url')}
@@ -1005,6 +1008,7 @@ function competitorForm(productId,row=null){
  modal(row?'Editar competencia':'Añadir competencia',body);
 }
 async function saveCompetitor(productId,id=''){
+ required('cpPrice','Precio de la competencia');
  const row={product_id:productId,variant_id:null,competitor_name:required('cpName','Competidor'),url:val('cpUrl').trim(),price:num('cpPrice'),discount:Math.min(100,Math.max(0,num('cpDiscount'))),shipping:Math.max(0,num('cpShipping')),stock_status:val('cpStock').trim()||'Sí',promo_type:val('cpPromo').trim(),capture_date:isoToday(),notes:val('cpNotes').trim()};
  if(row.price<0)throw new Error('El precio de la competencia no puede ser negativo.');
  if(id)await update('product_competitor_prices',id,row);else await insert('product_competitor_prices',row);
@@ -1052,24 +1056,26 @@ async function deleteVariant(productId,id){
  await remove('product_variants',id);closeModal();await refresh('Variante eliminada.');refreshPricingPanels(productId);
 }
 function updateProductStudy(){
+ const initialPrice=pricingProviderPreview({net_cost:val('prInitialCost'),provider_discount:val('prInitialDiscount'),shipping_unit:val('prInitialShipping')});
  const scenario=input('prDiscountScenarios'),productIdForScenarios=getView('pricing').id;
  if(scenario){
   const savedVariants=state.data.variants.filter(v=>v.product_id===productIdForScenarios&&v.active!==false);
-  const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {id,name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:num('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:num('pdPvp_'+id)}});
-  const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
-  scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?num('prProposed'):num('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin||35),val('prDiscountVariant'));
+  const draftVariants=[...document.querySelectorAll('.pricing-draft-variant')].map(el=>{const id=el.dataset.draftId;return {id,name:val('pdName_'+id),cost_net:val('pdCost_'+id)===''?null:val('pdCost_'+id),pvp:val('pdPvp_'+id)===''?null:val('pdPvp_'+id)}});
+  const prices=state.data.providerPrices.filter(v=>v.product_id===productIdForScenarios&&!v.variant_id),chosen=prices.find(v=>v.selected)||[...prices].sort((a,b)=>pricingProviderCost(a)-pricingProviderCost(b))[0]||(val('prInitialProviderName').trim()?initialPrice:null);
+  scenario.innerHTML=discountScenarios(val('prType')==='variants'?[...savedVariants,...draftVariants]:chosen?[{name:val('prName'),cost_net:pricingProviderCost(chosen),pvp:val('prProposed')!==''?val('prProposed'):val('prPvp')}]:[],state.data.settings,Number(state.data.families.find(f=>f.id===val('prFamily'))?.default_margin??35),val('prDiscountVariant'));
  }
  if(!document.getElementById('prSummaryPvp'))return;
  if(val('prType')==='variants'){
   if(input('prSummaryNote')){input('prSummaryNote').className='note';input('prSummaryNote').textContent='Cada variante tiene su propio coste y PVP. El resumen muestra el intervalo de las variantes activas, aplicando el descuento del producto.';}
-  const results=[...state.data.variants.filter(v=>v.product_id===getView('pricing').id&&v.active!==false).map(v=>{const r=variantStudy(v,state.data.settings,num('prDiscount'));return r?{...r,costNet:v.cost_net}:null}).filter(Boolean),...refreshDraftStudies(state.data.settings,num('prDiscount'))];
+  const results=[...state.data.variants.filter(v=>v.product_id===getView('pricing').id&&v.active!==false).map(v=>{const r=variantStudy(v,state.data.settings,val('prDiscount'));return r?{...r,costNet:v.cost_net}:null}).filter(Boolean),...refreshDraftStudies(state.data.settings,val('prDiscount'))];
   for(const [id,key] of [['prSummaryCost','costNet'],['prSummaryReal','costReal'],['prSummaryPvp','finalSale'],['prSummaryMargin','margin'],['prSummaryPct','marginPct']])if(input(id))input(id).textContent=draftRange(results,key);
+  for(const id of ['prSummaryMonth','prSummaryCompetition'])if(input(id))input(id).textContent='—';
   return;
  }
  const productId=getView('pricing').id;
  const prices=state.data.providerPrices.filter(x=>x.product_id===productId&&!x.variant_id);
  const costOf=pricingProviderCost;
- const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0]||(val('prInitialProviderName').trim()&&val('prInitialCost')!==''?{net_cost:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null);
+ const chosen=prices.find(x=>x.selected)||[...prices].sort((a,b)=>costOf(a)-costOf(b))[0]||(val('prInitialProviderName').trim()?initialPrice:null);
  if(input('prSummaryNote')){input('prSummaryNote').className='note'+(chosen?'':' warn');input('prSummaryNote').textContent=chosen?'El coste real incluye IVA y recargo de equivalencia. El descuento de venta se aplica al PVP.':'Añade un proveedor y su coste para calcular el margen real.';}
  const pvp=val('prProposed')!==''?val('prProposed'):val('prPvp');
  const r=chosen&&pvp!==''?previewQuickPriceStudy({cost:costOf(chosen),pvp,discount:val('prDiscount'),competitor:val('prCompetitor')!==''?val('prCompetitor'):pricingCompetition(state.data.competitors.filter(c=>c.product_id===productId&&!c.variant_id)).min??0,vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2}):null;
@@ -1083,7 +1089,7 @@ function updateProductStudy(){
 }
 function updateVariantStudy(){
  const el=document.getElementById('vrStudy');if(!el)return;
- const result=variantStudy({cost_net:val('vrCost')===''?null:num('vrCost'),pvp:val('vrPvp')===''?null:num('vrPvp')},state.data.settings,state.data.products.find(p=>p.id===getView('pricing').id)?.quick_discount??0);
+ const result=variantStudy({cost_net:val('vrCost')===''?null:val('vrCost'),pvp:val('vrPvp')===''?null:val('vrPvp')},state.data.settings,state.data.products.find(p=>p.id===getView('pricing').id)?.quick_discount??0);
  el.textContent=result?'Coste con IVA + RE: '+money(result.costReal)+' · Beneficio por unidad: '+money(result.margin)+' · Margen: '+result.marginPct.toFixed(1).replace('.',',')+' %':'Introduce el coste de compra y el PVP para ver el beneficio de esta variante.';
 }
 function updatePricingQuick(){
