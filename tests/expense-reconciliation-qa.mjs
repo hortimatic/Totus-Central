@@ -17,4 +17,25 @@ assert(!html.includes('Adjuntar factura / revisar'),'Long button must become a c
 patchFilters('gastos',{query:'Vaperalia',kind:'fiscal'});html=gastos();assert(html.includes('INTERNET INTELIGENTE SLU'),'Common supplier name must also find its legal-name invoice');
 patchFilters('gastos',{query:'',kind:'internal'});html=gastos();assert(!html.includes('B/QA'),'Linked bank evidence is not an internal cost');
 patchFilters('gastos',{kind:'payment'});html=gastos();assert(html.includes('Pago conciliado')&&html.includes('B/QA'));
+
+ // A saved invoice can have a verified document and a complete numerical breakdown
+ // without being approved for tax forecasts. The screen must not hide its figures.
+ const pendingFiscal={...invoice,id:'fiscal-pending-qa',invoice_number:'QA-PEND',expense_date:'2026-10-07',
+  fiscal_reviewed:false,base_amount:19.99,vat_amount:4.20,re_amount:0,withholding_amount:0,gross_expense:24.19};
+ state.data.expenses=[pendingFiscal];
+ state.data.expenseLines=[{expense_id:pendingFiscal.id,deductible_irpf:true,irpf_imputable:24.19}];
+ patchFilters('gastos',{kind:'all',paid:'all',query:''});
+ const pendingFiscalHtml=gastos();
+ assert(pendingFiscalHtml.includes('Revisión fiscal pendiente · desglose informativo'));
+ assert(pendingFiscalHtml.includes('Base <b>19,99'));
+ assert(pendingFiscalHtml.includes('IVA <b>4,20'));
+ assert(!pendingFiscalHtml.includes('Pendiente de desglose fiscal y cotejo de factura'));
+ assert.equal(deductibleExpenseTotal([pendingFiscal],state.data.expenseLines),0,
+  'Showing saved figures must not include unreviewed expenses in fiscal forecasts');
+ state.data.expenses[0]={...pendingFiscal,fiscal_reviewed:true};
+ const reviewedFiscalHtml=gastos();
+ assert(reviewedFiscalHtml.includes('Base <b>19,99'));
+ assert(!reviewedFiscalHtml.includes('Revisión fiscal pendiente · desglose informativo'));
+ assert.equal(deductibleExpenseTotal(state.data.expenses,state.data.expenseLines),24.19);
+
 console.log('EXPENSE RECONCILIATION QA: paid invoice and bank evidence share their original without duplicate cost; pending, internal and linked payment states remain distinct.');
