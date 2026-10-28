@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {monthRange,yearRange,inRange,fmtDate,n,csv} from '../src/utils.js';
 import {validateExpensePayment,validateExpenseLineAmounts,quickPriceStudy} from '../src/calculations.js';
+import {selectExpenses} from '../src/expense-selection.js';
 
 for(const [input,expected] of [['1.234,56',1234.56],['1,234.56',1234.56],['12,50',12.5],['12.50',12.5],['0',0],['',0]])assert.equal(n(input),expected,'Importe mal interpretado: '+input);
 assert.equal(csv([['11/10/2026','Hortimatic','Gasto',10.2,'Proveedor; "especial"']],['Fecha','Tienda','Origen','Importe','Detalle'].map((label,i)=>({label,get:r=>r[i]}))).split('\n')[1],'"11/10/2026";"Hortimatic";"Gasto";"10.2";"Proveedor; ""especial"""');
@@ -34,8 +35,10 @@ const recoverySql=fs.readFileSync('supabase/migrations/20261018181959_recoverabl
 const recoveryCore=fs.readFileSync('src/recovery-core.js','utf8');
 assert.ok(recoverySql.includes('jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text)'),'La instantánea debe conservar todas las filas con orden estable');
 const sql=fs.readFileSync('supabase/backup.sql','utf8');
-for(const token of ["x.notes,state.data.stores.find","x.supplier_name,x.invoice_number,x.description,x.payment_method"]){
- assert.ok(app.includes(token),'El Excel exportado debe respetar los filtros de búsqueda: '+token);
+assert(app.includes('const expenses=selectExpenses(state.data,f,{invoices:invoiceSection})'),'Export must use the same expense selector as the list');
+for(const field of ['supplier_name','invoice_number','description','payment_method','supplier_tax_id','notes']){
+ const fixture={expenses:[{id:'found',expense_date:'2026-10-01',[field]:'unique needle'},{id:'other',expense_date:'2026-10-01'}]};
+ assert.deepEqual(selectExpenses(fixture,{query:'unique needle'}).map(x=>x.id),['found'],'Search must include '+field);
 }
 for(const required of ["'ops_income_adjustments'"]){
  assert.ok(recoveryCore.includes(required),'Falta tabla en ZIP: '+required);
