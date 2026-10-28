@@ -162,13 +162,15 @@ try{
  await page.locator('#stockReviewNote').fill('La diferencia inicial de dos unidades se documentó, se verificó la recepción y se revisó la corrección interna.');
  await page.locator('#stockReviewConfirmed').check();
  await page.locator('[data-action="stock-review-save"]').click();
- await page.getByText('Revisión guardada con justificación e historial.',{exact:true}).waitFor();
+ await page.waitForFunction(()=>window.__mockDb.ops_stock_receipts[0].status==='reviewed'&&window.__mockDb.ops_stock_receipts[0].result.review?.note?.includes('diferencia inicial'));
+ await page.locator('#stockReviewNote').waitFor({state:'detached'});
  assert.equal(await page.locator('.stock-step .badge.good').filter({hasText:'Revisado'}).count(),1);
  await page.locator('[data-action="stock-units-new"]').click();
  await page.locator('#stockUnitsReceived').fill('8');
  await page.locator('#stockUnitsReason').fill('Se retira la corrección para recuperar el cotejo documental y comprobar de nuevo las unidades.');
  await page.locator('[data-action="stock-units-save"]').click();
- await page.getByText('Unidades corregidas con justificación y registro en historial.',{exact:true}).waitFor();
+ await page.waitForFunction(()=>!window.__mockDb.ops_stock_receipts[0].result.rows[0].unit_correction);
+ await page.locator('#stockUnitsReason').waitFor({state:'detached'});
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].result.rows[0].unit_correction),undefined,'Reset removes active adjustment');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_receipts[0].status),'differences');
  await page.locator('[data-action="stock-source-remove"]').last().click();await page.locator('#modalHost [data-confirm="accept"]').click();
