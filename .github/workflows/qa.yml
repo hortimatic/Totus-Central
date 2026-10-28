@@ -137,6 +137,7 @@ jobs:
       - run: node tests/pricing-taxonomy-layout-qa.mjs
       - run: node tests/tasks-browser-qa.mjs
       - run: node tests/team-chat-browser-qa.mjs
+      - run: node tests/chat-reference-layout-qa.mjs
       - run: node tests/chat-usability-browser-qa.mjs
       - run: node tests/chat-alerts-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
