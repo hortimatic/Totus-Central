@@ -256,8 +256,8 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   if(!canEdit())throw new Error('Necesitas permiso de edición para asignar productos.');
   const receipt=view.context?.receipt,unmatched=unmatchedStockRows(receipt?.result?.rows||[]);
   if(!unmatched.supplier.length||!unmatched.prestashop.length)throw new Error('No quedan líneas sin pareja en ambos documentos.');
-  const supplierOptions=unmatched.supplier.map(row=>({value:row.id,label:row.supplier_name+' · '+quantity(row.supplier_qty)+' unidad(es)'}));
-  const prestashopOptions=unmatched.prestashop.map(row=>({value:row.id,label:row.prestashop_name+' · '+quantity(row.prestashop_qty)+' unidad(es)'}));
+  const supplierOptions=unmatched.supplier.map(row=>({value:row.id,label:row.supplier_name+' · '+(row.variant||'Variante no indicada')+' · '+quantity(row.supplier_qty)+' unidad(es)'}));
+  const prestashopOptions=unmatched.prestashop.map(row=>({value:row.id,label:row.prestashop_name+' · '+(row.variant||'Variante no indicada')+' · '+quantity(row.prestashop_qty)+' unidad(es)'}));
   stockModal('Asignar productos sin pareja','<p>Selecciona una línea de cada documento. Sus cantidades y referencias originales se conservarán. No se modifican las existencias de PrestaShop ni los PDF.</p>'+
    '<div class="form-grid">'+selectField('Producto del proveedor','stockPairSupplier',supplierOptions,supplierOptions[0].value)+
    selectField('Producto de PrestaShop','stockPairPrestashop',prestashopOptions,prestashopOptions[0].value)+
