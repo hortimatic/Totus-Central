@@ -20,7 +20,12 @@ BEGIN
  IF r.revision<>p_revision THEN
   RAISE EXCEPTION 'La recepción ha cambiado. Vuelve a leerla antes de guardar el resultado';
  END IF;
- comparison=p_result-'review'; -- no caller can copy or forge a prior review record
+ -- The reconciliation import never authorizes carrying over prior manager corrections.
+ comparison=p_result-'review';
+ comparison=jsonb_set(comparison,'{rows}',(
+  SELECT coalesce(jsonb_agg(e.value-'unit_correction' ORDER BY e.ordinality),'[]'::jsonb)
+  FROM jsonb_array_elements(comparison->'rows') WITH ORDINALITY e(value,ordinality)
+ ),true);
  new_status=private.totus_stock_result(p_id,comparison);
  UPDATE public.ops_stock_receipts SET result=comparison,status=new_status,
   revision=revision+1,updated_at=now() WHERE id=p_id RETURNING * INTO r;
@@ -105,4 +110,78 @@ END $function$;
 
 REVOKE ALL ON FUNCTION public.totus_stock_mark_reviewed(uuid,integer,text,text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.totus_stock_mark_reviewed(uuid,integer,text,text)
+ TO authenticated,service_role;
+
+-- Corrected units are internal reconciliation evidence; documentary quantities
+-- and original source files remain immutable, and PrestaShop is NEVER updated.
+CREATE OR REPLACE FUNCTION public.totus_stock_correct_units(
+ p_id uuid, p_revision integer, p_line_id text,
+ p_expected numeric, p_received numeric, p_reason text,
+ p_actor_email text DEFAULT NULL::text
+) RETURNS public.ops_stock_receipts
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $function$
+DECLARE actor text=private.totus_stock_actor('edit',p_actor_email);
+ r public.ops_stock_receipts; line jsonb; old_expected numeric; old_received numeric;
+ previous_expected numeric; previous_received numeric; note text=trim(coalesce(p_reason,''));
+ idx integer; changed jsonb; original_status text;
+BEGIN
+ IF auth.uid() IS NOT NULL AND NOT private.is_manager() THEN
+  RAISE EXCEPTION 'Solo gerencia puede corregir unidades de recepciones';
+ END IF;
+ IF length(note)<20 OR length(note)>5000 THEN
+  RAISE EXCEPTION 'La corrección necesita justificación de 20 a 5000 caracteres';
+ END IF;
+ IF p_expected IS NULL OR p_received IS NULL OR
+  abs(p_expected)>1000000 OR abs(p_received)>1000000 THEN
+  RAISE EXCEPTION 'Indica las dos cantidades corregidas válidas';
+ END IF;
+ SELECT * INTO STRICT r FROM public.ops_stock_receipts WHERE id=p_id FOR UPDATE;
+ IF r.revision<>p_revision THEN RAISE EXCEPTION 'La recepción ha cambiado. Vuelve a leer antes de corregir';END IF;
+ IF r.status NOT IN ('needs_review','differences','reviewed') OR r.result->'complete' IS DISTINCT FROM 'true'::jsonb
+  THEN RAISE EXCEPTION 'Primero debe existir un cotejo completo';END IF;
+ SELECT e.value,(e.ordinality-1)::integer INTO line,idx
+ FROM jsonb_array_elements(r.result->'rows') WITH ORDINALITY e(value,ordinality)
+ WHERE e.value->>'id'=p_line_id;
+ IF line IS NULL THEN RAISE EXCEPTION 'Producto no encontrado en el cotejo actual';END IF;
+ IF line->'supplier_qty' IS NULL OR line->'supplier_qty'='null'::jsonb
+  OR line->'unit_factor' IS NULL OR line->'unit_factor'='null'::jsonb
+  OR line->'prestashop_qty' IS NULL OR line->'prestashop_qty'='null'::jsonb
+  OR line->'adjustment_qty' IS NULL OR line->'adjustment_qty'='null'::jsonb
+  OR coalesce(line->>'adjustment_included','') NOT IN ('yes','no')
+  THEN RAISE EXCEPTION 'No se puede corregir una línea sin cantidades documentales comprobadas';END IF;
+ old_expected=(line->>'supplier_qty')::numeric*(line->>'unit_factor')::numeric;
+ old_received=(line->>'prestashop_qty')::numeric-
+  (CASE WHEN line->>'adjustment_included'='yes' THEN (line->>'adjustment_qty')::numeric ELSE 0 END);
+ previous_expected=coalesce((line#>>'{unit_correction,expected}')::numeric,old_expected);
+ previous_received=coalesce((line#>>'{unit_correction,received}')::numeric,old_received);
+ IF p_expected=previous_expected AND p_received=previous_received THEN
+  RAISE EXCEPTION 'Las cantidades no han cambiado';END IF;
+ IF p_expected=old_expected AND p_received=old_received THEN
+  changed=line-'unit_correction'; -- reset is also audited
+ ELSE
+  changed=jsonb_set(line,'{unit_correction}',jsonb_build_object(
+   'expected',p_expected,'received',p_received,'reason',note,'corrected_by',actor,'corrected_at',now(),
+   'original_expected',old_expected,'original_received',old_received
+  ),true);
+ END IF;
+ original_status=private.totus_stock_result(p_id,r.result-'review');
+ UPDATE public.ops_stock_receipts SET
+  result=jsonb_set(r.result-'review',ARRAY['rows',idx::text],changed,false),
+  status=original_status,revision=revision+1,updated_at=now()
+ WHERE id=p_id RETURNING * INTO r;
+ PERFORM private.totus_stock_revision(p_id,'units_corrected',actor);
+ UPDATE public.ops_stock_revisions SET
+  snapshot=snapshot||jsonb_build_object('unit_change',jsonb_build_object(
+   'line_id',p_line_id,'original_expected',old_expected,'original_received',old_received,
+   'previous_expected',previous_expected,'previous_received',previous_received,
+   'corrected_expected',p_expected,'corrected_received',p_received,
+   'reset',p_expected=old_expected AND p_received=old_received,'reason',note,
+   'corrected_by',actor,'corrected_at',now()
+  ))
+ WHERE receipt_id=p_id AND revision=r.revision;
+ RETURN r;
+END $function$;
+REVOKE ALL ON FUNCTION public.totus_stock_correct_units(uuid,integer,text,numeric,numeric,text,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.totus_stock_correct_units(uuid,integer,text,numeric,numeric,text,text)
  TO authenticated,service_role;
