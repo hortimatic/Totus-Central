@@ -36,6 +36,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $function$
 DECLARE actor text=private.totus_stock_actor('edit',p_actor_email);
  r public.ops_stock_receipts; note text=trim(coalesce(p_note,'')); calculated text;
+ source record; covered jsonb; line jsonb;
 BEGIN
  IF auth.uid() IS NOT NULL AND NOT private.is_manager() THEN
   RAISE EXCEPTION 'Solo gerencia puede cerrar una revisión de mercancía';
@@ -55,6 +56,38 @@ BEGIN
   OR jsonb_array_length(r.result->'rows')=0 THEN
   RAISE EXCEPTION 'No se puede cerrar una recepción sin cotejo documentado';
  END IF;
+ -- A green receipt must be fully documented, not simply acknowledged as unread.
+ IF NOT EXISTS(SELECT 1 FROM public.ops_stock_sources WHERE receipt_id=p_id AND source_kind='supplier')
+  OR NOT EXISTS(SELECT 1 FROM public.ops_stock_sources WHERE receipt_id=p_id AND source_kind='prestashop')
+  OR jsonb_typeof(r.result->'coverage') IS DISTINCT FROM 'array'
+  OR jsonb_array_length(r.result->'coverage') <>
+   (SELECT count(*) FROM public.ops_stock_sources WHERE receipt_id=p_id) THEN
+  RAISE EXCEPTION 'No se puede cerrar una recepción con documentos o cobertura pendientes';
+ END IF;
+ FOR source IN SELECT id,extraction FROM public.ops_stock_sources WHERE receipt_id=p_id LOOP
+  SELECT c.value INTO covered FROM jsonb_array_elements(r.result->'coverage') c
+   WHERE c.value->>'source_id'=source.id::text;
+  IF covered IS NULL OR covered->'complete' IS DISTINCT FROM 'true'::jsonb
+   OR length(trim(coalesce(covered->>'explanation','')))=0
+   OR (source.extraction->>'state' IS DISTINCT FROM 'ready'
+    AND NOT (covered->'manually_verified'='true'::jsonb AND length(trim(coalesce(covered->>'reading_note','')))>0)) THEN
+   RAISE EXCEPTION 'Completa y verifica todos los documentos antes de cerrar la revisión';
+  END IF;
+ END LOOP;
+ FOR line IN SELECT value FROM jsonb_array_elements(r.result->'rows') LOOP
+  IF line->'supplier_qty' IS NULL OR line->'supplier_qty'='null'::jsonb
+   OR line->'prestashop_qty' IS NULL OR line->'prestashop_qty'='null'::jsonb
+   OR line->'adjustment_qty' IS NULL OR line->'adjustment_qty'='null'::jsonb
+   OR line->'unit_factor' IS NULL OR line->'unit_factor'='null'::jsonb
+   OR line->'unit_confirmed' IS DISTINCT FROM 'true'::jsonb
+   OR length(trim(coalesce(line->>'unit','')))=0
+   OR coalesce(line->>'adjustment_included','') NOT IN ('yes','no')
+   OR (line->>'unit_factor')::numeric<=0
+   OR ((line->>'unit_factor')::numeric<>1 AND length(trim(coalesce(line->>'conversion_reason','')))=0)
+   OR ((line->>'adjustment_qty')::numeric<>0 AND length(trim(coalesce(line->>'adjustment_reason','')))=0) THEN
+   RAISE EXCEPTION 'Hay cantidades, unidades o ajustes sin verificar; no se puede cerrar la revisión';
+  END IF;
+ END LOOP;
  calculated=private.totus_stock_result(p_id,r.result-'review');
  IF calculated NOT IN ('needs_review','differences') OR calculated<>r.status THEN
   RAISE EXCEPTION 'El cotejo ha cambiado. Vuelve a comprobarlo antes de revisar';
