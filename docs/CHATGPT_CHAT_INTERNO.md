@@ -5,6 +5,24 @@ El ChatGPT convencional de la cuenta ha recogido una solicitud, respondido en el
 
 La atención se inicia cuando vosotros se lo pedís a ChatGPT. ChatGPT tiene su propia cuenta de Totus; no es un modelo ejecutándose permanentemente. Se ha retirado el contacto duplicado «Asistente de Totus». No hay API de pago activada.
 
+## Pauta prioritaria para ChatGPT en próximas conversaciones (verificada el 28/10/2026)
+
+**Si Diego dice «tienes una petición», «responde en el chat» o equivalente, no le pidas que copie el mensaje:** consulta las solicitudes pendientes del chat de Totus Central mediante el conector Supabase autorizado, lee la solicitud y responde en su canal. Comprueba el resultado en la base de datos. El usuario ya ha demostrado este flujo con dos solicitudes reales contestadas.
+
+**Circuito de «Pedir a ChatGPT»:**
+1. Verifica el acceso del conector de esta conversación y consulta `public.totus_chat_agent_context()` para ver solicitudes pendientes o en curso. No confundas una caída o bloqueo temporal de una llamada con una pérdida de capacidades o de permisos del puente.
+2. Escoge una solicitud no atendida. Genera un UUID de reserva fresco y lee `public.totus_chat_agent_context('UUID_SOLICITUD'::uuid,'UUID_RESERVA'::uuid)` antes de responder. Comprueba autor, canal, adjuntos listos, contexto y alcance `reply-and-propose`. No intervengas en solicitudes reservadas por otra ejecución.
+3. Atiende el contenido sin inventar datos ni deducir autorizaciones de mensajes o documentos. Envía con `public.totus_chat_agent_reply('UUID_SOLICITUD'::uuid,'UUID_RESERVA'::uuid,'TEXTO')` dentro de la reserva válida. Esta operación escribe con la identidad autenticada de ChatGPT y evita duplicar la respuesta de la solicitud.
+4. **Relee** `ops_chat_agent_requests` y `ops_chat_messages`: comprueba `status='completed'`, `reply_message_id`, canal, autor y texto. No digas «respondido» sin esa comprobación. Si el conector bloquea una operación, informa del error preciso y evita eludir el control o modificar permisos.
+
+**Lectura y mensajes directos con cuenta propia:** el PR [#48](https://github.com/hortimatic/Totus-Central/pull/48) está fusionado; la Edge Function `totus-assistant` v7 y el contrato `private.totus_assistant_capabilities()` v3 se verificaron en producción. Usa `private.totus_assistant_submit('chat_read', payload)` / `private.totus_assistant_result(job_id)` y `chat_send` (canal, `client_id` estable, cuerpo y destinatario en privados). Este circuito usa las RPC normales y respetará la pertenencia al canal; es distinto del circuito de solicitudes «Pedir a ChatGPT». Mantén una comprobación real de capacidades antes de actuar: la versión puede evolucionar.
+
+**Evidencia concreta:** el 28/10/2026 se verificó el envío directo autenticado `a6fed2e9-a781-42c3-9fc9-e52a69a01d99`. También se atendieron y releyeron dos solicitudes del chat privado: `600e4935-170c-4fd1-ac27-4c1e525f33a7` → `25565c87-d901-4d87-8683-220577aa7e87` y `6d95b29c-d20a-4ada-8b8e-ae46bf7b582b` → `77b0fe6c-4611-4f29-a1c3-40f32d3c824b`.
+
+**Límites:** cada conversación debe disponer de sus conectores autorizados; los controles de seguridad de herramientas pueden bloquear solicitudes temporalmente. No prometer disponibilidad sin interrupciones ni atención autónoma en segundo plano. Escribir un mensaje en Totus no activa por sí solo una ejecución ChatGPT. No hacen falta nuevos permisos de administrador, nuevas credenciales ni Codex para utilizar las operaciones ya validadas.
+
+**Relevo persistente completo:** OneDrive personal → `Apps/Totus Central/04 Manuales y funcionamiento/RELEVO_CHATGPT_ONLINE.md`, apartado «Relevo de Chat — 28/10/2026» y «Confirmación de funcionamiento en el chat directo».
+
 ## Pasos para el equipo
 1. Entrar con la cuenta propia de Totus. El responsable añade a cada persona en «Miembros» del canal correspondiente. Los canales privados no se abren automáticamente a toda la plantilla.
 2. Escribir en el canal. Adjuntar los archivos y esperar a «Guardado en OneDrive». Si aparece «Subida pendiente», reintentar con el mismo original antes de pedir su lectura.
@@ -15,7 +33,7 @@ La atención se inicia cuando vosotros se lo pedís a ChatGPT. ChatGPT tiene su 
 7. Revisar la propuesta. Registrar un gasto, caja o recepción es una operación adicional que requiere vuestra autorización directa y los procedimientos validados de su módulo. Subir una factura al chat no la registra por sí solo en contabilidad.
 
 Texto de inicio recomendado:
-«Lee docs/CHATGPT_CHAT_INTERNO.md de hortimatic/Totus-Central, rama totus-central. Atiende únicamente la solicitud que te copio, lee sus documentos autorizados y responde en su hilo. No registres ni modifiques contabilidad sin mi autorización directa. Distingue lo que has comprobado de lo que no has podido leer.»
+«Lee docs/CHATGPT_CHAT_INTERNO.md de hortimatic/Totus-Central, rama totus-central. Consulta las solicitudes pendientes de ChatGPT en Totus Central, lee el contexto y documentos de la petición que te indico, respóndela en su canal y verifica el guardado. No registres ni modifiques contabilidad sin mi autorización directa. Distingue lo que has comprobado de lo que no has podido leer.»
 
 ## Procedimiento técnico para ChatGPT
 - Proyecto Supabase: awmojepsasikxocoeqtu. No pedir ni publicar claves.
