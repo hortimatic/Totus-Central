@@ -1,6 +1,5 @@
 -- Add chat operations to the existing short-lived, own-user assistant bridge.
 -- No new role grants, service-role chat writes, account impersonation or RLS bypass.
-BEGIN;
 DO $upgrade$
 DECLARE definition text;
  old_allowlist text := '''session_check'',''validate_expense'',''save_expense'',''attach_chat_file'',''expense_context'',''review_document''';
@@ -24,4 +23,3 @@ BEGIN
   OR strpos(pg_get_functiondef('private.totus_assistant_capabilities()'::regprocedure),new_caps)=0
  THEN RAISE EXCEPTION 'Assistant chat contract did not install'; END IF;
 END $upgrade$;
-COMMIT;
