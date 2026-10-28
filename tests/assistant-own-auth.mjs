@@ -5,7 +5,8 @@ import {stripTypeScriptTypes} from 'node:module';
 const original=readFileSync(new URL('../supabase/functions/totus-assistant/index.ts',import.meta.url),'utf8');
 const source=original.replace(/import \{ createClient \} from '[^']+'/,"const createClient=()=>{throw new Error('No live client in tests')}");
 const isolated=source.replace(/import \{[^}]+\} from '.\/assistant-attachments.ts'/,"const attachChatExpenseDocument=()=>{throw new Error('Unexpected attachment')}; const readExpenseContext=()=>{throw new Error('Unexpected context')}; const reviewExpenseDocument=()=>{throw new Error('Unexpected review')}");
-const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(isolated)).toString('base64'));
+const chatIsolated=isolated.replace("import {readTeamChat,sendTeamChat} from './assistant-chat.ts'","const readTeamChat=()=>{throw new Error('Unexpected chat read')}; const sendTeamChat=()=>{throw new Error('Unexpected chat send')}");
+const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(chatIsolated)).toString('base64'));
 const job='11111111-1111-4111-8111-111111111111',ticket='a'.repeat(64);
 const env={get:k=>({SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'server-test',SUPABASE_ANON_KEY:'public-test'})[k]};
 function setup(action='session_check',overrides={}){

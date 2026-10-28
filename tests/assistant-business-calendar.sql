@@ -12,7 +12,7 @@ BEGIN
  IF strpos(source,'>private.totus_business_today()')=0 THEN RAISE EXCEPTION 'Validación de fecha del pago sin actualizar'; END IF;
  IF to_regprocedure('private.totus_connector_save_expense(text,jsonb,jsonb)') IS NOT NULL THEN RAISE EXCEPTION 'La delegación antigua sigue instalada'; END IF;
  IF has_function_privilege('anon','public.totus_assistant_claim(uuid,text)','EXECUTE') OR has_function_privilege('authenticated','public.totus_assistant_claim(uuid,text)','EXECUTE') THEN RAISE EXCEPTION 'Auxiliar sensible accesible al navegador'; END IF;
- IF private.totus_assistant_capabilities()->>'version'<>'2' THEN RAISE EXCEPTION 'Contrato desactualizado'; END IF;
+ IF private.totus_assistant_capabilities()->>'version'<>'3' THEN RAISE EXCEPTION 'Contrato desactualizado'; END IF;
 END $test$;
 SELECT 'Calendar, retired bridge, grants and contract verified' AS result;
 ROLLBACK;
