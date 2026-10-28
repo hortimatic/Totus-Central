@@ -2,7 +2,7 @@ import {canUser} from './permissions.js';
 import {state} from './state.js';
 import {esc,fmtDate,isoToday,download} from './utils.js';
 import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
-import {STOCK_STATES,stockLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
+import {STOCK_STATES,stockLineResult,stockCorrectedLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
 import {filterStockReceipts,sameStockEquivalence,stockIdentity,stockExportRows,stockReportHtml,stockChatEvidence} from './stock-workflow.js';
 const initialView=()=>({loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',from:'',to:'',status:'all',error:'',pendingUploads:[],equivalences:[],libraryQuery:'',libraryStore:'all'});
 const view=initialView();let owner='',navigationEpoch=0;
@@ -46,12 +46,12 @@ function resultTable(receipt){
  return (summary.issues.length?'<div class="note warn">'+esc(summary.issues.map(issue=>(view.context?.sources||[]).reduce((text,source)=>text.replaceAll(source.id,source.document?.original_name||'Documento'),issue)).join(' · '))+'</div>':'')+table([
  {label:'Producto del proveedor',html:r=>esc(r.supplier_name||'Sin identificar')+'<small>'+esc([r.variant,r.unit].filter(Boolean).join(' · '))+'</small>'},
  {label:'Producto de PrestaShop',html:r=>esc(r.prestashop_name||'Sin identificar')},
- {label:'Unidades esperadas',num:true,html:r=>quantity(stockLineResult(r).expected)},
- {label:'Unidades recibidas del pedido',num:true,html:r=>quantity(stockLineResult(r).received)},
- {label:'Diferencia',num:true,html:r=>quantity(stockLineResult(r).difference)},
+ {label:'Unidades esperadas',num:true,html:r=>{const x=stockCorrectedLineResult(r);return quantity(x.expected)+(x.hasCorrection?'<small>Factura original: '+quantity(x.originalExpected)+'</small>':'');}},
+ {label:'Unidades recibidas del pedido',num:true,html:r=>{const x=stockCorrectedLineResult(r);return quantity(x.received)+(x.hasCorrection?'<small>Entrada original: '+quantity(x.originalReceived)+'</small>':'');}},
+ {label:'Diferencia',num:true,html:r=>{const x=stockCorrectedLineResult(r);return quantity(x.difference)+(x.hasCorrection?'<small>Diferencia documental: '+quantity(x.originalDifference)+'</small>':'');}},
  {label:'Revisión y origen',html:r=>{const calculated=stockLineResult(r),saved=(view.context.equivalences||[]).find(e=>sameStockEquivalence(e,r,receipt)&&Number(e.unit_factor)===Number(r.unit_factor));
- return badge(calculated.status)+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Cantidad en factura: '+quantity(r.supplier_qty)+' · Unidades por paquete: '+quantity(r.unit_factor)+'</p>'+(r.conversion_reason?'<p>'+esc(r.conversion_reason)+'</p>':'')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>'+
- (saved?'<small>En la biblioteca de productos</small>':canManage()&&!calculated.reasons.length?action('Guardar equivalencia','stock-equivalence-new','data-line="'+esc(r.id)+'"'):'');}}
+ return badge(calculated.status)+(r.unit_correction?.reason?'<small><b>Corrección justificada:</b> '+esc(r.unit_correction.reason)+' · '+esc(r.unit_correction.corrected_by||'')+'</small>':'')+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Cantidad en factura: '+quantity(r.supplier_qty)+' · Unidades por paquete: '+quantity(r.unit_factor)+'</p>'+(r.conversion_reason?'<p>'+esc(r.conversion_reason)+'</p>':'')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>'+
+ (saved?'<small>En la biblioteca de productos</small>':canManage()&&!calculated.reasons.length?action('Guardar equivalencia','stock-equivalence-new','data-line="'+esc(r.id)+'"'):'')+(canManage()&&stockLineResult(r).expected!==null&&stockLineResult(r).received!==null?action('Corregir unidades','stock-units-new','data-line="'+esc(r.id)+'"'):'');}}
  ],rows);
 }
 function receiptDetail(){
@@ -72,7 +72,7 @@ function receiptDetail(){
  '<section class="card card-pad stock-step"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
  '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(r.status)+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+'</div></div>'+reviewPanel+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se comparan las unidades de la factura con las registradas en PrestaShop. Los paquetes se convierten a unidades cuando su tamaño está confirmado. Si la entrada incluye un ajuste ajeno al pedido, se descuenta para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar queda pendiente.</p></details>'+
- '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',reviewed:'Revisado con justificación',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small>'+(h.action==='reviewed'&&h.review?.note?'<p><b>Justificación guardada:</b> '+esc(h.review.note)+'</p>':'')+'</div>').join('')+'</details></section></div>';
+ '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',units_corrected:'Unidades corregidas con justificación',reviewed:'Revisado con justificación',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small>'+(h.action==='reviewed'&&h.review?.note?'<p><b>Justificación guardada:</b> '+esc(h.review.note)+'</p>':'')+(h.action==='units_corrected'&&h.unit_change?.reason?'<p><b>Corrección de unidades: </b>'+esc(h.unit_change.line_id||'')+' · '+esc(h.unit_change.previous_expected)+' / '+esc(h.unit_change.previous_received)+' → '+esc(h.unit_change.corrected_expected)+' / '+esc(h.unit_change.corrected_received)+'<br><b>Motivo:</b> '+esc(h.unit_change.reason)+'</p>':'')+'</div>').join('')+'</details></section></div>';
 }
 function libraryPage(){
  const q=stockIdentity(view.libraryQuery),rows=view.equivalences.filter(e=>(view.libraryStore==='all'||e.store_id===view.libraryStore)&&(!q||stockIdentity([e.supplier,e.supplier_name,e.prestashop_name,e.variant,e.unit].join(' ')).includes(q)));
@@ -117,7 +117,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  };
  const context=async id=>{
   const scope=readScope(),next=await rpc('totus_stock_context',{p_id:id});
-  const history=await list('ops_stock_revisions','id,receipt_id,revision,action,actor_email,created_at,review:snapshot->receipt->result->review',q=>q.eq('receipt_id',id));
+  const history=await list('ops_stock_revisions','id,receipt_id,revision,action,actor_email,created_at,review:snapshot->receipt->result->review,unit_change:snapshot->unit_change',q=>q.eq('receipt_id',id));
   if(!currentRead(scope))return false;
   view.context=next;view.history=history;return true;
  };
@@ -203,6 +203,35 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-filter-clear'){Object.assign(view,{from:'',to:'',query:'',store:'all',status:'all'});render();return;}
  if(a==='stock-library'||a==='stock-library-refresh'){if(!await loadLibrary())return;const restoreFocus=retainLibrarySearch();view.mode='library';render();restoreFocus();return;}
  if(a==='stock-library-search'){const restoreFocus=retainLibrarySearch();render();restoreFocus();return;}
+ if(a==='stock-units-new'){
+  if(!canManage())throw new Error('Solo gerencia puede corregir unidades.');
+  const r=view.context?.receipt,row=r?.result?.rows?.find(x=>x.id===el.dataset.line);
+  if(!r||!row||!['needs_review','differences','reviewed'].includes(r.status))throw new Error('Necesitas una recepción cotejada para corregir unidades.');
+  const x=stockCorrectedLineResult(row);
+  if(x.originalExpected===null||x.originalReceived===null)throw new Error('Falta comprobar las cantidades de los documentos originales.');
+  stockModal('Corregir unidades justificadamente',
+   '<p><b>'+esc(row.supplier_name||'Producto')+'</b> · '+esc(row.variant||'')+'</p>'+
+   '<p>Factura original: '+quantity(x.originalExpected)+' unidades; entrada PrestaShop original: '+quantity(x.originalReceived)+'. Esos datos NO se modifican. Esta corrección solo afecta al cotejo interno.</p>'+
+   '<div class="form-grid"><label>Unidades esperadas corregidas<input id="stockUnitsExpected" type="number" step="any" min="0" max="1000000" value="'+esc(x.expected)+'"></label>'+
+   '<label>Unidades recibidas corregidas<input id="stockUnitsReceived" type="number" step="any" min="0" max="1000000" value="'+esc(x.received)+'"></label></div>'+
+   '<label>Motivo y comprobación (obligatorio)<textarea id="stockUnitsReason" rows="4" maxlength="5000" placeholder="Indica las unidades verificadas, dónde se comprobaron y la causa de la corrección."></textarea></label>'+
+   '<small>Restablecer ambos números a sus valores documentales elimina la corrección vigente, dejando constancia en el historial. Si la recepción estaba Revisada, deberá volver a revisarse.</small>'+
+   btn('Guardar unidades justificadas','stock-units-save','primary','data-line="'+esc(row.id)+'"'));
+  return;
+ }
+ if(a==='stock-units-save'){
+  if(!canManage())throw new Error('Solo gerencia puede corregir unidades.');
+  const r=view.context?.receipt,row=r?.result?.rows?.find(x=>x.id===el.dataset.line);
+  const rawExpected=value('stockUnitsExpected'),rawReceived=value('stockUnitsReceived'),reason=value('stockUnitsReason').trim();
+  if(!r||!row)throw new Error('La línea ya no está disponible. Actualiza la recepción.');
+  if(!rawExpected.trim()||!rawReceived.trim())throw new Error('Debes indicar las dos cantidades verificadas.');
+  const expected=Number(rawExpected),received=Number(rawReceived);
+  if(!Number.isFinite(expected)||!Number.isFinite(received)||expected<0||received<0||expected>1000000||received>1000000)
+   throw new Error('Las unidades deben ser números válidos entre 0 y 1.000.000.');
+  if(reason.length<20||reason.length>5000)throw new Error('Escribe un motivo de 20 a 5000 caracteres.');
+  await rpc('totus_stock_correct_units',{p_id:r.id,p_revision:r.revision,p_line_id:row.id,p_expected:expected,p_received:received,p_reason:reason});
+  closeModal();await context(r.id);render();toast('Unidades corregidas con justificación y registro en historial.');return;
+ }
  if(a==='stock-review-new'){
   if(!canManage())throw new Error('Solo gerencia puede cerrar una revisión.');
   const r=view.context?.receipt;
