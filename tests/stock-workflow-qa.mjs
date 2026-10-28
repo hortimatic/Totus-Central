@@ -17,6 +17,21 @@ assert.equal(exported[0]['Producto del proveedor'],'=SUM(1,2)','Export raw text 
 assert(stockReportHtml(context).includes('&lt;script&gt;'));assert(!stockReportHtml(context).includes('<script>'));
 const unknown=structuredClone(context);unknown.receipt.result.rows[0].supplier_qty=null;
 assert.equal(stockExportRows(unknown)[0]['Unidades esperadas'],null);assert(stockReportHtml(unknown).includes('Pendiente'));
+// Human review changes the receipt state without erasing documentary discrepancies.
+const reviewed=structuredClone(context);
+reviewed.receipt.status='reviewed';
+reviewed.receipt.result.rows[0].prestashop_qty=7;
+reviewed.receipt.result.review={note:'Contadas las unidades; diferencia identificada y registrada para reposición.',reviewed_by:'gerencia@example.invalid',reviewed_at:'2026-10-28T13:00:00Z',comparison_status:'differences'};
+const reviewedRows=stockExportRows(reviewed,'Hortimatic');
+assert.equal(reviewedRows[0]['Estado del pedido'],'Revisado con incidencias');
+assert.equal(reviewedRows[0]['Estado documental calculado'],'Con diferencias');
+assert.equal(reviewedRows[0]['Diferencia'],-2);
+assert.equal(reviewedRows[0]['Justificación de revisión'],reviewed.receipt.result.review.note);
+assert(stockReportHtml(reviewed).includes(reviewed.receipt.result.review.note));
+assert(stockReportHtml(reviewed).includes('Con diferencias'),'Report must retain calculated status separately');
+assert.equal(filterStockReceipts([reviewed.receipt],{status:'reviewed'}).length,1);
+const injection=structuredClone(reviewed);injection.receipt.result.review.note='<script>bad</script>';
+assert(!stockReportHtml(injection).includes('<script>'),'Review note must be escaped');
 const e={...row,supplier:' PROVEEDOR ',store_id:'A'};
 assert(sameStockEquivalence(e,row,r));assert(!sameStockEquivalence({...e,variant:'0.6 ohm'},row,r));
 assert(!sameStockEquivalence({...e,store_id:'B'},row,r));
