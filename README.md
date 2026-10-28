@@ -20,6 +20,7 @@ Alta con proveedor y documentos de ambos lados, filtros por rango de fechas, res
 
 ## Manuales y montaje
 - [Entrada para ChatGPT](RELEVO_CHATGPT_ONLINE.md).
+- [Procedimiento de peticiones del chat y respuestas de ChatGPT](docs/CHATGPT_CHAT_INTERNO.md). Incluye el circuito verificado para leer peticiones pendientes, responder en Totus y comprobar el guardado.
 - [Manual operativo y montaje de la instalación](docs/MANUAL_CHATGPT_ONLINE.md).
 - [Trabajo diario](docs/GUIA_TRABAJO_DIARIO_CHATGPT.md).
 - [Recepciones, biblioteca y conexiones](docs/COTEJOS_CHATGPT.md).
