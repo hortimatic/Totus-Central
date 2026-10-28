@@ -315,6 +315,12 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
    btn('Eliminar esta recepción','stock-delete-save','primary'));
   return;
  }
+ if(a==='stock-delete-open-docs'){
+  closeModal();
+  const destination=document.querySelector('#nav [data-route="documentos"]');
+  if(!destination)throw new Error('Abre Documentos desde el menú para retirar los originales que ya no necesitas.');
+  destination.click();return;
+ }
  if(a==='stock-delete-save'){
   if(!canDelete())throw new Error('Solo gerencia con permiso de eliminación puede retirar recepciones.');
   if(value('stockDeleteConfirm').trim()!=='ELIMINAR')throw new Error('Escribe ELIMINAR para confirmar.');
@@ -324,7 +330,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   closeModal();view.pendingUploads=[];view.context=null;view.mode='list';await refresh();
   const docs=deletion?.retained_documents||[];
   stockModal('Recepción eliminada','<p>La recepción se ha retirado y la operación queda auditada.</p>'+
-   (docs.length?'<p><b>Archivos conservados en Documentos:</b></p><ul>'+docs.map(d=>'<li>'+esc(d.name||'Documento')+'</li>').join('')+'</ul><p>Si deseas borrar alguno, abre Documentos y utiliza Eliminar; su protección comprueba las asociaciones y el original recuperable.</p>':'<p>No había archivos vinculados.</p>'));
+   (docs.length?'<p><b>Archivos conservados en Documentos:</b></p><ul>'+docs.map(d=>'<li>'+esc(d.name||'Documento')+'</li>').join('')+'</ul><p>Si deseas borrar alguno, abre Documentos y utiliza Eliminar; su protección comprueba las asociaciones y el original recuperable.</p>'+btn('Abrir Documentos','stock-delete-open-docs','secondary'):'<p>No había archivos vinculados.</p>'));
   return;
  }
  if(a==='stock-equivalence-new'){
