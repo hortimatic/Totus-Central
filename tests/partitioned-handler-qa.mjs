@@ -29,8 +29,9 @@ class Query{
   return {data:structuredClone(this.one?rows[0]||null:rows),error:null};
  }).then(resolve,reject);}
 }
-const admin={from:t=>new Query(t),rpc:async(name)=>{
+const admin={from:t=>new Query(t),rpc:async(name,args)=>{
  if(name==='totus_backup_claim'){claims++;db.ops_backup_runs.push({id,status:'running'});return {data:id,error:null};}
+ if(name==='totus_backup_prepare_work'){const row={run_id:args.p_run,state:structuredClone(args.p_state),snapshot:structuredClone(args.p_snapshot)};Object.assign(db.ops_backup_runs.find(r=>r.id===args.p_run),{storage_path:args.p_path,archive_manifest:{bundle_version:4}});db.ops_backup_work.push(row);return {data:{run_id:row.run_id,state:structuredClone(row.state)},error:null};}
  if(name==='totus_export_recovery_snapshot')return {data:structuredClone(snapshot),error:null};
  throw Error('Unexpected RPC '+name);
 },storage:{from:()=>({download:async()=>({data:new Blob([original]),error:null}),upload:async(p,b)=>{objects.set(p,new Uint8Array(await b.arrayBuffer()));return {error:null};}})}};

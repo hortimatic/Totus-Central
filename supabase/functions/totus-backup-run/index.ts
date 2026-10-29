@@ -339,10 +339,11 @@ async function partitionedRun(mode:string,req:Request){
    if(!/^[a-f0-9]{40}$/.test(snapshot.source_revision))throw new Error('Versión de código no válida.');
    const engine=createPartitionedBackup({Zip:NativeBackupZip,hash:NativeBackupZip.archiveHash} as any);
    const {snapshot:originalSnapshot,...state}=await engine.start(snapshot,path);
-   const planned=await admin.from('ops_backup_runs').update({storage_path:path,archive_manifest:{bundle_version:4},error_message:'Preparando documentos por componentes'}).eq('id',id).eq('status','running');if(planned.error)throw planned.error;
-   const created=await admin.from('ops_backup_work').insert({run_id:id,state,snapshot:originalSnapshot}).select('run_id,state').single();if(created.error)throw created.error;job=created.data;
+   // Lock the parent and create its work row in one database transaction.
+   const created=await admin.rpc('totus_backup_prepare_work',{p_run:id,p_path:path,p_state:state,p_snapshot:originalSnapshot});
+   if(created.error)throw created.error;if(!created.data?.run_id||!created.data?.state)throw new Error('No se confirmó la preparación de la copia.');job=created.data;
   }catch(error){
-   await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:error)}).eq('id',id);throw error;
+   await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:typeof error==='object'&&error&&'message' in error?error.message:error).slice(0,1000)}).eq('id',id);throw error;
   }
  }
  const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
