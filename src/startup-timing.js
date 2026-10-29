@@ -1,6 +1,6 @@
 // REN-01: ephemeral browser-only timings. Never record query arguments, responses, URLs or users.
 const entries=[];
-const ALLOWED=/^(?:sesion|usuario_y_perfil|carga_principal|retiradas_documentales|almacenamiento|auditoria|pintado_inicio|login_manual|core:[a-z_]+|audit:[a-z_]+)$/;
+const ALLOWED=/^(?:sesion|usuario_y_perfil|carga_principal|arranque_completo|retiradas_documentales|almacenamiento|auditoria|pintado_inicio|login_manual|core:[a-z_]+|audit:[a-z_]+)$/;
 let active=false,ready=false,origin=0,kind='';
 
 const tick=()=>performance.now();
