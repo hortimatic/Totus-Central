@@ -1,5 +1,6 @@
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
+import {timedStartup} from './startup-timing.js';
 import {setRolePermissions} from './permissions.js';
 import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
 import {assertService,matchesSavedFields,verifiedWrite} from './write-safety.js';
@@ -151,14 +152,14 @@ export async function loadCore(){
  const worker=async()=>{
   while(current()&&!failure&&next<tasks.length){
    const index=next++,[,table,order,columns]=tasks[index];
-   try{results[index]=await select(table,{order,ascending:false,columns})}
+   try{results[index]=await timedStartup('core:'+table,()=>select(table,{order,ascending:false,columns}))}
    catch(error){failure||=error}
   }
  };
  await Promise.all(Array.from({length:Math.min(4,tasks.length)},worker));
  if(!current())return false;
  if(failure)throw failure;
- const documentRemovals=await rpc('totus_pending_document_removals');
+ const documentRemovals=await timedStartup('retiradas_documentales',()=>rpc('totus_pending_document_removals'));
  if(!current())return false;
  if(!Array.isArray(documentRemovals))throw new Error('No se pudo comprobar el estado de las retiradas documentales.');
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
@@ -169,9 +170,9 @@ export async function loadCore(){
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
- await reloadStorageUsage();
+ await timedStartup('almacenamiento',()=>reloadStorageUsage());
  if(!current())return false;
- if(['admin','gerente'].includes(state.user?.role))await reloadAudit().catch(error=>{if(current())state.data.auditError=error.message});
+ if(['admin','gerente'].includes(state.user?.role))await timedStartup('auditoria',()=>reloadAudit()).catch(error=>{if(current())state.data.auditError=error.message});
  return current();
 }
 let auditHistoryCache=null;
@@ -180,18 +181,18 @@ export async function reloadAudit({full=false}={}){
  const owner=dataOwner(),generation=++auditReadGeneration;
  const cache=!full&&auditHistoryCache?.owner===owner?auditHistoryCache:null;
  const since=rows=>rows?.reduce((last,r)=>String(r.created_at||'')>last?String(r.created_at):last,'')||'';
- const history=(table,rows)=>select(table,{order:'created_at',ascending:false,filter:since(rows)?q=>q.gte('created_at',since(rows)):undefined});
+ const history=(table,rows)=>timedStartup('audit:'+table,()=>select(table,{order:'created_at',ascending:false,filter:since(rows)?q=>q.gte('created_at',since(rows)):undefined}));
  const [newEvents,newUsers,chat,tasks,stock]=await Promise.all([
   history('ops_audit_log',cache?.events),
   state.user.role==='admin'?history('team_user_audit_log',cache?.users):Promise.resolve([]),
-  select('ops_chat_events',{order:'created_at',ascending:false}),
-  select('ops_task_events',{order:'created_at',ascending:false}),
+  timedStartup('audit:ops_chat_events',()=>select('ops_chat_events',{order:'created_at',ascending:false})),
+  timedStartup('audit:ops_task_events',()=>select('ops_task_events',{order:'created_at',ascending:false})),
   // Historical snapshots can contain whole receipts; the log only needs their
   // immutable event reference. Re-read under current RLS on every refresh.
-  select('ops_stock_revisions',{order:'created_at',ascending:false,columns:'id,receipt_id,revision,action,actor_email,created_at'})
+  timedStartup('audit:ops_stock_revisions',()=>select('ops_stock_revisions',{order:'created_at',ascending:false,columns:'id,receipt_id,revision,action,actor_email,created_at'}))
  ]);
  if(dataOwner()!==owner||generation!==auditReadGeneration)return;
- const backups=state.user.role==='admin'?await select('ops_backup_runs',{order:'started_at',ascending:false,columns:'id,mode,status,started_at,finished_at,files_count,rows_count,error_message'}):[];
+ const backups=state.user.role==='admin'?await timedStartup('audit:ops_backup_runs',()=>select('ops_backup_runs',{order:'started_at',ascending:false,columns:'id,mode,status,started_at,finished_at,files_count,rows_count,error_message'})):[];
  if(dataOwner()!==owner||generation!==auditReadGeneration)return;
  const events=mergeAuditRows(cache?.events,newEvents),users=mergeAuditRows(cache?.users,newUsers);
  auditHistoryCache={owner,events,users};
