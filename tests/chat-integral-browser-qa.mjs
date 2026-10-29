@@ -29,8 +29,11 @@ try{
  await page.evaluate(()=>{window.originalEditor=document.querySelector('#chatBody');integral.notify();});
  await page.waitForTimeout(450);assert(await page.evaluate(()=>window.originalEditor===document.querySelector('#chatBody')),'Editor identity must survive background changes');
  // Composition input cannot be destroyed, or its Enter key send prematurely.
+ const imeReads=await page.evaluate(()=>{integral.channels[0].last_read_seq=0;return integral.calls.filter(c=>c.p?.p_action==='read').length;});
  await page.locator('#chatBody').dispatchEvent('compositionstart');
- await page.evaluate(()=>{integral.messages[0].body='Texto actualizado';integral.notify();});await page.waitForTimeout(450);
+ await page.evaluate(()=>{integral.messages[0].body='Texto actualizado';integral.notify();});await page.waitForTimeout(850);
+ assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='read').length),imeReads,'Composition defers painting, so unseen rows must not be acknowledged');
+ await page.evaluate(()=>integral.channels[0].last_read_seq=9999);
  assert(await page.evaluate(()=>window.originalEditor===document.querySelector('#chatBody')));
  const sendsBefore=await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='send').length);
  await page.locator('#chatBody').dispatchEvent('keydown',{key:'Enter',ctrlKey:true,isComposing:true});assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='send').length),sendsBefore);
@@ -60,5 +63,10 @@ try{
  }
  const readsBefore=await page.evaluate(()=>{integral.channels[0].last_read_seq=0;return integral.calls.filter(c=>c.p?.p_action==='read').length;});
  await page.locator('[data-chat=mobile-channels]').click();await page.waitForTimeout(450);assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='read').length),readsBefore,'Hidden mobile conversation must not acknowledge unread messages');assert.equal(await page.evaluate(()=>integral.c.isReading({channel_id:'a'})),false,'Hidden conversation must not suppress notifications');await page.evaluate(()=>integral.channels[0].last_read_seq=9999);assert(await page.locator('.chat-sidebar').isVisible());assert.equal(await page.locator('.chat-conversation').isVisible(),false);await page.locator('[data-chat=open][data-id=a]').click();assert(await page.locator('.chat-conversation').isVisible());assert.equal(await page.locator('.chat-sidebar').isVisible(),false);
+ // A desktop window may still give the module only 600px beside the app sidebar.
+ await page.setViewportSize({width:1440,height:1000});await page.locator('#chatHarness').evaluate(el=>el.style.width='600px');
+ assert(await page.locator('[data-chat=mobile-channels]').isVisible(),'Navigation must follow module width, not only viewport width');assert.equal(await page.locator('.chat-sidebar').isVisible(),false);
+ await page.locator('[data-chat=mobile-channels]').click();assert(await page.locator('.chat-sidebar').isVisible());await page.locator('[data-chat=open][data-id=a]').click();assert(await page.locator('.chat-conversation').isVisible());
+ await page.screenshot({path:'artifacts/chat_integral_panel_600.png',fullPage:true});
  assert.deepEqual(errors,[]);console.log('CHAT INTEGRAL QA: channel draft isolation, editor/IME, quotes, live reading <50 rows, single-action request, request failure, private invitation and six viewport sizes OK');
 }finally{await browser.close();}
