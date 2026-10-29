@@ -37,6 +37,7 @@ jobs:
       - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/credential-renewal-qa.mjs
       - run: node tests/backup-retention-qa.mjs
+      - run: node tests/office-lazy-qa.mjs
       - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/closing-workflow-qa.mjs
