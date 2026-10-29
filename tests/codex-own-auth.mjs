@@ -26,7 +26,7 @@ function setup(action='session_check',overrides={}){
   calls.push(['admin_rpc',name]);
   if(name==='totus_assistant_claim')return overrides.badTicket?{error:{message:'denied'}}:{data:work};
   results.push(args);return {error:null};
- },auth:{admin:{listUsers:async()=>({data:{users:[]}}),createUser:async(args)=>{calls.push(['createUser',args]);return {data:{user:account}}}}}};
+ },auth:{admin:{listUsers:async()=>({data:{users:overrides.existing?[overrides.existing]:[]}}),createUser:async(args)=>{calls.push(['createUser',args]);return {data:{user:account}}}}}};
  const scoped={from:chain,rpc:async(name,args)=>{calls.push(['user_rpc',name,args]);return overrides.saveError?{error:{message:'validación rechazada'}}:{data:name==='totus_assistant_validate_expense'?{validated:true}:'saved-id'}},
  auth:{signInWithPassword:async(args)=>{calls.push(['login',args.email]);return overrides.loginFail?{error:{message:'login failed'}}:{data:{session:{access_token:'fictitious'},user:account}}},
  getUser:async()=>({data:{user:account}}),signOut:async()=>{calls.push(['logout']);return {}}}};
@@ -58,4 +58,20 @@ test('Codex session has a distinct verified actor',async()=>{
  const q=setup('codex_session_check');assert.equal((await q.run()).status,200);
  assert.equal(q.results[0].p_result.email,'codex@totuscentral.invalid');
  assert.equal(q.results[0].p_result.session_verified,true);
+});
+
+test('setup retry does not recreate or reset an existing Codex account',async()=>{
+ const q=setup('codex_setup',{existing:{id:'own-codex-id',email:'codex@totuscentral.invalid',app_metadata:{totus_codex:true}}});
+ assert.equal((await q.run()).status,200);
+ assert(!q.calls.some(c=>c[0]==='createUser'||c[0]==='upsert'||c[0]==='insert'));
+});
+test('setup cannot take over an existing account without Codex server metadata',async()=>{
+ const q=setup('codex_setup',{existing:{id:'someone-else',email:'codex@totuscentral.invalid',app_metadata:{}}});
+ assert.equal((await q.run()).status,400);
+ assert(!q.calls.some(c=>c[0]==='createUser'||c[0]==='login'||c[0]==='upsert'||c[0]==='insert'));
+});
+test('setup never reactivates a revoked identity',async()=>{
+ const q=setup('codex_setup',{inactive:true,existing:{id:'own-codex-id',email:'codex@totuscentral.invalid',app_metadata:{totus_codex:true}}});
+ assert.equal((await q.run()).status,400);
+ assert(!q.calls.some(c=>c[0]==='createUser'||c[0]==='login'||c[0]==='upsert'||c[0]==='insert'));
 });
