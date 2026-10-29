@@ -56,8 +56,8 @@ const failedRun=beginStartupTiming('sesion_recuperada');
 await assert.rejects(timedStartup('carga_principal',async()=>{throw new Error('private core error');}),/private core error/);
 finishStartupTiming('ok',failedRun); // refresh catches the loadCore error
 const failedReport=startupTimingReport();
-assert.match(failedReport,/carga_principal: [0-9.]+ ms \\[error\\]/);
-assert.match(failedReport,/arranque_completo: [0-9.]+ ms \\[error\\]/);
+assert.match(failedReport,/carga_principal: [0-9.]+ ms \[error\]/);
+assert.match(failedReport,/arranque_completo: [0-9.]+ ms \[error\]/);
 assert(!failedReport.includes('private core error'));
 
 // Optional Storage failure remains visible but must NOT fail the main boot.
@@ -66,7 +66,7 @@ await timedStartup('carga_principal',async()=>true);
 await timedStartup('almacenamiento',async()=>({status:'error',message:'private storage error'}));
 finishStartupTiming('ok',optionalRun);
 const optionalReport=startupTimingReport();
-assert.match(optionalReport,/almacenamiento: [0-9.]+ ms \\[error\\]/);
+assert.match(optionalReport,/almacenamiento: [0-9.]+ ms \[error\]/);
 assert.match(optionalReport,/arranque_completo: [0-9.]+ ms$/m);
 assert(!optionalReport.includes('private storage error'));
 clearStartupTiming();
