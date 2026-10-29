@@ -1,7 +1,7 @@
 // REN-01: ephemeral browser-only timings. Never record query arguments, responses, URLs or users.
 const entries=[];
 const ALLOWED=/^(?:documento_html|sesion|usuario_y_perfil|carga_principal|arranque_completo|retiradas_documentales|almacenamiento|auditoria|pintado_inicio|login_manual|core:[a-z_]+|audit:[a-z_]+)$/;
-let active=false,ready=false,origin=0,kind='';
+let active=false,ready=false,origin=0,kind='',generation=0,coreFailed=false;
 
 const tick=()=>performance.now();
 const ms=value=>Math.round(Math.max(0,Number.isFinite(value)?value:0)*10)/10;
@@ -11,7 +11,7 @@ function add(phase,duration,status='ok'){
 }
 
 export function beginStartupTiming(mode='sesion_recuperada'){
- entries.length=0;active=true;ready=false;origin=tick();
+ ++generation;entries.length=0;active=true;ready=false;coreFailed=false;origin=tick();
  kind=mode==='login_manual'?'login_manual':'sesion_recuperada';
  if(kind==='sesion_recuperada'){
   const navigation=performance.getEntriesByType?.('navigation')?.[0];
@@ -31,24 +31,25 @@ export function beginStartupTiming(mode='sesion_recuperada'){
    if(resource)entries.push({phase:label,ms:ms(resource.duration),status:'ok'});
   }
  }
+ return generation;
 }
 export async function timedStartup(phase,operation){
  if(!active)return operation();
- const start=tick();let status='ok';
+ const run=generation,start=tick();let status='ok';
  try{
   const value=await operation();
   if(phase==='almacenamiento'&&value?.status==='error')status='error';
   return value;
- }catch(error){status='error';throw error}
- finally{if(active)add(phase,tick()-start,status)}
+ }catch(error){status='error';if(active&&run===generation&&phase==='carga_principal')coreFailed=true;throw error}
+ finally{if(active&&run===generation)add(phase,tick()-start,status)}
 }
-export function finishStartupTiming(status='ok'){
- if(!active)return;
- add('arranque_completo',tick()-origin,status);
+export function finishStartupTiming(status='ok',run=generation){
+ if(!active||run!==generation)return;
+ add('arranque_completo',tick()-origin,status==='error'||coreFailed?'error':'ok');
  // Completed data only; never export partial timings from a different session.
  active=false;ready=true;
 }
-export function clearStartupTiming(){active=false;ready=false;kind='';entries.length=0;}
+export function clearStartupTiming(){++generation;active=false;ready=false;coreFailed=false;kind='';entries.length=0;}
 export function startupTimingReport(){
  if(!ready)return '';
  // Only labels, duration and status. No timestamps, account details, response bodies or resource names.

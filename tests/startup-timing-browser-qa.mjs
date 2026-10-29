@@ -27,6 +27,35 @@ try{
  const employee=await browser.newPage();
  await employee.goto('http://127.0.0.1:4173/tests/app-mock.html?role=encargado',{waitUntil:'networkidle'});
  assert.equal(await employee.locator('[data-action="admin-log-timings"]').count(),0,'Employee must not see diagnostics');
+ // The UI must still show its original retry flow; only the timing status changes.
+ const broken=await browser.newPage();
+ await broken.addInitScript(()=>{window.__qaFailCore=true;});
+ await broken.route('**/tests/mock-supabase.js',async route=>{
+  const response=await route.fetch();
+  const source=(await response.text()).replace('const target=db[this.table];',
+   "if(window.__qaFailCore&&this.table==='ops_business_settings'){window.__qaFailCore=false;return {data:null,error:{code:'08006',message:'Fallo ficticio de carga'}};}const target=db[this.table];");
+  await route.fulfill({response,body:source});
+ });
+ await broken.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await broken.getByRole('heading',{name:'No se han podido cargar los datos',exact:true}).waitFor();
+ const failedReport=await broken.evaluate(async()=>(await import('../src/startup-timing.js')).startupTimingReport());
+ assert.match(failedReport,/carga_principal: [0-9.]+ ms \[error\]/);
+ assert.match(failedReport,/arranque_completo: [0-9.]+ ms \[error\]/);
+ assert(!failedReport.includes('Fallo ficticio de carga'),'Diagnostic must never expose error response bodies');
+ await broken.locator('[data-action="retry-load"]').click();
+ await broken.locator('#nav [data-route="inicio"]').waitFor();
+ assert.equal(await broken.locator('#pageTitle').innerText(),'Inicio','Original retry functionality must remain intact');
+ await broken.close();
+
+ const optional=await browser.newPage();
+ await optional.addInitScript(()=>{window.__mockStorageFailure=true;});
+ await optional.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await optional.locator('#nav [data-route="inicio"]').waitFor();
+ const optionalReport=await optional.evaluate(async()=>(await import('../src/startup-timing.js')).startupTimingReport());
+ assert.match(optionalReport,/almacenamiento: [0-9.]+ ms \[error\]/);
+ assert.match(optionalReport,/arranque_completo: [0-9.]+ ms$/m,'Optional storage error must not mark whole boot failed');
+ assert(!optionalReport.includes('Servicio Storage temporalmente'),'Do not export optional failure details');
+ await optional.close();
  await employee.close();await manager.close();await admin.close();
  console.log('STARTUP TIMING BROWSER: boot phases, clipboard, admin-only visibility, no sensitive data, no page errors');
 }finally{await browser.close();}
