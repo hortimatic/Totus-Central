@@ -1,4 +1,5 @@
 import {createActivityLog} from './activity-log.js';
+import {beginStartupTiming,timedStartup,finishStartupTiming,clearStartupTiming,startupTimingReport} from './startup-timing.js';
 import {DRAWER_FORM_FIELDS,previewClosing} from './cash-closing.js';
 import {createCloudBackupReader} from './cloud-backup-reader.js';
 import {editableReferences,reportDiaryStores,reportDiaryStore} from './reference-options.js';
@@ -266,10 +267,10 @@ async function refresh(message=''){
  const owner=sessionViewOwner(),generation=++refreshGeneration,current=()=>sessionViewOwner()===owner&&generation===refreshGeneration;
  state.loading=true;
  try{
-  if(await loadCore()===false||!current())return;
+  if(await timedStartup('carga_principal',()=>loadCore())===false||!current())return;
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
-  if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else render()
+  if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
  }
  catch(e){
   if(!current())return;
@@ -2742,7 +2743,15 @@ document.addEventListener('click',async e=>{
   if(a==='admin-log-filter'){applyAdminLogFilters();return}
   if(a==='admin-log-clear'){state.filters.adminLog={from:'',to:'',area:'',action:'',actor:'',query:''};setView('administracion',{logPage:0});render();return}
   if(a==='admin-log-page'){setView('administracion',{logPage:Math.max(0,Number(el.dataset.page)||0)});render();return}
-  if(a==='admin-log-refresh'){if(await refreshAuditPanel({full:true}))toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
+  if(a==='admin-log-timings'){
+  if(!isAdmin())throw new Error('Solo administración puede copiar estos tiempos.');
+  const report=startupTimingReport();
+  if(!report){toast('Todavía no existe una medición de arranque completa.','warn');return;}
+  try{await navigator.clipboard.writeText(report);toast('Tiempos de arranque copiados. Pégalos en el chat.','ok');}
+  catch{toast('El navegador ha bloqueado el portapapeles. Autoriza la copia para esta web y vuelve a pulsar.','bad');}
+  return;
+ }
+ if(a==='admin-log-refresh'){if(await refreshAuditPanel({full:true}))toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='admin-period-close'){await setClosedPeriod();return}
@@ -2948,8 +2957,12 @@ $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();if(signingIn)return;signingIn=true;
  const button=$('#loginForm button[type="submit"]');button.disabled=true;
  const m=$('#loginMessage');m.textContent='Comprobando acceso…';
- try{state.session=await login(val('loginEmail').trim().toLowerCase(),val('loginPassword'));await boot()}
- catch(err){m.textContent=err.message}
+ try{
+  beginStartupTiming('login_manual');
+  state.session=await timedStartup('login_manual',()=>login(val('loginEmail').trim().toLowerCase(),val('loginPassword')));
+  await boot();
+ }
+ catch(err){finishStartupTiming('error');m.textContent=err.message}
  finally{signingIn=false;button.disabled=false}
 });
 $('#recoverBtn').addEventListener('click',async()=>{
@@ -2958,27 +2971,28 @@ $('#recoverBtn').addEventListener('click',async()=>{
 });
 
 async function boot(){
+ beginStartupTiming('sesion_recuperada');
  $('#login').classList.add('checking-session');
  $('#loginMessage').textContent='Comprobando tu acceso…';
  try{
  if(recoveringPassword){showPasswordRecovery();return}
- const session=(await sb.auth.getSession()).data.session;state.session=session;
+ const session=(await timedStartup('sesion',()=>sb.auth.getSession())).data.session;state.session=session;
  if(!session){$('#loginMessage').textContent='';$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
- const [teamRows,profileRows]=await Promise.all([
+ const [teamRows,profileRows]=await timedStartup('usuario_y_perfil',()=>Promise.all([
   select('team_members',{limit:1,allowTruncated:true,filter:q=>q.eq('email',session.user.email.toLowerCase())}),
   select('profiles',{limit:1,allowTruncated:true,filter:q=>q.eq('id',session.user.id)})
- ]);
+ ]));
  const member=teamRows[0],profile=profileRows[0];
  if(!member||member.active===false){await logout();throw new Error('Tu usuario no tiene acceso activo.')}
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();chatNotifier.start();headerTools.start();
- }finally{$('#login').classList.remove('checking-session')}
+ }finally{finishStartupTiming();$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
  ++refreshGeneration;state.user=null;resetSessionData();setRolePermissions([]);
- activityLog.reset();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
+ activityLog.reset();clearStartupTiming();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
 }
