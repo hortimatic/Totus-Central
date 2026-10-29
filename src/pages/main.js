@@ -879,6 +879,9 @@ function adminRecoveryHistoryHtml(){
 }
 function adminLogHtml(){
  const f=state.filters.adminLog||{},all=state.data.audit||[];
+ const hasSnapshot=!!state.data.auditUpdatedAt;
+ const emptyTitle=hasSnapshot?'Sin eventos para estos filtros':state.data.auditError?'Historial no disponible':state.data.auditLoading?'Cargando historial':'Historial pendiente de consultar';
+ const emptyText=hasSnapshot?'Comprueba las fechas o pulsa Limpiar filtros.':state.data.auditError?'Pulsa Actualizar para reintentar. No se ha confirmado que el historial esté vacío.':'Los registros aparecerán cuando termine la consulta.';
  const from=f.from||'',to=f.to||'';
  const areas=[...new Set(all.map(x=>String(x.area||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const actions=[...new Set(all.map(x=>String(x.action||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
@@ -910,9 +913,9 @@ function adminLogHtml(){
    <div class="log-filter-actions">${btn('Aplicar filtros','admin-log-filter','primary')}${btn('Limpiar filtros','admin-log-clear','secondary')}</div>
   </div>
   ${state.data.auditLoading?'<div class="note" role="status">Consultando el historial del Log…</div>':!state.data.auditUpdatedAt&&!state.data.auditError?'<div class="note" role="status">El historial todavía no se ha consultado. Abre Log o pulsa Actualizar para obtenerlo.</div>':''}
-  ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">Última lectura: ${state.data.auditUpdatedAt?esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Sin actualizar'} · Historial consultado: ${all.length} eventos · Resultados: ${rows.length} · El CSV incluye todos los resultados filtrados. Se conservan las trazas originales.</div>
-  ${table(headers,visible,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
-  <div class="card-pad inline-actions">${btn('Anterior','admin-log-page','secondary',`data-page="${page-1}" ${page===0?'disabled':''}`)}<span>Página ${page+1} de ${pages}</span>${btn('Siguiente','admin-log-page','secondary',`data-page="${page+1}" ${page+1>=pages?'disabled':''}`)}</div>
+  ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">${hasSnapshot?`Última lectura: ${esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))} · Historial consultado: ${all.length} eventos · Resultados: ${rows.length}`:'Historial pendiente de lectura; todavía no hay un recuento confirmado.'} · El CSV incluye todos los resultados filtrados. Se conservan las trazas originales.</div>
+  ${table(headers,visible,{emptyTitle,emptyText})}
+  ${hasSnapshot?`<div class="card-pad inline-actions">${btn('Anterior','admin-log-page','secondary',`data-page="${page-1}" ${page===0?'disabled':''}`)}<span>Página ${page+1} de ${pages}</span>${btn('Siguiente','admin-log-page','secondary',`data-page="${page+1}" ${page+1>=pages?'disabled':''}`)}</div>`:''}
   </section>
  </div>`;
 }
