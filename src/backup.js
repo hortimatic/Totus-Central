@@ -3,8 +3,9 @@ import {rpc,downloadFile} from './api.js';
 import {SUPABASE_URL} from './config.js';
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,loadBoundedRecoveryZip} from './recovery-core.js';
 import {download} from './utils.js';
+import {ensureZip} from './office-libs.js';
 
-const JSZip=window.JSZip;
+// ZIP is resolved when each backup action starts, not when this module loads.
 export const BACKUP_TABLES=RECOVERY_TABLES;
 const STORAGE_BUCKETS=['business-documents','business-assets'];
 async function sha256(bytes){
@@ -14,7 +15,7 @@ async function sha256(bytes){
 }
 
 export async function createBackup(){
- if(!JSZip)throw new Error('No está disponible el motor ZIP.');
+ const JSZip=await ensureZip();
  const snapshot=await rpc('totus_export_recovery_snapshot');
  snapshot.project_ref=new URL(SUPABASE_URL).hostname.split('.')[0];
  const {bytes,manifest}=await buildRecoveryArchive(snapshot,JSZip,async(bucket,path)=>{
@@ -26,6 +27,7 @@ export async function createBackup(){
 }
 export async function inspectBackup(file){
  if(!file)throw new Error('Selecciona una copia.');
+ const JSZip=await ensureZip();
  if(file.format===SET_FORMAT)return readRecoveryArchive(file,JSZip);
  if(Array.isArray(file)||typeof FileList!=='undefined'&&file instanceof FileList){
   const selected=await readSelectedBackupSet(file,JSZip);
