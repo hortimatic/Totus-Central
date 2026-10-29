@@ -2,6 +2,9 @@ begin;
 alter table public.ops_backup_work add column lease_until timestamptz,add column updated_at timestamptz not null default now();
 create function public.totus_export_recovery_snapshot() returns jsonb language sql as $$select jsonb_build_object('database',jsonb_build_object('fixture_payload',repeat('x',1048576)),'revision',repeat('a',64),'identities','[]'::jsonb,'storage','{}'::jsonb)$$;
 \i supabase/review_patches/026_backup_snapshot_staging.sql
+\i supabase/review_patches/027_backup_capture_deadline.sql
+select public.qa_assert((select proconfig @> array['statement_timeout=30s','lock_timeout=5s'] from pg_proc where oid='public.totus_backup_capture_snapshot(uuid,uuid)'::regprocedure),'bounded capture deadline without extending lock wait');
+select public.qa_assert((select not coalesce(proconfig @> array['statement_timeout=30s'],false) from pg_proc where oid='public.totus_backup_prepare_work(uuid,text,jsonb,jsonb)'::regprocedure),'ordinary preparation deadline unchanged');
 select public.qa_assert(not has_function_privilege('authenticated','public.totus_backup_capture_snapshot(uuid,uuid)','execute'),'no browser snapshot access');
 select public.qa_assert(not has_function_privilege('anon','public.totus_backup_capture_snapshot(uuid,uuid)','execute'),'no anonymous snapshot access');
 insert into public.ops_backup_runs(id,status) values('44444444-4444-4444-8444-444444444444','running');

@@ -29,7 +29,7 @@ La atención se inicia cuando vosotros se lo pedís a ChatGPT. ChatGPT tiene su 
 3. En un canal normal, pulsar «Pedir a ChatGPT» en el mensaje. «Preparar para ChatGPT» ofrece el texto con la referencia concreta para copiarlo.
 4. Abrir vuestro ChatGPT convencional, en el chat del proyecto que utilicéis para ese trabajo, y pedirle atender esa solicitud concreta. Usar las conexiones GitHub, Supabase y Microsoft autorizadas de esa cuenta.
 5. Si ChatGPT solicita aprobación, autorizar solo el ensayo o documento indicado. Un bloqueo de seguridad no significa que haya fallado OneDrive: conservar el error exacto y no intentar eludirlo ni conceder permisos nuevos para forzar la operación.
-6. Volver a Totus y abrir las respuestas del mensaje. La respuesta debe aparecer identificada como «Asistente de Totus · ChatGPT». «Pendiente» significa que aún no se ha recogido; «En curso» tiene una reserva temporal; «Respondida» implica que se ha guardado una respuesta.
+6. Volver al canal de Totus: la respuesta debe aparecer como un mensaje de ChatGPT en la conversación principal. «Pendiente» significa que aún no se ha recogido; «En curso» tiene una reserva temporal; «Respondida» implica que se ha guardado una respuesta. El contacto antiguo «Asistente de Totus» está retirado.
 7. Revisar la propuesta. Registrar un gasto, caja o recepción es una operación adicional que requiere vuestra autorización directa y los procedimientos validados de su módulo. Subir una factura al chat no la registra por sí solo en contabilidad.
 
 Texto de inicio recomendado:
