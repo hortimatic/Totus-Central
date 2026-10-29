@@ -23,6 +23,8 @@ try{
  await page.locator('#docParty').fill('Prueba ZIP bajo demanda');
  await page.locator('#docFile').setInputFiles({name:'lazy-test.txt',mimeType:'text/plain',buffer:Buffer.from('Prueba documental aislada')});
  await page.locator('[data-action="document-save"]').click();
+ await page.locator('[data-action="document-back"]').waitFor();
+ await page.locator('[data-action="document-back"]').click();
  await page.locator('[data-action="documents-zip"]').waitFor();
  const zipDownload=page.waitForEvent('download',{timeout:15000});
  await page.locator('[data-action="documents-zip"]').click();
