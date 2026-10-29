@@ -881,6 +881,7 @@ function adminLogHtml(){
  ];
  return `<div class="stack">
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Cambios guardados, usuarios, tareas, actividad del chat y copias visibles para tu cuenta. Incluye accesos a módulos y secciones, consultas de documentos y descargas preparadas desde esta versión. No registra cada pulsación ni el contenido de los formularios. Actualización cada 30 segundos. El historial de código se consulta en GitHub; esta pantalla no acredita acciones que nunca se registraron.</p></div><div class="inline-actions">
+  ${isAdmin()?btn('Copiar tiempos de arranque','admin-log-timings','secondary'):''}
   ${btn('Actualizar','admin-log-refresh','secondary')}
   ${btn('Exportar CSV filtrado','admin-log-export','primary')}
   </div></div>

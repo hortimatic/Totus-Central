@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true});
+try{
+ const admin=await browser.newPage();
+ const errors=[];admin.on('pageerror',e=>errors.push(e.message));
+ await admin.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.__timingClipboard=value;}}}));
+ await admin.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await admin.locator('#nav [data-route="administracion"]').click();
+ await admin.locator('[data-action="admin-section"][data-section="log"]').click();
+ const copy=admin.locator('[data-action="admin-log-timings"]');
+ assert.equal(await copy.count(),1,'Admin must have one action in the existing Log toolbar');
+ await copy.click();
+ const report=await admin.evaluate(()=>window.__timingClipboard);
+ assert.match(report,/Totus Central · REN-01/);
+ for(const phase of ['Tipo: sesion_recuperada','sesion:','usuario_y_perfil:','carga_principal:','core:ops_expenses:','retiradas_documentales:','almacenamiento:','auditoria:','pintado_inicio:','arranque_completo:'])
+  assert(report.includes(phase),'Missing timing: '+phase);
+ for(const privateData of ['qa@example.com','qa-sandbox','00000000X','Calle Pruebas 1','https://'])
+  assert(!report.includes(privateData),'Report contained user, financial or URL data');
+ assert(!report.includes('documentos de prueba'),'No document contents in diagnostic');
+ assert.deepEqual(errors,[],'Instrumented boot must not cause browser errors');
+ const manager=await browser.newPage();
+ await manager.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});
+ await manager.locator('#nav [data-route="administracion"]').click();
+ await manager.locator('[data-action="admin-section"][data-section="log"]').click();
+ assert.equal(await manager.locator('[data-action="admin-log-timings"]').count(),0,'Manager must not see admin-only report');
+ const employee=await browser.newPage();
+ await employee.goto('http://127.0.0.1:4173/tests/app-mock.html?role=encargado',{waitUntil:'networkidle'});
+ assert.equal(await employee.locator('[data-action="admin-log-timings"]').count(),0,'Employee must not see diagnostics');
+ await employee.close();await manager.close();await admin.close();
+ console.log('STARTUP TIMING BROWSER: boot phases, clipboard, admin-only visibility, no sensitive data, no page errors');
+}finally{await browser.close();}
