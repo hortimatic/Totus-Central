@@ -36,8 +36,8 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,mar
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
-import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
+import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,invalidateStorageUsage,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
+import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash,homeStorageAlertHtml,homeStorageMetricsHtml} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
 import {parseDecimal,closingIncomeAmount,expenseCostAmount,quickPriceStudy,previewQuickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
@@ -231,23 +231,70 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
 window.addEventListener('beforeunload',e=>{
  if(writeInProgress||discardPromptActive||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
-let storageRefreshInFlight=false;
+let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
- return !!state.user&&state.route==='administracion'&&getView('administracion').section==='storage';
+ return !!state.user&&can('administracion','view')&&state.route==='administracion'&&getView('administracion').section==='storage';
 }
-async function refreshStoragePanel(){
- if(!isStoragePanelVisible()||storageRefreshInFlight||state.loading||$('#odClientSecret')?.value)return;
- storageRefreshInFlight=true;
- try{
-  const result=await reloadStorageUsage();
-  if(isAdmin())try{setOneDriveStatus(await oneDriveRequest('status'));}catch(error){setOneDriveStatus({error:error.message,checked_at:new Date().toISOString()});}
-  if(isStoragePanelVisible()){
-   const scroll=document.scrollingElement?.scrollTop||0;
-   render();
-   window.scrollTo(0,scroll);
-  }
-  if(result.status!=='ok')toast('No se pudo consultar Storage: '+result.message,'bad');
- }finally{storageRefreshInFlight=false}
+function storageRequestCurrent(owner,epoch){
+ return !!state.user&&epoch===storageUiGeneration&&sessionViewOwner()===owner;
+}
+function patchHomeStorage(){
+ if(!state.user||state.route!=='inicio')return;
+ const metrics=input('homeStorageMetrics'),alert=input('homeStorageAlert');
+ if(!metrics||!alert)return;
+ metrics.innerHTML=homeStorageMetricsHtml();
+ alert.innerHTML=homeStorageAlertHtml();
+ const empty=input('homeAlertsEmpty');
+ if(empty)empty.hidden=!!alert.children.length||!!document.querySelector('.dashboard-alerts > .dashboard-alert');
+}
+function refreshStorageSnapshot(){
+ if(!state.user)return Promise.resolve({status:'stale'});
+ const owner=sessionViewOwner(),epoch=storageUiGeneration;
+ if(storageRequest?.owner===owner&&storageRequest.epoch===epoch)return storageRequest.promise;
+ const request={owner,epoch,promise:null};
+ storageRequest=request;
+ const pending=reloadStorageUsage();
+ patchHomeStorage(); // Patch only the Storage metrics and alert, never user inputs.
+ request.promise=Promise.resolve(pending).then(result=>{
+  if(storageRequestCurrent(owner,epoch))patchHomeStorage();
+  return result;
+ }).finally(()=>{if(storageRequest===request)storageRequest=null;});
+ return request.promise;
+}
+function updateStoragePanelOnly(){
+ if(!isStoragePanelVisible()||hasFormDraft($('#content'))||$('#odClientSecret')?.value)return;
+ const old=$('#content .storage-dashboard'),offscreen=document.createElement('div');
+ if(!old)return;
+ offscreen.innerHTML=renderers.administracion();
+ const updated=offscreen.querySelector('.storage-dashboard');
+ if(!updated)return;
+ const open=[...old.querySelectorAll('details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail);
+ const scroll=document.scrollingElement?.scrollTop||0;
+ old.replaceWith(updated);
+ updated.querySelectorAll('details[data-storage-detail]').forEach(el=>{el.open=open.includes(el.dataset.storageDetail);});
+ hideForbiddenButtons();
+ window.scrollTo(0,scroll);
+}
+function refreshStoragePanel(){
+ if(!isStoragePanelVisible()||state.loading||$('#odClientSecret')?.value)return Promise.resolve(false);
+ const owner=sessionViewOwner(),epoch=storageUiGeneration;
+ if(storagePanelRequest?.owner===owner&&storagePanelRequest.epoch===epoch)return storagePanelRequest.promise;
+ const current=()=>storageRequestCurrent(owner,epoch);
+ const request={owner,epoch,promise:null};
+ storagePanelRequest=request;
+ request.promise=(async()=>{
+  const result=await refreshStorageSnapshot();
+  if(!current())return false;
+  if(isAdmin())try{
+   const remote=await oneDriveRequest('status');
+   if(current())setOneDriveStatus(remote);
+  }catch(error){if(current())setOneDriveStatus({error:error.message,checked_at:new Date().toISOString()});}
+  if(!current())return false;
+  updateStoragePanelOnly();
+  if(result.status==='error')toast('No se pudo consultar Storage: '+result.message,'bad');
+  return result.status==='ok';
+ })().finally(()=>{if(storagePanelRequest===request)storagePanelRequest=null;});
+ return request.promise;
 }
 function refreshMaintenanceNotice(){
  if(!isAdmin())return;
@@ -279,7 +326,7 @@ async function refresh(message=''){
   const content=$('#content');
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
- finally{if(current())state.loading=false}
+ finally{if(current()){state.loading=false;if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
 }
 let auditRequest=null,auditUiGeneration=0;
 function isAuditPanelVisible(){
@@ -487,6 +534,7 @@ async function fileSha256(file){const buf=await file.arrayBuffer();const hash=aw
 function quarterFromDate(date){const m=Number(String(date).slice(5,7));return 'T'+Math.ceil(m/3)}
 async function verifiedStorageMetrics(){
  const usage=await reloadStorageUsage();
+ patchHomeStorage();
  if(usage.status!=='ok')throw new Error('No se puede comprobar el espacio en Supabase. Reintenta cuando se restablezca la conexión antes de subir archivos.');
  return usage;
 }
@@ -2521,7 +2569,7 @@ async function reviewUnusedLogos(){
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isAuditPanelVisible())void refreshAuditPanel();if(isStoragePanelVisible())await refreshStoragePanel();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isAuditPanelVisible())void refreshAuditPanel();if(isStoragePanelVisible())await refreshStoragePanel();else if(route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){activityLog.record(permissionForAction(a,el)?.module||state.route,'acceso_denegado',a);toast('No tienes permiso para esta operación.','bad');return}
  if(a==='close-modal'){
@@ -3025,7 +3073,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
- ++refreshGeneration;++auditUiGeneration;auditRequest=null;invalidateAuditReads();state.user=null;resetSessionData();setRolePermissions([]);
+ ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();invalidateStorageUsage();state.user=null;resetSessionData();setRolePermissions([]);
  activityLog.reset();clearStartupTiming();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
