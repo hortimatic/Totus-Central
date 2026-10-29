@@ -114,6 +114,7 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/storage-lazy-browser-qa.mjs
       - run: node tests/audit-register-browser-qa.mjs
       - run: node tests/audit-lazy-browser-qa.mjs
       - run: node tests/expense-credit-browser-qa.mjs
@@ -163,7 +164,6 @@ jobs:
       - run: node tests/expense-integral-browser-qa.mjs
       - run: node tests/onedrive-connection-qa.mjs
       - run: node tests/storage-live-qa.mjs
-      - run: node tests/storage-lazy-browser-qa.mjs
       - run: node tests/storage-organization-qa.mjs
       - run: node tests/deletion-flows-qa.mjs
       - run: node tests/browser-qa.mjs
