@@ -883,7 +883,7 @@ function adminLogHtml(){
   <section class="card table-card"><div class="section-head card-pad"><div><h2>Registro de actividad (Log)</h2><p>Cambios guardados, usuarios, tareas, actividad del chat y copias visibles para tu cuenta. Incluye accesos a módulos y secciones, consultas de documentos y descargas preparadas desde esta versión. No registra cada pulsación ni el contenido de los formularios. Actualización cada 30 segundos. El historial de código se consulta en GitHub; esta pantalla no acredita acciones que nunca se registraron.</p></div><div class="inline-actions">
   ${isAdmin()?btn('Copiar tiempos de arranque','admin-log-timings','secondary'):''}
   ${btn('Actualizar','admin-log-refresh','secondary')}
-  ${btn('Exportar CSV filtrado','admin-log-export','primary')}
+  ${btn('Exportar CSV filtrado','admin-log-export','primary',state.data.auditUpdatedAt?'':'disabled title="Primero debe completarse la lectura del historial"')}
   </div></div>
   <div class="filters">
    <div class="field"><label for="logFrom">Desde</label><input id="logFrom" type="date" value="${esc(from)}"></div>
@@ -894,6 +894,7 @@ function adminLogHtml(){
    <div class="field search"><label for="logQuery">Texto en detalle</label><input id="logQuery" value="${esc(f.query||'')}" placeholder="Buscar evento"></div>
    <div class="log-filter-actions">${btn('Aplicar filtros','admin-log-filter','primary')}${btn('Limpiar filtros','admin-log-clear','secondary')}</div>
   </div>
+  ${state.data.auditLoading?'<div class="note" role="status">Consultando el historial del Log…</div>':!state.data.auditUpdatedAt&&!state.data.auditError?'<div class="note" role="status">El historial todavía no se ha consultado. Abre Log o pulsa Actualizar para obtenerlo.</div>':''}
   ${state.data.auditError?`<div class="note warn" role="alert">No se ha podido actualizar el registro: ${esc(state.data.auditError)}. Los datos mostrados pueden estar desactualizados.</div>`:''}<div class="card-pad small muted">Última lectura: ${state.data.auditUpdatedAt?esc(new Date(state.data.auditUpdatedAt).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})):'Sin actualizar'} · Historial consultado: ${all.length} eventos · Resultados: ${rows.length} · El CSV incluye todos los resultados filtrados. Se conservan las trazas originales.</div>
   ${table(headers,visible,{emptyTitle:'Sin eventos para estos filtros',emptyText:'Comprueba las fechas o pulsa Limpiar filtros.'})}
   <div class="card-pad inline-actions">${btn('Anterior','admin-log-page','secondary',`data-page="${page-1}" ${page===0?'disabled':''}`)}<span>Página ${page+1} de ${pages}</span>${btn('Siguiente','admin-log-page','secondary',`data-page="${page+1}" ${page+1>=pages?'disabled':''}`)}</div>
