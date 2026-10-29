@@ -203,14 +203,19 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const stamp=lifecycle;
   event.preventDefault();if(busy)return;
   const requestChatGPT=event.submitter?.name==='request_chatgpt';
-  remember();const key=draftKey(),selected=[...(picks.get(key)||[])],body=chatText(drafts.get(key)?.trim()||(selected.length?'Documentos adjuntos':'')),channel=data.channel,parent=data.parent,sendingOwner=owner;
+  remember();const key=draftKey(),submittedDraft=drafts.get(key)||'',selected=[...(picks.get(key)||[])],body=chatText(submittedDraft.trim()||(selected.length?'Documentos adjuntos':'')),channel=data.channel,parent=data.parent,sendingOwner=owner;
   const previous=pending.get(key),client_id=previous?.body===body?previous.client_id:crypto.randomUUID();
   pending.set(key,{body,client_id});busy=true;paint();
   try{
    const saved=await command('send',{channel_id:channel,parent_id:parent,body,client_id,expected_files:selected.length});
    if(owner!==sendingOwner)return;
-   drafts.delete(key);picks.delete(key);pending.delete(key);
-   const area=host?.querySelector('#chatBody');if(area)area.value='';
+   // A slow acknowledgement owns only the draft and attachments it submitted.
+   remember();
+   if(drafts.get(key)===submittedDraft)drafts.delete(key);
+   const remaining=(picks.get(key)||[]).filter(item=>!selected.some(sent=>sent.client_id===item.client_id));
+   if(remaining.length)picks.set(key,remaining);else picks.delete(key);
+   pending.delete(key);
+   const area=host?.querySelector('#chatBody');if(area?.closest('.chat-compose')?.dataset.draftKey===key&&area.value===submittedDraft)area.value='';
    outbox.push(...selected.map(item=>({...item,channel_id:channel,message_id:saved.id})));
    if(selected.length)await uploadPending(saved.id);
    if(requestChatGPT){try{await requestAgent(saved.id,channel);}catch(error){throw new Error('El mensaje está guardado, pero la solicitud no se ha creado: '+error.message);}}
