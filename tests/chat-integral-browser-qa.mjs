@@ -63,5 +63,10 @@ try{
  }
  const readsBefore=await page.evaluate(()=>{integral.channels[0].last_read_seq=0;return integral.calls.filter(c=>c.p?.p_action==='read').length;});
  await page.locator('[data-chat=mobile-channels]').click();await page.waitForTimeout(450);assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='read').length),readsBefore,'Hidden mobile conversation must not acknowledge unread messages');assert.equal(await page.evaluate(()=>integral.c.isReading({channel_id:'a'})),false,'Hidden conversation must not suppress notifications');await page.evaluate(()=>integral.channels[0].last_read_seq=9999);assert(await page.locator('.chat-sidebar').isVisible());assert.equal(await page.locator('.chat-conversation').isVisible(),false);await page.locator('[data-chat=open][data-id=a]').click();assert(await page.locator('.chat-conversation').isVisible());assert.equal(await page.locator('.chat-sidebar').isVisible(),false);
+ // A desktop window may still give the module only 600px beside the app sidebar.
+ await page.setViewportSize({width:1440,height:1000});await page.locator('#chatHarness').evaluate(el=>el.style.width='600px');
+ assert(await page.locator('[data-chat=mobile-channels]').isVisible(),'Navigation must follow module width, not only viewport width');assert.equal(await page.locator('.chat-sidebar').isVisible(),false);
+ await page.locator('[data-chat=mobile-channels]').click();assert(await page.locator('.chat-sidebar').isVisible());await page.locator('[data-chat=open][data-id=a]').click();assert(await page.locator('.chat-conversation').isVisible());
+ await page.screenshot({path:'artifacts/chat_integral_panel_600.png',fullPage:true});
  assert.deepEqual(errors,[]);console.log('CHAT INTEGRAL QA: channel draft isolation, editor/IME, quotes, live reading <50 rows, single-action request, request failure, private invitation and six viewport sizes OK');
 }finally{await browser.close();}

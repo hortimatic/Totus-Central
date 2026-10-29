@@ -154,3 +154,21 @@
  .chat-show-conversation .chat-messages{height:auto;flex:1 1 0;min-height:120px}
  .chat-show-conversation .chat-compose,.chat-show-conversation .chat-heading,.chat-show-conversation .chat-search,.chat-show-conversation .chat-scroll-tools,.chat-show-conversation .chat-banner{flex-shrink:0}
 }
+
+/* The app sidebar also consumes width: respond to the actual module container. */
+#teamChatRoot,#chatHarness{container-type:inline-size}
+@media(min-width:701px){
+ @container (max-width:700px){
+  .team-chat,.team-chat.chat-sidebar-collapsed{grid-template-columns:minmax(0,1fr);height:auto;gap:10px}
+  .chat-show-conversation>.chat-sidebar{display:none}
+  .chat-show-channels>.chat-conversation{display:none}
+  .team-chat .chat-mobile-navigation{display:inline-flex;margin-bottom:6px}
+  .chat-show-channels>.chat-sidebar{height:auto;max-height:calc(100dvh - 130px)}
+  .chat-show-conversation>.chat-conversation{height:calc(100dvh - 120px);min-height:650px;display:flex;flex-direction:column}
+  .chat-show-conversation .chat-messages{height:auto;flex:1 1 0;min-height:120px}
+  .chat-show-conversation .chat-compose,.chat-show-conversation .chat-heading,.chat-show-conversation .chat-search,.chat-show-conversation .chat-scroll-tools,.chat-show-conversation .chat-banner{flex-shrink:0}
+  .chat-heading,.chat-search,.chat-compose{padding:12px}
+  .chat-search{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chat-sidebar-collapsed .chat-sidebar{height:48px;max-height:48px}
+ }
+}
