@@ -172,10 +172,11 @@ export async function loadCore(){
  state.data.backupConfig=state.data.backupConfig[0]||null;
  await timedStartup('almacenamiento',()=>reloadStorageUsage());
  if(!current())return false;
- if(['admin','gerente'].includes(state.user?.role))await timedStartup('auditoria',()=>reloadAudit()).catch(error=>{if(current())state.data.auditError=error.message});
+ // Audit history is loaded on demand when Administration > Log is visible.
  return current();
 }
 let auditHistoryCache=null;
+export function invalidateAuditReads(){++auditReadGeneration;auditHistoryCache=null;}
 export async function reloadAudit({full=false}={}){
  if(!['admin','gerente'].includes(state.user?.role))return;
  const owner=dataOwner(),generation=++auditReadGeneration;
