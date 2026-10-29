@@ -789,3 +789,6 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .invoice-live-preview .invoice-identity{min-width:220px;text-align:right}
 @media(max-width:1000px){.template-editor-layout{grid-template-columns:1fr}.template-editor-preview{position:static}}
 @media(max-width:600px){.template-editor-fields .form-grid{grid-template-columns:1fr}.template-editor-actions{flex-wrap:wrap}.template-editor-actions .btn{flex:1 1 auto}.template-editor-preview{padding:10px}}
+
+/* Log actions wrap before squeezing the heading on intermediate screens. */
+.audit-log-head{flex-wrap:wrap}
