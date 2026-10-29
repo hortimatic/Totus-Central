@@ -2777,7 +2777,12 @@ document.addEventListener('click',async e=>{
   catch{toast('El navegador ha bloqueado el portapapeles. Autoriza la copia para esta web y vuelve a pulsar.','bad');}
   return;
  }
- if(a==='admin-log-refresh'){if(await refreshAuditPanel({full:true}))toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
+ if(a==='admin-log-refresh'){
+   const owner=sessionViewOwner(),updated=await refreshAuditPanel({full:true});
+   if(owner!==sessionViewOwner()||!isAuditPanelVisible())return;
+   if(updated)toast('Eventos actualizados.');else toast(state.data.auditError,'bad');
+   return;
+  }
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='admin-period-close'){await setClosedPeriod();return}
