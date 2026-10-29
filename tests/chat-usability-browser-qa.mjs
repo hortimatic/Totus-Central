@@ -1,3 +1,4 @@
+import {chatAction,revealChatSearch} from './chat-menu-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
@@ -29,7 +30,7 @@ try{
   }});
   await q.controller.mount(document.querySelector('#chatHarness'));
  });
- const click=action=>page.locator('[data-chat="'+action+'"]').click();
+ const click=action=>chatAction(page,action);
  // Sidebar filters are navigation only; they cannot change membership or data.
  await page.locator('#chatChannelQuery').fill('cafe');assert.equal(await page.locator('.chat-channel').count(),1);
  await page.locator('#chatChannelQuery').fill('');await page.locator('#chatChannelView').selectOption('favourites');assert.equal(await page.locator('.chat-channel').count(),1);
@@ -38,7 +39,7 @@ try{
  await page.locator('#chatChannelView').selectOption('all');
  await page.locator('[data-chat="open"][data-id="a"]').click();await page.locator('#chatBody').waitFor();await page.screenshot({path:'artifacts/ui_chat_usabilidad_pc.png',fullPage:true});
  // Unapplied text must survive a realtime refresh after moving focus away.
- await page.locator('#chatQuery').fill('pendiente de aplicar');await page.locator('.chat-heading h2').click();
+ await revealChatSearch(page);await page.locator('#chatQuery').fill('pendiente de aplicar');await page.locator('.chat-heading h2').click();
  const before=await page.evaluate(()=>usabilityQA.calls.length);await page.evaluate(()=>usabilityQA.notify());await page.waitForFunction(n=>usabilityQA.calls.length>n,before);
  assert.equal(await page.locator('#chatQuery').inputValue(),'pendiente de aplicar');assert.equal(await page.evaluate(()=>usabilityQA.calls.filter(c=>c.name==='totus_chat_context').at(-1).p.p_query),'');
  await click('clear');

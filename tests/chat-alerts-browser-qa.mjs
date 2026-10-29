@@ -1,3 +1,4 @@
+import {chatAction} from './chat-menu-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
@@ -17,7 +18,7 @@ try{
    throw Error('Unexpected call '+name);
   }});await q.controller.mount(document.querySelector('#chatHarness'));
  });
- const click=action=>page.locator('[data-chat="'+action+'"]').click();
+ const click=action=>chatAction(page,action);
  await click('alerts');await page.locator('[data-test-sound]').click();await page.getByText(/Sonido de prueba emitido/).waitFor();await page.locator('[data-test-desktop]').click();assert.equal(await page.evaluate(()=>window.desktopTests),1);
  await page.locator('[name="sound_enabled"]').selectOption('true');await page.locator('[name="desktop_enabled"]').selectOption('true');await page.locator('dialog [type="submit"]').click();await page.waitForFunction(()=>alertQA.updated?.sound_enabled===true&&alertQA.layout.desktop_enabled===true);
  await click('alerts');assert.equal(await page.locator('[name="sound_enabled"]').inputValue(),'true');await page.locator('[name="sound_enabled"]').selectOption('false');await page.locator('[name="desktop_enabled"]').selectOption('false');await page.locator('dialog [type="submit"]').click();await page.waitForFunction(()=>alertQA.layout.desktop_enabled===false&&alertQA.layout.sound_enabled===false);

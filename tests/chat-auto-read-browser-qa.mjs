@@ -1,3 +1,4 @@
+import {revealChatSearch} from './chat-menu-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -28,7 +29,7 @@ try{
  await page.evaluate(()=>{readQA.hidden=false;document.dispatchEvent(new Event('visibilitychange'));});
  await page.waitForFunction(()=>readQA.channels[0].last_read_seq===2);
  // Filters don't mark a whole channel as read; clearing does.
- await page.locator('#chatQuery').fill('visible');await page.locator('[data-chat="search"]').click();
+ await revealChatSearch(page);await page.locator('#chatQuery').fill('visible');await page.locator('[data-chat="search"]').click();
  await page.evaluate(()=>{readQA.messages.push({...readQA.messages[0],id:'three',seq:3});readQA.channels[0].last_seq=3;});
  await page.locator('[data-chat="refresh"]').click();await page.waitForTimeout(500);
  assert.equal(await page.evaluate(()=>readQA.channels[0].last_read_seq),2);

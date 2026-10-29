@@ -1,3 +1,4 @@
+import {chatAction,revealChatSearch} from './chat-menu-helper.mjs';
 import {PDFDocument} from 'pdf-lib';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
@@ -86,7 +87,7 @@ try{
   window.chatController=createTeamChat({rpc,actor:()=>q.owner,confirm:async()=>true,requestFile});
   await window.chatController.mount(document.querySelector('#chatHarness'));
  });
- const click=a=>page.locator('[data-chat="'+a+'"]').click();
+ const click=action=>chatAction(page,action);
  await page.getByRole('button',{name:'Reintentar',exact:true}).waitFor();
  await click('refresh');
  await page.locator('[data-chat="open"][data-id="h"]').click();
@@ -97,7 +98,7 @@ try{
  await page.locator('dialog button[type="submit"]').click();
  await page.getByText('Mensaje corregido',{exact:true}).waitFor();
  await page.locator('[data-message="m2"] [data-chat="pin"]').click();
- await page.locator('#chatMode').selectOption('pinned');await click('search');
+ await revealChatSearch(page);await page.locator('#chatMode').selectOption('pinned');await click('search');
  assert.equal(await page.locator('.chat-message').count(),1);
  await click('clear');
  await page.locator('[data-message="m2"] [data-chat="task"]').click();
@@ -122,12 +123,12 @@ try{
  await page.locator('.chat-compose [type="submit"]:not([name])').click();
  await page.getByText('Envío con corte de conexión',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>qaChat.messages.filter(m=>m.body==='Envío con corte de conexión').length),1,'Retry duplicated message');
- await page.locator('#chatQuery').fill('Tarjeta');await click('search');assert.equal(await page.locator('.chat-message').count(),1);await click('clear');
- await page.locator('#chatFrom').fill('2026-11-01');await page.locator('#chatTo').fill('2026-10-01');await click('search');
+ await revealChatSearch(page);await page.locator('#chatQuery').fill('Tarjeta');await click('search');assert.equal(await page.locator('.chat-message').count(),1);await click('clear');
+ await revealChatSearch(page);await page.locator('#chatFrom').fill('2026-11-01');await revealChatSearch(page);await page.locator('#chatTo').fill('2026-10-01');await click('search');
  await page.getByRole('alert').filter({hasText:'fecha inicial'}).waitFor();await click('clear');
  await page.locator('[data-message="m1"] [data-chat="reaction"]').first().click();
  assert.equal(await page.locator('[data-message="m1"] [data-chat="reaction"]').first().getAttribute('aria-pressed'),'true');
- await click('read');await click('mute');await page.getByRole('button',{name:'Activar avisos',exact:true}).waitFor();
+ await click('read');await click('mute');await page.locator('[data-chat=mute]').filter({hasText:'Activar avisos'}).waitFor({state:'attached'});
  await click('members');await page.locator('dialog [name="email"]').fill('companero@example.invalid');await page.locator('dialog [type="submit"]').click();
  assert.equal(await page.evaluate(()=>qaChat.members.length),3);
  await click('new');await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').count(),0,'Escape must clean up the dialog');
