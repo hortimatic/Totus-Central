@@ -26,6 +26,7 @@ try{
  await chatAction(page,'search-toggle');await page.keyboard.press('Alt+/');assert.equal(await page.locator('#chatQuery').inputValue(),'pedido');assert(await page.locator('#chatQuery').evaluate(el=>el===document.activeElement));
  await chatAction(page,'search-toggle');
  await page.locator('#chatBody').fill('Hola ');await chatAction(page,'emoji');await page.locator('[data-emoji-insert="👍"]').click();assert.equal(await page.locator('#chatBody').inputValue(),'Hola 👍');
+ await chatAction(page,'emoji');await page.locator('dialog').press('Alt+/');assert(await page.locator('dialog').isVisible(),'Search shortcut must not discard an open dialog');await page.locator('dialog [data-chat-close]').click();
  await page.locator('#chatMenu-channel').click();const before=await page.evaluate(()=>navigationQA.calls.length);await page.evaluate(()=>navigationQA.notify());await page.waitForFunction(n=>navigationQA.calls.length>n,before);
  assert(await page.locator('[data-chat=members]').isVisible(),'A refresh preserves the open menu');
  await page.keyboard.press('Escape');assert.equal(await page.locator('[data-chat=members]').isVisible(),false);assert.equal(await page.locator('#chatBody').inputValue(),'Hola 👍');
