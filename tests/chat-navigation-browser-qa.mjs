@@ -41,4 +41,3 @@ try{
  await page.evaluate(()=>navigationQA.chat.reset());assert.deepEqual(errors,[]);
  console.log('CHAT NAVIGATION QA: menus, keyboard, search, emoji, refresh, drafts, no writes and eight responsive sizes OK');
 }finally{await browser.close();}
-

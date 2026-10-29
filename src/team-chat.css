@@ -1,7 +1,6 @@
 /* Chat presentation only. Data, permissions and operations remain in the controller. */
 .chat-navigation-tools{display:flex;align-items:center;gap:8px;margin:16px 4px 10px}
 .team-chat,.chat-dialog{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-.chat-sidebar-head h2{margin-right:auto}
 .chat-compose>.chat-compose-tools{justify-content:flex-start}
 .chat-menu{position:relative;min-width:0}
 .chat-menu>summary{display:flex;align-items:center;gap:7px;cursor:pointer;list-style:none;padding:8px 11px;border:1px solid #dce5f2;border-radius:10px;font-size:12px;font-weight:600;color:#355781;background:white;min-height:34px;box-sizing:border-box}
@@ -29,7 +28,7 @@
 /* Navigation: compact rows, clear sections and one selected conversation. */
 .chat-sidebar{padding:14px 10px;background:#f5f7fb;border:0;max-height:calc(100dvh - 160px);overflow:auto;scrollbar-gutter:stable;overscroll-behavior:contain}
 .chat-sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px}
-.chat-sidebar-head h2{margin:0;font-size:17px;min-width:0}
+.chat-sidebar-head h2{margin:0 auto 0 0;font-size:17px;min-width:0}
 .chat-unread-total{display:block;font-size:11px;font-weight:400;color:#68758b;margin-top:3px}
 .team-chat .chat-sidebar-head>[data-chat=sidebar-toggle]{min-width:30px;padding:4px;min-height:30px;background:transparent;border-color:transparent}
 .chat-inbox-access{display:grid;grid-template-columns:1fr;gap:4px;margin:8px 4px 12px}
