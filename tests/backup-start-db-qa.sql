@@ -1,0 +1,22 @@
+begin;
+select public.qa_assert(not has_function_privilege('anon','public.totus_backup_prepare_work(uuid,text,jsonb,jsonb)','execute'),'anon denied');
+select public.qa_assert(not has_function_privilege('authenticated','public.totus_backup_prepare_work(uuid,text,jsonb,jsonb)','execute'),'browser denied');
+insert into public.ops_backup_runs(id,status) values('11111111-1111-4111-8111-111111111111','running');
+select set_config('request.jwt.claims','{"role":"authenticated"}',true);
+select public.qa_denied($q$select public.totus_backup_prepare_work('11111111-1111-4111-8111-111111111111','a.totusbackup','{}','{}')$q$,'Solo el servidor');
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select public.totus_backup_prepare_work('11111111-1111-4111-8111-111111111111','a.totusbackup',jsonb_build_object('path','a.totusbackup','cursor',0,'manifest',jsonb_build_object('revision',repeat('a',64))),jsonb_build_object('database','{}'::jsonb,'revision',repeat('a',64)));
+select public.qa_assert((select storage_path='a.totusbackup' from public.ops_backup_runs),'parent prepared');
+select public.qa_assert((select count(*)=1 from public.ops_backup_work),'one work row');
+update public.ops_backup_work set state=state||'{"cursor":7}';
+select public.totus_backup_prepare_work('11111111-1111-4111-8111-111111111111','a.totusbackup',jsonb_build_object('path','a.totusbackup','cursor',0,'manifest',jsonb_build_object('revision',repeat('a',64))),jsonb_build_object('database','{}'::jsonb,'revision',repeat('a',64)));
+select public.qa_assert((select (state->>'cursor')::int=7 from public.ops_backup_work),'retry preserves progress');
+select public.qa_denied($q$select public.totus_backup_prepare_work('11111111-1111-4111-8111-111111111111','a.totusbackup',jsonb_build_object('path','a.totusbackup','manifest',jsonb_build_object('revision',repeat('b',64))),jsonb_build_object('database','{}'::jsonb,'revision',repeat('b',64)))$q$,'no coincide');
+update public.ops_backup_runs set status='success';
+select public.qa_denied($q$select public.totus_backup_prepare_work('11111111-1111-4111-8111-111111111111','a.totusbackup',jsonb_build_object('path','a.totusbackup','manifest',jsonb_build_object('revision',repeat('a',64))),jsonb_build_object('database','{}'::jsonb,'revision',repeat('a',64)))$q$,'ya no');
+-- A work-row failure must undo the parent update in the same transaction.
+alter table public.ops_backup_work add constraint qa_reject_work check (coalesce((state->>'test_fail')::boolean,false)=false);
+insert into public.ops_backup_runs(id,status) values('22222222-2222-4222-8222-222222222222','running');
+select public.qa_denied($q$select public.totus_backup_prepare_work('22222222-2222-4222-8222-222222222222','b.totusbackup',jsonb_build_object('path','b.totusbackup','test_fail',true,'manifest',jsonb_build_object('revision',repeat('c',64))),jsonb_build_object('database','{}'::jsonb,'revision',repeat('c',64)))$q$,'qa_reject_work');
+select public.qa_assert((select storage_path is null from public.ops_backup_runs where id='22222222-2222-4222-8222-222222222222'),'failed child leaves parent unchanged');
+rollback;
