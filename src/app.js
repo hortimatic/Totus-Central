@@ -2778,8 +2778,8 @@ document.addEventListener('click',async e=>{
   return;
  }
  if(a==='admin-log-refresh'){
-   const owner=sessionViewOwner(),updated=await refreshAuditPanel({full:true});
-   if(owner!==sessionViewOwner()||!isAuditPanelVisible())return;
+   const owner=sessionViewOwner(),epoch=auditUiGeneration,updated=await refreshAuditPanel({full:true});
+   if(epoch!==auditUiGeneration||owner!==sessionViewOwner()||!isAuditPanelVisible())return;
    if(updated)toast('Eventos actualizados.');else toast(state.data.auditError,'bad');
    return;
   }
