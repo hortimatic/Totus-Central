@@ -262,7 +262,12 @@ function refreshStorageSnapshot(){
  return request.promise;
 }
 function updateStoragePanelOnly(){
- if(!isStoragePanelVisible()||hasFormDraft($('#content'))||$('#odClientSecret')?.value)return;
+ if(!isStoragePanelVisible()||$('#odClientSecret')?.value)return;
+ if(hasFormDraft($('#content'))){
+  const stamp=input('storageMeasuredAt');
+  if(stamp)stamp.textContent='Datos mostrados anteriormente; hay una medición nueva que se mostrará al terminar la edición.';
+  return; // Never discard edited fields merely to refresh metrics.
+ }
  const old=$('#content .storage-dashboard'),offscreen=document.createElement('div');
  if(!old)return;
  offscreen.innerHTML=renderers.administracion();
@@ -533,7 +538,9 @@ async function deleteExpenseSupplier(id){
 async function fileSha256(file){const buf=await file.arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function quarterFromDate(date){const m=Number(String(date).slice(5,7));return 'T'+Math.ceil(m/3)}
 async function verifiedStorageMetrics(){
- const usage=await reloadStorageUsage();
+ const owner=sessionViewOwner(),epoch=storageUiGeneration;
+ const usage=await reloadStorageUsage(); // Never authorize a file from a cached snapshot.
+ if(!storageRequestCurrent(owner,epoch))throw new Error('La sesión cambió durante la comprobación de Storage. Vuelve a iniciar la operación.');
  patchHomeStorage();
  if(usage.status!=='ok')throw new Error('No se puede comprobar el espacio en Supabase. Reintenta cuando se restablezca la conexión antes de subir archivos.');
  return usage;
