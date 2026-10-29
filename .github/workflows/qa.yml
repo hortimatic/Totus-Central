@@ -57,6 +57,7 @@ jobs:
       - run: node tests/supplier-credit-qa.mjs
       - run: node tests/audit-register-qa.mjs
       - run: node tests/audit-loading-qa.mjs
+      - run: node tests/startup-timing-qa.mjs
       - run: node tests/expense-totals-qa.mjs
       - run: node tests/reference-options-qa.mjs
       - run: node tests/template-copy-qa.mjs
@@ -132,6 +133,7 @@ jobs:
       - run: node tests/published-browser-qa.mjs
       - run: node tests/form-boundaries-browser-qa.mjs
       - run: node tests/session-startup-browser-qa.mjs
+      - run: node tests/startup-timing-browser-qa.mjs
       - run: node tests/header-tools-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/pricing-integral-browser-qa.mjs
