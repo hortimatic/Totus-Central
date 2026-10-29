@@ -464,7 +464,7 @@ function showExpenseGestorDetail(id){
   ${actions}</div>`);
 }
 async function previewPendingExpenseFile(){
- const isCurrent=activePreviewPage();
+ const session=state.session,preview=activePreviewPage(),isCurrent=()=>state.session===session&&preview();
  const file=input('exFile')?.files?.[0];
  if(!file)throw new Error('Selecciona primero una factura para verla.');
  const settings=state.data.settings||{},usage=state.data.storageUsage||{};
@@ -1569,7 +1569,7 @@ async function importDocumentZip(zipFile){
 }
 async function performDocumentZipImport(zipFile){
  if(!zipFile) return;
- const isCurrent=activeActor();if(!isCurrent())return;
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();if(!isCurrent())return;
  if(zipFile.size>150*1024*1024) throw new Error('El archivo ZIP supera el máximo de 150 MB.');
  await ensureZip();if(!isCurrent())return;
  const zip=await window.JSZip.loadAsync(zipFile);
@@ -1635,6 +1635,7 @@ async function downloadDocument(id){
  const blob=await getDocumentBlob(d);download(blob,d.original_name||'documento');
 }
 async function previewDocument(id){
+ const session=state.session;
  const d=state.data.documents.find(x=>x.id===id);if(!d)throw new Error('El archivo adjunto no está disponible. Actualiza el listado y vuelve a abrir el gasto.');
  modal(d.original_name||'Documento','<div role="status">Cargando archivo adjunto…</div>');
  const loadingPanel=document.querySelector('#modalHost .modal');
@@ -1655,10 +1656,10 @@ async function previewDocument(id){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
-   await ensureExcel();if(!loadingPanel?.isConnected)return;
+   await ensureExcel();if(state.session!==session||!loadingPanel?.isConnected)return;
    const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});body=`<div class="note">Libro Excel: ${wb.SheetNames.length} hoja(s). Puedes abrir y revisar cada hoja sin descargarlo.</div><div class="excel-preview">${wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${`<table class="data-table"><tbody>${window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:false,defval:''}).slice(0,200).map(row=>`<tr>${row.slice(0,30).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`}</div></details>`).join('')}</div>`;
  }else if(kind==='docx'){
-   await ensureZip();if(!loadingPanel?.isConnected)return;
+   await ensureZip();if(state.session!==session||!loadingPanel?.isConnected)return;
    const zip=await window.JSZip.loadAsync(blob),xml=await zip.file('word/document.xml')?.async('text');
    if(!xml)throw new Error('El archivo Word no contiene un documento válido.');
    const doc=new DOMParser().parseFromString(xml,'application/xml');
@@ -1690,7 +1691,7 @@ if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo p
  resetView('documentos');await refresh('Documento eliminado.');
 }
 async function zipFilteredDocuments(){
- const isCurrent=activeActor();await ensureZip();if(!isCurrent())return;
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();await ensureZip();if(!isCurrent())return;
  const f=getFilters('documentos');
  const rows=selectDocuments(state.data,f);
  if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
@@ -2439,7 +2440,7 @@ let annualExportInProgress=false;
 async function exportGestorPackage(year){
  if(annualExportInProgress){toast('El paquete anual ya se está preparando.');return;}
  annualExportInProgress=true;
- const isCurrent=activeActor();
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();
  modal('Preparando paquete anual','<p id="annualPackageProgress" role="status" aria-live="polite">Preparando libros y documentos…</p>');
  try{
  await Promise.all([ensureExcel(),ensureZip()]);if(!isCurrent())return;
@@ -2505,7 +2506,7 @@ async function exportGestorPeriodPackage(){
  if(annualExportInProgress)throw new Error('Ya se está preparando un paquete. Espera a que termine.');
  const filters={...getFilters('informes')},plan=reportPackagePlan(state.data,filters);
  annualExportInProgress=true;
- const isCurrent=activeActor();
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();
  modal('Preparando paquete del periodo','<p id="periodPackageProgress" role="status" aria-live="polite">Comprobando los justificantes vinculados…</p>');
  try{
   await Promise.all([ensureExcel(),ensureZip()]);if(!isCurrent())return;
@@ -2599,7 +2600,7 @@ document.addEventListener('click',async e=>{
  if(['expense-attach-save','expense-tax-attach-save'].includes(a)&&hasFormDraft($('#content'),['exFile'])
   &&!await confirmAction('Se guardará únicamente el archivo seleccionado. Los demás cambios de esta ficha no se guardarán y se descartarán al actualizarla. Si quieres conservarlos, cancela y usa Guardar.',{title:'Guardar solo el adjunto',acceptLabel:'Guardar adjunto y descartar los otros cambios'}))return;
  if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
- const isCurrentLibraryActor=activeActor();
+ const librarySession=state.session,libraryActor=activeActor(),isCurrentLibraryActor=()=>state.session===librarySession&&libraryActor();
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
  const writes=['stock-source-remove','stock-upload-discard','template-duplicate','series-toggle','user-toggle','user-reset','user-permissions-reset','report-block-up','report-block-down','report-block-reset','admin-period-close','admin-period-reopen','onedrive-begin','onedrive-mirror','onedrive-backup-mirror','onedrive-test','admin-unused-logos'].includes(a)||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  let ownsWriteLock=false;
@@ -2887,8 +2888,8 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings'){await ensureExcel();if(!isCurrentLibraryActor())return;exportRows('closings');return}
   if(a==='export-expenses'){await ensureExcel();if(!isCurrentLibraryActor())return;exportRows('expenses');return}
   if(a==='export-summary'){await ensureExcel();if(!isCurrentLibraryActor())return;exportRows('summary');return}
-  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
-  if(a==='report-gestor-source-preview'){reportGestorSourcePreview();return}
+  if(a==='report-store-preview'){await ensureExcel();if(!isCurrentLibraryActor())return;reportStorePreview(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
+  if(a==='report-gestor-source-preview'){await ensureExcel();if(!isCurrentLibraryActor())return;reportGestorSourcePreview();return}
   if(a==='export-gestor-source'){await ensureExcel();if(!isCurrentLibraryActor())return;exportGestorSourceWorkbook(gestorSourceArgs());return}
   if(a==='report-gestor-source-print'){printGestorSource();return}
   if(a==='export-store-book'){await ensureExcel();if(!isCurrentLibraryActor())return;exportStoreBook(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
