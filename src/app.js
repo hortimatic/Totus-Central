@@ -2957,12 +2957,13 @@ $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();if(signingIn)return;signingIn=true;
  const button=$('#loginForm button[type="submit"]');button.disabled=true;
  const m=$('#loginMessage');m.textContent='Comprobando acceso…';
+ let timingRun;
  try{
-  beginStartupTiming('login_manual');
+  timingRun=beginStartupTiming('login_manual');
   state.session=await timedStartup('login_manual',()=>login(val('loginEmail').trim().toLowerCase(),val('loginPassword')));
-  await boot({fromLogin:true});
+  await boot({fromLogin:true,timingRun});
  }
- catch(err){finishStartupTiming('error');m.textContent=err.message}
+ catch(err){finishStartupTiming('error',timingRun);m.textContent=err.message}
  finally{signingIn=false;button.disabled=false}
 });
 $('#recoverBtn').addEventListener('click',async()=>{
@@ -2970,8 +2971,8 @@ $('#recoverBtn').addEventListener('click',async()=>{
  try{await recover(email);$('#loginMessage').textContent='Correo de recuperación solicitado.'}catch(e){$('#loginMessage').textContent=e.message}
 });
 
-async function boot({fromLogin=false}={}){
- if(!fromLogin)beginStartupTiming('sesion_recuperada');
+async function boot({fromLogin=false,timingRun=null}={}){
+ const run=fromLogin?timingRun:beginStartupTiming('sesion_recuperada');
  let bootStatus='ok';
  $('#login').classList.add('checking-session');
  $('#loginMessage').textContent='Comprobando tu acceso…';
@@ -2990,7 +2991,7 @@ async function boot({fromLogin=false}={}){
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  await refresh();chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
- finally{finishStartupTiming(bootStatus);$('#login').classList.remove('checking-session')}
+ finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
  ++refreshGeneration;state.user=null;resetSessionData();setRolePermissions([]);
