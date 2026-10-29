@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {chromium} from 'playwright';
+import XLSX from 'xlsx-js-style';
+import JSZip from 'jszip';
+
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:1000}});
+const errors=[],requests={excel:0,zip:0};
+page.on('pageerror',error=>errors.push(error.message));
+try{
+ await page.route('**/node_modules/xlsx-js-style/dist/xlsx.bundle.js',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
+ await page.route('**/node_modules/jszip/dist/jszip.min.js',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
+ await page.route('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',route=>{requests.excel++;return route.fulfill({path:'node_modules/xlsx-js-style/dist/xlsx.bundle.js',contentType:'application/javascript'});});
+ await page.route('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',route=>{requests.zip++;return route.fulfill({path:'node_modules/jszip/dist/jszip.min.js',contentType:'application/javascript'});});
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ assert.equal(await page.evaluate(()=>typeof window.XLSX),'undefined');
+ assert.equal(await page.evaluate(()=>typeof window.JSZip),'undefined');
+ const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet([['Etiqueta','Importe'],['Caso de vista previa',50]]);
+ ws.B2.f='SUM(20,30)';ws.B2.s={font:{bold:true},fill:{fgColor:{rgb:'D9EAF7'}}};
+ XLSX.utils.book_append_sheet(wb,ws,'Hoja de prueba');
+ const workbookBuffer=XLSX.write(wb,{type:'buffer',bookType:'xlsx',cellStyles:true});
+ await page.locator('#nav [data-route="documentos"]').click();
+ await page.locator('[data-action="document-new"]').click();
+ await page.locator('#docParty').fill('Excel bajo demanda');
+ await page.locator('#docFile').setInputFiles({name:'primera-vista.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:workbookBuffer});
+ await page.locator('[data-action="document-save"]').click();
+ await page.locator('[data-action="document-back"]').first().click();
+ const excelRow=page.locator('tr').filter({hasText:'primera-vista.xlsx'});
+ await excelRow.locator('[data-action="document-preview"]').click();
+ await page.locator('#modalHost').getByText('Libro Excel:',{exact:false}).waitFor();
+ assert((await page.locator('#modalHost').innerText()).includes('Caso de vista previa'));
+ assert.equal(requests.excel,1,'First XLSX preview must load once');
+ assert.equal(requests.zip,0,'Excel preview must not load JSZip');
+ await page.locator('#modalHost .close-btn').click();
+
+ const docx=new JSZip();
+ docx.file('word/document.xml','<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Texto de Word ficticio</w:t></w:r></w:p></w:body></w:document>');
+ const incoming=new JSZip();
+ incoming.file('octubre/29-10-2026-informe-docx.docx',await docx.generateAsync({type:'nodebuffer'}));
+ const incomingBytes=await incoming.generateAsync({type:'nodebuffer'});
+ await page.locator('#documentBulkZip').setInputFiles({name:'recepcion-ficticia.zip',mimeType:'application/zip',buffer:incomingBytes});
+ await page.locator('[data-confirm="accept"]').waitFor();
+ await page.locator('[data-confirm="accept"]').click();
+ await page.getByText('Resultado de importación ZIP').waitFor();
+ assert((await page.locator('#modalHost').innerText()).includes('1 documentos guardados'));
+ assert.equal(requests.zip,1,'First ZIP import loads once');
+ await page.locator('#modalHost .close-btn').click();
+ const docxRow=page.locator('tr').filter({hasText:'29-10-2026-informe-docx.docx'});
+ await docxRow.locator('[data-action="document-preview"]').click();
+ await page.locator('#modalHost').getByText('Texto de Word ficticio').waitFor();
+ assert.equal(requests.zip,1,'Word preview reuses shared ZIP');
+ await page.locator('#modalHost .close-btn').click();
+
+ await page.locator('#nav [data-route="informes"]').click();
+ await page.getByText('Descargas anuales y auditoría complementaria',{exact:true}).click();
+ const ready=page.waitForEvent('download',{timeout:30000});
+ await page.locator('[data-action="export-gestor-package"]').first().click();
+ const archive=await JSZip.loadAsync(await readFile(await (await ready).path()));
+ assert(archive.file('02_GASTOS/Tabla_gestoria_2026.xlsx'),'Annual package must contain the gestoría workbook');
+ assert.equal(requests.excel,1,'Package must reuse Excel');
+ assert.equal(requests.zip,1,'Package must reuse ZIP');
+ assert.deepEqual(errors,[],'No unexpected browser errors');
+ console.log('Office lazy integration: first XLSX preview, first ZIP import, DOCX preview and gestoría ZIP package OK');
+}finally{await browser.close()}
