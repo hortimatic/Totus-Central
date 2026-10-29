@@ -20,8 +20,10 @@ function load(name){
   document.head.appendChild(script);
  });
  pending.set(name,promise);
- // Do not cache failure: the next real click must retry instead of remaining rejected.
- promise.catch(()=>{if(pending.get(name)===promise)pending.delete(name)});
+ // Cache only the in-flight request. On failure a click can retry, and a
+ // previously loaded global that becomes unavailable is checked afresh.
+ const release=()=>{if(pending.get(name)===promise)pending.delete(name)};
+ promise.then(release,release);
  return promise;
 }
 export function ensureExcel(){return load('excel')}
