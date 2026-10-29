@@ -44,6 +44,10 @@ try{
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
  await page.waitForFunction(()=>window.__qaAuditCalls.includes('ops_audit_log'));
  await page.getByText('Consultando el historial del Log…').waitFor();
+ const firstLoading=await page.locator('#content').innerText();
+ assert(firstLoading.includes('Cargando historial'),'First read must clearly indicate pending history');
+ assert(!firstLoading.includes('0 eventos')&&!firstLoading.includes('Sin eventos para estos filtros'),'Pending history must not claim to be empty');
+ assert(!firstLoading.includes('Página 1 de 1'),'Pending history must not show fictitious pagination');
  assert.equal(await page.locator('[data-action="admin-log-export"]').isDisabled(),true,'No CSV before first valid audit read');
  const callsBefore=await page.evaluate(()=>window.__qaAuditCalls.length);
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
