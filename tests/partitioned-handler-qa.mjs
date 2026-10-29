@@ -31,7 +31,8 @@ class Query{
 }
 const admin={from:t=>new Query(t),rpc:async(name,args)=>{
  if(name==='totus_backup_claim'){claims++;db.ops_backup_runs.push({id,status:'running'});return {data:id,error:null};}
- if(name==='totus_backup_prepare_work'){const row={run_id:args.p_run,state:structuredClone(args.p_state),snapshot:structuredClone(args.p_snapshot)};Object.assign(db.ops_backup_runs.find(r=>r.id===args.p_run),{storage_path:args.p_path,archive_manifest:{bundle_version:4}});db.ops_backup_work.push(row);return {data:{run_id:row.run_id,state:structuredClone(row.state)},error:null};}
+ if(name==='totus_backup_capture_snapshot'){let row=db.ops_backup_work.find(r=>r.run_id===args.p_run);if(!row){row={run_id:args.p_run,state:{stage:'capturing',capture_id:args.p_capture},snapshot:structuredClone(snapshot),lease_until:new Date(Date.now()+180000).toISOString()};db.ops_backup_work.push(row);}else{row.state.capture_id=args.p_capture;row.lease_until=new Date(Date.now()+180000).toISOString();}return {data:structuredClone(row.snapshot),error:null};}
+ if(name==='totus_backup_prepare_work'){assert.equal(args.p_snapshot.database,undefined,'Never post the database snapshot back through REST');const row=db.ops_backup_work.find(r=>r.run_id===args.p_run);assert(row);row.state=structuredClone(args.p_state);row.snapshot={...row.snapshot,source_revision:args.p_snapshot.source_revision,project_ref:args.p_snapshot.project_ref};row.lease_until=null;Object.assign(db.ops_backup_runs.find(r=>r.id===args.p_run),{storage_path:args.p_path,archive_manifest:{bundle_version:4}});return {data:{run_id:row.run_id,state:structuredClone(row.state)},error:null};}
  if(name==='totus_export_recovery_snapshot')return {data:structuredClone(snapshot),error:null};
  throw Error('Unexpected RPC '+name);
 },storage:{from:()=>({download:async()=>({data:new Blob([original]),error:null}),upload:async(p,b)=>{objects.set(p,new Uint8Array(await b.arrayBuffer()));return {error:null};}})}};
@@ -68,3 +69,8 @@ console.log('PARTITIONED HANDLER: actual coordinator, snapshot isolation, leases
 reset();fail=true;await assert.rejects(()=>run('manual',req),/Temporary/);fail=false;result=await run('scheduled',req);assert(result.pending);assert.equal(db.ops_backup_work[0].state.failures,0,'Successful progress resets the consecutive-failure count');
 
 reset();fail='Rate limit Retry after 70000ms';const limitedAt=Date.now();await assert.rejects(()=>run('manual',req),/Rate limit/);assert(Date.parse(db.ops_backup_work[0].lease_until)>=limitedAt+70000,'The cloud tick must not retry before Retry-After');result=await run('scheduled',req);assert(result.pending);
+
+// A captured snapshot whose response was lost is reused after its lease expires.
+reset();db.ops_backup_runs.push({id,status:'running'});db.ops_backup_work.push({run_id:id,state:{stage:'capturing',capture_id:'old'},snapshot:structuredClone(snapshot),lease_until:new Date(Date.now()+60000).toISOString()});
+let held=await run('scheduled',req);assert(held.pending);assert.equal(objects.size,0);
+db.ops_backup_work[0].lease_until=new Date(Date.now()-1000).toISOString();held=await run('scheduled',req);assert(held.pending);assert.equal(claims,0);assert.notEqual(db.ops_backup_work[0].state.stage,'capturing');

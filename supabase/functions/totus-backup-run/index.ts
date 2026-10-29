@@ -324,13 +324,16 @@ async function partitionedRun(mode:string,req:Request){
   if(job)throw new Error('La copia por componentes espera a que OneDrive vuelva a estar disponible.');
   return run(mode,req);
  }
- if(!job){
-  const claim=await admin.rpc('totus_backup_claim',{p_mode:mode});if(claim.error)throw claim.error;
+ if(!job||job.state?.stage==='capturing'){
+  if(job?.lease_until&&Date.parse(job.lease_until)>Date.now())return {pending:true,id:job.run_id};
+  const claim=job?{data:job.run_id,error:null}:await admin.rpc('totus_backup_claim',{p_mode:mode});if(claim.error)throw claim.error;
   if(!claim.data)return {skipped:true,reason:'No corresponde al horario o ya hay una copia en preparación.'};
   const id=String(claim.data);
   try{
    const settings=await admin.from('ops_backup_config').select('destination_folder').eq('id',1).single();if(settings.error)throw settings.error;
-   const source=await admin.rpc('totus_export_recovery_snapshot');if(source.error)throw source.error;
+   const capture=crypto.randomUUID();
+   const source=await admin.rpc('totus_backup_capture_snapshot',{p_run:id,p_capture:capture});if(source.error)throw source.error;
+   if(!source.data)return {pending:true,id};
    const snapshot=source.data;snapshot.project_ref=new URL(SUPABASE_URL).hostname.split('.')[0];
    const path=String(settings.data.destination_folder||'automaticas')+'/Totus_Central_'+new Date().toISOString().replace(/[:.]/g,'-')+'_'+id.slice(0,8)+'.totusbackup';
    const buildResponse=await fetch('https://hortimatic.github.io/Totus-Central/build-info.json?backup-version='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
@@ -340,7 +343,7 @@ async function partitionedRun(mode:string,req:Request){
    const engine=createPartitionedBackup({Zip:NativeBackupZip,hash:NativeBackupZip.archiveHash} as any);
    const {snapshot:originalSnapshot,...state}=await engine.start(snapshot,path);
    // Lock the parent and create its work row in one database transaction.
-   const created=await admin.rpc('totus_backup_prepare_work',{p_run:id,p_path:path,p_state:state,p_snapshot:originalSnapshot});
+   const created=await admin.rpc('totus_backup_prepare_work',{p_run:id,p_path:path,p_state:state,p_snapshot:{revision:originalSnapshot.revision,source_revision:originalSnapshot.source_revision,project_ref:originalSnapshot.project_ref,capture_id:capture}});
    if(created.error)throw created.error;if(!created.data?.run_id||!created.data?.state)throw new Error('No se confirmó la preparación de la copia.');job=created.data;
   }catch(error){
    await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:typeof error==='object'&&error&&'message' in error?error.message:error).slice(0,1000)}).eq('id',id);throw error;

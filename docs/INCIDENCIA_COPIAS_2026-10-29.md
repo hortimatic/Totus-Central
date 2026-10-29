@@ -9,3 +9,11 @@ La corrección guarda la preparación en una sola transacción mediante `totus_b
 Se corrige además la extracción del mensaje de error cuando Supabase devuelve un objeto. No se eliminan intentos fallidos para ocultar la incidencia ni se restauran o cambian datos contables.
 
 Validación: coordinador real y formato fraccionado con datos ficticios; SQL aislado para permisos, preparación, reintento sin rebobinar, rechazo de una revisión distinta, estado terminado y reversión al fallar el trabajo. La comprobación final de una copia real debe quedar recogida en el registro privado de entrega, junto con el identificador y resultado del juego completo. No basta con que la interfaz diga «iniciada».
+
+
+## Prueba real y corrección del transporte
+La primera corrección atómica no bastó: el ensayo real siguió agotando el plazo, ahora al evaluar la preparación, antes de insertar el trabajo. El contexto de una sentencia interrumpida no demuestra por sí solo que la clave foránea fuera la causa. Se midieron 5.997.015 bytes de datos de la instantánea; su generación directa en Postgres terminó correctamente.
+
+La continuación elimina el reenvío del bloque completo por REST. Postgres captura y conserva la instantánea directamente; el servidor la lee para validar el formato y devuelve únicamente el estado de preparación y metadatos pequeños. La base de datos no se vuelve a mandar como parámetro JSON. Una reserva identificada de tres minutos evita que dos ejecuciones preparen el mismo trabajo; si se pierde una respuesta, la captura se reutiliza al caducar la reserva, sin crear otra copia ni rebobinar progreso. La función de captura tiene el mismo acceso exclusivo del servidor. Se añaden pruebas de captura retenida, reservas concurrentes, recuperación de respuesta perdida y prohibición de reemplazar la base con metadatos.
+
+La incidencia solo se cerrará tras completar y verificar el juego real. No confundir una batería simulada superada con una copia real guardada.
