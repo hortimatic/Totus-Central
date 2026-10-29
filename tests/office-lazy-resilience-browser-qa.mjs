@@ -50,6 +50,30 @@ try{
  assert.equal(staleDownloads,0,'A stale session may not download another session export');
  await stale.close();
 
+ // A failed document preview must not leave a false loading result; it remains retryable.
+ const preview=await pageWithoutEagerOffice();
+ let previewLoads=0;
+ await preview.route('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',route=>{
+  previewLoads++;return previewLoads===1?route.abort('failed'):route.fulfill({path:'node_modules/xlsx-js-style/dist/xlsx.bundle.js',contentType:'application/javascript'});
+ });
+ await preview.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ const previewBook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(previewBook,XLSX.utils.aoa_to_sheet([['Prueba de reintento']]),'Datos');
+ await preview.locator('#nav [data-route="documentos"]').click();
+ await preview.locator('[data-action="document-new"]').click();
+ await preview.locator('#docParty').fill('Vista previa de reintento');
+ await preview.locator('#docFile').setInputFiles({name:'reintento-vista.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(previewBook,{type:'buffer',bookType:'xlsx'})});
+ await preview.locator('[data-action="document-save"]').click();
+ await preview.locator('[data-action="document-back"]').first().click();
+ const row=preview.locator('tr').filter({hasText:'reintento-vista.xlsx'});
+ await row.locator('[data-action="document-preview"]').click();
+ await preview.locator('#modalHost [role="alert"]').getByText('No se pudo cargar excel',{exact:false}).waitFor();
+ assert(!(await preview.locator('#modalHost').innerText()).includes('Cargando archivo adjunto'),'Failure cannot leave a misleading spinner');
+ await preview.locator('#modalHost .close-btn').click();
+ await row.locator('[data-action="document-preview"]').click();
+ await preview.locator('#modalHost').getByText('Prueba de reintento').waitFor();
+ assert.equal(previewLoads,2,'Document preview must retry after failure');
+ await preview.close();
+
  // Two distinct user exports may share one script request without suppressing either action.
  const concurrent=await pageWithoutEagerOffice();
  let requests=0;
