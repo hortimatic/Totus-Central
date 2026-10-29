@@ -15,7 +15,7 @@ try{
    if(name==='totus_chat_context')return structuredClone({channels:q.channels,messages:q.messages.filter(m=>m.channel_id===p.p_channel),members:q.members,directory:[{email:q.owner,name:'Administración'},{email:'other@qa.invalid',name:'Compañero'}],layout:q.layout});
    if(name==='totus_chat_command'){
     const d=p.p_data;
-    if(p.p_action==='send'){const m={...d,id:crypto.randomUUID(),seq:q.messages.length+1,author_email:q.owner,created_at:new Date().toISOString()};q.messages.push(m);return m;}
+    if(p.p_action==='send'){if(q.holdSend)await new Promise(resolve=>q.releaseSend=resolve);const m={...d,id:crypto.randomUUID(),seq:q.messages.length+1,author_email:q.owner,created_at:new Date().toISOString()};q.messages.push(m);return m;}
     if(p.p_action==='agent_request'){if(q.failRequest)throw Error('Ensayo de permiso denegado');const m=q.messages.find(m=>m.id===d.message_id);m.agent_request={id:'request',status:'pending'};return {};}
     if(p.p_action==='read')return {};
    }
@@ -45,6 +45,19 @@ try{
  await page.evaluate(()=>{integral.messages.push({id:'m31',seq:31,channel_id:'a',author_email:'other@qa.invalid',body:'Llegada en segundo plano',created_at:new Date().toISOString()});integral.notify();});
  await page.locator('[data-chat="scroll-bottom"].primary').waitFor();assert(await page.locator('.chat-messages').evaluate(el=>el.scrollTop<3));
  await page.locator('[data-chat="scroll-bottom"].primary').click();await page.getByText('Llegada en segundo plano',{exact:true}).waitFor();
+ // The next draft and files must survive a delayed acknowledgement of the previous message.
+ await page.evaluate(()=>integral.holdSend=true);await page.locator('#chatBody').fill('Envío lento ficticio');await page.getByRole('button',{name:'Enviar',exact:true}).click();
+ await page.waitForFunction(()=>typeof integral.releaseSend==='function');await page.locator('#chatBody').fill('Siguiente borrador');
+ await page.locator('#chatFiles').setInputFiles({name:'siguiente.txt',mimeType:'text/plain',buffer:Buffer.from('Ficticio')});
+ await page.evaluate(()=>{integral.holdSend=false;integral.releaseSend();delete integral.releaseSend;});await page.getByText('Envío lento ficticio',{exact:true}).waitFor();
+ assert.equal(await page.locator('#chatBody').inputValue(),'Siguiente borrador','Acknowledgement must not erase newer typing');assert(await page.locator('.chat-picked-list').innerText().then(t=>t.includes('siguiente.txt')),'New attachment must remain selected');
+ await page.locator('[data-chat="pick-remove"]').click();
+ // A direct navigation while the request resolves must not clear another channel's editor.
+ await page.evaluate(()=>{integral.holdSend=true;integral.messages.push({id:'mb',seq:100,channel_id:'b',author_email:integral.owner,body:'Canal B ficticio',created_at:new Date().toISOString()});});
+ await page.locator('#chatBody').fill('Otro envío lento');await page.getByRole('button',{name:'Enviar',exact:true}).click();await page.waitForFunction(()=>typeof integral.releaseSend==='function');
+ await page.evaluate(()=>integral.c.openMessage('b','mb'));await page.locator('#chatBody').fill('No borrar el borrador B');
+ await page.evaluate(()=>{integral.holdSend=false;integral.releaseSend();delete integral.releaseSend;});await page.getByRole('button',{name:'Enviar',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('.chat-compose button[type=submit]').disabled);
+ assert.equal(await page.locator('#chatBody').inputValue(),'No borrar el borrador B');await open('a');assert.equal(await page.locator('#chatBody').inputValue(),'');
  // One user action saves the message before creating the request.
  await page.locator('#chatBody').fill('Solicitud ficticia');await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();await page.getByText('Esperando a ChatGPT',{exact:true}).waitFor();
  const actions=await page.evaluate(()=>integral.calls.filter(c=>c.name==='totus_chat_command').map(c=>c.p.p_action));assert(actions.lastIndexOf('send')<actions.lastIndexOf('agent_request'));
