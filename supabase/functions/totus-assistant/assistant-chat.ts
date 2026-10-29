@@ -4,7 +4,7 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]
 
 function checkActor(context:any,user:any) {
  const actor=String(user?.email||'').toLowerCase();
- if(actor!=='chatgpt@totuscentral.invalid'||context?.actor!==actor)throw new Error('Sesión de ChatGPT no válida para el chat');
+ if(!['chatgpt@totuscentral.invalid','codex@totuscentral.invalid'].includes(actor)||context?.actor!==actor)throw new Error('Sesión de ChatGPT o Codex no válida para el chat');
  return actor;
 }
 
@@ -33,7 +33,7 @@ export async function sendTeamChat(client:any,payload:any,user:any) {
  const actor=checkActor(context,user);
  if(!channel||channel.archived||channel.deleted_at||!['direct','channel'].includes(channel.channel_kind))
   throw new Error('Solo se permite escribir en canales de equipo activos y conversaciones directas');
- if(!context.members?.some((m:any)=>m.email===actor))throw new Error('ChatGPT no es miembro del canal');
+ if(!context.members?.some((m:any)=>m.email===actor))throw new Error((actor==='codex@totuscentral.invalid'?'Codex':'ChatGPT')+' no es miembro del canal');
  if(channel.channel_kind==='direct') {
   const target=String(payload.target_email||'').trim().toLowerCase();
   if(!target||target===actor||context.members.length!==2||
