@@ -104,6 +104,7 @@ try{
  await page.waitForTimeout(100);
  const afterOld=await report(page);
  assert.deepEqual(afterOld,newSession,'Old completion must not alter the new session result, error or in-flight flag');
+ assert((await page.locator('#toastHost .toast.bad').allTextContents()).every(message=>message.trim()),'Old request must not leave an empty error toast in the new session');
  await page.close();
 
  const employee=await auditedPage('?role=encargado');
