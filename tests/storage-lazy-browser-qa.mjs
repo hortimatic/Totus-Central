@@ -45,6 +45,7 @@ try{
  await release(page);
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.data.storageUsage.status==='ok'&&document.querySelector('#homeStorageMetrics')?.textContent.includes('85,0 %');});
  assert.equal(await page.locator('#homePriceQuery').inputValue(),'Borrador que no debe perderse','Metrics update must not rerender Home or lose draft');
+ await page.locator('#homePriceQuery').fill(''); // Clear the intentionally dirty form before navigating.
  assert((await page.locator('#homeStorageAlert').innerText()).includes('85,0 %'),'85 percent warning must remain visible');
  await page.evaluate(()=>window.__qaStoragePercentOverride=95);
  await page.locator('#nav [data-route="administracion"]').click();
