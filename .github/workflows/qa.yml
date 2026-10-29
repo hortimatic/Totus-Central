@@ -115,6 +115,7 @@ jobs:
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/audit-register-browser-qa.mjs
+      - run: node tests/audit-lazy-browser-qa.mjs
       - run: node tests/expense-credit-browser-qa.mjs
       - run: node tests/expense-rounding-browser-qa.mjs
       - run: node tests/template-copy-browser-qa.mjs
