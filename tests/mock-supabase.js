@@ -109,6 +109,19 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ if(name==='totus_log_cleanup'){
+  if(role!=='admin')return {data:null,error:{message:'Solo administración puede limpiar el Log'}};
+  const tables=['ops_audit_log','team_user_audit_log','ops_chat_events','ops_task_events'];
+  const selected=r=>{const day=new Date(r.created_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'});return (!args.p_from||day>=args.p_from)&&day<=args.p_to;};
+  const groups=tables.map(table=>({table,rows:db[table].filter(r=>selected(r)&&(table!=='ops_audit_log'||r.action!=='limpiar_historial'))}));
+  const fingerprint=JSON.stringify(groups.map(g=>[g.table,g.rows.map(r=>r.id).sort()]));
+  const count=groups.reduce((n,g)=>n+g.rows.length,0),counts=Object.fromEntries(groups.map(g=>[g.table,g.rows.length]));
+  if(!args.p_execute)return {data:{count,counts,fingerprint,from:args.p_from,to:args.p_to},error:null};
+  if(args.p_fingerprint!==fingerprint)return {data:null,error:{message:'El historial ha cambiado. Vuelve a consultar antes de eliminar'}};
+  for(const g of groups){const ids=new Set(g.rows.map(r=>r.id));db[g.table]=db[g.table].filter(r=>!ids.has(r.id));}
+  db.ops_audit_log.push({id:uuid(),created_at:new Date().toISOString(),area:'administracion',action:'limpiar_historial',detail:{eliminados:count}});
+  return {data:{deleted:count,counts},error:null};
+ }
  if(name==='totus_pending_document_removals')return {data:[...documentRemovals.values()],error:null};
  if(name==='totus_begin_document_removal'){
    const doc=get('ops_documents',args.p_id);if(!doc){const removed=removedDocuments.get(args.p_id);return removed?.storage_path===args.p_path&&removed.sha256===(args.p_sha256||'')?{data:{id:args.p_id,status:'already_removed'},error:null}:{data:null,error:{message:'El documento ya no está disponible. Actualiza el listado.'}};}

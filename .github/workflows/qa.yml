@@ -58,6 +58,7 @@ jobs:
       - run: node tests/supplier-credit-qa.mjs
       - run: node tests/audit-register-qa.mjs
       - run: node tests/audit-loading-qa.mjs
+      - run: node tests/log-cleanup-qa.mjs
       - run: node tests/startup-timing-qa.mjs
       - run: node tests/expense-totals-qa.mjs
       - run: node tests/reference-options-qa.mjs
@@ -121,6 +122,7 @@ jobs:
       - run: node tests/storage-lazy-browser-qa.mjs
       - run: node tests/audit-register-browser-qa.mjs
       - run: node tests/audit-lazy-browser-qa.mjs
+      - run: node tests/log-cleanup-browser-qa.mjs
       - run: node tests/expense-credit-browser-qa.mjs
       - run: node tests/expense-rounding-browser-qa.mjs
       - run: node tests/template-copy-browser-qa.mjs
@@ -287,6 +289,14 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261019120841_preserve_closing_income_selection_on_reconciliation.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/020_closing_drafts_and_drawer_checks.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/closing-db-qa.sql
+      - name: Verify Log cleanup in a disposable database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          createdb -h localhost -U postgres log_cleanup_qa
+          psql -h localhost -U postgres -d log_cleanup_qa -v ON_ERROR_STOP=1 -f tests/log-cleanup-db-fixture.sql
+          psql -h localhost -U postgres -d log_cleanup_qa -v ON_ERROR_STOP=1 -f supabase/review_patches/028_log_cleanup.sql
+          psql -h localhost -U postgres -d log_cleanup_qa -v ON_ERROR_STOP=1 -f tests/log-cleanup-db-qa.sql
 
   chat-database:
     runs-on: ubuntu-latest
