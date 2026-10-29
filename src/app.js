@@ -1696,8 +1696,9 @@ async function zipFilteredDocuments(){
  const rows=selectDocuments(state.data,f);
  if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
  const zip=new window.JSZip();
- for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.id)}_${safeFileSegment(d.original_name)}`,blob)}
+ for(const d of rows){const blob=await getDocumentBlob(d);if(!isCurrent())return;zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.id)}_${safeFileSegment(d.original_name)}`,blob)}
  const out=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+ if(!isCurrent())return;
  download(out,`documentos_${f.from||'inicio'}_${f.to||'fin'}.zip`);
 }
 
@@ -2462,6 +2463,7 @@ async function exportGestorPackage(year){
  const yearDocs=annual.documents;
  const usedPaths=new Set(),manifest=[];
  const originals=await collectArchiveDocuments(yearDocs,getDocumentBlob,{onProgress:(done,total)=>{const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent=`Comprobando documentos ${done}/${total}…`;}});
+ if(!isCurrent())return;
  for(const [index,d] of yearDocs.entries()){
    const blob=originals[index];
    const archivePath=uniqueArchiveDocumentPath(d,usedPaths);
@@ -2471,7 +2473,7 @@ async function exportGestorPackage(year){
  if(manifest.length!==yearDocs.length||usedPaths.size!==yearDocs.length)throw new Error('Error de integridad: faltan documentos en el paquete.');
  docs.file('Indice_documentos_'+year+'.csv',csv(manifest,['ID','Fecha','Tienda','Tipo','Proveedor / cliente','Archivo original','Ruta ZIP','SHA256','Tamaño bytes'].map((label,i)=>({label,get:r=>r[i]}))));
  const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent='Comprimiendo paquete verificado…';
- const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});download(blob,`Paquete_gestor_${year}.zip`);
+ const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});if(!isCurrent())return;download(blob,`Paquete_gestor_${year}.zip`);
  }finally{annualExportInProgress=false;if(document.getElementById('annualPackageProgress'))closeModal();}
 }
 
@@ -2529,6 +2531,7 @@ async function exportGestorPeriodPackage(){
   summary.file('Resumen_'+plan.key+'.csv','Concepto;Importe\nIngresos;'+sales.toFixed(2)+'\nGastos fiscalizables registrados;'+fiscal.toFixed(2)+'\nControl interno incluido impuestos pagados;'+internal.toFixed(2)+'\nIngresos menos gastos fiscalizables;'+(sales-fiscal).toFixed(2)+'\n');
   summary.file('Registros_sin_adjunto.csv',csv(plan.missingAttachments,[{label:'Tipo',get:r=>r.type},{label:'Fecha',get:r=>r.date},{label:'Proveedor o cliente',get:r=>r.name||''},{label:'Numero',get:r=>r.number||''}]));
   const blobs=await collectArchiveDocuments(plan.documents,getDocumentBlob,{onProgress:(done,total)=>{const el=input('periodPackageProgress');if(el)el.textContent='Comprobando documentos '+done+'/'+total+'…'}});
+  if(!isCurrent())return;
   const used=new Set(),manifest=[];
   for(const [index,d] of plan.documents.entries()){
    const name=uniqueArchiveDocumentPath(d,used);docs.file(name,blobs[index]);
@@ -2539,6 +2542,7 @@ async function exportGestorPeriodPackage(){
   zip.file('LEEME.txt','Totus Central · paquete del periodo\nDesde '+filters.from+' hasta '+filters.to+'\nTienda: '+(filters.store||'all')+'\nBusqueda: '+(filters.query||'sin filtro')+'\nLa tabla fiscal conserva las columnas de gestoria y solo incluye gastos fiscales revisados.\nLos justificantes se seleccionan por su gasto o factura vinculados, aunque el archivo tenga otra fecha.\nLos gastos internos y los impuestos pagados no reducen el beneficio fiscal.\nRegistros sin adjunto: '+plan.missingAttachments.length+'. Consulta 04_RESUMEN/Registros_sin_adjunto.csv.\nEste paquete de documentacion no sustituye una copia de seguridad de la aplicacion.');
   const el=input('periodPackageProgress');if(el)el.textContent='Comprimiendo el paquete comprobado…';
   const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});
+  if(!isCurrent())return;
   download(blob,'Paquete_gestor_'+plan.key+'.zip');
   if(plan.missingAttachments.length)toast('Paquete preparado: '+plan.missingAttachments.length+' registros sin adjunto, indicados en el listado.','warn');
  }finally{annualExportInProgress=false;if(input('periodPackageProgress'))closeModal()}
