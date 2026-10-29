@@ -163,6 +163,7 @@ jobs:
       - run: node tests/expense-integral-browser-qa.mjs
       - run: node tests/onedrive-connection-qa.mjs
       - run: node tests/storage-live-qa.mjs
+      - run: node tests/storage-lazy-browser-qa.mjs
       - run: node tests/storage-organization-qa.mjs
       - run: node tests/deletion-flows-qa.mjs
       - run: node tests/browser-qa.mjs
