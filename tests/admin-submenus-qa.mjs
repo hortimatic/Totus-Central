@@ -167,7 +167,7 @@ try{
  await section('log');
  // Backdated fixture rows require an explicit complete read, not the incremental Log cursor.
  await page.locator('[data-action="admin-log-refresh"]').click();
- await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
+ await page.getByText('Eventos actualizados.',{exact:true}).last().waitFor();
  await page.locator('#logArea option[value="gastos"]').waitFor({state:'attached'});
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return !!state.data.auditUpdatedAt&&!state.data.auditLoading&&['l1','l2','l3'].every(id=>state.data.audit.some(row=>row.id===id));});
  assert(await page.locator('#logFrom').count()===1,'Faltan filtros de fecha');
@@ -192,7 +192,7 @@ try{
  await page.locator('[data-action="admin-log-clear"]').click();
  assert(await page.locator('#content .data-table tbody tr').count()>=3,'No se limpiaron filtros o desaparecieron eventos');
  await page.locator('[data-action="admin-log-refresh"]').click();
- await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
+ await page.getByText('Eventos actualizados.',{exact:true}).last().waitFor();
  const refreshedIds=await page.evaluate(async()=>(await import('../src/state.js')).state.data.audit.map(row=>String(row.id)));
  for(const id of ['l1','l2','l3'])assert(refreshedIds.includes(id),'Actualizar Log perdió el registro '+id);
  assert(await page.locator('#content .data-table tbody tr').count()>=3,'Actualizar Log perdió registros visibles');
