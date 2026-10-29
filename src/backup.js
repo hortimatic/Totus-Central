@@ -4,6 +4,7 @@ import {SUPABASE_URL} from './config.js';
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,loadBoundedRecoveryZip} from './recovery-core.js';
 import {download} from './utils.js';
 import {ensureZip} from './office-libs.js';
+import {state} from './state.js';
 
 // ZIP is resolved when each backup action starts, not when this module loads.
 export const BACKUP_TABLES=RECOVERY_TABLES;
@@ -15,12 +16,15 @@ async function sha256(bytes){
 }
 
 export async function createBackup(){
+ const session=state.session;
  const JSZip=await ensureZip();
+ if(state.session!==session||!state.user)throw new Error('La sesión ha cambiado. No se ha iniciado la copia.');
  const snapshot=await rpc('totus_export_recovery_snapshot');
  snapshot.project_ref=new URL(SUPABASE_URL).hostname.split('.')[0];
  const {bytes,manifest}=await buildRecoveryArchive(snapshot,JSZip,async(bucket,path)=>{
   return downloadFile(bucket,path);
  });
+ if(state.session!==session||!state.user)throw new Error('La sesión ha cambiado. No se descargará la copia anterior.');
  const blob=new Blob([bytes],{type:'application/octet-stream'});
  download(blob,`Totus_Central_${new Date().toISOString().replace(/[:.]/g,'-')}.totusbackup`);
  return {size:blob.size,manifest};
