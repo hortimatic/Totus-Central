@@ -49,6 +49,8 @@ try{
  assert((await page.locator('#homeStorageAlert').innerText()).includes('85,0 %'),'85 percent warning must remain visible');
  await page.evaluate(()=>window.__qaStoragePercentOverride=95);
  await page.locator('#nav [data-route="administracion"]').click();
+ const unsaved=page.getByRole('heading',{name:'Cambios sin guardar',exact:true});
+ if(await unsaved.count())await page.locator('[data-confirm="accept"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  await page.locator('#storageMeasuredAt').waitFor();
  await page.locator('#nav [data-route="inicio"]').click();
