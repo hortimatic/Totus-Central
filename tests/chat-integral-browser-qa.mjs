@@ -1,3 +1,4 @@
+import {chatAction} from './chat-menu-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
@@ -68,7 +69,7 @@ try{
  const requestsBefore=await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='agent_request').length);
  await page.locator('#chatBody').fill('Petición privada sin invitación');await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();await page.locator('[data-chat-error]').filter({hasText:'Invita a ChatGPT'}).waitFor();assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='agent_request').length),requestsBefore);
  // Atajos and responsive surfaces: no horizontal document overflow.
- await page.locator('[data-chat="shortcuts"]').click();await page.getByRole('heading',{name:'Atajos y ayuda'}).waitFor();await page.locator('dialog [data-chat-close]').click();
+ await chatAction(page,'shortcuts');await page.getByRole('heading',{name:'Atajos y ayuda'}).waitFor();await page.locator('dialog [data-chat-close]').click();
  for(const [width,height] of [[1920,1080],[1440,900],[1024,768],[768,1024],[390,844],[360,740]]){
   await page.setViewportSize({width,height});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Overflow at '+width);
   for(const selector of ['.chat-conversation','#chatBody','.chat-heading'])assert(await page.locator(selector).isVisible());
