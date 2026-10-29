@@ -25,11 +25,35 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   if(claimError||!work)return respond({error:'Solicitud no autorizada, ya utilizada o caducada'},401)
   claimed=true
   const {email,password}=work.credentials
-  if(email!=='chatgpt@totuscentral.invalid'||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
-  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send'].includes(work.action))throw new Error('Acción no admitida')
+  const codexAction=['codex_setup','codex_session_check','codex_chat_read','codex_chat_send','codex_chat_direct'].includes(work.action)
+  if(email!==(codexAction?'codex@totuscentral.invalid':'chatgpt@totuscentral.invalid')||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
+  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send','codex_setup','codex_session_check','codex_chat_read','codex_chat_send','codex_chat_direct'].includes(work.action))throw new Error('Acción no admitida')
+  if(work.action==='codex_setup'){
+   // The one-use server ticket is issued exclusively by the administrative connector.
+   // Do not reset, reactivate or take over an existing account on retry.
+   let existing=null;
+   for(let page=1;;page++){
+    const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});
+    if(error)throw new Error('No se pudo comprobar la cuenta de Codex');
+    existing=data.users.find((u:any)=>u.email===email)||existing;
+    if(existing||data.users.length<1000)break;
+   }
+   if(existing){
+    if(existing.app_metadata?.totus_codex!==true)throw new Error('La cuenta ya existe y no es la identidad técnica de Codex');
+    const {data:member,error}=await admin.from('team_members').select('role,active').eq('email',email).maybeSingle();
+    if(error||!member?.active||member.role!=='admin')throw new Error('Revisa el acceso de Codex en administración; no se reactivará automáticamente');
+   }else{
+    const {data:created,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{totus_codex:true},user_metadata:{full_name:'Codex'}});
+    if(error||!created?.user)throw new Error('No se pudo crear la identidad de Codex');
+    const {error:memberError}=await admin.from('team_members').insert({email,full_name:'Codex',role:'admin',active:true,job_title:'Coordinación técnica'});
+    if(memberError){await admin.auth.admin.deleteUser(created.user.id);throw new Error('No se pudo registrar Codex en el equipo')}
+    const {error:auditError}=await admin.from('team_user_audit_log').insert({actor_email:email,target_email:email,action:'technical_account_created',status:'ok',detail:'Alta de Codex autorizada por Diego; acceso administrativo propio solicitado por Diego'});
+    if(auditError)throw new Error('Cuenta creada; no se pudo registrar el alta. Revisa antes de repetir.');
+   }
+  }
   scoped=clientFactory(url,key,opts)
   const {data:session,error:loginError}=await scoped.auth.signInWithPassword({email,password})
-  if(loginError||!session.session||session.user?.app_metadata?.totus_assistant!==true)throw new Error('No se pudo autenticar la cuenta propia')
+  if(loginError||!session.session||(codexAction?session.user?.app_metadata?.totus_codex:session.user?.app_metadata?.totus_assistant)!==true)throw new Error('No se pudo autenticar la cuenta propia')
   const {data:confirmed,error:userError}=await scoped.auth.getUser()
   if(userError||confirmed.user?.id!==session.user.id)throw new Error('No se pudo verificar la sesión')
   const {data:member,error:memberError}=await admin.from('team_members').select('active').eq('email',email).maybeSingle()
@@ -53,9 +77,16 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   } else if(work.action==='attach_chat_file')result={...result,...await attachChatExpenseDocument(scoped,work.payload,confirmed.user)}
   else if(work.action==='expense_context')result={...result,...await readExpenseContext(scoped,work.payload)}
   else if(work.action==='review_document')result={...result,...await reviewExpenseDocument(scoped,work.payload)}
-  else if(work.action==='chat_read')result={...result,...await readTeamChat(scoped,work.payload,confirmed.user)}
-  else if(work.action==='chat_send')result={...result,...await sendTeamChat(scoped,work.payload,confirmed.user)}
-  else if(work.action!=='session_check')throw new Error('Acción no admitida')
+  else if(work.action==='chat_read'||work.action==='codex_chat_read')result={...result,...await readTeamChat(scoped,work.payload,confirmed.user)}
+  else if(work.action==='chat_send'||work.action==='codex_chat_send')result={...result,...await sendTeamChat(scoped,work.payload,confirmed.user)}
+  else if(work.action==='codex_chat_direct'){
+   const target=String(work.payload?.target_email||'').trim().toLowerCase();
+   if(!target||target===email)throw new Error('Destinatario no válido');
+   const {data:direct,error}=await scoped.rpc('totus_chat_command',{p_action:'create_direct',p_data:{email:target}});
+   if(error||!direct?.id)throw new Error('No se pudo abrir el chat directo: '+(error?.message||'sin respuesta'));
+   result={...result,channel_id:direct.id};
+  }
+  else if(!['session_check','codex_session_check','codex_setup'].includes(work.action))throw new Error('Acción no admitida')
   const {error:finishError}=await admin.rpc('totus_assistant_complete',{p_job:job,p_result:result,p_error:null})
   if(finishError)throw new Error('Operación ejecutada; no se pudo guardar su resultado. Consulta antes de reintentar.')
   return respond({job_id:job,status:'completed'})
