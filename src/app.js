@@ -1656,10 +1656,10 @@ async function previewDocument(id){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
-   await ensureExcel();if(state.session!==session||!loadingPanel?.isConnected)return;
+   try{await ensureExcel()}catch(error){if(state.session===session&&loadingPanel?.isConnected){const host=loadingPanel.querySelector('.modal-body');if(host)host.innerHTML=`<div class="note bad" role="alert">${esc(error.message)}</div>`;}return;}if(state.session!==session||!loadingPanel?.isConnected)return;
    const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});body=`<div class="note">Libro Excel: ${wb.SheetNames.length} hoja(s). Puedes abrir y revisar cada hoja sin descargarlo.</div><div class="excel-preview">${wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${`<table class="data-table"><tbody>${window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:false,defval:''}).slice(0,200).map(row=>`<tr>${row.slice(0,30).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`}</div></details>`).join('')}</div>`;
  }else if(kind==='docx'){
-   await ensureZip();if(state.session!==session||!loadingPanel?.isConnected)return;
+   try{await ensureZip()}catch(error){if(state.session===session&&loadingPanel?.isConnected){const host=loadingPanel.querySelector('.modal-body');if(host)host.innerHTML=`<div class="note bad" role="alert">${esc(error.message)}</div>`;}return;}if(state.session!==session||!loadingPanel?.isConnected)return;
    const zip=await window.JSZip.loadAsync(blob),xml=await zip.file('word/document.xml')?.async('text');
    if(!xml)throw new Error('El archivo Word no contiene un documento válido.');
    const doc=new DOMParser().parseFromString(xml,'application/xml');
