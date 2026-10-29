@@ -110,7 +110,7 @@ if(!pageSource.includes('invoice-payment-save')||!appSource.includes('saveInvoic
 if(!pageSource.includes('documentRecordHtml'))errors.push('Documentos no usa listado → ficha');
 if(!pageSource.includes('administracion()'))errors.push('Falta Administración consolidada');
 if(!text('src/pages/main.js').includes('proforma-convert'))errors.push('Falta conversión de proforma');
-if(!text('index.html').includes('xlsx-js-style'))errors.push('Falta motor Excel');
+if(!text('src/office-libs.js').includes('xlsx-js-style@1.2.0')||!appSource.includes('ensureExcel'))errors.push('Falta motor Excel bajo demanda');
 const appWithoutLogCsv=appSource.replace(/function exportLogCsv\(\)\{[\s\S]*?\n\}/,'');
 if(/download\([^\n]*\.csv|text\/csv|cierres_[^\n]*\.csv|gastos_[^\n]*\.csv|resumen_[^\n]*\.csv/.test(appWithoutLogCsv))errors.push('Persisten exportaciones CSV en Informes');
 for(const term of ['exportClosingsWorkbook','exportExpensesWorkbook','exportSummaryWorkbook','cellStyles:true','SUM('])if(!text('src/excel.js').includes(term))errors.push('Excel incompleto: '+term);
@@ -195,7 +195,7 @@ for(const table of ['ops_income_adjustments']){
 }
 const dateUtils=text('src/utils.js');
 if(/isoToday\s*=\s*\(\)\s*=>\s*new Date\(\)\.toISOString\(\)\.slice/.test(dateUtils))errors.push('Fecha actual calculada en UTC y no hora local');
-if(!text('index.html').includes('jszip'))errors.push('Falta motor ZIP para backup');
+if(!text('src/office-libs.js').includes('jszip@3.10.1')||!text('src/backup.js').includes('ensureZip'))errors.push('Falta motor ZIP bajo demanda para backup');
 for(const term of ['business-documents','business-assets','database.json','manifest.json','totus-clean-backup'])if(!backupSource.includes(term))errors.push('Backup incompleto: '+term);
 for(const term of ['backup-create','backup-verify'])if(!appSource.includes(term)&&!pageSource.includes(term))errors.push('Control de backup incompleto: '+term);
 if(appSource.includes('window.XLSX.utils.sheet_to_html('))errors.push('Documentos vuelve a insertar HTML no confiable de Excel');

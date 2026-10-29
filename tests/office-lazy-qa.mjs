@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {pathToFileURL} from 'node:url';
+const html=readFileSync('index.html','utf8');
+assert.doesNotMatch(html,/<script[^>]*src="[^"]*(?:xlsx-js-style|jszip)/);
+const source=readFileSync('src/office-libs.js','utf8');
+const oldWindow=globalThis.window,oldDocument=globalThis.document;
+const scripts=[];
+globalThis.window={};globalThis.document={head:{appendChild(node){scripts.push(node)}},createElement(){return {remove(){this.removed=true}}}};
+try{
+ const {ensureExcel,ensureZip}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+ const a=ensureExcel(),b=ensureExcel();assert.strictEqual(a,b,'same in-flight promise');
+ assert.equal(scripts.length,1);assert.match(scripts[0].src,/xlsx-js-style@1\.2\.0/);
+ globalThis.window.XLSX={read(){},writeFile(){},utils:{book_new(){}}};scripts[0].onload();assert.strictEqual(await a,globalThis.window.XLSX);
+ assert.strictEqual(await ensureExcel(),globalThis.window.XLSX);assert.equal(scripts.length,1);
+ const first=ensureZip();assert.equal(scripts.length,2);scripts[1].onerror();await assert.rejects(first,/No se pudo cargar zip/);
+ const retry=ensureZip();assert.equal(scripts.length,3);scripts[2].onload();await assert.rejects(retry,/no está disponible/);
+ const third=ensureZip();assert.equal(scripts.length,4);globalThis.window.JSZip=function JSZip(){};globalThis.window.JSZip.loadAsync=async()=>({});scripts[3].onload();assert.strictEqual(await third,globalThis.window.JSZip);
+ assert.equal(scripts[1].removed,true);assert.equal(scripts[2].removed,true);
+ delete globalThis.window.XLSX;
+ const reload=ensureExcel();assert.equal(scripts.length,5,'Missing global requires a new request');
+ globalThis.window.XLSX={read(){},writeFile(){},utils:{book_new(){}}};scripts[4].onload();assert.strictEqual(await reload,globalThis.window.XLSX);
+}finally{globalThis.window=oldWindow;globalThis.document=oldDocument}
+const app=readFileSync('src/app.js','utf8');
+assert.match(app,/await Promise\.all\(\[ensureExcel\(\),ensureZip\(\)\]\)/);
+assert.match(app,/await ensureZip\(\);if\(!isCurrent\(\)\)return/);
+assert.match(app,/await ensureExcel\(\);if\(!isCurrentLibraryActor\(\)\)return/);
+assert.doesNotMatch(readFileSync('src/excel.js','utf8'),/const XLSX=window\.XLSX;/);
+assert.doesNotMatch(readFileSync('src/backup.js','utf8'),/const JSZip=window\.JSZip;/);
+console.log('Office lazy loading and retry QA passed');

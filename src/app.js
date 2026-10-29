@@ -46,6 +46,7 @@ import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
 import {createBackup,inspectBackup} from './backup.js';
+import {ensureExcel,ensureZip} from './office-libs.js';
 import {readBackupObject,writeBackupObject} from './backup-transport.js';
 import {buildGestorSourceWorkbook,exportGestorSourceWorkbook} from './excel.js';
 import {buildGestorSourceRows,gestorSourcePrintHtml} from './gestor-format.js';
@@ -463,7 +464,7 @@ function showExpenseGestorDetail(id){
   ${actions}</div>`);
 }
 async function previewPendingExpenseFile(){
- const isCurrent=activePreviewPage();
+ const session=state.session,preview=activePreviewPage(),isCurrent=()=>state.session===session&&preview();
  const file=input('exFile')?.files?.[0];
  if(!file)throw new Error('Selecciona primero una factura para verla.');
  const settings=state.data.settings||{},usage=state.data.storageUsage||{};
@@ -481,6 +482,7 @@ async function previewPendingExpenseFile(){
   content=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(file.name)}"></div>`;
   setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
+  await ensureExcel();if(!isCurrent())return;
   const workbook=window.XLSX.read(await file.arrayBuffer(),{type:'array'});
   content=`<div class="excel-preview">${workbook.SheetNames.slice(0,8).map((sheet,i)=>`<details ${i===0?'open':''}><summary>${esc(sheet)}</summary><div class="excel-preview-sheet"><table class="data-table"><tbody>${window.XLSX.utils.sheet_to_json(workbook.Sheets[sheet],{header:1,raw:false,defval:''}).slice(0,120).map(line=>`<tr>${line.slice(0,20).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`).join('')}</div>`;
  }else if(kind==='text'){
@@ -1567,9 +1569,9 @@ async function importDocumentZip(zipFile){
 }
 async function performDocumentZipImport(zipFile){
  if(!zipFile) return;
- const isCurrent=activeActor();if(!isCurrent())return;
- if(!window.JSZip) throw new Error('No está disponible el lector ZIP.');
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();if(!isCurrent())return;
  if(zipFile.size>150*1024*1024) throw new Error('El archivo ZIP supera el máximo de 150 MB.');
+ await ensureZip();if(!isCurrent())return;
  const zip=await window.JSZip.loadAsync(zipFile);
  if(!isCurrent())return;
  const entries=Object.values(zip.files).filter(f=>!f.dir&&/\.(pdf|xlsx|docx)$/i.test(f.name)&&!f.name.startsWith('__MACOSX/'));
@@ -1633,6 +1635,7 @@ async function downloadDocument(id){
  const blob=await getDocumentBlob(d);download(blob,d.original_name||'documento');
 }
 async function previewDocument(id){
+ const session=state.session;
  const d=state.data.documents.find(x=>x.id===id);if(!d)throw new Error('El archivo adjunto no está disponible. Actualiza el listado y vuelve a abrir el gasto.');
  modal(d.original_name||'Documento','<div role="status">Cargando archivo adjunto…</div>');
  const loadingPanel=document.querySelector('#modalHost .modal');
@@ -1653,9 +1656,10 @@ async function previewDocument(id){
    const url=URL.createObjectURL(blob);body=`<div class="image-preview-wrap"><img class="document-image-preview" src="${url}" alt="${esc(d.original_name||'Imagen')}"></div>`;
    setTimeout(()=>URL.revokeObjectURL(url),180000);
  }else if(kind==='excel'){
+   try{await ensureExcel()}catch(error){if(state.session===session&&loadingPanel?.isConnected){const host=loadingPanel.querySelector('.modal-body');if(host)host.innerHTML=`<div class="note bad" role="alert">${esc(error.message)}</div>`;}return;}if(state.session!==session||!loadingPanel?.isConnected)return;
    const buf=await blob.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array'});body=`<div class="note">Libro Excel: ${wb.SheetNames.length} hoja(s). Puedes abrir y revisar cada hoja sin descargarlo.</div><div class="excel-preview">${wb.SheetNames.map((sheetName,i)=>`<details ${i===0?'open':''}><summary>${esc(sheetName)}</summary><div class="excel-preview-sheet">${`<table class="data-table"><tbody>${window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:false,defval:''}).slice(0,200).map(row=>`<tr>${row.slice(0,30).map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`}</div></details>`).join('')}</div>`;
  }else if(kind==='docx'){
-   if(!window.JSZip)throw new Error('No está disponible el lector de documentos Word.');
+   try{await ensureZip()}catch(error){if(state.session===session&&loadingPanel?.isConnected){const host=loadingPanel.querySelector('.modal-body');if(host)host.innerHTML=`<div class="note bad" role="alert">${esc(error.message)}</div>`;}return;}if(state.session!==session||!loadingPanel?.isConnected)return;
    const zip=await window.JSZip.loadAsync(blob),xml=await zip.file('word/document.xml')?.async('text');
    if(!xml)throw new Error('El archivo Word no contiene un documento válido.');
    const doc=new DOMParser().parseFromString(xml,'application/xml');
@@ -1687,12 +1691,14 @@ if(!isManager()&&d.uploaded_by!==state.session?.user?.id)throw new Error('Solo p
  resetView('documentos');await refresh('Documento eliminado.');
 }
 async function zipFilteredDocuments(){
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();await ensureZip();if(!isCurrent())return;
  const f=getFilters('documentos');
  const rows=selectDocuments(state.data,f);
  if(!rows.length)throw new Error('No hay documentos para los filtros actuales.');
  const zip=new window.JSZip();
- for(const d of rows){const blob=await getDocumentBlob(d);zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.id)}_${safeFileSegment(d.original_name)}`,blob)}
+ for(const d of rows){const blob=await getDocumentBlob(d);if(!isCurrent())return;zip.file(`${safeFileSegment(d.doc_type)}/${safeFileSegment(d.id)}_${safeFileSegment(d.original_name)}`,blob)}
  const out=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+ if(!isCurrent())return;
  download(out,`documentos_${f.from||'inicio'}_${f.to||'fin'}.zip`);
 }
 
@@ -2435,8 +2441,10 @@ let annualExportInProgress=false;
 async function exportGestorPackage(year){
  if(annualExportInProgress){toast('El paquete anual ya se está preparando.');return;}
  annualExportInProgress=true;
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();
  modal('Preparando paquete anual','<p id="annualPackageProgress" role="status" aria-live="polite">Preparando libros y documentos…</p>');
  try{
+ await Promise.all([ensureExcel(),ensureZip()]);if(!isCurrent())return;
  const annual=annualReportPlan(state.data,year);
  const zip=new window.JSZip(),args=reportArgs(year),stores=reportDiaryStores(state.data.stores,annual.expenses);
  const ingresos=zip.folder('01_INGRESOS'),gastos=zip.folder('02_GASTOS'),diarios=zip.folder('03_DIARIOS'),resumen=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
@@ -2455,6 +2463,7 @@ async function exportGestorPackage(year){
  const yearDocs=annual.documents;
  const usedPaths=new Set(),manifest=[];
  const originals=await collectArchiveDocuments(yearDocs,getDocumentBlob,{onProgress:(done,total)=>{const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent=`Comprobando documentos ${done}/${total}…`;}});
+ if(!isCurrent())return;
  for(const [index,d] of yearDocs.entries()){
    const blob=originals[index];
    const archivePath=uniqueArchiveDocumentPath(d,usedPaths);
@@ -2464,7 +2473,7 @@ async function exportGestorPackage(year){
  if(manifest.length!==yearDocs.length||usedPaths.size!==yearDocs.length)throw new Error('Error de integridad: faltan documentos en el paquete.');
  docs.file('Indice_documentos_'+year+'.csv',csv(manifest,['ID','Fecha','Tienda','Tipo','Proveedor / cliente','Archivo original','Ruta ZIP','SHA256','Tamaño bytes'].map((label,i)=>({label,get:r=>r[i]}))));
  const progress=document.getElementById('annualPackageProgress');if(progress)progress.textContent='Comprimiendo paquete verificado…';
- const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});download(blob,`Paquete_gestor_${year}.zip`);
+ const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});if(!isCurrent())return;download(blob,`Paquete_gestor_${year}.zip`);
  }finally{annualExportInProgress=false;if(document.getElementById('annualPackageProgress'))closeModal();}
 }
 
@@ -2499,8 +2508,10 @@ async function exportGestorPeriodPackage(){
  if(annualExportInProgress)throw new Error('Ya se está preparando un paquete. Espera a que termine.');
  const filters={...getFilters('informes')},plan=reportPackagePlan(state.data,filters);
  annualExportInProgress=true;
+ const session=state.session,actor=activeActor(),isCurrent=()=>session===state.session&&actor();
  modal('Preparando paquete del periodo','<p id="periodPackageProgress" role="status" aria-live="polite">Comprobando los justificantes vinculados…</p>');
  try{
+  await Promise.all([ensureExcel(),ensureZip()]);if(!isCurrent())return;
   const zip=new window.JSZip(),args={...reportArgs(plan.year),...plan,expenseLines:state.data.expenseLines.filter(l=>plan.expenses.some(x=>x.id===l.expense_id))};
   const income=zip.folder('01_INGRESOS'),expenses=zip.folder('02_GASTOS'),diaries=zip.folder('03_DIARIOS'),summary=zip.folder('04_RESUMEN'),docs=zip.folder('05_DOCUMENTOS');
   expenses.file('Tabla_gestoria_'+plan.key+'.xlsx',workbookBlob(buildGestorSourceWorkbook(args)));
@@ -2520,6 +2531,7 @@ async function exportGestorPeriodPackage(){
   summary.file('Resumen_'+plan.key+'.csv','Concepto;Importe\nIngresos;'+sales.toFixed(2)+'\nGastos fiscalizables registrados;'+fiscal.toFixed(2)+'\nControl interno incluido impuestos pagados;'+internal.toFixed(2)+'\nIngresos menos gastos fiscalizables;'+(sales-fiscal).toFixed(2)+'\n');
   summary.file('Registros_sin_adjunto.csv',csv(plan.missingAttachments,[{label:'Tipo',get:r=>r.type},{label:'Fecha',get:r=>r.date},{label:'Proveedor o cliente',get:r=>r.name||''},{label:'Numero',get:r=>r.number||''}]));
   const blobs=await collectArchiveDocuments(plan.documents,getDocumentBlob,{onProgress:(done,total)=>{const el=input('periodPackageProgress');if(el)el.textContent='Comprobando documentos '+done+'/'+total+'…'}});
+  if(!isCurrent())return;
   const used=new Set(),manifest=[];
   for(const [index,d] of plan.documents.entries()){
    const name=uniqueArchiveDocumentPath(d,used);docs.file(name,blobs[index]);
@@ -2530,6 +2542,7 @@ async function exportGestorPeriodPackage(){
   zip.file('LEEME.txt','Totus Central · paquete del periodo\nDesde '+filters.from+' hasta '+filters.to+'\nTienda: '+(filters.store||'all')+'\nBusqueda: '+(filters.query||'sin filtro')+'\nLa tabla fiscal conserva las columnas de gestoria y solo incluye gastos fiscales revisados.\nLos justificantes se seleccionan por su gasto o factura vinculados, aunque el archivo tenga otra fecha.\nLos gastos internos y los impuestos pagados no reducen el beneficio fiscal.\nRegistros sin adjunto: '+plan.missingAttachments.length+'. Consulta 04_RESUMEN/Registros_sin_adjunto.csv.\nEste paquete de documentacion no sustituye una copia de seguridad de la aplicacion.');
   const el=input('periodPackageProgress');if(el)el.textContent='Comprimiendo el paquete comprobado…';
   const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:1}});
+  if(!isCurrent())return;
   download(blob,'Paquete_gestor_'+plan.key+'.zip');
   if(plan.missingAttachments.length)toast('Paquete preparado: '+plan.missingAttachments.length+' registros sin adjunto, indicados en el listado.','warn');
  }finally{annualExportInProgress=false;if(input('periodPackageProgress'))closeModal()}
@@ -2591,6 +2604,7 @@ document.addEventListener('click',async e=>{
  if(['expense-attach-save','expense-tax-attach-save'].includes(a)&&hasFormDraft($('#content'),['exFile'])
   &&!await confirmAction('Se guardará únicamente el archivo seleccionado. Los demás cambios de esta ficha no se guardarán y se descartarán al actualizarla. Si quieres conservarlos, cancela y usa Guardar.',{title:'Guardar solo el adjunto',acceptLabel:'Guardar adjunto y descartar los otros cambios'}))return;
  if(a==='invoice-finalize'&&hasFormDraft($('#content'))){toast('Guarda los cambios del borrador antes de emitir el documento.','bad');return}
+ const librarySession=state.session,libraryActor=activeActor(),isCurrentLibraryActor=()=>state.session===librarySession&&libraryActor();
  preserveMainDraftOnRefresh=!!el.closest('[data-modal-content]')&&hasFormDraft($('#content'));
  const writes=['stock-source-remove','stock-upload-discard','template-duplicate','series-toggle','user-toggle','user-reset','user-permissions-reset','report-block-up','report-block-down','report-block-reset','admin-period-close','admin-period-reopen','onedrive-begin','onedrive-mirror','onedrive-backup-mirror','onedrive-test','admin-unused-logos'].includes(a)||/-save(?:$|-)|-delete$|-finalize$|-reopen$|-run-now$|^recovery-confirm$|^recovery-continue$/.test(a),lockedControls=[];
  let ownsWriteLock=false;
@@ -2638,7 +2652,7 @@ document.addEventListener('click',async e=>{
   if(a==='closing-save-close'){await saveClosing(el.dataset.id||'',val('clSaveStatus')||'cerrado');return}
   if(a==='closing-reopen'){await reopenClosing(el.dataset.id);return}
   if(a==='closing-back'){resetView('cajas');render();return}
-  if(a==='export-closings-current'){exportCurrentModule('cajas');return}
+  if(a==='export-closings-current'){await ensureExcel();if(!isCurrentLibraryActor())return;exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
   if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim(),supplierShowInactive:!!input('expenseSuppliersInactive')?.checked});render();return}
   if(a==='expense-suppliers'){expenseSuppliersManager();return}
@@ -2663,7 +2677,7 @@ document.addEventListener('click',async e=>{
   if(a==='expense-document-preview'){await previewDocument(el.dataset.id);return}
   if(a==='expense-document-download'){await downloadDocument(el.dataset.id);return}
   if(a==='expense-document-unlink'){await unlinkExpenseDocument(el.dataset.expense,el.dataset.document);return}
-  if(a==='export-expenses-current'){exportCurrentModule('gastos');return}
+  if(a==='export-expenses-current'){await ensureExcel();if(!isCurrentLibraryActor())return;exportCurrentModule('gastos');return}
   if(a==='expense-delete'){await deleteExpense(el.dataset.id);return}
   if(a==='invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});setRoute('facturacion');render();return}
   if(a==='proforma-new'){setView('facturacion',{mode:'record',id:null,docType:'proforma',invoiceKind:'invoice',origin:'totus'});render();return}
@@ -2875,15 +2889,15 @@ document.addEventListener('click',async e=>{
   if(a==='income-adjustment-edit'){incomeAdjustmentForm(state.data.incomeAdjustments.find(x=>x.id===el.dataset.id));return}
   if(a==='income-adjustment-save'){await saveIncomeAdjustment(el.dataset.id||'');return}
   if(a==='income-adjustment-delete'){await deleteIncomeAdjustment(el.dataset.id);return}
-  if(a==='export-closings'){exportRows('closings');return}
-  if(a==='export-expenses'){exportRows('expenses');return}
-  if(a==='export-summary'){exportRows('summary');return}
-  if(a==='report-store-preview'){reportStorePreview(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
-  if(a==='report-gestor-source-preview'){reportGestorSourcePreview();return}
-  if(a==='export-gestor-source'){exportGestorSourceWorkbook(gestorSourceArgs());return}
+  if(a==='export-closings'){await ensureExcel();if(!isCurrentLibraryActor())return;exportRows('closings');return}
+  if(a==='export-expenses'){await ensureExcel();if(!isCurrentLibraryActor())return;exportRows('expenses');return}
+  if(a==='export-summary'){await ensureExcel();if(!isCurrentLibraryActor())return;exportRows('summary');return}
+  if(a==='report-store-preview'){await ensureExcel();if(!isCurrentLibraryActor())return;reportStorePreview(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
+  if(a==='report-gestor-source-preview'){await ensureExcel();if(!isCurrentLibraryActor())return;reportGestorSourcePreview();return}
+  if(a==='export-gestor-source'){await ensureExcel();if(!isCurrentLibraryActor())return;exportGestorSourceWorkbook(gestorSourceArgs());return}
   if(a==='report-gestor-source-print'){printGestorSource();return}
-  if(a==='export-store-book'){exportStoreBook(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
-  if(a==='export-gestor-book'){exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
+  if(a==='export-store-book'){await ensureExcel();if(!isCurrentLibraryActor())return;exportStoreBook(el.dataset.store,Number(el.dataset.year),Number(el.dataset.month));return}
+  if(a==='export-gestor-book'){await ensureExcel();if(!isCurrentLibraryActor())return;exportGestorWorkbook(reportArgs(Number(el.dataset.year)));return}
   if(a==='export-gestor-package'){await exportGestorPackage(Number(el.dataset.year));return}
  }catch(err){activityLog.record(permissionForAction(a,el)?.module||state.route,'error_operacion',a);if(err.name!=='ValidationError')console.error(err);toast(err.message||String(err),'bad')}
  finally{lockedControls.forEach(([control,disabled])=>control.disabled=disabled);if(ownsWriteLock)writeInProgress=false;preserveMainDraftOnRefresh=false}

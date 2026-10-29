@@ -7,7 +7,8 @@ import {computeModel130Accumulated,estimatePriorModel130,deductibleExpenseTotal,
 import {GESTOR_SOURCE_COLUMNS,GESTOR_AMOUNT_COLUMNS,buildGestorSourceRows,gestorSourceTotals} from './gestor-format.js';
 import {matchesText} from './report-period.js';
 
-const XLSX=window.XLSX;
+// The library is loaded by the calling action, not captured during module evaluation.
+const XLSX=new Proxy({}, {get(_target,key){if(!window.XLSX)throw new Error('El motor Excel todavía no está disponible.');return window.XLSX[key];}});
 const euro='#,##0.00 "€"';
 const headerStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1F2937'}},alignment:{horizontal:'center',vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'CBD5E1'}}}};
 const titleStyle={font:{bold:true,sz:16},alignment:{horizontal:'left'}};

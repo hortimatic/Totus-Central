@@ -37,6 +37,7 @@ jobs:
       - run: node tests/connection-maintenance-qa.mjs
       - run: node tests/credential-renewal-qa.mjs
       - run: node tests/backup-retention-qa.mjs
+      - run: node tests/office-lazy-qa.mjs
       - run: node tests/storage-planning-qa.mjs
       - run: node tests/closed-closing-qa.mjs
       - run: node tests/closing-workflow-qa.mjs
@@ -114,6 +115,9 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/office-lazy-browser-qa.mjs
+      - run: node tests/office-lazy-flows-browser-qa.mjs
+      - run: node tests/office-lazy-resilience-browser-qa.mjs
       - run: node tests/storage-lazy-browser-qa.mjs
       - run: node tests/audit-register-browser-qa.mjs
       - run: node tests/audit-lazy-browser-qa.mjs
