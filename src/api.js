@@ -120,17 +120,24 @@ export async function removeFile(bucket,path){
 }
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
 const dataOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
-let coreReadGeneration=0,auditReadGeneration=0;
+let coreReadGeneration=0,auditReadGeneration=0,storageReadGeneration=0;
+// No cached measurement can authorize an upload or be presented as current after a file change.
+export function invalidateStorageUsage(){
+ ++storageReadGeneration;
+ state.data.storageUsage={status:'stale'};
+}
 export async function reloadStorageUsage(){
- const owner=dataOwner();
+ const owner=dataOwner(),generation=++storageReadGeneration;
+ const current=()=>dataOwner()===owner&&generation===storageReadGeneration;
+ state.data.storageUsage={status:'pending'};
  try{
   const data=await rpc('totus_storage_usage');
   if(!data||data.status!=='ok'||data.source!=='supabase_storage_objects')throw new Error('Respuesta de Storage no verificable.');
-  if(dataOwner()!==owner)return state.data.storageUsage;
+  if(!current())return {status:'stale'};
   state.data.storageUsage={...data,status:'ok',fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }catch(e){
-  if(dataOwner()!==owner)return state.data.storageUsage;
+  if(!current())return {status:'stale'};
   state.data.storageUsage={status:'error',message:String(e?.message||e),fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }
@@ -170,7 +177,7 @@ export async function loadCore(){
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
- await timedStartup('almacenamiento',()=>reloadStorageUsage());
+ // Storage is measured after the first render; file writes still validate afresh.
  if(!current())return false;
  // Audit history is loaded on demand when Administration > Log is visible.
  return current();
