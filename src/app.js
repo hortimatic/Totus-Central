@@ -36,7 +36,7 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,mar
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
+import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
@@ -271,6 +271,7 @@ async function refresh(message=''){
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
   if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
+  if(isAuditPanelVisible())void refreshAuditPanel({afterCore:true});
  }
  catch(e){
   if(!current())return;
@@ -280,22 +281,46 @@ async function refresh(message=''){
  }
  finally{if(current())state.loading=false}
 }
-let auditRefreshInFlight=false;
-async function refreshAuditPanel({full=false}={}){
- if(auditRefreshInFlight)return false;
- auditRefreshInFlight=true;
- try{await reloadAudit({full});return true}
- catch(error){state.data.auditError=error.message;return false}
- finally{
-  auditRefreshInFlight=false;
-  if(state.route==='administracion'&&getView('administracion').section==='log'){
-   const fields=['logFrom','logTo','logActor','logArea','logAction','logQuery'].map(id=>[id,input(id)?.value]);
-   const focused=document.activeElement,focusId=focused?.id,selection=focused?.tagName==='INPUT'&&focused.type==='text'?[focused.selectionStart,focused.selectionEnd]:null;
-   render();
-   for(const [id,value] of fields)if(value!==undefined&&input(id))input(id).value=value;
-   if(focusId&&input(focusId)){input(focusId).focus({preventScroll:true});if(selection)input(focusId).setSelectionRange(...selection);}
+let auditRequest=null,auditUiGeneration=0;
+function isAuditPanelVisible(){
+ return !!state.user&&isManager()&&can('administracion','view')&&state.route==='administracion'&&getView('administracion').section==='log';
+}
+function redrawAuditPanel(){
+ if(!isAuditPanelVisible())return;
+ const fields=['logFrom','logTo','logActor','logArea','logAction','logQuery'].map(id=>[id,input(id)?.value]);
+ const focused=document.activeElement,focusId=focused?.id,selection=focused?.tagName==='INPUT'&&focused.type==='text'?[focused.selectionStart,focused.selectionEnd]:null;
+ render();
+ for(const [id,value] of fields)if(value!==undefined&&input(id))input(id).value=value;
+ if(focusId&&input(focusId)){input(focusId).focus({preventScroll:true});if(selection)input(focusId).setSelectionRange(...selection);}
+}
+function refreshAuditPanel({full=false,afterCore=false}={}){
+ if(!isAuditPanelVisible())return Promise.resolve(false);
+ const owner=sessionViewOwner(),epoch=auditUiGeneration;
+ const current=()=>epoch===auditUiGeneration&&sessionViewOwner()===owner&&!!state.user&&isManager()&&can('administracion','view');
+ const previous=auditRequest;
+ if(previous&&previous.owner===owner&&previous.epoch===epoch){
+  // A manual full read or a newly loaded core snapshot must not be lost behind
+  // an older incremental read. Coalesce all followers into a single next read.
+  if((full&&!previous.full)||afterCore){
+   previous.followUpFull ||=full;
+   if(!previous.followUp)previous.followUp=previous.promise.then(()=>current()?refreshAuditPanel({full:previous.followUpFull}):false);
+   return previous.followUp;
   }
+  return previous.promise;
  }
+ const request={owner,epoch,full,promise:null,followUp:null,followUpFull:false};
+ auditRequest=request;
+ state.data.auditLoading=true;
+ redrawAuditPanel();
+ request.promise=(async()=>{
+  try{await reloadAudit({full});return current();}
+  catch(error){if(current())state.data.auditError=error.message;return false;}
+  finally{
+   if(auditRequest===request)auditRequest=null;
+   if(current()&&!request.followUp){state.data.auditLoading=false;redrawAuditPanel();}
+  }
+ })();
+ return request.promise;
 }
 function input(id){return document.getElementById(id)}
 function val(id){return input(id)?.value??''}
@@ -1972,6 +1997,7 @@ function showLogEntry(id){
  </div>`);
 }
 function exportLogCsv(){
+ if(!state.data.auditUpdatedAt)throw new Error('El historial todavía no tiene una lectura completa. Actualiza el Log antes de exportar.');
  const rows=filteredLogRows();
  const escCell=v=>{const value=String(v??'').replace(/[\r\n]+/g,' ');return '"'+(/^[=+@-]/.test(value)?'\'':'')+value.replaceAll('"','""')+'"'};
  const cols=['Fecha','Usuario','Área','Acción','Detalle JSON'];
@@ -2495,7 +2521,7 @@ async function reviewUnusedLogos(){
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isStoragePanelVisible())await refreshStoragePanel();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
+ const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isAuditPanelVisible())void refreshAuditPanel();if(isStoragePanelVisible())await refreshStoragePanel();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){activityLog.record(permissionForAction(a,el)?.module||state.route,'acceso_denegado',a);toast('No tienes permiso para esta operación.','bad');return}
  if(a==='close-modal'){
@@ -2698,7 +2724,7 @@ document.addEventListener('click',async e=>{
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
+  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(isAuditPanelVisible())void refreshAuditPanel();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
 
   if(a==='onedrive-expiry-save'){
    const expires=val('odCredentialExpiry');
@@ -2751,7 +2777,12 @@ document.addEventListener('click',async e=>{
   catch{toast('El navegador ha bloqueado el portapapeles. Autoriza la copia para esta web y vuelve a pulsar.','bad');}
   return;
  }
- if(a==='admin-log-refresh'){if(await refreshAuditPanel({full:true}))toast('Eventos actualizados.');else toast(state.data.auditError,'bad');return}
+ if(a==='admin-log-refresh'){
+   const owner=sessionViewOwner(),epoch=auditUiGeneration,updated=await refreshAuditPanel({full:true});
+   if(epoch!==auditUiGeneration||owner!==sessionViewOwner()||!isAuditPanelVisible())return;
+   if(updated)toast('Eventos actualizados.');else toast(state.data.auditError,'bad');
+   return;
+  }
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
   if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='admin-period-close'){await setClosedPeriod();return}
@@ -2994,7 +3025,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
- ++refreshGeneration;state.user=null;resetSessionData();setRolePermissions([]);
+ ++refreshGeneration;++auditUiGeneration;auditRequest=null;invalidateAuditReads();state.user=null;resetSessionData();setRolePermissions([]);
  activityLog.reset();clearStartupTiming();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');

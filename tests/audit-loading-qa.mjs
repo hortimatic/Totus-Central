@@ -5,7 +5,7 @@ global.window={supabase:{createClient:()=>({from(table){
  const call={table,columns:'*',since:null,orders:[],range:[0,999]};
  const q={select(columns){call.columns=columns;return q;},gte(key,value){call.since={key,value};return q;},order(key,{ascending}){call.orders.push([key,ascending]);return q;},range(a,b){call.range=[a,b];return q;},then(resolve,reject){calls.push(call);if(fail===table)return Promise.resolve({data:null,error:{message:'Fallo de ensayo'}}).then(resolve,reject);let rows=(db[table]||[]).filter(r=>!call.since||r[call.since.key]>=call.since.value);rows=[...rows].sort((a,b)=>{for(const [key,ascending] of call.orders){const n=String(a[key]??'').localeCompare(String(b[key]??''));if(n)return ascending?n:-n;}return 0;});return Promise.resolve({data:rows.slice(call.range[0],call.range[1]+1),error:null}).then(resolve,reject);}};return q;
  }})}};
-const {state}=await import('../src/state.js');const {reloadAudit,sb}=await import('../src/api.js');
+const {state}=await import('../src/state.js');const {reloadAudit,invalidateAuditReads,sb}=await import('../src/api.js');
 state.user={email:'qa@example.invalid',role:'admin'};
 await reloadAudit();assert.equal(state.data.audit.length,1106);assert.equal(calls.filter(c=>c.table==='ops_audit_log').length,2);
 db.ops_audit_log.push({id:'new',created_at:'2026-01-02T10:00:00Z',area:'gastos',action:'crear'});
@@ -28,4 +28,23 @@ const inFlight=reloadAudit();await started;
 state.user={email:'new-identity@example.invalid',role:'gerente'};const newHistory=[];state.data.audit=newHistory;
 release();await inFlight;assert.equal(state.data.audit,newHistory,'A delayed previous-identity read must not repopulate the audit view');
 sb.from=from;
+// A logout and a new login for the same identity must also invalidate pending reads.
+state.user={email:'qa@example.invalid',role:'admin'};
+let letOldProceed,oldReadStarted;
+const staleGate=new Promise(resolve=>letOldProceed=resolve),oldStarted=new Promise(resolve=>oldReadStarted=resolve);
+sb.from=table=>{
+ const q=from(table);
+ if(table==='ops_stock_revisions'){
+  const then=q.then.bind(q);
+  q.then=(resolve,reject)=>{oldReadStarted();return staleGate.then(()=>then(resolve,reject));};
+ }
+ return q;
+};
+const oldSameUser=reloadAudit();await oldStarted;
+invalidateAuditReads();
+const newlyResetHistory=[];state.data.audit=newlyResetHistory;
+letOldProceed();await oldSameUser;
+assert.equal(state.data.audit,newlyResetHistory,'An invalidated read must not publish into a new session with the same user');
+sb.from=from;calls.length=0;await reloadAudit();
+assert.equal(calls.find(c=>c.table==='ops_audit_log').since,null,'A new session must not reuse previous incremental history');
 console.log('AUDIT LOADING QA: complete history, incremental refresh, no duplicate rows, fresh channel visibility, failure retention and bounded backup metadata');

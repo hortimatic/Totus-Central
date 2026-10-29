@@ -13,11 +13,12 @@ try{
  await copy.click();
  const report=await admin.evaluate(()=>window.__timingClipboard);
  assert.match(report,/Totus Central · REN-01/);
- for(const phase of ['Tipo: sesion_recuperada','sesion:','usuario_y_perfil:','carga_principal:','core:ops_expenses:','retiradas_documentales:','almacenamiento:','auditoria:','pintado_inicio:','arranque_completo:'])
+ for(const phase of ['Tipo: sesion_recuperada','sesion:','usuario_y_perfil:','carga_principal:','core:ops_expenses:','retiradas_documentales:','almacenamiento:','pintado_inicio:','arranque_completo:'])
   assert(report.includes(phase),'Missing timing: '+phase);
  for(const privateData of ['qa@example.com','qa-sandbox','00000000X','Calle Pruebas 1','https://'])
   assert(!report.includes(privateData),'Report contained user, financial or URL data');
  assert(!report.includes('documentos de prueba'),'No document contents in diagnostic');
+ assert(!report.includes('auditoria:'),'The deferred Log history must not delay or enter initial startup timings');
  assert.deepEqual(errors,[],'Instrumented boot must not cause browser errors');
  const manager=await browser.newPage();
  await manager.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});
