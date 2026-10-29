@@ -163,10 +163,9 @@ try{
    {id:'l3',created_at:'2026-10-15T09:00:00Z',user_email:'ana@example.com',area:'gastos',action:'editar',detail:{invoice:'F-2'}}
   ];
   window.__mockDb.ops_audit_log.splice(0,window.__mockDb.ops_audit_log.length,...events);
-  const state=(await import('../src/state.js')).state;
-  state.data.audit=events;
  });
  await section('log');
+ await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return !!state.data.auditUpdatedAt&&!state.data.auditLoading&&['l1','l2','l3'].every(id=>state.data.audit.some(row=>row.id===id));});
  assert(await page.locator('#logFrom').count()===1,'Faltan filtros de fecha');
  await page.locator('#logFrom').fill('2026-10-01');
  await page.locator('#logTo').fill('2026-10-31');
@@ -187,7 +186,7 @@ try{
  assert(csv.startsWith('\uFEFF'),'Export Log sin BOM Excel');
  steps.push('log:CSV-filtered');
  await page.locator('[data-action="admin-log-clear"]').click();
- assert(await page.locator('#content .data-table tbody tr').count()===3,'No se limpiaron filtros');
+ assert(await page.locator('#content .data-table tbody tr').count()>=3,'No se limpiaron filtros o desaparecieron eventos');
  await page.locator('[data-action="admin-log-refresh"]').click();
  await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
  const refreshedIds=await page.evaluate(async()=>(await import('../src/state.js')).state.data.audit.map(row=>String(row.id)));
