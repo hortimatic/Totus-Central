@@ -10,7 +10,7 @@ Gestión diaria para Hortimatic y NewOldSmok: https://hortimatic.github.io/Totus
 - No depende de un equipo encendido.
 
 ## Trabajo y cambios
-Inicio, Pricing, Cajas, Gastos, Facturación, Recepciones, Chat del equipo, Tareas, Documentos, Fiscalidad, Informes y Administración.
+Inicio, Pricing, Cajas, Gastos, Facturación, Recepciones, Chat, Tareas, Documentos, Fiscalidad, Informes y Administración.
 No alterar estructura, datos o cálculos sin explicar el cambio al titular. Las facturas originales, los pagos y el gasto fiscal son conceptos distintos; el histórico aceptado no se ajusta para forzar una coincidencia.
 
 Para cambiar código, preparar una rama temporal, revisar y ejecutar las pruebas. .github/workflows/publish.yml repite la batería antes de publicar la revisión principal. Comprobar también la versión y los flujos autenticados. Eliminar la rama temporal integrada cuando haya terminado la validación.
@@ -26,7 +26,7 @@ Alta con proveedor y documentos de ambos lados, filtros por rango de fechas, res
 - [Recepciones, biblioteca y conexiones](docs/COTEJOS_CHATGPT.md).
 - [Copias por componentes](docs/COPIAS_POR_COMPONENTES.md).
 
-El código incluye el historial de evolución SQL y las cuatro funciones utilizadas. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación.
+El código incluye el historial de evolución SQL y los cinco servicios utilizados: usuarios, copias, recuperación, OneDrive y puente de asistentes. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación. [Revisión transversal del 29/10/2026](docs/auditorias/REVISION_TRANSVERSAL_2026-10-29.md).
 
 ## Copias y privacidad
 Copia completa diaria a las 00:35 Europe/Madrid; diez juegos ordinarios verificados, más los puntos de recuperación protegidos que correspondan. Cada juego incluye índice, datos, documentos en ZIP numerados y código publicado. Consultar COPIAS_POR_COMPONENTES.md para comprobar o restaurar. Las copias anteriores compatibles siguen siendo recuperables.
