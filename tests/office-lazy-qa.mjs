@@ -17,6 +17,9 @@ try{
  const retry=ensureZip();assert.equal(scripts.length,3);scripts[2].onload();await assert.rejects(retry,/no está disponible/);
  const third=ensureZip();assert.equal(scripts.length,4);globalThis.window.JSZip=function JSZip(){};globalThis.window.JSZip.loadAsync=async()=>({});scripts[3].onload();assert.strictEqual(await third,globalThis.window.JSZip);
  assert.equal(scripts[1].removed,true);assert.equal(scripts[2].removed,true);
+ delete globalThis.window.XLSX;
+ const reload=ensureExcel();assert.equal(scripts.length,5,'Missing global requires a new request');
+ globalThis.window.XLSX={read(){},writeFile(){},utils:{book_new(){}}};scripts[4].onload();assert.strictEqual(await reload,globalThis.window.XLSX);
 }finally{globalThis.window=oldWindow;globalThis.document=oldDocument}
 const app=readFileSync('src/app.js','utf8');
 assert.match(app,/await Promise\.all\(\[ensureExcel\(\),ensureZip\(\)\]\)/);
