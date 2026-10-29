@@ -165,6 +165,10 @@ try{
   window.__mockDb.ops_audit_log.splice(0,window.__mockDb.ops_audit_log.length,...events);
  });
  await section('log');
+ // Backdated fixture rows require an explicit complete read, not the incremental Log cursor.
+ await page.locator('[data-action="admin-log-refresh"]').click();
+ await page.getByText('Eventos actualizados.',{exact:true}).waitFor();
+ await page.locator('#logArea option[value="gastos"]').waitFor();
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return !!state.data.auditUpdatedAt&&!state.data.auditLoading&&['l1','l2','l3'].every(id=>state.data.audit.some(row=>row.id===id));});
  assert(await page.locator('#logFrom').count()===1,'Faltan filtros de fecha');
  await page.locator('#logFrom').fill('2026-10-01');
