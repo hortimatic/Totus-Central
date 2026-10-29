@@ -9,6 +9,7 @@ import {rememberWriteVersion,expectedWriteVersion,advanceWriteVersion} from './w
 import {retireStoredDocument} from './document-removal.js';
 import {createHeaderTools} from './header-tools.js';
 import {filterAuditEvents} from './audit-register.js';
+import {createLogCleanup} from './log-cleanup.js';
 import {expenseLineAmounts,expenseTotals} from './expense-totals.js';
 import {selectExpenses} from './expense-selection.js';
 import {templateCopyCode} from './template-copy.js';
@@ -130,6 +131,7 @@ function permissionForAction(action,el){
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a.startsWith('admin-log-cleanup-'))return {module:'administracion',operation:'delete',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('onedrive-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('recovery-'))return {module:'administracion',operation:'edit',adminOnly:true};
@@ -335,6 +337,7 @@ async function refresh(message=''){
  finally{if(current()){state.loading=false;if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
 }
 let auditRequest=null,auditUiGeneration=0;
+const logCleanup=createLogCleanup({rpc,owner:()=>JSON.stringify([sessionViewOwner(),auditUiGeneration]),allowed:()=>isAdmin()&&can('administracion','delete'),today:isoToday,afterClean:async()=>{invalidateAuditReads();state.data.audit=[];state.data.auditUpdatedAt=null;state.data.auditError='';return refreshAuditPanel({full:true});}});
 function isAuditPanelVisible(){
  return !!state.user&&isManager()&&can('administracion','view')&&state.route==='administracion'&&getView('administracion').section==='log';
 }
@@ -2853,6 +2856,9 @@ document.addEventListener('click',async e=>{
    return;
   }
   if(a==='admin-log-detail'){showLogEntry(el.dataset.id);return}
+  if(a==='admin-log-cleanup-open'){logCleanup.open();return}
+  if(a==='admin-log-cleanup-preview'){await logCleanup.inspect();return}
+  if(a==='admin-log-cleanup-delete'){await logCleanup.remove();return}
   if(a==='admin-log-export'){exportLogCsv();return}
   if(a==='admin-period-close'){await setClosedPeriod();return}
   if(a==='admin-period-reopen'){await setClosedPeriod(true);return}

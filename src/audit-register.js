@@ -5,6 +5,7 @@ const ACTION_LABELS={consultar_estado:'Actualizar estado del servicio',abrir_mod
  created:'Crear tarea',updated:'Actualizar tarea',occurrence:'Actualizar tarea del día',completed:'Completar tarea',done:'Completar tarea',archived:'Archivar tarea',
  copia_iniciada:'Copia iniciada',copia_success:'Copia completada',copia_failed:'Copia fallida',copia_error:'Error en la copia',copia_cancelled:'Copia cancelada',copia_expired:'Copia retirada por rotación',
  recepcion_created:'Crear recepción',recepcion_edited:'Editar recepción',recepcion_source_added:'Añadir documento a recepción',recepcion_source_removed:'Quitar documento de recepción',recepcion_result_saved:'Guardar cotejo de recepción'};
+ACTION_LABELS.limpiar_historial='Limpiar historial del Log';
 export const auditActionLabel=action=>ACTION_LABELS[action]||String(action||'—');
 export function mergeAuditRows(previous=[],incoming=[]){
  const rows=new Map(previous.map(r=>[String(r.id),r]));

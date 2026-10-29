@@ -1,0 +1,18 @@
+CREATE SCHEMA auth;CREATE SCHEMA private;
+DO $$BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon;END IF;
+IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated;END IF;END$$;
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$SELECT (auth.jwt()->>'sub')::uuid$$;
+CREATE FUNCTION private.is_admin() RETURNS boolean LANGUAGE sql STABLE AS $$SELECT coalesce(auth.jwt()->>'role','')='admin'$$;
+GRANT USAGE ON SCHEMA auth,private TO authenticated;
+CREATE TABLE public.ops_audit_log(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,created_at timestamptz DEFAULT now(),user_id uuid,user_email text,area text,action text,detail jsonb);
+CREATE TABLE public.team_user_audit_log(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,created_at timestamptz DEFAULT now(),action text);
+CREATE TABLE public.ops_chat_events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,created_at timestamptz DEFAULT now(),action text);
+CREATE TABLE public.ops_task_events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,created_at timestamptz DEFAULT now(),action text);
+CREATE TABLE public.ops_expenses(id integer PRIMARY KEY);INSERT INTO public.ops_expenses VALUES(1);
+CREATE TABLE public.ops_daily_closings(id integer PRIMARY KEY);INSERT INTO public.ops_daily_closings VALUES(1);
+CREATE TABLE public.ops_chat_messages(id integer PRIMARY KEY);INSERT INTO public.ops_chat_messages VALUES(1);
+CREATE TABLE public.ops_tasks(id integer PRIMARY KEY);INSERT INTO public.ops_tasks VALUES(1);
+CREATE TABLE public.ops_stock_revisions(id integer PRIMARY KEY);INSERT INTO public.ops_stock_revisions VALUES(1);
+CREATE TABLE public.ops_backup_runs(id integer PRIMARY KEY);INSERT INTO public.ops_backup_runs VALUES(1);
+CREATE FUNCTION public.qa_assert(ok boolean,label text) RETURNS void LANGUAGE plpgsql AS $$BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'QA: %',label;END IF;END$$;

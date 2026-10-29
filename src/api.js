@@ -193,23 +193,30 @@ export function invalidateAuditReads(){++auditReadGeneration;auditHistoryCache=n
 export async function reloadAudit({full=false}={}){
  if(!['admin','gerente'].includes(state.user?.role))return;
  const owner=dataOwner(),generation=++auditReadGeneration;
- const cache=!full&&auditHistoryCache?.owner===owner?auditHistoryCache:null;
+ let cache=!full&&auditHistoryCache?.owner===owner?auditHistoryCache:null;
  const since=rows=>rows?.reduce((last,r)=>String(r.created_at||'')>last?String(r.created_at):last,'')||'';
  const history=(table,rows)=>timedStartup('audit:'+table,()=>select(table,{order:'created_at',ascending:false,filter:since(rows)?q=>q.gte('created_at',since(rows)):undefined}));
- const [newEvents,newUsers,chat,tasks,stock]=await Promise.all([
+ let [newEvents,newUsers,chat,tasks,stock,cleanup]=await Promise.all([
   history('ops_audit_log',cache?.events),
   state.user.role==='admin'?history('team_user_audit_log',cache?.users):Promise.resolve([]),
   timedStartup('audit:ops_chat_events',()=>select('ops_chat_events',{order:'created_at',ascending:false})),
   timedStartup('audit:ops_task_events',()=>select('ops_task_events',{order:'created_at',ascending:false})),
   // Historical snapshots can contain whole receipts; the log only needs their
   // immutable event reference. Re-read under current RLS on every refresh.
-  timedStartup('audit:ops_stock_revisions',()=>select('ops_stock_revisions',{order:'created_at',ascending:false,columns:'id,receipt_id,revision,action,actor_email,created_at'}))
+  timedStartup('audit:ops_stock_revisions',()=>select('ops_stock_revisions',{order:'created_at',ascending:false,columns:'id,receipt_id,revision,action,actor_email,created_at'})),
+  select('ops_audit_log',{order:'id',columns:'id',filter:q=>q.eq('action','limpiar_historial'),limit:1,allowTruncated:true})
  ]);
  if(dataOwner()!==owner||generation!==auditReadGeneration)return;
+ const cleanupId=String(cleanup[0]?.id||'');
+ if(cache&&cache.cleanupId!==cleanupId){
+  cache=null;
+  [newEvents,newUsers]=await Promise.all([history('ops_audit_log',null),state.user.role==='admin'?history('team_user_audit_log',null):Promise.resolve([])]);
+  if(dataOwner()!==owner||generation!==auditReadGeneration)return;
+ }
  const backups=state.user.role==='admin'?await timedStartup('audit:ops_backup_runs',()=>select('ops_backup_runs',{order:'started_at',ascending:false,columns:'id,mode,status,started_at,finished_at,files_count,rows_count,error_message'})):[];
  if(dataOwner()!==owner||generation!==auditReadGeneration)return;
  const events=mergeAuditRows(cache?.events,newEvents),users=mergeAuditRows(cache?.users,newUsers);
- auditHistoryCache={owner,events,users};
+ auditHistoryCache={owner,events,users,cleanupId};
  state.data.audit=combineAuditEvents({events,users,chat,tasks,stock,backups,people:[...(state.data.team||[]),...(state.data.profiles||[])]});
  state.data.auditError='';state.data.auditUpdatedAt=new Date().toISOString();
 }
