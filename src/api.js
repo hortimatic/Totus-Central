@@ -73,11 +73,13 @@ export async function invokeRecovery(jobId,action='process',values={}){
  if(!response.ok)throw new Error(body.error||'No se pudo completar la recuperación. Consulta su estado antes de reintentar.');
  return body;
 }
-export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
+export async function upload(bucket,path,file){const owner=dataOwner(),epoch=storageSessionGeneration,r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');if(sameStorageSession(owner,epoch))invalidateStorageUsage();return r.data}
 export async function completeDocumentRemoval(document){
+ const owner=dataOwner(),epoch=storageSessionGeneration;
  const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'complete-document-removal',id:document.id,path:document.storage_path||'',sha256:document.sha256||''}});
  if(error){let message='La retirada no se ha podido confirmar. Su solicitud se conserva para reintentar.';try{message=(await error.context.json()).error||message;}catch{}throw new Error(message);}
  if(data?.error)throw new Error(data.error);
+ if(sameStorageSession(owner,epoch))invalidateStorageUsage();
  return data;
 }
 async function documentLocation(path){
@@ -109,6 +111,7 @@ export async function downloadFile(bucket,path,metadata={}){
  return blob;
 }
 export async function removeFile(bucket,path){
+ const owner=dataOwner(),epoch=storageSessionGeneration;
  const files=sb.storage.from(bucket),r=await files.remove([path]);assert(r,'Eliminar archivo');
  // HEAD can reuse a cached successful GET after removal. Listing uses POST and
  // checks the current object index instead of the browser's download cache.
@@ -117,20 +120,30 @@ export async function removeFile(bucket,path){
  assert(check,'Comprobar eliminación');
  if(!Array.isArray(check.data)||check.data.length>=100||check.data.some(file=>file.name===name))
   throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
+ if(sameStorageSession(owner,epoch))invalidateStorageUsage();
 }
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
 const dataOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
-let coreReadGeneration=0,auditReadGeneration=0;
+let coreReadGeneration=0,auditReadGeneration=0,storageReadGeneration=0,storageSessionGeneration=0;
+// No cached measurement can authorize an upload or be presented as current after a file change.
+export function invalidateStorageUsage(){
+ ++storageReadGeneration;
+ state.data.storageUsage={status:'stale'};
+}
+export function resetStorageUsageSession(){++storageSessionGeneration;invalidateStorageUsage();}
+const sameStorageSession=(owner,epoch)=>dataOwner()===owner&&storageSessionGeneration===epoch;
 export async function reloadStorageUsage(){
- const owner=dataOwner();
+ const owner=dataOwner(),generation=++storageReadGeneration;
+ const current=()=>dataOwner()===owner&&generation===storageReadGeneration;
+ state.data.storageUsage={status:'pending'};
  try{
   const data=await rpc('totus_storage_usage');
   if(!data||data.status!=='ok'||data.source!=='supabase_storage_objects')throw new Error('Respuesta de Storage no verificable.');
-  if(dataOwner()!==owner)return state.data.storageUsage;
+  if(!current())return {status:'stale'};
   state.data.storageUsage={...data,status:'ok',fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }catch(e){
-  if(dataOwner()!==owner)return state.data.storageUsage;
+  if(!current())return {status:'stale'};
   state.data.storageUsage={status:'error',message:String(e?.message||e),fetched_at:new Date().toISOString()};
   return state.data.storageUsage;
  }
@@ -170,7 +183,7 @@ export async function loadCore(){
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
  state.data.backupConfig=state.data.backupConfig[0]||null;
- await timedStartup('almacenamiento',()=>reloadStorageUsage());
+ // Storage is measured after the first render; file writes still validate afresh.
  if(!current())return false;
  // Audit history is loaded on demand when Administration > Log is visible.
  return current();

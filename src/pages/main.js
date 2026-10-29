@@ -82,6 +82,28 @@ function dailySalesByDrawer(row){
  return `<div class="compact-detail">${sourceClosingReconciled(row)?'<span>Total conciliado de la tienda; cobros y retiradas sin reparto por caja.</span>':detail}<span><b>Ventas totales del día</b><b>${total==null?'Sin importe anotado':money(total)}</b></span><div class="compact-detail cash-collection-summary">${collections}</div></div>`;
 }
 
+function homeStorageValues(){
+ const u=state.data.storageUsage||{};
+ const valid=u.status==='ok'&&Number.isFinite(Number(u.total_bytes))&&Number.isFinite(Number(u.limit_bytes))&&Number(u.limit_bytes)>0;
+ const used=valid?Number(u.total_bytes):null,limit=valid?Number(u.limit_bytes):null;
+ const pct=valid?used/limit*100:null,files=Number(u.all_buckets_bytes);
+ return {u,valid,used,limit,pct,files,filesOk:valid&&u.all_buckets_bytes!=null&&Number.isFinite(files)&&files>=0};
+}
+export function homeStorageAlertHtml(){
+ const {u,valid,pct}=homeStorageValues();
+ const alert=valid&&pct>=85?{level:pct>=95?'bad':'warn',title:'Almacenamiento',message:pct.toFixed(1).replace('.',',')+' % utilizado'}:
+ !valid&&isManager()?{level:'warn',title:'Almacenamiento sin medición',message:u.status==='pending'?'Consultando el espacio en Supabase…':u.status==='stale'?'La medición anterior está desactualizada.':'Supabase no ha confirmado el espacio utilizado.'}:null;
+ return alert?`<button class="dashboard-alert ${alert.level}" data-route="administracion"><span><b>${esc(alert.title)}</b><small>${esc(alert.message)}</small></span><span>→</span></button>`:'';
+}
+export function homeStorageMetricsHtml(){
+ const {u,valid,used,limit,pct,files,filesOk}=homeStorageValues();
+ const missing=u.status==='pending'?'Consultando…':u.status==='stale'?'Sin actualizar':'No disponible';
+ return `<div class="summary-row"><span>Archivos en Supabase</span><strong>${filesOk?(files/1048576).toFixed(1).replace('.',',')+' MB':missing}</strong></div>
+ <div class="summary-row"><span>Documentos y logos en Supabase</span><strong>${valid?(used/1048576).toFixed(1).replace('.',',')+' MB':missing}</strong></div>
+ <div class="summary-row"><span>Base de datos · por separado</span><strong>${valid&&u.database_bytes!=null&&Number.isFinite(Number(u.database_bytes))?(Number(u.database_bytes)/1048576).toFixed(1).replace('.',',')+' MB':missing}</strong></div>
+ <div class="summary-row"><span>Ocupación del límite interno</span><strong class="${valid&&pct>=95?'danger-text':valid&&pct>=85?'warn-text':''}">${valid?pct.toFixed(1).replace('.',',')+' % de '+(limit/1048576).toFixed(0)+' MB':'Sin medir'}</strong></div>`;
+}
+
 export function inicio(){
  const today=isoToday(),month=monthRange(today),year=Number(today.slice(0,4)),m=Number(today.slice(5,7)),quarter=Math.ceil(m/3);
  const qFrom=`${year}-${String((quarter-1)*3+1).padStart(2,'0')}-01`,qTo=`${year}-${String(quarter*3).padStart(2,'0')}-${String(new Date(year,quarter*3,0).getDate()).padStart(2,'0')}`;
@@ -100,11 +122,6 @@ export function inicio(){
  const draftInvoices=state.data.invoices.filter(x=>x.status==='borrador').length;
  const recentDocs=[...state.data.documents].sort((a,b)=>String(b.created_at||b.document_date||'').localeCompare(String(a.created_at||a.document_date||''))).slice(0,4);
  const pendingDocs=state.data.documents.filter(x=>x.status==='pendiente').length;
- const usage=state.data.storageUsage||{};
- // Never silently show 0 MB on the home dashboard when the server measurement fails.
- const storageOk=usage.status==='ok'&&Number.isFinite(Number(usage.total_bytes))&&Number.isFinite(Number(usage.limit_bytes))&&Number(usage.limit_bytes)>0;
- const used=storageOk?Number(usage.total_bytes):null,limit=storageOk?Number(usage.limit_bytes):null,storagePct=storageOk?used/limit*100:null;
- const storageFiles=Number(usage.all_buckets_bytes),storageFilesOk=usage.all_buckets_bytes!=null&&Number.isFinite(storageFiles)&&storageFiles>=0;
  const yFrom=`${year}-01-01`;
  const incomeYtd=sum(state.data.closings.filter(x=>x.include_in_income!==false&&inRange(x.business_date,yFrom,qTo)),closingIncomeAmount)
   +sum(state.data.invoices.filter(x=>x.document_type==='factura'&&x.status==='emitida'&&x.include_in_income===true&&inRange(x.issue_date,yFrom,qTo)),x=>x.total_amount)
@@ -131,8 +148,6 @@ export function inicio(){
  if(pendingRefunds.length)alerts.push({level:'warn',title:'Devoluciones pendientes',text:`${pendingRefunds.length} · ${money(sum(pendingRefunds,invoiceOutstanding))} por devolver a clientes`,route:'facturacion'});
  if(draftInvoices)alerts.push({level:'info',title:'Facturas/proformas en borrador',text:`${draftInvoices} por terminar`,route:'facturacion'});
  if(pendingDocs)alerts.push({level:'info',title:'Documentos por revisar',text:`${pendingDocs} pendientes`,route:'documentos'});
- if(storageOk&&storagePct>=85)alerts.push({level:storagePct>=95?'bad':'warn',title:'Almacenamiento',text:`${storagePct.toFixed(1).replace('.',',')} % utilizado`,route:'administracion'});
- if(!storageOk&&isManager())alerts.push({level:'warn',title:'Almacenamiento sin medición',text:'Supabase no ha confirmado el espacio utilizado.',route:'administracion'});
  const openingCards=activeStores.flatMap(store=>state.data.drawers.filter(d=>d.store_id===store.id&&d.active!==false).map(drawer=>{
   const balance=lastDrawerBalance({closings:state.data.closings,closingDrawers:state.data.closingDrawers,storeId:store.id,drawer,before:new Date(Date.parse(today+'T12:00:00Z')+86400000).toISOString().slice(0,10)});
   return `<article class="opening-card"><h3>${esc(store.name)} · ${esc(drawer.name)}</h3><strong>${balance?.amount==null?'Por indicar':money(balance.amount)}</strong><p>${balance?'Dejado el '+fmtDate(balance.date):'Sin cierre anterior'}</p></article>`;
@@ -155,7 +170,7 @@ export function inicio(){
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Operativa de hoy</h2><p>Cierres y control de gasto del trimestre.</p></div></div><div class="dashboard-store-grid">${storeCards}</div><div class="dashboard-grid">
    <article class="card card-pad"><div class="section-head"><div><h3>Gastos del ${quarter}T</h3><p>Total contabilizado e interno por establecimiento.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div><div class="home-big-number">${money(sum(quarterExpenses,expenseCostAmount))}</div><div class="stack">${expenseByStore}</div></article>
-   <article class="card card-pad"><div class="section-head"><div><h3>Pendientes y avisos</h3><p>Solo incidencias que requieren atención.</p></div></div><div class="dashboard-alerts">${alerts.length?alerts.map(a=>`<button class="dashboard-alert ${a.level}" data-route="${a.route}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span>→</span></button>`).join(''):'<div class="empty compact-empty"><strong>Todo al día</strong><span>No hay avisos operativos pendientes.</span></div>'}</div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Pendientes y avisos</h3><p>Solo incidencias que requieren atención.</p></div></div><div class="dashboard-alerts">${alerts.map(a=>`<button class="dashboard-alert ${a.level}" data-route="${a.route}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span>→</span></button>`).join('')}<div id="homeStorageAlert" style="display:contents">${homeStorageAlertHtml()}</div><div id="homeAlertsEmpty" class="empty compact-empty" ${alerts.length||homeStorageAlertHtml()?'hidden':''}><strong>Todo al día</strong><span>No hay avisos operativos pendientes.</span></div></div></article>
   </div></section>
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Precios y ventas</h2><p>Consulta un precio al vuelo y controla los cobros abiertos.</p></div></div><div class="dashboard-grid">
@@ -170,7 +185,7 @@ export function inicio(){
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Seguimiento y sistema</h2><p>Informes, usuarios y almacenamiento en un vistazo.</p></div></div><div class="dashboard-grid">
    <article class="card card-pad"><div class="section-head"><div><h3>Informes y gestoría</h3><p>Prepara libros y paquetes con el periodo correcto.</p></div></div><div class="home-report-cards"><button class="report-shortcut" data-action="home-report-quarter"><span>Trimestre actual</span><b>${quarter}T ${year}</b><small>${fmtDate(qFrom)} → ${fmtDate(qTo)}</small></button><button class="report-shortcut" data-action="home-report-year"><span>Año actual</span><b>${year}</b><small>01/01/${year} → 31/12/${year}</small></button></div><div class="dashboard-links"><button class="btn secondary" data-route="informes">Abrir informes</button></div></article>
-   <article class="card card-pad"><div class="section-head"><div><h3>Estado del sistema</h3><p>Control básico de la herramienta.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div><div class="summary-row"><span>Usuarios activos</span><strong>${activeUsers}</strong></div><div class="summary-row"><span>Documentos</span><strong>${state.data.documents.length}</strong></div><div class="summary-row"><span>Archivos en Supabase</span><strong>${storageOk&&storageFilesOk?(storageFiles/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>Documentos y logos en Supabase</span><strong>${storageOk?(used/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>Base de datos · por separado</span><strong>${storageOk&&usage.database_bytes!=null&&Number.isFinite(Number(usage.database_bytes))?(Number(usage.database_bytes)/1048576).toFixed(1).replace('.',',')+' MB':'No disponible'}</strong></div><div class="summary-row"><span>Ocupación del límite interno</span><strong class="${storageOk&&storagePct>=95?'danger-text':storageOk&&storagePct>=85?'warn-text':''}">${storageOk?storagePct.toFixed(1).replace('.',',')+' % de '+(limit/1048576).toFixed(0)+' MB':'Sin medir'}</strong></div><div class="dashboard-links">${isManager()?'<button class="btn secondary" data-action="admin-storage-home">Almacenamiento</button><button class="btn secondary" data-action="admin-users-home">Usuarios</button>':''}</div></article>
+   <article class="card card-pad"><div class="section-head"><div><h3>Estado del sistema</h3><p>Control básico de la herramienta.</p></div>${isManager()?'<button class="btn secondary" data-route="administracion">Administración</button>':''}</div><div class="summary-row"><span>Usuarios activos</span><strong>${activeUsers}</strong></div><div class="summary-row"><span>Documentos</span><strong>${state.data.documents.length}</strong></div><div id="homeStorageMetrics" style="display:contents">${homeStorageMetricsHtml()}</div><div class="dashboard-links">${isManager()?'<button class="btn secondary" data-action="admin-storage-home">Almacenamiento</button><button class="btn secondary" data-action="admin-users-home">Usuarios</button>':''}</div></article>
    <article class="card card-pad"><div class="section-head"><div><h3>Tareas de hoy</h3><p>Organización diaria del equipo.</p></div><button class="btn secondary" data-route="tareas">Abrir tareas</button></div><div id="tasksHomeSummary" role="status"><p>Consultando el calendario…</p></div></article>
   </div></section>
  </div>`;
@@ -675,7 +690,7 @@ function adminStorageHtml(){
  const healthy=u.status==='ok';
  if(!healthy)return `<section class="card card-pad storage-dashboard" role="status">
   <div class="section-head"><div><h2>Almacenamiento · Supabase</h2><p>La lectura de almacenamiento no se ha podido verificar. No mostramos 0 MB porque podría ser incorrecto.</p></div>${btn('Reintentar conexión','storage-refresh','primary')}</div>
-  <div class="note warn"><b>Datos no disponibles</b> · ${esc(u.message||'Comprueba la conexión a Supabase y los permisos de la sesión.')}</div>
+  <div class="note ${u.status==='error'?'warn':''}"><b>${u.status==='pending'?'Consultando almacenamiento':u.status==='stale'?'Medición desactualizada':'Datos no disponibles'}</b> · ${esc(u.message||(u.status==='pending'?'Esperando medición de Supabase.':u.status==='stale'?'Hay cambios pendientes de comprobar.':'Comprueba la conexión a Supabase y los permisos de la sesión.'))}</div>
  </section>${oneDrivePanel()}`;
  const total=bytes(u.total_bytes),limit=Math.max(1,bytes(u.limit_bytes)),backups=bytes(u.backup_bytes);
  const dbSize=Number(u.database_bytes),measuredTotal=Number(u.observed_total_bytes);
