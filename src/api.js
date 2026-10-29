@@ -73,11 +73,12 @@ export async function invokeRecovery(jobId,action='process',values={}){
  if(!response.ok)throw new Error(body.error||'No se pudo completar la recuperación. Consulta su estado antes de reintentar.');
  return body;
 }
-export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');return r.data}
+export async function upload(bucket,path,file){const r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');invalidateStorageUsage();return r.data}
 export async function completeDocumentRemoval(document){
  const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'complete-document-removal',id:document.id,path:document.storage_path||'',sha256:document.sha256||''}});
  if(error){let message='La retirada no se ha podido confirmar. Su solicitud se conserva para reintentar.';try{message=(await error.context.json()).error||message;}catch{}throw new Error(message);}
  if(data?.error)throw new Error(data.error);
+ invalidateStorageUsage();
  return data;
 }
 async function documentLocation(path){
@@ -117,6 +118,7 @@ export async function removeFile(bucket,path){
  assert(check,'Comprobar eliminación');
  if(!Array.isArray(check.data)||check.data.length>=100||check.data.some(file=>file.name===name))
   throw new Error('No se ha podido retirar el archivo. Se conserva su ficha para poder revisarlo o reintentar.');
+ invalidateStorageUsage();
 }
 // Independent refresh: reports errors without fabricating an empty Supabase bucket.
 const dataOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
