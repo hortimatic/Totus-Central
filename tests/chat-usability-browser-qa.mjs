@@ -1,4 +1,4 @@
-import {chatAction,revealChatSearch} from './chat-menu-helper.mjs';
+import {chatAction,revealChatSearch,chatClick,revealChatFilters} from './chat-menu-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
@@ -33,10 +33,10 @@ try{
  const click=action=>chatAction(page,action);
  // Sidebar filters are navigation only; they cannot change membership or data.
  await page.locator('#chatChannelQuery').fill('cafe');assert.equal(await page.locator('.chat-channel').count(),1);
- await page.locator('#chatChannelQuery').fill('');await page.locator('#chatChannelView').selectOption('favourites');assert.equal(await page.locator('.chat-channel').count(),1);
- await page.locator('#chatChannelView').selectOption('direct');assert.equal(await page.locator('.chat-channel').count(),1);assert.equal(await page.locator('.chat-channel').innerText(),'↔ Compañero');
- await page.locator('#chatChannelView').selectOption('unread');assert.equal(await page.locator('.chat-channel').count(),1);
- await page.locator('#chatChannelView').selectOption('all');
+ await page.locator('#chatChannelQuery').fill('');await page.locator('[data-chat=view][data-view=favourites]').click();assert.equal(await page.locator('.chat-channel').count(),1);
+ await page.locator('[data-chat=view][data-view=direct]').click();assert.equal(await page.locator('.chat-channel').count(),1);assert.equal(await page.locator('.chat-channel-name').innerText(),'Compañero');
+ await page.locator('[data-chat=view][data-view=unread]').click();assert.equal(await page.locator('.chat-channel').count(),1);
+ await page.locator('[data-chat=view][data-view=all]').click();
  await page.locator('[data-chat="open"][data-id="a"]').click();await page.locator('#chatBody').waitFor();await page.screenshot({path:'artifacts/ui_chat_usabilidad_pc.png',fullPage:true});
  // Unapplied text must survive a realtime refresh after moving focus away.
  await revealChatSearch(page);await page.locator('#chatQuery').fill('pendiente de aplicar');await page.locator('.chat-heading h2').click();

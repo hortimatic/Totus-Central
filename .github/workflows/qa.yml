@@ -150,6 +150,7 @@ jobs:
       - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/chat-reference-layout-qa.mjs
       - run: node tests/chat-navigation-browser-qa.mjs
+      - run: node tests/chat-workspace-browser-qa.mjs
       - run: node tests/chat-usability-browser-qa.mjs
       - run: node tests/chat-integral-browser-qa.mjs
       - run: node tests/chat-alerts-browser-qa.mjs
