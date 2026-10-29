@@ -117,6 +117,7 @@ jobs:
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/office-lazy-browser-qa.mjs
       - run: node tests/office-lazy-flows-browser-qa.mjs
+      - run: node tests/office-lazy-resilience-browser-qa.mjs
       - run: node tests/storage-lazy-browser-qa.mjs
       - run: node tests/audit-register-browser-qa.mjs
       - run: node tests/audit-lazy-browser-qa.mjs
