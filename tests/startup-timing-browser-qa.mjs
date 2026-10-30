@@ -35,7 +35,7 @@ try{
  await broken.route('**/tests/mock-supabase.js',async route=>{
   const response=await route.fetch();
   const source=(await response.text()).replace('const target=db[this.table];',
-   "if(window.__qaFailCore&&this.table==='ops_business_settings'){window.__qaFailCore=false;return {data:null,error:{code:'08006',message:'Fallo ficticio de carga'}};}const target=db[this.table];");
+   "if(window.__qaFailCore&&this.table==='ops_business_settings'&&this.orderBy.length>0){window.__qaFailCore=false;return {data:null,error:{code:'08006',message:'Fallo ficticio de carga'}};}const target=db[this.table];");
   await route.fulfill({response,body:source});
  });
  await broken.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
