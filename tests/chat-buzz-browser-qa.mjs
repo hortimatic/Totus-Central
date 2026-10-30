@@ -16,7 +16,7 @@ try{
  await page.locator('[data-chat=open][data-id=a]').click();await page.locator('#chatBody').fill('Mensaje sin enviar');await page.locator('[data-chat=buzz]').click();
  await page.getByText('Zumbido enviado.',{exact:false}).waitFor();assert.equal(await page.locator('#chatBody').inputValue(),'Mensaje sin enviar','Buzz preserves the pending draft');
  assert.equal(await page.evaluate(()=>buzzQA.calls.filter(c=>c.name==='totus_chat_buzz').length),1);
- await chatAction(page,'alerts');await page.locator('[name=chat_background]').selectOption('color');await page.locator('[name=chat_background_color]').fill('#112233');await page.locator('dialog [type=submit]').click();assert.equal(await page.locator('.chat-messages').evaluate(el=>el.style.backgroundColor),'rgb(17, 34, 51)');
+ await chatAction(page,'alerts');await page.locator('[name=chat_background]').selectOption('color');await page.locator('[name=chat_background_color]').fill('#112233');await page.locator('dialog [type=submit]').click();assert.equal(await page.locator('.chat-messages').evaluate(el=>el.style.backgroundColor),'rgb(17, 34, 51)');assert.equal(await page.locator('.chat-messages').evaluate(el=>getComputedStyle(el).backgroundImage),'none','The default gradient must not cover the selected color');
  await page.evaluate(()=>{buzzQA.denied=true;});await page.locator('[data-chat=buzz]').click();await page.getByRole('alert').getByText(/No puedes enviar/).waitFor();assert.equal(await page.evaluate(()=>buzzQA.calls.filter(c=>c.name==='totus_chat_buzz').length),1);
  await page.evaluate(()=>buzzQA.c.reset());console.log('Chat buzz browser QA: explicit button, correct RPC, retained draft, background save and permission guard OK');
 }finally{await browser.close();}

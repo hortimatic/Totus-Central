@@ -15,7 +15,10 @@ begin
  if p_layout?'sound_volume' and (jsonb_typeof(p_layout->'sound_volume')<>'number' or (p_layout->>'sound_volume')::numeric not between 0 and 100) then raise exception 'Volumen no válido.';end if;
  if p_layout?'sound_style' and coalesce(p_layout->>'sound_style','') not in ('bell','double','soft','digital') then raise exception 'Sonido no válido.';end if;
  if p_layout?'chat_background' and coalesce(p_layout->>'chat_background','') not in ('default','lavender','sky','mint','sand','color','image') then raise exception 'Fondo no válido.';end if;
- if p_layout?'chat_background_color' and coalesce(p_layout->>'chat_background_color','') !~ '^#[0-9a-fA-F]{6} and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
+ if p_layout?'chat_background_color' and coalesce(p_layout->>'chat_background_color','') !~ '^#[0-9a-fA-F]{6}$' then raise exception 'Color no válido.';end if;
+ if p_layout?'chat_background_image' and (jsonb_typeof(p_layout->'chat_background_image')<>'string' or length(p_layout->>'chat_background_image')>350000 or ((p_layout->>'chat_background_image')<>'' and (p_layout->>'chat_background_image') !~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$')) then raise exception 'Imagen no válida.';end if;
+ if p_layout->>'chat_background'='image' and coalesce(p_layout->>'chat_background_image','')='' then raise exception 'Selecciona una imagen.';end if;
+ if p_layout?'compact_sidebar' and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
  foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups','channel_order'] loop
   if p_layout?key then
    if jsonb_typeof(p_layout->key)<>'array' or jsonb_array_length(p_layout->key)>100 then raise exception 'Lista de secciones no válida.';end if;

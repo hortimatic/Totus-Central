@@ -264,7 +264,10 @@
 
 /* Personal conversation background never changes the navigation or form surfaces. */
 .chat-personal-background,.chat-background-preview{background-position:center;background-size:cover;background-repeat:no-repeat}
-.chat-personal-background .chat-message{background:#fffffff2;border-radius:14px;padding:10px}
+.chat-personal-background .chat-message{color:#172033;background:#fffffff2;border-radius:14px;padding:10px}
 .chat-background-preview{min-height:110px;border:1px solid #dce5f2;border-radius:12px;display:grid;place-items:center;background-color:#f6f7fb}
 .chat-background-preview span{background:#ffffffed;color:#23334d;padding:12px;border-radius:14px}
 .chat-form-section output{font-weight:700;margin-left:8px}
+
+/* The chat retains its own readable light surfaces under a global dark palette. */
+.team-chat{color:#172033}

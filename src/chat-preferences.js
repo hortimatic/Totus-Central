@@ -13,7 +13,7 @@ export function chatPreferences(value={}){
 export function applyChatBackground(element,value){
  if(!element)return;
  const p=chatPreferences(value),colors={lavender:'#f0ebfa',sky:'#eaf3fc',mint:'#e9f5ef',sand:'#f8f0e3'};
- element.style.backgroundImage=p.chat_background==='image'&&p.chat_background_image?'url("'+p.chat_background_image+'")':'';
+ element.style.backgroundImage=p.chat_background==='image'&&p.chat_background_image?'url("'+p.chat_background_image+'")':p.chat_background==='default'?'':'none';
  element.style.backgroundColor=p.chat_background==='color'?p.chat_background_color:colors[p.chat_background]||'';
  element.classList.toggle('chat-personal-background',p.chat_background!=='default');
 }
