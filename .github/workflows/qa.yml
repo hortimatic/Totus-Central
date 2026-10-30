@@ -16,6 +16,8 @@ jobs:
       - run: node tests/chat-files-edge-qa.mjs
       - run: node tests/chat-file-reader-qa.mjs
       - run: node tests/tasks-core-qa.mjs
+      - run: node tests/appearance-qa.mjs
+      - run: node tests/chat-personalization-qa.mjs
       - run: node tests/chat-alerts-qa.mjs
       - run: node tests/team-chat-qa.mjs
       - run: node tests/stock-cloud-import-qa.mjs
@@ -153,6 +155,8 @@ jobs:
       - run: node tests/chat-workspace-browser-qa.mjs
       - run: node tests/chat-usability-browser-qa.mjs
       - run: node tests/chat-integral-browser-qa.mjs
+      - run: node tests/appearance-browser-qa.mjs
+      - run: node tests/chat-buzz-browser-qa.mjs
       - run: node tests/chat-alerts-browser-qa.mjs
       - run: node tests/stock-browser-qa.mjs
       - run: node tests/full-flow-qa.mjs
@@ -330,6 +334,11 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-store-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/024_chat_alert_preferences.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-layout-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/029_chat_personalization.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/chat-personalization-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/030_visual_configuration.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-advanced-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-start-db-fixture.sql

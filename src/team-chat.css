@@ -261,3 +261,10 @@
 @media(min-width:701px){@container (max-width:700px){.team-chat.chat-show-conversation>.chat-sidebar{display:none}}}
 @media(max-width:700px){.chat-compose textarea{min-height:48px}.chat-compose-tools>label:not(.chat-pick-btn){font-size:0;gap:0}.chat-compose-tools select{font-size:11px;max-width:135px}.chat-compose>div:last-child>small{flex:1 1 100%}.chat-compose>div:last-child>.btn{flex:1 1 130px}}
 @media(min-width:701px){@container (max-width:700px){.chat-compose textarea{min-height:48px}.chat-compose-tools>label:not(.chat-pick-btn){font-size:0;gap:0}.chat-compose-tools select{font-size:11px;max-width:135px}.chat-compose>div:last-child>small{flex:1 1 100%}.chat-compose>div:last-child>.btn{flex:1 1 130px}}}
+
+/* Personal conversation background never changes the navigation or form surfaces. */
+.chat-personal-background,.chat-background-preview{background-position:center;background-size:cover;background-repeat:no-repeat}
+.chat-personal-background .chat-message{background:#fffffff2;border-radius:14px;padding:10px}
+.chat-background-preview{min-height:110px;border:1px solid #dce5f2;border-radius:12px;display:grid;place-items:center;background-color:#f6f7fb}
+.chat-background-preview span{background:#ffffffed;color:#23334d;padding:12px;border-radius:14px}
+.chat-form-section output{font-weight:700;margin-left:8px}

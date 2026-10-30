@@ -11,6 +11,7 @@ fs.mkdirSync('artifacts',{recursive:true});
 const folder=fs.mkdtempSync('artifacts/published-graph-');
 for(const file of ['index.html','favicon.svg','fondo_original.png'])fs.copyFileSync(file,path.join(folder,file));
 fs.cpSync('src',path.join(folder,'src'),{recursive:true});
+fs.cpSync('assets',path.join(folder,'assets'),{recursive:true});
 fs.writeFileSync(path.join(folder,'src/graph-fixture.js'),"export {state} from './state.js';\nexport const api=()=>import( './api.js' );\nexport const pdf=()=>import(\"./vendor/pdfjs/pdf.mjs\");\n");
 const result=spawnSync(process.env.PYTHON||'python3',['-c',script],{cwd:folder,env:{...process.env,PYTHONUTF8:'1',GITHUB_SHA:sha},encoding:'utf8'});
 assert.equal(result.status,0,result.stderr);
