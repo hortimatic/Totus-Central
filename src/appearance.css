@@ -39,3 +39,5 @@ html[data-appearance=dark] :is(.data-table th,.data-table tr:hover td){backgroun
 
 .custom-login[data-login-align=left] .brand{align-items:flex-start}.custom-login[data-login-align=center] .brand{align-items:center}
 .appearance-preview[data-appearance=dark] :is(.data-table,.data-table th,.btn.secondary){background:var(--appearance-surface);color:var(--ink)}
+
+.appearance-grid .field{align-self:start}.appearance-grid legend{font-weight:800;font-size:14px;padding:4px 0 10px;border-bottom:1px solid var(--line);width:100%;margin-bottom:12px}

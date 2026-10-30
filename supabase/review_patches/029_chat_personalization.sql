@@ -12,64 +12,14 @@ begin
  foreach key in array array['sound_enabled','desktop_enabled'] loop
   if p_layout?key and jsonb_typeof(p_layout->key)<>'boolean' then raise exception 'Aviso no válido.';end if;
  end loop;
- if p_layout?'sound_volume' and (jsonb_typeof(p_layout->'sound_volume')<>'number' or (p_layout->>'sound_volume')::numeric not between 0 and 100) then raise exception 'Volumen no válido.';end if;
+ if p_layout?'sound_volume' then
+  if jsonb_typeof(p_layout->'sound_volume')<>'number' then raise exception 'Volumen no válido.';end if;
+  if (p_layout->>'sound_volume')::numeric not between 0 and 100 then raise exception 'Volumen no válido.';end if;
+ end if;
  if p_layout?'sound_style' and coalesce(p_layout->>'sound_style','') not in ('bell','double','soft','digital') then raise exception 'Sonido no válido.';end if;
  if p_layout?'chat_background' and coalesce(p_layout->>'chat_background','') not in ('default','lavender','sky','mint','sand','color','image') then raise exception 'Fondo no válido.';end if;
  if p_layout?'chat_background_color' and coalesce(p_layout->>'chat_background_color','') !~ '^#[0-9a-fA-F]{6}$' then raise exception 'Color no válido.';end if;
  if p_layout?'chat_background_image' and (jsonb_typeof(p_layout->'chat_background_image')<>'string' or length(p_layout->>'chat_background_image')>350000 or ((p_layout->>'chat_background_image')<>'' and (p_layout->>'chat_background_image') !~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$')) then raise exception 'Imagen no válida.';end if;
- if p_layout->>'chat_background'='image' and coalesce(p_layout->>'chat_background_image','')='' then raise exception 'Selecciona una imagen.';end if;
- if p_layout?'compact_sidebar' and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
- foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups','channel_order'] loop
-  if p_layout?key then
-   if jsonb_typeof(p_layout->key)<>'array' or jsonb_array_length(p_layout->key)>100 then raise exception 'Lista de secciones no válida.';end if;
-   for item in select value from jsonb_array_elements(p_layout->key) loop
-    if jsonb_typeof(item)<>'string' or length(btrim(item#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
-   end loop;
-  end if;
- end loop;
- foreach key in array array['group_labels','group_sort','channel_groups'] loop
-  if p_layout?key then
-   if jsonb_typeof(p_layout->key)<>'object' or (select count(*) from jsonb_object_keys(p_layout->key))>100 then raise exception 'Opciones de sección no válidas.';end if;
-   for pair in select * from jsonb_each(p_layout->key) loop
-    if length(btrim(pair.key)) not between 1 and 80 or jsonb_typeof(pair.value)<>'string' then raise exception 'Opciones de sección no válidas.';end if;
-    if key='channel_groups' and pair.key !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' then raise exception 'Canal no válido.';end if;
-    if key='group_sort' and (pair.value#>>'{}') not in ('alphabetical','recent','manual') then raise exception 'Orden no válido.';end if;
-    if key in ('group_labels','channel_groups') and length(btrim(pair.value#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
-   end loop;
-  end if;
- end loop;
- perform private.totus_chat_write_lock();
- update public.profiles set ui_preferences=jsonb_set(coalesce(ui_preferences,'{}'::jsonb),'{team_chat}',p_layout,true) where id=auth.uid();
- if not found then raise exception 'No se encontró tu perfil de usuario.';end if;
- return p_layout;
-end $$;
- then raise exception 'Color no válido.';end if;
- if p_layout?'chat_background_image' and (jsonb_typeof(p_layout->'chat_background_image')<>'string' or length(p_layout->>'chat_background_image')>350000 or ((p_layout->>'chat_background_image')<>'' and (p_layout->>'chat_background_image') !~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=* and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
- foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups','channel_order'] loop
-  if p_layout?key then
-   if jsonb_typeof(p_layout->key)<>'array' or jsonb_array_length(p_layout->key)>100 then raise exception 'Lista de secciones no válida.';end if;
-   for item in select value from jsonb_array_elements(p_layout->key) loop
-    if jsonb_typeof(item)<>'string' or length(btrim(item#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
-   end loop;
-  end if;
- end loop;
- foreach key in array array['group_labels','group_sort','channel_groups'] loop
-  if p_layout?key then
-   if jsonb_typeof(p_layout->key)<>'object' or (select count(*) from jsonb_object_keys(p_layout->key))>100 then raise exception 'Opciones de sección no válidas.';end if;
-   for pair in select * from jsonb_each(p_layout->key) loop
-    if length(btrim(pair.key)) not between 1 and 80 or jsonb_typeof(pair.value)<>'string' then raise exception 'Opciones de sección no válidas.';end if;
-    if key='channel_groups' and pair.key !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' then raise exception 'Canal no válido.';end if;
-    if key='group_sort' and (pair.value#>>'{}') not in ('alphabetical','recent','manual') then raise exception 'Orden no válido.';end if;
-    if key in ('group_labels','channel_groups') and length(btrim(pair.value#>>'{}')) not between 1 and 80 then raise exception 'Nombre de sección no válido.';end if;
-   end loop;
-  end if;
- end loop;
- perform private.totus_chat_write_lock();
- update public.profiles set ui_preferences=jsonb_set(coalesce(ui_preferences,'{}'::jsonb),'{team_chat}',p_layout,true) where id=auth.uid();
- if not found then raise exception 'No se encontró tu perfil de usuario.';end if;
- return p_layout;
-end $$;
-)) then raise exception 'Imagen no válida.';end if;
  if p_layout->>'chat_background'='image' and coalesce(p_layout->>'chat_background_image','')='' then raise exception 'Selecciona una imagen.';end if;
  if p_layout?'compact_sidebar' and jsonb_typeof(p_layout->'compact_sidebar')<>'boolean' then raise exception 'Vista de canales no válida.';end if;
  foreach key in array array['collapsed_groups','group_order','hidden_groups','extra_groups','channel_order'] loop
@@ -124,7 +74,7 @@ grant execute on function private.totus_chat_buzz(uuid,uuid),public.totus_chat_b
 -- Notification polling never downloads a personal background.
 create or replace function private.totus_chat_notification_context()
 returns jsonb language sql security invoker set search_path='' as $$
- select jsonb_build_object('channels',context->'channels','layout',(context->'layout')-'chat_background_image') from (select private.totus_chat_context() as context) row
+ select jsonb_build_object('channels',context->'channels','layout',(context->'layout')-'chat_background_image') from (select private.totus_chat_context() as context) as source
 $$;
 create or replace function public.totus_chat_notification_context()
 returns jsonb language sql security invoker set search_path='' as $$select private.totus_chat_notification_context()$$;

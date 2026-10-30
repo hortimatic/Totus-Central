@@ -1,6 +1,7 @@
 import {APPEARANCE_FIELDS,APPEARANCE_PRESETS,appearanceValues,appearanceVariables,loginVariables} from './appearance-core.js';
 import {prepareChatBackground} from './chat-preferences.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const asset=name=>new URL(name,new URL('../',import.meta.url)).href;
 const style=(element,variables)=>{for(const [key,value] of Object.entries(variables))element.style.setProperty(key,value);};
 export function applyInterfaceAppearance(input){
  const root=document.documentElement,c=appearanceValues('interfaz',input),enabled=!!input&&Object.keys(input).length>0;
@@ -9,18 +10,18 @@ export function applyInterfaceAppearance(input){
  const brand=document.querySelector('#app .sidebar>.brand');if(!brand)return;
  brand.querySelector('b').textContent=enabled?c.brandName:'Totus Central';brand.querySelector('small').textContent=enabled?c.brandSubtitle:'Gestión diaria';
  const mark=brand.querySelector('.brand-mark'),image=mark?.querySelector('img');
- if(image){image.src=enabled&&c.logoMode!=='tf'?'assets/branding/'+c.logoMode+'.png':'favicon.svg';image.style.objectFit='contain';}
+ if(image){image.src=enabled&&c.logoMode!=='tf'?asset('assets/branding/'+c.logoMode+'.png'):asset('favicon.svg');image.style.objectFit='contain';}
 }
 export function applyLoginAppearance(root,input){
  if(!root)return;
  const enabled=!!input&&Object.keys(input).length>0,c=appearanceValues('login',input);root.classList.toggle('custom-login',enabled);
  style(root,loginVariables(c));root.dataset.loginCard=c.loginCardPreset;root.dataset.loginButton=c.loginButtonMode;root.dataset.loginFrame=c.loginLogoFrame;root.dataset.loginAlign=c.loginAlign;
  const brand=root.querySelector('.brand');if(brand){brand.querySelector('b').textContent=enabled?c.loginBrandName:'Totus Central';brand.querySelector('small').textContent=enabled?c.loginSubtitle:'Gestión diaria';
-  const mark=brand.querySelector('.brand-mark'),img=mark?.querySelector('img');if(mark)mark.hidden=enabled&&c.loginLogoMode==='text';if(img)img.src=c.loginLogoMode==='uploaded'&&c.customLogoData?c.customLogoData:'favicon.svg';}
+  const mark=brand.querySelector('.brand-mark'),img=mark?.querySelector('img');if(mark)mark.hidden=enabled&&c.loginLogoMode==='text';if(img)img.src=c.loginLogoMode==='uploaded'&&c.customLogoData?c.customLogoData:asset('favicon.svg');}
  const help=root.querySelector('.login-card>p');if(help)help.textContent=enabled?c.loginHelpText:'Entra con tu correo y contraseña.';
  const recover=root.querySelector('#recoverBtn,[data-login-recovery]');if(recover)recover.textContent=enabled?c.loginRecoveryText:'He olvidado mi contraseña';
 }
-const previewLogin=()=>'<div class="login-card"><div class="brand"><span class="brand-mark"><img src="favicon.svg" alt=""></span><div><b>Totus Central</b><small>Gestión diaria</small></div></div><h2>Acceso</h2><p></p><label>Correo<input disabled placeholder="tu@correo.es"></label><label>Contraseña<input disabled type="password" placeholder="••••••••"></label><button type="button" class="btn primary" disabled>Entrar</button><button type="button" class="btn link" data-login-recovery disabled>He olvidado mi contraseña</button></div>';
+const previewLogin=()=>'<div class="login-card"><div class="brand"><span class="brand-mark"><img src="'+asset('favicon.svg')+'" alt=""></span><div><b>Totus Central</b><small>Gestión diaria</small></div></div><h2>Acceso</h2><p></p><label>Correo<input disabled placeholder="tu@correo.es"></label><label>Contraseña<input disabled type="password" placeholder="••••••••"></label><button type="button" class="btn primary" disabled>Entrar</button><button type="button" class="btn link" data-login-recovery disabled>He olvidado mi contraseña</button></div>';
 export const appearancePage=()=>'<section class="page appearance-page"><div class="card card-pad"><h2>Configuración</h2><p class="muted">Apariencia de Totus Central y de su pantalla de acceso. El fondo y los avisos personales se ajustan dentro de Chat.</p></div><div id="appearanceRoot"><p role="status">Preparando configuración…</p></div></section>';
 export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
  let host=null,owner=null,section='interfaz',values={},baseline='',busy=false,revision=0,epoch=0;
@@ -30,7 +31,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
  function preview(){
   values=read();host.querySelectorAll('output[data-value]').forEach(el=>el.textContent=values[el.dataset.value]);
   const pane=host.querySelector('[data-appearance-preview]');if(section==='login')applyLoginAppearance(pane,values);
-  else{style(pane,appearanceVariables(values));pane.dataset.appearance=values.theme;pane.querySelector('[data-brand-name]').textContent=values.brandName;pane.querySelector('[data-brand-subtitle]').textContent=values.brandSubtitle;pane.querySelector('[data-brand-logo]').src=values.logoMode==='tf'?'favicon.svg':'assets/branding/'+values.logoMode+'.png';}
+  else{style(pane,appearanceVariables(values));pane.dataset.appearance=values.theme;pane.querySelector('[data-brand-name]').textContent=values.brandName;pane.querySelector('[data-brand-subtitle]').textContent=values.brandSubtitle;pane.querySelector('[data-brand-logo]').src=values.logoMode==='tf'?asset('favicon.svg'):asset('assets/branding/'+values.logoMode+'.png');}
  }
  function field(key,f){
   const value=values[key],id='appearance-'+key;
