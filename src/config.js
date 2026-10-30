@@ -15,5 +15,6 @@ export const ROUTES=[
  {id:'documentos',label:'Documentos',icon:'▥',group:'Trabajo'},
  {id:'fiscalidad',label:'Fiscalidad',icon:'%',group:'Control'},
  {id:'informes',label:'Informes',icon:'▦',group:'Control'},
- {id:'administracion',label:'Administración',icon:'⚙',group:'Sistema',manager:true}
+ {id:'administracion',label:'Administración',icon:'⚙',group:'Sistema',manager:true},
+ {id:'configuracion',label:'Configuración',icon:'◈',group:'Sistema',manager:true}
 ];

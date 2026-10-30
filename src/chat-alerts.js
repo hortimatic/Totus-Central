@@ -1,3 +1,4 @@
+import {chatPreferences,isChatBuzz} from './chat-preferences.js';
 // Browser-only delivery. No push subscription, API billing or local persistence.
 let audio;
 export async function prepareChatSound(){
@@ -7,13 +8,21 @@ export async function prepareChatSound(){
  await audio.resume();
  if(audio.state!=='running')throw Error('Pulsa Probar sonido para permitir el audio en este equipo.');
 }
-export async function playChatSound(){
+export async function playChatSound(options={}){
  if(!audio||audio.state!=='running')return false;
- const oscillator=audio.createOscillator(),gain=audio.createGain(),now=audio.currentTime;
- oscillator.type='sine';oscillator.frequency.setValueAtTime(740,now);oscillator.frequency.setValueAtTime(880,now+0.12);
- gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(0.12,now+0.02);gain.gain.linearRampToValueAtTime(0,now+0.3);
- oscillator.connect(gain);gain.connect(audio.destination);oscillator.start(now);oscillator.stop(now+0.32);
- oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};return true;
+ const {sound_volume,sound_style}=chatPreferences(options);
+ if(!sound_volume)return false;
+ const patterns={bell:[740,880],double:[660,0,880],soft:[440,550],digital:[960,720,960]};
+ const tones=options.buzz?[180,0,180,0,180]:patterns[sound_style],now=audio.currentTime,step=options.buzz?.11:.12;
+ for(const [index,hz] of tones.entries()){
+  if(!hz)continue;
+  const oscillator=audio.createOscillator(),gain=audio.createGain(),at=now+index*step;
+  oscillator.type=options.buzz?'triangle':'sine';oscillator.frequency.setValueAtTime(hz,at);
+  gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.45*sound_volume/100,at+.015);gain.gain.linearRampToValueAtTime(0,at+step*.95);
+  oscillator.connect(gain);gain.connect(audio.destination);oscillator.start(at);oscillator.stop(at+step);
+  oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+ }
+ return true;
 }
 export function chatDesktopStatus(){
  return !globalThis.Notification?'Este navegador no ofrece avisos de escritorio.':Notification.permission==='granted'?'Permiso de este navegador: permitido.':Notification.permission==='denied'?'Permiso bloqueado. Puedes cambiarlo en los permisos del sitio del navegador.':'Permiso pendiente: se pedirá al activar o probar el aviso.';
@@ -33,7 +42,7 @@ export function createChatNotifier({rpc,actor,can=()=>true,onCount,onOpen,isRead
   if(owner!==actor()){owner=actor();seen.clear();primed=false;closeNotes();}
   const checkOwner=owner,stamp=epoch,version=preferenceVersion;running=true;
   try{
-   const [messages,context]=await Promise.all([rpc('totus_chat_inbox',{p_mentions:false}),rpc('totus_chat_context',{p_channel:null})]);
+   const [messages,context]=await Promise.all([rpc('totus_chat_inbox',{p_mentions:false}),rpc('totus_chat_notification_context',{})]);
    if(stamp!==epoch||checkOwner!==actor()||!can()||!Array.isArray(messages))return;
    if(version===preferenceVersion)preferences=context?.layout||preferences;
    const visible=messages.filter(m=>m.channel_kind!=='assistant'),ids=new Set(visible.map(m=>m.id));
@@ -43,11 +52,11 @@ export function createChatNotifier({rpc,actor,can=()=>true,onCount,onOpen,isRead
    const unread=channels?channels.filter(c=>c.channel_kind!=='assistant'&&c.member_role&&!c.muted&&!c.archived).reduce((n,c)=>n+Math.max(0,Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0)||0),0):visible.length;
    onCount(unread,visible);
    const fresh=primed?visible.filter(m=>!seen.has(m.id)&&!isReading(m)):[];
-   if(fresh.length&&preferences.sound_enabled)await sound().catch(()=>{});
+   if(fresh.length&&preferences.sound_enabled)await sound({...chatPreferences(preferences),buzz:fresh.some(isChatBuzz)}).catch(()=>{});
    if(stamp!==epoch||checkOwner!==actor()||!can())return;
    if(NotificationClass?.permission==='granted')for(const message of fresh.filter(m=>preferences.desktop_enabled??m.desktop_enabled).slice(0,5)){
     try{
-     const note=new NotificationClass('Totus Central · '+message.channel_name,{body:'Tienes un mensaje nuevo.',tag:'totus-'+message.id,icon:'favicon.svg',silent:true});
+     const note=new NotificationClass('Totus Central · '+message.channel_name,{body:isChatBuzz(message)?'Te han enviado un zumbido.':'Tienes un mensaje nuevo.',tag:'totus-'+message.id,icon:'favicon.svg',silent:true});
      notes.set(message.id,note);note.onclose=()=>notes.delete(message.id);
      note.onclick=()=>{note.close();if(stamp===epoch&&checkOwner===actor()&&can()){window.focus();onOpen(message);}};
     }catch{/* Unsupported delivery must not interrupt unread counts or other channels. */}

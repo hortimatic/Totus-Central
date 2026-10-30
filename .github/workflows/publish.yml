@@ -39,8 +39,10 @@ jobs:
           for name in ['index.html','favicon.svg','fondo_original.png']:
               shutil.copyfile(name,root/name)
           shutil.copytree('src',root/'src')
+          shutil.copytree('assets',root/'assets')
           html=(root/'index.html').read_text()
           assert 'ENTORNO DE PRUEBAS' not in html and "build.environment!=='production'" in html
+          html=html.replace('href="src/appearance.css"',f'href="src/appearance.css?v={sha}"')
           html=html.replace('href="src/tasks.css"',f'href="src/tasks.css?v={sha}"')
           html=html.replace('href="src/team-chat.css"',f'href="src/team-chat.css?v={sha}"')
           html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"').replace('src="src/app.js"',f'src="src/app.js?v={sha}"')

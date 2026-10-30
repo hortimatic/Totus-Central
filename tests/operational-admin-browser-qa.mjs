@@ -13,7 +13,8 @@ try{
  const nav=r=>page.locator('#nav [data-route="'+r+'"]').click();
  await nav('administracion');await page.locator('[data-action="user-permissions"][data-email="worker@qa.invalid"]').click();
  for(const module of ['equipo','tareas']){assert.equal(await page.locator('#perm_'+module+'_view').count(),1);await page.locator('#perm_'+module+'_create').uncheck();}
- await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===11);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
+ await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===12);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='configuracion').can_edit),true);
  await nav('cajas');await page.locator('[data-action="closing-edit"][data-id="'+fixture.id+'"]').click();await page.getByRole('button',{name:'Modificar cierre',exact:true}).click();
  assert.equal(await page.locator('#clReported').inputValue(),'200');assert.equal(await page.locator('#drOpen_'+fixture.drawer).inputValue(),'100');assert.equal(await page.locator('#drClose_'+fixture.drawer).inputValue(),'150');assert.equal(await page.locator('#drCard_'+fixture.drawer).inputValue(),'100');
  for(const key of ['Bizum','Online','Other','CashExpense','ExtraIn','ExtraOut'])await page.locator('#dr'+key+'_'+fixture.drawer).fill('0');
@@ -40,5 +41,5 @@ try{
  await page.evaluate(()=>{window.qaActivityFailure=false;document.dispatchEvent(new Event('visibilitychange'));});
  await page.locator('[data-activity-status]').waitFor({state:'hidden'});
  assert.equal(await page.getByPlaceholder('Buscar por texto',{exact:true}).inputValue(),'Conservar este filtro sin aplicar','Retry warning must update without redrawing unsaved fields');
- assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 11 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
+ assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 12 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
 }finally{await browser.close();}

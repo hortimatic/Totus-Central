@@ -1,3 +1,5 @@
+import {createChatPreferenceTransport} from './chat-preference-transport.js';
+import {createAppearanceUI,applyInterfaceAppearance,applyLoginAppearance} from './appearance-ui.js';
 import {createActivityLog} from './activity-log.js';
 import {beginStartupTiming,timedStartup,finishStartupTiming,clearStartupTiming,startupTimingReport} from './startup-timing.js';
 import {DRAWER_FORM_FIELDS,previewClosing} from './cash-closing.js';
@@ -80,7 +82,8 @@ function updateChatBadge(count){
  if(badge){badge.textContent=chatUnread>99?'99+':String(chatUnread);badge.hidden=chatUnread===0;badge.setAttribute('aria-label',chatUnread+' mensajes sin leer');}
 }
 function updateChatChannels(channels){updateChatBadge(channels.filter(c=>c.member_role&&!c.archived&&!c.muted&&c.notify_level!=='none').reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0));}
-const teamChat=createTeamChat({rpc,stores:()=>state.data.stores,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>{toast(message,'bad');activityLog.record('equipo','error_operacion','chat');},confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onAlerts:preferences=>chatNotifier.setPreferences(preferences),onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
+const chatPreferenceTransport=createChatPreferenceTransport({rpc,actor:()=>state.user?.id});
+const teamChat=createTeamChat({rpc:chatPreferenceTransport.rpc,stores:()=>state.data.stores,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>{toast(message,'bad');activityLog.record('equipo','error_operacion','chat');},confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onAlerts:preferences=>chatNotifier.setPreferences(preferences),onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
 const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,isReading:message=>teamChat.isReading(message),onOpen:async message=>{
  if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
 }});
@@ -88,13 +91,25 @@ const titles={
  equipo:['Trabajo','Chat'],tareas:['Trabajo','Tareas'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
- informes:['Control','Informes'],administracion:['Sistema','Administración']
+ informes:['Control','Informes'],administracion:['Sistema','Administración'],configuracion:['Sistema','Configuración']
 };
 
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
 function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+const appearanceUI=createAppearanceUI({settings:()=>state.data.settings,actor:()=>state.user?.id,canEdit:()=>can('configuracion','edit'),confirm:confirmAction,save:async(section,config,revision)=>{
+ const owner=state.user?.id;if(!owner||!can('configuracion','edit'))throw Error('No tienes permiso para editar Configuración.');
+ const saved=await rpc('totus_save_appearance',{p_section:section,p_config:config,p_expected_revision:revision});
+ if(state.user?.id!==owner)throw Error('La sesión ha cambiado.');
+ Object.assign(state.data.settings,saved);applyInterfaceAppearance(state.data.settings.appearance_config);applyLoginAppearance($('#login'),state.data.settings.login_appearance);
+}});
+// Only the explicitly public login appearance is readable before authentication.
+let loginAppearanceGeneration=0;
+async function loadPublicLoginAppearance(){
+ const generation=++loginAppearanceGeneration;
+ try{const result=await sb.from('ops_business_settings').select('login_appearance').limit(1).maybeSingle();if(result.error)throw result.error;if(generation!==loginAppearanceGeneration||state.user)return;applyLoginAppearance($('#login'),result.data?.login_appearance);}catch{if(generation===loginAppearanceGeneration&&!state.user)applyLoginAppearance($('#login'),null);}
+}
 function routeAllowed(r){return can(r.id,'view')}
 function permissionForAction(action,el){
  let module=null;
@@ -179,8 +194,8 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
- activityLog.navigate(state.route==='cotejos'?'recepciones':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':'');
- teamChat.dispose();tasks.dispose();
+ activityLog.navigate(state.route==='cotejos'?'recepciones':state.route==='configuracion'?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -205,6 +220,7 @@ function render(){
   if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
   if(target&&can('tareas','view'))rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
  }
+ if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
  if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
   const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await teamChat.openMessage(target.channel_id,target.id,target.parent_id);
@@ -214,6 +230,7 @@ let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=f
 const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(state.route!=='equipo'||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
+ if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?'))return false;
  if(!modalOnly&&state.route==='tareas'&&tasks.hasDraft()&&!await confirmAction('Hay una ficha de tarea abierta. ¿Salir sin guardar los cambios?'))return false;
  if(!modalOnly&&state.route==='equipo'&&teamChat.hasDraft()&&!await confirmAction('Hay mensajes sin enviar en el chat. Se conservarán durante esta sesión; al cerrar sesión o recargar se perderán. ¿Salir del chat?'))return false;
  const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
@@ -232,7 +249,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
@@ -3101,6 +3118,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
 }
 function clearSessionView(){
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
@@ -3149,3 +3167,5 @@ async function refreshOneDrivePanel(){
  try{setOneDriveStatus(await oneDriveRequest('status'));}catch(error){setOneDriveStatus({error:error.message});if(state.route==='administracion'&&getView('administracion').section==='storage')render();throw error;}
  if(state.route==='administracion'&&['storage','onedrive'].includes(getView('administracion').section))render();
 }
+
+void loadPublicLoginAppearance();

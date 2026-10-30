@@ -5,7 +5,7 @@ try{
  const retryPage=await browser.newPage();
  await retryPage.addInitScript(()=>window.__qaFailCore=true);
  await retryPage.route('**/tests/mock-supabase.js',async route=>{
-  const response=await route.fetch(),text=(await response.text()).replace('const target=db[this.table];',"if(window.__qaFailCore&&this.table==='ops_business_settings'){window.__qaFailCore=false;return {data:null,error:{code:'08006',message:'Carga ficticia interrumpida'}};}const target=db[this.table];");
+  const response=await route.fetch(),text=(await response.text()).replace('const target=db[this.table];',"if(window.__qaFailCore&&this.table==='ops_business_settings'&&this.orderBy.length>0){window.__qaFailCore=false;return {data:null,error:{code:'08006',message:'Carga ficticia interrumpida'}};}const target=db[this.table];");
   await route.fulfill({response,body:text});
  });
  await retryPage.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});

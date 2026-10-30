@@ -2,7 +2,7 @@
 export const PERMISSION_MODULES=[
  ['inicio','Inicio'],['pricing','Precios'],['cajas','Cajas'],['gastos','Gastos'],
  ['facturacion','Facturación'],['documentos','Documentos y recepciones'],['equipo','Chat'],['tareas','Tareas'],['fiscalidad','Fiscalidad'],
- ['informes','Informes'],['administracion','Administración']
+ ['informes','Informes'],['administracion','Administración'],['configuracion','Configuración']
 ];
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];
 let roleOverrides=[];
@@ -10,6 +10,7 @@ export function setRolePermissions(rows=[]){roleOverrides=Array.isArray(rows)?ro
 export function defaultRolePermissions(role,module){
  if(!role||!PERMISSION_MODULES.some(([code])=>code===module))return {view:false,create:false,edit:false,delete:false,export:false};
  if(role==='admin')return {view:true,create:true,edit:true,delete:true,export:true};
+ if(module==='configuracion')return {view:role==='gerente',create:false,edit:false,delete:false,export:false};
  if(['equipo','tareas'].includes(module))return {view:true,create:true,edit:true,delete:true,export:true};
  if(role==='gerente')return module==='fiscalidad'
   ?{view:true,create:true,edit:true,delete:false,export:true}

@@ -30,6 +30,7 @@ try{
     if(p.p_before)rows=rows.filter(m=>m.seq<p.p_before);
     return structuredClone({channels:q.channels,messages:rows.slice(-51),members:q.members,directory:q.directory,layout:q.layout||{}});
    }
+   if(name==='totus_chat_notification_context')return structuredClone({channels:q.channels,layout:q.layout||{}});
    if(name==='totus_chat_save_layout'){q.layout=structuredClone(p.p_layout);return q.layout;}
    if(name==='totus_chat_inbox')return structuredClone(q.messages.filter(m=>m.author_email!==q.owner&&!m.deleted_at&&m.seq>(q.channels.find(c=>c.id===m.channel_id)?.last_read_seq||0)&&!q.channels.find(c=>c.id===m.channel_id)?.muted).map(m=>({...m,channel_name:q.channels.find(c=>c.id===m.channel_id).name,desktop_enabled:true})));
    if(name==='totus_chat_file_remove'){q.files.find(f=>f.id===p.p_id).deleted_at=new Date().toISOString();q.messages.forEach(m=>m.files=(m.files||[]).filter(f=>f.id!==p.p_id));return {};}
