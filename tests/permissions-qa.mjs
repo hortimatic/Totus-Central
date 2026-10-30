@@ -32,6 +32,6 @@ assert.ok(page.includes("btn('Permisos','user-permissions'"),'User table needs p
 assert.ok(app.includes("if(!can(route,'view'))"),'Blocked routes must not navigate');
 console.log('PERMISSIONS QA: role matrix, nine modules, overrides, UI controls OK');
 
-assert.equal(canUser(staff,'configuracion','view'),false);assert.equal(canUser(manager,'configuracion','view'),true);assert.equal(canUser(manager,'configuracion','edit'),false);
+assert.equal(canUser(staff,'configuracion','view'),true);assert.equal(canUser(manager,'configuracion','view'),true);assert.equal(canUser(manager,'configuracion','edit'),false);
 assert.equal(canUser(staff,'configuracion','edit',[{...override,module:'configuracion',can_edit:true}]),true);
 assert.equal(canUser(staff,'administracion','view',[{...override,module:'configuracion',can_edit:true}]),false);

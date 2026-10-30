@@ -32,6 +32,8 @@ try{
  assert.equal(await page.evaluate(()=>workspaceQA.channels[79].notify_level),'mentions');
  assert.deepEqual(await page.evaluate(()=>workspaceQA.calls.find(c=>c.p?.p_action==='member_preferences').p.p_data),{channel_id:'c79',favourite:true},'Quick favourite cannot overwrite other preferences');
  await chatAction(page,'favourite');await page.waitForFunction(()=>!workspaceQA.channels[79].favourite);
+ assert.equal(await page.locator('.chat-message-more').count(),0,'Message actions have no More dropdown');
+ await page.locator('[data-chat=copy][data-id=m2]').hover();await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-chat=copy][data-id=m2]').closest('.chat-message-actions')).opacity==='1');
  await chatClick(page,page.locator('[data-chat=copy][data-id=m2]'));assert.equal(await page.evaluate(()=>workspaceQA.clipboard),'Gracias @Equipo de tienda. Lo revisamos hoy.');
  await chatAction(page,'channel-files');assert.equal(await page.locator('.chat-library-file').count(),1);
  await page.locator('[data-library-preview]').click();await page.getByText('Justificante de prueba ficticio',{exact:true}).waitFor();await page.locator('dialog [data-chat-close]').click();

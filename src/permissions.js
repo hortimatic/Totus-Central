@@ -10,7 +10,7 @@ export function setRolePermissions(rows=[]){roleOverrides=Array.isArray(rows)?ro
 export function defaultRolePermissions(role,module){
  if(!role||!PERMISSION_MODULES.some(([code])=>code===module))return {view:false,create:false,edit:false,delete:false,export:false};
  if(role==='admin')return {view:true,create:true,edit:true,delete:true,export:true};
- if(module==='configuracion')return {view:role==='gerente',create:false,edit:false,delete:false,export:false};
+ if(module==='configuracion')return {view:true,create:false,edit:false,delete:false,export:false};
  if(['equipo','tareas'].includes(module))return {view:true,create:true,edit:true,delete:true,export:true};
  if(role==='gerente')return module==='fiscalidad'
   ?{view:true,create:true,edit:true,delete:false,export:true}

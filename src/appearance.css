@@ -84,3 +84,13 @@ html[data-appearance] .btn:focus-visible,.appearance-demo .btn:focus-visible{out
 @media(max-width:550px){.appearance-grid .appearance-section fieldset{padding:12px}.appearance-grid .form-actions{bottom:4px;gap:6px}.appearance-grid .form-actions .btn{padding:9px;font-size:12px}}
 html[data-appearance=dark] .appearance-page :is(.appearance-section,.appearance-image-upload,.appearance-presets select,.form-actions){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
 html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearance=dark] .appearance-section>summary{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.appearance-anchors{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0}
+.appearance-anchors button{border:1px solid var(--line);border-radius:20px;padding:7px 10px;background:var(--panel);color:var(--ink);font-size:12px;font-weight:650}
+.appearance-anchors button:hover{border-color:var(--accent);color:var(--accent)}
+.appearance-anchors button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.appearance-section,.appearance-preview-card{scroll-margin-top:100px}
+.appearance-anchors [data-show-preview]{margin-left:auto;background:#e8f0ff;color:#1d4c93}
+
+/* Keep replaced images inside the configured logo height in CSS grid. */
+.custom-login .brand-mark{overflow:hidden;min-width:0;min-height:0}
+.custom-login .brand-mark img{height:var(--login-logo-height);max-height:100%;min-height:0;min-width:0}

@@ -2,9 +2,9 @@
 
 ## Uso
 
-- **Configuración**, debajo de Administración, contiene **Interfaz** y **Login · acceso**. Recupera los controles visuales de la referencia TotusFlow: marca, colores, densidad, tamaños, bordes, sombras, caja de acceso, tipografía, fondos e imágenes.
-- Cambiar un control modifica únicamente la vista previa. **Guardar** aplica el cambio a la organización; **Descartar cambios** recupera lo guardado. Restaurar valores iniciales y aplicar un estilo también requieren guardar.
-- Configuración tiene una fila propia en Usuarios → Permisos y en los permisos de cada rol. Ver permite consultar; Editar permite guardar la apariencia. Administración mantiene la asignación de permisos. Este acceso no concede editar ajustes fiscales. No crea roles ni modifica contraseñas, fiscalidad o permisos.
+- **Configuración**, debajo de Administración, contiene **Mi interfaz** y **Login compartido**. Recupera los controles visuales de la referencia TotusFlow: marca, colores, densidad, tamaños, bordes, sombras, caja de acceso, tipografía, fondos e imágenes.
+- Cambiar un control modifica únicamente la vista previa. **Aplicar y guardar mi interfaz** conserva el diseño solo en tu cuenta, también tras recargar y desde otros ordenadores. **Aplicar y guardar Login** cambia únicamente la pantalla de acceso compartida; **Descartar cambios** recupera lo guardado. Restaurar valores iniciales y aplicar un estilo también requieren guardar.
+- Configuración tiene una fila propia en Usuarios → Permisos y en los permisos de cada rol. Ver permite consultar y personalizar la propia Interfaz; Editar permite guardar el Login compartido. Los permisos explícitos de cada usuario siguen prevaleciendo. Administración mantiene la asignación de permisos. Este acceso no concede editar ajustes fiscales. No crea roles ni modifica contraseñas, fiscalidad o permisos.
 - Los textos y las imágenes de Login son públicos: se muestran antes de entrar. No subir facturas, información personal ni documentos privados como fondo o logotipo.
 - **Chat → rueda dentada → Fondo, sonido y avisos** contiene las preferencias personales. Cada usuario elige fondo, imagen, sonido y volumen de 0 a 100 %. Los cambios se conservan en su cuenta para otros ordenadores.
 - **Probar sonido** permite escuchar el tono al volumen seleccionado y desbloquea el audio del navegador. El volumen del equipo también influye. Los avisos de escritorio requieren autorización en cada navegador.
@@ -21,6 +21,7 @@
 - `chat-preference-transport.js`: caché efímera por sesión. El fondo solo se vuelve a transmitir cuando cambia su huella; el sondeo de avisos nunca descarga la imagen. La caché se borra al salir.
 - Parche `029_chat_personalization.sql`: preferencias dentro de `profiles.ui_preferences.team_chat`; zumbido con autorización real, exclusión mutua, límite y reintento idempotente. El mensaje y el evento se guardan en las tablas de Chat ya existentes.
 - Parche `030_visual_configuration.sql`: tres columnas opcionales en `ops_business_settings`: `appearance_config`, `login_appearance`, `appearance_revision`. El guardado comprueba el permiso independiente Configuración → Editar y solo acepta campos visuales conocidos, valida tipos y rangos y rechaza revisiones antiguas.
+- Parche `031_personal_interface.sql`: guarda Interfaz en `profiles.ui_preferences.interface`, con revisión propia y bloqueo de ediciones antiguas. Conserva las preferencias de Chat e Informes. El diseño global anterior es solo el punto de partida de las cuentas que aún no se han personalizado. Las pestañas antiguas tampoco pueden cambiar la interfaz de otras personas. El arranque vuelve a aplicar el diseño de la cuenta después de cargar su perfil.
 - Antes de autenticar solo se concede lectura de la columna `login_appearance` a `anon`; no puede leer el resto de ajustes, NIF ni datos fiscales. Se mantienen los permisos de usuarios autenticados.
 - La configuración personal y global entra en las copias existentes mediante `profiles` y `ops_business_settings`. Las columnas nuevas son opcionales y se excluyen del hash contable de compatibilidad para conservar la restauración de copias anteriores. No se cambia el formato ni la retención de diez copias.
 - El registro automático de cambios guarda los nombres de los campos modificados, sin duplicar las imágenes en el Log.
@@ -39,3 +40,11 @@ Pruebas SQL aisladas: anonimato restringido a la apariencia de Login, conservaci
 - Interfaz y Login permiten subir tanto logotipo como fondo. Los logotipos conservan transparencia mediante WebP. Las imágenes se comprimen; no se crean documentos contables.
 - El color de texto de botones lisos se adapta al color de fondo. La selección de colores, tamaños y efecto puede comprobarse antes de guardar.
 - Referencias de diseño: [roles de color de Material](https://m3.material.io/styles/color/the-color-system), [elevación de Fluent](https://fluent2.microsoft.design/elevation/). No se carga código externo de estas plataformas.
+
+## Ajustes de esta revisión
+
+- Accesos directos a Marca, Colores, Fondo, Bordes y Tamaños, más Ver resultado. Se conservan todos los controles y la vista previa móvil.
+- Usar diseño base y Restaurar valores iniciales solo modifican la vista previa hasta guardar. Descartar cambios recupera lo guardado.
+- Las acciones de cada mensaje de Chat están juntas, sin el desplegable Más. Aparecen al pasar el ratón o enfocar el mensaje; en pantallas táctiles permanecen accesibles.
+- Prueba adicional con dos cuentas ficticias: guardar nombre, color y logo, recargar la aplicación real, cambiar de cuenta y comprobar independencia, persistencia y permisos del Login. La prueba SQL aislada también cubre revisiones antiguas, acceso denegado y conservación de los demás ajustes.
+- Se limita la imagen del Login a su altura configurada, evitando que su tamaño natural tape el formulario; se comprueba en seis anchos de pantalla.

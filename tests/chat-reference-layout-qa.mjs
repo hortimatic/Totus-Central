@@ -1,4 +1,3 @@
-import {chatClick} from './chat-menu-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
@@ -27,7 +26,7 @@ try{
  assert.equal(await page.locator('.chat-message').count(),3);assert.equal(await page.locator('.chat-file').count(),1);
  await page.locator('.chat-heading h2').hover();assert.equal(await page.locator('[data-message=two] .chat-message-actions').evaluate(el=>getComputedStyle(el).opacity),'0');
  await page.locator('[data-message=two] .chat-body').hover();await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-message=two] .chat-message-actions')).opacity==='1');
- await chatClick(page,page.locator('[data-message=two] summary'));await page.locator('[data-message=two] [data-chat=edit]').focus();assert.equal(await page.locator('[data-message=two] [data-chat=edit]').isVisible(),true);
+ assert.equal(await page.locator('[data-message=two] summary').count(),0,'All message actions are direct, without More');await page.locator('[data-message=two] [data-chat=edit]').focus();assert.equal(await page.locator('[data-message=two] [data-chat=edit]').isVisible(),true);
  await page.locator('.chat-heading h2').click();
  for(const width of [320,390,700,768,900,1024,1440,1920]){
   await page.setViewportSize({width,height:1000});
