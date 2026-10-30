@@ -1,5 +1,5 @@
 -- Visual settings only; compatible with old backups (nullable, optional columns).
-do $begin perform set_config('totus.appearance_before_hash',private.totus_recovery_schema_hash(),false);end $;
+do $$begin perform set_config('totus.appearance_before_hash',private.totus_recovery_schema_hash(),false);end $$;
 alter table public.ops_business_settings add column if not exists appearance_config jsonb default '{}'::jsonb;
 alter table public.ops_business_settings add column if not exists login_appearance jsonb default '{}'::jsonb;
 alter table public.ops_business_settings add column if not exists appearance_revision bigint default 0;

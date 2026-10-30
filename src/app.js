@@ -194,7 +194,7 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
- activityLog.navigate(state.route==='cotejos'?'recepciones':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':'');
+ activityLog.navigate(state.route==='cotejos'?'recepciones':state.route==='configuracion'?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
