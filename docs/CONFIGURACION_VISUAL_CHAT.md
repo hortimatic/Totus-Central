@@ -47,3 +47,4 @@ Pruebas SQL aisladas: anonimato restringido a la apariencia de Login, conservaci
 - Usar diseño base y Restaurar valores iniciales solo modifican la vista previa hasta guardar. Descartar cambios recupera lo guardado.
 - Las acciones de cada mensaje de Chat están juntas, sin el desplegable Más. Aparecen al pasar el ratón o enfocar el mensaje; en pantallas táctiles permanecen accesibles.
 - Prueba adicional con dos cuentas ficticias: guardar nombre, color y logo, recargar la aplicación real, cambiar de cuenta y comprobar independencia, persistencia y permisos del Login. La prueba SQL aislada también cubre revisiones antiguas, acceso denegado y conservación de los demás ajustes.
+- Se limita la imagen del Login a su altura configurada, evitando que su tamaño natural tape el formulario; se comprueba en seis anchos de pantalla.
