@@ -82,3 +82,5 @@ html[data-appearance] .btn:focus-visible,.appearance-demo .btn:focus-visible{out
 .appearance-image-empty{font-size:30px;color:#6d8cba;text-align:center}.appearance-image-upload input{width:100%;min-width:0}.appearance-image-upload .btn{justify-self:start}
 @media(prefers-reduced-motion:reduce){html[data-appearance] #app .btn,.appearance-demo .btn{transition:none!important;transform:none!important}}
 @media(max-width:550px){.appearance-grid .appearance-section fieldset{padding:12px}.appearance-grid .form-actions{bottom:4px;gap:6px}.appearance-grid .form-actions .btn{padding:9px;font-size:12px}}
+html[data-appearance=dark] .appearance-page :is(.appearance-section,.appearance-image-upload,.appearance-presets select,.form-actions){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearance=dark] .appearance-section>summary{background:var(--panel);color:var(--ink);border-color:var(--line)}
