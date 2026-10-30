@@ -112,14 +112,13 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    (deleted?'':'<footer><div class="chat-reactions">'+reactions+'</div><div class="chat-message-actions">'+button('Copiar','copy',id)+
    (writable&&can('create')?button('Citar','quote',id):'')+
    (!data.parent?button(m.replies?m.replies+(Number(m.replies)===1?' respuesta':' respuestas'):writable?'Responder':'Ver conversación','thread',id):'')+
-   '<details class="chat-message-more" data-chat-menu="message-'+esc(m.id)+'"><summary id="chatMenu-message-'+esc(m.id)+'" aria-label="Más opciones del mensaje">⋯ Más</summary><div class="chat-message-menu-actions">'+
    (mine&&writable?button('Adjuntar','attach',id)+button('Editar','edit',id)+button('Eliminar','message-delete',id,'danger'):'')+
    (!mine&&manager()&&writable?button('Eliminar','message-delete',id,'danger'):'')+
    (manager()&&writable?button(m.pinned?'Desfijar':'Fijar','pin',id):'')+
    (writable&&(mine||manager())?button(m.task_state?'Gestionar tarea':'Crear tarea','task',id):'')+
    (writable&&(mine||manager())&&m.author_kind!=='assistant'&&(!m.agent_request||m.agent_request.status==='cancelled')?button('Pedir a ChatGPT','agent-request',id):'')+
    (writable&&(mine||manager())&&['pending','working'].includes(m.agent_request?.status)?button('Cancelar solicitud','agent-cancel',id):'')+
-   (m.task_state||m.agent_request?button('Preparar para ChatGPT','prompt',id):'')+'</div></details></div></footer>')+'</article>';
+   (m.task_state||m.agent_request?button('Preparar para ChatGPT','prompt',id):'')+'</div></footer>')+'</article>';
  }
  function paint(){
   if(!host||composing)return;

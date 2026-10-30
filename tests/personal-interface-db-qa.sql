@@ -1,0 +1,31 @@
+\set ON_ERROR_STOP on
+begin;
+update public.profiles set ui_preferences='{"reports":["keep"],"team_chat":{"sound_enabled":true}}' where id='22222222-2222-4222-8222-222222222222';
+select set_config('qa.shared_settings',md5((select to_jsonb(s)::text from public.ops_business_settings s where id=1)),true);
+set role authenticated;
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
+select public.qa_assert(private.totus_can('configuracion','view'),'staff may customize own interface');
+select public.qa_assert(not private.totus_can('configuracion','edit'),'staff cannot edit shared login');
+select public.totus_save_my_appearance('{"brandName":"Cuenta A","borderColor":"#ff0000"}',0);
+select public.qa_denied('select public.totus_save_my_appearance(''{"brandName":"stale"}'',0)','otra ventana');
+select public.qa_denied('select public.totus_save_my_appearance(''{"tax_id":"BAD"}'',1)','Campo');
+select public.qa_denied('select public.totus_save_appearance(''login'',''{}'',0)','Login compartido');
+-- Old clients must also save to their own profile, never the organization.
+select public.totus_save_appearance('interfaz','{"brandName":"Cuenta A actualizada"}',1);
+select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333"}',true);
+select public.totus_save_my_appearance('{"brandName":"Cuenta B"}',0);
+reset role;
+select public.qa_assert((select ui_preferences#>>'{interface,config,brandName}' from public.profiles where id='22222222-2222-4222-8222-222222222222')='Cuenta A actualizada','other user cannot overwrite A');
+select public.qa_assert((select ui_preferences#>>'{interface,config,brandName}' from public.profiles where id='33333333-3333-4333-8333-333333333333')='Cuenta B','B persists independently');
+select public.qa_assert((select ui_preferences->'reports' from public.profiles where id='22222222-2222-4222-8222-222222222222')='["keep"]'::jsonb,'report preferences preserved');
+select public.qa_assert((select ui_preferences#>>'{team_chat,sound_enabled}' from public.profiles where id='22222222-2222-4222-8222-222222222222')='true','chat preferences preserved');
+select public.qa_assert(md5((select to_jsonb(s)::text from public.ops_business_settings s where id=1))=current_setting('qa.shared_settings'),'shared settings completely unchanged');
+insert into public.ops_user_permissions(email,module,can_view) values('staff@example.invalid','configuracion',false);
+set role authenticated;
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
+select public.qa_denied('select public.totus_save_my_appearance(''{}'',2)','acceso');
+reset role;
+set role anon;
+select public.qa_denied('select public.totus_save_my_appearance(''{}'',0)','permission denied');
+reset role;
+rollback;

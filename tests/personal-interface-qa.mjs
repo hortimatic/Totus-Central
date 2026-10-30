@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {personalInterfaceSettings,acceptPersonalInterface} from '../src/interface-preferences.js';
+const state={user:{id:'a'},data:{settings:{appearance_config:{brandName:'Legacy'},appearance_revision:99,login_appearance:{loginBrandName:'Shared'}},profiles:[{id:'a',ui_preferences:{reports:['keep']}},{id:'b',ui_preferences:{}}]}};
+assert.equal(personalInterfaceSettings(state).appearance_revision,0);
+assert.equal(personalInterfaceSettings(state).appearance_config.brandName,'Legacy');
+acceptPersonalInterface(state,{config:{brandName:'A'},revision:1},'a');
+assert.equal(personalInterfaceSettings(state).appearance_config.brandName,'A');
+assert.deepEqual(state.data.profiles[0].ui_preferences.reports,['keep']);
+state.user={id:'b'};assert.equal(personalInterfaceSettings(state).appearance_config.brandName,'Legacy');
+assert.throws(()=>acceptPersonalInterface(state,{config:{},revision:2},'a'),/sesión/);
+acceptPersonalInterface(state,{config:{brandName:'B'},revision:1},'b');
+state.user={id:'a'};assert.equal(personalInterfaceSettings(state).appearance_config.brandName,'A');
+assert.equal(state.data.settings.appearance_config.brandName,'Legacy');
+assert.equal(state.data.settings.appearance_revision,99);
+console.log('Personal interface: independent accounts, session guard, legacy fallback, unchanged shared configuration and other preferences OK');

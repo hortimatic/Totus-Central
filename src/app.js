@@ -1,3 +1,4 @@
+import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
 import {createChatPreferenceTransport} from './chat-preference-transport.js';
 import {createAppearanceUI,applyInterfaceAppearance,applyLoginAppearance} from './appearance-ui.js';
 import {createActivityLog} from './activity-log.js';
@@ -98,11 +99,15 @@ const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'')
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
 function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
-const appearanceUI=createAppearanceUI({settings:()=>state.data.settings,actor:()=>state.user?.id,canEdit:()=>can('configuracion','edit'),confirm:confirmAction,save:async(section,config,revision)=>{
- const owner=state.user?.id;if(!owner||!can('configuracion','edit'))throw Error('No tienes permiso para editar Configuración.');
- const saved=await rpc('totus_save_appearance',{p_section:section,p_config:config,p_expected_revision:revision});
- if(state.user?.id!==owner)throw Error('La sesión ha cambiado.');
- Object.assign(state.data.settings,saved);applyInterfaceAppearance(state.data.settings.appearance_config);applyLoginAppearance($('#login'),state.data.settings.login_appearance);
+const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?personalInterfaceSettings(state):state.data.settings,actor:()=>state.user?.id,canEdit:section=>can('configuracion',section==='interfaz'?'view':'edit'),confirm:confirmAction,save:async(section,config,revision)=>{
+ const owner=state.user?.id;if(!owner||!can('configuracion',section==='interfaz'?'view':'edit'))throw Error('No tienes permiso para editar esta configuración.');
+ if(section==='interfaz'){
+  const saved=await rpc('totus_save_my_appearance',{p_config:config,p_expected_revision:revision});acceptPersonalInterface(state,saved,owner);
+ }else{
+  const saved=await rpc('totus_save_appearance',{p_section:section,p_config:config,p_expected_revision:revision});
+  if(state.user?.id!==owner)throw Error('La sesión ha cambiado.');Object.assign(state.data.settings,saved);
+ }
+ applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
 }});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
@@ -340,6 +345,8 @@ async function refresh(message=''){
  state.loading=true;
  try{
   if(await timedStartup('carga_principal',()=>loadCore())===false||!current())return;
+  applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);
+  applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
   if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
