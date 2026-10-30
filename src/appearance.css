@@ -41,3 +41,5 @@ html[data-appearance=dark] :is(.data-table th,.data-table tr:hover td){backgroun
 .appearance-preview[data-appearance=dark] :is(.data-table,.data-table th,.btn.secondary){background:var(--appearance-surface);color:var(--ink)}
 
 .appearance-grid .field{align-self:start}.appearance-grid legend{font-weight:800;font-size:14px;padding:4px 0 10px;border-bottom:1px solid var(--line);width:100%;margin-bottom:12px}
+
+html[data-appearance] .sidebar .brand>div,.custom-login .brand>div{min-width:0;max-width:100%}html[data-appearance] .sidebar .brand b,html[data-appearance] .sidebar .brand small,.custom-login .brand b,.custom-login .brand small{overflow-wrap:anywhere}

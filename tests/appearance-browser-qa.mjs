@@ -17,6 +17,7 @@ try{
  await page.locator('button[type=submit]').click();assert.equal(await page.locator('#app .brand b').textContent(),'Totus QA');assert.equal(await page.locator('.app-build').textContent(),'versión QA');
  assert.equal(await page.evaluate(()=>appearanceQA.row.appearance_config.fontSize),15);
  await page.locator('[data-appearance-tab=login]').click();assert.equal(await page.locator('fieldset input,fieldset select').count(),24);await page.waitForFunction(()=>document.querySelector('[data-appearance-preview] .brand img').naturalWidth>0);
+ await page.locator('[name=loginCardPreset]').selectOption('dark');assert.equal(await page.locator('[name=loginTextColor]').inputValue(),'#f8fafc');await page.locator('[name=loginCardPreset]').selectOption('glass');assert.equal(await page.locator('[name=loginTextColor]').inputValue(),'#0f172a');
  await page.locator('[name=loginBrandName]').fill('Acceso QA');await page.locator('[name=loginHelpText]').fill('Ayuda propia');await page.locator('[name=loginBackground]').selectOption('tech-soft');
  const image=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=200;c.height=100;c.getContext('2d').fillRect(0,0,200,100);return c.toDataURL('image/png').split(',')[1];});
  await page.locator('[data-image=customLogoData]').setInputFiles({name:'marca.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});
