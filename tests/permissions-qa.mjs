@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {canUser,permissionsFor,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../src/permissions.js';
-assert.equal(PERMISSION_MODULES.length,11);
+assert.equal(PERMISSION_MODULES.length,12);
 assert.deepEqual(PERMISSION_ACTIONS.map(x=>x[0]),['view','create','edit','delete','export']);
 const admin={email:'admin@example.invalid',role:'admin'};
 const manager={email:'manager@example.invalid',role:'gerente'};
@@ -31,3 +31,7 @@ assert.ok(app.includes('userPermissionsModal(el.dataset.email)'),'Permission mod
 assert.ok(page.includes("btn('Permisos','user-permissions'"),'User table needs permission control');
 assert.ok(app.includes("if(!can(route,'view'))"),'Blocked routes must not navigate');
 console.log('PERMISSIONS QA: role matrix, nine modules, overrides, UI controls OK');
+
+assert.equal(canUser(staff,'configuracion','view'),false);assert.equal(canUser(manager,'configuracion','view'),true);assert.equal(canUser(manager,'configuracion','edit'),false);
+assert.equal(canUser(staff,'configuracion','edit',[{...override,module:'configuracion',can_edit:true}]),true);
+assert.equal(canUser(staff,'administracion','view',[{...override,module:'configuracion',can_edit:true}]),false);

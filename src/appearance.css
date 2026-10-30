@@ -43,3 +43,42 @@ html[data-appearance=dark] :is(.data-table th,.data-table tr:hover td){backgroun
 .appearance-grid .field{align-self:start}.appearance-grid legend{font-weight:800;font-size:14px;padding:4px 0 10px;border-bottom:1px solid var(--line);width:100%;margin-bottom:12px}
 
 html[data-appearance] .sidebar .brand>div,.custom-login .brand>div{min-width:0;max-width:100%}html[data-appearance] .sidebar .brand b,html[data-appearance] .sidebar .brand small,.custom-login .brand b,.custom-login .brand small{overflow-wrap:anywhere}
+
+/* Shared visual tokens inspired by Material color roles and Fluent elevation. */
+html[data-appearance] body,.appearance-demo{background-image:var(--appearance-bg-image);background-size:cover;background-position:center;background-attachment:fixed}
+html[data-appearance] :is(.card,.kpi,.table-wrap),.appearance-demo :is(.card,.table-wrap){border-color:var(--line);border-width:var(--appearance-border-width)}
+html[data-appearance] .sidebar .brand-mark{width:var(--appearance-logo-height);height:var(--appearance-logo-height);flex-shrink:0}
+html[data-appearance] .sidebar .brand-mark img,.appearance-demo [data-brand-logo]{width:var(--appearance-logo-height);height:var(--appearance-logo-height);object-fit:contain}
+html[data-appearance] .btn.primary,.appearance-demo .btn.primary{color:var(--appearance-button-ink);box-shadow:0 0 var(--appearance-button-glow) var(--appearance-glow)}
+html[data-appearance] .btn.primary:hover{color:var(--appearance-hover-ink)}
+[data-appearance-finish=gradient] .appearance-demo .btn.primary,html[data-appearance-finish=gradient] #app .btn.primary{background:linear-gradient(120deg,var(--accent),var(--accent2))}
+[data-appearance-finish=gloss] .appearance-demo .btn.primary,html[data-appearance-finish=gloss] #app .btn.primary{background-image:linear-gradient(#ffffff40,transparent 55%)}
+html[data-appearance] #app .btn,.appearance-demo .btn{transition:box-shadow .16s ease,transform .16s ease}
+html[data-appearance-hover=lift] #app .btn:hover,[data-appearance-hover=lift] .appearance-demo .btn:hover{transform:translateY(-2px)}
+html[data-appearance-hover=glow] #app .btn:hover,[data-appearance-hover=glow] .appearance-demo .btn:hover{box-shadow:0 0 calc(var(--appearance-button-glow) + 8px) var(--appearance-glow)}
+html[data-appearance] .btn:focus-visible,.appearance-demo .btn:focus-visible{outline:3px solid var(--appearance-accent);outline-offset:3px}
+.custom-login{background-image:var(--login-overlay),var(--login-bg)}
+.custom-login .login-card{border-width:var(--login-border-width)}
+.custom-login .login-card>.btn.primary{color:var(--login-button-ink);box-shadow:0 0 var(--login-button-glow) var(--login-glow)}
+.custom-login[data-login-button=outline] .login-card>.btn.primary{color:var(--login-text)}
+.appearance-page>div.card:first-child{background:linear-gradient(110deg,#fff,#f0f5ff);border-color:#dce7f8}
+.appearance-page .appearance-grid{gap:22px}
+.appearance-section{margin:18px 0;border:1px solid #e1e8f1;border-radius:14px;overflow:hidden;background:#fff}
+.appearance-section>summary{display:flex;align-items:center;gap:10px;padding:14px 16px;font-weight:800;color:#273e64;background:linear-gradient(100deg,#f4f7fd,#fff);cursor:pointer;list-style:none}
+.appearance-section>summary:after{content:'⌄';margin-left:auto}.appearance-section:not([open])>summary:after{content:'›'}
+.appearance-section>summary:focus-visible{outline:3px solid #2563eb;outline-offset:-3px}
+.appearance-section-number{display:grid;place-items:center;border-radius:9px;background:#e3edff;color:#245ab0;width:28px;height:28px;font-size:12px;flex-shrink:0}
+.appearance-grid .appearance-section fieldset{padding:16px;gap:18px}
+.appearance-section .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.appearance-grid .form-actions{position:sticky;bottom:10px;z-index:3;background:#fffffff5;backdrop-filter:blur(12px);border:1px solid #e2e8f0;padding:12px;border-radius:12px;box-shadow:0 6px 24px #17203312}
+.appearance-preview-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.appearance-preview-head h3{margin:0}
+.appearance-save-state{font-size:11px;font-weight:700;background:#edf6ef;color:#24663a;border-radius:30px;padding:6px 9px}.appearance-save-state.changed{background:#fff1d6;color:#80501a}
+.appearance-preview-tools{display:flex;gap:7px;margin:16px 0}.appearance-preview-tools .btn[aria-pressed=true]{background:#e8f0ff;border-color:#92b3ef;color:#164f9b}
+.appearance-preview[data-preview-size=mobile]{max-width:320px;margin-left:auto;margin-right:auto}.appearance-preview[data-preview-size=mobile] .appearance-demo{grid-template-columns:75px minmax(0,1fr)}
+.appearance-preview[data-preview-size=mobile] .appearance-demo section{padding:9px}.appearance-preview[data-preview-size=mobile] .appearance-demo .btn{margin-bottom:6px}
+.appearance-preview[data-preview-size=mobile] .login-card{padding:min(var(--login-padding),20px)}
+.appearance-image-field{grid-column:1/-1}.appearance-image-upload{border:1px dashed #b5c8e5;border-radius:12px;padding:14px;background:#f8faff;display:grid;gap:12px;min-width:0}
+.appearance-image-upload img{max-width:100%;max-height:150px;object-fit:contain;justify-self:center;border-radius:9px;background:repeating-conic-gradient(#eef2f7 0 25%,white 0 50%) 0/16px 16px}
+.appearance-image-empty{font-size:30px;color:#6d8cba;text-align:center}.appearance-image-upload input{width:100%;min-width:0}.appearance-image-upload .btn{justify-self:start}
+@media(prefers-reduced-motion:reduce){html[data-appearance] #app .btn,.appearance-demo .btn{transition:none!important;transform:none!important}}
+@media(max-width:550px){.appearance-grid .appearance-section fieldset{padding:12px}.appearance-grid .form-actions{bottom:4px;gap:6px}.appearance-grid .form-actions .btn{padding:9px;font-size:12px}}

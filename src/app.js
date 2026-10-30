@@ -97,9 +97,9 @@ const titles={
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
-function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module==='configuracion'?'administracion':module,action,state.data.userPermissions||[])}
-const appearanceUI=createAppearanceUI({settings:()=>state.data.settings,actor:()=>state.user?.id,canEdit:()=>isAdmin()&&can('administracion','edit'),confirm:confirmAction,save:async(section,config,revision)=>{
- const owner=state.user?.id;if(!owner||!isAdmin()||!can('administracion','edit'))throw Error('Solo administración puede guardar la apariencia.');
+function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+const appearanceUI=createAppearanceUI({settings:()=>state.data.settings,actor:()=>state.user?.id,canEdit:()=>can('configuracion','edit'),confirm:confirmAction,save:async(section,config,revision)=>{
+ const owner=state.user?.id;if(!owner||!can('configuracion','edit'))throw Error('No tienes permiso para editar Configuración.');
  const saved=await rpc('totus_save_appearance',{p_section:section,p_config:config,p_expected_revision:revision});
  if(state.user?.id!==owner)throw Error('La sesión ha cambiado.');
  Object.assign(state.data.settings,saved);applyInterfaceAppearance(state.data.settings.appearance_config);applyLoginAppearance($('#login'),state.data.settings.login_appearance);

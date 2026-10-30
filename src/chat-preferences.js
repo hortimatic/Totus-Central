@@ -17,15 +17,15 @@ export function applyChatBackground(element,value){
  element.style.backgroundColor=p.chat_background==='color'?p.chat_background_color:colors[p.chat_background]||'';
  element.classList.toggle('chat-personal-background',p.chat_background!=='default');
 }
-export async function prepareChatBackground(file){
+export async function prepareChatBackground(file,{preserveAlpha=false}={}){
  if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5*1024*1024)throw Error('Elige una imagen JPG, PNG o WebP de hasta 5 MB.');
  const bitmap=await createImageBitmap(file);
  try{
   if(bitmap.width*bitmap.height>40000000)throw Error('La imagen es demasiado grande. Usa una de menos de 40 megapíxeles.');
-  const canvas=document.createElement('canvas'),ratio=Math.min(1,1440/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas'),ratio=Math.min(1,(preserveAlpha?640:1440)/Math.max(bitmap.width,bitmap.height));
   canvas.width=Math.max(1,Math.round(bitmap.width*ratio));canvas.height=Math.max(1,Math.round(bitmap.height*ratio));
-  const context=canvas.getContext('2d');context.fillStyle='#ffffff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height);
-  for(const quality of [.82,.65,.45,.25]){const result=canvas.toDataURL('image/jpeg',quality);if(result.length<=350000)return result;}
+  const context=canvas.getContext('2d');if(!preserveAlpha){context.fillStyle='#ffffff';context.fillRect(0,0,canvas.width,canvas.height);}context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+  for(const quality of [.82,.65,.45,.25]){const result=canvas.toDataURL(preserveAlpha?'image/webp':'image/jpeg',quality);if(result.length<=350000)return result;}
   throw Error('No se ha podido reducir la imagen. Elige otra más sencilla o pequeña.');
  }finally{bitmap.close();}
 }
