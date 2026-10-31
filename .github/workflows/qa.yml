@@ -353,6 +353,8 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-start-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-staging-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-source-inventory-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/033_agent_own_operations.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/agent-contract-db-qa.sql
 
   chat-recovery-database:
     runs-on: ubuntu-latest
