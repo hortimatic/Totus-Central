@@ -131,7 +131,6 @@
  .gestor-period-picker {background:var(--stitch-low);border-radius:6px;padding:14px;}
  .backup-control-actions {gap:12px;padding:16px 0;}
  @media(min-width:801px){
-  .app .topbar .account-trigger-text {display:grid;}
   .closing-list-page .module-heading {order:-2;}
  }
  @media(max-width:1200px) and (min-width:801px){
