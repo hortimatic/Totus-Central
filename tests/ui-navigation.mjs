@@ -1,0 +1,7 @@
+export async function openNavigation(page){
+ const sidebar=page.locator('.sidebar');
+ if(await sidebar.evaluate(el=>el.inert))await page.locator('[data-action="toggle-menu"]').click();
+}
+export async function navigate(page,route){
+ await openNavigation(page);await page.locator('#nav [data-route="'+route+'"]').click();
+}

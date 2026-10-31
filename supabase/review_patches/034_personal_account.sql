@@ -20,7 +20,7 @@ begin
  saved=jsonb_build_object('config',p_config,'revision',revision+1);
  update public.profiles set ui_preferences=jsonb_set(prefs,'{account}',saved,true) where id=auth.uid();
  insert into public.ops_audit_log(user_id,user_email,area,action,detail)
- values(auth.uid(),actor_email,'cuenta','perfil_personal_guardado',jsonb_build_object('revision',revision+1));
+ values(auth.uid(),actor_email,'administracion','perfil_personal_guardado',jsonb_build_object('revision',revision+1));
  return saved;
 end $$;
 create or replace function public.totus_save_my_account(p_config jsonb,p_expected_revision bigint)

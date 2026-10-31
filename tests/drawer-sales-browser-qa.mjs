@@ -28,7 +28,8 @@ try{
  assert.equal(await page.evaluate(()=>__mockDb.ops_daily_closings[0].status),'borrador','Offsetting errors cannot close');
  assert((await page.locator('#drSalesDiff_'+ids[0]).textContent()).includes('-10'));
  await page.locator('#drSales_'+ids[0]).fill('50');await page.locator('#drSales_'+ids[1]).fill('20');
- await page.setViewportSize({width:390,height:844});await page.locator('#drSales_'+ids[0]).scrollIntoViewIfNeeded();
+ await page.locator('.toast').last().waitFor({state:'detached'});
+ await page.setViewportSize({width:390,height:844});await page.locator('.drawer-entry').first().evaluate(el=>el.scrollIntoView({block:'start'}));
  await fs.mkdir('artifacts/interface-design',{recursive:true});await page.screenshot({path:'artifacts/interface-design/ventas-por-caja-390.png'});
  assert.deepEqual(errors,[]);console.log('Ventas por caja: entrada independiente, suma, guardado, reapertura, no doble ingreso y errores compensados OK.');
 }finally{await browser.close();}

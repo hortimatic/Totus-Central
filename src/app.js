@@ -190,7 +190,7 @@ function hideForbiddenButtons(){
 function renderNav(){
  const nav=$('#nav'),scrollTop=nav.scrollTop,scrollLeft=nav.scrollLeft;let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
-  const group=r.group!==current?(current=r.group,`<div class="eyebrow" style="padding:15px 12px 5px;color:#718096">${esc(r.group)}</div>`):'';
+  const group=r.group!==current?(current=r.group,`<div class="eyebrow nav-group-label">${esc(r.group)}</div>`):'';
   return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}"><span class="nav-icon">${r.icon}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
  }).join('');
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;

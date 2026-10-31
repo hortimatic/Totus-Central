@@ -20,6 +20,8 @@
   .sidebar .nav-btn.active { background: var(--nav2); box-shadow: inset 3px 0 #42c7cf; }
   .sidebar .nav-btn:hover { background: var(--nav2); }
   .sidebar .nav-icon { display: grid; place-items: center; flex: 0 0 24px; }
+  .sidebar .nav-group-label { padding: 15px 12px 5px; color: #9aaec6; }
+  .drawer-entry { scroll-margin-top: 90px; }
   .topbar { gap: 12px; background: var(--panel); }
   .topbar h1 { letter-spacing: -.035em; }
   .card { min-width: 0; }
@@ -112,14 +114,16 @@
     .mobile-card-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .mobile-card-table tbody { display: grid; gap: 14px; }
     .mobile-card-table tr { display: grid; grid-template-columns: 1fr; padding: 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); box-shadow: var(--shadow); }
-    .mobile-card-table td { display: block; min-width: 0; width: auto; padding: 10px 0; border-color: var(--line); background: transparent !important; }
+    .mobile-card-table td { display: block; min-width: 0; width: auto; padding: 10px 0; border-color: var(--line); background: transparent !important; overflow-wrap: anywhere; }
     .mobile-card-table td::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 750; color: var(--muted); margin-bottom: 5px; }
     .mobile-card-table td:first-child { padding-top: 0; }
     .mobile-card-table td:last-child { padding-bottom: 0; }
-    .mobile-card-table td[data-label="Total ventas"] { grid-row: 2; }
-    .mobile-card-table td[data-label="Total ventas"] .compact-detail > span:first-child { font-size: 22px; }
-    .mobile-card-table td[data-label="Estado"] { grid-row: 3; }
-    .mobile-card-table tr:not(.is-expanded) td:is([data-label="Ventas del día"],[data-label="Dinero de cada caja"]) { display: none; }
+    .mobile-card-table td[data-label=""]::before { display: none; }
+    .mobile-card-table td.num::before { text-align: left; }
+    .closing-list-page .mobile-card-table td[data-label="Total ventas"] { grid-row: 2; }
+    .closing-list-page .mobile-card-table td[data-label="Total ventas"] .compact-detail > span:first-child { font-size: 22px; }
+    .closing-list-page .mobile-card-table td[data-label="Estado"] { grid-row: 3; }
+    .closing-list-page .mobile-card-table tr:not(.is-expanded) td:is([data-label="Ventas del día"],[data-label="Dinero de cada caja"]) { display: none; }
     .mobile-row-toggle { display: block; width: 100%; margin-bottom: 12px; min-height: 44px; }
     .mobile-card-table .inline-actions > .btn { min-height: 44px; flex: 1 1 100px; }
     .mobile-card-table .compact-detail { font-size: 13px; line-height: 1.6; }

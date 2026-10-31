@@ -4,7 +4,7 @@ import {table} from '../src/components.js';
 import {accountValues} from '../src/account-ui.js';
 const headers=[{label:'Fecha',get:'date'},{label:'Importe',get:'amount',num:true},{label:'Acciones',html:()=>'<button data-action="closing-edit">Ver detalle</button>'}];
 const rows=[{date:'31/10/2026',amount:'12.345,67 €'}];
-const desktop=table(headers,rows),mobile=table(headers,rows,{mobileCards:true});
+const desktop=table(headers,rows,{mobileCards:false}),mobile=table(headers,rows);
 assert(!desktop.includes('mobile-card-table'));
 assert(mobile.includes('mobile-card-table'));
 for(const label of headers.map(h=>h.label))assert(mobile.includes('data-label="'+label+'"'));

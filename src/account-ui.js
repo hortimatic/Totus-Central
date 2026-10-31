@@ -1,3 +1,4 @@
+import {taskToday,TASK_STATES} from './tasks-core.js';
 import {esc,fmtDate} from './utils.js';
 import {modal,closeModal,btn} from './components.js';
 import {prepareChatBackground} from './chat-preferences.js';
@@ -58,8 +59,8 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
    };
   }
   if(section==='tareas'&&can('tareas')){
-   const now=new Date(),from=new Date(now.getFullYear(),now.getMonth(),1),to=new Date(now.getFullYear(),now.getMonth()+1,0),date=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-   try{const result=await rpc('totus_tasks_context',{p_from:date(from),p_to:date(to)});if(!valid(stamp,who,panel))return;const rows=(result.rows||[]).filter(r=>String(r.assigned_email||'').toLowerCase()===String(u.email).toLowerCase());panel.querySelector('[data-account-tasks]').innerHTML='<p class="small muted">Tareas asignadas a ti durante este mes, incluidas las terminadas.</p>'+(rows.length?rows.map(r=>'<div class="summary-row"><span>'+esc(r.title)+'<small class="muted"> · '+esc(fmtDate(r.scheduled_on))+'</small></span><span>'+esc(({done:'Terminada',cancelled:'Cancelada',pending:'Pendiente',in_progress:'En curso'})[r.state]||'Pendiente')+'</span></div>').join(''):'<div class="empty">Sin tareas asignadas este mes.</div>')+'<button type="button" class="btn secondary" data-account-route="tareas">Abrir calendario de tareas</button>';}
+   const today=taskToday(),from=today.slice(0,7)+'-01',[year,month]=today.split('-').map(Number),to=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+   try{const result=await rpc('totus_tasks_context',{p_from:from,p_to:to});if(!valid(stamp,who,panel))return;const rows=(result.rows||[]).filter(r=>String(r.assigned_email||'').toLowerCase()===String(u.email).toLowerCase());panel.querySelector('[data-account-tasks]').innerHTML='<p class="small muted">Tareas asignadas a ti durante este mes, incluidas las terminadas.</p>'+(rows.length?rows.map(r=>'<div class="summary-row"><span>'+esc(r.title)+'<small class="muted"> · '+esc(fmtDate(r.scheduled_on))+'</small></span><span>'+esc(TASK_STATES[r.state]||'Pendiente')+'</span></div>').join(''):'<div class="empty">Sin tareas asignadas este mes.</div>')+'<button type="button" class="btn secondary" data-account-route="tareas">Abrir calendario de tareas</button>';}
    catch{if(valid(stamp,who,panel))panel.querySelector('[data-account-tasks]').textContent='No se pudieron consultar tus tareas. Cierra y vuelve a abrir esta sección para reintentar.';}
   }
  }
