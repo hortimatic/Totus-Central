@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 -- Only run against the disposable 52-table recovery fixture.
+select set_config('request.jwt.claims','{"role":"service_role"}',false);
 select private.totus_recovery_schema_hash() as before_hash \gset
 \ir ../supabase/migrations/20261019120841_preserve_closing_income_selection_on_reconciliation.sql
 \ir ../supabase/review_patches/035_drawer_sales_references.sql
