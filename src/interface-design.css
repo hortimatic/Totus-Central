@@ -60,6 +60,8 @@
   .appearance-section summary { line-height: 1.5; }
   .appearance-grid .field { line-height: 1.5; }
   .appearance-anchors { gap: 8px; }
+  .appearance-anchors button { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  .appearance-section > summary { min-width: 0; overflow-wrap: anywhere; }
   .appearance-preview-card { min-width: 0; }
   /* Module-specific surfaces share the same visual system without replacing their controls. */
   .tabs .tab.active { background: color-mix(in srgb,var(--accent) 9%,var(--panel)); border-radius: 8px 8px 0 0; }
