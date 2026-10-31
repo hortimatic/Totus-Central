@@ -1,0 +1,30 @@
+name: Revisar diseño de interfaz
+on:
+  push:
+    branches: [design/stitch-interface]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused-interface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-save --no-package-lock playwright@1.56.1 xlsx-js-style@1.2.0 jszip@3.10.1
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/interface-design-qa.mjs
+      - run: node tests/appearance-qa.mjs
+      - run: node tests/personal-interface-qa.mjs
+      - run: node tests/action-inventory-qa.mjs
+      - name: Servir simulación sin datos reales
+        run: python3 -m http.server 4173 >/tmp/totus-interface.log 2>&1 &
+      - run: node tests/interface-design-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: totus-interface-review
+          path: artifacts/interface-design/

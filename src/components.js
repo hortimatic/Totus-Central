@@ -43,9 +43,9 @@ export const dateFilters=({from,to,store='all',stores=[],query=''},prefix='filte
  </div>`;
 export const empty=(title='Sin datos',text='Todavía no hay registros.')=>`<div class="empty"><strong>${esc(title)}</strong><span>${esc(text)}</span></div>`;
 export const kpi=(label,value,sub='')=>`<div class="kpi"><span>${esc(label)}</span><strong>${value}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
-export const table=(headers,rows,{emptyTitle='Sin datos',emptyText='Todavía no hay registros.'}={})=>{
+export const table=(headers,rows,{emptyTitle='Sin datos',emptyText='Todavía no hay registros.',mobileCards=false}={})=>{
  if(!rows.length)return empty(emptyTitle,emptyText);
- return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th class="${h.num?'num':''}">${esc(h.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td class="${h.num?'num':''}">${h.html?h.html(r):esc(h.get?r[h.get]:h.value?.(r)??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+ return `<div class="table-wrap${mobileCards?' mobile-card-table':''}"><table class="data-table"${mobileCards?' role="table"':''}><thead${mobileCards?' role="rowgroup"':''}><tr${mobileCards?' role="row"':''}>${headers.map(h=>`<th class="${h.num?'num':''}"${mobileCards?' scope="col" role="columnheader"':''}>${esc(h.label)}</th>`).join('')}</tr></thead><tbody${mobileCards?' role="rowgroup"':''}>${rows.map(r=>`<tr${mobileCards?' role="row"':''}>${headers.map(h=>`<td class="${h.num?'num':''}"${mobileCards?' role="cell" data-label="'+esc(h.label)+'"':''}>${h.html?h.html(r):esc(h.get?r[h.get]:h.value?.(r)??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
 };
 const FIELD_HELP={
  'Apertura efectivo':'Importe en metálico recibido de la caja anterior. Comprueba el cierre previo.',

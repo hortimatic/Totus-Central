@@ -220,12 +220,12 @@ export function cajas(){
   {label:'Estado',html:r=>acceptedClosing(r)?`${acceptedBadge}${r.entry_mode!=='source_snapshot'&&r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
   {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Ver detalle','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
- return `<div class="page">
+ return `<div class="page closing-list-page">
   <div class="kpis closing-kpis">${kpi('Tarjeta registrada',money(total),'El total fiscal se consulta en Fiscalidad')}${kpi('Salidas en metálico',money(withdrawals),'Retiradas de las cajas · filtros aplicados')}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos pendientes de conciliación de caja. Fiscalidad conserva las referencias mensuales registradas. Conciliar comprueba el desglose de caja y no duplica esos ingresos.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
-   ${dateFilters({...f,stores:state.data.stores},'cajas')}
-   ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.'})}
+   <div class="closing-filter-bar"><button type="button" class="btn secondary mobile-filter-toggle" data-action="toggle-mobile-filters" aria-expanded="false" aria-controls="closingFilters">Filtrar cierres</button><span class="small muted">${fmtDate(f.from)} – ${fmtDate(f.to)}</span></div><div id="closingFilters" class="mobile-filter-content">${dateFilters({...f,stores:state.data.stores},'cajas')}</div>
+   ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.',mobileCards:true})}
   </section>
  </div>`;
 }

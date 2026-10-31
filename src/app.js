@@ -1,4 +1,6 @@
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
+import {createAccountUI} from './account-ui.js';
+import {createMobileNavigation} from './mobile-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
 import {createChatPreferenceTransport} from './chat-preference-transport.js';
 import {createAppearanceUI,applyInterfaceAppearance,applyLoginAppearance} from './appearance-ui.js';
@@ -59,6 +61,7 @@ import {renderPdfPreview} from './pdf-preview.js';
 
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
 const businessWriter=createBusinessWriter({rpc});
+const mobileNavigation=createMobileNavigation();
 // A delayed preview belongs to the account and rendered page that requested it.
 function activeActor(){
  const owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
@@ -110,6 +113,9 @@ const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?pe
  }
  applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
 }});
+const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.profiles.find(p=>p.id===state.user?.id),documents:()=>state.data.documents,can,rpc,
+ accept:(saved,owner)=>{if(state.user?.id!==owner)return;const profile=state.data.profiles.find(p=>p.id===owner);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
+ guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -219,6 +225,7 @@ function render(){
  }
  hideForbiddenButtons();
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
+ accountUI.start();
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
  if(input('exDocKind'))updateExpenseTaxTreatment();
  if(state.route==='cajas'&&document.querySelector('.drawer-entry'))updateClosingSummary();
@@ -372,7 +379,7 @@ async function navigateModule(route,el=null,prepare=null){
  closeModal();prepare?.();if(el?.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});
  let owner=sessionViewOwner();const generation=++refreshGeneration;
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
- setRoute(route);document.body.classList.remove('menu-open');state.loading=true;renderNav();
+ setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(null,'',moduleUrl(location.href,route));
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
@@ -2654,6 +2661,10 @@ document.addEventListener('click',async e=>{
   e.preventDefault();await navigateModule(route,el);return;
  }
  const a=el.dataset.action;if(!a)return;
+ if(a==='toggle-mobile-filters'){
+  const panel=document.getElementById(el.getAttribute('aria-controls'));if(!panel)return;
+  const expanded=el.getAttribute('aria-expanded')!=='true';el.setAttribute('aria-expanded',String(expanded));panel.classList.toggle('is-open',expanded);return;
+ }
  if(!checkActionPermission(a,el)){activityLog.record(permissionForAction(a,el)?.module||state.route,'acceso_denegado',a);toast('No tienes permiso para esta operación.','bad');return}
  if(a==='retry-module'){await navigateModule(state.route);return;}
  if(a==='close-modal'){
@@ -2689,7 +2700,7 @@ document.addEventListener('click',async e=>{
   if(a==='export-gestor-period-package'){await exportGestorPeriodPackage();return}
   if(a==='retry-load'){await refresh();return}
   if(a==='logout'){await logout();location.reload();return}
-  if(a==='toggle-menu'){document.body.classList.toggle('menu-open');return}
+  if(a==='toggle-menu'){mobileNavigation.toggle();return}
   if(a==='close-modal'){if(el.classList.contains('modal-backdrop')&&e.target!==el)return;closeModal();return}
   if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
   if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});await refresh();return}
@@ -3164,7 +3175,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
 function clearSessionView(){
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
  chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
- activityLog.reset();clearStartupTiming();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
+ activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
 }
