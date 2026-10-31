@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright';
@@ -29,7 +30,7 @@ try{
   await route.fulfill({contentType:'application/javascript',body:original.replace('window.supabase={createClient:()=>client};',seed+'\nwindow.supabase={createClient:()=>client};')});
  });
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- const nav=route=>page.locator(`#nav [data-route="${route}"]`).click();
+ const nav=route=>clickModuleLink(page,page.locator(`#nav [data-route="${route}"]`));
  // Exercise the real controls in every date-filtered listing, using Enter.
  for(const [route,prefix] of [['cajas','cajas'],['gastos','gastos'],['facturacion','facturas'],['documentos','documentos']]){
   await nav(route);await page.locator('#'+prefix+'From').fill('2026-02-01');await page.locator('#'+prefix+'To').fill('2026-02-28');

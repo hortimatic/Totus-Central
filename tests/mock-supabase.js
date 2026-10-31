@@ -109,6 +109,12 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
+ if(name==='totus_save_my_account'){
+  const profile=db.profiles.find(p=>p.id===userId),previous=profile.ui_preferences?.account||{revision:0};
+  if(args.p_expected_revision!==previous.revision)return {data:null,error:{message:'Tu perfil cambió en otra ventana.'}};
+  const saved={config:structuredClone(args.p_config),revision:previous.revision+1};
+  profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};return {data:saved,error:null};
+ }
  if(name==='totus_log_cleanup'){
   if(role!=='admin')return {data:null,error:{message:'Solo administración puede limpiar el Log'}};
   const tables=['ops_audit_log','team_user_audit_log','ops_chat_events','ops_task_events'];

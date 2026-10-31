@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -13,7 +14,7 @@ try{
   db.ops_income_adjustments.push({id:crypto.randomUUID(),store_id:shop.id,income_date:day,amount:120,notes:JSON.stringify({kind:'monthly_source_reference',period:day.slice(0,7)})});
   await(await import('/src/api.js')).loadCore();return {id,drawers:drawers.map(d=>d.id),origin};
  });
- await page.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.locator(`[data-action="closing-reconcile-source"][data-id="${fixture.id}"]`).click();
  await page.getByText('Conciliar el cierre importado',{exact:true}).waitFor();
  assert.equal(await page.locator(`#drOpen_${fixture.drawers[0]}`).inputValue(),'20');
@@ -38,7 +39,7 @@ try{
  assert.deepEqual(await page.evaluate(id=>JSON.parse(window.__mockDb.ops_daily_closings.find(c=>c.id===id).source_ref),fixture.id),fixture.origin,'Reading original evidence must not rewrite it');
  await page.locator('[data-action="close-modal"]').filter({visible:true}).last().click();
  await page.reload({waitUntil:'networkidle'});
- await page.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.locator('[data-action="closing-new"]').first().click();
  const emptyIds=await page.locator('.drawer-entry').evaluateAll(rows=>rows.map(x=>x.dataset.drawerId));
  for(const id of emptyIds)await page.locator(`#drClose_${id}`).fill('0');
@@ -58,7 +59,7 @@ try{
   }
   await(await import('/src/api.js')).loadCore();return drawers.map(d=>d.id);
  });
- await page.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.locator('[data-action="closing-new"]').first().click();
  assert.equal(await page.locator(`#drOpen_${nextIds[0]}`).inputValue(),'11');
  assert.equal(await page.locator(`#drOpen_${nextIds[1]}`).inputValue(),'22','Head must use its own retained cash, never the combined store amount');

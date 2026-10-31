@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {PDFDocument} from 'pdf-lib';
@@ -13,7 +14,7 @@ try{
   await(await import('../src/api.js')).loadCore();
   return db.ops_expenses.length;
  });
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('[data-action="expense-tax-edit"][data-id="qa-internal-tax"]').click();
  assert(await page.locator('#exManagement').isChecked());
  assert(await page.locator('#exTaxPaymentFields').isVisible());

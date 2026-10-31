@@ -1,10 +1,11 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage();
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  const id=await page.evaluate(async()=>{const t=window.__mockDb.ops_document_templates[0];t.code='A'.repeat(50);await (await import('../src/api.js')).loadCore();return t.id;});
- await page.locator('#nav [data-route="facturacion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
  await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
  for(let n=2;n<=3;n++){
   await page.locator('[data-action="template-edit"][data-id="'+id+'"]').click();

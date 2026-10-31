@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -9,7 +10,7 @@ try{
   for(let i=0;i<3;i++)db.ops_expenses.push({id:'layout-'+i,store_id:db.ops_stores[0].id,expense_date:day,supplier_name:'Proveedor con razón social completa',invoice_number:'QA-'+i,description:'Concepto que conserva toda la información del gasto',gross_expense:100,accounting_amount:100,amount_paid:0,paid_status:'pendiente',fiscal_reviewed:false,management_only:false});
   await(await import('../src/api.js')).loadCore();
  });
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  for(const width of [1440,900,390]){
   await page.setViewportSize({width,height:1000});
   const metrics=await page.locator('.expense-row-actions .btn').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {text:e.textContent,width:r.width,height:r.height,clipped:e.scrollWidth>e.clientWidth+1}}));

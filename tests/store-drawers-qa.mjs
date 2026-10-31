@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
@@ -8,7 +9,7 @@ const get=()=>page.evaluate(()=>({stores:window.__mockDb.ops_stores,drawers:wind
 const press=async (action,id)=>page.locator('[data-action="'+action+'"]'+(id?'[data-id="'+id+'"]':'')).first().click();
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="negocio"]').first().click();
  assert(await page.locator('#cfgBusiness').count()===1,'No está visible la ficha del negocio');
  await press('store-new');

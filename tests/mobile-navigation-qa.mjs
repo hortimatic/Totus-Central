@@ -1,4 +1,5 @@
 import {chromium} from 'playwright';
+import {navigate} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts',{recursive:true});
@@ -6,7 +7,7 @@ const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
-const nav=async route=>page.locator('#nav [data-route="'+route+'"]').click();
+const nav=async route=>navigate(page,route);
 const checkActiveTab=async section=>{
  const navBar=page.locator('#content .module-tabs');
  const active=navBar.locator('.tab.active');

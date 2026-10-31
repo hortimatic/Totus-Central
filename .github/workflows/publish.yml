@@ -43,6 +43,7 @@ jobs:
           html=(root/'index.html').read_text()
           assert 'ENTORNO DE PRUEBAS' not in html and "build.environment!=='production'" in html
           html=html.replace('href="src/appearance.css"',f'href="src/appearance.css?v={sha}"')
+          html=html.replace('href="src/interface-design.css"',f'href="src/interface-design.css?v={sha}"')
           html=html.replace('href="src/tasks.css"',f'href="src/tasks.css?v={sha}"')
           html=html.replace('href="src/team-chat.css"',f'href="src/team-chat.css?v={sha}"')
           html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"').replace('src="src/app.js"',f'src="src/app.js?v={sha}"')

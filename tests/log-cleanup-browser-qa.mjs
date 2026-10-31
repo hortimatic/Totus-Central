@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -11,7 +12,7 @@ try{
   window.__mockDb.ops_audit_log.push({id:'outside-range',created_at:'2020-02-01T12:00:00Z',action:'qa',area:'gastos'});
   window.__qaBusinessBefore=JSON.stringify(['ops_expenses','ops_daily_closings','ops_documents','ops_chat_messages','ops_tasks','ops_stock_revisions','ops_backup_runs'].map(t=>window.__mockDb[t]||[]));
  });
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-section="log"]').click();
  const open=async()=>{await page.locator('[data-action="admin-log-cleanup-open"]').click();await page.locator('#logCleanupFrom').fill('2020-01-01');await page.locator('#logCleanupTo').fill('2020-01-31');};
  const calculate=async count=>{await page.locator('[data-action="admin-log-cleanup-preview"]').click();await page.getByText(count+' registros para eliminar',{exact:true}).waitFor();};

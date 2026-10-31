@@ -1,10 +1,11 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route=administracion]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route=administracion]'));
  await page.locator('[data-action=admin-section][data-section=backups]').click();
  await page.evaluate(async()=>{const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({fontSize:16,borderWidth:3,cardGlow:10,buttonFinish:'gloss',sidebarWidth:330});});
  for(const width of [320,390,768,816,1024,1440,1920]){

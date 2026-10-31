@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -5,7 +6,7 @@ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="fiscal"]').click();
  const edit=page.locator('[data-action="expense-category-edit"]').first();
  const id=await edit.getAttribute('data-id');await edit.click();

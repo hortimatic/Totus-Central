@@ -1,10 +1,11 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="informes"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="informes"]'));
  await page.locator('#informesFrom').fill('2026-10-01');await page.locator('#informesTo').fill('2026-10-31');
  await page.locator('[data-action="informes-apply"]').click();
  const id=await page.evaluate(()=>{
@@ -20,7 +21,7 @@ try{
  await page.evaluate(id=>window.__mockDb.ops_daily_closings.find(c=>c.id===id).card_sales=250,id);
  await page.locator('#informesQuery').press('Enter');
  await page.waitForFunction(()=>[...document.querySelectorAll('section')].some(s=>s.querySelector('h2')?.textContent==='De dónde salen los ingresos'&&s.textContent.includes('350,00')));
- await page.locator('#nav [data-route="fiscalidad"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="fiscalidad"]'));
  await page.evaluate(id=>window.__mockDb.ops_daily_closings.find(c=>c.id===id).card_sales=275,id);
  await page.locator('[data-action="fiscal-quarter"][data-quarter="4"]').click();
  await page.waitForFunction(()=>[...document.querySelectorAll('section')].some(s=>s.querySelector('h2')?.textContent==='De dónde salen los ingresos'&&s.textContent.includes('375,00')));

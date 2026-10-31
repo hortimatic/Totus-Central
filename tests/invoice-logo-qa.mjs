@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
@@ -19,7 +20,7 @@ const exitModal=async()=>await page.locator('#modalHost .close-btn').click();
 try {
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
   await page.locator('#userCard').waitFor({state:'visible'});
-  await page.locator('#nav [data-route="facturacion"]').click();
+  await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
   await page.locator('[data-action="billing-section"][data-section="plantillas"]').first().click();
   await page.locator('[data-action="template-new"]').click();
 

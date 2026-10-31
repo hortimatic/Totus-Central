@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
@@ -5,7 +6,7 @@ const browser=await chromium.launch({headless:true}),page=await browser.newPage(
 page.on('pageerror',error=>errors.push(error.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="pricing"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));
  await page.locator('[data-action="product-new"]').click();
  await page.locator('#prName').fill('Sales QA');await page.locator('#prSku').fill('SALES-QA');await page.locator('#prType').selectOption('variants');
  await page.locator('#prDraftVariants').waitFor({state:'visible'});

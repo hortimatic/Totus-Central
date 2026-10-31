@@ -12,6 +12,16 @@ export function closingMissingFields(row){
 export const incompleteClosing=row=>Object.keys(closingMissingFields(row)).length>0;
 export const closingDrawerValue=(row,drawerId,field,value)=>closingMissingFields(row)[drawerId]?.includes(field)?null:value;
 export const drawerCashSales=d=>Number(d.closing_cash||0)+Number(d.cash_withdrawals||0)+Number(d.cash_expenses_declared||0)+Number(d.cash_extra_out||0)-Number(d.cash_extra_in||0)-Number(d.opening_cash||0);
+export function drawerSalesReferences(readings){
+ const values=readings.map(row=>{
+  const raw=row.reported_total_sales;if(raw==null||String(raw).trim()==='')return null;
+  const value=parseDecimal(raw);
+  if(!Number.isFinite(value)||value<0||Math.abs(value*100-Math.round(value*100))>1e-6)throw Error('Las ventas de cada caja deben ser un importe positivo o cero, con un máximo de dos decimales.');
+  return value;
+ });
+ const any=values.some(v=>v!==null),complete=!!values.length&&values.every(v=>v!==null);
+ return {values,any,complete,total:complete?values.reduce((cents,value)=>cents+Math.round(value*100),0)/100:null};
+}
 export function closingStateLabel(row,settings){
  if(archiveAccepted(settings,row,'closing')||manualClosingReconciled(row)||sourceClosingReconciled(row))return 'Conciliado y aceptado';
  return row.entry_mode==='source_snapshot'?'Pendiente de conciliación':row.status==='borrador'?'Borrador':'Cerrado';
@@ -21,9 +31,11 @@ export function previewClosing(readings,reported=''){
   const drawers=readings.map(raw=>{const d={drawer_id:raw.drawer_id};for(const field of DRAWER_MONEY_FIELDS){const value=raw[field];d[field]=['opening_cash','closing_cash'].includes(field)&&(value==null||String(value).trim()==='')?null:parseDecimal(value);if(d[field]!=null&&d[field]<0)throw Error('No se admiten importes negativos en Cajas.')}return d});
   const complete=!!drawers.length&&drawers.every(d=>d.opening_cash!=null&&d.closing_cash!=null);
   const total=complete?drawers.reduce((s,d)=>s+drawerCashSales(d)+d.card_sales+d.bizum_sales+d.online_sales+d.other_income,0):null;
-  const reference=reported==null||String(reported).trim()===''?null:parseDecimal(reported);
+  const references=drawerSalesReferences(readings);
+  const reference=references.any?references.total:reported==null||String(reported).trim()===''?null:parseDecimal(reported);
   if(reference!=null&&reference<0)throw Error('El total de ventas no puede ser negativo.');
   if(total!=null&&!Number.isFinite(total))throw Error('Los importes son demasiado grandes.');
-  return {valid:true,complete,drawers,total,difference:complete&&reference!=null?Math.round((total-reference)*100)/100:null,negativeDrawers:drawers.filter(d=>d.opening_cash!=null&&d.closing_cash!=null&&drawerCashSales(d)<-1e-9).map(d=>d.drawer_id)};
+  const drawerDifferences=drawers.map((d,index)=>complete&&references.values[index]!=null?Math.round((drawerCashSales(d)+d.card_sales+d.bizum_sales+d.online_sales+d.other_income-references.values[index])*100)/100:null);
+  return {valid:true,complete,drawers,total,references,drawerDifferences,difference:complete&&reference!=null?Math.round((total-reference)*100)/100:null,negativeDrawers:drawers.filter(d=>d.opening_cash!=null&&d.closing_cash!=null&&drawerCashSales(d)<-1e-9).map(d=>d.drawer_id)};
  }catch(error){return {valid:false,complete:false,total:null,difference:null,error:error.message,drawers:[],negativeDrawers:[]}}
 }

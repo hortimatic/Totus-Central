@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
@@ -10,7 +11,7 @@ try{
   db.ops_business_settings[0].closed_through='2026-09-30';
   await (await import('../src/api.js')).loadCore();
  });
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('#gastosFrom').fill('2026-09-01');await page.locator('#gastosTo').fill('2026-09-30');
  await page.locator('[data-action="gastos-apply"]').click();
  await page.locator('[data-action="expense-section"][data-section="facturas"]').click();

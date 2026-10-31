@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
@@ -12,7 +13,7 @@ try{
   db.ops_expense_lines.push({id:'color-line',expense_id:e.id,sort_order:10,category_id:category.id,description:e.description,base_amount:100,vat_rate:0,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100});
   const {loadCore}=await import('../src/api.js');await loadCore();return {store:store.id,before:JSON.stringify(e)};
  });
- const nav=route=>page.locator('#nav [data-route="'+route+'"]').click();
+ const nav=route=>clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
  await nav('gastos');await page.locator('#gastosFrom').fill('2026-01-01');await page.locator('#gastosTo').fill('2026-01-31');await page.locator('[data-action="gastos-apply"]').click();
  await page.locator('[data-action="expense-edit"][data-id="payment-color-qa"]').click();
  assert.equal(await page.locator('#exReportGroup option').count(),6);

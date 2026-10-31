@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import JSZip from 'jszip';
@@ -29,7 +30,7 @@ try{
   window.__mockDb.ops_backup_runs=structuredClone(state.data.backupRuns);
   window.qaBusinessBefore=JSON.stringify({expenses:window.__mockDb.ops_expenses,documents:window.__mockDb.ops_documents,closings:window.__mockDb.ops_daily_closings});
  },{files:[...objects].map(([p,b])=>[p,Array.from(b)]),index:result.index,manifest:result.manifest,id,root});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  await page.locator('[data-credential-notice]').waitFor();
  assert((await page.locator('[data-credential-notice]').innerText()).includes('Renueva la clave'));

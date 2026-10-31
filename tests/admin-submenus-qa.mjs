@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -14,7 +15,7 @@ const section=async id=>{
 };
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  for(const id of ['usuarios','roles','negocio','fiscal','storage','backups','log']){
   await section(id);
   assert((await page.locator('#content').innerText()).trim().length>50,'Submenú vacío '+id);

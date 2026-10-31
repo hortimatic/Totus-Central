@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import XLSX from 'xlsx-js-style';
@@ -6,7 +7,7 @@ const browser=await chromium.launch({headless:true}),page=await browser.newPage(
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="negocio"]').click();
  await page.locator('#cfgBusiness').fill('Titular ficticio QA');
  await page.locator('[data-action="config-save"]').click();
@@ -38,7 +39,7 @@ try{
  await page.locator('[data-action="admin-period-reopen"]').click();await page.locator('[data-confirm="accept"]').click();
  await page.waitForFunction(()=>window.__mockDb.ops_business_settings[0].closed_through===null);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_audit_log.filter(e=>e.action==='periodo_cierre').length),2);
- await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="series"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));await page.locator('[data-action="billing-section"][data-section="series"]').click();
  const initial=await page.evaluate(()=>window.__mockDb.ops_invoice_series.length);
  await page.locator('[data-action="series-new"]').click();await page.locator('#srCode').fill('SERIEQA');await page.locator('#srPrefix').fill('QA-');
  for(const [id,value] of [['srNext','1.5'],['srYear','2026.5'],['srPadding','4.5']]){
@@ -50,7 +51,7 @@ try{
  await page.waitForFunction(n=>window.__mockDb.ops_invoice_series.length===n+1,initial);
  const series=await page.evaluate(()=>window.__mockDb.ops_invoice_series.find(s=>s.code==='SERIEQA'));
  assert.equal(series.year,2026);assert.equal(series.next_number,1);assert.equal(series.padding,4);
- await page.locator('#nav [data-route="informes"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="informes"]'));
  const reportOrder=()=>page.locator('[data-report-block]').evaluateAll(es=>es.map(e=>e.dataset.reportBlock));
  const initialOrder=await reportOrder();assert(initialOrder.length>=2);
  await page.locator('[data-action="report-block-down"][data-block="'+initialOrder[0]+'"]').click();
@@ -61,7 +62,7 @@ try{
  await page.waitForFunction(first=>document.querySelector('[data-report-block]')?.dataset.reportBlock===first,initialOrder[0]);
  assert.deepEqual(await reportOrder(),initialOrder);
  assert.deepEqual((await page.evaluate(()=>window.__mockDb.profiles[0].ui_preferences.report_blocks)).filter(key=>initialOrder.includes(key)),initialOrder);
- await page.locator('#nav [data-route="cajas"]').click();await page.locator('[data-action="closing-new"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));await page.locator('[data-action="closing-new"]').click();
  await page.locator('#clNotes').fill('Borrador ficticio para terminar después');
  await page.locator('[id^="drCard_"]').first().fill('45');
  await page.locator('[data-action="closing-save-draft"]').click();await page.getByText('Borrador guardado.',{exact:true}).last().waitFor();
@@ -69,15 +70,15 @@ try{
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings[0].status),'borrador');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings[0].card_sales),45);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_daily_closings[0].notes),'Borrador ficticio para terminar después');
- await page.locator('#nav [data-route="inicio"]').click();await page.locator('[data-action="admin-users-home"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));await page.locator('[data-action="admin-users-home"]').click();
  assert(await page.getByRole('heading',{name:'Usuarios',exact:true}).isVisible());
  const period=await page.evaluate(async()=>{
   const date=(await import('../src/utils.js')).isoToday(),year=Number(date.slice(0,4)),q=Math.ceil(Number(date.slice(5,7))/3);
   return {year,from:`${year}-${String((q-1)*3+1).padStart(2,'0')}-01`,to:`${year}-${String(q*3).padStart(2,'0')}-${new Date(year,q*3,0).getDate()}`};
  });
- await page.locator('#nav [data-route="inicio"]').click();await page.locator('[data-action="home-report-quarter"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));await page.locator('[data-action="home-report-quarter"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),period.from);assert.equal(await page.locator('#informesTo').inputValue(),period.to);
- await page.locator('#nav [data-route="inicio"]').click();await page.locator('[data-action="home-report-year"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));await page.locator('[data-action="home-report-year"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),period.year+'-01-01');assert.equal(await page.locator('#informesTo').inputValue(),period.year+'-12-31');
  assert.equal((await page.locator('.reports-page > .kpis .kpi strong').first().innerText()).replace(/\s/g,' '),'0,00 €','An unfinished closing must not contribute report income');
  for(const action of ['export-closings','export-expenses','export-gestor-source']){
@@ -98,7 +99,7 @@ try{
  await page.locator('#reportPeriodYear').fill('2025');await page.locator('#reportPeriodQuarter').selectOption('2');
  await page.locator('[data-action="report-period-quarter"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),'2025-04-01');assert.equal(await page.locator('#informesTo').inputValue(),'2025-06-30');
- await page.locator('#nav [data-route="gastos"]').click();await page.locator('[data-action="expense-suppliers"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));await page.locator('[data-action="expense-suppliers"]').click();
  await page.locator('[data-action="expense-supplier-new"]').click();await page.locator('#esName').fill('Proveedor ficticio para borrar');
  await page.locator('[data-action="expense-supplier-save"]').click();
  const supplierId=await page.evaluate(()=>window.__mockDb.ops_suppliers.find(s=>s.name==='Proveedor ficticio para borrar').id);
@@ -111,7 +112,7 @@ try{
  await page.evaluate(async()=>{window.__mockDb.ops_expenses=window.__mockDb.ops_expenses.filter(e=>e.id!=='supplier-linked-qa');await(await import('../src/api.js')).loadCore();});
  await supplierDelete.click();await page.getByText('Proveedor eliminado.',{exact:true}).waitFor();
  assert.equal(await page.evaluate(id=>window.__mockDb.ops_suppliers.some(s=>s.id===id),supplierId),false);
- await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="documentos"]').click();await page.locator('[data-action="invoice-new"]').first().click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));await page.locator('[data-action="billing-section"][data-section="documentos"]').click();await page.locator('[data-action="invoice-new"]').first().click();
  await page.locator('#ivDesc_0').fill('Primera línea ficticia');await page.locator('[data-action="invoice-line-add"]').click();
  await page.locator('#ivDesc_1').fill('Segunda línea conservar');await page.locator('#ivQty_1').fill('2');await page.locator('#ivUnit_1').fill('7');
  await page.locator('[data-action="invoice-line-remove"][data-index="0"]').click();

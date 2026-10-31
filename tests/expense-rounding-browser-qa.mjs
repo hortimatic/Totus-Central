@@ -1,9 +1,10 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage();
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="gastos"]').click();await page.locator('[data-action="expense-new"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));await page.locator('[data-action="expense-new"]').click();
  await page.locator('#exSupplier').fill('Proveedor de céntimos QA');await page.locator('#exInvoice').fill('CENTIMOS-QA');
  await page.locator('#exLineDesc_0').fill('Primera línea');await page.locator('#exLineBase_0').fill('0.03');await page.locator('#exLineVat_0').fill('21');
  const add=page.locator('[data-action="expense-line-add"]');await add.click();

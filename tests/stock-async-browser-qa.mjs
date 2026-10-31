@@ -1,9 +1,10 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage();
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="cotejos"]').click();await page.getByText('Sin recepciones',{exact:true}).waitFor();
+ await clickModuleLink(page,page.locator('#nav [data-route="cotejos"]'));await page.getByText('Sin recepciones',{exact:true}).waitFor();
  await page.locator('[data-action="stock-library"]').click();await page.getByText('Biblioteca de productos',{exact:true}).waitFor();
  await page.evaluate(async()=>{
   const {sb}=await import('../src/api.js'),from=sb.from.bind(sb);

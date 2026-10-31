@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -12,7 +13,7 @@ try{
   api.sb.from=table=>{const q=from(table),result=q.result.bind(q);q.result=()=>{const response=result();if(loseOnce&&table==='ops_expenses'&&q.mode==='update'&&q.value?.document_id){loseOnce=false;return {data:null,error:{message:'TypeError: Failed to fetch',code:'',details:'Response lost after commit'}};}return response;};return q;};
   await api.loadCore();return id;
  });
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('[data-action="expense-edit"][data-id="'+id+'"]').click();
  await page.locator('#exFile').setInputFiles({name:'receipt-qa.txt',mimeType:'text/plain',buffer:Buffer.from('Original que debe conservarse')});
  await page.locator('[data-action="expense-attach-save"]').click();

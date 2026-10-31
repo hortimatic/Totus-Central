@@ -1,9 +1,10 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
-const nav=route=>page.locator('#nav [data-route="'+route+'"]').click();
+const nav=route=>clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
 const cancel=()=>page.locator('[data-confirm="cancel"]').click();
 const discard=()=>page.locator('[data-confirm="accept"]').click();
 try{

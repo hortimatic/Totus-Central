@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts',{recursive:true});
@@ -18,7 +19,7 @@ for(const [size,width] of [['desktop',1440],['tablet',768],['mobile',390],['smal
  page.on('pageerror',err=>errors.push(size+' pageerror '+err.message));
  for(const scene of scenes){
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
-  await page.locator('#nav [data-route="'+scene.route+'"]').click();
+  await clickModuleLink(page,page.locator('#nav [data-route="'+scene.route+'"]'));
   if(scene.section){
    const tabAction=scene.route==='administracion'?'admin-section':'billing-section';
    await page.locator('[data-action="'+tabAction+'"][data-section="'+scene.section+'"]').first().click();

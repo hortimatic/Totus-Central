@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
@@ -10,7 +11,7 @@ try{
   db.ops_daily_closings.push({id,store_id:shop.id,business_date:date,entry_mode:'source_snapshot',status:'cerrado',reported_total_sales:200,source_ref:JSON.stringify(origin),include_in_income:true,opening_cash:100,cash_sales:100,card_sales:100,cash_withdrawals:50,actual_cash:150,updated_at:'2026-10-27T00:00:00Z'});
   db.team_members.push({id:crypto.randomUUID(),email:'worker@qa.invalid',full_name:'Usuario de prueba',role:'gerente',active:true});await(await import('../src/api.js')).loadCore();return {id,drawer:drawer.id,origin};
  });
- const nav=r=>page.locator('#nav [data-route="'+r+'"]').click();
+ const nav=r=>clickModuleLink(page,page.locator('#nav [data-route="'+r+'"]'));
  await nav('administracion');await page.locator('[data-action="user-permissions"][data-email="worker@qa.invalid"]').click();
  for(const module of ['equipo','tareas']){assert.equal(await page.locator('#perm_'+module+'_view').count(),1);await page.locator('#perm_'+module+'_create').uncheck();}
  await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===12);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();

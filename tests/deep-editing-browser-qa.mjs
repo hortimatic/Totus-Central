@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
@@ -12,7 +13,7 @@ try{
   d.ops_expense_lines.push({id:'line-qa',expense_id:'99999999-9999-4999-8999-999999999999',category_id:category.id,description:'Compra común QA',base_amount:100,vat_rate:21,vat_amount:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,sort_order:10});
   await(await import('../src/api.js')).loadCore();return {store:store.id,supplier:supplier.id,category:category.id,template:template.id,series:series.id,templateName:template.name};
  });
- await page.locator('#nav [data-route="gastos"]').click();await page.locator('[data-action="expense-edit"][data-id="99999999-9999-4999-8999-999999999999"]').first().click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));await page.locator('[data-action="expense-edit"][data-id="99999999-9999-4999-8999-999999999999"]').first().click();
  assert.equal(await page.locator('#exStore').inputValue(),'');
  assert.equal(await page.locator('#exSupplierId').inputValue(),ids.supplier);
  assert.equal(await page.locator('[id^="exLineCategory_"]').first().inputValue(),ids.category);
@@ -21,7 +22,7 @@ try{
  await page.getByText('Gasto guardado.',{exact:true}).last().waitFor();
  const saved=await page.evaluate(()=>({expense:window.__mockDb.ops_expenses.find(x=>x.id==='99999999-9999-4999-8999-999999999999'),line:window.__mockDb.ops_expense_lines.find(x=>x.expense_id==='99999999-9999-4999-8999-999999999999')}));
  assert.equal(saved.expense.store_id,null);assert.equal(saved.expense.supplier_id,ids.supplier);assert.equal(saved.line.category_id,ids.category);
- await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
  await page.locator('[data-action="template-edit"][data-id="'+ids.template+'"]').click();assert.equal(await page.locator('#tpStore').inputValue(),ids.store);
  await page.locator('#tpName').fill('Cambio pendiente QA');await page.locator('[data-action="template-duplicate"]').click();
  await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="cancel"]').click();

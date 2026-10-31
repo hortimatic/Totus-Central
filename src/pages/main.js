@@ -218,14 +218,14 @@ export function cajas(){
    return `<div class="compact-detail"><span><b>${total==null?'Sin importe anotado':money(total)}</b></span>${r.entry_mode==='source_snapshot'?`<span>${r.include_in_income===false?(closingMonthlyReference(r)?'Fiscalidad: referencia mensual registrada':'Sin referencia fiscal registrada'):'Incluido en ingresos fiscales'}</span>`:`<span>Diferencia <b class="${Math.abs(Number(r.difference||0))>.01?'danger-text':'good-text'}">${incompleteClosing(r)?'Por completar':money(r.difference||0)}</b></span>${Math.abs(Number(r.difference||0))>.01?`<span>Total anotado <b>${r.reported_total_sales==null?'—':money(r.reported_total_sales)}</b></span>`:''}`}</div>`;
   }},
   {label:'Estado',html:r=>acceptedClosing(r)?`${acceptedBadge}${r.entry_mode!=='source_snapshot'&&r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`:r.entry_mode==='source_snapshot'?'<span class="badge warn">Por conciliar</span><div class="small muted">Captura y Excel conservados</div>':`${r.status==='cerrado'&&closingHasOrigin(r)?'<span class="badge good">Conciliado</span>':stateBadge(r.status)}${r.notes?`<div class="small muted record-note">${esc(r.notes)}</div>`:''}`},
-  {label:'Acciones',html:r=>`<div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Ver detalle','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
+  {label:'Acciones',html:r=>`<button type="button" class="btn secondary mobile-row-toggle" data-action="toggle-closing-breakdown" aria-expanded="false">Ver desglose</button><div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Ver detalle','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
- return `<div class="page">
-  <div class="kpis closing-kpis">${kpi('Tarjeta registrada',money(total),'El total fiscal se consulta en Fiscalidad')}${kpi('Salidas en metálico',money(withdrawals),'Retiradas de las cajas · filtros aplicados')}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias')}</div>
+ return `<div class="page closing-list-page">
+  <div class="kpis closing-kpis">${kpi('Tarjeta registrada',money(total),'El total fiscal se consulta en Fiscalidad',{compactHelp:true})}${kpi('Salidas en metálico',money(withdrawals),'Retiradas de las cajas · filtros aplicados',{compactHelp:true})}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias',{compactHelp:true})}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos pendientes de conciliación de caja. Fiscalidad conserva las referencias mensuales registradas. Conciliar comprueba el desglose de caja y no duplica esos ingresos.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>
-   ${dateFilters({...f,stores:state.data.stores},'cajas')}
-   ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.'})}
+   <div class="closing-filter-bar"><button type="button" class="btn secondary mobile-filter-toggle" data-action="toggle-mobile-filters" aria-expanded="false" aria-controls="closingFilters">Filtrar cierres</button><span class="small muted">${fmtDate(f.from)} – ${fmtDate(f.to)}</span></div><div id="closingFilters" class="mobile-filter-content">${dateFilters({...f,stores:state.data.stores},'cajas')}</div>
+   ${table(headers,rows,{emptyTitle:'No hay cierres',emptyText:'No existen cierres para las fechas seleccionadas.',mobileCards:true})}
   </section>
  </div>`;
 }
@@ -993,6 +993,7 @@ function drawerEditor(drawer,row,locked=false){
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>El efectivo que dejas aquí será la apertura de esta misma caja el próximo día.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
+   <div class="wide drawer-sales-entry">${formField('Ventas de esta caja',`drSales_${drawer.id}`,saved?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}<p class="small muted">Total de ventas anotado para ${esc(drawer.name)}, incluyendo todos sus medios de cobro. Se sumará al de las otras cajas.</p><div class="small" id="drSalesDiff_${drawer.id}" role="status"></div></div>
    ${formField('Dinero que quedó del cierre anterior',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Dinero que dejas para el próximo día',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01" '+(locked?'disabled':''))}
@@ -1028,6 +1029,7 @@ export function closingRecordHtml(row=null){
       ${selectField('Tienda','clStore',storeOptions,sid,locked||sourceReconcile?'disabled':'')}
       ${formField('Fecha','clDate',recordDate,'date',locked||sourceReconcile?'disabled':'')}
       ${formField('Total ventas','clReported',sourceReconcile&&!sourceClosingReconciled(row)?'':row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
+      <p class="small muted wide" id="clSalesHint">Si indicas las ventas de cada caja, el total de la tienda se suma automáticamente. Si solo dispones del total de tienda, puedes conservarlo sin inventar un reparto.</p>
       ${!locked&&!sourceReconcile?selectField('Estado al guardar','clSaveStatus',[{value:'cerrado',label:'Conciliar y aceptar el cierre'},{value:'borrador',label:'Borrador · terminar después'}],'cerrado'):''}
       <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>

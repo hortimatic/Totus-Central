@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
@@ -17,7 +18,7 @@ const tab=async section=>{
 };
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="facturacion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
  await tab('clientes');
  await page.locator('[data-action="customer-new"]').click();
  await page.locator('#cuName').fill('Cliente de prueba QA');

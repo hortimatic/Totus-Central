@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -20,7 +21,7 @@ try{
   return route.fulfill({path:'node_modules/xlsx-js-style/dist/xlsx.bundle.js',contentType:'application/javascript'});
  });
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.locator('[data-action="export-closings-current"]').click();
  await page.locator('#toastHost').getByText('No se pudo cargar excel',{exact:false}).waitFor();
  assert.equal(await page.locator('[data-action="export-closings-current"]').count(),1,'Failed load cannot replace the page');

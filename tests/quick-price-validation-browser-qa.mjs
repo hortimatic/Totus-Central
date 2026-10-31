@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -27,7 +28,7 @@ try{
  await page.waitForFunction(()=>window.__mockDb.consultations.length===1);
  const row=await page.evaluate(()=>window.__mockDb.consultations[0]);
  assert.equal(row.cost_net,10);assert.equal(row.pvp,20);assert.equal(row.discount,10);
- await page.locator('#nav [data-route="pricing"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));
  await page.locator('#pqQuery').fill('Consulta Pricing QA');
  await page.locator('#pqCost').fill('-10');await page.locator('#pqPvp').fill('20');
  assert.equal(await page.locator('#pqMargin').innerText(),'—');

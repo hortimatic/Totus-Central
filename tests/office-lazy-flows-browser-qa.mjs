@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -20,7 +21,7 @@ try{
  ws.B2.f='SUM(20,30)';ws.B2.s={font:{bold:true},fill:{fgColor:{rgb:'D9EAF7'}}};
  XLSX.utils.book_append_sheet(wb,ws,'Hoja de prueba');
  const workbookBuffer=XLSX.write(wb,{type:'buffer',bookType:'xlsx',cellStyles:true});
- await page.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));
  await page.locator('[data-action="document-new"]').click();
  await page.locator('#docParty').fill('Excel bajo demanda');
  await page.locator('#docFile').setInputFiles({name:'primera-vista.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:workbookBuffer});
@@ -52,7 +53,7 @@ try{
  assert.equal(requests.zip,1,'Word preview reuses shared ZIP');
  await page.locator('#modalHost .close-btn').click();
 
- await page.locator('#nav [data-route="informes"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="informes"]'));
  await page.getByText('Descargas anuales y auditoría complementaria',{exact:true}).click();
  const ready=page.waitForEvent('download',{timeout:30000});
  await page.locator('[data-action="export-gestor-package"]').first().click();

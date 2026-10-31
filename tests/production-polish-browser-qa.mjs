@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -14,7 +15,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  assert.equal(await page.locator('.sidebar-foot .app-version').count(),0);assert.equal(await page.locator('.sidebar .brand .app-version').count(),1);
  const brand=await page.locator('.sidebar .brand').boundingBox();assert(brand.height<90,'Brand must remain compact');
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="user-new"]').click();
  await page.locator('#usPassword').fill('Synthetic-password-only-123');
  const eye=page.locator('[data-action="password-visibility"]');assert.equal(await page.locator('#usPassword').getAttribute('type'),'password');

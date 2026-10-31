@@ -56,6 +56,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
    ['Marca e identidad',['brandName','brandSubtitle','logoMode','customLogoData','logoHeight','theme']],
    ['Colores',['primary','secondary','accent','bg','surface','card','text','muted']],
    ['Fondo de la herramienta',['backgroundMode','customBackgroundData','backgroundDim']],
+   ['Barra de navegación y cabecera',['sidebarWidth','topbarHeight']],
    ['Bordes y efectos',['borderColor','borderStrength','borderWidth','glowColor','cardGlow','buttonGlow','buttonFinish','hoverEffect']]
   ];
   interfaceGroups.push(['Tamaños y distribución',Object.keys(APPEARANCE_FIELDS.interfaz).filter(key=>!interfaceGroups.some(([,keys])=>keys.includes(key)))]);

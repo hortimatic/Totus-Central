@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {PDFDocument} from 'pdf-lib';
@@ -15,7 +16,7 @@ try{
   window.__mockUploads.set('business-documents/qa/issued.txt',new Blob(['ORIGINAL']));
   await (await import('../src/api.js')).loadCore();return id;
  });
- await page.locator('#nav [data-route="documentos"]').click();await page.locator('[data-action="document-edit"][data-id="'+id+'"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));await page.locator('[data-action="document-edit"][data-id="'+id+'"]').click();
  assert.equal(await page.locator('#docFile').isDisabled(),true,'Issued original must not offer replacement');
  assert.equal(await page.locator('[data-action="document-delete"]').count(),0);
  await page.locator('#docNotes').fill('Clasificación revisada');await page.locator('[data-action="document-save"]').click();

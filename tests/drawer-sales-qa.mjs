@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {drawerSalesReferences,previewClosing} from '../src/cash-closing.js';
+const rows=[{drawer_id:'vape',opening_cash:100,closing_cash:100,card_sales:30,cash_withdrawals:20,reported_total_sales:'50,00'},{drawer_id:'head',opening_cash:0,closing_cash:20,reported_total_sales:'20,00'}];
+let p=previewClosing(rows,'999');
+assert.equal(p.references.total,70);assert.equal(p.total,70);assert.equal(p.difference,0);assert.deepEqual(p.drawerDifferences,[0,0]);
+p=previewClosing([{...rows[0],reported_total_sales:60},{...rows[1],reported_total_sales:10}]);
+assert.equal(p.difference,0);assert.deepEqual(p.drawerDifferences,[-10,10],'Offsetting differences remain visible per drawer');
+p=previewClosing([{...rows[0],reported_total_sales:50},{...rows[1],reported_total_sales:''}]);
+assert.equal(p.references.complete,false);assert.equal(p.references.total,null);assert.equal(p.difference,null);
+p=previewClosing(rows.map(r=>({...r,reported_total_sales:null})),'70');assert.equal(p.difference,0);assert.equal(p.references.any,false);
+assert.equal(drawerSalesReferences([{reported_total_sales:'0,10'},{reported_total_sales:'0,20'}]).total,.3);
+assert.equal(drawerSalesReferences([{reported_total_sales:0},{reported_total_sales:0}]).complete,true);
+for(const raw of ['-1','NaN','Infinity','1,001'])assert.equal(previewClosing([{...rows[0],reported_total_sales:raw}]).valid,false,raw);
+assert.equal(drawerSalesReferences([{}]).values[0],null,'Historical unknown is not invented as zero');
+console.log('Ventas por caja: suma en céntimos, comparación individual, referencias incompletas, cero e históricos OK.');

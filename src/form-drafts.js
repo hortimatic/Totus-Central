@@ -9,7 +9,7 @@ function fields(root,includeDisabled=false){
 }
 export function captureFormDraft(root){
  if(!root)return;
- const editable=[...root.querySelectorAll('[data-action]')].some(el=>/-save(?:$|-)/.test(el.dataset.action));
+ const editable=!!root.querySelector('[data-draft-form]')||[...root.querySelectorAll('[data-action]')].some(el=>/-save(?:$|-)/.test(el.dataset.action));
  if(editable)baselines.set(root,fields(root));else baselines.delete(root);
 }
 export function hasFormDraft(root,ignore=[]){
