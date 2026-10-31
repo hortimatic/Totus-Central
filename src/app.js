@@ -3229,7 +3229,7 @@ document.addEventListener('keydown',async e=>{
  const prefix=e.target?.closest('[data-filter-prefix]')?.dataset.filterPrefix;
  try{
   if(prefix){e.preventDefault();applyFilter(prefix);await refresh()}
-  else if(e.target?.id?.startsWith('log')){e.preventDefault();applyAdminLogFilters()}
+  else if(e.target?.id?.startsWith('log')&&e.target.closest('#content')){e.preventDefault();applyAdminLogFilters()}
   else if(['stockFrom','stockTo','stockFilterStore','stockStatus','stockQuery'].includes(e.target?.id)){e.preventDefault();$('#content [data-action="stock-search"]')?.click()}
   else if(['stockLibraryStore','stockLibraryQuery'].includes(e.target?.id)){e.preventDefault();$('#content [data-action="stock-library-search"]')?.click()}
   else if(e.target?.id==='pricingQuery'){e.preventDefault();patchFilters('pricing',{query:val('pricingQuery').trim()});render()}
