@@ -2,14 +2,25 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {clickModuleLink} from './ui-navigation.mjs';
+import {APPEARANCE_PRESETS} from '../src/appearance-core.js';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],views=[];
+let stored={config:APPEARANCE_PRESETS.stitch,revision:0};
 page.on('pageerror',error=>errors.push(error.message));
 try{
  await fs.mkdir('artifacts/stitch-complete',{recursive:true});
+ await page.exposeFunction('__saveStitchPreference',args=>{
+  assert.equal(args.p_expected_revision,stored.revision);
+  stored={config:args.p_config,revision:stored.revision+1};return {data:stored,error:null};
+ });
+ await page.route('**/tests/mock-supabase.js',async route=>{
+  const response=await route.fetch();let source=await response.text();
+  source=source.replace('window.__mockDb=db;',()=>"window.__mockDb=db;db.profiles[0].ui_preferences="+JSON.stringify({interface:stored})+';');
+  source=source.replace('rpc:async(name,args)=>{',`rpc:async(name,args)=>{if(name==='totus_save_my_appearance'){const result=await window.__saveStitchPreference(args);db.profiles[0].ui_preferences.interface=result.data;return result;}`);
+  await route.fulfill({response,body:source});
+ });
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html');
  await page.locator('#nav [data-route]').first().waitFor();
  // Only synthetic mock preferences: production preferences and accounting never change here.
- await page.evaluate(async()=>{const {APPEARANCE_PRESETS}=await import('../src/appearance-core.js');window.__mockDb.profiles[0].ui_preferences={interface:{config:APPEARANCE_PRESETS.stitch,revision:1}};});
  const routes=await page.locator('#nav [data-route]').evaluateAll(es=>es.map(e=>e.dataset.route));
  assert.equal(routes.length,13);
  for(const route of routes){
