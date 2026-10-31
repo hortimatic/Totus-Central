@@ -15,8 +15,8 @@ try{
   await page.setViewportSize({width,height:1000});
   const metrics=await page.locator('.expense-row-actions .btn').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {text:e.textContent,width:r.width,height:r.height,clipped:e.scrollWidth>e.clientWidth+1}}));
   assert(metrics.length>=6);assert(metrics.every(r=>r.width<=120&&r.height<=40&&!r.clipped),'Compact buttons must retain their complete labels at '+width+': '+JSON.stringify(metrics));
-  const cells=await page.locator('.expense-register-card .data-table tbody tr').first().locator('td').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right}}));
-  for(let i=1;i<cells.length;i++)assert(cells[i].left>=cells[i-1].right-1,'Cells cannot overlap');
+  const cells=await page.locator('.expense-register-card .data-table tbody tr').first().locator('td').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}}));
+  for(let i=1;i<cells.length;i++)assert(cells[i].left>=cells[i-1].right-1||cells[i].top>=cells[i-1].bottom-1,'Cells cannot overlap in desktop rows or mobile cards');
  }
  await page.setViewportSize({width:1440,height:1000});
  await page.locator('[data-action="expense-edit"][data-id="layout-0"]').click();
