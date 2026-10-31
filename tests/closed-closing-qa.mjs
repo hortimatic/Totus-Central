@@ -9,9 +9,9 @@ state.data.closingDrawers=state.data.drawers.map(d=>({closing_id:'closing',drawe
 for(const status of ['borrador','cerrado']){
  const html=closingRecordHtml({id:'closing',store_id:'store',business_date:'2026-10-18',status});
  const inputs=[...html.matchAll(/<input\b[^>]*id="dr[^"\s]+"[^>]*>/g)].map(m=>m[0]);
- assert.equal(inputs.length,20,'Se comprueban los diez importes de las dos cajas');
+ assert.equal(inputs.length,22,'Se comprueban los diez movimientos y la referencia de ventas de cada caja');
  for(const input of inputs)assert.equal(/\bdisabled\b/.test(input),status==='cerrado',input);
  assert.equal(html.includes('data-action="closing-save-close"'),status==='borrador');
  assert.equal(html.includes('data-action="closing-reopen"'),status==='cerrado');
 }
-console.log('CLOSED CLOSING QA: 20 campos bloqueados al cerrar y editables en borrador; reapertura explícita.');
+console.log('CLOSED CLOSING QA: 22 campos bloqueados al cerrar y editables en borrador; reapertura explícita.');
