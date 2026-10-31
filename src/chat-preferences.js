@@ -19,7 +19,7 @@ export function applyChatBackground(element,value){
 }
 export async function prepareChatBackground(file,{preserveAlpha=false}={}){
  if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5*1024*1024)throw Error('Elige una imagen JPG, PNG o WebP de hasta 5 MB.');
- const bitmap=await createImageBitmap(file);
+ const bitmap=await createImageBitmap(file).catch(()=>{throw Error('No se pudo leer la imagen. Elige otro archivo JPG, PNG o WebP válido.');});
  try{
   if(bitmap.width*bitmap.height>40000000)throw Error('La imagen es demasiado grande. Usa una de menos de 40 megapíxeles.');
   const canvas=document.createElement('canvas'),ratio=Math.min(1,(preserveAlpha?640:1440)/Math.max(bitmap.width,bitmap.height));

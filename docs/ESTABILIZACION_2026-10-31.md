@@ -16,3 +16,13 @@ Para mantenimiento: consultar INICIO_CHATGPT_ACTUAL, contrato del servidor y ver
 
 ### Detalle visual contrastado en la pestaña real
 Se midió que el bloque de ayuda comenzaba exactamente al terminar los botones, sin separación. El botón Actualizar historial se comprimía a una anchura menor que su texto. Se añade separación real de los bloques y se permite recolocar los encabezados sin comprimir sus botones. Prueba adicional a 816 px (ancho observado), fuente grande, barra lateral amplia y bordes personalizados; siete anchos en total.
+
+### Recorridos adicionales de Configuración y Chat
+La revisión de operaciones pendientes reprodujo tres fallos que no aparecen al guardar de forma secuencial: campos editables durante un guardado, botones de retirar imagen activados sin imagen y un fondo retirado que reaparecía al terminar su preparación anterior. Se corrigen los estados de los controles, el aislamiento de finalizaciones entre montajes/cuentas y la prioridad de la última selección de imagen. Un resultado antiguo no desbloquea la operación nueva.
+
+Al reconstruir la vista previa se conservan los grupos plegados del mismo apartado; el logotipo grande se contiene en la vista móvil. Una imagen dañada recibe una explicación en español. Las pruebas nuevas incluyen demora deliberada, retirada y dos selecciones seguidas, cambio de cuenta con guardado pendiente y comprobación de los ajustes persistidos. No se modifican conversaciones, preferencias reales o datos contables para este ensayo.
+
+### Adaptación de los demás módulos a la apariencia personal
+El recorrido de la sesión real detectó desbordamientos en los botones de Facturación y el selector de Informes. Su reproducción con menú ancho y letra grande localizó la misma causa en Cajas y Administración, y ayudas cerradas que ampliaban el ancho de Inicio. Los encabezados ahora recolocan sus acciones cuando no caben; las pestañas mantienen el desplazamiento dentro de su barra; las ayudas cerradas no aportan anchura y los selectores de Informes responden al ancho de su contenedor. Se mantienen las tablas desplazables y el límite de anchura de las páginas.
+
+Una nueva prueba recorre los trece módulos con las hojas de estilo de producción, temas claro/oscuro, siete anchos y personalización de letra, bordes y menú. La prueba distingue el ancho disponible del contenido del ancho total de la ventana. No se ha ocultado el contenido desbordado como sustituto de corregir su distribución.
