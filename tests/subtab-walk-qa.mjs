@@ -1,4 +1,5 @@
 import {chromium} from 'playwright';
+import {clickModuleLink} from './ui-navigation.mjs';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts',{recursive:true});
 const routes=[
@@ -20,7 +21,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
  for(const mod of routes){
   const nav=page.locator('#nav [data-route="'+mod.route+'"]');
   if(await nav.count()!==1){errors.push(size+': missing '+mod.route+' main navigation');continue}
-  await nav.click();
+  await clickModuleLink(page,nav);
   for(const section of mod.sections){
    const key=size+'/'+mod.route+(section?'/'+section:'');
    if(section){

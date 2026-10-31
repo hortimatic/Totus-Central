@@ -1,4 +1,5 @@
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
+import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -368,7 +369,7 @@ async function refresh(message=''){
   const content=$('#content');
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
- finally{if(current()){state.loading=false;if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
+ finally{if(current()){state.loading=false;$('#content').inert=false;$('#content').removeAttribute('aria-busy');if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
 }
 // Fetch before rendering the target so delayed reads never overwrite a new form.
 async function navigateModule(route,el=null,prepare=null){
@@ -384,7 +385,7 @@ async function navigateModule(route,el=null,prepare=null){
  history.replaceState(null,'',moduleUrl(location.href,route));
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
- $('#content').innerHTML='<section class="card card-pad" role="status">Actualizando datos…</section>';
+ $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
   if(await loadCore({route})===false||!current())return;
   const member=state.data.team.find(m=>String(m.email).toLowerCase()===String(state.user.email).toLowerCase());
@@ -398,7 +399,7 @@ async function navigateModule(route,el=null,prepare=null){
  }catch(error){
   if(!current())return;
   $('#content').innerHTML='<section class="card card-pad" role="alert"><h2>No se han podido actualizar los datos</h2><p>'+esc(error.message||'Error de conexión')+'</p>'+btn('Volver a intentar','retry-module','primary')+'</section>';
- }finally{if(generation===refreshGeneration)state.loading=false;}
+ }finally{if(generation===refreshGeneration){state.loading=false;$('#content').inert=false;$('#content').removeAttribute('aria-busy');}}
 }
 let auditRequest=null,auditUiGeneration=0;
 const logCleanup=createLogCleanup({rpc,owner:()=>JSON.stringify([sessionViewOwner(),auditUiGeneration]),allowed:()=>isAdmin()&&can('administracion','delete'),today:isoToday,afterClean:async()=>{invalidateAuditReads();state.data.audit=[];state.data.auditUpdatedAt=null;state.data.auditError='';return refreshAuditPanel({full:true});}});
@@ -3112,6 +3113,7 @@ document.addEventListener('change',async e=>{
  }
 });
 
+enhancePasswordVisibility($('#login'));
 let recoveringPassword=false;
 function showPasswordRecovery(){
  recoveringPassword=true;
@@ -3147,12 +3149,14 @@ $('#saveRecoveryPassword').addEventListener('click',async()=>{
 let signingIn=false;
 $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();if(signingIn)return;signingIn=true;
+ hidePasswords($('#login'));
  const button=$('#loginForm button[type="submit"]');button.disabled=true;
  const m=$('#loginMessage');m.textContent='Comprobando acceso…';
  let timingRun;
  try{
   timingRun=beginStartupTiming('login_manual');
   state.session=await timedStartup('login_manual',()=>login(val('loginEmail').trim().toLowerCase(),val('loginPassword')));
+  $('#loginPassword').value='';
   await boot({fromLogin:true,timingRun});
  }
  catch(err){finishStartupTiming('error',timingRun);m.textContent=err.message}
@@ -3187,6 +3191,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
+ $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
  chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
