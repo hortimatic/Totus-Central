@@ -32,7 +32,7 @@ try{
   const expense={id,store_id:db.ops_stores[0].id,expense_date:day,supplier_name:'Factura todavía sin emitir',description:'Pago registrado',gross_expense:45,accounting_amount:45,amount_paid:45,paid_status:'pagado',paid_date:day,management_only:true,fiscal_reviewed:false,source_ref:JSON.stringify({kind:'bank_payment_source',requires_invoice_reconciliation:true})};
   db.ops_expenses.push(expense);await(await import('../src/api.js')).loadCore();return expense;
  });
- await attachment.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(attachment,attachment.locator('#nav [data-route="gastos"]'));
  await attachment.locator('[data-action="expense-edit"][data-id="'+before.id+'"]').click();
  await attachment.locator('#exFile').setInputFiles({name:'invoice-arrived.txt',mimeType:'text/plain',buffer:Buffer.from('Original supplier document')});
  await attachment.locator('[data-action="expense-attach-save"]').click();
@@ -54,7 +54,7 @@ try{
   db.ops_expenses.push({id:expense,store_id:db.ops_stores[0].id,expense_date:day,supplier_name:'QA asociación concurrente',description:'Ensayo ficticio',gross_expense:45,accounting_amount:45,management_only:true,paid_status:'pagado',document_id:before});
   await(await import('../src/api.js')).loadCore();return {expense,before,after};
  });
- await detach.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(detach,detach.locator('#nav [data-route="gastos"]'));
  await detach.locator('[data-action="expense-edit"][data-id="'+detachIds.expense+'"]').click();
  await detach.evaluate(()=>window.confirm=()=>false);
  await detach.locator('[data-action="expense-document-unlink"]').click();
@@ -85,7 +85,7 @@ try{
   const row={id,tax_type:'130',fiscal_year:Number(day.slice(0,4)),quarter:Math.ceil(Number(day.slice(5,7))/3),period_label:'Periodo de prueba',payment_date:day,amount:123.45,status:'pagado',notes:'Preservar el pago original'};
   window.__mockDb.ops_tax_payments.push(row);await(await import('../src/api.js')).loadCore();return row;
  });
- await receipt.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(receipt,receipt.locator('#nav [data-route="gastos"]'));
  await receipt.locator('[data-action="tax-payment-receipt"][data-id="'+taxBefore.id+'"]').click();
  const pdf=await PDFDocument.create();pdf.addPage();const pdfBytes=await pdf.save();
  await receipt.locator('#txReceiptFile').setInputFiles({name:'bank-receipt.pdf',mimeType:'application/pdf',buffer:Buffer.from(pdfBytes)});
@@ -110,7 +110,7 @@ try{
   window.__mockUploads.set('business-documents/qa/external-original.pdf',new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));
   await(await import('../src/api.js')).loadCore();return id;
  },Array.from(pdfBytes));
- await receipt.locator('#nav [data-route="facturacion"]').click();await receipt.locator('[data-action="invoice-edit"][data-id="'+externalId+'"]').click();
+ await clickModuleLink(receipt,receipt.locator('#nav [data-route="facturacion"]'));await receipt.locator('[data-action="invoice-edit"][data-id="'+externalId+'"]').click();
  await receipt.locator('[data-action="invoice-source-preview"]').click();await receipt.locator('#pdfPreviewHost[data-pdf-rendered="1"]').waitFor();
  await receipt.locator('[data-action="close-modal"]').filter({visible:true}).last().click();
  const externalReady=receipt.waitForEvent('download');await receipt.locator('[data-action="invoice-source-download"]').click();
@@ -129,7 +129,7 @@ try{
   window.__mockUploads.set('business-documents/qa/tax-reference.txt',new Blob(['TAX FILE']));
   await(await import('../src/api.js')).loadCore();return id;
  });
- await taxGuard.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(taxGuard,taxGuard.locator('#nav [data-route="documentos"]'));
  await taxGuard.locator('[data-action="document-delete"][data-id="'+legacyTaxDoc+'"]').click();
  await taxGuard.getByText('Este documento está vinculado a otro registro. Quita primero el vínculo desde su ficha.',{exact:true}).waitFor();
  assert.equal(await taxGuard.locator('[data-confirm="accept"]').count(),0);
@@ -140,7 +140,7 @@ try{
 
  const failure=await browser.newPage();
  await failure.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await failure.locator('#nav [data-route="gastos"]').click();await failure.locator('[data-action="expense-new"]').click();
+ await clickModuleLink(failure,failure.locator('#nav [data-route="gastos"]'));await failure.locator('[data-action="expense-new"]').click();
  await failure.locator('#exSupplier').fill('Proveedor de prueba de fallos');await failure.locator('#exInvoice').fill('QA-FAIL-001');
  await failure.locator('#exLineDesc_0').fill('Concepto');await failure.locator('#exLineBase_0').fill('10');
  await failure.locator('#exFile').setInputFiles({name:'recoverable.txt',mimeType:'text/plain',buffer:Buffer.from('Keep this file')});
@@ -157,7 +157,7 @@ try{
  assert.equal(await failure.evaluate(()=>window.__mockDb.ops_expenses.length),1);
  assert.equal(await failure.evaluate(()=>{const db=window.__mockDb,e=db.ops_expenses[0];return db.ops_documents.find(x=>x.id===e.document_id).linked_entity_id===e.id}),true);
  const batch=await browser.newPage();await batch.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await batch.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(batch,batch.locator('#nav [data-route="documentos"]'));
  const archive=await new JSZip().file('octubre 2026/Factura 01-10-2026.pdf',pdfBytes).generateAsync({type:'nodebuffer'});
  await batch.evaluate(()=>{const digest=crypto.subtle.digest.bind(crypto.subtle);window.batchDigestReleases=[];crypto.subtle.digest=async(...args)=>{if(!window.batchReleased){window.batchDigestStarted=true;await new Promise(resolve=>window.batchDigestReleases.push(resolve));}return digest(...args);};});
  const choose=batch.waitForEvent('filechooser');await batch.locator('[data-action="document-bulk-select"]').click();

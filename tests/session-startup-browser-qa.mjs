@@ -71,7 +71,7 @@ try{
   await api.loadCore();const text=Blob.prototype.text;
   Blob.prototype.text=async function(){window.previewTextStarted=true;await new Promise(resolve=>window.releasePreviewText=resolve);return text.call(this);};
  });
- await previewPage.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(previewPage,previewPage.locator('#nav [data-route="documentos"]'));
  await previewPage.locator('[data-action="document-preview"][data-id="session-preview-qa"]').click();
  await previewPage.waitForFunction(()=>window.previewTextStarted===true);
  await previewPage.evaluate(async()=>{await (await import('../src/api.js')).sb.auth.signOut();});
@@ -81,7 +81,7 @@ try{
  await previewPage.close();
  const pendingPreview=await browser.newPage();
  await pendingPreview.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await pendingPreview.locator('#nav [data-route="gastos"]').click();await pendingPreview.locator('[data-action="expense-new"]').click();
+ await clickModuleLink(pendingPreview,pendingPreview.locator('#nav [data-route="gastos"]'));await pendingPreview.locator('[data-action="expense-new"]').click();
  await pendingPreview.locator('#exFile').setInputFiles({name:'privado-sin-guardar.txt',mimeType:'text/plain',buffer:Buffer.from('Archivo ficticio sin guardar')});
  await pendingPreview.evaluate(()=>{const text=Blob.prototype.text;Blob.prototype.text=async function(){window.pendingPreviewStarted=true;await new Promise(resolve=>window.releasePendingPreview=resolve);return text.call(this);};});
  await pendingPreview.locator('[data-action="expense-file-preview"]').click();
@@ -105,7 +105,7 @@ try{
    };return bucket;};
    return {template:template.id,invoice:id};
   });
-  await logoPage.locator('#nav [data-route="facturacion"]').click();
+  await clickModuleLink(logoPage,logoPage.locator('#nav [data-route="facturacion"]'));
   if(mode==='template'){
    await logoPage.locator('[data-action="billing-section"][data-section="plantillas"]').click();
    await logoPage.locator('[data-action="template-preview"][data-id="'+ids.template+'"]').click();
@@ -123,7 +123,7 @@ try{
   await route.fulfill({response,body:text});
  });
  await switchPage.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await switchPage.locator('#nav [data-route="administracion"]').click();await switchPage.locator('[data-action="user-edit"][data-email="qa@example.com"]').click();
+ await clickModuleLink(switchPage,switchPage.locator('#nav [data-route="administracion"]'));await switchPage.locator('[data-action="user-edit"][data-email="qa@example.com"]').click();
  const cleared=await switchPage.evaluate(async()=>{
   const {sb}=await import('../src/api.js'),{state}=await import('../src/state.js'),id=crypto.randomUUID();
   const next={user:{id,email:'new-account@example.invalid'},access_token:'fake-new-session'};window.__qaNextSession=next;
@@ -135,7 +135,7 @@ try{
  });
  assert.deepEqual(cleared,{user:null,dialogs:0,oldData:0});
  await switchPage.locator('#userCard').getByText('Nueva cuenta ficticia',{exact:true}).waitFor();
- await switchPage.locator('#nav [data-route="gastos"]').click();await switchPage.locator('[data-action="expense-new"]').click();await switchPage.locator('#exSupplier').fill('Texto sin guardar al renovar sesión');
+ await clickModuleLink(switchPage,switchPage.locator('#nav [data-route="gastos"]'));await switchPage.locator('[data-action="expense-new"]').click();await switchPage.locator('#exSupplier').fill('Texto sin guardar al renovar sesión');
  await switchPage.evaluate(()=>window.__qaAuthCallback('TOKEN_REFRESHED',{...window.__qaNextSession,access_token:'fake-refreshed-session'}));
  assert.equal(await switchPage.locator('#exSupplier').inputValue(),'Texto sin guardar al renovar sesión','Refreshing the same account token must preserve its draft');
  await switchPage.close();

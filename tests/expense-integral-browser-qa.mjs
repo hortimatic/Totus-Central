@@ -57,7 +57,7 @@ try{
   const calculation=()=>p.evaluate(async()=>{const {deductibleExpenseTotal}=await import('../src/calculations.js'),db=window.__mockDb;return {ded:deductibleExpenseTotal(db.ops_expenses,db.ops_expense_lines),line:db.ops_expense_lines[0],expense:db.ops_expenses[0]}});
   assert.equal((await calculation()).ded,0);await p.locator('#exFiscalReviewed').check();await p.locator('[data-action="expense-save"]').click();await p.getByText('Gasto guardado.',{exact:true}).last().waitFor();
   const c=await calculation();assert.equal(c.ded,121);assert.equal(c.line.withholding_model,'115');assert.equal(c.line.withholding_amount,19);assert.equal(c.expense.amount_paid,0);assert.match(await p.locator('#exSumTotal').innerText(),/102,00/);
-  await p.locator('#nav [data-route="fiscalidad"]').click();assert.match(await p.locator('.fiscal-forecast').innerText(),/19,00/);
+  await clickModuleLink(p,p.locator('#nav [data-route="fiscalidad"]'));assert.match(await p.locator('.fiscal-forecast').innerText(),/19,00/);
  });
  await scenario('Duplicados y fecha futura rechazados sin alterar la factura guardada',async p=>{
   await seed(p);await create(p);await p.locator('#exSupplier').fill('INTERNET INTELIGENTE SLU');await p.locator('#exTax').fill('QA123');await p.locator('#exInvoice').fill('B/QA');await p.locator('#exLineBase_0').fill('100');await p.locator('[data-action="expense-save"]').click();assert.equal(await p.evaluate(()=>window.__mockDb.ops_expenses.length),3);
