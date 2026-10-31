@@ -19,7 +19,7 @@ const html=invoicePreview(credit);
 assert.match(html,/F-2026-001/);assert.match(html,/Devolución de artículo &lt;QA&gt;/);
 assert.match(html,/Devuelto/);assert.match(html,/101,00/);
 assert.match(inicio(),/Devoluciones pendientes/);
-assert.match(inicio(),/Pendiente de cobro<\/span><strong>0,00/,'A refund must not appear as money receivable');
+assert.match(inicio(),/Pendiente de cobro(?:<\/span>){1,2}<strong>0,00/,'A refund must not appear as money receivable');
 const form=invoiceRecordHtml(null,'factura','rectifying');
 assert.match(form,/ivRectifiedInvoice/);assert.match(form,/ivRectificationReason/);
 console.log('RECTIFYING REFUNDS QA: original reference, reason, positive settlement magnitudes, pending refunds and encoded print output OK');

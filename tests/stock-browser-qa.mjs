@@ -69,7 +69,7 @@ try{
  await page.locator('#stockNewSupplierFiles').setInputFiles({name:'proveedor.txt',mimeType:'text/plain',buffer:Buffer.from('Referencia A; Producto A; 10 unidades')});
  await page.locator('#stockNewPrestashopFiles').setInputFiles({name:'entrada.txt',mimeType:'text/plain',buffer:Buffer.from('Referencia A; Producto A; 10 unidades recibidas')});
  await page.locator('[data-action="stock-supplier-new"]').click();
- assert.equal(await page.locator('#stockSupplierName').evaluate(el=>getComputedStyle(el).borderRadius),'9px','Quick supplier uses the shared form style');
+ assert.equal(await page.locator('#stockSupplierName').evaluate(el=>getComputedStyle(el).borderRadius),await page.locator('#stockReference').evaluate(el=>getComputedStyle(el).borderRadius),'Quick supplier uses the same shared form style as the reception');
  await page.locator('#stockSupplierName').fill('Proveedor de mercancía · Distribuciones y suministros de la tienda');
  await page.locator('[data-action="stock-supplier-save"]').click();
  await page.getByText('Proveedor seleccionado. Puedes continuar con los documentos.',{exact:true}).waitFor();

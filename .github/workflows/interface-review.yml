@@ -1,7 +1,7 @@
 name: Revisar diseño de interfaz
 on:
   push:
-    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish]
+    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +26,7 @@ jobs:
       - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/ai-connection-test-browser-qa.mjs
+      - run: node tests/stitch-design-browser-qa.mjs
       - name: Comprobar los recorridos finales pendientes
         run: |
           failed=0
@@ -45,6 +46,7 @@ jobs:
           name: totus-interface-review
           path: |
             artifacts/interface-design/
+            artifacts/stitch-complete/
             artifacts/layout_shell_*.png
             artifacts/shell-geometry.json
   drawer-sales-database:

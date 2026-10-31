@@ -18,6 +18,7 @@ state.data.providerPrices=[];
 const missing=productRecordHtml(product);
 assert(missing.includes('Sin proveedor')&&missing.includes('Añade un proveedor'),'Sin coste, no debe mostrarse margen ficticio positivo');
 state.data.documents=[{id:'d1',size_bytes:1048576,original_name:'Prueba.pdf',document_date:'2026-10-20',doc_type:'factura_recibida',status:'revisada'}];state.data.stores=[];state.data.storageUsage={status:'error',message:'Fallo RPC'};
+state.filters.documentos={from:'2026-10-01',to:'2026-10-31',store:'all',query:''};
 const offline=documentos();
 assert(offline.includes('Tamaño de los documentos')&&offline.includes('1,0 MB')&&!offline.includes('% de 500 MB'),'El volumen lógico de documentos debe conservarse aunque falle la medición física de Supabase');
 state.data.storageUsage={status:'ok',total_bytes:1048576,limit_bytes:524288000,documents_count:2,assets_count:1};
