@@ -31,7 +31,10 @@ jobs:
         if: always()
         with:
           name: totus-interface-review
-          path: artifacts/interface-design/
+          path: |
+            artifacts/interface-design/
+            artifacts/layout_shell_*.png
+            artifacts/shell-geometry.json
   drawer-sales-database:
     runs-on: ubuntu-latest
     services:

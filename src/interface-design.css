@@ -36,6 +36,8 @@
   .kpi small { line-height: 1.45; color: var(--muted); }
   .filters { background: var(--panel); gap: 12px; padding-block: 18px; }
   .filters .field { flex: 1 1 150px; min-width: 0; }
+  .field, .form-grid > label { min-width: 0; grid-template-columns: minmax(0,1fr); }
+  .field :is(input,select,textarea), .form-grid :is(input,select,textarea) { min-width: 0; max-width: 100%; }
   .filters .search { flex-grow: 2; }
   .filters .inline-actions { align-self: end; }
   .table-wrap { scrollbar-width: thin; scrollbar-color: #8ca4bc transparent; }
@@ -170,6 +172,7 @@
     .sidebar .nav-btn, .btn { transition: none; }
   }
   @media (max-width: 360px) {
+    .filters .field { flex-basis: 100%; }
     .closing-kpis .kpi:nth-child(-n+2) .kpi-caption { padding-right: 19px; min-height: 30px; }
     .closing-kpis .kpi:nth-child(-n+2) .field-help { position: absolute !important; right: 9px; top: 7px; }
     .closing-kpis .kpi:nth-child(-n+2) strong { font-size: 18px; white-space: nowrap; }

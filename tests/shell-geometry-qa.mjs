@@ -21,7 +21,7 @@ for(const [size,width] of [['desktop',1440],['tablet',768],['mobile',390],['smal
    const status=getComputedStyle(document.querySelector('.sidebar'));
    return {top,title,content,sidebar,viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,sidebarPosition:status.position};
   });
-  if(s.scrollWidth>width+3)fails.push(size+'/'+route+': global horizontal scroll '+s.scrollWidth);
+  if(s.scrollWidth>width+3){fails.push(size+'/'+route+': global horizontal scroll '+s.scrollWidth);console.log(size,route,await page.locator('#content *').evaluateAll(es=>es.filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.right>innerWidth+3;}).slice(0,10).map(el=>({tag:el.tagName,classes:el.className,right:el.getBoundingClientRect().right}))));}
   if(s.title.right>s.top.right+4||s.title.x<s.top.x-4)fails.push(size+'/'+route+': title exceeds header '+JSON.stringify({title:s.title,header:s.top}));
   if(s.content.right>width+3||s.content.x<0)fails.push(size+'/'+route+': main content exceeds viewport '+JSON.stringify(s.content));
   if(width>800){
