@@ -159,7 +159,7 @@ await check('Gastos: creación, importe decimal y líneas fiscales',async()=>{
  await page.waitForTimeout(120);
  assert((await db()).expenses.find(x=>x.id===d.expenses[0].id)?.fiscal_reviewed===true,'No se puede pasar un gasto de pendiente a fiscal revisado');
  await nav('informes');
- const reviewed=await page.locator('#content').innerText();
+ const reviewed=await page.locator('#content').textContent();
  assert(reviewed.includes('Gastos registrados')&&reviewed.includes('126,20'),'El gasto revisado no se refleja en el informe');
 
 });
