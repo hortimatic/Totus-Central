@@ -1,4 +1,6 @@
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
+import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
+import {aiConnectionTestHtml,createAIConnectionTest} from './ai-connection-test.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -116,6 +118,7 @@ const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?pe
 const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.profiles.find(p=>p.id===state.user?.id),documents:()=>state.data.documents,can,rpc,
  accept:(saved,owner)=>{if(state.user?.id!==owner)return;const profile=state.data.profiles.find(p=>p.id===owner);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
+const aiConnectionTest=createAIConnectionTest({allowed:()=>isAdmin()&&can('configuracion','edit'),actor:()=>state.user?.id});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -209,7 +212,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='cotejos'?'recepciones':state.route==='configuracion'?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -235,7 +238,13 @@ function render(){
   if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
   if(target&&can('tareas','view'))rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
  }
- if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
+ if(state.route==='configuracion'){
+  appearanceUI.mount($('#appearanceRoot'));
+  if(isAdmin()&&can('configuracion','edit')){
+   $('#content .appearance-page').insertAdjacentHTML('beforeend',aiConnectionTestHtml());
+   aiConnectionTest.mount($('#content .ai-test-panel'));
+  }
+ }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
  if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
   const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await teamChat.openMessage(target.channel_id,target.id,target.parent_id);
@@ -368,7 +377,7 @@ async function refresh(message=''){
   const content=$('#content');
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
- finally{if(current()){state.loading=false;if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
+ finally{if(current()){state.loading=false;$('#content').inert=false;$('#content').removeAttribute('aria-busy');if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
 }
 // Fetch before rendering the target so delayed reads never overwrite a new form.
 async function navigateModule(route,el=null,prepare=null){
@@ -382,9 +391,9 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(null,'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
- $('#content').innerHTML='<section class="card card-pad" role="status">Actualizando datos…</section>';
+ $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
   if(await loadCore({route})===false||!current())return;
   const member=state.data.team.find(m=>String(m.email).toLowerCase()===String(state.user.email).toLowerCase());
@@ -398,7 +407,7 @@ async function navigateModule(route,el=null,prepare=null){
  }catch(error){
   if(!current())return;
   $('#content').innerHTML='<section class="card card-pad" role="alert"><h2>No se han podido actualizar los datos</h2><p>'+esc(error.message||'Error de conexión')+'</p>'+btn('Volver a intentar','retry-module','primary')+'</section>';
- }finally{if(generation===refreshGeneration)state.loading=false;}
+ }finally{if(generation===refreshGeneration){state.loading=false;$('#content').inert=false;$('#content').removeAttribute('aria-busy');}}
 }
 let auditRequest=null,auditUiGeneration=0;
 const logCleanup=createLogCleanup({rpc,owner:()=>JSON.stringify([sessionViewOwner(),auditUiGeneration]),allowed:()=>isAdmin()&&can('administracion','delete'),today:isoToday,afterClean:async()=>{invalidateAuditReads();state.data.audit=[];state.data.auditUpdatedAt=null;state.data.auditError='';return refreshAuditPanel({full:true});}});
@@ -3112,6 +3121,7 @@ document.addEventListener('change',async e=>{
  }
 });
 
+enhancePasswordVisibility($('#login'));
 let recoveringPassword=false;
 function showPasswordRecovery(){
  recoveringPassword=true;
@@ -3147,12 +3157,14 @@ $('#saveRecoveryPassword').addEventListener('click',async()=>{
 let signingIn=false;
 $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();if(signingIn)return;signingIn=true;
+ hidePasswords($('#login'));
  const button=$('#loginForm button[type="submit"]');button.disabled=true;
  const m=$('#loginMessage');m.textContent='Comprobando acceso…';
  let timingRun;
  try{
   timingRun=beginStartupTiming('login_manual');
   state.session=await timedStartup('login_manual',()=>login(val('loginEmail').trim().toLowerCase(),val('loginPassword')));
+  $('#loginPassword').value='';
   await boot({fromLogin:true,timingRun});
  }
  catch(err){finishStartupTiming('error',timingRun);m.textContent=err.message}
@@ -3187,8 +3199,9 @@ async function boot({fromLogin=false,timingRun=null}={}){
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
+ $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();aiConnectionTest.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
@@ -3224,7 +3237,7 @@ document.addEventListener('keydown',async e=>{
  const prefix=e.target?.closest('[data-filter-prefix]')?.dataset.filterPrefix;
  try{
   if(prefix){e.preventDefault();applyFilter(prefix);await refresh()}
-  else if(e.target?.id?.startsWith('log')){e.preventDefault();applyAdminLogFilters()}
+  else if(e.target?.id?.startsWith('log')&&e.target.closest('#content')){e.preventDefault();applyAdminLogFilters()}
   else if(['stockFrom','stockTo','stockFilterStore','stockStatus','stockQuery'].includes(e.target?.id)){e.preventDefault();$('#content [data-action="stock-search"]')?.click()}
   else if(['stockLibraryStore','stockLibraryQuery'].includes(e.target?.id)){e.preventDefault();$('#content [data-action="stock-library-search"]')?.click()}
   else if(e.target?.id==='pricingQuery'){e.preventDefault();patchFilters('pricing',{query:val('pricingQuery').trim()});render()}

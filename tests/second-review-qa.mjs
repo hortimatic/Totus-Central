@@ -57,7 +57,11 @@ try{
   await nav('administracion');await page.locator('[data-section="log"]').click();await page.locator('[data-action="admin-log-refresh"]').click();
   await page.waitForFunction(()=>document.querySelector('#content')?.textContent.includes('user_created'));
   assert((await page.locator('#content').innerText()).includes('Account log fixture'));
-  assert.equal(await page.getByRole('button',{name:'Cerrar sesión',exact:true}).count(),1,'Logout must be accessible on desktop and mobile');
+  if(!await page.getByRole('button',{name:'Cerrar sesión',exact:true}).count()){
+   await page.locator('[data-account-open]').click();
+   assert.equal(await page.getByRole('button',{name:'Cerrar sesión',exact:true}).isVisible(),true,'Mobile account must expose logout');
+   await page.locator('#modalHost .close-btn').click();
+  }else assert.equal(await page.getByRole('button',{name:'Cerrar sesión',exact:true}).isVisible(),true,'Desktop logout must remain accessible');
   assert.equal(errors.length,0,errors.join('\n'));await page.close();
  }
  console.log('SECOND REVIEW QA: live unsaved invoice, store changes, styled single accountant preview, monthly download, suppliers, unified Log, document layout and mobile logout verified.');

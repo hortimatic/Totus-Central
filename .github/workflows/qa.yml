@@ -160,6 +160,7 @@ jobs:
       - run: node tests/chat-integral-browser-qa.mjs
       - run: node tests/personal-interface-browser-qa.mjs
       - run: node tests/appearance-browser-qa.mjs
+      - run: node tests/ai-connection-test-browser-qa.mjs
       - run: node tests/appearance-pending-browser-qa.mjs
       - run: node tests/personal-layout-sweep-browser-qa.mjs
       - run: node tests/chat-buzz-browser-qa.mjs

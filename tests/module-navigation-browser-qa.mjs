@@ -27,10 +27,13 @@ try{
   await clickModuleLink(page,nav('pricing'));await page.locator('#pricingQuery').waitFor();assert.equal(await page.locator('#pricingQuery').inputValue(),'Actualizado');
   await clickModuleLink(page,nav('cajas'));await page.locator('#pageTitle').filter({hasText:'Cajas'}).waitFor();
   await page.evaluate(()=>{window.__navDelay=true;window.__navGate=new Promise(resolve=>window.__navRelease=resolve);});
-  await clickModuleLink(page,nav('pricing'));await page.getByRole('status').filter({hasText:'Actualizando datos'}).waitFor();
+  await clickModuleLink(page,nav('pricing'));await page.waitForFunction(()=>document.querySelector('#content').inert);
+  assert.equal(await page.locator('[data-action="closing-new"]').isVisible(),true,'Keep the previous screen visible while fetching');
+  assert.equal((await page.locator('#content').innerText()).includes('Actualizando datos'),false);
   await clickModuleLink(page,nav('gastos'));await page.locator('[data-action="expense-new"]').waitFor();
   await page.evaluate(()=>{window.__navDelay=false;window.__navRelease();});
   await page.waitForTimeout(100);assert.equal(await page.locator('#pageTitle').innerText(),'Gastos');
+  assert.equal(await page.locator('#content').evaluate(el=>el.inert),false,'The new screen must become interactive');
   await page.evaluate(()=>window.__navFailure=true);await clickModuleLink(page,nav('pricing'));await page.getByRole('heading',{name:'No se han podido actualizar los datos',exact:true}).waitFor();
   await page.evaluate(()=>window.__navFailure=false);await page.locator('[data-action="retry-module"]').click();await page.locator('#pricingQuery').waitFor();
   assert.equal(await page.locator('#pricingQuery').inputValue(),'Actualizado');

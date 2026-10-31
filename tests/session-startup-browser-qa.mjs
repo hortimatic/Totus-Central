@@ -49,7 +49,12 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('#loginEmail').waitFor({state:'visible',timeout:5000}).catch(async error=>{console.error(await page.evaluate(()=>({login:document.getElementById('login').className,app:document.getElementById('app').className,message:document.getElementById('loginMessage').textContent,signed:window.__qaSignedIn,getSession:window.supabase.createClient().auth.getSession.toString()})));throw error;});
  await page.locator('#loginEmail').fill('qa@example.com');await page.locator('#loginPassword').fill('Ficticia-solo-simulacion');
- await page.locator('#loginForm button[type="submit"]').click();
+ const eye=page.locator('#loginForm .password-toggle[aria-controls="loginPassword"]');
+ await eye.click();assert.equal(await page.locator('#loginPassword').getAttribute('type'),'text');
+ assert.equal(await eye.getAttribute('aria-label'),'Ocultar contraseña');
+ assert.equal(await page.locator('#loginPassword').inputValue(),'Ficticia-solo-simulacion');
+ await eye.click();assert.equal(await page.locator('#loginPassword').getAttribute('type'),'password');
+ await page.locator('#loginPassword').press('Enter');
  assert.equal(await page.locator('#loginForm button[type="submit"]').isDisabled(),true);
  await page.evaluate(()=>document.querySelector('#loginForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  assert.equal(await page.evaluate(()=>window.__qaLoginCount),1,'Repeated submission must not start a second sign-in');
