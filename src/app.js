@@ -1,4 +1,6 @@
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
+import {interfaceIcon} from './interface-icons.js';
+import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
 import {aiConnectionTestHtml,createAIConnectionTest} from './ai-connection-test.js';
 import {createAccountUI} from './account-ui.js';
@@ -194,7 +196,7 @@ function renderNav(){
  const nav=$('#nav'),scrollTop=nav.scrollTop,scrollLeft=nav.scrollLeft;let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
   const group=r.group!==current?(current=r.group,`<div class="eyebrow nav-group-label">${esc(r.group)}</div>`):'';
-  return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}"><span class="nav-icon">${r.icon}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
+  return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
  }).join('');
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
@@ -227,6 +229,7 @@ function render(){
   tabs.scrollLeft+=item.left-bar.left-(tabs.clientWidth-item.width)/2;
  }
  hideForbiddenButtons();
+ applyStitchLayout($('#content'),state.route,title);
  $('#userCard').innerHTML=`<b>${esc(state.user.full_name||state.user.email)}</b><span>${esc(state.user.role||'usuario')}</span>`;
  accountUI.start();
  if(input('invoiceDraftPreview')){updateInvoiceSummary();updateDraftInvoicePreview()}
