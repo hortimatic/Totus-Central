@@ -53,6 +53,12 @@ try{
  assert(await page.locator('dialog [type=submit]').isDisabled(),'Earlier image result cannot unlock the newer pending upload');
  await page.evaluate(()=>pendingChat.releases[2]());await page.getByText('Imagen preparada. Pulsa Guardar para aplicarla.',{exact:true}).waitFor();
  await page.locator('dialog [type=submit]').click();assert.equal(await page.evaluate(()=>pendingChat.layout.chat_background),'image');
+ await chatAction(page,'alerts');
+ await page.locator('[data-background-file]').setInputFiles({name:'damaged.png',mimeType:'image/png',buffer:Buffer.from('not an image')});
+ await page.evaluate(()=>pendingChat.releases[3]());
+ await page.getByText('No se pudo leer la imagen. Elige otro archivo JPG, PNG o WebP válido.',{exact:true}).waitFor();
+ assert(await page.locator('dialog [type=submit]').isEnabled(),'A damaged image does not leave the dialog locked');
+ assert.equal(await page.locator('[name=chat_background]').inputValue(),'image','The prior valid background survives an invalid replacement');
  await page.evaluate(()=>pendingChat.chat.reset());
  assert.deepEqual(failures,[]);console.log('Appearance pending operations: controls locked, no empty removal, cancelled Chat background cannot return OK');
 }finally{await browser.close();}
