@@ -1,4 +1,8 @@
 export async function openNavigation(page){
+ await page.waitForFunction(()=>{
+  const sidebar=document.querySelector('.sidebar');
+  return sidebar&&sidebar.inert===(matchMedia('(max-width:800px)').matches&&!document.body.classList.contains('menu-open'));
+ });
  const sidebar=page.locator('.sidebar');
  if(await sidebar.evaluate(el=>el.inert))await page.locator('[data-action="toggle-menu"]').click();
 }

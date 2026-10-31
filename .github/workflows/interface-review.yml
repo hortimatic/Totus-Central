@@ -1,7 +1,7 @@
 name: Revisar diseño de interfaz
 on:
   push:
-    branches: [design/stitch-interface, fix/interface-publication]
+    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait]
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install --no-save --no-package-lock playwright@1.56.1 xlsx-js-style@1.2.0 jszip@3.10.1
+      - run: npm install --no-save --no-package-lock playwright@1.56.1 xlsx-js-style@1.2.0 jszip@3.10.1 pdf-lib@1.17.1 fflate@0.8.3
       - run: npx playwright install --with-deps chromium
       - run: node tests/interface-design-qa.mjs
       - run: node tests/drawer-sales-qa.mjs
@@ -23,6 +23,13 @@ jobs:
       - run: node tests/action-inventory-qa.mjs
       - name: Servir simulación sin datos reales
         run: python3 -m http.server 4173 >/tmp/totus-interface.log 2>&1 &
+      - name: Comprobar los recorridos finales pendientes
+        run: |
+          failed=0
+          for file in tests/report-period-qa.mjs tests/second-review-qa.mjs tests/rectifying-browser-qa.mjs tests/pdf-preview-qa.mjs tests/invoice-logo-qa.mjs tests/backup-qa.mjs tests/recovery-browser-qa.mjs tests/form-drafts-qa.mjs tests/attachment-integrity-qa.mjs tests/admin-submenus-qa.mjs tests/billing-submenus-qa.mjs tests/fiscal-submenus-qa.mjs tests/store-drawers-qa.mjs tests/mobile-navigation-qa.mjs tests/shell-geometry-qa.mjs tests/subtab-walk-qa.mjs; do
+            if ! node "$file"; then failed=1; fi
+          done
+          exit "$failed"
       - run: node tests/personal-layout-sweep-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/interface-design-browser-qa.mjs
