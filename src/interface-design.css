@@ -57,12 +57,13 @@
   .drawer-sales-entry p { margin: 8px 0; line-height: 1.5; }
   .drawer-sales-entry input { font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
   .appearance-section { scroll-margin-top: 110px; }
+  .appearance-page { grid-template-columns: minmax(0,1fr); }
+  .appearance-page > * { min-width: 0; }
   .appearance-section summary { line-height: 1.5; }
   .appearance-grid .field { line-height: 1.5; }
   .appearance-anchors { gap: 8px; }
   .appearance-anchors button { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
   .appearance-section > summary { min-width: 0; overflow-wrap: anywhere; }
-  .appearance-section legend.sr-only { max-inline-size: 1px; white-space: normal; overflow-wrap: anywhere; clip-path: inset(50%); }
   .appearance-preview-card { min-width: 0; }
   /* Module-specific surfaces share the same visual system without replacing their controls. */
   .tabs .tab.active { background: color-mix(in srgb,var(--accent) 9%,var(--panel)); border-radius: 8px 8px 0 0; }
