@@ -830,7 +830,7 @@ function adminBackupHtml(){
   {label:'Incidencias',html:r=>r.error_message?`<span>${esc(r.status==='running'?r.error_message:backupFailureSummary(r.error_message))}</span><details><summary>Detalle técnico</summary><p class="small">${esc(r.error_message)}</p></details>`:backupRunState(r)==='unfinished'?'No hay confirmación de que haya terminado. No cuenta como copia guardada.':'—'},
   {label:'',html:r=>r.status==='success'&&r.storage_path?`<div class="inline-actions">${btn('Descargar','backup-history-download','secondary',`data-id="${r.id}"`)}${btn('Verificar','backup-history-verify','secondary',`data-id="${r.id}"`)}${btn('Restaurar esta copia','backup-history-restore','primary',`data-id="${r.id}"`)}${btn('Eliminar','backup-history-delete','danger',`data-id="${r.id}" ${paths.length<=1?'disabled title="Conserva al menos una copia"':''}`)}</div>`:''}
  ];
- return `<div class="stack">
+ return `<div class="stack backup-page">
   <div class="kpis">${kpi('Programación',active?'Activada':'Desactivada')}${kpi('Copias guardadas',paths.length+' de '+keep)}${kpi('Archivos de copias en Supabase',backupBytes==null?'Sin medición':(backupBytes/1048576).toLocaleString('es-ES',{maximumFractionDigits:2})+' MB','Incluye copias, fragmentos y puntos de recuperación')}${kpi('Conservación',keep+' copias más recientes')}</div>
   <section class="card card-pad backup-health"><h2>Estado de las copias</h2>
    <p>${recent?'Última copia guardada: <b>'+esc(new Date(recent.started_at).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}))+'</b> · '+Number(recent.files_count||0)+' archivos incluidos.':'Todavía no hay una copia completa guardada.'}</p>
@@ -840,8 +840,8 @@ function adminBackupHtml(){
    ${outdated?`<p class="note warn"><b>Falta una copia actualizada.</b> La última guardada contiene ${Number(recent.files_count)} archivos y ahora hay ${currentFiles} documentos con archivo adjunto. No contiene todos los documentos actuales.</p>`:''}
    <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de ${keep} copias completadas.</p>
   </section>
-  <section class="card card-pad"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
-   <div class="form-grid" style="margin-top:14px">
+  <section class="card card-pad backup-schedule-card"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
+   <div class="form-grid backup-schedule-grid">
     <label class="check-field wide emphasis-check"><input type="checkbox" id="backupEnabled" ${active?'checked':''}> Activar copias programadas</label>
     <div class="field"><label for="backupFrequency">Frecuencia</label><select id="backupFrequency">${frequencyOptions}</select></div>
     <div class="field"><label for="backupTime">Hora en España (Madrid)</label><input id="backupTime" type="time" value="${hh}:${mm}"></div>

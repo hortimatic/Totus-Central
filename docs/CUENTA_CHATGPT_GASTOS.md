@@ -1,12 +1,12 @@
 # ChatGPT y Totus Central: conexión de Gastos
-Vigente: 28/10/2026. Este documento sustituye las instrucciones anteriores de esta conexión.
+Vigente: 31/10/2026. Este documento sustituye las instrucciones anteriores de esta conexión.
 
 ## Al comenzar cualquier chat
 Lee este manual desde la rama vigente de GitHub. Comprueba primero:
 ```sql
 select private.totus_assistant_capabilities();
 ```
-El contrato vigente es versión 2. Usa el conector Supabase autorizado del propietario. Las consultas SQL entran como conexión administrativa y NO son una sesión personal: auth.uid() nulo en SQL no demuestra que el worker esté desconectado. Las operaciones siguientes abren y verifican una sesión Auth REAL de la cuenta **ChatGPT · Asistente Totus**. No simulan la identidad del titular.
+El contrato vigente es versión 3; consulta siempre private.totus_assistant_capabilities(). Usa el conector Supabase autorizado del propietario. Las consultas SQL entran como conexión administrativa y NO son una sesión personal: auth.uid() nulo en SQL no demuestra que el worker esté desconectado. Las operaciones siguientes abren y verifican una sesión Auth REAL de la cuenta **ChatGPT · Asistente Totus**. No simulan la identidad del titular.
 
 La cuenta tiene permisos individuales para Gastos y Documentos, y lectura de Inicio y Equipo. Solo puede leer adjuntos de canales en los que sea miembro. No tiene administración ni borrados. El worker no crea cuentas, no reactiva usuarios y no cambia permisos: se ha retirado la antigua acción setup.
 
@@ -24,6 +24,7 @@ La conexión admite exactamente:
 - save_expense: alta o edición mediante totus_save_expense con la sesión propia.
 - attach_chat_file: incorpora el PDF de un mensaje al gasto.
 - review_document: actualiza el estado documental y registra el cotejo sin cambiar la fiscalidad ni el pago.
+- chat_read y chat_send: lectura y respuesta en los canales autorizados, según CHATGPT_CHAT_INTERNO.md.
 
 ## Registrar una factura
 1. Comprueba la petición del usuario, original, titular destinatario, tienda, proveedor/NIF, número, fecha, conceptos, base, IVA, recargo, retención y total. Consulta duplicados por proveedor y número. Las facturas originales prevalecen sobre errores de importe del Excel; una fecha del Excel puede corresponder al pago, no a la factura.

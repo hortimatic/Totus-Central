@@ -1,3 +1,5 @@
+> Entrada vigente (31/10/2026): [INICIO_CHATGPT_ACTUAL.md](INICIO_CHATGPT_ACTUAL.md). Leerla primero. Este documento conserva también antecedentes históricos; no reinstalar propuestas antiguas sin comprobar producción.
+
 # Totus Central · entrega y continuidad
 ## Qué conservar en Fuentes
 1. El ZIP del código de la revisión aprobada, descargado desde GitHub. Incluye código, pruebas y manuales; no las facturas privadas ni las claves.

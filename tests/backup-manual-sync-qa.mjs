@@ -11,11 +11,11 @@ const sync=new Function('token','root','ensurePath','fetch','graph','encodedPath
  async(_token,path,options)=>{stored.set(path,options.body);return new Response(null,{status:200});},parts=>parts.map(encodeURIComponent).join('/'),
  async(_token,path)=>stored.get(path).buffer,hash,{from:table=>({select:async()=>({data:table==='ops_stores'?[{id:'test-store',name:'Tienda de prueba'}]:[{store_id:'test-store',name:'Caja de prueba'}],error:null})})},result=>{if(result.error)throw result.error;return result.data;});
 await assert.rejects(()=>sync('not-a-revision'),/revisión/);
-const result=await sync('a'.repeat(40));assert(result.verified);assert.equal(result.files,7);
+const result=await sync('a'.repeat(40));assert(result.verified);assert([...stored.keys()].some(p=>p.endsWith('INICIO_CHATGPT_ACTUAL.md:/content')));assert([...stored.keys()].some(p=>p.endsWith('CUENTA_CHATGPT_GASTOS.md:/content')));assert(![...stored.keys()].some(p=>p.includes('PETICIONES_Y_ESTADO')));assert.equal(result.files,9);
 const guide=new TextDecoder().decode([...stored].find(([p])=>p.endsWith('GUIA_TRABAJO_DIARIO_CHATGPT.md:/content'))[1]);assert(guide.includes('Tienda de prueba (Caja de prueba)'));
 const body=new TextDecoder().decode([...stored].find(([p])=>p.endsWith('MANUAL_CHATGPT_ONLINE.md:/content'))[1]);
 assert([...stored.keys()].some(p=>p.endsWith('COTEJOS_CHATGPT.md:/content')));assert(body.includes('juegos v4'));assert(body.includes('Otro apartado que debe conservarse.'));
 assert(!body.includes('El formato admite 120 MiB'));assert(!body.includes('01/01/2099'));
 assert(body.includes('90 días antes')&&body.includes('30 días antes'));
 assert(!body.includes('\\n\\n'),'Manual must contain real line breaks');
-console.log('BACKUP MANUAL SYNC: seven private cloud documents, updated instructions, no stale credential deadline and verified readback OK');
+console.log('BACKUP MANUAL SYNC: nine current private cloud documents, updated instructions, no stale credential deadline and verified readback OK');
