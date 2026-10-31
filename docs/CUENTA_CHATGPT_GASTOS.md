@@ -6,9 +6,9 @@ Lee este manual desde la rama vigente de GitHub. Comprueba primero:
 ```sql
 select private.totus_assistant_capabilities();
 ```
-El contrato vigente es versión 3; consulta siempre private.totus_assistant_capabilities(). Usa el conector Supabase autorizado del propietario. Las consultas SQL entran como conexión administrativa y NO son una sesión personal: auth.uid() nulo en SQL no demuestra que el worker esté desconectado. Las operaciones siguientes abren y verifican una sesión Auth REAL de la cuenta **ChatGPT · Asistente Totus**. No simulan la identidad del titular.
+El contrato vigente es versión 4; consulta siempre private.totus_assistant_capabilities(). Usa el conector Supabase autorizado del propietario. Las consultas SQL entran como conexión administrativa y NO son una sesión personal: auth.uid() nulo en SQL no demuestra que el worker esté desconectado. Las operaciones siguientes abren y verifican una sesión Auth REAL de la cuenta **ChatGPT · Asistente Totus**. No simulan la identidad del titular.
 
-La cuenta tiene permisos individuales para Gastos y Documentos, y lectura de Inicio y Equipo. Solo puede leer adjuntos de canales en los que sea miembro. No tiene administración ni borrados. El worker no crea cuentas, no reactiva usuarios y no cambia permisos: se ha retirado la antigua acción setup.
+Diego ha solicitado rol administrador para ambas cuentas propias. Comprobar el rol realmente instalado con session_check; no asumirlo por este texto. El acceso a canales privados conserva la pertenencia. El worker no reactiva cuentas; el cambio autorizado de rol se realiza por team-admin con la sesión propia de Codex y queda auditado. Consultar ACCESO_AGENTES.md para el catálogo de otros módulos.
 
 ## Presentar operaciones y recoger resultados
 ```sql
@@ -17,7 +17,7 @@ select private.totus_assistant_submit('session_check') as request;
 select private.totus_assistant_result('<job_id>'::uuid);
 ```
 La solicitud inicial queued NO significa completada. Espera unos segundos, sin bucles rápidos, y recoge completed o failed. Si una solicitud no arranca, consulta el http_request_id y su caducidad antes de reenviar. Si hubo un resultado incierto, comprueba registros antes de repetir.
-La conexión admite exactamente:
+Las operaciones específicas de Gastos y Chat son:
 - session_check: comprueba identidad real.
 - expense_context: consulta gasto, líneas, documento, estados y régimen configurado.
 - validate_expense: validación del guardado dentro de una subtransacción que se revierte; persisted=false.

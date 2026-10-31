@@ -25,7 +25,7 @@ select private.totus_assistant_result('<job_id>'::uuid);
 `queued` no significa ejecutado. Solo `completed`, `authenticated=true`, `session_verified=true` acredita la sesión propia. `auth.uid()` nulo en el conector SQL administrativo no describe la sesión Auth del worker.
 5. OneDrive: usar las herramientas para drive personal y los identificadores exactos devueltos por el conector. Entrar por Apps/Totus Central, confirmar la ruta e identificar el documento antes de usarlo. No buscar un sitio empresarial inexistente ni crear otra carpeta Totus.
 
-## Operaciones del contrato vigente (versión 3)
+## Operaciones del contrato vigente (versión 4)
 | Acción | Finalidad | Comprobación final |
 |---|---|---|
 | session_check | Autenticar la cuenta propia | completed y sesión verificada |
@@ -39,7 +39,7 @@ select private.totus_assistant_result('<job_id>'::uuid);
 
 Consultar el contrato del servidor en cada sesión, no asumir que existe una acción no enumerada. Para los formatos y argumentos completos: [Gastos](CUENTA_CHATGPT_GASTOS.md), [Chat](CHATGPT_CHAT_INTERNO.md), [Recepciones](COTEJOS_CHATGPT.md).
 
-El puente no es una RPC universal. Cajas, Facturación, usuarios, restauraciones y cambios técnicos no se convierten en operaciones autorizadas de este puente por tener un conector administrativo. Utilizar el recorrido normal documentado y una sesión legítima con permiso. Si no está disponible ese recorrido, indicar exactamente cuál falta; no fabricar identidad ni escribir directamente tablas contables. La cuenta técnica no debe recibir administración universal para ocultar un error de validación.
+El contrato 4 amplía ambos accesos con un catálogo explícito de operaciones normales de Cajas, Recepciones, Facturación, Pricing, Tareas y Configuración, además de Gastos y Chat. Leer [Acceso propio y relevo de agentes](ACCESO_AGENTES.md) y consultar el catálogo instalado antes de enviar argumentos. El rol administrador solicitado por Diego debe comprobarse en la sesión, no inferirse de este documento. No se permite SQL contable directo ni suplantación del titular.
 
 ## Registrar y comprobar un gasto
 - Leer original completo: destinatario, tienda, proveedor/NIF, número, emisión, líneas, base, IVA, recargo, retención y total. La fecha de pago es independiente. Una factura pendiente de publicar no se inventa.

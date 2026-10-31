@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import {attachChatExpenseDocument,readExpenseContext,reviewExpenseDocument} from './assistant-attachments.ts'
 import {readTeamChat,sendTeamChat} from './assistant-chat.ts'
+import {runOperation} from './assistant-operations.ts'
 
 // This endpoint never receives user credentials. A short-lived, single-use
 // server ticket authorizes exactly one queued operation from the SQL connector.
@@ -25,9 +26,10 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   if(claimError||!work)return respond({error:'Solicitud no autorizada, ya utilizada o caducada'},401)
   claimed=true
   const {email,password}=work.credentials
-  const codexAction=['codex_setup','codex_session_check','codex_chat_read','codex_chat_send','codex_chat_direct'].includes(work.action)
+  const codexAction=typeof work.action==='string'&&work.action.startsWith('codex_')
+  const action=codexAction?work.action.slice(6):work.action
   if(email!==(codexAction?'codex@totuscentral.invalid':'chatgpt@totuscentral.invalid')||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
-  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send','codex_setup','codex_session_check','codex_chat_read','codex_chat_send','codex_chat_direct'].includes(work.action))throw new Error('Acción no admitida')
+  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send','operation','chat_direct',...(codexAction?['setup','grant_chatgpt_admin']:[])].includes(action))throw new Error('Acción no admitida')
   if(work.action==='codex_setup'){
    // The one-use server ticket is issued exclusively by the administrative connector.
    // Do not reset, reactivate or take over an existing account on retry.
@@ -56,30 +58,41 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   if(loginError||!session.session||(codexAction?session.user?.app_metadata?.totus_codex:session.user?.app_metadata?.totus_assistant)!==true)throw new Error('No se pudo autenticar la cuenta propia')
   const {data:confirmed,error:userError}=await scoped.auth.getUser()
   if(userError||confirmed.user?.id!==session.user.id)throw new Error('No se pudo verificar la sesión')
-  const {data:member,error:memberError}=await admin.from('team_members').select('active').eq('email',email).maybeSingle()
+  const {data:member,error:memberError}=await admin.from('team_members').select('active,role').eq('email',email).maybeSingle()
   if(memberError||!member?.active)throw new Error('Cuenta del asistente desactivada')
-  let result:any={authenticated:true,user_id:confirmed.user.id,email,session_verified:true}
-  if(['save_expense','validate_expense'].includes(work.action)){
+  let result:any={authenticated:true,user_id:confirmed.user.id,email,role:member.role,session_verified:true}
+  if(action==='grant_chatgpt_admin'){
+   if(!codexAction||member.role!=='admin')throw new Error('Administración de Codex requerida');
+   const {data:target,error:targetError}=await scoped.from('team_members').select('email,full_name,phone,job_title,store,employee_notes,active').eq('email','chatgpt@totuscentral.invalid').single();
+   if(targetError||!target?.active)throw new Error('ChatGPT debe existir y estar activo; no se reactivará automáticamente');
+   const {data:updated,error:updateError}=await scoped.functions.invoke('team-admin',{body:{action:'update_member',...target,role:'admin'}});
+   if(updateError||!updated?.ok)throw new Error(updated?.error||updateError?.message||'No se pudo actualizar el rol');
+   const {data:proof,error:proofError}=await scoped.from('team_members').select('email,role,active').eq('email',target.email).single();
+   if(proofError||proof?.role!=='admin'||proof?.active!==true)throw new Error('Actualización enviada; relectura pendiente');
+   result={...result,target:proof,verified:true};
+  } else if(action==='operation')result={...result,...await runOperation(scoped,work.payload,confirmed.user)}
+  else
+  if(['save_expense','validate_expense'].includes(action)){
    const {expense,lines}=work.payload||{}
    if(!expense||!Array.isArray(lines)||!expense.request_id)throw new Error('Gasto, líneas y request_id obligatorios')
    if(expense.fiscal_reviewed!==undefined&&typeof expense.fiscal_reviewed!=='boolean')throw new Error('Revisión fiscal no válida')
    if(expense.id&&!Object.hasOwn(expense,'expected_updated_at'))throw new Error('Relee la ficha antes de editarla')
-   const rpc=work.action==='save_expense'?'totus_save_expense':'totus_assistant_validate_expense'
+   const rpc=action==='save_expense'?'totus_save_expense':'totus_assistant_validate_expense'
    const {data:saved,error:saveError}=await scoped.rpc(rpc,{p_expense:expense,p_lines:lines})
    if(saveError)throw new Error(saveError.message)
-   if(work.action==='validate_expense')result={...result,...saved,simulation:true,persisted:false}
+   if(action==='validate_expense')result={...result,...saved,simulation:true,persisted:false}
    else {
     const {data:expenseRow,error:readError}=await scoped.from('ops_expenses').select('*').eq('id',saved).single()
     const {data:lineRows,error:lineError}=await scoped.from('ops_expense_lines').select('*').eq('expense_id',saved).order('sort_order')
     if(readError||lineError||expenseRow.created_by!==confirmed.user.id&&!expense.id)throw new Error('Guardado realizado; relectura pendiente. Consulta antes de reintentar.')
     result={...result,expense_id:saved,expense:expenseRow,lines:lineRows,persisted:true}
    }
-  } else if(work.action==='attach_chat_file')result={...result,...await attachChatExpenseDocument(scoped,work.payload,confirmed.user)}
-  else if(work.action==='expense_context')result={...result,...await readExpenseContext(scoped,work.payload)}
-  else if(work.action==='review_document')result={...result,...await reviewExpenseDocument(scoped,work.payload)}
-  else if(work.action==='chat_read'||work.action==='codex_chat_read')result={...result,...await readTeamChat(scoped,work.payload,confirmed.user)}
-  else if(work.action==='chat_send'||work.action==='codex_chat_send')result={...result,...await sendTeamChat(scoped,work.payload,confirmed.user)}
-  else if(work.action==='codex_chat_direct'){
+  } else if(action==='attach_chat_file')result={...result,...await attachChatExpenseDocument(scoped,work.payload,confirmed.user)}
+  else if(action==='expense_context')result={...result,...await readExpenseContext(scoped,work.payload)}
+  else if(action==='review_document')result={...result,...await reviewExpenseDocument(scoped,work.payload)}
+  else if(action==='chat_read')result={...result,...await readTeamChat(scoped,work.payload,confirmed.user)}
+  else if(action==='chat_send')result={...result,...await sendTeamChat(scoped,work.payload,confirmed.user)}
+  else if(action==='chat_direct'){
    const target=String(work.payload?.target_email||'').trim().toLowerCase();
    if(!target||target===email)throw new Error('Destinatario no válido');
    const {data:direct,error}=await scoped.rpc('totus_chat_command',{p_action:'create_direct',p_data:{email:target}});
