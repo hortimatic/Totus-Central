@@ -16,7 +16,7 @@ try{
    for(const width of [320,390,768,816,1024,1440,1920]){
     await page.setViewportSize({width,height:950});
     const size=await page.locator('#content').evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));
-    if(size.scroll>size.client+2)failures.push({preset,route,width,...size});
+    if(size.scroll>size.client+2)failures.push({preset,route,width,...size,overflow:await page.locator('#content *').evaluateAll(es=>es.filter(e=>e.getBoundingClientRect().right>document.querySelector('#content').getBoundingClientRect().right+2).map(e=>({tag:e.tagName,id:e.id,cl:e.className,right:e.getBoundingClientRect().right,width:e.getBoundingClientRect().width,sw:e.scrollWidth,cw:e.clientWidth,text:e.textContent.slice(0,60)})).slice(0,15))});
    }
   }
  }
