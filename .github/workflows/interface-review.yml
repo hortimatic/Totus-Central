@@ -25,6 +25,7 @@ jobs:
         run: python3 -m http.server 4173 >/tmp/totus-interface.log 2>&1 &
       - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
+      - run: node tests/ai-connection-test-browser-qa.mjs
       - name: Comprobar los recorridos finales pendientes
         run: |
           failed=0
