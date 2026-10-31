@@ -12,7 +12,7 @@ export function applyStitchLayout(root,route,title){
   const identity=document.createElement('div');identity.className='module-identity';
   const icon=document.createElement('span');icon.className='module-symbol';icon.innerHTML=interfaceIcon(route);
   const text=document.createElement('div'),name=document.createElement('h2'),description=document.createElement('p');
-  name.textContent=title;description.textContent=descriptions[route]||'';text.append(name,description);identity.append(icon,text);heading.append(identity);
+  name.textContent=route==='cotejos'?'Recepciones':title;description.textContent=descriptions[route]||'';text.append(name,description);identity.append(icon,text);heading.append(identity);
   // Move list actions, never clone them: IDs, draft protection and delegated handlers remain intact.
   const section=[...page.querySelectorAll(':scope > .table-card > .section-head')].find(el=>el.querySelector(':scope > .inline-actions'));
   const actions=section?.querySelector(':scope > .inline-actions');
