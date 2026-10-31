@@ -1,0 +1,30 @@
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"a@example.invalid"}',true);
+do $qa$
+declare saved jsonb; blocked boolean;
+begin
+ saved:=public.totus_save_my_account('{"display_name":"Perfil A","phone":"123","photo":""}',0);
+ perform public.qa_assert(saved->>'revision'='1','Own account saved');
+ blocked:=false;begin perform public.totus_save_my_account('{"display_name":"Stale"}',0);exception when others then blocked:=sqlerrm like '%cambió%';end;
+ perform public.qa_assert(blocked,'Stale profile cannot overwrite another window');
+ blocked:=false;begin perform public.totus_save_my_account('{"role":"admin"}',1);exception when others then blocked:=sqlerrm like '%no permitido%';end;
+ perform public.qa_assert(blocked,'User cannot grant own role');
+ blocked:=false;begin perform public.totus_save_my_account('{"id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}',1);exception when others then blocked:=sqlerrm like '%no permitido%';end;
+ perform public.qa_assert(blocked,'Cannot select another account');
+ blocked:=false;begin perform public.totus_save_my_account('{"photo":"data:image/svg+xml;base64,AAAA"}',1);exception when others then blocked:=sqlerrm like '%foto%';end;
+ perform public.qa_assert(blocked,'Active image formats rejected');
+end $qa$;
+select set_config('request.jwt.claims','{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","email":"b@example.invalid"}',true);
+select public.totus_save_my_account('{"display_name":"Perfil B","photo":""}',0);
+reset role;
+select public.qa_assert((select ui_preferences#>>'{account,config,display_name}'='Perfil A' and ui_preferences#>>'{interface,config,primary}'='#123456' and ui_preferences#>'{team_chat,sound}'='true'::jsonb and role='empleado' from public.profiles where email='a@example.invalid'),'Account A and existing preferences preserved');
+select public.qa_assert((select ui_preferences#>>'{account,config,display_name}'='Perfil B' and ui_preferences->>'other'='preserved' from public.profiles where email='b@example.invalid'),'Account B isolated');
+select public.qa_assert((select count(*)=2 from public.ops_audit_log),'Only successful changes logged');
+select public.qa_assert(not has_function_privilege('anon','public.totus_save_my_account(jsonb,bigint)','execute'),'Anonymous account writes denied');
+update public.team_members set active=false where email='a@example.invalid';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"a@example.invalid"}',true);
+do $$declare blocked boolean:=false;begin begin perform public.totus_save_my_account('{"display_name":"Inactive"}',1);exception when others then blocked:=sqlerrm like '%activo%';end;perform public.qa_assert(blocked,'Inactive user rejected');end$$;
+reset role;
+rollback;

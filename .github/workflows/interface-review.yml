@@ -59,3 +59,6 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/035_drawer_sales_references.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/closing-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/drawer-sales-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/034_personal_account.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-db-qa.sql
