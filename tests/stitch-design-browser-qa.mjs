@@ -15,7 +15,12 @@ try{
  await page.route('**/tests/mock-supabase.js',async route=>{
   const response=await route.fetch();let source=await response.text();
   source=source.replace('window.__mockDb=db;',()=>"window.__mockDb=db;db.profiles[0].ui_preferences="+JSON.stringify({interface:stored})+';');
-  source=source.replace('rpc:async(name,args)=>{',`rpc:async(name,args)=>{if(name==='totus_save_my_appearance'){const result=await window.__saveStitchPreference(args);db.profiles[0].ui_preferences.interface=result.data;return result;}`);
+  source=source.replace('rpc:async(name,args)=>{',`rpc:async(name,args)=>{
+   if(name==='totus_save_my_appearance'){const result=await window.__saveStitchPreference(args);db.profiles[0].ui_preferences.interface=result.data;return result;}
+   if(name==='totus_tasks_context')return {data:{rows:[],archived_tasks:[],stores:db.ops_stores,people:[{email:'qa@example.com',name:'Equipo de prueba'}]},error:null};
+   if(['totus_chat_personalized_context','totus_chat_notification_context'].includes(name))return {data:{channels:[{id:'stitch-demo',name:'Equipo de prueba',group_name:'Hortimatic',member_role:'manager',last_seq:1,unread:0}],messages:[{id:'stitch-message',channel_id:'stitch-demo',seq:1,author_email:'qa@example.com',body:'Mensaje ficticio para comprobar el nuevo diseño de Chat.',created_at:new Date().toISOString(),replies:0,reactions:[],files:[]}],members:[{email:'qa@example.com',member_role:'manager'}],directory:[{email:'qa@example.com',name:'Equipo de prueba'}],layout:{}},error:null};
+   if(name==='totus_chat_command')return {data:{ok:true},error:null};
+  `);
   await route.fulfill({response,body:source});
  });
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html');
