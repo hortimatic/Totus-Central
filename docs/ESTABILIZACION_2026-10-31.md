@@ -16,3 +16,8 @@ Para mantenimiento: consultar INICIO_CHATGPT_ACTUAL, contrato del servidor y ver
 
 ### Detalle visual contrastado en la pestaña real
 Se midió que el bloque de ayuda comenzaba exactamente al terminar los botones, sin separación. El botón Actualizar historial se comprimía a una anchura menor que su texto. Se añade separación real de los bloques y se permite recolocar los encabezados sin comprimir sus botones. Prueba adicional a 816 px (ancho observado), fuente grande, barra lateral amplia y bordes personalizados; siete anchos en total.
+
+### Recorridos adicionales de Configuración y Chat
+La revisión de operaciones pendientes reprodujo tres fallos que no aparecen al guardar de forma secuencial: campos editables durante un guardado, botones de retirar imagen activados sin imagen y un fondo retirado que reaparecía al terminar su preparación anterior. Se corrigen los estados de los controles, el aislamiento de finalizaciones entre montajes/cuentas y la prioridad de la última selección de imagen. Un resultado antiguo no desbloquea la operación nueva.
+
+Al reconstruir la vista previa se conservan los grupos plegados del mismo apartado; el logotipo grande se contiene en la vista móvil. Una imagen dañada recibe una explicación en español. Las pruebas nuevas incluyen demora deliberada, retirada y dos selecciones seguidas, cambio de cuenta con guardado pendiente y comprobación de los ajustes persistidos. No se modifican conversaciones, preferencias reales o datos contables para este ensayo.
