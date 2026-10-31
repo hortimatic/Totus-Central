@@ -37,6 +37,6 @@ try{
  assert(!snapshot.some(r=>String(r.id).includes('-old')||r.id==='changed-after-preview'),'Deleted events do not remain in incremental cache');
  for(const width of [1440,1180,390,320]){await page.setViewportSize({width,height:850});await page.locator('[data-action="admin-log-cleanup-open"]').click();assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),'No page overflow at '+width);await page.locator('#modalHost .close-btn').click();}
  await page.close();
- const staff=await browser.newPage();await staff.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});await staff.locator('#nav [data-route="administracion"]').click();await staff.locator('[data-section="log"]').click();assert.equal(await staff.locator('[data-action="admin-log-cleanup-open"]').count(),0,'Managers cannot clean Log');await staff.close();
+ const staff=await browser.newPage();await staff.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});await clickModuleLink(staff,staff.locator('#nav [data-route="administracion"]'));await staff.locator('[data-section="log"]').click();assert.equal(await staff.locator('[data-action="admin-log-cleanup-open"]').count(),0,'Managers cannot clean Log');await staff.close();
  assert.deepEqual(errors,[]);console.log('LOG CLEANUP BROWSER: preview, invalidation, cancellation, concurrent changes, deletion, cache refresh, permissions and desktop/mobile');
 }finally{await browser.close()}

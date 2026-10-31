@@ -29,11 +29,11 @@ try{
  const restricted=await browser.newPage();restricted.on('pageerror',e=>errors.push(e.message));
  await restricted.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});
  await restricted.evaluate(async()=>{window.__mockDb.ops_user_permissions=['equipo','tareas'].map(module=>({email:'qa@example.com',module,can_view:false,can_create:false,can_edit:false,can_delete:false,can_export:false}));await(await import('../src/api.js')).loadCore();});
- await restricted.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(restricted,restricted.locator('#nav [data-route="gastos"]'));
  for(const module of ['equipo','tareas'])assert.equal(await restricted.locator('#nav [data-route="'+module+'"]').count(),0,'Denied module must disappear from navigation');
  for(const target of ['chat','tasks'])await restricted.locator('[data-header="'+target+'"]').waitFor({state:'hidden',timeout:2000});
  assert.equal(await restricted.locator('#nav [data-route="gastos"]').isVisible(),true,'Unrelated permitted module remains available');
- await restricted.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(restricted,restricted.locator('#nav [data-route="inicio"]'));
  assert.equal(await restricted.locator('#tasksHomeSummary').innerText(),'Tu cuenta no tiene acceso al calendario de tareas.','Denied calendar must not remain in an endless loading state');
  await page.evaluate(async()=>{const {sb}=await import('../src/api.js'),previous=sb.rpc;window.qaActivityFailure=true;sb.rpc=async(name,args)=>name==='totus_record_activity'&&window.qaActivityFailure?{data:null,error:{message:'Fallo ficticio de registro'}}:previous(name,args);});
  await nav('gastos');await page.locator('[data-activity-status]').waitFor({state:'visible'});

@@ -41,7 +41,7 @@ try{
  });
  let staleDownloads=0;stale.on('download',()=>staleDownloads++);
  await stale.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await stale.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(stale,stale.locator('#nav [data-route="cajas"]'));
  await stale.locator('[data-action="export-closings-current"]').click();
  await loading;
  await stale.evaluate(async()=>{const {state}=await import('../src/state.js');state.session={...state.session};});
@@ -59,7 +59,7 @@ try{
  });
  await preview.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  const previewBook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(previewBook,XLSX.utils.aoa_to_sheet([['Prueba de reintento']]),'Datos');
- await preview.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(preview,preview.locator('#nav [data-route="documentos"]'));
  await preview.locator('[data-action="document-new"]').click();
  await preview.locator('#docParty').fill('Vista previa de reintento');
  await preview.locator('#docFile').setInputFiles({name:'reintento-vista.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(previewBook,{type:'buffer',bookType:'xlsx'})});
@@ -84,7 +84,7 @@ try{
  });
  const downloads=[];concurrent.on('download',item=>downloads.push(item.suggestedFilename()));
  await concurrent.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await concurrent.locator('#nav [data-route="informes"]').click();
+ await clickModuleLink(concurrent,concurrent.locator('#nav [data-route="informes"]'));
  await concurrent.locator('[data-action="export-closings"]').click();
  await concurrent.locator('[data-action="export-expenses"]').click();
  await concurrent.waitForFunction(()=>document.querySelector('script[src*="xlsx-js-style"]')!=null);

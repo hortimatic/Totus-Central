@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -6,7 +7,7 @@ try{
  const errors=[];admin.on('pageerror',e=>errors.push(e.message));
  await admin.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.__timingClipboard=value;}}}));
  await admin.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await admin.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(admin,admin.locator('#nav [data-route="administracion"]'));
  await admin.locator('[data-action="admin-section"][data-section="log"]').click();
  const copy=admin.locator('[data-action="admin-log-timings"]');
  assert.equal(await copy.count(),1,'Admin must have one action in the existing Log toolbar');
@@ -23,7 +24,7 @@ try{
  assert.deepEqual(errors,[],'Instrumented boot must not cause browser errors');
  const manager=await browser.newPage();
  await manager.goto('http://127.0.0.1:4173/tests/app-mock.html?role=gerente',{waitUntil:'networkidle'});
- await manager.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(manager,manager.locator('#nav [data-route="administracion"]'));
  await manager.locator('[data-action="admin-section"][data-section="log"]').click();
  assert.equal(await manager.locator('[data-action="admin-log-timings"]').count(),0,'Manager must not see admin-only report');
  const employee=await browser.newPage();

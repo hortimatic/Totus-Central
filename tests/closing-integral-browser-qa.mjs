@@ -1,10 +1,11 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import XLSX from 'xlsx-js-style';
 const browser=await chromium.launch({headless:true}),results=[];
 const attempt=async(name,run)=>{try{await run();results.push({name,ok:true})}catch(error){results.push({name,ok:false,error:error.message})}};
-async function fresh(){const p=await browser.newPage({viewport:{width:1440,height:950}});p.setDefaultTimeout(6000);p.on('dialog',dialog=>dialog.accept());await p.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});await p.locator('#nav [data-route="cajas"]').click();await p.locator('[data-action="closing-new"]').click();return p}
+async function fresh(){const p=await browser.newPage({viewport:{width:1440,height:950}});p.setDefaultTimeout(6000);p.on('dialog',dialog=>dialog.accept());await p.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});await clickModuleLink(p,p.locator('#nav [data-route="cajas"]'));await p.locator('[data-action="closing-new"]').click();return p}
 async function drawers(p,values=[{Open:10,Close:20,Card:30},{Open:10,Close:20,Card:30}]){const ids=await p.locator('.drawer-entry').evaluateAll(es=>es.sort((a,b)=>Number(b.querySelector('h3').textContent.includes('Vape'))-Number(a.querySelector('h3').textContent.includes('Vape'))).map(e=>e.dataset.drawerId));for(let i=0;i<ids.length;i++)for(const field of ['Open','Close','Card','Bizum','Online','Other','Withdraw','CashExpense','ExtraIn','ExtraOut'])await p.locator('#dr'+field+'_'+ids[i]).fill(String(values[i]?.[field]??0));return ids}
 try{
  await attempt('a partial draft preserves unknown closing cash after reopening',async()=>{const p=await fresh();try{const ids=await drawers(p);await p.locator('#drClose_'+ids[0]).fill('');await p.locator('[data-action="closing-save-draft"]').click();await p.getByText('Borrador guardado.',{exact:true}).waitFor();assert.equal(await p.locator('#drClose_'+ids[0]).inputValue(),'','Unknown cash became a recorded zero');assert.match(await p.locator('#clCalcTotal').innerText(),/completar/i)}finally{await p.close()}});
