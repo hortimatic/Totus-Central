@@ -78,6 +78,7 @@ jobs:
       - run: node tests/route-smoke.mjs
       - run: node tests/action-inventory-qa.mjs
       - run: node tests/api-integrity-qa.mjs
+      - run: node tests/module-navigation-qa.mjs
       - run: node tests/backup-bootstrap-qa.mjs
       - run: node tests/onedrive-document-access-qa.mjs
       - run: node tests/onedrive-retired-documents-qa.mjs
@@ -131,6 +132,7 @@ jobs:
       - run: node tests/template-copy-browser-qa.mjs
       - run: node tests/write-lock-browser-qa.mjs
       - run: node tests/stale-form-browser-qa.mjs
+      - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/ambiguous-write-browser-qa.mjs
       - run: node tests/business-write-browser-qa.mjs
       - run: node tests/historical-payment-browser-qa.mjs

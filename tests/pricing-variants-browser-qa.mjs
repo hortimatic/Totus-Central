@@ -122,8 +122,10 @@ try{
  assert.equal(await simple.locator('#prStatus').inputValue(),'PENDIENTE');
  assert.equal(await simple.evaluate(()=>window.__mockDb.consultation_history.filter(h=>h.action==='CONVERTIDA').length),1);
  await simple.evaluate(async()=>{
-  const {state}=await import('../src/state.js');state.user={...state.user,role:'gerente'};
-  state.data.userPermissions=[{email:state.user.email,module:'pricing',can_view:true,can_create:false,can_edit:true,can_delete:false,can_export:false}];
+  const {state}=await import('../src/state.js');
+  // Navigation re-reads the server contract, rather than trusting a stale cache.
+  window.__mockDb.team_members.find(member=>member.email===state.user.email).role='gerente';
+  window.__mockDb.ops_user_permissions=[{email:state.user.email,module:'pricing',can_view:true,can_create:false,can_edit:true,can_delete:false,can_export:false}];
  });
  await simple.locator('#nav [data-route="pricing"]').click();
  if(await simple.locator('[data-action="product-back"]').count())await simple.locator('[data-action="product-back"]').first().click();

@@ -42,13 +42,18 @@ await check('Navegación: accesos directos ocultos y rechazo sin excepción',asy
   const {state}=await import('../src/state.js');
   window.__qaOriginalUser={...state.user};
   window.__qaOriginalPerms=[...state.data.userPermissions];
+  window.__qaOriginalServerPerms=[...window.__mockDb.ops_user_permissions];
+  window.__qaOriginalMember={...window.__mockDb.team_members.find(m=>m.email===state.user.email)};
   state.user={...state.user,role:'gerente'};
   state.data.userPermissions=[...state.data.userPermissions,{
    email:state.user.email,module:'pricing',can_view:false,can_create:false,
    can_edit:false,can_delete:false,can_export:false
   }];
+  Object.assign(window.__mockDb.team_members.find(m=>m.email===state.user.email),{role:'gerente'});
+  window.__mockDb.ops_user_permissions=[...state.data.userPermissions];
  });
  await page.locator('#nav [data-route="inicio"]').click();
+ await page.waitForFunction(async()=>!(await import('../src/state.js')).state.loading);
  assert(await page.locator('#content [data-route="pricing"]').count()===0,
   'El panel Inicio deja accesos directos a Pricing aunque el rol no puede entrar');
  assert(await page.locator('#nav [data-route="pricing"]').count()===0,
@@ -65,6 +70,9 @@ await check('Navegación: accesos directos ocultos y rechazo sin excepción',asy
   const {state}=await import('../src/state.js');
   state.user=window.__qaOriginalUser;
   state.data.userPermissions=window.__qaOriginalPerms;
+  Object.assign(window.__mockDb.team_members.find(m=>m.email===state.user.email),window.__qaOriginalMember);
+  window.__mockDb.ops_user_permissions=window.__qaOriginalServerPerms;
+  delete window.__qaOriginalServerPerms;delete window.__qaOriginalMember;
   delete window.__qaOriginalUser;delete window.__qaOriginalPerms;
  });
  await page.locator('#nav [data-route="inicio"]').click();

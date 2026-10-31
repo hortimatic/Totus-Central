@@ -26,6 +26,7 @@ try{
   const download=sb.storage.from.bind(sb.storage),map=new Map(files.map(([p,b])=>[p,new Blob([Uint8Array.from(b)])]));
   sb.storage.from=bucket=>{const client=download(bucket);return {...client,download:async path=>map.has(path)?{data:map.get(path),error:null}:client.download(path)};};
   state.data.backupRuns=[{id,status:'success',storage_provider:'supabase',storage_path:root,archive_manifest:manifest,archive_sha256:index.sha256,size_bytes:index.size,started_at:new Date().toISOString()}];
+  window.__mockDb.ops_backup_runs=structuredClone(state.data.backupRuns);
   window.qaBusinessBefore=JSON.stringify({expenses:window.__mockDb.ops_expenses,documents:window.__mockDb.ops_documents,closings:window.__mockDb.ops_daily_closings});
  },{files:[...objects].map(([p,b])=>[p,Array.from(b)]),index:result.index,manifest:result.manifest,id,root});
  await page.locator('#nav [data-route="administracion"]').click();
