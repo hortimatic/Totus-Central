@@ -14,6 +14,7 @@ try{
  assert.equal(await page.locator('[name=display_name]').inputValue(),'Perfil de prueba');
  await page.locator('[data-account-form] button[type=submit]').click();
  await page.locator('[data-account-panel]').waitFor({state:'detached'});
+ await page.locator('.toast').waitFor({state:'detached'});
  assert.equal(await page.locator('.account-trigger-text b').textContent(),'Perfil de prueba');
  await page.locator('[data-account-open]').click();
  assert.equal(await page.locator('[name=display_name]').inputValue(),'Perfil de prueba');
@@ -37,6 +38,10 @@ try{
   }
   if(width<=700){
    assert.equal(await page.locator('.mobile-card-table td[data-label]').count(),6,'All six original columns remain available');
+   await page.locator('[data-action=toggle-closing-breakdown]').click();
+   assert.equal(await page.locator('td[data-label="Dinero de cada caja"]').isVisible(),true);
+   await page.locator('[data-action=toggle-closing-breakdown]').click();
+   assert.equal(await page.locator('td[data-label="Dinero de cada caja"]').isVisible(),false);
    assert.equal(await page.locator('#closingFilters').isVisible(),false);
    await page.locator('[data-action=toggle-mobile-filters]').click();
    assert.equal(await page.locator('#closingFilters').isVisible(),true);

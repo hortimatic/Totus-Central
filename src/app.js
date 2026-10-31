@@ -2665,6 +2665,10 @@ document.addEventListener('click',async e=>{
   const panel=document.getElementById(el.getAttribute('aria-controls'));if(!panel)return;
   const expanded=el.getAttribute('aria-expanded')!=='true';el.setAttribute('aria-expanded',String(expanded));panel.classList.toggle('is-open',expanded);return;
  }
+ if(a==='toggle-closing-breakdown'){
+  const row=el.closest('tr');if(!row)return;const expanded=el.getAttribute('aria-expanded')!=='true';
+  row.classList.toggle('is-expanded',expanded);el.setAttribute('aria-expanded',String(expanded));el.textContent=expanded?'Ocultar desglose':'Ver desglose';return;
+ }
  if(!checkActionPermission(a,el)){activityLog.record(permissionForAction(a,el)?.module||state.route,'acceso_denegado',a);toast('No tienes permiso para esta operación.','bad');return}
  if(a==='retry-module'){await navigateModule(state.route);return;}
  if(a==='close-modal'){

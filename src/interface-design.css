@@ -26,7 +26,8 @@
   .section-head { flex-wrap: wrap; align-items: center; }
   .section-head h2 { font-size: 19px; letter-spacing: -.025em; }
   .section-head p { line-height: 1.55; max-width: 85ch; }
-  .kpi { position: relative; overflow: hidden; box-shadow: var(--shadow); border-radius: var(--r); }
+  .kpi { position: relative; box-shadow: var(--shadow); border-radius: var(--r); }
+  .kpi-caption { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
   .kpi::before { content: ''; position: absolute; top: 16px; left: 0; bottom: 16px; width: 3px; background: var(--accent); border-radius: 0 3px 3px 0; opacity: .6; }
   .kpi strong { font-variant-numeric: tabular-nums; line-height: 1.2; overflow-wrap: anywhere; }
   .kpi small { line-height: 1.45; color: var(--muted); }
@@ -51,7 +52,7 @@
   .appearance-grid .field { line-height: 1.5; }
   .appearance-anchors { gap: 8px; }
   .appearance-preview-card { min-width: 0; }
-  .closing-filter-bar { display: none; }
+  .closing-filter-bar, .mobile-row-toggle { display: none; }
   .mobile-nav-close, .mobile-nav-shade { display: none; }
   @media (max-width: 800px) {
     body { padding-bottom: 0; }
@@ -87,6 +88,7 @@
   .account-photo-field label { position: relative; cursor: pointer; overflow: hidden; }
   .account-photo-field input[type=file] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
   .account-shortcuts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+  .account-footer { display: flex; justify-content: end; padding-top: 16px; border-top: 1px solid var(--line); }
   .account-document-list article { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 14px 0; }
   .account-document-list article > div:first-child { flex: 1 1 200px; overflow-wrap: anywhere; }
   .account-document-list small { display: block; color: var(--muted); margin-top: 5px; }
@@ -113,10 +115,13 @@
     .mobile-card-table td[data-label="Total ventas"] { grid-row: 2; }
     .mobile-card-table td[data-label="Total ventas"] .compact-detail > span:first-child { font-size: 22px; }
     .mobile-card-table td[data-label="Estado"] { grid-row: 3; }
+    .mobile-card-table tr:not(.is-expanded) td:is([data-label="Ventas del día"],[data-label="Dinero de cada caja"]) { display: none; }
+    .mobile-row-toggle { display: block; width: 100%; margin-bottom: 12px; min-height: 44px; }
     .mobile-card-table .inline-actions > .btn { min-height: 44px; flex: 1 1 100px; }
     .mobile-card-table .compact-detail { font-size: 13px; line-height: 1.6; }
     .mobile-card-table .compact-detail > span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
     .topbar { gap: 6px; }
+    .topbar .session-logout-mobile { display: none; }
     .account-trigger { padding: 3px; border: 0; }
     .account-trigger > span:last-child { display: none; }
     .account-avatar { width: 30px; height: 30px; }
