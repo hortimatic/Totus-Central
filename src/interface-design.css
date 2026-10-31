@@ -139,4 +139,12 @@
   @media (prefers-reduced-motion: reduce) {
     .sidebar .nav-btn, .btn { transition: none; }
   }
+  @media (max-width: 360px) {
+    .closing-kpis .kpi:nth-child(-n+2) .kpi-caption { padding-right: 19px; min-height: 30px; }
+    .closing-kpis .kpi:nth-child(-n+2) .field-help { position: absolute; right: 9px; top: 7px; }
+    .closing-kpis .kpi:nth-child(-n+2) strong { font-size: 18px; white-space: nowrap; }
+    .closing-filter-bar { flex-wrap: wrap; }
+    .closing-filter-bar > span { flex: 1 1 100%; text-align: left; }
+    .closing-filter-bar .btn { white-space: nowrap; }
+  }
 }
