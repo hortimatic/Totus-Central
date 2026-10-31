@@ -58,6 +58,7 @@ try{
  await page.locator('[data-account-open]').click();
  assert.equal(await page.locator('[name=display_name]').inputValue(),'Perfil de prueba');
  assert.equal(await page.locator('[name=phone]').isVisible(),true);
+ for(const tab of await page.locator('[data-account-tab]').all())assert.equal(await tab.isVisible(),true);
  await page.screenshot({path:'artifacts/interface-design/cuenta-390.png',fullPage:true});
  assert.deepEqual(errors,[]);
  console.log('Interfaz: perfil, protección de borrador, reapertura, navegación completa, filtros y siete anchuras OK.');

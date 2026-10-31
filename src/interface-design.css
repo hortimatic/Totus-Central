@@ -127,6 +127,11 @@
     .account-trigger > span:last-child { display: none; }
     .account-avatar { width: 30px; height: 30px; }
     .account-avatar-large { width: 64px; height: 64px; }
+    .account-panel .tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; overflow: visible; }
+    .account-panel .tab { min-height: 44px; padding: 8px; }
+    .account-photo-field { display: grid; grid-template-columns: 64px minmax(0,1fr); align-items: center; }
+    .account-photo-field .account-avatar { grid-row: span 2; }
+    .account-photo-field [data-account-remove] { grid-column: 2; }
     .section-head { align-items: start; gap: 14px; }
     .section-head > .inline-actions { width: 100%; }
     .section-head > .inline-actions .btn { flex: 1 1 auto; }
@@ -141,7 +146,7 @@
   }
   @media (max-width: 360px) {
     .closing-kpis .kpi:nth-child(-n+2) .kpi-caption { padding-right: 19px; min-height: 30px; }
-    .closing-kpis .kpi:nth-child(-n+2) .field-help { position: absolute; right: 9px; top: 7px; }
+    .closing-kpis .kpi:nth-child(-n+2) .field-help { position: absolute !important; right: 9px; top: 7px; }
     .closing-kpis .kpi:nth-child(-n+2) strong { font-size: 18px; white-space: nowrap; }
     .closing-filter-bar { flex-wrap: wrap; }
     .closing-filter-bar > span { flex: 1 1 100%; text-align: left; }
