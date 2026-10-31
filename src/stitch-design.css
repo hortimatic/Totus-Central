@@ -56,7 +56,8 @@
  .kpis {gap:12px;}
  .kpi {padding:16px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;}
  .kpi::before {display:none;}
- .kpi > .kpi-caption {display:flex;gap:7px;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.035em;font-weight:600;min-height:26px;color:var(--muted);}
+ .kpi > .kpi-caption {display:flex;gap:7px;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.035em;font-weight:600;min-height:26px;color:var(--muted);max-width:100%;}
+ .kpi .kpi-label {min-width:0;overflow-wrap:anywhere;font-size:inherit;color:inherit;font-weight:inherit;letter-spacing:inherit;}
  .kpi-caption .ui-icon {width:17px;height:17px;color:var(--accent);}
  .kpi strong {font-family:'Plus Jakarta Sans',Inter,system-ui,sans-serif;font-size:26px;font-weight:700;line-height:1.3;letter-spacing:-.035em;margin-top:7px;}
  .kpi .kpi-value {min-width:0;max-width:100%;gap:5px;}
