@@ -366,7 +366,8 @@ async function refresh(message=''){
 // Fetch before rendering the target so delayed reads never overwrite a new form.
 async function navigateModule(route,el=null,prepare=null){
  if(writeInProgress){toast('Espera a que termine la operación en curso.');return;}
- if(!state.user||!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return;}
+ if(!state.user)return;
+ if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return;}
  if(!await allowDiscardDrafts())return;
  closeModal();prepare?.();if(el?.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});
  let owner=sessionViewOwner();const generation=++refreshGeneration;
