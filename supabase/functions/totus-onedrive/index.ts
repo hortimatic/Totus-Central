@@ -493,13 +493,15 @@ async function syncOnlineManuals(revision:string){
  const folderName='04 Manuales y funcionamiento';
  await ensurePath(access,[folderName],new Set<string>());
  const files=[
+  ['docs/INICIO_CHATGPT_ACTUAL.md','INICIO_CHATGPT_ACTUAL.md'],
+  ['docs/CUENTA_CHATGPT_GASTOS.md','CUENTA_CHATGPT_GASTOS.md'],
   ['docs/MANUAL_CHATGPT_ONLINE.md','MANUAL_CHATGPT_ONLINE.md'],
   ['docs/COPIAS_POR_COMPONENTES.md','COPIAS_POR_COMPONENTES.md'],
   ['docs/GUIA_TRABAJO_DIARIO_CHATGPT.md','GUIA_TRABAJO_DIARIO_CHATGPT.md'],
   ['docs/COTEJOS_CHATGPT.md','COTEJOS_CHATGPT.md'],
   ['RELEVO_CHATGPT_ONLINE.md','RELEVO_CHATGPT_ONLINE.md'],
-  ['docs/auditorias/PETICIONES_Y_CIERRE_2026-10-20.md','PETICIONES_Y_ESTADO.md'],
-  ['docs/auditorias/REVISION_PRODUCCION_2026-10-21.md','INFORME_REVISION.md']
+  ['docs/ENTREGA_FUENTES.md','ENTREGA_FUENTES.md'],
+  ['docs/ESTABILIZACION_2026-10-31.md','ESTABILIZACION_2026-10-31.md']
  ];
  for(const [source,name] of files){
   const response=await fetch('https://raw.githubusercontent.com/hortimatic/Totus-Central/'+revision+'/'+source,{signal:AbortSignal.timeout(20000),redirect:'error'});
