@@ -1,3 +1,4 @@
+import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
 import {createChatPreferenceTransport} from './chat-preference-transport.js';
 import {createAppearanceUI,applyInterfaceAppearance,applyLoginAppearance} from './appearance-ui.js';
@@ -74,8 +75,8 @@ async function resumeBusinessForm(route){
  setView(route,{mode:'record',id:result.id,...(route==='cajas'?{reconcileSource:false}:{}),...(doc?{docType:doc.document_type,invoiceKind:doc.invoice_kind,origin:doc.origin}:{})});
  await refresh('Guardado confirmado. No se ha creado otro registro.');return true;
 }
-const headerTools=createHeaderTools({rpc,can:module=>can(module,'view'),actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{if(!state.user||!can(route,'view')||!await allowDiscardDrafts())return;closeModal();if(route==='tareas')pendingTaskDate=date;setRoute(route);render();}});
-const tasks=createTasks({rpc,can:action=>can('tareas',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>{toast(m,'bad');activityLog.record('tareas','error_operacion','tarea');},confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{if(!await allowDiscardDrafts())return;pendingChatTarget=message;setRoute('equipo');render();}});
+const headerTools=createHeaderTools({rpc,can:module=>can(module,'view'),actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{await navigateModule(route,null,()=>{if(route==='tareas')pendingTaskDate=date;});}});
+const tasks=createTasks({rpc,can:action=>can('tareas',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>{toast(m,'bad');activityLog.record('tareas','error_operacion','tarea');},confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{await navigateModule('equipo',null,()=>{pendingChatTarget=message;});}});
 function updateChatBadge(count){
  if(count!==null)chatUnread=Number(count)||0;
  headerTools.setChatUnread(count);
@@ -84,9 +85,9 @@ function updateChatBadge(count){
 }
 function updateChatChannels(channels){updateChatBadge(channels.filter(c=>c.member_role&&!c.archived&&!c.muted&&c.notify_level!=='none').reduce((n,c)=>n+Number(c.notify_level==='mentions'?c.mentions||0:c.unread||0),0));}
 const chatPreferenceTransport=createChatPreferenceTransport({rpc,actor:()=>state.user?.id});
-const teamChat=createTeamChat({rpc:chatPreferenceTransport.rpc,stores:()=>state.data.stores,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>{toast(message,'bad');activityLog.record('equipo','error_operacion','chat');},confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onAlerts:preferences=>chatNotifier.setPreferences(preferences),onTask:async(message,channel)=>{if(!await allowDiscardDrafts())return;pendingTaskSource={...message,store_id:channel?.store_id};setRoute('tareas');render();}});
+const teamChat=createTeamChat({rpc:chatPreferenceTransport.rpc,stores:()=>state.data.stores,can:action=>can('equipo',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:message=>{toast(message,'bad');activityLog.record('equipo','error_operacion','chat');},confirm:message=>confirmAction(message,{title:'Confirmar acción del chat',acceptLabel:'Continuar'}),requestFile:requestChatFile,subscribe:subscribeChat,onUnread:updateChatChannels,onAlerts:preferences=>chatNotifier.setPreferences(preferences),onTask:async(message,channel)=>{await navigateModule('tareas',null,()=>{pendingTaskSource={...message,store_id:channel?.store_id};});}});
 const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()=>String(state.user?.email||'').toLowerCase(),onCount:updateChatBadge,isReading:message=>teamChat.isReading(message),onOpen:async message=>{
- if(!state.user||!await allowDiscardDrafts())return;pendingChatTarget=message;closeModal();setRoute('equipo');render();
+ await navigateModule('equipo',null,()=>{pendingChatTarget=message;});
 }});
 const titles={
  equipo:['Trabajo','Chat'],tareas:['Trabajo','Tareas'],
@@ -181,11 +182,12 @@ function hideForbiddenButtons(){
 }
 
 function renderNav(){
- const nav=$('#nav');let current='';
+ const nav=$('#nav'),scrollTop=nav.scrollTop,scrollLeft=nav.scrollLeft;let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
   const group=r.group!==current?(current=r.group,`<div class="eyebrow" style="padding:15px 12px 5px;color:#718096">${esc(r.group)}</div>`):'';
-  return group+`<button class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}"><span class="nav-icon">${r.icon}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</button>`
+  return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}"><span class="nav-icon">${r.icon}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
  }).join('');
+ nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 function render(){
  if(!state.user)return;
@@ -196,6 +198,7 @@ function render(){
   state.route=first.id;
  }
  renderNav();
+ history.replaceState(null,'',moduleUrl(location.href,state.route));
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
@@ -359,6 +362,34 @@ async function refresh(message=''){
   if(content)content.innerHTML=`<section class="card card-pad" role="alert"><h2>No se han podido cargar los datos</h2><p>${esc(e.message||'Error de conexión o permisos.')} No se ha borrado ningún dato.</p>${btn('Volver a intentar','retry-load','primary')}</section>`;
  }
  finally{if(current()){state.loading=false;if(isStoragePanelVisible())void refreshStoragePanel();else if(state.route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();}}
+}
+// Fetch before rendering the target so delayed reads never overwrite a new form.
+async function navigateModule(route,el=null,prepare=null){
+ if(writeInProgress){toast('Espera a que termine la operación en curso.');return;}
+ if(!state.user||!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return;}
+ if(!await allowDiscardDrafts())return;
+ closeModal();prepare?.();if(el?.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});
+ let owner=sessionViewOwner();const generation=++refreshGeneration;
+ const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
+ setRoute(route);document.body.classList.remove('menu-open');state.loading=true;renderNav();
+ history.replaceState(null,'',moduleUrl(location.href,route));
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();
+ const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
+ $('#content').innerHTML='<section class="card card-pad" role="status">Actualizando datos…</section>';
+ try{
+  if(await loadCore({route})===false||!current())return;
+  const member=state.data.team.find(m=>String(m.email).toLowerCase()===String(state.user.email).toLowerCase());
+  if(!member||member.active===false){await logout();return;}
+  state.user={...state.user,...member,id:state.user.id};owner=sessionViewOwner();
+  applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);
+  render();
+  if(isAuditPanelVisible())void refreshAuditPanel();
+  if(isStoragePanelVisible())void refreshStoragePanel();
+  if(route==='cotejos')await stockAction('stock-refresh',el||{}, {render,createStoredDocument,previewDocument,fileSha256});
+ }catch(error){
+  if(!current())return;
+  $('#content').innerHTML='<section class="card card-pad" role="alert"><h2>No se han podido actualizar los datos</h2><p>'+esc(error.message||'Error de conexión')+'</p>'+btn('Volver a intentar','retry-module','primary')+'</section>';
+ }finally{if(generation===refreshGeneration)state.loading=false;}
 }
 let auditRequest=null,auditUiGeneration=0;
 const logCleanup=createLogCleanup({rpc,owner:()=>JSON.stringify([sessionViewOwner(),auditUiGeneration]),allowed:()=>isAdmin()&&can('administracion','delete'),today:isoToday,afterClean:async()=>{invalidateAuditReads();state.data.audit=[];state.data.auditUpdatedAt=null;state.data.auditError='';return refreshAuditPanel({full:true});}});
@@ -2615,10 +2646,15 @@ async function reviewUnusedLogos(){
 
 document.addEventListener('click',async e=>{
  const el=actionEl(e);if(!el)return;
+ if(el.dataset.route&&nativeModuleClick(e,el))return;
  if(writeInProgress&&!(el.dataset.action==='close-modal'&&$('#modalHost [data-confirm]'))){toast('Espera a que termine la operación en curso.');return}
- const route=el.dataset.route;if(route){if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return}if(!await allowDiscardDrafts())return;closeModal();if(el.hasAttribute('data-maintenance-storage'))setView('administracion',{section:'storage'});setRoute(route);document.body.classList.remove('menu-open');render();if(isAuditPanelVisible())void refreshAuditPanel();if(isStoragePanelVisible())await refreshStoragePanel();else if(route==='inicio'&&state.data.storageUsage.status!=='ok')void refreshStorageSnapshot();if(route==='cotejos')await stockAction('stock-refresh',el,{render,createStoredDocument,previewDocument,fileSha256}).catch(error=>toast(error.message,'bad'));return}
+ const route=el.dataset.route;if(route){
+  if(nativeModuleClick(e,el))return;
+  e.preventDefault();await navigateModule(route,el);return;
+ }
  const a=el.dataset.action;if(!a)return;
  if(!checkActionPermission(a,el)){activityLog.record(permissionForAction(a,el)?.module||state.route,'acceso_denegado',a);toast('No tienes permiso para esta operación.','bad');return}
+ if(a==='retry-module'){await navigateModule(state.route);return;}
  if(a==='close-modal'){
   if(el.classList.contains('modal-backdrop')&&e.target!==el)return;
   if(discardPromptActive){closeModal();return}
@@ -3119,6 +3155,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
+ setRoute(requestedModule(location.href,ROUTES));
  await refresh();chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}

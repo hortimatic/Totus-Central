@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {moduleUrl,requestedModule,nativeModuleClick,moduleReads} from '../src/module-navigation.js';
+const routes=[{id:'inicio'},{id:'gastos'}];
+const url=moduleUrl('https://example.invalid/Totus-Central/?release=abc','gastos');
+assert.equal(new URL(url).searchParams.get('release'),'abc');assert.equal(requestedModule(url,routes),'gastos');
+assert.equal(requestedModule('https://example.invalid/?module=unknown',routes),'inicio');
+for(const field of ['ctrlKey','metaKey','shiftKey','altKey'])assert(nativeModuleClick({button:0,[field]:true},{tagName:'A'}));
+assert(nativeModuleClick({button:1},{tagName:'A'}));assert(!nativeModuleClick({button:0},{tagName:'A'}));
+const tasks=[['settings'],['rolePermissions'],['userPermissions'],['team'],['profiles'],['stores'],['drawers'],['closings'],['closingDrawers'],['products'],['audit'],['backupRuns']];
+const closing=moduleReads(tasks,'cajas').map(([k])=>k);assert(closing.includes('closings')&&closing.includes('closingDrawers'));assert(!closing.includes('products')&&!closing.includes('audit')&&!closing.includes('backupRuns'));
+assert.deepEqual(moduleReads(tasks),tasks);assert.deepEqual(moduleReads(tasks,'administracion'),tasks);assert.throws(()=>moduleReads(tasks,'unknown'));
+console.log('MODULE NAVIGATION QA: module URLs, native tab gestures and bounded module reads');

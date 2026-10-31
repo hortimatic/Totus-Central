@@ -1,3 +1,4 @@
+import {moduleReads} from './module-navigation.js';
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
 import {timedStartup} from './startup-timing.js';
@@ -148,16 +149,16 @@ export async function reloadStorageUsage(){
   return state.data.storageUsage;
  }
 }
-export async function loadCore(){
+export async function loadCore({route=null}={}){
  const owner=dataOwner(),generation=++coreReadGeneration,current=()=>dataOwner()===owner&&generation===coreReadGeneration;
- const tasks=[
+ const tasks=moduleReads([
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at','id,mode,period_key,status,started_at,finished_at,storage_path,size_bytes,rows_count,files_count,error_message,snapshot_revision,archive_sha256,storage_provider,supabase_parts_retired_at,archive_version:archive_manifest->version,archive_bundle_version:archive_manifest->bundle_version'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
  ['closings','ops_daily_closings','business_date'],['closingDrawers','ops_daily_closing_drawers'],['expenses','ops_expenses','expense_date'],['expenseLines','ops_expense_lines'],
  ['customers','ops_customers','name'],['series','ops_invoice_series','year'],['invoices','ops_sales_invoices','issue_date'],['invoiceLines','ops_sales_invoice_lines'],['documents','ops_documents','created_at'],
  ['taxPayments','ops_tax_payments','created_at'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],
  ['templates','ops_document_templates','name'],['brands','brands','name'],['families','families','name'],['products','products','updated_at'],['variants','product_variants','created_at'],
  ['providers','providers','name'],['providerPrices','product_provider_prices','created_at'],['competitors','product_competitor_prices','created_at'],['consultations','consultations','updated_at']
- ];
+ ],route);
  // A single sign-in must not occupy dozens of database connections while a
  // maintenance lock is pending. Wait for the bounded in-flight reads to finish
  // and publish state only when every required table has loaded successfully.
@@ -178,11 +179,11 @@ export async function loadCore(){
  tasks.forEach(([key],i)=>state.data[key]=results[i]);
  // Bootstrap needs only the archive format, never multi-megabyte file manifests.
  // Original manifests remain in Supabase; restore reads the verified cloud set.
- state.data.backupRuns=state.data.backupRuns.map(({archive_version,archive_bundle_version,...run})=>({...run,archive_manifest:archive_version==null&&archive_bundle_version==null?null:{version:archive_version,bundle_version:archive_bundle_version}}));
+ if(tasks.some(([key])=>key==='backupRuns'))state.data.backupRuns=state.data.backupRuns.map(({archive_version,archive_bundle_version,...run})=>({...run,archive_manifest:archive_version==null&&archive_bundle_version==null?null:{version:archive_version,bundle_version:archive_bundle_version}}));
  state.data.documentRemovals=documentRemovals;
  setRolePermissions(state.data.rolePermissions);
  state.data.settings=state.data.settings[0]||null;
- state.data.backupConfig=state.data.backupConfig[0]||null;
+ if(tasks.some(([key])=>key==='backupConfig'))state.data.backupConfig=state.data.backupConfig[0]||null;
  // Storage is measured after the first render; file writes still validate afresh.
  if(!current())return false;
  // Audit history is loaded on demand when Administration > Log is visible.
