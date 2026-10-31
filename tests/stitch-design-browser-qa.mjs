@@ -30,7 +30,7 @@ try{
   const controls=await page.locator('#content > .page > .module-tabs [data-action],#content > .page > .tabs [data-action]').evaluateAll(es=>es.map(e=>({action:e.dataset.action,section:e.dataset.section})).filter(e=>e.section));
   const sections=[null,...controls];
   for(const section of sections){
-   if(section)await page.locator('#content [data-action="'+section.action+'"][data-section="'+section.section+'"]').click();
+   if(section)await page.locator('#content .module-tabs [data-action="'+section.action+'"][data-section="'+section.section+'"]').click();
    for(const width of [1440,390,320]){
     await page.setViewportSize({width,height:1000});
     assert.equal(await page.locator('link[href$="stitch-design.css"]').count(),1);

@@ -23,6 +23,7 @@ export function applyStitchLayout(root,route,title){
   if(button.querySelector('.ui-icon'))return;
   const action=button.dataset.action;
   const name=/(?:-new|^new-)$/.test(action)||/-new$/.test(action)?'plus':/export|download/.test(action)?'download':/preview|^closing-edit$/.test(action)?'eye':null;
+  if(name==='plus'&&button.firstChild?.nodeType===3)button.firstChild.nodeValue=button.firstChild.nodeValue.replace(/^\+\s*/,'');
   if(name)button.insertAdjacentHTML('afterbegin',interfaceIcon(name));
  });
 }

@@ -56,9 +56,8 @@
  .kpis {gap:12px;}
  .kpi {padding:16px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;}
  .kpi::before {display:none;}
- .kpi > .kpi-caption {display:flex;gap:7px;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.035em;font-weight:600;min-height:26px;color:var(--muted);max-width:100%;}
- .kpi .kpi-label {min-width:0;overflow-wrap:anywhere;font-size:inherit;color:inherit;font-weight:inherit;letter-spacing:inherit;}
- .kpi-caption .ui-icon {width:17px;height:17px;color:var(--accent);}
+ .kpi > .kpi-caption {display:block;font-size:10px;text-transform:uppercase;letter-spacing:.035em;font-weight:600;min-height:26px;color:var(--muted);width:100%;max-width:100%;overflow-wrap:anywhere;}
+ .kpi-caption .ui-icon {display:inline-block;width:17px;height:17px;margin-right:7px;color:var(--accent);}
  .kpi strong {font-family:'Plus Jakarta Sans',Inter,system-ui,sans-serif;font-size:26px;font-weight:700;line-height:1.3;letter-spacing:-.035em;margin-top:7px;}
  .kpi .kpi-value {min-width:0;max-width:100%;gap:5px;}
  .kpi .kpi-value strong {margin-top:7px;}
@@ -163,7 +162,8 @@
   .closing-list-page .closing-kpis .kpi {grid-column:span 2;}
   .closing-list-page .closing-kpis .kpi:nth-child(-n+2) {grid-column:span 3;}
   .closing-list-page .closing-kpis .kpi .ui-icon {width:14px;height:14px;}
-  .closing-list-page .closing-kpis .kpi-caption {font-size:9px;}
+  .closing-list-page .closing-kpis .kpi > .kpi-caption {font-size:9px;letter-spacing:0;}
+  .closing-list-page .closing-kpis .kpi:nth-child(n+3) .kpi-caption .ui-icon {display:block;margin:0 0 5px;}
  }
  @media(prefers-reduced-motion:reduce){.btn,.nav-btn{transition:none;}}
 }
