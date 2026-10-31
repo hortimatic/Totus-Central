@@ -3,7 +3,7 @@ import {chromium} from 'playwright';
 import fs from 'node:fs/promises';
 import {clickModuleLink} from './ui-navigation.mjs';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],calls=[];
-page.on('pageerror',e=>errors.push(e.message));let mode='ok',release=null;
+page.on('pageerror',e=>errors.push(e.message));let mode='ok',release=null,delayStarted=null;
 try{
  await page.route('https://generativelanguage.googleapis.com/**',async route=>{
   const request=route.request();if(request.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'}});return;}
@@ -11,7 +11,7 @@ try{
   assert.equal(request.headers()['x-goog-api-key'],'fiction-only-key');assert(!request.url().includes('fiction-only-key'));
   assert.deepEqual(Object.keys(body).sort(),['contents','generationConfig']);assert.equal(body.generationConfig.maxOutputTokens,128);
   assert.match(body.contents[0].parts[0].text,/fictici/);
-  if(mode==='delay')await new Promise(resolve=>release=resolve);
+  if(mode==='delay'){delayStarted?.();await new Promise(resolve=>release=resolve);}
   const text=mode==='html'?'<img src=x onerror=alert(1)>':body.contents[0].parts[0].text.includes('suma')?'10':'CONEXION_TOTUS_OK';
   await route.fulfill({status:mode==='quota'?429:200,headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',body:JSON.stringify({candidates:[{content:{parts:[{text}]}}]})}).catch(()=>{});
  });
@@ -24,7 +24,7 @@ try{
  await page.locator('[name=aiTestTrial]').selectOption('sum');await key.fill('fiction-only-key');await button.click();await page.locator('[data-ai-test-output]').filter({hasText:'10'}).waitFor();assert.equal(calls.length,2);
  mode='quota';await key.fill('fiction-only-key');await button.click();await status.filter({hasText:'Cuota gratuita agotada'}).waitFor();assert.equal(calls.length,3);assert.equal(await key.inputValue(),'');
  mode='html';await key.fill('fiction-only-key');await button.click();await status.filter({hasText:'no coincide'}).waitFor();assert.equal(await page.locator('[data-ai-test-output] img').count(),0);
- mode='delay';await key.fill('fiction-only-key');await button.click();await page.waitForFunction(()=>document.querySelector('[data-ai-test-form] button[type=submit]').disabled);
+ mode='delay';const started=new Promise(resolve=>delayStarted=resolve);await key.fill('fiction-only-key');await button.click();await started;
  await page.locator('[data-ai-test-form]').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(calls.length,5,'Pending requests must not duplicate');
  await clickModuleLink(page,page.locator('#nav [data-route=pricing]'));release?.();
  await clickModuleLink(page,page.locator('#nav [data-route=configuracion]'));assert.equal(await key.inputValue(),'');assert.equal(await page.locator('[data-ai-test-output]').isVisible(),false,'Cancelled response must not reach a new screen');
