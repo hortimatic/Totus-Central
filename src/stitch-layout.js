@@ -4,7 +4,9 @@ const descriptions={inicio:'Tu actividad y el trabajo de hoy, en un mismo lugar.
 export function applyStitchLayout(root,route,title){
  if(!root)return;
  root.dataset.module=route;
- const page=root.querySelector(':scope > .page');
+ let page=root.querySelector(':scope > .page');
+ const stock=root.querySelector(':scope > .stock-page');
+ if(!page&&stock){page=document.createElement('div');page.className='page';stock.before(page);page.append(stock);}
  if(page&&!page.querySelector(':scope > .module-heading')){
   const heading=document.createElement('header');heading.className='module-heading';
   const identity=document.createElement('div');identity.className='module-identity';
@@ -12,7 +14,7 @@ export function applyStitchLayout(root,route,title){
   const text=document.createElement('div'),name=document.createElement('h2'),description=document.createElement('p');
   name.textContent=title;description.textContent=descriptions[route]||'';text.append(name,description);identity.append(icon,text);heading.append(identity);
   // Move list actions, never clone them: IDs, draft protection and delegated handlers remain intact.
-  const section=page.querySelector(':scope > .table-card > .section-head');
+  const section=[...page.querySelectorAll(':scope > .table-card > .section-head')].find(el=>el.querySelector(':scope > .inline-actions'));
   const actions=section?.querySelector(':scope > .inline-actions');
   if(actions){actions.classList.add('module-actions');heading.append(actions);}
   page.prepend(heading);

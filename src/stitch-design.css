@@ -108,6 +108,12 @@
  .task-day.today {background:var(--stitch-low);}
  .tasks-toolbar,.tasks-filters {background:var(--stitch-low);border-radius:8px;padding:12px;}
  .team-chat {border-radius:10px;border-color:var(--line);}
+ .team-chat {--chat-violet:var(--accent);--chat-coral:var(--accent2);--chat-line:var(--line);font-family:Inter,system-ui,sans-serif;}
+ .team-chat .chat-sidebar {background:var(--stitch-low);border-color:var(--line);border-radius:10px;box-shadow:none;}
+ .team-chat .chat-sidebar-controls {background:var(--stitch-high);border-color:var(--line);border-radius:10px 10px 0 0;}
+ .team-chat .chat-sidebar-head h2 {color:var(--ink);font-size:18px;}
+ .team-chat .chat-channel.active {background:var(--panel);color:var(--accent);box-shadow:inset 3px 0 var(--accent);}
+ .team-chat .chat-conversation {border-color:var(--line);border-radius:10px;box-shadow:none;}
  .chat-sidebar {background:var(--stitch-low);}
  .chat-channel-header,.chat-composer {background:var(--panel);border-color:var(--line);}
  .chat-message-bubble {border-radius:12px;}

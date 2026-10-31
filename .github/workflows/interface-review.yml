@@ -26,6 +26,7 @@ jobs:
       - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/ai-connection-test-browser-qa.mjs
+      - run: node tests/stitch-design-browser-qa.mjs
       - name: Comprobar los recorridos finales pendientes
         run: |
           failed=0
@@ -36,7 +37,6 @@ jobs:
       - run: node tests/personal-layout-sweep-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/interface-design-browser-qa.mjs
-      - run: node tests/stitch-design-browser-qa.mjs
       - run: node tests/drawer-sales-browser-qa.mjs
       - run: node tests/mobile-navigation-qa.mjs
       - run: node tests/shell-geometry-qa.mjs
