@@ -27,7 +27,8 @@
   .section-head h2 { font-size: 19px; letter-spacing: -.025em; }
   .section-head p { line-height: 1.55; max-width: 85ch; }
   .kpi { position: relative; box-shadow: var(--shadow); border-radius: var(--r); }
-  .kpi-caption { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+  .kpi-value { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+  .kpi-value .field-help { margin-top: 6px; }
   .kpi::before { content: ''; position: absolute; top: 16px; left: 0; bottom: 16px; width: 3px; background: var(--accent); border-radius: 0 3px 3px 0; opacity: .6; }
   .kpi strong { font-variant-numeric: tabular-nums; line-height: 1.2; overflow-wrap: anywhere; }
   .kpi small { line-height: 1.45; color: var(--muted); }

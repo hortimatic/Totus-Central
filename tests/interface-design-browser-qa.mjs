@@ -49,6 +49,7 @@ try{
    await page.locator('[data-action=toggle-mobile-filters]').click();
   }
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
+  if(overflow){console.log('Overflow',width,await page.locator('body *').evaluateAll(elements=>elements.filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&getComputedStyle(el).visibility!=='hidden';}).slice(0,12).map(el=>({tag:el.tagName,classes:el.className,right:el.getBoundingClientRect().right}))));await page.screenshot({path:'artifacts/interface-design/overflow-'+width+'.png',fullPage:true});}
   assert.equal(overflow,false,'Page overflow at '+width);
   await page.screenshot({path:'artifacts/interface-design/cajas-'+width+'.png',fullPage:true});
  }
