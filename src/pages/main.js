@@ -993,6 +993,7 @@ function drawerEditor(drawer,row,locked=false){
  return `<section class="card card-pad drawer-entry" data-drawer-id="${drawer.id}">
   <div class="section-head"><div><h3>${esc(drawer.name)}</h3><p>El efectivo que dejas aquí será la apertura de esta misma caja el próximo día.</p></div></div>
   <div class="form-grid" style="margin-top:12px">
+   <div class="wide drawer-sales-entry">${formField('Ventas de esta caja',`drSales_${drawer.id}`,saved?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}<p class="small muted">Total de ventas anotado para ${esc(drawer.name)}, incluyendo todos sus medios de cobro. Se sumará al de las otras cajas.</p><div class="small" id="drSalesDiff_${drawer.id}" role="status"></div></div>
    ${formField('Dinero que quedó del cierre anterior',`drOpen_${drawer.id}`,open,'number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Dinero que dejas para el próximo día',`drClose_${drawer.id}`,saved?.closing_cash??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Tarjeta',`drCard_${drawer.id}`,saved?.card_sales??'','number','step="0.01" '+(locked?'disabled':''))}
@@ -1028,6 +1029,7 @@ export function closingRecordHtml(row=null){
       ${selectField('Tienda','clStore',storeOptions,sid,locked||sourceReconcile?'disabled':'')}
       ${formField('Fecha','clDate',recordDate,'date',locked||sourceReconcile?'disabled':'')}
       ${formField('Total ventas','clReported',sourceReconcile&&!sourceClosingReconciled(row)?'':row?.reported_total_sales??'','number','step="0.01" min="0" '+(locked?'disabled':''))}
+      <p class="small muted wide" id="clSalesHint">Si indicas las ventas de cada caja, el total de la tienda se suma automáticamente. Si solo dispones del total de tienda, puedes conservarlo sin inventar un reparto.</p>
       ${!locked&&!sourceReconcile?selectField('Estado al guardar','clSaveStatus',[{value:'cerrado',label:'Conciliar y aceptar el cierre'},{value:'borrador',label:'Borrador · terminar después'}],'cerrado'):''}
       <label class="wide">Observaciones<textarea id="clNotes" rows="3" ${locked?'disabled':''}>${esc(row?.notes||'')}</textarea></label>
      </div>

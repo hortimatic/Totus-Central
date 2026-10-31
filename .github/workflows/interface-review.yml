@@ -17,14 +17,43 @@ jobs:
       - run: npm install --no-save --no-package-lock playwright@1.56.1 xlsx-js-style@1.2.0 jszip@3.10.1
       - run: npx playwright install --with-deps chromium
       - run: node tests/interface-design-qa.mjs
+      - run: node tests/drawer-sales-qa.mjs
       - run: node tests/appearance-qa.mjs
       - run: node tests/personal-interface-qa.mjs
       - run: node tests/action-inventory-qa.mjs
       - name: Servir simulación sin datos reales
         run: python3 -m http.server 4173 >/tmp/totus-interface.log 2>&1 &
       - run: node tests/interface-design-browser-qa.mjs
+      - run: node tests/drawer-sales-browser-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: totus-interface-review
           path: artifacts/interface-design/
+  drawer-sales-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar ventas por caja en base desechable
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -c 'CREATE ROLE anon; CREATE ROLE authenticated;'
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/closing-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261019120841_preserve_closing_income_selection_on_reconciliation.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/020_closing_drafts_and_drawer_checks.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/035_drawer_sales_references.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/035_drawer_sales_references.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/closing-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/drawer-sales-db-qa.sql

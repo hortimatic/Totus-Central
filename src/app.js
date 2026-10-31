@@ -476,11 +476,14 @@ async function saveClosing(id='',status='borrador'){
    const read=suffix=>preview.drawers[index][DRAWER_FORM_FIELDS.find(([name])=>name===suffix)[1]];
    if(status==='cerrado'&&raw('Open').trim()===''){document.getElementById(`drOpen_${d}`)?.focus();throw new Error('Indica el dinero de apertura de cada caja; escribe 0 solo si confirmas que estaba vacía.');}
    if(status==='cerrado'&&raw('Close')==='')throw new Error('Falta el efectivo final de una caja.');
-   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),notes:state.data.closingDrawers.find(x=>x.closing_id===id&&x.drawer_id===d)?.notes||''};
+   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),reported_total_sales:preview.references.values[index],notes:state.data.closingDrawers.find(x=>x.closing_id===id&&x.drawer_id===d)?.notes||''};
    if(Object.entries(row).some(([k,v])=>k!=='drawer_id'&&k!=='notes'&&Number(v)<0))throw new Error('No se admiten importes negativos en Cajas.');
    return row;
  });
  if(status==='cerrado'){
+  if(preview.references.any&&!preview.references.complete)throw new Error('Indica las ventas de todas las cajas para sumar el total de la tienda. Puedes guardar un borrador mientras falta alguna.');
+  const mismatchedDrawer=preview.drawerDifferences.findIndex(value=>value!==null&&Math.abs(value)>.01);
+  if(mismatchedDrawer>=0)throw new Error('Las ventas de '+(state.data.drawers.find(d=>d.id===drawers[mismatchedDrawer].drawer_id)?.name||'una caja')+' no cuadran con sus cobros: diferencia '+money(preview.drawerDifferences[mismatchedDrawer])+'. Revisa esa caja.');
   if(preview.negativeDrawers.length)throw new Error('Hay una caja con ventas en efectivo negativas. Revisa su apertura, efectivo final y retiradas; no se compensa con la otra caja.');
   if(val('clReported').trim()==='')throw new Error('Indica el total de ventas antes de conciliar el cierre.');
   const calculated=drawers.reduce((sum,d)=>sum+d.closing_cash+d.cash_withdrawals+d.cash_expenses_declared+d.cash_extra_out-d.cash_extra_in-d.opening_cash+d.card_sales+d.bizum_sales+d.online_sales+d.other_income,0);
@@ -496,7 +499,7 @@ async function reopenClosing(id){
  if(state.data.closingDrawers.some(d=>d.closing_id===id&&state.data.drawers.some(x=>x.id===d.drawer_id&&x.active===false)))throw new Error('Reactiva la caja en Administración → Negocio antes de reabrir este cierre. Sus importes se conservan.');
  if(!confirm('¿Reabrir este cierre para corregirlo? La acción quedará registrada.'))return;
  const row=state.data.closings.find(x=>x.id===id);if(!row)return;
- const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,notes:x.notes||''}));
+ const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,reported_total_sales:x.reported_total_sales??null,notes:x.notes||''}));
  await businessWriter.execute($('#content > .page'),'totus_save_closing',{p_closing:{id,store_id:row.store_id,business_date:row.business_date,reported_total_sales:row.reported_total_sales,notes:row.notes||'',status:'borrador',...expectedWriteVersion($('#content > .page'),id)},p_drawers:drawers},'p_closing');
  await refresh('Cierre reabierto.');
 }
@@ -962,9 +965,15 @@ function updateExpenseSummary(){
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
  set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',total);
 }
-function closingFormPreview(){return previewClosing([...document.querySelectorAll('.drawer-entry')].map(el=>Object.fromEntries([['drawer_id',el.dataset.drawerId],...DRAWER_FORM_FIELDS.map(([suffix,field])=>[field,input('dr'+suffix+'_'+el.dataset.drawerId)?.value??''])])),val('clReported'))}
+function closingFormPreview(){return previewClosing([...document.querySelectorAll('.drawer-entry')].map(el=>Object.fromEntries([['drawer_id',el.dataset.drawerId],['reported_total_sales',input('drSales_'+el.dataset.drawerId)?.value??''],...DRAWER_FORM_FIELDS.map(([suffix,field])=>[field,input('dr'+suffix+'_'+el.dataset.drawerId)?.value??''])])),val('clReported'))}
 function updateClosingSummary(){
  const result=closingFormPreview(),t=input('clCalcTotal'),d=input('clDifference');
+ const reported=input('clReported'),hint=input('clSalesHint');
+ if(result.valid&&reported){
+  if(result.references.any){if(!reported.readOnly)reported.dataset.manualValue=reported.value;reported.readOnly=true;reported.value=result.references.complete?result.references.total.toFixed(2).replace('.',','):'';if(hint)hint.textContent=result.references.complete?'Total de tienda: suma automática de las ventas anotadas en cada caja.':'Completa las ventas de todas las cajas para obtener el total de tienda.';}
+  else{if(reported.readOnly){reported.readOnly=false;reported.value=reported.dataset.manualValue||'';}if(hint)hint.textContent='Indica las ventas de cada caja para sumar el total automáticamente, o conserva el total de tienda si no dispones de su reparto.';}
+ }
+ [...document.querySelectorAll('.drawer-entry')].forEach((el,index)=>{const target=input('drSalesDiff_'+el.dataset.drawerId);if(!target)return;const value=result.drawerDifferences?.[index];target.textContent=!result.valid?'Revisa los importes.':result.references.values[index]===null?'Sin ventas anotadas para esta caja':value===null?'Completa apertura y efectivo final para comprobar esta caja':'Diferencia con sus cobros: '+money(value);target.className='small '+(value!=null&&Math.abs(value)>.01?'danger-text':'muted');});
  if(t)t.textContent=!result.valid?'—':result.complete?money(result.total):'Por completar';
  if(d){d.textContent=!result.valid?result.error:!result.complete?'Completa apertura y efectivo final de cada caja':result.negativeDrawers.length?'Revisa el efectivo de cada caja':result.difference==null?'Sin total para comparar':money(result.difference);d.className=!result.valid||result.negativeDrawers.length||Math.abs(result.difference||0)>.01?'danger-text':!result.complete||result.difference==null?'muted':'good-text'}
 }

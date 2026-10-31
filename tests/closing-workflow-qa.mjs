@@ -17,7 +17,7 @@ console.log('CLOSING WORKFLOW QA: balanced manual closings share reconciliation 
 
 state.data.closings=[{...closed,cash_withdrawals:20},{...closed,id:'second',cash_withdrawals:15.5},{...closed,id:'other',store_id:'other',cash_withdrawals:90},{...closed,id:'outside',business_date:'2026-09-30',cash_withdrawals:300}];
 patchFilters('cajas',{from:'2026-10-01',to:'2026-10-31',store:'shop',query:''});setView('cajas',{mode:'list'});
-const withdrawalKpi=()=>{const result=cajas();return result.slice(result.indexOf('<span>Salidas en metálico</span>'),result.indexOf('<span>Salidas en metálico</span>')+180)};
+const withdrawalKpi=()=>{const result=cajas(),start=result.indexOf('Salidas en metálico</span>');return result.slice(start,start+180)};
 assert(withdrawalKpi().includes(money(35.5)),'Sum parent closing withdrawals once, restricted to store and dates');
 patchFilters('cajas',{store:'all'});assert(withdrawalKpi().includes(money(125.5)));
 patchFilters('cajas',{query:'unmatched'});assert(withdrawalKpi().includes(money(0)),'Search filters must apply to the KPI too');

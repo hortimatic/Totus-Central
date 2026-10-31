@@ -48,6 +48,7 @@ export const table=(headers,rows,{emptyTitle='Sin datos',emptyText='Todavía no 
  return `<div class="table-wrap${mobileCards?' mobile-card-table':''}"><table class="data-table"${mobileCards?' role="table"':''}><thead${mobileCards?' role="rowgroup"':''}><tr${mobileCards?' role="row"':''}>${headers.map(h=>`<th class="${h.num?'num':''}"${mobileCards?' scope="col" role="columnheader"':''}>${esc(h.label)}</th>`).join('')}</tr></thead><tbody${mobileCards?' role="rowgroup"':''}>${rows.map(r=>`<tr${mobileCards?' role="row"':''}>${headers.map(h=>`<td class="${h.num?'num':''}"${mobileCards?' role="cell" data-label="'+esc(h.label)+'"':''}>${h.html?h.html(r):esc(h.get?r[h.get]:h.value?.(r)??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
 };
 const FIELD_HELP={
+ 'Ventas de esta caja':'Total de ventas anotado para este cajón, con todos sus medios de cobro. No es solo el efectivo ni el dinero que dejas para mañana. Si anotas ventas para un cajón, completa también los demás para sumar el total de tienda y contrastar cada caja.',
  'Apertura efectivo':'Importe en metálico recibido de la caja anterior. Comprueba el cierre previo.',
  'Efectivo final':'Dinero contado físicamente al finalizar la jornada.',
  'Tarjeta':'Cobros por terminal bancario, sin sumar efectivo.',
