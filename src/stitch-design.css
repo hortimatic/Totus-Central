@@ -114,6 +114,14 @@
  .team-chat .chat-sidebar-head h2 {color:var(--ink);font-size:18px;}
  .team-chat .chat-channel.active {background:var(--panel);color:var(--accent);box-shadow:inset 3px 0 var(--accent);}
  .team-chat .chat-conversation {border-color:var(--line);border-radius:10px;box-shadow:none;}
+ .team-chat .chat-navigation-tools > .chat-menu:first-child > summary {background:var(--accent);color:#fff;box-shadow:none;border-radius:6px;}
+ .team-chat .chat-navigation-tools > .chat-menu:last-child > summary {background:var(--panel);color:var(--accent);border-color:var(--line);border-radius:6px;}
+ .team-chat .chat-view-tabs > .btn {color:var(--muted);}
+ .team-chat .chat-view-tabs > .btn[aria-pressed=true] {background:var(--panel);color:var(--accent);box-shadow:none;}
+ .team-chat .chat-compose {background:var(--panel);border-color:var(--line);}
+ .team-chat .chat-compose textarea {background:var(--stitch-low);border-color:var(--line);color:var(--ink);border-radius:10px;}
+ .team-chat .chat-compose textarea:focus {outline-color:var(--accent);background:var(--panel);}
+ .team-chat .chat-compose-tools .chat-pick-btn {background:var(--stitch-low);color:var(--accent);border-color:var(--line);}
  .chat-sidebar {background:var(--stitch-low);}
  .chat-channel-header,.chat-composer {background:var(--panel);border-color:var(--line);}
  .chat-message-bubble {border-radius:12px;}
