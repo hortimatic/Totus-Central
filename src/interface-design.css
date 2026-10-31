@@ -58,6 +58,24 @@
   .appearance-grid .field { line-height: 1.5; }
   .appearance-anchors { gap: 8px; }
   .appearance-preview-card { min-width: 0; }
+  /* Module-specific surfaces share the same visual system without replacing their controls. */
+  .tabs .tab.active { background: color-mix(in srgb,var(--accent) 9%,var(--panel)); border-radius: 8px 8px 0 0; }
+  .home-zone-head { gap: 12px; }
+  .dashboard-hero { border-top: 3px solid var(--accent); }
+  .document-batch-toolbar { gap: 12px; padding: 14px 16px; flex-wrap: wrap; background: var(--bg); }
+  .stock-upload-box, .stock-source, .stock-equivalence-summary { border-color: var(--line); border-radius: var(--r); background: var(--bg); }
+  .stock-toolbar, .tasks-toolbar, .tasks-filters { gap: 12px; flex-wrap: wrap; }
+  .tasks-calendar { border-color: var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .task-day.today { box-shadow: inset 0 3px var(--accent); }
+  .team-chat { border-color: var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .chat-navigation-tools, .chat-channel-tools { gap: 8px; }
+  .chat-dialog, .tasks-dialog { border-color: var(--line); border-radius: var(--r); }
+  .gestor-period-picker > * { min-width: 0; }
+  .gestor-period-picker :is(input,select) { min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--panel); font: inherit; }
+  .backup-control-actions { display: flex; flex-wrap: wrap; gap: 12px; padding-block: 12px; }
+  .backup-control-actions .btn { min-height: 40px; }
+  #login:not(.custom-login) { background: radial-gradient(at 15% 15%,#1d547a,transparent 55%),linear-gradient(140deg,#101d32,#1d304c); }
+  #login:not(.custom-login) .login-card { box-shadow: 0 24px 70px rgb(0 0 0 / 22%); border-radius: 22px; }
   .closing-filter-bar, .mobile-row-toggle { display: none; }
   .mobile-nav-close, .mobile-nav-shade { display: none; }
   @media (max-width: 800px) {
