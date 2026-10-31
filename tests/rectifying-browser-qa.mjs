@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -14,7 +15,7 @@ try{
   db.ops_sales_invoices.push(original);db.ops_sales_invoice_lines.push(line);db.ops_invoice_series.push(series);
   state.data.invoices.push(original);state.data.invoiceLines.push(line);state.data.series.push(series);
  });
- await page.locator('#nav [data-route="facturacion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
  await page.locator('[data-action="rectifying-new"]').click();assert.equal(await page.locator('#ivRectifiedInvoice').inputValue(),'');
  await page.locator('#ivCustomer').fill('Texto ficticio sin guardar');
  await page.locator('#ivRectifiedInvoice').selectOption('11111111-1111-4111-8111-111111111199');
@@ -46,9 +47,9 @@ try{
  await page.locator('[data-action="invoice-payment-save"]').click();
  await page.waitForFunction(id=>window.__mockDb.ops_sales_invoices.find(x=>x.id===id)?.paid_status==='parcial',credit.id);
  assert.equal(await page.evaluate(id=>window.__mockDb.ops_sales_invoices.find(x=>x.id===id).paid_amount,credit.id),20);
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  assert.match(await page.locator('#content').textContent(),/Devoluciones pendientes/);
- await page.locator('#nav [data-route="facturacion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
  assert.match(await page.locator('#content').textContent(),/101,00/);
  await page.locator('[data-action="invoice-back"]').first().click();
  await page.locator('[data-action="invoice-open"][data-id="'+credit.id+'"]').click();

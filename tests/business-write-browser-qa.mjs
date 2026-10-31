@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
@@ -15,7 +16,7 @@ try{
    return response;
   };
  });
- await page.locator('#nav [data-route="gastos"]').click();await page.locator('[data-action="expense-new"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));await page.locator('[data-action="expense-new"]').click();
  await page.locator('#exSupplier').fill('Proveedor QA doble respuesta perdida');await page.locator('#exInvoice').fill('REPLAY-QA');
  await page.locator('#exLineDesc_0').fill('Compra de prueba');await page.locator('#exLineBase_0').fill('10');await page.locator('#exLineVat_0').fill('0');
  await page.locator('#exFile').setInputFiles({name:'original-replay.txt',mimeType:'text/plain',buffer:Buffer.from('Original ficticio que debe conservarse')});

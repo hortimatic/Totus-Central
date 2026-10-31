@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -34,7 +35,7 @@ async function report(page){return page.evaluate(async()=>{const {state}=await i
 try{
  const page=await auditedPage();
  assert.deepEqual(await page.evaluate(()=>window.__qaAuditCalls),[],'Startup must not load audit history');
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  assert.deepEqual(await page.evaluate(()=>window.__qaAuditCalls),[],'Administration overview must not load audit history');
 
  await page.evaluate(()=>{
@@ -83,9 +84,9 @@ try{
  const afterRefresh=await report(page);
  assert(afterRefresh.count>previous.count,'Refreshing core while Log is visible must read fresh audit events');
 
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  const beforeNav=await page.evaluate(()=>window.__qaAuditCalls.length);
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.waitForFunction(n=>window.__qaAuditCalls.length>n,beforeNav);
  assert.equal(await page.locator('[data-action="admin-log-refresh"]').count(),1,'Returning directly to Administration must restore the Log panel');
 
@@ -100,7 +101,7 @@ try{
  await page.locator('#loginForm button[type="submit"]').click();
  await page.locator('#nav [data-route="administracion"]').waitFor();
  await page.evaluate(()=>{window.__qaAuditGate=null;});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return !!state.data.auditUpdatedAt&&!state.data.auditLoading;});
  const newSession=await report(page);

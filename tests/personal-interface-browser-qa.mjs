@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),errors=[],cloud=new Map();
@@ -25,7 +26,7 @@ async function account(index){
  await page.locator('#nav [data-route=configuracion]').waitFor();return page;
 }
 try{
- const a=await account(0),b=await account(1),go=p=>p.locator('#nav [data-route=configuracion]').click();
+ const a=await account(0),b=await account(1),go=p=>clickModuleLink(p,p.locator('#nav [data-route=configuracion]'));
  await go(a);await a.locator('[name=brandName]').fill('Interfaz de Ana');await a.locator('[name=borderColor]').fill('#dd1122');
  const image=await a.evaluate(()=>{const c=document.createElement('canvas');c.width=32;c.height=32;c.getContext('2d').fillRect(8,8,16,16);return c.toDataURL('image/png').split(',')[1];});
  await a.locator('[data-image=customLogoData]').setInputFiles({name:'logo.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});await a.waitForFunction(()=>document.querySelector('[name=logoMode]').value==='uploaded');

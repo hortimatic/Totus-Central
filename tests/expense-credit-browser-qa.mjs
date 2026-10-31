@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {expenseRegisterLines} from '../src/expense-register.js';
@@ -6,7 +7,7 @@ const page=await browser.newPage();const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('[data-action="expense-new"]').click();
  await page.locator('#exDocKind').selectOption('rectificativa');
  await page.locator('#exSupplier').fill('Proveedor devolución QA');

@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -5,7 +6,7 @@ try{
  const page=await browser.newPage({viewport:{width:1280,height:950}});
  page.on('dialog',dialog=>dialog.accept());
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.locator('[data-action="closing-new"]').click();
  const ids=await page.locator('.drawer-entry').evaluateAll(es=>es.map(e=>e.dataset.drawerId));
  assert.equal(ids.length,2,'Hortimatic retains its two separate drawers');

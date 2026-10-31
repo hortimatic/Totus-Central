@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -11,7 +12,7 @@ try{
   db.ops_tax_payments.push({id:'tax-ui',tax_type:'130',status:'pagado',payment_date:day,fiscal_year:2026,quarter:3,amount:50});
   await(await import('../src/api.js')).loadCore();
  });
- const nav=r=>page.locator('#nav [data-route="'+r+'"]').click();
+ const nav=r=>clickModuleLink(page,page.locator('#nav [data-route="'+r+'"]'));
  await nav('gastos');
  const headers=await page.locator('.expense-register-card .data-table thead').allTextContents();assert.equal(headers.length,2);assert.equal(headers[0],headers[1],'Identical columns for fiscal and internal expenses');
  await page.locator('[data-action="expense-tax-edit"]').click();await page.locator('#exSupplier').waitFor();assert.equal(await page.locator('#exSupplier').inputValue(),'Agencia Tributaria');await page.getByRole('button',{name:'Cancelar',exact:true}).click();

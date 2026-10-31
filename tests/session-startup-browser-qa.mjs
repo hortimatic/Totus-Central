@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -53,7 +54,7 @@ try{
  await page.evaluate(()=>document.querySelector('#loginForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  assert.equal(await page.evaluate(()=>window.__qaLoginCount),1,'Repeated submission must not start a second sign-in');
  releaseLogin();await page.locator('#userCard').waitFor({state:'visible'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="user-edit"][data-email="qa@example.com"]').click();
  await page.locator('#usName').waitFor();
  await page.evaluate(async()=>{const {sb}=await import('../src/api.js');await sb.auth.signOut();});

@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import {PDFDocument,rgb} from 'pdf-lib';
 import assert from 'node:assert/strict';
@@ -39,7 +40,7 @@ try{
    window.__mockUploads.set('business-documents/qa/preview.pdf',new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));
    await (await import('/src/api.js')).loadCore();return id;
   },bytes);
-  await page.locator('#nav [data-route="documentos"]').click();
+  await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));
   await page.locator(`[data-action="document-preview"][data-id="${id}"]`).click();
   await page.locator('#pdfPreviewHost[data-pdf-rendered="1"]').waitFor();
   assert(await page.locator('.pdf-document-modal').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'Outer PDF modal must not introduce a second scroll area');

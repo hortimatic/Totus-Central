@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -10,7 +11,7 @@ try{
   db.ops_expense_lines.push({id:crypto.randomUUID(),expense_id:id,description:'Concepto QA',base_amount:100,vat_rate:21,vat_amount:21,re_rate:0,withholding_rate:0,deductible_irpf:true,deductible_pct:100,sort_order:10});
   await(await import('../src/api.js')).loadCore();return id;
  });
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('[data-action="expense-edit"][data-id="'+id+'"]').click();
  await page.locator('#exNotes').fill('Mis cambios aún sin guardar');
  await page.evaluate(async id=>{

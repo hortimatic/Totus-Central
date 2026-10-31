@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
@@ -48,12 +49,12 @@ try{
  await page.locator('#homePriceQuery').fill(''); // Clear the intentionally dirty form before navigating.
  assert((await page.locator('#homeStorageAlert').innerText()).includes('85,0 %'),'85 percent warning must remain visible');
  await page.evaluate(()=>window.__qaStoragePercentOverride=95);
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  const unsaved=page.getByRole('heading',{name:'Cambios sin guardar',exact:true});
  if(await unsaved.count())await page.locator('[data-confirm="accept"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  await page.locator('#storageMeasuredAt').waitFor();
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  assert((await page.locator('#homeStorageAlert').innerText()).includes('95,0 %'),'95 percent critical warning must remain visible');
  assert((await page.locator('#homeStorageAlert .bad').count())===1,'95 percent alert must be critical');
 
@@ -71,7 +72,7 @@ try{
  await page.evaluate(()=>{window.__qaStorageBlocked=false;window.__mockStorageFailure=true;});
  const failed=await page.evaluate(async()=>(await import('../src/api.js')).reloadStorageUsage());
  assert.equal(failed.status,'error');
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  await page.getByText('Datos no disponibles',{exact:false}).first().waitFor();
  assert(!(await page.locator('#content').innerText()).includes('97,00 MB usados'),'Old figures must not masquerade as current');
@@ -102,7 +103,7 @@ try{
  });
  assert.equal(apiResult,'stale','Successful file upload must invalidate the previous Storage measurement');
  assert((await page.locator('#nav [data-route="inicio"]').count())===1);
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.data.storageUsage.status==='ok';});
  await page.evaluate(async()=>{const api=await import('../src/api.js');await api.removeFile('business-assets','qa-storage-invalidate.png');});
  assert.equal((await usage(page)).status,'stale','Verified removal must also invalidate measurement');

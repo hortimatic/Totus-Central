@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
@@ -28,7 +29,7 @@ try{
   };
   window.odBusinessBefore=JSON.stringify({expenses:window.__mockDb.ops_expenses,documents:window.__mockDb.ops_documents,closings:window.__mockDb.ops_daily_closings});
  });
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="storage"]').click();
  assert.equal(await page.locator('[data-action="admin-section"][data-section="onedrive"]').count(),0,'OneDrive debe estar integrado en Almacenamiento');
  await page.locator('.storage-provider-supabase').getByRole('heading',{name:'Supabase',exact:true}).waitFor();

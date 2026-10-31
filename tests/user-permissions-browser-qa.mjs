@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
@@ -9,7 +10,7 @@ try{
   await (await import('../src/api.js')).loadCore();
   return (await import('../src/permissions.js')).PERMISSION_MODULES.length;
  });
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  const open=()=>page.locator('[data-action="user-permissions"][data-email="qa-worker@example.invalid"]').click();
  await open();await page.locator('#perm_gastos_edit').uncheck();await page.locator('#perm_gastos_delete').uncheck();
  await page.locator('[data-action="user-permissions-save"]').click();

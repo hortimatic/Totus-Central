@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -11,7 +12,7 @@ try{
   window.__mockDb.ops_chat_events=[{id:'chat1',channel_id:'ch1',actor_email:'qa@example.invalid',created_at:'2026-10-26T10:00:00Z',action:'message_sent',detail:{}}];
   window.__mockDb.ops_task_events=[{id:'task1',actor_id:'cccccccc-cccc-4ccc-cccc-cccccccccccc',task_id:'t1',created_at:'2026-10-26T10:01:00Z',action:'done',detail:{}}];
  });
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
  await page.locator('[data-action="admin-log-refresh"]').click();
  await page.getByText('Eventos actualizados.',{exact:true}).waitFor();

@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -8,7 +9,7 @@ page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  const id=await page.evaluate(async()=>{Object.assign(window.__mockDb.ops_business_settings[0],{business_email:'public@example.invalid',business_phone:'910000000'});await(await import('../src/api.js')).loadCore();return window.__mockDb.ops_document_templates[0].id;});
- await page.locator('#nav [data-route="facturacion"]').click();await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
  await page.locator('[data-action="template-edit"][data-id="'+id+'"]').click();
  await page.locator('#templateDraftPreview .invoice-preview').waitFor();
  const originals=await page.evaluate(()=>JSON.stringify(window.__mockDb.ops_document_templates));

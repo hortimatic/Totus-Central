@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import JSZip from 'jszip';
@@ -24,7 +25,7 @@ try{
   await route.fulfill({json:{job_id:id,result:{}}});
  });
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="backups"]').click();
  const downloaded=page.waitForEvent('download');await page.locator('[data-action="backup-create"]').click();
  const download=await downloaded,bytes=await fs.readFile(await download.path());

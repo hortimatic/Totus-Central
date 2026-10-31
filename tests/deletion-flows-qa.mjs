@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -31,7 +32,7 @@ try{
   state.data.documents.push(doc);
  },ids);
  const go=async area=>{
-  await page.locator('#nav [data-route="'+area+'"]').click();
+  await clickModuleLink(page,page.locator('#nav [data-route="'+area+'"]'));
   await page.waitForTimeout(65);
  };
  await go('cajas');

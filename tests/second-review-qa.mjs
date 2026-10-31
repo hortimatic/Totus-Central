@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -9,7 +10,7 @@ try{
   const page=await browser.newPage({viewport:{width,height:1000},locale:'es-ES'}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
-  const nav=route=>page.locator(`#nav [data-route="${route}"]`).click();
+  const nav=route=>clickModuleLink(page,page.locator(`#nav [data-route="${route}"]`));
   await nav('facturacion');await page.locator('[data-action="invoice-new"]').click();
   await page.locator('#ivCustomer').fill('Cliente visible sin guardar');
   await page.locator('#ivDesc_0').fill('Servicio en vivo');await page.locator('#ivQty_0').fill('2');await page.locator('#ivUnit_0').fill('50');await page.locator('#ivDisc_0').fill('10');

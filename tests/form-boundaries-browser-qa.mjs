@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -5,7 +6,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="facturacion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
  await page.locator('[data-action="invoice-new"]').first().click();
  await page.locator('#ivCustomer').fill('Cliente ficticio limites');
  await page.locator('#ivDesc_0').fill('Documento simulado');
@@ -22,7 +23,7 @@ try{
  await page.waitForFunction(()=>window.__mockDb.ops_sales_invoices.length===1);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_sales_invoice_lines[0].discount_pct),10);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_sales_invoices[0].total_amount),108.9);
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('[data-action="expense-new"]').click();
  await page.locator('#exLineBase_0').fill('pendiente de completar');
  // The same supplier dialog can open over an unfinished record; its save must validate only its fields.

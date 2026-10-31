@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright';
@@ -21,7 +22,7 @@ try{
   }
   await loadCore();
  });
- const nav=route=>page.locator('#nav [data-route="'+route+'"]').click();
+ const nav=route=>clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
  await nav('inicio');await page.locator('#inicioFrom').fill('2026-01-01');await page.locator('#inicioTo').fill('2026-01-31');await page.locator('[data-action="inicio-apply"]').click();
  await page.getByText('150,00 €',{exact:true}).first().waitFor();
  assert.deepEqual((await page.locator('.home-period-kpis .kpi strong').allTextContents()).map(text=>text.replace(/\s/g,' ')),['150,00 €','20,00 €','130,00 €','17,00 €']);

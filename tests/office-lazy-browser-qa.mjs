@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
@@ -18,7 +19,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  assert.equal(await page.evaluate(()=>typeof window.XLSX),'undefined','No Excel at startup');
  assert.equal(await page.evaluate(()=>typeof window.JSZip),'undefined','No ZIP at startup');
- await page.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));
  await page.locator('[data-action="document-new"]').click();
  await page.locator('#docParty').fill('Prueba ZIP bajo demanda');
  await page.locator('#docFile').setInputFiles({name:'lazy-test.txt',mimeType:'text/plain',buffer:Buffer.from('Prueba documental aislada')});
@@ -33,7 +34,7 @@ try{
  assert(Object.keys(zip.files).some(x=>x.endsWith('lazy-test.txt')),'First ZIP click must include selected original');
  assert.equal(counts.zip,1,'Only one ZIP request');
  assert.equal(counts.excel,0,'ZIP must not load Excel');
- await page.locator('#nav [data-route="cajas"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  const excelDownload=page.waitForEvent('download',{timeout:15000});
  await page.locator('[data-action="export-closings-current"]').click();
  const excelFile=await excelDownload;

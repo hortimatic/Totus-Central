@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -24,7 +25,7 @@ try{
   db.ops_daily_closings.push({id,store_id:store.id,business_date:date,status:'cerrado',opening_cash:250,actual_cash:250,card_sales:2450,cash_sales:1140.5,cash_withdrawals:1140.5,cash_expenses_declared:0,bizum_sales:0,online_sales:0,other_income:0,difference:0,reported_total_sales:3590.5,notes:'Cierre ficticio para diseño'});
   for(const [index,drawer] of db.ops_cash_drawers.filter(d=>d.store_id===store.id).entries())db.ops_daily_closing_drawers.push({id:crypto.randomUUID(),closing_id:id,drawer_id:drawer.id,opening_cash:index?100:150,closing_cash:index?100:150,card_sales:index?800:1650,cash_withdrawals:index?290.5:850,cash_expenses_declared:0,cash_extra_in:0,cash_extra_out:0});
  });
- await page.locator('#nav [data-route=cajas]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route=cajas]'));
  await fs.mkdir('artifacts/interface-design',{recursive:true});
  for(const width of [1920,1440,1024,768,430,390,320]){
   await page.setViewportSize({width,height:950});

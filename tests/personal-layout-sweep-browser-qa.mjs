@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage(),failures=[],errors=[];
@@ -11,7 +12,7 @@ try{
  for(const preset of ['totus','newoldsmok']){
   await page.evaluate(async preset=>{const {APPEARANCE_PRESETS}=await import('../src/appearance-core.js');const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({...APPEARANCE_PRESETS[preset],fontSize:16,sidebarWidth:330,borderWidth:3,cardGlow:15,buttonGlow:23});},preset);
   for(const route of routes){
-   await page.locator('#nav [data-route="'+route+'"]').click();
+   await clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
    for(const width of [320,390,768,816,1024,1440,1920]){
     await page.setViewportSize({width,height:950});
     const size=await page.locator('#content').evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));

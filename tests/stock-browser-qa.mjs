@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
@@ -58,7 +59,7 @@ try{
    return {data:null,error:{message:'Missing mock RPC'}};
   };
  });
- const nav=()=>page.locator('#nav [data-route="cotejos"]').click();
+ const nav=()=>clickModuleLink(page,page.locator('#nav [data-route="cotejos"]'));
  await nav();await page.getByText('Sin recepciones',{exact:true}).waitFor();
  await page.locator('[data-action="stock-new"]').click();
  assert.equal(await page.locator('[data-action="stock-back"]').getAttribute('class'),'btn link','Back link uses the same record navigation as Pricing/invoices');
@@ -229,7 +230,7 @@ try{
  });
  await page.locator('[data-action="stock-refresh"]').click();await page.locator('#stockExisting').waitFor({state:'attached'});
  assert.equal(await page.locator('#stockExisting option[value="pending-selector-qa"]').count(),0,'A retiring original must not be offered for a new association');
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="log"]').click();
  await page.locator('[data-action="admin-log-refresh"]').click();await page.getByText('Eventos actualizados.',{exact:true}).last().waitFor();
  await page.locator('#logArea').selectOption('recepciones');await page.locator('#logQuery').fill('Historial de recepciones');await page.locator('[data-action="admin-log-filter"]').click();

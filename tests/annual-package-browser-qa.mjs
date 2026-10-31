@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
@@ -25,7 +26,7 @@ try{
   db.ops_expenses.push({id:'annual-common',store_id:null,expense_date:'2026-01-04',supplier_name:'Común QA',description:'Común QA',invoice_number:'COMMON-DIARY-QA',gross_expense:5,management_only:true});
   await (await import('../src/api.js')).loadCore();
  });
- await page.locator('#nav [data-route="informes"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="informes"]'));
  await page.getByText('Descargas anuales y auditoría complementaria',{exact:true}).click();
  const ready=page.waitForEvent('download',{timeout:20000});
  await page.locator('[data-action="export-gestor-package"]').first().click();

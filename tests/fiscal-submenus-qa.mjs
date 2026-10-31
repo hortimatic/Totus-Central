@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
@@ -14,7 +15,7 @@ const data=()=>page.evaluate(()=>({
  audit:window.__mockDb.ops_audit_log
 }));
 const nav=async section=>{
- await page.locator('#nav [data-route="'+section+'"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="'+section+'"]'));
  await page.waitForTimeout(60);
 };
 try{

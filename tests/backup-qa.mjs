@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import JSZip from 'jszip';
 import fs from 'node:fs/promises';
@@ -7,7 +8,7 @@ const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));
  await page.locator('[data-action="document-new"]').click();
  await page.locator('#docParty').fill('Backup QA');
  await page.locator('#docFile').setInputFiles({name:'backup-comprobante.txt',mimeType:'text/plain',buffer:Buffer.from('Documento de restauración')});
@@ -21,7 +22,7 @@ try{
    expense_date:'2026-10-11',supplier_name:'Prueba paginación',gross_expense:1
   });
  });
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  const tab=page.locator('[data-action="admin-section"][data-section="backups"]');
  if(await tab.count())await tab.first().click();
  const download=page.waitForEvent('download',{timeout:12000});

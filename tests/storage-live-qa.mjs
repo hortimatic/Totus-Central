@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
@@ -9,7 +10,7 @@ async function openTechnicalDetails(){
 const js=[];page.on('pageerror',e=>js.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('#storageMeasuredAt').waitFor();
  assert.equal(await page.locator('details.storage-technical').getAttribute('open'),null,'El detalle técnico debe empezar recogido');
@@ -61,7 +62,7 @@ try{
  assert(Math.abs(Number(await page.locator('#storageUsageBar').getAttribute('value'))-60)<.01,'Porcentaje incorrecto');
  assert((await page.locator('#storageObservedTotal').innerText()).includes('20,00 MB'),'El total observado no incluye documentos, logos y backups');
  assert((await page.locator('#storageObservedBar .storage-segment-docs').evaluate(el=>el.getBoundingClientRect().width))>10,'Los documentos cargados no se reflejan en la barra superior');
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  assert((await page.locator('.summary-row',{hasText:'Archivos en Supabase'}).innerText()).includes('4,0 MB'),'Inicio debe incluir los archivos de copias, no solo documentos y logos');
  // Replacing an existing document cannot use stale measurements when Storage is unavailable.
  await page.evaluate(async()=>{
@@ -72,7 +73,7 @@ try{
   window.__mockUploads.set('business-documents/'+doc.storage_path,new Blob(['%PDF-1.4 old content']));
  });
  await page.evaluate(()=>window.__mockStorageFailure=true);
- await page.locator('#nav [data-route="documentos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));
  await page.locator('[data-action="document-edit"][data-id="qa-existing-doc"]').first().click();
  await page.locator('#docFile').setInputFiles({name:'nuevo.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 new content')});
  const oldDocument=await page.evaluate(()=>window.__mockDb.ops_documents.find(d=>d.id==='qa-existing-doc').storage_path);
@@ -82,7 +83,7 @@ try{
  assert((await page.locator('#toastHost').innerText()).includes('No se puede comprobar el espacio'),'Reemplazar documento con Storage caído no da error');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_documents.find(d=>d.id==='qa-existing-doc').storage_path),oldDocument,'Se reemplazó el original sin cuota verificada');
  assert.equal(await page.evaluate(()=>window.__mockUploads.size),beforeUploadCount,'Subió archivo pese al fallo de cuota');
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.locator('[data-action="storage-refresh"]').click();
@@ -93,13 +94,13 @@ try{
  assert(!failed.includes('0,00 MB usados'),'La caída de Supabase se presenta como cero bytes');
  assert(failed.includes('Reintentar conexión'),'No hay acción para recuperarse');
  // A failed RPC must also remain explicit on Inicio; it must not become a fake 0 MB.
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  const homeUsage=await page.locator('.dashboard-page .summary-row',{hasText:'Archivos en Supabase'}).innerText();
  const homeOccupancy=await page.locator('.dashboard-page .summary-row',{hasText:'Ocupación'}).innerText();
  assert(homeUsage.includes('No disponible'),'Inicio oculta el fallo de Storage con un consumo ficticio: '+homeUsage);
  assert(homeOccupancy.includes('Sin medir'),'Inicio muestra un porcentaje falso tras fallo: '+homeOccupancy);
  const beforeRejected=await page.evaluate(()=>({files:window.__mockUploads.size,expenses:window.__mockDb.ops_expenses.length}));
- await page.locator('#nav [data-route="gastos"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
  await page.locator('[data-action="expense-new"]').first().click();
  await page.locator('#exSupplier').fill('Proveedor sin conexión');
  await page.locator('#exInvoice').fill('QA-STORAGE-DOWN');
@@ -111,7 +112,7 @@ try{
  const afterRejected=await page.evaluate(()=>({files:window.__mockUploads.size,expenses:window.__mockDb.ops_expenses.length}));
  assert.deepEqual(afterRejected,beforeRejected,'La caída de Storage permitió almacenar archivo o gasto sin cuota verificada');
  assert((await page.locator('#toastHost').innerText()).includes('No se puede comprobar el espacio'),'Error de quota no visible');
- await page.locator('#nav [data-route="administracion"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.getByRole('heading',{name:'Cambios sin guardar',exact:true}).waitFor();await page.locator('[data-confirm="accept"]').click();
  await page.locator('[data-action="admin-section"][data-section="storage"]').first().click();
  await page.evaluate(()=>window.__mockStorageFailure=false);

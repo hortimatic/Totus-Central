@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import {PERMISSION_MODULES} from '../src/permissions.js';
 import {ROUTES} from '../src/config.js';
 import {chromium} from 'playwright';
@@ -23,7 +24,7 @@ const db=()=>page.evaluate(()=>({
  team:window.__mockDb.team_members,
  uploads:window.__mockUploads.size
 }));
-const nav=async route=>{if(await page.locator('#modalHost .close-btn').count())await page.locator('#modalHost .close-btn').click();await page.locator('#nav [data-route="'+route+'"]').click();await page.waitForTimeout(50)};
+const nav=async route=>{if(await page.locator('#modalHost .close-btn').count())await page.locator('#modalHost .close-btn').click();await clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));await page.waitForTimeout(50)};
 await check('Arranque real y autenticación simulada',async()=>{
  await page.goto(base,{waitUntil:'networkidle'});
  await page.locator('#userCard').waitFor({state:'visible'});
@@ -52,7 +53,7 @@ await check('Navegación: accesos directos ocultos y rechazo sin excepción',asy
   Object.assign(window.__mockDb.team_members.find(m=>m.email===state.user.email),{role:'gerente'});
   window.__mockDb.ops_user_permissions=[...state.data.userPermissions];
  });
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  await page.waitForFunction(async()=>!(await import('../src/state.js')).state.loading);
  assert(await page.locator('#content [data-route="pricing"]').count()===0,
   'El panel Inicio deja accesos directos a Pricing aunque el rol no puede entrar');
@@ -75,7 +76,7 @@ await check('Navegación: accesos directos ocultos y rechazo sin excepción',asy
   delete window.__qaOriginalServerPerms;delete window.__qaOriginalMember;
   delete window.__qaOriginalUser;delete window.__qaOriginalPerms;
  });
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
 });
 await check('Roles por módulo: alta, edición y restablecimiento',async()=>{
  await nav('administracion');

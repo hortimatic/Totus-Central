@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import fs from 'node:fs/promises';
@@ -14,7 +15,7 @@ async function scenario(name,test){
  catch(error){results.push({name,ok:false,error:error.message});console.error('FAIL '+name+': '+error.message)}
  finally{await page.close()}
 }
-const nav=page=>page.locator('#nav [data-route="gastos"]').click();
+const nav=page=>clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));
 async function create(page){await nav(page);await page.locator('[data-action="expense-new"]').click();await page.locator('#exSupplier').fill('Proveedor integral QA');await page.locator('#exInvoice').fill('INTEGRAL-QA');await page.locator('#exLineDesc_0').fill('Concepto QA')}
 async function seed(page){return page.evaluate(async()=>{
  const db=window.__mockDb,day=new Date().toLocaleDateString('en-CA'),store=db.ops_stores[0].id;

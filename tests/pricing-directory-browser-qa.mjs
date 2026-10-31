@@ -1,3 +1,4 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true});
@@ -8,7 +9,7 @@ try{
  const read=table=>page.evaluate(table=>structuredClone(window.__mockDb[table]),table);
  const saved=async message=>{await page.getByText(message,{exact:true}).waitFor();await page.evaluate(()=>document.getElementById('toastHost').replaceChildren());};
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#nav [data-route="pricing"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));
  await click('families-manage');await click('brand-new');
  await page.locator('#brName').fill('Marca QA');await click('brand-save');await saved('Marca guardada.');
  const brand=(await read('brands'))[0];assert.equal(brand.name,'Marca QA');

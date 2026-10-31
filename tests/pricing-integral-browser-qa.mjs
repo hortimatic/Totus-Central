@@ -1,10 +1,11 @@
+import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 await mkdir('artifacts',{recursive:true});
 const browser=await chromium.launch({headless:true}),results=[];
 const attempt=async(name,run)=>{try{await run();results.push({name,ok:true})}catch(error){results.push({name,ok:false,error:error.message})}};
-async function fresh(){const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(5000);await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});await page.locator('#nav [data-route="pricing"]').click();return page}
+async function fresh(){const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(5000);await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));return page}
 async function simple(page){await page.locator('[data-action="product-new"]').click();await page.locator('#prName').fill('Producto ficticio auditoria');await page.locator('#prSku').fill('QA-PR-INTEGRAL');await page.locator('#prPvp').fill('10');await page.locator('#prUnits').fill('20');await page.locator('#prInitialProviderName').fill('Proveedor ficticio');await page.locator('#prInitialCost').fill('4');await page.locator('[data-action="product-save"]').click();await page.getByText('Producto guardado.',{exact:true}).last().waitFor()}
 try{
  await attempt('changing the simulated variant does not prompt a save, while actual edits stay protected',async()=>{const p=await fresh();try{
