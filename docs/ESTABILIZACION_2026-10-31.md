@@ -13,3 +13,6 @@ Las pruebas SQL nuevas utilizan únicamente una base desechable: rechazan borrar
 No se han restaurado copias en producción, alterado cifras fiscales o eliminado documentación financiera para probar o limpiar. No se incorporan servicios de pago, sincronizadores ni tareas locales permanentes. La contraseña del asistente permanece en Vault; no forma parte de fuentes ni del paquete de entrega.
 
 Para mantenimiento: consultar INICIO_CHATGPT_ACTUAL, contrato del servidor y versión publicada; no reinstalar todos los parches históricos. El paquete de fuentes debe corresponder a un commit completo publicado y conservar este informe junto con código, pruebas y manuales. Los resultados finales del despliegue y el ensayo de copia se registran en la entrega privada de OneDrive.
+
+### Detalle visual contrastado en la pestaña real
+Se midió que el bloque de ayuda comenzaba exactamente al terminar los botones, sin separación. El botón Actualizar historial se comprimía a una anchura menor que su texto. Se añade separación real de los bloques y se permite recolocar los encabezados sin comprimir sus botones. Prueba adicional a 816 px (ancho observado), fuente grande, barra lateral amplia y bordes personalizados; siete anchos en total.

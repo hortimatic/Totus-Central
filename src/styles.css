@@ -799,3 +799,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .backup-schedule-grid>.field{min-width:0;align-content:start}
 .backup-schedule-grid input,.backup-schedule-grid select{max-width:100%;min-width:0}
 .backup-schedule-grid .small{margin:0;line-height:1.5}
+
+.backup-schedule-card{display:grid;gap:16px}
+.backup-schedule-card>.backup-schedule-grid{margin:0}
+.backup-schedule-card>.backup-control-actions{margin:0;padding:16px 0;flex-wrap:wrap}
+.backup-page .section-head{flex-wrap:wrap}
+.backup-page .section-head>div{flex:1 1 260px}
+.backup-page .section-head>.btn{flex:0 0 auto;max-width:100%;white-space:normal}
+.backup-page .note{min-width:0;overflow-wrap:anywhere}
