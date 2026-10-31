@@ -40,7 +40,7 @@ try{
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();
   assert.equal(await page.locator('#clNotes').inputValue(),'Borrador que debe conservarse');
   assert.equal(new URL(page.url()).searchParams.get('module'),'cajas');
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Navigation layout must fit');
+  const geometry=await page.locator('body *').evaluateAll(es=>es.filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&getComputedStyle(e).visibility!=='hidden'}).map(e=>({tag:e.tagName,cl:e.className,right:e.getBoundingClientRect().right,text:e.textContent.slice(0,100)})).slice(0,15));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Navigation layout must fit '+width+' '+JSON.stringify(geometry));
   await page.close();
  }
  assert.deepEqual(errors,[]);console.log('MODULE NAVIGATION BROWSER QA: desktop/mobile, parallel tabs, fresh data, filters, delayed response isolation and retry');
