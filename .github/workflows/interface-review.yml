@@ -1,7 +1,7 @@
 name: Revisar diseño de interfaz
 on:
   push:
-    branches: [design/stitch-interface]
+    branches: [design/stitch-interface, fix/interface-publication]
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,6 +23,7 @@ jobs:
       - run: node tests/action-inventory-qa.mjs
       - name: Servir simulación sin datos reales
         run: python3 -m http.server 4173 >/tmp/totus-interface.log 2>&1 &
+      - run: node tests/personal-layout-sweep-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/interface-design-browser-qa.mjs
       - run: node tests/drawer-sales-browser-qa.mjs
