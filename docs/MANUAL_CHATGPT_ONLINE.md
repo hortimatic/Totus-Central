@@ -1,3 +1,5 @@
+> Entrada vigente (31/10/2026): [INICIO_CHATGPT_ACTUAL.md](INICIO_CHATGPT_ACTUAL.md). Leerla primero. Este documento conserva también antecedentes históricos; no reinstalar propuestas antiguas sin comprobar producción.
+
 # Manual operativo de TotusCentral para ChatGPT online
 
 > Para cambios técnicos, leer también el [protocolo de mantenimiento de la revisión del 27/10](PROTOCOLO_MANTENIMIENTO_2026-10-27.md). Comprobar si la revisión está instalada antes de aplicarlo.

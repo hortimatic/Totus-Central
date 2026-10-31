@@ -1,3 +1,5 @@
+> Entrada vigente (31/10/2026): [INICIO_CHATGPT_ACTUAL.md](INICIO_CHATGPT_ACTUAL.md). Leerla primero. Este documento conserva también antecedentes históricos; no reinstalar propuestas antiguas sin comprobar producción.
+
 # Totus Central: tutorial de trabajo diario con ChatGPT
 
 Esta guía explica cómo operar la herramienta y cómo pedir cambios pequeños sin alterar la contabilidad. Complétala con MANUAL_CHATGPT_ONLINE.md y COPIAS_POR_COMPONENTES.md, disponibles en la carpeta de manuales de OneDrive. La interfaz y los datos guardados son la referencia vigente; no reconstruyas decisiones a partir de recuerdos de otros chats.

@@ -841,7 +841,7 @@ function adminBackupHtml(){
    <p class="note">${active?'La programación está activada.':'Las copias automáticas están desactivadas.'} Un intento fallido no es una copia guardada y no sustituye a las anteriores. Se conserva un máximo de ${keep} copias completadas.</p>
   </section>
   <section class="card card-pad"><div class="section-head"><div><h2>Copias automáticas</h2><p>Programa copias completas en el servidor: datos, facturas y otros archivos. Funciona aunque cierres el navegador.</p></div></div>
-   <div class="form-grid" style="margin-top:14px">
+   <div class="form-grid backup-schedule-grid">
     <label class="check-field wide emphasis-check"><input type="checkbox" id="backupEnabled" ${active?'checked':''}> Activar copias programadas</label>
     <div class="field"><label for="backupFrequency">Frecuencia</label><select id="backupFrequency">${frequencyOptions}</select></div>
     <div class="field"><label for="backupTime">Hora en España (Madrid)</label><input id="backupTime" type="time" value="${hh}:${mm}"></div>

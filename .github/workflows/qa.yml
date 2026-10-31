@@ -164,6 +164,7 @@ jobs:
       - run: node tests/full-flow-qa.mjs
       - run: node tests/partitioned-browser-qa.mjs
       - run: node tests/production-polish-browser-qa.mjs
+      - run: node tests/backup-schedule-layout-qa.mjs
       - run: node tests/dashboard-report-browser-qa.mjs
       - run: node tests/information-layout-browser-qa.mjs
       - run: node tests/chat-auto-read-browser-qa.mjs
@@ -349,6 +350,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/025_backup_start_atomic.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-start-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-staging-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-source-inventory-db-qa.sql
 
   chat-recovery-database:
     runs-on: ubuntu-latest
