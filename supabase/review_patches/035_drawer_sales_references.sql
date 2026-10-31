@@ -1,7 +1,12 @@
 -- Independent till sales references. Existing records remain unknown (NULL), never backfilled.
 begin;
+do $$begin
+ if to_regprocedure('private.totus_recovery_schema_hash()') is not null then
+  perform set_config('totus.drawer_sales_before_hash',private.totus_recovery_schema_hash(),true);
+ end if;
+end$$;
 alter table public.ops_daily_closing_drawers add column if not exists reported_total_sales numeric(14,2)
- check(reported_total_sales is null or (reported_total_sales>=0 and reported_total_sales::text not in ('NaN','Infinity','-Infinity')));
+ constraint ops_daily_closing_drawers_reported_sales_check check(reported_total_sales is null or (reported_total_sales>=0 and reported_total_sales::text not in ('NaN','Infinity','-Infinity')));
 
 create or replace function private.totus_prepare_drawer_sales(p_closing jsonb,p_drawers jsonb)
 returns jsonb language plpgsql security invoker set search_path='' as $$
@@ -56,4 +61,31 @@ begin
  addition=E'  update public.ops_daily_closing_drawers saved set reported_total_sales=nullif(j->>''reported_total_sales'','''')::numeric\n  from jsonb_array_elements(p_drawers) j\n  where saved.closing_id=v_id and saved.drawer_id=(j->>''drawer_id'')::uuid;\n\n';
  execute replace(original,marker,addition||marker);
 end $patch$;
+
+-- This nullable additive reference must not invalidate existing complete recovery sets.
+do $compat$
+declare original text; marker text; normalized text;
+begin
+ if to_regprocedure('private.totus_recovery_schema_hash()') is not null then
+  original=pg_get_functiondef('private.totus_recovery_schema_hash()'::regprocedure);
+  if strpos(original,'reported_total_sales')=0 then
+   marker='and a.attnum>0 and not a.attisdropped';
+   if strpos(original,marker)=0 then raise exception 'No se reconoce la compatibilidad de columnas de las copias.';end if;
+   original=replace(original,marker,marker||' and not (c.relname=''ops_daily_closing_drawers'' and a.attname=''reported_total_sales'')');
+   marker='from pg_catalog.pg_constraint k join pg_catalog.pg_class c on c.oid=k.conrelid';
+   if strpos(original,marker)=0 then raise exception 'No se reconoce la compatibilidad de restricciones de las copias.';end if;
+   execute replace(original,marker,marker||' and not (c.relname=''ops_daily_closing_drawers'' and k.conname=''ops_daily_closing_drawers_reported_sales_check'')');
+  end if;
+  if private.totus_recovery_schema_hash() is distinct from current_setting('totus.drawer_sales_before_hash',true) then raise exception 'Las ventas por caja han cambiado la compatibilidad de las copias. No se ha aplicado la migración.';end if;
+ end if;
+ if to_regprocedure('public.totus_commit_recovery(uuid,jsonb,jsonb)') is not null then
+  original=pg_get_functiondef('public.totus_commit_recovery(uuid,jsonb,jsonb)'::regprocedure);
+  marker='case when tab=''profiles'' then jsonb_build_object(''ui_preferences'',null)||value else value end';
+  normalized='case when tab=''profiles'' then jsonb_build_object(''ui_preferences'',null)||value when tab=''ops_daily_closing_drawers'' then jsonb_build_object(''reported_total_sales'',null)||value else value end';
+  if strpos(original,normalized)=0 then
+   if strpos(original,marker)=0 then raise exception 'La verificación de recuperación ha cambiado. No se ha aplicado la migración.';end if;
+   execute replace(original,marker,normalized);
+  end if;
+ end if;
+end $compat$;
 commit;
