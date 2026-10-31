@@ -24,10 +24,12 @@ try{
     await page.setViewportSize({width,height:1000});
     assert.equal(await page.locator('link[href$="stitch-design.css"]').count(),1);
     assert.equal(await page.locator('#nav .nav-btn .ui-icon').count(),13);
+    await page.evaluate(()=>document.fonts.ready);
     const visible=await page.locator('#content').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
-    assert(visible.scroll<=visible.client+2,route+' '+width+' content overflow '+JSON.stringify(visible));
+    if(visible.scroll>visible.client+2)console.log('Overflow elements',route,width,await page.locator('#content *').evaluateAll(es=>es.filter(e=>{let r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+2&&getComputedStyle(e).visibility!=='hidden';}).slice(0,12).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right,text:e.textContent.slice(0,60)}))));
     assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),route);
     await page.screenshot({path:'artifacts/stitch-complete/'+route+'-'+(section?.section||'principal')+'-'+width+'.png',fullPage:true});
+    assert(visible.scroll<=visible.client+2,route+' '+width+' content overflow '+JSON.stringify(visible));
     views.push({route,section:section?.section||'principal',width});
    }
   }
