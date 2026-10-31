@@ -43,7 +43,8 @@
   .table-wrap { scrollbar-width: thin; scrollbar-color: #8ca4bc transparent; }
   .data-table th { line-height: 1.5; }
   .data-table td { line-height: 1.5; }
-  .data-table td.num, .money, .summary-row > strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .data-table td.num, .money { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .summary-row > strong { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .data-table .inline-actions { align-items: center; }
   .btn { min-height: 36px; line-height: 1.3; transition: background-color .15s, box-shadow .15s; }
   .btn:disabled { cursor: not-allowed; opacity: .55; }
