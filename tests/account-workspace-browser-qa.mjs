@@ -51,6 +51,23 @@ try{
   const geometry=await page.locator('.modal-body').evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));assert(geometry.scroll<=geometry.client+2,'Personal workspace has no horizontal overflow at '+width);
   await page.screenshot({path:'artifacts/account-workspace/notes-'+width+'.png',fullPage:true});await close();
  }
+ // Deferred administrative saves belong to the initiating session and target.
+ await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
+ await page.evaluate(async other=>{
+  const {createAccountUI}=await import('../src/account-ui.js');
+  document.body.innerHTML='<header class="topbar"></header><div id="modalHost" class="modal-backdrop hidden"></div><div id="toastHost"></div>';
+  const q=window.accountRace={owner:'owner1',releases:[],accepted:[],calls:[]};
+  q.ui=createAccountUI({user:()=>({id:q.owner,email:q.owner+'@example.invalid',full_name:q.owner}),profile:()=>({ui_preferences:{}}),documents:()=>[],can:()=>true,canManage:()=>true,accountTarget:()=>({user:{id:other,email:'other@example.invalid',full_name:'Target'},profile:{ui_preferences:{}}}),rpc:(name,args)=>{q.calls.push({name,args});return new Promise(resolve=>q.releases.push(resolve));},accept:(...args)=>q.accepted.push(args),guard:async()=>true,navigate:async()=>{},notify:()=>{}});
+  q.ui.start();await q.ui.openFor(other);
+ },other);
+ await page.locator('[name=display_name]').fill('Old result');await page.locator('[data-account-form] button[type=submit]').click();await page.waitForFunction(()=>accountRace.releases.length===1);
+ await page.evaluate(async other=>{accountRace.ui.stop();accountRace.owner='owner2';accountRace.ui.start();await accountRace.ui.openFor(other);},other);
+ await page.locator('[name=display_name]').fill('New result');await page.locator('[data-account-form] button[type=submit]').click();await page.waitForFunction(()=>accountRace.releases.length===2);
+ await page.evaluate(async()=>{accountRace.releases[0]({config:{display_name:'Old result'},revision:1});await Promise.resolve();await Promise.resolve();});
+ assert.equal(await page.locator('[data-account-form] button[type=submit]').isDisabled(),true,'Old session completion cannot unlock a new save');assert.equal(await page.evaluate(()=>accountRace.accepted.length),0);
+ await page.evaluate(()=>accountRace.releases[1]({config:{display_name:'New result'},revision:1}));await page.locator('[data-account-panel]').waitFor({state:'detached'});
+ assert.deepEqual(await page.evaluate(()=>accountRace.accepted.map(args=>args.slice(1))),[['owner2',other]]);
+ assert.deepEqual(await page.evaluate(()=>accountRace.calls.map(call=>({name:call.name,target:call.args.p_user_id}))),[{name:'totus_admin_save_account',target:other},{name:'totus_admin_save_account',target:other}]);
  assert.deepEqual(errors,[]);
  console.log('PERSONAL WORKSPACE: own notes and escaping, fresh documents, task month/owner, report navigation, admin photo/notes, unchanged identity/roles, stale writes and four widths OK.');
 }catch(error){await page.screenshot({path:'artifacts/account-workspace/failure.png',fullPage:true});throw error;}finally{await browser.close();}
