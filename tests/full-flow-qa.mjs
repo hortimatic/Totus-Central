@@ -30,7 +30,7 @@ const db=()=>page.evaluate(()=>({
 const nav=async route=>{if(await page.locator('#modalHost .close-btn').count())await page.locator('#modalHost .close-btn').click();await clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));await page.waitForTimeout(50)};
 await check('Arranque real y autenticación simulada',async()=>{
  await page.goto(base,{waitUntil:'networkidle'});
- await page.locator('#userCard').waitFor({state:'visible'});
+ await page.locator('[data-account-open]').waitFor({state:'visible'});
  assert((await page.locator('#content').innerText()).includes('Operativa de hoy'),'Pantalla Inicio vacía');
  assert((await page.locator('#nav .nav-btn').count())===ROUTES.length,'La navegación principal debe incluir todos los módulos registrados');
 });

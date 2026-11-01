@@ -19,7 +19,7 @@ const snapshot=()=>page.evaluate(()=>({
 const exitModal=async()=>await page.locator('#modalHost .close-btn').click();
 try {
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
-  await page.locator('#userCard').waitFor({state:'visible'});
+  await page.locator('[data-account-open]').waitFor({state:'visible'});
   await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));
   await page.locator('[data-action="billing-section"][data-section="plantillas"]').first().click();
   await page.locator('[data-action="template-new"]').click();

@@ -18,7 +18,15 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
  const avatar=()=>values().photo?'<img src="'+esc(values().photo)+'" alt="">':'<span aria-hidden="true">'+esc(name().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())+'</span>';
  function paintButton(){
   if(!host)return;
-  host.innerHTML='<button type="button" class="account-trigger" data-account-open aria-label="Abrir mi cuenta"><span class="account-avatar">'+avatar()+'</span><span class="account-trigger-text"><b>'+esc(name())+'</b><small>Mi cuenta</small></span><span aria-hidden="true">⌄</span></button>';
+  host.innerHTML='<button type="button" class="account-trigger" data-account-open aria-label="Abrir mi cuenta" aria-expanded="false" aria-controls="personalAccountMenu"><span class="account-avatar">'+avatar()+'</span><span class="account-trigger-text"><b>'+esc(name())+'</b><small>Mi cuenta</small></span><span aria-hidden="true">⌄</span></button><div class="account-popover" id="personalAccountMenu" hidden><div class="account-popover-heading"><b>'+esc(name())+'</b><small>'+esc(user()?.email)+'</small></div><button type="button" data-account-section="perfil">Mi perfil</button>'+(can('documentos')?'<button type="button" data-account-section="documentos">Mis documentos</button>':'')+(can('tareas')?'<button type="button" data-account-section="tareas">Mis tareas</button>':'')+'<button type="button" data-account-section="avisos">Mis avisos</button><div class="account-popover-divider"></div><button type="button" data-action="logout">Cerrar sesión</button></div>';
+ }
+ function closeMenu(focus=false){const menu=host?.querySelector('.account-popover'),trigger=host?.querySelector('[data-account-open]');if(menu)menu.hidden=true;trigger?.setAttribute('aria-expanded','false');if(focus)trigger?.focus();}
+ function outside(event){if(host&&!host.contains(event.target))closeMenu();}
+ function menuKeys(event){if(event.key==='Escape'&&host?.querySelector('.account-popover:not([hidden])')){event.preventDefault();closeMenu(true);}}
+ async function accountClick(event){
+  if(event.target.closest('[data-account-open]')){const menu=host.querySelector('.account-popover'),opened=menu.hidden;menu.hidden=!opened;host.querySelector('[data-account-open]').setAttribute('aria-expanded',String(opened));return;}
+  const section=event.target.closest('[data-account-section]');if(section){closeMenu();await open(section.dataset.accountSection);return;}
+  if(event.target.closest('[data-action="logout"]'))closeMenu();
  }
  function valid(stamp,who,panel){return stamp===generation&&owner()===who&&panel?.isConnected;}
  async function open(section='perfil'){
@@ -64,5 +72,5 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
    catch{if(valid(stamp,who,panel))panel.querySelector('[data-account-tasks]').textContent='No se pudieron consultar tus tareas. Cierra y vuelve a abrir esta sección para reintentar.';}
   }
  }
- return {start(){if(!owner())return;if(!host){host=document.createElement('div');host.className='account-menu';document.querySelector('.topbar').append(host);host.onclick=()=>open();}paintButton();},refresh:paintButton,stop(){generation++;busy=false;host?.remove();host=null;}};
+ return {start(){if(!owner())return;if(!host){host=document.createElement('div');host.className='account-menu';document.querySelector('.topbar').append(host);host.onclick=accountClick;document.addEventListener('click',outside);document.addEventListener('keydown',menuKeys);}paintButton();},refresh:paintButton,stop(){generation++;busy=false;document.removeEventListener('click',outside);document.removeEventListener('keydown',menuKeys);host?.remove();host=null;}};
 }

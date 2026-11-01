@@ -176,3 +176,29 @@
  }
  @media(prefers-reduced-motion:reduce){.btn,.nav-btn{transition:none;}}
 }
+
+/* Desktop rail is independent of the accessible mobile drawer. */
+@media screen {
+ .app .sidebar .sidebar-foot {display:none;}
+ .desktop-nav-collapse {align-self:flex-end;flex:0 0 auto;margin:6px 6px 0;width:32px;height:28px;border:1px solid #ffffff35;border-radius:6px;background:#ffffff10;color:#fff;font-size:22px;cursor:pointer;}
+ .desktop-nav-collapse:focus-visible {outline:2px solid #4cd7f6;outline-offset:2px;}
+}
+@media screen and (min-width:801px) {
+ html.navigation-compact {--sidebar:72px!important;}
+ .navigation-compact .app .sidebar > .brand {justify-content:center;padding:12px 0;}
+ .navigation-compact .sidebar .brand > div,.navigation-compact .sidebar .nav-label {display:none;}
+ .navigation-compact .app .sidebar .nav-group-label {font-size:0;padding:6px 0;border-top:1px solid #ffffff20;margin:6px 10px 0;}
+ .navigation-compact .app .sidebar .nav-btn {position:relative;justify-content:center;min-height:44px;padding:10px;}
+ .navigation-compact #teamChatUnread {position:absolute;top:2px;right:2px;}
+}
+@media screen and (max-width:800px) {.desktop-nav-collapse {display:none;}}
+
+@media screen {
+ .account-menu {position:relative;}
+ .account-popover {position:absolute;right:0;top:calc(100% + 8px);width:min(280px,calc(100vw - 24px));padding:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px #0b1c3026;z-index:100;display:grid;gap:2px;}
+ .account-popover-heading {display:grid;gap:3px;padding:10px;overflow-wrap:anywhere;}
+ .account-popover-heading small {color:var(--muted);font-size:11px;}
+ .account-popover > button {background:transparent;border:0;text-align:left;padding:11px 12px;min-height:44px;color:inherit;border-radius:7px;font:inherit;cursor:pointer;}
+ .account-popover > button:hover,.account-popover > button:focus-visible {background:var(--stitch-high);}
+ .account-popover-divider {height:1px;background:var(--line);margin:4px;}
+}

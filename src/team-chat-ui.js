@@ -1,3 +1,4 @@
+import {bindChatViewport} from './chat-viewport.js';
 import {CHAT_SOUNDS,CHAT_BACKGROUNDS,CHAT_BUZZ,isChatBuzz,chatPreferences,applyChatBackground,prepareChatBackground} from './chat-preferences.js';
 import {prepareChatSound,playChatSound,requestChatDesktopPermission,chatDesktopStatus} from './chat-alerts.js';
 import {uploadChatFile,chatFileMetadata,chatFileHash} from './chat-files.js';
@@ -12,6 +13,7 @@ const date=value=>new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madri
 const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:'',channelView:'all',filterDraft:null,searchOpen:false,hasNew:false,loadingChannel:false,mobileNavigation:true,buzzClient:{},buzzSeen:new Set()});
 /** Isolated controller. No accounting writes, credentials, local storage or AI calls. */
 export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null,stores=()=>[],onAlerts=()=>{}}){
+ let viewportFit=null;
  let host=null,data=initial(),sidebarScroll=0,opening=0,busy=false,timer=null,generation=0,lifecycle=0,owner='',composing=false,drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[],readTimer=null,readFlight=null;
  const button=(label,action,attrs='',kind='secondary')=>{const permission=['buzz','new','direct','assistant','attach','uploads-retry','agent-request'].includes(action)?'create':['message-delete','file-remove','channel-delete','retire','files-cancel'].includes(action)?'delete':['edit','pin','task','settings','agent-cancel'].includes(action)?'edit':['file-download','download-preview'].includes(action)?'export':'view';return can(permission)?chatButton(label,action,attrs,kind):'';};
  const scope=()=>({host,owner,lifecycle});
@@ -121,8 +123,10 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    (m.task_state||m.agent_request?button('Preparar para ChatGPT','prompt',id):'')+'</div></footer>')+'</article>';
  }
  function paint(){
+  viewportFit?.refresh();
   if(!host||composing)return;
   remember();
+  const viewportHeight=host.querySelector('.team-chat')?.style.getPropertyValue('--chat-visible-height');
   const oldList=host.querySelector('.chat-channel-list');if(oldList?.getClientRects().length)sidebarScroll=oldList.scrollTop;
   const focus=document.activeElement,focusId=host.contains(focus)?focus.id:null,start=focus?.selectionStart,end=focus?.selectionEnd;
   const composer=host.querySelector('.chat-compose'),composerKey=composer?.dataset.draftKey;
@@ -147,6 +151,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    '</section></div>';
   applyChatBackground(host.querySelector('.chat-messages'),data.layout);
   for(const key of openMenus){const el=[...host.querySelectorAll('details[data-chat-menu]')].find(el=>el.dataset.chatMenu===key);if(el)el.open=true;}
+  if(viewportHeight)host.querySelector('.team-chat')?.style.setProperty('--chat-visible-height',viewportHeight);
   const listPane=host.querySelector('.chat-channel-list');if(listPane)listPane.scrollTop=sidebarScroll;
   const replacement=host.querySelector('.chat-compose');
   if(composer&&replacement&&composerKey===draftKey()&&!busy){
@@ -443,13 +448,14 @@ await command('member_preferences',{favourite:!current().favourite});await refre
   try{await refresh({preserveHistory:data.messages.length>50||readingAbove});}catch(error){showError(error);}
  }
  function dispose(){
+  viewportFit?.dispose();viewportFit=null;
   remember();opening++;generation++;lifecycle++;busy=false;composing=false;unsubscribe();unsubscribe=()=>{};clearTimeout(realtimeTimer);clearTimeout(readTimer);readFlight=null;clearInterval(timer);timer=null;closeDialog();
   if(host){host.removeEventListener('scroll',onReadScroll,true);host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);host.removeEventListener('compositionstart',onCompositionStart);host.removeEventListener('compositionend',onCompositionEnd);host.removeEventListener('dragstart',onDragStart);host.removeEventListener('dragend',onDragEnd);host.removeEventListener('dragover',onDrag);host.removeEventListener('drop',onDrop);host.removeEventListener('paste',onPaste);}
   window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('focus',onVisible);document.removeEventListener('visibilitychange',onVisible);document.removeEventListener('keydown',onGlobalKey);host=null;
  }
  return {hasDraft,dispose,openMessage,isReading(message){const pane=host?.querySelector('.chat-messages');return !!pane&&pane.getClientRects().length>0&&document.visibilityState==='visible'&&document.hasFocus()&&data.channel===message.channel_id&&!data.query&&!data.from&&!data.to&&data.mode==='all'&&(!message.parent_id&&!data.parent||message.parent_id===data.parent)&&pane.scrollHeight-pane.clientHeight-pane.scrollTop<40&&!dialog;},reset(){dispose();data=initial();sidebarScroll=0;drafts.clear();pending.clear();picks.clear();outbox=[];owner='';},async mount(element){
   dispose();if(owner!==actor()){owner=actor();data=initial();sidebarScroll=0;drafts.clear();pending.clear();picks.clear();outbox=[];}
-  host=element;host.addEventListener('scroll',onReadScroll,true);host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);host.addEventListener('compositionstart',onCompositionStart);host.addEventListener('compositionend',onCompositionEnd);host.addEventListener('dragstart',onDragStart);host.addEventListener('dragend',onDragEnd);host.addEventListener('dragover',onDrag);host.addEventListener('drop',onDrop);host.addEventListener('paste',onPaste);
+  host=element;viewportFit=bindChatViewport(host);host.addEventListener('scroll',onReadScroll,true);host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);host.addEventListener('compositionstart',onCompositionStart);host.addEventListener('compositionend',onCompositionEnd);host.addEventListener('dragstart',onDragStart);host.addEventListener('dragend',onDragEnd);host.addEventListener('dragover',onDrag);host.addEventListener('drop',onDrop);host.addEventListener('paste',onPaste);
   window.addEventListener('beforeunload',beforeUnload);window.addEventListener('focus',onVisible);document.addEventListener('visibilitychange',onVisible);document.addEventListener('keydown',onGlobalKey);paint();try{await refresh();}catch(error){showError(error);paint();}if(host===element)timer=setInterval(tick,15000);
  }};
 }

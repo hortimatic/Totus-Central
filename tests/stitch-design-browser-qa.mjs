@@ -29,6 +29,18 @@ try{
  const routes=await page.locator('#nav [data-route]').evaluateAll(es=>es.map(e=>e.dataset.route));
  await page.evaluate(async()=>{const {isoToday}=await import('../src/utils.js');const db=window.__mockDb;db.ops_daily_closings.push({id:crypto.randomUUID(),store_id:db.ops_stores[0].id,business_date:isoToday(),status:'cerrado',card_sales:18447.41,cash_withdrawals:7950,cash_sales:7950,bizum_sales:0,online_sales:0,other_income:0,opening_cash:200,actual_cash:200,reported_total_sales:26397.41,difference:0,notes:'Cierre ficticio para comprobar importes grandes'});});
  assert.equal(routes.length,13);
+ const collapse=page.getByRole('button',{name:'Minimizar navegación',exact:true});
+ await collapse.click();
+ assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('navigation-compact')),true);
+ assert.equal(await page.locator('.sidebar').evaluate(e=>e.getBoundingClientRect().width),72);
+ assert.equal(await page.locator('#nav a[title]').count(),13);
+ await page.getByRole('button',{name:'Ampliar navegación',exact:true}).click();
+ assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('navigation-compact')),false);
+ assert.equal(await page.locator('.sidebar-foot').isVisible(),false);
+ assert(await page.getByRole('button',{name:'Abrir mi cuenta'}).isVisible());
+ await page.setViewportSize({width:390,height:844});
+ assert.equal(await page.locator('.desktop-nav-collapse').isVisible(),false);
+ await page.setViewportSize({width:1440,height:1000});
  for(const route of routes){
   await clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
   if(route==='tareas')await page.locator('.tasks-calendar').waitFor();
@@ -56,11 +68,18 @@ try{
  await clickModuleLink(page,page.locator('#nav [data-route=configuracion]'));
  await page.locator('[data-preset]').selectOption('stitch');
  await page.locator('[data-apply-preset]').click();
+ await page.locator('[name=navigationMode]').selectOption('compact');
+ await page.locator('[name=startModule]').selectOption('cajas');
  await page.locator('.appearance-grid button[type=submit]').click();
  await page.getByText('Configuración guardada y aplicada.',{exact:true}).waitFor();
  assert.equal(await page.locator('html').evaluate(e=>e.style.getPropertyValue('--accent')),'#006591');
  await page.reload();await page.locator('[data-account-open]').waitFor();
  assert.equal(await page.locator('html').evaluate(e=>e.style.getPropertyValue('--accent')),'#006591','Personal Stitch palette survives reload');
+ assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('navigation-compact')),true,'Personal compact setting survives reload');
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html');await page.locator('[data-account-open]').waitFor();
+ assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),'cajas','Saved startup module applies when no module is requested');
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html?module=informes');await page.locator('[data-account-open]').waitFor();
+ assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),'informes','An explicit link overrides the startup preference');
  assert.deepEqual(errors,[]);await fs.writeFile('artifacts/stitch-complete/views.json',JSON.stringify(views,null,2));
  console.log('STITCH: '+views.length+' module/subtab/width views, all navigation icons, personal preset save and reload OK.');
 }finally{await browser.close();}

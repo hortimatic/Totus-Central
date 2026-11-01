@@ -10,3 +10,7 @@ const tasks=[['settings'],['rolePermissions'],['userPermissions'],['team'],['pro
 const closing=moduleReads(tasks,'cajas').map(([k])=>k);assert(closing.includes('closings')&&closing.includes('closingDrawers'));assert(!closing.includes('products')&&!closing.includes('audit')&&!closing.includes('backupRuns'));
 assert.deepEqual(moduleReads(tasks),tasks);assert.deepEqual(moduleReads(tasks,'administracion'),tasks);assert.throws(()=>moduleReads(tasks,'unknown'));
 console.log('MODULE NAVIGATION QA: module URLs, native tab gestures and bounded module reads');
+
+assert.equal(requestedModule('https://example.invalid/',routes,'gastos'),'gastos');
+assert.equal(requestedModule('https://example.invalid/?module=inicio',routes,'gastos'),'inicio');
+assert.equal(requestedModule('https://example.invalid/',routes,'denied'),'inicio');

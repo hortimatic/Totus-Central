@@ -196,7 +196,7 @@ function renderNav(){
  const nav=$('#nav'),scrollTop=nav.scrollTop,scrollLeft=nav.scrollLeft;let current='';
  nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
   const group=r.group!==current?(current=r.group,`<div class="eyebrow nav-group-label">${esc(r.group)}</div>`):'';
-  return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span>${esc(r.label)}${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
+  return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" title="${esc(r.label)}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span><span class="nav-label">${esc(r.label)}</span>${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
  }).join('');
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
@@ -3196,12 +3196,13 @@ async function boot({fromLogin=false,timingRun=null}={}){
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
- setRoute(requestedModule(location.href,ROUTES));
+ setRoute(requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule));
  await refresh();chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
+ mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
  chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();aiConnectionTest.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();

@@ -5,7 +5,7 @@ const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage();
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#userCard').waitFor({state:'visible'});
+ await page.locator('[data-account-open]').waitFor({state:'visible'});
  const id=await page.evaluate(async()=>{
   const api=await import('../src/api.js'),db=window.__mockDb,id=crypto.randomUUID(),day=new Date().toLocaleDateString('en-CA');
   db.ops_expenses.push({id,store_id:db.ops_stores[0].id,expense_date:day,supplier_name:'QA respuesta perdida',description:'Pago QA',gross_expense:45,amount_paid:45,paid_status:'pagado',paid_date:day,management_only:true,fiscal_reviewed:false});

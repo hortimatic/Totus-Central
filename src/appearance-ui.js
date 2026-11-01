@@ -8,6 +8,8 @@ export function applyInterfaceAppearance(input){
  const root=document.documentElement,c=appearanceValues('interfaz',input),enabled=!!input&&Object.keys(input).length>0;
  if(enabled){root.dataset.appearanceHover=c.hoverEffect;root.dataset.appearanceFinish=c.buttonFinish;root.dataset.appearance=c.theme;style(root,appearanceVariables(c));}
  else{delete root.dataset.appearanceHover;delete root.dataset.appearanceFinish;delete root.dataset.appearance;for(const key of Object.keys(appearanceVariables({})))root.style.removeProperty(key);}
+ const compact=enabled&&c.navigationMode==='compact';root.classList.toggle('navigation-compact',compact);
+ const toggle=document.querySelector('.desktop-nav-collapse');if(toggle){toggle.textContent=compact?'›':'‹';toggle.setAttribute('aria-expanded',String(!compact));toggle.setAttribute('aria-label',compact?'Ampliar navegación':'Minimizar navegación');}
  const brand=document.querySelector('#app .sidebar>.brand');if(!brand)return;
  brand.querySelector('b').textContent=enabled?c.brandName:'Totus Central';brand.querySelector('small').textContent=enabled?c.brandSubtitle:'Gestión diaria';
  const mark=brand.querySelector('.brand-mark'),image=mark?.querySelector('img');
@@ -57,7 +59,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
    ['Marca e identidad',['brandName','brandSubtitle','logoMode','customLogoData','logoHeight','theme']],
    ['Colores',['primary','secondary','accent','bg','surface','card','text','muted']],
    ['Fondo de la herramienta',['backgroundMode','customBackgroundData','backgroundDim']],
-   ['Barra de navegación y cabecera',['sidebarWidth','topbarHeight']],
+   ['Barra de navegación y cabecera',['navigationMode','startModule','sidebarWidth','topbarHeight']],
    ['Bordes y efectos',['borderColor','borderStrength','borderWidth','glowColor','cardGlow','buttonGlow','buttonFinish','hoverEffect']]
   ];
   interfaceGroups.push(['Tamaños y distribución',Object.keys(APPEARANCE_FIELDS.interfaz).filter(key=>!interfaceGroups.some(([,keys])=>keys.includes(key)))]);

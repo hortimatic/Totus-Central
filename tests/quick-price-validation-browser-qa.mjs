@@ -6,7 +6,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#userCard').waitFor({state:'visible'});
+ await page.locator('[data-account-open]').waitFor({state:'visible'});
  await page.locator('#homePriceQuery').fill('Consulta ficticia QA');
  await page.locator('#homePricePvp').fill('20');
  const count=()=>page.evaluate(()=>window.__mockDb.consultations.length);

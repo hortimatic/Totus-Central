@@ -4,6 +4,8 @@ export function createMobileNavigation(){
  const shade=document.createElement('button');shade.type='button';shade.className='mobile-nav-shade';shade.setAttribute('aria-label','Cerrar menú');shade.hidden=true;document.body.append(shade);
  const dismiss=document.createElement('button');dismiss.type='button';dismiss.className='mobile-nav-close';dismiss.textContent='Cerrar menú ×';sidebar.prepend(dismiss);
  sidebar.id='moduleNavigation';trigger.setAttribute('aria-controls',sidebar.id);trigger.setAttribute('aria-expanded','false');
+ const collapse=document.createElement('button');collapse.type='button';collapse.className='desktop-nav-collapse';collapse.textContent='‹';collapse.setAttribute('aria-label','Minimizar navegación');collapse.setAttribute('aria-controls',sidebar.id);collapse.setAttribute('aria-expanded','true');sidebar.prepend(collapse);
+ collapse.onclick=()=>{const compact=document.documentElement.classList.toggle('navigation-compact');collapse.textContent=compact?'›':'‹';collapse.setAttribute('aria-label',compact?'Ampliar navegación':'Minimizar navegación');collapse.setAttribute('aria-expanded',String(!compact));};
  let expanded=false;
  const sync=()=>{
   const opened=media.matches&&expanded;document.body.classList.toggle('menu-open',opened);shade.hidden=!opened;sidebar.inert=media.matches&&!opened;
@@ -23,5 +25,5 @@ export function createMobileNavigation(){
   }
  });
  media.addEventListener('change',()=>{expanded=false;sync();});sync();
- return {toggle(){if(!media.matches)return;expanded=!expanded;sync();if(expanded)dismiss.focus();else trigger.focus();},close};
+ return {toggle(){if(!media.matches)return;expanded=!expanded;sync();if(expanded)dismiss.focus();else trigger.focus();},close,reset(){close(false);document.documentElement.classList.remove('navigation-compact');collapse.textContent='‹';collapse.setAttribute('aria-label','Minimizar navegación');collapse.setAttribute('aria-expanded','true');}};
 }
