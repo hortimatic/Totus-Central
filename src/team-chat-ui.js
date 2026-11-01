@@ -126,6 +126,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   viewportFit?.refresh();
   if(!host||composing)return;
   remember();
+  const viewportHeight=host.querySelector('.team-chat')?.style.getPropertyValue('--chat-visible-height');
   const oldList=host.querySelector('.chat-channel-list');if(oldList?.getClientRects().length)sidebarScroll=oldList.scrollTop;
   const focus=document.activeElement,focusId=host.contains(focus)?focus.id:null,start=focus?.selectionStart,end=focus?.selectionEnd;
   const composer=host.querySelector('.chat-compose'),composerKey=composer?.dataset.draftKey;
@@ -150,6 +151,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    '</section></div>';
   applyChatBackground(host.querySelector('.chat-messages'),data.layout);
   for(const key of openMenus){const el=[...host.querySelectorAll('details[data-chat-menu]')].find(el=>el.dataset.chatMenu===key);if(el)el.open=true;}
+  if(viewportHeight)host.querySelector('.team-chat')?.style.setProperty('--chat-visible-height',viewportHeight);
   const listPane=host.querySelector('.chat-channel-list');if(listPane)listPane.scrollTop=sidebarScroll;
   const replacement=host.querySelector('.chat-compose');
   if(composer&&replacement&&composerKey===draftKey()&&!busy){
