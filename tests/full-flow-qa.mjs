@@ -9,6 +9,9 @@ import fs from 'node:fs/promises';
 const base='http://127.0.0.1:4173/tests/app-mock.html';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:960}});
+// This scenario deliberately contains October 2026 invoices and filtered ZIPs.
+// Keep Date deterministic while leaving timers running normally.
+await page.clock.setFixedTime(new Date('2026-10-29T12:00:00Z'));
 page.setDefaultTimeout(5000);
 page.on('dialog',async d=>{await d.accept(d.type()==='prompt'?(d.message().includes('ELIMINAR ROL')?'ELIMINAR ROL':'ELIMINAR USUARIO'):undefined);});
 const errors=[];
