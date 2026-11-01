@@ -11,11 +11,11 @@ const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(word=>
 const channelTone=value=>[...String(value||'')].reduce((n,c)=>(n+c.codePointAt(0))%6,0);
 const date=value=>new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madrid',dateStyle:'short',timeStyle:'short'});
 const initial=()=>({channels:[],messages:[],members:[],directory:[],channel:null,parent:null,loaded:false,error:'',query:'',from:'',to:'',mode:'all',archived:false,more:false,layout:{},channelQuery:'',channelView:'all',filterDraft:null,searchOpen:false,hasNew:false,loadingChannel:false,mobileNavigation:true,buzzClient:{},buzzSeen:new Set()});
-/** Isolated controller. No accounting writes, credentials, local storage or AI calls. */
+/** Isolated controller. No accounting writes, credentials or local storage. AI work is explicitly queued on the server. */
 export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},confirm=async()=>false,requestFile=null,subscribe=()=>()=>{},onUnread=()=>{},onTask=null,stores=()=>[],onAlerts=()=>{}}){
  let viewportFit=null;
  let host=null,data=initial(),sidebarScroll=0,opening=0,busy=false,timer=null,generation=0,lifecycle=0,owner='',composing=false,drafts=new Map(),pending=new Map(),dialog=null,unsubscribe=()=>{},realtimeTimer=null,picks=new Map(),outbox=[],readTimer=null,readFlight=null;
- const button=(label,action,attrs='',kind='secondary')=>{const permission=['buzz','new','direct','assistant','attach','uploads-retry','agent-request'].includes(action)?'create':['message-delete','file-remove','channel-delete','retire','files-cancel'].includes(action)?'delete':['edit','pin','task','settings','agent-cancel'].includes(action)?'edit':['file-download','download-preview'].includes(action)?'export':'view';return can(permission)?chatButton(label,action,attrs,kind):'';};
+ const button=(label,action,attrs='',kind='secondary')=>{const permission=['buzz','new','direct','assistant','attach','uploads-retry','agent-request','cloud-request'].includes(action)?'create':['message-delete','file-remove','channel-delete','retire','files-cancel'].includes(action)?'delete':['edit','pin','task','settings','agent-cancel'].includes(action)?'edit':['file-download','download-preview'].includes(action)?'export':'view';return can(permission)?chatButton(label,action,attrs,kind):'';};
  const scope=()=>({host,owner,lifecycle});
  const active=s=>s.host===host&&!!host&&s.owner===owner&&owner===actor()&&s.lifecycle===lifecycle;
  const contextChanged=()=>Object.assign(new Error('La conversación ya no está activa.'),{contextChanged:true});
@@ -245,6 +245,8 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    outbox.push(...selected.map(item=>({...item,channel_id:channel,message_id:saved.id})));
    if(selected.length)await uploadPending(saved.id);
    if(requestChatGPT){try{await requestAgent(saved.id,channel);}catch(error){throw new Error('El mensaje está guardado, pero la solicitud no se ha creado: '+error.message);}}
+   const directAI=data.channels.find(c=>c.id===channel)?.channel_kind==='direct'&&data.members.some(m=>m.email==='totus-ai@totuscentral.invalid');
+   if(requestCloud||directAI||body.includes('@{totus-ai@totuscentral.invalid}')){try{await requestCloudAgent(saved.id);}catch(error){throw new Error('El mensaje está guardado, pero Totus IA no recibió la petición: '+error.message);}}
    await refresh();
   }catch(error){if(error?.contextChanged)return;try{await refresh();}catch{}showError(error);}
   finally{unlock(stamp);}

@@ -108,7 +108,10 @@ function databaseResult(result){return result.error&&!Object.hasOwn(result.error
 const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
+let cfConfig={account_id:'',configured:false,enabled:false,revision:0,daily_limit:30,free_plan_confirmed:false,real_data_authorized:false,verified:false,calls_today:0};
 const rpc=async (name,args={})=>{
+ if(name==='totus_ai_settings'){if(args.p_config){if(args.p_config.expected_revision!==cfConfig.revision)return {error:{message:'La configuración cambió'}};cfConfig={...cfConfig,...args.p_config,revision:cfConfig.revision+1};}if(args.p_token)cfConfig.configured=true;if(args.p_forget){cfConfig.configured=false;cfConfig.enabled=false;}return {data:{...cfConfig},error:null};}
+ if(name==='totus_ai_request')return {data:{id:'qa-job',status:'pending'},error:null};
  if(name==='totus_save_my_account'||name==='totus_admin_save_account'){
   if(name==='totus_admin_save_account'&&role!=='admin')return {data:null,error:{message:'Solo administración puede gestionar perfiles.'}};
   const profile=db.profiles.find(p=>p.id===(name==='totus_admin_save_account'?args.p_user_id:userId));if(!profile)return {data:null,error:{message:'Perfil no encontrado'}};const previous=profile.ui_preferences?.account||{revision:0};
@@ -363,6 +366,7 @@ const client={
   return databaseResult(response);
  },
  functions:{invoke:async (name,options)=>{
+ if(name==='totus-ai'&&options?.body?.action==='test'){cfConfig.verified=true;return {data:{ok:true},error:null};}
  if(name==='totus-onedrive'&&options?.body?.action==='complete-document-removal'){
   const request=options.body,args={p_id:request.id,p_path:request.path,p_sha256:request.sha256||''};
   const begun=await rpc('totus_begin_document_removal',args);if(begun.error||begun.data?.status==='already_removed')return begun;
