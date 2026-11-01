@@ -1,0 +1,33 @@
+-- Disposable database only: no remote services or real credentials.
+\i tests/chat-db-fixture.sql
+alter table auth.users add column raw_app_meta_data jsonb default '{}';
+alter table public.profiles add column email text;
+update public.profiles p set email=u.email from auth.users u where u.id=p.id;
+create table public.ops_audit_log(id bigserial primary key,user_id uuid,user_email text,area text,action text,detail jsonb);
+create function private.is_admin() returns boolean language sql as $$select exists(select 1 from public.team_members where email=auth.jwt()->>'email' and active and role='admin')$$;
+create function private.is_manager() returns boolean language sql as $$select exists(select 1 from public.team_members where email=auth.jwt()->>'email' and active and role in ('admin','gerente'))$$;
+create function private.is_team_member() returns boolean language sql as $$select exists(select 1 from public.team_members where email=auth.jwt()->>'email' and active)$$;
+create table public.qa_permissions(email text,module text,operation text,allowed boolean);
+create function private.totus_module_can(e text,m text,o text) returns boolean language sql as $$select coalesce((select allowed from public.qa_permissions where email=e and module=m and operation=o),exists(select 1 from public.team_members where email=e and active and role='admin'))$$;
+create table public.ops_chat_channels(id uuid primary key default gen_random_uuid(),archived boolean default false,deleted_at timestamptz);
+create table public.ops_chat_messages(id uuid primary key default gen_random_uuid(),channel_id uuid,author_email text,body text default '',edited_at timestamptz,deleted_at timestamptz,expected_files int default 0);
+create table public.ops_chat_files(id uuid primary key default gen_random_uuid(),message_id uuid,sha256 text,status text,deleted_at timestamptz,verified_at timestamptz);
+create table public.ops_chat_members(channel_id uuid,email text);
+create table public.ops_expenses(id uuid primary key,created_by uuid);
+create table public.ops_expense_lines(expense_id uuid);
+create table public.ops_daily_closings(id uuid primary key,created_by uuid);
+create table public.ops_daily_closing_drawers(closing_id uuid);
+create function public.totus_save_expense(r jsonb,l jsonb) returns uuid language plpgsql as $$declare x uuid=gen_random_uuid();begin insert into public.ops_expenses values(x,auth.uid());insert into public.ops_expense_lines values(x);return x;end$$;
+create function public.totus_save_closing(r jsonb,l jsonb) returns uuid language plpgsql as $$declare x uuid=gen_random_uuid();begin insert into public.ops_daily_closings values(x,auth.uid());insert into public.ops_daily_closing_drawers values(x);return x;end$$;
+create schema vault;
+create table vault.secrets(id uuid primary key default gen_random_uuid(),name text unique,decrypted_secret text);
+create view vault.decrypted_secrets as select * from vault.secrets;
+create function vault.create_secret(s text,n text,d text default '') returns uuid language plpgsql as $$declare x uuid=gen_random_uuid();begin insert into vault.secrets values(x,n,s);return x;end$$;
+create function vault.update_secret(i uuid,s text) returns void language sql as $$update vault.secrets set decrypted_secret=s where id=i$$;
+create schema net;
+create table public.qa_net(body jsonb);
+create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language plpgsql as $$begin insert into public.qa_net values(body);return 1;end$$;
+create function private.totus_codex_submit(text,jsonb) returns jsonb language plpgsql as $$begin if $1 not in ('setup','setup_gemini') then raise exception 'denied';end if;return '{}';end$$;
+grant usage on schema private to authenticated;
+grant select,insert on public.ops_expenses,public.ops_expense_lines,public.ops_daily_closings,public.ops_daily_closing_drawers to authenticated;
+grant select on public.team_members,public.qa_permissions to authenticated;

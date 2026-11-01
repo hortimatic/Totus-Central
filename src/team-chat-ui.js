@@ -119,6 +119,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    (manager()&&writable?button(m.pinned?'Desfijar':'Fijar','pin',id):'')+
    (writable&&(mine||manager())?button(m.task_state?'Gestionar tarea':'Crear tarea','task',id):'')+
    (writable&&(mine||manager())&&m.author_kind!=='assistant'&&(!m.agent_request||m.agent_request.status==='cancelled')?button('Pedir a ChatGPT','agent-request',id):'')+
+   (writable&&(mine||manager())&&m.author_email!=='totus-ai@totuscentral.invalid'?button('Pedir a Totus IA','cloud-request',id):'')+
    (writable&&(mine||manager())&&['pending','working'].includes(m.agent_request?.status)?button('Cancelar solicitud','agent-cancel',id):'')+
    (m.task_state||m.agent_request?button('Preparar para ChatGPT','prompt',id):'')+'</div></footer>')+'</article>';
  }
@@ -147,7 +148,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    '<div class="chat-scroll-tools" aria-label="Recorrer mensajes">'+(data.hasNew?button('Mensajes nuevos · Ver al final','scroll-bottom','','primary'):'')+button('↑ Subir','scroll-top')+button('↓ Ir al final','scroll-bottom')+'</div><div class="chat-messages" tabindex="0" role="log" aria-label="Mensajes" aria-live="polite" aria-relevant="additions">'+(data.more?button('Cargar anteriores','older'):'')+data.messages.map((m,index)=>(index===0||messageDay(m.created_at)!==messageDay(data.messages[index-1].created_at)?'<div class="chat-day-divider"><span>'+esc(dayLabel(m.created_at))+'</span></div>':'')+messageHtml(m)).join('')+(!data.messages.length?'<div class="empty"><strong>'+(data.loadingChannel?'Cargando mensajes…':'Sin mensajes')+'</strong><span>'+(data.loadingChannel?'Un momento, estamos recuperando la conversación.':data.query||data.from||data.to||data.mode!=='all'?'Prueba otros filtros.':'Escribe el primer mensaje del canal.')+'</span></div>':'')+'</div>'+
    (editable?'<form class="chat-compose" data-draft-key="'+esc(draftKey())+'"><label for="chatBody">'+(data.parent?'Responder en esta conversación':'Mensaje para '+esc(c.name))+'</label><textarea id="chatBody" rows="2" maxlength="12000" placeholder="Escribe aquí. Enter añade una línea; Ctrl+Enter envía.">'+esc(drafts.get(draftKey())||'')+'</textarea><div class="chat-compose-tools">'+button('🔔 Zumbido','buzz','title="Enviar un aviso al canal; se respeta el silencio del destinatario"')+button('☺','emoji','aria-label="Insertar emoji" title="Insertar emoji"')+'<label class="chat-pick-btn">Adjuntar archivos<input type="file" id="chatFiles" multiple accept="'+acceptFiles+'"></label><label>Mencionar<select id="chatMention"><option value="">Elige una persona</option>'+data.members.map(member=>'<option value="'+esc(member.email)+'">'+esc(person(member.email))+'</option>').join('')+'</select></label></div><div class="chat-picked-list">'+pickedFilesHtml()+'</div><div data-chat-progress role="status" aria-live="polite"></div>'+
     (outbox.some(p=>p.channel_id===data.channel||!p.channel_id)?'<div class="note warn">Hay archivos pendientes de subir. '+button('Reintentar archivos pendientes','uploads-retry')+'</div>':'')+
-    '<div><small>Hasta 10 archivos · 20 MB por archivo · arrastrar o pegar también funciona.</small><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Enviar</button><button class="btn secondary" type="submit" name="request_chatgpt" '+(busy?'disabled':'')+'>Enviar y pedir a ChatGPT</button></div></form>':'<p class="chat-banner">'+(c.archived?'Canal archivado: disponible para consulta.':'Tu permiso permite consultar esta conversación.')+'</p>')))+
+    '<div><small>Hasta 10 archivos · 20 MB por archivo · arrastrar o pegar también funciona.</small><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Enviar</button><button class="btn secondary" type="submit" name="request_chatgpt" '+(busy?'disabled':'')+'>Enviar y pedir a ChatGPT</button><button class="btn secondary" type="submit" name="request_totus_ai" '+(busy?'disabled':'')+'>Enviar y pedir a Totus IA</button></div></form>':'<p class="chat-banner">'+(c.archived?'Canal archivado: disponible para consulta.':'Tu permiso permite consultar esta conversación.')+'</p>')))+
    '</section></div>';
   applyChatBackground(host.querySelector('.chat-messages'),data.layout);
   for(const key of openMenus){const el=[...host.querySelectorAll('details[data-chat-menu]')].find(el=>el.dataset.chatMenu===key);if(el)el.open=true;}
@@ -227,6 +228,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const stamp=lifecycle;
   event.preventDefault();if(busy)return;
   const requestChatGPT=event.submitter?.name==='request_chatgpt';
+  const requestCloud=event.submitter?.name==='request_totus_ai';
   remember();const key=draftKey(),submittedDraft=drafts.get(key)||'',selected=[...(picks.get(key)||[])],body=chatText(submittedDraft.trim()||(selected.length?'Documentos adjuntos':'')),channel=data.channel,parent=data.parent,sendingOwner=owner;
   const previous=pending.get(key),client_id=previous?.body===body?previous.client_id:crypto.randomUUID();
   pending.set(key,{body,client_id});busy=true;paint();
@@ -246,6 +248,11 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    await refresh();
   }catch(error){if(error?.contextChanged)return;try{await refresh();}catch{}showError(error);}
   finally{unlock(stamp);}
+ }
+ async function requestCloudAgent(messageId){
+  const job=await rpc('totus_ai_request',{p_message:messageId});
+  if(['failed','cancelled'].includes(job.status))throw new Error(job.error||'Solicitud detenida. Comprueba los registros antes de enviar otra petición.');
+  return job;
  }
  async function requestAgent(messageId,channelId=data.channel){
   const channel=data.channels.find(c=>c.id===channelId);
@@ -405,6 +412,7 @@ await command('member_preferences',{favourite:!current().favourite});await refre
    if(action==='files-cancel'){if(await confirm('¿Descartar las subidas pendientes de este mensaje? Los archivos ya verificados se conservan.')){await command('files_cancel',{message_id:id});outbox=outbox.filter(p=>p.message_id!==id);}await refresh();return;}
    if(action==='uploads-retry'){await uploadPending();await refresh();return;}
    if(action==='pick-remove'){const chosen=picks.get(draftKey())||[];chosen.splice(Number(el.dataset.index),1);picks.set(draftKey(),chosen);paint();return;}
+   if(action==='cloud-request'){await requestCloudAgent(id);await refresh();return;}
    if(action==='agent-request'||action==='agent-cancel'){if(action==='agent-request')await requestAgent(id);else await command('agent_cancel',{message_id:id});await refresh();return;}
    if(action==='open'){await open(id);return;}
    if(action==='thread'){remember();data.parent=id;data.messages=[];await refresh();return;}

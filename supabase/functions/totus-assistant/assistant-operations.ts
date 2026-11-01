@@ -34,6 +34,8 @@ const rpcArguments:Record<string,string[]>=Object.fromEntries([
  ['totus_save_report_layout','p_order'],
  ['totus_save_my_appearance','p_config p_expected_revision'],
  ['totus_save_appearance','p_section p_config p_expected_revision'],
+ ['totus_ai_settings','p_config'],
+ ['totus_ai_request','p_message'],
  ['totus_storage_usage',''],
  ['totus_log_cleanup','p_from p_to p_execute p_fingerprint'],
  ['totus_set_closed_period','p_through p_reason']

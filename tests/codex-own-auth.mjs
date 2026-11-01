@@ -26,6 +26,7 @@ function setup(action='session_check',overrides={}){
  const admin={from:chain,rpc:async(name,args)=>{
   calls.push(['admin_rpc',name]);
   if(name==='totus_assistant_claim')return overrides.badTicket?{error:{message:'denied'}}:{data:work};
+  if(name==='totus_store_ai_identity'){calls.push(['ai_secret_stored',args.p_user,args.p_password.length]);return {error:null};}
   if(name==='totus_store_gemini_identity'){calls.push(['gemini_secret_stored',args.p_user,args.p_password.length]);return {error:null};}
   results.push(args);return {error:null};
  },auth:{admin:{listUsers:async()=>({data:{users:overrides.existing?[overrides.existing]:[]}}),createUser:async(args)=>{calls.push(['createUser',args]);return {data:{user:account}}}}}};
@@ -112,3 +113,5 @@ test('setup never reactivates a revoked identity',async()=>{
  test('grant cannot reactivate target or run after Codex administrator permission is revoked',async()=>{
   for(const o of [{targetInactive:true},{notAdmin:true}]){const q=setup('codex_grant_chatgpt_admin',o);assert.equal((await q.run()).status,400);assert(!q.calls.some(c=>c[0]==='user_function'));}
  });
+
+test('Totus IA gets a distinct active identity without exposing its password',async()=>{const q=setup('codex_setup_totus_ai');assert.equal((await q.run()).status,200);const created=q.calls.find(c=>c[0]==='createUser')[1];assert.equal(created.email,'totus-ai@totuscentral.invalid');assert.equal(created.app_metadata.totus_ai,true);assert(created.password.length<=72);assert(!JSON.stringify(q.results).includes(created.password));assert(q.calls.some(c=>c[0]==='ai_secret_stored'));assert.equal(q.calls.find(c=>c[0]==='insert'&&c[1]==='team_members')[2].active,true);});

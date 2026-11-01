@@ -3,6 +3,7 @@ import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
 import {createAIConnectionTest} from './ai-connection-test.js';
+import {createCloudflareConnection} from './cloudflare-connection.js';
 import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
@@ -125,6 +126,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
+const cloudflareConnection=createCloudflareConnection({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,invoke:async body=>{const result=await sb.functions.invoke('totus-ai',{body});if(result.error){let detail=null;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const aiConnectionTest=createAIConnectionTest({allowed:()=>isAdmin()&&can('configuracion','edit'),actor:()=>state.user?.id});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
@@ -219,7 +221,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='cotejos'?'recepciones':state.route==='configuracion'?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -250,7 +252,7 @@ function render(){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
    $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml({gemini:state.data.team.find(member=>member.email==='gemini@totuscentral.invalid')}));
-   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),guard:()=>appearanceUI.hasDraft()?confirmAction('¿Cambiar de pestaña sin aplicar los cambios de apariencia? Se conservarán mientras no recargues.'):Promise.resolve(true),disposeTest:()=>aiConnectionTest.dispose(),mountTest:()=>aiConnectionTest.mount($('#content .ai-test-panel'))});
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),guard:()=>appearanceUI.hasDraft()?confirmAction('¿Cambiar de pestaña sin aplicar los cambios de apariencia? Se conservarán mientras no recargues.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));}});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
@@ -399,7 +401,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(null,'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -3212,7 +3214,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();aiConnectionTest.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');

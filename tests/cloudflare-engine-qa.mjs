@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {chat,extract,runAgent,actionUuid} from '../supabase/functions/totus-ai/cloudflare.js';
+const account='a'.repeat(32),token='x'.repeat(32);
+let passed=0;
+async function test(name,fn){await fn();passed++;console.log('OK '+name);}
+const call=(name,args='{}',id='call1')=>({id,type:'function',function:{name,arguments:args}});
+await test('fixed provider and credential isolation',async()=>{await chat({account,token,messages:[],request:async(url,init)=>{assert.equal(url,'https://api.cloudflare.com/client/v4/accounts/'+account+'/ai/v1/chat/completions');assert.equal(init.redirect,'error');assert.equal(init.headers.Authorization,'Bearer '+token);assert(!init.body.includes(token));assert.equal(JSON.parse(init.body).model,'@cf/mistralai/mistral-small-3.1-24b-instruct');return Response.json({choices:[{message:{content:'ok'}}]});}});});
+await test('quota error has no fallback',async()=>{let calls=0;await assert.rejects(chat({account,token,messages:[],request:async()=>{calls++;return new Response('',{status:429});}}),/Cuota/);assert.equal(calls,1);});
+await test('truncated response rejected',async()=>{await assert.rejects(chat({account,token,messages:[],request:async()=>Response.json({choices:[{finish_reason:'length',message:{tool_calls:[call('ejecutar')]}}]})}),/incompleta/);});
+await test('plain text remains local',async()=>{assert.equal(await extract({account,token,bytes:new TextEncoder().encode('Factura ficticia'),mime:'text/plain',request:()=>{throw Error('network');}}),'Factura ficticia');});
+await test('failed conversion never treated as complete',async()=>{await assert.rejects(extract({account,token,bytes:new Uint8Array([1]),mime:'application/pdf',name:'qa.pdf',request:async()=>Response.json({success:true,result:[{format:'error',data:'partial'}]})}),/completo/);});
+await test('complete tool turn validated before any write',async()=>{let writes=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>writes++,provider:async()=>({message:{tool_calls:[call('ejecutar'),call('consultar','broken','call2')]}})}));assert.equal(writes,0);});
+await test('unknown tools rejected',async()=>{let writes=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>writes++,provider:async()=>({message:{tool_calls:[call('sql')]}})}),/autorizada/);assert.equal(writes,0);});
+await test('revocation stops tool execution',async()=>{let checks=0,writes=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{if(++checks===2)throw Error('revoked');},reserve:async()=>{},execute:async()=>writes++,provider:async()=>({message:{tool_calls:[call('catalogo')]}})}),/revoked/);assert.equal(writes,0);});
+await test('roundtrip preserves tool result and verified records',async()=>{let rounds=0,reserves=0;const result=await runAgent({content:'qa',authorize:async()=>{},reserve:async()=>reserves++,execute:async()=>({verified_write:{id:'qa'}}),provider:async messages=>{if(!rounds++)return {message:{role:'assistant',tool_calls:[call('catalogo')]}};assert.equal(messages.at(-1).tool_call_id,'call1');return {message:{role:'assistant',content:'Terminado'}};}});assert.equal(result.text,'Terminado');assert.equal(result.verified[0].id,'qa');assert.equal(reserves,2);});
+await test('stable action identifier',async()=>{assert.equal(await actionUuid('qa'),await actionUuid('qa'));assert.notEqual(await actionUuid('qa'),await actionUuid('qb'));});
+console.log(passed+' controls passed');
