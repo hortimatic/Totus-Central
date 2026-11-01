@@ -19,6 +19,7 @@ jobs:
       - run: node tests/interface-design-qa.mjs
       - run: node tests/drawer-sales-qa.mjs
       - run: node tests/appearance-qa.mjs
+      - run: node tests/appearance-tools-qa.mjs
       - run: node tests/personal-interface-qa.mjs
       - run: node tests/action-inventory-qa.mjs
       - name: Servir simulación sin datos reales
@@ -29,6 +30,7 @@ jobs:
       - run: node tests/chat-reference-layout-qa.mjs
       - run: node tests/chat-navigation-browser-qa.mjs
       - run: node tests/chat-workspace-browser-qa.mjs
+      - run: node tests/appearance-tools-browser-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
       - name: Comprobar los recorridos finales pendientes
@@ -49,6 +51,7 @@ jobs:
         with:
           name: totus-interface-review
           path: |
+            artifacts/appearance-tools/
             artifacts/account-workspace/
             artifacts/interface-design/
             artifacts/stitch-complete/

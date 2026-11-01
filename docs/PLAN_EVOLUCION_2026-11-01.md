@@ -8,8 +8,8 @@ Base: producción 9f84d754. Esta lista no acredita funciones terminadas. Cada fi
 | NAV-02 | Secciones General, Operaciones tienda, Contactos, Análisis, Sistema | Todos los módulos accesibles una sola vez; se mantienen permisos y enlaces | Publicado bccb55a7; verificado con la cuenta real |
 | NAV-03 | Retirar identidad y salida inferiores | Mi cuenta sigue mostrando identidad y cerrar sesión; escritorio y móvil | Publicado bccb55a7; verificado con la cuenta real |
 | NAV-04 | Configuración de navegación por usuario | Tamaño, modo inicial expandido/compacto, comportamiento y elección de módulo inicial persisten al recargar y cambiar de ordenador; URL explícita conserva prioridad | Publicado bccb55a7; verificado con la cuenta real |
-| CFG-01 | Ampliar y ordenar Interfaz | Controles agrupados con vista previa, guardar/cancelar/restablecer claros; conservar todas las opciones | Pendiente |
-| CFG-02 | Ampliar y ordenar Login | Logos/fondos legibles, contraseña visible/oculta, Enter, errores y recuperación comprobados; no exponer configuración privada | Pendiente |
+| CFG-01 | Ampliar y ordenar Interfaz | Controles agrupados con vista previa, guardar/cancelar/restablecer claros; conservar todas las opciones | En revisión: búsqueda, plegado y estilos de Login; pendientes pruebas y publicación |
+| CFG-02 | Ampliar y ordenar Login | Logos/fondos legibles, contraseña visible/oculta, Enter, errores y recuperación comprobados; no exponer configuración privada | En revisión: búsqueda, plegado y estilos de Login; pendientes pruebas y publicación |
 | PER-01 | Zona personal ampliada | Notas propias persistentes, tareas propias, documentos e informes autorizados, avisos y preferencias | Implementado en revisión; faltan pruebas y publicación |
 | PER-02 | Foto y configuración personal desde Administración | Administrador elige usuario; servidor valida permiso, usuario destino y revisión; cambios auditados sin cambiar permisos por editar perfil | Implementado en revisión; faltan pruebas y publicación |
 | CHAT-01 | Chat como centro operativo | Mejoras concretas inventariadas tras revisar estado existente; no duplicar funciones ya construidas | Pendiente |

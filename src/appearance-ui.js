@@ -1,3 +1,4 @@
+import {installAppearanceTools} from './appearance-tools.js';
 import {APPEARANCE_FIELDS,APPEARANCE_PRESETS,appearanceValues,appearanceVariables,loginVariables} from './appearance-core.js';
 import {prepareChatBackground} from './chat-preferences.js';
 import {enhancePasswordVisibility} from './login-controls.js';
@@ -37,10 +38,10 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
   const editable=canEdit(section);
   host.querySelectorAll('fieldset').forEach(el=>el.disabled=busy||!editable);
   host.querySelectorAll('button').forEach(el=>{
-   const navigation=el.hasAttribute('data-appearance-tab')||el.hasAttribute('data-cancel-preview')||el.hasAttribute('data-preview-size')||el.hasAttribute('data-jump')||el.hasAttribute('data-show-preview');
+   const navigation=el.hasAttribute('data-appearance-tab')||el.hasAttribute('data-cancel-preview')||el.hasAttribute('data-preview-size')||el.hasAttribute('data-jump')||el.hasAttribute('data-show-preview')||el.hasAttribute('data-appearance-navigation');
    el.disabled=busy||(!editable&&!navigation)||(el.hasAttribute('data-remove-image')&&!values[el.dataset.removeImage]);
   });
-  const preset=host.querySelector('[data-preset]');if(preset)preset.disabled=busy||!editable;
+  host.querySelectorAll('[data-preset],[data-login-preset]').forEach(preset=>preset.disabled=busy||!editable);
   host.querySelector('form')?.setAttribute('aria-busy',String(busy));
  }
  function preview(){
@@ -72,6 +73,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
   return groups.map(([label,keys],index)=>'<details class="appearance-section" data-appearance-group="'+index+'" open><summary><span class="appearance-section-number">'+(index+1)+'</span>'+label+'</summary><fieldset class="form-grid" '+(canEdit(section)?'':'disabled')+'><legend class="sr-only">'+label+'</legend>'+keys.map(key=>field(key,APPEARANCE_FIELDS[section][key])).join('')+'</fieldset></details>').join('');
  }
  function paint(){
+  const toolsQuery=host.dataset.appearanceSection===section?host.querySelector('[data-settings-search]')?.value||'':'';
   const opened=host.dataset.appearanceSection===section?new Map([...host.querySelectorAll('[data-appearance-group]')].map(el=>[el.dataset.appearanceGroup,el.open])):null;
   host.dataset.appearanceSection=section;
   const interfacePreview='<div class="appearance-demo"><aside><img data-brand-logo alt="" width="38" height="38"><b data-brand-name></b><small data-brand-subtitle></small><span>Inicio</span><span>Cajas</span><span>Gastos</span><span>Chat</span></aside><div><header>Gestión diaria</header><section><div class="card card-pad"><h3>Vista previa</h3><p>Comprueba colores, espacios y botones antes de guardar.</p><button type="button" class="btn primary">Principal</button> <button type="button" class="btn secondary">Secundario</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Concepto</th><th>Estado</th></tr></thead><tbody><tr><td>Documento de ejemplo</td><td>Revisado</td></tr><tr><td>Otro registro</td><td>Pendiente</td></tr></tbody></table></div></section></div></div>';
@@ -98,8 +100,9 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
    const note=document.createElement('p');note.className='note';note.textContent='Puedes consultar el Login. Para modificar esta pantalla compartida necesitas el permiso Editar en Configuración.';controls.querySelector('.section-head').after(note);
   }
   if(opened)host.querySelectorAll('[data-appearance-group]').forEach(el=>{if(opened.has(el.dataset.appearanceGroup))el.open=opened.get(el.dataset.appearanceGroup);});
+  installAppearanceTools(host,{section,editable:canEdit(section),query:toolsQuery,current:values,applyPreset:preset=>{if(busy||!canEdit(section))return;values=appearanceValues(section,{...read(),...preset});paint();}});
   preview();syncControls();
  }
  function load(){const row=settings(section)||{};revision=Number(row.appearance_revision||0);values=appearanceValues(section,row[section==='interfaz'?'appearance_config':'login_appearance']);baseline=JSON.stringify(values);paint();}
- return {mount(element){host=element;owner=actor();epoch++;busy=false;load();},hasDraft:dirty,dispose(){epoch++;host=null;owner=null;busy=false;}};
+ return {mount(element){host=element;owner=actor();epoch++;busy=false;host.dataset.appearanceSection='';load();},hasDraft:dirty,dispose(){epoch++;host=null;owner=null;busy=false;}};
 }

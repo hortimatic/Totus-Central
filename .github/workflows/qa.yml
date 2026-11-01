@@ -18,6 +18,7 @@ jobs:
       - run: node tests/tasks-core-qa.mjs
       - run: node tests/personal-interface-qa.mjs
       - run: node tests/appearance-qa.mjs
+      - run: node tests/appearance-tools-qa.mjs
       - run: node tests/chat-personalization-qa.mjs
       - run: node tests/chat-alerts-qa.mjs
       - run: node tests/team-chat-qa.mjs
@@ -161,6 +162,7 @@ jobs:
       - run: node tests/personal-interface-browser-qa.mjs
       - run: node tests/appearance-browser-qa.mjs
       - run: node tests/ai-connection-test-browser-qa.mjs
+      - run: node tests/appearance-tools-browser-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
       - run: node tests/appearance-pending-browser-qa.mjs
@@ -227,6 +229,7 @@ jobs:
             artifacts/layout-audit.json
             artifacts/pricing-integral.json
             artifacts/closing-integral.json
+            artifacts/appearance-tools/
             artifacts/account-workspace/
             artifacts/closing_*.png
             artifacts/subtab-walk.json
