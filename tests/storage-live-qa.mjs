@@ -66,7 +66,7 @@ try{
  assert((await page.locator('.summary-row',{hasText:'Archivos en Supabase'}).innerText()).includes('4,0 MB'),'Inicio debe incluir los archivos de copias, no solo documentos y logos');
  // Replacing an existing document cannot use stale measurements when Storage is unavailable.
  await page.evaluate(async()=>{
-  const doc={id:'qa-existing-doc',document_date:'2026-10-17',doc_type:'factura_recibida',status:'pendiente',
+  const doc={id:'qa-existing-doc',document_date:(await import('../src/utils.js')).isoToday(),doc_type:'factura_recibida',status:'pendiente',
    original_name:'anterior.pdf',mime_type:'application/pdf',size_bytes:18,storage_path:'qa/existente.pdf',supplier_or_customer:'Proveedor QA'};
   window.__mockDb.ops_documents.push(doc);
   (await import('../src/state.js')).state.data.documents.push(doc);
