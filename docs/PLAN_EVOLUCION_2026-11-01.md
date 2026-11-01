@@ -4,16 +4,16 @@ Base: producción 9f84d754. Esta lista no acredita funciones terminadas. Cada fi
 
 | ID | Trabajo | Criterio de aceptación | Estado |
 |---|---|---|---|
-| NAV-01 | Minimizar/ampliar navegación de escritorio | Iconos accesibles, nombre mediante tooltip, sin ocultar accesos por permiso ni romper menú móvil | Implementado en rama; falta prueba de navegador y publicación |
-| NAV-02 | Secciones General, Operaciones tienda, Contactos, Análisis, Sistema | Todos los módulos accesibles una sola vez; se mantienen permisos y enlaces | Implementado en rama; falta prueba de navegador y publicación |
-| NAV-03 | Retirar identidad y salida inferiores | Mi cuenta sigue mostrando identidad y cerrar sesión; escritorio y móvil | Implementado en rama; falta prueba de navegador y publicación |
-| NAV-04 | Configuración de navegación por usuario | Tamaño, modo inicial expandido/compacto, comportamiento y elección de módulo inicial persisten al recargar y cambiar de ordenador; URL explícita conserva prioridad | Pendiente |
+| NAV-01 | Minimizar/ampliar navegación de escritorio | Iconos accesibles, nombre mediante tooltip, sin ocultar accesos por permiso ni romper menú móvil | Publicado bccb55a7; verificado con la cuenta real |
+| NAV-02 | Secciones General, Operaciones tienda, Contactos, Análisis, Sistema | Todos los módulos accesibles una sola vez; se mantienen permisos y enlaces | Publicado bccb55a7; verificado con la cuenta real |
+| NAV-03 | Retirar identidad y salida inferiores | Mi cuenta sigue mostrando identidad y cerrar sesión; escritorio y móvil | Publicado bccb55a7; verificado con la cuenta real |
+| NAV-04 | Configuración de navegación por usuario | Tamaño, modo inicial expandido/compacto, comportamiento y elección de módulo inicial persisten al recargar y cambiar de ordenador; URL explícita conserva prioridad | Publicado bccb55a7; verificado con la cuenta real |
 | CFG-01 | Ampliar y ordenar Interfaz | Controles agrupados con vista previa, guardar/cancelar/restablecer claros; conservar todas las opciones | Pendiente |
 | CFG-02 | Ampliar y ordenar Login | Logos/fondos legibles, contraseña visible/oculta, Enter, errores y recuperación comprobados; no exponer configuración privada | Pendiente |
-| PER-01 | Zona personal ampliada | Notas propias persistentes, tareas propias, documentos e informes autorizados, avisos y preferencias | Pendiente |
-| PER-02 | Foto y configuración personal desde Administración | Administrador elige usuario; servidor valida permiso, usuario destino y revisión; cambios auditados sin cambiar permisos por editar perfil | Pendiente |
+| PER-01 | Zona personal ampliada | Notas propias persistentes, tareas propias, documentos e informes autorizados, avisos y preferencias | Implementado en revisión; faltan pruebas y publicación |
+| PER-02 | Foto y configuración personal desde Administración | Administrador elige usuario; servidor valida permiso, usuario destino y revisión; cambios auditados sin cambiar permisos por editar perfil | Implementado en revisión; faltan pruebas y publicación |
 | CHAT-01 | Chat como centro operativo | Mejoras concretas inventariadas tras revisar estado existente; no duplicar funciones ya construidas | Pendiente |
-| CHAT-02 | Chat móvil | Canales/conversación, teclado, redacción, adjuntos, lectura, búsqueda y acciones utilizables a 320/390 px y en horizontal | Pendiente |
+| CHAT-02 | Chat móvil | Canales/conversación, teclado, redacción, adjuntos, lectura, búsqueda y acciones utilizables a 320/390 px y en horizontal | Parcial: altura, teclado y posición publicados bccb55a7; resto pendiente |
 | MOB-01 | Orden y navegación móvil general | Todas las pantallas implicadas sin desbordar la página; tablas conservan datos con desplazamiento o fichas; botones accesibles | Pendiente |
 | VIS-01 | Fidelidad a Stitch | Comparación con referencia aprobada: estructura, jerarquía, espacios, colores, barra, cabecera y perfil; respetar preferencias personales | Pendiente |
 | IA-01 | Pestaña Conexiones de IA | Proveedor/modelo/estado, prueba ficticia, cuotas/límites y desconexión; claves solo en servidor, nunca en repo, fuentes o navegador persistente | Pendiente |
@@ -40,3 +40,11 @@ Base: producción 9f84d754. Esta lista no acredita funciones terminadas. Cada fi
 3. Configuración y fidelidad visual, Chat y móvil.
 4. Conexiones y agente con ensayos ficticios; activación real solo con condiciones y credenciales resueltas.
 5. Recorridos completos afectados y entrega final con estado real, sin afirmar ausencia universal de fallos.
+
+## Ampliación del perfil en revisión
+
+- Notas en el JSON del perfil existente: copias y recuperación mantienen el formato; no hay tabla adicional.
+- Lectura conservada por las políticas existentes: propio perfil y gestión autorizada.
+- Edición administrativa de nombre visible, teléfono, foto y notas, manteniendo la identidad del administrador en la auditoría y el rol del destinatario.
+- Revisión optimista por perfil; los clientes antiguos que no envían notas las conservan.
+- Documentos personales consultados al abrir la sección, aunque se entre desde Configuración; tareas por usuario y mes e informes mediante los módulos autorizados.

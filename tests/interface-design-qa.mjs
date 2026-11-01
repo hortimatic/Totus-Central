@@ -14,10 +14,14 @@ assert.equal(accountValues({photo:'javascript:alert(1)'}).photo,'');
 assert.equal(accountValues({photo:'data:image/svg+xml;base64,AAAA'}).photo,'');
 assert.equal(accountValues({display_name:' a '.repeat(100),phone:'1'.repeat(90)}).display_name.length,90);
 assert.equal(accountValues({phone:'1'.repeat(90)}).phone.length,40);
-assert.deepEqual(Object.keys(accountValues({role:'admin',id:'another'})).sort(),['display_name','phone','photo']);
+assert.deepEqual(Object.keys(accountValues({role:'admin',id:'another'})).sort(),['display_name','notes','phone','photo']);
 const sql=fs.readFileSync('supabase/review_patches/034_personal_account.sql','utf8');
 assert(sql.includes('where id=auth.uid() for update'));
 assert(sql.includes('p_expected_revision is distinct from revision'));
 assert(sql.includes("pair.key not in ('display_name','phone','photo')"));
 assert(!/update public\.team_members|update auth\.users/i.test(sql));
 console.log('Diseño: tablas de escritorio conservadas, fichas móviles completas, escape de etiquetas y validación de perfil OK.');
+
+assert.equal(accountValues({notes:'x'.repeat(11000)}).notes.length,10000);
+
+assert.equal(Array.from(accountValues({notes:'😀'.repeat(10001)}).notes).length,10000);
