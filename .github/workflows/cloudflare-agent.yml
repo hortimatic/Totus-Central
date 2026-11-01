@@ -21,6 +21,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/totus-ai/index.ts
       - run: node tests/cloudflare-engine-qa.mjs
       - run: node --test tests/codex-own-auth.mjs tests/assistant-attachments.mjs tests/assistant-operations.mjs
       - name: Disposable database

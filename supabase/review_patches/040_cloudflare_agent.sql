@@ -186,15 +186,15 @@ grant execute on function public.totus_ai_job_check(uuid,text,text,boolean) to s
 
 create or replace function public.totus_ai_action(p_job uuid,p_hash text,p_result jsonb default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actions jsonb;previous jsonb;
+declare saved_actions jsonb;previous jsonb;
 begin
  perform public.totus_ai_job_check(p_job);
  if p_hash!~'^[a-f0-9]{64}$' then raise exception 'Identificador de acción no válido.';end if;
- select j.actions into actions from private.totus_ai_jobs j where id=p_job for update;
- previous=actions->p_hash;
+ select j.actions into saved_actions from private.totus_ai_jobs j where id=p_job for update;
+ previous=saved_actions->p_hash;
  if p_result is not null then
   if previous->>'status'<>'started' or octet_length(p_result::text)>150000 then raise exception 'Acción no iniciada o resultado demasiado grande.';end if;
-  update private.totus_ai_jobs set actions=jsonb_set(actions,array[p_hash],jsonb_build_object('status','done','result',p_result),true) where id=p_job;
+  update private.totus_ai_jobs set actions=jsonb_set(saved_actions,array[p_hash],jsonb_build_object('status','done','result',p_result),true) where id=p_job;
   return p_result;
  end if;
  if previous->>'status'='done' then return previous->'result';end if;
