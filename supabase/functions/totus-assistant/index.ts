@@ -29,7 +29,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   const codexAction=typeof work.action==='string'&&work.action.startsWith('codex_')
   const action=codexAction?work.action.slice(6):work.action
   if(email!==(codexAction?'codex@totuscentral.invalid':'chatgpt@totuscentral.invalid')||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
-  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send','operation','chat_direct',...(codexAction?['setup','grant_chatgpt_admin','setup_gemini']:[])].includes(action))throw new Error('Acción no admitida')
+  if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send','operation','chat_direct',...(codexAction?['setup','grant_chatgpt_admin','setup_gemini','setup_totus_ai']:[])].includes(action))throw new Error('Acción no admitida')
   if(work.action==='codex_setup'){
    // The one-use server ticket is issued exclusively by the administrative connector.
    // Do not reset, reactivate or take over an existing account on retry.
@@ -61,28 +61,28 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   const {data:member,error:memberError}=await admin.from('team_members').select('active,role').eq('email',email).maybeSingle()
   if(memberError||!member?.active)throw new Error('Cuenta del asistente desactivada')
   let result:any={authenticated:true,user_id:confirmed.user.id,email,role:member.role,session_verified:true}
-  if(action==='setup_gemini'){
+  if(action==='setup_gemini'||action==='setup_totus_ai'){
    if(!codexAction||member.role!=='admin')throw new Error('Administración de Codex requerida');
-   const target='gemini@totuscentral.invalid';let existing:any=null;
+   const isTotus=action==='setup_totus_ai',target=isTotus?'totus-ai@totuscentral.invalid':'gemini@totuscentral.invalid',label=isTotus?'Totus IA':'Gemini',marker=isTotus?'totus_ai':'totus_gemini';let existing:any=null;
    for(let page=1;;page++){
     const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});if(error)throw new Error('No se pudo comprobar Gemini');
     existing=data.users.find((u:any)=>u.email===target)||existing;if(existing||data.users.length<1000)break;
    }
    if(existing){
-    if(existing.app_metadata?.totus_gemini!==true)throw new Error('La dirección ya existe y no corresponde a Gemini');
+    if(existing.app_metadata?.[marker]!==true)throw new Error('La dirección ya existe y no corresponde a esta IA');
     result={prepared:true,created:false,email:target,user_id:existing.id,activation:'manual',message:'Identidad existente; no se han cambiado credenciales ni permisos'};
    }else{
     const bytes=crypto.getRandomValues(new Uint8Array(32)),password='Aa1!'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
-    const {data,error}=await admin.auth.admin.createUser({email:target,password,email_confirm:true,app_metadata:{totus_gemini:true},user_metadata:{full_name:'Gemini'}});
+    const {data,error}=await admin.auth.admin.createUser({email:target,password,email_confirm:true,app_metadata:{[marker]:true},user_metadata:{full_name:label}});
     if(error||!data?.user)throw new Error('No se pudo crear la identidad de Gemini ('+String(error?.code||'sin_respuesta')+')');
     const id=data.user.id;
     try{
-     const {error:memberError}=await admin.from('team_members').insert({email:target,full_name:'Gemini',role:'admin',active:false,job_title:'IA · pendiente de conectar'});if(memberError)throw memberError;
-     const {error:secretError}=await admin.rpc('totus_store_gemini_identity',{p_user:id,p_password:password});if(secretError)throw secretError;
+     const {error:memberError}=await admin.from('team_members').insert({email:target,full_name:label,role:'admin',active:isTotus,job_title:'IA · pendiente de conectar'});if(memberError)throw memberError;
+     const {error:secretError}=await admin.rpc(isTotus?'totus_store_ai_identity':'totus_store_gemini_identity',{p_user:id,p_password:password});if(secretError)throw secretError;
     }catch{await admin.from('team_members').delete().eq('email',target);await admin.auth.admin.deleteUser(id);throw new Error('No se pudo completar el alta de Gemini');}
-    const {error:auditError}=await admin.from('team_user_audit_log').insert({actor_email:email,target_email:target,action:'technical_account_created',status:'ok',detail:'Gemini preparado, desactivado hasta conectar el proveedor; sin llamadas externas'});
+    const {error:auditError}=await admin.from('team_user_audit_log').insert({actor_email:email,target_email:target,action:'technical_account_created',status:'ok',detail:label+' preparado; proveedor sin activar, sin llamadas externas'});
     if(auditError)throw new Error('Gemini creado; falta comprobar el registro del alta. No repitas el alta.');
-    result={prepared:true,created:true,email:target,user_id:id,active:false,role:'admin',activation:'manual',message:'Usuario creado y desactivado hasta configurar la conexión; sin consumo externo'};
+    result={prepared:true,created:true,email:target,user_id:id,active:isTotus,role:'admin',activation:'manual',message:'Usuario preparado; conexión externa pendiente, sin consumo externo'};
    }
   }
   if(action==='grant_chatgpt_admin'){
@@ -123,7 +123,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
    if(error||!direct?.id)throw new Error('No se pudo abrir el chat directo: '+(error?.message||'sin respuesta'));
    result={...result,channel_id:direct.id};
   }
-  else if(!['session_check','codex_session_check','codex_setup','codex_setup_gemini'].includes(work.action))throw new Error('Acción no admitida')
+  else if(!['session_check','codex_session_check','codex_setup','codex_setup_gemini','codex_setup_totus_ai'].includes(work.action))throw new Error('Acción no admitida')
   const {error:finishError}=await admin.rpc('totus_assistant_complete',{p_job:job,p_result:result,p_error:null})
   if(finishError)throw new Error('Operación ejecutada; no se pudo guardar su resultado. Consulta antes de reintentar.')
   return respond({job_id:job,status:'completed'})

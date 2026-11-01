@@ -1,8 +1,8 @@
 export async function sha256(bytes: Uint8Array) {
- return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('')
+ return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(bytes).buffer))].map(b=>b.toString(16).padStart(2,'0')).join('')
 }
 const segment=(value:unknown)=>String(value||'General').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,100)||'General'
-export async function attachChatExpenseDocument(client:any,payload:any,user:any) {
+export async function attachChatExpenseDocument(client:any,payload:any,user:any,{authorize=async()=>{}}={}) {
  const {expense_id,file_id,request_id,expected_updated_at}=payload||{}
  for(const id of [expense_id,file_id,request_id])if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id||''))throw new Error('Referencias de gasto, adjunto y solicitud obligatorias')
  if(!expected_updated_at)throw new Error('Relee el gasto antes de adjuntar')
@@ -28,6 +28,7 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
  if(bytes.byteLength!==Number(file.size_bytes)||await sha256(bytes)!==file.sha256||new TextDecoder().decode(bytes.slice(0,5))!=='%PDF-')throw new Error('El PDF no coincide con el original del chat')
  const storage=client.storage.from('business-documents')
  if(!doc){
+  await authorize();
   const uploaded=await storage.upload(path,bytes,{contentType:'application/pdf',upsert:false})
   if(uploaded.error){
    const previous=await storage.download(path)
@@ -48,6 +49,7 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
  if(!(proof instanceof Blob)||proof.size!==bytes.byteLength||await sha256(new Uint8Array(await proof.arrayBuffer()))!==file.sha256)throw new Error('El justificante guardado no supera la comprobación de integridad')
  let document=doc
  if(!document){
+  await authorize();
   document=check(await client.from('ops_documents').insert({
    id:request_id,store_id:expense.store_id,doc_type:expense.management_only?'otro':'factura_recibida',
    document_date:expense.expense_date,supplier_or_customer:expense.supplier_name,tax_id:expense.supplier_tax_id||'',
@@ -59,6 +61,7 @@ export async function attachChatExpenseDocument(client:any,payload:any,user:any)
  }
  let saved=expense
  if(!expense.document_id){
+  await authorize();
   saved=check(await client.from('ops_expenses').update({document_id:document.id}).eq('id',expense_id).eq('updated_at',expected_updated_at).is('document_id',null).select('*').maybeSingle(),'No se pudo asociar el documento')
   if(!saved)throw new Error('El gasto ha cambiado. El documento se conserva para revisar; no se ha sustituido la ficha')
  }
