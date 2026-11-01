@@ -8,7 +8,7 @@ page.on('pageerror',error=>errors.push(error.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html');
  await page.locator('[data-account-open]').waitFor();
- await page.locator('[data-account-open]').click();
+ await page.locator('[data-account-open]').click();await page.locator('[data-account-section=perfil]').click();
  await page.locator('[name=display_name]').fill('Perfil de prueba');
  await page.locator('[data-account-tab=avisos]').click();
  await page.locator('[data-confirm=cancel]').click();
@@ -17,7 +17,7 @@ try{
  await page.locator('[data-account-panel]').waitFor({state:'detached'});
  await page.locator('.toast').waitFor({state:'detached'});
  assert.equal(await page.locator('.account-trigger-text b').textContent(),'Perfil de prueba');
- await page.locator('[data-account-open]').click();
+ await page.locator('[data-account-open]').click();await page.locator('[data-account-section=perfil]').click();
  assert.equal(await page.locator('[name=display_name]').inputValue(),'Perfil de prueba');
  await page.locator('.close-btn').click();
  await page.evaluate(()=>{
@@ -56,7 +56,7 @@ try{
   await page.screenshot({path:'artifacts/interface-design/cajas-'+width+'.png',fullPage:true});
  }
  await page.setViewportSize({width:390,height:844});
- await page.locator('[data-account-open]').click();
+ await page.locator('[data-account-open]').click();await page.locator('[data-account-section=perfil]').click();
  assert.equal(await page.locator('[name=display_name]').inputValue(),'Perfil de prueba');
  assert.equal(await page.locator('[name=phone]').isVisible(),true);
  for(const tab of await page.locator('[data-account-tab]').all())assert.equal(await tab.isVisible(),true);

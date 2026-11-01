@@ -192,3 +192,13 @@
  .navigation-compact #teamChatUnread {position:absolute;top:2px;right:2px;}
 }
 @media screen and (max-width:800px) {.desktop-nav-collapse {display:none;}}
+
+@media screen {
+ .account-menu {position:relative;}
+ .account-popover {position:absolute;right:0;top:calc(100% + 8px);width:min(280px,calc(100vw - 24px));padding:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px #0b1c3026;z-index:100;display:grid;gap:2px;}
+ .account-popover-heading {display:grid;gap:3px;padding:10px;overflow-wrap:anywhere;}
+ .account-popover-heading small {color:var(--muted);font-size:11px;}
+ .account-popover > button {background:transparent;border:0;text-align:left;padding:11px 12px;min-height:44px;color:inherit;border-radius:7px;font:inherit;cursor:pointer;}
+ .account-popover > button:hover,.account-popover > button:focus-visible {background:var(--stitch-high);}
+ .account-popover-divider {height:1px;background:var(--line);margin:4px;}
+}

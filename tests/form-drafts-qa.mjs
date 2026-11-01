@@ -32,7 +32,7 @@ try{
  const otherShop=await page.locator('#clStore option').evaluateAll(items=>items.map(x=>x.value).find(x=>x!==document.querySelector('#clStore').value));
  await page.locator('#clStore').selectOption(otherShop);await cancel();
  assert.equal(await page.locator('#clStore').inputValue(),previousShop);assert.equal(await page.locator('#clNotes').inputValue(),'Cierre pendiente');
- await page.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await cancel();
+ await page.locator('[data-account-open]').click();await page.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await cancel();
  assert.equal(await page.locator('#clNotes').inputValue(),'Cierre pendiente');
  await nav('administracion');await discard();
  await page.locator('[data-action="admin-section"][data-section="negocio"]').click();
