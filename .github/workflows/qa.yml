@@ -227,6 +227,7 @@ jobs:
             artifacts/layout-audit.json
             artifacts/pricing-integral.json
             artifacts/closing-integral.json
+            artifacts/account-workspace/
             artifacts/closing_*.png
             artifacts/subtab-walk.json
             artifacts/user_screenshot_checks.json

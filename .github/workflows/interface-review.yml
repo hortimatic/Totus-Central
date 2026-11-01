@@ -49,6 +49,7 @@ jobs:
         with:
           name: totus-interface-review
           path: |
+            artifacts/account-workspace/
             artifacts/interface-design/
             artifacts/stitch-complete/
             artifacts/layout_shell_*.png

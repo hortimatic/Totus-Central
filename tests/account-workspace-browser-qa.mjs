@@ -29,7 +29,7 @@ try{
  await open('notas');await page.locator('[name=notes]').fill(note);await page.getByRole('button',{name:'Guardar notas',exact:true}).click();await page.locator('[data-account-panel]').waitFor({state:'detached'});
  await open('notas');assert.equal(await page.locator('[name=notes]').inputValue(),note);assert.equal(await page.locator('[data-account-notes] img').count(),0);assert.equal(await page.evaluate(()=>window.__noteExecuted),undefined);await close();
  await open('documentos');await page.getByText('Documento propio.pdf',{exact:true}).waitFor();assert.equal(await page.getByText('Documento de otra cuenta.pdf',{exact:true}).count(),0,'Own document list excludes other accounts');await close();
- await open('tareas');await page.getByText(/^Tarea propia/).waitFor();assert.equal(await page.getByText(/^Tarea B /).count(),0);await page.locator('[data-account-month]').fill('2026-09');await page.locator('[data-account-month]').dispatchEvent('change');await page.getByText('Tarea propia 2026-09-01',{exact:true}).waitFor();await close();
+ await open('tareas');await page.getByText(/^Tarea propia/).waitFor();assert.equal(await page.getByText(/^Tarea B /).count(),0);await page.locator('[data-account-month]').fill('2026-09');await page.locator('[data-account-month]').dispatchEvent('change');await page.waitForFunction(()=>document.querySelector('[data-account-tasks]')?.textContent.includes('Tarea propia 2026-09-01'));await close();
  await open('informes');await page.getByRole('button',{name:'Abrir informes y descargas',exact:true}).click();await page.locator('#nav [data-route=informes][aria-current=page]').waitFor();
  await navigate(page,'administracion');await page.locator('[data-action=user-edit][data-email="other@example.invalid"]').click();await page.locator('[data-action=user-profile]').click();
  assert.equal(await page.locator('[name=display_name]').inputValue(),'Perfil B');
@@ -53,4 +53,4 @@ try{
  }
  assert.deepEqual(errors,[]);
  console.log('PERSONAL WORKSPACE: own notes and escaping, fresh documents, task month/owner, report navigation, admin photo/notes, unchanged identity/roles, stale writes and four widths OK.');
-}finally{await browser.close();}
+}catch(error){await page.screenshot({path:'artifacts/account-workspace/failure.png',fullPage:true});throw error;}finally{await browser.close();}
