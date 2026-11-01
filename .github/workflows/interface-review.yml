@@ -1,7 +1,7 @@
 name: Revisar diseño de interfaz
 on:
   push:
-    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete, feat/navigation-account-ai-plan, feat/personal-workspace]
+    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete, feat/navigation-account-ai-plan, feat/personal-workspace, feat/api-connections]
   workflow_dispatch:
 permissions:
   contents: read

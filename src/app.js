@@ -2,7 +2,8 @@ import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.j
 import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
-import {aiConnectionTestHtml,createAIConnectionTest} from './ai-connection-test.js';
+import {createAIConnectionTest} from './ai-connection-test.js';
+import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -248,8 +249,8 @@ function render(){
  if(state.route==='configuracion'){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
-   $('#content .appearance-page').insertAdjacentHTML('beforeend',aiConnectionTestHtml());
-   aiConnectionTest.mount($('#content .ai-test-panel'));
+   $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml({gemini:state.data.team.find(member=>member.email==='gemini@totuscentral.invalid')}));
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),guard:()=>appearanceUI.hasDraft()?confirmAction('¿Cambiar de pestaña sin aplicar los cambios de apariencia? Se conservarán mientras no recargues.'):Promise.resolve(true),disposeTest:()=>aiConnectionTest.dispose(),mountTest:()=>aiConnectionTest.mount($('#content .ai-test-panel'))});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
