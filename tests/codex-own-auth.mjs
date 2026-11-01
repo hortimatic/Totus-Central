@@ -26,6 +26,7 @@ function setup(action='session_check',overrides={}){
  const admin={from:chain,rpc:async(name,args)=>{
   calls.push(['admin_rpc',name]);
   if(name==='totus_assistant_claim')return overrides.badTicket?{error:{message:'denied'}}:{data:work};
+  if(name==='totus_store_gemini_identity'){calls.push(['gemini_secret_stored',args.p_user,args.p_password.length]);return {error:null};}
   results.push(args);return {error:null};
  },auth:{admin:{listUsers:async()=>({data:{users:overrides.existing?[overrides.existing]:[]}}),createUser:async(args)=>{calls.push(['createUser',args]);return {data:{user:account}}}}}};
  const scoped={from:chain,functions:{invoke:async(name,args)=>{calls.push(['user_function',name,args]);return {data:{ok:true}}}},rpc:async(name,args)=>{calls.push(['user_rpc',name,args]);return overrides.saveError?{error:{message:'validación rechazada'}}:{data:name==='totus_assistant_validate_expense'?{validated:true}:'saved-id'}},
@@ -42,6 +43,21 @@ test('Codex setup creates its own Auth account and audited team member',async()=
  assert(q.calls.some(c=>c[0]==='login'&&c[1]==='codex@totuscentral.invalid'));
  assert(q.calls.some(c=>c[0]==='logout'));
  assert(!JSON.stringify(q.results).includes('x'.repeat(96)));
+});
+
+test('Gemini is provisioned with its own identity, inactive, and without disclosing credentials',async()=>{
+ const q=setup('codex_setup_gemini');assert.equal((await q.run()).status,200);
+ const created=q.calls.find(c=>c[0]==='createUser')[1];assert.equal(created.email,'gemini@totuscentral.invalid');assert.equal(created.app_metadata.totus_gemini,true);
+ assert(created.password.length>=96);assert(!JSON.stringify(q.results).includes(created.password));
+ const member=q.calls.find(c=>c[0]==='insert'&&c[1]==='team_members')[2];assert.equal(member.active,false);assert.equal(member.role,'admin');
+ assert(q.calls.some(c=>c[0]==='gemini_secret_stored'));
+ const audit=q.calls.find(c=>c[0]==='insert'&&c[1]==='team_user_audit_log')[2];assert.equal(audit.actor_email,'codex@totuscentral.invalid');assert.equal(audit.target_email,'gemini@totuscentral.invalid');
+ assert.equal(q.results[0].p_result.active,false);
+});
+test('Gemini provisioning requires an active administrator and never resets an existing identity',async()=>{
+ const denied=setup('codex_setup_gemini',{notAdmin:true});assert.equal((await denied.run()).status,400);assert(!denied.calls.some(c=>c[0]==='createUser'));
+ const existing=setup('codex_setup_gemini',{existing:{id:'gemini-id',email:'gemini@totuscentral.invalid',app_metadata:{totus_gemini:true}}});assert.equal((await existing.run()).status,200);assert(!existing.calls.some(c=>c[0]==='createUser'||c[0]==='insert'||c[0]==='gemini_secret_stored'));
+ const collision=setup('codex_setup_gemini',{existing:{id:'other-id',email:'gemini@totuscentral.invalid',app_metadata:{}}});assert.equal((await collision.run()).status,400);assert(!collision.calls.some(c=>c[0]==='createUser'));
 });
 test('Codex identity cannot use an unprefixed ChatGPT operation',async()=>{
  const q=setup('save_expense');assert.equal((await q.run()).status,400);

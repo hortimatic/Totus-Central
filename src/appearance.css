@@ -104,3 +104,4 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 .appearance-login-presets small {flex-basis:100%;color:var(--muted);}
 .appearance-section[hidden],.appearance-anchors button[hidden] {display:none!important;}
 @media(max-width:600px){.appearance-tools>.inline-actions {width:100%;}.appearance-tools .btn {flex:1 1 120px;min-height:44px;}.appearance-tools input {font-size:16px;}}
+.configuration-sections{flex-wrap:wrap;padding:0;background:var(--panel,#fff);border:1px solid var(--line,#dfe6ef);border-radius:12px}.configuration-sections .tab{min-height:44px}.connections-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin:16px 0}#connectionsRoot[hidden],#appearanceRoot[hidden]{display:none!important}#connectionsRoot{min-width:0}#connectionsRoot p{overflow-wrap:anywhere}
