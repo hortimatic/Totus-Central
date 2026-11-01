@@ -1,7 +1,7 @@
 name: Revisar diseño de interfaz
 on:
   push:
-    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete, feat/navigation-account-ai-plan]
+    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete, feat/navigation-account-ai-plan, feat/personal-workspace]
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,6 +19,7 @@ jobs:
       - run: node tests/interface-design-qa.mjs
       - run: node tests/drawer-sales-qa.mjs
       - run: node tests/appearance-qa.mjs
+      - run: node tests/appearance-tools-qa.mjs
       - run: node tests/personal-interface-qa.mjs
       - run: node tests/action-inventory-qa.mjs
       - name: Servir simulación sin datos reales
@@ -29,6 +30,8 @@ jobs:
       - run: node tests/chat-reference-layout-qa.mjs
       - run: node tests/chat-navigation-browser-qa.mjs
       - run: node tests/chat-workspace-browser-qa.mjs
+      - run: node tests/appearance-tools-browser-qa.mjs
+      - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
       - name: Comprobar los recorridos finales pendientes
         run: |
@@ -48,6 +51,8 @@ jobs:
         with:
           name: totus-interface-review
           path: |
+            artifacts/appearance-tools/
+            artifacts/account-workspace/
             artifacts/interface-design/
             artifacts/stitch-complete/
             artifacts/layout_shell_*.png
@@ -112,3 +117,29 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks-recovery.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-recovery-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/drawer-sales-recovery-qa.sql
+
+  personal-account-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify personal profiles in disposable database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -c 'CREATE ROLE anon; CREATE ROLE authenticated;'
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-workspace-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/034_personal_account.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/038_personal_workspace.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-workspace-db-qa.sql

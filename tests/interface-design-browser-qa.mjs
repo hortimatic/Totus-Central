@@ -30,6 +30,7 @@ try{
  for(const width of [1920,1440,1024,768,430,390,320]){
   await page.setViewportSize({width,height:950});
   if(width<=800){
+   await page.waitForFunction(()=>document.querySelector('.sidebar').inert===true);
    assert.equal(await page.locator('.sidebar').evaluate(el=>el.inert),true);
    await page.locator('[data-action=toggle-menu]').click();
    assert.equal(await page.locator('[data-action=toggle-menu]').getAttribute('aria-expanded'),'true');

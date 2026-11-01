@@ -109,10 +109,11 @@ const sum=(rows,cb)=>rows.reduce((v,x)=>v+Number(cb(x)||0),0);
 const get=(name,id)=>db[name]?.find(x=>x.id===id);
 const insert=(name,row)=>{const r={id:uuid(),created_at:new Date().toISOString(),...row};db[name].push(r);return r};
 const rpc=async (name,args={})=>{
- if(name==='totus_save_my_account'){
-  const profile=db.profiles.find(p=>p.id===userId),previous=profile.ui_preferences?.account||{revision:0};
+ if(name==='totus_save_my_account'||name==='totus_admin_save_account'){
+  if(name==='totus_admin_save_account'&&role!=='admin')return {data:null,error:{message:'Solo administración puede gestionar perfiles.'}};
+  const profile=db.profiles.find(p=>p.id===(name==='totus_admin_save_account'?args.p_user_id:userId));if(!profile)return {data:null,error:{message:'Perfil no encontrado'}};const previous=profile.ui_preferences?.account||{revision:0};
   if(args.p_expected_revision!==previous.revision)return {data:null,error:{message:'Tu perfil cambió en otra ventana.'}};
-  const saved={config:structuredClone(args.p_config),revision:previous.revision+1};
+  const saved={config:{...previous.config,...structuredClone(args.p_config)},revision:previous.revision+1};
   profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};return {data:saved,error:null};
  }
  if(name==='totus_log_cleanup'){

@@ -118,7 +118,11 @@ const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?pe
  applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
 }});
 const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.profiles.find(p=>p.id===state.user?.id),documents:()=>state.data.documents,can,rpc,
- accept:(saved,owner)=>{if(state.user?.id!==owner)return;const profile=state.data.profiles.find(p=>p.id===owner);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
+ canManage:()=>isAdmin()&&can('administracion','edit'),
+ accountTarget:id=>{const profile=state.data.profiles.find(p=>p.id===id),member=state.data.team.find(m=>m.email?.toLowerCase()===profile?.email?.toLowerCase());return profile&&member?{profile,user:{...member,id:profile.id}}:null;},
+ readDocuments:target=>select('ops_documents',{order:'document_date',filter:q=>q.eq('uploaded_by',target)}),
+ acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
+ accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const aiConnectionTest=createAIConnectionTest({allowed:()=>isAdmin()&&can('configuracion','edit'),actor:()=>state.user?.id});
 // Only the explicitly public login appearance is readable before authentication.
@@ -161,7 +165,7 @@ function permissionForAction(action,el){
  else if(/\-new$|\-add$|\-duplicate$/.test(a))operation='create';
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
- if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-profile'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-log-cleanup-'))return {module:'administracion',operation:'delete',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
@@ -1976,6 +1980,7 @@ function userModal(row=null){
  ${row?`<div class="note" style="margin-top:12px">Estado actual: <b>${row.active?'Activo':'Inactivo'}</b>. La contraseña solo cambia si escribes una nueva. Al cambiar de rol se restablecen los permisos individuales anteriores.</div>`:''}
  <div class="form-actions">
   ${row&&!self?btn(row.active?'Desactivar':'Activar','user-toggle','secondary',`data-email="${esc(row.email)}" data-active="${row.active?'false':'true'}"`):''}
+  ${row&&isAdmin()?btn('Perfil, foto y notas','user-profile','secondary',`data-email="${esc(row.email)}"`):''}
   ${row?btn('Enviar recuperación','user-reset','secondary',`data-email="${esc(row.email)}"`):''}
   ${row&&!self?btn('Eliminar usuario','user-delete','danger',`data-email="${esc(row.email)}"`):''}
   ${btn('Guardar usuario','user-save','primary',row?`data-email="${esc(row.email)}"`:'')}
@@ -2878,6 +2883,7 @@ document.addEventListener('click',async e=>{
   if(a==='drawer-edit'){drawerForm(el.dataset.store,state.data.drawers.find(x=>x.id===el.dataset.id));return}
   if(a==='drawer-save'){await saveDrawer(el.dataset.store,el.dataset.id||'');return}
   if(a==='user-new'){userModal();return}
+  if(a==='user-profile'){const profile=state.data.profiles.find(p=>p.email?.toLowerCase()===el.dataset.email?.toLowerCase());if(!profile)throw Error('El perfil de este usuario aún no está disponible. Actualiza la página tras crear su cuenta.');await accountUI.openFor(profile.id);return;}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}
   if(a==='user-save'){await saveUser(el.dataset.email||'');return}
   if(a==='role-new'){roleForm();return}
