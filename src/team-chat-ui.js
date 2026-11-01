@@ -228,7 +228,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const stamp=lifecycle;
   event.preventDefault();if(busy)return;
   const requestChatGPT=event.submitter?.name==='request_chatgpt';
-  const requestCloud=event.submitter?.name==='request_totus_ai';
+  const requestCloud=event.submitter?.name==='request_totus_ai'||current()?.channel_kind==='direct'&&data.members.some(m=>m.email==='totus-ai@totuscentral.invalid');
   remember();const key=draftKey(),submittedDraft=drafts.get(key)||'',selected=[...(picks.get(key)||[])],body=chatText(submittedDraft.trim()||(selected.length?'Documentos adjuntos':'')),channel=data.channel,parent=data.parent,sendingOwner=owner;
   const previous=pending.get(key),client_id=previous?.body===body?previous.client_id:crypto.randomUUID();
   pending.set(key,{body,client_id});busy=true;paint();
@@ -245,8 +245,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    outbox.push(...selected.map(item=>({...item,channel_id:channel,message_id:saved.id})));
    if(selected.length)await uploadPending(saved.id);
    if(requestChatGPT){try{await requestAgent(saved.id,channel);}catch(error){throw new Error('El mensaje está guardado, pero la solicitud no se ha creado: '+error.message);}}
-   const directAI=data.channels.find(c=>c.id===channel)?.channel_kind==='direct'&&data.members.some(m=>m.email==='totus-ai@totuscentral.invalid');
-   if(requestCloud||directAI||body.includes('@{totus-ai@totuscentral.invalid}')){try{await requestCloudAgent(saved.id);}catch(error){throw new Error('El mensaje está guardado, pero Totus IA no recibió la petición: '+error.message);}}
+   if(requestCloud||body.includes('@{totus-ai@totuscentral.invalid}')){try{await requestCloudAgent(saved.id);}catch(error){throw new Error('El mensaje está guardado, pero Totus IA no recibió la petición: '+error.message);}}
    await refresh();
   }catch(error){if(error?.contextChanged)return;try{await refresh();}catch{}showError(error);}
   finally{unlock(stamp);}
