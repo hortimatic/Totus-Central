@@ -3196,7 +3196,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
- setRoute(requestedModule(location.href,ROUTES));
+ setRoute(requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule));
  await refresh();chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}

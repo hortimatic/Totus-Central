@@ -1,6 +1,6 @@
 // Navigation carries only a module name, never session data or credentials.
 export function moduleUrl(href,module){const url=new URL(href);url.searchParams.set('module',module);return url.href;}
-export function requestedModule(href,routes){const id=new URL(href).searchParams.get('module');return routes.some(r=>r.id===id)?id:'inicio';}
+export function requestedModule(href,routes,preferred='inicio'){const url=new URL(href),id=url.searchParams.has('module')?url.searchParams.get('module'):preferred;return routes.some(r=>r.id===id)?id:'inicio';}
 export function nativeModuleClick(event,element){return element?.tagName==='A'&&(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey);}
 
 const financial=['closings','closingDrawers','expenses','expenseLines','invoices','invoiceLines','documents','taxPayments','fiscalAdjustments','incomeAdjustments','customers','categories','suppliers'];

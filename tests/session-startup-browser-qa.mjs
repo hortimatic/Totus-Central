@@ -29,7 +29,7 @@ try{
   assert.equal(await page.locator('#loginEmail').isVisible(),false,'Must not ask for credentials while checking a saved session');
   assert.match(await page.locator('#loginMessage').innerText(),/Comprobando tu acceso/);
   release();
-  if(mode==='saved')await page.locator('#userCard').waitFor({state:'visible'});
+  if(mode==='saved')await page.locator('[data-account-open]').waitFor({state:'visible'});
   else{
    await page.locator('#loginEmail').waitFor({state:'visible'});
    assert.equal(await page.locator('#app').isVisible(),false);
@@ -58,7 +58,7 @@ try{
  assert.equal(await page.locator('#loginForm button[type="submit"]').isDisabled(),true);
  await page.evaluate(()=>document.querySelector('#loginForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  assert.equal(await page.evaluate(()=>window.__qaLoginCount),1,'Repeated submission must not start a second sign-in');
- releaseLogin();await page.locator('#userCard').waitFor({state:'visible'});
+ releaseLogin();await page.locator('[data-account-open]').waitFor({state:'visible'});
  await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="user-edit"][data-email="qa@example.com"]').click();
  await page.locator('#usName').waitFor();
@@ -139,7 +139,7 @@ try{
   return {user:state.user,dialogs:document.getElementById('modalHost').children.length,oldData:state.data.team.length};
  });
  assert.deepEqual(cleared,{user:null,dialogs:0,oldData:0});
- await switchPage.locator('#userCard').getByText('Nueva cuenta ficticia',{exact:true}).waitFor();
+ await switchPage.locator('[data-account-open]').getByText('Nueva cuenta ficticia',{exact:true}).waitFor();
  await clickModuleLink(switchPage,switchPage.locator('#nav [data-route="gastos"]'));await switchPage.locator('[data-action="expense-new"]').click();await switchPage.locator('#exSupplier').fill('Texto sin guardar al renovar sesión');
  await switchPage.evaluate(()=>window.__qaAuthCallback('TOKEN_REFRESHED',{...window.__qaNextSession,access_token:'fake-refreshed-session'}));
  assert.equal(await switchPage.locator('#exSupplier').inputValue(),'Texto sin guardar al renovar sesión','Refreshing the same account token must preserve its draft');

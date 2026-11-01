@@ -68,11 +68,18 @@ try{
  await clickModuleLink(page,page.locator('#nav [data-route=configuracion]'));
  await page.locator('[data-preset]').selectOption('stitch');
  await page.locator('[data-apply-preset]').click();
+ await page.locator('[name=navigationMode]').selectOption('compact');
+ await page.locator('[name=startModule]').selectOption('cajas');
  await page.locator('.appearance-grid button[type=submit]').click();
  await page.getByText('Configuración guardada y aplicada.',{exact:true}).waitFor();
  assert.equal(await page.locator('html').evaluate(e=>e.style.getPropertyValue('--accent')),'#006591');
  await page.reload();await page.locator('[data-account-open]').waitFor();
  assert.equal(await page.locator('html').evaluate(e=>e.style.getPropertyValue('--accent')),'#006591','Personal Stitch palette survives reload');
+ assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('navigation-compact')),true,'Personal compact setting survives reload');
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html');await page.locator('[data-account-open]').waitFor();
+ assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),'cajas','Saved startup module applies when no module is requested');
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html?module=informes');await page.locator('[data-account-open]').waitFor();
+ assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),'informes','An explicit link overrides the startup preference');
  assert.deepEqual(errors,[]);await fs.writeFile('artifacts/stitch-complete/views.json',JSON.stringify(views,null,2));
  console.log('STITCH: '+views.length+' module/subtab/width views, all navigation icons, personal preset save and reload OK.');
 }finally{await browser.close();}

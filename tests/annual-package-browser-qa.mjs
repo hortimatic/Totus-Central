@@ -9,7 +9,7 @@ try{
  const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:1000}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('#userCard').waitFor({state:'visible'});
+ await page.locator('[data-account-open]').waitFor({state:'visible'});
  await page.evaluate(async()=>{
   const db=window.__mockDb,store=db.ops_stores[0].id;db.ops_stores[0].active=false;
   const doc=(id,date,content)=>{const file=new File([content],id+'.txt',{type:'text/plain'});

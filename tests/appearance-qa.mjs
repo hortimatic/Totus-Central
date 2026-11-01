@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {APPEARANCE_FIELDS,appearanceValues,appearanceVariables,loginVariables,contrastText} from '../src/appearance-core.js';
-assert.equal(Object.keys(APPEARANCE_FIELDS.interfaz).length,37);
+assert.equal(Object.keys(APPEARANCE_FIELDS.interfaz).length,39);
 assert.equal(Object.keys(APPEARANCE_FIELDS.login).length,29);
 assert.equal(appearanceValues('interfaz',{fontSize:999,primary:'red;background:url(x)',theme:'x'}).fontSize,16);
 assert.equal(appearanceValues('interfaz',{primary:'red;background:url(x)'}).primary,'#2563eb');
@@ -13,3 +13,6 @@ console.log('Appearance QA: all options, validation, ranges, no CSS/image inject
 
 assert.equal(contrastText('#ffffff'),'#000000');assert.equal(contrastText('#000000'),'#ffffff');
 assert(!appearanceVariables({shadow:'none',cardGlow:12})['--shadow'].startsWith('none,'));
+
+assert.equal(appearanceValues('interfaz',{startModule:'unknown',navigationMode:'bad'}).startModule,'inicio');
+assert.equal(appearanceValues('interfaz',{navigationMode:'compact'}).navigationMode,'compact');

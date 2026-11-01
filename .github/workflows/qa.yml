@@ -350,6 +350,8 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/031_personal_interface.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/personal-interface-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/037_navigation_preferences.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/navigation-preferences-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-advanced-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/backup-start-db-fixture.sql
