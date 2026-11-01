@@ -276,6 +276,7 @@
  .team-chat {height:auto;min-height:0;}
  .team-chat.chat-show-conversation>.chat-conversation {height:var(--chat-visible-height,calc(100dvh - 180px));min-height:0;overflow:auto;}
  .team-chat .chat-sidebar {height:var(--chat-visible-height,calc(100dvh - 180px));min-height:0;}
+ .team-chat.chat-sidebar-collapsed .chat-sidebar {height:48px;min-height:48px;}
  .team-chat .chat-messages {min-height:80px;}
  .team-chat .chat-compose textarea {font-size:16px;max-height:140px;}
 }
@@ -283,6 +284,7 @@
  .team-chat {height:auto;min-height:0;}
  .team-chat.chat-show-conversation>.chat-conversation {height:var(--chat-visible-height,calc(100dvh - 180px));min-height:0;overflow:auto;}
  .team-chat .chat-sidebar {height:var(--chat-visible-height,calc(100dvh - 180px));min-height:0;}
+ .team-chat.chat-sidebar-collapsed .chat-sidebar {height:48px;min-height:48px;}
  .team-chat .chat-messages {min-height:80px;}
  .team-chat .chat-compose textarea {font-size:16px;max-height:140px;}
 }}
