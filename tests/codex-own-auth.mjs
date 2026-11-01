@@ -48,7 +48,7 @@ test('Codex setup creates its own Auth account and audited team member',async()=
 test('Gemini is provisioned with its own identity, inactive, and without disclosing credentials',async()=>{
  const q=setup('codex_setup_gemini');assert.equal((await q.run()).status,200);
  const created=q.calls.find(c=>c[0]==='createUser')[1];assert.equal(created.email,'gemini@totuscentral.invalid');assert.equal(created.app_metadata.totus_gemini,true);
- assert(created.password.length>=96);assert(!JSON.stringify(q.results).includes(created.password));
+ assert(created.password.length>=64&&created.password.length<=72,'Auth bcrypt password limit');assert(!JSON.stringify(q.results).includes(created.password));
  const member=q.calls.find(c=>c[0]==='insert'&&c[1]==='team_members')[2];assert.equal(member.active,false);assert.equal(member.role,'admin');
  assert(q.calls.some(c=>c[0]==='gemini_secret_stored'));
  const audit=q.calls.find(c=>c[0]==='insert'&&c[1]==='team_user_audit_log')[2];assert.equal(audit.actor_email,'codex@totuscentral.invalid');assert.equal(audit.target_email,'gemini@totuscentral.invalid');

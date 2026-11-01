@@ -72,9 +72,9 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
     if(existing.app_metadata?.totus_gemini!==true)throw new Error('La dirección ya existe y no corresponde a Gemini');
     result={prepared:true,created:false,email:target,user_id:existing.id,activation:'manual',message:'Identidad existente; no se han cambiado credenciales ni permisos'};
    }else{
-    const bytes=crypto.getRandomValues(new Uint8Array(48)),password='Aa1!'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+    const bytes=crypto.getRandomValues(new Uint8Array(32)),password='Aa1!'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
     const {data,error}=await admin.auth.admin.createUser({email:target,password,email_confirm:true,app_metadata:{totus_gemini:true},user_metadata:{full_name:'Gemini'}});
-    if(error||!data?.user)throw new Error('No se pudo crear la identidad de Gemini');
+    if(error||!data?.user)throw new Error('No se pudo crear la identidad de Gemini ('+String(error?.code||'sin_respuesta')+')');
     const id=data.user.id;
     try{
      const {error:memberError}=await admin.from('team_members').insert({email:target,full_name:'Gemini',role:'admin',active:false,job_title:'IA · pendiente de conectar'});if(memberError)throw memberError;

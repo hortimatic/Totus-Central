@@ -3,7 +3,7 @@ begin;
 create or replace function public.totus_store_gemini_identity(p_user uuid,p_password text)
 returns void language plpgsql security definer set search_path='' as $$
 begin
- if length(coalesce(p_password,''))<96 or length(p_password)>200 then raise exception 'Credencial técnica no válida';end if;
+ if length(coalesce(p_password,''))<64 or length(p_password)>72 then raise exception 'Credencial técnica no válida';end if;
  if not exists(select 1 from auth.users u join public.team_members t on lower(t.email)=lower(u.email)
  where u.id=p_user and u.email='gemini@totuscentral.invalid' and u.raw_app_meta_data->>'totus_gemini'='true' and t.role='admin' and not t.active)
  then raise exception 'Identidad pendiente de Gemini requerida';end if;
