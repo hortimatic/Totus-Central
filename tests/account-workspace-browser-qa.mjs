@@ -55,7 +55,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
  await page.evaluate(async other=>{
   const {createAccountUI}=await import('../src/account-ui.js');
-  document.body.innerHTML='<header class="topbar"></header><div id="modalHost" class="modal-backdrop hidden"></div><div id="toastHost"></div>';
+  document.body.innerHTML='<header class="topbar"></header><div id="modalHost"></div><div id="toastHost"></div>';
   const q=window.accountRace={owner:'owner1',releases:[],accepted:[],calls:[]};
   q.ui=createAccountUI({user:()=>({id:q.owner,email:q.owner+'@example.invalid',full_name:q.owner}),profile:()=>({ui_preferences:{}}),documents:()=>[],can:()=>true,canManage:()=>true,accountTarget:()=>({user:{id:other,email:'other@example.invalid',full_name:'Target'},profile:{ui_preferences:{}}}),rpc:(name,args)=>{q.calls.push({name,args});return new Promise(resolve=>q.releases.push(resolve));},accept:(...args)=>q.accepted.push(args),guard:async()=>true,navigate:async()=>{},notify:()=>{}});
   q.ui.start();await q.ui.openFor(other);
