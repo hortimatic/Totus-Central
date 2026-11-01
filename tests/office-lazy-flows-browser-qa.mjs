@@ -22,7 +22,11 @@ try{
  XLSX.utils.book_append_sheet(wb,ws,'Hoja de prueba');
  const workbookBuffer=XLSX.write(wb,{type:'buffer',bookType:'xlsx',cellStyles:true});
  await clickModuleLink(page,page.locator('#nav [data-route="documentos"]'));
+ await page.locator('#documentosFrom').fill('2026-10-01');
+ await page.locator('#documentosTo').fill('2026-10-31');
+ await page.locator('[data-action="documentos-apply"]').click();
  await page.locator('[data-action="document-new"]').click();
+ await page.locator('#docDate').fill('2026-10-29');
  await page.locator('#docParty').fill('Excel bajo demanda');
  await page.locator('#docFile').setInputFiles({name:'primera-vista.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:workbookBuffer});
  await page.locator('[data-action="document-save"]').click();
