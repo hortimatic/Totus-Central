@@ -21,10 +21,10 @@ export const SYSTEM=`Eres Totus IA, usuario autorizado de Totus Central. Trabaja
 const fn=(name,description,properties,required=[])=>({type:'function',function:{name,description,parameters:{type:'object',properties,required,additionalProperties:false}}});
 export const TOOLS=[fn('simular','Validar un gasto o cierre con las reglas reales, revirtiendo todos sus cambios. No guarda datos.',{procedimiento:{type:'string',enum:['totus_save_expense','totus_save_closing']},argumentos_json:{type:'string'}},['procedimiento','argumentos_json']),fn('catalogo','Campos y procedimientos reales disponibles.',{}),fn('consultar','Consultar registros autorizados; limita tienda y periodo.',{tabla:{type:'string'},filtros_json:{type:'string'},limite:{type:'integer'}},['tabla']),fn('ejecutar','Guardar por procedimientos de Totus, con revisión actual y datos verificados.',{procedimiento:{type:'string'},argumentos_json:{type:'string'}},['procedimiento','argumentos_json']),fn('adjuntar_gasto','Asociar el PDF original del mensaje al gasto ya guardado.',{expense_id:{type:'string'},file_id:{type:'string'},expected_updated_at:{type:'string'}},['expense_id','file_id','expected_updated_at']),fn('adjuntar_recepcion','Asociar un original del mensaje a una recepción, identificando proveedor o PrestaShop.',{receipt_id:{type:'string'},revision:{type:'integer'},file_id:{type:'string'},kind:{type:'string',enum:['supplier','prestashop']}},['receipt_id','revision','file_id','kind'])];
 export async function runAgent({content,execute,authorize,reserve,provider,maxTurns=8,verified=/** @type {any[]} */([])}){
- const messages=[{role:'system',content:SYSTEM},{role:'user',content}];let count=0;
+ const simulations=[];const messages=[{role:'system',content:SYSTEM},{role:'user',content}];let count=0;
  for(let turn=0;turn<maxTurns;turn++){
   await authorize();await reserve();const {message}=await provider(messages,TOOLS,turn===0?{type:'function',function:{name:'catalogo'}}:'auto');messages.push(message);
-  if(!message.tool_calls?.length){const text=String(message.content||'');if(text.includes(SYSTEM.slice(0,100)))throw Error('El modelo devolvió instrucciones internas en vez de una respuesta. No se dará la petición por completada.');return {text:text.slice(0,10000),verified};}
+  if(!message.tool_calls?.length){const text=String(message.content||'');if(text.includes(SYSTEM.slice(0,100)))throw Error('El modelo devolvió instrucciones internas en vez de una respuesta. No se dará la petición por completada.');return {text:text.slice(0,10000),verified,simulations};}
   const responses=[],ids=new Set();
   const parsed=message.tool_calls.map(call=>{if(call.type!=='function'||!TOOLS.some(t=>t.function.name===call.function?.name)||typeof call.id!=='string'||ids.has(call.id))throw Error('Herramienta no autorizada o repetida.');ids.add(call.id);const args=JSON.parse(call.function.arguments);if(!args||Array.isArray(args)||typeof args!=='object')throw Error('Argumentos no válidos.');return args;});
   for(const [index,call] of message.tool_calls.entries()){
@@ -32,7 +32,7 @@ export async function runAgent({content,execute,authorize,reserve,provider,maxTu
    if(call.type!=='function'||!TOOLS.some(t=>t.function.name===call.function?.name)||typeof call.id!=='string')throw Error('Herramienta no autorizada.');
    const args=parsed[index];
    if(!args||Array.isArray(args)||typeof args!=='object')throw Error('Argumentos de herramienta no válidos.');
-   const result=await execute(call.function.name,args,count);if(result?.verified_write)verified.push(result.verified_write);
+   const result=await execute(call.function.name,args,count);if(result?.verified_write)verified.push(result.verified_write);if(result?.verified_simulation)simulations.push(result.verified_simulation);
    const encoded=JSON.stringify(result);if(encoded.length>150000)throw Error('Demasiados datos; reduce el periodo o la consulta.');
    responses.push({role:'tool',tool_call_id:call.id,content:encoded});
   }

@@ -58,7 +58,7 @@ export function createTools({client,admin,user,job,files,authorize}:any){
     }
     const preview=await rpc('totus_ai_validate',{p_kind:expense?'expense':'closing',p_record:record,p_rows:rows});
     if(expense){const r=preview.record,total=Number(r.base_amount)+Number(r.vat_amount)+Number(r.re_amount)-Number(r.withholding_amount);if(Math.abs(Math.round(total*100)-Math.round(args.expected_total*100))>1)throw Error('Los conceptos no cuadran con el total del original. No se ha guardado.');}
-    if(input.simular)return {...preview,simulation:true,persisted:false};
+    if(input.simular)return mutation('simular:'+input.procedimiento,args,async()=>{const result=structuredClone(preview);delete result.record.id;delete result.record.request_id;result.rows=result.rows.map((r:any)=>{const row={...r};delete row.id;delete row.expense_id;delete row.closing_id;return row;});return {...result,simulation:true,persisted:false,verified_simulation:{procedure:input.procedimiento,total:expense?args.expected_total:Number(preview.record.reported_total_sales)}};});
     return mutation(input.procedimiento,args,async()=>{
      await authorize(spec.module,record.id?'edit':spec.operation);
      const id=await rpc(input.procedimiento,expense?{p_expense:record,p_lines:rows}:{p_closing:record,p_drawers:rows});

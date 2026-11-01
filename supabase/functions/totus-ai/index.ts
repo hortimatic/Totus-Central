@@ -50,8 +50,9 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   if(content.length>300000)throw Error('Los originales son demasiado largos para revisarlos completos juntos. Divide la petición.');
   const execute=createTools({client:scoped,admin,user,job,files:originals,authorize});
   const result=await runAgent({content,execute,authorize,reserve,verified,provider:(messages:any,tools:any,toolChoice:any)=>chat({account:config.account_id,token:config.token,messages,tools,toolChoice,request})});await authorize();
+  const simulations=result.simulations.length?'\n\nSimulaciones verificadas por Totus (sin guardar):\n'+result.simulations.map((v:any)=>'• '+v.procedure+' · total '+Number(v.total).toFixed(2)+' €').join('\n'):'';
   const evidence=result.verified.length?'\n\nGuardados verificados por Totus:\n'+result.verified.map((v:any)=>'• '+v.procedure+' · '+v.id).join('\n'):'\n\nNo se ha confirmado ningún guardado en esta petición.';
-  const sent=check(await scoped.rpc('totus_chat_command',{p_action:'send',p_data:{channel_id:job.source.channel_id,client_id:await actionUuid('reply:'+job.id),body:(result.text+evidence).slice(0,11900),expected_files:0}}));
+  const sent=check(await scoped.rpc('totus_chat_command',{p_action:'send',p_data:{channel_id:job.source.channel_id,client_id:await actionUuid('reply:'+job.id),body:(result.text+simulations+evidence).slice(0,11900),expected_files:0}}));
   const reread=check(await scoped.from('ops_chat_messages').select('id,author_id,body').eq('id',sent.id).single());if(reread.author_id!==user.id)throw Error('La respuesta no pudo verificarse.');
   check(await admin.rpc('totus_ai_job_finish',{p_job:job.id,p_reply:sent.id}));return respond({ok:true,job:job.id,reply_id:sent.id});
  }catch(e){
