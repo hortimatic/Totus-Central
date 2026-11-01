@@ -35,7 +35,7 @@ export async function runAgent({content,execute,authorize,reserve,provider,maxTu
    if(call.type!=='function'||!TOOLS.some(t=>t.function.name===call.function?.name)||typeof call.id!=='string')throw Error('Herramienta no autorizada.');
    const args=parsed[index];
    if(!args||Array.isArray(args)||typeof args!=='object')throw Error('Argumentos de herramienta no válidos.');
-   let result;try{result=await execute(call.function.name,args,count);}catch(error){result={error:error instanceof Error?error.message:'Operación rechazada',completed:false,instruction:'No declares éxito. Corrige solo los argumentos, o explica el bloqueo. No repitas un guardado incierto.'};}if(result?.verified_write)verified.push(result.verified_write);if(result?.verified_simulation)simulations.push(result.verified_simulation);
+   let result;try{result=await execute(call.function.name,args,count);}catch(error){if(error?.uncertainWrite)throw error;result={error:error instanceof Error?error.message:'Operación rechazada',completed:false,instruction:'No declares éxito. Corrige solo los argumentos, o explica el bloqueo. No repitas un guardado incierto.'};}if(result?.verified_write)verified.push(result.verified_write);if(result?.verified_simulation)simulations.push(result.verified_simulation);
    const encoded=JSON.stringify(result);if(encoded.length>150000)throw Error('Demasiados datos; reduce el periodo o la consulta.');
    responses.push({role:'tool',tool_call_id:call.id,content:encoded});
   }

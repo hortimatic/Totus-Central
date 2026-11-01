@@ -16,10 +16,11 @@ export function createTools({client,admin,user,job,files,authorize}:any){
  const collect=(v:any)=>{if(Array.isArray(v))v.forEach(collect);else if(object(v)){if(typeof v.id==='string')seen.add(v.id);Object.values(v).forEach(x=>{if(typeof x==='object')collect(x);});}};
  const rpc=async(name:string,args:any)=>check(await client.rpc(name,args));
  async function mutation(name:string,args:any,run:()=>Promise<any>){
-  if(uncertain)throw Error('Hay una escritura cuyo resultado debe revisarse. No se repetirá ni se ejecutarán más cambios.');
-  const key=await hash(canon({name,args}));const prior=check(await admin.rpc('totus_ai_action',{p_job:job.id,p_hash:key}));if(prior!==null)return prior;
+  const fail=(e:any)=>{uncertain=true;return Object.assign(e instanceof Error?e:Error('Resultado de escritura incierto.'),{uncertainWrite:true});};
+  if(uncertain)throw fail(Error('Hay una escritura cuyo resultado debe revisarse. No se repetirá ni se ejecutarán más cambios.'));
+  const key=await hash(canon({name,args}));let prior;try{prior=check(await admin.rpc('totus_ai_action',{p_job:job.id,p_hash:key}));}catch(e){throw fail(e);}if(prior!==null)return prior;
   try{const result=await run();check(await admin.rpc('totus_ai_action',{p_job:job.id,p_hash:key,p_result:result}));return result;}
-  catch(e){uncertain=true;throw e;}
+  catch(e){throw fail(e);}
  }
  return async function execute(name:string,input:any){
   if(name==='simular'){if(!['totus_save_expense','totus_save_closing'].includes(input.procedimiento))throw Error('Solo se simulan gastos y cierres.');name='ejecutar';input={...input,simular:true};}
