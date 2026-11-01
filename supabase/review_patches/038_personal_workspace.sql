@@ -25,7 +25,7 @@ begin
  update public.profiles set ui_preferences=jsonb_set(prefs,'{account}',saved,true) where id=p_user_id;
  select email into actor_email from public.profiles where id=auth.uid();
  insert into public.ops_audit_log(user_id,user_email,area,action,detail)
- values(auth.uid(),actor_email,'administracion',case when p_user_id=auth.uid() then 'perfil_personal_guardado' else 'perfil_usuario_guardado' end,jsonb_build_object('target_user_id',p_user_id,'revision',revision+1));
+ values(auth.uid(),actor_email,'administracion',case when p_user_id=auth.uid() then 'perfil_personal_guardado' else 'perfil_usuario_guardado' end,jsonb_build_object('target_user_id',p_user_id,'target_email',target_email,'revision',revision+1));
  return saved;
 end $$;
 create or replace function private.totus_save_my_account(p_config jsonb,p_expected_revision bigint)

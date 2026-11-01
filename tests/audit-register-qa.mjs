@@ -18,3 +18,6 @@ assert.equal(stock[0].area,'recepciones');assert.equal(stock[0].entity_id,'recei
 assert.equal(auditActionLabel(stock[0].action),'Añadir documento a recepción');
 assert.equal(filterAuditEvents(stock,{area:'recepciones',actor:'recepcion@example.invalid'}).length,1);
 console.log('AUDIT REGISTER QA: complete histories, module sources, actors, Madrid boundaries and combined filters');
+
+assert.equal(auditActionLabel('perfil_usuario_guardado'),'Actualizar perfil de usuario');
+assert.equal(auditActionLabel('perfil_personal_guardado'),'Actualizar mi perfil y mis notas');
