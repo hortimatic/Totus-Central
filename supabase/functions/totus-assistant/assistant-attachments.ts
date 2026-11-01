@@ -1,5 +1,5 @@
 export async function sha256(bytes: Uint8Array) {
- return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('')
+ return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(bytes).buffer))].map(b=>b.toString(16).padStart(2,'0')).join('')
 }
 const segment=(value:unknown)=>String(value||'General').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,100)||'General'
 export async function attachChatExpenseDocument(client:any,payload:any,user:any,{authorize=async()=>{}}={}) {
