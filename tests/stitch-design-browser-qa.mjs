@@ -27,6 +27,7 @@ try{
  await page.locator('#nav [data-route]').first().waitFor();
  // Only synthetic mock preferences: production preferences and accounting never change here.
  const routes=await page.locator('#nav [data-route]').evaluateAll(es=>es.map(e=>e.dataset.route));
+ await page.evaluate(async()=>{const {isoToday}=await import('../src/utils.js');const db=window.__mockDb;db.ops_daily_closings.push({id:crypto.randomUUID(),store_id:db.ops_stores[0].id,business_date:isoToday(),status:'cerrado',card_sales:18447.41,cash_withdrawals:7950,cash_sales:7950,bizum_sales:0,online_sales:0,other_income:0,opening_cash:200,actual_cash:200,reported_total_sales:26397.41,difference:0,notes:'Cierre ficticio para comprobar importes grandes'});});
  assert.equal(routes.length,13);
  for(const route of routes){
   await clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
@@ -36,7 +37,7 @@ try{
   const sections=[null,...controls];
   for(const section of sections){
    if(section)await page.locator('#content .module-tabs [data-action="'+section.action+'"][data-section="'+section.section+'"]').click();
-   for(const width of [1440,390,320]){
+   for(const width of [1440,831,390,320]){
     await page.setViewportSize({width,height:1000});
     assert.equal(await page.locator('link[href$="stitch-design.css"]').count(),1);
     assert.equal(await page.locator('#nav .nav-btn .ui-icon').count(),13);
@@ -44,6 +45,7 @@ try{
     const visible=await page.locator('#content').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
     if(visible.scroll>visible.client+2)console.log('Overflow elements',route,width,await page.locator('#content *').evaluateAll(es=>es.filter(e=>{let r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+2&&getComputedStyle(e).visibility!=='hidden';}).slice(0,12).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right,text:e.textContent.slice(0,60)}))));
     assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),route);
+    if(route==='cajas')assert(await page.locator('.closing-kpis .kpi').first().locator('strong').evaluate(e=>e.getBoundingClientRect().height<35),'The amount and currency symbol stay on one line');
     await page.screenshot({path:'artifacts/stitch-complete/'+route+'-'+(section?.section||'principal')+'-'+width+'.png',fullPage:true});
     assert(visible.scroll<=visible.client+2,route+' '+width+' content overflow '+JSON.stringify(visible));
     views.push({route,section:section?.section||'principal',width});
