@@ -39,7 +39,7 @@ try{
  await page.locator('[data-chat=view][data-view=all]').click();
  await page.locator('[data-chat="open"][data-id="a"]').click();await page.locator('#chatBody').waitFor();await page.screenshot({path:'artifacts/ui_chat_usabilidad_pc.png',fullPage:true});
  // Unapplied text must survive a realtime refresh after moving focus away.
- await revealChatSearch(page);await page.locator('#chatQuery').fill('pendiente de aplicar');await page.locator('.chat-heading h2').click();
+ await revealChatSearch(page);await page.locator('#chatQuery').fill('pendiente de aplicar');await page.locator('.chat-current-label').click();
  const before=await page.evaluate(()=>usabilityQA.calls.length);await page.evaluate(()=>usabilityQA.notify());await page.waitForFunction(n=>usabilityQA.calls.length>n,before);
  assert.equal(await page.locator('#chatQuery').inputValue(),'pendiente de aplicar');assert.equal(await page.evaluate(()=>usabilityQA.calls.filter(c=>c.name==='totus_chat_context').at(-1).p.p_query),'');
  await click('clear');
