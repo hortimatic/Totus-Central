@@ -65,7 +65,7 @@ $code$);
   definition=replace(definition,'''active_ai_connection'',active_id','''active_ai_connection'',active_id,''reader_connection'',(select reader_connection_id from private.totus_ai_config where id)');
   execute definition;
  end if;
-end$;
+end$$;
 -- Baseline calls count towards the same local limit after migration.
 do $$declare definition text;begin
  select pg_get_functiondef('public.totus_api_call(uuid,bigint,uuid,jsonb)'::regprocedure) into definition;

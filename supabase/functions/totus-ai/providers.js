@@ -1,7 +1,7 @@
 import {chat,normalizeChatResponse} from './cloudflare.js';
 import {safeEndpoint,connectionTarget,connectionHeaders,boundedJson} from '../totus-connections/transport.js';
 function anthropicMessages(messages){const output=[];for(const m of messages){if(m.role==='system')continue;const role=m.role==='assistant'?'assistant':'user';let content=[];if(m.role==='tool')content.push({type:'tool_result',tool_use_id:m.tool_call_id,content:m.content});else{if(m.content)content.push({type:'text',text:String(m.content)});for(const call of m.tool_calls||[])content.push({type:'tool_use',id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)});}if(!content.length)continue;if(output.at(-1)?.role===role)output.at(-1).content.push(...content);else output.push({role,content});}return output;}
-export async function providerChat(connection,{messages,tools,toolChoice,request=fetch,resolve}={}){
+export async function providerChat(connection,{messages,tools,toolChoice,request=fetch,resolve}){
  const c=connection;if(!c.enabled||!c.free_confirmed||!c.real_data_authorized||c.verified_revision!==c.revision)throw Error('El proveedor no está activado y verificado para datos de trabajo.');
  if(c.protocol==='cloudflare')return chat({account:c.account_id,token:c.secret,model:c.model,messages,tools,toolChoice,request});
  if(!['openai_compatible','anthropic'].includes(c.protocol))throw Error('Este tipo de conexión no ejecuta las acciones de Totus IA.');
