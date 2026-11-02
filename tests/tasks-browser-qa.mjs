@@ -13,6 +13,7 @@ try{
    window.calls.push({name,args});
    if(name==='totus_tasks_context')return {rows:window.rows,archived_tasks:window.archivedRows||[],deleted_tasks:window.deletedRows||[],stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
    if(name==='totus_task_remove'){if(args.p_restore){window.archivedRows=window.deletedRows;window.deletedRows=[];}else{window.deletedRows=window.archivedRows;window.archivedRows=[];}return {id:args.p_task_id,deleted:!args.p_restore};}
+   if(name==='totus_task_purge'){if(window.purgeError)throw Error(window.purgeError);window.deletedRows=window.deletedRows.filter(t=>t.task_id!==args.p_task_id);return {id:args.p_task_id,purged:true};}
    if(name==='totus_task_from_message')return null;
    if(name==='totus_task_history')return [];
    if(name==='totus_task_command'){if(args.p_action==='archive'&&args.p_data.archived===false)window.archivedRows=[];return {id:'t1'};}
@@ -77,6 +78,15 @@ try{
  await page.locator('[data-task=deleted]').click();await page.getByRole('heading',{name:'Tareas eliminadas',exact:true}).waitFor();await page.getByText('Eliminar y recuperar',{exact:true}).waitFor();await page.locator('[data-task=recover-deleted]').click();
  await page.locator('[data-task=archived]').click();await page.getByText('Eliminar y recuperar',{exact:true}).waitFor();await page.getByRole('button',{name:'Cancelar',exact:true}).click();
  assert(await page.evaluate(()=>window.calls.filter(c=>c.name==='totus_task_remove').length===2));
+ await page.evaluate(()=>window.deletedRows=[{task_id:'purge-qa',title:'Borrado definitivo ficticio',task_version:'v3',can_manage:true}]);
+ await page.locator('[data-task=refresh]').click();await page.locator('[data-task=deleted]').click();await page.locator('[data-task=purge-deleted]').click();
+ const purge=page.locator('[data-purge-confirm]');assert(await purge.isDisabled());
+ await page.getByRole('button',{name:'Cancelar',exact:true}).click();assert(!(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_purge'))));
+ await page.locator('[data-task=deleted]').click();await page.locator('[data-task=purge-deleted]').click();await page.locator('[name=purge_confirmation]').fill('ELIMINAR TAREA');
+ await page.evaluate(()=>window.purgeError='La tarea ha cambiado. Actualiza antes de continuar.');await page.locator('[data-purge-confirm]').click();await page.getByText('La tarea ha cambiado. Actualiza antes de continuar.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>window.deletedRows.length),1,'Failed purge remains in trash');
+ await page.evaluate(()=>window.purgeError=null);await page.locator('[data-purge-confirm]').click();await page.locator('dialog').waitFor({state:'detached'});
+ assert.equal(await page.evaluate(()=>window.deletedRows.length),0);assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_purge'&&c.args.p_task_id==='purge-qa'&&c.args.p_task_version==='v3'&&c.args.p_confirmation==='ELIMINAR TAREA')));
  const day=await page.locator('[data-task="day-new"]').first().getAttribute('data-date');
  await page.locator('[data-task="day-new"]').first().click();assert.equal(await page.locator('dialog [name="starts_on"]').inputValue(),day);
  await page.getByRole('button',{name:'Cancelar',exact:true}).click();

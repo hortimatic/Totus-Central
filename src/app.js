@@ -2906,7 +2906,7 @@ document.addEventListener('click',async e=>{
   if(a==='user-purge'){if(!await confirmAction('Eliminar definitivamente la cuenta de '+el.dataset.email+'. No se podrá recuperar. Los documentos, mensajes y movimientos se conservan con sus referencias históricas. Elimina antes sus conexiones de APIs.',{phrase:'BORRAR DEFINITIVAMENTE',title:'Eliminar cuenta definitivamente',acceptLabel:'Eliminar definitivamente'}))return;const result=await invokeTeam({action:'purge_user',email:el.dataset.email});await refresh(result.message);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(isAuditPanelVisible())void refreshAuditPanel();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
+  if(a==='admin-section'){const section=el.dataset.section||'usuarios';setView('administracion',{section});if(section==='roles'){const owner=sessionViewOwner();await loadCore({route:'administracion'});if(owner!==sessionViewOwner()||state.route!=='administracion'||getView('administracion').section!==section)return;}render();if(isAuditPanelVisible())void refreshAuditPanel();if(section==='storage')await refreshStoragePanel();if(section==='onedrive')await refreshOneDrivePanel();return}
 
   if(a==='onedrive-expiry-save'){
    const expires=val('odCredentialExpiry');
