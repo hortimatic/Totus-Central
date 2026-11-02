@@ -126,7 +126,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
-const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,onUsers:()=>navigateModule('administracion'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -256,7 +256,7 @@ function render(){
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
  if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
-  const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await teamChat.openMessage(target.channel_id,target.id,target.parent_id);
+  const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await (target.channelOnly?teamChat.openChannel(target.channel_id):teamChat.openMessage(target.channel_id,target.id,target.parent_id));
  }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;

@@ -63,6 +63,14 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
    }
    const report=periodReport(data,{from,to,store});return input.adjuntar?{...report,file:delivery.stage(reportCsv(report))}:report;
   }
+  if(name==='buscar_documentos'){
+   await authorize('documentos','view');let q=client.from('ops_documents').select('id,document_date,supplier_or_customer,invoice_number,original_name,mime_type,size_bytes');
+   for(const [key,column] of [['proveedor','supplier_or_customer'],['archivo','original_name'],['numero','invoice_number']])if(input[key]){if(typeof input[key]!=='string'||input[key].length>150)throw Error('Búsqueda demasiado larga.');const term=input[key].replace(/[\\%_]/g,(char:string)=>'\\'+char);q=q.ilike(column,'%'+term+'%');}
+   for(const [key,method] of [['desde','gte'],['hasta','lte']])if(input[key]){if(!/^\d{4}-\d{2}-\d{2}$/.test(input[key])||!Number.isFinite(Date.parse(input[key]))||new Date(input[key]).toISOString().slice(0,10)!==input[key])throw Error('Fecha de búsqueda no válida.');q=q[method]('document_date',input[key]);}
+   if(input.tienda){if(!seen.has(input.tienda))throw Error('Consulta las tiendas antes de elegir una.');q=q.eq('store_id',input.tienda);}
+   const page=input.pagina||0;if(!Number.isInteger(page)||page<0||page>1000)throw Error('Página de búsqueda no válida.');const rows=check(await q.order('document_date',{ascending:false}).order('id').range(page*30,page*30+30));collect(rows);
+   return {documents:rows.slice(0,30),next_page:rows.length>30?page+1:null,guidance:'Usa el ID encontrado para enviar o leer el original. Si faltan datos prueba proveedor, nombre de archivo o número de factura; no pidas identificadores técnicos al usuario.'};
+  }
   if(name==='enviar_documento'||name==='leer_documento'){
    await authorize('documentos','view');if(!seen.has(input.document_id))throw Error('Consulta primero el documento para seleccionar su identificador real.');
    const doc=check(await client.from('ops_documents').select('*').eq('id',input.document_id).single());
