@@ -10,6 +10,11 @@ function positionOpenHelp(el){
  if(!el.open||window.innerWidth<=700)return;
  const popup=el.querySelector('[role="note"]'),trigger=el.querySelector('summary');
  if(!popup||!trigger)return;
+ if(el.closest('.modal-body')){
+  const anchor=trigger.getBoundingClientRect();popup.style.setProperty('position','fixed','important');
+  const note=popup.getBoundingClientRect(),left=Math.max(12,Math.min(anchor.left,innerWidth-note.width-12)),top=anchor.bottom+6+note.height<=innerHeight-12?anchor.bottom+6:Math.max(12,anchor.top-note.height-6);
+  popup.style.setProperty('left',left+'px','important');popup.style.setProperty('right','auto','important');popup.style.setProperty('top',top+'px','important');popup.style.setProperty('bottom','auto','important');return;
+ }
  const note=popup.getBoundingClientRect(),anchor=trigger.getBoundingClientRect();
  if(note.bottom>window.innerHeight-8&&anchor.top>=note.height+32)el.classList.add('flip-up');
  if(popup.getBoundingClientRect().right>window.innerWidth-8)el.classList.add('align-right');
@@ -32,6 +37,7 @@ if(typeof document!=='undefined'){
  document.addEventListener('focusout',event=>{const help=helpOf(event.target);if(help&&transientHelp.has(help)&&!help.contains(event.relatedTarget)){help.open=false;transientHelp.delete(help);}});
  document.addEventListener('click',event=>{const help=helpOf(event.target);if(help&&event.target.closest('summary')){event.preventDefault();const open=transientHelp.has(help)||!help.open;document.querySelectorAll('details.field-help[open]').forEach(other=>{other.open=false;});transientHelp.delete(help);help.open=open;if(!open)dismissedHelp.add(help);else dismissedHelp.delete(help);positionOpenHelp(help);}else if(!help)document.querySelectorAll('details.field-help[open]').forEach(other=>{other.open=false;transientHelp.delete(other);});});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.querySelectorAll('details.field-help[open]').forEach(help=>{help.open=false;transientHelp.delete(help);dismissedHelp.add(help);});}});
+ document.addEventListener('scroll',event=>{if(event.target?.matches?.('.modal-body'))event.target.querySelectorAll('details.field-help[open]').forEach(help=>{help.open=false;transientHelp.delete(help);});},true);
 
 }
 

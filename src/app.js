@@ -604,7 +604,7 @@ function expenseSupplierForm(row=null){
   ${formField('Retención (%)','esWh',row?.default_withholding_rate??0,'number','step="0.1" min="0" max="100"')}
   ${selectField('Modelo retención','esWhModel',[{value:'',label:'Sin modelo'},{value:'111',label:'111 · Nóminas y profesionales'},{value:'115',label:'115 · Alquiler del local'}],row?.default_withholding_model||'')}
   ${formField('% deducible','esDedPct',row?.default_deductible_pct??100,'number','min="0" max="100"')}
-  <label><input id="esDeductible" type="checkbox" ${row?.default_deductible_irpf===false?'':'checked'}> Deducible IRPF por defecto</label>
+  <label class="check-field"><input id="esDeductible" type="checkbox" ${row?.default_deductible_irpf===false?'':'checked'}> Deducible IRPF por defecto</label>
   <label class="wide">Notas<textarea id="esNotes" rows="3">${esc(row?.notes||'')}</textarea></label>
  <label class="check-field"><input id="esActive" type="checkbox" ${row?.active===false?'':'checked'}> Proveedor activo</label></div><div class="form-actions">${btn('Guardar proveedor','expense-supplier-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar proveedor de gastos':'Nuevo proveedor de gastos',body);
