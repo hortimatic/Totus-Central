@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 
-const source=readFileSync(new URL('../supabase/functions/totus-assistant/assistant-chat.ts',import.meta.url),'utf8');
+const source=readFileSync(new URL('../supabase/functions/totus-assistant/assistant-chat.ts',import.meta.url),'utf8').replace('../../../src/agent-identity.js',new URL('../src/agent-identity.js',import.meta.url).href);
 const {readTeamChat,sendTeamChat}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
-const agent={id:'agent-2',email:'codex@totuscentral.invalid'};
+const agent={id:'agent-2',email:'codex@totuscentral.invalid',app_metadata:{totus_codex:true}};
 const direct='11111111-1111-4111-8111-111111111111';
 const group='22222222-2222-4222-8222-222222222222';
 const clientId='33333333-3333-4333-8333-333333333333';
@@ -86,7 +86,7 @@ test('joined team channel can send, without a fake direct recipient',async()=>{
 
 test('non-agent user cannot use assistant chat bridge',async()=>{
  const f=fixture();
- await assert.rejects(readTeamChat(f.client,{channel_id:direct},{email:'other@example.test'}),/Sesión de ChatGPT/);
+ await assert.rejects(readTeamChat(f.client,{channel_id:direct},{email:'other@example.test'}),/Cuenta de IA autenticada/);
 });
 
 test('bad UUID or oversized text never sends',async()=>{
