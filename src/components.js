@@ -22,15 +22,16 @@ if(typeof document!=='undefined'){
  helpObserver.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['open']});
  document.addEventListener('toggle',event=>positionOpenHelp(event.target),true);
  const transientHelp=new WeakSet();
+ const dismissedHelp=new WeakSet();
  const helpOf=target=>target instanceof Element?target.closest('details.field-help'):null;
  function revealHelp(help){if(help&&!help.open){document.querySelectorAll('details.field-help[open]').forEach(other=>{if(other!==help)other.open=false;});help.open=true;transientHelp.add(help);positionOpenHelp(help);}}
  function leaveHelp(help,next){if(help&&transientHelp.has(help)&&!help.contains(next)&&!help.contains(document.activeElement)){help.open=false;transientHelp.delete(help);}}
- document.addEventListener('pointerover',event=>{if(event.pointerType==='mouse'&&matchMedia('(hover:hover)').matches)revealHelp(helpOf(event.target));});
- document.addEventListener('pointerout',event=>leaveHelp(helpOf(event.target),event.relatedTarget));
- document.addEventListener('focusin',event=>revealHelp(helpOf(event.target)));
+ document.addEventListener('pointerover',event=>{const trigger=event.target instanceof Element?event.target.closest('details.field-help>summary'):null;const help=helpOf(trigger);if(trigger&&help&&!dismissedHelp.has(help)&&event.pointerType==='mouse'&&matchMedia('(hover:hover)').matches)revealHelp(help);});
+ document.addEventListener('pointerout',event=>{const help=helpOf(event.target);leaveHelp(help,event.relatedTarget);if(help&&!help.contains(event.relatedTarget))dismissedHelp.delete(help);});
+ document.addEventListener('focusin',event=>{const trigger=event.target instanceof Element?event.target.closest('details.field-help>summary'):null;if(trigger?.matches(':focus-visible'))revealHelp(helpOf(trigger));});
  document.addEventListener('focusout',event=>{const help=helpOf(event.target);if(help&&transientHelp.has(help)&&!help.contains(event.relatedTarget)){help.open=false;transientHelp.delete(help);}});
- document.addEventListener('click',event=>{const help=helpOf(event.target);if(help&&event.target.closest('summary')&&transientHelp.has(help)){event.preventDefault();transientHelp.delete(help);help.open=true;}});
- document.addEventListener('keydown',event=>{const help=helpOf(event.target);if(help&&event.key==='Escape'){help.open=false;transientHelp.delete(help);event.preventDefault();}});
+ document.addEventListener('click',event=>{const help=helpOf(event.target);if(help&&event.target.closest('summary')){event.preventDefault();const open=transientHelp.has(help)||!help.open;document.querySelectorAll('details.field-help[open]').forEach(other=>{other.open=false;});transientHelp.delete(help);help.open=open;if(!open)dismissedHelp.add(help);else dismissedHelp.delete(help);positionOpenHelp(help);}else if(!help)document.querySelectorAll('details.field-help[open]').forEach(other=>{other.open=false;transientHelp.delete(other);});});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.querySelectorAll('details.field-help[open]').forEach(help=>{help.open=false;transientHelp.delete(help);dismissedHelp.add(help);});}});
 
 }
 

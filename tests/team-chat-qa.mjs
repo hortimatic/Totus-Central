@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chatChannelMatches,chatSearchText,chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatLayout,chatTaskPrompt} from '../src/team-chat-core.js';
+import {chatRetiredDirect,chatChannelMatches,chatSearchText,chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatMessageMatches,chatGroups,chatLayout,chatTaskPrompt} from '../src/team-chat-core.js';
 assert.equal(chatText('  Hola\r\nEquipo '),'Hola\nEquipo');
 assert.throws(()=>chatText(' '));assert.throws(()=>chatText('x'.repeat(12001)));
 assert.equal(chatChannelInput({name:'Cajas',group_name:'Hortimatic',is_private:true}).is_private,true);
@@ -41,3 +41,7 @@ assert.equal(chatChannelMatches(caf,{},'','favourites'),true);
 assert.equal(chatChannelMatches(caf,{},'','direct'),false);
 assert.equal(chatChannelMatches({...caf,unread:0},{},'','unread'),false);
 assert.equal(chatChannelMatches(caf,{group_labels:{Hortimatic:'Alcalá'}},'alcala'),true);
+
+assert.equal(chatRetiredDirect({channel_kind:'direct',direct_key:'owner|deleted'},[{email:'owner'}],'owner'),true);
+assert.equal(chatRetiredDirect({channel_kind:'direct',direct_key:'owner|active'},[{email:'owner'},{email:'active'}],'owner'),false);
+assert.equal(chatRetiredDirect({channel_kind:'channel'},[],'owner'),false);

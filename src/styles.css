@@ -100,7 +100,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .field-caption{display:flex;align-items:center;gap:4px;min-width:0}
 .field-caption .field-help{flex:0 0 auto;line-height:1}
 
-.field-help{display:inline-block!important;position:relative!important;vertical-align:middle!important;margin-inline-start:6px!important;z-index:3}
+.field-help{display:inline-block!important;width:24px!important;max-width:24px;justify-self:start;position:relative!important;vertical-align:middle!important;margin-inline-start:6px!important;z-index:3}
 .field-help[open]{z-index:60}
 .field-help>summary{display:inline-grid!important;place-items:center!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;padding:0!important;border:0!important;border-radius:50%;background:transparent;color:#2468c2;cursor:pointer;list-style:none;user-select:none}
 .field-help>summary>.field-help-icon{display:block!important;visibility:visible!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round;fill:none}

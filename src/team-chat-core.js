@@ -61,3 +61,9 @@ export function chatChannelMatches(channel,layout,query='',view='all'){
  const matches=!query||[channel.name,group,layout.group_labels?.[group]].some(value=>chatSearchText(value).includes(chatSearchText(query.trim())));
  return matches&&(view==='all'||view==='unread'&&Number(channel.unread)>0||view==='favourites'&&channel.favourite||view==='direct'&&channel.channel_kind==='direct');
 }
+export function chatRetiredDirect(channel,directory,owner){
+ if(channel.channel_kind!=='direct'||typeof channel.direct_key!=='string')return false;
+ const peers=channel.direct_key.split('|').filter(email=>email&&email!==owner);
+ if(peers.length!==1)return false;
+ return !directory.some(person=>person.email===peers[0]);
+}
