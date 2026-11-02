@@ -15,6 +15,7 @@ try{
   await page.waitForTimeout(150);let m=await metrics();assert.equal(m.scroll,0,'Page must start without needing document scroll '+JSON.stringify(m));assert(m.compose.bottom<=height+1,'Composer must fit the full application shell '+JSON.stringify(m));assert(m.messages.height>=50,'Messages retain a readable area '+JSON.stringify(m));
   await page.locator('#chatBody').fill('Borrador sin enviar');await page.waitForTimeout(80);m=await metrics();assert(m.compose.bottom<=height+1,JSON.stringify(m));
   await page.evaluate(()=>window.scrollTo(0,200));await page.waitForTimeout(150);m=await metrics();assert(m.root.bottom<=height+1,'Scroll must not grow the workspace '+JSON.stringify(m));assert(m.scroll<=2,'Chat must not create a second document scrollbar '+JSON.stringify(m));
+  if(width<1100){await page.locator('[data-chat=mobile-channels]').click();assert.equal(await page.locator('.chat-conversation').isVisible(),false,'Channel list must remain separate on narrow screens');await page.locator('[data-chat=open][data-id=fit-channel]').click();assert.equal(await page.locator('#chatBody').inputValue(),'Borrador sin enviar');}
   await mkdir('artifacts/chat-fit',{recursive:true});await page.screenshot({path:'artifacts/chat-fit/'+width+'x'+height+'.png'});assert.deepEqual(errors,[]);await page.close();
  }
  console.log('CHAT SHELL FIT QA: actual app header, desktop and mobile, draft, focus and document scroll.');
