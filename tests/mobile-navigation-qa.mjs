@@ -17,7 +17,8 @@ const checkActiveTab=async section=>{
  });
  assert(visible.left>=visible.barLeft-3&&visible.right<=visible.barRight+3,
   'Subpestaña '+section+' activa pero oculta tras render: '+JSON.stringify(visible));
- assert(await page.locator('#content .tab-scroll-hint').isVisible(),'Falta la indicación de desplazamiento entre subpestañas');
+ assert(await navBar.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Las subpestañas no deben requerir desplazamiento horizontal');
+ assert(await navBar.locator('.tab').evaluateAll(es=>es.every(el=>{const t=el.getBoundingClientRect(),b=el.closest('.module-tabs').getBoundingClientRect();return t.left>=b.left-1&&t.right<=b.right+1&&t.top>=b.top-1&&t.bottom<=b.bottom+1;})),'Todas las subpestañas deben caber dentro de la barra');
 };
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
