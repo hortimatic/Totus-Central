@@ -60,7 +60,7 @@ begin
   update private.totus_ai_config set usage_day=c.usage_day,calls_today=c.calls_today+1 where id;
  end if;
  end if;
-end $;
+end $$;
 
 create or replace function public.totus_ai_job_config(p_job uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 declare j private.totus_ai_jobs;c private.totus_ai_config;p private.totus_api_connections;uid uuid;cred jsonb;reader jsonb;

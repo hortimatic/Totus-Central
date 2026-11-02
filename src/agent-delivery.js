@@ -23,5 +23,5 @@ export async function readAuthorizedDocument(client,doc,authorize,request=fetch)
 const cell=v=>{const text=typeof v==='number'?String(v).replace('.',','):String(v??'');return '"'+(typeof v==='string'&&/^[=+@\-\t\r]/.test(text)?"'":'')+text.replaceAll('"','""')+'"';};
 export function reportCsv(report){
  const rows=[['Informe Totus Central','EUR'],['Desde',report.from],['Hasta',report.to],['Tienda',report.store],['Ingresos',report.income],['Gastos registrados',report.recorded_expenses],['Gastos internos',report.internal_expenses],['Resultado antes de impuestos',report.result_before_taxes],...Object.entries(report.income_breakdown||{}).map(([k,v])=>['Ingresos · '+k,v]),['Nota',report.note]];
- return new File(['\ufeff'+rows.map(row=>row.map(cell).join(';')).join('\r\n')],'Informe_'+report.from+'_'+report.to+'.csv',{type:'text/csv'});
+ return new File(['\ufeff'+rows.map(row=>row.map(cell).join(';')).join('\r\n')],'Informe_'+report.from+'_'+report.to+'_'+String(report.store||'all').replace(/[^A-Za-z0-9_-]/g,'_')+'.csv',{type:'text/csv'});
 }

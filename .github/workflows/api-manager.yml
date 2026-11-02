@@ -21,7 +21,7 @@ jobs:
         env:
           PGPASSWORD: test-only
         run: |
-          for file in tests/cloudflare-db-fixture.sql supabase/review_patches/040_cloudflare_agent.sql supabase/review_patches/044_api_connections.sql tests/api-manager-db-qa.sql supabase/review_patches/045_api_agent_selection.sql supabase/review_patches/046_api_technical_users.sql tests/api-selection-db-qa.sql supabase/review_patches/047_api_verification_failure.sql tests/api-verification-failure-db-qa.sql supabase/review_patches/048_api_identity_validation.sql tests/api-identity-validation-db-qa.sql supabase/review_patches/049_api_chat_routing.sql tests/api-chat-routing-db-qa.sql; do
+          for file in tests/cloudflare-db-fixture.sql supabase/review_patches/040_cloudflare_agent.sql supabase/review_patches/044_api_connections.sql tests/api-manager-db-qa.sql supabase/review_patches/045_api_agent_selection.sql supabase/review_patches/046_api_technical_users.sql tests/api-selection-db-qa.sql supabase/review_patches/047_api_verification_failure.sql tests/api-verification-failure-db-qa.sql supabase/review_patches/048_api_identity_validation.sql tests/api-identity-validation-db-qa.sql supabase/review_patches/050_api_actor_readiness.sql supabase/review_patches/049_api_chat_routing.sql tests/api-chat-routing-db-qa.sql; do
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$file"
           done
       - name: Preserve the current Cloudflare configuration and counters
