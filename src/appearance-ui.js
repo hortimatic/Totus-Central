@@ -104,5 +104,5 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
   preview();syncControls();
  }
  function load(){const row=settings(section)||{};revision=Number(row.appearance_revision||0);values=appearanceValues(section,row[section==='interfaz'?'appearance_config':'login_appearance']);baseline=JSON.stringify(values);paint();}
- return {mount(element){host=element;owner=actor();epoch++;busy=false;host.dataset.appearanceSection='';load();},hasDraft:dirty,dispose(){epoch++;host=null;owner=null;busy=false;}};
+ return {mount(element){host=element;owner=actor();epoch++;busy=false;host.dataset.appearanceSection='';load();},showSection(next){if(!['interfaz','login'].includes(next)||!host||busy)return;section=next;load();},hasDraft:dirty,dispose(){epoch++;host=null;owner=null;busy=false;}};
 }

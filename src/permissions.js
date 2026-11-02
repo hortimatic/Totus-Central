@@ -33,7 +33,9 @@ export function rolePermissions(role,module){
  if(!saved)return base;
  return Object.fromEntries(PERMISSION_ACTIONS.map(([action])=>[action,saved['can_'+action]===true]));
 }
+export const CONTACT_PERMISSION_SOURCE={clientes:'facturacion',proveedores:'gastos',marcas:'pricing'};
 export function permissionsFor(user,module,entries=[]){
+ module=CONTACT_PERMISSION_SOURCE[module]||module;
  const original=rolePermissions(user?.role,module);
  if(user?.role==='admin')return original;
  const row=entries.find(p=>p.module===module&&String(p.email||'').toLowerCase()===String(user?.email||'').toLowerCase());

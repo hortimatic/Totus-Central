@@ -99,7 +99,8 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
  await navigateModule('equipo',null,()=>{pendingChatTarget=message;});
 }});
 const titles={
- equipo:['Trabajo','Chat'],tareas:['Trabajo','Tareas'],
+ clientes:['Contactos','Clientes'],proveedores:['Contactos','Proveedores'],marcas:['Contactos','Marcas'],
+ equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración'],configuracion:['Sistema','Configuración']
@@ -252,7 +253,7 @@ function render(){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
    $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml({gemini:state.data.team.find(member=>member.email==='gemini@totuscentral.invalid')}));
-   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),guard:()=>appearanceUI.hasDraft()||cloudflareConnection.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));}});
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||cloudflareConnection.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));}});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
@@ -1105,13 +1106,13 @@ function familiesManager(){
  modal('Marcas y familias',body);
 }
 function brandForm(row=null){
- const body=`<div class="form-grid">${formField('Nombre','brName',row?.name||'')}</div><div class="form-actions">${btn('Guardar marca','brand-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ const body=`<div class="form-grid">${formField('Nombre','brName',row?.name||'')}${formField('Web','brWeb',row?.website||'','url')}${formField('Email','brEmail',row?.email||'','email')}${formField('Teléfono','brPhone',row?.phone||'')}<label class="wide">Notas<textarea id="brNotes">${esc(row?.notes||'')}</textarea></label></div><div class="form-actions">${btn('Guardar marca','brand-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar marca':'Nueva marca',body,{small:true});
 }
 async function saveBrand(id=''){
  const name=required('brName','Nombre');
  const dup=state.data.brands.find(x=>x.id!==id&&String(x.name||'').trim().toLowerCase()===name.toLowerCase());if(dup)throw new Error('Ya existe una marca con ese nombre.');
- if(id)await update('brands',id,{name});else await insert('brands',{name});
+ const fields={name,website:val('brWeb').trim(),email:val('brEmail').trim(),phone:val('brPhone').trim(),notes:val('brNotes').trim()};if(id)await update('brands',id,fields);else await insert('brands',fields);
  closeModal();await refresh('Marca guardada.');
 }
 async function deleteBrand(id){
@@ -1143,11 +1144,11 @@ function providersManager(){
  modal('Proveedores',body);
 }
 function providerForm(row=null){
- const body=`<div class="form-grid">${formField('Nombre','pvName',row?.name||'')}</div><div class="form-actions">${btn('Guardar proveedor','provider-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
+ const body=`<div class="form-grid">${formField('Nombre','pvName',row?.name||'')}${formField('NIF/CIF','pvTax',row?.tax_id||'')}${formField('Email','pvEmail',row?.email||'','email')}${formField('Teléfono','pvPhone',row?.phone||'')}${formField('Dirección','pvAddress',row?.address||'')}${formField('Ciudad','pvCity',row?.city||'')}${formField('Código postal','pvPostal',row?.postal_code||'')}${formField('Provincia','pvProvince',row?.province||'')}${formField('País','pvCountry',row?.country||'España')}<label class="check"><input type="checkbox" id="pvActive" ${row?.active===false?'':'checked'}> Proveedor activo</label><label class="wide">Notas<textarea id="pvNotes">${esc(row?.notes||'')}</textarea></label></div><div class="form-actions">${btn('Guardar proveedor','provider-save','primary',row?`data-id="${row.id}"`:'')}</div>`;
  modal(row?'Editar proveedor':'Nuevo proveedor',body,{small:true});
 }
 async function saveProvider(id=''){
- const row={name:required('pvName','Nombre'),active:true};
+ const row={name:required('pvName','Nombre'),active:document.getElementById('pvActive').checked,tax_id:val('pvTax').trim(),email:val('pvEmail').trim(),phone:val('pvPhone').trim(),address:val('pvAddress').trim(),city:val('pvCity').trim(),postal_code:val('pvPostal').trim(),province:val('pvProvince').trim(),country:val('pvCountry').trim(),notes:val('pvNotes').trim()};
  if(id)await update('providers',id,row);else await insert('providers',row);
  closeModal();await refresh('Proveedor guardado.');
 }

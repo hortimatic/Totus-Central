@@ -18,5 +18,5 @@ const paths={
  plus:'M12 4v16M4 12h16',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14M15 15l6 6',
  eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6',settings:'M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6M10 15v6'
 };
-export function interfaceIcon(name){return '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="'+(paths[name]||paths.records)+'"/></svg>';}
+export function interfaceIcon(name){name=({clientes:'facturacion',proveedores:'gastos',marcas:'pricing'})[name]||name;return '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="'+(paths[name]||paths.records)+'"/></svg>';}
 export function metricIcon(label){return /tarjeta/i.test(label)?'card':/metálico|efectivo|cobro/i.test(label)?'cash':/borrador|pendiente/i.test(label)?'draft':/descuadre|incidencia/i.test(label)?'warning':/gasto/i.test(label)?'gastos':/ingreso|venta|beneficio|resultado/i.test(label)?'informes':'records';}

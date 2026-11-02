@@ -11,7 +11,8 @@ try{
   window.calls=[];window.confirmations=[];window.rows=[{task_id:'t1',scheduled_on:taskToday(),starts_on:taskToday(),ends_on:null,repeat_kind:'daily',repeat_every:1,weekdays:[],checklist:['Contar'],checked:[],title:'Revisar Vape',description:'Caja de tienda',state:'pending',store_id:'h',assigned_email:'a@qa.invalid',priority:'high',can_manage:true,task_version:'v1',occurrence_version:null}];
   window.controller=createTasks({actor:()=> 'a@qa.invalid',confirm:async message=>{window.confirmations.push(message);return true;},onError:e=>{window.lastError=e;},rpc:async(name,args)=>{
    window.calls.push({name,args});
-   if(name==='totus_tasks_context')return {rows:window.rows,archived_tasks:window.archivedRows||[],stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
+   if(name==='totus_tasks_context')return {rows:window.rows,archived_tasks:window.archivedRows||[],deleted_tasks:window.deletedRows||[],stores:[{id:'h',name:'Hortimatic'},{id:'n',name:'NewOldSmok'}],people:[{email:'a@qa.invalid',name:'Diego'}]};
+   if(name==='totus_task_remove'){if(args.p_restore){window.archivedRows=window.deletedRows;window.deletedRows=[];}else{window.deletedRows=window.archivedRows;window.archivedRows=[];}return {id:args.p_task_id,deleted:!args.p_restore};}
    if(name==='totus_task_from_message')return null;
    if(name==='totus_task_history')return [];
    if(name==='totus_task_command'){if(args.p_action==='archive'&&args.p_data.archived===false)window.archivedRows=[];return {id:'t1'};}
@@ -71,6 +72,11 @@ try{
  assert(await page.evaluate(()=>window.calls.some(c=>c.name==='totus_task_command'&&c.args.p_action==='archive'&&c.args.p_data.task_id==='archived-qa'&&c.args.p_data.archived===false)));
  await page.locator('[data-task="archived"]').click();await page.getByText('No hay tareas archivadas.',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ await page.evaluate(()=>window.archivedRows=[{task_id:'remove-qa',title:'Eliminar y recuperar',task_version:'v2',can_manage:true}]);
+ await page.locator('[data-task=refresh]').click();await page.locator('[data-task=archived]').click();await page.locator('[data-task=delete-archived]').click();
+ await page.locator('[data-task=deleted]').click();await page.getByRole('heading',{name:'Tareas eliminadas',exact:true}).waitFor();await page.getByText('Eliminar y recuperar',{exact:true}).waitFor();await page.locator('[data-task=recover-deleted]').click();
+ await page.locator('[data-task=archived]').click();await page.getByText('Eliminar y recuperar',{exact:true}).waitFor();await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+ assert(await page.evaluate(()=>window.calls.filter(c=>c.name==='totus_task_remove').length===2));
  const day=await page.locator('[data-task="day-new"]').first().getAttribute('data-date');
  await page.locator('[data-task="day-new"]').first().click();assert.equal(await page.locator('dialog [name="starts_on"]').inputValue(),day);
  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
