@@ -644,9 +644,11 @@ function adminRolesHtml(){
  if(!isAdmin())return '<section class="card card-pad"><h2>Roles y permisos</h2><p>Solo el administrador puede gestionar roles.</p></section>';
  const records=(state.data.roles||[]).slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||a.name.localeCompare(b.name,'es'));
  const cards=records.map(role=>{
-  const people=state.data.team.filter(t=>t.role===role.code);
+  const assigned=state.data.team.filter(t=>t.role===role.code);
+  const people=assigned.filter(t=>!t.deleted_at&&!t.purged_at);
+  const activePeople=people.filter(t=>t.active!==false);
   const modules=PERMISSION_MODULES.filter(([m])=>rolePermissions(role.code,m).view).length;
-  const canDelete=!role.is_system&&people.length===0;
+  const canDelete=!role.is_system&&assigned.length===0;
   const buttons=[
    role.code!=='admin'?btn('Configurar permisos','role-permissions','primary',`data-role="${esc(role.code)}"`):'<span class="role-fixed-access" title="El administrador dispone de todos los permisos y su acceso es permanente">Acceso completo · permanente</span>',
    role.code!=='admin'?btn('Editar nombre','role-rename','secondary',`data-role="${esc(role.code)}"`):'',
@@ -658,7 +660,7 @@ function adminRolesHtml(){
    return `<div class="role-scope-row"><span>${esc(label)}</span><span>${esc(actions||'Sin acceso')}</span></div>`;
   }).join('');
   return `<article class="card card-pad role-card"><div class="section-head"><div><h3>${esc(role.name)}</h3><p>${esc(role.description||'Permisos configurables por módulo')}</p></div><span class="badge ${role.is_system?'info':'ok'}">${role.is_system?'Rol del sistema':'Personalizado'}</span></div>
-    <div class="role-meta"><span><b>${people.length}</b> usuario${people.length===1?'':'s'}</span><span><b>${modules}</b> de ${PERMISSION_MODULES.length} módulos visibles</span></div>
+    <div class="role-meta"><span><b>${people.length}</b> usuario${people.length===1?'':'s'} · ${activePeople.length} activo${activePeople.length===1?'':'s'}${people.length!==activePeople.length?' · '+(people.length-activePeople.length)+' inactivos':''}</span><span><b>${modules}</b> de ${PERMISSION_MODULES.length} módulos visibles</span></div>
     <details class="role-details"><summary>Ver permisos actuales <span aria-hidden="true">⌄</span></summary><div class="role-scope-list">${summary}</div></details>
     <div class="inline-actions role-actions">${buttons}</div></article>`;
  }).join('');

@@ -39,4 +39,7 @@ assert.ok(html.includes('Configurar permisos'),'Debe poder editar los roles');
 assert.ok(html.includes('role-new'),'Debe poder crear nuevos roles');
 assert.ok(html.includes('Gerencia')&&html.includes('Encargado'),'Los roles deben estar separados');
 assert.ok(!html.includes('data-role="admin"'),'No permitir editar al administrador');
+state.data.team=[{role:'gerente',active:true},{role:'gerente',active:false},{role:'gerente',active:false,deleted_at:'2026-11-02'},{role:'gerente',active:false,deleted_at:'2026-11-02',purged_at:'2026-11-02'}];
+let counts=administracion();assert(counts.includes('<b>2</b> usuarios · 1 activo · 1 inactivos'),'No contar retirados o purgados como usuarios actuales');
+state.data.team[0].role='encargado';counts=administracion();assert(counts.includes('<b>1</b> usuario · 0 activos · 1 inactivos'),'Actualizar el recuento al cambiar de rol');
 console.log('ROLES & HELP QA: rol configurable, excepciones, 12 módulos y ayudas i OK');

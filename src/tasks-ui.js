@@ -63,12 +63,27 @@ export function createTasks({rpc,actor,can=()=>true,onError=()=>{},onSource=()=>
   if(who!==actor()||stamp!==epoch||!host)return;busy=true;
   try{await rpc('totus_task_remove',{p_task_id:t.task_id,p_task_version:t.task_version,p_restore:restore});if(who!==actor()||stamp!==epoch||!host)return;close();await refresh();}catch(e){if(who===actor())error(e);}finally{busy=false;}
  }
+ function purgeTask(t){
+  if(busy||!can('delete')||!t?.can_manage)return;
+  const who=owner,stamp=epoch;
+  modal('Eliminar tarea definitivamente','<p><b>'+esc(t.title)+'</b></p><div class="note warn">Se borrarán esta tarea, sus apariciones y su historial de tarea. No podrá recuperarse desde Eliminadas. Se conservarán la conversación, los documentos y un registro de la eliminación en Log.</div><label>Escribe ELIMINAR TAREA<input name="purge_confirmation" autocomplete="off"></label><p data-purge-error role="alert"></p><button type="button" class="btn danger" data-purge-confirm disabled>Eliminar definitivamente</button>',null);
+  const form=dialog,input=form.querySelector('[name=purge_confirmation]'),button=form.querySelector('[data-purge-confirm]');
+  input.oninput=()=>{button.disabled=input.value.trim()!=='ELIMINAR TAREA';};
+  button.onclick=async()=>{
+   if(busy||who!==actor()||stamp!==epoch||dialog!==form||input.value.trim()!=='ELIMINAR TAREA')return;
+   busy=true;button.disabled=true;
+   try{await rpc('totus_task_purge',{p_task_id:t.task_id,p_task_version:t.task_version,p_confirmation:input.value.trim()});if(who!==actor()||stamp!==epoch||dialog!==form)return;close();await refresh();}
+   catch(e){if(who===actor()&&dialog===form){form.querySelector('[data-purge-error]').textContent=e.message||String(e);button.disabled=false;}}
+   finally{busy=false;}
+  };
+ }
  async function click(e){
   const b=e.target.closest('[data-task]');if(!b||busy)return;
   try{const action=b.dataset.task;
    if(action==='deleted'){
-    modal('Tareas eliminadas',(data.deleted_tasks||[]).length?data.deleted_tasks.map(t=>'<div class="summary-row"><span>'+esc(t.title)+'</span>'+(t.can_manage?btn('Recuperar tarea','recover-deleted','data-id="'+esc(t.task_id)+'"'):'')+'</div>').join(''):'<p>No hay tareas eliminadas.</p>',null);
-    dialog.querySelectorAll('[data-task=recover-deleted]').forEach(b=>b.onclick=()=>removeTask(data.deleted_tasks.find(t=>t.task_id===b.dataset.id),true));return;
+    modal('Tareas eliminadas',(data.deleted_tasks||[]).length?data.deleted_tasks.map(t=>'<div class="summary-row"><span>'+esc(t.title)+'</span>'+(t.can_manage?btn('Recuperar tarea','recover-deleted','data-id="'+esc(t.task_id)+'"')+(can('delete')?taskButton('Eliminar definitivamente','purge-deleted','data-id="'+esc(t.task_id)+'"','danger'):''):'')+'</div>').join(''):'<p>No hay tareas eliminadas.</p>',null);
+    dialog.querySelectorAll('[data-task=recover-deleted]').forEach(b=>b.onclick=()=>removeTask(data.deleted_tasks.find(t=>t.task_id===b.dataset.id),true));
+    dialog.querySelectorAll('[data-task=purge-deleted]').forEach(b=>b.onclick=()=>purgeTask(data.deleted_tasks.find(t=>t.task_id===b.dataset.id)));return;
    }
    if(action==='archived'){
     modal('Tareas archivadas',(data.archived_tasks||[]).length?(data.archived_tasks||[]).map(t=>'<div class="summary-row"><span>'+esc(t.title)+'</span>'+(t.can_manage?btn('Recuperar','restore','data-id="'+esc(t.task_id)+'"')+btn('Eliminar','delete-archived','data-id="'+esc(t.task_id)+'"','danger'):'')+'</div>').join(''):'<p>No hay tareas archivadas.</p>',null);
