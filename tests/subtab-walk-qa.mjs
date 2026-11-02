@@ -9,7 +9,7 @@ const routes=[
  {route:'gastos',action:'expense-section',sections:['registros','facturas']},
  {route:'facturacion',action:'billing-section',sections:['documentos','clientes','plantillas','series']},
  {route:'documentos',sections:[null]},
- {route:'recepciones',sections:[null]},
+ {route:'cotejos',sections:[null]},
  {route:'tareas',sections:[null]},
  {route:'equipo',sections:[null]},
  {route:'configuracion',sections:[null]},

@@ -4,10 +4,11 @@ import {mkdir,writeFile} from 'node:fs/promises';
 await mkdir('artifacts/mobile-audit',{recursive:true});
 const browser=await chromium.launch({headless:true}),results=[];
 try{
- for(const [width,height] of [[320,640],[390,844],[430,932],[700,900],[844,390]]){
+ for(const [width,height] of [[320,640],[390,844],[430,932],[700,900],[390,360],[844,390]]){
  const page=await browser.newPage({viewport:{width,height}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
+ for(const css of ['interface-design','appearance','stitch-design'])await page.addStyleTag({url:'http://127.0.0.1:4173/src/'+css+'.css'});
   await page.evaluate(async()=>{
   const {createTeamChat}=await import('../src/team-chat-ui.js');
   const q=window.integral={owner:'admin@qa.invalid',calls:[],messages:[],members:[{email:'admin@qa.invalid',member_role:'manager'}],channels:[{id:'a',name:'Canal A',group_name:'Equipo',member_role:'manager',last_read_seq:9999},{id:'b',name:'Canal B',group_name:'Equipo',member_role:'manager',last_read_seq:9999}],layout:{}};
@@ -34,7 +35,7 @@ try{
  assert(m.messages.height>=(height<500?90:300),'Reading space collapsed '+JSON.stringify(m));
  assert(m.compose.bottom<=height+1,'Editor outside viewport');assert(m.scroll<=width+2,'Horizontal page overflow');
  await page.locator('#chatBody').fill('Borrador móvil ficticio');
- if(width<=700){
+ if(width<=700&&height>500){
  await page.locator('[data-chat="compose-tools"]').click();
  assert.equal(await page.locator('#chatBody').inputValue(),'Borrador móvil ficticio');
  for(const selector of ['#chatFiles','#chatMention','[data-chat="buzz"]','[name="request_chatgpt"]','[name="request_totus_ai"]'])assert(await page.locator(selector).isVisible(),selector+' inaccessible');
