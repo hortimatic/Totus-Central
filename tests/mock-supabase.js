@@ -400,7 +400,8 @@ window.fetch=async (url,opts)=>{
   return new Response(JSON.stringify({provider:'supabase'}),{status:200,headers:{'Content-Type':'application/json'}});
 
  if(String(url).includes('/functions/v1/team-admin')){
-  const p=JSON.parse(opts?.body||'{}');
+  const p=JSON.parse(opts?.body||'{}');(window.__mockTeamCalls||=[]).push(p);
+  if(p.action==='purge_user'){const row=db.team_members.find(x=>x.email===p.email);if(!row?.deleted_at)return new Response(JSON.stringify({error:'Retira primero el acceso'}),{status:400});row.purged_at='2026-01-01';return new Response(JSON.stringify({ok:true,message:'Cuenta eliminada definitivamente.'}),{status:200,headers:{'Content-Type':'application/json'}})}
   if(p.action==='create_user'){db.team_members.push({id:uuid(),email:p.email,full_name:p.full_name,role:p.role,active:true});return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   if(p.action==='update_member'){const row=db.team_members.find(x=>x.email===p.email);if(row)Object.assign(row,p);return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
   if(p.action==='set_active'){const row=db.team_members.find(x=>x.email===p.email);if(row)row.active=p.active;return new Response(JSON.stringify({ok:true}),{status:200,headers:{'Content-Type':'application/json'}})}
