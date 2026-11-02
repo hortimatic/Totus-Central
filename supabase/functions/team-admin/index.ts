@@ -1,3 +1,4 @@
+import {purgeUserAccess} from './purge-user.ts'
 import {retireUserAccess} from './retire-user.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 
@@ -126,6 +127,10 @@ Deno.serve(async(req:Request)=>{
    try{await lastAdminGuard(email,undefined,false,true);const existing=await findAuthUser(email);return json(await retireUserAccess({scoped,admin,email,existing}));}catch(e){const msg=e instanceof Error?e.message:'Error retirando usuario';await audit(email,'user_retired','failed',msg);return json({error:msg},400)}
   }
 
+  if(action==='purge_user'){
+   const email=cleanEmail(body.email);if(!validEmail(email))return json({error:'Email no válido'},400);if(email===callerEmail)return json({error:'No puedes eliminar tu propia cuenta.'},400);
+   try{return json(await purgeUserAccess({scoped,admin,email}));}catch(e){const msg=e instanceof Error?e.message:'Error eliminando definitivamente el usuario';await audit(email,'user_purge','failed',msg);return json({error:msg},400);}
+  }
   if(action==='restore_user'){
    const email=cleanEmail(body.email);if(!validEmail(email))return json({error:'Email no válido'},400);
    const {data:target,error:readError}=await admin.from('team_members').select('email,deleted_at').eq('email',email).maybeSingle();if(readError)throw readError;if(!target?.deleted_at)return json({error:'El usuario no está eliminado.'},400);
@@ -133,7 +138,7 @@ Deno.serve(async(req:Request)=>{
    const result=await scoped.rpc('totus_restore_user',{p_email:email});if(result.error)throw result.error;return json({ok:true,message:'Usuario recuperado. Sus conexiones permanecen desactivadas.'});
   }
   if(action==='list'){
-   const {data,error}=await admin.from('team_members').select('email,full_name,role,active,created_at,phone,job_title,store,employee_notes,avatar_url,avatar_path,updated_at,deleted_at,auth_cleanup_pending').order('full_name');if(error)return json({error:error.message},400)
+   const {data,error}=await admin.from('team_members').select('email,full_name,role,active,created_at,phone,job_title,store,employee_notes,avatar_url,avatar_path,updated_at,deleted_at,auth_cleanup_pending,purged_at').is('purged_at',null).order('full_name');if(error)return json({error:error.message},400)
    let users:any[]=[];try{users=await listAuthUsers()}catch(e){return json({error:e instanceof Error?e.message:'Error consultando autenticación'},400)}
    const result=(data||[]).map(m=>{const au=users.find(u=>(u.email||'').toLowerCase()===m.email.toLowerCase());return{...m,registered:!!au,confirmed:!!au?.email_confirmed_at,email_confirmed_at:au?.email_confirmed_at||null,last_sign_in_at:au?.last_sign_in_at||null,auth_created_at:au?.created_at||null}})
    return json({ok:true,users:result})
