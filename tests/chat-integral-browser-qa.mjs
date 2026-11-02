@@ -12,7 +12,7 @@ try{
   const q=window.integral={owner:'admin@qa.invalid',calls:[],messages:[],members:[{email:'admin@qa.invalid',member_role:'manager'}],channels:[{id:'a',name:'Canal A',group_name:'Equipo',member_role:'manager',last_read_seq:9999},{id:'b',name:'Canal B',group_name:'Equipo',member_role:'manager',last_read_seq:9999}],layout:{}};
   for(let i=1;i<=30;i++)q.messages.push({id:'m'+i,seq:i,channel_id:'a',body:'Mensaje '+i+' '+('contenido '.repeat(25)),author_email:'other@qa.invalid',created_at:'2026-10-29T10:00:00Z'});
   q.c=createTeamChat({actor:()=>q.owner,confirm:async()=>true,subscribe:(_id,fn)=>{q.notify=fn;return()=>{};},rpc:async(name,p)=>{
-   q.calls.push({name,p:structuredClone(p)});
+   q.calls.push({name,p:structuredClone(p)});if(name==='totus_chat_ai_accounts')return q.noAssistant?[]:[{email:'gpt@qa.invalid',name:'ChatGPT',chatgpt:true,mode:'manual'}];
    if(name==='totus_chat_context')return structuredClone({channels:q.channels,messages:q.messages.filter(m=>m.channel_id===p.p_channel),members:q.members,directory:[{email:q.owner,name:'Administración'},{email:'other@qa.invalid',name:'Compañero'}],layout:q.layout});
    if(name==='totus_chat_command'){
     const d=p.p_data;
@@ -59,15 +59,15 @@ try{
  await page.evaluate(()=>integral.c.openMessage('b','mb'));await page.locator('#chatBody').fill('No borrar el borrador B');
  await page.evaluate(()=>{integral.holdSend=false;integral.releaseSend();delete integral.releaseSend;});await page.getByRole('button',{name:'Enviar',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('.chat-compose button[type=submit]').disabled);
  assert.equal(await page.locator('#chatBody').inputValue(),'No borrar el borrador B');await open('a');assert.equal(await page.locator('#chatBody').inputValue(),'');
- // One user action saves the message before creating the request.
- await page.locator('#chatBody').fill('Solicitud ficticia');await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();await page.getByText('Esperando a ChatGPT',{exact:true}).waitFor();
- const actions=await page.evaluate(()=>integral.calls.filter(c=>c.name==='totus_chat_command').map(c=>c.p.p_action));assert(actions.lastIndexOf('send')<actions.lastIndexOf('agent_request'));
- // Failed request must not pretend the message failed or duplicate it.
- await page.evaluate(()=>integral.failRequest=true);await page.locator('#chatBody').fill('Conservar mensaje si falla petición');await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();await page.locator('[data-chat-error]').filter({hasText:'El mensaje está guardado'}).waitFor();assert.equal(await page.evaluate(()=>integral.messages.filter(m=>m.body==='Conservar mensaje si falla petición').length),1);
- // Private channel without invitation: no agent_request reaches the server.
- await page.evaluate(()=>{integral.failRequest=false;integral.channels[0].is_private=true;});await page.locator('[data-chat="refresh"]').click();
- const requestsBefore=await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='agent_request').length);
- await page.locator('#chatBody').fill('Petición privada sin invitación');await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();await page.locator('[data-chat-error]').filter({hasText:'Invita a ChatGPT'}).waitFor();assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='agent_request').length),requestsBefore);
+ // Preparing a manual request keeps the current destination and never creates a fake running job.
+ await page.locator('#chatBody').fill('Solicitud ficticia');await page.getByRole('button',{name:'Enviar',exact:true}).click();await page.getByText('Solicitud ficticia',{exact:true}).waitFor();
+ const prepare=async body=>{const id=await page.evaluate(body=>integral.messages.find(m=>m.body===body).id,body);await page.locator('[data-chat="agent-request"][data-id="'+id+'"]').click();};
+ await prepare('Solicitud ficticia');await page.locator('dialog textarea').waitFor();assert((await page.locator('dialog textarea').inputValue()).includes('private.totus_assistant_submit'));await page.locator('dialog [data-chat-close]').click();
+ assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='agent_request').length),0);
+ // Missing assistant configuration does not duplicate or erase the saved source message.
+ await page.evaluate(()=>integral.noAssistant=true);await page.locator('[data-chat="refresh"]').click();await prepare('Solicitud ficticia');await page.locator('[data-chat-error]').filter({hasText:'Vincula primero'}).waitFor();assert.equal(await page.evaluate(()=>integral.messages.filter(m=>m.body==='Solicitud ficticia').length),1);
+ // Private membership is checked against the actually bound ChatGPT account.
+ await page.evaluate(()=>{integral.noAssistant=false;integral.channels[0].is_private=true;});await page.locator('[data-chat="refresh"]').click();await prepare('Solicitud ficticia');await page.locator('[data-chat-error]').filter({hasText:'Invita a ChatGPT'}).waitFor();assert.equal(await page.evaluate(()=>integral.calls.filter(c=>c.p?.p_action==='agent_request').length),0);
  // Atajos and responsive surfaces: no horizontal document overflow.
  await chatAction(page,'shortcuts');await page.getByRole('heading',{name:'Atajos y ayuda'}).waitFor();await page.locator('dialog [data-chat-close]').click();
  for(const [width,height] of [[1920,1080],[1440,900],[1024,768],[768,1024],[390,844],[360,740]]){

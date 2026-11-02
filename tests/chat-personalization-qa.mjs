@@ -31,3 +31,5 @@ assert.equal((await transport.rpc('totus_chat_context',{})).layout.chat_backgrou
 owner='second';await transport.rpc('totus_chat_context',{});assert.equal(requests[2].args.p_background_hash,'','New user does not reuse another image hash');
 const delayed=createChatPreferenceTransport({actor:()=>owner,rpc:()=>new Promise(r=>resolve=r)});const flight=delayed.rpc('totus_chat_context',{});delayed.reset();resolve({layout:{chat_background_image:'stale'}});await assert.rejects(flight,/sesión/);
 console.log('Chat personalization: validation, injection rejection, sound profiles, volume, buzz and notifier preferences OK');
+
+assert.equal(chatPreferences({}).chat_message_frame,true);assert.equal(chatPreferences({chat_message_frame:false}).chat_message_frame,false);assert.equal(chatLayout({chat_message_frame:false}).chat_message_frame,false);

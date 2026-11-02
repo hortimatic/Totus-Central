@@ -309,18 +309,12 @@
  .chat-compose{padding:8px 10px max(8px,env(safe-area-inset-bottom));gap:5px;position:relative}
  .chat-compose>label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
  .team-chat .chat-compose textarea{height:48px;min-height:48px;max-height:100px;padding:10px;font-size:16px;resize:none}
- .chat-compose .chat-compose-tools{display:none}
- .chat-compose.chat-compose-expanded{max-height:60%;overflow:auto;overscroll-behavior:contain}
  .chat-compose .chat-picked-list{max-height:100px;overflow:auto}
- .chat-compose.chat-compose-expanded .chat-compose-tools{display:flex;max-height:120px;overflow:auto;align-items:center}
  .chat-compose-tools .btn,.chat-compose-tools .chat-pick-btn{min-height:36px;box-sizing:border-box}
  .chat-compose .chat-send-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
  .chat-compose .chat-send-actions>small,.chat-compose .chat-send-actions>[name]{display:none}
- .chat-compose.chat-compose-expanded .chat-send-actions>[name]{display:block;flex:1 1 120px;font-size:11px}
- .chat-compose.chat-compose-expanded .chat-send-actions>small{display:block;flex:1 1 100%}
  .chat-compose .chat-send-actions>.btn{flex:0 1 auto;min-height:36px;padding:6px 10px}
  .chat-compose .chat-send-actions>.primary{margin-left:auto}
- .chat-compose .chat-compose-toggle{display:inline-flex}
  .chat-compose .chat-picked-list:empty,.chat-compose [data-chat-progress]:empty{display:none}
  .chat-message footer{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px}
  .chat-message .chat-message-toggle{display:inline-flex;margin-left:auto;min-height:32px;padding:4px 8px;font-size:11px}
@@ -359,3 +353,15 @@
 .team-chat .chat-compose{flex-shrink:0}
 @media(max-width:700px){.team-chat.chat-show-channels>.chat-conversation{display:none}.team-chat.chat-sidebar-collapsed>.chat-sidebar{height:48px}}
 @media(min-width:701px){@container(max-width:700px){.team-chat.chat-show-channels>.chat-conversation{display:none}.team-chat.chat-sidebar-collapsed>.chat-sidebar{height:48px}}}
+
+/* Compact composer: controls stay visible without an extra Tools toggle. */
+.team-chat .chat-compose-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;max-height:none;overflow:visible}
+.team-chat .chat-compose-tools>.btn,.team-chat .chat-compose-tools>.chat-pick-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;font-size:17px;border-radius:8px;margin:0}
+.team-chat .chat-compose-tools select{box-sizing:border-box;width:130px;max-width:130px;height:34px;min-height:34px;padding:4px 7px;font-size:12px;margin:0}
+.team-chat .chat-send-actions>small{display:none}
+.team-chat .chat-send-actions>[name=prepare_chatgpt]{display:block}
+.chat-messages.chat-message-frame-off .chat-message{background:transparent;box-shadow:none;border-color:transparent}
+@media(max-width:700px){.team-chat .chat-compose-tools>.btn,.team-chat .chat-compose-tools>.chat-pick-btn{width:36px;min-width:36px;height:36px;min-height:36px}.team-chat .chat-compose-tools select{height:36px;min-height:36px;width:124px;max-width:124px}}
+
+.chat-messages.chat-message-frame-off .chat-message{padding-left:44px}
+.chat-background-preview.chat-message-frame-off>span{background:transparent}

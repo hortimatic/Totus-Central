@@ -684,6 +684,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .stock-page .stock-file-field{padding:12px;border:1px dashed #bdcadd;border-radius:10px;background:#fbfcff;font-size:12px;font-weight:750;color:#596579}
 .stock-file-field input{margin-top:7px;min-height:44px;font-size:12px}
 .stock-file-field input::file-selector-button{border:1px solid #cbd5e1;border-radius:7px;padding:7px 9px;margin-right:8px;background:white;color:#27364a;font:inherit;font-weight:650;cursor:pointer}
+.stock-page .stock-upload .stock-file-field input[type=file]{box-sizing:border-box;height:44px;min-height:44px;padding:0;line-height:42px;font:inherit;overflow:hidden}
+.stock-page .stock-upload .stock-file-field input[type=file]::file-selector-button{box-sizing:border-box;height:42px;margin:0 10px 0 0;padding:0 12px;border:0;border-right:1px solid var(--line);border-radius:0;font:inherit;vertical-align:top}
 .stock-modal>label{display:grid;gap:6px;margin-top:14px;font-size:13px;font-weight:650}
 .stock-modal>label.check-field{display:flex;align-items:flex-start;gap:9px;font-weight:400;line-height:1.5}
 .stock-modal>label.check-field input{margin:4px 0 0;flex:0 0 auto}

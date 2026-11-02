@@ -182,8 +182,8 @@
  .app .sidebar .sidebar-foot {display:none;}
  .app .sidebar > .brand {display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;}
  .desktop-nav-collapse {display:grid;place-items:center;align-self:center;flex:0 0 auto;margin:0;width:28px;height:28px;padding:0;border:1px solid #ffffff35;border-radius:6px;background:#ffffff10;color:#fff;font-size:0;cursor:pointer;}
- .desktop-nav-collapse::before {content:'';width:7px;height:7px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateX(2px) rotate(45deg);}
- .desktop-nav-collapse[aria-expanded=false]::before {transform:translateX(-2px) rotate(225deg);}
+ .desktop-nav-collapse>svg {display:block;width:16px;height:16px;pointer-events:none;}
+ .desktop-nav-collapse[aria-expanded=false]>svg {transform:rotate(180deg);}
  .desktop-nav-collapse:focus-visible {outline:2px solid #4cd7f6;outline-offset:2px;}
 }
 @media screen and (min-width:801px) {

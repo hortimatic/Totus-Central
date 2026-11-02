@@ -1,0 +1,17 @@
+begin;
+select set_config('request.jwt.claims','{}',true);
+select public.qa_denied('select public.totus_chat_ai_accounts()','Sesión');
+insert into auth.users(id,email,raw_app_meta_data) values ('bbbbbbbb-1000-4000-8000-000000000001','future-ai@example.invalid','{"totus_agent":true}'),('bbbbbbbb-1000-4000-8000-000000000002','manual-gpt@example.invalid','{"totus_agent":true}');
+insert into public.team_members(email,full_name,role,active) values('future-ai@example.invalid','Nombre personalizado','gerente',true),('manual-gpt@example.invalid','Mi cuenta manual','admin',true);
+insert into private.totus_api_connections(name,protocol,actor_email,endpoint,model,enabled,free_confirmed,real_data_authorized,verified_revision) values('API futura','openai_compatible','future-ai@example.invalid','https://example.invalid/v1','qa',true,true,true,1);
+delete from vault.secrets where name='totus_assistant_credentials';
+select vault.create_secret('{"user_id":"bbbbbbbb-1000-4000-8000-000000000002","email":"manual-gpt@example.invalid","password":"fictional-never-exposed"}','totus_assistant_credentials');
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","email":"admin@example.invalid","role":"authenticated"}',true);
+select public.qa_assert(jsonb_path_exists(public.totus_chat_ai_accounts(),'$[*] ? (@.email == "future-ai@example.invalid" && @.name == "Nombre personalizado" && @.mode == "api")'),'future AI accepts its own email and configured name');
+select public.qa_assert(jsonb_path_exists(public.totus_chat_ai_accounts(),'$[*] ? (@.email == "manual-gpt@example.invalid" && @.chatgpt == true && @.mode == "manual")'),'ChatGPT uses explicitly bound manual identity');
+select public.qa_assert(public.totus_chat_ai_accounts()::text not like '%fictional-never-exposed%','directory exposes no credentials');
+update private.totus_api_connections set enabled=false where actor_email='future-ai@example.invalid';
+select public.qa_assert(not jsonb_path_exists(public.totus_chat_ai_accounts(),'$[*] ? (@.email == "future-ai@example.invalid")'),'disabled API is not advertised as automatic');
+update public.team_members set active=false where email='manual-gpt@example.invalid';
+select public.qa_assert(not jsonb_path_exists(public.totus_chat_ai_accounts(),'$[*] ? (@.email == "manual-gpt@example.invalid")'),'inactive accounts are not destinations');
+rollback;
