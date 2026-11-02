@@ -2,7 +2,7 @@ name: Revisar gestor de APIs
 on:
   workflow_call:
   push:
-    branches: [feat/api-manager, feat/ai-documents-reports, fix/api-response-validation, fix/api-chat-workflow, fix/ai-conversation-continuity, fix/user-purge-reader-clarity, fix/cohere-tool-results, fix/receipts-agent-workflow]
+    branches: [feat/api-manager, feat/ai-documents-reports, fix/api-response-validation, fix/api-chat-workflow, fix/ai-conversation-continuity, fix/user-purge-reader-clarity, fix/cohere-tool-results, fix/receipts-agent-workflow, fix/receipt-agent-recovery]
 permissions:
   contents: read
 jobs:
@@ -45,6 +45,7 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check supabase/functions/totus-connections/index.ts supabase/functions/totus-ai/index.ts supabase/functions/team-admin/index.ts
+      - run: node tests/cloudflare-engine-qa.mjs
       - run: npm install --no-save --no-package-lock xlsx-js-style@1.2.0
       - run: node --test tests/verified-extraction-qa.mjs tests/agent-conversation-qa.mjs tests/agent-workbooks-qa.mjs tests/cloudflare-tools-qa.mjs tests/api-transport-qa.mjs tests/api-provider-qa.mjs tests/api-service-qa.mjs tests/agent-delivery-qa.mjs tests/github-connection-qa.mjs tests/ai-file-response-qa.mjs tests/user-retirement-qa.mjs tests/user-purge-qa.mjs
       - run: npm install --no-save --no-package-lock playwright@1.56.1

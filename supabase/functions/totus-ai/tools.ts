@@ -63,6 +63,7 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
    receiptDrafts.delete(input.receipt_id);return result;
   }
   if(name==='mis_permisos'){await authorize();return rpc('totus_my_access',{});}
+  if(name==='asociar_documento_recepcion')return execute('ejecutar',{procedimiento:'totus_stock_add_source',argumentos_json:JSON.stringify({p_id:input.receipt_id,p_revision:input.revision,p_document:input.document_id,p_kind:input.kind})});
   if(name==='conexiones'){
    await authorize('configuracion','view');const data=await rpc('totus_api_manager',{});
    collect(data.connections);return {connections:data.connections.map((c:any)=>({id:c.id,name:c.name,protocol:c.protocol,enabled:c.enabled,verified:c.verified_revision===c.revision,own_user:c.actor_email===user.email,calls_today:c.calls_today,daily_limit:c.daily_limit})),notice:'El rol de usuario controla el acceso a Totus. GitHub y otros servicios externos requieren su propia conexión autorizada; no se heredan las credenciales de Codex ni ChatGPT.'};

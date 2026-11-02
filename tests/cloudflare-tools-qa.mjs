@@ -67,7 +67,7 @@ test('any AI identity can associate a stored original only after verifying its b
  const args={p_id:'receipt',p_revision:1,p_document:'doc',p_kind:'supplier'};
  await assert.rejects(execute('ejecutar',{procedimiento:'totus_stock_add_source',argumentos_json:JSON.stringify(args)}),/Lee el original/);
  await execute('leer_documento',{document_id:'doc'});
- const result=await execute('ejecutar',{procedimiento:'totus_stock_add_source',argumentos_json:JSON.stringify(args)});
+ const result=await execute('asociar_documento_recepcion',{receipt_id:args.p_id,revision:args.p_revision,document_id:args.p_document,kind:args.p_kind});
  assert.equal(result.verified_write.id,'receipt');const call=f.calls.find(c=>c.name==='totus_stock_add_source');assert.equal(call.args.p_actor_email,'other-ai@example.invalid');assert.equal(call.args.p_text,'Verified supplier text');assert.equal(call.args.p_extraction.sha256,sha);
 });
 test('uncertain write stops further mutations',async()=>{const f=fixture({saveError:true});await f.read('ops_stores');await f.read('ops_expense_categories');await assert.rejects(f.run('totus_save_expense',expense),/uncertain/);await assert.rejects(f.run('totus_stock_create',{p_store:'store'}),/incierto|resultado debe revisarse/);assert(!f.calls.some(c=>c.name==='totus_stock_create'));});
