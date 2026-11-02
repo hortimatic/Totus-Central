@@ -2,8 +2,9 @@ export const MODEL='@cf/mistralai/mistral-small-3.1-24b-instruct';
 const base=(account)=>{if(!/^[a-f0-9]{32}$/.test(account||''))throw Error('Cuenta de Cloudflare no válida.');return 'https://api.cloudflare.com/client/v4/accounts/'+account+'/ai';};
 const headers=token=>{if(typeof token!=='string'||token.length<20||token.length>200||/\s/.test(token))throw Error('Falta el token privado de Cloudflare.');return {Authorization:'Bearer '+token};};
 const check=async response=>{if(!response.ok)throw Error(response.status===429?'Cuota o capacidad de Cloudflare agotada. No se cambiará a un servicio de pago.':'Cloudflare rechazó la petición (HTTP '+response.status+').');const data=await response.json();if(data.success===false)throw Error('Cloudflare no completó la petición.');return data;};
-export async function chat({account,token,messages,tools=[],toolChoice='auto',request=fetch,model=MODEL}){
- const data=await check(await request(base(account)+'/v1/chat/completions',{method:'POST',credentials:'omit',redirect:'error',headers:{...headers(token),'Content-Type':'application/json'},body:JSON.stringify({model,messages,...(tools?.length?{tools,tool_choice:toolChoice}:{}),temperature:0,max_tokens:8192,stream:false,options:{rejectIfBusy:true}}),signal:AbortSignal.timeout(25000)}));
+export async function chat({account,token,messages,tools=[],toolChoice='auto',request=fetch,model=MODEL,maxTokens=8192}){
+ if(!Number.isSafeInteger(maxTokens)||maxTokens<64||maxTokens>32768)throw Error('Máximo de tokens no válido.');
+ const data=await check(await request(base(account)+'/v1/chat/completions',{method:'POST',credentials:'omit',redirect:'error',headers:{...headers(token),'Content-Type':'application/json'},body:JSON.stringify({model,messages,...(tools?.length?{tools,tool_choice:toolChoice}:{}),temperature:0,max_tokens:maxTokens,stream:false,options:{rejectIfBusy:true}}),signal:AbortSignal.timeout(25000)}));
  return normalizeChatResponse(data);
 }
 export function normalizeChatResponse(data){

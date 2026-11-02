@@ -68,3 +68,14 @@ Protocolos de IA implementados: Chat Completions compatible, Anthropic y Cloudfl
 - `buscar_documentos` y `enviar_documento` buscan y adjuntan el original autorizado. La entrega se confirma después de comprobar la subida y la huella; preparar un archivo no es entregarlo.
 - Groq utiliza un presupuesto de salida de 1024 tokens por turno operativo y el catálogo completo se solicita solo cuando hace falta. Un HTTP 429 del proveedor sigue siendo un límite real; no activar pagos, sustituir identidades o prometer saldo ilimitado.
 - Un HTTP 401 de Mistral requiere que el titular corrija la clave privada. La cuenta y las herramientas de Totus no pueden convertir una clave rechazada en una conexión válida.
+
+## Alta autónoma de una IA compatible
+
+1. Crea una conexión y elige el proveedor preparado, o el protocolo compatible y su dirección oficial. Se admite la dirección base y la ruta completa de Chat Completions, sin duplicarla.
+2. Introduce el identificador del modelo y la clave privada. Elige una cuenta técnica propia o su creación automática; una cuenta manual de una persona no reutiliza su contraseña para actuar como bot.
+3. Configura por separado las peticiones diarias y el máximo de tokens de salida por respuesta (64–32768, según el modelo). La prueba y el trabajo real utilizan el mismo máximo de tokens. Los tokens consumidos son un dato observado, no un saldo que se escribe.
+4. Guarda y prueba. La verificación exige una llamada real a la herramienta ficticia; una clave que devuelve texto, una respuesta cortada, o un HTTP 401/429 no se presentan como una conexión operativa.
+5. Activa y abre su chat. En un directo la conexión corresponde al usuario de ese directo; no se sustituye por el proveedor por defecto. Cada usuario conserva sus permisos.
+6. Pide un documento por proveedor, número, nombre o fecha. La entrega usa los originales y se comprueba antes de completar el trabajo. El Excel mensual conserva el constructor de Informes.
+
+No hace falta cambiar código para otra IA que use un protocolo ya soportado. Un protocolo distinto requiere su adaptador. La clave, el plan, los modelos admitidos y la cuota pertenecen al proveedor: Totus no puede ampliarlos ni activar pagos por su cuenta. En la cuenta Mistral revisada el 2 de noviembre, la propia consola mostraba que el plan Gratis no activaba las claves API; no declarar solucionado ese bloqueo por cambiar el contador local.
