@@ -29,7 +29,7 @@ export const TOOLS=[fn('github_archivo','Leer un archivo de código del reposito
 export async function runAgent({content,execute,authorize,reserve,provider,maxTurns=8,verified=/** @type {any[]} */([])}){
  const simulations=[];const messages=[{role:'system',content:SYSTEM},{role:'user',content}];let count=0,repairs=0;
  for(let turn=0;turn<maxTurns;turn++){
-  await authorize();await reserve();const {message}=await provider(messages,TOOLS,turn===0?{type:'function',function:{name:'catalogo'}}:'auto');messages.push({role:'assistant',content:message.content??null,...(message.tool_calls?.length?{tool_calls:message.tool_calls}:{})});
+  await authorize();await reserve();const {message}=await provider(messages,TOOLS,'auto');messages.push({role:'assistant',content:message.content??null,...(message.tool_calls?.length?{tool_calls:message.tool_calls}:{})});
   if(message.protocol_error||!message.tool_calls?.length&&String(message.content||'').includes('[TOOL_CALLS]')){if(++repairs>1)throw Error('El modelo no pudo formular una llamada válida. No se ejecutaron esas llamadas.');messages.push({role:'user',content:'La llamada anterior NO se ha ejecutado porque su JSON está mal formado. Usa la función oficial con argumentos JSON válidos, sin escribir [TOOL_CALLS] como texto. No declares éxito.'});continue;}
   if(!message.tool_calls?.length){const text=String(message.content||'');if(text.includes(SYSTEM.slice(0,100)))throw Error('El modelo devolvió instrucciones internas en vez de una respuesta. No se dará la petición por completada.');return {text:text.slice(0,10000),verified,simulations};}
   const responses=[],ids=new Set();
