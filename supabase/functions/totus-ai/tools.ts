@@ -30,7 +30,7 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
   try{const result=await run();check(await admin.rpc('totus_ai_action',{p_job:job.id,p_hash:key,p_result:result}));return result;}
   catch(e){throw fail(e);}
  }
- return async function execute(name:string,input:any){
+ return async function execute(name:string,input:any):Promise<any>{
   if(name==='simular'){if(!['totus_save_expense','totus_save_closing'].includes(input.procedimiento))throw Error('Solo se simulan gastos y cierres.');name='ejecutar';input={...input,simular:true};}
   if(name==='catalogo')return {tables:reads,procedures,
    expense:{p_expense:['id opcional','expected_updated_at al editar','store_id','expense_date YYYY-MM-DD','supplier_name','supplier_tax_id','invoice_number','document_kind factura|rectificativa|otro','paid_status pendiente|parcial|pagado','amount_paid','paid_date','payment_method','management_only','notes'],p_lines:['category_id','description','base_amount','vat_rate','re_rate','withholding_rate','withholding_model','deductible_irpf','deductible_pct','fixed_asset'],expected_total:'Total numérico del original, obligatorio. La revisión fiscal de un alta queda pendiente.'},
