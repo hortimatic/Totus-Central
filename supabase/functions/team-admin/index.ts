@@ -1,3 +1,4 @@
+import {retireUserAccess} from './retire-user.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 
 const APP_URL='https://hortimatic.github.io/Totus-Central/'
@@ -42,6 +43,9 @@ Deno.serve(async(req:Request)=>{
     await audit(email,'password_reset_email','ok',`Solicitud de recuperación aceptada (${source})`)
   }
 
+  if(['create_user','set_password','invite','resend_invite','send_password_reset','update_member','set_active'].includes(action)&&body.email){
+   const {data:target,error}=await admin.from('team_members').select('deleted_at').eq('email',cleanEmail(body.email)).maybeSingle();if(error)throw error;if(target?.deleted_at)return json({error:'El usuario está eliminado. Recupéralo desde Usuarios eliminados antes de cambiar su acceso.'},409);
+  }
   if(action==='create_user'||action==='set_password'){
    const email=cleanEmail(body.email),fullName=cleanText(body.full_name),role=cleanText(body.role),password=String(body.password||'')
    if(!validEmail(email))return json({error:'Email no válido'},400)
@@ -119,11 +123,17 @@ Deno.serve(async(req:Request)=>{
 
   if(action==='delete'||action==='hard_delete'){
    const email=cleanEmail(body.email);if(!validEmail(email))return json({error:'Email no válido'},400);if(email===callerEmail)return json({error:'No puedes eliminar tu propia cuenta de administrador.'},400)
-   try{await lastAdminGuard(email,undefined,false,true);const existing=await findAuthUser(email);if(existing){const {error}=await admin.auth.admin.deleteUser(existing.id);if(error)throw error}if(action==='hard_delete'){const {error}=await admin.from('team_members').delete().eq('email',email);if(error)throw error;await audit(email,'user_deleted','ok','Cuenta Auth y ficha eliminadas definitivamente');return json({ok:true,message:'Usuario eliminado definitivamente.'})}const {error}=await admin.from('team_members').update({active:false,updated_at:new Date().toISOString()}).eq('email',email);if(error)throw error;await audit(email,'access_revoked','ok','Cuenta Auth eliminada; ficha conservada inactiva');return json({ok:true,message:'Acceso revocado. La ficha se conserva inactiva.'})}catch(e){const msg=e instanceof Error?e.message:'Error eliminando usuario';await audit(email,action==='hard_delete'?'user_deleted':'access_revoked','failed',msg);return json({error:msg},400)}
+   try{await lastAdminGuard(email,undefined,false,true);const existing=await findAuthUser(email);return json(await retireUserAccess({scoped,admin,email,existing}));}catch(e){const msg=e instanceof Error?e.message:'Error retirando usuario';await audit(email,'user_retired','failed',msg);return json({error:msg},400)}
   }
 
+  if(action==='restore_user'){
+   const email=cleanEmail(body.email);if(!validEmail(email))return json({error:'Email no válido'},400);
+   const {data:target,error:readError}=await admin.from('team_members').select('email,deleted_at').eq('email',email).maybeSingle();if(readError)throw readError;if(!target?.deleted_at)return json({error:'El usuario no está eliminado.'},400);
+   const existing=await findAuthUser(email);if(existing){const result=await admin.auth.admin.updateUserById(existing.id,{ban_duration:'none'});if(result.error)throw result.error;}
+   const result=await scoped.rpc('totus_restore_user',{p_email:email});if(result.error)throw result.error;return json({ok:true,message:'Usuario recuperado. Sus conexiones permanecen desactivadas.'});
+  }
   if(action==='list'){
-   const {data,error}=await admin.from('team_members').select('email,full_name,role,active,created_at,phone,job_title,store,employee_notes,avatar_url,avatar_path,updated_at').order('full_name');if(error)return json({error:error.message},400)
+   const {data,error}=await admin.from('team_members').select('email,full_name,role,active,created_at,phone,job_title,store,employee_notes,avatar_url,avatar_path,updated_at,deleted_at,auth_cleanup_pending').order('full_name');if(error)return json({error:error.message},400)
    let users:any[]=[];try{users=await listAuthUsers()}catch(e){return json({error:e instanceof Error?e.message:'Error consultando autenticación'},400)}
    const result=(data||[]).map(m=>{const au=users.find(u=>(u.email||'').toLowerCase()===m.email.toLowerCase());return{...m,registered:!!au,confirmed:!!au?.email_confirmed_at,email_confirmed_at:au?.email_confirmed_at||null,last_sign_in_at:au?.last_sign_in_at||null,auth_created_at:au?.created_at||null}})
    return json({ok:true,users:result})

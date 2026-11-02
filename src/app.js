@@ -167,7 +167,7 @@ function permissionForAction(action,el){
  else if(/\-new$|\-add$|\-duplicate$/.test(a))operation='create';
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
- if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-profile'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-profile'||a==='user-delete'||a==='user-restore'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-log-cleanup-'))return {module:'administracion',operation:'delete',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
@@ -2022,8 +2022,8 @@ async function resetUser(email){
 }
 async function deleteUser(email){
  if(email.toLowerCase()===state.user?.email?.toLowerCase())throw new Error('No puedes eliminar tu propio usuario.');
- if(!await confirmAction('Se eliminarán definitivamente el acceso y la ficha de '+email+'.',{phrase:'ELIMINAR USUARIO'}))return;
- await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
+ if(!await confirmAction('Se retirará el acceso de '+email+' y desaparecerá de la lista habitual. Se conservarán sus documentos, mensajes e historial. Podrás recuperarlo desde Usuarios eliminados.',{phrase:'ELIMINAR USUARIO'}))return;
+ const result=await invokeTeam({action:'hard_delete',email});closeModal();await refresh(result.message||'Usuario eliminado.');
 }
 
 
@@ -2901,6 +2901,8 @@ document.addEventListener('click',async e=>{
   if(a==='user-permissions-reset'){await resetUserPermissions(el.dataset.email);return}
   if(a==='user-toggle'){await toggleUser(el.dataset.email,el.dataset.active==='true');return}
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
+  if(a==='user-show-deleted'){setView('administracion',{showDeleted:!getView('administracion').showDeleted});render();return}
+  if(a==='user-restore'){if(!await confirmAction('¿Recuperar el acceso de '+el.dataset.email+' con su rol anterior? Las conexiones de IA permanecerán desactivadas.'))return;const result=await invokeTeam({action:'restore_user',email:el.dataset.email});await refresh(result.message);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(isAuditPanelVisible())void refreshAuditPanel();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}
