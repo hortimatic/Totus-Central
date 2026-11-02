@@ -1,7 +1,7 @@
 name: Revisar contactos y tareas
 on:
   push:
-    branches: [feat/contactos-configuracion-agentes, fix/chat-screen-fit]
+    branches: [feat/contactos-configuracion-agentes, fix/chat-screen-fit, fix/chat-viewport-verification]
 permissions:
   contents: read
 jobs:
@@ -44,7 +44,11 @@ jobs:
       - run: node tests/cloudflare-engine-qa.mjs
       - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/chat-shell-fit-browser-qa.mjs
-      - run: node tests/chat-mobile-reading-browser-qa.mjs
+      - name: Chat interaction regressions
+        run: |
+          for file in tests/chat-reference-layout-qa.mjs tests/chat-navigation-browser-qa.mjs tests/chat-workspace-browser-qa.mjs tests/chat-usability-browser-qa.mjs tests/chat-integral-browser-qa.mjs tests/chat-mobile-reading-browser-qa.mjs tests/chat-buzz-browser-qa.mjs tests/chat-alerts-browser-qa.mjs tests/chat-auto-read-browser-qa.mjs; do
+            node "$file"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:

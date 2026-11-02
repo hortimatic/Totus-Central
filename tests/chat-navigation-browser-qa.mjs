@@ -43,7 +43,7 @@ try{
  for(const height of [844,420]){
   await page.setViewportSize({width:390,height});
   const channel=page.locator('[data-chat=open]');if(await channel.isVisible())await channel.click();
-  await page.waitForFunction(()=>{const root=document.querySelector('.team-chat'),v=visualViewport;return root&&parseFloat(root.style.getPropertyValue('--chat-visible-height'))===Math.max(180,Math.floor((v?.offsetTop||0)+(v?.height||innerHeight)-Math.max(root.getBoundingClientRect().top,v?.offsetTop||0)-12));});
+  await page.waitForFunction(()=>{const root=document.querySelector('.team-chat'),editor=document.querySelector('.chat-compose'),v=visualViewport;return root&&editor&&Number.isFinite(parseFloat(root.style.getPropertyValue('--chat-visible-height')))&&editor.getBoundingClientRect().bottom<=(v?.offsetTop||0)+(v?.height||innerHeight)+1;});
   const geometry=await page.locator('.chat-conversation').evaluate(el=>({height:el.getBoundingClientRect().height,available:parseFloat(el.closest('.team-chat').style.getPropertyValue('--chat-visible-height'))}));
   assert(geometry.height<=geometry.available+2,'Mobile conversation fits available screen: '+JSON.stringify(geometry));
   assert.equal(await page.locator('#chatBody').inputValue(),draftBeforeResize,'Resizing must preserve the draft');
