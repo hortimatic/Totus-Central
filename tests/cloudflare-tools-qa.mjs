@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 const helper=new URL('../supabase/functions/totus-ai/cloudflare.js',import.meta.url).href;
-const source=readFileSync(new URL('../supabase/functions/totus-ai/tools.ts',import.meta.url),'utf8').replace("'./cloudflare.js'",JSON.stringify(helper)).replace("'../../../src/agent-reports.js'",JSON.stringify(new URL('../src/agent-reports.js',import.meta.url).href)).replace(/import \{attachChatExpenseDocument\} from '[^']+';/,"const attachChatExpenseDocument=()=>{throw Error('unexpected attachment')};");
+const source=readFileSync(new URL('../supabase/functions/totus-ai/tools.ts',import.meta.url),'utf8').replace("'./cloudflare.js'",JSON.stringify(helper)).replace("'../../../src/agent-delivery.js'",JSON.stringify(new URL('../src/agent-delivery.js',import.meta.url).href)).replace("'../../../src/agent-reports.js'",JSON.stringify(new URL('../src/agent-reports.js',import.meta.url).href)).replace(/import \{attachChatExpenseDocument\} from '[^']+';/,"const attachChatExpenseDocument=()=>{throw Error('unexpected attachment')};");
 const {createTools}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
 function fixture({wrongTotal=false,saveError=false,deny=false}={}){
  const calls=[],journal=new Map(),tables={ops_stores:[{id:'store'}],ops_cash_drawers:[{id:'drawer',store_id:'store',active:true}],ops_expense_categories:[{id:'cat'}],ops_expenses:[],ops_expense_lines:[],ops_daily_closings:[],ops_daily_closing_drawers:[],ops_stock_receipts:[],ops_sales_invoices:[],ops_fiscal_adjustments:[],ops_income_adjustments:[],ops_tax_payments:[]};
