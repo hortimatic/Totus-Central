@@ -6,7 +6,9 @@ export function bindChatViewport(host){
   frame=null;if(disposed||!host.isConnected)return;
   const root=host.matches('.team-chat')?host:host.querySelector('.team-chat');if(!root)return;
   const top=viewport?.offsetTop||0,height=viewport?.height||window.innerHeight;
-  const available=Math.max(120,Math.floor(top+height-Math.max(root.getBoundingClientRect().top+window.scrollY,top)-12));
+  const content=host.closest('.content');
+  const clearance=Math.max(12,parseFloat(getComputedStyle(content||host).paddingBottom)||0)+8;
+  const available=Math.max(120,Math.floor(top+height-Math.max(root.getBoundingClientRect().top+window.scrollY,top)-clearance));
   root.toggleAttribute('data-chat-short',available<340);
   const value=available+'px';if(root.style.getPropertyValue('--chat-visible-height')!==value)root.style.setProperty('--chat-visible-height',value);
  }
