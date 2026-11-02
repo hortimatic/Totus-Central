@@ -116,3 +116,5 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 [data-api-manager] [hidden]{display:none!important}
 
 .api-user-dialog{width:min(520px,calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow:auto;border:0;border-radius:16px;padding:22px;box-shadow:0 20px 70px #0004}.api-user-dialog form{display:grid;gap:14px}.api-user-dialog label{display:grid;gap:5px}.api-user-dialog input,.api-user-dialog select{width:100%;box-sizing:border-box;min-height:40px}.api-user-dialog::backdrop{background:#17203370}
+
+.api-existing-connection:not([open])>:not(summary){display:none!important}
