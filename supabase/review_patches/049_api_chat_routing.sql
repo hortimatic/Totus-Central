@@ -15,9 +15,9 @@ begin
  if matches>1 then raise exception 'Menciona una sola IA por petición.';end if;
  if matches=1 then select * into target from private.totus_api_connections p where position('@{'||p.actor_email||'}' in m.body)>0;
  elsif to_jsonb(c)->>'channel_kind'='direct' then
-  select count(*) into matches from private.totus_api_connections p join public.ops_chat_members cm on cm.email=p.actor_email and cm.channel_id=c.id;
+  select count(*) into matches from private.totus_api_connections p join public.ops_chat_members cm on cm.email=p.actor_email and cm.channel_id=c.id where p.actor_email<>m.author_email and p.protocol in ('cloudflare','openai_compatible','anthropic');
   if matches>1 then raise exception 'Hay varias IA en este chat directo; menciona a la que debe responder.';end if;
-  select p.* into target from private.totus_api_connections p join public.ops_chat_members cm on cm.email=p.actor_email and cm.channel_id=c.id;
+  select p.* into target from private.totus_api_connections p join public.ops_chat_members cm on cm.email=p.actor_email and cm.channel_id=c.id where p.actor_email<>m.author_email and p.protocol in ('cloudflare','openai_compatible','anthropic');
  end if;
  if target.id is null then select p.* into target from private.totus_api_connections p join private.totus_ai_config a on a.connection_id=p.id where a.id;end if;
  if target.id is null or target.protocol not in ('cloudflare','openai_compatible','anthropic') or not target.enabled or not target.free_confirmed or not target.real_data_authorized or target.verified_revision is distinct from target.revision then raise exception 'La IA destinataria debe estar configurada, probada y activada en APIs.';end if;

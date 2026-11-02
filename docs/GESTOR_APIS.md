@@ -35,3 +35,15 @@ Las tablas privadas de conexiones y credenciales no forman parte del volcado con
 - Si falla una nueva comprobación, desaparece la verificación anterior y la conexión queda desactivada. Una prueba posterior correcta permite volver a activarla expresamente; no la activa sola.
 - Las identidades técnicas originales y las nuevas cuentas de conexión usan la misma validación normal de gastos y cajas. Se mantienen el rol de gerencia/administración y los permisos de cada operación. Esta compatibilidad no añade operaciones que un adaptador aún no implemente.
 - Continuación del despliegue: 047_api_verification_failure.sql y 048_api_identity_validation.sql; después actualizar totus-connections y publicar la interfaz. Ninguno modifica registros contables.
+
+## Conversaciones con cada IA y archivos
+Una conversación directa con la cuenta técnica o una mención a esa cuenta dirige la solicitud a su propia conexión, aunque Cloudflare siga como proveedor por defecto. Invita al usuario al canal. No se atienden mensajes de otras IA automáticamente. Activar comprueba también que exista una identidad técnica preparada.
+
+Para pedir un original: indica proveedor, factura o fechas; la IA consulta documentos, verifica el original y lo adjunta a su respuesta. Para recibir un informe descargable: pide expresamente el archivo y el periodo; puede entregar un CSV con las cifras completas de Informes. Los adjuntos se comprueban antes y después de subirlos. No equivale a un ZIP de gestoría completo.
+
+Los originales de una recepción existente pueden leerse con el lector autorizado y contrastarse antes de guardar el cotejo. La revisión fiscal de nuevas facturas no se aprueba automáticamente.
+
+## GitHub y alcance de las conexiones externas
+La IA no hereda sesiones ni claves de los conectores de Codex o ChatGPT. Crea una conexión GitHub con destino https://api.github.com/repos/organizacion/repositorio, una clave de alcance limitado al repositorio y el mismo usuario técnico de la IA. Prueba y activa la conexión. El adaptador entregado permite leer código de ese repositorio mediante github_archivo, conservando la clave en el servidor. No publica cambios ni concede acceso arbitrario a SQL/Vault. Los cambios de código siguen requiriendo una rama revisable y el proceso de publicación.
+
+Despliegue siguiente: 049_api_chat_routing.sql y 050_api_actor_readiness.sql, totus-ai y totus-connections, y pantalla. Las conexiones nuevas siguen dependiendo de la disponibilidad y cuota real del proveedor; HTTP401 y HTTP429 no se corrigen aumentando el límite local.
