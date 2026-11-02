@@ -37,11 +37,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install --no-save --no-package-lock playwright@1.56.1
+      - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1
       - run: npx playwright install --with-deps chromium
       - run: python3 -m http.server 4173 >/tmp/totus.log 2>&1 &
       - run: node --test tests/cloudflare-tools-qa.mjs
       - run: node tests/cloudflare-engine-qa.mjs
+      - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/chat-shell-fit-browser-qa.mjs
       - run: node tests/chat-mobile-reading-browser-qa.mjs
       - uses: actions/upload-artifact@v4

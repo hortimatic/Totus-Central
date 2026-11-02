@@ -290,6 +290,7 @@ try{
  await page.locator('#chatHarness').evaluate(el=>{el.style.marginLeft='245px';el.style.marginTop='82px';});
  for(const size of [{width:1440,height:900},{width:1280,height:720},{width:1920,height:1080}]){
   await page.setViewportSize(size);
+  await page.waitForFunction(()=>document.querySelector('.chat-compose').getBoundingClientRect().bottom<=innerHeight+1);
   const screen=await page.evaluate(()=>({page:document.documentElement.scrollHeight,viewport:innerHeight,compose:document.querySelector('.chat-compose').getBoundingClientRect().bottom,messages:document.querySelector('.chat-messages').clientHeight}));
   assert(screen.compose<=screen.viewport+1,'Composer below viewport '+JSON.stringify({size,screen}));
   assert(screen.messages>=115,'History too small '+JSON.stringify({size,screen}));
