@@ -1,0 +1,25 @@
+name: Revisar actividad de Contactos
+on:
+  push:
+    branches: [fix/contact-activity]
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify existing actor and contact permissions
+        env:
+          PGPASSWORD: test-only
+        run: |
+          for file in tests/chat-db-fixture.sql supabase/chat.sql supabase/tasks.sql tests/operational-permissions-db-qa.sql tests/contact-activity-db-qa.sql; do
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$file"
+          done
