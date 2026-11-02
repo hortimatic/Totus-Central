@@ -4,7 +4,7 @@ import {mkdir} from 'node:fs/promises';
 const browser=await chromium.launch({headless:true}),errors=[];
 await mkdir('artifacts/receipt-layout',{recursive:true});
 try{
- for(const width of [1440,934,390]){
+ for(const width of [1440,1337,1017,934,390]){
   const page=await browser.newPage({viewport:{width,height:900}});page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
   await page.evaluate(async()=>{
@@ -18,11 +18,15 @@ try{
   await page.locator('#stockFiles').waitFor();
   const geometry=await page.evaluate(()=>{
    const rect=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};
-   return {select:rect('#stockKind'),file:rect('#stockFiles'),grid:rect('.stock-upload'),brand:rect('#moduleNavigation>.brand'),rail:rect('#moduleNavigation'),toggle:rect('.desktop-nav-collapse'),glyph:rect('.desktop-nav-collapse svg'),scroll:document.documentElement.scrollWidth,viewport:innerWidth};
+   return {select:rect('#stockKind'),file:rect('.stock-upload .stock-file-control'),selection:rect('.stock-upload .stock-file-selection'),grid:rect('.stock-upload'),brand:rect('#moduleNavigation>.brand'),rail:rect('#moduleNavigation'),toggle:rect('.desktop-nav-collapse'),glyph:rect('.desktop-nav-collapse svg'),scroll:document.documentElement.scrollWidth,viewport:innerWidth};
   });
   assert(geometry.scroll<=geometry.viewport+1,'no horizontal page overflow at '+width);
   for(const field of [geometry.select,geometry.file]){assert(field.x>=geometry.grid.x-1&&field.right<=geometry.grid.right+1);assert(Math.abs(field.height-44)<=1);}
   if(width>600)assert(Math.abs(geometry.select.y-geometry.file.y)<=1,'upload controls share the same baseline');
+  assert(Math.abs((geometry.selection.y+geometry.selection.height/2)-(geometry.file.y+geometry.file.height/2))<=1,'file selection text itself is vertically centered');
+  await page.locator('#stockFiles').setInputFiles({name:'Factura ficticia.pdf',mimeType:'application/pdf',buffer:Buffer.from('fictitious selection only')});
+  assert.equal(await page.locator('.stock-upload [data-stock-file-selection]').textContent(),'Factura ficticia.pdf');assert.equal(await page.locator('#stockFiles').evaluate(e=>e.files.length),1);
+  await page.locator('#stockFiles').setInputFiles([]);assert.equal(await page.locator('.stock-upload [data-stock-file-selection]').textContent(),'Ningún archivo seleccionado');
   if(width>800){
    assert(geometry.brand.y<=geometry.rail.y+8,'brand starts at the top rather than below a separate toggle row');
    assert(Math.abs((geometry.glyph.y+geometry.glyph.height/2)-(geometry.toggle.y+geometry.toggle.height/2))<=1,'arrow itself is vertically centered');

@@ -262,6 +262,7 @@ try{
  await page.locator('dialog [data-section-action="hide"]').click();
  assert.equal(await page.locator('[data-chat="open"][data-id="h"]').count(),0);
  await revealChatFilters(page);await page.locator('[data-chat-input="archived"]').check();
+ assert.equal(await page.locator('.chat-browser-options').getAttribute('open'),null,'Applied archive filter must not cover channel controls');
  await page.locator('[data-chat="group-menu"][data-group="Hortimatic"]').click();
  await page.locator('dialog [data-section-action="hide"]').click();
  await revealChatFilters(page);await page.locator('[data-chat-input="archived"]').uncheck();

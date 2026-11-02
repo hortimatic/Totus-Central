@@ -128,7 +128,7 @@
  .chat-channel-header,.chat-composer {background:var(--panel);border-color:var(--line);}
  .chat-message-bubble {border-radius:12px;}
  .stock-upload-box,.stock-source,.stock-equivalence-summary {background:var(--stitch-low);border-radius:8px;}
- .dashboard-hero {border-top:0;background:var(--stitch-low);}
+ .dashboard-hero {background:var(--stitch-low);}
  .home-zone-head {padding:4px 0;}
  .gestor-period-picker {background:var(--stitch-low);border-radius:6px;padding:14px;}
  .backup-control-actions {gap:12px;padding:16px 0;}
@@ -216,4 +216,14 @@
 @media(max-width:480px){
  .backup-file-control #backupSelectedFile{flex:0 1 auto}
  .backup-page .kpi:first-child strong{font-size:clamp(16px,5vw,23px);overflow-wrap:normal}
+}
+
+@media screen {
+ /* Filter backgrounds follow their owning card without clipping help popovers. */
+ .card>.filters:first-child{border-start-start-radius:max(0px,calc(var(--r) - var(--appearance-border-width,1px)));border-start-end-radius:max(0px,calc(var(--r) - var(--appearance-border-width,1px)))}
+ .card>.filters:last-child{border-end-start-radius:max(0px,calc(var(--r) - var(--appearance-border-width,1px)));border-end-end-radius:max(0px,calc(var(--r) - var(--appearance-border-width,1px)));border-bottom:0}
+ /* One frame for the brand directory; the table remains scrollable if needed. */
+ .contact-brands-page>.card>.table-wrap{border:0;border-radius:0;box-shadow:none}
+ .contact-brands-page .data-table{min-width:0}
+ .contact-brands-page .data-table :is(th,td){overflow-wrap:anywhere}
 }

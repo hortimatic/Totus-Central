@@ -160,8 +160,10 @@ jobs:
       - run: node tests/chat-usability-browser-qa.mjs
       - run: node tests/chat-integral-browser-qa.mjs
       - run: node tests/chat-mobile-reading-browser-qa.mjs
+      - run: node tests/chat-space-browser-qa.mjs
       - run: node tests/personal-interface-browser-qa.mjs
       - run: node tests/appearance-browser-qa.mjs
+      - run: node tests/appearance-panels-browser-qa.mjs
       - run: node tests/appearance-tools-browser-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
