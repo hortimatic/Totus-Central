@@ -1,6 +1,7 @@
 import {uploadChatFile} from '../../../src/chat-files.js';
 import {createDeliveryQueue,deliveryReply} from '../../../src/agent-delivery.js';
 import {agentRequest} from '../../../src/agent-conversation.js';
+import {verifiedSavedExtraction} from '../../../src/verified-extraction.js';
 import {providerChat} from './providers.js';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {chat,extract,hash,actionUuid,runAgent,MODEL} from './cloudflare.js';
@@ -53,28 +54,33 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
    const original=check(await scoped.functions.invoke('totus-onedrive',{body:{action:'chat-file-content',file_id:file.id}}));if(!(original instanceof Blob))throw Error('No se recibió el archivo original.');const bytes=new Uint8Array(await original.arrayBuffer());
    if(bytes.length!==file.size_bytes||await hash(bytes)!==file.sha256)throw Error('El original no coincide con la huella del documento.');
    const local=['text/plain','text/csv','text/markdown'].includes(file.mime_type);let text;
-   if(!config.connection){await reserve();text=await extract({account:config.account_id,token:config.token,bytes,mime:file.mime_type,name:file.original_name,request});}
+   const saved=file.mime_type==='application/pdf'?await verifiedSavedExtraction(scoped,file.sha256,{authorize}):null;
+   if(saved)text=saved.text;
+   else if(!config.connection){await reserve();text=await extract({account:config.account_id,token:config.token,bytes,mime:file.mime_type,name:file.original_name,request});}
    else if(local)text=await extract({account:'',token:'',bytes,mime:file.mime_type,name:file.original_name,request});
    else{
     const reader=config.connection.protocol==='cloudflare'?config.connection:(config.connection.allow_cloudflare_reader?config.reader_connection:null);
     if(!reader||reader.protocol!=='cloudflare'||!reader.enabled||!reader.free_confirmed||!reader.real_data_authorized||reader.verified_revision!==reader.revision)throw Error('Elige un lector de Cloudflare probado y autoriza su uso en la conexión para procesar PDF e imágenes.');
     const converted=await trackedConnection(reader,async()=>({text:await extract({account:reader.account_id,token:reader.secret,bytes,mime:file.mime_type,name:file.original_name,request})}));text=converted.text;
    }
-   originals.push({...file,bytes,text});
+   originals.push({...file,bytes,text,text_reader:saved?.reader||(local?'plain-text-v1':'cloudflare')});
   }
   const history=check(await scoped.from('ops_chat_messages').select('author_email,body').eq('channel_id',job.source.channel_id).eq('author_email',job.requested_email).is('deleted_at',null).lt('seq',job.source.seq).order('seq',{ascending:false}).limit(24));
   const delivery=createDeliveryQueue();
   const readOriginal=async(bytes:Uint8Array,mime:string,name:string)=>{
    await authorize('documentos','view');
    if(['text/plain','text/csv','text/markdown'].includes(mime))return extract({account:'',token:'',bytes,mime,name,request});
+   if(mime==='application/pdf'){const saved=await verifiedSavedExtraction(scoped,await hash(bytes),{authorize});if(saved)return saved.text;}
    const reader=config.connection?.protocol==='cloudflare'?config.connection:config.connection?.allow_cloudflare_reader?config.reader_connection:null;
    if(!reader||!reader.enabled||!reader.real_data_authorized||reader.verified_revision!==reader.revision)throw Error('Configura y autoriza un lector de documentos probado.');
    const result=await trackedConnection(reader,async()=>({text:await extract({account:reader.account_id,token:reader.secret,bytes,mime,name,request})}));return result.text;
   };
   const activity={attemptedWrite:false};
   const execute=createTools({client:scoped,admin,user,job,files:originals,authorize,delivery,readOriginal,request,activity});
-  const catalogue={instruction:'La herramienta catalogo devuelve los campos y procedimientos completos cuando necesites registrar o modificar datos. Para buscar o enviar documentos y descargar diarios mensuales utiliza directamente sus herramientas.'};
-  const content=agentRequest({current:job.source.body,history,requester:job.requested_email,identity:{name:user.user_metadata?.full_name||config.connection?.name||'Totus IA',email:user.email,provider:config.connection?.protocol||'cloudflare'},documents:originals.map(f=>({id:f.id,name:f.original_name,text:f.text,sha256_verified:true})),catalogue});
+  // Supply the real contract before the first model call. A model must not
+  // guess translated table names or infer its capabilities from old messages.
+  const catalogue=await execute('catalogo',{});
+  const content=agentRequest({current:job.source.body,history,requester:job.requested_email,identity:{name:user.user_metadata?.full_name||config.connection?.name||'Totus IA',email:user.email,provider:config.connection?.protocol||'cloudflare'},documents:originals.map(f=>({id:f.id,name:f.original_name,text:f.text,reader:f.text_reader,sha256_verified:true})),catalogue});
   if(content.length>300000)throw Error('Los originales son demasiado largos para revisarlos completos juntos. Divide la petición.');
   const result=await runAgent({content,execute,authorize,reserve,verified,onTrace:(event:any)=>console.info('totus_ai_tool',JSON.stringify({job:job.id,...event})),provider:(messages:any,tools:any,toolChoice:any)=>config.connection?trackedConnection(config.connection,()=>providerChat(config.connection,{messages,tools,toolChoice,request})):chat({account:config.account_id,token:config.token,messages,tools,toolChoice,request}) });await authorize();
   const simulations=result.simulations.length?'\n\nSimulaciones verificadas por Totus (sin guardar):\n'+result.simulations.map((v:any)=>'• '+v.procedure+' · total '+Number(v.total).toFixed(2)+' €').join('\n'):'';
