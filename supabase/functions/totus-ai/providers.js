@@ -7,7 +7,11 @@ export async function providerChat(connection,{messages,tools,toolChoice,request
  if(!['openai_compatible','anthropic'].includes(c.protocol))throw Error('Este tipo de conexión no ejecuta las acciones de Totus IA.');
  const endpoint=await safeEndpoint(connectionTarget(c),resolve),headers={...connectionHeaders(c),'Content-Type':'application/json'};
  const body=c.protocol==='anthropic'?{model:c.model,max_tokens:8192,system:messages.filter(m=>m.role==='system').map(m=>m.content).join('\n'),messages:anthropicMessages(messages),tools:tools.map(t=>({name:t.function.name,description:t.function.description,input_schema:t.function.parameters})),tool_choice:typeof toolChoice==='object'?{type:'tool',name:toolChoice.function.name}:{type:'auto'}}:{model:c.model,messages,tools,tool_choice:toolChoice,max_tokens:8192,temperature:0,stream:false};
- if(c.protocol==='openai_compatible'&&endpoint.hostname==='api.groq.com'&&c.model.startsWith('openai/gpt-oss-'))Object.assign(body,{reasoning_effort:'low'});
+ if(c.protocol==='openai_compatible'&&endpoint.hostname==='api.groq.com'){
+  // These turns return tool arguments or a short chat answer, never the document bytes.
+  body.max_tokens=1024;
+  if(c.model.startsWith('openai/gpt-oss-'))Object.assign(body,{reasoning_effort:'low'});
+ }
  const response=await request(endpoint.href,{method:'POST',headers,body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(25000)});
  if(!response.ok){let info='';if(response.status===400){try{const error=(await boundedJson(response,16384))?.error;const parts=[error?.code,error?.param].filter(v=>['tool_use_failed','invalid_request_error','invalid_request','model_not_found','context_length_exceeded','unsupported_value','tool_choice','max_tokens','max_completion_tokens','messages','tools','model','temperature','reasoning_effort'].includes(v));if(parts.length)info=' · '+parts.join(' / ');}catch{}}else await response.body?.cancel();throw Error(response.status===429?'Cuota o capacidad del proveedor agotada. No se cambiará a un servicio de pago.':'El proveedor rechazó la petición (HTTP '+response.status+')'+info+'.');}
  const data=await boundedJson(response);

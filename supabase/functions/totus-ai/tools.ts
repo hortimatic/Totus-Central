@@ -1,5 +1,6 @@
 import {createDeliveryQueue,readAuthorizedDocument,reportCsv} from '../../../src/agent-delivery.js';
 import {periodReport} from '../../../src/agent-reports.js';
+import {monthlyDiaryFile} from '../../../src/agent-workbooks.js';
 import {actionUuid,hash} from './cloudflare.js';
 import {attachChatExpenseDocument} from '../totus-assistant/assistant-attachments.ts';
 const reads:Record<string,string>={ops_stores:'documentos',ops_cash_drawers:'cajas',ops_suppliers:'gastos',ops_expense_categories:'gastos',ops_expenses:'gastos',ops_expense_lines:'gastos',ops_daily_closings:'cajas',ops_daily_closing_drawers:'cajas',ops_stock_receipts:'documentos',ops_documents:'documentos',ops_customers:'facturacion',ops_sales_invoices:'facturacion',ops_sales_invoice_lines:'facturacion',ops_fiscal_adjustments:'fiscalidad',ops_income_adjustments:'fiscalidad',ops_tax_payments:'fiscalidad',brands:'pricing',families:'pricing',products:'pricing',product_variants:'pricing',providers:'pricing'};
@@ -17,7 +18,7 @@ const procedures:Record<string,{module:string,operation:string,args:string[],tab
 const object=(v:any)=>v&&typeof v==='object'&&!Array.isArray(v);
 const check=(r:any)=>{if(r.error)throw Error(r.error.message||'Totus rechazó la operación');return r.data;};
 const canon=(v:any):string=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canon(x))):object(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canon(v[k]))])):v);
-export function createTools({client,admin,user,job,files,authorize,delivery=createDeliveryQueue(),readOriginal,request=fetch,activity={attemptedWrite:false}}:any){
+export function createTools({client,admin,user,job,files,authorize,delivery=createDeliveryQueue(),readOriginal,request=fetch,activity={attemptedWrite:false},loadExcel=async()=>{const library=await import('npm:xlsx-js-style@1.2.0');return library.default||library;}}:any){
  let uncertain=false;const seen=new Set<string>();
  const collect=(v:any)=>{if(Array.isArray(v))v.forEach(collect);else if(object(v)){if(typeof v.id==='string')seen.add(v.id);Object.values(v).forEach(x=>{if(typeof x==='object')collect(x);});}};
  const rpc=async(name:string,args:any)=>check(await client.rpc(name,args));
@@ -48,6 +49,22 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
   }
   if(name==='tareas'){
    await authorize('tareas','view');const result=await rpc('totus_tasks_context',{p_from:input.desde,p_to:input.hasta});collect(result);return result;
+  }
+  if(name==='diario_mensual'){
+   await authorize('informes','view');
+   if(!Number.isInteger(input.anio)||input.anio<2020||input.anio>2100||!Number.isInteger(input.mes)||input.mes<1||input.mes>12)throw Error('Indica el año y mes reales del diario.');
+   const from=`${input.anio}-${String(input.mes).padStart(2,'0')}-01`,to=`${input.anio}-${String(input.mes).padStart(2,'0')}-${new Date(input.anio,input.mes,0).getDate()}`;
+   async function rows(table:string,date?:string,store?:string){
+    const all:any[]=[];for(let offset=0;;offset+=500){await authorize(reads[table],'view');let q=client.from(table).select('*');if(date)q=q.gte(date,from).lte(date,to);if(store)q=q.eq('store_id',store);
+     const page=check(await q.order('id').range(offset,offset+499));if(!Array.isArray(page))throw Error('No se pudo comprobar el diario completo.');all.push(...page);if(all.length>10000)throw Error('El conjunto supera diez mil registros; no se enviará un diario parcial.');if(page.length<500)return all;
+    }
+   }
+   const stores=await rows('ops_stores');const norm=(v:any)=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+   const selected=stores.filter(s=>s.id===input.tienda||norm(s.name)===norm(input.tienda));
+   if(selected.length!==1)return {completed:false,needs_store:true,stores:stores.map(s=>({id:s.id,name:s.name})),instruction:'Selecciona la tienda indicada por el usuario. No le pidas un UUID; si ya ha dicho el nombre, úsalo.'};
+   const store=selected[0],data={stores,closings:await rows('ops_daily_closings','business_date',store.id),expenses:await rows('ops_expenses','expense_date',store.id),categories:await rows('ops_expense_categories'),incomeAdjustments:await rows('ops_income_adjustments',undefined,store.id)};
+   await authorize('informes','view');const engine=await loadExcel();const file=monthlyDiaryFile(data,{store,year:input.anio,month:input.mes},engine);await authorize('informes','view');
+   return {source:'Informes · Diarios mensuales de gastos y ventas',store:store.name,from,to,format:'xlsx',same_workbook_builder:true,file:delivery.stage(file)};
   }
   if(name==='informe_periodo'){
    await authorize('informes','view');
