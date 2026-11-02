@@ -190,14 +190,14 @@ function monthlySourceReference(incomeAdjustments,storeId,period){
  if(sources.length>1)throw new Error('Hay más de un origen para el mismo libro mensual. Revisa la importación.');
  return sources[0];
 }
-function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments=[],monthlySourceReferences=incomeAdjustments,reportFilter={},invoiceNumbers=false}){
+function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments=[],monthlySourceReferences=incomeAdjustments,reportFilter={},invoiceNumbers=false,engine=XLSX}){
  const invoiceReferences=new Map();
  const monthName=MONTHS[month],ws={};
- ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,!/newold|smok/i.test(store.name||'')&&month===0?33:30.7109375,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[XLSX.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
+ ws['!ref']='A1:F80';ws['!cols']=[null,...[11.7109375,!/newold|smok/i.test(store.name||'')&&month===0?33:30.7109375,9.140625,9.140625,12.140625].map(w=>({wch:w-XLSX_WCH_PAD}))];ws['!merges']=[engine.utils.decode_range('B1:F1')];ws['!freeze']={ySplit:2};
  const legacyTitle=year===2026&&month>=3&&month<=6?`${/newold|smok/i.test(store.name||'')?(month===3?'NewOldSmok':'Newoldsmok'):'Hortimatic'} ${monthName} ${year}`:`${monthName} ${year}`;
  setCell(ws,'B1',legacyTitle,{fill:{fgColor:{rgb:'000000'}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFF00'}},alignment:{horizontal:'center'}});
  const headers=['Dia','Gastos','Precio','Tarjeta','Salida de caja'];
- for(let i=0;i<headers.length;i++)setCell(ws,XLSX.utils.encode_cell({r:1,c:i+1}),headers[i],{fill:{fgColor:{rgb:LEGACY_COLORS.header}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}});
+ for(let i=0;i<headers.length;i++)setCell(ws,engine.utils.encode_cell({r:1,c:i+1}),headers[i],{fill:{fgColor:{rgb:LEGACY_COLORS.header}},font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}});
  const days=new Date(year,month+1,0).getDate();let row=3;const groupRefs={other:[],payroll:[],orders:[],fixed:[],irpf:[]};const expenseRefs=[];
  const byDateClose=new Map();
  for(const closing of closings.filter(x=>x.store_id===store.id&&x.include_in_income!==false&&String(x.business_date).startsWith(`${year}-${String(month+1).padStart(2,'0')}`))){
@@ -268,16 +268,16 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
  setCell(ws,`C${row}`,`${fmtEuro(cardTotal+cashTotal)}€ - ${fmtEuro(grossExpenses-internalTotal)}€ = ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'DCE6F1'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`TEXT(${recalc},"0.00")&"€ - "&TEXT(${fiscalFormula},"0.00")&"€ = "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);row++;
  setCell(ws,`C${row}`,`Total ${fmtEuro(cardTotal+cashTotal-grossExpenses+internalTotal)}€`,{fill:{fgColor:{rgb:'00B0F0'}},font:{name:'Calibri',sz:11},alignment:{horizontal:'center'}},`"Total  "&TEXT(${recalc}-(${fiscalFormula}),"0.00")&"€"`);
  }
- if(source){row+=2;setCell(ws,`C${row}`,'Libro original de tesorería: pagos y tarjetas por fecha bancaria. El saldo no es el beneficio fiscal. La revisión fiscal se consulta en el libro de gestoría.',{font:{name:'Calibri',sz:10},alignment:{wrapText:true,vertical:'top'}});ws['!merges'].push(XLSX.utils.decode_range(`C${row}:F${row}`));ws['!rows']=ws['!rows']||[];ws['!rows'][row-1]={hpt:44};}
+ if(source){row+=2;setCell(ws,`C${row}`,'Libro original de tesorería: pagos y tarjetas por fecha bancaria. El saldo no es el beneficio fiscal. La revisión fiscal se consulta en el libro de gestoría.',{font:{name:'Calibri',sz:10},alignment:{wrapText:true,vertical:'top'}});ws['!merges'].push(engine.utils.decode_range(`C${row}:F${row}`));ws['!rows']=ws['!rows']||[];ws['!rows'][row-1]={hpt:44};}
  ws['!ref']=`A1:F${Math.max(row,totalRow)}`;
  let output=ws;
  if(invoiceNumbers){
   output={};
-  const shiftFormula=formula=>formula.replace(/(\$?)([A-Z]{1,3})(\$?\d+)/g,(_match,dollar,column,number)=>dollar+XLSX.utils.encode_col(XLSX.utils.decode_col(column)+(XLSX.utils.decode_col(column)>=3?1:0))+number);
+  const shiftFormula=formula=>formula.replace(/(\$?)([A-Z]{1,3})(\$?\d+)/g,(_match,dollar,column,number)=>dollar+engine.utils.encode_col(engine.utils.decode_col(column)+(engine.utils.decode_col(column)>=3?1:0))+number);
   for(const [address,cell] of Object.entries(ws)){
    if(address.startsWith('!'))continue;
-   const position=XLSX.utils.decode_cell(address);if(position.c>=3)position.c++;
-   output[XLSX.utils.encode_cell(position)]={...cell,...(cell.f?{f:shiftFormula(cell.f)}:{})};
+   const position=engine.utils.decode_cell(address);if(position.c>=3)position.c++;
+   output[engine.utils.encode_cell(position)]={...cell,...(cell.f?{f:shiftFormula(cell.f)}:{})};
   }
   output['!cols']=[...ws['!cols'].slice(0,3),{wch:20},...ws['!cols'].slice(3)];
   output['!merges']=ws['!merges'].map(range=>({s:{...range.s,c:range.s.c>=3?range.s.c+1:range.s.c},e:{...range.e,c:range.e.c>=3?range.e.c+1:range.e.c}}));output['!ref']=`A1:G${Math.max(row,totalRow)}`;if(ws['!rows'])output['!rows']=ws['!rows'];
@@ -286,16 +286,16 @@ function appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categor
   output['!autofilter']={ref:`B2:G${lastData}`};
   output['!freeze']={xSplit:0,ySplit:2};
  }
- XLSX.utils.book_append_sheet(wb,output,monthName);
+ engine.utils.book_append_sheet(wb,output,monthName);
 }
 export function buildStoreAnnualWorkbook({store,year,closings,expenses,categories,incomeAdjustments=[]}){
  const wb=book();for(let month=0;month<12;month++)appendLegacyMonthlySheet(wb,{store,year,month,closings,expenses,categories,incomeAdjustments});
  wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};return wb;
 }
-export function buildStoreMonthlyWorkbook(args){
+export function buildStoreMonthlyWorkbook(args,engine=XLSX){
  if(!Number.isInteger(args.month)||args.month<1||args.month>12)throw new Error('Selecciona un mes válido.');
  if(!Number.isInteger(args.year)||args.year<2020||args.year>2100)throw new Error('Selecciona un año válido.');
- const wb=book();appendLegacyMonthlySheet(wb,{...args,month:args.month-1,invoiceNumbers:true});
+ const wb=engine.utils.book_new();appendLegacyMonthlySheet(wb,{...args,month:args.month-1,invoiceNumbers:true,engine});
  wb.Workbook={CalcPr:{calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true}};return wb;
 }
 export function exportStoreMonthlyWorkbook(args){write(buildStoreMonthlyWorkbook(args),`Gastos y ventas ${args.store.name} ${args.year}-${String(args.month).padStart(2,'0')} ${MONTHS[args.month-1]}.xlsx`)}

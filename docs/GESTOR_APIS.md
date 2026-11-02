@@ -60,3 +60,11 @@ Protocolos de IA implementados: Chat Completions compatible, Anthropic y Cloudfl
 
 ## Retirada y recuperación de usuarios
 «Eliminar usuario» retira el acceso, bloquea su cuenta de autenticación y conserva una identidad histórica para no romper facturas, mensajes ni tareas. Desactiva sus conexiones y cancela solicitudes pendientes. En Usuarios eliminados se puede recuperar expresamente; las conexiones no se reactivan solas. No se puede eliminar la propia sesión ni dejar el sistema sin administradores. Si falla el bloqueo de autenticación, se informa como pendiente y se permite completar la retirada. No borrar filas de Auth ni borrar autorías históricas para evitar restricciones de referencias.
+
+## Continuidad y descargas de la conversación
+
+- El contexto incorpora hasta 24 mensajes anteriores del mismo solicitante y canal, con un límite de tamaño. La petición actual se coloca después de los datos de referencia para que una aclaración breve no quede desplazada por el catálogo.
+- `diario_mensual` resuelve el nombre real de tienda y entrega el mismo XLSX mensual de Informes, usando el constructor compartido, colores, fórmulas, facturas y referencias históricas. No reemplazarlo por un CSV cuando se solicita Excel.
+- `buscar_documentos` y `enviar_documento` buscan y adjuntan el original autorizado. La entrega se confirma después de comprobar la subida y la huella; preparar un archivo no es entregarlo.
+- Groq utiliza un presupuesto de salida de 1024 tokens por turno operativo y el catálogo completo se solicita solo cuando hace falta. Un HTTP 429 del proveedor sigue siendo un límite real; no activar pagos, sustituir identidades o prometer saldo ilimitado.
+- Un HTTP 401 de Mistral requiere que el titular corrija la clave privada. La cuenta y las herramientas de Totus no pueden convertir una clave rechazada en una conexión válida.
