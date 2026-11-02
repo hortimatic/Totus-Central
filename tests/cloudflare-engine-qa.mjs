@@ -37,3 +37,7 @@ await test('repeated truncation and quota failures stop without unbounded provid
  let calls=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>{throw Error('must not execute')},provider:async()=>{calls++;throw Object.assign(Error('incomplete'),{code:'incomplete_response'});}}),/incomplete/);assert.equal(calls,2);
  calls=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>{},provider:async()=>{calls++;throw Error('Cuota');}}),/Cuota/);assert.equal(calls,1);
 });
+await test('rejected tool generation gets one repair without executing partial arguments or repeating writes',async()=>{
+ let calls=0,writes=0;const result=await runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>{writes++;return {verified_write:{id:'receipt'}};},provider:async messages=>{calls++;if(calls===1)return {message:{tool_calls:[call('ejecutar')]}};if(calls===2)throw Object.assign(Error('rejected'),{code:'invalid_tool_generation'});assert.match(messages.at(-1).content,/NO se ejecutó/);return {message:{content:'Conservado'}};}});assert.equal(writes,1);assert.equal(calls,3);assert.equal(result.verified.length,1);
+ calls=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>{throw Error('must not run');},provider:async()=>{calls++;throw Object.assign(Error('rejected'),{code:'invalid_tool_generation'});}}),/rejected/);assert.equal(calls,2);
+});

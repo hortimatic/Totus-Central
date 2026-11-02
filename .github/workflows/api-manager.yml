@@ -2,7 +2,7 @@ name: Revisar gestor de APIs
 on:
   workflow_call:
   push:
-    branches: [feat/api-manager, feat/ai-documents-reports, fix/api-response-validation, fix/api-chat-workflow, fix/ai-conversation-continuity, fix/user-purge-reader-clarity, fix/cohere-tool-results, fix/receipts-agent-workflow, fix/receipt-agent-recovery]
+    branches: [feat/api-manager, feat/ai-documents-reports, fix/api-response-validation, fix/api-chat-workflow, fix/ai-conversation-continuity, fix/user-purge-reader-clarity, fix/cohere-tool-results, fix/receipts-agent-workflow, fix/receipt-agent-recovery, fix/provider-generation-recovery]
 permissions:
   contents: read
 jobs:
