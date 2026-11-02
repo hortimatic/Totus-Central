@@ -37,8 +37,9 @@ begin
  if p_action<>'list' then
   if coalesce(p_data->>'id','')<>'' then
    select * into c from private.totus_api_connections where id=(p_data->>'id')::uuid for update;
-   if not found then raise exception 'La conexión ya no existe.';end if;
-   if c.revision is distinct from (p_data->>'expected_revision')::bigint then raise exception 'La conexión ha cambiado. Actualiza antes de continuar.';end if;
+   if not found then
+    if p_action<>'save' or p_data->>'expected_revision' is not null then raise exception 'La conexión ya no existe.';end if;c.id=(p_data->>'id')::uuid;
+   elsif c.revision is distinct from (p_data->>'expected_revision')::bigint then raise exception 'La conexión ha cambiado. Actualiza antes de continuar.';end if;
   elsif p_action<>'save' then raise exception 'Falta la conexión.';end if;
  end if;
  if p_action='save' then
@@ -48,6 +49,7 @@ begin
   if c.name is null or length(c.name) not between 1 and 120 or c.protocol not in ('http','prestashop','github','cloudflare','openai_compatible','anthropic','gemini') or c.auth_kind not in ('none','bearer','basic','header') or c.daily_limit is null or c.daily_limit not between 1 and 200 then raise exception 'Revisa el nombre, tipo y límite de la conexión.';end if;
   if not exists(select 1 from public.team_members where email=c.actor_email and active) then raise exception 'Elige un usuario activo para esta conexión.';end if;
   if length(c.endpoint)>2048 or (c.endpoint<>'' and (c.endpoint!~'^https://' or c.endpoint~'[[:space:]@#]')) then raise exception 'Usa una dirección HTTPS sin credenciales ni fragmentos.';end if;
+  if c.endpoint~*'[?&](key|api_key|apikey|token|access_token|authorization|client_secret|password|secret)=' then raise exception 'Guarda las claves en su campo privado, no en la dirección.';end if;
   if c.auth_kind='header' and (c.auth_header!~'^[A-Za-z][A-Za-z0-9-]{0,63}$' or lower(c.auth_header) in ('host','content-length','connection','cookie','set-cookie','forwarded','x-forwarded-for')) then raise exception 'Nombre de cabecera no permitido.';end if;
   if c.protocol='cloudflare' and c.account_id!~'^[a-f0-9]{32}$' then raise exception 'Account ID de Cloudflare no válido.';end if;
   if c.protocol in ('cloudflare','openai_compatible','anthropic','gemini') and (length(c.model) not between 1 and 200 or c.model~'[[:space:]]') then raise exception 'Indica el identificador exacto del modelo.';end if;
