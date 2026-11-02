@@ -6,7 +6,7 @@ try{for(const touch of [false,true]){
  await page.evaluate(async()=>{const {fieldHelp}=await import('../src/components.js');document.body.innerHTML='<div style="padding:30px"><label style="display:grid;width:85vw">Campo de conexión'+fieldHelp('Campo de conexión','Ayuda comprobada, solo sobre el icono.')+'<input aria-label="Campo de conexión"></label><button id="outside" style="position:fixed;top:0;right:0">Fuera de la ayuda</button></div>';});
  const help=page.locator('details.field-help'),trigger=help.locator('summary'),outside=page.locator('#outside');
  const box=await trigger.boundingBox();assert(box.width<=26);
- if(!touch){await page.mouse.move(box.x+250,box.y+12);assert.equal(await help.evaluate(e=>e.open),false,'hovering the label line cannot open help');await trigger.hover();assert.equal(await help.evaluate(e=>e.open),true);await trigger.click();assert.equal(await help.evaluate(e=>e.open),false,'click closes a hovered help');await trigger.click();}
+ if(!touch){await page.mouse.move(box.x+250,box.y+12);assert.equal(await help.evaluate(e=>e.open),false,'hovering the label line cannot open help');await trigger.hover();assert.equal(await help.evaluate(e=>e.open),true);await trigger.click();assert.equal(await help.evaluate(e=>e.open),true,'first click pins the hovered help');await trigger.click();assert.equal(await help.evaluate(e=>e.open),false,'second click closes help');await trigger.click();}
  else await trigger.tap();
  assert.equal(await help.evaluate(e=>e.open),true);if(touch)await outside.tap();else await outside.click();assert.equal(await help.evaluate(e=>e.open),false,'outside interaction closes pinned help');
  if(!touch){await trigger.hover();await page.keyboard.press('Escape');assert.equal(await help.evaluate(e=>e.open),false);}
