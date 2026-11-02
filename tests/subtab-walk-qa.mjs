@@ -9,6 +9,10 @@ const routes=[
  {route:'gastos',action:'expense-section',sections:['registros','facturas']},
  {route:'facturacion',action:'billing-section',sections:['documentos','clientes','plantillas','series']},
  {route:'documentos',sections:[null]},
+ {route:'recepciones',sections:[null]},
+ {route:'tareas',sections:[null]},
+ {route:'equipo',sections:[null]},
+ {route:'configuracion',sections:[null]},
  {route:'fiscalidad',sections:[null]},
  {route:'informes',sections:[null]},
  {route:'administracion',action:'admin-section',sections:['usuarios','roles','negocio','fiscal','storage','backups','log']}
@@ -32,6 +36,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
       errors.push(key+': subtab not active after clicking');
    }
    if(mod.route==='administracion'&&section==='storage'&&await page.locator('details.storage-technical').count())await page.locator('details.storage-technical > summary').click();
+   if(mod.route==='configuracion'){for(const tab of await page.locator('[data-appearance-tab]').all()){await tab.click();await page.screenshot({path:'artifacts/mobile-audit/config-'+size+'-'+await tab.getAttribute('data-appearance-tab')+'.png',fullPage:true});}}
    const info=await page.evaluate(()=>{
     const root=document.querySelector('#content'),rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
     const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};
@@ -66,13 +71,13 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
    if(info.blankPanels.length)errors.push(key+': blank oversized card '+JSON.stringify(info.blankPanels.slice(0,2)));
    views.push({key,...info});
    names.push(key);
-   if((size==='wide'||size==='narrow')&&['administracion/negocio','administracion/fiscal','administracion/roles','facturacion/plantillas','facturacion/series','gastos/facturas','informes'].includes(mod.route+'/'+(section||'')))
-    await page.screenshot({path:'artifacts/layout_walk_'+size+'_'+mod.route+'_'+section+'.png',fullPage:true});
+   if(size==='wide'||size==='narrow')
+    await page.screenshot({path:'artifacts/mobile-audit/layout_walk_'+size+'_'+mod.route+'_'+section+'.png',fullPage:true});
   }
  }
  await page.close();
 }
 await browser.close();
 fs.writeFileSync('artifacts/subtab-walk.json',JSON.stringify({screens:names,views,errors},null,2));
-console.log('SUBTAB WALK QA: '+views.length+' actual-click states; 9 modules with 13 subtab panels at 1640,1180,390,320; '+errors.length+' failures');
+console.log('SUBTAB WALK QA: '+views.length+' actual-click states; all module pages and administrative/billing/expense subtab panels at 1640,1180,390,320; '+errors.length+' failures');
 if(errors.length){console.error(errors.slice(0,32).join('\n'));process.exit(1)}
