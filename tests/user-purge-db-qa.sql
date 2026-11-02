@@ -1,0 +1,30 @@
+begin;
+select id as purge_id,actor_email as purge_mail from private.totus_api_connections where name='IA propia' \gset
+select id as purge_auth from auth.users where email=:'purge_mail' \gset
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222","email":"staff@example.invalid"}',true);
+set local role authenticated;
+select public.qa_denied(format('select public.totus_prepare_user_purge(%L)',:'purge_mail'),'administración');
+reset role;
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","email":"admin@example.invalid"}',true);
+set local role authenticated;
+select public.qa_denied('select public.totus_prepare_user_purge(''admin@example.invalid'')','propia');
+select public.qa_denied(format('select public.totus_prepare_user_purge(%L)',:'purge_mail'),'Primero');
+select public.totus_retire_user(:'purge_mail');
+select public.qa_denied(format('select public.totus_prepare_user_purge(%L)',:'purge_mail'),'conexiones');
+reset role;
+delete from private.totus_api_connections where id=:'purge_id';
+set local role authenticated;
+select public.qa_assert(public.totus_prepare_user_purge(:'purge_mail')->>'auth_id'=:'purge_auth','preparation pins original Auth UUID');
+select public.qa_denied(format('select public.totus_finish_user_purge(%L)',:'purge_mail'),'autenticación');
+reset role;
+update auth.users set deleted_at=now(),email=null where id=:'purge_auth';
+set local role authenticated;
+select public.totus_finish_user_purge(:'purge_mail');
+select public.qa_denied(format('select public.totus_restore_user(%L)',:'purge_mail'),'definitivamente');
+reset role;
+select public.qa_assert((select purged_at is not null and not active and not auth_cleanup_pending from public.team_members where email=:'purge_mail'),'purged account cannot recover');
+select public.qa_assert(exists(select 1 from auth.users where id=:'purge_auth'),'historical UUID retained');
+select public.qa_assert(exists(select 1 from public.qa_user_history where actor=:'purge_mail'),'history untouched');
+select public.qa_assert(not exists(select 1 from vault.secrets where name='totus_api_actor_'||:'purge_auth'),'technical password removed');
+rollback;
+select 'USER PURGE QA OK';
