@@ -15,7 +15,7 @@ reset role;
 select count(*) as message_count from public.ops_chat_messages \gset
 select set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}',false);
 set role authenticated;
-select public.qa_denied(format('select public.totus_task_purge(%L,%L,%L)',:'tid',:'deleted_version','ELIMINAR TAREA'),'permiso');
+select public.qa_denied(format('select public.totus_task_purge(%L,%L,%L)',:'tid',:'deleted_version','ELIMINAR TAREA'),'gestionar');
 reset role;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}',false);
 set role authenticated;
