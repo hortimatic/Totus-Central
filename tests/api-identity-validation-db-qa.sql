@@ -1,0 +1,15 @@
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","email":"admin@example.invalid","app_metadata":{"totus_integration":true}}',false);
+set role authenticated;
+select public.qa_assert(public.totus_ai_validate('expense','{}','[]')->'record' is not null,'technical integration manager can validate expense');
+select public.qa_assert(public.totus_ai_validate('closing','{}','[]')->'record' is not null,'technical integration manager can validate closing');
+reset role;
+select public.qa_assert((select count(*)=0 from ops_expenses) and (select count(*)=0 from ops_daily_closings),'validation is still rolled back');
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222","email":"staff@example.invalid","app_metadata":{"totus_integration":true}}',false);
+set role authenticated;
+select public.qa_denied('select public.totus_ai_validate(''expense'',''{}'',''[]'')','propia');
+reset role;
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","email":"admin@example.invalid"}',false);
+set role authenticated;
+select public.qa_denied('select public.totus_ai_validate(''expense'',''{}'',''[]'')','propia');
+reset role;
+select 'API IDENTITY VALIDATION QA OK';
