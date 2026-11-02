@@ -35,6 +35,28 @@ test('closing preserves every drawer and amount',async()=>{const f=fixture();awa
 test('missing amount and omitted drawer do not write',async()=>{const f=fixture();await f.read('ops_stores');await f.read('ops_cash_drawers');const {opening_cash,...incomplete}=drawer;await assert.rejects(f.run('totus_save_closing',{p_closing:{store_id:'store'},p_drawers:[incomplete]}),/importe/);f.tables.ops_cash_drawers.push({id:'drawer2',store_id:'store',active:true});await assert.rejects(f.run('totus_save_closing',{p_closing:{store_id:'store'},p_drawers:[drawer]}),/todos los cajones/);assert(!f.calls.some(c=>c.name==='totus_save_closing'));});
 test('receipt uses own actor and rereads result',async()=>{const f=fixture();await f.read('ops_stores');const r=await f.run('totus_stock_create',{p_store:'store',p_supplier:'Fiction supplier',p_reference:'QA',p_date:'2026-11-01',p_notes:''});assert.equal(r.verified_write.id,'receipt');assert.equal(f.calls[0].args.p_actor_email,'totus-ai@totuscentral.invalid');assert.equal(f.calls[1].name,'totus_stock_context');});
 
+test('37 receipt rows are staged in bounded blocks and saved exactly once with complete coverage',async()=>{
+ const f=fixture();f.tables.ops_stock_receipts=[{id:'receipt',revision:3}];await f.read('ops_stock_receipts');
+ const rows=Array.from({length:37},(_,i)=>({id:'line-'+i,supplier_name:'Fictitious '+i,supplier_qty:1,prestashop_qty:1}));
+ for(let i=0;i<rows.length;i+=5){const r=await f.execute('preparar_cotejo',{receipt_id:'receipt',revision:3,filas_json:JSON.stringify(rows.slice(i,i+5)),cobertura_json:i?'[]':JSON.stringify([{source_id:'supplier',complete:true},{source_id:'prestashop',complete:true}])});assert.equal(r.persisted,false);assert.equal(r.prepared_rows,Math.min(i+5,37));}
+ assert(!f.calls.some(c=>c.name==='totus_stock_save_result'));
+ await f.execute('preparar_cotejo',{receipt_id:'receipt',revision:3,filas_json:JSON.stringify(rows.slice(0,5))});
+ const r=await f.execute('guardar_cotejo',{receipt_id:'receipt',revision:3});assert.equal(r.verified_write.id,'receipt');
+ const saves=f.calls.filter(c=>c.name==='totus_stock_save_result');assert.equal(saves.length,1);assert.deepEqual(saves[0].args.p_result.rows,rows);assert.equal(saves[0].args.p_result.coverage.length,2);assert.equal(f.calls.at(-1).name,'totus_stock_context');
+ await assert.rejects(f.execute('guardar_cotejo',{receipt_id:'receipt',revision:3}),/Faltan/);
+});
+
+test('receipt blocks accept more than five lines and reject conflicts, oversized payloads, stale revisions and missing coverage without saving',async()=>{
+ const f=fixture();f.tables.ops_stock_receipts=[{id:'receipt',revision:3}];await f.read('ops_stock_receipts');
+ const prepare=rows=>f.execute('preparar_cotejo',{receipt_id:'receipt',revision:3,filas_json:JSON.stringify(rows)});
+ await prepare([{id:'a',supplier_qty:1}]);await assert.rejects(prepare([{id:'a',supplier_qty:2}]),/contradice/);
+ assert.equal((await prepare(Array.from({length:40},(_,i)=>({id:String(i)})))).prepared_rows,41);
+ await assert.rejects(prepare([{id:'large',text:'x'.repeat(150001)}]),/tamaño/);
+ await assert.rejects(f.execute('guardar_cotejo',{receipt_id:'receipt',revision:3}),/Faltan/);
+ f.tables.ops_stock_receipts[0].revision=4;await assert.rejects(prepare([{id:'b'}]),/cambió/);
+ assert(!f.calls.some(c=>c.name==='totus_stock_save_result'));
+});
+
 test('any AI identity can associate a stored original only after verifying its bytes and reading it',async()=>{
  const f=fixture(),blob=new Blob(['supplier original'],{type:'text/plain'}),sha=await (await import('../src/chat-files.js')).chatFileHash(blob);
  f.tables.ops_documents=[{id:'doc',original_name:'invoice.txt',storage_path:'qa/invoice.txt',mime_type:'text/plain',size_bytes:blob.size,sha256:sha}];
