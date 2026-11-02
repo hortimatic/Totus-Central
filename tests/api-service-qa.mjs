@@ -10,3 +10,10 @@ test('technical account uses its own Auth identity and never returns its credent
 test('completed creation can be reread without creating another identity',async()=>{const f=fixture({complete:true});assert.equal((await handle(req({action:'create_actor',request_id,name:'IA',role:'admin'}),env,f.factory)).status,200);assert(!f.calls.some(c=>c.create));});
 test('an uncertain Auth write cannot be reported as completed',async()=>{const f=fixture({createFails:true});const r=await handle(req({action:'create_actor',request_id,name:'IA',role:'admin'}),env,f.factory);assert.equal(r.status,400);assert.match(await r.text(),/reintentar/);});
 test('a stale profile cannot reserve quota or call an external provider',async()=>{const f=fixture();const r=await handle(req({action:'test',id:request_id,call_id:owner,revision:1}),env,f.factory);assert.equal(r.status,400);assert(!f.calls.some(c=>c.name==='totus_api_server'||c.name==='totus_api_call'));});
+
+test('a provider failure is recorded and returned with PostgREST thenables without catch',async()=>{
+ const old=globalThis.Deno;globalThis.Deno={resolveDns:async()=>['8.8.8.8']};const calls=[];
+ try{const factory=(_url,key)=>({auth:{getUser:async()=>({data:{user:{id:owner}}})},rpc:(name,args)=>({then:resolve=>Promise.resolve(resolve((()=>{calls.push({name,args});if(name==='totus_api_manager')return {data:{connections:[{id:request_id,revision:1}]}};if(name==='totus_api_server')return {data:{id:request_id,protocol:'http',endpoint:'https://example.com',auth_kind:'none',free_confirmed:true}};return {data:null};})()))})});
+ const response=await handle(req({action:'test',id:request_id,revision:1,call_id:owner}),env,factory,async()=>new Response('',{status:503}));assert.equal(response.status,400);assert.match((await response.json()).error,/503/);assert(calls.some(c=>c.name==='totus_api_call'&&c.args.p_result?.ok===false));
+ }finally{if(old===undefined)delete globalThis.Deno;else globalThis.Deno=old;}
+});
