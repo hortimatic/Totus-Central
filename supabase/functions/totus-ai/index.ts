@@ -1,5 +1,5 @@
 import {uploadChatFile} from '../../../src/chat-files.js';
-import {createDeliveryQueue} from '../../../src/agent-delivery.js';
+import {createDeliveryQueue,deliveryReply} from '../../../src/agent-delivery.js';
 import {agentRequest} from '../../../src/agent-conversation.js';
 import {providerChat} from './providers.js';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
@@ -79,7 +79,7 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   const result=await runAgent({content,execute,authorize,reserve,verified,provider:(messages:any,tools:any,toolChoice:any)=>config.connection?trackedConnection(config.connection,()=>providerChat(config.connection,{messages,tools,toolChoice,request})):chat({account:config.account_id,token:config.token,messages,tools,toolChoice,request}) });await authorize();
   const simulations=result.simulations.length?'\n\nSimulaciones verificadas por Totus (sin guardar):\n'+result.simulations.map((v:any)=>'• '+v.procedure+' · total '+Number(v.total).toFixed(2)+' €').join('\n'):'';
   const evidence=result.verified.length?'\n\nGuardados verificados por Totus:\n'+result.verified.map((v:any)=>'• '+v.procedure+' · '+v.id).join('\n'):activity.attemptedWrite?'\n\nNo se ha confirmado ningún guardado en esta petición.':'';
-  const sent=check(await scoped.rpc('totus_chat_command',{p_action:'send',p_data:{channel_id:job.source.channel_id,client_id:await actionUuid('reply:'+job.id),body:(result.text+simulations+evidence+(delivery.files.length?'\n\nArchivos adjuntos: '+delivery.files.map(f=>f.name).join(', '):'')).slice(0,11900),expected_files:delivery.files.length}}));
+  const sent=check(await scoped.rpc('totus_chat_command',{p_action:'send',p_data:{channel_id:job.source.channel_id,client_id:await actionUuid('reply:'+job.id),body:(deliveryReply(result.text,delivery.files)+simulations+evidence).slice(0,11900),expected_files:delivery.files.length}}));
   for(const [i,file] of delivery.files.entries()){
    await authorize('documentos','view');
    const uploaded=await uploadChatFile(file,{messageId:sent.id,clientId:await actionUuid('reply-file:'+job.id+':'+i),request:async(action:string,body:any)=>check(await scoped.functions.invoke('totus-onedrive',{body:{action,...body}})),fetchFile:request});

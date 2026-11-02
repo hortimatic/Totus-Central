@@ -1,5 +1,13 @@
 import {chatFileMetadata,microsoftTransferUrl,chatFileHash} from './chat-files.js';
 const checked=r=>{if(r.error)throw Error(r.error.message||'No se pudo leer el documento autorizado.');return r.data;};
+export function deliveryReply(text,files){
+ // The model cannot know whether the server's subsequent upload will succeed.
+ // For file responses, render the actual queue rather than an invented refusal or UUID request.
+ if(!files.length)return text;
+ const incompatible=/document_id|\buuid\b|Totus confirmar[aá]|(?:necesito|ind[ií]came|proporciona|obtener)[\s\S]{0,90}identificador|no (?:puedo|dispongo|se puede)[\s\S]{0,100}(?:envi|adjunt|identificador|completar)/i.test(text);
+ const list=(files.length===1?'Archivo adjunto de esta respuesta: ':'Archivos adjuntos de esta respuesta: ')+files.map(f=>f.name).join('\n');
+ return incompatible?list:text+'\n\n'+list;
+}
 export function createDeliveryQueue(){
  const files=[];let total=0;
  function stage(file){const meta=chatFileMetadata(file);const previous=files.find(f=>f.name===file.name);if(previous)throw Error('El archivo ya está preparado; no lo dupliques.');if(files.length>=4||total+meta.size>25*1024*1024)throw Error('La respuesta supera cuatro archivos o 25 MB. Divide la petición.');files.push(file);total+=meta.size;return {prepared:true,delivered:false,name:meta.name,size:meta.size,instruction:'Preparado para adjuntar a la respuesta; solo Totus confirmará su entrega después de subir y verificar.'};}
