@@ -7,6 +7,10 @@ export async function providerChat(connection,{messages,tools,toolChoice,request
  if(!['openai_compatible','anthropic'].includes(c.protocol))throw Error('Este tipo de conexión no ejecuta las acciones de Totus IA.');
  const endpoint=await safeEndpoint(connectionTarget(c),resolve),headers={...connectionHeaders(c),'Content-Type':'application/json'};
  const body=c.protocol==='anthropic'?{model:c.model,max_tokens:connectionOutputLimit(c),system:messages.filter(m=>m.role==='system').map(m=>m.content).join('\n'),messages:anthropicMessages(messages),tools:tools.map(t=>({name:t.function.name,description:t.function.description,input_schema:t.function.parameters})),tool_choice:typeof toolChoice==='object'?{type:'tool',name:toolChoice.function.name}:{type:'auto'}}:{model:c.model,messages,tools,tool_choice:toolChoice,max_tokens:connectionOutputLimit(c),temperature:0,stream:false};
+ if(c.protocol==='openai_compatible'&&endpoint.hostname==='api.cohere.ai'){
+  const names=new Map(messages.flatMap(m=>(m.tool_calls||[]).map(call=>[call.id,call.function?.name])));
+  body.messages=messages.map(m=>{if(m.role!=='tool')return m;const name=names.get(m.tool_call_id);if(!name)throw Error('Resultado de herramienta sin llamada original.');return {...m,name};});
+ }
  if(c.protocol==='openai_compatible'&&endpoint.hostname==='api.groq.com'){
   // These turns return tool arguments or a short chat answer, never the document bytes.
   body.max_tokens=connectionOutputLimit(c);
