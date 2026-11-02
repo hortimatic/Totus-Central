@@ -7,6 +7,7 @@ create table if not exists private.totus_api_connections(
  auth_header text not null default '',model text not null default '',account_id text not null default '',
  actor_email text not null references public.team_members(email),daily_limit integer not null default 30 check(daily_limit between 1 and 200),
  free_confirmed boolean not null default false,real_data_authorized boolean not null default false,
+ allow_cloudflare_reader boolean not null default false,baseline_day date,baseline_calls integer not null default 0,
  enabled boolean not null default false,revision bigint not null default 1,verified_revision bigint,verified_at timestamptz,
  created_at timestamptz not null default now(),updated_at timestamptz not null default now()
 );
@@ -23,7 +24,7 @@ create index if not exists totus_api_calls_daily on private.totus_api_calls(conn
 alter table private.totus_ai_config add column if not exists connection_id uuid references private.totus_api_connections(id) on delete restrict;
 create or replace function private.totus_api_admin() returns void language plpgsql security definer set search_path='' as $$
 begin
- if auth.uid() is null or not coalesce(private.is_admin(),false) or not private.totus_module_can(lower(auth.jwt()->>'email'),'configuracion','edit') then raise exception 'Solo administración con permiso de Configuración puede gestionar conexiones.';end if;
+ if auth.uid() is null or not exists(select 1 from auth.users u join public.team_members t on lower(t.email)=lower(u.email) where u.id=auth.uid() and t.active and t.role='admin' and private.totus_module_can(t.email,'configuracion','edit')) then raise exception 'Solo administración con permiso de Configuración puede gestionar conexiones.';end if;
 end;$$;
 revoke all on function private.totus_api_admin() from public,anon,authenticated;
 create or replace function private.totus_api_manager(p_action text default 'list',p_data jsonb default '{}',p_secret text default null)
@@ -56,6 +57,7 @@ begin
   if c.protocol in ('http','prestashop','openai_compatible') and c.endpoint='' then raise exception 'Falta la dirección de la API.';end if;
   if p_secret is not null and (length(p_secret) not between 1 and 8192 or p_secret~'[\r\n]') then raise exception 'La clave contiene caracteres no válidos.';end if;
   dirty=before_config is distinct from (to_jsonb(c)-array['name','updated_at','revision','enabled','verified_revision','verified_at','created_at']) or p_secret is not null;
+  c.allow_cloudflare_reader=coalesce(c.allow_cloudflare_reader,false);c.baseline_calls=coalesce(c.baseline_calls,0);
   c.revision=coalesce(c.revision,0)+1;c.updated_at=clock_timestamp();c.created_at=coalesce(c.created_at,now());
   if dirty then c.enabled=false;c.verified_revision=null;c.verified_at=null;else c.verified_revision=case when c.verified_revision is not null then c.revision end;end if;
   insert into private.totus_api_connections select c.* on conflict(id) do update set name=excluded.name,protocol=excluded.protocol,endpoint=excluded.endpoint,auth_kind=excluded.auth_kind,auth_header=excluded.auth_header,model=excluded.model,account_id=excluded.account_id,actor_email=excluded.actor_email,daily_limit=excluded.daily_limit,free_confirmed=excluded.free_confirmed,real_data_authorized=excluded.real_data_authorized,enabled=excluded.enabled,revision=excluded.revision,verified_revision=excluded.verified_revision,verified_at=excluded.verified_at,updated_at=excluded.updated_at;
