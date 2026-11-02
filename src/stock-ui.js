@@ -29,7 +29,11 @@ function supplierField(id,current=''){
  return '<div class="stock-supplier-field">'+selectField('Proveedor',id,options,current,'required')+
  (canCreateSupplier()?action('+ Nuevo proveedor','stock-supplier-new','data-target="'+id+'"'):'')+'</div>';
 }
-const uploadInput=(label,id)=>'<label class="stock-file-field">'+label+'<input id="'+id+'" type="file" accept=".pdf,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.webp" multiple></label>';
+const uploadInput=(label,id)=>'<label class="stock-file-field"><span>'+esc(label)+'</span><span class="stock-file-control"><span class="stock-file-button" aria-hidden="true">Elegir archivos</span><span class="stock-file-selection" data-stock-file-selection>Ningún archivo seleccionado</span><input id="'+id+'" aria-label="'+esc(label)+'" type="file" accept=".pdf,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.webp" multiple></span></label>';
+export function updateStockFileSelection(input){
+ const selection=input?.closest?.('.stock-file-control')?.querySelector('[data-stock-file-selection]');if(!selection)return;
+ const names=Array.from(input.files||[],file=>file.name);selection.textContent=names.length?names.join(', '):'Ningún archivo seleccionado';selection.title=selection.textContent;
+}
 function sourceCard(source){
  const d=source.document||{},kind=source.source_kind==='supplier'?'Proveedor':'Entrada de PrestaShop';
  const status=source.extraction?.state==='ready'?'Texto disponible':source.extraction?.state==='partial'?'Lectura parcial':'Necesita leer el original';

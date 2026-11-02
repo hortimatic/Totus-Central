@@ -34,7 +34,7 @@ import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingProviderPreview,pricingCompetition} from './pricing-core.js';
-import {stockAction} from './stock-ui.js';
+import {stockAction,updateStockFileSelection} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan,annualReportPlan} from './report-package.js';
 import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
@@ -3045,6 +3045,7 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.matches?.('.stock-file-field input[type=file]'))updateStockFileSelection(e.target);
  if(e.target?.id?.startsWith('tp')&&input('templateDraftPreview'))updateTemplateDraftPreview();
  if(e.target?.id==='ivTemplate'){
   const notes=input('ivNotes'),next=state.data.templates.find(t=>t.id===e.target.value)?.notes_default||'';

@@ -684,8 +684,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .stock-page .stock-file-field{padding:12px;border:1px dashed #bdcadd;border-radius:10px;background:#fbfcff;font-size:12px;font-weight:750;color:#596579}
 .stock-file-field input{margin-top:7px;min-height:44px;font-size:12px}
 .stock-file-field input::file-selector-button{border:1px solid #cbd5e1;border-radius:7px;padding:7px 9px;margin-right:8px;background:white;color:#27364a;font:inherit;font-weight:650;cursor:pointer}
-.stock-page .stock-file-field input[type=file]{box-sizing:border-box;height:44px;min-height:44px;padding:0;font:inherit;line-height:normal;overflow:hidden}
-.stock-page .stock-file-field input[type=file]::file-selector-button{box-sizing:border-box;height:100%;margin:0 10px 0 0;padding:0 12px;border:0;border-right:1px solid var(--line);border-radius:0;font:inherit;line-height:normal;vertical-align:middle}
+.stock-file-control{position:relative;display:flex;align-items:center;gap:10px;min-width:0;height:44px;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.stock-file-button{display:flex;align-items:center;align-self:stretch;flex-shrink:0;padding:0 12px;border-right:1px solid var(--line);background:var(--stitch-low,#f5f7fb);line-height:normal}
+.stock-file-selection{display:block;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:normal;padding-right:8px}
+.stock-file-control:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.stock-file-field .stock-file-control input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;min-height:0;margin:0;padding:0;border:0;z-index:1}
 .stock-modal>label{display:grid;gap:6px;margin-top:14px;font-size:13px;font-weight:650}
 .stock-modal>label.check-field{display:flex;align-items:flex-start;gap:9px;font-weight:400;line-height:1.5}
 .stock-modal>label.check-field input{margin:4px 0 0;flex:0 0 auto}
