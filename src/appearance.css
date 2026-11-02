@@ -46,7 +46,8 @@ html[data-appearance] .sidebar .brand>div,.custom-login .brand>div{min-width:0;m
 
 /* Shared visual tokens inspired by Material color roles and Fluent elevation. */
 html[data-appearance] body,.appearance-demo{background-image:var(--appearance-bg-image);background-size:cover;background-position:center;background-attachment:fixed}
-html[data-appearance] :is(.card,.kpi,.table-wrap,.store-status-card,.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel,.configuration-sections,.appearance-tools),.appearance-demo :is(.card,.table-wrap){border:var(--appearance-border-width) solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+html[data-appearance] :is(.card,.kpi,.table-wrap,.store-status-card,.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel,.configuration-sections,.appearance-tools),.appearance-demo :is(.card,.table-wrap){border:var(--appearance-border-width) solid var(--line);border-radius:var(--r)}
+html[data-appearance] :is(.store-status-card,.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel,.configuration-sections,.appearance-tools){box-shadow:var(--shadow)}
 html[data-appearance] .sidebar .brand-mark{width:var(--appearance-logo-height);height:var(--appearance-logo-height);flex-shrink:0}
 html[data-appearance] .sidebar .brand-mark img,.appearance-demo [data-brand-logo]{width:var(--appearance-logo-height);height:var(--appearance-logo-height);object-fit:contain}
 html[data-appearance] .btn.primary,.appearance-demo .btn.primary{color:var(--appearance-button-ink);box-shadow:0 0 var(--appearance-button-glow) var(--appearance-glow)}
