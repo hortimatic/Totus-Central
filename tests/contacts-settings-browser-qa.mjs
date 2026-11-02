@@ -17,6 +17,12 @@ try{
    assert.equal(await tab.getAttribute('aria-pressed'),'true');
    assert.equal(await page.locator('#appearanceRoot').isVisible(),key!=='connections');
   }
+  if(width===1440){
+   await page.evaluate(async()=>{const {fieldHelp}=await import('../src/components.js');const box=document.createElement('div');box.id='helpQA';box.style='position:fixed;top:150px;left:500px;z-index:9999';box.innerHTML=fieldHelp('Prueba contextual','Explicación específica de prueba');document.body.append(box);});
+   const help=page.locator('#helpQA details'),summary=help.locator('summary');await summary.hover();assert.equal(await help.evaluate(e=>e.open),true);await page.mouse.move(100,100);assert.equal(await help.evaluate(e=>e.open),false);
+   await summary.focus();assert.equal(await help.evaluate(e=>e.open),true);await page.keyboard.press('Escape');assert.equal(await help.evaluate(e=>e.open),false);
+   await summary.click();assert.equal(await help.evaluate(e=>e.open),true);await summary.click();assert.equal(await help.evaluate(e=>e.open),false);
+  }
   await page.close();
  }
  assert.deepEqual(errors,[]);console.log('CONTACTS SETTINGS QA: three shared directory routes, 390/1440 layout, three settings tabs.');
