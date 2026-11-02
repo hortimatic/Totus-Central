@@ -44,6 +44,7 @@ try{
  assert(await page.locator('[data-chat="quote"][data-id="m30"]').isVisible());
  await page.locator('[data-chat="message-tools"][data-id="m30"]').click();
  }
+ await page.locator('[data-chat=mobile-channels]').click();await page.locator('[data-chat=open][data-id=a]').click();assert.equal(await page.locator('#chatBody').inputValue(),'Borrador móvil ficticio');
  await page.screenshot({path:'artifacts/mobile-audit/chat-'+width+'x'+height+'.png'});
  assert.deepEqual(errors,[]);await page.close();
  }

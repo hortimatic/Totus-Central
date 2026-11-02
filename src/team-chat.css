@@ -297,7 +297,7 @@
  .chat-heading>div:first-child{flex:1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:6px}
  .chat-heading h2{font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  .chat-heading p{grid-column:1/-1;font-size:11px;margin:3px 0 0;-webkit-line-clamp:1}
- .chat-heading .chat-channel-tools{display:flex;flex-wrap:nowrap;gap:1px;align-items:center;justify-content:flex-end}
+ .chat-heading .chat-channel-tools{display:flex;width:auto;flex:none;flex-wrap:nowrap;gap:1px;align-items:center;justify-content:flex-end}
  .team-chat .chat-heading .btn,.chat-heading .chat-menu>summary{min-width:32px;min-height:36px;padding:4px;font-size:15px;border-radius:10px}
  .chat-heading .chat-menu>summary:after{display:none}
  .chat-action-icon{display:inline}
