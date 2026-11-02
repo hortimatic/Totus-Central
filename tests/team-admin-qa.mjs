@@ -43,6 +43,7 @@ assert.equal((await scenario({existing:false})).status,404);
 const created=await scenario({action:'create_user',existing:false});assert.equal(created.status,200);
 const ficha=created.writes.find(w=>w.table==='team_members').value;
 assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager');assert.equal(ficha.store,'QA centre');assert.equal(ficha.employee_notes,'QA notes');
+assert(!('avatar_url' in ficha),'Ordinary invitations and creation must not clear existing photo fields');
 const denied=await scenario({callerRole:'gerente'});assert.equal(denied.status,403);assert.equal(denied.updates.length,0);assert.equal(denied.writes.length,0);
 for(const authDeleted of [false,true]){
  const recreated=await scenario({action:'create_user',retired:true,purged:true,existing:authDeleted,authDeleted});assert.equal(recreated.status,200);

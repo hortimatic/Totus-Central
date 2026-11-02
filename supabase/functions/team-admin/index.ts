@@ -28,14 +28,14 @@ Deno.serve(async(req:Request)=>{
   if(callerError)return json({error:callerError.message},500)
   if(!caller?.active||caller.role!=='admin')return json({error:'Solo el administrador puede gestionar usuarios'},403)
 
-  const body=await req.json(),action=String(body?.action||'')
+  const body=await req.json(),action=String(body?.action||'');let recreatingPurged=false
   const cleanEmail=(v:unknown)=>String(v||'').trim().toLowerCase(),cleanText=(v:unknown)=>String(v||'').trim();const validRole=async (r:string)=>{if(!/^[a-z][a-z0-9_]{2,31}$/.test(r))return false;const {data,error}=await admin.from('ops_roles').select('code').eq('code',r).maybeSingle();if(error)throw error;return !!data}
   const listAuthUsers=async()=>{const users=[];for(let page=1;;page++){const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});if(error)throw error;const batch=data.users||[];users.push(...batch);if(batch.length<1000)return users}}
   const findAuthUser=async(email:string)=>(await listAuthUsers()).find((u:any)=>!u.deleted_at&&(u.email||'').toLowerCase()===email)||null
   const countActiveAdmins=async()=>{const {count,error}=await admin.from('team_members').select('*',{count:'exact',head:true}).eq('role','admin').eq('active',true);if(error)throw error;return count||0}
   const audit=async(target:string,act:string,status:'ok'|'failed',detail='')=>{await admin.from('team_user_audit_log').insert({actor_email:callerEmail,target_email:target,action:act,status,detail})}
   const logEmail=async(target:string,type:string,status:'sent'|'failed',detail='')=>{await admin.from('team_email_log').insert({recipient_email:target,email_type:type,status,detail,requested_by:callerEmail})}
-  const ensureMember=async(email:string,fullName:string,role:string,active=true)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null,phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error}
+  const ensureMember=async(email:string,fullName:string,role:string,active=true)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,...(recreatingPurged?{deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null}:{}),phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error}
   const lastAdminGuard=async(email:string,nextRole?:string,nextActive?:boolean,deleting=false)=>{const {data:current}=await admin.from('team_members').select('email,role,active').eq('email',email).maybeSingle();if(!current?.active||current.role!=='admin')return;const loses=deleting||nextActive===false||(nextRole&&nextRole!=='admin');if(loses&&(await countActiveAdmins())<=1)throw new Error('No puedes dejar el sistema sin ningún administrador activo.')}
   const sendRecovery=async(email:string,source:string)=>{
     const {error}=await publicAuth.auth.resetPasswordForEmail(email,{redirectTo:APP_URL})
@@ -46,7 +46,7 @@ Deno.serve(async(req:Request)=>{
 
   if(['create_user','set_password','invite','resend_invite','send_password_reset','update_member','set_active'].includes(action)&&body.email){
    const {data:target,error}=await admin.from('team_members').select('deleted_at,purged_at,auth_cleanup_pending').eq('email',cleanEmail(body.email)).maybeSingle();if(error)throw error;
-   if(target?.purged_at){if(!['create_user','invite'].includes(action)||target.auth_cleanup_pending)return json({error:'La cuenta fue eliminada definitivamente. Crea una cuenta nueva con este correo desde Nuevo usuario; no se puede recuperar ni cambiar la contraseña antigua.'},409);}
+   if(target?.purged_at){if(!['create_user','invite'].includes(action)||target.auth_cleanup_pending)return json({error:'La cuenta fue eliminada definitivamente. Crea una cuenta nueva con este correo desde Nuevo usuario; no se puede recuperar ni cambiar la contraseña antigua.'},409);recreatingPurged=true;}
    else if(target?.deleted_at)return json({error:'El usuario está eliminado. Recupéralo desde Usuarios eliminados antes de cambiar su acceso.'},409);
   }
   if(action==='create_user'||action==='set_password'){
