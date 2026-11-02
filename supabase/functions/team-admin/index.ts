@@ -30,7 +30,7 @@ Deno.serve(async(req:Request)=>{
 
   const body=await req.json(),action=String(body?.action||'');let recreatingPurged=false
   const cleanEmail=(v:unknown)=>String(v||'').trim().toLowerCase(),cleanText=(v:unknown)=>String(v||'').trim();const validRole=async (r:string)=>{if(!/^[a-z][a-z0-9_]{2,31}$/.test(r))return false;const {data,error}=await admin.from('ops_roles').select('code').eq('code',r).maybeSingle();if(error)throw error;return !!data}
-  const listAuthUsers=async()=>{const users=[];for(let page=1;;page++){const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});if(error)throw error;const batch=data.users||[];users.push(...batch);if(batch.length<1000)return users}}
+  const listAuthUsers=async()=>{const users=[];for(let page=1;;page++){const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});if(error)throw error;const batch=data.users||[];users.push(...batch.filter((u:any)=>!u.deleted_at));if(batch.length<1000)return users}}
   const findAuthUser=async(email:string)=>(await listAuthUsers()).find((u:any)=>!u.deleted_at&&(u.email||'').toLowerCase()===email)||null
   const countActiveAdmins=async()=>{const {count,error}=await admin.from('team_members').select('*',{count:'exact',head:true}).eq('role','admin').eq('active',true);if(error)throw error;return count||0}
   const audit=async(target:string,act:string,status:'ok'|'failed',detail='')=>{await admin.from('team_user_audit_log').insert({actor_email:callerEmail,target_email:target,action:act,status,detail})}

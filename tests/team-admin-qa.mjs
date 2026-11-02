@@ -53,6 +53,7 @@ for(const authDeleted of [false,true]){
 for(const action of ['set_password','update_member','set_active','resend_invite']){const result=await scenario({action,retired:true,purged:true});assert.equal(result.status,409);assert.equal(result.updates.length,0);assert.equal(result.writes.length,0);}
 assert.equal((await scenario({action:'create_user',retired:true,purged:false,existing:false})).status,409);
 assert.equal((await scenario({action:'create_user',retired:true,purged:true,cleanup:true,existing:false})).status,409);
+const liveAuthConflict=await scenario({action:'create_user',retired:true,purged:true,existing:true});assert.equal(liveAuthConflict.status,409);assert.equal(liveAuthConflict.writes.length,0,'A live Auth identity cannot be taken over through a purged team row');
 const short=await scenario({password:'fixture-8'});assert.equal(short.status,400);assert.equal(short.updates.length,0);assert.equal(short.writes.length,0);
 console.log('TEAM ADMIN QA: credential maintenance preserves role, identity and revoked access; pagination and authorization verified.');
 
