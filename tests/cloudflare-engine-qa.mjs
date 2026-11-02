@@ -23,3 +23,17 @@ console.log(passed+' controls passed');
 await test('ordinary requests are not forced into a needless tool call',async()=>{const r=await runAgent({content:'Di hola',authorize:async()=>{},reserve:async()=>{},execute:async()=>{throw Error('no tools needed')},provider:async(_messages,_tools,choice)=>{assert.equal(choice,'auto');return {message:{content:'Hola'}};}});assert.equal(r.text,'Hola');});
 
 await test('tool diagnostics record only names and result shape, never arguments or document content',async()=>{const events=[];let round=0;await runAgent({content:'private-request',authorize:async()=>{},reserve:async()=>{},onTrace:e=>events.push(e),execute:async()=>({private_document:'secret-text',completed:true}),provider:async()=>round++?{message:{content:'Listo'}}:{message:{tool_calls:[call('catalogo','{"private":"private-argument"}')]}}});assert.equal(events.length,1);assert.equal(events[0].tool,'catalogo');assert.equal(events[0].ok,true);assert(!JSON.stringify(events).includes('secret-text'));assert(!JSON.stringify(events).includes('private-argument'));});
+
+await test('a truncated generation is retried as a smaller action without repeating a confirmed write',async()=>{
+ let round=0,writes=0,reserves=0;
+ const r=await runAgent({content:'Receipt QA',authorize:async()=>{},reserve:async()=>reserves++,execute:async()=>{writes++;return {verified_write:{procedure:'totus_stock_create',id:'receipt'}};},provider:async messages=>{
+  if(round++===0)return {message:{tool_calls:[call('ejecutar')]}};
+  if(round===2)throw Object.assign(Error('incomplete'),{code:'incomplete_response'});
+  assert.match(messages.at(-1).content,/NO se ejecutó/);assert(messages.some(m=>m.role==='tool'&&m.content.includes('receipt')));
+  return {message:{content:'La recepción guardada se conserva.'}};
+ }});assert.equal(writes,1);assert.equal(r.verified.length,1);assert.equal(reserves,3);
+});
+await test('repeated truncation and quota failures stop without unbounded provider retries',async()=>{
+ let calls=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>{throw Error('must not execute')},provider:async()=>{calls++;throw Object.assign(Error('incomplete'),{code:'incomplete_response'});}}),/incomplete/);assert.equal(calls,2);
+ calls=0;await assert.rejects(runAgent({content:'qa',authorize:async()=>{},reserve:async()=>{},execute:async()=>{},provider:async()=>{calls++;throw Error('Cuota');}}),/Cuota/);assert.equal(calls,1);
+});
