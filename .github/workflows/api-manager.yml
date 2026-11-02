@@ -1,0 +1,59 @@
+name: Revisar gestor de APIs
+on:
+  push:
+    branches: [feat/api-manager]
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify private connection lifecycle
+        env:
+          PGPASSWORD: test-only
+        run: |
+          for file in tests/cloudflare-db-fixture.sql supabase/review_patches/040_cloudflare_agent.sql supabase/review_patches/044_api_connections.sql tests/api-manager-db-qa.sql supabase/review_patches/045_api_agent_selection.sql supabase/review_patches/046_api_technical_users.sql tests/api-selection-db-qa.sql; do
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$file"
+          done
+      - name: Preserve the current Cloudflare configuration and counters
+        env:
+          PGPASSWORD: test-only
+        run: |
+          createdb -h localhost -U postgres api_legacy
+          sed 's/create role anon;create role authenticated;create role service_role;//' tests/chat-db-fixture.sql > /tmp/api-chat-fixture.sql
+          sed 's|\\i tests/chat-db-fixture.sql|\\i /tmp/api-chat-fixture.sql|' tests/cloudflare-db-fixture.sql | psql -h localhost -U postgres -d api_legacy -v ON_ERROR_STOP=1
+          for file in supabase/review_patches/040_cloudflare_agent.sql supabase/review_patches/044_api_connections.sql tests/api-legacy-import-db-qa.sql; do
+            psql -h localhost -U postgres -d api_legacy -v ON_ERROR_STOP=1 -f "$file"
+          done
+  interface-and-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/totus-connections/index.ts supabase/functions/totus-ai/index.ts
+      - run: node --test tests/api-transport-qa.mjs tests/api-provider-qa.mjs tests/api-service-qa.mjs
+      - run: npm install --no-save --no-package-lock playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: python3 -m http.server 4173 >/tmp/totus-api.log 2>&1 &
+      - run: node tests/api-manager-browser-qa.mjs
+      - run: node tests/subtab-walk-qa.mjs
+      - run: node tests/cloudflare-settings-browser-qa.mjs
+      - run: node tests/ai-connection-test-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-manager-layout
+          path: artifacts/api-manager/

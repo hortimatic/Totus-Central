@@ -1,3 +1,4 @@
+import {createApiManager} from './api-manager.js';
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
 import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
@@ -128,6 +129,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const cloudflareConnection=createCloudflareConnection({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,invoke:async body=>{const result=await sb.functions.invoke('totus-ai',{body});if(result.error){let detail=null;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,onUsers:()=>navigateModule('administracion'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const aiConnectionTest=createAIConnectionTest({allowed:()=>isAdmin()&&can('configuracion','edit'),actor:()=>state.user?.id});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
@@ -222,7 +224,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='cotejos'?'recepciones':state.route==='configuracion'?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();apiManager.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -253,7 +255,7 @@ function render(){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
    $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml({gemini:state.data.team.find(member=>member.email==='gemini@totuscentral.invalid')}));
-   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||cloudflareConnection.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));}});
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||cloudflareConnection.hasDraft()||apiManager.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();apiManager.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));void apiManager.mount($('[data-api-manager]'));}});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
@@ -266,6 +268,7 @@ const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?'))return false;
+ if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft()||cloudflareConnection.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?'))return false;
  if(!modalOnly&&state.route==='tareas'&&tasks.hasDraft()&&!await confirmAction('Hay una ficha de tarea abierta. ¿Salir sin guardar los cambios?'))return false;
  if(!modalOnly&&state.route==='equipo'&&teamChat.hasDraft()&&!await confirmAction('Hay mensajes sin enviar en el chat. Se conservarán durante esta sesión; al cerrar sesión o recargar se perderán. ¿Salir del chat?'))return false;
  const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
@@ -284,7 +287,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||cloudflareConnection.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
@@ -402,7 +405,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(null,'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();apiManager.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -3215,7 +3218,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();aiConnectionTest.dispose();cloudflareConnection.dispose();apiManager.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
