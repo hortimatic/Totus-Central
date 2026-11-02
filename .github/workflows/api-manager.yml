@@ -1,0 +1,25 @@
+name: Revisar gestor de APIs
+on:
+  push:
+    branches: [feat/api-manager]
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify private connection lifecycle
+        env:
+          PGPASSWORD: test-only
+        run: |
+          for file in tests/cloudflare-db-fixture.sql supabase/review_patches/040_cloudflare_agent.sql supabase/review_patches/044_api_connections.sql tests/api-manager-db-qa.sql; do
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$file"
+          done
