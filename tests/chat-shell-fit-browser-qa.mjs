@@ -8,7 +8,7 @@ try{
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html?module=inicio',{waitUntil:'networkidle'});
   await page.locator('[data-account-open]').waitFor();
   await page.evaluate(async()=>{
-   const {renderers}=await import('../src/pages/main.js');const {createTeamChat}=await import('../src/team-chat-ui.js');document.querySelector('#pageTitle').textContent='Chat';document.querySelector('#content').innerHTML=renderers.equipo();
+   const {renderers}=await import('../src/pages/main.js');const {applyStitchLayout}=await import('../src/stitch-layout.js');const {createTeamChat}=await import('../src/team-chat-ui.js');document.querySelector('#pageTitle').textContent='Chat';document.querySelector('#content').innerHTML=renderers.equipo();applyStitchLayout(document.querySelector('#content'),'equipo','Chat');
    const channels=[{id:'fit-channel',name:'Canal de ensayo',group_name:'Equipo',member_role:'manager',last_read_seq:100}],messages=Array.from({length:30},(_,i)=>({id:'message-'+i,seq:i+1,channel_id:'fit-channel',body:'Mensaje ficticio '+i+' '+('Contenido '.repeat(20)),author_email:'qa@example.com',created_at:'2026-11-02T10:00:00Z'}));
    window.fitController=createTeamChat({actor:()=> 'qa@example.com',rpc:async(name,p)=>{if(name==='totus_chat_context')return {channels,messages:p.p_channel?messages:[],members:[{email:'qa@example.com',member_role:'manager'}],directory:[{email:'qa@example.com',name:'Administración QA'}],layout:{}};if(name==='totus_chat_command')return {};throw Error(name);}});await window.fitController.mount(document.querySelector('#teamChatRoot'));
   });
