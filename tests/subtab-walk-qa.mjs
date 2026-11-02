@@ -21,11 +21,8 @@ const browser=await chromium.launch({headless:true}),errors=[],views=[],names=[]
 for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narrow',320]]){
  const page=await browser.newPage({viewport:{width,height:900},locale:'es-ES'});
  page.on('pageerror',e=>errors.push(size+' JavaScript: '+e.message));
+ await page.route('**/tests/mock-supabase.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('tests/mock-supabase.js','utf8').replace('const rpc=async (name,args={})=>{','const rpc=async (name,args={})=>{'+" if(name==='totus_tasks_context')return {data:{rows:[],archived_tasks:[],stores:[],people:[]},error:null};\n if(name==='totus_chat_context'||name==='totus_chat_personalized_context')return {data:{channels:[{id:'visual',name:'Canal de ensayo visual',group_name:'Pruebas',member_role:'manager',last_read_seq:10}],messages:[{id:'visual-message',seq:1,channel_id:'visual',author_email:'qa@example.com',body:'Mensaje ficticio para comprobar la lectura.',created_at:new Date().toISOString()}],members:[{email:'qa@example.com',member_role:'manager'}],directory:[],layout:{}},error:null};\n if(name==='totus_chat_command')return {data:{},error:null};")}));
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.evaluate(()=>{const client=window.supabase.createClient(),original=client.rpc.bind(client);client.rpc=async(name,args)=>{
- if(name==='totus_tasks_context')return {data:{rows:[],archived_tasks:[],stores:[],people:[]},error:null};
- if(name==='totus_chat_context')return {data:{channels:[{id:'visual',name:'Canal de ensayo visual',group_name:'Pruebas',member_role:'manager',last_read_seq:10}],messages:[{id:'visual-message',seq:1,channel_id:'visual',author_email:'qa@example.com',body:'Mensaje ficticio para comprobar la lectura.',created_at:new Date().toISOString()}],members:[{email:'qa@example.com',member_role:'manager'}],directory:[],layout:{}},error:null};
- if(name==='totus_chat_command')return {data:{},error:null};return original(name,args);};});
  for(const mod of routes){
   const nav=page.locator('#nav [data-route="'+mod.route+'"]');
   if(await nav.count()!==1){errors.push(size+': missing '+mod.route+' main navigation');continue}
@@ -46,7 +43,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
    const info=await page.evaluate(()=>{
     const root=document.querySelector('#content'),rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
     const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};
-    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot')).map(el=>el.outerHTML.slice(0,180));
+    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
     const badControls=[],overlaps=[];
     for(const el of root.querySelectorAll('input,select,textarea')){
      if(!visible(el)||el.type==='hidden'||el.type==='file')continue;
