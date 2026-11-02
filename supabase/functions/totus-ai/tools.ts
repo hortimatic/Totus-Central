@@ -13,13 +13,14 @@ const procedures:Record<string,{module:string,operation:string,args:string[],tab
  totus_stock_mark_reviewed:{module:'documentos',operation:'edit',args:['p_id','p_revision','p_note','p_actor_email']},
  totus_stock_context:{module:'documentos',operation:'view',args:['p_id','p_actor_email']},
  totus_stock_create:{module:'documentos',operation:'create',args:['p_store','p_supplier','p_reference','p_date','p_notes','p_actor_email']},
+ totus_stock_add_source:{module:'documentos',operation:'edit',args:['p_id','p_revision','p_document','p_kind','p_actor_email']},
  totus_stock_save_result:{module:'documentos',operation:'edit',args:['p_id','p_revision','p_result','p_actor_email']}
 };
 const object=(v:any)=>v&&typeof v==='object'&&!Array.isArray(v);
 const check=(r:any)=>{if(r.error)throw Error(r.error.message||'Totus rechazó la operación');return r.data;};
 const canon=(v:any):string=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canon(x))):object(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canon(v[k]))])):v);
 export function createTools({client,admin,user,job,files,authorize,delivery=createDeliveryQueue(),readOriginal,request=fetch,activity={attemptedWrite:false},loadExcel=async()=>{const library=await import('npm:xlsx-js-style@1.2.0');return library.default||library;}}:any){
- let uncertain=false;const seen=new Set<string>();
+ let uncertain=false;const seen=new Set<string>(),readDocuments=new Map<string,any>();
  const collect=(v:any)=>{if(Array.isArray(v))v.forEach(collect);else if(object(v)){if(typeof v.id==='string')seen.add(v.id);Object.values(v).forEach(x=>{if(typeof x==='object')collect(x);});}};
  const rpc=async(name:string,args:any)=>check(await client.rpc(name,args));
  async function mutation(name:string,args:any,run:()=>Promise<any>){
@@ -89,7 +90,13 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
    await authorize('documentos','view');let q=client.from('ops_documents').select('id,document_date,supplier_or_customer,invoice_number,original_name,mime_type,size_bytes');
    for(const [key,column] of [['proveedor','supplier_or_customer'],['archivo','original_name'],['numero','invoice_number']])if(input[key]){if(typeof input[key]!=='string'||input[key].length>150)throw Error('Búsqueda demasiado larga.');const term=input[key].replace(/[\\%_]/g,(char:string)=>'\\'+char);q=q.ilike(column,'%'+term+'%');}
    for(const [key,method] of [['desde','gte'],['hasta','lte']])if(input[key]){if(!/^\d{4}-\d{2}-\d{2}$/.test(input[key])||!Number.isFinite(Date.parse(input[key]))||new Date(input[key]).toISOString().slice(0,10)!==input[key])throw Error('Fecha de búsqueda no válida.');q=q[method]('document_date',input[key]);}
-   if(input.tienda){if(!seen.has(input.tienda))throw Error('Consulta las tiendas antes de elegir una.');q=q.eq('store_id',input.tienda);}
+   if(input.tienda){
+    const stores=check(await client.from('ops_stores').select('id,name').order('id'));
+    const norm=(v:any)=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    const selected=stores.filter((s:any)=>s.id===input.tienda||norm(s.name)===norm(input.tienda));
+    if(selected.length!==1)return {completed:false,needs_store:true,stores,instruction:'Usa el nombre de una tienda encontrada. No es una denegación de acceso y no necesitas pedir un UUID.'};
+    collect(selected[0]);q=q.eq('store_id',selected[0].id);
+   }
    const page=input.pagina||0;if(!Number.isInteger(page)||page<0||page>1000)throw Error('Página de búsqueda no válida.');const rows=check(await q.order('document_date',{ascending:false}).order('id').range(page*30,page*30+30));collect(rows);
    return {documents:rows.slice(0,30),next_page:rows.length>30?page+1:null,guidance:'Usa el ID encontrado para enviar o leer el original. Si faltan datos prueba proveedor, nombre de archivo o número de factura; no pidas identificadores técnicos al usuario.'};
   }
@@ -100,11 +107,12 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
    if(name==='enviar_documento')return delivery.stage(file);
    if(!readOriginal)throw Error('No hay lector de documentos configurado.');
    const text=await readOriginal(new Uint8Array(await file.arrayBuffer()),file.type,file.name);
+   readDocuments.set(doc.id,{text,sha256:doc.sha256});
    return {id:doc.id,name:file.name,sha256_verified:true,text};
   }
   if(name==='consultar'){
-   if(!Object.hasOwn(reads,input.tabla))throw Error('Tabla no autorizada.');await authorize(reads[input.tabla],'view');
-   const rawFilters=JSON.parse(input.filtros_json||'[]'),filters=object(rawFilters)?Object.entries(rawFilters).map(([column,value])=>({column,operator:'eq',value})):rawFilters,limit=input.limite??30;if(!Array.isArray(filters)||filters.length>8||!Number.isInteger(limit)||limit<1||limit>50)throw Error('Consulta demasiado amplia.');
+   if(!Object.hasOwn(reads,input.tabla))return {completed:false,error:'Nombre de tabla no válido. No es una denegación de permisos.',tables:Object.keys(reads),instruction:'Selecciona el nombre exacto del catálogo; para tiendas usa ops_stores. No traduzcas nombres de tablas. Corrige la consulta antes de afirmar falta de acceso.'};await authorize(reads[input.tabla],'view');
+   const rawFilters=JSON.parse(input.filtros_json||'[]'),filters=object(rawFilters)?Object.entries(rawFilters).map(([column,value])=>({column,operator:'eq',value})):rawFilters,limit=input.limite??30;if(!Array.isArray(filters)||filters.length>8||!Number.isInteger(limit)||limit<1||limit>50)throw Error('Argumentos de consulta no válidos: limite debe ser un entero entre 1 y 50, filtros_json una lista de hasta 8 filtros. Corrige los argumentos; esto no indica falta de permisos. Usa pagina para continuar.');
    let q=client.from(input.tabla).select('*');for(const f of filters){if(!object(f)||!/^[_a-z][_a-z0-9]{0,62}$/.test(f.column)||!['eq','gte','lte'].includes(f.operator)||!['string','number','boolean'].includes(typeof f.value))throw Error('Filtro no autorizado.');q=q[f.operator](f.column,f.value);}
    const page=input.pagina??0;if(!Number.isInteger(page)||page<0||page>1000)throw Error('Página no válida.');q=q.order(input.tabla==='team_members'?'email':'id');const rows=check(await (page?q.range(page*limit,page*limit+limit):q.limit(limit+1)));collect(rows);return {rows:rows.slice(0,limit),truncated:rows.length>limit,next_page:rows.length>limit?page+1:null,guidance:'Si truncated es true, no presentes estos registros como el total del periodo.'};
   }
@@ -112,6 +120,11 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
    const spec=procedures[input.procedimiento];if(!spec)throw Error('Procedimiento no autorizado.');const args=JSON.parse(input.argumentos_json||'{}');if(!object(args)||Object.keys(args).some(k=>!spec.args.includes(k)))throw Error('Argumentos no admitidos.');
    if(spec.args.includes('p_actor_email'))args.p_actor_email=user.email;
    if(input.procedimiento==='totus_stock_create'&&!seen.has(args.p_store))throw Error('Consulta las tiendas antes de crear la recepción.');
+   if(input.procedimiento==='totus_stock_add_source'){
+    const original=readDocuments.get(args.p_document);
+    if(!original||!['supplier','prestashop'].includes(args.p_kind))throw Error('Lee el original completo con leer_documento e indica supplier o prestashop antes de asociarlo.');
+    args.p_text=original.text;args.p_extraction={state:'ready',reader:'verified-original-text',sha256:original.sha256};
+   }
    const record=args.p_expense||args.p_closing;if(record?.id&&!seen.has(record.id)||args.p_id&&!seen.has(args.p_id))throw Error('Consulta primero el registro que quieres utilizar o modificar.');
    await authorize(spec.module,record?.id?'edit':spec.operation);
    if(!input.simular&&spec.operation!=='view')activity.attemptedWrite=true;
@@ -168,7 +181,7 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
      const stored=check(await client.storage.from('business-documents').download(path));if(await hash(new Uint8Array(await stored.arrayBuffer()))!==file.sha256)throw Error('El original guardado no coincide.');
      await authorize('documentos','create');doc=check(await client.from('ops_documents').insert({id,store_id:receipt.store_id,doc_type:'otro',document_date:receipt.received_on,supplier_or_customer:receipt.supplier,invoice_number:receipt.reference,category_code:'recepcion_mercancia',status:'pendiente',storage_path:path,original_name:file.original_name,mime_type:file.mime_type,size_bytes:file.bytes.length,sha256:file.sha256,linked_entity_type:'stock_receipt',linked_entity_id:receipt.id,notes:'Original verificado desde Chat por Totus IA.',uploaded_by:user.id}).select('*').single());
     }else if(doc.sha256!==file.sha256||doc.linked_entity_id!==receipt.id)throw Error('El documento pertenece a otra operación.');
-    await authorize('documentos','edit');const saved=await rpc('totus_stock_add_source',{p_id:receipt.id,p_revision:input.revision,p_document:id,p_kind:input.kind,p_text:file.text,p_extraction:{state:'ready',reader:'cloudflare',sha256:file.sha256},p_actor_email:user.email});collect(saved);return {receipt:saved,verified_write:{procedure:name,id:receipt.id}};
+    await authorize('documentos','edit');const saved=await rpc('totus_stock_add_source',{p_id:receipt.id,p_revision:input.revision,p_document:id,p_kind:input.kind,p_text:file.text,p_extraction:{state:'ready',reader:file.text_reader||'cloudflare',sha256:file.sha256},p_actor_email:user.email});collect(saved);return {receipt:saved,verified_write:{procedure:name,id:receipt.id}};
    });
   }
   throw Error('Herramienta no autorizada.');
