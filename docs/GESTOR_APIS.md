@@ -17,7 +17,7 @@
 - Los límites de peticiones son locales, diarios UTC, e incluyen intentos y pruebas. Los tokens se muestran solo cuando la respuesta los facilita. No se inventa un porcentaje de cuota del proveedor.
 
 ## Alcance real
-HTTP, PrestaShop y GitHub permiten comprobar la conexión. No incorporan automáticamente operaciones de esos servicios: cada operación necesita su adaptador autorizado. Cloudflare, Chat Completions y Anthropic tienen adaptadores de herramientas de IA; las pruebas de protocolos usan respuestas ficticias. Cada conexión real necesita su prueba con la clave y modelo seleccionados. Gemini sigue limitado a mensajes ficticios.
+HTTP, PrestaShop y GitHub permiten comprobar la conexión. No incorporan automáticamente operaciones de esos servicios: cada operación necesita su adaptador autorizado. Cloudflare, Chat Completions y Anthropic tienen adaptadores de herramientas de IA; las pruebas de protocolos usan respuestas ficticias. Cada conexión real necesita su prueba con la clave y modelo seleccionados. La configuración antigua de Gemini ya no aparece como un panel independiente.
 
 Las acciones contables usan las funciones normales, identidad propia, permisos, comprobación de importes y relectura. No hay SQL arbitrario ni modificación de código desde el modelo. El mantenimiento de código continúa mediante rama y revisión, no mediante una clave de IA.
 
@@ -27,3 +27,11 @@ Orden probado: 044_api_connections.sql → 045_api_agent_selection.sql → 046_a
 Verificación dirigida: workflow api-manager.yml, pruebas PostgreSQL de ciclo de vida, importación existente, usuarios técnicos y permisos; pruebas de transporte, servicio y adaptadores; Playwright de la pantalla móvil y PC. No dar por publicado un commit de rama.
 
 Las tablas privadas de conexiones y credenciales no forman parte del volcado contable actual. Una recuperación de contabilidad no recrea las claves externas ni usuarios de Auth: deben conservarse en su servicio seguro y revisarse/reconectarse después de una recuperación. No exportar Vault ni contraseñas a GitHub o fuentes.
+
+## Direcciones y comprobación real
+- La página donde se crea una clave no es la API. Para Groq y Mistral, «Aplicar datos del proveedor» propone el destino y un modelo editable; no guarda cambios ni sustituye la clave por sí solo. Revisa las condiciones y disponibilidad de tu cuenta antes de activar.
+- Referencias oficiales: https://console.groq.com/docs/models y https://docs.mistral.ai/api .
+- Las consolas de gestión se rechazan antes de enviar la clave. Una página HTML de inicio de sesión no acredita una API funcional.
+- Si falla una nueva comprobación, desaparece la verificación anterior y la conexión queda desactivada. Una prueba posterior correcta permite volver a activarla expresamente; no la activa sola.
+- Las identidades técnicas originales y las nuevas cuentas de conexión usan la misma validación normal de gastos y cajas. Se mantienen el rol de gerencia/administración y los permisos de cada operación. Esta compatibilidad no añade operaciones que un adaptador aún no implemente.
+- Continuación del despliegue: 047_api_verification_failure.sql y 048_api_identity_validation.sql; después actualizar totus-connections y publicar la interfaz. Ninguno modifica registros contables.
