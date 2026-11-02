@@ -310,6 +310,8 @@
  .chat-compose>label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
  .team-chat .chat-compose textarea{height:48px;min-height:48px;max-height:100px;padding:10px;font-size:16px;resize:none}
  .chat-compose .chat-compose-tools{display:none}
+ .chat-compose.chat-compose-expanded{max-height:60%;overflow:auto;overscroll-behavior:contain}
+ .chat-compose .chat-picked-list{max-height:100px;overflow:auto}
  .chat-compose.chat-compose-expanded .chat-compose-tools{display:flex;max-height:120px;overflow:auto;align-items:center}
  .chat-compose-tools .btn,.chat-compose-tools .chat-pick-btn{min-height:36px;box-sizing:border-box}
  .chat-compose .chat-send-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -344,6 +346,7 @@
 
 @container(max-width:700px){
  .team-chat[data-chat-short] .chat-heading p,.team-chat[data-chat-short] .chat-scroll-tools{display:none}
+ .team-chat[data-chat-short] .chat-picked-list{max-height:48px}
  .team-chat[data-chat-short] .chat-compose{padding-top:4px;padding-bottom:4px}
  .team-chat[data-chat-short] .chat-compose textarea{height:40px;min-height:40px}
 }

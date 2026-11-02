@@ -35,9 +35,10 @@ try{
  assert(m.messages.height>=(height<500?90:300),'Reading space collapsed '+JSON.stringify(m));
  assert(m.compose.bottom<=height+1,'Editor outside viewport');assert(m.scroll<=width+2,'Horizontal page overflow');
  await page.locator('#chatBody').fill('Borrador móvil ficticio');
- if(width<=700&&height>500){
+ if(width<=700){
  await page.locator('[data-chat="compose-tools"]').click();
  assert.equal(await page.locator('#chatBody').inputValue(),'Borrador móvil ficticio');
+ await page.locator('[name=request_totus_ai]').scrollIntoViewIfNeeded();const sendBounds=await page.locator('[name=request_totus_ai]').boundingBox();assert(sendBounds.y+sendBounds.height<=height+1,'Assistant send must be reachable with short viewport');
  for(const selector of ['#chatFiles','#chatMention','[data-chat="buzz"]','[name="request_chatgpt"]','[name="request_totus_ai"]'])assert(await page.locator(selector).isVisible(),selector+' inaccessible');
  await page.locator('[data-chat="compose-tools"]').click();
  await page.locator('[data-chat="message-tools"][data-id="m30"]').click();
