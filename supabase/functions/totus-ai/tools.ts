@@ -68,10 +68,14 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
   }
   if(name==='informe_periodo'){
    await authorize('informes','view');
-   const from=input.desde,to=input.hasta,store=input.tienda||'all';
+   const from=input.desde,to=input.hasta;let store=input.tienda||'all';
    const valid=(d:any)=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
    if(!valid(from)||!valid(to)||from>to||(Date.parse(to)-Date.parse(from))/86400000>3660)throw Error('Periodo no válido; utiliza fechas reales y un máximo de diez años.');
-   if(store!=='all'&&!seen.has(store))throw Error('Consulta las tiendas antes de elegir una.');
+   if(store!=='all'){
+    await authorize('documentos','view');const stores:any[]=[];for(let offset=0;;offset+=500){const page=check(await client.from('ops_stores').select('id,name').order('id').range(offset,offset+499));if(!Array.isArray(page))throw Error('No se pudieron consultar las tiendas.');stores.push(...page);if(page.length<500)break;if(stores.length>10000)throw Error('Demasiadas tiendas para resolver la selección.');}
+    const norm=(v:any)=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();const selected=stores.filter(s=>s.id===store||norm(s.name)===norm(store));
+    if(selected.length!==1)return {completed:false,needs_store:true,stores:stores.map(s=>({id:s.id,name:s.name})),instruction:'Selecciona una de las tiendas disponibles por su nombre o ID; no inventes identificadores.'};store=selected[0].id;collect(selected[0]);
+   }
    const specs=[['closings','ops_daily_closings','business_date'],['expenses','ops_expenses','expense_date'],['invoices','ops_sales_invoices','issue_date'],['fiscalAdjustments','ops_fiscal_adjustments','adjustment_date'],['incomeAdjustments','ops_income_adjustments','income_date'],['taxPayments','ops_tax_payments','payment_date']];
    const data:any={};for(const [key,table,date] of specs){
     await authorize(reads[table],'view');const rows=[];
