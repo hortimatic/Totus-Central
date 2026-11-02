@@ -5,9 +5,9 @@ import {stripTypeScriptTypes} from 'node:module';
 
 // Execute the actual Edge handler with isolated Auth/database adapters.
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/team-admin/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''));
-async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password'}={}){
+async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false}={}){
  let handler;const writes=[],updates=[],pages=[];
- const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active};
+ const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active,deleted_at:retired?'2026-01-01':null,purged_at:purged?'2026-01-02':null,auth_cleanup_pending:cleanup};
  const from=table=>{
   const filters={};let mutation;
   const query={select(){return query},eq(k,v){filters[k]=v;return query},
@@ -19,7 +19,7 @@ async function scenario({action='set_password',callerRole='admin',memberRole='ad
   return query;
  };
  const auth={getUser:async()=>({data:{user:{email:'caller@qa.invalid'}}}),resetPasswordForEmail:async()=>({error:null}),admin:{
-  listUsers:async({page})=>{pages.push(page);return {data:{users:paginated&&page===1?Array.from({length:1000},(_,i)=>({id:`other-${i}`,email:`other-${i}@qa.invalid`})):existing?[{id:'target-id',email:member.email,email_confirmed_at:'2026-01-01'}]:[]},error:null}},
+  listUsers:async({page})=>{pages.push(page);return {data:{users:paginated&&page===1?Array.from({length:1000},(_,i)=>({id:`other-${i}`,email:`other-${i}@qa.invalid`})):existing?[{id:'target-id',email:member.email,email_confirmed_at:'2026-01-01',deleted_at:authDeleted?'2026-01-02':null}]:[]},error:null}},
   updateUserById:async(id,value)=>{updates.push({id,value});return {error:null}},
   createUser:async()=>({data:{user:{id:'new-target-id'}},error:null})
  }};
@@ -43,7 +43,17 @@ assert.equal((await scenario({existing:false})).status,404);
 const created=await scenario({action:'create_user',existing:false});assert.equal(created.status,200);
 const ficha=created.writes.find(w=>w.table==='team_members').value;
 assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager');assert.equal(ficha.store,'QA centre');assert.equal(ficha.employee_notes,'QA notes');
+assert(!('avatar_url' in ficha),'Ordinary invitations and creation must not clear existing photo fields');
 const denied=await scenario({callerRole:'gerente'});assert.equal(denied.status,403);assert.equal(denied.updates.length,0);assert.equal(denied.writes.length,0);
+for(const authDeleted of [false,true]){
+ const recreated=await scenario({action:'create_user',retired:true,purged:true,existing:authDeleted,authDeleted});assert.equal(recreated.status,200);
+ const row=recreated.writes.find(w=>w.table==='team_members').value;assert.equal(row.role,'gerente');assert.equal(row.active,true);
+ for(const field of ['deleted_at','purged_at','purge_auth_id','avatar_url','avatar_path'])assert.equal(row[field],null);assert.equal(row.auth_cleanup_pending,false);
+}
+for(const action of ['set_password','update_member','set_active','resend_invite']){const result=await scenario({action,retired:true,purged:true});assert.equal(result.status,409);assert.equal(result.updates.length,0);assert.equal(result.writes.length,0);}
+assert.equal((await scenario({action:'create_user',retired:true,purged:false,existing:false})).status,409);
+assert.equal((await scenario({action:'create_user',retired:true,purged:true,cleanup:true,existing:false})).status,409);
+const liveAuthConflict=await scenario({action:'create_user',retired:true,purged:true,existing:true});assert.equal(liveAuthConflict.status,409);assert.equal(liveAuthConflict.writes.length,0,'A live Auth identity cannot be taken over through a purged team row');
 const short=await scenario({password:'fixture-8'});assert.equal(short.status,400);assert.equal(short.updates.length,0);assert.equal(short.writes.length,0);
 console.log('TEAM ADMIN QA: credential maintenance preserves role, identity and revoked access; pagination and authorization verified.');
 

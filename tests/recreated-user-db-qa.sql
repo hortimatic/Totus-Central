@@ -1,0 +1,22 @@
+begin;
+-- Keep the historical UUID, but recreate its email with a different identity.
+insert into auth.users(id,email,deleted_at) values('aaaaaaaa-0000-4000-8000-000000000001',null,now());
+insert into auth.users(id,email) values('aaaaaaaa-0000-4000-8000-000000000002','reused@example.invalid');
+insert into public.team_members(email,full_name,role,active) values('reused@example.invalid','New account','admin',true);
+select set_config('request.jwt.claims','{"sub":"aaaaaaaa-0000-4000-8000-000000000001","email":"reused@example.invalid","role":"authenticated"}',true);
+select public.qa_assert(not private.is_admin() and not private.is_team_member(),'old JWT does not inherit recreated email privileges');
+select set_config('request.jwt.claims','{"sub":"aaaaaaaa-0000-4000-8000-000000000002","email":"reused@example.invalid","role":"authenticated"}',true);
+select public.qa_assert(private.is_admin() and private.is_team_member(),'new identity has its explicitly assigned role');
+update public.team_members set role='gerente' where email='reused@example.invalid';
+insert into public.qa_permissions(email,module,operation,allowed) values('reused@example.invalid','documentos','view',true),('reused@example.invalid','documentos','edit',true);
+select public.qa_assert(private.totus_stock_actor('edit')='reused@example.invalid','normal authenticated receipt permissions remain valid');
+select set_config('request.jwt.claims','',true);
+select public.qa_assert(private.totus_stock_actor('edit','reused@example.invalid')='reused@example.invalid','trusted connector uses the same assigned permission, not a hardcoded admin role');
+select public.qa_denied('select private.totus_stock_actor(''view'')','p_actor_email');
+update public.qa_permissions set allowed=false where email='reused@example.invalid' and operation='edit';
+select public.qa_denied('select private.totus_stock_actor(''edit'',''reused@example.invalid'')','permiso');
+update public.team_members set active=false,deleted_at=now(),purged_at=now() where email='reused@example.invalid';
+select public.qa_denied('select private.totus_stock_actor(''view'',''reused@example.invalid'')','retirada');
+select public.qa_assert(exists(select 1 from auth.users where id='aaaaaaaa-0000-4000-8000-000000000001'),'historical identity is preserved');
+rollback;
+select 'RECREATED USER IDENTITY QA OK';
