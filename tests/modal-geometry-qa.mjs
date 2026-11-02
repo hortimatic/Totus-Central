@@ -1,10 +1,15 @@
 import {clickModuleLink} from './ui-navigation.mjs';
 import {chromium} from 'playwright';
 import fs from 'node:fs';
-fs.mkdirSync('artifacts',{recursive:true});
+fs.mkdirSync('artifacts/mobile-audit',{recursive:true});
 const browser=await chromium.launch({headless:true});
 const errors=[],screens=[];
 const scenes=[
+ {route:'pricing',action:'product-new'},
+ {route:'cajas',action:'closing-new'},
+ {route:'gastos',action:'expense-new'},
+ {route:'facturacion',action:'invoice-new'},
+ {route:'documentos',action:'document-new'},
  {route:'administracion',section:'usuarios',action:'user-new'},
  {route:'administracion',section:'roles',action:'role-new'},
  {route:'administracion',section:'fiscal',action:'expense-category-new'},
@@ -46,7 +51,7 @@ for(const [size,width] of [['desktop',1440],['tablet',768],['mobile',390],['smal
   if(geometry.brokenButtons.length||geometry.brokenControls.length||geometry.overlap.length)
    errors.push(size+' '+scene.action+' deformed modal: '+JSON.stringify({buttons:geometry.brokenButtons,controls:geometry.brokenControls.slice(0,3),overlap:geometry.overlap,bounds:geometry.bounds}));
   if(size==='small-mobile'||(size==='desktop'&&scene.action==='user-new'))
-   await page.screenshot({path:'artifacts/layout_modal_'+size+'_'+scene.action+'.png'});
+   await page.screenshot({path:'artifacts/mobile-audit/layout_modal_'+size+'_'+scene.action+'.png'});
   screens.push({size,action:scene.action,buttons:geometry.buttons.length,controls:geometry.brokenControls.length});
  }
  await page.close();

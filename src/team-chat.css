@@ -320,7 +320,7 @@
  .chat-compose .chat-send-actions>.primary{margin-left:auto}
  .chat-compose .chat-compose-toggle{display:inline-flex}
  .chat-compose .chat-picked-list:empty,.chat-compose [data-chat-progress]:empty{display:none}
- .chat-message footer{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+ .chat-message footer{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px}
  .chat-message .chat-message-toggle{display:inline-flex;margin-left:auto;min-height:32px;padding:4px 8px;font-size:11px}
  .chat-message .chat-message-actions{display:none}
  .chat-message .chat-message-actions.chat-actions-expanded{display:flex;flex:1 1 100%;opacity:1;flex-wrap:wrap;padding-top:4px}
