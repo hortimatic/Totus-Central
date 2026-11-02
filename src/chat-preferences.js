@@ -5,6 +5,7 @@ export const isChatBuzz=message=>message?.body===CHAT_BUZZ&&!message?.deleted_at
 export function chatPreferences(value={}){
  const volume=Number(value.sound_volume);
  return {sound_volume:value.sound_volume!=null&&Number.isFinite(volume)?Math.round(Math.min(100,Math.max(0,volume))):60,
+ chat_message_frame:value.chat_message_frame!==false&&value.chat_message_frame!=='false',
  sound_style:CHAT_SOUNDS.some(([key])=>key===value.sound_style)?value.sound_style:'bell',
  chat_background:CHAT_BACKGROUNDS.some(([key])=>key===value.chat_background)?value.chat_background:'default',
  chat_background_color:/^#[0-9a-f]{6}$/i.test(value.chat_background_color)?value.chat_background_color:'#eef2ff',
@@ -15,6 +16,7 @@ export function applyChatBackground(element,value){
  const p=chatPreferences(value),colors={lavender:'#f0ebfa',sky:'#eaf3fc',mint:'#e9f5ef',sand:'#f8f0e3'};
  element.style.backgroundImage=p.chat_background==='image'&&p.chat_background_image?'url("'+p.chat_background_image+'")':p.chat_background==='default'?'':'none';
  element.style.backgroundColor=p.chat_background==='color'?p.chat_background_color:colors[p.chat_background]||'';
+ element.classList.toggle('chat-message-frame-off',!p.chat_message_frame);
  element.classList.toggle('chat-personal-background',p.chat_background!=='default');
 }
 export async function prepareChatBackground(file,{preserveAlpha=false}={}){

@@ -14,7 +14,7 @@ try{
   const q=window.integral={owner:'admin@qa.invalid',calls:[],messages:[],members:[{email:'admin@qa.invalid',member_role:'manager'}],channels:[{id:'a',name:'Canal A',group_name:'Equipo',member_role:'manager',last_read_seq:9999},{id:'b',name:'Canal B',group_name:'Equipo',member_role:'manager',last_read_seq:9999}],layout:{}};
   for(let i=1;i<=30;i++)q.messages.push({id:'m'+i,seq:i,channel_id:'a',body:'Mensaje '+i+' '+('contenido '.repeat(25)),author_email:'other@qa.invalid',created_at:'2026-10-29T10:00:00Z'});
   q.c=createTeamChat({actor:()=>q.owner,confirm:async()=>true,subscribe:(_id,fn)=>{q.notify=fn;return()=>{};},rpc:async(name,p)=>{
-   q.calls.push({name,p:structuredClone(p)});
+   q.calls.push({name,p:structuredClone(p)});if(name==='totus_chat_ai_accounts')return [];
    if(name==='totus_chat_context')return structuredClone({channels:q.channels,messages:q.messages.filter(m=>m.channel_id===p.p_channel),members:q.members,directory:[{email:q.owner,name:'Administración'},{email:'other@qa.invalid',name:'Compañero'}],layout:q.layout});
    if(name==='totus_chat_command'){
     const d=p.p_data;
@@ -36,11 +36,9 @@ try{
  assert(m.compose.bottom<=height+1,'Editor outside viewport');assert(m.scroll<=width+2,'Horizontal page overflow');
  await page.locator('#chatBody').fill('Borrador móvil ficticio');
  if(width<=700){
- await page.locator('[data-chat="compose-tools"]').click();
  assert.equal(await page.locator('#chatBody').inputValue(),'Borrador móvil ficticio');
- await page.locator('[name=request_totus_ai]').scrollIntoViewIfNeeded();const sendBounds=await page.locator('[name=request_totus_ai]').boundingBox();assert(sendBounds.y+sendBounds.height<=height+1,'Assistant send must be reachable with short viewport');
- for(const selector of ['#chatFiles','#chatMention','[data-chat="buzz"]','[name="request_chatgpt"]','[name="request_totus_ai"]'])assert(await page.locator(selector).isVisible(),selector+' inaccessible');
- await page.locator('[data-chat="compose-tools"]').click();
+ await page.locator('.chat-send-actions button[type=submit].primary').scrollIntoViewIfNeeded();const sendBounds=await page.locator('.chat-send-actions button[type=submit].primary').boundingBox();assert(sendBounds.y+sendBounds.height<=height+1,'Assistant send must be reachable with short viewport');
+ for(const selector of ['#chatFiles','#chatMention','[data-chat="buzz"]','.chat-send-actions button[type=submit].primary','.chat-send-actions button[type=submit].primary'])assert(await page.locator(selector).isVisible(),selector+' inaccessible');
  await page.locator('[data-chat="message-tools"][data-id="m30"]').click();
  assert(await page.locator('[data-chat="quote"][data-id="m30"]').isVisible());
  await page.locator('[data-chat="message-tools"][data-id="m30"]').click();

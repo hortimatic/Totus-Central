@@ -18,13 +18,15 @@ try{
   await page.locator('#stockFiles').waitFor();
   const geometry=await page.evaluate(()=>{
    const rect=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};
-   return {select:rect('#stockKind'),file:rect('#stockFiles'),grid:rect('.stock-upload'),brand:rect('#moduleNavigation>.brand'),rail:rect('#moduleNavigation'),toggle:rect('.desktop-nav-collapse'),scroll:document.documentElement.scrollWidth,viewport:innerWidth};
+   return {select:rect('#stockKind'),file:rect('#stockFiles'),grid:rect('.stock-upload'),brand:rect('#moduleNavigation>.brand'),rail:rect('#moduleNavigation'),toggle:rect('.desktop-nav-collapse'),glyph:rect('.desktop-nav-collapse svg'),scroll:document.documentElement.scrollWidth,viewport:innerWidth};
   });
   assert(geometry.scroll<=geometry.viewport+1,'no horizontal page overflow at '+width);
   for(const field of [geometry.select,geometry.file]){assert(field.x>=geometry.grid.x-1&&field.right<=geometry.grid.right+1);assert(Math.abs(field.height-44)<=1);}
   if(width>600)assert(Math.abs(geometry.select.y-geometry.file.y)<=1,'upload controls share the same baseline');
   if(width>800){
    assert(geometry.brand.y<=geometry.rail.y+8,'brand starts at the top rather than below a separate toggle row');
+   assert(Math.abs((geometry.glyph.y+geometry.glyph.height/2)-(geometry.toggle.y+geometry.toggle.height/2))<=1,'arrow itself is vertically centered');
+   assert(Math.abs((geometry.glyph.x+geometry.glyph.width/2)-(geometry.toggle.x+geometry.toggle.width/2))<=1,'arrow itself is horizontally centered');
    assert(Math.abs((geometry.toggle.y+geometry.toggle.height/2)-(geometry.brand.y+geometry.brand.height/2))<=1,'collapse button is centered in the brand header');
    await page.locator('.desktop-nav-collapse').click();assert.equal(await page.locator('.desktop-nav-collapse').getAttribute('aria-expanded'),'false');
    await page.locator('.desktop-nav-collapse').click();assert.equal(await page.locator('.desktop-nav-collapse').getAttribute('aria-expanded'),'true');

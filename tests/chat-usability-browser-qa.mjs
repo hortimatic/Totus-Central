@@ -77,7 +77,7 @@ try{
  assert.equal(await page.evaluate(()=>JSON.stringify(usabilityQA.channels)),channelsBefore);
  await click('section-new');await page.locator('dialog [name="name"]').fill('hortimatic');await page.locator('dialog [type="submit"]').click();await page.locator('dialog [data-dialog-error]').filter({hasText:'Ya existe'}).waitFor();await page.locator('dialog [data-chat-close]').click();
  // Read-only dialogs have a single footer close button.
- await click('inbox');assert.equal(await page.locator('dialog footer button').count(),1);await page.locator('dialog [data-chat-close]').click();
+ assert.equal(await page.locator('[data-chat="inbox"]').count(),0,'The removed notices button must not return');
  // Deep forms stay within the mobile viewport, not only the main empty screen.
  for(const width of [320,390,768,1024,1440,1920]){
   await page.setViewportSize({width,height:900});if(width<=700&&await page.locator('[data-chat=mobile-channels]').isVisible())await click('mobile-channels');await click('new');

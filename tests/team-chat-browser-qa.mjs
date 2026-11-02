@@ -17,6 +17,7 @@ try{
   const q=window.qaChat;q.directory=[{email:'admin@example.invalid',name:'Administración'},{email:'companero@example.invalid',name:'Compañero'},{email:'tienda@example.invalid',name:'Equipo de tienda'}];q.files=[];
   const rpc=async(name,p)=>{
    q.calls.push({name,p:structuredClone(p)});
+   if(name==='totus_chat_ai_accounts')return [{email:'chatgpt@totuscentral.invalid',name:'ChatGPT',chatgpt:true,mode:'manual'}];
    if(name==='totus_chat_context'){
     if(q.failInitial){q.failInitial=false;throw Error('Sin conexión inicial. Reintenta.');}
     let rows=q.messages.filter(m=>m.channel_id===p.p_channel);
@@ -107,7 +108,7 @@ try{
  await page.locator('dialog [type="submit"]').click();
  await page.getByText('Comprobado, sin modificar contabilidad.',{exact:true}).waitFor();
  await chatClick(page,page.locator('[data-message="m2"] [data-chat="prompt"]'));
- assert((await page.locator('dialog textarea').inputValue()).includes('No hay un asistente automático activo'));
+ assert((await page.locator('dialog textarea').inputValue()).includes('no lo activa automáticamente'));
  await page.locator('dialog [data-chat-close]').click();
  await chatClick(page,page.locator('[data-message="m1"] [data-chat="thread"]'));
  await page.locator('#chatBody').fill('Comprobación del cierre');
@@ -162,8 +163,9 @@ try{
  // A combined send must wait for all attachments before it can request a response.
  await page.locator('#chatBody').fill('Solicitud con original verificado');
  await page.locator('#chatFiles').setInputFiles({name:'Solicitud QA.txt',mimeType:'text/plain',buffer:Buffer.from('Contenido ficticio para ChatGPT')});
- await page.getByRole('button',{name:'Enviar y pedir a ChatGPT',exact:true}).click();
- await page.waitForFunction(()=>qaChat.messages.some(m=>m.body==='Solicitud con original verificado'&&m.agent_request?.status==='pending'));
+ await page.getByRole('button',{name:'Enviar',exact:true}).click();
+ await page.waitForFunction(()=>qaChat.messages.some(m=>m.body==='Solicitud con original verificado'&&m.files?.every(f=>f.status==='ready')));
+ const preparedId=await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Solicitud con original verificado').id);await chatClick(page,page.locator('[data-chat="agent-request"][data-id="'+preparedId+'"]'));await page.locator('dialog textarea').waitFor();assert((await page.locator('dialog textarea').inputValue()).includes(preparedId));await page.locator('dialog [data-chat-close]').click();
  assert(await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Solicitud con original verificado').files.every(f=>f.status==='ready')));
  const readyDownload=page.waitForEvent('download');await page.locator('[data-chat="file-download"]').first().click();
  const downloaded=await readyDownload;assert.equal(downloaded.suggestedFilename(),'Factura de prueba.pdf');assert.deepEqual(await readFile(await downloaded.path()),Buffer.from(pdfBytes));
@@ -182,7 +184,10 @@ try{
  await page.evaluate(async()=>{chatController.reset();Object.assign(qaChat,window.__qaChatBeforeSwitch);await chatController.mount(document.querySelector('#chatHarness'));});
  await page.locator('[data-chat="open"][data-id="h"]').click();
  await chatClick(page,page.locator('[data-message="m2"] [data-chat="agent-request"]'));
- assert.equal(await page.evaluate(()=>qaChat.messages.find(m=>m.id==='m2').agent_request.status),'pending');
+ assert((await page.locator('dialog textarea').inputValue()).includes('private.totus_assistant_submit'));
+ assert.equal(await page.evaluate(()=>qaChat.calls.filter(c=>c.name==='totus_chat_command'&&c.p.p_action==='agent_request').length),0);
+ await page.locator('dialog [data-chat-close]').click();
+ await page.evaluate(async()=>{qaChat.messages.find(m=>m.id==='m2').agent_request={id:'historic-request',status:'pending'};});await click('refresh');
  await chatClick(page,page.locator('[data-message="m2"] [data-chat="agent-cancel"]'));
  await page.waitForFunction(()=>qaChat.messages.find(m=>m.id==='m2').agent_request.status==='cancelled');
  await chatClick(page,page.locator('[data-message="m2"] [data-chat="attach"]'));
@@ -207,7 +212,7 @@ try{
  assert(await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Mensaje eliminado')?.deleted_at));
  await click('preferences');await page.locator('dialog [name="sort_order"]').fill('-10');await page.locator('dialog [name="favourite"]').selectOption('true');await page.locator('dialog [type="submit"]').click();
  assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='h').favourite),true,'Preferences not persisted');
- await click('inbox');await page.getByRole('heading',{name:'Mensajes sin leer',exact:true}).waitFor();await page.locator('dialog [data-chat-close]').click();
+ assert.equal(await page.locator('[data-chat="inbox"]').count(),0);await page.locator('[data-chat="view"][data-view="unread"]').click();assert.equal(await page.locator('[data-chat="view"][data-view="unread"]').getAttribute('aria-pressed'),'true');await page.locator('[data-chat="view"][data-view="all"]').click();
  await page.evaluate(async()=>{
   window.supabase={createClient:()=>({})};
   const {createChatNotifier}=await import('../src/chat-api.js');window.qaNotifications=[];

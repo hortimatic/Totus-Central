@@ -2,7 +2,7 @@ name: Revisar gestor de APIs
 on:
   workflow_call:
   push:
-    branches: [feat/api-manager, feat/ai-documents-reports, fix/api-response-validation, fix/api-chat-workflow, fix/ai-conversation-continuity, fix/user-purge-reader-clarity, fix/cohere-tool-results, fix/receipts-agent-workflow, fix/receipt-agent-recovery, fix/provider-generation-recovery, fix/recreate-purged-user, feat/agent-account-access]
+    branches: [feat/api-manager, feat/ai-documents-reports, fix/api-response-validation, fix/api-chat-workflow, fix/ai-conversation-continuity, fix/user-purge-reader-clarity, fix/cohere-tool-results, fix/receipts-agent-workflow, fix/receipt-agent-recovery, fix/provider-generation-recovery, fix/recreate-purged-user, feat/agent-account-access, fix/cohere-receipt-chat]
 permissions:
   contents: read
 jobs:
@@ -32,6 +32,10 @@ jobs:
         env:
           PGPASSWORD: test-only
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/agent-access-fixture.sql -f supabase/review_patches/057_agent_account_access.sql -f tests/agent-access-db-qa.sql
+      - name: Verify chat AI directory uses registered identities without exposing configuration
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/058_chat_ai_directory.sql -f tests/chat-ai-directory-db-qa.sql
       - name: Preserve the current Cloudflare configuration and counters
         env:
           PGPASSWORD: test-only
@@ -69,6 +73,7 @@ jobs:
       - run: node tests/api-settings-browser-qa.mjs
       - run: node tests/receipt-layout-browser-qa.mjs
       - run: node tests/agent-access-browser-qa.mjs
+      - run: node tests/chat-ai-target-browser-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

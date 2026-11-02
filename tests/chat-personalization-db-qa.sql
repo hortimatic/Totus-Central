@@ -26,3 +26,12 @@ set role anon;
 select public.qa_denied(format('select public.totus_chat_buzz(%L,%L)',:'channel_id','eeeeeeee-1234-4567-8000-123456789012'),'permission denied');
 reset role;
 rollback;
+
+/* Personal message frame is persisted as a boolean, isolated like every chat preference. */
+begin;
+set role authenticated;
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+select public.totus_chat_save_layout('{"chat_message_frame":false,"sound_volume":60}');
+select public.qa_assert(public.totus_chat_context()#>>'{layout,chat_message_frame}'='false','transparent outer message frame survives reread');
+select public.qa_denied('select public.totus_chat_save_layout(''{"chat_message_frame":"false"}'')','Fondo');
+rollback;

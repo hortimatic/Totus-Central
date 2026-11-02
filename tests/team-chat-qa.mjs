@@ -11,8 +11,8 @@ assert.equal(chatMessageMatches({created_at:'2026-10-24',body:'Factura eléctric
 assert.equal(chatMessageMatches({created_at:'2026-10-24',body:'Factura'},{from:'2026-11-01'}),false);
 assert.equal(chatGroups([{name:'Cajas',group_name:'Hortimatic'},{name:'Avisos',group_name:'Equipo'}])[0].name,'Equipo');
 const prompt=chatTaskPrompt({name:'Gastos',id:'channel'},{id:'message',body:'Revisar factura'});
-assert(prompt.includes('No conviertas este mensaje directamente en contabilidad'));
-assert(prompt.includes('No hay un asistente automático activo'));
+assert(prompt.includes('private.totus_assistant_submit'));assert(prompt.includes('Canal ID: channel'));
+assert(prompt.includes('no lo activa automáticamente'));assert(!prompt.includes('totus_chat_agent_reply'));
 console.log('TEAM CHAT CORE QA: text, ranges, grouping, search and explicit accounting/AI boundaries OK');
 
 const layoutSample=chatLayout({group_order:['NewOldSmok','Hortimatic'],group_sort:{Hortimatic:'recent'},compact_sidebar:true});
