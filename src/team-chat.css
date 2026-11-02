@@ -290,7 +290,7 @@
 }}
 /* Compact conversation controls retain their desktop labels and touch actions. */
 .chat-action-icon{display:none}
-.chat-message-toggle,.chat-compose-toggle{display:none}
+.team-chat .chat-message-toggle,.team-chat .chat-compose-toggle{display:none}
 @container (max-width:700px){
  .team-chat.chat-show-conversation>.chat-conversation{overflow:hidden}
  .chat-heading{padding:8px 10px;gap:4px;flex-wrap:nowrap;align-items:flex-start}
