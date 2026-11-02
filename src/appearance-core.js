@@ -16,7 +16,7 @@ export const APPEARANCE_FIELDS={
   density:choice('Densidad','comfortable','compact:Compacta|comfortable:Cómoda|wide:Amplia'),
   shadow:choice('Sombras','soft','none:Sin sombra|soft:Suaves|strong:Intensas'),
   navigationMode:choice('Menú al iniciar','expanded','expanded:Expandido|compact:Solo iconos'),
-  startModule:choice('Módulo al iniciar','inicio','inicio:Inicio|pricing:Pricing|cajas:Cajas|gastos:Gastos|facturacion:Facturación|cotejos:Recepciones|tareas:Tareas|equipo:Chat|documentos:Documentos|fiscalidad:Fiscalidad|informes:Informes|administracion:Administración|configuracion:Configuración'),
+  startModule:choice('Módulo al iniciar','inicio','inicio:Inicio|pricing:Pricing|cajas:Cajas|gastos:Gastos|facturacion:Facturación|cotejos:Recepciones|tareas:Tareas|equipo:Chat|clientes:Clientes|proveedores:Proveedores|marcas:Marcas|documentos:Documentos|fiscalidad:Fiscalidad|informes:Informes|administracion:Administración|configuracion:Configuración'),
   sidebarWidth:range('Anchura del menú · px',282,240,330),topbarHeight:range('Altura de cabecera · px',68,56,88),fontSize:range('Tamaño del texto · px',14,13,16),
   pagePad:range('Margen del contenido · px',22,12,36),gap:range('Separación de bloques · px',16,8,28),radius:range('Redondeado de tarjetas · px',18,8,28),
   buttonRadius:range('Redondeado de botones · px',12,6,24),cardPadding:range('Espacio interior de tarjetas · px',18,12,24),tableRowHeight:range('Altura mínima de filas · px',42,34,52),borderStrength:range('Intensidad de bordes · %',14,6,24),

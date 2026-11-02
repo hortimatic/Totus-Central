@@ -5,7 +5,7 @@ const taskButton=(label,action,attrs='',kind='secondary')=>'<button type="button
 const display=d=>new Date(d+'T12:00:00Z').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 /** Operational controller. No accounting mutations or browser persistence. */
 export function createTasks({rpc,actor,can=()=>true,onError=()=>{},onSource=()=>{},confirm=async()=>false}){
- const btn=(label,action,attrs='',kind='secondary')=>{const permission=['new','day-new'].includes(action)?'create':['archive','restore','delete','deleted'].includes(action)?'delete':action==='edit'?'edit':'view';return can(permission)?taskButton(label,action,attrs,kind):'';};
+ const btn=(label,action,attrs='',kind='secondary')=>{const permission=['new','day-new'].includes(action)?'create':['archive','restore','delete','deleted','delete-archived','recover-deleted'].includes(action)?'delete':action==='edit'?'edit':'view';return can(permission)?taskButton(label,action,attrs,kind):'';};
  let host=null,dialog=null,busy=false,epoch=0,anchor=taskToday(),view='month',filter={store:'',person:'',status:'',query:''},data={rows:[],stores:[],people:[]},timer=null,owner='';
  const person=e=>data.people.find(p=>p.email===e)?.name||e||'Sin asignar';
  const store=id=>data.stores.find(s=>s.id===id)?.name||'General';

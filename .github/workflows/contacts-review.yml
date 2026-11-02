@@ -1,0 +1,30 @@
+name: Revisar contactos y tareas
+on:
+  push:
+    branches: [feat/contactos-configuracion-agentes]
+permissions:
+  contents: read
+jobs:
+  shared-contacts:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shared contacts compatibility
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/shared-contacts-db-qa.sql
+      - name: Tasks permissions and recovery
+        env:
+          PGPASSWORD: test-only
+        run: |
+          createdb -h localhost -U postgres tasks_review
+          for file in tests/chat-db-fixture.sql supabase/chat.sql supabase/tasks.sql tests/operational-permissions-db-qa.sql supabase/review_patches/041_task_removal.sql tests/task-removal-db-qa.sql; do
+            psql -h localhost -U postgres -d tasks_review -v ON_ERROR_STOP=1 -f "$file"
+          done

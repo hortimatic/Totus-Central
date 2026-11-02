@@ -34,7 +34,7 @@ try{
    assert.equal(await page.locator('.sidebar').evaluate(el=>el.inert),true);
    await page.locator('[data-action=toggle-menu]').click();
    assert.equal(await page.locator('[data-action=toggle-menu]').getAttribute('aria-expanded'),'true');
-   assert.equal(await page.locator('#nav [data-route]').count(),13,'All existing modules remain accessible');
+   assert.equal(await page.locator('#nav [data-route]').count(),16,'All existing modules remain accessible');
    await page.keyboard.press('Escape');
    assert.equal(await page.locator('.sidebar').evaluate(el=>el.inert),true);
   }

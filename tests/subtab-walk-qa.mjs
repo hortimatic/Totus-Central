@@ -12,7 +12,7 @@ const routes=[
  {route:'cotejos',sections:[null]},
  {route:'tareas',sections:[null]},
  {route:'equipo',sections:[null]},
- {route:'configuracion',attribute:'data-config-section',sections:['appearance','connections']},
+ {route:'configuracion',attribute:'data-config-section',sections:['appearance','login','connections']},
  {route:'fiscalidad',sections:[null]},
  {route:'informes',sections:[null]},
  {route:'administracion',action:'admin-section',sections:['usuarios','roles','negocio','fiscal','storage','backups','log']}
@@ -37,7 +37,6 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
       errors.push(key+': subtab not active after clicking');
    }
    if(mod.route==='administracion'&&section==='storage'&&await page.locator('details.storage-technical').count())await page.locator('details.storage-technical > summary').click();
-   if(mod.route==='configuracion'&&section==='appearance'){for(const tab of await page.locator('[data-appearance-tab]').all()){await tab.click();await page.screenshot({path:'artifacts/mobile-audit/config-'+size+'-'+await tab.getAttribute('data-appearance-tab')+'.png',fullPage:true});}}
    if(mod.route==='equipo'){await page.locator('[data-chat=open][data-id=visual]').click();await page.locator('#chatBody').waitFor();}
    if(mod.route==='cotejos'){for(const action of ['stock-new','stock-library']){await page.locator('[data-action="'+action+'"]').click();await page.screenshot({path:'artifacts/mobile-audit/recepcion-'+size+'-'+action+'.png',fullPage:true});await page.locator('[data-action=stock-back]').click();}}
    if(width<=480&&mod.route==='administracion'&&section==='backups'){const height=await page.locator('#backupSelectedFile').evaluate(e=>e.getBoundingClientRect().height);if(height>60)errors.push(key+': file selection placeholder reserves '+height+'px of empty height');}
