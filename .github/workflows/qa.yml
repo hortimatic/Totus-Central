@@ -159,6 +159,7 @@ jobs:
       - run: node tests/chat-workspace-browser-qa.mjs
       - run: node tests/chat-usability-browser-qa.mjs
       - run: node tests/chat-integral-browser-qa.mjs
+      - run: node tests/chat-mobile-reading-browser-qa.mjs
       - run: node tests/personal-interface-browser-qa.mjs
       - run: node tests/appearance-browser-qa.mjs
       - run: node tests/ai-connection-test-browser-qa.mjs
