@@ -17,7 +17,7 @@
 .chat-navigation-tools>.chat-menu:first-child{flex:1}
 .chat-navigation-tools>.chat-menu:first-child>summary{background:#e8f0fe;color:#174ea6;border-color:transparent}
 .chat-navigation-tools>.chat-menu:last-child>summary{font-size:0;gap:0;padding:8px 10px}
-.chat-navigation-tools>.chat-menu:last-child>summary>span{font-size:19px}
+.chat-navigation-tools>.chat-menu:last-child>summary>span[aria-hidden]{font-size:19px}
 .chat-navigation-tools>.chat-menu:last-child>summary:after{display:none}
 .chat-navigation-tools>.chat-menu:last-child>.chat-menu-panel,.chat-channel-tools .chat-menu-panel{left:auto;right:0}
 .chat-sidebar-collapsed .chat-navigation-tools{display:none}
