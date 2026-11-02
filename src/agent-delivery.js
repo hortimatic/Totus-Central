@@ -10,7 +10,7 @@ export function deliveryReply(text,files){
 }
 export function createDeliveryQueue(){
  const files=[];let total=0;
- function stage(file){const meta=chatFileMetadata(file);const previous=files.find(f=>f.name===file.name);if(previous)throw Error('El archivo ya está preparado; no lo dupliques.');if(files.length>=4||total+meta.size>25*1024*1024)throw Error('La respuesta supera cuatro archivos o 25 MB. Divide la petición.');files.push(file);total+=meta.size;return {prepared:true,delivered:false,name:meta.name,size:meta.size,instruction:'Preparado para adjuntar a la respuesta; solo Totus confirmará su entrega después de subir y verificar.'};}
+ function stage(file){const meta=chatFileMetadata(file);const previous=files.find(f=>f.name===file.name);if(previous)throw Error('El archivo ya está preparado; no lo dupliques.');if(files.length>=4||total+meta.size>25*1024*1024)throw Error('La respuesta supera cuatro archivos o 25 MB. Divide la petición.');files.push(file);total+=meta.size;return {prepared:true,delivered:false,delivery:'server_on_reply',requires_document_lookup:false,name:meta.name,size:meta.size,instruction:'Archivo encolado para adjuntarlo a esta misma respuesta. No tiene document_id: no lo busques ni llames enviar_documento para este archivo. Cuando hayas preparado todos los archivos solicitados, termina tu respuesta; el servidor los subirá, verificará y adjuntará antes de publicarla. No repitas su preparación ni inventes IDs.'};}
  return {files,stage};
 }
 export async function readAuthorizedDocument(client,doc,authorize,request=fetch){
