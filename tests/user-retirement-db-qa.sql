@@ -1,0 +1,23 @@
+select id as target_id,actor_email as target_mail from private.totus_api_connections where name='IA propia' \gset
+create table public.qa_user_history(actor text references public.team_members(email),note text);
+insert into public.qa_user_history values(:'target_mail','historical reference must survive');
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111","email":"admin@example.invalid"}',false);
+set role authenticated;
+select public.qa_assert(public.totus_my_access()->>'role'='admin' and (public.totus_my_access()->'permissions'->'administracion'->>'edit')::boolean,'own permissions reflect real administrator access');
+select public.qa_denied('select public.totus_retire_user(''admin@example.invalid'')','propia');
+select public.totus_retire_user(:'target_mail');
+reset role;
+select public.qa_assert((select not active and deleted_at is not null and auth_cleanup_pending from public.team_members where email=:'target_mail'),'retired user removed from active access');
+select public.qa_assert((select count(*)=1 from public.qa_user_history),'history references preserved');
+select public.qa_assert((select not enabled and verified_revision is null from private.totus_api_connections where id=:'target_id'),'retirement disables assigned API');
+select public.qa_assert(exists(select 1 from auth.users where email=:'target_mail'),'historical Auth identity is preserved');
+set role authenticated;
+select public.totus_restore_user(:'target_mail');
+reset role;
+select public.qa_assert((select active and deleted_at is null from public.team_members where email=:'target_mail'),'normal recovery is available');
+select public.qa_assert((select not enabled from private.totus_api_connections where id=:'target_id'),'restoring does not reactivate external connections');
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222","email":"staff@example.invalid"}',false);
+set role authenticated;
+select public.qa_denied(format('select public.totus_retire_user(%L)',:'target_mail'),'administración');
+reset role;
+select 'USER RETIREMENT HISTORY QA OK';

@@ -229,7 +229,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const stamp=lifecycle;
   event.preventDefault();if(busy)return;
   const requestChatGPT=event.submitter?.name==='request_chatgpt';
-  const requestCloud=event.submitter?.name==='request_totus_ai'||current()?.channel_kind==='direct'&&data.members.some(m=>m.email==='totus-ai@totuscentral.invalid');
+  const requestCloud=event.submitter?.name==='request_totus_ai'||current()?.channel_kind==='direct'&&data.members.some(m=>m.email==='totus-ai@totuscentral.invalid'||/^integration-[a-f0-9-]+@totuscentral\.invalid$/.test(m.email));
   remember();const key=draftKey(),submittedDraft=drafts.get(key)||'',selected=[...(picks.get(key)||[])],body=chatText(submittedDraft.trim()||(selected.length?'Documentos adjuntos':'')),channel=data.channel,parent=data.parent,sendingOwner=owner;
   const previous=pending.get(key),client_id=previous?.body===body?previous.client_id:crypto.randomUUID();
   pending.set(key,{body,client_id});busy=true;paint();
@@ -246,7 +246,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
    outbox.push(...selected.map(item=>({...item,channel_id:channel,message_id:saved.id})));
    if(selected.length)await uploadPending(saved.id);
    if(requestChatGPT){try{await requestAgent(saved.id,channel);}catch(error){throw new Error('El mensaje está guardado, pero la solicitud no se ha creado: '+error.message);}}
-   if(requestCloud||body.includes('@{totus-ai@totuscentral.invalid}')){try{await requestCloudAgent(saved.id);}catch(error){throw new Error('El mensaje está guardado, pero Totus IA no recibió la petición: '+error.message);}}
+   if(requestCloud||(/@\{(?:totus-ai|integration-[a-f0-9-]+)@totuscentral\.invalid\}/i.test(body))){try{await requestCloudAgent(saved.id);}catch(error){throw new Error('El mensaje está guardado, pero Totus IA no recibió la petición: '+error.message);}}
    await refresh();
   }catch(error){if(error?.contextChanged)return;try{await refresh();}catch{}showError(error);}
   finally{unlock(stamp);}
@@ -465,7 +465,7 @@ await command('member_preferences',{favourite:!current().favourite});await refre
   if(host){host.removeEventListener('scroll',onReadScroll,true);host.removeEventListener('click',handle);host.removeEventListener('submit',onSubmit);host.removeEventListener('input',onInput);host.removeEventListener('change',onChange);host.removeEventListener('keydown',onKey);host.removeEventListener('compositionstart',onCompositionStart);host.removeEventListener('compositionend',onCompositionEnd);host.removeEventListener('dragstart',onDragStart);host.removeEventListener('dragend',onDragEnd);host.removeEventListener('dragover',onDrag);host.removeEventListener('drop',onDrop);host.removeEventListener('paste',onPaste);}
   window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('focus',onVisible);document.removeEventListener('visibilitychange',onVisible);document.removeEventListener('keydown',onGlobalKey);host=null;
  }
- return {hasDraft,dispose,openMessage,isReading(message){const pane=host?.querySelector('.chat-messages');return !!pane&&pane.getClientRects().length>0&&document.visibilityState==='visible'&&document.hasFocus()&&data.channel===message.channel_id&&!data.query&&!data.from&&!data.to&&data.mode==='all'&&(!message.parent_id&&!data.parent||message.parent_id===data.parent)&&pane.scrollHeight-pane.clientHeight-pane.scrollTop<40&&!dialog;},reset(){dispose();data=initial();sidebarScroll=0;drafts.clear();pending.clear();picks.clear();outbox=[];owner='';},async mount(element){
+ return {hasDraft,dispose,openMessage,openChannel:open,isReading(message){const pane=host?.querySelector('.chat-messages');return !!pane&&pane.getClientRects().length>0&&document.visibilityState==='visible'&&document.hasFocus()&&data.channel===message.channel_id&&!data.query&&!data.from&&!data.to&&data.mode==='all'&&(!message.parent_id&&!data.parent||message.parent_id===data.parent)&&pane.scrollHeight-pane.clientHeight-pane.scrollTop<40&&!dialog;},reset(){dispose();data=initial();sidebarScroll=0;drafts.clear();pending.clear();picks.clear();outbox=[];owner='';},async mount(element){
   dispose();if(owner!==actor()){owner=actor();data=initial();sidebarScroll=0;drafts.clear();pending.clear();picks.clear();outbox=[];}
   host=element;viewportFit=bindChatViewport(host);host.addEventListener('scroll',onReadScroll,true);host.addEventListener('click',handle);host.addEventListener('submit',onSubmit);host.addEventListener('input',onInput);host.addEventListener('change',onChange);host.addEventListener('keydown',onKey);host.addEventListener('compositionstart',onCompositionStart);host.addEventListener('compositionend',onCompositionEnd);host.addEventListener('dragstart',onDragStart);host.addEventListener('dragend',onDragEnd);host.addEventListener('dragover',onDrag);host.addEventListener('drop',onDrop);host.addEventListener('paste',onPaste);
   window.addEventListener('beforeunload',beforeUnload);window.addEventListener('focus',onVisible);document.addEventListener('visibilitychange',onVisible);document.addEventListener('keydown',onGlobalKey);paint();try{await refresh();}catch(error){showError(error);paint();}if(host===element)timer=setInterval(tick,15000);

@@ -23,7 +23,7 @@ if(typeof document!=='undefined'){
  document.addEventListener('toggle',event=>positionOpenHelp(event.target),true);
  const transientHelp=new WeakSet();
  const helpOf=target=>target instanceof Element?target.closest('details.field-help'):null;
- function revealHelp(help){if(help&&!help.open){help.open=true;transientHelp.add(help);positionOpenHelp(help);}}
+ function revealHelp(help){if(help&&!help.open){document.querySelectorAll('details.field-help[open]').forEach(other=>{if(other!==help)other.open=false;});help.open=true;transientHelp.add(help);positionOpenHelp(help);}}
  function leaveHelp(help,next){if(help&&transientHelp.has(help)&&!help.contains(next)&&!help.contains(document.activeElement)){help.open=false;transientHelp.delete(help);}}
  document.addEventListener('pointerover',event=>{if(event.pointerType==='mouse'&&matchMedia('(hover:hover)').matches)revealHelp(helpOf(event.target));});
  document.addEventListener('pointerout',event=>leaveHelp(helpOf(event.target),event.relatedTarget));
@@ -237,7 +237,7 @@ Object.assign(FIELD_HELP,{
 export const fieldHelp=(label,explanation='')=>{
  const help=explanation||FIELD_HELP[label]||'';
  if(!help)return "";
- return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}" title="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}"><svg class="field-help-icon" viewBox="0 0 24 24" role="presentation" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r="1.1" class="field-help-dot"/></svg></summary><span role="note">${esc(help)}</span></details>`;
+ return ` <details class="field-help"><summary aria-label="${esc('Información sobre '+(DISPLAY_LABELS[label]||label))}"><svg class="field-help-icon" viewBox="0 0 24 24" role="presentation" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r="1.1" class="field-help-dot"/></svg></summary><span role="note">${esc(help)}</span></details>`;
 };
 
 const FIELD_CONTEXT_HELP={

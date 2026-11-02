@@ -6,7 +6,7 @@
 3. Guarda la clave en el campo privado. Vacío conserva la existente. La clave se cifra en Vault y nunca se devuelve al navegador. No la escribas en mensajes, URLs, GitHub ni fuentes del proyecto.
 4. Confirma la cuota gratuita o incluida que hayas comprobado. Totus no contrata planes ni cambia de proveedor cuando falla uno. Esta confirmación no sustituye comprobar las condiciones de cada proveedor.
 5. «Probar» hace una lectura HTTP o envía exclusivamente el mensaje ficticio esperado. La prueba consume una petición del límite local; no crea contabilidad.
-6. «Activar» habilita el perfil probado. «Usar en Chat» selecciona expresamente el proveedor y su usuario para Totus IA. El usuario necesita pertenecer al canal y tener los permisos de la operación; también se comprueban los permisos de quien la solicita.
+6. «Activar» habilita el perfil probado. «Usar por defecto» selecciona expresamente el proveedor y su usuario para Totus IA. El usuario necesita pertenecer al canal y tener los permisos de la operación; también se comprueban los permisos de quien la solicita.
 7. PDF e imágenes requieren el lector Cloudflare verificado. Si la IA principal usa otro proveedor, configura y autoriza explícitamente ese lector; no hay envío secundario implícito.
 
 ## Gestión
@@ -35,3 +35,28 @@ Las tablas privadas de conexiones y credenciales no forman parte del volcado con
 - Si falla una nueva comprobación, desaparece la verificación anterior y la conexión queda desactivada. Una prueba posterior correcta permite volver a activarla expresamente; no la activa sola.
 - Las identidades técnicas originales y las nuevas cuentas de conexión usan la misma validación normal de gastos y cajas. Se mantienen el rol de gerencia/administración y los permisos de cada operación. Esta compatibilidad no añade operaciones que un adaptador aún no implemente.
 - Continuación del despliegue: 047_api_verification_failure.sql y 048_api_identity_validation.sql; después actualizar totus-connections y publicar la interfaz. Ninguno modifica registros contables.
+
+## Conversaciones con cada IA y archivos
+Una conversación directa con la cuenta técnica o una mención a esa cuenta dirige la solicitud a su propia conexión, aunque Cloudflare siga como proveedor por defecto. Invita al usuario al canal. No se atienden mensajes de otras IA automáticamente. Activar comprueba también que exista una identidad técnica preparada.
+
+Para pedir un original: indica proveedor, factura o fechas; la IA consulta documentos, verifica el original y lo adjunta a su respuesta. Para recibir un informe descargable: pide expresamente el archivo y el periodo; puede entregar un CSV con las cifras completas de Informes. Los adjuntos se comprueban antes y después de subirlos. No equivale a un ZIP de gestoría completo.
+
+Los originales de una recepción existente pueden leerse con el lector autorizado y contrastarse antes de guardar el cotejo. La revisión fiscal de nuevas facturas no se aprueba automáticamente.
+
+## GitHub y alcance de las conexiones externas
+La IA no hereda sesiones ni claves de los conectores de Codex o ChatGPT. Crea una conexión GitHub con destino https://api.github.com/repos/organizacion/repositorio, una clave de alcance limitado al repositorio y el mismo usuario técnico de la IA. Prueba y activa la conexión. El adaptador entregado permite leer código de ese repositorio mediante github_archivo, conservando la clave en el servidor. No publica cambios ni concede acceso arbitrario a SQL/Vault. Los cambios de código siguen requiriendo una rama revisable y el proceso de publicación.
+
+Despliegue siguiente: 049_api_chat_routing.sql y 050_api_actor_readiness.sql, totus-ai y totus-connections, y pantalla. Las conexiones nuevas siguen dependiendo de la disponibilidad y cuota real del proveedor; HTTP401 y HTTP429 no se corrigen aumentando el límite local.
+
+## Evidencia de reparación 02/11/2026
+Pruebas reales desde la identidad propia de Codex, sin altas contables: Groq contestó por su cuenta técnica; Cloudflare entregó un original existente con un adjunto verificado; Groq generó y entregó un CSV de un periodo futuro ficticio. Ambas entregas finalizaron con expected_files=1 y un archivo ready/verificado, cada una firmada por su usuario diferente. No se compartieron claves ni se intercambiaron los proveedores. Mistral continúa sujeto a la prueba y cuota de su propia cuenta.
+
+Una comprobación simple de clave no acredita todos los recorridos de trabajo. Estas verificaciones añadieron conversación y entrega real de archivos a las pruebas aisladas de seguridad, permisos y fallos.
+
+## Alta reutilizable de nuevas IA
+Nueva conexión exige elegir un usuario. Puedes seleccionar una cuenta técnica existente o «Crear usuario propio automáticamente», con rol Administración por defecto y posibilidad de elegir otro rol. No se asigna Totus IA de forma implícita. Al guardar se prepara una identidad técnica individual, sin utilizar contraseñas humanas. Si reintentas tras un fallo se reutiliza la misma preparación. Revisa tipo, dirección, modelo y clave; la prueba exige una llamada ficticia de herramienta, no únicamente una respuesta de texto. Activa y pulsa «Abrir chat». Cada conversación directa y mención usa su propia identidad y conexión; «Usar por defecto» solo cambia el destinatario genérico.
+
+Protocolos de IA implementados: Chat Completions compatible, Anthropic y Cloudflare. Una web HTTP genérica no equivale a un adaptador de IA. Los modelos deben ofrecer llamadas a herramientas y su cuenta debe tener cuota disponible. No se contratan pagos ni se cambian proveedores al fallar.
+
+## Retirada y recuperación de usuarios
+«Eliminar usuario» retira el acceso, bloquea su cuenta de autenticación y conserva una identidad histórica para no romper facturas, mensajes ni tareas. Desactiva sus conexiones y cancela solicitudes pendientes. En Usuarios eliminados se puede recuperar expresamente; las conexiones no se reactivan solas. No se puede eliminar la propia sesión ni dejar el sistema sin administradores. Si falla el bloqueo de autenticación, se informa como pendiente y se permite completar la retirada. No borrar filas de Auth ni borrar autorías históricas para evitar restricciones de referencias.

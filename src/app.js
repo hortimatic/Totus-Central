@@ -126,7 +126,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
-const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,onUsers:()=>navigateModule('administracion'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -167,7 +167,7 @@ function permissionForAction(action,el){
  else if(/\-new$|\-add$|\-duplicate$/.test(a))operation='create';
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
- if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-profile'||a==='user-delete'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-profile'||a==='user-delete'||a==='user-restore'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-log-cleanup-'))return {module:'administracion',operation:'delete',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
@@ -251,20 +251,20 @@ function render(){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
    $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml());
-   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||apiManager.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{apiManager.dispose();},mountTest:()=>{void apiManager.mount($('[data-api-manager]'));}});
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||apiManager.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.',{title:'Cambios sin guardar',acceptLabel:'Descartar cambios'}):Promise.resolve(true),disposeTest:()=>{apiManager.dispose();},mountTest:()=>{void apiManager.mount($('[data-api-manager]'));}});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
  if(state.route==='equipo')teamChat.mount($('#teamChatRoot')).then(async()=>{
-  const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await teamChat.openMessage(target.channel_id,target.id,target.parent_id);
+  const target=pendingChatTarget;pendingChatTarget=null;if(target&&state.route==='equipo')await (target.channelOnly?teamChat.openChannel(target.channel_id):teamChat.openMessage(target.channel_id,target.id,target.parent_id));
  }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
-const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(state.route!=='equipo'||root!==$('#content')));
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion'].includes(state.route)||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
- if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?'))return false;
- if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?'))return false;
+ if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
+ if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='tareas'&&tasks.hasDraft()&&!await confirmAction('Hay una ficha de tarea abierta. ¿Salir sin guardar los cambios?'))return false;
  if(!modalOnly&&state.route==='equipo'&&teamChat.hasDraft()&&!await confirmAction('Hay mensajes sin enviar en el chat. Se conservarán durante esta sesión; al cerrar sesión o recargar se perderán. ¿Salir del chat?'))return false;
  const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
@@ -2022,8 +2022,8 @@ async function resetUser(email){
 }
 async function deleteUser(email){
  if(email.toLowerCase()===state.user?.email?.toLowerCase())throw new Error('No puedes eliminar tu propio usuario.');
- if(!await confirmAction('Se eliminarán definitivamente el acceso y la ficha de '+email+'.',{phrase:'ELIMINAR USUARIO'}))return;
- await invokeTeam({action:'hard_delete',email});closeModal();await refresh('Usuario eliminado.');
+ if(!await confirmAction('Se retirará el acceso de '+email+' y desaparecerá de la lista habitual. Se conservarán sus documentos, mensajes e historial. Podrás recuperarlo desde Usuarios eliminados.',{phrase:'ELIMINAR USUARIO',title:'Eliminar usuario',acceptLabel:'Eliminar usuario'}))return;
+ const result=await invokeTeam({action:'hard_delete',email});closeModal();await refresh(result.message||'Usuario eliminado.');
 }
 
 
@@ -2901,6 +2901,8 @@ document.addEventListener('click',async e=>{
   if(a==='user-permissions-reset'){await resetUserPermissions(el.dataset.email);return}
   if(a==='user-toggle'){await toggleUser(el.dataset.email,el.dataset.active==='true');return}
   if(a==='user-reset'){await resetUser(el.dataset.email);return}
+  if(a==='user-show-deleted'){setView('administracion',{showDeleted:!getView('administracion').showDeleted});render();return}
+  if(a==='user-restore'){if(!await confirmAction('¿Recuperar el acceso de '+el.dataset.email+' con su rol anterior? Las conexiones de IA permanecerán desactivadas.'))return;const result=await invokeTeam({action:'restore_user',email:el.dataset.email});await refresh(result.message);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
   if(a==='admin-section'){setView('administracion',{section:el.dataset.section||'usuarios'});render();if(isAuditPanelVisible())void refreshAuditPanel();if(el.dataset.section==='storage')await refreshStoragePanel();if(el.dataset.section==='onedrive')await refreshOneDrivePanel();return}

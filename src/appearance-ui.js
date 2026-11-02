@@ -32,7 +32,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
  let host=null,owner=null,section='interfaz',values={},baseline='',busy=false,revision=0,epoch=0;
  const active=(stamp=epoch)=>!!host&&owner===actor()&&stamp===epoch;
  const read=()=>{if(!host)return values;const form=host.querySelector('form');return appearanceValues(section,{...values,...Object.fromEntries(new FormData(form))});};
- const dirty=()=>!!host&&JSON.stringify(read())!==baseline;
+ const dirty=()=>!!host&&!host.hidden&&JSON.stringify(read())!==baseline;
  function syncControls(){
   if(!host)return;
   const editable=canEdit(section);
