@@ -2,7 +2,7 @@ import {bindChatViewport} from './chat-viewport.js';
 import {CHAT_SOUNDS,CHAT_BACKGROUNDS,CHAT_BUZZ,isChatBuzz,chatPreferences,applyChatBackground,prepareChatBackground} from './chat-preferences.js';
 import {prepareChatSound,playChatSound,requestChatDesktopPermission,chatDesktopStatus} from './chat-alerts.js';
 import {uploadChatFile,chatFileMetadata,chatFileHash} from './chat-files.js';
-import {CHAT_CHANNEL_ICONS,chatChannelIdentity,chatChannelMatches,chatSearchText,chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatGroups,chatLayout,chatTaskPrompt,CHAT_REACTIONS,CHAT_TASK_STATES,CHAT_GROUPS} from './team-chat-core.js';
+import {CHAT_CHANNEL_ICONS,chatRetiredDirect,chatChannelIdentity,chatChannelMatches,chatSearchText,chatMoveChannel,chatText,chatChannelInput,chatDateRange,chatGroups,chatLayout,chatTaskPrompt,CHAT_REACTIONS,CHAT_TASK_STATES,CHAT_GROUPS} from './team-chat-core.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const chatIcons={'mobile-channels':'←','channel-files':'▱','search-toggle':'⌕','refresh':'↻'};
 const chatButton=(label,action,attrs='',kind='secondary')=>'<button type="button" class="btn '+kind+'" data-chat="'+action+'" '+attrs+'>'+(chatIcons[action]?'<span class="chat-action-icon" aria-hidden="true">'+chatIcons[action]+'</span><span class="chat-action-label">'+esc(label)+'</span>':esc(label))+'</button>';
@@ -175,7 +175,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
   const batch=result.messages||[],more=batch.length>50,rows=more?batch.slice(1):batch;
   const previousMax=Math.max(0,...data.messages.map(m=>Number(m.seq)||0)),newBuzz=rows.filter(m=>isChatBuzz(m)&&m.author_email!==owner&&Number(m.seq)>previousMax&&!data.buzzSeen.has(m.id));
   const foregroundBuzz=!older&&!data.loadingChannel&&!data.query&&!data.from&&!data.to&&data.mode==='all'&&document.visibilityState==='visible'&&previousPane&&previousPane.scrollHeight-previousPane.clientHeight-previousTop<=40;
-  data.channels=result.channels||[];data.members=result.members||[];data.directory=result.directory||data.directory;data.layout=chatLayout(result.layout);data.loaded=true;data.error='';onUnread(data.channels.filter(c=>c.channel_kind!=='assistant'));
+  data.channels=(result.channels||[]).map(c=>chatRetiredDirect(c,result.directory||data.directory,owner)?{...c,archived:true,peer_retired:true,unread:0,mentions:0}:c);data.members=result.members||[];data.directory=result.directory||data.directory;data.layout=chatLayout(result.layout);data.loaded=true;data.error='';onUnread(data.channels.filter(c=>c.channel_kind!=='assistant'));
   if(channel&&preserveHistory){const known=new Set(data.messages.map(m=>m.id)),latest=new Map(rows.map(m=>[m.id,m]));data.hasNew=data.hasNew||rows.some(m=>!known.has(m.id)&&Number(m.seq)>Math.max(0,...data.messages.map(m=>Number(m.seq))));data.messages=data.messages.map(m=>latest.get(m.id)||m);}
   else if(channel){data.hasNew=false;data.more=more;data.messages=older?[...new Map([...rows,...data.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.seq-b.seq):rows;}
   if(previous!==JSON.stringify([data.channels,data.messages,data.members,data.loaded,data.error,data.more,data.layout,data.hasNew]))paint();
