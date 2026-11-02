@@ -25,10 +25,10 @@ try{
  assert.equal(await page.locator('.chat-day-divider').count(),2,'Days follow Madrid midnight, not UTC');
  assert.equal(await page.locator('.chat-avatar').first().innerText(),'ED');
  assert.equal(await page.locator('.chat-message').count(),3);assert.equal(await page.locator('.chat-file').count(),1);
- await page.locator('.chat-heading h2').hover();assert.equal(await page.locator('[data-message=two] .chat-message-actions').evaluate(el=>getComputedStyle(el).opacity),'0');
+ await page.locator('.chat-current-label').hover();assert.equal(await page.locator('[data-message=two] .chat-message-actions').evaluate(el=>getComputedStyle(el).opacity),'0');
  await page.locator('[data-message=two] .chat-body').hover();await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-message=two] .chat-message-actions')).opacity==='1');
  assert.equal(await page.locator('[data-message=two] summary').count(),0,'All message actions are direct, without More');await page.locator('[data-message=two] [data-chat=edit]').focus();assert.equal(await page.locator('[data-message=two] [data-chat=edit]').isVisible(),true);
- await page.locator('.chat-heading h2').click();
+ await page.locator('.chat-current-label').click();
  for(const width of [320,390,700,768,900,1024,1440,1920]){
   await page.setViewportSize({width,height:1000});
   const geometry=await page.evaluate(()=>({page:document.documentElement.scrollWidth,viewport:innerWidth,pane:document.querySelector('.chat-messages').scrollWidth,client:document.querySelector('.chat-messages').clientWidth}));

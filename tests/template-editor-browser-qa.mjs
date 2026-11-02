@@ -38,8 +38,9 @@ try{
  assert.match(await popup.locator('img.invoice-logo').getAttribute('src'),/^data:image\/png;base64,/,'Print must not depend on an editor blob URL that can be revoked');
  assert.match(await popup.locator('body').innerText(),/PRESUPUESTO QA/);assert(!(await popup.locator('body').innerText()).includes('INTERNAL_DO_NOT_PRINT'));
  const pdf=await popup.pdf({format:'A4',printBackground:true});assert.equal(pdf.subarray(0,5).toString(),'%PDF-');await popup.close();
- for(const width of [1440,768,390,320]){
+ for(const width of [1440,1017,768,390,320]){
   await page.setViewportSize({width,height:1000});
+  const samples=[];for(let i=0;i<12;i++){await page.waitForTimeout(40);samples.push(await preview.evaluate(el=>({w:el.clientWidth,scale:getComputedStyle(el).getPropertyValue('--preview-scale')})));}assert.equal(new Set(samples.slice(-6).map(x=>JSON.stringify(x))).size,1,'Invoice preview settles without resize oscillation at '+width);
   const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,color:document.querySelector('#tpPrimary').getBoundingClientRect().height,modal:document.querySelector('.modal').getBoundingClientRect().width}));
   assert(geometry.scroll<=width+3,JSON.stringify(geometry));assert(geometry.color>=40);assert(geometry.modal<=width);
   const clipped=await page.locator('.template-editor-actions').evaluate(el=>{const modal=el.closest('.modal').getBoundingClientRect();return [...el.querySelectorAll('button')].some(b=>b.getBoundingClientRect().bottom>modal.bottom+1);});assert(!clipped,'Save/cancel actions must remain fully visible at '+width);
@@ -64,5 +65,5 @@ try{
  await page.locator('#ivNotes').fill('CUSTOM_PRIVATE_NOTE');await page.locator('#ivTemplate').selectOption(id);
  assert.equal(await page.locator('#ivNotes').inputValue(),'CUSTOM_PRIVATE_NOTE','Changing template must preserve user-written notes');
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_sales_invoices.length),0);assert.deepEqual(errors,[]);
- console.log('TEMPLATE EDITOR QA: all design fields, physical logo size/position, fonts, colours, privacy, multiline text, draft/print/PDF, invalid image, save/reopen and four viewport sizes');
+ console.log('TEMPLATE EDITOR QA: all design fields, physical logo size/position, fonts, colours, privacy, multiline text, draft/print/PDF, invalid image, save/reopen and five viewport sizes and stable preview scale');
 }finally{await browser.close()}

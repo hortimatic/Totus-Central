@@ -553,7 +553,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .expense-register-card .expense-file-actions .btn{width:auto}
 @media(max-width:640px){.expense-register-card .data-table th,.expense-register-card .data-table td{padding:12px 10px}.expense-row-actions{width:110px}}
 
-.expense-invoice-card .expense-file-actions{display:grid;grid-template-columns:repeat(2,max-content);min-width:190px;gap:6px}
+.expense-invoice-card .expense-file-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,110px),1fr));min-width:0;gap:6px}
 .expense-invoice-card .expense-file-actions .btn{min-height:32px;padding:7px 9px;font-size:12px;line-height:1.2;border-radius:8px}
 .expense-invoice-card .data-table td{vertical-align:top;padding:14px 12px}
 .expense-invoice-card .data-table tbody tr:nth-child(even){background:#fafbfd}

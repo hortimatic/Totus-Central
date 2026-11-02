@@ -227,3 +227,72 @@
  .contact-brands-page .data-table{min-width:0}
  .contact-brands-page .data-table :is(th,td){overflow-wrap:anywhere}
 }
+
+@media screen {
+ /* A directory owns one frame. All cells remain available without horizontal scrolling. */
+ .card:has(>.mobile-card-table){container-type:inline-size}
+ #content .card>.mobile-card-table{border:0;border-radius:0;box-shadow:none;overflow:visible}
+ #content .mobile-card-table:before{display:none}
+ #content .mobile-card-table .data-table{width:100%;min-width:0;table-layout:fixed}
+ #content .mobile-card-table :is(th,td){min-width:0;max-width:none;white-space:normal;overflow-wrap:anywhere}
+ #content .mobile-card-table .inline-actions{gap:8px}
+ #content .mobile-card-table .btn{white-space:normal;overflow-wrap:anywhere}
+ #content .table-card>.section-head{flex-wrap:wrap;gap:12px;align-items:flex-start}
+ #content .table-card>.section-head>div{flex:1 1 240px}
+ .tabs.module-tabs{flex-wrap:wrap;white-space:normal;overflow:visible;margin-inline:0}
+ .tabs.module-tabs .tab{flex:0 1 auto;white-space:normal}
+ #content .module-tabs+.tab-scroll-hint{display:none}
+ .admin-entity .entity-children{padding-top:14px}
+ .admin-entity .entity-children>.btn{margin-top:10px}
+ /* Keep the modal header outside its scrolling body; help icons cannot float across it. */
+ #modalHost .modal:not(.pdf-document-modal){display:flex;flex-direction:column;overflow:hidden}
+ #modalHost .modal-head{position:relative;top:auto;flex-shrink:0;z-index:5}
+ #modalHost .modal-body{min-height:0;overflow:auto;overscroll-behavior:contain;flex:1 1 auto}
+ .form-grid label:has(>input[type=checkbox]){display:flex;align-items:center;gap:9px}
+ .form-grid input[type=checkbox]{width:20px;height:20px;min-width:20px;min-height:20px;flex:0 0 20px;margin:0;align-self:center}
+ .modal-body .field-help[open]>[role=note]{max-height:45vh;overflow:auto;max-width:calc(100vw - 24px)}
+ .appearance-grid .form-actions{background:var(--panel);backdrop-filter:none;isolation:isolate;z-index:5;border-color:var(--line)}
+ .appearance-anchors{gap:8px;align-items:stretch}
+ .appearance-anchors button{flex:1 1 120px;border-radius:var(--appearance-button-radius,9px)}
+ .appearance-anchors [data-show-preview]{margin-left:0;background:var(--panel);color:var(--ink)}
+ [data-api-form]{display:grid;gap:16px}
+ [data-api-form]>.section-head{align-items:center;padding-bottom:12px;gap:12px}
+ [data-api-form]>.section-head>.btn{margin:0;align-self:center}
+ [data-api-form]>.note{display:flex;align-items:end;flex-wrap:wrap;gap:12px}
+ [data-api-form]>.note>label{display:grid;gap:6px;flex:1 1 220px;min-width:0}
+ [data-api-form]>.note>label>select{min-height:38px;width:100%}
+ [data-api-form]>.note>:is(p,div){flex-basis:100%;margin:0}
+ [data-api-form] .api-user-help{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+ [data-api-form] .api-user-help>:is(label,p){flex-basis:100%;margin:0}
+ [data-api-form] .api-user-help>.btn{flex:1 1 180px}
+ .header-tools{align-items:center;gap:7px}
+ .header-tools>button{box-sizing:border-box;height:40px;min-height:40px;justify-content:center;padding:5px 9px;line-height:1.2;color:var(--ink)}
+ .header-tools>button:not([data-header=calendar]){min-width:48px}
+ .header-tools>button[data-header=calendar]{gap:8px}
+ .header-clock b{font-size:14px;letter-spacing:.02em;line-height:1.2}
+ .header-clock small{font-size:10px;line-height:1.2}
+ .backup-page>.kpis{gap:10px;align-items:stretch}
+ .backup-page>.kpis>.kpi{padding:12px;min-height:0}
+ .backup-page>.kpis>.kpi strong{font-size:18px;line-height:1.25;margin-top:6px;letter-spacing:0}
+ .backup-page>.kpis>.kpi .kpi-caption{font-size:10px;line-height:1.3}
+ .role-card>.section-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}
+ .role-card>.section-head>.badge{align-self:start;justify-self:end;margin:0}
+}
+@container(max-width:780px){
+ #content .mobile-card-table .data-table,#content .mobile-card-table tbody{display:block;min-width:0;width:100%;background:transparent}
+ #content .mobile-card-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ #content .mobile-card-table tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;padding:16px;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;background:var(--panel)}
+ #content .mobile-card-table tbody>tr:last-child{border-bottom:0}
+ #content .mobile-card-table td{display:block;width:auto;min-width:0;padding:0;border:0;text-align:left!important;max-width:none}
+ #content .mobile-card-table td:before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:5px}
+ #content .mobile-card-table td[data-label=""]:before{display:none}
+ #content .mobile-card-table td:last-child{grid-column:1/-1}
+ #content .mobile-card-table .inline-actions{display:flex;gap:8px;flex-wrap:wrap}
+}
+@container(max-width:440px){#content .mobile-card-table tbody>tr{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.header-tools{gap:3px}.header-tools>button{height:34px;min-height:34px;padding:4px}.header-tools>button:not([data-header=calendar]){min-width:30px}}
+/* Reserve the preview scrollbar before fitting A4: its appearance must not change the scale. */
+.template-editor-preview .invoice-live-preview{scrollbar-gutter:stable;overflow-y:scroll}
+.invoice-live-preview .invoice-preview{transition:none;animation:none}
+.dashboard-hero-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;flex:0 0 auto;width:min(100%,390px)}
+.dashboard-hero-actions>.btn{width:100%;min-width:0;white-space:normal;justify-content:center;height:100%}

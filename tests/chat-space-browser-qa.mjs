@@ -22,7 +22,7 @@ try{
   await page.setViewportSize({width,height:660});await page.waitForTimeout(80);
   const box=await page.evaluate(()=>{const rect=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {height:r.height,bottom:r.bottom,width:r.width,visible:getComputedStyle(e).display!=='none'};};return {list:rect('.chat-channel-list'),reading:rect('.chat-messages'),header:rect('.chat-heading'),compose:rect('.chat-compose'),controls:rect('.chat-sidebar-controls'),send:rect('.chat-send-actions .primary'),scroll:document.documentElement.scrollWidth};});
   assert.equal(await page.locator('.module-heading').isVisible(),false,'no duplicate page heading');
-  assert(box.header.height<90,'single compact conversation header');assert(box.reading.height>=260,'reading pane retains priority '+JSON.stringify({width,...box}));assert(box.send.bottom<=661,'send stays visible');assert(box.scroll<=width+1,'no page overflow');
+  assert(box.header.height<=1,'conversation header does not consume reading space');assert(box.reading.height>=260,'reading pane retains priority '+JSON.stringify({width,...box}));assert(box.send.bottom<=661,'send stays visible');assert(box.scroll<=width+1,'no page overflow');
   if(width>=1017){assert(await page.locator('.chat-sidebar').isVisible(),'channels stay beside reading at '+width);assert(box.list.height>=350,'channels retain majority of height');assert(box.controls.height<=160,'compact channel controls');}
   await page.screenshot({path:'artifacts/chat-space/'+width+'.png'});
  }
