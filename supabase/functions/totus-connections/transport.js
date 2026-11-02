@@ -16,7 +16,13 @@ export function connectionTarget(c){
  if(c.protocol==='github'){if(c.endpoint){const u=new URL(c.endpoint);if(u.origin!=='https://api.github.com'||!/^\/repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname)||u.search||u.hash)throw Error('Usa la dirección del repositorio en api.github.com/repos/organizacion/repositorio.');return u.href;}return 'https://api.github.com/user';}
  if(c.protocol==='anthropic')return 'https://api.anthropic.com/v1/messages';
  if(c.protocol==='gemini'){if(!/^[A-Za-z0-9._-]+$/.test(c.model||''))throw Error('Modelo no válido.');return 'https://generativelanguage.googleapis.com/v1beta/models/'+c.model+':generateContent';}
- const u=new URL(c.endpoint);if(c.protocol==='openai_compatible')u.pathname=u.pathname.replace(/\/$/,'')+'/chat/completions';if(c.protocol==='prestashop'){u.pathname=u.pathname.replace(/\/$/,'')+'/';u.searchParams.set('output_format','JSON');}return u.href;
+ const u=new URL(c.endpoint);if(c.protocol==='openai_compatible'&&!u.pathname.replace(/\/$/,'').endsWith('/chat/completions'))u.pathname=u.pathname.replace(/\/$/,'')+'/chat/completions';if(c.protocol==='prestashop'){u.pathname=u.pathname.replace(/\/$/,'')+'/';u.searchParams.set('output_format','JSON');}return u.href;
+}
+export function connectionOutputLimit(c){
+ const fallback=c.protocol==='openai_compatible'&&/^https:\/\/(api\.groq\.com|openrouter\.ai)\//.test(c.endpoint||'')?1024:8192;
+ const value=c.max_output_tokens??fallback;
+ if(!Number.isSafeInteger(value)||value<64||value>32768)throw Error('El máximo de tokens debe ser un entero entre 64 y 32768.');
+ return value;
 }
 export function connectionHeaders(c){
  const h={'Accept':'application/json'};if((c.auth_kind!=='none'||['cloudflare','anthropic','gemini','prestashop','github'].includes(c.protocol))&&!c.secret)throw Error('Falta la clave privada.');
@@ -32,7 +38,7 @@ export async function testConnection(c,{request=fetch,resolve}={}){
  const destination=connectionTarget(c);const consolePreset=managementApiPreset(destination);if(consolePreset)throw Error('Esa dirección es la consola de '+consolePreset.label+', no su API. En Configurar aplica el acceso de '+consolePreset.label+' y comprueba su modelo.');const target=await safeEndpoint(destination,resolve),headers=connectionHeaders(c),ai=['cloudflare','openai_compatible','anthropic','gemini'].includes(c.protocol);let body;
  if(ai){headers['Content-Type']='application/json';body=c.protocol==='gemini'?{contents:[{parts:[{text:'Prueba ficticia: responde exclusivamente 10.'}]}],generationConfig:{maxOutputTokens:64,temperature:0}}:c.protocol==='anthropic'?{model:c.model,max_tokens:64,system:'Prueba ficticia: eres una calculadora. Responde exclusivamente con el resultado numérico, sin palabras.',messages:[{role:'user',content:'4 + 6'}]}:{model:c.model,messages:[{role:'system',content:'Prueba ficticia: eres una calculadora. Responde exclusivamente con el resultado numérico, sin palabras.'},{role:'user',content:'4 + 6'}],max_tokens:c.model?.includes('gpt-oss')?512:64,temperature:0,stream:false};}
  if(ai&&c.protocol!=='gemini'){
-  if(c.protocol==='openai_compatible'&&target.hostname==='openrouter.ai')body.max_tokens=1024;
+  body.max_tokens=connectionOutputLimit(c);
   const schema={type:'object',properties:{resultado:{type:'integer',enum:[10]}},required:['resultado'],additionalProperties:false};
   const instruction='Prueba ficticia de calculadora, sin datos reales: calcula 4 + 6 y llama a totus_probe con resultado 10 para demostrar la ejecución de herramientas. No respondas con texto.';
   if(c.protocol==='anthropic'){body.system=instruction;body.tools=[{name:'totus_probe',description:'Comprobar herramientas sin ejecutar operaciones reales.',input_schema:schema}];body.tool_choice={type:'auto'};}
