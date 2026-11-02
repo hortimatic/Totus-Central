@@ -17,6 +17,12 @@ export function providerValidationHint(data){
  return [...new Set(hints)].join(' / ');
 }
 function anthropicMessages(messages){const output=[];for(const m of messages){if(m.role==='system')continue;const role=m.role==='assistant'?'assistant':'user';let content=[];if(m.role==='tool')content.push({type:'tool_result',tool_use_id:m.tool_call_id,content:m.content});else{if(m.content)content.push({type:'text',text:String(m.content)});for(const call of m.tool_calls||[])content.push({type:'tool_use',id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)});}if(!content.length)continue;if(output.at(-1)?.role===role)output.at(-1).content.push(...content);else output.push({role,content});}return output;}
+async function providerErrorData(response){
+ const reader=response.body?.getReader();if(!reader)return {};let size=0;const parts=[];
+ try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>16384){await reader.cancel();return {};}parts.push(value);}}finally{reader.releaseLock();}
+ const bytes=new Uint8Array(size);let at=0;for(const part of parts){bytes.set(part,at);at+=part.length;}const text=new TextDecoder().decode(bytes);
+ try{return JSON.parse(text);}catch{return {message:text};}
+}
 export async function providerChat(connection,{messages,tools,toolChoice,request=fetch,resolve=undefined}){
  const c=connection;if(!c.enabled||!c.free_confirmed||!c.real_data_authorized||c.verified_revision!==c.revision)throw Error('El proveedor no está activado y verificado para datos de trabajo.');
  if(c.protocol==='cloudflare')return chat({account:c.account_id,token:c.secret,model:c.model,maxTokens:connectionOutputLimit(c),messages,tools,toolChoice,request});
@@ -33,7 +39,7 @@ export async function providerChat(connection,{messages,tools,toolChoice,request
   if(c.model.startsWith('openai/gpt-oss-'))Object.assign(body,{reasoning_effort:'low'});
  }
  const response=await request(endpoint.href,{method:'POST',headers,body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(25000)});
- if(!response.ok){let info='',generationRejected=false;if([400,413,422,429].includes(response.status)){try{const data=await boundedJson(response,16384),hint=providerValidationHint(data);generationRejected=response.status===400&&data?.error?.code==='tool_use_failed';if(hint)info=' · '+hint;}catch{}}else await response.body?.cancel();const retry=Number(response.headers.get('retry-after'));if(response.status===429&&Number.isFinite(retry)&&retry>0&&retry<=86400)info+=' · reintento indicado por el proveedor: '+Math.ceil(retry)+' segundos';throw Object.assign(Error(response.status===429?'Cuota o capacidad del proveedor limitada'+info+'. No se cambiará a un servicio de pago.':'El proveedor rechazó la petición (HTTP '+response.status+')'+info+'.'),generationRejected?{code:'invalid_tool_generation'}:{});}
+ if(!response.ok){let info='',generationRejected=false;if([400,413,422,429].includes(response.status)){try{const data=await providerErrorData(response),hint=providerValidationHint(data);generationRejected=response.status===400&&data?.error?.code==='tool_use_failed';if(hint)info=' · '+hint;}catch{}}else await response.body?.cancel();const retry=Number(response.headers.get('retry-after'));if(response.status===429&&Number.isFinite(retry)&&retry>0&&retry<=86400)info+=' · reintento indicado por el proveedor: '+Math.ceil(retry)+' segundos';throw Object.assign(Error(response.status===429?'Cuota o capacidad del proveedor limitada'+info+'. No se cambiará a un servicio de pago.':'El proveedor rechazó la petición (HTTP '+response.status+')'+info+'.'),generationRejected?{code:'invalid_tool_generation'}:{});}
  const data=await boundedJson(response);
  if(c.protocol==='anthropic')return normalizeChatResponse({usage:{prompt_tokens:data.usage?.input_tokens,completion_tokens:data.usage?.output_tokens},choices:[{finish_reason:data.stop_reason==='max_tokens'?'length':'stop',message:{content:data.content?.filter(x=>x.type==='text').map(x=>x.text).join('')||null,tool_calls:data.content?.filter(x=>x.type==='tool_use').map(x=>({id:x.id,type:'function',function:{name:x.name,arguments:JSON.stringify(x.input)}}))}}]});
  return normalizeChatResponse(data);
