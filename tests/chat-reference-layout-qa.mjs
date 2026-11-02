@@ -21,6 +21,7 @@ try{
   }});await referenceChat.mount(document.querySelector('#chatHarness'));
  });
  await page.locator('[data-chat=open][data-id=c]').click();
+ assert.equal(await page.locator('.chat-compose-toggle').isVisible(),false,'Desktop keeps direct tools');assert.equal(await page.locator('.chat-message-toggle').first().isVisible(),false,'Desktop keeps hover actions');
  assert.equal(await page.locator('.chat-day-divider').count(),2,'Days follow Madrid midnight, not UTC');
  assert.equal(await page.locator('.chat-avatar').first().innerText(),'ED');
  assert.equal(await page.locator('.chat-message').count(),3);assert.equal(await page.locator('.chat-file').count(),1);

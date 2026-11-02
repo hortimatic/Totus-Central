@@ -1,7 +1,7 @@
 name: Revisar diseño de interfaz
 on:
   push:
-    branches: [design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete, feat/navigation-account-ai-plan, feat/personal-workspace, feat/api-connections]
+    branches: [fix/mobile-interface-audit, design/stitch-interface, fix/interface-publication, fix/navigation-breakpoint-wait, fix/login-and-navigation-finish, feat/stitch-complete, feat/navigation-account-ai-plan, feat/personal-workspace, feat/api-connections]
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,30 +27,46 @@ jobs:
       - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/module-navigation-browser-qa.mjs
       - run: node tests/ai-connection-test-browser-qa.mjs
+      - run: node tests/chat-mobile-reading-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/chat-reference-layout-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/chat-navigation-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/chat-workspace-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/appearance-tools-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/account-workspace-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/stitch-design-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - name: Comprobar los recorridos finales pendientes
+        if: ${{ !cancelled() }}
         run: |
           failed=0
-          for file in tests/report-period-qa.mjs tests/second-review-qa.mjs tests/rectifying-browser-qa.mjs tests/pdf-preview-qa.mjs tests/invoice-logo-qa.mjs tests/backup-qa.mjs tests/recovery-browser-qa.mjs tests/form-drafts-qa.mjs tests/attachment-integrity-qa.mjs tests/admin-submenus-qa.mjs tests/billing-submenus-qa.mjs tests/fiscal-submenus-qa.mjs tests/store-drawers-qa.mjs tests/mobile-navigation-qa.mjs tests/shell-geometry-qa.mjs tests/subtab-walk-qa.mjs; do
+          for file in tests/report-period-qa.mjs tests/second-review-qa.mjs tests/rectifying-browser-qa.mjs tests/pdf-preview-qa.mjs tests/invoice-logo-qa.mjs tests/backup-qa.mjs tests/recovery-browser-qa.mjs tests/form-drafts-qa.mjs tests/attachment-integrity-qa.mjs tests/admin-submenus-qa.mjs tests/billing-submenus-qa.mjs tests/fiscal-submenus-qa.mjs tests/store-drawers-qa.mjs tests/mobile-navigation-qa.mjs tests/shell-geometry-qa.mjs tests/subtab-walk-qa.mjs tests/modal-geometry-qa.mjs; do
             if ! node "$file"; then failed=1; fi
           done
           exit "$failed"
       - run: node tests/personal-layout-sweep-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/module-navigation-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/interface-design-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/drawer-sales-browser-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/mobile-navigation-qa.mjs
+        if: ${{ !cancelled() }}
       - run: node tests/shell-geometry-qa.mjs
+        if: ${{ !cancelled() }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: totus-interface-review
           path: |
+            artifacts/mobile-audit/
             artifacts/appearance-tools/
             artifacts/account-workspace/
             artifacts/interface-design/

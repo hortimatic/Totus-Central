@@ -202,3 +202,15 @@
  .account-popover > button:hover,.account-popover > button:focus-visible {background:var(--stitch-high);}
  .account-popover-divider {height:1px;background:var(--line);margin:4px;}
 }
+
+/* Keep the appearance save bar from covering a third of a phone screen. */
+@media(max-width:550px){
+ .appearance-grid .form-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}
+ .appearance-grid .form-actions .btn{width:auto;min-width:0;min-height:40px;white-space:normal;font-size:11px;padding:6px}
+ .appearance-grid .form-actions .primary{grid-column:1/-1}
+}
+/* A horizontal flex basis must not become 180px of empty height on phones. */
+@media(max-width:480px){
+ .backup-file-control #backupSelectedFile{flex:0 1 auto}
+ .backup-page .kpi:first-child strong{font-size:clamp(16px,5vw,23px);overflow-wrap:normal}
+}
