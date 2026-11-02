@@ -5,11 +5,11 @@ fs.mkdirSync('artifacts/mobile-audit',{recursive:true});
 const browser=await chromium.launch({headless:true});
 const errors=[],screens=[];
 const scenes=[
- {route:'pricing',action:'product-new'},
- {route:'cajas',action:'closing-new'},
- {route:'gastos',action:'expense-new'},
- {route:'facturacion',action:'invoice-new'},
- {route:'documentos',action:'document-new'},
+ {route:'pricing',page:true,action:'product-new'},
+ {route:'cajas',page:true,action:'closing-new'},
+ {route:'gastos',page:true,action:'expense-new'},
+ {route:'facturacion',page:true,action:'invoice-new'},
+ {route:'documentos',page:true,action:'document-new'},
  {route:'administracion',section:'usuarios',action:'user-new'},
  {route:'administracion',section:'roles',action:'role-new'},
  {route:'administracion',section:'fiscal',action:'expense-category-new'},
@@ -32,7 +32,7 @@ for(const [size,width] of [['desktop',1440],['tablet',768],['mobile',390],['smal
   const action=page.locator('#content [data-action="'+scene.action+'"]').first();
   if(!await action.count()){errors.push(size+' '+scene.action+' button not found');continue}
   await action.click();
-  const modal=page.locator('#modalHost .modal').first();
+  const modal=page.locator(scene.page?'#content .record-page':'#modalHost .modal').first();await modal.waitFor({state:'visible'});
   if(!await modal.isVisible()){errors.push(size+' '+scene.action+' modal not visible');continue}
   const geometry=await modal.evaluate(el=>{
    const rect=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,w:r.width,h:r.height}};
@@ -50,8 +50,8 @@ for(const [size,width] of [['desktop',1440],['tablet',768],['mobile',390],['smal
   if(geometry.bounds.x<-2||geometry.bounds.right>width+2)errors.push(size+' '+scene.action+' modal exceeds viewport '+JSON.stringify(geometry.bounds));
   if(geometry.brokenButtons.length||geometry.brokenControls.length||geometry.overlap.length)
    errors.push(size+' '+scene.action+' deformed modal: '+JSON.stringify({buttons:geometry.brokenButtons,controls:geometry.brokenControls.slice(0,3),overlap:geometry.overlap,bounds:geometry.bounds}));
-  if(size==='small-mobile'||(size==='desktop'&&scene.action==='user-new'))
-   await page.screenshot({path:'artifacts/mobile-audit/layout_modal_'+size+'_'+scene.action+'.png'});
+  if(size==='small-mobile'||(size==='desktop'&&(scene.page||scene.action==='user-new')))
+   await page.screenshot({path:'artifacts/mobile-audit/layout_modal_'+size+'_'+scene.action+'.png',fullPage:!!scene.page});
   screens.push({size,action:scene.action,buttons:geometry.buttons.length,controls:geometry.brokenControls.length});
  }
  await page.close();

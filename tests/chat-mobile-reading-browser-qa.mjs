@@ -49,5 +49,5 @@ try{
  assert.deepEqual(errors,[]);await page.close();
  }
  await writeFile('artifacts/mobile-audit/reading.json',JSON.stringify(results,null,2));
- console.log('CHAT MOBILE: five sizes, reading space, editor, draft, assistant sends, attachments and message actions verified');
+ console.log('CHAT MOBILE: six sizes, reading space, editor, draft, assistant sends, attachments and message actions verified');
 }finally{await browser.close();}
