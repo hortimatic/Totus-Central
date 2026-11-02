@@ -104,7 +104,7 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 .appearance-login-presets small {flex-basis:100%;color:var(--muted);}
 .appearance-section[hidden],.appearance-anchors button[hidden] {display:none!important;}
 @media(max-width:600px){.appearance-tools>.inline-actions {width:100%;}.appearance-tools .btn {flex:1 1 120px;min-height:44px;}.appearance-tools input {font-size:16px;}}
-.configuration-sections{flex-wrap:wrap;padding:0;background:var(--panel,#fff);border:1px solid var(--line,#dfe6ef);border-radius:12px}.configuration-sections .tab{min-height:44px}.connections-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin:16px 0}#connectionsRoot[hidden],#appearanceRoot[hidden]{display:none!important}#connectionsRoot{min-width:0}#connectionsRoot p{overflow-wrap:anywhere}
+.configuration-sections{flex-wrap:wrap;padding:0;background:var(--panel,#fff);border:1px solid var(--line,#dfe6ef);border-radius:12px}.configuration-sections .tab{min-height:44px}#connectionsRoot[hidden],#appearanceRoot[hidden]{display:none!important}#connectionsRoot{min-width:0}#connectionsRoot p{overflow-wrap:anywhere}
 
 .appearance-external-tabs>.tabs{display:none}
 
@@ -112,9 +112,10 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 .api-connection-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px}
 .api-connection-card{min-width:0;padding:18px;border:1px solid var(--line,#dce4f1);border-radius:14px;background:var(--surface,#fff)}
 .api-connection-card h3{margin:0;overflow-wrap:anywhere}.api-connection-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:14px;margin:16px 0}.api-connection-facts>div{min-width:0}.api-connection-facts dt{font-size:12px;color:var(--muted,#64748b)}.api-connection-facts dd{margin:3px 0 0;overflow-wrap:anywhere;font-size:13px}.api-connection-actions{display:flex;flex-wrap:wrap;gap:7px}.api-connection-actions .btn{padding:7px 10px;font-size:12px}
-[data-api-manager] .form-grid input,[data-api-manager] .form-grid select{min-width:0;width:100%;box-sizing:border-box}.api-user-help{font-size:12px;align-self:end}.api-user-help p{margin:0 0 6px}.api-existing-connection>summary{cursor:pointer;font-weight:600}.api-existing-connection[open]>summary{margin-bottom:16px}
+[data-api-manager] .form-grid input,[data-api-manager] .form-grid select{min-width:0;width:100%;box-sizing:border-box}.api-user-help{font-size:12px;align-self:end}.api-user-help p{margin:0 0 6px}
 [data-api-manager] [hidden]{display:none!important}
 
 .api-user-dialog{width:min(520px,calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow:auto;border:0;border-radius:16px;padding:22px;box-shadow:0 20px 70px #0004}.api-user-dialog form{display:grid;gap:14px}.api-user-dialog label{display:grid;gap:5px}.api-user-dialog input,.api-user-dialog select{width:100%;box-sizing:border-box;min-height:40px}.api-user-dialog::backdrop{background:#17203370}
 
-.api-existing-connection:not([open])>:not(summary){display:none!important}
+
+@media(max-width:600px){[data-api-manager] .btn{min-height:44px}[data-api-manager] .section-head .inline-actions{width:100%;flex-wrap:wrap}}

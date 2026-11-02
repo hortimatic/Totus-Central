@@ -162,7 +162,6 @@ jobs:
       - run: node tests/chat-mobile-reading-browser-qa.mjs
       - run: node tests/personal-interface-browser-qa.mjs
       - run: node tests/appearance-browser-qa.mjs
-      - run: node tests/ai-connection-test-browser-qa.mjs
       - run: node tests/appearance-tools-browser-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
@@ -438,5 +437,10 @@ jobs:
 
   cloudflare-agent:
     uses: ./.github/workflows/cloudflare-agent.yml
+    permissions:
+      contents: read
+
+  api-manager:
+    uses: ./.github/workflows/api-manager.yml
     permissions:
       contents: read
