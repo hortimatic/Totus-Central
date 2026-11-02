@@ -47,3 +47,8 @@ Los originales de una recepción existente pueden leerse con el lector autorizad
 La IA no hereda sesiones ni claves de los conectores de Codex o ChatGPT. Crea una conexión GitHub con destino https://api.github.com/repos/organizacion/repositorio, una clave de alcance limitado al repositorio y el mismo usuario técnico de la IA. Prueba y activa la conexión. El adaptador entregado permite leer código de ese repositorio mediante github_archivo, conservando la clave en el servidor. No publica cambios ni concede acceso arbitrario a SQL/Vault. Los cambios de código siguen requiriendo una rama revisable y el proceso de publicación.
 
 Despliegue siguiente: 049_api_chat_routing.sql y 050_api_actor_readiness.sql, totus-ai y totus-connections, y pantalla. Las conexiones nuevas siguen dependiendo de la disponibilidad y cuota real del proveedor; HTTP401 y HTTP429 no se corrigen aumentando el límite local.
+
+## Evidencia de reparación 02/11/2026
+Pruebas reales desde la identidad propia de Codex, sin altas contables: Groq contestó por su cuenta técnica; Cloudflare entregó un original existente con un adjunto verificado; Groq generó y entregó un CSV de un periodo futuro ficticio. Ambas entregas finalizaron con expected_files=1 y un archivo ready/verificado, cada una firmada por su usuario diferente. No se compartieron claves ni se intercambiaron los proveedores. Mistral continúa sujeto a la prueba y cuota de su propia cuenta.
+
+Una comprobación simple de clave no acredita todos los recorridos de trabajo. Estas verificaciones añadieron conversación y entrega real de archivos a las pruebas aisladas de seguridad, permisos y fallos.
