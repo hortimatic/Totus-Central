@@ -126,7 +126,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
-const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:confirmAction,onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -251,7 +251,7 @@ function render(){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
    $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml());
-   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||apiManager.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{apiManager.dispose();},mountTest:()=>{void apiManager.mount($('[data-api-manager]'));}});
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||apiManager.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.',{title:'Cambios sin guardar',acceptLabel:'Descartar cambios'}):Promise.resolve(true),disposeTest:()=>{apiManager.dispose();},mountTest:()=>{void apiManager.mount($('[data-api-manager]'));}});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));
@@ -263,8 +263,8 @@ let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=f
 const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion'].includes(state.route)||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
- if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?'))return false;
- if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?'))return false;
+ if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
+ if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='tareas'&&tasks.hasDraft()&&!await confirmAction('Hay una ficha de tarea abierta. ¿Salir sin guardar los cambios?'))return false;
  if(!modalOnly&&state.route==='equipo'&&teamChat.hasDraft()&&!await confirmAction('Hay mensajes sin enviar en el chat. Se conservarán durante esta sesión; al cerrar sesión o recargar se perderán. ¿Salir del chat?'))return false;
  const roots=(modalOnly?[$('#modalHost [data-modal-content]')]:draftRoots()).filter(root=>hasFormDraft(root,ignore));
@@ -2022,7 +2022,7 @@ async function resetUser(email){
 }
 async function deleteUser(email){
  if(email.toLowerCase()===state.user?.email?.toLowerCase())throw new Error('No puedes eliminar tu propio usuario.');
- if(!await confirmAction('Se retirará el acceso de '+email+' y desaparecerá de la lista habitual. Se conservarán sus documentos, mensajes e historial. Podrás recuperarlo desde Usuarios eliminados.',{phrase:'ELIMINAR USUARIO'}))return;
+ if(!await confirmAction('Se retirará el acceso de '+email+' y desaparecerá de la lista habitual. Se conservarán sus documentos, mensajes e historial. Podrás recuperarlo desde Usuarios eliminados.',{phrase:'ELIMINAR USUARIO',title:'Eliminar usuario',acceptLabel:'Eliminar usuario'}))return;
  const result=await invokeTeam({action:'hard_delete',email});closeModal();await refresh(result.message||'Usuario eliminado.');
 }
 
