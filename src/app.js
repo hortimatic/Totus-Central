@@ -99,7 +99,8 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
  await navigateModule('equipo',null,()=>{pendingChatTarget=message;});
 }});
 const titles={
- equipo:['Trabajo','Chat'],tareas:['Trabajo','Tareas'],
+ clientes:['Contactos','Clientes'],proveedores:['Contactos','Proveedores'],marcas:['Contactos','Marcas'],
+ equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración'],configuracion:['Sistema','Configuración']
@@ -252,7 +253,7 @@ function render(){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
    $('#content .appearance-page').insertAdjacentHTML('beforeend',connectionsHtml({gemini:state.data.team.find(member=>member.email==='gemini@totuscentral.invalid')}));
-   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),guard:()=>appearanceUI.hasDraft()||cloudflareConnection.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));}});
+   mountConnectionsTabs($('#content .appearance-page'),{appearance:$('#appearanceRoot'),connections:$('#connectionsRoot'),selectAppearance:section=>appearanceUI.showSection(section),guard:()=>appearanceUI.hasDraft()||cloudflareConnection.hasDraft()?confirmAction('¿Cambiar de pestaña sin guardar los cambios? Los cambios de conexión sin guardar se descartarán.'):Promise.resolve(true),disposeTest:()=>{aiConnectionTest.dispose();cloudflareConnection.dispose();},mountTest:()=>{aiConnectionTest.mount($('#content .ai-test-panel'));void cloudflareConnection.mount($('[data-cloudflare-config]'));}});
   }
  }
  if(state.route==='tareas')tasks.mount($('#tasksRoot')).then(async()=>{const source=pendingTaskSource;pendingTaskSource=null;const date=pendingTaskDate;pendingTaskDate=null;if(source&&state.route==='tareas')await tasks.fromMessage(source);else if(date&&state.route==='tareas')await tasks.openDate(date);}).catch(e=>toast(e.message,'bad'));

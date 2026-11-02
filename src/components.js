@@ -21,6 +21,17 @@ if(typeof document!=='undefined'){
  });
  helpObserver.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['open']});
  document.addEventListener('toggle',event=>positionOpenHelp(event.target),true);
+ const transientHelp=new WeakSet();
+ const helpOf=target=>target instanceof Element?target.closest('details.field-help'):null;
+ function revealHelp(help){if(help&&!help.open){help.open=true;transientHelp.add(help);positionOpenHelp(help);}}
+ function leaveHelp(help,next){if(help&&transientHelp.has(help)&&!help.contains(next)&&!help.contains(document.activeElement)){help.open=false;transientHelp.delete(help);}}
+ document.addEventListener('pointerover',event=>{if(event.pointerType==='mouse'&&matchMedia('(hover:hover)').matches)revealHelp(helpOf(event.target));});
+ document.addEventListener('pointerout',event=>leaveHelp(helpOf(event.target),event.relatedTarget));
+ document.addEventListener('focusin',event=>revealHelp(helpOf(event.target)));
+ document.addEventListener('focusout',event=>{const help=helpOf(event.target);if(help&&transientHelp.has(help)&&!help.contains(event.relatedTarget)){help.open=false;transientHelp.delete(help);}});
+ document.addEventListener('click',event=>{const help=helpOf(event.target);if(help&&event.target.closest('summary')&&transientHelp.has(help)){event.preventDefault();transientHelp.delete(help);help.open=true;}});
+ document.addEventListener('keydown',event=>{const help=helpOf(event.target);if(help&&event.key==='Escape'){help.open=false;transientHelp.delete(help);event.preventDefault();}});
+
 }
 
 export function setHeader(eyebrow,title,actions=''){

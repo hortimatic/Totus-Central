@@ -5,6 +5,7 @@ export function nativeModuleClick(event,element){return element?.tagName==='A'&&
 
 const financial=['closings','closingDrawers','expenses','expenseLines','invoices','invoiceLines','documents','taxPayments','fiscalAdjustments','incomeAdjustments','customers','categories','suppliers'];
 const byModule={
+ clientes:['customers'],proveedores:['suppliers','providers','categories','expenses'],marcas:['brands','families'],
  inicio:financial,informes:financial,fiscalidad:financial,
  cajas:['closings','closingDrawers'],
  gastos:['expenses','expenseLines','suppliers','categories','documents','taxPayments'],
