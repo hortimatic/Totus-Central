@@ -21,3 +21,5 @@ await test('provider duplicate IDs get distinct transport IDs',async()=>{const r
 console.log(passed+' controls passed');
 
 await test('ordinary requests are not forced into a needless tool call',async()=>{const r=await runAgent({content:'Di hola',authorize:async()=>{},reserve:async()=>{},execute:async()=>{throw Error('no tools needed')},provider:async(_messages,_tools,choice)=>{assert.equal(choice,'auto');return {message:{content:'Hola'}};}});assert.equal(r.text,'Hola');});
+
+await test('tool diagnostics record only names and result shape, never arguments or document content',async()=>{const events=[];let round=0;await runAgent({content:'private-request',authorize:async()=>{},reserve:async()=>{},onTrace:e=>events.push(e),execute:async()=>({private_document:'secret-text',completed:true}),provider:async()=>round++?{message:{content:'Listo'}}:{message:{tool_calls:[call('catalogo','{"private":"private-argument"}')]}}});assert.equal(events.length,1);assert.equal(events[0].tool,'catalogo');assert.equal(events[0].ok,true);assert(!JSON.stringify(events).includes('secret-text'));assert(!JSON.stringify(events).includes('private-argument'));});
