@@ -1,6 +1,6 @@
 // Only the same requester's messages from the same channel are supplied by the caller.
 // Put the current request last: reference data must not displace a short clarification.
-export function agentRequest({current,history=[],requester,identity,documents=[],catalogue}){
+export function agentRequest({current,history=/** @type {Array<{author_email:string,body:string}>} */([]),requester,identity,documents=/** @type {Array<Record<string,unknown>>} */([]),catalogue}){
  const prior=[];let remaining=18000;
  for(const row of history){
   if(row.author_email!==requester||typeof row.body!=='string')continue;
