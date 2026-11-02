@@ -42,6 +42,7 @@ jobs:
       - run: python3 -m http.server 4173 >/tmp/totus.log 2>&1 &
       - run: node --test tests/cloudflare-tools-qa.mjs
       - run: node tests/cloudflare-engine-qa.mjs
+      - run: node tests/team-chat-browser-qa.mjs
       - run: node tests/chat-shell-fit-browser-qa.mjs
       - run: node tests/chat-mobile-reading-browser-qa.mjs
       - uses: actions/upload-artifact@v4
