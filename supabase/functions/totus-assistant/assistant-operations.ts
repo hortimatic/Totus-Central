@@ -1,5 +1,6 @@
 // Explicit catalogue, executed with the caller's own Auth session, never service_role.
 // The existing business RPC remains responsible for permissions, revisions and audit.
+import {agentIdentity} from '../../../src/agent-identity.js';
 const rpcArguments:Record<string,string[]>=Object.fromEntries([
  ['totus_business_write_contract',''],
  ['totus_save_closing','p_closing p_drawers'],
@@ -31,6 +32,7 @@ const rpcArguments:Record<string,string[]>=Object.fromEntries([
  ['totus_task_command','p_action p_data'],
  ['totus_task_from_message','p_message'],
  ['totus_task_history','p_task'],
+ ['totus_task_purge','p_task_id p_task_version p_confirmation'],
  ['totus_save_report_layout','p_order'],
  ['totus_save_my_appearance','p_config p_expected_revision'],
  ['totus_save_appearance','p_section p_config p_expected_revision'],
@@ -55,7 +57,7 @@ export function operationCatalogue(){return {rpc:rpcArguments,read_tables:[...ta
  policy:'Own authenticated session; no arbitrary SQL, credentials, service-role RPCs or owner impersonation. Re-read after writes. Destructive operations require explicit authorization.'};}
 
 export async function runOperation(client:any,payload:any,user:any){
- if(!object(payload)||!['chatgpt@totuscentral.invalid','codex@totuscentral.invalid'].includes(user?.email))throw new Error('Identidad o solicitud no válida');
+ agentIdentity(user);if(!object(payload))throw new Error('Identidad o solicitud no válida');
  const {operation}=payload;
  if(operation==='catalogue')return {catalogue:operationCatalogue()};
  if(operation==='read'){
@@ -89,7 +91,7 @@ export async function runOperation(client:any,payload:any,user:any){
   const {data:contract,error}=await client.rpc('totus_business_write_contract');
   if(error||contract?.request_replay!==1)throw new Error('Protección de guardado no disponible');
  }
- if((payload.name.includes('_delete_')||payload.name==='totus_stock_delete'||payload.name==='totus_stock_remove_source'||payload.name==='totus_set_closed_period'||payload.name==='totus_log_cleanup'&&args.p_execute===true)&&payload.confirmed!==true)throw new Error('Confirmación expresa requerida para esta operación');
+ if((payload.name.includes('_delete_')||payload.name.includes('_purge')||payload.name==='totus_stock_delete'||payload.name==='totus_stock_remove_source'||payload.name==='totus_set_closed_period'||payload.name==='totus_log_cleanup'&&args.p_execute===true)&&payload.confirmed!==true)throw new Error('Confirmación expresa requerida para esta operación');
  const {data,error}=await client.rpc(payload.name,args);
  if(error)throw new Error(error.message);
  return {operation:payload.name,data,executed:true,requires_readback:true};

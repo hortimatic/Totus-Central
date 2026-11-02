@@ -12,3 +12,7 @@ Todos los procedimientos de Recepciones usan el mismo control de actor. La cuent
 Una cuenta eliminada definitivamente no se puede recuperar ni conserva sus credenciales. Administración puede crear una cuenta nueva con el mismo correo desde Nuevo usuario; se asignan el rol y datos del alta nueva, sin recuperar permisos individuales, fotografía ni contraseña anteriores. Una cuenta que solo está en Usuarios eliminados se recupera desde allí. Crear una cuenta manual no configura por sí solo las credenciales de un puente técnico: no confundir ese alta con una comprobación completa del puente.
 
 Las conexiones del gestor de APIs ejecutan las acciones con su usuario asignado. Los permisos de Totus no amplían la cuota del proveedor. La validación completa debe incluir una operación real autorizada y su relectura; una prueba de conexión mínima no basta.
+
+## Vinculación genérica vigente
+
+Para preparar una cuenta manual o técnica utilizar Administración → Usuarios → Editar → Acceso de IA. El procedimiento completo está en [AI_ACCOUNT_ACCESS.md](AI_ACCOUNT_ACCESS.md). Cada cuenta tiene su propia vinculación; el conector ChatGPT anterior usa únicamente la cuenta elegida explícitamente mediante su casilla de compatibilidad. No hay una lista fija de correos admitidos.

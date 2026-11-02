@@ -3,6 +3,7 @@ import {periodReport} from '../../../src/agent-reports.js';
 import {monthlyDiaryFile} from '../../../src/agent-workbooks.js';
 import {actionUuid,hash} from './cloudflare.js';
 import {attachChatExpenseDocument} from '../totus-assistant/assistant-attachments.ts';
+import {runOperation,operationCatalogue} from '../totus-assistant/assistant-operations.ts';
 const reads:Record<string,string>={ops_stores:'documentos',ops_cash_drawers:'cajas',ops_suppliers:'gastos',ops_expense_categories:'gastos',ops_expenses:'gastos',ops_expense_lines:'gastos',ops_daily_closings:'cajas',ops_daily_closing_drawers:'cajas',ops_stock_receipts:'documentos',ops_documents:'documentos',ops_customers:'facturacion',ops_sales_invoices:'facturacion',ops_sales_invoice_lines:'facturacion',ops_fiscal_adjustments:'fiscalidad',ops_income_adjustments:'fiscalidad',ops_tax_payments:'fiscalidad',brands:'pricing',families:'pricing',products:'pricing',product_variants:'pricing',providers:'pricing'};
 Object.assign(reads,{ops_invoice_series:'facturacion',ops_document_templates:'facturacion',product_provider_prices:'pricing',product_competitor_prices:'pricing',consultations:'pricing',consultation_history:'pricing',price_history:'pricing',ops_tasks:'tareas',ops_audit_log:'administracion',team_members:'administracion',profiles:'administracion',ops_business_settings:'administracion'});
 const procedures:Record<string,{module:string,operation:string,args:string[],table?:string}>={
@@ -31,6 +32,26 @@ export function createTools({client,admin,user,job,files,authorize,delivery=crea
   catch(e){throw fail(e);}
  }
  return async function execute(name:string,input:any):Promise<any>{
+  if(name==='operacion'){
+   const payload=JSON.parse(input.solicitud_json||'{}');if(!object(payload))throw Error('Solicitud de operación no válida.');
+   await authorize();
+   if(payload.operation!=='rpc'){const result=await runOperation(client,payload,user);collect(result);return result;}
+   if(procedures[payload.name])return execute('ejecutar',{procedimiento:payload.name,argumentos_json:JSON.stringify(payload.args||{})});
+   const catalog=operationCatalogue();if(!Object.hasOwn(catalog.rpc,payload.name))throw Error('Consulta el catálogo de operaciones antes de guardar.');
+   if(['totus_business_write_contract','totus_tasks_context','totus_task_history','totus_storage_usage'].includes(payload.name))return runOperation(client,payload,user);
+   activity.attemptedWrite=true;
+   return mutation(payload.name,payload.args,async()=>{
+    const result=await runOperation(client,payload,user),args=payload.args||{};
+    const tables:Record<string,string>={totus_save_sales_document:'ops_sales_invoices',totus_delete_sales_draft:'ops_sales_invoices',totus_finalize_sales_document:'ops_sales_invoices',totus_convert_proforma:'ops_sales_invoices',totus_register_external_document:'ops_sales_invoices',totus_update_invoice_payment:'ops_sales_invoices',totus_delete_closing:'ops_daily_closings',totus_delete_expense:'ops_expenses',totus_set_expense_payment:'ops_expenses',totus_set_expense_report_group:'ops_expenses',totus_delete_income_adjustment:'ops_income_adjustments',totus_pricing_save_product:'products',totus_pricing_save_provider:'product_provider_prices',totus_task_command:'ops_tasks',totus_task_purge:'ops_tasks',totus_task_from_message:'ops_tasks'};
+    const id=typeof result.data==='string'?result.data:result.data?.id||result.data?.invoice_id||result.data?.document_id||result.data?.product_id||result.data?.task_id||result.data?.invoice?.id||result.data?.product?.id||result.data?.task?.id||args.p_id||args.p_task_id||args.p_data?.id||args.p_document?.id||args.p_product?.id;
+    if(tables[payload.name]&&typeof id==='string'&&/^[a-f0-9-]{36}$/i.test(id)){
+     const record=check(await client.from(tables[payload.name]).select('*').eq('id',id).maybeSingle()),removed=payload.name.includes('_delete_')||payload.name.includes('_purge');
+     if(removed?record&&!record.deleted_at:!record)throw Error('La relectura no confirma el resultado de la operación. No repitas el guardado.');
+     collect(record);return {...result,record,requires_readback:false,verified_write:{procedure:payload.name,id}};
+    }
+    return {...result,instruction:'Operación ejecutada; todavía exige una consulta de relectura. No declares el trabajo comprobado sin verificar el resultado.'};
+   });
+  }
   if(name==='simular'){if(!['totus_save_expense','totus_save_closing'].includes(input.procedimiento))throw Error('Solo se simulan gastos y cierres.');name='ejecutar';input={...input,simular:true};}
   if(name==='catalogo')return {tables:reads,procedures,
    expense:{p_expense:['id opcional','expected_updated_at al editar','store_id','expense_date YYYY-MM-DD','supplier_name','supplier_tax_id','invoice_number','document_kind factura|rectificativa|otro','paid_status pendiente|parcial|pagado','amount_paid','paid_date','payment_method','management_only','notes'],p_lines:['category_id','description','base_amount','vat_rate','re_rate','withholding_rate','withholding_model','deductible_irpf','deductible_pct','fixed_asset'],expected_total:'Total numérico del original, obligatorio. La revisión fiscal de un alta queda pendiente.'},

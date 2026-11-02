@@ -33,9 +33,9 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   if(!/^[a-f0-9-]{36}$/i.test(input.job||'')||!/^[a-f0-9]{64}$/i.test(input.ticket||''))return respond({error:'Solicitud no autorizada'},401);
   job=check(await admin.rpc('totus_ai_claim',{p_job:input.job,p_ticket:input.ticket}));claimed=true;
   const config=check(await admin.rpc('totus_ai_job_config',{p_job:job.id})),credentials=config.credentials;
-  if(credentials?.email!==(config.actor_email||'totus-ai@totuscentral.invalid')||typeof credentials.password!=='string'||credentials.password.length<48)throw Error('Falta preparar la identidad propia de Totus IA.');
-  const login=await scoped.auth.signInWithPassword(credentials);if(login.error||!login.data?.session||login.data.user?.app_metadata?.totus_ai!==true&&login.data.user?.app_metadata?.totus_integration!==true)throw Error('No se pudo iniciar la sesión propia de Totus IA.');
-  const identity=await scoped.auth.getUser();if(identity.error||identity.data?.user?.id!==login.data.user.id)throw Error('No se pudo verificar la identidad de Totus IA.');const user=identity.data.user;
+  if(credentials?.email!==(config.actor_email||'totus-ai@totuscentral.invalid')||typeof credentials.password!=='string'||credentials.password.length<(credentials.user_id?1:48)||credentials.password.length>1024)throw Error('Falta preparar la identidad propia de la cuenta de IA.');
+  const login=await scoped.auth.signInWithPassword(credentials);if(login.error||!login.data?.session||login.data.user?.app_metadata?.totus_ai!==true&&login.data.user?.app_metadata?.totus_integration!==true&&login.data.user?.app_metadata?.totus_agent!==true)throw Error('No se pudo iniciar la sesión propia de la cuenta de IA.');
+  const identity=await scoped.auth.getUser();if(identity.error||identity.data?.user?.id!==login.data.user.id||credentials.user_id&&identity.data?.user?.id!==credentials.user_id)throw Error('No se pudo verificar la identidad propia de la IA.');const user=identity.data.user;
   const deadline=Date.now()+95000;
   const authorize=async(module?:string,operation='view')=>{if(Date.now()>deadline)throw Error('Tiempo de atención agotado. Comprueba los resultados antes de continuar.');check(await admin.rpc('totus_ai_job_check',{p_job:job.id,p_module:module||null,p_operation:operation}));};
   const reserve=async()=>{await authorize();check(await admin.rpc('totus_ai_job_check',{p_job:job.id,p_reserve:true}));};

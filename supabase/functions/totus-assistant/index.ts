@@ -26,9 +26,9 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   if(claimError||!work)return respond({error:'Solicitud no autorizada, ya utilizada o caducada'},401)
   claimed=true
   const {email,password}=work.credentials
-  const codexAction=typeof work.action==='string'&&work.action.startsWith('codex_')
-  const action=codexAction?work.action.slice(6):work.action
-  if(email!==(codexAction?'codex@totuscentral.invalid':'chatgpt@totuscentral.invalid')||typeof password!=='string'||password.length<48)throw new Error('Cuenta técnica incorrecta')
+  const codexAction=typeof work.action==='string'&&work.action.startsWith('codex_'),agentAction=typeof work.action==='string'&&work.action.startsWith('agent_')
+  const action=codexAction||agentAction?work.action.slice(6):work.action
+  if(codexAction&&email!=='codex@totuscentral.invalid'||!codexAction&&!agentAction&&email!=='chatgpt@totuscentral.invalid'||agentAction&&!/^[a-f0-9-]{36}$/i.test(work.credentials.user_id||'')||typeof password!=='string'||password.length<(codexAction?48:1)||password.length>1024)throw new Error('Cuenta técnica incorrecta')
   if(!['session_check','expense_context','validate_expense','save_expense','attach_chat_file','review_document','chat_read','chat_send','operation','chat_direct',...(codexAction?['setup','grant_chatgpt_admin','setup_gemini','setup_totus_ai']:[])].includes(action))throw new Error('Acción no admitida')
   if(work.action==='codex_setup'){
    // The one-use server ticket is issued exclusively by the administrative connector.
@@ -55,9 +55,9 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
   }
   scoped=clientFactory(url,key,opts)
   const {data:session,error:loginError}=await scoped.auth.signInWithPassword({email,password})
-  if(loginError||!session.session||(codexAction?session.user?.app_metadata?.totus_codex:session.user?.app_metadata?.totus_assistant)!==true)throw new Error('No se pudo autenticar la cuenta propia')
+  if(loginError||!session.session||(codexAction?session.user?.app_metadata?.totus_codex:agentAction?session.user?.app_metadata?.totus_agent:session.user?.app_metadata?.totus_assistant)!==true)throw new Error('No se pudo autenticar la cuenta propia')
   const {data:confirmed,error:userError}=await scoped.auth.getUser()
-  if(userError||confirmed.user?.id!==session.user.id)throw new Error('No se pudo verificar la sesión')
+  if(userError||confirmed.user?.id!==session.user.id||agentAction&&confirmed.user?.id!==work.credentials.user_id)throw new Error('No se pudo verificar la sesión')
   const {data:member,error:memberError}=await admin.from('team_members').select('active,role').eq('email',email).maybeSingle()
   if(memberError||!member?.active)throw new Error('Cuenta del asistente desactivada')
   let result:any={authenticated:true,user_id:confirmed.user.id,email,role:member.role,session_verified:true}
@@ -123,7 +123,7 @@ export async function handle(req: Request, env = Deno.env, clientFactory = creat
    if(error||!direct?.id)throw new Error('No se pudo abrir el chat directo: '+(error?.message||'sin respuesta'));
    result={...result,channel_id:direct.id};
   }
-  else if(!['session_check','codex_session_check','codex_setup','codex_setup_gemini','codex_setup_totus_ai'].includes(work.action))throw new Error('Acción no admitida')
+  else if(!['session_check','setup','setup_gemini','setup_totus_ai'].includes(action))throw new Error('Acción no admitida')
   const {error:finishError}=await admin.rpc('totus_assistant_complete',{p_job:job,p_result:result,p_error:null})
   if(finishError)throw new Error('Operación ejecutada; no se pudo guardar su resultado. Consulta antes de reintentar.')
   return respond({job_id:job,status:'completed'})
