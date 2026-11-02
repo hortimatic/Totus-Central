@@ -33,11 +33,25 @@ Estado inicial: rama feat/contactos-configuracion-agentes, basada en producción
 - El consumo observado y los límites configurados se muestran por separado. No se presupone que cualquier API tenga el mismo protocolo, autenticación o información de cuota.
 - Las pruebas se realizan en copia/rama y con datos ficticios; la publicación requiere controles aprobados.
 
-## Preparado en la rama, todavía sin validar ni publicar
+## Estado tras los PR #86 y #87
 
-- Navegación inicial de Clientes, Proveedores y Marcas, reutilizando los permisos de sus módulos de origen.
-- Separación inicial de Interfaz, Login y APIs; conserva los ajustes existentes.
-- Apertura de las ayudas al pasar el cursor y enfocar, conservando el toque.
-- Borrador del cambio de Tareas para eliminación recuperable e historial conservado. El parche SQL no está aplicado.
+Publicado en 513c0a15; corrección de actividad del PR #87 aplicada e integrada en 7fcc16c.
 
-Estos puntos siguen sin marcarse como terminados: faltan las pruebas, la unificación de proveedores y el resto del gestor de conexiones y herramientas de IA. Producción sigue en eac84c2a.
+| Punto | Estado real |
+|---|---|
+| CONTACTOS-01 | Publicado: Clientes, Proveedores y Marcas; ampliación de campos de contacto. |
+| CONTACTOS-02 | Publicado: 54 proveedores sincronizados, UUID y referencias conservados; pruebas de compatibilidad de copias. |
+| AYUDAS-01 | Publicado; pruebas de hover, foco y cierre. |
+| TAREAS-01 | Publicado; eliminación recuperable, incluidas archivadas, con permisos y control de revisión. |
+| CHAT-01 | REABIERTO: el usuario sigue necesitando desplazar la página para el editor. Se reproduce con la cabecera real; no se da por resuelto por pasar el ensayo aislado. |
+| CONFIG-01 | Publicadas las tres pestañas; mejora general de orden y configuración todavía parcial. |
+| API-01 y API-02 | Pendientes: gestor genérico, ciclo de vida completo, identidades y permisos de conexiones. La conexión específica de Cloudflare no cumple todo este punto. |
+| IA-01 | Pendiente: proveedor intercambiable para Totus IA. |
+| IA-02 | Parcial: informes completos por fechas y consultas paginadas publicados. Pendientes descargas y envío de documentos como adjuntos. |
+| IA-03 | Parcial: existen herramientas de gastos, cierres y cotejos; falta ampliar facturas y validar el circuito real completo de las operaciones solicitadas. |
+| IA-04 | Pendiente: conexión de mantenimiento de código mediante rama de revisión. |
+| CONSUMO-01 | Pendiente: contador claro de uso, límites locales y cuotas reales del proveedor cuando estén disponibles. |
+| CALIDAD-01 | Parcial; no se declara una limpieza total realizada. |
+| CALIDAD-02 | Parcial: pruebas de navegador y base de datos aprobadas; falta contraste visual completo con Stitch y validar las ampliaciones aún no construidas. |
+
+No se declara terminado el conjunto de peticiones. Los elementos parciales y pendientes deben conservarse en los relevos.

@@ -350,3 +350,12 @@
  .team-chat[data-chat-short] .chat-compose{padding-top:4px;padding-bottom:4px}
  .team-chat[data-chat-short] .chat-compose textarea{height:40px;min-height:40px}
 }
+
+/* Fit the entire workspace, including the real app header, at every width. */
+.team-chat{height:var(--chat-visible-height,calc(100dvh - 180px));min-height:0;overflow-anchor:none}
+.team-chat>.chat-conversation{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.team-chat>.chat-sidebar{height:100%;max-height:100%;min-height:0}
+.team-chat .chat-messages{height:auto;min-height:0;flex:1 1 0}
+.team-chat .chat-compose{flex-shrink:0}
+@media(max-width:700px){.team-chat.chat-show-channels>.chat-conversation{display:none}.team-chat.chat-sidebar-collapsed>.chat-sidebar{height:48px}}
+@media(min-width:701px){@container(max-width:700px){.team-chat.chat-show-channels>.chat-conversation{display:none}.team-chat.chat-sidebar-collapsed>.chat-sidebar{height:48px}}}
