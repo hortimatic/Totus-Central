@@ -387,6 +387,7 @@
 .team-chat .chat-browser-options{position:relative;align-self:center}
 .team-chat .chat-browser-options>summary{font-size:0;width:28px;padding:4px;text-align:center}
 .team-chat .chat-browser-options>summary:before{content:'☷';font-size:18px}
+.team-chat .chat-browser-options:has(input:checked)>summary{background:var(--stitch-high,#e8e0f4);color:var(--accent);border-radius:6px}
 .team-chat .chat-browser-options .chat-archive{position:absolute;right:0;top:100%;width:220px;z-index:5;box-shadow:0 6px 18px #17203320}
 .team-chat .chat-heading{padding:7px 10px;gap:7px;flex-wrap:nowrap;align-items:center}
 .team-chat .chat-heading>div:first-child{flex:1;min-width:0}
