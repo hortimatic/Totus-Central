@@ -36,6 +36,9 @@ begin
  if p_legacy_chatgpt then
   select id into k from vault.secrets where name='totus_assistant_credentials';
   if k is null then perform vault.create_secret(credentials,'totus_assistant_credentials','Default account for the existing ChatGPT connector');else perform vault.update_secret(k,credentials);end if;
+ else
+  delete from vault.secrets where name='totus_assistant_credentials' and id in
+   (select id from vault.decrypted_secrets where name='totus_assistant_credentials' and decrypted_secret::jsonb->>'user_id'=u.id::text);
  end if;
  insert into public.team_user_audit_log(actor_email,target_email,action,status,detail)
  values(owner_email,lower(u.email),'agent_access_configured','ok','Sesión propia verificada; rol y permisos conservados.');
