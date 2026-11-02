@@ -341,3 +341,9 @@
   .team-chat .chat-compose textarea{height:40px;min-height:40px}
  }
 }
+
+@container(max-width:700px){
+ .team-chat[data-chat-short] .chat-heading p,.team-chat[data-chat-short] .chat-scroll-tools{display:none}
+ .team-chat[data-chat-short] .chat-compose{padding-top:4px;padding-bottom:4px}
+ .team-chat[data-chat-short] .chat-compose textarea{height:40px;min-height:40px}
+}

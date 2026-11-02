@@ -27,10 +27,10 @@ try{
 
  await page.locator('[data-chat="open"][data-id="a"]').click();
  await page.locator('#chatBody').waitFor();
- await page.addStyleTag({content:'body{padding:8px}'});
+ await page.addStyleTag({content:'body{padding:8px;max-width:650px;margin:auto}'});
  const metric=()=>page.evaluate(()=>{const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height,width:r.width}};return {messages:box('.chat-messages'),header:box('.chat-heading'),compose:box('.chat-compose'),root:box('.team-chat'),width:innerWidth,height:innerHeight,scroll:document.documentElement.scrollWidth};});
  await page.waitForTimeout(80);
- let m=await metric();results.push({width,height,...m});
+ let m=await metric();results.push({width,height,...m});console.log(JSON.stringify(results.at(-1)));await page.screenshot({path:"artifacts/mobile-audit/chat-"+width+"x"+height+".png"});
  assert(m.messages.height>=(height<500?90:300),'Reading space collapsed '+JSON.stringify(m));
  assert(m.compose.bottom<=height+1,'Editor outside viewport');assert(m.scroll<=width+2,'Horizontal page overflow');
  await page.locator('#chatBody').fill('Borrador móvil ficticio');
