@@ -21,10 +21,25 @@ jobs:
           PGPASSWORD: test-only
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/shared-contacts-db-qa.sql
       - name: Tasks permissions and recovery
+        if: always()
         env:
           PGPASSWORD: test-only
         run: |
           createdb -h localhost -U postgres tasks_review
           for file in tests/chat-db-fixture.sql supabase/chat.sql supabase/tasks.sql tests/operational-permissions-db-qa.sql supabase/review_patches/041_task_removal.sql tests/task-removal-db-qa.sql; do
-            psql -h localhost -U postgres -d tasks_review -v ON_ERROR_STOP=1 -f "$file"
+            if [ "$file" = "tests/chat-db-fixture.sql" ]; then sed 's/create role anon;create role authenticated;create role service_role;/create role service_role;/' "$file" | psql -h localhost -U postgres -d tasks_review -v ON_ERROR_STOP=1; else psql -h localhost -U postgres -d tasks_review -v ON_ERROR_STOP=1 -f "$file"; fi
           done
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-save --no-package-lock playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: python3 -m http.server 4173 >/tmp/totus.log 2>&1 &
+      - run: node tests/contacts-settings-browser-qa.mjs
+      - run: node tests/ai-connection-test-browser-qa.mjs
+      - run: node tests/tasks-browser-qa.mjs

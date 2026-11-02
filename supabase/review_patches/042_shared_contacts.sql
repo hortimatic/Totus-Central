@@ -45,7 +45,7 @@ begin
  return new;
 end;$$;
 revoke all on function private.totus_sync_supplier_directory() from public,anon,authenticated;
-create or replace function private.totus_supplier_directory_lock() returns trigger language plpgsql security definer set search_path='' as $begin perform pg_advisory_xact_lock(hashtextextended('totus_supplier_directory',0));return null;end;$;
+create or replace function private.totus_supplier_directory_lock() returns trigger language plpgsql security definer set search_path='' as $$begin perform pg_advisory_xact_lock(hashtextextended('totus_supplier_directory',0));return null;end;$$;
 revoke all on function private.totus_supplier_directory_lock() from public,anon,authenticated;
 drop trigger if exists totus_supplier_directory_lock on public.ops_suppliers;
 create trigger totus_supplier_directory_lock before insert or update or delete on public.ops_suppliers for each statement execute function private.totus_supplier_directory_lock();
