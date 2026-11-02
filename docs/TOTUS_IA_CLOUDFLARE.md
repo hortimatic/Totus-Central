@@ -13,6 +13,6 @@ Máximo cuatro originales por petición, 20 MB cada uno y 25 MB combinados. Se v
 La IA no dispone de SQL libre, borrados, restauraciones ni cambios de usuarios o permisos. Usa su propia sesión, los permisos vigentes del solicitante y las validaciones normales. Si cambia el mensaje, los adjuntos, el acceso al canal o la configuración durante una tarea, se detiene. La cola acepta una sola tarea por mensaje. Un resultado incierto no se repite automáticamente: revisar la ficha antes de solicitar otro guardado.
 
 ## Mantenimiento
-Código: supabase/functions/totus-ai; interfaz: src/cloudflare-connection.js y src/team-chat-ui.js; parche: supabase/review_patches/040_cloudflare_agent.sql. Las funciones privadas de configuración y cola son solo del servidor. No mostrar totus_ai_server_config ni el contenido de Vault en chats o informes.
+Código: supabase/functions/totus-ai; interfaz: src/api-manager.js y src/team-chat-ui.js; parche: supabase/review_patches/040_cloudflare_agent.sql. Las funciones privadas de configuración y cola son solo del servidor. No mostrar totus_ai_server_config ni el contenido de Vault en chats o informes.
 
 Pruebas: workflow Cloudflare agent controls (motor, herramientas, identidad, PostgreSQL desechable, Deno y formulario móvil/escritorio). Las simulaciones no equivalen por sí solas a demostrar cada operación real con cada factura posible. Conservar esa distinción al entregar informes.

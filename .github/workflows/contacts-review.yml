@@ -55,5 +55,4 @@ jobs:
           name: chat-screen-fit
           path: artifacts/chat-fit/
       - run: node tests/contacts-settings-browser-qa.mjs
-      - run: node tests/ai-connection-test-browser-qa.mjs
       - run: node tests/tasks-browser-qa.mjs

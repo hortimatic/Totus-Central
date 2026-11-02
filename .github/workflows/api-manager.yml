@@ -1,7 +1,8 @@
 name: Revisar gestor de APIs
 on:
+  workflow_call:
   push:
-    branches: [feat/api-manager]
+    branches: [feat/api-manager, feat/ai-documents-reports]
 permissions:
   contents: read
 jobs:
@@ -50,8 +51,7 @@ jobs:
       - run: python3 -m http.server 4173 >/tmp/totus-api.log 2>&1 &
       - run: node tests/api-manager-browser-qa.mjs
       - run: node tests/subtab-walk-qa.mjs
-      - run: node tests/cloudflare-settings-browser-qa.mjs
-      - run: node tests/ai-connection-test-browser-qa.mjs
+      - run: node tests/api-settings-browser-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
