@@ -168,6 +168,7 @@ function permissionForAction(action,el){
  else if(/\-save$|\-save-close$|\-save-draft$/.test(a))operation=el?.dataset?.id?'edit':'create';
  else if(/\-toggle$|\-reopen$|\-finalize$|\-convert$|\-convert-save$|\-unlink$|\-reset$|\-remove$|\-verify$/.test(a))operation='edit';
  if(a==='role-new'||a==='role-rename'||a==='role-save'||a==='role-delete'||a==='role-bulk-apply'||a==='role-permissions'||a==='role-permissions-save'||a==='role-permissions-reset'||a==='user-permissions' || a==='user-permissions-save'||a==='user-permissions-reset'||a==='user-save'||a==='user-profile'||a==='user-delete'||a==='user-restore'||a==='user-toggle')return {module:'administracion',operation:'edit',adminOnly:true};
+ if(a.startsWith('user-agent-access'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-period-'))return {module:'administracion',operation:'edit',adminOnly:true};
  if(a.startsWith('admin-log-cleanup-'))return {module:'administracion',operation:'delete',adminOnly:true};
  if(a==='config-save'||a.startsWith('backup-')||a==='store-save'||a==='drawer-save')return {module:'administracion',operation:'edit',adminOnly:true};
@@ -1984,6 +1985,7 @@ function userModal(row=null){
  <div class="form-actions">
   ${row&&!self?btn(row.active?'Desactivar':'Activar','user-toggle','secondary',`data-email="${esc(row.email)}" data-active="${row.active?'false':'true'}"`):''}
   ${row&&isAdmin()?btn('Perfil, foto y notas','user-profile','secondary',`data-email="${esc(row.email)}"`):''}
+  ${row&&row.active&&isAdmin()?btn('Acceso de IA','user-agent-access','secondary',`data-email="${esc(row.email)}"`):''}
   ${row?btn('Enviar recuperación','user-reset','secondary',`data-email="${esc(row.email)}"`):''}
   ${row&&!self?btn('Eliminar usuario','user-delete','danger',`data-email="${esc(row.email)}"`):''}
   ${btn('Guardar usuario','user-save','primary',row?`data-email="${esc(row.email)}"`:'')}
@@ -2885,6 +2887,8 @@ document.addEventListener('click',async e=>{
   if(a==='drawer-new'){drawerForm(el.dataset.store);return}
   if(a==='drawer-edit'){drawerForm(el.dataset.store,state.data.drawers.find(x=>x.id===el.dataset.id));return}
   if(a==='drawer-save'){await saveDrawer(el.dataset.store,el.dataset.id||'');return}
+  if(a==='user-agent-access'){if(!isAdmin())throw Error('Solo administración puede vincular cuentas de IA.');const {openAgentAccess}=await import('./agent-access-ui.js');await openAgentAccess(state.data.team.find(x=>x.email===el.dataset.email));return;}
+  if(a==='user-agent-access-save'){const {saveAgentAccess}=await import('./agent-access-ui.js');const result=await saveAgentAccess(el.dataset.email);await refresh(result.message);return;}
   if(a==='user-new'){userModal();return}
   if(a==='user-profile'){const profile=state.data.profiles.find(p=>p.email?.toLowerCase()===el.dataset.email?.toLowerCase());if(!profile)throw Error('El perfil de este usuario aún no está disponible. Actualiza la página tras crear su cuenta.');await accountUI.openFor(profile.id);return;}
   if(a==='user-edit'){userModal(state.data.team.find(x=>x.email===el.dataset.email));return}

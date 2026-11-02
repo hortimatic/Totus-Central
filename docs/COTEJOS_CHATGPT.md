@@ -158,3 +158,5 @@ La asignación:
 Los PDF NO se borran como efecto lateral. Los documentos exclusivos quedan desvinculados y siguen disponibles en **Documentos**. El diálogo final los enumera y ofrece abrir el módulo para eliminarlos por el procedimiento protegido ya existente, que comprueba vínculos y original recuperable. Los archivos compartidos se conservan con su enlace vigente. Nunca se borran facturas emitidas, documentos ajenos, originales del chat ni copias de seguridad mediante este botón.
 
 **Operación segura:** no probar eliminaciones reales en producción. Las pruebas destructivas se ejecutan con datos ficticios y en entorno aislado. La función de eliminación requiere migración, revisión técnica y comprobación de regresiones antes de publicar.
+
+La preparación de identidad y sesión se realiza mediante el acceso común descrito en [AI_ACCOUNT_ACCESS.md](AI_ACCOUNT_ACCESS.md). No recuperar credenciales de otra cuenta ni dar por preparado el puente por el mero hecho de crear un usuario.

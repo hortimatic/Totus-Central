@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
-const source=readFileSync(new URL('../supabase/functions/totus-assistant/assistant-operations.ts',import.meta.url),'utf8');
-const {runOperation,operationCatalogue}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const source=readFileSync(new URL('../supabase/functions/totus-assistant/assistant-operations.ts',import.meta.url),'utf8').replace('../../../src/agent-identity.js',new URL('../src/agent-identity.js',import.meta.url).href);
+const {runOperation:executeOperation,operationCatalogue}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const runOperation=(client,payload,user)=>executeOperation(client,payload,{id:'verified-fixture-user',app_metadata:{totus_agent:true},...user});
 const request='11111111-1111-4111-8111-111111111111';
 function mock(error=null){const calls=[];return {calls,client:{rpc:async(name,args)=>{calls.push({name,args});return error?{error}:{data:name==='totus_business_write_contract'?{request_replay:1}:request}},from(table){calls.push({table});const q={select(){return q},eq(){return q},gte(){return q},lte(){return q},order(){return q},range:async(a,b)=>({data:[{id:request}],error})};return q}}};}
-for(const email of ['chatgpt@totuscentral.invalid','codex@totuscentral.invalid']){
+for(const email of ['chatgpt@totuscentral.invalid','codex@totuscentral.invalid','custom-cloud@example.invalid','custom-router@example.invalid']){
  test(email+' saves a closing through the normal replay-protected RPC',async()=>{const m=mock();const r=await runOperation(m.client,{operation:'rpc',name:'totus_save_closing',args:{p_closing:{request_id:request},p_drawers:[]}}, {email});assert.equal(r.executed,true);assert.deepEqual(m.calls.map(x=>x.name),['totus_business_write_contract','totus_save_closing']);});
  test(email+' uses its own identity for reception results',async()=>{const m=mock();await runOperation(m.client,{operation:'rpc',name:'totus_stock_save_result',args:{p_id:request,p_revision:1,p_result:{rows:[]}}},{email});assert.equal(m.calls[0].args.p_actor_email,email);});
 }

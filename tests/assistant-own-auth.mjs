@@ -11,8 +11,8 @@ const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripType
 const job='11111111-1111-4111-8111-111111111111',ticket='a'.repeat(64);
 const env={get:k=>({SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'server-test',SUPABASE_ANON_KEY:'public-test'})[k]};
 function setup(action='session_check',overrides={}){
- const calls=[],results=[];const account={id:'own-assistant-id',email:'chatgpt@totuscentral.invalid',app_metadata:{totus_assistant:true}};
- const work={action,payload:{expense:{request_id:job,fiscal_reviewed:false},lines:[{description:'fictional'}]},credentials:{email:account.email,password:'x'.repeat(96)}};
+ const calls=[],results=[];const account={id:overrides.custom?'aaaaaaaa-0000-4000-8000-000000000001':'own-assistant-id',email:overrides.custom?'custom-agent@example.invalid':'chatgpt@totuscentral.invalid',app_metadata:{totus_assistant:true,...(overrides.custom?{totus_agent:true}:{})}};
+ const work={action,payload:{expense:{request_id:job,fiscal_reviewed:false},lines:[{description:'fictional'}]},credentials:{email:account.email,password:overrides.custom?'fixture-only-password':'x'.repeat(96),...(overrides.custom?{user_id:overrides.wrongBinding?'aaaaaaaa-0000-4000-8000-000000000002':account.id}:{})}};
  function chain(table){
   let operation='';
   const x={select(){return x},eq(){return x},upsert(payload){calls.push(['upsert',table,payload]);return Promise.resolve({error:null})},
@@ -42,4 +42,6 @@ test('validation errors remain failed, never success',async()=>{const q=setup('s
 test('simulation calls reversible validation, not save',async()=>{const q=setup('validate_expense');assert.equal((await q.run()).status,200);assert(q.calls.some(x=>x[0]==='user_rpc'&&x[1]==='totus_assistant_validate_expense'));assert.equal(q.results[0].p_result.persisted,false)});
 test('inactive account cannot save',async()=>{const q=setup('save_expense',{inactive:true});assert.equal((await q.run()).status,400);assert(!q.calls.some(x=>x[0]==='user_rpc'))});
 test('wrong ticket shape rejected before privileged client construction',async()=>{const response=await handle(new Request('https://example.invalid',{method:'POST',body:'{}'}),env,()=>{throw new Error('must not construct')});assert.equal(response.status,401)});
+test('an external AI uses its configured Auth UUID and own email without a brand allowlist',async()=>{const q=setup('agent_session_check',{custom:true}),response=await q.run();assert.equal(response.status,200);assert.equal(q.results[0].p_result.email,'custom-agent@example.invalid');assert(q.calls.some(x=>x[0]==='login'&&x[1]==='custom-agent@example.invalid'));});
+test('a changed configured Auth UUID cannot execute as another identity',async()=>{const q=setup('agent_session_check',{custom:true,wrongBinding:true});assert.equal((await q.run()).status,400);assert(!q.calls.some(x=>x[0]==='user_rpc'));});
 

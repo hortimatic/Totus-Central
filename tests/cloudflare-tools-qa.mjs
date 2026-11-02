@@ -4,7 +4,8 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 const helper=new URL('../supabase/functions/totus-ai/cloudflare.js',import.meta.url).href;
 const source=readFileSync(new URL('../supabase/functions/totus-ai/tools.ts',import.meta.url),'utf8').replace("'./cloudflare.js'",JSON.stringify(helper)).replace("'../../../src/agent-delivery.js'",JSON.stringify(new URL('../src/agent-delivery.js',import.meta.url).href)).replace("'../../../src/agent-reports.js'",JSON.stringify(new URL('../src/agent-reports.js',import.meta.url).href)).replace("'../../../src/agent-workbooks.js'",JSON.stringify(new URL('../src/agent-workbooks.js',import.meta.url).href)).replace(/import \{attachChatExpenseDocument\} from '[^']+';/,"const attachChatExpenseDocument=()=>{throw Error('unexpected attachment')};");
-const {createTools}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const sourceResolved=source.replace("'../totus-assistant/assistant-operations.ts'",JSON.stringify(new URL('../supabase/functions/totus-assistant/assistant-operations.ts',import.meta.url).href));
+const {createTools}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(sourceResolved)).toString('base64'));
 function fixture({wrongTotal=false,saveError=false,deny=false,loadExcel}={}){
  const calls=[],journal=new Map(),tables={ops_stores:[{id:'store'}],ops_cash_drawers:[{id:'drawer',store_id:'store',active:true}],ops_expense_categories:[{id:'cat'}],ops_expenses:[],ops_expense_lines:[],ops_daily_closings:[],ops_daily_closing_drawers:[],ops_stock_receipts:[],ops_sales_invoices:[],ops_fiscal_adjustments:[],ops_income_adjustments:[],ops_tax_payments:[]};
  const client={from(table){const filters=[];let limit=51,offset=0;const q={select(){return q},eq(k,v){filters.push(r=>r[k]===v);return q},is(k,v){filters.push(r=>r[k]===v);return q},ilike(k,v){const term=v.slice(1,-1).replace(/\\([%_\\])/g,'$1').toLowerCase();filters.push(r=>String(r[k]||'').toLowerCase().includes(term));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},range(a,b){offset=a;limit=b-a+1;return q},order(){return q},limit(n){limit=n;return q},single:async()=>({data:tables[table].filter(r=>filters.every(f=>f(r)))[0]}),then(resolve){resolve({data:tables[table].filter(r=>filters.every(f=>f(r))).slice(offset,offset+limit)})}};return q},rpc:async(name,args)=>{
@@ -22,7 +23,7 @@ function fixture({wrongTotal=false,saveError=false,deny=false,loadExcel}={}){
  throw Error(name);
  }};
  const admin={rpc:async(name,args)=>{assert.equal(name,'totus_ai_action');if(args.p_result){journal.set(args.p_hash,args.p_result);return {data:args.p_result};}if(journal.has(args.p_hash)){const x=journal.get(args.p_hash);if(x==='started')return {error:{message:'uncertain'}};return {data:x};}journal.set(args.p_hash,'started');return {data:null};}};
- const execute=createTools({client,admin,user:{id:'ai',email:'totus-ai@totuscentral.invalid'},job:{id:'job'},files:[],loadExcel,authorize:async()=>{if(deny)throw Error('denied');}});
+ const execute=createTools({client,admin,user:{id:'ai',email:'totus-ai@totuscentral.invalid',app_metadata:{totus_ai:true}},job:{id:'job'},files:[],loadExcel,authorize:async()=>{if(deny)throw Error('denied');}});
  const read=table=>execute('consultar',{tabla:table});const run=(name,args)=>execute('ejecutar',{procedimiento:name,argumentos_json:JSON.stringify(args)});
  return {execute,read,run,calls,tables,client,admin};
 }
@@ -90,3 +91,15 @@ test('monthly diary resolves a real store name and stages the same XLSX instead 
 test('unknown store returns real choices without exporting another store or asking for a UUID',async()=>{const f=fixture({loadExcel:async()=>{throw Error('must not load')}});f.tables.ops_stores[0].name='Hortimatic';const result=await f.execute('diario_mensual',{anio:2026,mes:10,tienda:'inventada'});assert.equal(result.needs_store,true);assert.equal(result.file,undefined);assert.equal(result.stores[0].name,'Hortimatic');});
 
 test('CSV report resolves a human store name without an earlier ID lookup',async()=>{const f=fixture();f.tables.ops_stores[0].name='Hortimatic';const r=await f.execute('informe_periodo',{desde:'2099-01-01',hasta:'2099-01-31',tienda:'hortimatic',adjuntar:true});assert.equal(r.complete,true);assert.match(r.file.name,/\.csv$/);assert.equal(r.counts.closings,0);assert.equal(f.calls.length,0);});
+
+test('native API agents share the operation catalogue and independently reread invoices',async()=>{
+ const f=fixture(),id='aaaaaaaa-0000-4000-8000-000000000001',base=f.client.from.bind(f.client),rpc=f.client.rpc.bind(f.client);
+ f.client.from=table=>{const q=base(table);q.maybeSingle=async()=>q.single();return q;};
+ f.client.rpc=async(name,args)=>{if(name==='totus_update_invoice_payment'){f.calls.push({name,args});f.tables.ops_sales_invoices=[{id,paid_status:'pagado'}];return {data:id};}return rpc(name,args);};
+ const catalogue=await f.execute('operacion',{solicitud_json:'{"operation":"catalogue"}'});
+ assert(catalogue.catalogue.rpc.totus_update_invoice_payment);
+ const r=await f.execute('operacion',{solicitud_json:JSON.stringify({operation:'rpc',name:'totus_update_invoice_payment',args:{p_id:id,p_payment:{paid_status:'pagado'}}})});
+ assert.equal(r.verified_write.id,id);assert.equal(r.record.paid_status,'pagado');assert.equal(r.requires_readback,false);
+ await assert.rejects(f.execute('operacion',{solicitud_json:JSON.stringify({operation:'rpc',name:'totus_delete_expense',args:{p_id:id,p_reason:'fictitious'}})}),/Confirmación/);
+ assert(!f.calls.some(c=>c.name==='totus_delete_expense'));
+});

@@ -1,5 +1,6 @@
 import {purgeUserAccess} from './purge-user.ts'
 import {retireUserAccess} from './retire-user.ts'
+import {configureAgentAccess} from './agent-access.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 
 const APP_URL='https://hortimatic.github.io/Totus-Central/'
@@ -7,6 +8,7 @@ const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'au
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors})
 const validEmail=(v:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 const mailMessage=(msg:string)=>/rate limit/i.test(msg)?'Límite del servidor de correo de Supabase alcanzado. El correo NO se ha enviado.':msg
+const checkAgentStatus=(r:any)=>{if(r.error)throw Error(r.error.message||'No se pudo consultar el acceso de IA.');return r.data||{};}
 
 Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors})
@@ -44,6 +46,11 @@ Deno.serve(async(req:Request)=>{
     await audit(email,'password_reset_email','ok',`Solicitud de recuperación aceptada (${source})`)
   }
 
+  if(action==='agent_access_status')return json({ok:true,...checkAgentStatus(await admin.rpc('totus_agent_access_info',{p_email:cleanEmail(body.email)}))});
+  if(action==='configure_agent_access'){
+   const email=cleanEmail(body.email);if(!validEmail(email))return json({error:'Email no válido'},400);
+   try{return json({ok:true,...await configureAgentAccess({admin,loginClient:publicAuth,email,password:String(body.password||''),legacy:body.legacy_chatgpt===true,caller:authData.user,findUser:findAuthUser})});}catch(e){return json({error:e instanceof Error?e.message:'No se pudo configurar el acceso de IA.'},400);}
+  }
   if(['create_user','set_password','invite','resend_invite','send_password_reset','update_member','set_active'].includes(action)&&body.email){
    const {data:target,error}=await admin.from('team_members').select('deleted_at,purged_at,auth_cleanup_pending').eq('email',cleanEmail(body.email)).maybeSingle();if(error)throw error;
    if(target?.purged_at){if(!['create_user','invite'].includes(action)||target.auth_cleanup_pending)return json({error:'La cuenta fue eliminada definitivamente. Crea una cuenta nueva con este correo desde Nuevo usuario; no se puede recuperar ni cambiar la contraseña antigua.'},409);recreatingPurged=true;}
