@@ -24,7 +24,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check supabase/functions/totus-ai/index.ts
+      - run: deno check --node-modules-dir=none supabase/functions/totus-ai/index.ts
       - run: node tests/cloudflare-engine-qa.mjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node --test tests/verified-extraction-qa.mjs tests/agent-conversation-qa.mjs tests/agent-workbooks-qa.mjs tests/cloudflare-tools-qa.mjs
