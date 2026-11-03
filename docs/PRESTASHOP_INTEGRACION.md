@@ -10,7 +10,7 @@ Este documento describe código **en revisión**, no una función publicada ni u
 - Se ha preparado Configuración → PrestaShop como cuarta sección, preservando Interfaz, Login y APIs.
 - No existen adaptadores de lectura TPV instalados ni pruebas de cierres/retiradas. No se puede concluir qué tablas contienen dichos movimientos.
 - El prototipo usa exclusivamente el gestor de API existente (`totus_api_manager` y `totus-connections`) y sus credenciales privadas. No añade secretos al repositorio o a OneDrive.
-- `orders` y `stock_availables` son candidatos de la API estándar. La capacidad efectiva, el formato JSON y los permisos se acreditarán solo cuando se obtenga una respuesta autenticada.
+- `orders`, `stock_availables` y `stock_movements` son candidatos de la API estándar. La capacidad efectiva, el formato JSON y los permisos se acreditarán solo cuando se obtenga una respuesta autenticada.
 
 ## Activación futura por tienda
 
@@ -26,9 +26,13 @@ Este documento describe código **en revisión**, no una función publicada ni u
 
 ## Contrato del primer tramo
 
-`prestashop_read`: acción del servicio `totus-connections`. Requiere sesión autenticada con permiso de administración de Configuración, ID/revisión de una conexión existente, tienda exacta, recurso `orders` o `stock_availables`, página y tamaño. La URL procede **solo del perfil del servidor**; ninguna petición de navegador admite URL, SQL, tablas o campos arbitrarios. Se aplica límite de 1 a 100 filas por página, autenticación privada, HTTPS, restricción de red, límite de tamaño y registro de petición por el gestor existente.
+`prestashop_read`: acción del servicio `totus-connections`. Requiere sesión autenticada con permiso de administración de Configuración, ID/revisión de una conexión existente, tienda exacta, recurso `orders`, `stock_availables` o `stock_movements`, página y tamaño. La URL procede **solo del perfil del servidor**; ninguna petición de navegador admite URL, SQL, tablas o campos arbitrarios. Se aplica límite de 1 a 100 filas por página, autenticación privada, HTTPS, restricción de red, límite de tamaño y registro de petición por el gestor existente.
 
 La respuesta conserva el identificador de origen por fila, evita duplicados en la misma página y solo devuelve campos explícitamente permitidos. Las cantidades e importes regresan como texto: **no deben sumarse, contabilizarse o interpretarse como ventas de caja** sin conciliación posterior. Los pedidos pueden incluir devoluciones/cancelaciones; los saldos de stock no demuestran entradas de proveedor.
+
+## Compatibilidad PrestaShop 1.7.8.11
+
+La versión 1.7.8.11 de ambas instalaciones fue comunicada por el titular, pero no comprobada por una llamada autenticada. Se usan exclusivamente recursos documentados de Webservice 1.7; `stock_movements` ofrece movimientos de inventario de solo lectura mediante GET, pero no identifica por sí mismo una entrada de mercancía. Los campos expuestos y permisos deben contrastarse con cada instalación. Se emplea autenticación HTTP Basic en cabecera `Authorization` bajo HTTPS; la clave nunca va en la URL ni el código.
 
 ## Pendientes que no se simulan
 
