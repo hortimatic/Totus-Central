@@ -5,7 +5,8 @@ export const PRESTASHOP_STORES=Object.freeze([
 ]);
 export const PRESTASHOP_RESOURCES=Object.freeze({
  orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl']),
- stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity'])
+ stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity']),
+ stock_movements:Object.freeze(['id','id_product','id_product_attribute','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','id_order','id_supply_order'])
 });
 export function prestashopStore(key){const store=PRESTASHOP_STORES.find(s=>s.key===key);if(!store)throw Error('Tienda PrestaShop no admitida.');return store;}
 export function storeConnection(connections,key){
