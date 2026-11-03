@@ -6,7 +6,7 @@ export async function readPrestashop(connection,input,{request=fetch,resolve}={}
  if(!connection.free_confirmed||!connection.real_data_authorized)throw Error('La conexión no tiene autorizada la lectura de datos reales.');
  const {connection:linked}=linkedPrestashop([connection],input.store);
  if(!linked)throw Error('Conexión y tienda no vinculadas. Revisa el nombre exacto del perfil.');
- if(!PRESTASHOP_RESOURCES[input.resource])throw Error('Recurso PrestaShop no permitido.');
+ if(typeof input.resource!=='string'||!Object.prototype.hasOwnProperty.call(PRESTASHOP_RESOURCES,input.resource))throw Error('Recurso PrestaShop no permitido.');
  const {offset,limit}=prestashopPage(input),target=prestashopReadUrl(connection,{...input,offset,limit});
  const url=await safeEndpoint(target,resolve),headers=connectionHeaders(connection);
  const response=await request(url.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
