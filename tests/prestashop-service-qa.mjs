@@ -33,7 +33,7 @@ test('anonymous, unauthorized and unknown profile never access credential or ext
 });
 test('invalid input and disallowed SQL resource are rejected before lookup',async()=>{
  let count=0;
- for(const resource of ['psog_posp_cajas','orders','stock_movements/../../../admin','__proto__','constructor']){
+ for(const resource of ['ps_fixture_pos_cajas','orders','stock_movements/../../../admin','__proto__','constructor']){
   const f=fixture(),response=await handle(req({...validInput,resource}),env,f.factory,async()=>{count++;return Response.json({});});
   assert.equal(response.status,400);assert.equal(f.calls.length,0);
  }
