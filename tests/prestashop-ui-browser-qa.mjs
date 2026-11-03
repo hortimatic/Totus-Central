@@ -51,6 +51,13 @@ try{
   assert.equal(await page.locator('#appearanceRoot').isVisible(),true);
   await page.locator('[data-config-section=prestashop]').click();
   assert.equal(await page.locator('[data-prestashop-store]').count(),2,'both store cards are retained after tab switches');
+  await page.getByText('FACT-1').waitFor();
+  assert(await page.getByText(/Error simulado HTTP 503/).count()>0,'session error history survives tab switches');
+  await page.evaluate(()=>prestaQA.actor='owner-2');
+  await page.locator('[data-config-section=login]').click();
+  await page.locator('[data-config-section=prestashop]').click();
+  await page.getByText('Sin errores registrados en esta sesión.').waitFor();
+  assert.equal(await page.getByText('FACT-1').count(),0,'previous account data cannot leak into next session');
   assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
   await page.close();
  }
