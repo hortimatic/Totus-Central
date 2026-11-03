@@ -14,7 +14,14 @@ test('two distinct store identities, no fuzzy matching or accidental cross-store
 test('only known read resources and bounded pages are accepted',()=>{
  assert.deepEqual(prestashopPage('orders',0,25).offset,0);
  assert.equal(prestashopPage('stock_availables',2,100).offset,200);
+ assert.equal(prestashopPage('stock_movements',1,25).offset,25);
  for(const [resource,page,size] of [['products;DROP TABLE',0,25],['orders',-1,25],['orders',1001,25],['orders',0,0],['orders',0,101],['orders','0',25]])assert.throws(()=>prestashopPage(resource,page,size));
+});
+test('stock movements include signed quantity and reason without inventing a supplier receipt',()=>{
+ const result=prestashopRows({stock_movements:[{id:7,id_product:20,physical_quantity:3,sign:1,id_stock_mvt_reason:9,date_add:'2026-11-03 12:00:00',supplier_invoice:'never'}]},'stock_movements',25);
+ assert.equal(result.rows[0].physical_quantity,'3');
+ assert.equal(result.rows[0].sign,'1');
+ assert.equal(result.rows[0].supplier_invoice,undefined);
 });
 test('normalizes strictly whitelisted fields and never returns customer data or duplicate rows',()=>{
  const parsed=prestashopRows({orders:[{id:1,reference:'A',date_add:'2026-11-03 11:00:00',payment:'Tarjeta',total_paid_tax_incl:'12.30',customer_id:42,email:'secret@example.com'}]},'orders',25);
