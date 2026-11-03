@@ -44,3 +44,20 @@ La respuesta conserva el identificador de origen por fila, evita duplicados en l
 `tests/prestashop-readonly-qa.mjs` cubre contrato, límites, aislamiento y formato. `tests/prestashop-service-qa.mjs` cubre permisos, rechazo de SQL, transporte de cabecera y errores sin exponer credenciales. `tests/prestashop-ui-browser-qa.mjs` cubre en Playwright las cuatro secciones de Configuración, lectura simulada, tiendas aisladas, errores y adaptación móvil/escritorio.
 
 Todas las pruebas utilizan datos ficticios. Un test aprobado no certifica que el TPV o la API de las tiendas reales hayan respondido.
+
+## Contrato TPV preparado, no conectado
+
+En src/prestashop-tpv-contract.js se define únicamente un contrato lógico de cierres y movimientos de caja. Los nombres closings y cash_movements NO son tablas ni rutas comprobadas en PrestaShop.
+Se exige tienda explícita, cajón origen y UUID de cajón Totus asociados mediante evidencia confirmada. Hasta contrastar el mapeo, el estado es bloqueado.
+Las fechas se interpretan para Europe/Madrid y los instantes de origen deben incluir zona horaria expresa, especialmente en el cambio de hora. Se utilizan céntimos enteros, claves de origen estables y comprobación de duplicados.
+Retiradas de efectivo, transferencias internas y ventas con tarjeta son categorías diferentes. Ninguna equivale por sí sola a un ingreso adicional ni provoca escrituras en Cajas, Recepciones o contabilidad.
+
+Pendiente para habilitar un adaptador: nombre/versión instalada del módulo TPV; inventario de tablas y columnas de arqueos y movimientos; correspondencia de cajones Vape/Head y NewOldSmok; significado de signos, métodos y horarios; ruta de lectura parametrizada preparada en el servidor de PrestaShop.
+No se inventan rutas de módulo ni se permite SQL libre o MySQL público.
+
+Las pruebas ficticias del contrato están en tests/prestashop-tpv-contract-qa.mjs. Pendientes de su inclusión y ejecución en CI; un intento de modificar el workflow fue bloqueado por controles de seguridad de la plataforma. No declarar dichas pruebas aprobadas.
+
+Referencia documental: https://devdocs.prestashop-project.org/1.7/webservice/reference/ (GET de stock_movements, stock_availables y orders, sujeto a permisos y recursos disponibles en cada instalación).
+Referencia de funciones TPV: https://www.pos-tpv.com/es/manual/manuales-tpv-prestashop/cajas-en-pos-tpv-prestashop (no acredita versión instalada, tablas o datos de estas tiendas).
+
+Estado: PR #115 borrador, sin desplegar; cero conexiones PrestaShop verificadas en Supabase; URLs privadas exactas pendientes; sin lecturas comerciales reales.
