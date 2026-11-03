@@ -62,7 +62,7 @@ export async function testConnection(c,{request=fetch,resolve}={}){
  }else if(c.protocol==='github'){
   const result=await boundedJson(response,131072);
   if(!(Number.isSafeInteger(result.id)&&typeof (c.endpoint?result.full_name:result.login)==='string'))throw Error('El servicio respondió, pero no devolvió el formato esperado.');
- }else await response.body?.cancel();return {ok:true,status:response.status,latency_ms:Date.now()-start};
+ }else await response.body?.cancel();return {ok:true,status:response.status,latency_ms:Date.now()-start};}
  const data=await boundedJson(response,131072),text=c.protocol==='gemini'?data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join(''):c.protocol==='anthropic'?data.content?.filter(p=>p.type==='text').map(p=>p.text).join(''):data.choices?.[0]?.message?.content;
  if(c.protocol==='gemini'){if(String(text||'').trim()!=='10')throw Error('El proveedor respondió, pero no completó la prueba ficticia esperada.');}
  else{
