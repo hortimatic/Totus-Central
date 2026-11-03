@@ -50,7 +50,7 @@ try{
   await page.locator('[data-config-section=login]').click();
   assert.equal(await page.locator('#appearanceRoot').isVisible(),true);
   await page.locator('[data-config-section=prestashop]').click();
-  await page.getByText('Sin conexión vinculada en APIs.').first().waitFor().catch(()=>{});
+  assert.equal(await page.locator('[data-prestashop-store]').count(),2,'both store cards are retained after tab switches');
   assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
   await page.close();
  }
