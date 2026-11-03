@@ -7,7 +7,7 @@ Fecha de preparación: 03/11/2026. Versión de ambas tiendas comunicada por Dieg
 - Dos instalaciones independientes: Hortimatic/Azuqueca (cajones Vape y Head) y NewOldSmok/Alcalá. No se mezclan datos.
 - El gestor existente de Configuración → APIs almacena la clave en Vault. No se añade almacén ni clave al navegador, código, SQL o informe. El conector hace solicitudes GET desde el servidor.
 - Recursos estándar de PrestaShop 1.7 documentados: `stock_availables` y `stock_movements`. El acceso real depende de los permisos que tenga cada webservice; un test de la raíz `/api` no demuestra permiso para listar recursos.
-- PrestaShop estándar NO ejecuta SQL libre. El TPV de terceros y las tablas `psog_posp_cajas` / `ps0d_posp_cajas` deben estudiarse en el módulo instalado: **no se dispone aún de prueba de lectura de cierres, retiradas o de sus tablas relacionadas**.
+- PrestaShop estándar NO ejecuta SQL libre. El TPV de terceros y las tablas `ps_fixture_pos_cajas` / `ps_fixture_second_pos_cajas` deben estudiarse en el módulo instalado: **no se dispone aún de prueba de lectura de cierres, retiradas o de sus tablas relacionadas**.
 - No se modifica stock, ventas, tarjeta, cajas, factura, gasto ni contabilidad. No se ejecutan consultas SQL sobre MySQL remoto. El código actual no sincroniza automáticamente ni agrega importes.
 - Los movimientos de existencias son evidencia de un movimiento, no certifican por sí solos una recepción de mercancía.
 
