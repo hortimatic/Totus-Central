@@ -29,6 +29,9 @@ test('projected stock rows preserve quantity, variant and provenance without raw
  for(const bad of ['__proto__','constructor','toString'])assert.throws(()=>prestashopRows(bad,{stock_availables:[]}),/Recurso/);
  assert.throws(()=>prestashopRows('stock_availables',{stock_availables:{stock_available:{id:3}}}),/formato/);
  assert.throws(()=>prestashopRows('stock_availables',{stock_availables:new Array(101).fill({})}),/mayor/);
+ assert.throws(()=>prestashopRows('stock_availables',{stock_availables:[{id:8},{id:8}]}),/duplicado/);
+ assert.throws(()=>prestashopRows('stock_movements',{stock_movements:[{id:null}]}),/ausente/);
+ assert.throws(()=>prestashopRows('stock_availables',{stock_availables:[{id:'abc'}]}),/no numérico/);
 });
 test('read is a single GET using private Basic header; no key or raw data returned',async()=>{
  let calls=0;const result=await readPrestashop(profile,{store:'hortimatic',resource:'stock_movements',offset:0,limit:50},{resolve,request:async(url,init)=>{
