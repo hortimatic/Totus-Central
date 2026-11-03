@@ -1,0 +1,69 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true});
+const errors=[];
+try{
+ for(const width of [390,1440]){
+  const page=await browser.newPage({viewport:{width,height:900}});page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
+  await page.evaluate(async()=>{
+   const {prestashopHtml,createPrestashopUI}=await import('../src/prestashop-ui.js');
+   document.getElementById('chatHarness').innerHTML=prestashopHtml();
+   const qa=window.psQA={owner:'manager',rows:[],calls:[],fail:false,profiles:[]};
+   const mockProfile=(name,id)=>({id,name,protocol:'prestashop',configured:true,enabled:true,real_data_authorized:true,verified_revision:1,revision:1,verified_at:'2026-11-03T12:00:00Z'});
+   qa.profiles=[mockProfile('PrestaShop · Hortimatic','11111111-1111-4111-8111-111111111111'),mockProfile('PrestaShop · NewOldSmok','22222222-2222-4222-8222-222222222222')];
+   qa.controller=createPrestashopUI({actor:()=>qa.owner,allowed:()=>true,rpc:async()=>({connections:qa.profiles}),onOpenApis:()=>{qa.openApis=(qa.openApis||0)+1;},invoke:async input=>{
+    qa.calls.push(structuredClone(input));if(qa.fail)throw Error('El PrestaShop rechazó la lectura (HTTP 403).');
+    if(input.action==='test')return {ok:true,status:200};
+    const rows=input.resource==='stock_availables'?(input.offset===0?[{id:'1',id_product:'10',id_product_attribute:'2',quantity:'9'}]:[{id:'51',id_product:'11',quantity:'2'}]):[{id:'10',id_product:'10',sign:'1',physical_quantity:'3',date_add:'2026-11-03 10:00:00'}];
+    return {store:input.store,resource:input.resource,rows,offset:input.offset,limit:input.limit,read_at:'2026-11-03T12:00:00Z',possibly_more:input.offset===0};
+   }});
+   const root=document.querySelector('#prestashopRoot');root.hidden=false;qa.controller.mount(root);
+  });
+  await page.locator('[data-prestashop-store]').first().getByText('Conexión probada').waitFor();
+  assert.equal(await page.locator('[data-prestashop-store]').count(),2);
+  const hort=page.locator('[data-prestashop-store=hortimatic]'),newold=page.locator('[data-prestashop-store=newoldsmok]');
+  assert.equal(await hort.getByText('Hortimatic · Azuqueca').count(),1);
+  assert.equal(await newold.getByText('NewOldSmok · Alcalá').count(),1);
+  assert(await hort.getByText('Vape y Head').count()===1);
+  await hort.getByRole('button',{name:'Existencias disponibles'}).click();
+  await hort.locator('td').filter({hasText:'9'}).first().waitFor();
+  assert.equal(await newold.locator('td').count(),0,'Hortimatic must not appear in NewOldSmok');
+  let calls=await page.evaluate(()=>window.psQA.calls);
+  assert.equal(calls.length,1);assert.equal(calls[0].action,'prestashop_read');assert.equal(calls[0].store,'hortimatic');assert.equal(calls[0].resource,'stock_availables');assert.equal(calls[0].offset,0);assert.equal(calls[0].limit,50);
+  await hort.getByRole('button',{name:'Página siguiente'}).click();
+  await hort.locator('td').filter({hasText:'51'}).first().waitFor();
+  calls=await page.evaluate(()=>window.psQA.calls);
+  assert.equal(calls[1].offset,1,'Next page offset should follow actual returned rows');
+  await page.evaluate(()=>window.psQA.fail=true);
+  await newold.getByRole('button',{name:'Movimientos de stock'}).click();
+  await newold.getByText(/HTTP 403/).waitFor();
+  assert.equal(await newold.locator('td').count(),0,'Failure must not populate records');
+  await page.evaluate(()=>window.psQA.fail=false);
+  await newold.getByRole('button',{name:'Probar conexión'}).click();
+  await newold.getByText(/Prueba de API: Correcto/).waitFor();
+  await hort.getByRole('button',{name:'Abrir APIs'}).click();
+  assert.equal(await page.evaluate(()=>window.psQA.openApis),1);
+  await page.evaluate(()=>window.psQA.profiles[1].enabled=false);
+  await page.evaluate(()=>{const c=window.psQA.controller;c.dispose();c.mount(document.querySelector('#prestashopRoot'));});
+  await newold.getByText('Desactivada').waitFor();
+  assert.equal(await newold.getByRole('button',{name:'Movimientos de stock'}).isDisabled(),true);
+  assert.equal(await page.locator('body').evaluate(e=>e.scrollWidth>e.clientWidth+2),false,'Horizontal overflow at '+width);
+  await page.close();
+ }
+ const page=await browser.newPage();
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html?module=configuracion',{waitUntil:'networkidle'});
+ for(const tab of ['appearance','login','connections','prestashop'])assert.equal(await page.locator('[data-config-section='+tab+']').count(),1,'Missing configuration section '+tab);
+ await page.locator('[data-config-section=prestashop]').click();
+ await page.locator('#prestashopRoot').waitFor({state:'visible'});
+ assert.equal(await page.locator('#connectionsRoot').isVisible(),false);
+ assert.equal(await page.locator('#appearanceRoot').isVisible(),false);
+ assert.equal(await page.locator('[data-prestashop-store]').count(),2);
+ await page.locator('[data-config-section=connections]').click();
+ await page.locator('#connectionsRoot').waitFor({state:'visible'});
+ assert.equal(await page.locator('#prestashopRoot').isVisible(),false);
+ await page.close();
+ assert.deepEqual(errors,[]);
+ console.log('PRESTASHOP BROWSER: 2 stores isolated; rows and paging; errors; disabled controls; API navigation; 4 tabs and no page errors at 390/1440.');
+}finally{await browser.close();}
