@@ -15,14 +15,14 @@ export function prestashopReadiness(connection){
 }
 
 export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{}}){
- let root=null,generation=0,connections=[],errors=[],inflight=false;
+ let root=null,generation=0,connections=[],errors=[],inflight=false,lastActor=null;
  const pages=new Map(),lastResults=new Map();
  const current=(node,epoch,owner)=>root===node&&generation===epoch&&node.isConnected&&allowed()&&actor()===owner;
  function render(){
   if(!root)return;
   const list=root.querySelector('[data-prestashop-stores]');
   list.innerHTML=PRESTASHOP_STORES.map(store=>{
-   const c=storeConnection(connections,store.key),status=prestashopReadiness(c),resource='orders',result=lastResults.get(store.key),page=pages.get(store.key+'|'+(result?.resource||resource))||0;
+   const c=storeConnection(connections,store.key),status=prestashopReadiness(c),resource='orders',cached=lastResults.get(store.key),result=cached?.connectionId===c?.id&&cached?.revision===c?.revision?cached:null,page=pages.get(store.key+'|'+(result?.resource||resource))||0;
    const summary=result?'<p>Lectura real: '+esc(result.resource)+' · página '+(result.page+1)+' · '+result.rows.length+' filas. No se han guardado en Cajas ni Recepciones.</p>':'<p>Última lectura de negocio: ninguna en esta sesión.</p>';
    const fields=result?PRESTASHOP_RESOURCES[result.resource]:null;
    const preview=result?'<div class="table-scroll"><table><thead><tr>'+fields.map(f=>'<th>'+esc(f)+'</th>').join('')+'</tr></thead><tbody>'+result.rows.map(row=>'<tr>'+fields.map(f=>'<td>'+esc(row[f]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'';
@@ -30,7 +30,7 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{}}){
   }).join('');
   root.querySelector('[data-prestashop-errors]').innerHTML=errors.length?'<ul>'+errors.slice(0,10).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul>':'Sin errores registrados en esta sesión.';
  }
- function dispose(){generation++;root=null;inflight=false;connections=[];pages.clear();lastResults.clear();errors=[];}
+ function dispose(){generation++;root=null;inflight=false;connections=[];const owner=actor();if(owner!==lastActor){pages.clear();lastResults.clear();errors=[];lastActor=owner;}}
  async function mount(element){
   dispose();if(!element||!allowed())return;
   root=element;const epoch=generation,owner=actor(),active=()=>current(element,epoch,owner),status=element.querySelector('[data-prestashop-status]');
@@ -59,7 +59,7 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{}}){
     const result=await invoke({action:'prestashop_read',store,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource,page:selected.page,page_size:selected.pageSize});
     if(!active())return;
     if(!result?.ok||result.store!==store||result.resource!==resource||result.page!==page||!Array.isArray(result.rows))throw Error('Respuesta de lectura no verificable.');
-    pages.set(store+'|'+resource,page);lastResults.set(store,result);
+    pages.set(store+'|'+resource,page);lastResults.set(store,{...result,connectionId:c.id,revision:c.revision});
     status.textContent='Lectura completada. Los registros siguen siendo datos de origen de PrestaShop, sin escritura contable.';
    }catch(e){recordError(e?.message||String(e));}finally{if(active()){inflight=false;render();}}
   };
