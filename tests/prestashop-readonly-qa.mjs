@@ -11,7 +11,7 @@ test('PrestaShop 1.7.8.11 store contracts stay separate and never expose SQL',()
  assert.equal(linkedPrestashop([profile],'hortimatic').connection,profile);assert.equal(linkedPrestashop([profile],'newoldsmok').connection,null);
  assert.equal(linkedPrestashop([profile,profile],'hortimatic').ambiguous,true);
  assert.throws(()=>linkedPrestashop([profile],'unknown'),/Tienda/);
- for(const bad of ['orders','customers','psog_posp_cajas','ps0d_posp_cajas','../../../admin','stock_availables?sql=select'])assert.throws(()=>prestashopReadUrl(profile,{resource:bad}),/Recurso/);
+ for(const bad of ['orders','customers','psog_posp_cajas','ps0d_posp_cajas','../../../admin','stock_availables?sql=select','__proto__','constructor','toString'])assert.throws(()=>prestashopReadUrl(profile,{resource:bad}),/Recurso/);
 });
 test('pagination is bounded, ordered and uses the existing /api endpoint',()=>{
  assert.deepEqual(prestashopPage({offset:0,limit:50}),{offset:0,limit:50});
@@ -26,6 +26,7 @@ test('projected stock rows preserve quantity, variant and provenance without raw
  assert.deepEqual(prestashopRows('stock_availables',raw),[{id:'4',id_product:'10',id_product_attribute:'15',id_shop:'2',id_shop_group:'0',quantity:'-3',depends_on_stock:'0',out_of_stock:'0',location:'A1'}]);
  assert.deepEqual(prestashopRows('stock_movements',{stock_movements:[]}),[]);
  assert.throws(()=>prestashopRows('stock_movements',{errors:['Key not authorized']}),/no ha devuelto/);
+ for(const bad of ['__proto__','constructor','toString'])assert.throws(()=>prestashopRows(bad,{stock_availables:[]}),/Recurso/);
  assert.throws(()=>prestashopRows('stock_availables',{stock_availables:{stock_available:{id:3}}}),/formato/);
  assert.throws(()=>prestashopRows('stock_availables',{stock_availables:new Array(101).fill({})}),/mayor/);
 });
