@@ -103,6 +103,7 @@ jobs:
       - run: node tests/route-smoke.mjs
       - run: node tests/action-inventory-qa.mjs
       - run: node tests/api-integrity-qa.mjs
+      - run: node --test tests/prestashop-readonly-qa.mjs tests/prestashop-service-qa.mjs
       - run: node tests/module-navigation-qa.mjs
       - run: node tests/backup-bootstrap-qa.mjs
       - run: node tests/onedrive-document-access-qa.mjs
@@ -169,6 +170,7 @@ jobs:
       - run: node tests/deep-editing-browser-qa.mjs
       - run: node tests/template-editor-browser-qa.mjs
       - run: node tests/configuration-journeys-browser-qa.mjs
+      - run: node tests/prestashop-browser-qa.mjs
       - run: node tests/published-browser-qa.mjs
       - run: node tests/form-boundaries-browser-qa.mjs
       - run: node tests/session-startup-browser-qa.mjs
