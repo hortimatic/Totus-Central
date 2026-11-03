@@ -26,7 +26,16 @@ Alta con proveedor y documentos de ambos lados, filtros por rango de fechas, res
 - [Recepciones, biblioteca y conexiones](docs/COTEJOS_CHATGPT.md).
 - [Copias por componentes](docs/COPIAS_POR_COMPONENTES.md).
 
-El código incluye el historial de evolución SQL y los cinco servicios utilizados: usuarios, copias, recuperación, OneDrive y puente de asistentes. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación. [Revisión transversal del 29/10/2026](docs/auditorias/REVISION_TRANSVERSAL_2026-10-29.md).
+El código incluye el historial de evolución SQL y siete servicios: usuarios, copias, recuperación, OneDrive, puente de asistentes, ejecución de IA y conexiones. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación. [Revisión transversal del 29/10/2026](docs/auditorias/REVISION_TRANSVERSAL_2026-10-29.md).
+
+## Auditoría funcional y preparación de infraestructura
+
+- [Auditoría del 03/11/2026: hallazgos y prioridades](docs/auditorias/AUDITORIA_FUNCIONAL_2026-11-03.md).
+- [Matriz de módulos, pestañas, operaciones y evidencia](docs/auditorias/MATRIZ_FUNCIONAL_2026-11-03.md).
+- [Plan de migración a servidor privado y puertas de aceptación](docs/MIGRACION_SERVIDOR_PRIVADO.md).
+- [Zonas de trabajo, orden y repetición acotada de pruebas](docs/MANTENIMIENTO_Y_ORDEN.md).
+
+La auditoría no aplica los hallazgos a producción ni acredita una instalación nueva ya ensayada.
 
 ## Copias y privacidad
 Copia completa diaria a las 00:35 Europe/Madrid; diez juegos ordinarios verificados, más los puntos de recuperación protegidos que correspondan. Cada juego incluye índice, datos, documentos en ZIP numerados y código publicado. Consultar COPIAS_POR_COMPONENTES.md para comprobar o restaurar. Las copias anteriores compatibles siguen siendo recuperables.
