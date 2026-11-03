@@ -76,7 +76,7 @@ Preparar un manifiesto de nombres de variables y servicios, sin valores. El esta
 - Transferir configuración privada; desactivar los trabajos del origen antes de activar los del destino. No mantener dos cron generando o rotando copias sobre la misma carpeta.
 - Cambiar web/DNS y orígenes autorizados; verificar certificados, inicio de sesión y redirecciones. Obligar a iniciar sesión de nuevo si cambian las claves de firma.
 - Comprobar con el usuario: registro y reapertura de una operación autorizada, informes, original, chat y próxima copia programada terminada.
-- Mantener el origen detenido pero recuperable hasta aceptación. No eliminar base ni carpetas del origen como parte de un supuesto «limpiar». 
+- Mantener el origen detenido pero recuperable hasta aceptación. No eliminar base ni carpetas del origen como parte de un supuesto «limpiar».
 
 ## Puertas de aceptación
 
