@@ -19,7 +19,7 @@ export function prestashopPage(input={}){
  return {offset,limit};
 }
 export function prestashopReadUrl(connection,input={}){
- if(!PRESTASHOP_RESOURCES[input.resource])throw Error('Recurso PrestaShop no permitido.');
+ if(typeof input.resource!=='string'||!Object.prototype.hasOwnProperty.call(PRESTASHOP_RESOURCES,input.resource))throw Error('Recurso PrestaShop no permitido.');
  const {offset,limit}=prestashopPage(input),url=new URL(connection.endpoint);
  if(!url.pathname.match(/\/api\/?$/i)||url.search||url.hash||url.username||url.password)throw Error('Configura la URL HTTPS de la raíz /api del PrestaShop.');
  url.pathname=url.pathname.replace(/\/$/,'')+'/'+input.resource;
@@ -28,7 +28,7 @@ export function prestashopReadUrl(connection,input={}){
 }
 const field=(o,key,size=160)=>{const value=o?.[key];if(value===null||value===undefined||typeof value==='object')return null;return String(value).slice(0,size);};
 export function prestashopRows(resource,data){
- const key=PRESTASHOP_RESOURCES[resource]?.field;if(!key)throw Error('Recurso PrestaShop no permitido.');
+ if(typeof resource!=='string'||!Object.prototype.hasOwnProperty.call(PRESTASHOP_RESOURCES,resource))throw Error('Recurso PrestaShop no permitido.');const key=PRESTASHOP_RESOURCES[resource].field;
  const raw=data?.[key];if(raw===undefined)throw Error('El PrestaShop no ha devuelto el recurso solicitado.');if(!Array.isArray(raw))throw Error('El PrestaShop devolvió filas con un formato inesperado.');
  if(raw.length>100)throw Error('Respuesta del PrestaShop mayor que la página permitida.');
  const keys=resource==='stock_availables'?['id','id_product','id_product_attribute','id_shop','id_shop_group','quantity','depends_on_stock','out_of_stock','location']:['id','id_product','id_product_attribute','id_employee','id_stock_mvt_reason','id_order','id_supply_order','physical_quantity','sign','date_add','reference'];
