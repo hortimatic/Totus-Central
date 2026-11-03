@@ -11,12 +11,21 @@ export async function safeEndpoint(value,resolve=async(host,type)=>Deno.resolveD
  if(!addresses.length||addresses.some(ip=>!publicAddress(ip)))throw Error('El destino debe resolver únicamente a direcciones públicas.');return u;
 }
 export async function boundedJson(response,max=2097152){if(Number(response.headers.get('content-length'))>max)throw Error('La respuesta supera el límite permitido.');const reader=response.body?.getReader();if(!reader)throw Error('Respuesta vacía.');let total=0,parts=[];try{for(;;){const {done,value}=await reader.read();if(done)break;total+=value.length;if(total>max){await reader.cancel();throw Error('La respuesta supera el límite permitido.');}parts.push(value);}}finally{reader.releaseLock();}const all=new Uint8Array(total);let offset=0;for(const part of parts){all.set(part,offset);offset+=part.length;}try{return JSON.parse(new TextDecoder().decode(all));}catch{throw Error('Respuesta JSON no válida del proveedor.');}}
+export async function boundedText(response,max=131072){
+ if(Number(response.headers.get('content-length'))>max)throw Error('La respuesta supera el límite permitido.');
+ const reader=response.body?.getReader();if(!reader)throw Error('Respuesta vacía.');
+ const decoder=new TextDecoder('utf-8',{fatal:true});let total=0,text='';
+ try{for(;;){const {done,value}=await reader.read();if(done)break;total+=value.length;if(total>max){await reader.cancel();throw Error('La respuesta supera el límite permitido.');}text+=decoder.decode(value,{stream:true});}text+=decoder.decode();}
+ catch(e){if(e instanceof TypeError)throw Error('Respuesta de texto no válida del proveedor.');throw e;}
+ finally{reader.releaseLock();}
+ return text;
+}
 export function connectionTarget(c){
  if(c.protocol==='cloudflare'){if(!/^[a-f0-9]{32}$/.test(c.account_id||''))throw Error('Cuenta no válida.');return 'https://api.cloudflare.com/client/v4/accounts/'+c.account_id+'/ai/v1/chat/completions';}
  if(c.protocol==='github'){if(c.endpoint){const u=new URL(c.endpoint);if(u.origin!=='https://api.github.com'||!/^\/repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(u.pathname)||u.search||u.hash)throw Error('Usa la dirección del repositorio en api.github.com/repos/organizacion/repositorio.');return u.href;}return 'https://api.github.com/user';}
  if(c.protocol==='anthropic')return 'https://api.anthropic.com/v1/messages';
  if(c.protocol==='gemini'){if(!/^[A-Za-z0-9._-]+$/.test(c.model||''))throw Error('Modelo no válido.');return 'https://generativelanguage.googleapis.com/v1beta/models/'+c.model+':generateContent';}
- const u=new URL(c.endpoint);if(c.protocol==='openai_compatible'&&!u.pathname.replace(/\/$/,'').endsWith('/chat/completions'))u.pathname=u.pathname.replace(/\/$/,'')+'/chat/completions';if(c.protocol==='prestashop'){u.pathname=u.pathname.replace(/\/$/,'')+'/';u.searchParams.set('output_format','JSON');}return u.href;
+ const u=new URL(c.endpoint);if(c.protocol==='openai_compatible'&&!u.pathname.replace(/\/$/,'').endsWith('/chat/completions'))u.pathname=u.pathname.replace(/\/$/,'')+'/chat/completions';if(c.protocol==='prestashop'){u.pathname=u.pathname.replace(/\/$/,'')+'/';}return u.href;
 }
 export function connectionOutputLimit(c){
  const fallback=c.protocol==='openai_compatible'&&/^https:\/\/(api\.groq\.com|openrouter\.ai)\//.test(c.endpoint||'')?1024:8192;
@@ -44,9 +53,16 @@ export async function testConnection(c,{request=fetch,resolve}={}){
   if(c.protocol==='anthropic'){body.system=instruction;body.tools=[{name:'totus_probe',description:'Comprobar herramientas sin ejecutar operaciones reales.',input_schema:schema}];body.tool_choice={type:'auto'};}
   else{body.messages[0].content=instruction;body.tools=[{type:'function',function:{name:'totus_probe',description:'Comprobar herramientas sin ejecutar operaciones reales.',parameters:schema}}];body.tool_choice='auto';if(target.hostname==='api.cohere.ai'){body.tools=body.tools.map(t=>({...t,function:{...t.function,strict:true}}));body.reasoning_effort='none';}if(target.hostname==='api.groq.com'&&c.model?.startsWith('openai/gpt-oss-'))body.reasoning_effort='low';}
  }
+ if(c.protocol==='prestashop')headers.Accept='application/xml';
  const start=Date.now(),response=await request(target.href,{method:ai?'POST':'GET',headers,...(body?{body:JSON.stringify(body)}:{}),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
  if(!response.ok){const retry=Number(response.headers.get('retry-after'));await response.body?.cancel();throw Error(response.status===429?'Cuota o capacidad limitada por el proveedor (HTTP 429).'+(Number.isFinite(retry)&&retry>0&&retry<=86400?' Reintenta dentro de '+Math.ceil(retry)+' segundos.':' No es el contador local de Totus.'):'El proveedor rechazó la prueba (HTTP '+response.status+').');}
- if(!ai){if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('El destino devuelve una página web, no una respuesta de API. Revisa el tipo de conexión y su dirección.');}if(['prestashop','github'].includes(c.protocol)){const result=await boundedJson(response,131072);if(c.protocol==='github'?!(Number.isSafeInteger(result.id)&&typeof (c.endpoint?result.full_name:result.login)==='string'):(!result||typeof result!=='object'||Array.isArray(result)||!Object.keys(result).length))throw Error('El servicio respondió, pero no devolvió el formato esperado.');}else await response.body?.cancel();return {ok:true,status:response.status,latency_ms:Date.now()-start};}
+ if(!ai){if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('El destino devuelve una página web, no una respuesta de API. Revisa el tipo de conexión y su dirección.');}if(c.protocol==='prestashop'){
+  const xml=await boundedText(response,131072);
+  if(!/^\s*(?:<\?xml[\s\S]*?\?>\s*)?<prestashop(?:\s|>)/i.test(xml)||!/<api(?:\s|>)/i.test(xml))throw Error('El Webservice PrestaShop no devolvió el catálogo XML esperado.');
+ }else if(c.protocol==='github'){
+  const result=await boundedJson(response,131072);
+  if(!(Number.isSafeInteger(result.id)&&typeof (c.endpoint?result.full_name:result.login)==='string'))throw Error('El servicio respondió, pero no devolvió el formato esperado.');
+ }else await response.body?.cancel();return {ok:true,status:response.status,latency_ms:Date.now()-start};}
  const data=await boundedJson(response,131072),text=c.protocol==='gemini'?data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join(''):c.protocol==='anthropic'?data.content?.filter(p=>p.type==='text').map(p=>p.text).join(''):data.choices?.[0]?.message?.content;
  if(c.protocol==='gemini'){if(String(text||'').trim()!=='10')throw Error('El proveedor respondió, pero no completó la prueba ficticia esperada.');}
  else{
