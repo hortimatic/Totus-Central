@@ -11,7 +11,7 @@ test('PrestaShop 1.7.8.11 store contracts stay separate and never expose SQL',()
  assert.equal(linkedPrestashop([profile],'hortimatic').connection,profile);assert.equal(linkedPrestashop([profile],'newoldsmok').connection,null);
  assert.equal(linkedPrestashop([profile,profile],'hortimatic').ambiguous,true);
  assert.throws(()=>linkedPrestashop([profile],'unknown'),/Tienda/);
- for(const bad of ['orders','customers','psog_posp_cajas','ps0d_posp_cajas','../../../admin','stock_availables?sql=select','__proto__','constructor','toString'])assert.throws(()=>prestashopReadUrl(profile,{resource:bad}),/Recurso/);
+ for(const bad of ['orders','customers','ps_fixture_pos_cajas','ps_fixture_second_pos_cajas','../../../admin','stock_availables?sql=select','__proto__','constructor','toString'])assert.throws(()=>prestashopReadUrl(profile,{resource:bad}),/Recurso/);
 });
 test('pagination is bounded, ordered and uses the existing /api endpoint',()=>{
  assert.deepEqual(prestashopPage({offset:0,limit:50}),{offset:0,limit:50});
