@@ -5,6 +5,29 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  audit-hardening-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify audit corrections in disposable database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/audit-hardening-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/060_audit_database_hardening.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/060_audit_database_hardening.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/audit-hardening-db-qa.sql
   qa:
     runs-on: ubuntu-latest
     steps:
@@ -59,6 +82,7 @@ jobs:
       - run: node tests/invoice-issuer-qa.mjs
       - run: node tests/gestor-source-qa.mjs
       - run: node tests/functional-regression.mjs
+      - run: node --test tests/csv-cell-qa.mjs tests/agent-delivery-qa.mjs
       - run: node tests/supplier-credit-qa.mjs
       - run: node tests/audit-register-qa.mjs
       - run: node tests/audit-loading-qa.mjs
@@ -97,7 +121,7 @@ jobs:
       - run: node tests/archive-documents-qa.mjs
       - run: node tests/expense-archive-qa.mjs
       - run: node tests/excel-invariants.mjs
-      - run: npm install --no-save xlsx-js-style playwright jszip pdf-lib fflate@0.8.3
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node tests/backup-transport-qa.mjs
       - run: node tests/cloud-backup-reader-qa.mjs
       - run: node tests/partitioned-handler-qa.mjs
@@ -109,6 +133,7 @@ jobs:
       - run: node tests/native-backup-zip-qa.mjs
       - run: node tests/recovery-handler-qa.mjs
       - run: npx playwright install --with-deps chromium
+      - run: node tools/audit-startup-outage.mjs
       - run: node tests/workbook-preview-qa.mjs
       - run: node tests/excel-qa.mjs
       - run: node tests/monthly-workbook-qa.mjs

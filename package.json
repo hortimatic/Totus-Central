@@ -1,0 +1,14 @@
+{
+  "name": "totus-central-quality",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pinned test dependencies; the production application remains a static site.",
+  "devDependencies": {
+    "fflate": "0.8.3",
+    "jszip": "3.10.1",
+    "pdf-lib": "1.17.1",
+    "playwright": "1.62.1",
+    "xlsx-js-style": "1.2.0"
+  }
+}

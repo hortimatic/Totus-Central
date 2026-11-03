@@ -1,0 +1,26 @@
+# Generated dependencies and evidence; source and manuals stay versioned.
+/node_modules/
+/artifacts/
+/tests/.audit*.mjs
+/tests/.controls-*.mjs
+/tests/.panels-*.mjs
+/controls-*.txt
+# Historical local exports (not production source).
+/drawer-sales-review/
+/drawer-sales-review.zip
+/interface-final/
+/interface-final.zip
+/interface-mobile-final/
+/interface-mobile-final.zip
+/interface-review/
+/interface-review.zip
+/interface-reviewed/
+/interface-reviewed.zip
+/mobile-visual-audit/
+/mobile-visual-audit.zip
+/stitch-check/
+/stitch-check.zip
+/stitch-visual/
+/stitch-visual.zip
+/visual-final/
+/visual-final.zip

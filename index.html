@@ -59,13 +59,11 @@
 <div id="toastHost" class="toast-host"></div>
 <div id="modalHost"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
-
-<script type="module" src="src/app.js"></script>
+<script type="module" src="src/bootstrap.js"></script>
 <script>
 /* Identificar el código cargado, incluso si el navegador conserva un HTML antiguo. */
 (async function(){
-  const script=document.querySelector('script[type="module"][src*="src/app.js"]');
+  const script=document.querySelector('script[type="module"][src*="src/bootstrap.js"]');
   const loaded=script?new URL(script.getAttribute('src'),location.href).searchParams.get('v'):null;
   const verified=/^[0-9a-f]{40}$/.test(loaded||'');
   const labels=document.querySelectorAll('.app-build');
