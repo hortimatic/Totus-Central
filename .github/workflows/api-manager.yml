@@ -61,11 +61,12 @@ jobs:
       - run: node tests/team-admin-qa.mjs
       - run: node --test tests/agent-access-qa.mjs tests/assistant-own-auth.mjs tests/assistant-chat.mjs tests/assistant-operations.mjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: node --test tests/verified-extraction-qa.mjs tests/agent-conversation-qa.mjs tests/agent-workbooks-qa.mjs tests/cloudflare-tools-qa.mjs tests/api-transport-qa.mjs tests/api-provider-qa.mjs tests/api-service-qa.mjs tests/agent-delivery-qa.mjs tests/github-connection-qa.mjs tests/ai-file-response-qa.mjs tests/user-retirement-qa.mjs tests/user-purge-qa.mjs
+      - run: node --test tests/verified-extraction-qa.mjs tests/agent-conversation-qa.mjs tests/agent-workbooks-qa.mjs tests/cloudflare-tools-qa.mjs tests/api-transport-qa.mjs tests/api-provider-qa.mjs tests/api-service-qa.mjs tests/prestashop-readonly-qa.mjs tests/prestashop-service-qa.mjs tests/prestashop-tpv-contract-qa.mjs tests/agent-delivery-qa.mjs tests/github-connection-qa.mjs tests/ai-file-response-qa.mjs tests/user-retirement-qa.mjs tests/user-purge-qa.mjs
       - run: npx playwright install --with-deps chromium
       - run: python3 -m http.server 4173 >/tmp/totus-api.log 2>&1 &
       - run: node tests/user-purge-browser-qa.mjs
       - run: node tests/api-manager-browser-qa.mjs
+      - run: node tests/prestashop-ui-browser-qa.mjs
       - run: node tests/field-help-interaction-qa.mjs
       - run: node tests/team-chat-qa.mjs
       - run: node tests/subtab-walk-qa.mjs
