@@ -1,4 +1,5 @@
-// Shared, deliberately small read-only contract. Nothing in this module executes SQL.
+// PrestaShop 1.7.8.11 only. Shared, deliberately small read-only contract. Nothing executes SQL.
+export const PRESTASHOP_VERSION='1.7.8.11';
 export const PRESTASHOP_STORES=Object.freeze([
  {id:'hortimatic',label:'Hortimatic',location:'Azuqueca',drawers:'Vape y Head',connectionName:'PrestaShop · Hortimatic'},
  {id:'newoldsmok',label:'NewOldSmok',location:'Alcalá',drawers:'Caja de Alcalá',connectionName:'PrestaShop · NewOldSmok'}
@@ -28,8 +29,8 @@ export function prestashopReadUrl(connection,input={}){
 const field=(o,key,size=160)=>{const value=o?.[key];if(value===null||value===undefined||typeof value==='object')return null;return String(value).slice(0,size);};
 export function prestashopRows(resource,data){
  const key=PRESTASHOP_RESOURCES[resource]?.field;if(!key)throw Error('Recurso PrestaShop no permitido.');
- const raw=data?.[key];if(raw===undefined)return [];if(!Array.isArray(raw))throw Error('El PrestaShop devolvió filas con un formato inesperado.');
+ const raw=data?.[key];if(raw===undefined)throw Error('El PrestaShop no ha devuelto el recurso solicitado.');if(!Array.isArray(raw))throw Error('El PrestaShop devolvió filas con un formato inesperado.');
  if(raw.length>100)throw Error('Respuesta del PrestaShop mayor que la página permitida.');
- const keys=resource==='stock_availables'?['id','id_product','id_product_attribute','id_shop','quantity','out_of_stock']:['id','id_product','id_product_attribute','id_employee','id_stock_mvt_reason','physical_quantity','sign','date_add','reference'];
+ const keys=resource==='stock_availables'?['id','id_product','id_product_attribute','id_shop','id_shop_group','quantity','depends_on_stock','out_of_stock','location']:['id','id_product','id_product_attribute','id_employee','id_stock_mvt_reason','id_order','id_supply_order','physical_quantity','sign','date_add','reference'];
  return raw.map(row=>{if(!row||typeof row!=='object'||Array.isArray(row))throw Error('Fila de PrestaShop no válida.');return Object.fromEntries(keys.map(k=>[k,field(row,k)]));});
 }
