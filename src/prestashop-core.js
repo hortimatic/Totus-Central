@@ -32,5 +32,5 @@ export function prestashopRows(resource,data){
  const raw=data?.[key];if(raw===undefined)throw Error('El PrestaShop no ha devuelto el recurso solicitado.');if(!Array.isArray(raw))throw Error('El PrestaShop devolvió filas con un formato inesperado.');
  if(raw.length>100)throw Error('Respuesta del PrestaShop mayor que la página permitida.');
  const keys=resource==='stock_availables'?['id','id_product','id_product_attribute','id_shop','id_shop_group','quantity','depends_on_stock','out_of_stock','location']:['id','id_product','id_product_attribute','id_employee','id_stock_mvt_reason','id_order','id_supply_order','physical_quantity','sign','date_add','reference'];
- return raw.map(row=>{if(!row||typeof row!=='object'||Array.isArray(row))throw Error('Fila de PrestaShop no válida.');return Object.fromEntries(keys.map(k=>[k,field(row,k)]));});
+ const seen=new Set();return raw.map(row=>{if(!row||typeof row!=='object'||Array.isArray(row))throw Error('Fila de PrestaShop no válida.');const id=field(row,'id');if(!id||!/^\\d+$/.test(id)||seen.has(id))throw Error('Identificador PrestaShop ausente, no numérico o duplicado.');seen.add(id);return Object.fromEntries(keys.map(k=>[k,field(row,k)]));});
 }
