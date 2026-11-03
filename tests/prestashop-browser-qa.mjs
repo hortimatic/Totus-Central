@@ -48,6 +48,7 @@ try{
   await page.evaluate(()=>{const c=window.psQA.controller;c.dispose();c.mount(document.querySelector('#prestashopRoot'));});
   await newold.getByText('Desactivada').waitFor();
   assert.equal(await newold.getByRole('button',{name:'Movimientos de stock'}).isDisabled(),true);
+  assert(await page.locator('#prestashopRoot').getByText(/HTTP 403/).count()>0,'Session diagnosis must survive re-entering a tab');
   assert.equal(await page.locator('body').evaluate(e=>e.scrollWidth>e.clientWidth+2),false,'Horizontal overflow at '+width);
   await page.close();
  }
