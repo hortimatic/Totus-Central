@@ -3,7 +3,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const formatDate=value=>value?new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}):'—';
 export const prestashopHtml=()=>'<section id="prestashopRoot" hidden aria-label="Conexión PrestaShop"><div class="card card-pad"><h2>PrestaShop · Hortimatic y NewOldSmok</h2><p>Versión comunicada por el titular: '+PRESTASHOP_VERSION+' (pendiente de verificar con cada tienda).</p><p>Consulta de solo lectura a las tiendas. Las claves permanecen en Configuración → APIs. No modifica cajas, contabilidad, existencias ni precios.</p></div><div data-prestashop-content role="status">Consultando las conexiones…</div></section>';
 export function createPrestashopUI({rpc,invoke,actor,allowed,onOpenApis=()=>{}}){
- let root=null,owner=null,epoch=0,busy=new Set(),profiles=[],events=[],pages={};
+ let root=null,owner=null,lastOwner=null,epoch=0,busy=new Set(),profiles=[],events=[],pages={};
  const active=stamp=>root?.isConnected&&actor()===owner&&stamp===epoch;
  const addEvent=(store,type,status)=>{events.unshift({store,type,status,at:new Date().toISOString()});events=events.slice(0,15);};
  const connectionState=c=>!c?'Sin conexión vinculada':!c.configured?'Falta la clave privada':!c.enabled?'Desactivada':c.verified_revision!==c.revision?'Prueba pendiente':'Conexión probada';
@@ -31,14 +31,14 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onOpenApis=()=>{}})
    if(type==='read'){if(data.store!==storeId||data.resource!==resource||!Array.isArray(data.rows))throw Error('La respuesta no corresponde a la tienda y recurso solicitados.');pages[storeId]=data;}
    addEvent(storeId,type==='test'?'Prueba de API':PRESTASHOP_RESOURCES[resource].label,'Correcto'+(type==='read'?' · '+data.rows.length+' filas':''));
   }catch(error){if(active(stamp))addEvent(storeId,type==='test'?'Prueba de API':'Lectura',String(error?.message||'Error de conexión').slice(0,200));}
-  finally{if(active(stamp)){busy.delete(storeId);paint();}}
+  finally{if(active(stamp)){busy.delete(storeId);if(type==='test')await load();else paint();}}
  }
  async function load(){
   const stamp=epoch;try{const data=await rpc('totus_api_manager',{});if(!active(stamp))return;profiles=data.connections||[];paint();}
   catch(error){if(active(stamp))root.querySelector('[data-prestashop-content]').innerHTML='<p role="alert">No se pudieron leer las conexiones: '+esc(error.message)+'</p>';}
  }
  return {
-  mount(element){root=element;owner=actor();epoch++;busy.clear();pages={};events=[];root.onclick=event=>{
+  mount(element){const current=actor();if(lastOwner!==current)events=[];lastOwner=current;root=element;owner=current;epoch++;busy.clear();pages={};root.onclick=event=>{
    const button=event.target.closest('button');if(!button||!root.contains(button))return;
    if(button.dataset.psApis){onOpenApis();return;}
    if(button.dataset.psTest){void run(button.dataset.psTest,'test');return;}
