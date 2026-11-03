@@ -1,4 +1,5 @@
 import {chatFileMetadata,microsoftTransferUrl,chatFileHash} from './chat-files.js';
+import {csvCell} from './utils.js';
 const checked=r=>{if(r.error)throw Error(r.error.message||'No se pudo leer el documento autorizado.');return r.data;};
 export function deliveryReply(text,files){
  // The model cannot know whether the server's subsequent upload will succeed.
@@ -28,7 +29,7 @@ export async function readAuthorizedDocument(client,doc,authorize,request=fetch)
  if(!(blob instanceof Blob)||blob.size!==doc.size_bytes||await chatFileHash(blob)!==doc.sha256)throw Error('El original no coincide con la huella y tamaño registrados.');
  await authorize('documentos','view');return new File([blob],doc.original_name,{type:doc.mime_type});
 }
-const cell=v=>{const text=typeof v==='number'?String(v).replace('.',','):String(v??'');return '"'+(typeof v==='string'&&/^[=+@\-\t\r]/.test(text)?"'":'')+text.replaceAll('"','""')+'"';};
+const cell=v=>csvCell(v,{decimalComma:true});
 export function reportCsv(report){
  const rows=[['Informe Totus Central','EUR'],['Desde',report.from],['Hasta',report.to],['Tienda',report.store],['Ingresos',report.income],['Gastos registrados',report.recorded_expenses],['Gastos internos',report.internal_expenses],['Resultado antes de impuestos',report.result_before_taxes],...Object.entries(report.income_breakdown||{}).map(([k,v])=>['Ingresos · '+k,v]),['Nota',report.note]];
  return new File(['\ufeff'+rows.map(row=>row.map(cell).join(';')).join('\r\n')],'Informe_'+report.from+'_'+report.to+'_'+String(report.store||'all').replace(/[^A-Za-z0-9_-]/g,'_')+'.csv',{type:'text/csv'});
