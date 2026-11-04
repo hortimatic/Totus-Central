@@ -24,6 +24,9 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/064_prestashop_permissions.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/064_prestashop_permissions.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-permissions-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-automations-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/065_prestashop_order_alerts.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-automations-db-qa.sql
   audit-hardening-database:
     runs-on: ubuntu-latest
     services:
@@ -70,6 +73,8 @@ jobs:
       - run: node tests/stock-workflow-qa.mjs
       - run: node tests/stock-rules-qa.mjs
       - run: node tests/prestashop-flows-qa.mjs
+      - run: node tests/prestashop-automation-qa.mjs
+      - run: node tests/prestashop-alert-worker-qa.mjs
       - run: node tests/stock-backup-qa.mjs
       - run: node tests/qa.mjs
       - run: node tests/dashboard-report-qa.mjs
@@ -187,6 +192,7 @@ jobs:
       - run: node tests/operational-admin-browser-qa.mjs
       - run: node tests/stock-async-browser-qa.mjs
       - run: node tests/stock-rules-browser-qa.mjs
+      - run: node tests/prestashop-automations-browser-qa.mjs
       - run: node tests/pricing-directory-browser-qa.mjs
       - run: node tests/deep-editing-browser-qa.mjs
       - run: node tests/template-editor-browser-qa.mjs

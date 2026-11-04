@@ -1,0 +1,28 @@
+begin;
+select set_config('qa.uid','33333333-3333-4333-8333-333333333333',true),set_config('qa.email','admin@example.invalid',true),set_config('qa.role','authenticated',true);
+do $$declare config jsonb;rid uuid;job uuid;ticket text;r jsonb;first uuid;begin
+ config='{"name":"Pedidos web cada dos horas","recipe":"online_orders","min_count":1,"period_days":1,"daily_start":"00:00","daily_end":"23:59","stores":["hortimatic"],"online_modules":{"hortimatic":["webcheckout"]},"channel_id":"44444444-4444-4444-8444-444444444444","interval_hours":2,"enabled":false,"sharing_confirmed":true}';
+ r=public.totus_prestashop_automations('save',config);rid=(r->>'changed_id')::uuid;
+ if private.totus_prestashop_dispatch()<>0 then raise exception 'Disabled rule executed';end if;
+ perform public.totus_prestashop_automations('toggle',jsonb_build_object('id',rid,'revision',1));
+ update private.totus_prestashop_automations set next_run_at=now()-interval '1 minute' where id=rid;
+ if private.totus_prestashop_dispatch()<>1 or private.totus_prestashop_dispatch()<>0 then raise exception 'Dispatch duplicate';end if;
+ select (body->>'job')::uuid,body->>'ticket' into job,ticket from public.qa_jobs limit 1;
+ perform set_config('qa.role','service_role',true);
+ r=public.totus_prestashop_job_claim(job,ticket);
+ if r->'rule'->>'recipe'<>'online_orders' then raise exception 'Wrong rule';end if;
+ begin perform public.totus_prestashop_job_claim(job,ticket);raise exception 'Ticket replay accepted';exception when others then if sqlerrm='Ticket replay accepted' then raise;end if;end;
+ r=public.totus_prestashop_job_deliver(job,'hortimatic','123','Pedido ficticio de prueba');first=(r->>'message_id')::uuid;
+ r=public.totus_prestashop_job_deliver(job,'hortimatic','123','Pedido ficticio de prueba');
+ if r->>'duplicate'<>'true' or (r->>'message_id')::uuid<>first or (select count(*) from public.ops_chat_messages)<>1 then raise exception 'Notice duplicated';end if;
+ if exists(select 1 from public.ops_chat_messages where author_kind<>'system' or author_id is not null) then raise exception 'Notice impersonated user';end if;
+ perform public.totus_prestashop_job_finish(job,'done','{"notices":1}');
+ if (select last_success_at is null from private.totus_prestashop_automations where id=rid) then raise exception 'Watermark lost';end if;
+ perform set_config('qa.role','authenticated',true);
+ begin perform public.totus_prestashop_automations('save',config-'stores');raise exception 'Missing stores accepted';exception when others then if sqlerrm='Missing stores accepted' then raise;end if;end;
+ begin perform public.totus_prestashop_automations('save',jsonb_set(config,'{channel_id}','"55555555-5555-4555-8555-555555555555"'));raise exception 'Other channel accepted';exception when others then if sqlerrm='Other channel accepted' then raise;end if;end;
+ config=jsonb_set(config,'{recipe}','"missing_ean"');config=jsonb_set(config,'{online_modules}','{}');r=public.totus_prestashop_automations('save',config);
+ if not exists(select 1 from private.totus_prestashop_automations where recipe='missing_ean') then raise exception 'Generic recipe lost';end if;
+ if has_function_privilege('authenticated','public.totus_prestashop_job_claim(uuid,text)','EXECUTE') or has_function_privilege('anon','public.totus_prestashop_automations(text,jsonb)','EXECUTE') then raise exception 'Worker privileges exposed';end if;
+end $$;
+rollback;

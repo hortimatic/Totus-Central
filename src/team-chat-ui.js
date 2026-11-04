@@ -51,7 +51,7 @@ export function createTeamChat({rpc:rawRpc,actor,can=()=>true,onError=()=>{},con
  const onReadScroll=e=>{if(e.target.matches?.('.chat-messages'))scheduleRead();};
  const onVisible=()=>{if(document.visibilityState==='visible')scheduleRead();};
  const acceptFiles='.pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.csv,.txt,.md,.zip';
- const person=email=>email==='chatgpt@totuscentral.invalid'?'ChatGPT':data.directory.find(p=>p.email===email)?.name||data.members.find(p=>p.email===email)?.display_name||email;
+ const person=email=>email==='automatizaciones@totuscentral.invalid'?'Avisos de PrestaShop':email==='chatgpt@totuscentral.invalid'?'ChatGPT':data.directory.find(p=>p.email===email)?.name||data.members.find(p=>p.email===email)?.display_name||email;
  const fileSize=value=>Number(value)<1048576?Math.ceil(Number(value)/1024)+' KB':(Number(value)/1048576).toFixed(1).replace('.',',')+' MB';
  function fileHtml(f,mine){
   const id='data-file="'+esc(f.id)+'"';
