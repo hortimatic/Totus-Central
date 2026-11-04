@@ -79,3 +79,12 @@ Orden de despliegue tras controles: parche 061 de preferencias, servicio `totus-
 La captura del gestor SQL muestra 20 de 21 consultas. Se ha añadido una biblioteca con esas 20 referencias y disponibilidad explícita. Las recetas de catálogo operan sobre las páginas leídas: los duplicados y recuentos no se presentan como totales hasta terminar la lectura. La consulta de ventas permite distinguir un intervalo continuo de una ventana horaria repetida cada día; por ejemplo 20:00–20:30.
 
 La captura confirma la referencia a `psog_posp_cajas` y `date_add`, pero no sus columnas ni la correspondencia de cierres, retiradas y medios de pago. No basta para importar cierres. Las consultas con idioma 1 y tienda 1 necesitan contraste por instalación. Un impacto de combinación cero no es precio final cero. Las valoraciones con factores fijos 1,21 y 1,262 requieren impuestos reales y costes fiables, por lo que no se presentan como beneficio real. No se ha habilitado ejecución libre de SQL.
+
+
+## Corrección tras contraste con Stitch (rama de trabajo, no publicada)
+- Se ha recuperado el HTML de la referencia aprobada para contrastar composición y densidad. Se mantiene la navegación y personalización existentes de Totus.
+- Pedidos con miniaturas públicas por producto, lectura de líneas y productos por lotes y filtros por producto/pago.
+- Consultas de periodo y catálogo recorren todas las páginas, con opción de detener y marcar parcial. Las cifras de ranking proceden de las líneas reales y distinguen cobertura completa/parcial.
+- Borrador de factura desde pedido: verifica líneas completas, moneda e impuestos; conserva origen, abre el documento ya vinculado y excluye ingresos adicionales. No emite ni asigna número automáticamente. El parche 062 impide duplicar una factura ordinaria por pedido y perder o cambiar el origen.
+- Diagnóstico de recursos mediante el catálogo real del Webservice: no supone que un GET correcto a pedidos habilite el TPV.
+- Continúan pendientes las pruebas reales de esta revisión, la fuente específica del TPV, las programaciones y los análisis de antigüedad basados en entradas verificadas. No se consideran entregados por existir una pestaña.

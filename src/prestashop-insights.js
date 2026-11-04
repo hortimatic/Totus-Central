@@ -31,3 +31,16 @@ export function ticketSourceKey(store,order){
  if(!['hortimatic','newoldsmok'].includes(store)||!/^\d{1,15}$/.test(String(order?.id)))throw Error('Origen de pedido no válido.');
  return 'prestashop:'+store+':order:'+order.id;
 }
+
+export function rotationOpportunities(products,stock,orders,lines){
+ const valid=new Set(orders.filter(o=>o.valid==='1'&&o.currency_code==='EUR').map(o=>String(o.id))),sold=new Map();
+ for(const l of lines){if(!valid.has(String(l.id_order)))continue;const qty=Number(l.product_quantity);if(!Number.isSafeInteger(qty)||qty<=0)continue;sold.set(String(l.product_id),(sold.get(String(l.product_id))||0)+qty);}
+ const rows=[];let unknownStock=0;
+ for(const p of products){if(p.active==='0')continue;const source=stock.filter(s=>String(s.id_product)===String(p.id)),parts=source.filter(s=>s.id_product_attribute!=='0'),selected=parts.length?parts:source.filter(s=>s.id_product_attribute==='0'),ids=new Set(),shops=new Set();let quantity=0,unknown=!selected.length;
+  for(const r of selected){if(ids.has(r.id_product_attribute)||!/^[-]?\d+$/.test(String(r.quantity??''))||!Number.isSafeInteger(Number(r.quantity)))unknown=true;ids.add(r.id_product_attribute);shops.add(r.id_shop??'unknown');quantity+=Number(r.quantity);}
+  if(shops.size>1)unknown=true;const expected=p.associations?.combinations||[];if(expected.some(id=>!ids.has(id)))unknown=true;
+  if(unknown){unknownStock++;continue;}if(quantity<=0)continue;rows.push({...p,stock:quantity,units:sold.get(String(p.id))||0});
+ }
+ rows.sort((a,b)=>a.units-b.units||b.stock-a.stock||String(a.name).localeCompare(String(b.name),'es'));
+ return {rows,unknownStock};
+}
