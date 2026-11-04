@@ -130,7 +130,17 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
-const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),onBilling:async source=>{
+const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),loadReceipts:async shop=>{
+ if(!can('documentos','view'))throw Error('Necesitas acceso a Documentos para consultar las recepciones.');
+ const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===shop)?.id;if(!storeId)throw Error('No se ha identificado la tienda de Totus.');
+ const owner=state.user?.id,rows=[];
+ for(let offset=0;offset<100000;offset+=1000){const response=await sb.from('ops_stock_receipts').select('id,store_id,supplier,reference,received_on,status,revision,review:result->review').eq('store_id',storeId).order('received_on',{ascending:false}).order('id',{ascending:true}).range(offset,offset+999);if(response.error)throw Error(response.error.message);if(state.user?.id!==owner)throw Error('La sesión ha cambiado.');rows.push(...response.data);if(response.data.length<1000)return rows;}
+ throw Error('Usa los filtros de Recepciones para consultar este volumen de registros.');
+},onReceipts:async({store,id})=>{
+ const owner=state.user?.id,storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;
+ await navigateModule('cotejos');if(state.user?.id!==owner||state.route!=='cotejos')return;
+ await stockAction(id?'stock-open':'stock-from-prestashop',{dataset:{id,storeId}},{render,createStoredDocument,previewDocument,fileSha256});
+},onBilling:async source=>{
  if(!source){await navigateModule('facturacion');return;}
  const totusStore=state.data.stores.find(s=>s.name?.trim().toLowerCase()===source.store);
  const draft=prestashopInvoiceDraft(source,totusStore?.id,isoToday());
@@ -152,7 +162,7 @@ function permissionForAction(action,el){
   if(action.startsWith('stock-export-'))return {module:'documentos',operation:'export'};
   const deletion=['stock-delete-new','stock-delete-save'].includes(action);
   const managerOnly=deletion||['stock-equivalence-new','stock-equivalence-save'].includes(action);
-  const operation=deletion?'delete':['stock-create-save','stock-new'].includes(action)?'create':managerOnly||['stock-pair-new','stock-pair-save','stock-upload-save','stock-upload-retry-save','stock-upload-discard','stock-existing-save','stock-source-remove','stock-edit','stock-edit-save'].includes(action)?'edit':'view';
+  const operation=deletion?'delete':['stock-create-save','stock-new'].includes(action)?'create':managerOnly||['stock-rules-new','stock-pair-new','stock-pair-save','stock-upload-save','stock-upload-retry-save','stock-upload-discard','stock-existing-save','stock-source-remove','stock-edit','stock-edit-save'].includes(action)?'edit':'view';
   return {module:'documentos',operation,managerOnly};
  }
  if(/^(closing-|export-closings-current)/.test(action))module='cajas';

@@ -86,6 +86,7 @@ try{
  await page.locator('[data-action="stock-text"]').first().click();assert((await page.locator('.stock-text').innerText()).includes('10 unidades'));
  await page.locator('[data-action="close-modal"]').filter({visible:true}).last().click();
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__stockClipboard=text}}));
+ await page.getByText('Alternativa: ayuda de ChatGPT',{exact:true}).click();
  await page.locator('[data-action="stock-prompt"]').click();await page.waitForFunction(()=>typeof window.__stockClipboard==='string');
  const copiedPrompt=await page.evaluate(()=>window.__stockClipboard);assert(copiedPrompt.includes('totus_stock_context'));
  await page.locator('[data-action="stock-prompt-view"]').click();assert.equal(await page.locator('#modalHost textarea').inputValue(),copiedPrompt);

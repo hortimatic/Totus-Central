@@ -47,7 +47,7 @@ function receiptForm(){
 }
 function resultTable(receipt){
  const rows=receipt.result?.rows||[];
- if(!rows.length)return '<div class="note">Todavía no hay un resultado. Añade los documentos y entrega a ChatGPT la instrucción del paso 2.</div>';
+ if(!rows.length)return '<div class="note">Añade los documentos y pulsa Cotejar factura con entrada · sin IA. También puedes usar el cotejo asistido.</div>';
  const summary=stockSummary(receipt.result,view.context?.sources||[]);
  return (summary.issues.length?'<div class="note warn">'+esc(summary.issues.map(issue=>(view.context?.sources||[]).reduce((text,source)=>text.replaceAll(source.id,source.document?.original_name||'Documento'),issue)).join(' · '))+'</div>':'')+table([
  {label:'Producto del proveedor',html:r=>esc(r.supplier_name||'Sin identificar')+'<small>'+esc([r.variant,r.unit].filter(Boolean).join(' · '))+'</small>'},
@@ -77,7 +77,7 @@ function receiptDetail(){
  (view.pendingUploads.length?'<div class="note warn"><b>'+view.pendingUploads.length+' archivo(s) pendientes de asociar</b><ul>'+view.pendingUploads.map(p=>'<li>'+esc(p.file.name)+' · '+(p.kind==='supplier'?'Proveedor':'PrestaShop')+'</li>').join('')+'</ul><div class="inline-actions">'+action('Reintentar archivos pendientes','stock-upload-retry-save')+action('Quitar archivos pendientes','stock-upload-discard')+'</div></div>':'')+
  (canEdit()?'<div class="stock-upload form-grid">'+selectField('Estos documentos son de','stockKind',[{value:'supplier',label:'Proveedor · factura o albarán'},{value:'prestashop',label:'PrestaShop · entrada de mercancía'}],'supplier')+
  uploadInput('Subir archivos','stockFiles')+'<div>'+btn('Añadir archivos','stock-upload-save','primary')+'</div></div><details><summary>Usar un documento ya guardado</summary><div class="form-grid">'+selectField('Documento','stockExisting',[{value:'',label:'Selecciona un documento'},...options],'')+'<div>'+action('Asociar documento','stock-existing-save')+'</div></div></details><small>Quitar del pedido conserva el original en Documentos y devuelve el cotejo a pendiente.</small>':'')+'<div id="stockProgress" role="status" aria-live="polite"></div></section>'+
- '<section class="card card-pad stock-step"><h3>2. Cotejar con ChatGPT</h3><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar para ver el resultado.</p><div class="inline-actions">'+btn('Copiar instrucción para ChatGPT','stock-prompt','primary')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div><small>Los textos disponibles también se pueden consultar en Supabase. Si no hay texto o faltan páginas, ChatGPT debe leer el original antes de aceptar el cotejo.</small></section>'+
+ '<section class="card card-pad stock-step stock-compare-launch"><span class="badge good">Cotejo documental</span><h3>2. Factura frente a entrada de mercancía</h3><p>Compara productos, variantes, cantidades y equivalencias usando reglas verificables. Los documentos ya asociados se leen aquí, sin descargarlos ni volver a subirlos.</p><div class="inline-actions">'+(canEdit()?btn('Cotejar factura con entrada · sin IA','stock-rules-new','primary'):'')+'</div><details><summary>Alternativa: ayuda de ChatGPT</summary><p>Copia la instrucción y pégala en vuestro chat habitual con Supabase conectado. Después pulsa Actualizar.</p><div class="inline-actions">'+action('Copiar instrucción para ChatGPT','stock-prompt')+action('Ver instrucción','stock-prompt-view')+action('Texto para ChatGPT','stock-evidence')+'</div></details></section>'+
  '<section class="card card-pad stock-step"><div class="section-head"><h3>3. Resultado del cotejo</h3><div class="inline-actions">'+badge(stockReceiptStatus(r))+((r.result?.rows||[]).length?action('Descargar Excel','stock-export-xlsx')+action('Descargar informe','stock-export-html'):'')+reviewButton+pairButton+'</div></div>'+reviewPanel+resultTable(r)+
  '<details><summary>Cómo se calcula</summary><p>Se comparan las unidades de la factura con las registradas en PrestaShop. Los paquetes se convierten a unidades cuando su tamaño está confirmado. Si la entrada incluye un ajuste ajeno al pedido, se descuenta para comparar solo la mercancía recibida. Una cantidad desconocida o una equivalencia sin confirmar queda pendiente.</p></details>'+
  '<details><summary>Historial de revisiones ('+view.history.length+')</summary>'+view.history.map(h=>'<div class="stock-history"><b>Revisión '+h.revision+'</b> · '+esc(fmtDate(h.created_at))+' · '+esc(h.actor_email)+'<small>'+esc(({created:'Recepción creada',source_added:'Documento asociado',source_removed:'Asociación retirada',result_saved:'Resultado guardado',units_corrected:'Unidades corregidas con justificación',reviewed:'Revisado con justificación',edited:'Datos modificados; cotejo pendiente'})[h.action]||h.action)+'</small>'+(h.action==='reviewed'&&h.review?.note?'<p><b>Justificación guardada:</b> '+esc(h.review.note)+'</p>':'')+(h.action==='units_corrected'&&h.unit_change?.reason?'<p><b>Corrección de unidades: </b>'+esc(h.unit_change.line_id||'')+' · '+esc(h.unit_change.previous_expected)+' / '+esc(h.unit_change.previous_received)+' → '+esc(h.unit_change.corrected_expected)+' / '+esc(h.unit_change.corrected_received)+'<br><b>Motivo:</b> '+esc(h.unit_change.reason)+'</p>':'')+'</div>').join('')+'</details></section></div>';
@@ -107,7 +107,7 @@ export function stockPage(){
 }
 export async function stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256}){
  syncOwner();
- if(['stock-new','stock-back','stock-open','stock-library','stock-library-refresh','stock-refresh'].includes(a))navigationEpoch++;
+ if(['stock-new','stock-back','stock-open','stock-library','stock-library-refresh','stock-refresh','stock-from-prestashop'].includes(a))navigationEpoch++;
  const actionScope=readScope();
  const {sb,rpc,downloadFile,insert,select}=await import('./api.js');
  const {validateDocumentFile}=await import('./file-utils.js');
@@ -149,6 +149,25 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   else{const rows=await list('ops_stock_receipts','id,store_id,supplier,reference,received_on,status,revision,updated_at,review:result->review');if(!currentRead(scope))return;view.receipts=rows;view.loaded=true;}
   view.error='';render();restoreFocus();
  };
+ if(a==='stock-from-prestashop'){
+  view.mode='list';view.context=null;view.query='';view.from='';view.to='';view.status='all';view.store=el.dataset.storeId||'all';await refresh();return;
+ }
+ if(a==='stock-rules-new'){
+  if(!canEdit())throw Error('Necesitas permiso de edición en Documentos para guardar un cotejo.');
+  const c=view.context;if(!c?.sources?.some(s=>s.source_kind==='supplier')||!c.sources.some(s=>s.source_kind==='prestashop'))throw Error('Asocia una factura o albarán y la entrada de mercancía de PrestaShop.');
+  const scope=readScope(),receiptId=c.receipt.id,revision=c.receipt.revision;
+  const {mountStockRuleEditor}=await import('./stock-rules-ui.js');if(!currentRead(scope))return;
+  stockModal('Cotejar factura con entrada · sin IA','<div id="stockRuleEditor"></div>');
+  mountStockRuleEditor(document.getElementById('stockRuleEditor'),structuredClone(c),{
+   valid:()=>currentRead(scope)&&view.context?.receipt.id===receiptId&&view.context.receipt.revision===revision&&canEdit(),
+   preview:d=>downloadFile('business-documents',d.storage_path,d),
+   save:async result=>{
+    if(!currentRead(scope)||!canEdit())throw Error('La sesión ha cambiado. Vuelve a abrir el cotejo.');
+    await rpc('totus_stock_save_result',{p_id:receiptId,p_revision:revision,p_result:result});
+    if(!currentRead(scope))return;closeModal();if(!await context(receiptId))return;render();toast('Cotejo sin IA guardado y comprobado en la recepción.');
+   }
+  });return;
+ }
  const attach=async(doc,kind,file)=>{
   let extracted;try{extracted=await extractStockText(file)}catch(error){extracted={text:'',extraction:{state:'unread',warnings:[String(error.message||error)],reader:'failed'}}}
   const r=view.context.receipt;
