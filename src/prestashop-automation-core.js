@@ -32,7 +32,7 @@ export function prestashopNotice({store,order,lines=[],customer={},address={},cu
  if(!lines.length||lines.some(l=>String(l.id_order)!==String(order.id)))throw Error('Las líneas del pedido no están completas o pertenecen a otro pedido.');
  const person=[customer.firstname,customer.lastname].map(clean).filter(Boolean).join(' ')||[address.firstname,address.lastname].map(clean).filter(Boolean).join(' ');
  const money=new Intl.NumberFormat('es-ES',{style:'currency',currency}).format(amount);
- const productText=lines.map(l=>{const n=Number(l.product_quantity);if(!Number.isFinite(n)||n<0)throw Error('Cantidad de producto no verificable.');return '• '+n+' × '+clean(l.product_name)+(l.product_reference?' · '+clean(l.product_reference):'');}).join('\n');
+ const productText=lines.map(l=>{const n=Number(l.product_quantity);if(!/^\d+$/.test(String(l.product_quantity??''))||!Number.isSafeInteger(n)||n<=0)throw Error('Cantidad de producto no verificable.');return '• '+n+' × '+clean(l.product_name)+(l.product_reference?' · '+clean(l.product_reference):'');}).join('\n');
  const link=new URL('https://hortimatic.github.io/Totus-Central/');link.searchParams.set('module','prestashop');link.searchParams.set('ps_store',store);link.searchParams.set('ps_order',String(order.id));link.searchParams.set('ps_date',String(order.date_add).slice(0,10));
  const header='PEDIDO ONLINE · '+(store==='hortimatic'?'Hortimatic':'NewOldSmok')+'\nReferencia: '+clean(order.reference||order.id)+' · #'+order.id+'\nFecha: '+clean(order.date_add)+' · Estado: '+clean(stateName||'#'+order.current_state)+'\nTotal: '+money+' · Pago: '+clean(order.payment||order.module)+'\nCliente: '+(person||'Sin nombre informado')+(customer.email?' · '+clean(customer.email):'')+'\nEntrega: '+[address.address1,address.address2,address.postcode,address.city].map(clean).filter(Boolean).join(' · ')+(address.phone_mobile||address.phone?'\nContacto: '+clean(address.phone_mobile||address.phone):'')+'\n\n';
  const footer='\n\nAbrir pedido: '+link.href+'\nAviso automático · solo lectura · no confirma preparación ni modifica el pedido.';
@@ -55,7 +55,7 @@ export async function automationResult(rule,store,window,{read,onOrder=async()=>
  const data={};for(const resource of recipe.resources||[recipe.target==='orders'?'orders':'products'])data[resource]=await scan(resource,resource==='orders'?{from:window.report_from||window.from,to:window.to}:{});
  let rows,summary='';
  if(recipe.target==='orders'){
-  rows=data.orders.filter(r=>rule.recipe!=='sales_window'||withinDailyWindow(r.date_add,rule.daily_start+':00',rule.daily_end+':59'));const totals=new Map();let unverified=0;
+  rows=data.orders.filter(r=>rule.recipe!=='sales_window'||withinDailyWindow(r.date_add,String(rule.daily_start).slice(0,5)+':00',String(rule.daily_end).slice(0,5)+':59'));const totals=new Map();let unverified=0;
   for(const row of rows){if(row.valid!=='1'){unverified++;continue;}const c=await detail('currencies',row.id_currency),n=sourceCents(row.total_paid_tax_incl);if(!/^[A-Z]{3}$/.test(c.iso_code||'')||n===null){unverified++;continue;}totals.set(c.iso_code,(totals.get(c.iso_code)||0)+n);}
   summary=[...totals].map(([code,n])=>new Intl.NumberFormat('es-ES',{style:'currency',currency:code}).format(n/100)).join(' · ')+'\nPedidos no válidos o sin importe/moneda verificados: '+unverified;
  }else rows=rule.recipe==='missing_ean'?data.products.filter(p=>!String(p.ean13||'').trim()):detailedRecipe(rule.recipe,data)||recipeProducts(data.products,rule.recipe);
