@@ -102,13 +102,13 @@ begin
     insert into private.totus_prestashop_automations(owner_id,name,stores,online_modules,channel_id,interval_hours,enabled,next_run_at)
     values(auth.uid(),trim(p_data->>'name'),shops,p_data->'online_modules',(p_data->>'channel_id')::uuid,(p_data->>'interval_hours')::integer,(p_data->>'enabled')::boolean,now()+make_interval(hours=>(p_data->>'interval_hours')::integer)) returning id into target;
    else
-    update private.totus_prestashop_automations set owner_id=auth.uid(),name=trim(p_data->>'name'),stores=shops,online_modules=p_data->'online_modules',channel_id=(p_data->>'channel_id')::uuid,interval_hours=(p_data->>'interval_hours')::integer,enabled=(p_data->>'enabled')::boolean,revision=revision+1,updated_at=now(),next_run_at=now()+make_interval(hours=>(p_data->>'interval_hours')::integer) where id=target;
+    update private.totus_prestashop_automations set starts_at=now(),last_success_at=null,owner_id=auth.uid(),name=trim(p_data->>'name'),stores=shops,online_modules=p_data->'online_modules',channel_id=(p_data->>'channel_id')::uuid,interval_hours=(p_data->>'interval_hours')::integer,enabled=(p_data->>'enabled')::boolean,revision=revision+1,updated_at=now(),next_run_at=now()+make_interval(hours=>(p_data->>'interval_hours')::integer) where id=target;
    end if;
    if coalesce(p_data->>'frequency','') not in ('interval','daily','weekly') or coalesce(p_data->>'at_time','')!~'^([01][0-9]|2[0-3]):[0-5][0-9]$' or jsonb_typeof(p_data->'weekdays') is distinct from 'array' then raise exception 'Revisa el calendario de ejecución.';end if;
    update private.totus_prestashop_automations set frequency=p_data->>'frequency',at_time=(p_data->>'at_time')::time,weekdays=array(select distinct jsonb_array_elements_text(p_data->'weekdays')::integer),recipe=p_data->>'recipe',min_count=(p_data->>'min_count')::integer,period_days=(p_data->>'period_days')::integer,daily_start=(p_data->>'daily_start')::time,daily_end=(p_data->>'daily_end')::time where id=target;
    update private.totus_prestashop_automations set next_run_at=private.totus_prestashop_next_run(id) where id=target;
   elsif p_action='toggle' then
-   update private.totus_prestashop_automations set enabled=not enabled,revision=revision+1,updated_at=now(),next_run_at=private.totus_prestashop_next_run(id) where id=target;
+   update private.totus_prestashop_automations set starts_at=case when not enabled then now() else starts_at end,last_success_at=case when not enabled then null else last_success_at end,enabled=not enabled,revision=revision+1,updated_at=now(),next_run_at=private.totus_prestashop_next_run(id) where id=target;
   elsif p_action='remove' then
    update private.totus_prestashop_automations set enabled=false,deleted_at=now(),revision=revision+1,updated_at=now() where id=target;
   elsif p_action='run' then
@@ -136,7 +136,6 @@ begin
   perform net.http_post(url:='https://awmojepsasikxocoeqtu.supabase.co/functions/v1/totus-prestashop-alerts',headers:='{"Content-Type":"application/json"}'::jsonb,body:=jsonb_build_object('job',j,'ticket',ticket),timeout_milliseconds:=60000);
   update private.totus_prestashop_automations set next_run_at=private.totus_prestashop_next_run(a.id) where id=a.id;count_jobs=count_jobs+1;
  end loop;
- delete from private.totus_prestashop_jobs where status in ('done','failed','partial') and finished_at<now()-interval '90 days';
  return count_jobs;
 end $$;
 revoke all on function private.totus_prestashop_dispatch() from public,anon,authenticated;

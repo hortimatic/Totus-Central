@@ -54,5 +54,5 @@ export function createPrestashopAutomations({rpc:requestRpc,read:requestRead,act
    if(row){data=await rpc('totus_prestashop_automations',{p_action:type,p_data:{id:row.id,revision:row.revision}});remove=null;}
   });
  }
- return {html:()=>'<div data-presta-automations></div>',hasDraft:()=>dirty,async mount(element){generation++;root=element;if(owner!==actor()){owner=actor();draft=initial();data={rules:[],channels:[],runs:[]};dirty=false;samples={};preview='';}render();await perform(async()=>{data=await rpc('totus_prestashop_automations',{p_action:'list'});});},dispose(){generation++;root=null;busy=false;}};
+ return {discardDraft(){draft=initial();dirty=false;preview='';},html:()=>'<div data-presta-automations></div>',hasDraft:()=>dirty,async mount(element){generation++;root=element;if(owner!==actor()){owner=actor();draft=initial();data={rules:[],channels:[],runs:[]};dirty=false;samples={};preview='';}render();await perform(async()=>{data=await rpc('totus_prestashop_automations',{p_action:'list'});});},dispose(){generation++;root=null;busy=false;}};
 }
