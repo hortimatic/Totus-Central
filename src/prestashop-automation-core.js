@@ -12,9 +12,11 @@ export function validatePrestaAutomation(raw){
  const recipe=raw.recipe||'online_orders';if(!AUTOMATION_RECIPES.some(r=>r.id===recipe))throw Error('Elige una consulta disponible.');
  if(recipe==='online_orders')for(const store of stores){const values=raw.online_modules?.[store];if(!Array.isArray(values)||!values.length||values.length>50||values.some(v=>!/^[-a-zA-Z0-9_]{1,100}$/.test(v)))throw Error('Confirma los orígenes online de '+store+' utilizando los pedidos de muestra.');modules[store]=[...new Set(values)].sort();}
  const min_count=Number(raw.min_count??1),period_days=Number(raw.period_days??1),start=raw.daily_start||'00:00',end=raw.daily_end||'23:59';
+ const frequency=raw.frequency||'interval',at_time=raw.at_time||'09:00',weekdays=Array.isArray(raw.weekdays)?[...new Set(raw.weekdays.map(Number))]:[1,2,3,4,5];
+ if(!['interval','daily','weekly'].includes(frequency)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(at_time)||!weekdays.length||weekdays.some(n=>!Number.isInteger(n)||n<0||n>6))throw Error('Revisa la frecuencia, hora y días de ejecución.');
  if(!Number.isSafeInteger(min_count)||min_count<0||min_count>1000000||!Number.isSafeInteger(period_days)||period_days<1||period_days>365)throw Error('Revisa el umbral y los días de consulta.');
  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end))throw Error('Revisa el tramo horario.');
- return {name,recipe,min_count,period_days,daily_start:start,daily_end:end,stores,channel_id:string(raw.channel_id),interval_hours:Number(raw.interval_hours),online_modules:modules,enabled:raw.enabled===true,sharing_confirmed:raw.sharing_confirmed===true};
+ return {name,recipe,min_count,period_days,daily_start:start,daily_end:end,frequency,at_time,weekdays,stores,channel_id:string(raw.channel_id),interval_hours:Number(raw.interval_hours),online_modules:modules,enabled:raw.enabled===true,sharing_confirmed:raw.sharing_confirmed===true};
 }
 export function onlineOrder(order,modules){
  return Array.isArray(modules)&&typeof order?.module==='string'&&modules.includes(order.module);

@@ -4,7 +4,7 @@ export const PRESTASHOP_STORES=Object.freeze([
  {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok',origin:'https://newoldsmok.com'}
 ]);
 export const PRESTASHOP_RESOURCES=Object.freeze({
- orders:Object.freeze(['id','reference','module','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl']),
+ orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl','module']),
  order_states:Object.freeze(['id','name']),
  taxes:Object.freeze(['id','rate','name','active']),
  currencies:Object.freeze(['id','iso_code','name']),

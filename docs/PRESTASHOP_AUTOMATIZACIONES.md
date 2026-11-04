@@ -4,7 +4,7 @@ La pestaña sigue la estructura de Stitch: editor de reglas, reglas configuradas
 
 ## Configuración desde la interfaz
 
-Cada regla tiene nombre, tipo de consulta, tiendas, intervalo, días del informe, tramo horario aplicable a ventas por horas, umbral mínimo y canal de Chat. Se guarda pausada salvo que el usuario elija activarla. El destino debe ser un canal activo al que pertenezca el responsable; la interfaz exige confirmar que puede recibir esos datos.
+Cada regla tiene nombre, tipo de consulta, tiendas, intervalo o calendario diario/semanal en hora de Madrid, días del informe, tramo horario aplicable a ventas por horas, umbral mínimo y canal de Chat. Se guarda pausada salvo que el usuario elija activarla. El destino debe ser un canal activo al que pertenezca el responsable; la interfaz exige confirmar que puede recibir esos datos.
 
 Para pedidos online, «Analizar pedidos de muestra» muestra módulos de origen reales, pagos y ejemplos. El usuario selecciona los módulos de la web y deja fuera el TPV. El medio de pago no se utiliza para adivinar el origen. El primer aviso solo considera pedidos desde la activación.
 

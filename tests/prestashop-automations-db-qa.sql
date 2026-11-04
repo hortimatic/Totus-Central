@@ -1,7 +1,7 @@
 begin;
 select set_config('qa.uid','33333333-3333-4333-8333-333333333333',true),set_config('qa.email','admin@example.invalid',true),set_config('qa.role','authenticated',true);
 do $$declare config jsonb;rid uuid;job uuid;ticket text;r jsonb;first uuid;begin
- config='{"name":"Pedidos web cada dos horas","recipe":"online_orders","min_count":1,"period_days":1,"daily_start":"00:00","daily_end":"23:59","stores":["hortimatic"],"online_modules":{"hortimatic":["webcheckout"]},"channel_id":"44444444-4444-4444-8444-444444444444","interval_hours":2,"enabled":false,"sharing_confirmed":true}';
+ config='{"name":"Pedidos web cada dos horas","recipe":"online_orders","min_count":1,"period_days":1,"daily_start":"00:00","daily_end":"23:59","stores":["hortimatic"],"online_modules":{"hortimatic":["webcheckout"]},"channel_id":"44444444-4444-4444-8444-444444444444","interval_hours":2,"frequency":"interval","at_time":"09:00","weekdays":[1,2,3,4,5],"enabled":false,"sharing_confirmed":true}';
  r=public.totus_prestashop_automations('save',config);rid=(r->>'changed_id')::uuid;
  if private.totus_prestashop_dispatch()<>0 then raise exception 'Disabled rule executed';end if;
  perform public.totus_prestashop_automations('toggle',jsonb_build_object('id',rid,'revision',1));
@@ -18,6 +18,10 @@ do $$declare config jsonb;rid uuid;job uuid;ticket text;r jsonb;first uuid;begin
  if exists(select 1 from public.ops_chat_messages where author_kind<>'system' or author_id is not null) then raise exception 'Notice impersonated user';end if;
  perform public.totus_prestashop_job_finish(job,'done','{"notices":1}');
  if (select last_success_at is null from private.totus_prestashop_automations where id=rid) then raise exception 'Watermark lost';end if;
+ update private.totus_prestashop_automations set frequency='daily',at_time='09:00' where id=rid;
+ if private.totus_prestashop_next_run(rid,'2026-10-24 08:00:00+00')<>'2026-10-25 08:00:00+00'::timestamptz then raise exception 'Daily Madrid DST schedule drift';end if;
+ update private.totus_prestashop_automations set frequency='weekly',weekdays=array[1],at_time='09:00' where id=rid;
+ if private.totus_prestashop_next_run(rid,'2026-11-03 10:00:00+00')<>'2026-11-09 08:00:00+00'::timestamptz then raise exception 'Weekly schedule incorrect';end if;
  perform set_config('qa.role','authenticated',true);
  begin perform public.totus_prestashop_automations('save',config-'stores');raise exception 'Missing stores accepted';exception when others then if sqlerrm='Missing stores accepted' then raise;end if;end;
  begin perform public.totus_prestashop_automations('save',jsonb_set(config,'{channel_id}','"55555555-5555-4555-8555-555555555555"'));raise exception 'Other channel accepted';exception when others then if sqlerrm='Other channel accepted' then raise;end if;end;

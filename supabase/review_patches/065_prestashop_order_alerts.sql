@@ -7,12 +7,26 @@ create table private.totus_prestashop_automations(
  name text not null check(length(name) between 3 and 100),stores text[] not null,
  recipe text not null default 'online_orders',min_count integer not null default 1 check(min_count between 0 and 1000000),period_days integer not null default 1 check(period_days between 1 and 365),daily_start time not null default '00:00',daily_end time not null default '23:59',
  online_modules jsonb not null,channel_id uuid not null references public.ops_chat_channels(id),
+ frequency text not null default 'interval' check(frequency in ('interval','daily','weekly')),at_time time not null default '09:00',weekdays integer[] not null default array[1,2,3,4,5] check(cardinality(weekdays) between 1 and 7 and weekdays<@array[0,1,2,3,4,5,6]),
  interval_hours integer not null default 2 check(interval_hours in (1,2,3,4,6,8,12,24)),
  enabled boolean not null default false,revision bigint not null default 1,
  starts_at timestamptz not null default now(),next_run_at timestamptz not null default now(),
  last_success_at timestamptz,last_error text,deleted_at timestamptz,
  created_at timestamptz not null default now(),updated_at timestamptz not null default now()
 );
+create function private.totus_prestashop_next_run(p_id uuid,p_after timestamptz default now()) returns timestamptz language plpgsql stable security definer set search_path='' as $$
+declare a private.totus_prestashop_automations;day date;candidate timestamptz;i integer;
+begin
+ select * into strict a from private.totus_prestashop_automations where id=p_id;
+ if a.frequency='interval' then return p_after+make_interval(hours=>a.interval_hours);end if;
+ for i in 0..7 loop
+  day=(p_after at time zone 'Europe/Madrid')::date+i;
+  candidate=(day+a.at_time) at time zone 'Europe/Madrid';
+  if candidate>p_after and(a.frequency='daily' or extract(dow from day)::integer=any(a.weekdays)) then return candidate;end if;
+ end loop;
+ raise exception 'No se pudo calcular la próxima ejecución.';
+end $$;
+revoke all on function private.totus_prestashop_next_run(uuid,timestamptz) from public,anon,authenticated;
 create table private.totus_prestashop_jobs(
  id uuid primary key default gen_random_uuid(),automation_id uuid not null references private.totus_prestashop_automations(id),revision bigint not null,
  status text not null default 'pending' check(status in ('pending','working','done','partial','failed')),
@@ -47,7 +61,7 @@ create function private.totus_prestashop_rule_allowed(p_id uuid) returns boolean
  join public.ops_chat_channels c on c.id=a.channel_id and not c.archived and c.deleted_at is null
  join public.ops_chat_members m on m.channel_id=c.id and m.email=lower(u.email)
  where a.id=p_id and a.enabled and a.deleted_at is null
- and private.totus_module_can(u.email,'prestashop','edit') and private.totus_module_can(u.email,'equipo','create'))
+ and(private.totus_module_can(u.email,'prestashop','create') or private.totus_module_can(u.email,'prestashop','edit')) and private.totus_module_can(u.email,'equipo','create'))
 $$;
 revoke all on function private.totus_prestashop_rule_allowed(uuid) from public,anon,authenticated;
 
@@ -90,9 +104,11 @@ begin
    else
     update private.totus_prestashop_automations set owner_id=auth.uid(),name=trim(p_data->>'name'),stores=shops,online_modules=p_data->'online_modules',channel_id=(p_data->>'channel_id')::uuid,interval_hours=(p_data->>'interval_hours')::integer,enabled=(p_data->>'enabled')::boolean,revision=revision+1,updated_at=now(),next_run_at=now()+make_interval(hours=>(p_data->>'interval_hours')::integer) where id=target;
    end if;
-   update private.totus_prestashop_automations set recipe=p_data->>'recipe',min_count=(p_data->>'min_count')::integer,period_days=(p_data->>'period_days')::integer,daily_start=(p_data->>'daily_start')::time,daily_end=(p_data->>'daily_end')::time where id=target;
+   if coalesce(p_data->>'frequency','') not in ('interval','daily','weekly') or coalesce(p_data->>'at_time','')!~'^([01][0-9]|2[0-3]):[0-5][0-9]$' or jsonb_typeof(p_data->'weekdays') is distinct from 'array' then raise exception 'Revisa el calendario de ejecución.';end if;
+   update private.totus_prestashop_automations set frequency=p_data->>'frequency',at_time=(p_data->>'at_time')::time,weekdays=array(select distinct jsonb_array_elements_text(p_data->'weekdays')::integer),recipe=p_data->>'recipe',min_count=(p_data->>'min_count')::integer,period_days=(p_data->>'period_days')::integer,daily_start=(p_data->>'daily_start')::time,daily_end=(p_data->>'daily_end')::time where id=target;
+   update private.totus_prestashop_automations set next_run_at=private.totus_prestashop_next_run(id) where id=target;
   elsif p_action='toggle' then
-   update private.totus_prestashop_automations set enabled=not enabled,revision=revision+1,updated_at=now(),next_run_at=now()+make_interval(hours=>interval_hours) where id=target;
+   update private.totus_prestashop_automations set enabled=not enabled,revision=revision+1,updated_at=now(),next_run_at=private.totus_prestashop_next_run(id) where id=target;
   elsif p_action='remove' then
    update private.totus_prestashop_automations set enabled=false,deleted_at=now(),revision=revision+1,updated_at=now() where id=target;
   elsif p_action='run' then
@@ -110,7 +126,7 @@ grant execute on function public.totus_prestashop_automations(text,jsonb) to aut
 create function private.totus_prestashop_dispatch() returns integer language plpgsql security definer set search_path='' as $$
 declare a private.totus_prestashop_automations;j uuid;ticket text;count_jobs integer=0;
 begin
- update private.totus_prestashop_jobs set status='failed',finished_at=now(),last_error='La ejecución caducó; se reintentará sin duplicar avisos.' where status in ('pending','working') and expires_at<now();
+ with expired as(update private.totus_prestashop_jobs set status='failed',finished_at=now(),last_error='La ejecución caducó; se reintentará sin duplicar avisos.' where status in ('pending','working') and expires_at<now() returning automation_id) update private.totus_prestashop_automations set last_error='Ejecución caducada; reintento pendiente.',next_run_at=least(next_run_at,now()+interval '5 minutes') where id in(select automation_id from expired);
  for a in select * from private.totus_prestashop_automations where enabled and deleted_at is null and next_run_at<=now() order by next_run_at for update skip locked limit 10 loop
   if exists(select 1 from private.totus_prestashop_jobs where automation_id=a.id and status in ('pending','working')) then continue;end if;
   if not private.totus_prestashop_rule_allowed(a.id) then update private.totus_prestashop_automations set last_error='Revisa los permisos del responsable y el acceso al canal.',next_run_at=now()+interval '2 hours' where id=a.id;continue;end if;
@@ -118,7 +134,7 @@ begin
   insert into private.totus_prestashop_jobs(automation_id,revision,ticket_hash,window_from,window_to)
   values(a.id,a.revision,encode(extensions.digest(ticket,'sha256'),'hex'),greatest(a.starts_at,coalesce(a.last_success_at,a.starts_at)-interval '2 hours'),now()) returning id into j;
   perform net.http_post(url:='https://awmojepsasikxocoeqtu.supabase.co/functions/v1/totus-prestashop-alerts',headers:='{"Content-Type":"application/json"}'::jsonb,body:=jsonb_build_object('job',j,'ticket',ticket),timeout_milliseconds:=60000);
-  update private.totus_prestashop_automations set next_run_at=now()+make_interval(hours=>a.interval_hours) where id=a.id;count_jobs=count_jobs+1;
+  update private.totus_prestashop_automations set next_run_at=private.totus_prestashop_next_run(a.id) where id=a.id;count_jobs=count_jobs+1;
  end loop;
  delete from private.totus_prestashop_jobs where status in ('done','failed','partial') and finished_at<now()-interval '90 days';
  return count_jobs;
