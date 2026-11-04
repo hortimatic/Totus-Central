@@ -1,4 +1,4 @@
-import {clickModuleLink} from './ui-navigation.mjs';
+import {navigate,clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
@@ -59,7 +59,7 @@ try{
    return {data:null,error:{message:'Missing mock RPC'}};
   };
  });
- const nav=()=>clickModuleLink(page,page.locator('#nav [data-route="cotejos"]'));
+ const nav=()=>navigate(page,'cotejos');
  await nav();await page.getByText('Sin recepciones',{exact:true}).waitFor();
  await page.locator('[data-action="stock-new"]').click();
  assert.equal(await page.locator('[data-action="stock-back"]').getAttribute('class'),'btn link','Back link uses the same record navigation as Pricing/invoices');

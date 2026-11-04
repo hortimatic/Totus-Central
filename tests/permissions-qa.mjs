@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {canUser,permissionsFor,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../src/permissions.js';
-assert.equal(PERMISSION_MODULES.length,12);
+assert.equal(PERMISSION_MODULES.length,13);
 assert.deepEqual(PERMISSION_ACTIONS.map(x=>x[0]),['view','create','edit','delete','export']);
 const admin={email:'admin@example.invalid',role:'admin'};
 const manager={email:'manager@example.invalid',role:'gerente'};
@@ -15,6 +15,14 @@ assert.equal(canUser(manager,'administracion','view'),true);
 assert.equal(canUser(manager,'administracion','create'),false);
 assert.equal(canUser(manager,'fiscalidad','delete'),false);
 assert.equal(canUser(manager,'gastos','edit'),true);
+assert.equal(PERMISSION_MODULES.find(([id])=>id==='pricing')[1],'Precio');
+assert.equal(canUser(manager,'prestashop','view'),false,'Store access requires an explicit grant');
+assert.equal(canUser(staff,'prestashop','view'),false);
+const storeGrant={email:staff.email,module:'prestashop',can_view:true,can_create:true,can_edit:false,can_delete:false,can_export:false};
+assert.equal(canUser(staff,'prestashop','create',[storeGrant]),true);
+assert.equal(canUser(staff,'prestashop','edit',[storeGrant]),false);
+assert.equal(canUser(staff,'prestashop','create',[{...storeGrant,can_view:false}]),false);
+assert.equal(canUser(staff,'documentos','create',[storeGrant]),true,'Store grants must preserve existing receipt permissions');
 const override={email:'STAFF@EXAMPLE.INVALID',module:'gastos',can_view:true,can_create:true,can_edit:false,can_delete:false,can_export:false};
 assert.equal(canUser(staff,'gastos','create',[override]),true);
 assert.equal(canUser(staff,'gastos','create',[{...override,can_view:false}]),false,'Actions need module visibility');
@@ -30,7 +38,7 @@ assert.ok(app.includes("upsert(list,{onConflict:'email,module'})"),'Permission e
 assert.ok(app.includes('userPermissionsModal(el.dataset.email)'),'Permission modal must be reachable');
 assert.ok(page.includes("btn('Permisos','user-permissions'"),'User table needs permission control');
 assert.ok(app.includes("if(!can(route,'view'))"),'Blocked routes must not navigate');
-console.log('PERMISSIONS QA: role matrix, nine modules, overrides, UI controls OK');
+console.log('PERMISSIONS QA: role matrix, 13 modules, store grants, overrides, UI controls OK');
 
 assert.equal(canUser(staff,'configuracion','view'),true);assert.equal(canUser(manager,'configuracion','view'),true);assert.equal(canUser(manager,'configuracion','edit'),false);
 assert.equal(canUser(staff,'configuracion','edit',[{...override,module:'configuracion',can_edit:true}]),true);

@@ -263,7 +263,7 @@ const FIELD_CONTEXT_HELP={
  pqPvp:'Precio final al público antes del descuento de venta de esta consulta.',
  pqCompetitor:'Precio final de referencia para comparar con tu venta después del descuento. Es opcional.',
  pqDiscount:'Porcentaje que se descuenta de tu PVP para simular la venta. No es el descuento del proveedor.',
- ppProvider:'Proveedor que ofrece este coste de compra. Es una comparativa de Pricing; guardarla no crea una factura ni un gasto.',
+ ppProvider:'Proveedor que ofrece este coste de compra. Es una comparativa de Precio; guardarla no crea una factura ni un gasto.',
  ppNet:'Coste por unidad sin IVA ni recargo, antes del descuento del proveedor. Debes indicar un importe; cero solo si realmente no tiene coste.',
  ppShipping:'Transporte imputado a una unidad. Se añade al coste después del descuento del proveedor.',
  ppSelected:'Este proveedor se usa para calcular el coste del producto. Si no seleccionas uno, se usa la oferta de menor coste final.',

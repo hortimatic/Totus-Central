@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';
-import {clickModuleLink} from './ui-navigation.mjs';
+import {navigate,clickModuleLink} from './ui-navigation.mjs';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts/mobile-audit',{recursive:true});
 const routes=[
@@ -25,8 +25,8 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  for(const mod of routes){
   const nav=page.locator('#nav [data-route="'+mod.route+'"]');
-  if(await nav.count()!==1){errors.push(size+': missing '+mod.route+' main navigation');continue}
-  await clickModuleLink(page,nav);
+  if(mod.route==='cotejos'){await navigate(page,'cotejos');}else if(await nav.count()!==1){errors.push(size+': missing '+mod.route+' main navigation');continue}
+  if(mod.route!=='cotejos')await clickModuleLink(page,nav);
   for(const section of mod.sections){
    const key=size+'/'+mod.route+(section?'/'+section:'');
    if(section){

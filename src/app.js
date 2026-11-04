@@ -37,7 +37,7 @@ import {EXPENSE_REPORT_GROUPS,expenseReportOverride} from './expense-colors.js';
 import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingProviderPreview,pricingCompetition} from './pricing-core.js';
-import {stockAction,updateStockFileSelection} from './stock-ui.js';
+import {stockPage,stockAction,updateStockFileSelection} from './stock-ui.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan,annualReportPlan} from './report-package.js';
 import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
@@ -49,7 +49,7 @@ import {backupRetentionCount} from './backup-retention.js';
 import {selectReportData,matchesText,searchText,selectDocuments} from './report-period.js';
 import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,markFormFieldSaved} from './form-drafts.js';
 import {ROUTES,SUPABASE_URL} from './config.js';
-import {PERMISSION_MODULES,PERMISSION_ACTIONS,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
+import {PERMISSION_MODULES,PERMISSION_ACTIONS,PERMISSION_HELP,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
 import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,invalidateStorageUsage,resetStorageUsageSession,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash,homeStorageAlertHtml,homeStorageMetricsHtml} from './pages/main.js';
@@ -103,7 +103,7 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
 const titles={
  clientes:['Contactos','Clientes'],proveedores:['Contactos','Proveedores'],marcas:['Contactos','Marcas'],
  equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
- inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
+ inicio:['General','Inicio'],pricing:['Trabajo','Precio'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
  informes:['Control','Informes'],administracion:['Sistema','Administración'],prestashop:['Operaciones tienda','PrestaShop'],configuracion:['Sistema','Configuración']
 };
@@ -111,7 +111,7 @@ const titles={
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
-function can(module,action='view'){if(module==='prestashop')return isAdmin()&&can('configuracion','edit');if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+function can(module,action='view'){if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?personalInterfaceSettings(state):state.data.settings,actor:()=>state.user?.id,canEdit:section=>can('configuracion',section==='interfaz'?'view':'edit'),confirm:confirmAction,save:async(section,config,revision)=>{
  const owner=state.user?.id;if(!owner||!can('configuracion',section==='interfaz'?'view':'edit'))throw Error('No tienes permiso para editar esta configuración.');
  if(section==='interfaz'){
@@ -130,7 +130,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
-const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),loadReceipts:async shop=>{
+const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>can('prestashop','view'),receiptsOnly:()=>!canUser(state.user,'prestashop','view',state.data.userPermissions||[])&&!(isAdmin()&&can('configuracion','edit')),renderReceipts:()=>stockPage(),prepareReceipts:async({store,reset})=>{const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;await stockAction(reset?'stock-from-prestashop':'stock-refresh',{dataset:{storeId}},{render:()=>{},createStoredDocument,previewDocument,fileSha256});},onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),loadReceipts:async shop=>{
  if(!can('documentos','view'))throw Error('Necesitas acceso a Documentos para consultar las recepciones.');
  const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===shop)?.id;if(!storeId)throw Error('No se ha identificado la tienda de Totus.');
  const owner=state.user?.id,rows=[];
@@ -138,7 +138,7 @@ const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>
  throw Error('Usa los filtros de Recepciones para consultar este volumen de registros.');
 },onReceipts:async({store,id})=>{
  const owner=state.user?.id,storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;
- await navigateModule('cotejos');if(state.user?.id!==owner||state.route!=='cotejos')return;
+ await navigateModule('cotejos');if(state.user?.id!==owner||state.route!=='prestashop')return;
  await stockAction(id?'stock-open':'stock-from-prestashop',{dataset:{id,storeId}},{render,createStoredDocument,previewDocument,fileSha256});
 },onBilling:async source=>{
  if(!source){await navigateModule('facturacion');return;}
@@ -226,7 +226,7 @@ function renderNav(){
  const signature=JSON.stringify([config.navigationOrder,config.navigationCollapsed]);
  const collapsed=navigationLayoutSession.owner===state.user?.id&&navigationLayoutSession.config===signature?[...nav.querySelectorAll('[data-nav-section]:not([open])')].map(el=>el.dataset.navSection):String(config.navigationCollapsed||'').split(',');
  navigationLayoutSession={owner:state.user?.id,config:signature};
- const routes=orderedRoutes(config.navigationOrder).filter(routeAllowed);
+ const routes=orderedRoutes(config.navigationOrder).filter(r=>r.id!=='cotejos'&&routeAllowed(r));
  nav.innerHTML=NAV_GROUPS.map(([id,label])=>{
   const items=routes.filter(r=>r.group===label);if(!items.length)return '';
   return '<details class="nav-personal-group" data-nav-section="'+id+'" '+(!collapsed.includes(id)?'open':'')+'><summary>'+esc(label)+'</summary>'+items.map(r=>`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" title="${esc(r.label)}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span><span class="nav-label">${esc(r.label)}</span>${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`).join('')+'</details>';
@@ -421,6 +421,7 @@ async function refresh(message=''){
 }
 // Fetch before rendering the target so delayed reads never overwrite a new form.
 async function navigateModule(route,el=null,prepare=null){
+ if(route==='cotejos'){route='prestashop';prestashopUI.selectTab('receipts');}
  if(writeInProgress){toast('Espera a que termine la operación en curso.');return;}
  if(!state.user)return;
  if(!can(route,'view')){toast('No tienes permiso para acceder a esta sección.','bad');return;}
@@ -933,7 +934,7 @@ async function saveProduct(id='',next=false){
  for(const key of ['current_pvp','proposed_pvp','quick_competitor'])if(row[key]!=null&&row[key]<0)throw new Error('Los precios no pueden ser negativos.');
  if(row.product_type==='simple'&&[...document.querySelectorAll('.pricing-draft-variant input')].some(field=>field.value.trim())&&!confirm('Has rellenado variantes. Al guardar como producto simple esas variantes nuevas no se guardarán. ¿Quieres continuar como simple?'))return;
  const variants=row.product_type==='variants'?readDraftVariants(document,state.data.variants):[];
- if(variants.length&&!can('pricing','create'))throw new Error('Para añadir variantes necesitas permiso para crear en Pricing.');
+ if(variants.length&&!can('pricing','create'))throw new Error('Para añadir variantes necesitas permiso para crear en Precio.');
  if(row.product_type==='variants'&&!variants.length&&!state.data.variants.some(v=>v.product_id===id))throw new Error('Añade al menos una variante con su referencia, coste y PVP.');
  const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
  const saved=savedResult.product;
@@ -947,11 +948,11 @@ async function recordProductHistory(productId,variantId,snapshot){
   const context={product:snapshot.product||state.data.products.find(p=>p.id===productId),variants,providers:state.data.providerPrices.filter(p=>p.product_id===productId),competitors:state.data.competitors.filter(p=>p.product_id===productId),tax_settings:{vat:state.data.settings?.default_sales_vat_rate??21,re:state.data.settings?.purchase_re_rate??5.2},...snapshot};
   await insert('price_history',{product_id:productId,variant_id:variantId,user_id:state.user?.id||null,snapshot:context});return true
  }
- catch(error){console.warn('No se pudo registrar el historial de Pricing',error);return false}
+ catch(error){console.warn('No se pudo registrar el historial de Precio',error);return false}
 }
 async function productHistory(productId){
  const rows=await select('price_history',{order:'created_at',filter:q=>q.eq('product_id',productId)});
- modal('Historial de Pricing',rows.length?rows.map(row=>{
+ modal('Historial de Precio',rows.length?rows.map(row=>{
   const s=row.snapshot||{},v=s.variant,p=s.product;
   const label={PRODUCTO_EDITADO:'Producto actualizado',PRODUCTO_CREADO:'Producto creado',VARIANTE_EDITADA:'Variante actualizada',VARIANTE_CREADA:'Variante creada',PROVEEDOR_EDITADO:'Coste de proveedor actualizado'}[s.action]||'Cambio de precio';
   const savedVariants=Array.isArray(s.variants)?s.variants:[],settings=s.tax_settings?{default_sales_vat_rate:s.tax_settings.vat,purchase_re_rate:s.tax_settings.re}:state.data.settings;
@@ -1169,7 +1170,7 @@ async function deleteFamily(id){
 
 function providersManager(){
  const rows=state.data.providers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
- const body=`<div class="section-head"><div><p>Directorio único de proveedores para Pricing.</p></div>${btn('Nuevo proveedor','provider-new','primary')}</div>
+ const body=`<div class="section-head"><div><p>Directorio único de proveedores para Precio.</p></div>${btn('Nuevo proveedor','provider-new','primary')}</div>
  <div class="stack" style="margin-top:14px">${rows.length?rows.map(p=>`<div class="summary-row"><div><b>${esc(p.name)}</b><div class="small muted">${state.data.providerPrices.filter(x=>x.provider_id===p.id).length} precios vinculados</div></div><div class="inline-actions">${btn('Editar','provider-edit','secondary',`data-id="${p.id}"`)}${btn('Eliminar','provider-delete','danger',`data-id="${p.id}"`)}</div></div>`).join(''):'<div class="empty"><strong>Sin proveedores</strong><span>Añade el primero.</span></div>'}</div>`;
  modal('Proveedores',body);
 }
@@ -1873,7 +1874,7 @@ function rolePermissionsModal(role){
   const restricted=isCustom&&module==='administracion';
   const preset=restricted?'none':rolePresetFor(values);
   const cells=PERMISSION_ACTIONS.map(([action,txt])=>`<label class="role-access-check"><input type="checkbox" id="roleperm_${module}_${action}" ${values[action]&&!restricted?'checked':''} ${restricted?'disabled':''}><span>${esc(txt)}</span></label>`).join('');
-  return `<div class="role-module" data-module="${module}"><div class="role-module-head"><div><strong>${esc(label)}</strong><p>${restricted?'La administración de usuarios y ajustes críticos está reservada a los roles del sistema.':'Elige el acceso general o ajusta cada operación.'}</p></div><select class="role-preset" id="rolepreset_${module}" data-module="${module}" ${restricted?'disabled':''} aria-label="Nivel de acceso a ${esc(label)}"><option value="none" ${preset==='none'?'selected':''}>Sin acceso</option><option value="read" ${preset==='read'?'selected':''}>Solo consultar</option><option value="work" ${preset==='work'?'selected':''}>Consultar y gestionar</option><option value="all" ${preset==='all'?'selected':''}>Control completo</option><option value="custom" ${preset==='custom'?'selected':''}>Personalizado</option></select></div><details class="role-module-detail"><summary>Ajustar acciones individualmente</summary><div class="role-access-checks">${cells}</div></details></div>`;
+  return `<div class="role-module" data-module="${module}"><div class="role-module-head"><div><strong>${esc(label)}</strong><p>${restricted?'La administración de usuarios y ajustes críticos está reservada a los roles del sistema.':esc(PERMISSION_HELP[module]||'Elige el acceso general o ajusta cada operación.')}</p></div><select class="role-preset" id="rolepreset_${module}" data-module="${module}" ${restricted?'disabled':''} aria-label="Nivel de acceso a ${esc(label)}"><option value="none" ${preset==='none'?'selected':''}>Sin acceso</option><option value="read" ${preset==='read'?'selected':''}>Solo consultar</option><option value="work" ${preset==='work'?'selected':''}>Consultar y gestionar</option><option value="all" ${preset==='all'?'selected':''}>Control completo</option><option value="custom" ${preset==='custom'?'selected':''}>Personalizado</option></select></div><details class="role-module-detail"><summary>Ajustar acciones individualmente</summary><div class="role-access-checks">${cells}</div></details></div>`;
  }).join('');
  const body=`<div class="stack"><div class="note">Los cambios de <b>${esc(definition.name)}</b> se aplican a todos los usuarios de este rol que no tengan permisos individuales. <b>Ver</b> es necesario para permitir cualquier otra acción. No se modifican permisos de otros roles.</div>
  <div class="role-bulk"><label for="roleBulkPreset">Aplicar un nivel a todos los módulos</label><select id="roleBulkPreset"><option value="read">Solo consultar</option><option value="work">Consultar y gestionar</option><option value="all">Control completo</option><option value="none">Sin acceso</option></select>${btn('Aplicar a todos','role-bulk-apply','secondary')}</div>
@@ -1969,7 +1970,7 @@ function userPermissionsModal(email){
  const rows=PERMISSION_MODULES.map(([module,label])=>{
   const values=permissionsFor(member,module,state.data.userPermissions||[]);
   const cells=PERMISSION_ACTIONS.map(([action,actionLabel])=>`<td class="permission-cell"><label title="${esc(actionLabel)}: ${esc(label)}"><input type="checkbox" id="perm_${module}_${action}" ${values[action]?'checked':''} aria-label="${esc(actionLabel)} en ${esc(label)}"></label></td>`).join('');
-  return `<tr><th scope="row">${esc(label)}</th>${cells}</tr>`;
+  return `<tr><th scope="row">${esc(label)}${PERMISSION_HELP[module]?`<p class="small muted">${esc(PERMISSION_HELP[module])}</p>`:''}</th>${cells}</tr>`;
  }).join('');
  const head=PERMISSION_ACTIONS.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('');
  const body=`<div class="stack"><p>Define los permisos de <b>${esc(member.full_name||member.email)}</b> (<b>${esc(member.role)}</b>). Los cambios se aplican también en el servidor. Para restablecer los permisos habituales del rol, utiliza el botón correspondiente.</p><div class="table-scroll"><table class="permissions-table"><thead><tr><th scope="col">Módulo</th>${head}</tr></thead><tbody>${rows}</tbody></table></div><div class="form-actions">${btn('Restablecer rol','user-permissions-reset','secondary',`data-email="${esc(email)}"`)}${btn('Guardar permisos','user-permissions-save','primary',`data-email="${esc(email)}"`)}</div></div>`;
@@ -3085,7 +3086,7 @@ document.addEventListener('change',async e=>{
  if(e.target?.id==='prType'){
   if(input('prInitialProvider'))input('prInitialProvider').hidden=e.target.value==='variants';
   const section=input('prDraftVariants');if(section)section.hidden=e.target.value!=='variants';
-  if(section?.querySelector('p'))section.querySelector('p').textContent=!can('pricing','create')?'Para añadir variantes necesitas permiso para crear en Pricing.':'Rellena aquí las nuevas variantes. Se guardan junto con el producto.';
+  if(section?.querySelector('p'))section.querySelector('p').textContent=!can('pricing','create')?'Para añadir variantes necesitas permiso para crear en Precio.':'Rellena aquí las nuevas variantes. Se guardan junto con el producto.';
   if(e.target.value==='variants'&&can('pricing','create')&&!document.querySelector('.pricing-draft-variant')&&!state.data.variants.some(v=>v.product_id===getView('pricing').id))input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());
   updateProductStudy();return;
  }
@@ -3243,7 +3244,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
- setRoute(requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule));
+ const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);
  await refresh();chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}

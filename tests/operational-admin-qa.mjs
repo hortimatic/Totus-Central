@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createActivityLog} from '../src/activity-log.js';
 import {canUser,defaultRolePermissions,setRolePermissions,PERMISSION_MODULES} from '../src/permissions.js';
-assert.equal(PERMISSION_MODULES.length,12);assert.equal(canUser(null,'equipo','view'),false);
+assert.equal(PERMISSION_MODULES.length,13);assert.equal(canUser(null,'equipo','view'),false);
 const user={role:'encargado',email:'staff@qa.invalid'};assert(canUser(user,'tareas','create'));
 setRolePermissions([{role:'encargado',module:'equipo',can_view:false,can_create:false}]);assert.equal(canUser(user,'equipo','view'),false);assert.equal(canUser(user,'equipo','view',[{email:user.email,module:'equipo',can_view:true}]),true);setRolePermissions([]);
 let owner='staff@qa.invalid',fail=true,states=[],calls=[];const saved=new Set();

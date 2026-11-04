@@ -14,7 +14,7 @@ try{
  const nav=r=>clickModuleLink(page,page.locator('#nav [data-route="'+r+'"]'));
  await nav('administracion');await page.locator('[data-action="user-permissions"][data-email="worker@qa.invalid"]').click();
  for(const module of ['equipo','tareas']){assert.equal(await page.locator('#perm_'+module+'_view').count(),1);await page.locator('#perm_'+module+'_create').uncheck();}
- await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===12);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
+ await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===13);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='configuracion').can_edit),true);
  await nav('cajas');await page.locator('[data-action="closing-edit"][data-id="'+fixture.id+'"]').click();await page.getByRole('button',{name:'Modificar cierre',exact:true}).click();
  assert.equal(await page.locator('#clReported').inputValue(),'200');assert.equal(await page.locator('#drOpen_'+fixture.drawer).inputValue(),'100');assert.equal(await page.locator('#drClose_'+fixture.drawer).inputValue(),'150');assert.equal(await page.locator('#drCard_'+fixture.drawer).inputValue(),'100');
