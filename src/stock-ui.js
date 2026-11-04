@@ -9,7 +9,7 @@ const initialView=()=>({loaded:false,receipts:[],context:null,history:[],mode:'l
 const view=initialView();let owner='',navigationEpoch=0;
 const actorKey=()=>String(state.user?.email||'').toLowerCase();
 function syncOwner(){if(owner!==actorKey()){owner=actorKey();navigationEpoch++;Object.assign(view,initialView());}}
-const readScope=()=>JSON.stringify([actorKey(),state.route,navigationEpoch]);
+const readScope=()=>JSON.stringify([actorKey(),state.route,navigationEpoch,state.route==='prestashop'?document.querySelector('#prestashopRoot [data-tab][aria-pressed="true"]')?.dataset.tab:null]);
 const currentRead=scope=>scope===readScope();
 const storeName=id=>state.data.stores.find(s=>s.id===id)?.name||'Tienda';
 const label=code=>STOCK_STATES[code]||code;
