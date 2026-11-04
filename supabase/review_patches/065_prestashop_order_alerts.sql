@@ -3,7 +3,7 @@ begin;
 set local lock_timeout='5s';
 set local statement_timeout='60s';
 create table private.totus_prestashop_automations(
- id uuid primary key default gen_random_uuid(),owner_id uuid not null references auth.users(id),
+ id uuid primary key default gen_random_uuid(),owner_id uuid references auth.users(id) on delete set null,
  name text not null check(length(name) between 3 and 100),stores text[] not null,
  recipe text not null default 'online_orders',min_count integer not null default 1 check(min_count between 0 and 1000000),period_days integer not null default 1 check(period_days between 1 and 365),daily_start time not null default '00:00',daily_end time not null default '23:59',
  online_modules jsonb not null,channel_id uuid not null references public.ops_chat_channels(id),
@@ -77,7 +77,7 @@ begin
   target=nullif(p_data->>'id','')::uuid;
   if target is not null then
    select * into strict cfg from private.totus_prestashop_automations where id=target and deleted_at is null for update;
-   if cfg.owner_id<>auth.uid() and not exists(select 1 from public.team_members where email=actor and active and role='admin') then raise exception 'Esta automatización pertenece a otra cuenta.';end if;
+   if cfg.owner_id is distinct from auth.uid() and not exists(select 1 from public.team_members where email=actor and active and role='admin') then raise exception 'Esta automatización pertenece a otra cuenta.';end if;
    if cfg.revision is distinct from (p_data->>'revision')::bigint then raise exception 'La automatización ha cambiado. Actualiza antes de guardar.';end if;
   end if;
   operation=case when p_action='remove' then 'delete' when target is null then 'create' else 'edit' end;
