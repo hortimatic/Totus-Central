@@ -16,11 +16,11 @@ try{
    db.ops_stock_sources=['supplier','prestashop'].map((kind,i)=>({id:crypto.randomUUID(),receipt_id:r.id,source_kind:kind,document_id:crypto.randomUUID(),extraction:{state:i?'partial':'ready'},extracted_text:'Referencia;Producto;Variante;Cantidad;Unidad\nREF-1;Producto demostración;10 mg;'+(i?'8':'10')+';uds'}));
    db.ops_documents=db.ops_stock_sources.map(s=>({id:s.document_id,original_name:s.source_kind+'.txt',storage_path:'demo/'+s.source_kind,store_id:store}));window.ruleQA={writes:[],failOnce:true};
    sb.rpc=async(name,p={})=>{
-    if(name==='totus_stock_context')return {data:{receipt:structuredClone(r),sources:db.ops_stock_sources.map(s=>({...structuredClone(s),document:db.ops_documents.find(d=>d.id===s.document_id)})),equivalences:[]},error:null};
+    if(name==='totus_stock_context'){if(window.ruleQA.failRead){window.ruleQA.failRead=false;return {data:null,error:{message:'Lectura temporalmente indisponible'}};}return {data:{receipt:structuredClone(r),sources:db.ops_stock_sources.map(s=>({...structuredClone(s),document:db.ops_documents.find(d=>d.id===s.document_id)})),equivalences:[]},error:null};}
     if(name==='totus_stock_save_result'){
      if(window.ruleQA.failOnce){window.ruleQA.failOnce=false;return {data:null,error:{message:'Fallo temporal de guardado de prueba'}};}
      if(p.p_revision!==r.revision)return {data:null,error:{message:'La recepción ha cambiado'}};
-     window.ruleQA.writes.push(structuredClone(p));r.result=structuredClone(p.p_result);r.status=stockSummary(r.result,db.ops_stock_sources).status;r.revision++;db.ops_stock_revisions.push({id:crypto.randomUUID(),receipt_id:r.id,revision:r.revision,action:'result_saved',actor_email:'qa@example.invalid',created_at:new Date().toISOString()});return {data:structuredClone(r),error:null};
+     window.ruleQA.writes.push(structuredClone(p));window.ruleQA.failRead=true;r.result=structuredClone(p.p_result);r.status=stockSummary(r.result,db.ops_stock_sources).status;r.revision++;db.ops_stock_revisions.push({id:crypto.randomUUID(),receipt_id:r.id,revision:r.revision,action:'result_saved',actor_email:'qa@example.invalid',created_at:new Date().toISOString()});return {data:structuredClone(r),error:null};
     }return original(name,p);
    };
   });
@@ -30,6 +30,7 @@ try{
   for(const section of await page.locator('[data-rule-document]').all()){await section.locator('[data-rule-note]').fill('He verificado el original completo, las líneas, sus variantes y sus unidades.');await section.locator('[data-rule-reviewed]').check();}
   await page.getByRole('button',{name:'Comparar documentos sin IA',exact:true}).click();await page.locator('.stock-rule-proposal').waitFor();assert.match(await page.locator('.stock-rule-proposal').innerText(),/Con diferencias/);assert.match(await page.locator('.stock-rule-results').innerText(),/-2/);
   await page.getByRole('button',{name:'Guardar cotejo sin IA',exact:true}).click();await page.locator('[data-rule-error]').filter({hasText:'Fallo temporal'}).waitFor();assert(await page.locator('.stock-rule-proposal').isVisible());
+  await page.getByRole('button',{name:'Guardar cotejo sin IA',exact:true}).click();await page.locator('[data-rule-error]').filter({hasText:'El cotejo se ha guardado'}).waitFor();
   await page.getByRole('button',{name:'Guardar cotejo sin IA',exact:true}).click();await page.getByText('Cotejo sin IA guardado y comprobado en la recepción.',{exact:true}).waitFor();
   const saved=await page.evaluate(()=>ruleQA.writes);assert.equal(saved.length,1);assert.equal(saved[0].p_result.engine.uses_ai,false);assert.equal(saved[0].p_result.rows[0].prestashop_qty,8);assert.equal(saved[0].p_result.rows[0].supplier_qty,10);assert.equal(saved[0].p_result.rows[0].source_refs.length,2);
   assert.equal(await page.evaluate(()=>__mockDb.ops_stock_receipts[0].revision),2);assert.equal(await page.locator('.stock-page').evaluate(e=>e.scrollWidth>e.clientWidth+2),false);assert.deepEqual(ai,[]);assert.deepEqual(errors,[]);

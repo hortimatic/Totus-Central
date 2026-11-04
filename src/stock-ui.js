@@ -155,7 +155,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  if(a==='stock-rules-new'){
   if(!canEdit())throw Error('Necesitas permiso de edición en Documentos para guardar un cotejo.');
   const c=view.context;if(!c?.sources?.some(s=>s.source_kind==='supplier')||!c.sources.some(s=>s.source_kind==='prestashop'))throw Error('Asocia una factura o albarán y la entrada de mercancía de PrestaShop.');
-  const scope=readScope(),receiptId=c.receipt.id,revision=c.receipt.revision;
+  const scope=readScope(),receiptId=c.receipt.id,revision=c.receipt.revision;let savedFingerprint=null;
   const {mountStockRuleEditor}=await import('./stock-rules-ui.js');if(!currentRead(scope))return;
   stockModal('Cotejar factura con entrada · sin IA','<div id="stockRuleEditor"></div>');
   mountStockRuleEditor(document.getElementById('stockRuleEditor'),structuredClone(c),{
@@ -163,8 +163,12 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
    preview:d=>downloadFile('business-documents',d.storage_path,d),
    save:async result=>{
     if(!currentRead(scope)||!canEdit())throw Error('La sesión ha cambiado. Vuelve a abrir el cotejo.');
-    await rpc('totus_stock_save_result',{p_id:receiptId,p_revision:revision,p_result:result});
-    if(!currentRead(scope))return;closeModal();if(!await context(receiptId))return;render();toast('Cotejo sin IA guardado y comprobado en la recepción.');
+    const fingerprint=JSON.stringify(result);
+    if(savedFingerprint&&savedFingerprint!==fingerprint)throw Error('La revisión anterior ya se guardó. Reintenta comprobarla o actualiza la ficha antes de modificarla de nuevo.');
+    if(!savedFingerprint){await rpc('totus_stock_save_result',{p_id:receiptId,p_revision:revision,p_result:result});savedFingerprint=fingerprint;}
+    if(!currentRead(scope))return;
+    try{if(!await context(receiptId))return;}catch{throw Error('El cotejo se ha guardado, pero falta comprobar la lectura. Pulsa Guardar de nuevo para verificarlo sin crear otra revisión.');}
+    closeModal();render();toast('Cotejo sin IA guardado y comprobado en la recepción.');
    }
   });return;
  }
