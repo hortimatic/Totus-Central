@@ -1164,7 +1164,7 @@ export function invoiceLineRow(line={},index=0){
   <div class="form-grid">
    ${formField('Descripción',`ivDesc_${index}`,line.description||'')}
    ${formField('Cantidad',`ivQty_${index}`,line.quantity??1,'number','step="0.01"')}
-   ${formField('Precio sin IVA',`ivUnit_${index}`,line.unit_price_base??'','number','step="0.01"')}
+   ${formField('Precio sin IVA',`ivUnit_${index}`,line.unit_price_base??'','number','step="0.000001"')}
    ${formField('Descuento (%)',`ivDisc_${index}`,line.discount_pct??0,'number','step="0.1" min="0" max="100"')}
    ${formField('IVA (%)',`ivVat_${index}`,line.vat_rate??state.data.settings?.default_sales_vat_rate??21,'number','step="0.1" min="0"')}
   </div>
