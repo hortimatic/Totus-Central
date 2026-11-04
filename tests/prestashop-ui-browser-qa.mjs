@@ -28,9 +28,9 @@ try{
   assert.match(await page.evaluate(()=>prestaQA.calls[0].from),/00:00:00$/);
   assert.equal(await page.getByText(/Fin de la consulta/).count(),1);
   assert.equal(await page.locator('.ps-order-thumbs img').count(),2);assert.equal(await page.locator('.ps-order-thumbs img').first().getAttribute('src'),'https://hortimatic.com/14352-home_default/product.jpg');
-  await page.locator('[data-ps-order="100"]>summary').click();await page.getByRole('button',{name:'Leer productos del pedido',exact:true}).click();
-  await page.getByText('Producto de prueba <script>',{exact:true}).waitFor();await page.getByText('Cliente Ficticio',{exact:false}).waitFor();assert.equal(await page.locator('.ps-order-detail script').count(),0);
-  await page.getByRole('button',{name:'Referencia para Facturación',exact:true}).click();assert.equal(await page.evaluate(()=>prestaQA.billing[0].reference),'prestashop:hortimatic:order:100');
+  await page.locator('[data-ps-order="100"]>summary').click();
+  await page.locator('[data-ps-order="100"]').getByText('Producto de prueba <script>',{exact:true}).waitFor();await page.getByText('Cliente Ficticio',{exact:false}).waitFor();assert.equal(await page.locator('.ps-order-detail script').count(),0);
+  await page.getByRole('button',{name:'Preparar factura',exact:true}).click();assert.equal(await page.evaluate(()=>prestaQA.billing[0].reference),'prestashop:hortimatic:order:100');
   assert.equal(await page.getByRole('button',{name:'Cargar siguiente página',exact:true}).isDisabled(),true);await page.locator('.ps-order>summary').filter({hasText:'PEDIDO-1'}).waitFor();assert.equal(await page.locator('.ps-order').count(),2);
   await page.getByText('Vista',{exact:true}).click();await page.locator('[data-ps-column=payment]').uncheck();assert.equal(await page.locator('.ps-order-payment').count(),0);
   await page.locator('[data-ps-filter=query]').fill('PEDIDO-1');await page.getByRole('button',{name:'Aplicar búsqueda',exact:true}).click();assert.equal(await page.locator('.ps-order').count(),1);

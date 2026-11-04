@@ -9,7 +9,10 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Configura la URL HTTPS del servicio /api de PrestaShop.');
  base.pathname=base.pathname.replace(/\/$/,'')+'/'+page.resource;
  base.searchParams.set('output_format','JSON');
- base.searchParams.set('display','['+page.fields.join(',')+']');
+ const associations={products:['categories[id]','images[id]','combinations[id]'],combinations:['product_option_values[id]','images[id]'],order_details:['taxes[id]']};
+ // Webservice 1.7 requires named association subfields, not a field named associations.
+ const display=page.fields.flatMap(field=>field==='associations'?(associations[page.resource]||[]):[field]);
+ base.searchParams.set('display','['+display.join(',')+']');
  base.searchParams.set('sort',page.sort==='newest'?'[id_DESC]':'[id_ASC]');
  if(page.from){base.searchParams.set('date','1');base.searchParams.set('filter[date_add]','['+page.from+','+page.to+']');}
  if(page.recordId)base.searchParams.set('filter[id]','['+page.recordId+']');
