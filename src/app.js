@@ -5,7 +5,7 @@ import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
 import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
-import {createPrestashopUI,prestashopWorkspacePage} from './prestashop-ui.js';
+import {createPrestashopUI} from './prestashop-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -234,7 +234,7 @@ function render(){
  history.replaceState(null,'',moduleUrl(location.href,state.route));
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
- const renderer=state.route==='prestashop'?prestashopWorkspacePage:renderers[state.route]||renderers.inicio;
+ const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();
  draftPreviewResizeObserver?.disconnect();
