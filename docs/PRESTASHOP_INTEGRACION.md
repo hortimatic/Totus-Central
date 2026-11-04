@@ -17,7 +17,7 @@ Este documento diferencia el lector publicado de la ampliación propuesta en la 
 - Selector permanente de tienda y cinco zonas: Resumen, Pedidos y ventas, Catálogo, Cajas y facturas, Conexión.
 - Fechas y horas, orden reciente/antiguo, paginación acumulativa y búsqueda en lo ya consultado. Vista compacta/cómoda y columnas seleccionables durante la sesión.
 - Pedidos desplegables: importes, pago, validez, estado de origen, referencia y fecha; detalle bajo demanda con productos, variantes, cantidades, cliente y direcciones disponibles. Datos opcionales denegados no ocultan líneas comprobadas.
-- Indicadores y gráfico horario de pedidos válidos **consultados**. Una página incompleta se etiqueta como parcial. No se interpreta como cierre, venta neta de devoluciones ni beneficio.
+- Indicadores y gráfico horario de pedidos válidos **consultados y con moneda EUR verificada**. Una moneda no comprobada no se presenta como euros ni se mezcla en el resumen. Una página incompleta se etiqueta como parcial. No se interpreta como cierre, venta neta de devoluciones ni beneficio.
 - Catálogo: referencias, nombres multidioma, EAN y peso, avisos y exportación. Un aviso a nivel producto no acredita que falte el dato en todas las combinaciones.
 - Claves privadas permanecen en el servidor. No hay SQL libre, claves en URL ni cambios de negocio en PrestaShop.
 - El registro de llamadas guarda únicamente tienda, recurso, página y número de filas; los nuevos datos personales no se copian al registro de consumo.
@@ -27,7 +27,7 @@ Este documento diferencia el lector publicado de la ampliación propuesta en la 
 
 Acción `prestashop_read` de `totus-connections`, sesión administradora y permiso actual de Configuración. Se conserva esta autorización: no se abre el módulo a otros roles mediante una preferencia visual.
 
-Recursos permitidos: `orders`, `products`, `order_details`, `customers`, `addresses`, `stock_availables`, `stock_movements`. Campos explícitos, tamaño de página 1–100, páginas acotadas, HTTPS validado, credencial Basic en cabecera, sin redirecciones. `customers` y `addresses` exigen un ID concreto; `order_details` exige pedido. No se exponen contraseñas, claves seguras de clientes ni costes de compra.
+Recursos permitidos: `orders`, `products`, `order_details`, `customers`, `addresses`, `currencies`, `stock_availables`, `stock_movements`. Campos explícitos, tamaño de página 1–100, páginas acotadas, HTTPS validado, credencial Basic en cabecera, sin redirecciones. `customers`, `addresses` y `currencies` exigen un ID concreto; `order_details` exige pedido. No se exponen contraseñas, claves seguras de clientes ni costes de compra.
 
 Los filtros temporales se envían como `filter[date_add]` y `date=1`, con horas tal como están registradas en PrestaShop. Debe contrastarse el huso real de las tiendas antes de automatizar jornadas de Madrid. Se rechaza un resultado fuera del periodo o perteneciente a otro pedido/registro. No se mezcla una página consultada con filtros nuevos.
 

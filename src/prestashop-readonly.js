@@ -4,7 +4,8 @@ export const PRESTASHOP_STORES=Object.freeze([
  {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok'}
 ]);
 export const PRESTASHOP_RESOURCES=Object.freeze({
- orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_discounts_tax_incl']),
+ orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_discounts_tax_incl']),
+ currencies:Object.freeze(['id','iso_code','name']),
  customers:Object.freeze(['id','firstname','lastname','email','company']),
  addresses:Object.freeze(['id','firstname','lastname','company','address1','address2','postcode','city','phone','phone_mobile','vat_number','dni']),
  products:Object.freeze(['id','reference','name','ean13','weight','active','date_add','date_upd']),
@@ -36,7 +37,7 @@ export function prestashopQuery(input){
   if(!valid(input.from)||!valid(input.to)||input.to<input.from)throw Error('Revisa el periodo de consulta.');
   out.from=input.from;out.to=input.to;
  }
- if(['customers','addresses'].includes(input.resource)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
+ if(['customers','addresses','currencies'].includes(input.resource)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  if(input.order_id!==undefined){
   if(input.resource!=='order_details'||!/^\d{1,15}$/.test(String(input.order_id)))throw Error('Pedido de detalle no válido.');
   out.orderId=String(input.order_id);

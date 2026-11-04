@@ -9,8 +9,8 @@ export function orderInsights(rows){
  const hours=Array(24).fill(0);let amount=0,valid=0,excluded=0,unknown=0;
  for(const row of rows){
   const cents=sourceCents(row.total_paid_tax_incl);
-  if(!['0','1'].includes(row.valid)||cents===null){unknown++;continue;}
-  if(row.valid!=='1'){excluded++;continue;}
+  if(row.valid==='0'){excluded++;continue;}
+  if(row.valid!=='1'||cents===null||row.currency_code!=='EUR'||!Number.isSafeInteger(amount+cents)){unknown++;continue;}
   amount+=cents;valid++;
   const hour=Number(String(row.date_add).slice(11,13));if(Number.isInteger(hour)&&hour>=0&&hour<24)hours[hour]+=cents;
  }
