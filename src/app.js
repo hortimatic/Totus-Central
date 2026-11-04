@@ -1,3 +1,4 @@
+import {prestashopInvoiceDraft} from './prestashop-invoice.js';
 import {createApiManager} from './api-manager.js';
 import {NAV_GROUPS,orderedRoutes} from './navigation-preferences.js';
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
@@ -131,9 +132,11 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
 const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),onBilling:async source=>{
  if(!source){await navigateModule('facturacion');return;}
- modal('Referencia de ticket para Facturación','<p><b>'+esc(source.store)+'</b> · Pedido #'+esc(source.order.id)+' · '+esc(source.order.reference||'Sin referencia')+'</p><p>Referencia de origen: <code>'+esc(source.reference)+'</code></p><p>Fecha del pedido: '+esc(fmtDate(source.order.date_add))+'</p><p>Factura indicada por PrestaShop: '+esc(source.order.invoice_number&&source.order.invoice_number!=='0'?'#'+source.order.invoice_number:'No informada en esta consulta')+'</p><p class="note">Esta referencia identifica el origen; no es un número de factura. Antes de emitir hay que comprobar si existe factura simplificada o completa, conservar sus datos y evitar duplicar ingresos. Todavía no se ha creado ni emitido ningún documento.</p><div class="form-actions"><button type="button" class="btn secondary" data-presta-copy-reference>Copiar referencia</button><button type="button" class="btn primary" data-presta-open-billing>Abrir Facturación</button></div><p role="status" data-presta-reference-status></p>');
- const referenceStatus=document.querySelector('[data-presta-reference-status]');document.querySelector('[data-presta-copy-reference]').onclick=async()=>{try{await navigator.clipboard.writeText(source.reference);if(referenceStatus.isConnected)referenceStatus.textContent='Referencia copiada.';}catch{if(referenceStatus.isConnected)referenceStatus.textContent='Selecciona y copia la referencia mostrada arriba.';}};
- document.querySelector('[data-presta-open-billing]').onclick=async()=>{closeModal();await navigateModule('facturacion');};
+ const totusStore=state.data.stores.find(s=>s.name?.trim().toLowerCase()===source.store);
+ const draft=prestashopInvoiceDraft(source,totusStore?.id,isoToday());
+ modal('Preparar factura desde el pedido','<p><b>'+esc(source.store)+'</b> · Pedido #'+esc(source.order.id)+' · '+esc(source.order.reference||'Sin referencia')+'</p><p>'+draft.lines.length+' líneas · total original '+esc(money(Number(source.order.total_paid_tax_incl)))+'</p><p class="note">Se abrirá un borrador con las líneas y el origen. Selecciona el cliente real y revisa si el documento sustituye una factura simplificada. La numeración la asignará la serie de Totus al emitir; esta venta no se sumará otra vez a los cierres.</p><div class="form-actions"><button type="button" class="btn secondary" data-presta-cancel-billing>Cancelar</button><button type="button" class="btn primary" data-presta-open-billing>Preparar borrador en Facturación</button></div>');
+ document.querySelector('[data-presta-cancel-billing]').onclick=closeModal;
+ document.querySelector('[data-presta-open-billing]').onclick=async()=>{const owner=state.user?.id;closeModal();await navigateModule('facturacion');if(state.user?.id!==owner||state.route!=='facturacion')return;const existing=state.data.invoices.find(r=>r.document_type==='factura'&&r.invoice_kind==='invoice'&&r.purchase_order_ref===draft.purchase_order_ref);setView('facturacion',existing?{mode:'record',id:existing.id}:{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus',storeId:totusStore.id,prestashopDraft:draft});render();};
 } ,invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
@@ -876,7 +879,7 @@ async function saveInvoice(id='',type='factura',invoiceKind='invoice',origin='to
  let savedId;
  try{savedId=await businessWriter.execute($('#content > .page'),'totus_save_sales_document',{p_document:{...doc,...expectedWriteVersion($('#content > .page'),id)},p_lines:lines},'p_document')}
  catch(e){throw newSource?await rollbackNewDocument(newSource,e):e}
- setView('facturacion',{mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
+ setView('facturacion',{prestashopDraft:null,mode:'record',id:savedId,docType:type,invoiceKind:doc.invoice_kind,origin});
  await refresh(isProforma?'Proforma guardada.':'Documento guardado.');
 }
 async function saveInvoicePayment(id){
@@ -2806,20 +2809,20 @@ document.addEventListener('click',async e=>{
   if(a==='expense-document-unlink'){await unlinkExpenseDocument(el.dataset.expense,el.dataset.document);return}
   if(a==='export-expenses-current'){await ensureExcel();if(!isCurrentLibraryActor())return;exportCurrentModule('gastos');return}
   if(a==='expense-delete'){await deleteExpense(el.dataset.id);return}
-  if(a==='invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});setRoute('facturacion');render();return}
-  if(a==='proforma-new'){setView('facturacion',{mode:'record',id:null,docType:'proforma',invoiceKind:'invoice',origin:'totus'});render();return}
-  if(a==='rectifying-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus',rectifiedInvoiceId:null});render();return}
-  if(a==='external-invoice-new'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'externa'});render();return}
-  if(a==='invoice-edit'||a==='invoice-open'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);if(row){setView('facturacion',{mode:'record',id:row.id,docType:row.document_type,invoiceKind:row.invoice_kind,origin:row.origin});render()}return}
+  if(a==='invoice-new'){setView('facturacion',{prestashopDraft:null,mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus'});setRoute('facturacion');render();return}
+  if(a==='proforma-new'){setView('facturacion',{prestashopDraft:null,mode:'record',id:null,docType:'proforma',invoiceKind:'invoice',origin:'totus'});render();return}
+  if(a==='rectifying-new'){setView('facturacion',{prestashopDraft:null,mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus',rectifiedInvoiceId:null});render();return}
+  if(a==='external-invoice-new'){setView('facturacion',{prestashopDraft:null,mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'externa'});render();return}
+  if(a==='invoice-edit'||a==='invoice-open'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);if(row){setView('facturacion',{prestashopDraft:null,mode:'record',id:row.id,docType:row.document_type,invoiceKind:row.invoice_kind,origin:row.origin});render()}return}
   if(a==='invoice-save'){await saveInvoice(el.dataset.id||'',el.dataset.type||'factura',el.dataset.kind||'invoice',el.dataset.origin||'totus');return}
-  if(a==='invoice-back'){setView('facturacion',{mode:'list',id:null});render();return}
-  if(a==='billing-section'){setView('facturacion',{mode:'list',id:null,section:el.dataset.section||'documentos'});render();return}
+  if(a==='invoice-back'){setView('facturacion',{prestashopDraft:null,mode:'list',id:null});render();return}
+  if(a==='billing-section'){setView('facturacion',{prestashopDraft:null,mode:'list',id:null,section:el.dataset.section||'documentos'});render();return}
   if(a==='invoice-source-preview'){await previewDocument(el.dataset.id);return}
   if(a==='invoice-source-download'){await downloadDocument(el.dataset.id);return}
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
   if(a==='invoice-payment-save'){await saveInvoicePayment(el.dataset.id);return}
   if(a==='invoice-delete'){await deleteDraftInvoice(el.dataset.id);return}
-  if(a==='invoice-rectify'){setView('facturacion',{mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus',rectifiedInvoiceId:el.dataset.id});render();return}
+  if(a==='invoice-rectify'){setView('facturacion',{prestashopDraft:null,mode:'record',id:null,docType:'factura',invoiceKind:'rectifying',origin:'totus',rectifiedInvoiceId:el.dataset.id});render();return}
   if(a==='invoice-line-add'){addInvoiceLine();return}
   if(a==='invoice-line-remove'){removeInvoiceLine(el.dataset.index);return}
   if(a==='invoice-draft-preview'){await showDraftInvoicePreview();return}

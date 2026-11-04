@@ -1,10 +1,10 @@
 // Read-only PrestaShop contracts. Store names are explicit: never infer a shop from a URL.
 export const PRESTASHOP_STORES=Object.freeze([
- {key:'hortimatic',name:'Hortimatic',connectionName:'PrestaShop · Hortimatic'},
- {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok'}
+ {key:'hortimatic',name:'Hortimatic',connectionName:'PrestaShop · Hortimatic',origin:'https://hortimatic.com'},
+ {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok',origin:'https://newoldsmok.com'}
 ]);
 export const PRESTASHOP_RESOURCES=Object.freeze({
- orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_discounts_tax_incl']),
+ orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl']),
  currencies:Object.freeze(['id','iso_code','name']),
  customers:Object.freeze(['id','firstname','lastname','email','company']),
  addresses:Object.freeze(['id','firstname','lastname','company','address1','address2','postcode','city','phone','phone_mobile','vat_number','dni']),
@@ -38,10 +38,13 @@ export function prestashopQuery(input){
   out.from=input.from;out.to=input.to;
  }
  if(['customers','addresses','currencies'].includes(input.resource)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
+ const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
+ if(input.product_ids!==undefined){if(input.resource!=='products')throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
+ if(input.order_ids!==undefined){if(input.resource!=='order_details'||input.order_id!==undefined)throw Error('La selección no corresponde al recurso.');out.orderIds=ids(input.order_ids,25);}
  if(input.order_id!==undefined){
   if(input.resource!=='order_details'||!/^\d{1,15}$/.test(String(input.order_id)))throw Error('Pedido de detalle no válido.');
   out.orderId=String(input.order_id);
- }else if(input.resource==='order_details')throw Error('Selecciona el pedido para leer sus líneas.');
+ }else if(input.resource==='order_details'&&!out.orderIds)throw Error('Selecciona el pedido para leer sus líneas.');
  return out;
 }
 const scalar=value=>{
@@ -65,3 +68,5 @@ export function prestashopRows(payload,resource,pageSize){
  });
  return {rows,possibly_more:rows.length===pageSize};
 }
+
+export function prestashopProductImage(store,imageId){return /^\d+$/.test(String(imageId||''))&&String(imageId)!=='0'?prestashopStore(store).origin+'/'+imageId+'-home_default/product.jpg':null;}

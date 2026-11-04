@@ -1173,63 +1173,64 @@ export function invoiceLineRow(line={},index=0){
 }
 
 export function invoiceRecordHtml(row=null,docType='factura',invoiceKind='invoice',origin='totus'){
+ const draft=row||getView('facturacion').prestashopDraft;
  const isProforma=docType==='proforma';
  const isRect=invoiceKind==='rectifying';
  const isExternal=origin==='externa';
  const originalId=isRect?(row?.rectified_invoice_id||getView('facturacion').rectifiedInvoiceId):null;
  const rectified=state.data.invoices.find(x=>x.id===originalId);
  const rectifiedOptions=[{value:'',label:'Selecciona la factura emitida'},...state.data.invoices.filter(x=>x.id!==row?.id&&x.document_type==='factura'&&x.status==='emitida').map(x=>({value:x.id,label:(x.display_number||x.external_number_text||'Factura')+' · '+fmtDate(x.issue_date)+' · '+x.customer_name}))];
- const storeOptions=editableReferences(state.data.stores,row?.store_id).map(s=>({value:s.id,label:s.name}));
+ const storeOptions=editableReferences(state.data.stores,draft?.store_id).map(s=>({value:s.id,label:s.name}));
  const view=getView('facturacion');
- const selectedStore=row?.store_id||rectified?.store_id||view.storeId||storeOptions[0]?.value||'';
- const series=state.data.series.filter(s=>s.id===row?.series_id||s.active!==false&&Number(s.year)===Number(String(row?.issue_date||isoToday()).slice(0,4))&&s.document_type===docType&&(!s.store_id||s.store_id===selectedStore)&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).sort((a,b)=>Number(!!a.store_id)-Number(!!b.store_id)).map(s=>({value:s.id,label:s.code}));
- const activeTemplates=state.data.templates.filter(x=>x.id===row?.template_id||x.active!==false&&(!x.store_id||x.store_id===selectedStore));
+ const selectedStore=draft?.store_id||rectified?.store_id||view.storeId||storeOptions[0]?.value||'';
+ const series=state.data.series.filter(s=>s.id===draft?.series_id||s.active!==false&&Number(s.year)===Number(String(draft?.issue_date||isoToday()).slice(0,4))&&s.document_type===docType&&(!s.store_id||s.store_id===selectedStore)&&(!isProforma?s.series_kind===(isRect?'rectifying':'invoice'):true)).sort((a,b)=>Number(!!a.store_id)-Number(!!b.store_id)).map(s=>({value:s.id,label:s.code}));
+ const activeTemplates=state.data.templates.filter(x=>x.id===draft?.template_id||x.active!==false&&(!x.store_id||x.store_id===selectedStore));
  const defaultTemplate=activeTemplates.find(x=>x.store_id===selectedStore&&(isProforma?x.default_proforma:x.default_invoice))
    ||activeTemplates.find(x=>!x.store_id&&(isProforma?x.default_proforma:x.default_invoice));
- const configuredTemplate=state.data.templates.find(t=>t.id===row?.template_id)||defaultTemplate;
+ const configuredTemplate=state.data.templates.find(t=>t.id===draft?.template_id)||defaultTemplate;
  const templates=[{value:'',label:'Sin plantilla'},...activeTemplates.map(x=>({value:x.id,label:x.name+(x.store_id?' · '+storeName(x.store_id):' · General')}))];
- const customers=[{value:'',label:'Cliente nuevo / manual'},...editableReferences(state.data.customers,row?.customer_id).map(x=>({value:x.id,label:x.name}))];
- const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):isRect&&rectified?state.data.invoiceLines.filter(x=>x.invoice_id===rectified.id).sort((a,b)=>a.sort_order-b.sort_order).map(x=>({...x,quantity:-Number(x.quantity)})):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:state.data.settings?.default_sales_vat_rate??21}];
+ const customers=[{value:'',label:'Cliente nuevo / manual'},...editableReferences(state.data.customers,draft?.customer_id).map(x=>({value:x.id,label:x.name}))];
+ const lines=row?state.data.invoiceLines.filter(x=>x.invoice_id===row.id).sort((a,b)=>a.sort_order-b.sort_order):draft?.prestashop_source?draft.lines:isRect&&rectified?state.data.invoiceLines.filter(x=>x.invoice_id===rectified.id).sort((a,b)=>a.sort_order-b.sort_order).map(x=>({...x,quantity:-Number(x.quantity)})):[{description:'',quantity:1,unit_price_base:'',discount_pct:0,vat_rate:state.data.settings?.default_sales_vat_rate??21}];
  const original=row?.source_document_id?state.data.documents.find(x=>x.id===row.source_document_id):null;
  const title=isProforma?'Proforma':isRect?'Factura rectificativa':isExternal?'Factura externa':'Factura';
  const issued=!!row&&row.status!=='borrador',lock=issued?'disabled':'';
  return `<div class="page record-page">
   <div class="record-toolbar"><div><button class="btn link" data-action="invoice-back">← Volver a facturación</button><div class="eyebrow">Facturación · ${title}</div><h2>${row?esc(row.display_number||row.external_number_text||'Borrador'):'Nueva '+title.toLowerCase()}</h2></div><div class="inline-actions">${btn('Vista previa ampliada','invoice-draft-preview','secondary')}${row?stateBadge(row.status):'<span class="badge info">Nuevo</span>'}</div></div>
-  <p class="small muted invoice-issuer-note">Emisor: <b>${esc(state.data.settings?.business_name||'Titular pendiente de configurar')}</b>. NIF y domicilio fiscal comunes. Elige la tienda para aplicar su logo; la serie de facturas es compartida.</p><div class="record-layout invoice-workspace">
+  ${draft?.prestashop_source?'<section class="note"><b>Borrador preparado desde PrestaShop</b><p>Comprueba el cliente y el documento original antes de emitir. No se ha asignado número ni registrado una venta adicional.</p></section>':''}<p class="small muted invoice-issuer-note">Emisor: <b>${esc(state.data.settings?.business_name||'Titular pendiente de configurar')}</b>. NIF y domicilio fiscal comunes. Elige la tienda para aplicar su logo; la serie de facturas es compartida.</p><div class="record-layout invoice-workspace">
    <div class="record-main stack">
     <section class="card card-pad"><div class="section-head"><div><h3>1 · Documento</h3><p>Serie, fechas y referencia.</p></div></div>
      <div class="form-grid" style="margin-top:14px">
-      ${selectField('Tienda','ivStore',storeOptions,selectedStore,lock)}
-      ${selectField('Serie','ivSeries',series,row?.series_id||series[0]?.value||'',lock)}
-      ${formField('Fecha emisión','ivDate',row?.issue_date||isoToday(),'date',lock)}
-      ${formField('Fecha operación','ivOperation',row?.operation_date||'','date',lock)}
-      ${formField('Fecha vencimiento','ivDue',row?.due_date||'','date',lock)}
+      ${selectField('Tienda','ivStore',storeOptions,selectedStore,draft?.purchase_order_ref?.startsWith('prestashop:')?'disabled':lock)}
+      ${selectField('Serie','ivSeries',series,draft?.series_id||series[0]?.value||'',lock)}
+      ${formField('Fecha emisión','ivDate',draft?.issue_date||isoToday(),'date',lock)}
+      ${formField('Fecha operación','ivOperation',draft?.operation_date||'','date',lock)}
+      ${formField('Fecha vencimiento','ivDue',draft?.due_date||'','date',lock)}
       ${isExternal?formField('Número externo','ivExternalNumber',row?.external_number_text||'','text',lock):''}
-      ${formField('Referencia pedido','ivPO',row?.purchase_order_ref||'','text',lock)}
+      ${formField('Referencia pedido','ivPO',draft?.purchase_order_ref||'','text',draft?.purchase_order_ref?.startsWith('prestashop:')?'disabled':lock)}
       ${isRect?selectField('Factura original','ivRectifiedInvoice',rectifiedOptions,originalId||'',lock):''}
       ${isRect?`<label class="wide">Motivo de rectificación<textarea id="ivRectificationReason" rows="2" ${lock}>${esc(row?.rectification_reason||'')}</textarea></label><p class="note wide">Rectificación por diferencias: las líneas indican el importe que se añade o se resta a la factura original. Introduce una cantidad negativa para una devolución.</p>`:''}
      </div>
      ${isExternal?`<div class="attachment-box" style="margin-top:14px"><div><b>Original obligatorio</b><div class="small muted">${original?esc(original.original_name):'Sin archivo original'}</div></div><div class="inline-actions">${original?btn('Vista previa','invoice-source-preview','secondary',`data-id="${original.id}"`):''}${original?btn('Descargar','invoice-source-download','secondary',`data-id="${original.id}"`):''}</div>${!issued?'<label class="file-picker">Seleccionar original<input id="ivSourceFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></label>':''}</div>`:''}
     </section>
     <section class="card card-pad"><div class="section-head"><div><h3>2 · Cliente</h3></div></div><div class="form-grid" style="margin-top:14px">
-      ${selectField('Cliente guardado','ivCustomerId',customers,row?.customer_id||'',lock)}
-      ${formField('Cliente','ivCustomer',row?.customer_name??rectified?.customer_name??'','text',lock)}
-      ${formField('NIF/CIF','ivTax',row?.customer_tax_id??rectified?.customer_tax_id??'','text',lock)}
-      ${formField('Email','ivEmail',row?.customer_email??rectified?.customer_email??'','email',lock)}
-      <label class="wide">Dirección<textarea id="ivAddress" rows="2" ${lock}>${esc(row?.customer_address??rectified?.customer_address??'')}</textarea></label>
+      ${selectField('Cliente guardado','ivCustomerId',customers,draft?.customer_id||'',lock)}
+      ${formField('Cliente','ivCustomer',draft?.customer_name??rectified?.customer_name??'','text',lock)}
+      ${formField('NIF/CIF','ivTax',draft?.customer_tax_id??rectified?.customer_tax_id??'','text',lock)}
+      ${formField('Email','ivEmail',draft?.customer_email??rectified?.customer_email??'','email',lock)}
+      <label class="wide">Dirección<textarea id="ivAddress" rows="2" ${lock}>${esc(draft?.customer_address??rectified?.customer_address??'')}</textarea></label>
      </div></section>
     <section class="card card-pad"><div class="section-head"><div><h3>3 · Líneas</h3><p>Conceptos facturados.</p></div>${!issued?btn('+ Añadir línea','invoice-line-add','secondary'):''}</div><div id="invoiceLines" class="stack" style="margin-top:14px">${lines.map((l,i)=>issued?invoiceLineRow(l,i).replaceAll('<input ','<input disabled ').replaceAll('data-action="invoice-line-remove"','disabled data-action="invoice-line-remove"'):invoiceLineRow(l,i)).join('')}</div></section>
     <section class="card card-pad"><div class="section-head"><div><h3>4 · Cobro${issued&&!isProforma?' · editable tras emitir':' y notas'}</h3><p>${issued&&!isProforma?'Solo estos datos de cobro pueden cambiar después de emitir.':'Forma de pago, estado y notas internas.'}</p></div></div><div class="form-grid" style="margin-top:14px">
-      ${formField('Concepto general','ivConcept',row?.concept||'','text',lock)}
-      ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],row?.payment_method||'transferencia')}
-      ${!isProforma?selectField(isRect?'Estado de liquidación':'Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:isRect?'Saldada':'Pagada'},{value:'parcial',label:'Parcial'}],row?.paid_status||'pendiente'):''}
-      ${!isProforma?formField(isRect?'Fecha de liquidación':'Fecha de cobro','ivPaidDate',row?.paid_date||'','date'):''}
-      ${!isProforma?formField(isRect?'Importe cobrado o devuelto':'Importe cobrado','ivPaidAmount',row?.paid_amount??0,'number','step="0.01" min="0"'):''}
+      ${formField('Concepto general','ivConcept',draft?.concept||'','text',lock)}
+      ${selectField('Forma de pago','ivPayment',[{value:'efectivo',label:'Efectivo'},{value:'tarjeta',label:'Tarjeta'},{value:'transferencia',label:'Transferencia'},{value:'bizum',label:'Bizum'},{value:'domiciliado',label:'Domiciliado'},{value:'otro',label:'Otro'}],draft?.payment_method||'transferencia')}
+      ${!isProforma?selectField(isRect?'Estado de liquidación':'Estado de cobro','ivPaidStatus',[{value:'pendiente',label:'Pendiente'},{value:'pagada',label:isRect?'Saldada':'Pagada'},{value:'parcial',label:'Parcial'}],draft?.paid_status||'pendiente'):''}
+      ${!isProforma?formField(isRect?'Fecha de liquidación':'Fecha de cobro','ivPaidDate',draft?.paid_date||'','date'):''}
+      ${!isProforma?formField(isRect?'Importe cobrado o devuelto':'Importe cobrado','ivPaidAmount',draft?.paid_amount??0,'number','step="0.01" min="0"'):''}
       ${isRect?'<p class="note wide">En una rectificativa negativa, este importe corresponde al dinero devuelto al cliente y se escribe en positivo. Deja Pendiente si todavía no se ha devuelto.</p>':''}
-      ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${(row?.include_in_income??(isRect?rectified?.include_in_income:false))?'checked':''} ${issued?'disabled':''}> Sumar esta factura a ingresos porque no está incluida en los cierres diarios</label>`:''}
-      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" data-template-default="${esc(configuredTemplate?.notes_default||'')}" ${issued?'disabled':''}>${esc(row?.notes??configuredTemplate?.notes_default??'')}</textarea></label>
+      ${!isProforma?`<label class="check-field wide"><input id="ivIncludeIncome" type="checkbox" ${(draft?.include_in_income??(isRect?rectified?.include_in_income:false))?'checked':''} ${issued?'disabled':''}> Sumar esta factura a ingresos porque no está incluida en los cierres diarios</label>`:''}
+      <label class="wide">Notas internas<textarea id="ivNotes" rows="3" data-template-default="${esc(configuredTemplate?.notes_default||'')}" ${issued?'disabled':''}>${esc(draft?.notes??configuredTemplate?.notes_default??'')}</textarea></label>
      </div></section>
-    <details class="card card-pad design-details invoice-presentation"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid invoice-presentation-fields" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,row?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2" ${lock}>${esc(row?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2" ${lock}>${esc(row?.footer_text||'')}</textarea></label></div></details>
+    <details class="card card-pad design-details invoice-presentation"><summary><b>5 · Plantilla y presentación</b><span class="small muted">Secundario</span></summary><div class="form-grid invoice-presentation-fields" style="margin-top:14px">${selectField('Plantilla','ivTemplate',templates,draft?.template_id||defaultTemplate?.id||'',lock)}<label class="wide">Términos<textarea id="ivTerms" rows="2" ${lock}>${esc(draft?.terms_text||'')}</textarea></label><label class="wide">Pie<textarea id="ivFooter" rows="2" ${lock}>${esc(draft?.footer_text||'')}</textarea></label></div></details>
    </div>
    <aside class="record-side"><section class="card card-pad sticky-summary"><h3>Resumen</h3><div class="summary-row"><span>Base</span><strong id="ivSumBase">${money(row?.base_amount||0)}</strong></div><div class="summary-row"><span>IVA</span><strong id="ivSumVat">${money(row?.vat_amount||0)}</strong></div><div class="summary-row"><span>Total</span><strong id="ivSumTotal">${money(row?.total_amount||0)}</strong></div><div class="stack" style="margin-top:14px">${row?.status==='borrador'||!row?btn('Guardar borrador','invoice-save','secondary',`${row?`data-id="${row.id}" `:''}data-type="${docType}" data-kind="${invoiceKind}" data-origin="${origin}"`):''}${row?.status==='borrador'?btn(isProforma?'Emitir proforma':'Emitir documento','invoice-finalize','primary',`data-id="${row.id}"`):''}${row&&issued&&!isProforma?btn(isRect?'Guardar liquidación':'Guardar cobro','invoice-payment-save','primary',`data-id="${row.id}"`):''}${row&&isProforma&&['emitida','aceptada'].includes(row.status)?btn('Convertir en factura','proforma-convert','primary',`data-id="${row.id}"`):''}${row?.status==='borrador'?btn('Eliminar borrador','invoice-delete','danger',`data-id="${row.id}"`):''}${row&&issued&&!isProforma?btn('Crear rectificativa','invoice-rectify','secondary',`data-id="${row.id}"`):''}${row&&issued?'<p class="small muted">La factura emitida conserva su numeración: para corregirla, crea una rectificativa.</p>':''}${btn('Volver','invoice-back','secondary')}</div></section><section class="card card-pad invoice-preview-card"><h3>Vista previa en vivo</h3><p class="small muted">Se actualiza mientras completas el documento. No guarda ni emite la factura.</p><div id="invoiceDraftPreview" class="invoice-live-preview"></div></section></aside>
   </div>

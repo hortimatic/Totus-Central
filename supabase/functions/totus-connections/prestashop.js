@@ -1,4 +1,4 @@
-import {safeEndpoint,connectionHeaders,boundedJson} from './transport.js';
+import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 import {prestashopStore,storeConnection,prestashopQuery,prestashopRows} from '../../../src/prestashop-readonly.js';
 // Credentials and requests remain on the server. Never accept a URL, SQL or field name from the browser.
 export async function readPrestashopPage(connection,input,{request=fetch,resolve}={}){
@@ -13,6 +13,8 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  base.searchParams.set('sort',page.sort==='newest'?'[id_DESC]':'[id_ASC]');
  if(page.from){base.searchParams.set('date','1');base.searchParams.set('filter[date_add]','['+page.from+','+page.to+']');}
  if(page.recordId)base.searchParams.set('filter[id]','['+page.recordId+']');
+ if(page.productIds)base.searchParams.set('filter[id]','['+page.productIds.join('|')+']');
+ if(page.orderIds)base.searchParams.set('filter[id_order]','['+page.orderIds.join('|')+']');
  if(page.orderId)base.searchParams.set('filter[id_order]','['+page.orderId+']');
  base.searchParams.set('limit',page.offset+','+page.pageSize);
  const target=await safeEndpoint(base.href,resolve);
@@ -24,5 +26,28 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.from&&parsed.rows.some(row=>!row.date_add||row.date_add<page.from||row.date_add>page.to))throw Error('PrestaShop devolvió registros fuera del periodo. No se han atribuido al intervalo solicitado.');
  if(page.recordId&&parsed.rows.some(row=>row.id!==page.recordId))throw Error('PrestaShop devolvió otro registro de detalle.');
  if(page.orderId&&parsed.rows.some(row=>row.id_order!==page.orderId))throw Error('PrestaShop devolvió líneas de otro pedido.');
+ if(page.productIds&&parsed.rows.some(row=>!page.productIds.includes(row.id)))throw Error('Producto ajeno a la selección.');
+ if(page.orderIds&&parsed.rows.some(row=>!page.orderIds.includes(row.id_order)))throw Error('Línea ajena a los pedidos seleccionados.');
  return {ok:true,store:store.key,resource:page.resource,page:page.page,page_size:page.pageSize,...parsed};
+}
+
+export function prestashopCapabilities(xml,version=''){
+ if(typeof xml!=='string'||!/^\s*(?:<\?xml[\s\S]*?\?>\s*)?<prestashop(?:\s|>)/i.test(xml))throw Error('El Webservice no ha devuelto su catálogo de recursos.');
+ const block=xml.match(/<api(?:\s[^>]*)?>([\s\S]*?)<\/api>/i)?.[1];if(!block)throw Error('Catálogo de recursos ausente.');
+ const resources=[];
+ for(const match of block.matchAll(/<([a-z][a-z0-9_]{0,63})\b([^>]*?)(?:\/?>)/gi)){
+  if(['description','schema'].includes(match[1]))continue;
+  const attrs=match[2],get=/\bget=["']true["']/i.test(attrs);if(!/\bget=/.test(attrs))continue;
+  resources.push({name:match[1],readable:get});
+ }
+ const names=new Set();for(const r of resources){if(names.has(r.name))throw Error('Catálogo duplicado.');names.add(r.name);}
+ return {version:/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(version)?version:null,resources,tpv_resources:resources.filter(r=>r.readable&&/(?:posp|tpv|cash|caja|till)/i.test(r.name)).map(r=>r.name)};
+}
+export async function discoverPrestashop(connection,input,{request=fetch,resolve}={}){
+ const store=prestashopStore(input.store);
+ if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('La conexión debe estar activada, verificada y autorizada para esta tienda.');
+ const base=new URL(connection.endpoint);if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice no válida.');base.pathname=base.pathname.replace(/\/$/,'')+'/';
+ const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
+ if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar el catálogo del Webservice (HTTP '+response.status+').');}
+ return {ok:true,store:store.key,...prestashopCapabilities(await boundedText(response,131072),response.headers.get('psws-version')||'')};
 }
