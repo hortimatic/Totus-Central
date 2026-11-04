@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {APPEARANCE_FIELDS,appearanceValues,appearanceVariables,loginVariables,contrastText} from '../src/appearance-core.js';
-assert.equal(Object.keys(APPEARANCE_FIELDS.interfaz).length,39);
+for(const key of ['navigationOrder','navigationCollapsed','navigationBackground','navigationText','navigationSectionText','navigationActive'])assert(APPEARANCE_FIELDS.interfaz[key],key);
 assert.equal(Object.keys(APPEARANCE_FIELDS.login).length,29);
 assert.equal(appearanceValues('interfaz',{fontSize:999,primary:'red;background:url(x)',theme:'x'}).fontSize,16);
 assert.equal(appearanceValues('interfaz',{primary:'red;background:url(x)'}).primary,'#2563eb');

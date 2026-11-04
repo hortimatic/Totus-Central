@@ -1,4 +1,5 @@
 import {createApiManager} from './api-manager.js';
+import {NAV_GROUPS,orderedRoutes} from './navigation-preferences.js';
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
 import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
@@ -103,13 +104,13 @@ const titles={
  equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
  inicio:['General','Inicio'],pricing:['Trabajo','Pricing'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
- informes:['Control','Informes'],administracion:['Sistema','Administración'],configuracion:['Sistema','Configuración']
+ informes:['Control','Informes'],administracion:['Sistema','Administración'],prestashop:['Operaciones tienda','PrestaShop'],configuracion:['Sistema','Configuración']
 };
 
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
-function can(module,action='view'){if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+function can(module,action='view'){if(module==='prestashop')return isAdmin()&&can('configuracion','edit');if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?personalInterfaceSettings(state):state.data.settings,actor:()=>state.user?.id,canEdit:section=>can('configuracion',section==='interfaz'?'view':'edit'),confirm:confirmAction,save:async(section,config,revision)=>{
  const owner=state.user?.id;if(!owner||!can('configuracion',section==='interfaz'?'view':'edit'))throw Error('No tienes permiso para editar esta configuración.');
  if(section==='interfaz'){
@@ -118,7 +119,7 @@ const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?pe
   const saved=await rpc('totus_save_appearance',{p_section:section,p_config:config,p_expected_revision:revision});
   if(state.user?.id!==owner)throw Error('La sesión ha cambiado.');Object.assign(state.data.settings,saved);
  }
- applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
+ applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);renderNav();applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
 }});
 const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.profiles.find(p=>p.id===state.user?.id),documents:()=>state.data.documents,can,rpc,
  canManage:()=>isAdmin()&&can('administracion','edit'),
@@ -128,7 +129,12 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
-const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),onManage:()=>document.querySelector('[data-config-section="connections"]')?.click(),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),onBilling:async source=>{
+ if(!source){await navigateModule('facturacion');return;}
+ modal('Referencia de ticket para Facturación','<p><b>'+esc(source.store)+'</b> · Pedido #'+esc(source.order.id)+' · '+esc(source.order.reference||'Sin referencia')+'</p><p>Referencia de origen: <code>'+esc(source.reference)+'</code></p><p>Fecha del pedido: '+esc(fmtDate(source.order.date_add))+'</p><p>Factura indicada por PrestaShop: '+esc(source.order.invoice_number&&source.order.invoice_number!=='0'?'#'+source.order.invoice_number:'No informada en esta consulta')+'</p><p class="note">Esta referencia identifica el origen; no es un número de factura. Antes de emitir hay que comprobar si existe factura simplificada o completa, conservar sus datos y evitar duplicar ingresos. Todavía no se ha creado ni emitido ningún documento.</p><div class="form-actions"><button type="button" class="btn secondary" data-presta-copy-reference>Copiar referencia</button><button type="button" class="btn primary" data-presta-open-billing>Abrir Facturación</button></div><p role="status" data-presta-reference-status></p>');
+ const referenceStatus=document.querySelector('[data-presta-reference-status]');document.querySelector('[data-presta-copy-reference]').onclick=async()=>{try{await navigator.clipboard.writeText(source.reference);if(referenceStatus.isConnected)referenceStatus.textContent='Referencia copiada.';}catch{if(referenceStatus.isConnected)referenceStatus.textContent='Selecciona y copia la referencia mostrada arriba.';}};
+ document.querySelector('[data-presta-open-billing]').onclick=async()=>{closeModal();await navigateModule('facturacion');};
+} ,invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -201,14 +207,21 @@ function hideForbiddenButtons(){
  });
 }
 
+let navigationLayoutSession={owner:null,config:null};
 function renderNav(){
- const nav=$('#nav'),scrollTop=nav.scrollTop,scrollLeft=nav.scrollLeft;let current='';
- nav.innerHTML=ROUTES.filter(routeAllowed).map(r=>{
-  const group=r.group!==current?(current=r.group,`<div class="eyebrow nav-group-label">${esc(r.group)}</div>`):'';
-  return group+`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" title="${esc(r.label)}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span><span class="nav-label">${esc(r.label)}</span>${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`
+ const nav=$('#nav'),scrollTop=nav.scrollTop,scrollLeft=nav.scrollLeft,config=personalInterfaceSettings(state).appearance_config||{};
+ const signature=JSON.stringify([config.navigationOrder,config.navigationCollapsed]);
+ const collapsed=navigationLayoutSession.owner===state.user?.id&&navigationLayoutSession.config===signature?[...nav.querySelectorAll('[data-nav-section]:not([open])')].map(el=>el.dataset.navSection):String(config.navigationCollapsed||'').split(',');
+ navigationLayoutSession={owner:state.user?.id,config:signature};
+ const routes=orderedRoutes(config.navigationOrder).filter(routeAllowed);
+ nav.innerHTML=NAV_GROUPS.map(([id,label])=>{
+  const items=routes.filter(r=>r.group===label);if(!items.length)return '';
+  return '<details class="nav-personal-group" data-nav-section="'+id+'" '+(!collapsed.includes(id)?'open':'')+'><summary>'+esc(label)+'</summary>'+items.map(r=>`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" title="${esc(r.label)}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span><span class="nav-label">${esc(r.label)}</span>${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`).join('')+'</details>';
  }).join('');
+ // Folding is immediately usable. The initial layout is saved with the user's interface form.
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
+
 function render(){
  if(!state.user)return;
  headerTools.refreshAccess();
@@ -222,7 +235,7 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
- activityLog.navigate(state.route==='cotejos'?'recepciones':state.route==='configuracion'?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
+ activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':state.route==='configuracion'?'configuracion':'');
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
@@ -250,6 +263,7 @@ function render(){
   if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
   if(target&&can('tareas','view'))rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
  }
+ if(state.route==='prestashop')void prestashopUI.mount($('#prestashopRoot'));
  if(state.route==='configuracion'){
   appearanceUI.mount($('#appearanceRoot'));
   if(isAdmin()&&can('configuracion','edit')){
@@ -263,7 +277,7 @@ function render(){
  }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
-const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion'].includes(state.route)||root!==$('#content')));
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion','prestashop'].includes(state.route)||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;

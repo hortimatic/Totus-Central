@@ -1,3 +1,4 @@
+import {navigationEditor,bindNavigationEditor} from './navigation-preferences.js';
 import {installAppearanceTools} from './appearance-tools.js';
 import {APPEARANCE_FIELDS,APPEARANCE_PRESETS,appearanceValues,appearanceVariables,loginVariables} from './appearance-core.js';
 import {prepareChatBackground} from './chat-preferences.js';
@@ -52,6 +53,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
  }
  function field(key,f){
   const value=values[key],id='appearance-'+key;
+  if(section==='interfaz'){const editor=navigationEditor(key,value,esc);if(editor)return editor;}
   if(f.type==='image')return '<div class="field appearance-image-field"><label for="'+id+'">'+esc(f.label)+'</label><div class="appearance-image-upload">'+(value?'<img src="'+esc(value)+'" alt="Imagen seleccionada"><span class="small muted">Imagen preparada · '+Math.ceil(value.length*.75/1024)+' KB</span>':'<span class="appearance-image-empty" aria-hidden="true">▧</span><span class="small muted">JPG, PNG o WebP · hasta 5 MB. Se reduce antes de guardar.</span>')+'<input id="'+id+'" type="file" data-image="'+key+'" accept="image/jpeg,image/png,image/webp"><button class="btn secondary" type="button" data-remove-image="'+key+'" '+(value?'':'disabled')+'>Quitar imagen</button></div></div>';
   return '<label class="field" for="'+id+'">'+esc(f.label)+(f.type==='range'?' <output data-value="'+key+'">'+value+'</output>':'')+(f.type==='select'?'<select id="'+id+'" name="'+key+'">'+f.options.map(([v,label])=>'<option value="'+v+'" '+(v===value?'selected':'')+'>'+esc(label)+'</option>').join('')+'</select>':'<input id="'+id+'" name="'+key+'" type="'+f.type+'" value="'+esc(value)+'" '+(f.type==='range'?'min="'+f.min+'" max="'+f.max+'" step="1"':f.max?'maxlength="'+f.max+'"':'')+'>')+'</label>';
  }
@@ -60,7 +62,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
    ['Marca e identidad',['brandName','brandSubtitle','logoMode','customLogoData','logoHeight','theme']],
    ['Colores',['primary','secondary','accent','bg','surface','card','text','muted']],
    ['Fondo de la herramienta',['backgroundMode','customBackgroundData','backgroundDim']],
-   ['Barra de navegación y cabecera',['navigationMode','startModule','sidebarWidth','topbarHeight']],
+   ['Barra de navegación y cabecera',['navigationMode','startModule','sidebarWidth','topbarHeight','navigationBackground','navigationText','navigationSectionText','navigationActive','navigationOrder','navigationCollapsed']],
    ['Bordes y efectos',['borderColor','borderStrength','borderWidth','glowColor','cardGlow','buttonGlow','buttonFinish','hoverEffect']]
   ];
   interfaceGroups.push(['Tamaños y distribución',Object.keys(APPEARANCE_FIELDS.interfaz).filter(key=>!interfaceGroups.some(([,keys])=>keys.includes(key)))]);
@@ -101,6 +103,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm}){
   }
   if(opened)host.querySelectorAll('[data-appearance-group]').forEach(el=>{if(opened.has(el.dataset.appearanceGroup))el.open=opened.get(el.dataset.appearanceGroup);});
   installAppearanceTools(host,{section,editable:canEdit(section),query:toolsQuery,current:values,applyPreset:preset=>{if(busy||!canEdit(section))return;values=appearanceValues(section,{...read(),...preset});paint();}});
+  bindNavigationEditor(host,preview);
   preview();syncControls();
  }
  function load(){const row=settings(section)||{};revision=Number(row.appearance_revision||0);values=appearanceValues(section,row[section==='interfaz'?'appearance_config':'login_appearance']);baseline=JSON.stringify(values);paint();}

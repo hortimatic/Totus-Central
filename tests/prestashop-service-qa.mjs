@@ -6,6 +6,7 @@ const file=new URL('../supabase/functions/totus-connections/index.ts',import.met
 const source=readFileSync(file,'utf8')
  .replace(/import \{createClient\} from '[^']+';/,"const createClient=()=>{throw Error('Unexpected external client')};")
  .replace("'./github.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/github.js',import.meta.url).href))
+ .replace("'../../../src/prestashop-readonly.js'",JSON.stringify(new URL('../src/prestashop-readonly.js',import.meta.url).href))
  .replace("'./prestashop.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/prestashop.js',import.meta.url).href))
  .replace("'./transport.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/transport.js',import.meta.url).href));
 const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
@@ -70,4 +71,13 @@ test('a cross-shop request fails closed and still records a failed operation',as
   assert.match((await r.json()).error,/no corresponde/);
   assert(f.calls.some(c=>c.name==='totus_api_call'&&c.payload.p_result?.ok===false));
  }finally{if(old===undefined)delete globalThis.Deno;else globalThis.Deno=old;}
+});
+
+test('customer details are returned only to the authorized caller and not copied to usage history',async()=>{
+ const f=fixture(),previous=globalThis.Deno;globalThis.Deno={resolveDns:async()=>['8.8.8.8']};
+ try{
+  const r=await handle(req({...args,resource:'customers',record_id:'5',page_size:1}),env,f.factory,async()=>Response.json({customers:[{id:5,firstname:'Ficticio',lastname:'Prueba',email:'private@example.invalid',passwd:'never-return'}]}));
+  assert.equal(r.status,200);const body=await r.json();assert.equal(body.rows[0].firstname,'Ficticio');assert.equal(body.rows[0].passwd,undefined);
+  const recorded=f.calls.filter(c=>c.name==='totus_api_call'&&c.payload.p_result).map(c=>c.payload.p_result);assert.equal(recorded[0].rows_count,1);assert(!JSON.stringify(recorded).includes('private@example.invalid'));assert(!JSON.stringify(recorded).includes('Ficticio'));
+ }finally{if(previous===undefined)delete globalThis.Deno;else globalThis.Deno=previous;}
 });
