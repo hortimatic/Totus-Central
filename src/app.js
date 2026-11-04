@@ -1,4 +1,4 @@
-import {prestashopInvoiceDraft} from './prestashop-invoice.js';
+import {prestashopInvoiceDraft,prestashopInvoiceLineAmounts} from './prestashop-invoice.js';
 import {createApiManager} from './api-manager.js';
 import {NAV_GROUPS,orderedRoutes} from './navigation-preferences.js';
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
@@ -1026,7 +1026,8 @@ function readInvoiceDraft(){
  const round=value=>Math.sign(value)*Math.round((Math.abs(value)+Number.EPSILON)*100)/100;
  const lines=[...document.querySelectorAll('.invoice-line')].map((el,i)=>{
   const ix=el.dataset.lineIndex,quantity=n(val(`ivQty_${ix}`)),unit_price_base=n(val(`ivUnit_${ix}`)),discount_pct=Math.min(100,Math.max(0,n(val(`ivDisc_${ix}`)))),vat_rate=Math.max(0,n(val(`ivVat_${ix}`)));
-  const base_amount=round(quantity*unit_price_base*(1-discount_pct/100)),vat_amount=round(base_amount*vat_rate/100);
+  const sourceRef=current.purchase_order_ref||view.prestashopDraft?.purchase_order_ref||'',raw=quantity*unit_price_base*(1-discount_pct/100),source=sourceRef.startsWith('prestashop:')?prestashopInvoiceLineAmounts({quantity,unit_price_base,discount_pct,vat_rate}):null;
+  const base_amount=source?.base_amount??round(raw),vat_amount=source?.vat_amount??round(base_amount*vat_rate/100);
   return {sort_order:i,description:val(`ivDesc_${ix}`),quantity,unit_price_base,discount_pct,vat_rate,base_amount,vat_amount,total_amount:round(base_amount+vat_amount)};
  });
  const base_amount=round(lines.reduce((sum,line)=>sum+line.base_amount,0)),vat_amount=round(lines.reduce((sum,line)=>sum+line.vat_amount,0));

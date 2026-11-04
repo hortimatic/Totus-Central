@@ -1,0 +1,1 @@
+create table public.ops_sales_invoice_lines(invoice_id uuid,quantity numeric,unit_price_base numeric,discount_pct numeric,vat_rate numeric,base_amount numeric,vat_amount numeric,total_amount numeric);
