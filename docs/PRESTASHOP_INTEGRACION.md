@@ -73,3 +73,9 @@ Orden de despliegue tras controles: parche 061 de preferencias, servicio `totus-
 5. Programaciones persistentes, historial de ejecuciones y reintentos por tienda.
 6. Vínculo fiscal único con Facturación y pruebas de no duplicación de ingresos.
 7. Perfiles independientes para futuras instalaciones PrestaShop 8 y cambio de origen validado.
+
+
+## Consultas existentes aportadas por Diego
+La captura del gestor SQL muestra 20 de 21 consultas. Se ha añadido una biblioteca con esas 20 referencias y disponibilidad explícita. Las recetas de catálogo operan sobre las páginas leídas: los duplicados y recuentos no se presentan como totales hasta terminar la lectura. La consulta de ventas permite distinguir un intervalo continuo de una ventana horaria repetida cada día; por ejemplo 20:00–20:30.
+
+La captura confirma la referencia a `psog_posp_cajas` y `date_add`, pero no sus columnas ni la correspondencia de cierres, retiradas y medios de pago. No basta para importar cierres. Las consultas con idioma 1 y tienda 1 necesitan contraste por instalación. Un impacto de combinación cero no es precio final cero. Las valoraciones con factores fijos 1,21 y 1,262 requieren impuestos reales y costes fiables, por lo que no se presentan como beneficio real. No se ha habilitado ejecución libre de SQL.

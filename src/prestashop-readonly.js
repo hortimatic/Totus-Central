@@ -8,7 +8,7 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  currencies:Object.freeze(['id','iso_code','name']),
  customers:Object.freeze(['id','firstname','lastname','email','company']),
  addresses:Object.freeze(['id','firstname','lastname','company','address1','address2','postcode','city','phone','phone_mobile','vat_number','dni']),
- products:Object.freeze(['id','reference','name','ean13','weight','active','date_add','date_upd']),
+ products:Object.freeze(['id','reference','name','ean13','weight','active','date_add','date_upd','id_default_image']),
  order_details:Object.freeze(['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','total_price_tax_incl','total_price_tax_excl','unit_price_tax_incl','unit_price_tax_excl','reduction_percent']),
  stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity']),
  stock_movements:Object.freeze(['id','id_product','id_product_attribute','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','id_order','id_supply_order'])
