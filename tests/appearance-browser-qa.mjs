@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {APPEARANCE_FIELDS} from '../src/appearance-core.js';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 try{
@@ -11,7 +12,7 @@ try{
   const q=window.appearanceQA={row:{appearance_revision:0},calls:[],owner:'admin',edit:true};document.querySelector('#testContent').innerHTML=appearancePage();
   q.ui=createAppearanceUI({settings:()=>q.row,actor:()=>q.owner,canEdit:()=>q.edit,confirm:async()=>true,save:async(section,config,revision)=>{q.calls.push({section,config,revision});q.row={...q.row,[section==='interfaz'?'appearance_config':'login_appearance']:config,appearance_revision:revision+1};applyInterfaceAppearance(q.row.appearance_config);}});q.ui.mount(document.querySelector('#appearanceRoot'));q.applyLoginAppearance=applyLoginAppearance;
  });
- assert.equal(await page.locator('fieldset input,fieldset select').count(),39);
+ for(const [key,field] of Object.entries(APPEARANCE_FIELDS.interfaz))assert.equal(await page.locator(field.type==='image'?'[data-image='+key+']':'[name='+key+']').count(),1,'Control de interfaz: '+key);
  await page.locator('[name=brandName]').fill('Totus QA');assert.equal(await page.locator('#app .brand b').textContent(),'Totus Central','Preview must not change the app before save');
  await page.locator('[name=fontSize]').fill('15');await page.locator('[name=sidebarWidth]').fill('300');assert(await page.evaluate(()=>appearanceQA.ui.hasDraft()));
  await page.locator('[name=borderColor]').fill('#2255aa');await page.locator('[name=cardGlow]').fill('12');await page.locator('[name=buttonGlow]').fill('10');await page.locator('[name=buttonFinish]').selectOption('gloss');await page.locator('[data-preview-size=mobile]').click();assert(await page.locator('[data-appearance-preview]').evaluate(el=>el.clientWidth<=320));await page.locator('[data-preview-size=desktop]').click();
