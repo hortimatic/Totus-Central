@@ -45,6 +45,7 @@ jobs:
           html=html.replace('href="src/appearance.css"',f'href="src/appearance.css?v={sha}"')
           html=html.replace('href="src/interface-design.css"',f'href="src/interface-design.css?v={sha}"')
           html=html.replace('href="src/stitch-design.css"',f'href="src/stitch-design.css?v={sha}"')
+          html=html.replace('href="src/prestashop.css"',f'href="src/prestashop.css?v={sha}"')
           html=html.replace('href="src/tasks.css"',f'href="src/tasks.css?v={sha}"')
           html=html.replace('href="src/team-chat.css"',f'href="src/team-chat.css?v={sha}"')
           html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"').replace('src="src/bootstrap.js"',f'src="src/bootstrap.js?v={sha}"')

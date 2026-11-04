@@ -1,68 +1,46 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
-const browser=await chromium.launch({headless:true});
+import {mkdir} from 'node:fs/promises';
+import {startLocalServer} from './local-static-server.mjs';
+const localServer=await startLocalServer();
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
+await mkdir('artifacts/prestashop',{recursive:true});
 try{
- for(const width of [390,1440]){
+ for(const width of [390,768,1017,1440]){
   const page=await browser.newPage({viewport:{width,height:900}}),errors=[];
-  page.on('pageerror',error=>errors.push(error.message));
-  await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
+  page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
   await page.evaluate(async()=>{
-   const {connectionsHtml,mountConnectionsTabs}=await import('../src/connections-ui.js');
-   const {createPrestashopUI}=await import('../src/prestashop-ui.js');
-   const host=document.querySelector('#chatHarness');
-   host.innerHTML='<div id="appearanceRoot">Apariencia existente</div>'+connectionsHtml();
-   const q=window.prestaQA={actor:'owner-1',connections:[],calls:[],shouldFail:false};
-   q.panel=createPrestashopUI({
-    actor:()=>q.actor,allowed:()=>true,onManage:()=>host.querySelector('[data-config-section="connections"]').click(),
-    rpc:async()=>({connections:structuredClone(q.connections)}),
-    invoke:async body=>{
-     q.calls.push(structuredClone(body));
-     if(q.shouldFail)throw Error('Error simulado HTTP 503');
-     return {ok:true,store:body.store,resource:body.resource,page:body.page,page_size:25,
-       rows:body.resource==='orders'?[{id:'12',reference:'FACT-1',date_add:'2026-11-03 11:00:00',payment:'Tarjeta',total_paid_tax_incl:'21.30'}]:body.resource==='stock_movements'?[{id:'9',id_product:'52',physical_quantity:'3',sign:'1',id_stock_mvt_reason:'4'}]:[{id:'8',id_product:'52',id_product_attribute:'0',id_shop:'1',quantity:'7'}],
-       possibly_more:false};
-    }
-   });
-   mountConnectionsTabs(host,{appearance:host.querySelector('#appearanceRoot'),connections:host.querySelector('#connectionsRoot'),prestashop:host.querySelector('#prestashopRoot'),
-     guard:()=>true,disposeTest:()=>{},mountTest:()=>{},disposePrestashop:()=>q.panel.dispose(),mountPrestashop:()=>q.panel.mount(host.querySelector('#prestashopRoot'))});
+   const {createPrestashopUI,prestashopWorkspacePage}=await import('../src/prestashop-ui.js');
+   const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({primary:'#006591',borderColor:'#0970f6',borderWidth:2,radius:16});
+   document.querySelector('#chatHarness').innerHTML=prestashopWorkspacePage();
+   const q=window.prestaQA={actor:'owner-1',calls:[],shouldFail:false,billing:[],delay:null};
+   q.connections=[{id:'11111111-1111-4111-8111-111111111111',name:'PrestaShop · Hortimatic',protocol:'prestashop',configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true}];
+   q.panel=createPrestashopUI({actor:()=>q.actor,allowed:()=>true,onBilling:source=>q.billing.push(source),rpc:async()=>({connections:structuredClone(q.connections)}),invoke:async body=>{
+    q.calls.push(structuredClone(body));if(q.delay)await q.delay;if(q.shouldFail)throw Error('Error simulado HTTP 503');
+    const rows=body.resource==='customers'?[{id:body.record_id,firstname:'Cliente',lastname:'Ficticio',email:'demo@example.invalid'}]:body.resource==='addresses'?[{id:body.record_id,address1:'Dirección ficticia',city:'Prueba'}]:body.resource==='orders'?[{id:String(100-body.page),reference:'PEDIDO-'+body.page,date_add:'2026-11-04 12:10:00',payment:'Tarjeta',total_paid_tax_incl:'21.30',valid:'1',current_state:'2',id_customer:'44',id_address_invoice:'55',id_address_delivery:'55',invoice_number:'0'}]:body.resource==='order_details'?[{id:'501',id_order:body.order_id,product_id:'42',product_attribute_id:'3',product_name:'Producto de prueba <script>',product_reference:'REF-42',product_quantity:'2',total_price_tax_incl:'21.30'}]:body.resource==='products'?[{id:'42',name:'Producto catálogo',reference:'REF-42',ean13:'',weight:'0'}]:[{id:'8',id_product:'42',quantity:'7'}];
+    return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:body.resource==='orders'&&body.page===0};
+   }});await q.panel.mount(document.querySelector('#prestashopRoot'));
   });
-  assert.equal(await page.locator('[data-config-section]').count(),4,'old three sections and PrestaShop');
-  await page.locator('[data-config-section=prestashop]').click();
-  await page.getByText('Sin conexión vinculada en APIs.').first().waitFor();
-  assert.equal(await page.locator('[data-prestashop-action=read]:not([disabled])').count(),0,'no read without connection');
-  await page.evaluate(()=>{
-   prestaQA.connections=[{id:'11111111-1111-4111-8111-111111111111',name:'PrestaShop · Hortimatic',protocol:'prestashop',
-     configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true,verified_at:'2026-11-03'}];
-  });
-  await page.locator('[data-prestashop-action=refresh]').click();
-  assert.equal(await page.locator('[data-prestashop-action=read]:not([disabled])').count(),3,'only Hortimatic resources are enabled');
-  await page.locator('[data-prestashop-store=hortimatic] [data-resource=orders]').click();
-  await page.getByText('FACT-1').waitFor();
-  assert.equal(await page.evaluate(()=>prestaQA.calls.length),1);
-  assert.equal(await page.evaluate(()=>prestaQA.calls[0].resource),'orders');
-  assert.equal(await page.locator('[data-prestashop-store=newoldsmok] [data-prestashop-action=read]:not([disabled])').count(),0,'no cross-shop access');
-  await page.locator('[data-prestashop-store=hortimatic] [data-resource=stock_movements]').click();
-  await page.getByText('physical_quantity').waitFor();
-  assert.equal(await page.evaluate(()=>prestaQA.calls[1].resource),'stock_movements');
-  await page.evaluate(()=>prestaQA.shouldFail=true);
-  await page.locator('[data-prestashop-store=hortimatic] [data-resource=stock_availables]').click();
-  await page.getByText(/Error simulado HTTP 503/).first().waitFor();
-  assert.equal(await page.getByText('physical_quantity').count(),1,'a failed read does not replace verified prior results');
-  await page.locator('[data-prestashop-action=open-apis]').click();
-  assert.equal(await page.locator('#connectionsRoot').isVisible(),true);
-  await page.locator('[data-config-section=login]').click();
-  assert.equal(await page.locator('#appearanceRoot').isVisible(),true);
-  await page.locator('[data-config-section=prestashop]').click();
-  assert.equal(await page.locator('[data-prestashop-store]').count(),2,'both store cards are retained after tab switches');
-  await page.getByText('physical_quantity').waitFor();
-  assert(await page.getByText(/Error simulado HTTP 503/).count()>0,'session error history survives tab switches');
-  await page.evaluate(()=>prestaQA.actor='owner-2');
-  await page.locator('[data-config-section=login]').click();
-  await page.locator('[data-config-section=prestashop]').click();
-  await page.getByText('Sin errores registrados en esta sesión.').waitFor();
-  assert.equal(await page.getByText('FACT-1').count(),0,'previous account data cannot leak into next session');
-  assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
-  await page.close();
+  await page.getByRole('button',{name:'Pedidos y ventas',exact:true}).click();await page.getByRole('button',{name:'Consultar periodo',exact:true}).click();
+  await page.locator('.ps-order>summary').filter({hasText:'PEDIDO-0'}).waitFor();
+  assert.equal(await page.evaluate(()=>prestaQA.calls[0].sort),'newest');
+  assert.match(await page.evaluate(()=>prestaQA.calls[0].from),/00:00:00$/);
+  assert.equal(await page.getByText(/Consulta parcial/).count(),1);
+  await page.locator('[data-ps-order="100"]>summary').click();await page.getByRole('button',{name:'Leer productos del pedido',exact:true}).click();
+  await page.getByText('Producto de prueba <script>',{exact:true}).waitFor();await page.getByText('Cliente Ficticio',{exact:false}).waitFor();assert.equal(await page.locator('.ps-order-detail script').count(),0);
+  await page.getByRole('button',{name:'Referencia para Facturación',exact:true}).click();assert.equal(await page.evaluate(()=>prestaQA.billing[0].reference),'prestashop:hortimatic:order:100');
+  await page.getByRole('button',{name:'Cargar siguiente página',exact:true}).click();await page.locator('.ps-order>summary').filter({hasText:'PEDIDO-1'}).waitFor();assert.equal(await page.locator('.ps-order').count(),2);
+  await page.getByText('Vista',{exact:true}).click();await page.locator('[data-ps-column=payment]').uncheck();assert.equal(await page.locator('.ps-order-payment').count(),0);
+  await page.locator('[data-ps-filter=query]').fill('PEDIDO-1');await page.getByRole('button',{name:'Aplicar búsqueda',exact:true}).click();assert.equal(await page.locator('.ps-order').count(),1);
+  await page.getByRole('button',{name:'Resumen',exact:true}).click();await page.getByText('Sin verificar',{exact:true}).waitFor();assert.equal(await page.locator('.ps-kpi').getByText('42,60 €',{exact:true}).count(),1);
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();await page.getByRole('button',{name:'Consultar productos',exact:true}).click();await page.getByText('Peso no positivo',{exact:true}).waitFor();
+  await page.getByRole('button',{name:/NewOldSmok/}).click();assert.equal(await page.getByRole('button',{name:'Consultar productos',exact:true}).isDisabled(),true);assert.equal(await page.getByText('Producto catálogo',{exact:true}).count(),0);
+  await page.getByRole('button',{name:/Hortimatic/}).click();await page.evaluate(()=>prestaQA.shouldFail=true);await page.getByRole('button',{name:'Consultar productos',exact:true}).click();await page.getByText('Error simulado HTTP 503',{exact:true}).waitFor();assert.equal(await page.getByText('Producto catálogo',{exact:true}).count(),1);
+  await page.evaluate(()=>prestaQA.shouldFail=false);await page.getByRole('button',{name:'Consultar productos',exact:true}).click();await page.getByText('Lectura real completada',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'Pedidos y ventas',exact:true}).click();await page.locator('[data-ps-filter=query]').fill('');await page.getByRole('button',{name:'Aplicar búsqueda',exact:true}).click();if(!await page.locator('[data-ps-order="100"]').evaluate(el=>el.open))await page.locator('[data-ps-order="100"]>summary').click();await page.screenshot({path:'artifacts/prestashop/orders-'+width+'.png',fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'No viewport overflow at '+width);
+  await page.evaluate(async()=>{prestaQA.actor='owner-2';await prestaQA.panel.mount(document.querySelector('#prestashopRoot'));});assert.equal(await page.getByText('PEDIDO-1',{exact:true}).count(),0);
+  assert.deepEqual(errors,[]);await page.close();
  }
- console.log('PrestaShop browser: 390/1440px, tabs, permissions, read, error, store isolation passed');
-}finally{await browser.close();}
+ console.log('PrestaShop workspace: 390/768/1017/1440, actual request contract, expand, escape, paging, filters, views, errors/retry, account/store isolation passed');
+}finally{await browser.close();if(localServer)await new Promise(r=>localServer.close(r));}

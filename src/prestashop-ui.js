@@ -1,69 +1,102 @@
-import {PRESTASHOP_STORES,storeConnection,prestashopPage,PRESTASHOP_RESOURCES} from './prestashop-readonly.js';
-import {esc} from './utils.js';
-
-export function prestashopPanelHtml(){
- return '<section id="prestashopRoot" hidden aria-label="PrestaShop"><article class="card card-pad"><h2>PrestaShop · dos tiendas independientes</h2><p>Las claves y las pruebas de conexión se gestionan exclusivamente en APIs. Este espacio realiza consultas estándar de solo lectura; no sincroniza cierres, pagos ni existencias con Totus.</p><div class="inline-actions"><button type="button" class="btn secondary" data-prestashop-action="refresh">Actualizar diagnóstico</button><button type="button" class="btn secondary" data-prestashop-action="open-apis">Gestionar conexiones en APIs</button></div><p role="status" data-prestashop-status>Sin consulta realizada.</p><div data-prestashop-stores></div><h3>Limitaciones verificables</h3><p>Versión declarada para ambas tiendas: 1.7.8.11 (pendiente de lectura en su instalación). TPV, cierres, retiradas, recursos y tablas del módulo: pendientes de comprobación. La API estándar no ejecuta SQL arbitrario.</p><p>El historial de errores mostrado aquí corresponde a esta sesión. Un registro persistente y la sincronización con Cajas y Recepciones requieren un tramo posterior.</p><div data-prestashop-errors role="status">Sin errores registrados en esta sesión.</div></article></section>';
+import {PRESTASHOP_STORES,storeConnection,PRESTASHOP_RESOURCES} from './prestashop-readonly.js';
+import {orderInsights,catalogIssues,sourceCents,ticketSourceKey} from './prestashop-insights.js';
+import {esc,money,fmtDate,isoToday,csv,download} from './utils.js';
+import {interfaceIcon} from './interface-icons.js';
+const tabs=[['summary','Resumen'],['orders','Pedidos y ventas'],['catalog','Catálogo'],['cash','Cajas y facturas'],['connection','Conexión']];
+const labels={id:'ID',id_product:'Producto',id_product_attribute:'Variante',quantity:'Existencias',physical_quantity:'Unidades',sign:'Signo',date_add:'Fecha',id_stock_mvt_reason:'Motivo',id_employee:'Empleado',id_order:'Pedido',id_supply_order:'Pedido proveedor',id_shop:'Tienda origen'};
+const amount=value=>sourceCents(value)===null?'Sin importe válido':money(sourceCents(value)/100);
+const button=(text,action,extra='',disabled=false)=>`<button type="button" class="btn secondary" data-prestashop-action="${action}" ${extra} ${disabled?'disabled':''}>${text}</button>`;
+export const prestashopPanelHtml=()=>'<section id="prestashopRoot" hidden aria-label="Centro PrestaShop"></section>';
+export const prestashopWorkspacePage=()=>'<div class="page prestashop-page"><section id="prestashopRoot" aria-label="Centro PrestaShop"><p role="status">Preparando tus tiendas…</p></section></div>';
+export function prestashopReadiness(c){
+ if(!c)return {ready:false,reason:'Sin conexión vinculada en APIs.'};
+ if(!c.configured)return {ready:false,reason:'Falta la clave privada.'};
+ if(!c.enabled)return {ready:false,reason:'Conexión desactivada.'};
+ if(c.verified_revision!==c.revision)return {ready:false,reason:'Prueba de conexión pendiente o caducada.'};
+ if(!c.real_data_authorized)return {ready:false,reason:'Lectura de datos reales pendiente de autorización.'};
+ return {ready:true,reason:'API preparada para consultar'};
 }
-
-export function prestashopReadiness(connection){
- if(!connection)return {ready:false,reason:'Sin conexión vinculada en APIs.'};
- if(!connection.configured)return {ready:false,reason:'Falta la clave configurada en el gestor privado.'};
- if(connection.enabled!==true)return {ready:false,reason:'Conexión desactivada.'};
- if(connection.verified_revision!==connection.revision)return {ready:false,reason:'Prueba de conexión pendiente o caducada.'};
- if(connection.real_data_authorized!==true)return {ready:false,reason:'Falta autorizar expresamente la lectura de datos reales en APIs.'};
- return {ready:true,reason:'Conexión preparada; los recursos de negocio aún no están comprobados.'};
-}
-
-export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{}}){
- let root=null,generation=0,connections=[],errors=[],inflight=false,lastActor=null;
- const pages=new Map(),lastResults=new Map();
- const current=(node,epoch,owner)=>root===node&&generation===epoch&&node.isConnected&&allowed()&&actor()===owner;
- function render(){
-  if(!root)return;
-  const list=root.querySelector('[data-prestashop-stores]');
-  list.innerHTML=PRESTASHOP_STORES.map(store=>{
-   const c=storeConnection(connections,store.key),status=prestashopReadiness(c),resource='orders',cached=lastResults.get(store.key),result=cached?.connectionId===c?.id&&cached?.revision===c?.revision?cached:null,page=pages.get(store.key+'|'+(result?.resource||resource))||0;
-   const summary=result?'<p>Lectura real: '+esc(result.resource)+' · página '+(result.page+1)+' · '+result.rows.length+' filas. No se han guardado en Cajas ni Recepciones.</p>':'<p>Última lectura de negocio: ninguna en esta sesión.</p>';
-   const fields=result?PRESTASHOP_RESOURCES[result.resource]:null;
-   const preview=result?'<div class="table-scroll"><table><thead><tr>'+fields.map(f=>'<th>'+esc(f)+'</th>').join('')+'</tr></thead><tbody>'+result.rows.map(row=>'<tr>'+fields.map(f=>'<td>'+esc(row[f]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'';
-   return '<section class="card card-pad" data-prestashop-store="'+store.key+'"><h3>'+esc(store.name)+'</h3><p>Conexión: '+esc(c?.name||store.connectionName)+' · '+esc(status.reason)+'</p><p>Prueba: '+esc(c?.verified_at||'No registrada')+' · Sincronización automática: no habilitada.</p><div class="inline-actions"><button type="button" class="btn secondary" data-prestashop-action="read" data-store="'+store.key+'" data-resource="orders" '+(!status.ready||inflight?'disabled':'')+'>Leer pedidos</button><button type="button" class="btn secondary" data-prestashop-action="read" data-store="'+store.key+'" data-resource="stock_availables" '+(!status.ready||inflight?'disabled':'')+'>Leer existencias</button><button type="button" class="btn secondary" data-prestashop-action="read" data-store="'+store.key+'" data-resource="stock_movements" '+(!status.ready||inflight?'disabled':'')+'>Leer movimientos</button></div>'+summary+preview+(result?'<div class="inline-actions"><button type="button" class="btn secondary" data-prestashop-action="page" data-store="'+store.key+'" data-direction="-1" '+(inflight||page===0?'disabled':'')+'>Anterior</button><button type="button" class="btn secondary" data-prestashop-action="page" data-store="'+store.key+'" data-direction="1" '+(inflight||!result.possibly_more?'disabled':'')+'>Siguiente</button></div>':'')+'</section>';
-  }).join('');
-  root.querySelector('[data-prestashop-errors]').innerHTML=errors.length?'<ul>'+errors.slice(0,10).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul>':'Sin errores registrados en esta sesión.';
+export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{},onModule=null,onBilling=()=>{}}){
+ let root=null,generation=0,connections=[],owner=null,busy=false,tab='summary',store='hortimatic',status='Elige una tienda para comenzar.',errors=[];
+ const initialFilter=()=>({from:isoToday(),to:isoToday(),start:'00:00',end:'23:59',sort:'newest',query:'',valid:'all'});
+ let filter=initialFilter(),columns={payment:true,state:true,date:true},density='comfortable';
+ const results=new Map(),details=new Map(),opened=new Set();
+ const key=resource=>store+'|'+resource;
+ const connection=()=>storeConnection(connections,store);
+ const ready=()=>prestashopReadiness(connection()).ready;
+ const owned=()=>!!root&&root.isConnected&&allowed()&&owner===actor();
+ const get=resource=>{const r=results.get(key(resource)),c=connection();return r&&r.connectionId===c?.id&&r.revision===c?.revision?r:null;};
+ const report=e=>{status=e?.message||String(e);errors.unshift({store,message:status,at:new Date().toISOString()});errors=errors.slice(0,20);};
+ const readFilters=()=>{if(!root)return;for(const name of ['from','to','start','end','sort','query','valid']){const field=root.querySelector(`[data-ps-filter="${name}"]`);if(field)filter[name]=field.value;}};
+ const coverage=r=>(r.possibly_more?'Consulta parcial · quedan páginas':'Fin de la consulta')+' · '+r.rows.length+' registros · '+esc(new Date(r.readAt).toLocaleTimeString('es-ES'));
+ const empty=(title,text,action='')=>`<div class="ps-empty"><span aria-hidden="true">${interfaceIcon('records')}</span><h3>${title}</h3><p>${text}</p>${action}</div>`;
+ const scope=()=>`<p class="ps-scope">Datos de origen · ${esc(store)} · ${esc(get('orders')?.periodLabel||'Sin periodo consultado')}</p>`;
+ function storeCards(){return '<div class="ps-store-grid">'+PRESTASHOP_STORES.map(s=>{const r=prestashopReadiness(storeConnection(connections,s.key));return `<button type="button" class="ps-store card ${store===s.key?'selected':''}" data-prestashop-action="store" data-store="${s.key}" aria-pressed="${store===s.key}"><span class="ps-store-logo" aria-hidden="true">${s.name.slice(0,1)}</span><span><strong>${s.name}</strong><small>${esc(r.reason)}</small></span><span class="ps-dot ${r.ready?'ready':''}" aria-hidden="true"></span></button>`;}).join('')+'</div>';}
+ function metrics(){
+  const r=get('orders');if(!r)return empty('Tu jornada, de un vistazo','Consulta los pedidos del periodo para ver sus cifras reales.',button('Consultar pedidos','tab','data-tab="orders"'));
+  const s=orderInsights(r.rows);return '<div class="ps-kpis">'+[['Importe de pedidos válidos',money(s.amount/100)],['Pedidos válidos',s.valid],['Ticket medio consultado',s.average===null?'—':money(s.average/100)],['Costes y beneficio neto','Sin verificar']].map(([l,v])=>`<article class="card ps-kpi"><span>${l}</span><strong>${v}</strong></article>`).join('')+`</div><p class="ps-scope">${coverage(r)} · ${s.excluded} no válidos excluidos · ${s.unknown} sin datos suficientes. No descuenta abonos ni sustituye el cierre TPV.</p><article class="card card-pad"><h3>Distribución por hora</h3><p class="small muted">Hora registrada en PrestaShop; pendiente de contrastar su zona horaria con el TPV.</p><div class="ps-chart" role="img" aria-label="Importe por hora de los pedidos válidos consultados">`+s.hours.map((v,h)=>`<div><span style="height:${Math.max(2,v/Math.max(1,...s.hours)*100)}%" title="${h}:00 · ${money(v/100)}"></span><small>${h}</small></div>`).join('')+'</div><details><summary>Ver cifras por hora</summary>'+s.hours.map((v,h)=>`<div class="summary-row"><span>${h}:00</span><b>${money(v/100)}</b></div>`).join('')+'</details></article>';
  }
- function dispose(){generation++;root=null;inflight=false;connections=[];const owner=actor();if(owner!==lastActor){pages.clear();lastResults.clear();errors=[];lastActor=owner;}}
+ function summary(){return metrics()+'<div class="ps-feature-grid"><article class="card card-pad"><h3>Decisiones con datos fiables</h3><p>Los costes de variantes de PrestaShop están pendientes de validación. No se calcula beneficio neto ni se recomienda un descuento basándose en ellos.</p>'+button('Revisar catálogo','tab','data-tab="catalog"')+'</article><article class="card card-pad"><h3>De la venta al cierre</h3><p>Importar el TPV requiere identificar cajones y contrastar cobros. Las salidas y el dinero que dejáis seguirán siendo manuales.</p>'+button('Cajas y facturas','tab','data-tab="cash"')+'</article></div>';}
+ const pager=resource=>{const r=get(resource);return r?`<div class="ps-footer"><span>${coverage(r)}</span><div class="inline-actions">${button('Cargar siguiente página','more',`data-resource="${resource}"`,busy||!r.possibly_more)}${button('Exportar consulta CSV','export',`data-resource="${resource}"`,busy||!r.rows.length)}</div></div>`:'';};
+ function orderDetail(row){
+  const d=details.get(store+'|'+connection()?.id+'|'+connection()?.revision+'|'+row.id);
+  const address=(label,a)=>a?'<section><h4>'+label+'</h4><p>'+[a.company,[a.firstname,a.lastname].filter(Boolean).join(' '),a.address1,a.address2,[a.postcode,a.city].filter(Boolean).join(' '),a.phone_mobile||a.phone,a.vat_number||a.dni].filter(Boolean).map(esc).join('<br>')+'</p></section>':'';
+  return `<div class="ps-order-detail"><div class="ps-facts"><span>Referencia<strong>${esc(row.reference||'—')}</strong></span><span>Cliente origen<strong>${esc(row.id_customer?'#'+row.id_customer:'No informado')}</strong></span><span>Factura origen<strong>${esc(row.invoice_number&&row.invoice_number!=='0'?'#'+row.invoice_number:'No informada')}</strong></span><span>Envío<strong>${amount(row.total_shipping_tax_incl)}</strong></span><span>Descuentos<strong>${amount(row.total_discounts_tax_incl)}</strong></span></div>`+(d?(d.detailWarnings?.length?'<p class="note warn">Detalle incompleto: '+d.detailWarnings.map(esc).join(' · ')+'</p>':'')+'<div class="ps-customer-details">'+(d.customer?'<section><h4>Cliente</h4><p>'+esc([d.customer.firstname,d.customer.lastname].filter(Boolean).join(' '))+'<br>'+esc(d.customer.company||'')+'<br>'+esc(d.customer.email||'')+'</p></section>':'')+address('Facturación de origen',d.invoiceAddress)+address('Entrega de origen',d.deliveryAddress)+'</div>'+`<p class="small muted">${d.possibly_more?'Detalle parcial; hay más líneas.':'Líneas del pedido consultadas.'}</p><div class="ps-lines">`+d.rows.map(l=>`<div><b>${esc(l.product_name||'Producto #'+l.product_id)}</b><span>${esc(l.product_reference||'Sin referencia')} · Variante #${esc(l.product_attribute_id||'0')}</span><span>${esc(l.product_quantity)} uds · ${amount(l.total_price_tax_incl)}</span></div>`).join('')+'</div>':button('Leer productos del pedido','detail',`data-id="${esc(row.id)}"`,busy))+`<div class="ps-detail-actions">${d?.possibly_more?button('Más líneas','detail-more',`data-id="${esc(row.id)}"`,busy):''}${button('Referencia para Facturación','invoice',`data-id="${esc(row.id)}"`,busy)}</div><p class="small muted">No se crea una factura ni una nueva venta al abrir este detalle.</p></div>`;
+ }
+ function orders(){
+  const r=get('orders'),rows=(r?.rows||[]).filter(row=>(filter.valid==='all'||row.valid===filter.valid)&&(!filter.query||[row.id,row.reference,row.payment,row.id_customer,row.invoice_number].some(v=>String(v||'').toLowerCase().includes(filter.query.toLowerCase()))));
+  return `<article class="card card-pad"><div class="section-head"><div><h3>Pedidos y ventas</h3><p>Filtra el periodo y despliega cada pedido para consultar sus productos.</p></div><details class="ps-view"><summary>${interfaceIcon('settings')} Vista</summary><div><label>Densidad<select data-ps-density><option value="comfortable" ${density==='comfortable'?'selected':''}>Cómoda</option><option value="compact" ${density==='compact'?'selected':''}>Compacta</option></select></label>`+[['payment','Pago'],['state','Estado'],['date','Fecha']].map(([k,l])=>`<label><input type="checkbox" data-ps-column="${k}" ${columns[k]?'checked':''}> ${l}</label>`).join('')+`</div></details></div><form class="ps-filters" data-ps-search><label>Desde<input type="date" data-ps-filter="from" value="${esc(filter.from)}" required></label><label>Hora inicial<input type="time" data-ps-filter="start" value="${esc(filter.start)}" required></label><label>Hasta<input type="date" data-ps-filter="to" value="${esc(filter.to)}" required></label><label>Hora final<input type="time" data-ps-filter="end" value="${esc(filter.end)}" required></label><label>Orden<select data-ps-filter="sort"><option value="newest" ${filter.sort==='newest'?'selected':''}>Más recientes</option><option value="oldest" ${filter.sort==='oldest'?'selected':''}>Más antiguos</option></select></label><button class="btn primary" ${busy||!ready()?'disabled':''}>Consultar periodo</button></form><div class="ps-local-filters"><label>Buscar en lo consultado<input type="search" data-ps-filter="query" value="${esc(filter.query)}" placeholder="Ticket, referencia, cliente ID o pago"></label><label>Validez<select data-ps-filter="valid"><option value="all">Todos</option><option value="1" ${filter.valid==='1'?'selected':''}>Válidos</option><option value="0" ${filter.valid==='0'?'selected':''}>No válidos</option></select></label>${button('Aplicar búsqueda','filter')}</div>${scope()}`+(r?`<div class="ps-order-list" data-density="${density}">`+rows.map(row=>`<details class="ps-order" data-ps-order="${esc(row.id)}" ${opened.has(store+'|'+row.id)?'open':''}><summary><span class="ps-chevron" aria-hidden="true">›</span><span><b>#${esc(row.id)}</b><small>${esc(row.reference||'Sin referencia')}</small></span><span class="ps-order-total">${amount(row.total_paid_tax_incl)}</span>${columns.payment?`<span class="ps-order-payment">${esc(row.payment||'Pago no informado')}</span>`:''}${columns.state?`<span class="badge ${row.valid==='1'?'ok':'warn'}">${row.valid==='1'?'Válido':row.valid==='0'?'No válido':'Sin validar'} · #${esc(row.current_state||'—')}</span>`:''}${columns.date?`<time>${fmtDate(row.date_add)}<small>${esc(String(row.date_add||'').slice(11,16))}</small></time>`:''}</summary>${orderDetail(row)}</details>`).join('')+(rows.length?'':'<p class="ps-empty">No hay pedidos que coincidan con esta búsqueda.</p>')+'</div>'+pager('orders'):empty('Elige el periodo','No se consultan todos los pedidos automáticamente.'))+'</article>';
+ }
+ function catalog(){
+  const r=get('products'),rows=catalogIssues(r?.rows||[]),issues=rows.filter(r=>r.issues.length);
+  return `<article class="card card-pad"><div class="section-head"><div><h3>Calidad del catálogo</h3><p>Referencias, EAN y peso. El coste de compra no se utiliza para calcular beneficio.</p></div>${button('Consultar productos','read','data-resource="products"',busy||!ready())}</div>`+(r?`<p class="ps-scope">${coverage(r)} · ${issues.length} fichas con avisos en lo consultado. Revisa también las combinaciones antes de concluir que falta un EAN.</p><div class="ps-catalog">`+rows.map(p=>`<article><div><b>${esc(p.name||'Producto #'+p.id)}</b><small>#${esc(p.id)} · ${esc(p.reference||'Sin referencia')}</small></div><div><span>EAN: ${esc(p.ean13||'Sin informar')}</span><span>Peso: ${esc(p.weight??'Sin informar')}</span></div><div>${p.issues.map(i=>`<span class="badge warn">${esc(i)}</span>`).join('')}</div></article>`).join('')+'</div>'+pager('products'):empty('Tu catálogo, revisado','Consulta las fichas reales para localizar datos ausentes.'))+'</article><article class="card card-pad"><h3>Rotación y producto de la semana</h3><p>Necesitan ventas por producto y entradas de stock contrastadas. No confundiremos un producto creado hace años con mercancía recibida hace años.</p><p class="note">Pendiente: lectura completa de ventas por producto, variantes e historial de entradas. No se ofrecen rankings ni recomendaciones inventadas.</p></article>';
+ }
+ function cash(){return '<div class="ps-feature-grid"><article class="card card-pad"><span class="badge warn">TPV pendiente de contraste</span><h3>Cierre por cajón</h3><p>La API de pedidos no identifica por sí sola los cierres del TPV. Antes de importar se contrastarán cajones Vape/Head, cobros, anulaciones y horarios con un cierre real.</p><ul><li>Datos originales conservados y actualización sin duplicados.</li><li>Corrección efectivo ↔ tarjeta con motivo e historial.</li><li>Salidas y dinero dejado: introducción manual.</li></ul><p class="note">Todavía no se han importado cierres. No se escribirá en Cajas a partir de sumas incompletas de pedidos.</p></article><article class="card card-pad"><h3>Del ticket a la factura</h3><p>Desde el detalle de un pedido puedes preparar una referencia inequívoca para Facturación. El número se asignará al emitir desde su serie, nunca copiando el ID del pedido.</p><p>Si el ticket ya es una factura simplificada, hay que conservar su número, serie y fecha y tramitar su sustitución. Si ya existe factura completa, corresponde revisar el documento existente.</p>'+button('Abrir Facturación','billing')+'<p class="small muted">La emisión automática desde tickets queda pendiente del vínculo único y del contraste fiscal para evitar duplicar ingresos.</p></article></div>';}
+ function connectionView(){const c=connection(),r=prestashopReadiness(c);return `<article class="card card-pad"><div class="section-head"><div><h3>Conexión · ${esc(store)}</h3><p>${esc(r.reason)}</p></div>${button('Gestionar en APIs','open-apis')}</div><dl class="ps-facts"><div><dt>Perfil</dt><dd>${esc(c?.name||'Sin configurar')}</dd></div><div><dt>Última prueba de API</dt><dd>${esc(c?.verified_at?new Date(c.verified_at).toLocaleString('es-ES'):'No registrada')}</dd></div><div><dt>TPV</dt><dd>Pendiente de adaptador y contraste</dd></div><div><dt>Sincronización programada</dt><dd>No habilitada</dd></div></dl><p>Ambas instalaciones actuales: 1.7.8.11, versión declarada. Los futuros PrestaShop 8 requieren perfiles propios y pruebas antes del cambio.</p><div class="inline-actions">${button('Actualizar diagnóstico','refresh','',busy)}${button('Leer existencias','read','data-resource="stock_availables"',busy||!ready())}${button('Leer movimientos','read','data-resource="stock_movements"',busy||!ready())}</div>`+['stock_availables','stock_movements'].map(resource=>{const r=get(resource);return r?`<h4>${resource==='stock_availables'?'Existencias':'Movimientos'}</h4><div class="ps-data-grid">`+r.rows.map(row=>'<dl>'+PRESTASHOP_RESOURCES[resource].map(f=>`<div><dt>${esc(labels[f]||f)}</dt><dd>${esc(row[f]??'—')}</dd></div>`).join('')+'</dl>').join('')+'</div>'+pager(resource):'';}).join('')+`<details><summary>Incidencias de esta sesión (${errors.filter(e=>e.store===store).length})</summary>`+errors.filter(e=>e.store===store).map(e=>`<p>${esc(e.at)} · ${esc(e.message)}</p>`).join('')+'</details></article>';}
+ function render(){
+  if(!owned())return;root.classList.add('ps-workspace');root.setAttribute('aria-busy',String(busy));
+  root.innerHTML=`<header class="ps-header"><div><span class="eyebrow">Tus tiendas conectadas</span><h2>Centro PrestaShop</h2><p>Consulta, contrasta y decide con el origen siempre identificado.</p></div>${onModule&&root.closest('.appearance-page')?button('Abrir módulo','module'):''}</header>${storeCards()}<nav class="ps-tabs" aria-label="Secciones de PrestaShop">`+tabs.map(([k,l])=>`<button type="button" data-prestashop-action="tab" data-tab="${k}" aria-pressed="${tab===k}">${l}</button>`).join('')+`</nav><p class="ps-live-status" role="status">${esc(busy?'Consultando '+store+'…':status)}</p><div class="ps-content">${({summary,orders,catalog,cash,connection:connectionView}[tab])()}</div>`;
+  root.querySelectorAll('[data-ps-order]').forEach(el=>el.ontoggle=()=>{const k=store+'|'+el.dataset.psOrder;if(el.open)opened.add(k);else opened.delete(k);});
+ }
+ function dispose(){generation++;root=null;busy=false;if(owner!==actor()){results.clear();details.clear();opened.clear();connections=[];errors=[];filter=initialFilter();columns={payment:true,state:true,date:true};density='comfortable';tab='summary';store='hortimatic';status='Elige una tienda para comenzar.';}}
  async function mount(element){
-  dispose();if(!element||!allowed())return;
-  root=element;const epoch=generation,owner=actor(),active=()=>current(element,epoch,owner),status=element.querySelector('[data-prestashop-status]');
-  const recordError=(message)=>{if(!active())return;errors.unshift(new Date().toLocaleString('es-ES',{timeZone:'Europe/Madrid'})+' · '+String(message));status.textContent=String(message);};
-  async function refresh(){
-   const result=await rpc('totus_api_manager',{});
-   if(!active())return;
-   connections=(result?.connections||[]).filter(c=>c.protocol==='prestashop');
-   status.textContent=connections.length+' conexiones PrestaShop guardadas. Una prueba de API no valida cierres del TPV.';
-   render();
-  }
-  element.onclick=async event=>{
-   const button=event.target.closest('[data-prestashop-action]');if(!button||inflight||!active())return;
-   const action=button.dataset.prestashopAction;
-   if(action==='open-apis'){onManage();return;}
-   inflight=true;render();
-   try{
-    if(action==='refresh'){await refresh();return;}
-    const store=button.dataset.store,previous=lastResults.get(store);
-    const resource=action==='page'?previous?.resource:button.dataset.resource;
-    const c=storeConnection(connections,store);
-    if(!prestashopReadiness(c).ready)throw Error('No hay conexión autorizada para '+store+'.');
-    const prior=pages.get(store+'|'+resource)||0;
-    const page=action==='page'?prior+Number(button.dataset.direction):0;
-    const selected=prestashopPage(resource,page,25);
-    const result=await invoke({action:'prestashop_read',store,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource,page:selected.page,page_size:selected.pageSize});
+  dispose();if(!element||!allowed())return;root=element;owner=actor();const epoch=generation,node=element,active=()=>owned()&&generation===epoch&&root===node;
+  async function refresh(){const response=await rpc('totus_api_manager',{});if(!active())return;connections=(response?.connections||[]).filter(c=>c.protocol==='prestashop');status='Diagnóstico actualizado. Una prueba de API no valida los cierres del TPV.';}
+  async function read(resource,more=false,orderId=null){
+   if(!ready())throw Error(prestashopReadiness(connection()).reason);
+   const c=connection(),shop=store,cache=orderId?details.get(shop+'|'+c.id+'|'+c.revision+'|'+orderId):get(resource),page=more?(cache?.page??-1)+1:0;
+   let query={};if(resource==='orders'){
+    if(!filter.from||!filter.to||!filter.start||!filter.end)throw Error('Completa fechas y horas.');
+    query=more?cache?.query:{from:filter.from+' '+filter.start+':00',to:filter.to+' '+filter.end+':59',sort:filter.sort};
+    if(!query||query.to<query.from)throw Error('El fin debe ser posterior al inicio.');
+   }
+   const response=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource,page,page_size:25,...query,...(orderId?{order_id:orderId}:{})});
+   if(!active()||shop!==store)return;
+   if(!response?.ok||response.store!==shop||response.resource!==resource||response.page!==page||!Array.isArray(response.rows))throw Error('Respuesta de tienda o recurso no verificable.');
+   if(orderId&&response.rows.some(r=>String(r.id_order)!==orderId))throw Error('El detalle pertenece a otro pedido.');
+   const rows=[...(more?cache?.rows||[]:[]),...response.rows],ids=new Set();for(const row of rows){if(ids.has(String(row.id)))throw Error('La consulta cambió entre páginas. Vuelve a consultar para evitar duplicados.');ids.add(String(row.id));}
+   const result={...response,...(more&&orderId?{customer:cache?.customer,invoiceAddress:cache?.invoiceAddress,deliveryAddress:cache?.deliveryAddress}:{}),rows,page,query,readAt:new Date().toISOString(),periodLabel:query.from?query.from+' → '+query.to:'',connectionId:c.id,revision:c.revision};
+   if(orderId&&!more){
+    const order=get('orders')?.rows.find(r=>String(r.id)===orderId);
+    const related=async(resource,id)=>{try{if(!/^\d{1,15}$/.test(String(id||''))||String(id)==='0')return null;const value=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource,page:0,page_size:1,record_id:String(id)});if(!active())return null;if(!value?.ok||value.store!==shop||value.resource!==resource||!Array.isArray(value.rows)||value.rows.some(r=>String(r.id)!==String(id)))throw Error('El detalle del cliente no corresponde al pedido.');return value.rows[0]||null;}catch(e){if(active()){result.detailWarnings=(result.detailWarnings||[]).concat(resource+': '+(e.message||String(e)));}return null;}};
+    result.customer=await related('customers',order?.id_customer);result.invoiceAddress=await related('addresses',order?.id_address_invoice);result.deliveryAddress=String(order?.id_address_delivery)===String(order?.id_address_invoice)?result.invoiceAddress:await related('addresses',order?.id_address_delivery);
     if(!active())return;
-    if(!result?.ok||result.store!==store||result.resource!==resource||result.page!==page||!Array.isArray(result.rows))throw Error('Respuesta de lectura no verificable.');
-    pages.set(store+'|'+resource,page);lastResults.set(store,{...result,connectionId:c.id,revision:c.revision});
-    status.textContent='Lectura completada. Los registros siguen siendo datos de origen de PrestaShop, sin escritura contable.';
-   }catch(e){recordError(e?.message||String(e));}finally{if(active()){inflight=false;render();}}
+   }
+   if(orderId)details.set(shop+'|'+c.id+'|'+c.revision+'|'+orderId,result);else results.set(key(resource),result);
+   status='Lectura real completada · '+shop+' · '+rows.length+' registros. No se ha modificado contabilidad ni stock.';
+  }
+  async function run(fn){if(busy||!active())return;busy=true;render();try{await fn();}catch(e){if(active())report(e);}finally{if(active()){busy=false;render();}}}
+  node.onsubmit=event=>{if(!event.target.matches('[data-ps-search]'))return;event.preventDefault();readFilters();void run(()=>read('orders'));};
+  node.onchange=event=>{if(event.target.hasAttribute('data-ps-column')){readFilters();columns[event.target.dataset.psColumn]=event.target.checked;render();}if(event.target.hasAttribute('data-ps-density')){readFilters();density=event.target.value;render();}};
+  node.onclick=event=>{
+   const b=event.target.closest('[data-prestashop-action]');if(!b||busy||!active())return;readFilters();const a=b.dataset.prestashopAction;
+   if(a==='tab'){tab=b.dataset.tab;render();return;}if(a==='store'){store=b.dataset.store;status='Tienda seleccionada: '+store+'.';render();return;}
+   if(a==='filter'){render();return;}if(a==='open-apis'){onManage();return;}if(a==='module'){onModule?.();return;}if(a==='billing'){onBilling();return;}
+   if(a==='invoice'){const row=get('orders')?.rows.find(r=>String(r.id)===b.dataset.id);if(!row)return;const reference=ticketSourceKey(store,row);status='Referencia preparada: '+reference+'. Revisa el documento fiscal original antes de emitir.';render();onBilling({store,order:row,reference});return;}
+   if(a==='export'){const r=get(b.dataset.resource);if(!r)return;const fields=PRESTASHOP_RESOURCES[b.dataset.resource];download(new Blob(['\ufeff'+csv(r.rows,fields.map(f=>({label:labels[f]||f,get:row=>row[f]})))],{type:'text/csv;charset=utf-8'}),'prestashop-'+store+'-'+b.dataset.resource+'-'+isoToday()+'.csv');return;}
+   void run(async()=>{if(a==='refresh')await refresh();else if(a==='read'||a==='more')await read(b.dataset.resource,a==='more');else if(a==='detail'||a==='detail-more')await read('order_details',a==='detail-more',b.dataset.id);});
   };
-  try{await refresh();}catch(e){recordError(e?.message||String(e));render();}
+  render();await run(refresh);
  }
  return {mount,dispose};
 }

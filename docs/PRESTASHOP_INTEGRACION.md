@@ -1,67 +1,75 @@
-# PrestaShop · primer tramo de integración de solo lectura
+# Centro PrestaShop · contrato, estado y continuidad
 
-Fecha de preparación: 03/11/2026. Base de revisión: `01640d131e1adabafb333749fed17f5b31d589b4`.
-Este documento describe código **en revisión**, no una función publicada ni una conexión de tienda comprobada.
+Revisión: 04/11/2026. Base publicada revisada: `1043b77` (PR #115 y #116).
+Este documento diferencia el lector publicado de la ampliación propuesta en la rama `feature/prestashop-workspace-20261104`. La rama no acredita publicación.
 
-## Alcance y estado comprobado
+## Estado real observado
 
-- Hortimatic y NewOldSmok: versión **1.7.8.11 declarada por el titular**, todavía no confirmada mediante API autenticada.
-- Al iniciar, el gestor de API en Supabase tenía **cero conexiones PrestaShop**. No se transmitieron credenciales externas ni se comprobó ningún pedido real.
-- Se ha preparado Configuración → PrestaShop como cuarta sección, preservando Interfaz, Login y APIs.
-- No existen adaptadores de lectura TPV instalados ni pruebas de cierres/retiradas. No se puede concluir qué tablas contienen dichos movimientos.
-- El prototipo usa exclusivamente el gestor de API existente (`totus_api_manager` y `totus-connections`) y sus credenciales privadas. No añade secretos al repositorio o a OneDrive.
-- `orders`, `stock_availables` y `stock_movements` son candidatos de la API estándar. La capacidad efectiva, el formato JSON y los permisos se acreditarán solo cuando se obtenga una respuesta autenticada.
+- Dominios confirmados por Diego: https://hortimatic.com/ y https://newoldsmok.com/; ambos Webservice en `/api`.
+- Ambas tiendas actuales: PrestaShop **1.7.8.11**, versión comunicada por Diego. PrestaShop 8 está en preparación, sin versión ni fecha de sustitución confirmadas.
+- El 04/11/2026 se probó el lector publicado de Hortimatic desde la sesión autorizada de Totus: devolvió 25 pedidos. No se alteraron datos.
+- NewOldSmok figuraba desactivada y sin prueba registrada. No está verificada su lectura comercial.
+- Una prueba de raíz Webservice no acredita pedidos, productos, detalle, TPV ni cierres. Las nuevas lecturas de esta rama necesitan contraste con la instalación real tras desplegar su servicio.
 
-## Activación futura por tienda
+## Ampliación de esta rama
 
-1. Verificar con el titular **la URL exacta del webservice de cada tienda** y que pertenece a la instalación adecuada; un resultado en buscadores no acredita que sea el destino autorizado de una clave. Confirmar HTTPS y ruta `/api`.
-2. En Configuración → APIs registrar dos perfiles independientes con protocolo PrestaShop y nombres exactos:
-   - `PrestaShop · Hortimatic`
-   - `PrestaShop · NewOldSmok`
-3. Introducir **cada clave únicamente en la pantalla privada del perfil correspondiente**, nunca en la URL, chat, código o logs. La API estándar de PrestaShop usa su clave como usuario de autenticación HTTP Basic; se envía en cabecera `Authorization` sobre HTTPS.
-4. Comprobar en Back Office Webservice de PrestaShop que el recurso y verbo GET están habilitados únicamente para la tienda pertinente. Probar la conexión; una prueba de raíz de API no equivale a leer pedidos, TPV o existencias.
-5. Activar el perfil y aprobar explícitamente la lectura de datos reales según el control existente. La pestaña PrestaShop mostrará el estado separado de ambas conexiones.
-6. Con el servicio del PR **desplegado tras revisión**, consultar una sola página de pedidos o existencias. Releer y contrastar con PrestaShop sin alterar Totus. Sin servicio desplegado, la interfaz no debe anunciar esta operación como disponible.
-7. Verificar fechas: la API devuelve `date_add` como fecha/hora sin zona; contrastar el huso real de cada PrestaShop antes de atribuirla a un día Europe/Madrid.
+- Módulo independiente PrestaShop en Operaciones tienda. Se conserva su acceso desde Configuración para compatibilidad; reutiliza un único componente y el mismo gestor de claves.
+- Selector permanente de tienda y cinco zonas: Resumen, Pedidos y ventas, Catálogo, Cajas y facturas, Conexión.
+- Fechas y horas, orden reciente/antiguo, paginación acumulativa y búsqueda en lo ya consultado. Vista compacta/cómoda y columnas seleccionables durante la sesión.
+- Pedidos desplegables: importes, pago, validez, estado de origen, referencia y fecha; detalle bajo demanda con productos, variantes, cantidades, cliente y direcciones disponibles. Datos opcionales denegados no ocultan líneas comprobadas.
+- Indicadores y gráfico horario de pedidos válidos **consultados**. Una página incompleta se etiqueta como parcial. No se interpreta como cierre, venta neta de devoluciones ni beneficio.
+- Catálogo: referencias, nombres multidioma, EAN y peso, avisos y exportación. Un aviso a nivel producto no acredita que falte el dato en todas las combinaciones.
+- Claves privadas permanecen en el servidor. No hay SQL libre, claves en URL ni cambios de negocio en PrestaShop.
+- El registro de llamadas guarda únicamente tienda, recurso, página y número de filas; los nuevos datos personales no se copian al registro de consumo.
+- Personalización de navegación por cuenta: orden de módulos dentro de su sección, secciones plegadas al inicio, fondo/texto/título/selección. El parche 061 amplía solo validación visual; no cambia los permisos ni la propiedad del perfil.
 
-## Contrato del primer tramo
+## Recursos y contrato de lectura
 
-`prestashop_read`: acción del servicio `totus-connections`. Requiere sesión autenticada con permiso de administración de Configuración, ID/revisión de una conexión existente, tienda exacta, recurso `orders`, `stock_availables` o `stock_movements`, página y tamaño. La URL procede **solo del perfil del servidor**; ninguna petición de navegador admite URL, SQL, tablas o campos arbitrarios. Se aplica límite de 1 a 100 filas por página, autenticación privada, HTTPS, restricción de red, límite de tamaño y registro de petición por el gestor existente.
+Acción `prestashop_read` de `totus-connections`, sesión administradora y permiso actual de Configuración. Se conserva esta autorización: no se abre el módulo a otros roles mediante una preferencia visual.
 
-La respuesta conserva el identificador de origen por fila, evita duplicados en la misma página y solo devuelve campos explícitamente permitidos. Las cantidades e importes regresan como texto: **no deben sumarse, contabilizarse o interpretarse como ventas de caja** sin conciliación posterior. Los pedidos pueden incluir devoluciones/cancelaciones; los saldos de stock no demuestran entradas de proveedor.
+Recursos permitidos: `orders`, `products`, `order_details`, `customers`, `addresses`, `stock_availables`, `stock_movements`. Campos explícitos, tamaño de página 1–100, páginas acotadas, HTTPS validado, credencial Basic en cabecera, sin redirecciones. `customers` y `addresses` exigen un ID concreto; `order_details` exige pedido. No se exponen contraseñas, claves seguras de clientes ni costes de compra.
 
-## Compatibilidad PrestaShop 1.7.8.11
+Los filtros temporales se envían como `filter[date_add]` y `date=1`, con horas tal como están registradas en PrestaShop. Debe contrastarse el huso real de las tiendas antes de automatizar jornadas de Madrid. Se rechaza un resultado fuera del periodo o perteneciente a otro pedido/registro. No se mezcla una página consultada con filtros nuevos.
 
-La versión 1.7.8.11 de ambas instalaciones fue comunicada por el titular, pero no comprobada por una llamada autenticada. Se usan exclusivamente recursos documentados de Webservice 1.7; `stock_movements` ofrece movimientos de inventario de solo lectura mediante GET, pero no identifica por sí mismo una entrada de mercancía. Los campos expuestos y permisos deben contrastarse con cada instalación. Se emplea autenticación HTTP Basic en cabecera `Authorization` bajo HTTPS; la clave nunca va en la URL ni el código.
+## Costes de variantes
 
-## Pendientes que no se simulan
+Diego comunica un redondeo de coste como 3,90 → 3 al guardar variantes. Es una incidencia de la instalación origen **no reproducida ni corregida por esta rama**. El módulo no importa costes ni ofrece beneficio neto a partir de ellos. Cuando haya una fuente fiable (factura, recepciones o Pricing validado), podrá añadirse margen identificado por fuente y fecha. No corregir costes masivamente sin localizar y probar la causa del guardado.
 
-- Confirmar dominios reales autorizados de ambas instalaciones y permisos GET de Webservice sin revelar claves.
-- Leer los recursos realmente disponibles y registrar errores HTTP reales.
-- Identificar nombre/versión del módulo TPV, tablas de caja y movimientos (incluidas retiradas), empleados, métodos de pago y vínculo entre las cajas Vape/Head y sus IDs.
-- Comparar una lectura real con el arqueo del TPV. La API estándar **no ofrece un ejecutor SQL**; un eventual módulo de lectura TPV solo admitirá consultas de parámetros definidos y evaluados en el servidor PrestaShop, nunca SQL libre.
-- Diseñar sincronización y almacenamiento de última ejecución e historial persistente de errores mediante revisión técnica de esquema y permisos. Este primer tramo muestra diagnósticos actuales e historial de fallos **de la sesión del navegador**, no una sincronización realizada.
-- Vincular los resultados a Cajas y Recepciones conservando sus funciones, con control de idempotencia, paginación completa, fechas Madrid y comprobación de no duplicación fiscal.
+## Cajas y errores efectivo/tarjeta
 
-## Pruebas
+El contrato lógico TPV existente no es un adaptador conectado. Faltan nombre/versión instalada, columnas, lectura de cierres/retiradas y mapeo verificado de cajones Vape/Head/NewOldSmok.
 
-`tests/prestashop-readonly-qa.mjs` cubre contrato, límites, aislamiento y formato. `tests/prestashop-service-qa.mjs` cubre permisos, rechazo de SQL, transporte de cabecera y errores sin exponer credenciales. `tests/prestashop-ui-browser-qa.mjs` cubre en Playwright las cuatro secciones de Configuración, lectura simulada, tiendas aisladas, errores y adaptación móvil/escritorio.
+Requisitos de importación: origen estable por tienda/cajón/cierre, idempotencia, céntimos exactos, horario y anulaciones comprobados, estado de conciliación y prueba frente a un cierre real. Las salidas y el efectivo dejado continúan manuales. No derivar cierres de una simple suma de pedidos.
 
-Todas las pruebas utilizan datos ficticios. Un test aprobado no certifica que el TPV o la API de las tiendas reales hayan respondido.
+La reclasificación efectivo/tarjeta debe mantener el total vendido, preservar el original y registrar importe, motivo, autor y fecha. Hay función y pruebas aritméticas, **todavía no una operación persistente conectada a Cajas**. No generar ventas ficticias para compensar diferencias.
 
-## Contrato TPV preparado, no conectado
+## Tickets y Facturación
 
-En src/prestashop-tpv-contract.js se define únicamente un contrato lógico de cierres y movimientos de caja. Los nombres closings y cash_movements NO son tablas ni rutas comprobadas en PrestaShop.
-Se exige tienda explícita, cajón origen y UUID de cajón Totus asociados mediante evidencia confirmada. Hasta contrastar el mapeo, el estado es bloqueado.
-Las fechas se interpretan para Europe/Madrid y los instantes de origen deben incluir zona horaria expresa, especialmente en el cambio de hora. Se utilizan céntimos enteros, claves de origen estables y comprobación de duplicados.
-Retiradas de efectivo, transferencias internas y ventas con tarjeta son categorías diferentes. Ninguna equivale por sí sola a un ingreso adicional ni provoca escrituras en Cajas, Recepciones o contabilidad.
+Referencia propuesta: `prestashop:<tienda>:order:<id>`, distinta del número fiscal. En esta rama solo se prepara la referencia y se accede a Facturación; no crea ni emite una factura automáticamente.
 
-Pendiente para habilitar un adaptador: nombre/versión instalada del módulo TPV; inventario de tablas y columnas de arqueos y movimientos; correspondencia de cajones Vape/Head y NewOldSmok; significado de signos, métodos y horarios; ruta de lectura parametrizada preparada en el servidor de PrestaShop.
-No se inventan rutas de módulo ni se permite SQL libre o MySQL público.
+Antes de habilitar emisión: verificar si el origen es ticket sin documento fiscal, factura simplificada o factura completa; conservar número/serie/fecha originales; vínculo único en servidor para impedir duplicados; mismo emisor y moneda; líneas/impuestos/descuentos contrastados; tratamiento de ingresos ya incluidos en Cajas y devoluciones. El número Totus lo asignará atómicamente la serie al emitir. No renumerar facturas antiguas ni tratar diferentes series como un defecto por sí mismas.
 
-Las pruebas ficticias del contrato están en tests/prestashop-tpv-contract-qa.mjs. Pendientes de su inclusión y ejecución en CI; un intento de modificar el workflow fue bloqueado por controles de seguridad de la plataforma. No declarar dichas pruebas aprobadas.
+La AEAT exige correlatividad **dentro de cada serie**. Para sustitución de simplificadas describe identificación de número, serie y fecha de los documentos sustituidos. El flujo definitivo debe contrastarse con el tipo real de documento de estos TPV.
 
-Referencia documental: https://devdocs.prestashop-project.org/1.7/webservice/reference/ (GET de stock_movements, stock_availables y orders, sujeto a permisos y recursos disponibles en cada instalación).
-Referencia de funciones TPV: https://www.pos-tpv.com/es/manual/manuales-tpv-prestashop/cajas-en-pos-tpv-prestashop (no acredita versión instalada, tablas o datos de estas tiendas).
+Referencias oficiales:
+- https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html
+- https://www3.agenciatributaria.gob.es/Sede/iva/facturacion-registro/facturacion-iva/contenido-facturas.html
+- https://devdocs.prestashop-project.org/1.7/webservice/resources/orders/
+- https://devdocs.prestashop-project.org/1.7/webservice/resources/order_details/
+- https://devdocs.prestashop-project.org/1.7/webservice/resources/products/
 
-Estado: PR #115 borrador, sin desplegar; cero conexiones PrestaShop verificadas en Supabase; URLs privadas exactas pendientes; sin lecturas comerciales reales.
+## Pruebas y despliegue
+
+Pruebas de contrato/servicio/insights: recursos, autorización, dos tiendas, periodos, céntimos, clasificación, duplicados, URI y campos privados. Playwright: 390/768/1017/1440 px, detalle desplegable, búsqueda, vista, paginación, error/reintento y aislamiento entre usuarios/tiendas. Prueba de preferencias en 390/1017 px, y SQL de aislamiento/revisión en CI. Todos estos recorridos usan fixtures ficticios, no certifican recursos reales nuevos.
+
+Orden de despliegue tras controles: parche 061 de preferencias, servicio `totus-connections` con ambos contratos, frontend. El servicio conserva compatibilidad con lecturas antiguas sin filtro temporal. Comprobar la versión publicada y repetir una consulta de Hortimatic con fecha conocida, detalle y producto. Si un recurso falla, mostrar su error y no activar importación TPV.
+
+## Lista de siguientes tramos (no terminados)
+
+1. Contraste real de pedidos/detalle/catálogo nuevos por cada tienda; NewOldSmok permanece pendiente.
+2. Adaptador y correspondencia del TPV; importar cierres idempotentes al módulo Cajas y persistir reclasificaciones.
+3. Ventas por producto, variantes y devoluciones; rankings incluyendo productos con cero ventas.
+4. Antigüedad de stock por entradas verificadas, rotación y producto recomendado con explicación, sin coste dudoso.
+5. Programaciones persistentes, historial de ejecuciones y reintentos por tienda.
+6. Vínculo fiscal único con Facturación y pruebas de no duplicación de ingresos.
+7. Perfiles independientes para futuras instalaciones PrestaShop 8 y cambio de origen validado.

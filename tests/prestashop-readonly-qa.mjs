@@ -36,7 +36,7 @@ test('request uses server-side Basic credentials, paginates and does not return 
  const result=await readPrestashopPage(base,{store:'hortimatic',resource:'orders',page:1,page_size:2},{resolve,request:async(url,init)=>{
   called++;const u=new URL(url);
   assert.equal(u.pathname,'/api/orders');assert.equal(u.searchParams.get('limit'),'2,2');
-  assert.equal(u.searchParams.get('display'),'[id,reference,date_add,payment,total_paid_tax_incl]');
+  assert.match(u.searchParams.get('display'),/^\[id,reference,date_add,payment,total_paid_tax_incl,/);
   assert(!url.includes(base.secret));assert.equal(init.headers.Authorization,'Basic '+btoa(base.secret+':'));
   assert.equal(init.method,'GET');assert.equal(init.redirect,'error');
   return Response.json({orders:[{id:'3',total_paid_tax_incl:'9.99'},{id:'4',total_paid_tax_incl:'6.10'}]});
