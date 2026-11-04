@@ -181,7 +181,11 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{},onM
    if(a==='export'){const r=get(b.dataset.resource);if(!r)return;const fields=PRESTASHOP_RESOURCES[b.dataset.resource];download(new Blob(['\ufeff'+csv(r.rows,fields.map(f=>({label:labels[f]||f,get:row=>row[f]})))],{type:'text/csv;charset=utf-8'}),'prestashop-'+store+'-'+b.dataset.resource+'-'+isoToday()+'.csv');return;}
    void run(async()=>{if(a==='discover'){const c=connection(),shop=store;const r=await invoke({action:'prestashop_discover',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID()});if(!active()||shop!==store)return;if(!r?.ok||r.store!==shop||!Array.isArray(r.resources)||!Array.isArray(r.tpv_resources))throw Error('Diagnóstico de recursos no verificable.');capabilities.set(shop+'|'+c.id+'|'+c.revision,r);status='Recursos y disponibilidad TPV comprobados en '+shop+'.';}else if(a==='refresh')await refresh();else if(a==='read')await scan(b.dataset.resource);else if(a==='more')await read(b.dataset.resource,true);else if(a==='detail'||a==='detail-more')await read('order_details',a==='detail-more',b.dataset.id);});
   };
-  if(receiptsOnly())tab='receipts';render();await run(async()=>{await refresh();if(tab==='receipts'&&receiptReadyKey!==owner+'|'+store)await refreshReceipts();else if(!receiptsOnly()&&autoload&&ready()&&!get('orders'))await scan('orders');});
+  if(receiptsOnly())tab='receipts';render();
+  // Stock actions already refresh their own data and restore keyboard focus.
+  // Repeating an async mount render here would replace the restored field.
+  if(tab==='receipts'&&receiptReadyKey===owner+'|'+store)return;
+  await run(async()=>{await refresh();if(tab==='receipts'&&receiptReadyKey!==owner+'|'+store)await refreshReceipts();else if(!receiptsOnly()&&autoload&&ready()&&!get('orders'))await scan('orders');});
  }
  return {mount,dispose,selectTab(key){if(tabs.some(([k])=>k===key)){tab=key;requestedTab=key;}}};
 }
