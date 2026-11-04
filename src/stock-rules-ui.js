@@ -1,6 +1,7 @@
 import {esc} from './utils.js';
 import {readStockRuleSource,stockRuleQuantity,stockRuleResult} from './stock-rules.js';
 import {STOCK_STATES,stockLineResult} from './stock-core.js';
+import {fieldHelp} from './components.js';
 const qty=v=>v==null?'Pendiente':Number(v).toLocaleString('es-ES',{maximumFractionDigits:6});
 // All work remains in this receipt-scoped editor until its explicit save.
 export function mountStockRuleEditor(host,context,{save,preview,valid=()=>true}){
@@ -9,7 +10,8 @@ export function mountStockRuleEditor(host,context,{save,preview,valid=()=>true})
  const docs=context.sources.map(s=>({source:s,source_id:s.id,included:true,reviewed:false,note:'',...readStockRuleSource(s)}));
  docs.forEach(d=>d.rows.forEach(row=>row.original=Object.fromEntries(['name','reference','ean','variant','quantity','unit'].map(k=>[k,row[k]]))));
  let proposal=null,saving=false;
- const field=(key,value,label,type='text')=>'<label>'+esc(label)+'<input data-rule-field="'+key+'" type="'+type+'" value="'+esc(value??'')+'" '+(type==='number'?'step="any"':'')+'></label>';
+ const hints={quantity:'Cantidad que figura en este documento. Conserva los packs originales; su conversión se indica en Unidades por pack.',factor:'Una caja de cinco unidades se indica con factor 5. Requiere evidencia escrita o una equivalencia previamente confirmada.',conversionNote:'Explica dónde has comprobado el contenido del pack. No se deduce una conversión para hacer desaparecer una diferencia.',ean:'Se compara el identificador exacto. Si los EAN de ambos lados se contradicen, la correspondencia queda pendiente.'};
+ const field=(key,value,label,type='text')=>'<label><span class="field-caption">'+esc(label)+(hints[key]?fieldHelp(label,hints[key]):'')+'</span><input data-rule-field="'+key+'" type="'+type+'" value="'+esc(value??'')+'" '+(type==='number'?'step="any"':'')+'></label>';
  function lineHtml(row,index){
   return '<article class="stock-rule-line" data-rule-line="'+index+'"><header><b>'+esc(row.locator)+'</b><button type="button" class="btn secondary" data-rule-remove="'+index+'">Retirar línea</button></header><div class="stock-rule-fields">'+field('name',row.name,'Producto')+field('quantity',row.quantity,'Cantidad','number')+'<label>Formato<select data-rule-field="unit"><option value="">Por confirmar</option><option value="ud" '+(row.unit==='ud'?'selected':'')+'>Unidades</option><option value="pack" '+(row.unit==='pack'?'selected':'')+'>Cajas / packs</option></select></label></div><details class="stock-rule-advanced"><summary>Referencia, variante y conversión de packs</summary><div class="stock-rule-fields">'+field('reference',row.reference,'Referencia')+field('ean',row.ean,'EAN')+field('variant',row.variant,'Variante')+field('factor',row.factor,'Unidades por pack (si procede)','number')+field('conversionNote',row.conversionNote,'Evidencia de la conversión')+'</div></details></article>';
  }
