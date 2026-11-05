@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer(),{chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
+await mkdir('artifacts/payment-filter',{recursive:true});
+try{for(const width of [390,1440]){
+ const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
+ await page.evaluate(async()=>{
+  const {createPrestashopUI,prestashopWorkspacePage}=await import('../src/prestashop-ui.js');document.querySelector('#chatHarness').innerHTML=prestashopWorkspacePage();
+  const q=window.paymentQA={calls:0};q.ui=createPrestashopUI({autoload:false,actor:()=> 'one',allowed:()=>true,rpc:async()=>({connections:[{id:'one',name:'PrestaShop · Hortimatic',protocol:'prestashop',configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true}]}),invoke:async body=>{q.calls++;const rows=body.resource==='orders'?['Efectivo','Bizum','Transferencia bancaria','Tarjeta de crédito','Pago especial',''].map((payment,i)=>({id:String(i+1),reference:'Pedido '+(i+1),payment,total_paid_tax_incl:'10.00',date_add:'2026-11-05 10:00:00',valid:'1',id_currency:'1'})):body.resource==='currencies'?[{id:'1',iso_code:'EUR'}]:[];return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:false};}});await q.ui.mount(document.querySelector('#prestashopRoot'));
+ });
+ await page.getByRole('button',{name:'Pedidos y ventas',exact:true}).click();await page.locator('[data-ps-payment-filter]>summary').click();assert(await page.getByRole('checkbox',{name:'Bizum',exact:true}).isVisible());assert(await page.getByRole('checkbox',{name:'Transferencia',exact:true}).isVisible());
+ await page.getByRole('button',{name:'Consultar periodo',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.ps-order').length===6);const calls=await page.evaluate(()=>paymentQA.calls);
+ await page.locator('[data-ps-payment-filter]>summary').click();await page.getByRole('checkbox',{name:'Bizum',exact:true}).check();await page.getByRole('checkbox',{name:'Transferencia',exact:true}).check();await page.getByRole('button',{name:'Aplicar búsqueda',exact:true}).click();assert.equal(await page.locator('.ps-order').count(),2);assert.match(await page.locator('.ps-order-list').innerText(),/Bizum/);assert.match(await page.locator('.ps-order-list').innerText(),/Transferencia bancaria/);assert.equal(await page.evaluate(()=>paymentQA.calls),calls,'Local filters do not requery provider');
+ await page.getByRole('button',{name:'Resumen',exact:true}).click();await page.getByRole('button',{name:'Pedidos y ventas',exact:true}).click();await page.locator('[data-ps-payment-filter]>summary').click();assert(await page.getByRole('checkbox',{name:'Bizum',exact:true}).isChecked());assert(await page.getByRole('checkbox',{name:'Transferencia',exact:true}).isChecked());
+ await page.screenshot({path:'artifacts/payment-filter/payments-'+width+'.png',fullPage:true});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ await page.getByRole('button',{name:'Todos los pagos',exact:true}).click();assert.equal(await page.locator('.ps-order').count(),6);await page.locator('[data-ps-payment-filter]>summary').click();await page.getByRole('checkbox',{name:'Pago especial',exact:true}).check();await page.getByRole('button',{name:'Aplicar búsqueda',exact:true}).click();assert.equal(await page.locator('.ps-order').count(),1);assert.match(await page.locator('.ps-order-list').innerText(),/Pago especial/);
+ assert.deepEqual(errors,[]);await page.close();console.log('PASS payments '+width+': common methods before query, multi-selection, aliases, local-only filtering, tab retention and reset');
+}}finally{await browser.close();await server?.close();}
