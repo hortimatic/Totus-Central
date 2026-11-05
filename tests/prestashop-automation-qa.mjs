@@ -1,6 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {validatePrestaAutomation,onlineOrder,prestashopNotice,automationResult} from '../src/prestashop-automation-core.js';
 const rule={name:'Pedidos web',recipe:'online_orders',stores:['hortimatic'],channel_id:'11111111-1111-4111-8111-111111111111',interval_hours:2,online_modules:{hortimatic:['webcheckout']},enabled:true,sharing_confirmed:true};
+test('general reminders have their own text and require no store, provider or AI',()=>{
+ const result=validatePrestaAutomation({...rule,recipe:'reminder',stores:[],message:'Revisar los documentos pendientes'});assert.deepEqual(result.stores,[]);assert.equal(result.message,'Revisar los documentos pendientes');
+ for(const message of ['', 'ab', 'x'.repeat(4001)])assert.throws(()=>validatePrestaAutomation({...rule,recipe:'reminder',message}));
+});
 test('rules support generic queries and validate scope, origins, interval and destination',()=>{
  assert.equal(validatePrestaAutomation(rule).interval_hours,2);assert.equal(validatePrestaAutomation({...rule,recipe:'missing_ean',online_modules:{}}).recipe,'missing_ean');
  for(const patch of [{stores:['other']},{channel_id:'------------------------------------'},{interval_hours:0},{recipe:'sql'},{online_modules:{}},{daily_start:'25:00'},{min_count:-1}])assert.throws(()=>validatePrestaAutomation({...rule,...patch}));

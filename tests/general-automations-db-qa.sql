@@ -1,0 +1,27 @@
+begin;
+select set_config('qa.uid','33333333-3333-4333-8333-333333333333',true),set_config('qa.email','admin@example.invalid',true),set_config('qa.role','authenticated',true);
+do $$declare config jsonb;r jsonb;rid uuid;job uuid;ticket text;msg uuid;begin
+ perform private.totus_validate_appearance('general','{"startModule":"automatizaciones"}');
+ if not private.totus_module_can('manager@example.invalid','automatizaciones','create') or private.totus_module_can('manager@example.invalid','automatizaciones','delete') then raise exception 'Legacy explicit permissions changed';end if;
+ if private.totus_module_can('staff@example.invalid','automatizaciones','view') then raise exception 'New module widened defaults';end if;
+ config='{"name":"Recordatorio ficticio","recipe":"reminder","message":"Revisar las tareas de prueba","min_count":1,"period_days":1,"daily_start":"00:00","daily_end":"23:59","stores":[],"online_modules":{},"channel_id":"44444444-4444-4444-8444-444444444444","interval_hours":2,"frequency":"daily","at_time":"21:00","weekdays":[1,2,3,4,5],"enabled":true,"sharing_confirmed":true}';
+ update private.totus_api_connections set enabled=false;
+ r=public.totus_prestashop_automations('save',config);rid=(r->>'changed_id')::uuid;
+ if not private.totus_prestashop_rule_allowed(rid) then raise exception 'General reminder depends on a shop';end if;
+ if (select message from private.totus_prestashop_automations where id=rid)<>'Revisar las tareas de prueba' then raise exception 'Message lost';end if;
+ update private.totus_prestashop_automations set next_run_at=now()-interval '1 minute' where id=rid;
+ if private.totus_prestashop_dispatch()<>1 or private.totus_prestashop_dispatch()<>0 then raise exception 'Duplicate general dispatch';end if;
+ select (body->>'job')::uuid,body->>'ticket' into job,ticket from public.qa_jobs order by ctid desc limit 1;
+ perform set_config('qa.role','service_role',true);
+ r=public.totus_prestashop_job_claim(job,ticket);
+ if r->'rule'->>'recipe'<>'reminder' or jsonb_array_length(r->'rule'->'stores')<>0 then raise exception 'Wrong generic scope';end if;
+ r=public.totus_prestashop_job_deliver(job,'general','report:1:20261105000000','Recordatorio ficticio');msg=(r->>'message_id')::uuid;
+ r=public.totus_prestashop_job_deliver(job,'general','report:1:20261105000000','Recordatorio ficticio');
+ if r->>'duplicate'<>'true' or (r->>'message_id')::uuid<>msg then raise exception 'Duplicate reminder';end if;
+ begin perform public.totus_prestashop_job_deliver(job,'hortimatic','99','Wrong scope');raise exception 'Accepted wrong scope';exception when others then if sqlerrm='Accepted wrong scope' then raise;end if;end;
+ perform public.totus_prestashop_job_finish(job,'done','{"notices":1,"scanned":0}');
+ if (select last_success_at is null from private.totus_prestashop_automations where id=rid) then raise exception 'Watermark missing';end if;
+ update public.team_members set active=false where email='admin@example.invalid';
+ if private.totus_prestashop_rule_allowed(rid) then raise exception 'Inactive owner retained access';end if;
+end $$;
+rollback;
