@@ -98,8 +98,11 @@ function equivalenceFor(a,b,receipt,equivalences){
  return matches.length===1?matches[0]:null;
 }
 function identity(a,b,receipt,equivalences){
- if(!variantCompatible(a,b)||identifiersConflict(a,b))return null;
  const e=equivalenceFor(a,b,receipt,equivalences);
+ // A scoped, explicitly confirmed equivalence can explain a documented pack
+ // or catalogue discrepancy. Exact identifiers alone cannot override one.
+ if(e&&(!variantCompatible(a,b)||identifiersConflict(a,b)))return {method:'Equivalencia confirmada · discrepancia documental justificada',equivalence:e};
+ if(!variantCompatible(a,b)||identifiersConflict(a,b))return null;
  if(text(a.ean)&&text(b.ean)&&code(a.ean)===code(b.ean))return {method:'EAN exacto',equivalence:e};
  if(text(a.reference)&&text(b.reference)&&code(a.reference)===code(b.reference))return {method:'Referencia exacta',equivalence:e};
  if(e)return {method:'Equivalencia confirmada',equivalence:e};
