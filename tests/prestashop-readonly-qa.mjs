@@ -4,6 +4,13 @@ import {PRESTASHOP_STORES,storeConnection,prestashopPage,prestashopRows} from '.
 import {readPrestashopPage} from '../supabase/functions/totus-connections/prestashop.js';
 const base={id:'11111111-1111-4111-8111-111111111111',protocol:'prestashop',name:'PrestaShop · Hortimatic',endpoint:'https://example.com/api',secret:'fixture-secret',auth_kind:'basic',enabled:true,revision:3,verified_revision:3,real_data_authorized:true};
 const resolve=async()=>['8.8.8.8'];
+
+test('PrestaShop 1.7 empty root collection is valid; malformed responses still fail',async()=>{
+ assert.deepEqual(prestashopRows([],'orders',100),{rows:[],possibly_more:false});
+ for(const payload of [{},null,{errors:[]},[{id:1}],{products:[]}])assert.throws(()=>prestashopRows(payload,'orders',100),/no compatible/);
+ const result=await readPrestashopPage(base,{store:'hortimatic',resource:'orders',page:1,page_size:100},{resolve,request:async()=>Response.json([])});
+ assert.equal(result.rows.length,0);assert.equal(result.possibly_more,false);
+});
 test('two distinct store identities, no fuzzy matching or accidental cross-store links',()=>{
  assert.equal(PRESTASHOP_STORES.length,2);
  assert.equal(storeConnection([base],'hortimatic'),base);

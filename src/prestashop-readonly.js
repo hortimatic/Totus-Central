@@ -63,7 +63,9 @@ const scalar=value=>{
 };
 export function prestashopRows(payload,resource,pageSize){
  if(!PRESTASHOP_RESOURCES[resource])throw Error('Recurso no permitido.');
- const values=payload?.[resource];
+ // PrestaShop 1.7 serializes an empty resource collection as the root [].
+ // Do not treat missing objects, error envelopes or non-empty root arrays as empty.
+ const values=Array.isArray(payload)&&payload.length===0?[]:payload?.[resource];
  if(!Array.isArray(values))throw Error('Respuesta PrestaShop no compatible con el recurso.');
  if(values.length>pageSize)throw Error('La API devolvió más filas de las solicitadas.');
  const fields=PRESTASHOP_RESOURCES[resource],seen=new Set();
