@@ -2,7 +2,7 @@ import {canUser} from './permissions.js';
 import {state} from './state.js';
 import {esc,fmtDate,isoToday,download} from './utils.js';
 import {btn,table,formField,selectField,modal,closeModal,toast,confirmAction} from './components.js';
-import {STOCK_STATES,stockReceiptStatus,stockLineResult,stockCorrectedLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
+import {STOCK_STATES,stockReceiptStatus,stockLineResult,stockEquivalenceProblems,stockCorrectedLineResult,stockSummary,stockChatPrompt} from './stock-core.js';
 import {filterStockReceipts,sameStockEquivalence,stockIdentity,stockExportRows,stockReportHtml,stockChatEvidence} from './stock-workflow.js';
 import {unmatchedStockRows,pairUnmatchedStockRows} from './stock-manual-matching.js';
 const initialView=()=>({loaded:false,receipts:[],context:null,history:[],mode:'list',query:'',store:'all',from:'',to:'',status:'all',error:'',pendingUploads:[],equivalences:[],libraryQuery:'',libraryStore:'all'});
@@ -57,7 +57,7 @@ function resultTable(receipt){
  {label:'Diferencia',num:true,html:r=>{const x=stockCorrectedLineResult(r);return quantity(x.difference)+(x.hasCorrection?'<small>Diferencia documental: '+quantity(x.originalDifference)+'</small>':'');}},
  {label:'Revisión y origen',html:r=>{const calculated=stockLineResult(r),saved=(view.context.equivalences||[]).find(e=>sameStockEquivalence(e,r,receipt)&&Number(e.unit_factor)===Number(r.unit_factor));
  return badge(calculated.status)+(r.unit_correction?.reason?'<small><b>Corrección justificada:</b> '+esc(r.unit_correction.reason)+' · '+esc(r.unit_correction.corrected_by||'')+'</small>':'')+(calculated.reasons.length?'<small>'+esc(calculated.reasons.join(' · '))+'</small>':'')+(r.match_note&&!r.manual_assignment?'<small><b>Observación:</b> '+esc(r.match_note)+'</small>':'')+(r.manual_assignment?.reason?'<small><b>Asignación manual:</b> '+esc(r.manual_assignment.reason)+(r.manual_assignment.kind==='prestashop_catalog'?' · Revisar ficha PrestaShop':r.manual_assignment.kind==='supplier_catalog'?' · Revisar referencia del proveedor':'')+'</small>':'')+'<details><summary>Ver origen y ajustes</summary>'+(r.source_refs||[]).map(ref=>'<p>'+esc(view.context.sources.find(s=>s.id===ref.source_id)?.document?.original_name||ref.source_id)+' · '+esc(ref.locator)+'</p>').join('')+'<p>Cantidad en factura: '+quantity(r.supplier_qty)+' · Unidades por paquete: '+quantity(r.unit_factor)+'</p>'+(r.conversion_reason?'<p>'+esc(r.conversion_reason)+'</p>':'')+'<p>Ajuste externo: '+quantity(r.adjustment_qty)+' · '+esc(r.adjustment_reason||'Sin ajuste indicado')+'</p></details>'+
- (saved?'<small>En la biblioteca de productos</small>':canManage()&&!calculated.reasons.length?action('Guardar equivalencia','stock-equivalence-new','data-line="'+esc(r.id)+'"'):'')+(canManage()&&stockLineResult(r).expected!==null&&stockLineResult(r).received!==null?action('Corregir unidades','stock-units-new','data-line="'+esc(r.id)+'"'):'');}}
+ (saved?'<small>En la biblioteca de productos</small>'+action('Ver equivalencia','stock-equivalence-view','data-line="'+esc(r.id)+'"'):canManage()?action('Guardar equivalencia','stock-equivalence-new','data-line="'+esc(r.id)+'"'):'')+(canManage()&&stockLineResult(r).expected!==null&&stockLineResult(r).received!==null?action('Corregir unidades','stock-units-new','data-line="'+esc(r.id)+'"'):'');}}
  ],rows);
 }
 function receiptDetail(){
@@ -360,17 +360,28 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
    (docs.length?'<p><b>Archivos conservados en Documentos:</b></p><ul>'+docs.map(d=>'<li>'+esc(d.name||'Documento')+'</li>').join('')+'</ul><p>Si deseas borrar alguno, abre Documentos y utiliza Eliminar; su protección comprueba las asociaciones y el original recuperable.</p>'+btn('Abrir Documentos','stock-delete-open-docs','secondary'):'<p>No había archivos vinculados.</p>'));
   return;
  }
+ if(a==='stock-equivalence-view'){
+  const r=view.context?.receipt,row=r?.result?.rows?.find(x=>x.id===el.dataset.line);
+  const saved=row&&(view.context.equivalences||[]).find(e=>sameStockEquivalence(e,row,r)&&Number(e.unit_factor)===Number(row.unit_factor));
+  if(!saved)throw new Error('Actualiza la recepción para consultar su equivalencia.');
+  stockModal('Equivalencia guardada','<p><b>'+esc(saved.supplier_name)+'</b> → '+esc(saved.prestashop_name)+'</p><p>Variante: '+esc(saved.variant||'Sin variante indicada')+' · '+esc(saved.unit)+' · Factor: '+quantity(saved.unit_factor)+'</p><p>'+esc(saved.evidence||'Sin motivo registrado')+'</p><p>Se aplica a esta tienda y proveedor en futuras recepciones.</p>');return;
+ }
  if(a==='stock-equivalence-new'){
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
   const row=view.context.receipt.result.rows.find(r=>r.id===el.dataset.line);
-  if(!row||stockLineResult(row).reasons.length)throw new Error('Primero completa y confirma esta línea.');
+  if(!row)throw new Error('Actualiza la recepción para consultar esta línea.');
+  const reasons=stockEquivalenceProblems(row);
+  if(reasons.length){
+   const unmatched=unmatchedStockRows(view.context.receipt.result.rows||[]);
+   stockModal('Completar equivalencia','<p>La opción está disponible, pero esta línea necesita completar los siguientes datos antes de reutilizarla:</p><ul>'+reasons.map(reason=>'<li>'+esc(reason)+'</li>').join('')+'</ul><p>No se guardará una relación incompleta en futuras recepciones.</p><div class="inline-actions">'+(unmatched.supplier.length&&unmatched.prestashop.length?action('Asignar productos sin pareja','stock-pair-new'):'')+(canEdit()?action('Revisar documentos y líneas','stock-rules-new'):'')+'</div>');return;
+  }
   stockModal('Guardar equivalencia en la biblioteca','<p>Se reutilizará solo para esta tienda, proveedor, nombres, variante y unidad. Una coincidencia válida solo para este pedido no debe guardarse como regla.</p><div class="stock-equivalence-summary"><b>'+esc(row.supplier_name)+'</b><p>PrestaShop: '+esc(row.prestashop_name)+'</p><p>Variante: '+esc(row.variant||'Sin variante indicada')+' · '+esc(row.unit)+' · '+quantity(row.unit_factor)+' unidad(es) por paquete</p></div><label>Motivo de la confirmación<textarea id="stockEquivalenceEvidence" rows="3" maxlength="5000"></textarea></label><label class="check-field"><input id="stockEquivalenceConfirmed" type="checkbox"> Confirmo que puede reutilizarse en futuros pedidos de esta misma variante.</label>'+btn('Guardar equivalencia','stock-equivalence-save','primary','data-line="'+esc(row.id)+'"'));
   return;
  }
  if(a==='stock-equivalence-save'){
   if(!canManage())throw new Error('Solo gerencia puede confirmar equivalencias.');
   const r=view.context.receipt,row=r.result.rows.find(x=>x.id===el.dataset.line),evidence=value('stockEquivalenceEvidence').trim();
-  if(!row||stockLineResult(row).reasons.length)throw new Error('La línea necesita revisión.');
+  if(!row||stockEquivalenceProblems(row).length)throw new Error('La equivalencia necesita identificar ambos productos y confirmar su unidad.');
   if(!document.getElementById('stockEquivalenceConfirmed')?.checked||!evidence)throw new Error('Confirma la reutilización e indica el motivo.');
   try{await rpc('totus_stock_confirm_equivalence',{p_store:r.store_id,p_supplier:r.supplier,p_supplier_name:row.supplier_name,p_prestashop_name:row.prestashop_name,p_variant:row.variant||'',p_unit:row.unit,p_factor:row.unit_factor,p_evidence:evidence});}
   catch(error){if(/unique|duplicate/i.test(error.message))throw new Error('La equivalencia ya existe. Consulta la biblioteca antes de crear otra.');throw error;}

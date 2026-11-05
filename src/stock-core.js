@@ -8,6 +8,15 @@ export function stockReceiptStatus(receipt={}){
   ?'reviewed':receipt.status;
 }
 const quantity=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1000000?v:null;
+// A reusable product relationship does not depend on this delivery's quantities.
+export function stockEquivalenceProblems(row={}){
+ const reasons=[],factor=quantity(row.unit_factor);
+ if(!String(row.supplier_name||'').trim()||!String(row.prestashop_name||'').trim())reasons.push('Falta identificar el producto en uno de los documentos');
+ if(row.match_confirmed!==true)reasons.push('Correspondencia sin confirmar');
+ if(row.unit_confirmed!==true||!String(row.unit||'').trim()||factor===null||factor<=0)reasons.push('Unidad o conversión sin confirmar');
+ if(factor!==null&&factor!==1&&!String(row.conversion_reason||'').trim())reasons.push('Falta justificar la conversión');
+ return reasons;
+}
 export function stockLineResult(row={}){
  const f=quantity(row.supplier_qty),p=quantity(row.prestashop_qty),a=quantity(row.adjustment_qty);
  const factor=quantity(row.unit_factor);

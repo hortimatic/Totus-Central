@@ -122,6 +122,18 @@ try{
  await page.locator('#stockEquivalenceConfirmed').check();
  await page.locator('[data-action="stock-equivalence-save"]').click();await page.getByText('Equivalencia guardada para futuros cotejos.',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_equivalences.length),1);
+ await page.getByRole('button',{name:'Ver equivalencia',exact:true}).click();
+ await page.getByRole('heading',{name:'Equivalencia guardada',exact:true}).waitFor();
+ assert((await page.locator('#modalHost').innerText()).includes('Confirmación expresa QA'));
+ await page.locator('[data-action="close-modal"]').filter({visible:true}).last().click();
+ await page.evaluate(()=>{const r=window.__mockDb.ops_stock_receipts[0];r.result.rows.push({...structuredClone(r.result.rows[0]),id:'pending-equivalence',supplier_name:'Otro producto pendiente',prestashop_name:null,match_confirmed:false});});
+ await page.locator('[data-action="stock-refresh"]').click();
+ await page.locator('[data-action="stock-equivalence-new"][data-line="pending-equivalence"]').click();
+ await page.getByRole('heading',{name:'Completar equivalencia',exact:true}).waitFor();
+ assert.equal(await page.locator('[data-action="stock-equivalence-save"]').count(),0,'Incomplete rows must have a visible route to resolve them, never save a false match');
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_stock_equivalences.length),1);
+ await page.locator('[data-action="close-modal"]').filter({visible:true}).last().click();
+ await page.evaluate(()=>{const r=window.__mockDb.ops_stock_receipts[0];r.result.rows=r.result.rows.filter(x=>x.id!=='pending-equivalence');});
  // Fictitious manual review: keep a documentary shortage, require a note and display it.
  await page.evaluate(()=>{const r=window.__mockDb.ops_stock_receipts[0];r.status='differences';r.result.rows[0].prestashop_qty=8;});
  await page.locator('[data-action="stock-refresh"]').click();

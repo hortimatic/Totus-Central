@@ -14,3 +14,6 @@ console.log('MODULE NAVIGATION QA: module URLs, native tab gestures and bounded 
 assert.equal(requestedModule('https://example.invalid/',routes,'gastos'),'gastos');
 assert.equal(requestedModule('https://example.invalid/?module=inicio',routes,'gastos'),'inicio');
 assert.equal(requestedModule('https://example.invalid/',routes,'denied'),'inicio');
+assert.equal(requestedModule('https://example.invalid/?module=gastos',routes,'inicio',true),'inicio','Internal navigation must not override the next startup');
+assert.equal(requestedModule('https://example.invalid/?module=inicio',routes,'gastos',true),'gastos','Respect the personal startup module');
+assert.equal(requestedModule('https://example.invalid/?module=gastos',routes,'inicio',false),'gastos','Keep explicit links usable');
