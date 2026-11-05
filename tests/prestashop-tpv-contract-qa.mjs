@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {tpvReadRequest,validateTpvBatch,tpvCapabilityStatus} from '../src/prestashop-tpv-contract.js';
+import {tpvReadRequest,validateTpvBatch,tpvCapabilityStatus} from '../docs/reference/prestashop-tpv-contract.js';
 
 const drawer={store:'hortimatic',totus_drawer_id:'11111111-1111-4111-8111-111111111111',
  tpv_drawer_id:'17',confirmed:true,evidence_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};

@@ -6,7 +6,7 @@ import {NAV_GROUPS,orderedRoutes} from './navigation-preferences.js';
 import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
 import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
-import {enhancePasswordVisibility,hidePasswords} from './login-controls.js';
+import {enhancePasswordVisibility,hidePasswords,accessDeadline} from './login-controls.js';
 import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
 import {createPrestashopUI} from './prestashop-ui.js';
 import {createAccountUI} from './account-ui.js';
@@ -138,7 +138,7 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
-const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>can('prestashop','view'),receiptsOnly:()=>!canUser(state.user,'prestashop','view',state.data.userPermissions||[])&&!(isAdmin()&&can('configuracion','edit')),renderReceipts:()=>stockPage(),prepareReceipts:async({store,reset})=>{const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;await stockAction(reset?'stock-from-prestashop':'stock-refresh',{dataset:{storeId}},{render:()=>{},createStoredDocument,previewDocument,fileSha256});},onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},onModule:()=>navigateModule('prestashop'),loadReceipts:async shop=>{
+const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>can('prestashop','view'),receiptsOnly:()=>!canUser(state.user,'prestashop','view',state.data.userPermissions||[])&&!(isAdmin()&&can('configuracion','edit')),renderReceipts:()=>stockPage(),prepareReceipts:async({store,reset})=>{const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;await stockAction(reset?'stock-from-prestashop':'stock-refresh',{dataset:{storeId}},{render:()=>{},createStoredDocument,previewDocument,fileSha256});},onManage:async()=>{if(state.route!=='configuracion')await navigateModule('configuracion');document.querySelector('[data-config-section="connections"]')?.click();},loadReceipts:async shop=>{
  if(!can('documentos','view'))throw Error('Necesitas acceso a Documentos para consultar las recepciones.');
  const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===shop)?.id;if(!storeId)throw Error('No se ha identificado la tienda de Totus.');
  const owner=state.user?.id,rows=[];
@@ -3229,6 +3229,13 @@ $('#saveRecoveryPassword').addEventListener('click',async()=>{
  finally{button.disabled=false}
 });
 
+function showAccessError(error){
+ const message=$('#loginMessage');
+ message.textContent=error.code==='ACCESS_TIMEOUT'||/TimeoutError|timed out|PGRST003/i.test(error.message||'')?'El servicio de datos no responde. Vuelve a intentarlo; tu sesión guardada se conserva.':error.message;
+ let retry=$('#retryAccess');
+ if(!retry){retry=document.createElement('button');retry.id='retryAccess';retry.type='button';retry.className='btn secondary';retry.textContent='Volver a intentar';retry.addEventListener('click',()=>location.reload());message.after(retry);}
+ retry.classList.remove('hidden');
+}
 let signingIn=false;
 $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();if(signingIn)return;signingIn=true;
@@ -3242,7 +3249,7 @@ $('#loginForm').addEventListener('submit',async e=>{
   $('#loginPassword').value='';
   await boot({fromLogin:true,timingRun});
  }
- catch(err){finishStartupTiming('error',timingRun);m.textContent=err.message}
+ catch(err){finishStartupTiming('error',timingRun);showAccessError(err)}
  finally{signingIn=false;button.disabled=false}
 });
 $('#recoverBtn').addEventListener('click',async()=>{
@@ -3253,16 +3260,16 @@ $('#recoverBtn').addEventListener('click',async()=>{
 async function boot({fromLogin=false,timingRun=null}={}){
  const run=fromLogin?timingRun:beginStartupTiming('sesion_recuperada');
  let bootStatus='ok';
- $('#login').classList.add('checking-session');
+ $('#login').classList.add('checking-session');$('#retryAccess')?.classList.add('hidden');
  $('#loginMessage').textContent='Comprobando tu acceso…';
  try{
  if(recoveringPassword){showPasswordRecovery();return}
- const session=(await timedStartup('sesion',()=>sb.auth.getSession())).data.session;state.session=session;
+ const session=(await timedStartup('sesion',()=>accessDeadline(()=>sb.auth.getSession()))).data.session;state.session=session;
  if(!session){$('#loginMessage').textContent='';$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
- const [teamRows,profileRows]=await timedStartup('usuario_y_perfil',()=>Promise.all([
+ const [teamRows,profileRows]=await timedStartup('usuario_y_perfil',()=>accessDeadline(()=>Promise.all([
   select('team_members',{limit:1,allowTruncated:true,filter:q=>q.eq('email',session.user.email.toLowerCase())}),
   select('profiles',{limit:1,allowTruncated:true,filter:q=>q.eq('id',session.user.id)})
- ]));
+ ])));
  const member=teamRows[0],profile=profileRows[0];
  if(!member||member.active===false){await logout();throw new Error('Tu usuario no tiene acceso activo.')}
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
@@ -3291,7 +3298,7 @@ sb.auth.onAuthStateChange((event,session)=>{
  if(event==='SIGNED_IN'&&state.user&&session?.user?.id!==state.user.id){
   clearSessionView();
   // Supabase auth callbacks must finish before starting authenticated IO.
-  setTimeout(()=>boot().catch(e=>{$('#loginMessage').textContent=e.message;}),0);
+  setTimeout(()=>boot().catch(e=>{showAccessError(e);$('#login').classList.remove('hidden');$('#app').classList.add('hidden');}),0);
  }
 });
 
@@ -3302,7 +3309,7 @@ document.addEventListener('visibilitychange',()=>{
  if(document.visibilityState==='visible'&&isStoragePanelVisible())refreshStoragePanel().catch(console.error);
 });
 setInterval(()=>{if(document.visibilityState==='visible'&&state.route==='administracion'&&getView('administracion').section==='log'&&!state.loading&&!document.activeElement?.id?.startsWith('log')&&!input('modalHost')?.children.length)refreshAuditPanel()},30000);
-boot().catch(e=>{$('#loginMessage').textContent=e.message;$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});
+boot().catch(e=>{showAccessError(e);$('#login').classList.remove('hidden');$('#app').classList.add('hidden')});
 
 // Enter applies the same visible controls as the Apply button, without submitting unrelated forms.
 document.addEventListener('keydown',async e=>{

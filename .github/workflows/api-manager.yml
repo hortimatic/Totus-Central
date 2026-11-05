@@ -74,6 +74,8 @@ jobs:
       - run: node tests/user-purge-browser-qa.mjs
       - run: node tests/api-manager-browser-qa.mjs
       - run: node tests/prestashop-ui-browser-qa.mjs
+      - run: node tests/prestashop-list-page-browser-qa.mjs
+      - run: node tests/prestashop-payment-filter-browser-qa.mjs
       - run: node tests/prestashop-invoice-browser-qa.mjs
       - run: TOTUS_FRACTIONAL_INVOICE=1 node tests/prestashop-invoice-browser-qa.mjs
       - run: node tests/navigation-layout-browser-qa.mjs

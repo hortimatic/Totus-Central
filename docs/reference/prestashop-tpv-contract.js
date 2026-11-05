@@ -1,4 +1,4 @@
-import {prestashopStore} from './prestashop-readonly.js';
+import {prestashopStore} from '../../src/prestashop-readonly.js';
 
 // Logical contract only. These are NOT PrestaShop resource names, SQL tables or TPV module fields.
 export const TPV_FEEDS=Object.freeze(['closings','cash_movements']);

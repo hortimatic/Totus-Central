@@ -1,0 +1,142 @@
+{
+  "description": "Deployment inputs; public metadata only. Keep each service and its relative shared dependencies together. No credentials or user data.",
+  "services": [
+    {
+      "name": "team-admin",
+      "entrypoint": "supabase/functions/team-admin/index.ts",
+      "verify_jwt": true,
+      "files": [
+        "supabase/functions/team-admin/agent-access.ts",
+        "supabase/functions/team-admin/index.ts",
+        "supabase/functions/team-admin/purge-user.ts",
+        "supabase/functions/team-admin/retire-user.ts"
+      ]
+    },
+    {
+      "name": "totus-backup-run",
+      "entrypoint": "supabase/functions/totus-backup-run/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/backup-index.js",
+        "src/backup-retention.js",
+        "src/backup-set.js",
+        "src/backup-transport.js",
+        "src/cloud-backup-reader.js",
+        "src/recovery-core.js",
+        "supabase/functions/totus-backup-run/index.ts",
+        "supabase/functions/totus-backup-run/native-zip.js",
+        "supabase/functions/totus-backup-run/partitioned-job.js",
+        "supabase/functions/totus-backup-run/rate-limit.js"
+      ]
+    },
+    {
+      "name": "totus-recovery",
+      "entrypoint": "supabase/functions/totus-recovery/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/backup-index.js",
+        "src/backup-set.js",
+        "src/backup-transport.js",
+        "src/cloud-backup-reader.js",
+        "src/recovery-core.js",
+        "src/recovery-runner.js",
+        "supabase/functions/totus-backup-run/native-zip.js",
+        "supabase/functions/totus-recovery/chat-file-reader.js",
+        "supabase/functions/totus-recovery/index.ts"
+      ]
+    },
+    {
+      "name": "totus-onedrive",
+      "entrypoint": "supabase/functions/totus-onedrive/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/backup-index.js",
+        "src/backup-retention.js",
+        "src/backup-set.js",
+        "src/chat-files.js",
+        "src/connection-maintenance.js",
+        "src/recovery-core.js",
+        "supabase/functions/totus-onedrive/backup-source-links.js",
+        "supabase/functions/totus-onedrive/backup-transfer.js",
+        "supabase/functions/totus-onedrive/credential-renewal.js",
+        "supabase/functions/totus-onedrive/document-removal-worker.js",
+        "supabase/functions/totus-onedrive/index.ts",
+        "supabase/functions/totus-onedrive/stock-import.js",
+        "supabase/functions/totus-onedrive/team-chat-files.js"
+      ]
+    },
+    {
+      "name": "totus-assistant",
+      "entrypoint": "supabase/functions/totus-assistant/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/agent-identity.js",
+        "supabase/functions/totus-assistant/assistant-attachments.ts",
+        "supabase/functions/totus-assistant/assistant-chat.ts",
+        "supabase/functions/totus-assistant/assistant-operations.ts",
+        "supabase/functions/totus-assistant/index.ts"
+      ]
+    },
+    {
+      "name": "totus-ai",
+      "entrypoint": "supabase/functions/totus-ai/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/agent-conversation.js",
+        "src/agent-delivery.js",
+        "src/agent-identity.js",
+        "src/agent-reports.js",
+        "src/agent-workbooks.js",
+        "src/api-presets.js",
+        "src/calculations.js",
+        "src/cash-closing.js",
+        "src/chat-files.js",
+        "src/excel.js",
+        "src/expense-colors.js",
+        "src/gestor-format.js",
+        "src/historical-acceptance.js",
+        "src/payment-information.js",
+        "src/report-period.js",
+        "src/utils.js",
+        "src/verified-extraction.js",
+        "supabase/functions/totus-ai/cloudflare.js",
+        "supabase/functions/totus-ai/index.ts",
+        "supabase/functions/totus-ai/providers.js",
+        "supabase/functions/totus-ai/tools.ts",
+        "supabase/functions/totus-assistant/assistant-attachments.ts",
+        "supabase/functions/totus-assistant/assistant-operations.ts",
+        "supabase/functions/totus-connections/transport.js"
+      ]
+    },
+    {
+      "name": "totus-connections",
+      "entrypoint": "supabase/functions/totus-connections/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/api-presets.js",
+        "src/prestashop-readonly.js",
+        "supabase/functions/totus-ai/cloudflare.js",
+        "supabase/functions/totus-connections/github.js",
+        "supabase/functions/totus-connections/index.ts",
+        "supabase/functions/totus-connections/prestashop.js",
+        "supabase/functions/totus-connections/transport.js"
+      ]
+    },
+    {
+      "name": "totus-prestashop-alerts",
+      "entrypoint": "supabase/functions/totus-prestashop-alerts/index.ts",
+      "verify_jwt": false,
+      "files": [
+        "src/api-presets.js",
+        "src/prestashop-automation-core.js",
+        "src/prestashop-insights.js",
+        "src/prestashop-queries.js",
+        "src/prestashop-readonly.js",
+        "supabase/functions/totus-ai/cloudflare.js",
+        "supabase/functions/totus-connections/prestashop.js",
+        "supabase/functions/totus-connections/transport.js",
+        "supabase/functions/totus-prestashop-alerts/index.ts"
+      ]
+    }
+  ]
+}

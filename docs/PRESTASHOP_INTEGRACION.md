@@ -1,5 +1,7 @@
 # Centro PrestaShop · contrato, estado y continuidad
 
+> Estado vigente a 06/11/2026: el módulo es independiente, Recepciones está integrado y Automatizaciones tiene módulo propio. Ya no hay pestaña PrestaShop en Configuración. Ambas conexiones figuran habilitadas y verificadas con cuenta activa; esto no acredita cada operación comercial. Los costes añadidos son aproximados. El texto siguiente conserva el contrato y las observaciones históricas de la entrega inicial; no debe interpretarse como inventario actual. Véase la auditoría vigente del 06/11/2026.
+
 Revisión: 04/11/2026. Base publicada revisada: `1043b77` (PR #115 y #116).
 Este documento diferencia el lector publicado de la ampliación propuesta en la rama `feature/prestashop-workspace-20261104`. La rama no acredita publicación.
 

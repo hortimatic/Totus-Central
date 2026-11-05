@@ -1,13 +1,13 @@
 # Mantenimiento y zonas de trabajo
 
-Revisión: 03/11/2026. No sustituye los permisos, aprobaciones o procedimientos de negocio.
+Revisión: 06/11/2026. No sustituye los permisos, aprobaciones o procedimientos de negocio.
 
 ## Dónde está cada cosa
 
 | Zona | Contenido vigente | Regla de mantenimiento |
 |---|---|---|
 | `src/` | Aplicación y lógica compartida usada también por servicios. | Una implementación canónica por cálculo/contrato. Separar por módulo al tocarlo; no reescribir toda la aplicación para ordenar un cambio pequeño. |
-| `supabase/functions/` | Siete servicios de ejecución. | Mantener manifiesto de versión y fuentes, incluido código compartido. No editar solo el servicio desplegado sin reflejarlo en Git. |
+| `supabase/functions/` | Ocho servicios de ejecución; manifiesto en `supabase/functions/deployment-manifest.json`. | Mantener manifiesto de versión y fuentes, incluido código compartido. No editar solo el servicio desplegado sin reflejarlo en Git. |
 | `supabase/migrations/` | Evolución histórica parcial del esquema. | Conservar trazabilidad. El inventario no acredita un instalador desde cero. |
 | `supabase/review_patches/` | Cambios revisados aplicados en momentos concretos. | No aplicar indiscriminadamente. Documentar aplicación/equivalencia al consolidar una base inicial. |
 | `tests/` | Recorridos, fixtures y comprobaciones aisladas. | Una prueba debe comprobar resultado, persistencia y efectos, no solo presencia de botones. Fijar dependencias para reproducibilidad. |
@@ -29,12 +29,12 @@ La rama de producción es `totus-central`. Trabajar en una rama concreta, revisa
 
 Al cerrar un PR, registrar commit publicado y CI. Una rama integrada se puede retirar después de verificar su alcance y PR. Una rama con commits fuera de producción necesita contraste: puede contener una propuesta abandonada o trabajo no entregado. No decidirlo por antigüedad ni por el prefijo `fix/`.
 
-La auditoría del 3 de noviembre dejó un inventario privado con 16 referencias integradas y 13 con commits no alcanzables desde producción. Es una clasificación, no una eliminación ni una afirmación de que todos esos commits sigan siendo cambios necesarios. No se han borrado ramas remotas.
+La revisión vigente retiró 20 ramas integradas con referencia y copia recuperable; conserva 13 con diferencias únicas. Véase el inventario fechado del 06/11/2026.
 
 ## Repetir pruebas con coste acotado
 
 1. `node tools/audit-inventory.mjs` crea el mapa de rutas, fuentes, RPC, variables y dependencias de origen. Solo lee código.
-2. Instalar las dependencias de pruebas indicadas por CI en un entorno aislado y arrancar `node tools/audit-functional.mjs`. Requiere Playwright/Chromium, `xlsx-js-style`, `jszip` y `pdf-lib`; la consolidación pendiente del lockfile debe resolver sus versiones exactas.
+2. Instalar las dependencias de pruebas indicadas por CI en un entorno aislado y arrancar `node tools/audit-functional.mjs`. Requiere Playwright/Chromium, `xlsx-js-style`, `jszip` y `pdf-lib`; usar las versiones fijadas en CI.
 3. El ejecutor inicia un servidor limitado a `127.0.0.1`, comprueba los recursos del harness y genera un registro por suite y un JSON de resultados.
 4. `AUDIT_ONLY` permite repetir una suite de la lista conservando los resultados de las demás. `AUDIT_PORT`, `AUDIT_BROWSER_CHANNEL` y las rutas de importación `AUDIT_PLAYWRIGHT`, `AUDIT_PDF_LIB`, `AUDIT_JSZIP` permiten usar un runtime ya instalado. No contratar ni descargar servicios por defecto.
 5. Separar fallo del entorno (servidor/dependencia ausentes) de un fallo de aplicación. No dar por buena una prueba con errores ni repetir toda la batería cuando solo falta resolver una dependencia.
@@ -45,12 +45,12 @@ La auditoría total no debe repetirse por cada pequeño cambio. La matriz funcio
 
 ## Qué no se ha limpiado automáticamente
 
-No se han borrado registros históricos, originales, índices de copias, tareas de usuario, migraciones, índices de base de datos ni credenciales. La `.gitignore` añadida impide incluir accidentalmente material generado en futuros commits; no borra ni ordena físicamente archivos anteriores. Los cambios de conservación técnica, privilegios y protección de GitHub son actuaciones independientes descritas en la auditoría, todavía pendientes de aplicación.
+No se han borrado registros de negocio, originales, índices de copias, tareas de usuario, migraciones ni credenciales. Se aplicaron los tres índices aditivos del parche 068. Los archivos retirados con trazabilidad se conservan; no se renombran rutas administradas.
 
 ## Entrada para el siguiente trabajo
 
 - [Informe funcional y prioridades](auditorias/AUDITORIA_FUNCIONAL_2026-11-03.md).
 - [Matriz por módulo y función](auditorias/MATRIZ_FUNCIONAL_2026-11-03.md).
 - [Preparación de servidor privado](MIGRACION_SERVIDOR_PRIVADO.md).
-- Primera corrección recomendada: F-01 (arranque sin dependencia externa disponible); después F-05 (escape CSV del agente).
+- [Revisión vigente de estabilidad y limpieza](auditorias/AUDITORIA_ESTABILIDAD_2026-11-06.md). Las correcciones de arranque y CSV de la revisión anterior ya están incorporadas; esta entrega añade recuperación de esperas de acceso.
 - No presentar la auditoría como una migración realizada ni como cierre de los pendientes de IA.

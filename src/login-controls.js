@@ -1,4 +1,12 @@
 /** Password visibility is local to the form; it never stores or transmits a value. */
+export async function accessDeadline(read,ms=12000){
+ let timer;
+ try{
+  return await Promise.race([Promise.resolve().then(read),new Promise((_,reject)=>{
+   timer=setTimeout(()=>{const error=Error('No se ha podido comprobar el acceso. El servicio de datos tarda demasiado. Vuelve a intentarlo; tu sesión se conserva.');error.code='ACCESS_TIMEOUT';reject(error);},ms);
+  })]);
+ }finally{clearTimeout(timer);}
+}
 export function enhancePasswordVisibility(root){
  if(!root)return;
  for(const input of root.querySelectorAll('input[type="password"]')){
