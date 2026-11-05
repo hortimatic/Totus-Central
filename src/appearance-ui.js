@@ -111,6 +111,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
    const select=host.querySelector('[data-my-style]'),name=host.querySelector('[data-style-name]');
    select.onchange=()=>{selectedStyle=select.value;styleDraftName=styles().items.find(s=>s.id===selectedStyle)?.name||'';name.value=styleDraftName;syncControls();};
    name.oninput=()=>{styleDraftName=name.value;};
+   name.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();host.querySelector('[data-style-action=create]').click();}};
    host.querySelectorAll('[data-style-action]').forEach(button=>button.onclick=async()=>{
     if(busy||!canEdit(section))return;const stamp=epoch,action=button.dataset.styleAction,row=styles().items.find(s=>s.id===selectedStyle);
     values=read();

@@ -34,7 +34,7 @@ try{for(const width of [390,1440]){
  await page.locator('[data-preset]').selectOption('totus');await page.locator('[data-apply-preset]').click();
  assert.equal(await page.locator('[name=cardGlow]').inputValue(),'0');assert.equal(await page.locator('[name=borderWidth]').inputValue(),'1');
  await page.locator('[name=primary]').fill('#aabbcc');await page.locator('[name=borderWidth]').fill('2');
- await page.locator('[data-style-name]').fill('Oficina');await page.locator('[data-style-action=create]').click();await page.locator('[data-style-status]').filter({hasText:'Estilo guardado en tu cuenta'}).waitFor();
+ await page.locator('[data-style-name]').fill('Oficina');await page.locator('[data-style-name]').press('Enter');await page.locator('[data-style-status]').filter({hasText:'Estilo guardado en tu cuenta'}).waitFor();
  assert.equal(cloud.get('a'+width).active,undefined,'Library save does not apply interface');
  await page.reload();await mount(page,'a'+width);await page.locator('[data-my-style]').selectOption({label:'Oficina'});await page.locator('[data-style-action=load]').click();assert.equal(await page.locator('[name=primary]').inputValue(),'#aabbcc');assert.equal(await page.locator('[name=borderWidth]').inputValue(),'2');
  await page.locator('#appearanceRoot [type=submit]').click();await page.locator('[data-appearance-status]').filter({hasText:'Configuración guardada'}).waitFor();
