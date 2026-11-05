@@ -6,7 +6,7 @@ create table private.totus_prestashop_automations(
  id uuid primary key default gen_random_uuid(),owner_id uuid references auth.users(id) on delete set null,
  name text not null check(length(name) between 3 and 100),stores text[] not null,
  recipe text not null default 'online_orders',min_count integer not null default 1 check(min_count between 0 and 1000000),period_days integer not null default 1 check(period_days between 1 and 365),daily_start time not null default '00:00',daily_end time not null default '23:59',
- online_modules jsonb not null,channel_id uuid not null references public.ops_chat_channels(id),
+ online_modules jsonb not null,channel_id uuid references public.ops_chat_channels(id) on delete set null,
  frequency text not null default 'interval' check(frequency in ('interval','daily','weekly')),at_time time not null default '09:00',weekdays integer[] not null default array[1,2,3,4,5] check(cardinality(weekdays) between 1 and 7 and weekdays<@array[0,1,2,3,4,5,6]),
  interval_hours integer not null default 2 check(interval_hours in (1,2,3,4,6,8,12,24)),
  enabled boolean not null default false,revision bigint not null default 1,
@@ -39,7 +39,7 @@ create index totus_prestashop_due on private.totus_prestashop_automations(next_r
 create index totus_prestashop_job_history on private.totus_prestashop_jobs(automation_id,created_at desc);
 create table private.totus_prestashop_deliveries(
  automation_id uuid not null references private.totus_prestashop_automations(id),store text not null,order_id text not null,
- message_id uuid not null references public.ops_chat_messages(id),created_at timestamptz not null default now(),
+ message_id uuid references public.ops_chat_messages(id) on delete set null,created_at timestamptz not null default now(),
  primary key(automation_id,store,order_id)
 );
 alter table private.totus_prestashop_automations enable row level security;
