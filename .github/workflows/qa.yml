@@ -66,6 +66,7 @@ jobs:
       - run: node tests/chat-file-reader-qa.mjs
       - run: node tests/tasks-core-qa.mjs
       - run: node tests/personal-interface-qa.mjs
+      - run: node tests/interface-styles-qa.mjs
       - run: node tests/appearance-qa.mjs
       - run: node tests/appearance-tools-qa.mjs
       - run: node tests/chat-personalization-qa.mjs
@@ -219,6 +220,7 @@ jobs:
       - run: node tests/chat-mobile-reading-browser-qa.mjs
       - run: node tests/chat-space-browser-qa.mjs
       - run: node tests/personal-interface-browser-qa.mjs
+      - run: node tests/interface-styles-browser-qa.mjs
       - run: node tests/appearance-browser-qa.mjs
       - run: node tests/appearance-panels-browser-qa.mjs
       - run: node tests/responsive-controls-browser-qa.mjs
@@ -416,6 +418,9 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/031_personal_interface.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/personal-interface-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_personal_interface_styles.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_personal_interface_styles.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/interface-styles-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/037_navigation_preferences.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/navigation-preferences-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/061_personal_navigation_layout.sql

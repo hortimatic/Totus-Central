@@ -120,3 +120,6 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 
 
 @media(max-width:600px){[data-api-manager] .btn{min-height:44px}[data-api-manager] .section-head .inline-actions{width:100%;flex-wrap:wrap}}
+
+.appearance-style-library{margin:16px 0;padding:16px;border:var(--appearance-border-width,1px) solid var(--line);border-radius:var(--r,12px);background:var(--appearance-surface,var(--panel));min-width:0}
+.appearance-style-library h3{margin:0 0 6px;font-size:1rem}.appearance-style-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.appearance-style-fields label{display:grid;gap:6px;min-width:0}.appearance-style-fields :is(input,select){width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit}.appearance-style-library .inline-actions{gap:8px;flex-wrap:wrap}.appearance-style-library [data-style-status]{margin:10px 0 0}@media(max-width:600px){.appearance-style-fields{grid-template-columns:1fr}.appearance-style-library .btn{white-space:normal}}
