@@ -105,13 +105,14 @@ export function stockPage(){
  (view.error?'<div class="note bad" role="alert">'+esc(view.error)+'</div>':'')+
  (!view.loaded?'<div class="note">Cargando recepciones…</div>':table([{label:'Fecha',html:r=>esc(fmtDate(r.received_on))},{label:'Tienda',html:r=>esc(storeName(r.store_id))},{label:'Proveedor',html:r=>esc(r.supplier)},{label:'Referencia',html:r=>esc(r.reference||'—')},{label:'Estado',html:r=>badge(stockReceiptStatus(r))},{label:'Acciones',html:r=>action('Ver recepción','stock-open','data-id="'+esc(r.id)+'"')}],rows,{emptyTitle:'Sin recepciones',emptyText:'No hay pedidos con estos filtros. Puedes limpiar el rango o crear una recepción.'}))+'</section>';
 }
-export async function stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256}){
+export async function stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256,loadStockCatalog}){
  syncOwner();
  if(['stock-new','stock-back','stock-open','stock-library','stock-library-refresh','stock-refresh','stock-from-prestashop'].includes(a))navigationEpoch++;
  const actionScope=readScope();
  const {sb,rpc,downloadFile,insert,select}=await import('./api.js');
  const {validateDocumentFile}=await import('./file-utils.js');
  const {extractStockText}=await import('./stock-extract.js');
+ if(!currentRead(actionScope))return;
  const value=id=>document.getElementById(id)?.value||'';
  const list=async(table,columns,filter)=>{
   const rows=[];
@@ -158,7 +159,25 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
   const scope=readScope(),receiptId=c.receipt.id,revision=c.receipt.revision;let savedFingerprint=null;
   const {mountStockRuleEditor}=await import('./stock-rules-ui.js');if(!currentRead(scope))return;
   stockModal('Cotejar factura con entrada · sin IA','<div id="stockRuleEditor"></div>');
-  mountStockRuleEditor(document.getElementById('stockRuleEditor'),structuredClone(c),{
+  const editor=document.getElementById('stockRuleEditor'),working=structuredClone(c);
+  editor.innerHTML='<p role="status">Leyendo los originales completos y sus columnas. No se modifican los documentos ni el cotejo guardado…</p>';
+  for(const source of working.sources){
+   if(!currentRead(scope)||!editor.isConnected)return;
+   if(!/\.pdf$/i.test(source.document?.original_name||''))continue;
+   try{const blob=await downloadFile('business-documents',source.document.storage_path,source.document);const read=await extractStockText({name:source.document.original_name,arrayBuffer:()=>blob.arrayBuffer()});source.extracted_text=read.text;source.extraction=read.extraction;}
+   catch{source.extraction={...source.extraction,warnings:[...(source.extraction?.warnings||[]),'No se ha podido releer el original. Comprueba el texto guardado contra el documento.']};}
+  }
+  if(!currentRead(scope)||!editor.isConnected)return;
+  if(loadStockCatalog){
+   const entries=working.sources.filter(s=>s.source_kind==='prestashop'&&s.extraction?.table?.rows?.length);
+   if(entries.length)try{
+    editor.innerHTML='<p role="status">Verificando las referencias exactas en el catálogo de esta tienda…</p>';
+    const {enrichStockCatalog}=await import('./stock-catalog.js'),catalog=await loadStockCatalog(c.receipt.store_id,entries.flatMap(s=>s.extraction.table.rows.map(r=>r.reference)),()=>currentRead(scope)&&editor.isConnected);
+    const checkedAt=new Date().toISOString();for(const source of entries)source.extraction.table.rows=enrichStockCatalog(source.extraction.table.rows,catalog,checkedAt);
+   }catch{for(const source of entries)source.extraction.warnings=[...(source.extraction.warnings||[]),'No se ha podido verificar el catálogo completo. Se mantienen los identificadores del documento, sin inventar EAN.'];}
+  }
+  if(!currentRead(scope)||!editor.isConnected)return;
+  mountStockRuleEditor(editor,working,{
    valid:()=>currentRead(scope)&&view.context?.receipt.id===receiptId&&view.context.receipt.revision===revision&&canEdit(),
    preview:d=>downloadFile('business-documents',d.storage_path,d),
    save:async result=>{

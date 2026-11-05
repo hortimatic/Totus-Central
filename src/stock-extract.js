@@ -1,5 +1,6 @@
 // Extraction is local to the open browser; originals remain in the cloud.
 // A page marker is never counted as readable document content.
+import {stockPdfTable} from './stock-pdf-table.js';
 export async function extractStockText(file,{pdfLibrary,xlsxLibrary}={}){
  const maxChars=250000,maxPages=100,parts=[],pages=[],warnings=[];
  let limited=false,total=0,read=0,format='';
@@ -9,13 +10,14 @@ export async function extractStockText(file,{pdfLibrary,xlsxLibrary}={}){
   format='pdf';
   const pdfjs=pdfLibrary||await import('./vendor/pdfjs/pdf.mjs');
   if(!pdfLibrary)pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdfjs/pdf.worker.mjs',import.meta.url).href;
-  const task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,useSystemFonts:true});
+  const tablePages=[],task=pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,useSystemFonts:true});
   try{
    const pdf=await task.promise;total=0;
    if(pdf.numPages>maxPages){limited=true;warnings.push('El PDF supera las 100 páginas de lectura automática.');}
    for(let number=1;number<=Math.min(pdf.numPages,maxPages);number++){
     if(limited&&total>=maxChars)break;
     const page=await pdf.getPage(number),content=await page.getTextContent();
+    tablePages.push({page:number,items:content.items.filter(i=>typeof i.str==='string'&&i.str.trim()).map(i=>({text:i.str,x:i.transform?.[4]??0,y:i.transform?.[5]??0,width:i.width||0,height:i.height||0}))});
     let lastY=null,text='';
     for(const item of content.items){
      if(typeof item.str!=='string')continue;
@@ -30,7 +32,9 @@ export async function extractStockText(file,{pdfLibrary,xlsxLibrary}={}){
     page.cleanup();
    }
    if(pages.length!==pdf.numPages)limited=true;
-   return {text:parts.join('\n'),extraction:{state:read===0?'unread':limited||read!==pdf.numPages?'partial':'ready',format,pages,total_pages:pdf.numPages,warnings,reader:'pdfjs-text-v1'}};
+   let table=stockPdfTable(tablePages);
+   if(table&&new TextEncoder().encode(JSON.stringify(table)).length>70000){table=null;warnings.push('La tabla requiere revisión por bloques; se conserva el texto completo disponible.');}
+   return {text:parts.join('\n'),extraction:{state:read===0?'unread':limited||read!==pdf.numPages?'partial':'ready',format,pages,total_pages:pdf.numPages,warnings,reader:'pdfjs-columns-v2',...(table?{table}:{})}};
   }finally{await task.destroy();}
  }
  if(/\.(xlsx|xls)$/.test(name)){

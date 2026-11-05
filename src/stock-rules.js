@@ -40,6 +40,8 @@ export function stockRuleTable(raw,sourceId){
 // Known printable layouts are proposals only: coverage is confirmed against the original.
 export function readStockRuleSource(source){
  const raw=text(source.extracted_text),id=source.id;
+ const spatial=source.extraction?.table;
+ if(spatial&&Array.isArray(spatial.rows)&&/^pdf-(prestashop|invoice)-columns-v2$/.test(spatial.parser))return {...spatial,unread:[],rows:spatial.rows.map((row,i)=>({...row,id:id+':pdf:'+String(i+1),source_id:id,line_id:'pdf-'+String(i+1),quantity:stockRuleQuantity(row.quantity),variant:row.variant||'',raw:row.name}))};
  const table=stockRuleTable(raw,id);if(table.rows.length)return table;
  const lines=raw.split(/\r?\n/).map(s=>s.trim()),rows=[];
  const push=(i,name,qty,reference='',ean='',locator='')=>{
@@ -96,8 +98,11 @@ function equivalenceFor(a,b,receipt,equivalences){
  return matches.length===1?matches[0]:null;
 }
 function identity(a,b,receipt,equivalences){
- if(!variantCompatible(a,b)||identifiersConflict(a,b))return null;
  const e=equivalenceFor(a,b,receipt,equivalences);
+ // A scoped, explicitly confirmed equivalence can explain a documented pack
+ // or catalogue discrepancy. Exact identifiers alone cannot override one.
+ if(e&&(!variantCompatible(a,b)||identifiersConflict(a,b)))return {method:'Equivalencia confirmada · discrepancia documental justificada',equivalence:e};
+ if(!variantCompatible(a,b)||identifiersConflict(a,b))return null;
  if(text(a.ean)&&text(b.ean)&&code(a.ean)===code(b.ean))return {method:'EAN exacto',equivalence:e};
  if(text(a.reference)&&text(b.reference)&&code(a.reference)===code(b.reference))return {method:'Referencia exacta',equivalence:e};
  if(e)return {method:'Equivalencia confirmada',equivalence:e};
@@ -117,6 +122,7 @@ export function compareStockRuleLines({receipt,supplier=[],prestashop=[],equival
   const units=!!e||explicitConversion||(unitA==='ud'&&unitB==='ud');
   const positive=(a?.quantity??0)>=0&&(b?.quantity??0)>=0;
   const row={id:'rules-'+String(rows.length+1),supplier_name:a?.name||'',prestashop_name:b?.name||'',supplier_qty:a?a.quantity:0,prestashop_qty:b?b.quantity:0,variant:a?.variant||b?.variant||'',unit:e?.unit||unitA||unitB||'',unit_factor:e?Number(e.unit_factor):explicitConversion?explicitFactor:units?1:null,unit_confirmed:units&&positive,match_confirmed:!!match&&positive,adjustment_qty:0,adjustment_included:'no',conversion_reason:e?.evidence||(explicitConversion?text(a.conversionNote):''),adjustment_reason:'',match_note:match?match.method:'Sin correspondencia única. Revisa referencias, variantes o la biblioteca.',source_refs:[a,b].filter(Boolean).map(ref),rule_evidence:{method:match?.method||'unmatched',supplier_reference:a?.reference||'',prestashop_reference:b?.reference||'',ean:a?.ean||b?.ean||'',equivalence_id:e?.id||null}};
+  row.rule_evidence.catalogue=[a,b].filter(l=>l?.catalog_evidence).map(l=>({source_id:l.source_id,line_id:l.line_id,...l.catalog_evidence}));
   row.rule_evidence.input_edits=[a,b].filter(Boolean).filter(l=>l.original&&Object.entries(l.original).some(([key,value])=>l[key]!==value)).map(l=>({source_id:l.source_id,line_id:l.line_id,original:l.original,revised:Object.fromEntries(Object.keys(l.original).map(k=>[k,l[k]]))}));
   rows.push(row);
  };
@@ -130,7 +136,7 @@ export function stockRuleResult(context,documents){
  for(const source of context.sources){
   const d=documents.find(d=>d.source_id===source.id);if(!d||!d.reviewed||text(d.note).length<20)throw Error('Confirma la lectura de cada documento y explica la comprobación (20 caracteres como mínimo).');
   if(d.included){if(!d.rows?.length)throw Error('El documento seleccionado no tiene líneas.');for(const row of d.rows){if(row.source_id!==source.id)throw Error('Una línea pertenece a otro documento.');(source.source_kind==='supplier'?supplier:prestashop).push(row);}}
-  coverage.push({source_id:source.id,complete:true,explanation:d.included?'Líneas revisadas mediante cotejo por reglas. '+text(d.note):'Documento excluido para evitar duplicidad o por no pertenecer al cotejo: '+text(d.note),manually_verified:true,reading_note:text(d.note)});
+  coverage.push({source_id:source.id,complete:true,explanation:d.included?'Líneas revisadas mediante cotejo por reglas. '+text(d.note):'Documento excluido para evitar duplicidad o por no pertenecer al cotejo: '+text(d.note),manually_verified:true,reading_note:text(d.note),reader:source.extraction?.reader||'',parser:d.parser,recognized_lines:d.rows.length,non_stock_lines:d.excluded||[]});
  }
  if(!supplier.length||!prestashop.length)throw Error('Selecciona una factura o albarán y una entrada de PrestaShop con líneas.');
  const rows=compareStockRuleLines({receipt:context.receipt,supplier,prestashop,equivalences:context.equivalences||[]});
