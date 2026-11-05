@@ -78,6 +78,8 @@ jobs:
       - run: node tests/stock-workflow-qa.mjs
       - run: node tests/stock-rules-qa.mjs
       - run: node tests/prestashop-flows-qa.mjs
+      - run: node tests/prestashop-payment-filter-qa.mjs
+      - run: node tests/prestashop-list-page-qa.mjs
       - run: node tests/prestashop-automation-qa.mjs
       - run: node tests/prestashop-alert-worker-qa.mjs
       - run: node tests/stock-backup-qa.mjs
