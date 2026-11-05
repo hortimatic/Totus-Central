@@ -4,7 +4,7 @@ export const PRESTASHOP_STORES=Object.freeze([
  {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok',origin:'https://newoldsmok.com'}
 ]);
 export const PRESTASHOP_RESOURCES=Object.freeze({
- orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl','module']),
+ orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_wrapping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl','module']),
  order_states:Object.freeze(['id','name']),
  taxes:Object.freeze(['id','rate','name','active']),
  currencies:Object.freeze(['id','iso_code','name']),
@@ -15,7 +15,7 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  categories:Object.freeze(['id','name','active','id_parent']),
  product_options:Object.freeze(['id','name','public_name','group_type','position']),
  product_option_values:Object.freeze(['id','id_attribute_group','name','color','position']),
- order_details:Object.freeze(['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','total_price_tax_incl','total_price_tax_excl','unit_price_tax_incl','unit_price_tax_excl','reduction_percent','associations']),
+ order_details:Object.freeze(['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','total_price_tax_incl','total_price_tax_excl','unit_price_tax_incl','unit_price_tax_excl','reduction_percent','purchase_supplier_price','original_wholesale_price','associations']),
  stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity']),
  stock_movements:Object.freeze(['id','id_product','id_product_attribute','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','id_order','id_supply_order'])
 });
