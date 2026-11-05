@@ -283,7 +283,7 @@
  #content .mobile-card-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
  #content .mobile-card-table tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;padding:16px;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;background:var(--panel)}
  #content .mobile-card-table tbody>tr:last-child{border-bottom:0}
- #content .mobile-card-table td{display:block;width:auto;min-width:0;padding:0;border:0;text-align:left!important;max-width:none}
+ #content .mobile-card-table td{display:block;width:auto;min-width:0;height:auto;min-height:var(--appearance-row-height,0px);padding:0;border:0;text-align:left!important;max-width:none}
  #content .mobile-card-table td:before{content:attr(data-label);display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:5px}
  #content .mobile-card-table td[data-label=""]:before{display:none}
  #content .mobile-card-table td:last-child{grid-column:1/-1}
