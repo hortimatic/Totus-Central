@@ -244,7 +244,7 @@ function render(){
   state.route=first.id;
  }
  renderNav();
- history.replaceState(null,'',moduleUrl(location.href,state.route));
+ history.replaceState(history.state?.totusModuleNavigation===true?{totusModuleNavigation:true}:null,'',moduleUrl(location.href,state.route));
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
@@ -432,7 +432,7 @@ async function navigateModule(route,el=null,prepare=null){
  let owner=sessionViewOwner();const generation=++refreshGeneration;
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
- history.replaceState(null,'',moduleUrl(location.href,route));
+ history.replaceState({totusModuleNavigation:true},'',moduleUrl(location.href,route));
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
@@ -443,6 +443,7 @@ async function navigateModule(route,el=null,prepare=null){
   state.user={...state.user,...member,id:state.user.id};owner=sessionViewOwner();
   applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);
   render();
+  window.scrollTo({top:0,left:0,behavior:'instant'});$('#content').scrollTop=0;
   if(isAuditPanelVisible())void refreshAuditPanel();
   if(isStoragePanelVisible())void refreshStoragePanel();
   if(route==='cotejos')await stockAction('stock-refresh',el||{}, {render,createStoredDocument,previewDocument,fileSha256});
@@ -3245,7 +3246,9 @@ async function boot({fromLogin=false,timingRun=null}={}){
  if(!profile&&member.role==='admin')await insert('profiles',{id:session.user.id,email:session.user.email.toLowerCase(),full_name:member.full_name,role:member.role,active:true});
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
- const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);
+ const internalReturn=history.state?.totusModuleNavigation===true;
+ const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);
+ if(internalReturn)history.replaceState(null,'',moduleUrl(location.href,state.route));
  await refresh();chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}

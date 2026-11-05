@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
-import {stockLineResult,stockCorrectedLineResult,stockSummary} from '../src/stock-core.js';
+import {stockLineResult,stockEquivalenceProblems,stockCorrectedLineResult,stockSummary} from '../src/stock-core.js';
 import {extractStockText} from '../src/stock-extract.js';
 const row={id:'r1',supplier_qty:10,prestashop_qty:12,adjustment_qty:2,adjustment_included:'yes',adjustment_reason:'Corrección de otra entrega',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true,source_refs:[{source_id:'s1',locator:'p1 l1',line_id:'p1l1'},{source_id:'s2',locator:'fila 1',line_id:'f1'}]};
 assert.equal(stockLineResult(row).difference,0);
+const relationship={supplier_name:'Proveedor A',prestashop_name:'Producto A',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true};
+assert.deepEqual(stockEquivalenceProblems(relationship),[],'Product equivalence must not require delivery quantities or unrelated cash adjustments');
+assert(stockEquivalenceProblems({...relationship,prestashop_name:''}).length);
+assert(stockEquivalenceProblems({...relationship,match_confirmed:false}).length);
+assert(stockEquivalenceProblems({...relationship,unit_factor:5}).includes('Falta justificar la conversión'));
 const overridden={...row,unit_correction:{expected:10,received:8,reason:'Comprobación detallada con albarán y recuento verificado.',corrected_by:'qa@example.invalid'}};
 assert.equal(stockLineResult(overridden).difference,0,'The original documentary result must never change');
 assert.equal(stockCorrectedLineResult(overridden).difference,-2,'Corrected units are separate');
