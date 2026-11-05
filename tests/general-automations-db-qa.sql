@@ -1,7 +1,7 @@
 begin;
 select set_config('qa.uid','33333333-3333-4333-8333-333333333333',true),set_config('qa.email','admin@example.invalid',true),set_config('qa.role','authenticated',true);
 do $$declare config jsonb;r jsonb;rid uuid;job uuid;ticket text;msg uuid;begin
- perform private.totus_validate_appearance('general','{"startModule":"automatizaciones"}');
+ perform private.totus_validate_appearance('interfaz','{"startModule":"automatizaciones"}');
  if not private.totus_module_can('manager@example.invalid','automatizaciones','create') or private.totus_module_can('manager@example.invalid','automatizaciones','delete') then raise exception 'Legacy explicit permissions changed';end if;
  if private.totus_module_can('staff@example.invalid','automatizaciones','view') then raise exception 'New module widened defaults';end if;
  config='{"name":"Recordatorio ficticio","recipe":"reminder","message":"Revisar las tareas de prueba","min_count":1,"period_days":1,"daily_start":"00:00","daily_end":"23:59","stores":[],"online_modules":{},"channel_id":"44444444-4444-4444-8444-444444444444","interval_hours":2,"frequency":"daily","at_time":"21:00","weekdays":[1,2,3,4,5],"enabled":true,"sharing_confirmed":true}';
