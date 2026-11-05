@@ -1,7 +1,8 @@
 import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
-const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+import {startLocalServer} from './local-static-server.mjs';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright'),server=await startLocalServer();
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  const fixture=await page.evaluate(async()=>{
@@ -14,7 +15,9 @@ try{
  const nav=r=>clickModuleLink(page,page.locator('#nav [data-route="'+r+'"]'));
  await nav('administracion');await page.locator('[data-action="user-permissions"][data-email="worker@qa.invalid"]').click();
  for(const module of ['equipo','tareas']){assert.equal(await page.locator('#perm_'+module+'_view').count(),1);await page.locator('#perm_'+module+'_create').uncheck();}
- await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===13);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
+ assert.equal(await page.locator('#perm_automatizaciones_view').isChecked(),false);await page.locator('#perm_automatizaciones_view').check();await page.locator('#perm_automatizaciones_create').check();
+ await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===14);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
+ assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='automatizaciones').can_create),true);assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='prestashop').can_view),false);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='configuracion').can_edit),true);
  await nav('cajas');await page.locator('[data-action="closing-edit"][data-id="'+fixture.id+'"]').click();await page.getByRole('button',{name:'Modificar cierre',exact:true}).click();
  assert.equal(await page.locator('#clReported').inputValue(),'200');assert.equal(await page.locator('#drOpen_'+fixture.drawer).inputValue(),'100');assert.equal(await page.locator('#drClose_'+fixture.drawer).inputValue(),'150');assert.equal(await page.locator('#drCard_'+fixture.drawer).inputValue(),'100');
@@ -42,5 +45,5 @@ try{
  await page.evaluate(()=>{window.qaActivityFailure=false;document.dispatchEvent(new Event('visibilitychange'));});
  await page.locator('[data-activity-status]').waitFor({state:'hidden'});
  assert.equal(await page.getByPlaceholder('Buscar por texto',{exact:true}).inputValue(),'Conservar este filtro sin aplicar','Retry warning must update without redrawing unsaved fields');
- assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 12 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
-}finally{await browser.close();}
+ assert.deepEqual(errors,[]);console.log('OPERATIONAL ADMIN BROWSER: 14 module controls, editable imported closing, preserved source and fiscal flag, configured invoice VAT, live navigation log and denied header buttons verified.');
+}finally{await browser.close();if(server)await new Promise(r=>server.close(r));}

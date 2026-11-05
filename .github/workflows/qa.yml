@@ -27,6 +27,10 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-automations-fixture.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/065_prestashop_order_alerts.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-automations-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/general-automations-db-setup.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/066_general_automations.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/066_general_automations.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/general-automations-db-qa.sql
   audit-hardening-database:
     runs-on: ubuntu-latest
     services:

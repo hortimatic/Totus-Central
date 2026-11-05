@@ -15,6 +15,11 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   const key=JSON.parse(env.get('SUPABASE_SECRET_KEYS')||'{}').default||env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
   client=factory(env.get('SUPABASE_URL')||'',key,{auth:{persistSession:false,autoRefreshToken:false}});
   claim=checked(await client.rpc('totus_prestashop_job_claim',{p_job:body.job,p_ticket:body.ticket}));job=claim.job;started=true;
+  if(claim.rule.recipe==='reminder'){
+   const text=String(claim.rule.message||'');if(text.length<3||text.length>4000)throw Error('Aviso no válido.');
+   const sent=checked(await client.rpc('totus_prestashop_job_deliver',{p_job:job,p_store:'general',p_order:'report:'+claim.slot,p_body:claim.rule.name+'\n\n'+text}));
+   checked(await client.rpc('totus_prestashop_job_finish',{p_job:job,p_status:'done',p_result:{notices:sent.duplicate?0:1,scanned:0}}));started=false;return respond({ok:true,job,notices:sent.duplicate?0:1});
+  }
   const deadline=Date.now()+45000,stats:any={stores:[],scanned:0,notices:0};
   for(const store of claim.rule.stores){
    const profile=storeConnection(claim.connections,store);if(!profile)throw Error('Falta una conexión única y verificada para '+store+'.');

@@ -46,7 +46,7 @@ try{
   await page.getByRole('button',{name:'Abrir y cotejar',exact:true}).click();assert.deepEqual(await page.evaluate(()=>prestaQA.receiptOpen),{store:'hortimatic',id:'receipt-demo'});
   await page.locator('[data-ps-receipt-query]').fill('NO-COINCIDE');await page.locator('[data-ps-receipt-search] button').click();assert.equal(await page.getByRole('button',{name:'Abrir y cotejar',exact:true}).count(),0);
   await page.locator('[data-ps-receipt-query]').fill('FACTURA');await page.locator('[data-ps-receipt-search] button').click();await page.screenshot({path:'artifacts/prestashop/receipts-'+width+'.png',fullPage:true});
-  await page.getByRole('button',{name:'Automatizaciones',exact:true}).click();await page.getByText('Consultas manuales guardadas',{exact:true}).click();await page.locator('[data-ps-flow-form]').waitFor();
+  await page.getByRole('button',{name:'Consultas guardadas',exact:true}).click();await page.getByText('Consultas manuales guardadas',{exact:true}).click();await page.locator('[data-ps-flow-form]').waitFor();
   await page.locator('[data-ps-flow-form] [name=name]').fill('Control diario de pesos');await page.locator('[data-ps-flow-form] [name=recipe]').selectOption('missing_weight');await page.locator('[data-ps-flow-form] [type=submit], [data-ps-flow-form] button').click();await page.locator('.ps-flow-list h4').filter({hasText:'Control diario de pesos'}).waitFor();
   await page.getByRole('button',{name:'Duplicar',exact:true}).click();assert.equal(await page.locator('.ps-flow-list>article').count(),2);
   await page.getByRole('button',{name:'Retirar',exact:true}).last().click();await page.getByRole('button',{name:'Confirmar retirada',exact:true}).click();assert.equal(await page.locator('.ps-flow-list>article').count(),1);
@@ -54,7 +54,7 @@ try{
   assert.equal(await page.locator('.ps-tabs button').count(),8);
 
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'No viewport overflow at '+width);
-  await page.evaluate(async()=>{prestaQA.actor='owner-2';await prestaQA.panel.mount(document.querySelector('#prestashopRoot'));});assert.equal(await page.getByText('PEDIDO-1',{exact:true}).count(),0);await page.getByRole('button',{name:'Automatizaciones',exact:true}).click();assert.equal(await page.locator('.ps-flow-list>article').count(),0);
+  await page.evaluate(async()=>{prestaQA.actor='owner-2';await prestaQA.panel.mount(document.querySelector('#prestashopRoot'));});assert.equal(await page.getByText('PEDIDO-1',{exact:true}).count(),0);await page.getByRole('button',{name:'Consultas guardadas',exact:true}).click();assert.equal(await page.locator('.ps-flow-list>article').count(),0);
   assert.deepEqual(errors,[]);await page.close();
  }
  console.log('PrestaShop workspace: 390/768/1017/1440, actual request contract, expand, escape, paging, filters, views, errors/retry, account/store isolation passed');

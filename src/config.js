@@ -20,5 +20,6 @@ export const ROUTES=[
  {id:'fiscalidad',label:'Fiscalidad',icon:'%',group:'Análisis'},
  {id:'informes',label:'Informes',icon:'▦',group:'Análisis'},
  {id:'administracion',label:'Administración',icon:'⚙',group:'Sistema',manager:true},
- {id:'configuracion',label:'Configuración',icon:'◈',group:'Sistema',manager:true}
+ {id:'configuracion',label:'Configuración',icon:'◈',group:'Sistema',manager:true},
+ {id:'automatizaciones',label:'Automatizaciones',icon:'↻',group:'Sistema'}
 ];

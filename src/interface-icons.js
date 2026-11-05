@@ -1,6 +1,7 @@
 // Local vector artwork: no font downloads, trackers or external icon runtime.
 const paths={
  prestashop:'M3 7h18l-2 14H5ZM7 7V5a5 5 0 0 1 10 0v2M9 12h6',
+ automatizaciones:'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 2M4 17l2 2a7 7 0 0 0 12-2',
  inicio:'M3 10 12 3l9 7M5 9v11h5v-6h4v6h5V9',
  pricing:'M3 3h8l10 10-8 8L3 11ZM7 7h.01',
  cajas:'M4 3h16v6H4zM3 13h18v8H3zM7 13v-4m10 4V9M7 17h.01M11 17h.01M15 17h3',
