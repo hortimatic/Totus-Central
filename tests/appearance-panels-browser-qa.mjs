@@ -35,5 +35,16 @@ try{
   assert.equal(await page.locator('.contact-brands-page>.card>.table-wrap').evaluate(e=>getComputedStyle(e).borderTopWidth),'0px','brand directory has one outer frame');
   if(width>800)assert(await page.locator('.contact-brands-page .table-wrap').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'brand actions fit desktop table');
  }
- assert.deepEqual(errors,[]);console.log('APPEARANCE PANELS: actual home, fiscal, reports, storage and configuration panels follow border/color/radius/glow at 0px and 3px, desktop/intermediate/mobile; brands one frame.');
+ // Personal row height is a minimum. Once cells become blocks, a fixed height
+ // clips long receipt names and makes equivalence actions overlap the next row.
+ for(const width of [390,753,1017,1440])for(const tableRowHeight of [34,52]){
+  await page.setViewportSize({width,height:900});
+  await page.evaluate(({tableRowHeight})=>{
+   panelRender('marcas',{tableRowHeight,fontSize:16});
+   document.querySelector('#content').innerHTML='<section class="card card-pad"><div class="table-wrap mobile-card-table"><table class="data-table"><thead><tr><th>Proveedor</th><th>Producto</th><th>Revisión</th></tr></thead><tbody>'+Array.from({length:3},()=>'<tr><td data-label="Proveedor">Garden Seeds Trading, S.L.</td><td data-label="Producto">CBD E-Liquid Iguana Smoke Gorilla Glue 100 mg. 10 ml.<p>Variante y cantidad documentales que deben quedar visibles al consultar la recepción.</p></td><td data-label="Revisión"><p>Correspondencia sin confirmar. Hay que revisar la variante exacta antes de guardar.</p><p>Observación documental de varias líneas que no debe pisar la fila siguiente.</p><div class="inline-actions"><button class="btn secondary">Guardar equivalencia</button><button class="btn secondary">Corregir unidades</button></div></td></tr>').join('')+'</tbody></table></div></section>';
+  },{tableRowHeight});
+  const geometry=await page.locator('.mobile-card-table tbody>tr').evaluateAll(rows=>rows.map(row=>({bottom:row.getBoundingClientRect().bottom,cells:Array.from(row.cells).map(cell=>({bottom:cell.getBoundingClientRect().bottom,contentBottom:Math.max(...Array.from(cell.children).map(e=>e.getBoundingClientRect().bottom),cell.getBoundingClientRect().top)}))})));
+  for(const row of geometry)for(const cell of row.cells){assert(cell.bottom<=row.bottom+1,'cell stays inside row at '+width);assert(cell.contentBottom<=cell.bottom+1,'text and actions stay inside cell at '+width+' with personal height '+tableRowHeight);}
+ }
+ assert.deepEqual(errors,[]);console.log('APPEARANCE PANELS: personal borders and table row minimums verified across desktop/intermediate/mobile, including long receipt names, notes and actions.');
 }finally{await browser.close();}
