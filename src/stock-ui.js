@@ -112,6 +112,7 @@ export async function stockAction(a,el,{render,createStoredDocument,previewDocum
  const {sb,rpc,downloadFile,insert,select}=await import('./api.js');
  const {validateDocumentFile}=await import('./file-utils.js');
  const {extractStockText}=await import('./stock-extract.js');
+ if(!currentRead(actionScope))return;
  const value=id=>document.getElementById(id)?.value||'';
  const list=async(table,columns,filter)=>{
   const rows=[];
