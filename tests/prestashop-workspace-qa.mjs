@@ -3,6 +3,15 @@ import {sourceCents,orderInsights,catalogIssues,paymentReclassification,ticketSo
 import {prestashopQuery,prestashopRows} from '../src/prestashop-readonly.js';
 import {readPrestashopPage} from '../supabase/functions/totus-connections/prestashop.js';
 import {orderedRoutes} from '../src/navigation-preferences.js';
+test('catalogue reference lookups reject filter syntax and verify every returned reference',async()=>{
+ const c={protocol:'prestashop',name:'PrestaShop · Hortimatic',endpoint:'https://example.com/api',secret:'test-only',auth_kind:'basic',enabled:true,revision:1,verified_revision:1,real_data_authorized:true};
+ const input={store:'hortimatic',resource:'combinations',page:0,page_size:100,references:['A-01','B/02']};let target;
+ await readPrestashopPage(c,input,{resolve:async()=>['8.8.8.8'],request:async url=>{target=new URL(url);return Response.json({combinations:[{id:1,id_product:9,reference:'a-01'}]});}});
+ assert.equal(target.searchParams.get('filter[reference]'),'[A-01|B/02]');
+ await assert.rejects(()=>readPrestashopPage(c,input,{resolve:async()=>['8.8.8.8'],request:async()=>Response.json({combinations:[{id:1,reference:'FOREIGN'}]})}),/ajena/);
+ for(const references of [[],['A|B'],['[A]'],['%'],['A','A'],['A\nB']])assert.throws(()=>prestashopQuery({...input,references}));
+ assert.throws(()=>prestashopQuery({...input,resource:'orders'}));
+});
 test('decimal amounts retain cents and never silently truncate purchase costs',()=>{assert.equal(sourceCents('3.900000'),390);assert.equal(sourceCents('3.909'),391);assert.equal(sourceCents('bad'),null);assert.equal(sourceCents(null),null);assert.equal(sourceCents('-5'),null);});
 test('sales indicators distinguish invalid, unknown and partial data; never return net profit',()=>{const r=orderInsights([{valid:'1',currency_code:'EUR',total_paid_tax_incl:'3.90',date_add:'2026-11-04 12:00:00'},{valid:'0',total_paid_tax_incl:'90.00'},{valid:null,total_paid_tax_incl:'15'}]);assert.equal(r.amount,390);assert.equal(r.valid,1);assert.equal(r.excluded,1);assert.equal(r.unknown,1);assert.equal(r.hours[12],390);assert.equal(r.profit,undefined);});
 test('catalog quality does not silently treat missing weight as present',()=>{const r=catalogIssues([{id:1,reference:'',ean13:'',weight:null},{id:2,reference:'B',ean13:'1234567890123',weight:'0'},{id:3,reference:'C',ean13:'1234567890123',weight:'2.50'}]);assert(r[0].issues.includes('Peso no informado'));assert(r[1].issues.includes('Peso no positivo'));assert(r[2].issues.includes('EAN repetido en la consulta'));});

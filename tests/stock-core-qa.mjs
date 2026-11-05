@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {stockLineResult,stockEquivalenceProblems,stockCorrectedLineResult,stockSummary} from '../src/stock-core.js';
 import {extractStockText} from '../src/stock-extract.js';
+import './stock-pdf-table-qa.mjs';
 const row={id:'r1',supplier_qty:10,prestashop_qty:12,adjustment_qty:2,adjustment_included:'yes',adjustment_reason:'Corrección de otra entrega',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true,source_refs:[{source_id:'s1',locator:'p1 l1',line_id:'p1l1'},{source_id:'s2',locator:'fila 1',line_id:'f1'}]};
 assert.equal(stockLineResult(row).difference,0);
 const relationship={supplier_name:'Proveedor A',prestashop_name:'Producto A',unit:'unidad',unit_factor:1,unit_confirmed:true,match_confirmed:true};

@@ -2,6 +2,18 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
 import {navigate} from './ui-navigation.mjs';
+import {PDFDocument} from 'pdf-lib';
+async function examplePdf(kind){
+ const pdf=await PDFDocument.create(),p=pdf.addPage([620,800]),draw=(text,x,y)=>p.drawText(text,{x,y,size:10});
+ if(kind==='supplier'){
+  [['Descripción',40],['Cantidad',300],['Precio',360]].forEach(([s,x])=>draw(s,x,700));
+  draw('Producto demostración 10 mg',40,650);draw('10',300,650);draw('2.00',360,650);
+ }else{
+  [['Nombre',20],['Ref',160],['Empleado',300],['Tipo',400],['Cantidad(8)',500]].forEach(([s,x])=>draw(s,x,700));
+  draw('Producto demostración',20,650);draw('10 mg',20,638);draw('REF-1',180,650);draw('Prueba',300,650);draw('Añadido',400,650);draw('8',500,650);
+ }
+ return [...await pdf.save()];
+}
 const server=await startLocalServer();
 const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
@@ -24,7 +36,13 @@ try{
     }return original(name,p);
    };
   });
+  if(width===1017)for(const kind of ['supplier','prestashop'])await page.evaluate(async({kind,bytes})=>{
+   const {sb}=await import('../src/api.js'),db=window.__mockDb,source=db.ops_stock_sources.find(s=>s.source_kind===kind),doc=db.ops_documents.find(d=>d.id===source.document_id);
+   doc.original_name=kind+'.pdf';source.extracted_text='Texto antiguo incompleto';source.extraction={state:'partial'};
+   await sb.storage.from('business-documents').upload(doc.storage_path,new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));
+  },{kind,bytes:await examplePdf(kind)});
   await navigate(page,'cotejos');await page.locator('[data-action="stock-open"]').first().click();await page.getByRole('button',{name:'Cotejar factura con entrada · sin IA',exact:true}).click();
+  if(width===1017)await page.locator('[data-rule-document]').first().waitFor();
   await page.locator('#stockRuleEditor').waitFor();assert.equal(await page.locator('[data-rule-line]').count(),2);
   await page.getByRole('button',{name:'Comparar documentos sin IA',exact:true}).click();await page.locator('[data-rule-error]').filter({hasText:'Confirma'}).waitFor();assert.equal(await page.evaluate(()=>ruleQA.writes.length),0);
   for(const section of await page.locator('[data-rule-document]').all()){await section.locator('[data-rule-note]').fill('He verificado el original completo, las líneas, sus variantes y sus unidades.');await section.locator('[data-rule-reviewed]').check();}
@@ -33,6 +51,7 @@ try{
   await page.getByRole('button',{name:'Guardar cotejo sin IA',exact:true}).click();await page.locator('[data-rule-error]').filter({hasText:'El cotejo se ha guardado'}).waitFor();
   await page.getByRole('button',{name:'Guardar cotejo sin IA',exact:true}).click();await page.getByText('Cotejo sin IA guardado y comprobado en la recepción.',{exact:true}).waitFor();
   const saved=await page.evaluate(()=>ruleQA.writes);assert.equal(saved.length,1);assert.equal(saved[0].p_result.engine.uses_ai,false);assert.equal(saved[0].p_result.rows[0].prestashop_qty,8);assert.equal(saved[0].p_result.rows[0].supplier_qty,10);assert.equal(saved[0].p_result.rows[0].source_refs.length,2);
+  if(width===1017){assert(saved[0].p_result.coverage.every(s=>s.reader==='pdfjs-columns-v2'));assert.equal(await page.evaluate(()=>__mockDb.ops_stock_sources[0].extracted_text),'Texto antiguo incompleto','Original sources must remain unchanged');}
   assert.equal(await page.evaluate(()=>__mockDb.ops_stock_receipts[0].revision),2);assert.equal(await page.locator('.stock-page').evaluate(e=>e.scrollWidth>e.clientWidth+2),false);assert.deepEqual(ai,[]);assert.deepEqual(errors,[]);
   await page.screenshot({path:'artifacts/stock-rules/receipt-'+width+'.png',fullPage:true});await page.close();console.log('PASS receipt no-AI:',width,'coverage, shortage, retry, one save, revision/history, no AI requests');
  }

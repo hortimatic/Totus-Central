@@ -46,6 +46,11 @@ export function prestashopQuery(input){
  if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
  if(input.product_ids!==undefined){if(input.resource!=='products')throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
+ if(input.references!==undefined){
+  const refs=input.references;
+  if(!['products','combinations'].includes(input.resource)||input.product_ids!==undefined||!Array.isArray(refs)||!refs.length||refs.length>35||refs.some(r=>typeof r!=='string'||!r.trim()||r.length>64||/[\[\]|%,\\\x00-\x1f]/.test(r))||new Set(refs).size!==refs.length)throw Error('Selecciona referencias exactas de producto, sin filtros especiales.');
+  out.references=refs;
+ }
  if(input.order_ids!==undefined){if(input.resource!=='order_details'||input.order_id!==undefined)throw Error('La selección no corresponde al recurso.');out.orderIds=ids(input.order_ids,25);}
  if(input.order_id!==undefined){
   if(input.resource!=='order_details'||!/^\d{1,15}$/.test(String(input.order_id)))throw Error('Pedido de detalle no válido.');

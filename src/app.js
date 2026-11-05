@@ -38,6 +38,8 @@ import {discountScenarios} from './pricing-discounts.js';
 import {draftVariantRow,readDraftVariants,refreshDraftStudies,draftRange} from './pricing-drafts.js';
 import {parseVariantAttributes,formatVariantAttributes,variantStudy,validateVariant,pricingProviderCost,pricingProviderPreview,pricingCompetition} from './pricing-core.js';
 import {stockPage,stockAction,updateStockFileSelection} from './stock-ui.js';
+import {readStockCatalog} from './stock-catalog.js';
+import {storeConnection} from './prestashop-readonly.js';
 import {normalizeReportOrder} from './report-layout.js';
 import {calendarReportPeriod,reportPackagePlan,annualReportPlan} from './report-package.js';
 import {SET_FORMAT,uploadSelectedBackupSet} from './backup-set.js';
@@ -148,6 +150,17 @@ const prestashopUI=createPrestashopUI({rpc,actor:()=>state.user?.id,allowed:()=>
  document.querySelector('[data-presta-cancel-billing]').onclick=closeModal;
  document.querySelector('[data-presta-open-billing]').onclick=async()=>{const owner=state.user?.id;closeModal();await navigateModule('facturacion');if(state.user?.id!==owner||state.route!=='facturacion')return;const existing=state.data.invoices.find(r=>r.document_type==='factura'&&r.invoice_kind==='invoice'&&r.purchase_order_ref===draft.purchase_order_ref);setView('facturacion',existing?{mode:'record',id:existing.id}:{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus',storeId:totusStore.id,prestashopDraft:draft});render();};
 } ,invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+async function loadStockCatalog(storeId,references,valid){
+ if(!can('prestashop','view'))throw Error('Necesitas acceso a PrestaShop para verificar su catálogo.');
+ const store=state.data.stores.find(s=>s.id===storeId)?.name?.trim().toLowerCase(),owner=state.user?.id;
+ const active=()=>valid()&&state.user?.id===owner&&can('prestashop','view');
+ const context=await rpc('totus_prestashop_context',{});if(!active())throw Error('La sesión ha cambiado.');
+ const connection=storeConnection(context?.connections||[],store);if(!connection)throw Error('No se ha encontrado una conexión única para esta tienda.');
+ return readStockCatalog(references,async params=>{
+  const response=await sb.functions.invoke('totus-connections',{body:{action:'prestashop_read',store,id:connection.id,revision:connection.revision,call_id:crypto.randomUUID(),...params}});
+  if(response.error||response.data?.error)throw Error('No se pudo leer el catálogo de esta tienda.');return response.data;
+ },active);
+}
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -2761,7 +2774,7 @@ document.addEventListener('click',async e=>{
    writeInProgress=true;ownsWriteLock=true;
    document.querySelectorAll('#content input,#content select,#content textarea,#content button,#modalHost input,#modalHost select,#modalHost textarea,#modalHost button,#nav button').forEach(control=>{lockedControls.push([control,control.disabled]);control.disabled=true});
   }
-  if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256});return;}
+  if(a.startsWith('stock-')){await stockAction(a,el,{render,createStoredDocument,previewDocument,fileSha256,loadStockCatalog});return;}
   if(a==='password-visibility'){const field=$('#usPassword');if(!field)return;const visible=field.type==='password';field.type=visible?'text':'password';el.setAttribute('aria-pressed',String(visible));el.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');return;}
   if(a==='report-block-up'||a==='report-block-down'){await moveReportPanel(el.dataset.block,a.endsWith('-up')?'up':'down');return}
   if(a==='report-block-reset'){await saveReportBlockOrder([]);return}
