@@ -46,6 +46,18 @@ alter table private.totus_prestashop_automations enable row level security;
 alter table private.totus_prestashop_jobs enable row level security;
 alter table private.totus_prestashop_deliveries enable row level security;
 revoke all on private.totus_prestashop_automations,private.totus_prestashop_jobs,private.totus_prestashop_deliveries from public,anon,authenticated;
+create function private.totus_prestashop_pause_orphan() returns trigger language plpgsql set search_path='' as $$
+begin
+ if new.owner_id is null or new.channel_id is null then
+  new.enabled=false;
+  new.last_error=case when new.owner_id is null then 'Regla pausada: su responsable ha sido eliminado. Configúrala con una cuenta activa.' else 'Regla pausada: su canal ha sido eliminado. Elige otro destino.' end;
+  if old.owner_id is distinct from new.owner_id or old.channel_id is distinct from new.channel_id then new.revision=old.revision+1;end if;
+  new.updated_at=now();
+ end if;
+ return new;
+end $$;
+revoke all on function private.totus_prestashop_pause_orphan() from public,anon,authenticated;
+create trigger totus_prestashop_pause_orphan before update on private.totus_prestashop_automations for each row execute function private.totus_prestashop_pause_orphan();
 -- A system notice has an explicit identity and is not attributed to an AI or a human.
 alter table public.ops_chat_messages drop constraint ops_chat_messages_author_kind_check;
 alter table public.ops_chat_messages add constraint ops_chat_messages_author_kind_check check(author_kind in ('human','assistant','system'));

@@ -30,6 +30,7 @@ do $$declare config jsonb;rid uuid;job uuid;ticket text;r jsonb;first uuid;begin
  if has_function_privilege('authenticated','public.totus_prestashop_job_claim(uuid,text)','EXECUTE') or has_function_privilege('anon','public.totus_prestashop_automations(text,jsonb)','EXECUTE') then raise exception 'Worker privileges exposed';end if;
  delete from auth.users where id='33333333-3333-4333-8333-333333333333';
  if not exists(select 1 from private.totus_prestashop_automations where id=rid and owner_id is null) or private.totus_prestashop_rule_allowed(rid) then raise exception 'User purge blocked or orphan rule still authorized';end if;
+ if exists(select 1 from private.totus_prestashop_automations where enabled) then raise exception 'Deleted owners must pause their rules';end if;
  if (select count(*) from private.totus_prestashop_deliveries)<>1 then raise exception 'User purge erased delivery history';end if;
  delete from public.ops_chat_messages;
  delete from public.ops_chat_channels;
