@@ -17,7 +17,7 @@ const pageSource=text('src/pages/main.js');
 for(const forbidden of ['gestion-v6.js','gestion-v6-features.js','app-shell-v6.css','legacyAllocation','ops_legacy_daily_rows','ops_historical_income_periods','ops_gestor_source_rows','ops_gestor_quarter_summary','ops_reconciliation_notes','ops_backup_archives']){
  if(all.includes(forbidden))errors.push('Residuo prohibido: '+forbidden);
 }
-for(const required of ['Inicio','Pricing','Cajas','Gastos','Facturación','Documentos','Fiscalidad','Informes','Administración','Usuarios','Log','Desde','Hasta']){
+for(const required of ['Inicio','Precio','Cajas','Gastos','Facturación','Documentos','Fiscalidad','Informes','Administración','Usuarios','Log','Desde','Hasta']){
  if(!all.includes(required))errors.push('Falta concepto obligatorio: '+required);
 }
 if(!text('src/config.js').includes('500*1024*1024'))errors.push('El límite configurado debe ser 500 MB');

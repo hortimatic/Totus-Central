@@ -5,7 +5,7 @@ export const STORAGE_LIMIT_BYTES=500*1024*1024;
 export const PAGE_SIZE=50;
 export const ROUTES=[
  {id:'inicio',label:'Inicio',icon:'⌂',group:'General'},
- {id:'pricing',label:'Pricing',icon:'€',group:'Operaciones tienda'},
+ {id:'pricing',label:'Precio',icon:'€',group:'Operaciones tienda'},
  {id:'cajas',label:'Cajas',icon:'▣',group:'Operaciones tienda'},
  {id:'gastos',label:'Gastos',icon:'↘',group:'Operaciones tienda'},
  {id:'facturacion',label:'Facturación',icon:'▤',group:'Operaciones tienda'},

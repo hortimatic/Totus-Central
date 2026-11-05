@@ -29,12 +29,12 @@ try{
  // Only synthetic mock preferences: production preferences and accounting never change here.
  const routes=await page.locator('#nav [data-route]').evaluateAll(es=>es.map(e=>e.dataset.route));
  await page.evaluate(async()=>{const {isoToday}=await import('../src/utils.js');const db=window.__mockDb;db.ops_daily_closings.push({id:crypto.randomUUID(),store_id:db.ops_stores[0].id,business_date:isoToday(),status:'cerrado',card_sales:18447.41,cash_withdrawals:7950,cash_sales:7950,bizum_sales:0,online_sales:0,other_income:0,opening_cash:200,actual_cash:200,reported_total_sales:26397.41,difference:0,notes:'Cierre ficticio para comprobar importes grandes'});});
- assert.equal(routes.length,ROUTES.length);
+ assert.equal(routes.length,ROUTES.filter(r=>r.id!=='cotejos').length);
  const collapse=page.getByRole('button',{name:'Minimizar navegación',exact:true});
  await collapse.click();
  assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('navigation-compact')),true);
  assert.equal(await page.locator('.sidebar').evaluate(e=>e.getBoundingClientRect().width),72);
- assert.equal(await page.locator('#nav a[title]').count(),ROUTES.length);
+ assert.equal(await page.locator('#nav a[title]').count(),ROUTES.filter(r=>r.id!=='cotejos').length);
  await page.getByRole('button',{name:'Ampliar navegación',exact:true}).click();
  assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('navigation-compact')),false);
  assert.equal(await page.locator('.sidebar-foot').isVisible(),false);
@@ -53,7 +53,7 @@ try{
    for(const width of [1440,831,390,320]){
     await page.setViewportSize({width,height:1000});
     assert.equal(await page.locator('link[href$="stitch-design.css"]').count(),1);
-    assert.equal(await page.locator('#nav .nav-btn .ui-icon').count(),ROUTES.length);
+    assert.equal(await page.locator('#nav .nav-btn .ui-icon').count(),ROUTES.filter(r=>r.id!=='cotejos').length);
     await page.evaluate(()=>document.fonts.ready);
     const visible=await page.locator('#content').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
     if(visible.scroll>visible.client+2)console.log('Overflow elements',route,width,await page.locator('#content *').evaluateAll(es=>es.filter(e=>{let r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+2&&getComputedStyle(e).visibility!=='hidden';}).slice(0,12).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right,text:e.textContent.slice(0,60)}))));

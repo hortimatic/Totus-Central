@@ -21,7 +21,7 @@ function fixture({roleDenied=false,config=connection}={}){
   auth:{getUser:async()=>({data:{user:{id:owner,email:'admin@totuscentral.invalid'}}})},
   rpc:async(name,payload)=>{
    calls.push({name,payload,key});
-   if(name==='totus_api_manager')return roleDenied?{error:{message:'Solo administración con permiso de Configuración'}}:{data:{connections:[{id,revision:3}]}};
+   if(name==='totus_api_manager'||name==='totus_prestashop_context')return roleDenied?{error:{message:'Solo administración con permiso de Configuración'}}:{data:{connections:[{id,revision:3}]}};
    if(name==='totus_api_server')return {data:config};
    if(name==='totus_api_call')return {data:null};
    throw Error('Unexpected RPC '+name);
@@ -37,7 +37,7 @@ test('unauthenticated and invalid resource requests cannot reach credential stor
  assert.equal((await handle(req({...args,page:1001}),env,f.factory)).status,400);
  assert(!f.calls.some(c=>c.name==='totus_api_server'));
 });
-test('normal Configuración permission is required even for read-only PrestaShop',async()=>{
+test('PrestaShop permission is required before accessing its connection',async()=>{
  const f=fixture({roleDenied:true});
  const r=await handle(req(args),env,f.factory);
  assert.equal(r.status,400);assert.match((await r.json()).error,/Solo administración/);
@@ -58,7 +58,7 @@ test('server reads only the known shop resource and never returns credentials',a
   assert.equal(body.store,'hortimatic');assert.equal(body.rows[0].reference,'AB');
   assert.equal(body.rows[0].customer_id,undefined);
   assert(!JSON.stringify(body).includes('fictional-value'));
-  assert.equal(requested,1);
+  assert.equal(requested,1);assert(f.calls.some(c=>c.name==='totus_prestashop_context'));assert(!f.calls.some(c=>c.name==='totus_api_manager'));
   assert.equal(f.calls.filter(c=>c.name==='totus_api_call').length,2);
  }finally{if(previous===undefined)delete globalThis.Deno;else globalThis.Deno=previous;}
 });

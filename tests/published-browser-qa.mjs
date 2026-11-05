@@ -1,4 +1,4 @@
-import {clickModuleLink} from './ui-navigation.mjs';
+import {navigate,clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright';
@@ -9,7 +9,7 @@ try{
  await page.goto('http://127.0.0.1:4173/'+folder+'/mock.html',{waitUntil:'networkidle'});
  await page.locator('#nav [data-route="inicio"]').waitFor();
  assert.equal(await page.evaluate(()=>window.__supabaseCreateCount),1,'Boot and OneDrive maintenance must share one client');
- await clickModuleLink(page,page.locator('#nav [data-route="cotejos"]'));
+ await navigate(page,'cotejos');
  await page.locator('[data-action="stock-new"]').waitFor();
  assert.equal(await page.evaluate(()=>window.__supabaseCreateCount),1,'Lazy Recepciones must reuse the existing API client');
  await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));

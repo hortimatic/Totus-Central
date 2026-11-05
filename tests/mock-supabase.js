@@ -353,7 +353,8 @@ const client={
  auth:{getSession:async()=>({data:{session},error:null}),signInWithPassword:async()=>({data:{session},error:null}),signOut:async()=>{events?.('SIGNED_OUT',null);return {error:null}},resetPasswordForEmail:async()=>({data:{},error:null}),onAuthStateChange:fn=>{events=fn;return {data:{subscription:{unsubscribe(){}}}}}},
  from:table=>new Query(table),
  rpc:async(name,args)=>{
-  if(name==='totus_api_manager')return {data:{connections:[],actors:db.team_members.map(m=>({email:m.email,name:m.full_name,role:m.role}))},error:null};
+  if(name==='totus_prestashop_automations')return {data:{rules:[],channels:[],runs:[]},error:null};
+  if(name==='totus_api_manager'||name==='totus_prestashop_context')return {data:{connections:[],actors:db.team_members.map(m=>({email:m.email,name:m.full_name,role:m.role}))},error:null};
   if(name==='totus_business_write_contract')return databaseResult({data:{request_replay:1},error:null});
   const key={totus_save_expense:'p_expense',totus_save_closing:'p_closing',totus_save_sales_document:'p_document'}[name];
   const request=key&&args?.[key]?.request_id;

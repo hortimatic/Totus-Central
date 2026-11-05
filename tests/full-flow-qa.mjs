@@ -32,7 +32,7 @@ await check('Arranque real y autenticación simulada',async()=>{
  await page.goto(base,{waitUntil:'networkidle'});
  await page.locator('[data-account-open]').waitFor({state:'visible'});
  assert((await page.locator('#content').innerText()).includes('Operativa de hoy'),'Pantalla Inicio vacía');
- assert((await page.locator('#nav .nav-btn').count())===ROUTES.length,'La navegación principal debe incluir todos los módulos registrados');
+ assert((await page.locator('#nav .nav-btn').count())===ROUTES.filter(r=>r.id!=='cotejos').length,'La navegación principal debe incluir todos los módulos registrados');
 });
 // An unauthenticated or broken fixture must fail immediately; subsequent missing buttons are cascading errors.
 if(errors.length){
