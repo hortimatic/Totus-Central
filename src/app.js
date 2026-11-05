@@ -1,3 +1,4 @@
+import {interfaceStylesSettings,acceptInterfaceStyles} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
 import {prestashopInvoiceDraft,prestashopInvoiceLineAmounts} from './prestashop-invoice.js';
 import {createApiManager} from './api-manager.js';
@@ -115,7 +116,11 @@ const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'')
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
 function can(module,action='view'){if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
-const appearanceUI=createAppearanceUI({settings:section=>section==='interfaz'?personalInterfaceSettings(state):state.data.settings,actor:()=>state.user?.id,canEdit:section=>can('configuracion',section==='interfaz'?'view':'edit'),confirm:confirmAction,save:async(section,config,revision)=>{
+const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state),saveStyle:async command=>{
+ const owner=state.user?.id;if(!owner||!can('configuracion','view'))throw Error('No tienes acceso a tu configuración.');
+ const saved=await rpc('totus_interface_styles',{p_action:command.action,p_id:command.id,p_name:command.name,p_config:command.config,p_expected_revision:command.revision});
+ acceptInterfaceStyles(state,saved,owner);return saved;
+},settings:section=>section==='interfaz'?personalInterfaceSettings(state):state.data.settings,actor:()=>state.user?.id,canEdit:section=>can('configuracion',section==='interfaz'?'view':'edit'),confirm:confirmAction,save:async(section,config,revision)=>{
  const owner=state.user?.id;if(!owner||!can('configuracion',section==='interfaz'?'view':'edit'))throw Error('No tienes permiso para editar esta configuración.');
  if(section==='interfaz'){
   const saved=await rpc('totus_save_my_appearance',{p_config:config,p_expected_revision:revision});acceptPersonalInterface(state,saved,owner);
