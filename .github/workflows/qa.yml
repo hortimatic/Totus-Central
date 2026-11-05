@@ -31,6 +31,9 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/066_general_automations.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/066_general_automations.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/general-automations-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/068_automation_reference_indexes.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/068_automation_reference_indexes.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/automation-indexes-db-qa.sql
   audit-hardening-database:
     runs-on: ubuntu-latest
     services:
@@ -80,6 +83,7 @@ jobs:
       - run: node tests/prestashop-flows-qa.mjs
       - run: node tests/prestashop-payment-filter-qa.mjs
       - run: node tests/prestashop-list-page-qa.mjs
+      - run: node tests/prestashop-margin-qa.mjs
       - run: node tests/prestashop-automation-qa.mjs
       - run: node tests/prestashop-alert-worker-qa.mjs
       - run: node tests/stock-backup-qa.mjs
@@ -128,6 +132,7 @@ jobs:
       - run: node tests/loaded-version-qa.mjs
       - run: node tests/cross-view-integrity-qa.mjs
       - run: node tests/code-integrity.mjs
+      - run: node tools/check-deployment-manifest.mjs
       - run: node tests/published-module-graph-qa.mjs
       - run: node tests/production-contract-qa.mjs
       - run: node tests/permissions-qa.mjs
@@ -207,6 +212,7 @@ jobs:
       - run: node tests/published-browser-qa.mjs
       - run: node tests/form-boundaries-browser-qa.mjs
       - run: node tests/session-startup-browser-qa.mjs
+      - run: node tests/access-recovery-browser-qa.mjs
       - run: node tests/startup-timing-browser-qa.mjs
       - run: node tests/header-tools-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs

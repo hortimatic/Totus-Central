@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
-const suites=['full-flow-qa','deep-editing-browser-qa','pricing-integral-browser-qa','closing-integral-browser-qa','expense-integral-browser-qa','stock-browser-qa','stock-async-browser-qa','tasks-browser-qa','team-chat-browser-qa','chat-ai-target-browser-qa','api-manager-browser-qa','configuration-journeys-browser-qa','account-workspace-browser-qa','user-purge-browser-qa','user-permissions-browser-qa','write-lock-browser-qa','ambiguous-write-browser-qa','session-startup-browser-qa','annual-package-browser-qa','recovery-browser-qa','live-refresh-qa'];
+const suites=['full-flow-qa','deep-editing-browser-qa','pricing-integral-browser-qa','closing-integral-browser-qa','expense-integral-browser-qa','stock-browser-qa','stock-async-browser-qa','tasks-browser-qa','team-chat-browser-qa','chat-ai-target-browser-qa','api-manager-browser-qa','configuration-journeys-browser-qa','account-workspace-browser-qa','user-purge-browser-qa','user-permissions-browser-qa','write-lock-browser-qa','ambiguous-write-browser-qa','session-startup-browser-qa','annual-package-browser-qa','recovery-browser-qa','live-refresh-qa','onedrive-connection-qa','prestashop-ui-browser-qa','prestashop-list-page-browser-qa','prestashop-payment-filter-browser-qa','prestashop-invoice-browser-qa','interface-styles-browser-qa','api-settings-browser-qa'];
 const root=process.cwd(),out=path.resolve(process.env.AUDIT_OUTPUT||'artifacts/functional-audit'),port=Number(process.env.AUDIT_PORT||4173);
 if(!Number.isInteger(port)||port<1024||port>65535)throw Error('Invalid local test port');
 await fs.mkdir(out,{recursive:true});

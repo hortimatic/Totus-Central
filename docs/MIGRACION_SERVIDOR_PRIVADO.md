@@ -1,6 +1,6 @@
 # Preparación de un servidor privado
 
-Estado a 03/11/2026: inventario y procedimiento preparados; **instalación integral desde cero todavía no ensayada**. No se ha contratado servidor ni cambiado producción. Base revisada: `6aa2b6ad`. Este documento es una secuencia de trabajo, no una orden de ejecutar la migración.
+Estado revisado a 06/11/2026: inventario y procedimiento preparados; **instalación integral desde cero todavía no ensayada**. No se ha contratado servidor ni cambiado producción. Base revisada: `b91e2c52`. Este documento es una secuencia de trabajo, no una orden de ejecutar la migración.
 
 ## Qué puede significar el cambio
 
@@ -8,7 +8,7 @@ Estado a 03/11/2026: inventario y procedimiento preparados; **instalación integ
 |---|---|---|
 | Continuar con Supabase gestionado en otro plan | Capacidad/servicio contratado; no obliga a cambiar la aplicación de host. | Mismo esquema, Auth, RLS, funciones, cron, documentos y sesiones según el cambio concreto. No se ha elegido ni contratado plan. |
 | Servidor privado para la web | Archivos publicados de la web y dominio; Supabase/OneDrive pueden mantenerse. | API URL y clave pública, HTTPS, orígenes CORS, recuperación de contraseña, recursos y versiones. No equivale a una base de datos privada propia. |
-| Infraestructura completa propia | Web, PostgreSQL y servicios compatibles de Auth, REST/RPC, Storage, Functions y Realtime; trabajos y observabilidad. | Contrato Supabase usado por el cliente y los siete servicios; extensiones; políticas; integridad; Graph/OAuth; copias y recuperación. No basta copiar HTML ni instalar un PostgreSQL vacío. |
+| Infraestructura completa propia | Web, PostgreSQL y servicios compatibles de Auth, REST/RPC, Storage, Functions y Realtime; trabajos y observabilidad. | Contrato Supabase usado por el cliente y los ocho servicios; extensiones; políticas; integridad; Graph/OAuth; copias y recuperación. No basta copiar HTML ni instalar un PostgreSQL vacío. |
 
 Supabase documenta el despliegue mediante Docker y la configuración/aseguramiento de sus servicios en la [guía oficial de autohospedaje](https://supabase.com/docs/guides/self-hosting/docker). Se debe fijar una versión del conjunto compatible y comprobarla: no elegir imágenes `latest` durante el traslado. No se ha dimensionado un servidor concreto ni se ha probado su disponibilidad.
 
@@ -22,7 +22,7 @@ Supabase documenta el despliegue mediante Docker y la configuración/aseguramien
 | Extensiones | `pgcrypto`, UUID, Vault, `pg_cron`, `pg_net` y `pg_stat_statements`, además de las necesarias de la plataforma. | Disponibilidad y versión compatibles, permisos correctos, sin secretos incluidos en un archivo público. |
 | Identidad | Auth, usuarios, identificadores, metadatos de aplicación y vínculo con equipo/permisos. | Probar usuario humano y técnico, retirada/purga, recuperación y nuevo inicio. Definir cómo se preservan o renuevan credenciales de forma segura. |
 | Secretos | Vault y variables de funciones, OAuth Microsoft, credenciales técnicas y claves de proveedores. | Reaprovisionar por canal privado; nadie los copia al informe, chat, frontend o GitHub. El backup operativo no los incluye. |
-| Servicios | Los siete directorios de `supabase/functions/` y sus dependencias compartidas de `src/`. | Misma fuente y contrato; autenticación interna, tickets de un uso, sesión propia y errores comprobados. |
+| Servicios | Los ocho servicios inventariados en `supabase/functions/deployment-manifest.json` de `supabase/functions/` y sus dependencias compartidas de `src/`. | Misma fuente y contrato; autenticación interna, tickets de un uso, sesión propia y errores comprobados. |
 | Storage | Buckets privados `business-assets`, `business-documents`, `business-backups`; tipos/tamaños y políticas. | No volver público un bucket para solucionar un error. Los originales pueden estar ya retirados de Storage tras su espejo verificado. |
 | OneDrive | `Apps/Totus Central`, IDs Graph, originales, chat, juegos de copia y archivo de retirados. | Preservar IDs/rutas administradas. Cambiar host no exige renombrar estas carpetas ni subir documentos duplicados. |
 | Programador | Copias, muestras de almacenamiento, espejo OneDrive y reanudación de copias. | Una sola autoridad ejecutando cada trabajo; timezone Europe/Madrid verificado; nueva copia completa finalizada, no solo un cron exitoso. |
@@ -48,7 +48,7 @@ Preparar un manifiesto de nombres de variables y servicios, sin valores. El esta
 - Exportar por herramienta apropiada el esquema instalado y sus roles/permisos necesarios, con una revisión que excluya secretos y datos privados.
 - Ordenar la base inicial y las migraciones posteriores. Las carpetas históricas no son un instalador lineal comprobado; no borrar el historial para que parezca ordenado.
 - Levantar un entorno aislado con correo y modelos externos sin envíos reales por defecto; desactivar cron hasta tener identidades y configuración verificadas.
-- Aplicar esquema, buckets y siete servicios. Comparar tablas, RPC, triggers, RLS e índices con las huellas del origen.
+- Aplicar esquema, buckets y ocho servicios. Comparar tablas, RPC, triggers, RLS e índices con las huellas del origen.
 - Ejecutar pruebas de base de datos y el conjunto funcional de navegador. Capturar logs por caso y resolver fallos antes de copiar datos reales.
 
 ### 2. Ensayar una recuperación completa en el destino aislado

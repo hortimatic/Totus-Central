@@ -10,7 +10,7 @@ Gestión diaria para Hortimatic y NewOldSmok: https://hortimatic.github.io/Totus
 - No depende de un equipo encendido.
 
 ## Trabajo y cambios
-Inicio, Pricing, Cajas, Gastos, Facturación, Recepciones, Chat, Tareas, Documentos, Fiscalidad, Informes y Administración.
+Inicio, Precio, Cajas, Gastos, Facturación, PrestaShop (incluye Recepciones), Chat, Tareas, Documentos, Fiscalidad, Informes, Administración, Automatizaciones y Configuración.
 No alterar estructura, datos o cálculos sin explicar el cambio al titular. Las facturas originales, los pagos y el gasto fiscal son conceptos distintos; el histórico aceptado no se ajusta para forzar una coincidencia.
 
 Para cambiar código, preparar una rama temporal, revisar y ejecutar las pruebas. .github/workflows/publish.yml repite la batería antes de publicar la revisión principal. Comprobar también la versión y los flujos autenticados. Eliminar la rama temporal integrada cuando haya terminado la validación.
@@ -26,7 +26,7 @@ Alta con proveedor y documentos de ambos lados, filtros por rango de fechas, res
 - [Recepciones, biblioteca y conexiones](docs/COTEJOS_CHATGPT.md).
 - [Copias por componentes](docs/COPIAS_POR_COMPONENTES.md).
 
-El código incluye el historial de evolución SQL y siete servicios: usuarios, copias, recuperación, OneDrive, puente de asistentes, ejecución de IA y conexiones. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación. [Revisión transversal del 29/10/2026](docs/auditorias/REVISION_TRANSVERSAL_2026-10-29.md).
+El código incluye el historial de evolución SQL y ocho servicios: usuarios, copias, recuperación, OneDrive, puente de asistentes, ejecución de IA, conexiones y avisos programados. No es todavía un instalador verificado desde una base vacía: una instalación comercial independiente requiere preparar y probar su esquema inicial y sus autorizaciones propias. El manual distingue ese trabajo futuro de la recuperación de esta instalación. [Revisión transversal del 29/10/2026](docs/auditorias/REVISION_TRANSVERSAL_2026-10-29.md).
 
 ## Auditoría funcional y preparación de infraestructura
 
@@ -35,7 +35,7 @@ El código incluye el historial de evolución SQL y siete servicios: usuarios, c
 - [Plan de migración a servidor privado y puertas de aceptación](docs/MIGRACION_SERVIDOR_PRIVADO.md).
 - [Zonas de trabajo, orden y repetición acotada de pruebas](docs/MANTENIMIENTO_Y_ORDEN.md).
 
-La auditoría no aplica los hallazgos a producción ni acredita una instalación nueva ya ensayada.
+[Auditoría vigente de estabilidad y limpieza · 06/11/2026](docs/auditorias/AUDITORIA_ESTABILIDAD_2026-11-06.md). Incluye correcciones, limpieza verificada y límites; no acredita una instalación nueva ya ensayada.
 
 ## Copias y privacidad
 Copia completa diaria a las 00:35 Europe/Madrid; diez juegos ordinarios verificados, más los puntos de recuperación protegidos que correspondan. Cada juego incluye índice, datos, documentos en ZIP numerados y código publicado. Consultar COPIAS_POR_COMPONENTES.md para comprobar o restaurar. Las copias anteriores compatibles siguen siendo recuperables.
