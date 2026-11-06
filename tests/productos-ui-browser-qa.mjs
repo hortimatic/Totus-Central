@@ -71,6 +71,9 @@ try{
   await page.getByText(/1 variaciones distintas/).waitFor();
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();
   await page.getByRole('button',{name:'Crear borrador nuevo'}).click();
+  for(const field of ['ean13','weight','width','height','depth','description_short','meta_description']){
+   assert.equal(await page.locator('[data-pr-value="'+field+'"]').count(),1,'El borrador nuevo debe mostrar '+field);
+  }
   await page.locator('[data-pr-value="name"]').fill('Pruebas');
   await page.locator('[data-pr-value="reference"]').fill('PRUEBAS-SIMULACION');
   await page.getByRole('button',{name:'Variaciones'}).click();

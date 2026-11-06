@@ -4,6 +4,7 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
+import {discoverPrestashop} from './prestashop.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
 
 export async function runPrestashopProductCreate(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
@@ -114,5 +115,6 @@ export async function readPrestashopProductCreateProfile(connection,input,{reque
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar los idiomas de la tienda (HTTP '+response.status+').');}
  if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML.');}
  const language_ids=productLanguageIdsFromListing(await boundedText(response,2097152));
- return {ok:true,store:store.key,resource:'products',language_ids,persisted:false};
+ const discovery=await discoverPrestashop(connection,input,{request,resolve});
+ return {ok:true,store:store.key,resource:'products',language_ids,product_workspace:discovery.product_workspace,persisted:false};
 }

@@ -53,13 +53,40 @@ export function prestashopCapabilities(xml,version=''){
  const names=new Set();for(const r of resources){if(names.has(r.name))throw Error('Catálogo duplicado.');names.add(r.name);}
  return {version:/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(version)?version:null,resources,tpv_resources:resources.filter(r=>r.readable&&/(?:posp|tpv|cash|caja|till)/i.test(r.name)).map(r=>r.name)};
 }
+// These are permissions advertised by the destination, not proof of a successful
+// write. Keep them separate from operation results and from Totus user privileges.
+export function prestashopProductCapabilities(resources){
+ const requirements=[
+  ['products','Ficha del producto',['GET','POST','PUT']],
+  ['combinations','Variaciones',['GET','POST','PUT']],
+  ['stock_availables','Existencias',['GET','PUT']],
+  ['categories','Categorías y categoría padre',['GET','POST','PUT']],
+  ['manufacturers','Marca',['GET','POST','PUT']],
+  ['suppliers','Proveedor',['GET','POST','PUT']],
+  ['product_options','Atributos de variaciones',['GET','POST','PUT']],
+  ['product_option_values','Valores de atributos',['GET','POST','PUT']],
+  ['product_features','Características y materiales',['GET','POST','PUT']],
+  ['product_feature_values','Valores de características',['GET','POST','PUT']],
+  ['tags','Etiquetas',['GET','POST','PUT']],
+  ['tax_rule_groups','Grupos de impuestos',['GET']],
+  ['languages','Idiomas',['GET']],
+  ['images','Imágenes: carga y descarga',['GET','POST','PUT']]
+ ];
+ const entries=requirements.map(([resource,label,methods])=>{
+  const advertised=resources.find(r=>r.name===resource);
+  const missing=methods.filter(method=>advertised?.permissions?.[method]!==true);
+  return {resource,label,methods,available:!!advertised,missing,ready:missing.length===0};
+ });
+ return {permissions_complete:entries.every(entry=>entry.ready),verified_by_operation:false,entries};
+}
 export async function discoverPrestashop(connection,input,{request=fetch,resolve}={}){
  const store=prestashopStore(input.store);
  if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('La conexión debe estar activada, verificada y autorizada para esta tienda.');
  const base=new URL(connection.endpoint);if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice no válida.');base.pathname=base.pathname.replace(/\/$/,'')+'/';
  const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar el catálogo del Webservice (HTTP '+response.status+').');}
- return {ok:true,store:store.key,...prestashopCapabilities(await boundedText(response,131072),response.headers.get('psws-version')||'')};
+ const capabilities=prestashopCapabilities(await boundedText(response,131072),response.headers.get('psws-version')||'');
+ return {ok:true,store:store.key,...capabilities,product_workspace:prestashopProductCapabilities(capabilities.resources)};
 }
 
 

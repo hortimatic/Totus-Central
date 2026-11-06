@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prestashopCapabilities,discoverPrestashop} from '../supabase/functions/totus-connections/prestashop.js';
+import {prestashopCapabilities,prestashopProductCapabilities,discoverPrestashop} from '../supabase/functions/totus-connections/prestashop.js';
+
+test('cobertura de Productos incluye variaciones, materiales, marcas e imágenes, sin confundir permisos con pruebas',()=>{
+ const report=prestashopProductCapabilities(prestashopCapabilities(root).resources);
+ assert.equal(report.permissions_complete,false);
+ assert.equal(report.verified_by_operation,false);
+ assert.deepEqual(report.entries.find(e=>e.resource==='products').missing,['POST']);
+ assert.deepEqual(report.entries.find(e=>e.resource==='images').missing,['PUT']);
+ assert.deepEqual(report.entries.find(e=>e.resource==='product_features').missing,['GET','POST','PUT']);
+ assert.equal(report.entries.find(e=>e.resource==='combinations').ready,true);
+ const complete=prestashopProductCapabilities(report.entries.map(e=>({name:e.resource,permissions:Object.fromEntries(e.methods.map(m=>[m,true]))})));
+ assert.equal(complete.permissions_complete,true);
+ assert.equal(complete.verified_by_operation,false);
+});
 
 const root='<?xml version="1.0"?><prestashop><api shopName="Prueba"><products xlink:href="https://hortimatic.com/api/products" get="true" put="true" post="false" delete="false" head="true"><description get="true">Descripción</description></products><combinations get="true" post="true" put="true" delete="true" head="true"/><images get="true" post="true" put="false" delete="false"/><custom_resource get="false" post="false" put="false" delete="false"/></api></prestashop>';
 

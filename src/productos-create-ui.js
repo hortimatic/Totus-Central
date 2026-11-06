@@ -36,6 +36,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   if(!profile)return '<section class="prd-creation"><h5>Alta en '+h(shop)+'</h5><p>Consulta primero los idiomas reales de esta tienda. No se copian los identificadores del origen.</p>'+b('Consultar idiomas de la tienda','create-load',shop)+'</section>';
   const data=draft(shop,plan,source),cats=categories.get(shop)||[],locked=attempted.has(shop),prepared=previews.get(shop),confirmation=confirmations.get(shop)||'';
   return '<section class="prd-creation"><h5>Alta individual · '+h(shop)+'</h5><p>El producto se crea inicialmente <b>inactivo</b>. Categoría e idiomas son específicos del destino.</p>'+
+   (profile.product_workspace?'<details class="prd-connection-capabilities"><summary>Permisos de la conexión de productos</summary><p>Permisos anunciados por la tienda. Cada guardado necesita además verificar su resultado. Los permisos de tu usuario se comprueban por separado.</p><ul>'+profile.product_workspace.entries.map(entry=>'<li><b>'+h(entry.label)+'</b>: '+(entry.ready?'permisos disponibles':'falta '+h(entry.missing.join(', ')))+'</li>').join('')+'</ul></details>':'')+
    '<div class="prd-fields-grid">'+
    '<label class="prd-field"><b>Referencia nueva</b>'+fieldHelp('Referencia nueva','Identificador único por tienda. Una respuesta incierta no autoriza repetir el alta con otra referencia.')+'<input data-pr-create-field="reference" data-pr-create-store="'+h(shop)+'" value="'+h(data.reference)+'" '+(locked?'disabled':'')+'></label>'+
    '<label class="prd-field"><b>Precio base sin impuestos</b><input data-pr-create-field="price" data-pr-create-store="'+h(shop)+'" value="'+h(data.price)+'" '+(locked?'disabled':'')+'></label>'+
@@ -88,7 +89,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    if(response.persisted!==false||response.resource!=='products'||!Array.isArray(response.language_ids)||
       !response.language_ids.length||response.language_ids.some(id=>!/^[1-9]\d{0,14}$/.test(id)))
     throw Error('Los idiomas devueltos por la tienda no son verificables.');
-   profiles.set(shop,{language_ids:response.language_ids});
+   profiles.set(shop,{language_ids:response.language_ids,product_workspace:response.product_workspace});
    const all=[],ids=new Set();let page=0;
    while(true){
     const c=await invoke(shop,'prestashop_read',{resource:'categories',page,page_size:100,sort:'oldest'});

@@ -4,6 +4,20 @@ Revisión: 06/11/2026. Entrega: PR #133. Este procedimiento es la referencia de 
 
 ## Qué permite esta entrega
 
+**Estado de revisión:** el alcance exigido se ha ampliado al creador integral. El alta básica descrita debajo no constituye la entrega completa ni debe publicarse como tal. La comprobación de permisos muestra capacidades anunciadas por PrestaShop; no acredita por sí sola que una escritura funcione.
+
+### Condiciones de aceptación del creador integral
+
+- Lectura, creación, edición, carga y descarga desde Totus, con identidad del usuario y comprobación del resultado en cada tienda.
+- Producto y combinaciones: referencias, EAN/UPC/ISBN/MPN, atributos, precio e impacto, coste, impuestos, existencias, disponibilidad, peso y medidas.
+- Nombre, descripción completa, resumen, URL, metatítulo, metadescripción y palabras clave por idioma; etiquetas y productos relacionados.
+- Marca, proveedor, características/materiales, categorías múltiples, categoría predeterminada y jerarquía de categorías con su padre.
+- Imágenes sin fondo, portada, orden, leyendas y asociación a combinaciones; carga y descarga. Verificar el resultado servido por la tienda: la extensión o el nombre del archivo no demuestran transparencia. PrestaShop 1.7 procesa las imágenes en su servidor.
+- Cada campo editable del esquema de la tienda debe tener tratamiento explícito. Los campos calculados o administrados por módulos se identifican; no se descartan silenciosamente ni se prometen operaciones que la API instalada no admite.
+- Prueba aislada de un producto completo, lectura posterior y recuperación de fallos entre etapas sin duplicar productos, combinaciones ni imágenes. Comprobar ambos destinos y las versiones instaladas. Una etapa pendiente impide declarar terminado el producto.
+
+La API requiere permisos distintos por recurso. El diagnóstico comprueba productos, combinaciones, existencias, categorías, marcas, proveedores, atributos/valores, características/valores, etiquetas, impuestos, idiomas e imágenes. La autorización anunciada y la prueba efectiva son comprobaciones independientes.
+
 Productos es un módulo independiente de PrestaShop. Consulta las dos tiendas, sus fichas y variaciones; permite preparar campos y comparar destinos. El alta operativa crea **un producto base inactivo** en una o ambas tiendas, cada una con su validación, confirmación e identificador.
 
 El alta admite nombre y URL por idioma, referencia, precio base sin impuestos, categoría propia del destino, descripciones y SEO seleccionados; también los campos admitidos de coste, EAN/UPC/ISBN/MPN, peso, dimensiones, cantidad mínima y disponibilidad. El servidor comprueba los campos recibidos mediante una lectura posterior. Los costes de variantes siguen siendo orientativos.

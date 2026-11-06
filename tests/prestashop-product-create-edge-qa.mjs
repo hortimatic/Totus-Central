@@ -61,6 +61,7 @@ const fixture=(opts={})=>{
  const request=async(url,opts2)=>{
   const u=new URL(url),method=opts2.method;calls.push({type:'http',method,path:u.pathname,search:u.search,body:opts2.body});
   assert.equal(u.origin,'https://hortimatic.com');assert.ok(opts2.headers.Authorization.startsWith('Basic '));
+  if(u.pathname==='/api/')return xml('<prestashop><api><products get="true" post="true" put="true"/></api></prestashop>');
   if(method==='POST'){created=true;return xml('<prestashop><product><id><![CDATA[701]]></id></product></prestashop>');}
   if(u.pathname==='/api/products/701')return xml(verified);
   if(u.pathname==='/api/categories/33')return xml(c);

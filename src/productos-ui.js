@@ -10,7 +10,7 @@ const h=x=>esc(String(x??''));
 const btn=(label,action,extra='',disabled=false)=>'<button type="button" class="btn secondary" data-pr-action="'+action+'" '+extra+(disabled?' disabled':'')+'>'+h(label)+'</button>';
 const STORE_OPTIONS=PRODUCT_STORES.map(s=>'<option value="'+s.key+'">'+s.label+'</option>').join('');
 const MODES=[['catalogo','Catálogo'],['ficha','Ficha y campos'],['variantes','Variaciones'],['comparar','Comparar y preparar'],['bulk','Cambios masivos']];
-const metadata={name:'Nombre',reference:'Referencia',description_short:'Descripción breve',description:'Descripción completa',meta_title:'Título SEO',meta_description:'Descripción SEO',meta_keywords:'Palabras clave',link_rewrite:'URL amigable',price:'Precio',wholesale_price:'Coste',ean13:'EAN',weight:'Peso',id_tax_rules_group:'Regla de impuestos',active:'Activo',visibility:'Visibilidad'};
+const metadata={name:'Nombre',reference:'Referencia',description_short:'Descripción breve',description:'Descripción completa',meta_title:'Título SEO',meta_description:'Descripción SEO',meta_keywords:'Palabras clave',link_rewrite:'URL amigable',price:'Precio',wholesale_price:'Coste',ean13:'EAN',weight:'Peso',id_tax_rules_group:'Regla de impuestos',active:'Activo',visibility:'Visibilidad',isbn:'ISBN',upc:'UPC',mpn:'Referencia del fabricante',condition:'Estado del producto',available_for_order:'Disponible para pedidos',show_price:'Mostrar precio',online_only:'Solo venta online',unit_price:'Precio unitario',unity:'Unidad de medida',on_sale:'En oferta',ecotax:'Ecotasa',redirect_type:'Tipo de redirección',id_type_redirected:'Destino de redirección',width:'Anchura',height:'Altura',depth:'Profundidad',additional_shipping_cost:'Suplemento de envío',minimal_quantity:'Cantidad mínima',available_date:'Fecha de disponibilidad',location:'Ubicación',low_stock_threshold:'Umbral de pocas existencias',low_stock_alert:'Aviso de pocas existencias',out_of_stock:'Pedidos sin existencias'};
 const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)+'…':s;};
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
@@ -127,7 +127,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   mode='ficha';status='Ficha #'+id+' y '+variants.length+' combinaciones leídas de '+store+'. Selecciona campos para preparar cambios.';
  }
  function freshProduct(){
-  resetDraft();record={id:null,name:'',reference:'',active:'0',description:'',description_short:'',meta_title:'',meta_description:'',link_rewrite:'',price:''};
+  resetDraft();record={...Object.fromEntries(Object.values(PRODUCT_SECTIONS).flat().map(field=>[field,''])),id:null,active:'0',minimal_quantity:'1',available_for_order:'1',show_price:'1',online_only:'0',on_sale:'0',visibility:'both',condition:'new'};
   fields=new Set(['name','reference','price','description','meta_title','link_rewrite']);
   targets=new Set([store]);mode='ficha';status='Borrador nuevo. Prepara los campos y después selecciona la tienda de destino.';
  }
