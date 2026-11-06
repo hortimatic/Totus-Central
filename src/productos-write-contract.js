@@ -207,16 +207,50 @@ export function parseCreatedProductId(xml){
  if(!integer.test(id))invalid('PrestaShop no ha devuelto un ID de producto válido.');
  return id;
 }
+function fieldText(xml,node,field){
+ const part=direct(node,field);
+ if(part.children.length||part.selfClosing)invalid('El campo '+field+' no es escalar.');
+ return xmlValue(xml.slice(part.contentStart,part.contentEnd)).trim();
+}
+function listingId(xml,node){
+ const attr=node.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/i)?.[2];
+ const nodes=node.children.filter(n=>n.name==='id');
+ if(nodes.length>1)invalid('El listado contiene varios IDs.');
+ const nested=nodes.length===1?fieldText(xml,node,'id'):null;
+ if(attr&&nested&&attr!==nested)invalid('El listado tiene un identificador ambiguo.');
+ const id=attr||nested;
+ if(!id||!integer.test(id))invalid('Producto listado sin identificador.');
+ return id;
+}
 export function inspectProductReferenceListing(xml){
  const root=tree(xml),collection=direct(root,'products');
  if(collection.children.some(n=>n.name!=='product'))invalid('Listado de referencias no válido.');
- const result=collection.children.map(n=>{
-  const id=n.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2];
-  if(!id||!integer.test(id))invalid('Producto listado sin identificador.');
-  return id;
- });
+ const result=collection.children.map(n=>listingId(xml,n));
  if(new Set(result).size!==result.length)invalid('Listado de productos duplicado.');
  return result;
+}
+// Independent readback through a filtered product collection; PrestaShop 1.7.8
+// may persist a POST but throw HTTP 500 when rendering product image details.
+// Never treat HTTP status alone as proof the product was or was not created.
+export function inspectReconciledNewProduct(xml,expected,expectedId=null){
+ const root=tree(xml),collection=direct(root,'products');
+ if(collection.children.length!==1||collection.children[0].name!=='product')
+  invalid('No hay exactamente un producto comprobable con la referencia de destino.');
+ const product=collection.children[0],id=listingId(xml,product);
+ if(expectedId!==null&&id!==String(expectedId))invalid('La relectura devolvió otro ID de producto.');
+ if(fieldText(xml,product,'reference')!==expected.reference)invalid('Referencia de alta no coincidente.');
+ if(fieldText(xml,product,'active')!=='0')invalid('No se confirma que el producto esté inactivo.');
+ if(fieldText(xml,product,'id_category_default')!==String(expected.category_id))
+  invalid('La categoría de alta no coincide.');
+ const normalized=value=>{
+  if(typeof value!=='string'||!/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/.test(value))
+   invalid('Precio de alta no verificable.');
+  const [whole,decimal='']=value.split('.');
+  return BigInt(whole)*1000000n+BigInt((decimal+'000000').slice(0,6));
+ };
+ if(normalized(fieldText(xml,product,'price'))!==normalized(expected.price))
+  invalid('El precio creado no coincide.');
+ return {id,reference:expected.reference,active:false,verified:true};
 }
 
 
