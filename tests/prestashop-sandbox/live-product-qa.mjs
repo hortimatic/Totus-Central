@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../supabase/functions/totus-connections/prestashop-create.js';
-import {inspectNewProduct} from '../../src/productos-write-contract.js';
+import {inspectReconciledNewProduct} from '../../src/productos-write-contract.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
 const localBase='http://localhost:8000';
@@ -82,10 +82,12 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(repeat.reused,true);
  assert.equal(repeat.record_id,result.record_id);
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
- const readBack=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id,
-  {method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
+ const url=new URL('https://hortimatic.com/api/products');
+ url.searchParams.set('filter[reference]','['+record.reference+']');
+ url.searchParams.set('display','[id,reference,active,price,id_category_default]');
+ const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
- const verified=inspectNewProduct(await readBack.text(),result.record_id,record.reference);
+ const verified=inspectReconciledNewProduct(await readBack.text(),record,result.record_id);
  assert.equal(verified.active,false);
  console.log('SANDBOX 1.7.8.11: ID '+result.record_id+' inactivo, 1 POST, relectura y reintento idempotente.');
 });
