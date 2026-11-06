@@ -48,3 +48,15 @@
 .prd-raw{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:8px;padding-top:15px}
 .prd-raw>div{display:grid;gap:4px;padding:9px;background:var(--panel,#f7f8fa);border-radius:6px;overflow-wrap:anywhere}
 @media(max-width:560px){.prd-catalog-row{align-items:flex-start;flex-direction:column}.prd-intro label{width:100%}.prd-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.prd-tabs button{min-width:0;font-size:12px;padding:8px}.prd-variant summary{align-items:flex-start}.prd-fields-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+.prd-target-overrides{display:grid;gap:12px;margin:12px 0 16px}
+.prd-target-overrides fieldset{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:10px;padding:12px}
+.prd-target-overrides legend{padding:0 8px;font-weight:650}
+.prd-target-overrides input{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface,#fff);color:var(--text,#17243a);padding:9px}
+.prd-api-ok{border-inline-start:3px solid #168049;padding:8px 10px;background:color-mix(in srgb,#168049 9%,transparent);font-size:13px}
+.prd-plan>.btn{margin:7px 0}
+.prd-fields details>summary{cursor:pointer}
+.prd-variant summary:focus-visible,.prd-tabs button:focus-visible,.prd-plan .btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.prd-plan li{line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:560px){.prd-targets{flex-direction:column;gap:8px}.prd-target-overrides fieldset{padding:9px}.prd-target-overrides .prd-fields-grid{grid-template-columns:minmax(0,1fr)}}
