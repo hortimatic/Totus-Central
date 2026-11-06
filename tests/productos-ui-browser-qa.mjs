@@ -63,7 +63,7 @@ try{
   await page.getByRole('button',{name:'Validar variación'}).first().click();
   await page.getByText(/Variación #200 de newoldsmok comprobada/).waitFor();
   assert.equal(await page.evaluate(()=>productosQA.calls.find(c=>c.action==='prestashop_product_prepare'&&c.resource==='combinations')?.expected_product_id),'55');
-  assert.equal(await page.getByRole('button',{name:/Publicar en tiendas seleccionadas/}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:/Aplicar actualizaciones/}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   await page.getByRole('button',{name:'Cambios masivos'}).click();
   await page.locator('[data-pr-bulk="101"]').check();
@@ -84,7 +84,7 @@ try{
   assert.equal(await page.locator('.prd-plan').filter({hasText:'Crear producto nuevo'}).count(),2);
   await page.getByRole('button',{name:'Consultar idiomas de la tienda'}).first().click();
   await page.getByText(/Idiomas y categorías consultados en hortimatic/).waitFor();
-  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').fill('33');
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').selectOption('33');
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').blur();
   await page.getByRole('button',{name:'Validar alta sin escribir'}).click();
   await page.getByText(/Prevalidación de hortimatic correcta/).waitFor();
@@ -92,7 +92,7 @@ try{
   await page.locator('[data-pr-create-confirm="hortimatic"]').blur();
   assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action==='prestashop_product_create_commit')),false);
-  assert.equal(await page.getByRole('button',{name:/Publicar en tiendas seleccionadas/}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:/Aplicar actualizaciones/}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   assert.ok(await page.evaluate(()=>productosQA.ui.hasDraft()));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'Sin desbordamiento a '+width);

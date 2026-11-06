@@ -92,3 +92,18 @@ test('alta deshabilitada en servidor: muestra bloqueo y no envía POST ni consum
  assert.equal(f.wizard.hasAttempted(shop),false);
  assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,0);
 });
+test('los campos preparados no desaparecen del alta y los no implementados se explican',async()=>{
+ const extra={...plan,changes:[...plan.changes,{field:'description',after:'Descripción',changed:true},{field:'wholesale_price',after:'3.90',changed:true}]};
+ const f=fixture();await complete(f,extra);
+ const values=f.calls.at(-1).args;
+ assert.equal(values.translations[0].description,'Descripción');assert.equal(values.translations[1].description,'Descripción');
+ assert.deepEqual(values.fields,[{field:'wholesale_price',value:'3.90'}]);
+ const bad=fixture();await assert.rejects(()=>complete(bad,{...plan,changes:[...plan.changes,{field:'unit_price',after:'10',changed:true}]}),/sin contrato/);
+});
+test('comprobar resultado reutiliza el identificador de una solicitud incierta',async()=>{
+ const options={networkError:true},f=fixture(options);await complete(f);f.wizard.handleChange(confirmation(shop,'CREAR'));
+ await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/incierta/);
+ const original=f.calls.at(-1).args.request_id;assert.match(f.wizard.render(plan,source),new RegExp(original));
+ options.networkError=false;await f.wizard.perform('create-verify',shop,plan,source);
+ assert.equal(f.calls.at(-1).args.request_id,original);assert.match(f.wizard.render(plan,source),/Producto creado/);
+});

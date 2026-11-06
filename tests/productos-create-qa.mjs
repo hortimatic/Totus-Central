@@ -11,6 +11,15 @@ const list='<prestashop><products/></prestashop>',newProduct='<prestashop><produ
 const readBack='<prestashop><product><id><![CDATA[301]]></id><reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active></product></prestashop>';
 const response=xml=>new Response(xml,{status:200,headers:{'content-type':'application/xml'}});
 const resolve=async()=>['8.8.8.8'];
+test('alta conserva campos adicionales, traducciones y entidades literales; la relectura detecta pérdidas',()=>{
+ const extra={...input,fields:[{field:'wholesale_price',value:'3.90'},{field:'ean13',value:'1234567890123'}],translations:input.translations.map(t=>({...t,description:'Texto &amp; literal ]]> fin',meta_title:'Título SEO'}))};
+ const op=validateProductCreateRequest(extra),xml=prepareProductCreationXml(blank,op);
+ assert.match(xml,/<wholesale_price><!\[CDATA\[3\.90\]\]><\/wholesale_price>/);
+ const product=xml.replace('<id><![CDATA[]]></id>','<id><![CDATA[301]]></id>').replace('<product>','<products><product>').replace('</product>','</product></products>');
+ assert.equal(inspectReconciledNewProduct(product,op,'301').verified,true);
+ assert.throws(()=>inspectReconciledNewProduct(product.replace('CDATA[3.90','CDATA[3.00'),op,'301'),/wholesale_price/);
+ assert.throws(()=>validateProductCreateRequest({...extra,fields:[{field:'id_shop',value:'2'}]}),/admitido/);
+});
 const fixture=(extra={})=>{
  const calls=[];let created=false;
  const request=async(url,options)=>{
@@ -136,4 +145,16 @@ test('comprobación de relectura exige precio, categoría, referencia e inactivi
  assert.throws(()=>inspectReconciledNewProduct(xml,op,'302'),/otro ID/i);
  assert.throws(()=>inspectReconciledNewProduct(xml.replace('>Pruebas</language>','>Otro nombre</language>'),op),/Traducción name/i);
  assert.throws(()=>inspectReconciledNewProduct(xml.replace('>tests</language>','>otro-slug</language>'),op),/Traducción link_rewrite/i);
+});
+test('reconciliar una respuesta perdida solo relee: no repite POST y completa el diario incierto',async()=>{
+ const f=fixture(),entries=new Map();let interrupt=true;
+ const journal={lookup:async k=>entries.get(k)||null,claim:async row=>{entries.set(row.request_id,{...row,status:'pending'});return {status:'claimed'};},complete:async row=>{entries.set(row.request_id,{...entries.get(row.request_id),status:'completed',product_id:row.product_id});},uncertain:async row=>{entries.set(row.request_id,{...entries.get(row.request_id),status:'uncertain'});}};
+ const request=async(url,opts)=>{if(interrupt&&opts.method==='GET'&&new URL(url).searchParams.get('display')?.includes('active'))throw Error('Lectura interrumpida');return f.request(url,opts);};
+ const preview=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=> '1'}});
+ const command={...input,action:'prestashop_product_create_commit',confirmed:true,request_id:id,expected_fingerprint:preview.fingerprint};
+ await assert.rejects(()=>runPrestashopProductCreate(connection,command,{request,resolve,env:{get:()=> '1'},journal}),/incierta/);
+ assert.equal(entries.get(id).status,'uncertain');interrupt=false;
+ const recovered=await runPrestashopProductCreate(connection,command,{request,resolve,env:{get:()=> '1'},journal});
+ assert.equal(recovered.record_id,'301');assert.equal(recovered.reused,true);assert.equal(entries.get(id).status,'completed');
+ assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
 });

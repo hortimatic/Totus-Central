@@ -60,8 +60,8 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
-   price:'1.00',category_id:'2',
-   translations:profile.language_ids.map(id=>({language_id:id,name:'Pruebas CI',link_rewrite:'pruebas-ci'}))
+   price:'1.00',category_id:'2',fields:[{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'}],
+   translations:profile.language_ids.map(id=>({language_id:id,name:'Pruebas CI',link_rewrite:'pruebas-ci',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
  assert.equal(preflight.persisted,false);
@@ -84,7 +84,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
- url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite]');
+ url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,wholesale_price,weight,description,meta_title]');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
  const verified=inspectReconciledNewProduct(await readBack.text(),record,result.record_id);

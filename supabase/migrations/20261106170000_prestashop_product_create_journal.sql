@@ -1,5 +1,8 @@
 -- PrestaShop product creation requests: durable, idempotent and isolated from accounting.
 -- Store only request identity, hash, status and the verified PrestaShop ID: no credentials, PII or XML.
+BEGIN;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
 CREATE TABLE IF NOT EXISTS private.totus_prestashop_product_create_requests (
  request_id uuid PRIMARY KEY,
  connection_id uuid NOT NULL,
@@ -19,6 +22,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS totus_prestashop_product_create_store_referenc
  ON private.totus_prestashop_product_create_requests (store, lower(reference));
 CREATE INDEX IF NOT EXISTS totus_prestashop_product_create_pending
  ON private.totus_prestashop_product_create_requests (status, created_at) WHERE status <> 'completed';
+ALTER TABLE private.totus_prestashop_product_create_requests ENABLE ROW LEVEL SECURITY;
+DO $policy$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='private' AND tablename='totus_prestashop_product_create_requests' AND policyname='product_create_service') THEN
+  CREATE POLICY product_create_service ON private.totus_prestashop_product_create_requests TO service_role USING (true) WITH CHECK (true);
+ END IF;
+END $policy$;
 
 -- Only the existing server service client may call this journal. The signed-in browser
 -- cannot invoke the RPC or read the private table. Invoker rights avoid RLS bypass.
@@ -97,7 +106,8 @@ BEGIN
   UPDATE private.totus_prestashop_product_create_requests
    SET product_id=v_product,status='completed',completed_at=clock_timestamp(),updated_at=clock_timestamp()
    WHERE request_id=p_request_id AND actor_id=v_actor AND connection_id=v_connection
-     AND connection_revision=v_revision AND signature=v_signature AND status='pending'
+     AND connection_revision=v_revision AND signature=v_signature AND status IN ('pending','uncertain')
+     AND (product_id IS NULL OR product_id=v_product)
    RETURNING * INTO v_row;
   IF NOT FOUND THEN RAISE EXCEPTION 'Journal request is not pending; reconcile before retry'; END IF;
   RETURN jsonb_build_object('status','completed','product_id',v_product);
@@ -125,3 +135,4 @@ GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_create_journal(text,uu
 
 COMMENT ON TABLE private.totus_prestashop_product_create_requests IS
  'Idempotent product POST journal, locked on shop/reference until explicit reconciliation; no shop data or keys stored.';
+COMMIT;

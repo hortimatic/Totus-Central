@@ -19,7 +19,7 @@
 .prd-field input:disabled,.prd-field textarea:disabled,.prd-variant-fields input:disabled{opacity:.55}
 .prd-heading{margin-bottom:12px}
 .prd-heading h3{margin:0}
-.prd-catalog-list{display:grid;gap:4px;margin-top:15px;max-height:58vh;overflow-y:auto}
+.prd-catalog-list{display:grid;gap:4px;margin-top:15px;}
 .prd-catalog-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid var(--line)}
 .prd-catalog-row span{display:grid;gap:4px;min-width:0}
 .prd-catalog-row strong{overflow-wrap:anywhere}
@@ -75,3 +75,6 @@
 .prd-create-confirm label{min-width:200px;display:grid;gap:6px}
 .prd-create-confirm input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--surface,#fff);color:var(--text,#16253b)}
 @media(max-width:560px){.prd-creation{padding:10px}.prd-create-confirm label,.prd-create-confirm button{width:100%}}
+
+.prd-creation input:not([type=checkbox]),.prd-creation select,.prd-creation textarea,.prd-footer select{width:100%;min-width:0;max-width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface,#fff);color:var(--text)}
+.prd-footer label{display:flex;align-items:center;gap:8px}.prd-footer select{width:auto}.prd-creation .field-help{justify-self:start}

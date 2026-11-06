@@ -27,9 +27,10 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La tienda devolvió HTML, no datos Webservice.');}
   return boundedText(response,2097152);
  };
- const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations}));
+ const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations,fields:op.fields}));
  const verifyReadback=async(expectedId=null)=>{
-  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference,active,price,id_category_default,name,link_rewrite]'});
+  const extra=[...op.fields.map(f=>f.field),...['description','description_short','meta_title','meta_description'].filter(f=>op.translations.some(t=>Object.prototype.hasOwnProperty.call(t,f)))];
+  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
   return inspectReconciledNewProduct(xml,op,expectedId);
  };
  if(op.commit){
@@ -37,9 +38,10 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   if(prior){
    if(prior.signature!==signature||prior.store!==op.store||prior.reference!==op.reference)
     throw Error('El request_id ya se ha usado para otra solicitud.');
-   if(prior.status!=='completed'||!prior.product_id)throw Error('Alta anterior pendiente o incierta; no se repetirá el POST.');
-   await verifyReadback(prior.product_id);
-   return {ok:true,store:op.store,resource:'products',record_id:String(prior.product_id),request_id:op.request_id,persisted:true,verified:true,active:false,reused:true};
+   if(!['pending','uncertain','completed'].includes(prior.status))throw Error('Estado de alta no verificable.');
+   const verified=await verifyReadback(prior.product_id||null);
+   if(prior.status!=='completed')await journal.complete({request_id:op.request_id,signature,product_id:verified.id});
+   return {ok:true,store:op.store,resource:'products',record_id:String(verified.id),request_id:op.request_id,persisted:true,verified:true,active:false,reused:true};
   }
  }
  let schema,legacy_schema_fallback=false;

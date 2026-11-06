@@ -7,6 +7,7 @@ export const PRODUCT_WRITE_FIELDS=Object.freeze({
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
 export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','link_rewrite']);
+export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale']);
 const local=new Set(LOCALIZED_PRODUCT_FIELDS);
 const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold']);
 const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert']);
@@ -102,7 +103,7 @@ const unescapeXml=value=>value.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-
  const point=name[1]==='x'?parseInt(name.slice(2),16):parseInt(name.slice(1),10);
  return Number.isInteger(point)&&point>=0&&point<=0x10FFFF?String.fromCodePoint(point):m;
 });
-const xmlValue=value=>unescapeXml(value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,(_,s)=>s));
+const xmlValue=value=>value.split(/(<!\[CDATA\[[\s\S]*?\]\]>)/g).map(part=>part.startsWith('<![CDATA[')?part.slice(9,-3):unescapeXml(part)).join('');
 const safeCdata=value=>'<![CDATA['+value.replaceAll(']]>',']]]]><![CDATA[>')+']]>';
 export function selectedXmlValues(xml,resource,id,changes,expectedProductId=null){
  const root=tree(xml),singular=resource==='products'?'product':'combination';
@@ -144,7 +145,7 @@ export async function sha256Text(value){
 // the blank schema and language IDs; we never copy entity IDs from another shop.
 export function validateProductCreateRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
- const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','expected_fingerprint','request_id','confirmed']);
+ const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','fields','expected_fingerprint','request_id','confirmed']);
  if(Object.keys(input).some(key=>!accepted.has(key))||!['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)||
  !['hortimatic','newoldsmok'].includes(input.store)||!uuid.test(String(input.id||''))||!uuid.test(String(input.call_id||''))||
  !Number.isSafeInteger(input.revision)||input.revision<1||!integer.test(String(input.category_id||'')))invalid('Solicitud de alta de producto no válida.');
@@ -153,20 +154,29 @@ export function validateProductCreateRequest(input){
  if(!Array.isArray(input.translations)||input.translations.length<1||input.translations.length>12)invalid('Selecciona los idiomas de destino.');
  const seen=new Set();
  const translations=input.translations.map(t=>{
-  if(!t||typeof t!=='object'||Array.isArray(t)||Object.keys(t).some(k=>!['language_id','name','link_rewrite'].includes(k))||
+  if(!t||typeof t!=='object'||Array.isArray(t)||Object.keys(t).some(k=>!['language_id',...LOCALIZED_PRODUCT_FIELDS].includes(k))||
   !integer.test(String(t.language_id||''))||seen.has(String(t.language_id)))invalid('Idiomas repetidos o no válidos.');
   seen.add(String(t.language_id));
   validateValue('name',t.name,'products');
   validateValue('link_rewrite',t.link_rewrite,'products');
   if(!t.name.trim())invalid('No se puede crear un producto sin nombre.');
-  return {language_id:String(t.language_id),name:t.name,link_rewrite:t.link_rewrite};
+  const translation={language_id:String(t.language_id),name:t.name,link_rewrite:t.link_rewrite};
+  for(const field of LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)))if(own(t,field))translation[field]=validateValue(field,t[field],'products');
+  return translation;
+ });
+ const fields=input.fields??[];
+ if(!Array.isArray(fields)||fields.length>PRODUCT_CREATE_FIELDS.length)invalid('Campos adicionales de alta no válidos.');
+ const chosen=new Set();
+ const extra=fields.map(row=>{
+  if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).some(k=>!['field','value'].includes(k))||!PRODUCT_CREATE_FIELDS.includes(row.field)||chosen.has(row.field))invalid('Campo adicional de alta no admitido o repetido.');
+  chosen.add(row.field);return {field:row.field,value:validateValue(row.field,row.value,'products')};
  });
  const commit=input.action==='prestashop_product_create_commit';
  if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))
   invalid('El alta exige confirmación, huella vigente y request_id estable.');
  if(!commit&&(own(input,'expected_fingerprint')||own(input,'request_id')||own(input,'confirmed')))
   invalid('No se aceptan confirmaciones durante la preparación.');
- return {store:input.store,resource:'products',reference:input.reference,price:input.price,category_id:String(input.category_id),translations,
+ return {store:input.store,resource:'products',reference:input.reference,price:input.price,category_id:String(input.category_id),translations,fields:extra,
   commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
 }
 export function prepareProductCreationXml(schema,create){
@@ -196,6 +206,23 @@ export function prepareProductCreationXml(schema,create){
  const associations=direct(product,'associations'),categories=direct(associations,'categories');
  const category=direct(categories,'category');
  set(direct(category,'id'),create.category_id);
+ let additional='';
+ // Only known fields may be added to a minimal 1.7 schema; never accept raw XML or relationships.
+ for(const entry of create.fields||[]){
+  const nodes=product.children.filter(n=>n.name===entry.field);
+  if(nodes.length>1)invalid('Campo adicional duplicado en el esquema.');
+  if(nodes.length)set(nodes[0],entry.value);else additional+='<'+entry.field+'>'+safeCdata(entry.value)+'</'+entry.field+'>';
+ }
+ for(const field of LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f))){
+  if(!create.translations.some(t=>own(t,field)))continue;
+  if(create.translations.some(t=>!own(t,field)))invalid('El campo '+field+' no cubre todos los idiomas.');
+  const nodes=product.children.filter(n=>n.name===field);
+  if(nodes.length>1)invalid('Campo traducido duplicado en el esquema.');
+  if(nodes.length){
+   for(const t of create.translations){const matches=nodes[0].children.filter(n=>n.name==='language'&&n.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2]===t.language_id);if(matches.length!==1)invalid('Idioma adicional no válido.');set(matches[0],t[field]);}
+  }else additional+='<'+field+'>'+create.translations.map(t=>'<language id="'+t.language_id+'">'+safeCdata(t[field])+'</language>').join('')+'</'+field+'>';
+ }
+ if(additional)desired.set(associations.open,{start:associations.open,end:associations.open,value:additional});
  let xml=schema;
  for(const change of [...desired.values()].sort((a,b)=>b.start-a.start))xml=xml.slice(0,change.start)+change.value+xml.slice(change.end);
  tree(xml);
@@ -262,6 +289,17 @@ export function inspectReconciledNewProduct(xml,expected,expectedId=null){
       xmlValue(xml.slice(matches[0].contentStart,matches[0].contentEnd))!==entry[property])
     invalid('Traducción '+field+' del idioma '+entry.language_id+' no coincidente.');
   }
+ }
+ for(const field of LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)&&expected.translations.some(t=>own(t,f)))){
+  const node=direct(product,field);
+  for(const t of expected.translations){
+   const matches=node.children.filter(n=>n.name==='language'&&n.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2]===t.language_id);
+   if(matches.length!==1||xmlValue(xml.slice(matches[0].contentStart,matches[0].contentEnd))!==t[field])invalid('El campo '+field+' no coincide tras crear.');
+  }
+ }
+ for(const entry of expected.fields||[]){
+  const actual=fieldText(xml,product,entry.field);
+  if(decimal.has(entry.field)?normalized(actual)!==normalized(entry.value):actual!==entry.value)invalid('El campo '+entry.field+' no coincide tras crear.');
  }
  return {id,reference:expected.reference,active:false,verified:true};
 }

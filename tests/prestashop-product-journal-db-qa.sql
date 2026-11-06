@@ -62,6 +62,8 @@ BEGIN
  IF r->>'status'<>'uncertain' THEN RAISE EXCEPTION 'Uncertain status not recorded'; END IF;
  r:=public.totus_prestashop_product_create_journal('claim',id4,b);
  IF r->>'status'<>'duplicate_reference' THEN RAISE EXCEPTION 'Uncertain POST repeated by new UUID'; END IF;
+ r:=public.totus_prestashop_product_create_journal('complete',id3,b||'{"product_id":703}'::jsonb);
+ IF r->>'status'<>'completed' OR r->>'product_id'<>'703' THEN RAISE EXCEPTION 'Verified reconciliation did not complete'; END IF;
  BEGIN
   PERFORM public.totus_prestashop_product_create_journal('claim',id4,
    jsonb_set(b,'{connection_id}','"ffffffff-ffff-4fff-8fff-ffffffffffff"'::jsonb));
