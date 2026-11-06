@@ -258,8 +258,15 @@ export function productLanguageIdsFromListing(xml){
  const root=tree(xml),list=direct(root,'languages');
  if(!list.children.length||list.children.length>12||list.children.some(x=>x.name!=='language'))
   invalid('La lista de idiomas de destino no es válida.');
- const ids=list.children.map(x=>x.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/i)?.[2]);
- if(ids.some(id=>!id)||new Set(ids).size!==ids.length)
+ const ids=list.children.map(x=>{
+  const attr=x.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/i)?.[2];
+  const idNodes=x.children.filter(n=>n.name==='id');
+  if(idNodes.length>1)invalid('La lista tiene varios IDs para el mismo idioma.');
+  const nested=idNodes.length===1?xmlValue(xml.slice(idNodes[0].contentStart,idNodes[0].contentEnd)).trim():null;
+  if(attr&&nested&&attr!==nested)invalid('ID de idioma ambiguo.');
+  return attr||nested;
+ });
+ if(ids.some(id=>!id||!integer.test(id))||new Set(ids).size!==ids.length)
   invalid('La tienda ha devuelto IDs de idioma ausentes o duplicados.');
  return ids;
 }
