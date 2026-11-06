@@ -93,7 +93,7 @@ try{
   assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action==='prestashop_product_create_commit')),false);
   assert.equal(await page.getByRole('button',{name:/Publicar en tiendas seleccionadas/}).isDisabled(),true);
-  assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare'].includes(c.action))),true);
+  assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   assert.ok(await page.evaluate(()=>productosQA.ui.hasDraft()));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'Sin desbordamiento a '+width);
   await page.evaluate(async()=>{productosQA.actor='admin-2';await productosQA.ui.mount(document.querySelector('#productosRoot'));});
