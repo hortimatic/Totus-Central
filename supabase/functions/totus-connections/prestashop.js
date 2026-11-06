@@ -56,3 +56,25 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar el catálogo del Webservice (HTTP '+response.status+').');}
  return {ok:true,store:store.key,...prestashopCapabilities(await boundedText(response,131072),response.headers.get('psws-version')||'')};
 }
+
+
+// Detail uses an exact resource/ID, never an arbitrary URL or field expression.
+// This is intentionally read-only: writes require a separately audited contract.
+export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
+ const store=prestashopStore(input.store);
+ if(!['products','combinations'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
+ if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
+ if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
+ const base=new URL(connection.endpoint);
+ if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice inválida.');
+ base.pathname=base.pathname.replace(/\/$/,'')+'/'+input.resource+'/'+input.record_id;
+ base.searchParams.set('output_format','JSON');
+ const target=await safeEndpoint(base.href,resolve);
+ const response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+ if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer la ficha de PrestaShop (HTTP '+response.status+').');}
+ if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
+ const raw=await boundedJson(response,2097152);
+ const singular=input.resource==='products'?'product':'combination',item=raw?.[singular];
+ if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
+ return {ok:true,store:store.key,resource:input.resource,record_id:String(input.record_id),item};
+}
