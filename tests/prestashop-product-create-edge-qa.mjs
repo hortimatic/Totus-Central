@@ -28,7 +28,7 @@ const xml=s=>new Response(s,{status:200,headers:{'content-type':'application/xml
 const req=(body,token=true)=>new Request('https://example.invalid',{method:'POST',headers:{'Content-Type':'application/json',
  ...(token?{Authorization:'Bearer account-session-valid'}:{})},body:JSON.stringify(body)});
 const environment=write=>({get:key=>({SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'public',
- SUPABASE_SERVICE_ROLE_KEY:'server-only',TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED:write?'1':''})[key]});
+ SUPABASE_SERVICE_ROLE_KEY:'server-only',TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED:write?'1':''})[key]});
 const fixture=(opts={})=>{
  const calls=[],journal=new Map();
  const factory=(_url,key)=>({
