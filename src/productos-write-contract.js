@@ -249,3 +249,33 @@ export function productCreateLanguageIds(xml){
  if(n.length!==l.length||n.some(x=>!l.includes(x)))invalid('Idiomas incoherentes entre nombre y URL amigable.');
  return n;
 }
+
+
+// PrestaShop 1.7.8.x has an upstream blank-schema HTTP 500 bug (#26559).
+// Read languages from the destination shop and build a SMALL independent create
+// template; do not copy any existing product, combinations or internal IDs.
+export function productLanguageIdsFromListing(xml){
+ const root=tree(xml),list=direct(root,'languages');
+ if(!list.children.length||list.children.length>12||list.children.some(x=>x.name!=='language'))
+  invalid('La lista de idiomas de destino no es válida.');
+ const ids=list.children.map(x=>x.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/i)?.[2]);
+ if(ids.some(id=>!id)||new Set(ids).size!==ids.length)
+  invalid('La tienda ha devuelto IDs de idioma ausentes o duplicados.');
+ return ids;
+}
+export function minimalBlankProductSchema(languageIds){
+ if(!Array.isArray(languageIds)||!languageIds.length||languageIds.length>12||
+    languageIds.some(id=>typeof id!=='string'||!integer.test(id))||
+    new Set(languageIds).size!==languageIds.length)
+  invalid('Idiomas de alta no válidos.');
+ const languages=languageIds.map(id=>'<language id="'+id+'"><![CDATA[]]></language>').join('');
+ const schema='<?xml version="1.0" encoding="UTF-8"?>'
+  +'<prestashop xmlns:xlink="http://www.w3.org/1999/xlink"><product>'
+  +'<id><![CDATA[]]></id><id_category_default><![CDATA[]]></id_category_default>'
+  +'<reference><![CDATA[]]></reference><price><![CDATA[]]></price><active><![CDATA[]]></active>'
+  +'<name>'+languages+'</name><link_rewrite>'+languages+'</link_rewrite>'
+  +'<associations><categories><category><id><![CDATA[]]></id></category></categories></associations>'
+  +'</product></prestashop>';
+ if(productCreateLanguageIds(schema).length!==languageIds.length)invalid('No se pudo generar la ficha segura.');
+ return schema;
+}
