@@ -218,3 +218,21 @@ export function inspectProductReferenceListing(xml){
  if(new Set(result).size!==result.length)invalid('Listado de productos duplicado.');
  return result;
 }
+
+
+export function parsePrestashopResourceId(xml,resource){
+ if(!['product','category','combination'].includes(resource))invalid('Recurso no admitido.');
+ const root=tree(xml),item=direct(root,resource),node=direct(item,'id');
+ const id=xmlValue(xml.slice(node.contentStart,node.contentEnd)).trim();
+ if(!integer.test(id))invalid('Respuesta del proveedor sin identificador válido.');
+ return id;
+}
+export function inspectNewProduct(xml,id,reference){
+ const root=tree(xml),product=direct(root,'product');
+ const node=direct(product,'id'),actual=xmlValue(xml.slice(node.contentStart,node.contentEnd)).trim();
+ if(actual!==String(id))invalid('La relectura devolvió otro producto.');
+ const ref=direct(product,'reference'),active=direct(product,'active');
+ const found=xmlValue(xml.slice(ref.contentStart,ref.contentEnd)).trim(),enabled=xmlValue(xml.slice(active.contentStart,active.contentEnd)).trim();
+ if(found!==reference||enabled!=='0')invalid('El producto creado no coincide o quedó activo sin autorización.');
+ return {id:actual,reference:found,active:false};
+}
