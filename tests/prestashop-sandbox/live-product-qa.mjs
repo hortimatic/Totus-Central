@@ -24,7 +24,7 @@ async function localOnlyRequest(url,opts={}){
   const body=await response.clone().text();
   console.error('CI isolated webservice HTTP',response.status,local.pathname+local.search,'body=',body.slice(0,1600));
   if(opts.method==='POST'&&response.status===500){
-   const path='/api/products?filter%5Breference%5D=%5BTOTUS-CI-PRUEBAS%5D&display=%5Bid%2Creference%2Cactive%2Cprice%2Cid_category_default%5D';
+   const path='/api/products?filter%5Breference%5D=%5BTOTUS-CI-PRUEBAS%5D&display=%5Bid%2Creference%2Cactive%2Cprice%2Cid_category_default%2Cname%2Clink_rewrite%5D';
    const inspect=await fetch(new URL(path,localBase),{headers,redirect:'manual'});
    console.log('POST 500 reconciliation diagnostic',inspect.status,(await inspect.text()).slice(0,2200));
   }
@@ -84,7 +84,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
- url.searchParams.set('display','[id,reference,active,price,id_category_default]');
+ url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite]');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
  const verified=inspectReconciledNewProduct(await readBack.text(),record,result.record_id);
