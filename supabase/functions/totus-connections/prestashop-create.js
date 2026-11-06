@@ -14,7 +14,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.search||base.hash||base.pathname.replace(/\/$/,'')!=='/api')
   throw Error('El alta exige la URL oficial de la tienda seleccionada.');
- if(op.commit&&(env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')!=='1'||!journal||
+ if(op.commit&&(env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')!=='1'||!journal||
   !['lookup','claim','complete','uncertain'].every(k=>typeof journal[k]==='function')))
   throw Error('Alta bloqueada: falta habilitación revisada y registro duradero de idempotencia.');
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
