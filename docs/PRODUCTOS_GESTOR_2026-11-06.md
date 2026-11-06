@@ -14,7 +14,7 @@ Módulo propio **Productos**, separado del Centro PrestaShop, para Hortimatic y 
 - Tests puros y mock de lectura. No hay SQL ni modificaciones en Supabase, PrestaShop o OneDrive.
 
 ## Lo que NO se entrega todavía
-- **No existe escritura POST/PUT ni activación de publicar.** El botón permanece deshabilitado por diseño: no se afirma que el módulo cree o modifique ya fichas reales.
+- **No existe escritura activa ni POST de creación.** Hay un motor PUT bajo bloqueo del servidor para pruebas ficticias; el botón Publicar permanece deshabilitado y no hay modificación de productos reales.
 - No se reasignan automáticamente IDs de categorías, imágenes, atributos, fabricantes o impuestos entre tiendas.
 - El modo bulk inicial selecciona combinaciones de la ficha abierta, pero aún no ejecuta lotes de productos completos.
 - Los campos personalizados por módulos requieren estudio del Webservice real.
