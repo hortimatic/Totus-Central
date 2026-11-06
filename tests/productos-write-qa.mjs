@@ -36,7 +36,8 @@ test('preparación consulta sin PUT y devuelve solo diferencias sin XML',async()
 });
 test('commit no habilitado se bloquea antes de ninguna llamada',async()=>{
  let count=0;
- await assert.rejects(()=>runPrestashopProductWrite(connection,{...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true},{env:{get:()=>''},resolve,request:async()=>{count++;return response(X);}}),/bloqueada/);
+ const fingerprint=await sha256Text(X);
+ await assert.rejects(()=>runPrestashopProductWrite(connection,{...input('prestashop_product_commit'),expected_fingerprint:fingerprint,request_id:UUID,confirmed:true},{env:{get:()=>''},resolve,request:async()=>{count++;return response(X);}}),/bloqueada/);
  assert.equal(count,0);
 });
 test('PUT ficticio con relectura verificada y comprobación de huella',async()=>{
