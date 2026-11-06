@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateProductCreateRequest,prepareProductCreationXml,inspectProductReferenceListing,parseCreatedProductId,productLanguageIdsFromListing} from '../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,inspectProductReferenceListing,inspectReconciledNewProduct,parseCreatedProductId,productLanguageIdsFromListing} from '../src/productos-write-contract.js';
 import {runPrestashopProductCreate} from '../supabase/functions/totus-connections/prestashop-create.js';
 const id='11111111-1111-4111-8111-111111111111',call='22222222-2222-4222-8222-222222222222';
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,real_data_authorized:true,verified_revision:2,revision:2,endpoint:'https://hortimatic.com/api/',secret:'fake-local-only'};
@@ -12,16 +12,16 @@ const readBack='<prestashop><product><id><![CDATA[301]]></id><reference><![CDATA
 const response=xml=>new Response(xml,{status:200,headers:{'content-type':'application/xml'}});
 const resolve=async()=>['8.8.8.8'];
 const fixture=(extra={})=>{
- const calls=[];
+ const calls=[];let created=false;
  const request=async(url,options)=>{
   const path=new URL(url).pathname,method=options.method,params=new URL(url).searchParams;
   calls.push({path,method,params:[...params.entries()],body:options.body});
-  if(method==='POST')return response(newProduct);
+  if(method==='POST'){created=true;return extra.post500?new Response('<prestashop><errors><error><code>5</code></error></errors></prestashop>',{status:500,headers:{'content-type':'application/xml'}}):response(newProduct);}
   if(path==='/api/categories/33')return response(category);
   if(path==='/api/products/301')return response(readBack);
   if(path==='/api/products'&&params.get('schema')==='blank')return extra.schema500?new Response('<prestashop><errors><error><code>5</code></error></errors></prestashop>',{status:500,headers:{'content-type':'application/xml'}}):response(blank);
   if(path==='/api/languages'&&params.get('display')==='[id]')return response('<prestashop><languages><language id="1"/><language id="2"/></languages></prestashop>');
-  if(path==='/api/products'&&params.has('filter[reference]'))return response(extra.duplicate?'<prestashop><products><product id="120"/></products></prestashop>':list);
+  if(path==='/api/products'&&params.has('filter[reference]'))return response(extra.duplicate?'<prestashop><products><product id="120"/></products></prestashop>':created?'<prestashop><products><product><id><![CDATA[301]]></id><reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><price><![CDATA[0.000000]]></price><id_category_default><![CDATA[33]]></id_category_default></product></products></prestashop>':list);
   throw Error('Consulta inesperada: '+method+' '+path);
  };
  return {calls,request};
@@ -69,6 +69,7 @@ test('POST aislado con journal, ID asignado por PrestaShop y relectura completa'
  const result=await runPrestashopProductCreate(connection,commit,{request,resolve,env:{get:()=> '1'},journal});
  assert.equal(result.record_id,'301');assert.equal(result.verified,true);assert.equal(result.active,false);
  assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','POST','GET']);
+ assert.equal(calls.at(-1).params.find(x=>x[0]==='display')?.[1],'[id,reference,active,price,id_category_default]');
  assert.equal(logged[0][0],'claim');assert.equal(logged[1][0],'complete');
  assert.ok(calls.find(c=>c.method==='POST').body.includes('<active><![CDATA[0]]></active>'));
 });
@@ -104,4 +105,33 @@ test('idiomas PrestaShop permiten ID atributo o nodo, pero bloquean inconsistenc
  assert.deepEqual(productLanguageIdsFromListing('<prestashop><languages><language><id><![CDATA[1]]></id></language><language><id>2</id></language></languages></prestashop>'),['1','2']);
  assert.throws(()=>productLanguageIdsFromListing('<prestashop><languages><language id="1"><id>2</id></language></languages></prestashop>'),/ambiguo/);
  assert.throws(()=>productLanguageIdsFromListing('<prestashop><languages><language id="1"/><language><id>1</id></language></languages></prestashop>'),/duplicados/);
+});
+
+test('HTTP 500 tras crear: un GET demuestra el alta y el diario la completa sin segundo POST',async()=>{
+ const {request,calls}=fixture({post500:true}),journalRecords=new Map();
+ const journal={
+  lookup:async request_id=>journalRecords.get(request_id)||null,
+  claim:async row=>{journalRecords.set(row.request_id,{...row,status:'pending'});return {status:'claimed'};},
+  complete:async row=>{journalRecords.set(row.request_id,{...journalRecords.get(row.request_id),product_id:row.product_id,status:'completed'});},
+  uncertain:async row=>{journalRecords.set(row.request_id,{...journalRecords.get(row.request_id),status:'uncertain'});}
+ };
+ const preview=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}});
+ const cmd={...input,action:'prestashop_product_create_commit',request_id:id,confirmed:true,expected_fingerprint:preview.fingerprint};
+ const result=await runPrestashopProductCreate(connection,cmd,{request,resolve,env:{get:()=> '1'},journal});
+ assert.equal(result.record_id,'301');
+ assert.equal(result.reconciled_after_post_error,true);
+ assert.equal(journalRecords.get(id).status,'completed');
+ const repeated=await runPrestashopProductCreate(connection,cmd,{request,resolve,env:{get:()=> '1'},journal});
+ assert.equal(repeated.record_id,'301');assert.equal(repeated.reused,true);
+ assert.equal(calls.filter(c=>c.method==='POST').length,1);
+});
+test('comprobación de relectura exige precio, categoría, referencia e inactividad',()=>{
+ const xml='<prestashop><products><product><id>301</id><reference>TOTUS-PRUEBAS-DEMO</reference><active>0</active><price>0.000000</price><id_category_default>33</id_category_default></product></products></prestashop>';
+ const op={reference:input.reference,price:input.price,category_id:input.category_id};
+ assert.equal(inspectReconciledNewProduct(xml,op,'301').id,'301');
+ assert.throws(()=>inspectReconciledNewProduct(xml,{...op,price:'1.00'}),/precio/i);
+ assert.throws(()=>inspectReconciledNewProduct(xml,{...op,category_id:'2'}),/categoría/i);
+ assert.throws(()=>inspectReconciledNewProduct(xml,{...op,reference:'OTRA-REF'}),/referencia/i);
+ assert.throws(()=>inspectReconciledNewProduct(xml.replace('<active>0</active>','<active>1</active>'),op),/inactivo/i);
+ assert.throws(()=>inspectReconciledNewProduct(xml,op,'302'),/otro ID/i);
 });
