@@ -250,6 +250,19 @@ export function inspectReconciledNewProduct(xml,expected,expectedId=null){
  };
  if(normalized(fieldText(xml,product,'price'))!==normalized(expected.price))
   invalid('El precio creado no coincide.');
+ if(!Array.isArray(expected.translations)||!expected.translations.length)
+  invalid('Faltan traducciones para verificar el alta.');
+ for(const [field,property] of [['name','name'],['link_rewrite','link_rewrite']]){
+  const node=direct(product,field);
+  if(node.children.length!==expected.translations.length)
+   invalid('No coinciden los idiomas del campo '+field+'.');
+  for(const entry of expected.translations){
+   const matches=node.children.filter(child=>child.name==='language'&&child.attributes.match(/\\bid\\s*=\\s*(["'])([1-9]\\d{0,14})\\1/i)?.[2]===entry.language_id);
+   if(matches.length!==1||matches[0].selfClosing||
+      xmlValue(xml.slice(matches[0].contentStart,matches[0].contentEnd))!==entry[property])
+    invalid('Traducción '+field+' del idioma '+entry.language_id+' no coincidente.');
+  }
+ }
  return {id,reference:expected.reference,active:false,verified:true};
 }
 
