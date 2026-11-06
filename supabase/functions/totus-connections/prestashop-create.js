@@ -29,7 +29,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  };
  const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations}));
  const verifyReadback=async(expectedId=null)=>{
-  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference,active,price,id_category_default]'});
+  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference,active,price,id_category_default,name,link_rewrite]'});
   return inspectReconciledNewProduct(xml,op,expectedId);
  };
  if(op.commit){
