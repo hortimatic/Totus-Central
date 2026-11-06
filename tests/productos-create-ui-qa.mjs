@@ -26,6 +26,7 @@ const fixture=(opts={})=>{
 };
 const complete=async(f,p=plan)=>{
  await f.wizard.perform('create-load',shop,p,source);
+ f.wizard.render(p,source); // The real browser renders the form immediately after loading its profile.
  assert(f.wizard.handleChange(field(shop,'category_id','33')));
  assert(f.wizard.handleChange(lang(shop,'1','name','Pruebas')));
  assert(f.wizard.handleChange(lang(shop,'1','link_rewrite','pruebas')));
