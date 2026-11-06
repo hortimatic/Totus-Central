@@ -24,7 +24,7 @@ try{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
     if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1'],persisted:false};
-    if(body.action==='prestashop_product_create_prepare')return {ok:true,store:body.store,resource:'products',reference:body.reference,fingerprint:'b'.repeat(64),persisted:false};
+    if(body.action==='prestashop_product_create_prepare')return {ok:true,store:body.store,resource:'products',reference:body.reference,fingerprint:'b'.repeat(64),persisted:false,can_commit:true};
     if(body.action==='prestashop_product_prepare')return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,persisted:false,fingerprint:'a'.repeat(64),changes:body.changes.map(c=>({...c,before:'original',changed:true}))};
     if(body.action==='prestashop_item_read'){
      const item=fixture[body.store+'|'+body.resource+'|'+body.record_id];
