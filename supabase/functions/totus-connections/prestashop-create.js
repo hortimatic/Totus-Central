@@ -2,7 +2,7 @@
 // Real POST is gated: never enable until the persistent idempotency journal is deployed,
 // reviewed, and injected. Do not use this for an unapproved production test.
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text} from '../../../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
 
@@ -28,15 +28,18 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   return boundedText(response,2097152);
  };
  const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations}));
+ const verifyReadback=async(expectedId=null)=>{
+  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference,active,price,id_category_default]'});
+  return inspectReconciledNewProduct(xml,op,expectedId);
+ };
  if(op.commit){
   const prior=await journal.lookup(op.request_id);
   if(prior){
    if(prior.signature!==signature||prior.store!==op.store||prior.reference!==op.reference)
     throw Error('El request_id ya se ha usado para otra solicitud.');
    if(prior.status!=='completed'||!prior.product_id)throw Error('Alta anterior pendiente o incierta; no se repetirá el POST.');
-   const written=await fetchXml('products/'+prior.product_id);
-   inspectNewProduct(written,prior.product_id,op.reference);
-   return {ok:true,store:op.store,resource:'products',record_id:prior.product_id,request_id:op.request_id,persisted:true,verified:true,reused:true};
+   await verifyReadback(prior.product_id);
+   return {ok:true,store:op.store,resource:'products',record_id:String(prior.product_id),request_id:op.request_id,persisted:true,verified:true,active:false,reused:true};
   }
  }
  let schema,legacy_schema_fallback=false;
@@ -61,24 +64,34 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const claim=await journal.claim({request_id:op.request_id,store:op.store,reference:op.reference,signature});
  if(claim?.status!=='claimed')throw Error('El alta está registrada por otro proceso o pendiente de conciliación. No se repetirá.');
  const url=new URL(base.href);url.pathname='/api/products';const target=await safeEndpoint(url.href,resolve);
- let result,id;
+ let id=null,postProblem=null;
  try{
-  result=await request(target.href,{method:'POST',headers:{...headers,'Content-Type':'application/xml; charset=utf-8'},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(30000)});
-  if(!result.ok){await result.body?.cancel();throw Error('PrestaShop respondió HTTP '+result.status+'.');}
-  id=parseCreatedProductId(await boundedText(result,2097152));
- }catch(e){
-  await journal.uncertain({request_id:op.request_id,signature,reason:'Respuesta de alta incierta'});
-  throw Error('Resultado del alta incierto; revisar la referencia antes de reintentar. '+(e instanceof Error?e.message:''));
+  const response=await request(target.href,{method:'POST',headers:{...headers,'Content-Type':'application/xml; charset=utf-8'},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(30000)});
+  if(!response.ok){await response.body?.cancel();throw Error('PrestaShop respondió HTTP '+response.status+'.');}
+  id=parseCreatedProductId(await boundedText(response,2097152));
+ }catch(error){postProblem=error;}
+ let verified;
+ try{
+  // Mandatory GET even after HTTP 200: the server is the authority, not the
+  // POST response. On 1.7.8 a 500 after insert may still mean success.
+  verified=await verifyReadback(id);
+  id=verified.id;
+ }catch(readbackError){
+  await journal.uncertain({request_id:op.request_id,signature,...(id?{product_id:id}:{}),
+   reason:'La relectura del resultado del POST no permite acreditar el alta'});
+  throw Error('Alta incierta. NO repitas la creación: revisa la referencia y el diario antes de continuar. '
+   +(postProblem instanceof Error?postProblem.message+' ':'')
+   +(readbackError instanceof Error?readbackError.message:''));
  }
  try{
-  const written=await fetchXml('products/'+id);
-  inspectNewProduct(written,id,op.reference);
   await journal.complete({request_id:op.request_id,signature,product_id:id});
  }catch{
-  await journal.uncertain({request_id:op.request_id,signature,product_id:id,reason:'Fallo de relectura'});
-  throw Error('PrestaShop respondió al alta, pero la verificación final está pendiente. No reintentar automáticamente.');
+  // The database update might have completed despite a lost response.
+  // Never issue another POST or silently unlock this reference.
+  throw Error('El producto existe y se ha verificado por GET, pero falta confirmar el diario. No repitas el POST; concilia el request_id.');
  }
- return {ok:true,store:op.store,resource:'products',record_id:id,request_id:op.request_id,persisted:true,verified:true,active:false};
+ return {ok:true,store:op.store,resource:'products',record_id:id,request_id:op.request_id,
+  persisted:true,verified:true,active:false,reconciled_after_post_error:!!postProblem};
 }
 
 
