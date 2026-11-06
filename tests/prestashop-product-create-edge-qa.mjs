@@ -66,7 +66,7 @@ const fixture=(opts={})=>{
   if(u.pathname==='/api/categories/33')return xml(c);
   if(u.pathname==='/api/languages'&&u.searchParams.get('display')==='[id]')return xml('<prestashop><languages><language id="1"/></languages></prestashop>');
   if(u.pathname==='/api/products'&&u.searchParams.get('schema')==='blank')return xml(blank);
-  if(u.pathname==='/api/products'&&u.searchParams.has('filter[reference]'))return xml(created?'<prestashop><products><product><id><![CDATA[701]]></id><reference><![CDATA[PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><price><![CDATA[0.000000]]></price><id_category_default><![CDATA[33]]></id_category_default></product></products></prestashop>':empty);
+  if(u.pathname==='/api/products'&&u.searchParams.has('filter[reference]'))return xml(created?'<prestashop><products><product><id><![CDATA[701]]></id><reference><![CDATA[PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><price><![CDATA[0.000000]]></price><id_category_default><![CDATA[33]]></id_category_default><name><language id="1"><![CDATA[Pruebas]]></language></name><link_rewrite><language id="1"><![CDATA[pruebas]]></language></link_rewrite></product></products></prestashop>':empty);
   throw Error('Unknown '+method+' '+u.pathname+u.search);
  };
  return {calls,journal,factory,request};
