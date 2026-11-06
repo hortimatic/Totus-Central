@@ -81,7 +81,7 @@ function tree(xml){
    continue;
   }
   const node={name,open:m.index,contentStart:tag.lastIndex,contentEnd:tag.lastIndex,end:tag.lastIndex,
-   attributes:raw.slice(name.length+1,-1),children:[]};
+   attributes:raw.slice(name.length+1,-1),selfClosing:raw.endsWith('/>'),children:[]};
   if(stack.length)stack.at(-1).children.push(node);else roots.push(node);
   if(!raw.endsWith('/>'))stack.push(node);
  }
@@ -115,6 +115,7 @@ export function selectedXmlValues(xml,resource,id,changes){
    if(matching.length!==1)invalid('Idioma '+change.language_id+' ausente o duplicado en '+change.field+'.');
    slot=matching[0];
   }else if(node.children.length)invalid('Campo complejo requiere idioma y mapeo explícitos: '+change.field+'.');
+  if(slot.selfClosing)invalid('Campo XML autocerrado: actualizar requiere un adaptador específico, no se escribirá.');
   const before=xmlValue(xml.slice(slot.contentStart,slot.contentEnd));
   result.push({...change,before,changed:before!==change.value});
   slots.push({start:slot.contentStart,end:slot.contentEnd,value:safeCdata(change.value)});
