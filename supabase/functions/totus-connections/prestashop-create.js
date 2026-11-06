@@ -2,7 +2,7 @@
 // Real POST is gated: never enable until the persistent idempotency journal is deployed,
 // reviewed, and injected. Do not use this for an unapproved production test.
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectNewProduct,productCreateLanguageIds,sha256Text} from '../../../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
 
@@ -39,7 +39,16 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
    return {ok:true,store:op.store,resource:'products',record_id:prior.product_id,request_id:op.request_id,persisted:true,verified:true,reused:true};
   }
  }
- const schema=await fetchXml('products',{schema:'blank'});
+ let schema,legacy_schema_fallback=false;
+ try{schema=await fetchXml('products',{schema:'blank'});}
+ catch(error){
+  // Known PrestaShop 1.7.8 blank-schema bug: use fresh destination languages,
+  // never import an existing product or reuse its shop-specific relations.
+  if(!String(error?.message||'').includes('(HTTP 500)'))throw error;
+  const languageListing=await fetchXml('languages',{display:'[id]'});
+  schema=minimalBlankProductSchema(productLanguageIdsFromListing(languageListing));
+  legacy_schema_fallback=true;
+ }
  const category=await fetchXml('categories/'+op.category_id);
  if(parsePrestashopResourceId(category,'category')!==op.category_id)throw Error('La categoría pertenece a otro registro.');
  const duplicates=inspectProductReferenceListing(await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference]'}));
@@ -47,7 +56,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const body=prepareProductCreationXml(schema,op);
  const fingerprint=await sha256Text(schema+'|'+category+'|'+signature);
  if(!op.commit)return {ok:true,store:op.store,resource:'products',operation:'create',reference:op.reference,category_id:op.category_id,
-  language_ids:op.translations.map(t=>t.language_id),fingerprint,persisted:false,can_commit:false};
+  language_ids:op.translations.map(t=>t.language_id),fingerprint,legacy_schema_fallback,persisted:false,can_commit:false};
  if(fingerprint!==op.expected_fingerprint)throw Error('El esquema o la categoría han cambiado. Prepara el alta de nuevo.');
  const claim=await journal.claim({request_id:op.request_id,store:op.store,reference:op.reference,signature});
  if(claim?.status!=='claimed')throw Error('El alta está registrada por otro proceso o pendiente de conciliación. No se repetirá.');
@@ -83,12 +92,12 @@ export async function readPrestashopProductCreateProfile(connection,input,{reque
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.search||base.hash||base.pathname.replace(/\/$/,'')!=='/api')
   throw Error('La dirección Webservice no pertenece a esta tienda.');
- base.pathname='/api/products';base.searchParams.set('schema','blank');
+ base.pathname='/api/languages';base.searchParams.set('display','[id]');
  const target=await safeEndpoint(base.href,resolve);
  const response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},
   credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
- if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer el esquema de productos (HTTP '+response.status+').');}
+ if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar los idiomas de la tienda (HTTP '+response.status+').');}
  if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML.');}
- const language_ids=productCreateLanguageIds(await boundedText(response,2097152));
+ const language_ids=productLanguageIdsFromListing(await boundedText(response,2097152));
  return {ok:true,store:store.key,resource:'products',language_ids,persisted:false};
 }
