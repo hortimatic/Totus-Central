@@ -76,6 +76,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   const opened=[...root.querySelectorAll('.prd-variant[open]')].map(el=>el.dataset.prVariant);
   root.innerHTML='<div class="prd-shell"><header class="prd-intro"><div><span class="eyebrow">Centro independiente PrestaShop</span><h2>Productos</h2><p>Fichas completas, variaciones y transferencias selectivas entre Hortimatic y NewOldSmok.</p></div><label>Tienda de origen<select data-pr-store>'+PRODUCT_STORES.map(s=>'<option value="'+s.key+'" '+(store===s.key?'selected':'')+'>'+h(s.label)+'</option>').join('')+'</select></label></header><p role="status" class="prd-status">'+h(status)+'</p><nav class="prd-tabs" aria-label="Secciones de Productos">'+MODES.map(([id,label])=>btn(label,'mode','data-mode="'+id+'"'+(mode===id?' aria-current="page"':''),pending)).join('')+'</nav><div class="prd-body">'+(mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?comparisonPanel():bulk())+'</div></div>';
   for(const detail of root.querySelectorAll('.prd-variant'))if(opened.includes(detail.dataset.prVariant))detail.open=true;
+  if(pending)for(const el of root.querySelectorAll('button,input,select,textarea'))el.disabled=true;
  }
  async function invokeShop(shop,action,args){
   if(!current())throw Error('La sesión ha cambiado.');
@@ -199,6 +200,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   if(!allowed()){root.textContent='No tienes permiso de consulta de PrestaShop.';return;}
   root.oninput=e=>{if(e.target.matches('[data-pr-search]')){query=e.target.value;render();const f=root.querySelector('[data-pr-search]');f?.focus();f?.setSelectionRange(query.length,query.length);}};
   root.onchange=e=>{
+   if(pending||!current())return;
    if(e.target.matches('[data-pr-store]')){store=e.target.value;rows=[];page=0;hasMore=false;query='';resetDraft();status='Tienda de origen: '+store+'.';render();return;}
    if(e.target.matches('[data-pr-target]')){e.target.checked?targets.add(e.target.dataset.prTarget):targets.delete(e.target.dataset.prTarget);invalidate();render();return;}
    if(e.target.matches('[data-pr-field]')){const field=e.target.dataset.prField;e.target.checked?fields.add(field):fields.delete(field);if(!e.target.checked){delete overrides[field];for(const values of targetOverrides.values())delete values[field];}invalidate();render();return;}
