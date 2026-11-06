@@ -2,7 +2,7 @@
 // Real POST is gated: never enable until the persistent idempotency journal is deployed,
 // reviewed, and injected. Do not use this for an unapproved production test.
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectNewProduct,sha256Text} from '../../../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectNewProduct,productCreateLanguageIds,sha256Text} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
 
@@ -70,4 +70,25 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   throw Error('PrestaShop respondió al alta, pero la verificación final está pendiente. No reintentar automáticamente.');
  }
  return {ok:true,store:op.store,resource:'products',record_id:id,request_id:op.request_id,persisted:true,verified:true,active:false};
+}
+
+
+// Read-only preparation: language IDs come from the destination's own Webservice.
+// It does not need or disclose any credentials on the client and never uses POST.
+export async function readPrestashopProductCreateProfile(connection,input,{request=fetch,resolve}={}){
+ const store=prestashopStore(input.store);
+ if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||
+    connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)
+  throw Error('La conexión no corresponde a la tienda activa y verificada.');
+ const base=new URL(connection.endpoint);
+ if(base.origin!==store.origin||base.search||base.hash||base.pathname.replace(/\/$/,'')!=='/api')
+  throw Error('La dirección Webservice no pertenece a esta tienda.');
+ base.pathname='/api/products';base.searchParams.set('schema','blank');
+ const target=await safeEndpoint(base.href,resolve);
+ const response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},
+  credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
+ if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer el esquema de productos (HTTP '+response.status+').');}
+ if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML.');}
+ const language_ids=productCreateLanguageIds(await boundedText(response,2097152));
+ return {ok:true,store:store.key,resource:'products',language_ids,persisted:false};
 }
