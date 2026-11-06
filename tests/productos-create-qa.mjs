@@ -78,7 +78,7 @@ test('POST con respuesta incierta no se reintenta automáticamente',async()=>{
  const journal={lookup:async()=>null,claim:async()=>({status:'claimed'}),complete:async()=>{},uncertain:async data=>logged.push(data)};
  const prepare=await runPrestashopProductCreate(connection,input,{request:f.request,resolve,env:{get:()=>''}});
  const bad=async(url,opts)=>opts.method==='POST'?Promise.reject(Error('Error red')):f.request(url,opts);
- await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,action:'prestashop_product_create_commit',request_id:id,confirmed:true,expected_fingerprint:prepare.fingerprint},{request:bad,resolve,env:{get:()=> '1'},journal}),/incierto/);
+ await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,action:'prestashop_product_create_commit',request_id:id,confirmed:true,expected_fingerprint:prepare.fingerprint},{request:bad,resolve,env:{get:()=> '1'},journal}),/incierta/);
  assert.equal(logged.length,1);
  assert.equal(logged[0].request_id,id);
 });
