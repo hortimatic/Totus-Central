@@ -64,6 +64,7 @@ const fixture=(opts={})=>{
   if(method==='POST')return xml(created);
   if(u.pathname==='/api/products/701')return xml(verified);
   if(u.pathname==='/api/categories/33')return xml(c);
+  if(u.pathname==='/api/languages'&&u.searchParams.get('display')==='[id]')return xml('<prestashop><languages><language id="1"/></languages></prestashop>');
   if(u.pathname==='/api/products'&&u.searchParams.get('schema')==='blank')return xml(blank);
   if(u.pathname==='/api/products'&&u.searchParams.has('filter[reference]'))return xml(empty);
   throw Error('Unknown '+method+' '+u.pathname+u.search);
