@@ -43,7 +43,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    }).join('')+'</div>'+
    '<div class="inline-actions">'+b('Validar alta sin escribir','create-prepare',shop,locked)+
    (prepared?'<span class="prd-api-ok">Esquema, idiomas, categoría y duplicados validados. Todavía no se ha creado nada.</span>':'')+'</div>'+
-   (prepared?'<div class="prd-create-confirm"><label>Para confirmar esta alta escribe <b>CREAR</b><input data-pr-create-confirm="'+h(shop)+'" autocomplete="off" value="'+h(confirmation)+'" '+(locked?'disabled':'')+'></label>'+
+   (prepared&&!prepared.can_commit?'<p class="prd-warning">La escritura POST aún no está habilitada en el servidor de Totus. Esta propuesta es solo consulta.</p>':'')+(prepared&&prepared.can_commit?'<div class="prd-create-confirm"><label>Para confirmar esta alta escribe <b>CREAR</b><input data-pr-create-confirm="'+h(shop)+'" autocomplete="off" value="'+h(confirmation)+'" '+(locked?'disabled':'')+'></label>'+
     b('Crear en PrestaShop (inactivo)','create-commit',shop,locked||!canEdit()||confirmation!=='CREAR')+'</div>':'')+
    (locked?'<p class="prd-warning">Se inició una petición de alta. Su request_id se conserva durante esta sesión: no se enviará otra creación automáticamente si el resultado es incierto.</p>':'')+
    '</section>';
