@@ -1,5 +1,6 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {validateProductWriteRequest,selectedXmlValues,sha256Text} from '../../../src/productos-write-contract.js';
+export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
 // Server-only XML transport. Do NOT expose raw XML, secrets, the prepared XML,
