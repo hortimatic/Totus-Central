@@ -14,7 +14,7 @@ Módulo propio **Productos**, separado del Centro PrestaShop, para Hortimatic y 
 - Tests puros y mock de lectura. No hay SQL ni modificaciones en Supabase, PrestaShop o OneDrive.
 
 ## Lo que NO se entrega todavía
-- **No existe escritura activa ni POST de creación.** Hay un motor PUT bajo bloqueo del servidor para pruebas ficticias; el botón Publicar permanece deshabilitado y no hay modificación de productos reales.
+- **No existe escritura activa ni POST publicado.** Hay código de alta y edición en la rama, pero las operaciones siguen protegidas por controles de servidor; no se han modificado productos reales.
 - No se reasignan automáticamente IDs de categorías, imágenes, atributos, fabricantes o impuestos entre tiendas.
 - El modo bulk inicial selecciona combinaciones de la ficha abierta, pero aún no ejecuta lotes de productos completos.
 - Los campos personalizados por módulos requieren estudio del Webservice real.
@@ -47,15 +47,25 @@ No fusionar ni publicar por existir esta rama o un CI verde. Un PR en borrador i
 
 ## Bloqueos pendientes antes de activar escritura
 
-NO ACTIVAR la bandera de escritura sin diario durable de request_id, bloqueo de concurrencia, recuperación de respuestas inciertas, pruebas de entorno PrestaShop 1.7 aislado y revisión técnica competente. También falta la creación POST con campos obligatorios por tienda, mapeo de idiomas/categorías/atributos, alta de combinaciones, imágenes, bulk persistente e historial recuperable.
+NO ACTIVAR ninguna bandera sin instalar y verificar el diario durable de request_id, superar las pruebas en PrestaShop 1.7 aislado y obtener revisión técnica competente. La creación POST básica está codificada; siguen pendientes los atributos, combinaciones, imágenes, stock, bulk e historial recuperable.
 
 Las pruebas de transporte usan únicamente XML ficticio y HTTP simulado. No aseguran compatibilidad comercial en tiendas reales. El código en GitHub no significa que el servicio esté publicado en Supabase.
 
 ## Alta POST: adaptación de conexión (06/11/2026)
 - Añadido contrato de creación de producto en la rama: `prestashop_product_create_prepare` y `prestashop_product_create_commit`. Comparten la conexión verificada de cada tienda, y nunca reciben claves por el navegador.
 - La preparación comprueba en lectura el esquema en blanco de la **tienda de destino**, un ID de categoría real, la existencia de la referencia y la cobertura de idiomas de destino. Prepara nombre, referencia, slug y precio. El nuevo producto siempre nace **inactivo** hasta una publicación separada y autorizada.
-- El POST está implementado en un adaptador servidor, pero bloqueado por dos requisitos independientes: habilitación técnica revisada e inyección de un registro de idempotencia persistente. El index aún no suministra este registro: **NO EXISTE ALTA REAL HABILITADA**.
+- La escritura POST usa un registro de idempotencia persistente, cuya migración `20261106170000_prestashop_product_create_journal.sql` y adaptador de servidor ya están conectados **solo en la rama de trabajo**. La creación permanece bloqueada por la variable exclusiva `TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED`, sin activar. La variable de PUT `TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED` es independiente y también sigue desactivada. **No se ha desplegado el alta real.**
 - El adaptador define reconciliación de la respuesta y relectura posterior del ID asignado por PrestaShop. En caso de respuesta incierta no se repite la creación a ciegas.
 - Se añadieron pruebas aisladas de XML, dos idiomas, duplicados, validación de categoría, bloqueo del POST, journal simulado y relectura de producto inactivo.
 - La captura facilitada por el titular indica los permisos de la API de Hortimatic habilitados. No se atribuye ningún bloqueo a PrestaShop sin un diagnóstico autenticado de sus recursos. El bloqueo de escritura conocido está en Totus.
 - Las operaciones completas para combinaciones nuevas, imágenes, stock y otros recursos siguen pendientes. Los permisos Webservice amplios no autorizan a Totus a ejecutar operaciones no implementadas ni a publicar en caliente.
+
+## API de alta · contrato integrado en rama
+
+- Se añadió `prestashop_product_create_profile` (solo GET): recupera los IDs reales de idioma del esquema `products?schema=blank` de cada tienda.
+- El asistente del módulo Productos permite consultar idiomas y categorías, seleccionar referencia/precio/categoría, rellenar nombres y URLs por idioma y validar la futura alta sin enviar POST.
+- Cada botón de alta exige `CREAR`, una prevalidación reciente y permiso de administrador; las tiendas se tramitan por separado. Se mantiene un único `request_id` para la petición de alta y los resultados inciertos quedan bloqueados.
+- El servidor guarda un diario transaccional protegido por rol de servicio en Supabase (requiere migración todavía no desplegada), con exclusividad por tienda/referencia, estado pendiente/incierto/completado y auditoría mínima sin secretos.
+- La prueba de PostgreSQL aislado pasó en CI para el diario; las pruebas de interfaz, servidor y regresiones deben verificarse sobre el último commit.
+- Solo se crea el producto base y queda inactivo; no se presenta como una ficha publicable con combinaciones, fotos o stock configurados. Una ficha con variaciones seleccionadas se bloquea para evitar un alta parcial.
+- **Sigue pendiente** prueba real de integración en PrestaShop aislado 1.7.8.11 con los campos, categorías, traducciones y módulos correspondientes; revisión técnica independiente, instalación controlada y verificación de flujos publicados.
