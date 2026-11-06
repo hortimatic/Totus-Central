@@ -3,7 +3,7 @@ UPDATE ps_configuration SET value = '1' WHERE name = 'PS_WEBSERVICE';
 INSERT INTO ps_webservice_account (
   `key`, description, active
 ) VALUES (
-  'TOTUSPRESTASHOPQA1234567890123456', 'Temporary CI-only Webservice account', 1
+  'TOTUSPRESTASHOPQA123456789012345', 'Temporary CI-only Webservice account', 1
 );
 SET @account_id = LAST_INSERT_ID();
 INSERT IGNORE INTO ps_webservice_account_shop(id_webservice_account,id_shop)
