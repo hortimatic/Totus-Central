@@ -40,7 +40,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const root=await localOnlyRequest('https://hortimatic.com/api/',{
   method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}
  });
- assert.equal(root.status,200,'PrestaShop Webservice GET must accept our fictional CI key');
+ assert.equal(root.status,200,'PrestaShop Webservice GET must accept our fictional CI key; redirect='+String(root.headers.get('location')||'none'));
  await root.body?.cancel();
  const profile=await readPrestashopProductCreateProfile(connection,{store:'hortimatic'},
   {request:localOnlyRequest,resolve});
