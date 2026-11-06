@@ -4,7 +4,7 @@ import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../
 import {inspectNewProduct} from '../../src/productos-write-contract.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
-const localBase='http://127.0.0.1:8000';
+const localBase='http://localhost:8000';
 const connection={
  protocol:'prestashop',name:'PrestaShop · Hortimatic',endpoint:'https://hortimatic.com/api/',
  enabled:true,real_data_authorized:true,verified_revision:2,revision:2,secret:key
