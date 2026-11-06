@@ -29,7 +29,22 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   admin=factory(url,secret,options);const connection=check(await admin.rpc('totus_api_server',{p_id:input.id,p_revision:input.revision}));
   if(input.action==='github_read'&&(connection.actor_email!==user.email||!uuid(input.call_id)))throw Error('La conexión no está asignada a tu propia identidad.');
   check(await admin.rpc('totus_api_call',{p_id:input.id,p_revision:input.revision,p_call:input.call_id}));started=true;
-  const result=input.action==='github_read'?{ok:true,file:await readGithubFile(connection,input,request)}:input.action==='prestashop_read'?await readPrestashopPage(connection,input,{request}):input.action==='prestashop_discover'?await discoverPrestashop(connection,input,{request}):input.action==='prestashop_item_read'?await readPrestashopProductItem(connection,input,{request}):['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)?await (await import('./prestashop-write.js')).runPrestashopProductWrite(connection,input,{request,env}):['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)?await (await import('./prestashop-create.js')).runPrestashopProductCreate(connection,input,{request,env}):await testConnection(connection,{request});
+  // Journal is callable exclusively by the short-lived server client after normal
+  // authenticated-user and admin checks. The browser never gets service privileges.
+  const productCreateJournal=input.action==='prestashop_product_create_commit'?(()=>{
+   const shared={actor_id:user.id,connection_id:input.id,revision:input.revision};
+   const journalCall=async(action:string,request_id:string,extra:any={})=>
+    check(await admin.rpc('totus_prestashop_product_create_journal',{
+     p_action:action,p_request_id:request_id,p_data:{...shared,...extra}
+    }));
+   return {
+    lookup:(request_id:string)=>journalCall('lookup',request_id),
+    claim:(op:any)=>journalCall('claim',op.request_id,{store:op.store,reference:op.reference,signature:op.signature}),
+    complete:(op:any)=>journalCall('complete',op.request_id,{signature:op.signature,product_id:op.product_id}),
+    uncertain:(op:any)=>journalCall('uncertain',op.request_id,{signature:op.signature,product_id:op.product_id})
+   };
+  })():null;
+  const result=input.action==='github_read'?{ok:true,file:await readGithubFile(connection,input,request)}:input.action==='prestashop_read'?await readPrestashopPage(connection,input,{request}):input.action==='prestashop_discover'?await discoverPrestashop(connection,input,{request}):input.action==='prestashop_item_read'?await readPrestashopProductItem(connection,input,{request}):['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)?await (await import('./prestashop-write.js')).runPrestashopProductWrite(connection,input,{request,env}):['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)?await (await import('./prestashop-create.js')).runPrestashopProductCreate(connection,input,{request,env,journal:productCreateJournal}):await testConnection(connection,{request});
   const auditResult:any=['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)&&'reference' in result?{ok:true,store:input.store,resource:'products',operation:input.action,persisted:'persisted' in result?result.persisted:false,record_id:'record_id' in result?result.record_id:null}:['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)&&'changes' in result?{ok:true,store:input.store,resource:input.resource,record_id:input.record_id,operation:input.action,persisted:'persisted' in result?result.persisted:false,changed_count:Array.isArray(result.changes)?result.changes.filter((x:any)=>x.changed).length:0}:input.action==='prestashop_item_read'&&'item' in result?{ok:true,store:result.store,resource:result.resource,record_id:result.record_id}:'store' in result&&'resource' in result&&'page' in result&&'rows' in result?{ok:true,store:result.store,resource:result.resource,page:result.page,rows_count:result.rows.length}:result;
   check(await admin.rpc('totus_api_call',{p_id:input.id,p_revision:input.revision,p_call:input.call_id,p_result:auditResult}));started=false;
   return respond(result);
