@@ -60,3 +60,16 @@ test('respuesta PUT incierta no declara resultado completado',async()=>{
  const c={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true};
  await assert.rejects(()=>runPrestashopProductWrite(connection,c,{env:{get:()=> '1'},resolve,request:async(_url,opt)=>{times++;if(times===4)throw Error('red');return response(X);}}),/Estado incierto/);
 });
+
+
+test('variaciones: precio de impacto negativo y padre obligatorio; no se puede editar producto ajeno',async()=>{
+ const combination='<prestashop><combination><id><![CDATA[200]]></id><id_product><![CDATA[55]]></id_product><price><![CDATA[1.500000]]></price><reference><![CDATA[VAR-10]]></reference><minimal_quantity><![CDATA[1]]></minimal_quantity></combination></prestashop>';
+ const args={...input(),store:'newoldsmok',resource:'combinations',record_id:'200',expected_product_id:'55',changes:[{field:'price',value:'-1.25'}]};
+ assert.equal(validateProductWriteRequest(args).changes[0].value,'-1.25');
+ assert.throws(()=>validateProductWriteRequest({...args,expected_product_id:'66',changes:[{field:'id_product',value:'1'}]}),/no habilitado/);
+ assert.throws(()=>validateProductWriteRequest({...args,expected_product_id:null}),/producto/);
+ assert.throws(()=>selectedXmlValues(combination,'combinations','200',args.changes,'44'),/no pertenece/);
+ const shop={...connection,name:'PrestaShop · NewOldSmok',endpoint:'https://newoldsmok.com/api'};
+ const r=await runPrestashopProductWrite(shop,args,{resolve,env:{get:()=>''},request:async()=>response(combination)});
+ assert.equal(r.persisted,false);assert.equal(r.changes[0].value,'-1.25');
+});
