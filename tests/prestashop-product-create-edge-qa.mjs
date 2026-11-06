@@ -30,7 +30,7 @@ const req=(body,token=true)=>new Request('https://example.invalid',{method:'POST
 const environment=write=>({get:key=>({SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'public',
  SUPABASE_SERVICE_ROLE_KEY:'server-only',TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED:write?'1':''})[key]});
 const fixture=(opts={})=>{
- const calls=[],journal=new Map();
+ const calls=[],journal=new Map();let created=false;
  const factory=(_url,key)=>({
   auth:{getUser:async()=>({data:{user:{id:user_id,email:'admin@example.invalid'}}})},
   rpc:async(name,payload)=>{
@@ -61,12 +61,12 @@ const fixture=(opts={})=>{
  const request=async(url,opts2)=>{
   const u=new URL(url),method=opts2.method;calls.push({type:'http',method,path:u.pathname,search:u.search,body:opts2.body});
   assert.equal(u.origin,'https://hortimatic.com');assert.ok(opts2.headers.Authorization.startsWith('Basic '));
-  if(method==='POST')return xml(created);
+  if(method==='POST'){created=true;return xml('<prestashop><product><id><![CDATA[701]]></id></product></prestashop>');}
   if(u.pathname==='/api/products/701')return xml(verified);
   if(u.pathname==='/api/categories/33')return xml(c);
   if(u.pathname==='/api/languages'&&u.searchParams.get('display')==='[id]')return xml('<prestashop><languages><language id="1"/></languages></prestashop>');
   if(u.pathname==='/api/products'&&u.searchParams.get('schema')==='blank')return xml(blank);
-  if(u.pathname==='/api/products'&&u.searchParams.has('filter[reference]'))return xml(empty);
+  if(u.pathname==='/api/products'&&u.searchParams.has('filter[reference]'))return xml(created?'<prestashop><products><product><id><![CDATA[701]]></id><reference><![CDATA[PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><price><![CDATA[0.000000]]></price><id_category_default><![CDATA[33]]></id_category_default></product></products></prestashop>':empty);
   throw Error('Unknown '+method+' '+u.pathname+u.search);
  };
  return {calls,journal,factory,request};
