@@ -32,7 +32,7 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  if(operation.commit&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')!=='1')
   throw Error('Escritura de productos bloqueada: falta habilitación técnica revisada.');
  const original=await read(),fingerprint=await sha256Text(original);
- const result=selectedXmlValues(original,operation.resource,operation.record_id,operation.changes);
+ const result=selectedXmlValues(original,operation.resource,operation.record_id,operation.changes,operation.expected_product_id);
  if(!operation.commit)return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,
   fingerprint,changes:result.changes,persisted:false,can_commit:false,revision_required:true};
  if(fingerprint!==operation.expected_fingerprint)
