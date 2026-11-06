@@ -20,7 +20,7 @@ try{
     'hortimatic|combinations|101':{id:'101',id_product:'42',reference:'REF-42-20',price:'2',minimal_quantity:'1',associations:{product_option_values:[{id:'20'}]}},
     'newoldsmok|combinations|200':{id:'200',id_product:'55',reference:'REF-42-10',price:'1.50',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}}
    };
-   q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,invoke:async body=>{
+   q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,canEdit:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
     if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1'],persisted:false};
