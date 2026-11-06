@@ -1,0 +1,27 @@
+name: totus-prestashop-178-validation
+services:
+  mysql:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: test-only
+      MYSQL_DATABASE: prestashop
+      MYSQL_USER: prestashop
+      MYSQL_PASSWORD: prestashop
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "prestashop", "-pprestashop"]
+      interval: 8s
+      timeout: 5s
+      retries: 18
+  prestashop:
+    image: prestashop/prestashop-flashlight:1.7.8.11
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PS_DOMAIN: localhost:8000
+      MYSQL_HOST: mysql
+      MYSQL_DATABASE: prestashop
+      MYSQL_USER: prestashop
+      MYSQL_PASSWORD: prestashop
+    ports:
+      - "127.0.0.1:8000:80"
