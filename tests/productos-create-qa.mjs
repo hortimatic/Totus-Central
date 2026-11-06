@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateProductCreateRequest,prepareProductCreationXml,inspectProductReferenceListing,parseCreatedProductId} from '../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,inspectProductReferenceListing,parseCreatedProductId,productLanguageIdsFromListing} from '../src/productos-write-contract.js';
 import {runPrestashopProductCreate} from '../supabase/functions/totus-connections/prestashop-create.js';
 const id='11111111-1111-4111-8111-111111111111',call='22222222-2222-4222-8222-222222222222';
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,real_data_authorized:true,verified_revision:2,revision:2,endpoint:'https://hortimatic.com/api/',secret:'fake-local-only'};
@@ -97,4 +97,11 @@ test('PrestaShop 1.7.8 con schema=blank HTTP 500: plantilla mínima usa idiomas 
  assert.equal(calls.some(c=>c.path==='/api/languages'),true);
  assert.equal(calls.some(c=>c.method==='POST'),false);
  assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','GET']);
+});
+
+test('idiomas PrestaShop permiten ID atributo o nodo, pero bloquean inconsistencias y duplicados',()=>{
+ assert.deepEqual(productLanguageIdsFromListing('<prestashop><languages><language id="1"/><language id="2"/></languages></prestashop>'),['1','2']);
+ assert.deepEqual(productLanguageIdsFromListing('<prestashop><languages><language><id><![CDATA[1]]></id></language><language><id>2</id></language></languages></prestashop>'),['1','2']);
+ assert.throws(()=>productLanguageIdsFromListing('<prestashop><languages><language id="1"><id>2</id></language></languages></prestashop>'),/ambiguo/);
+ assert.throws(()=>productLanguageIdsFromListing('<prestashop><languages><language id="1"/><language><id>1</id></language></languages></prestashop>'),/duplicados/);
 });
