@@ -15,7 +15,7 @@ try{
    const q=window.productosQA={actor:'admin-1',calls:[],slow:false,connections:['hortimatic','newoldsmok'].map((store,i)=>({id:String(i+1).padStart(8,'0')+'-1111-4111-8111-111111111111',name:'PrestaShop · '+(store==='hortimatic'?'Hortimatic':'NewOldSmok'),protocol:'prestashop',configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true}))};
    const fixture={
     'hortimatic|products|42':{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>',description:'Origen',price:'12.90',meta_title:'SEO de origen',associations:{combinations:[{id:'100'},{id:'101'}],categories:[{id:'3'}]}},
-    'newoldsmok|products|55':{id:'55',reference:'REF-42',name:'Destino antiguo',description:'Destino',price:'14.90',meta_title:'SEO propio',associations:{combinations:[{id:'200'}]}},
+    'newoldsmok|products|55':{id:'55',reference:'DESTINO-55',name:'Destino antiguo',description:'Destino',price:'14.90',meta_title:'SEO propio',associations:{combinations:[{id:'200'}]}},
     'hortimatic|combinations|100':{id:'100',id_product:'42',reference:'REF-42-10',price:'1',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}},
     'hortimatic|combinations|101':{id:'101',id_product:'42',reference:'REF-42-20',price:'2',minimal_quantity:'1',associations:{product_option_values:[{id:'20'}]}},
     'newoldsmok|combinations|200':{id:'200',id_product:'55',reference:'REF-42-10',price:'1.50',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}}
@@ -23,13 +23,14 @@ try{
    q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
+    if(body.action==='prestashop_product_prepare')return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,persisted:false,fingerprint:'a'.repeat(64),changes:body.changes.map(c=>({...c,before:'original',changed:true}))};
     if(body.action==='prestashop_item_read'){
      const item=fixture[body.store+'|'+body.resource+'|'+body.record_id];
      if(!item)throw Error('Ficha desconocida');
      return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,item};
     }
     if(body.action==='prestashop_read'){
-     const rows=body.references?.length?body.store==='newoldsmok'?[{id:'55',reference:'REF-42',name:'Destino antiguo'}]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
+     const rows=body.references?.length?body.store==='newoldsmok'?[]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
      return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:false};
     }
     throw Error('Se ha intentado escribir en PrestaShop');
@@ -49,13 +50,17 @@ try{
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').fill('3.50');
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').blur();
   await page.getByRole('button',{name:'Comparar y preparar'}).click();
+  await page.locator('[data-pr-existing-id="newoldsmok"]').fill('55');
+  await page.locator('[data-pr-existing-id="newoldsmok"]').blur();
   await page.getByRole('button',{name:'Buscar coincidencias y preparar cambios'}).click();
   await page.getByText(/Propuesta preparada para 1 tienda/).waitFor();
   assert.equal(await page.locator('.prd-plan').count(),1);
   assert.match(await page.locator('.prd-plan').innerText(),/Actualizar #55/);
   assert.match(await page.locator('.prd-plan').innerText(),/Nombre personalizado/);
+  await page.getByRole('button',{name:'Validar variación'}).first().click();
+  await page.getByText(/Variación #200 de newoldsmok comprobada/).waitFor();
   assert.equal(await page.getByRole('button',{name:/Publicar en tiendas seleccionadas/}).isDisabled(),true);
-  assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read'].includes(c.action))),true);
+  assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare'].includes(c.action))),true);
   await page.getByRole('button',{name:'Cambios masivos'}).click();
   await page.locator('[data-pr-bulk="101"]').check();
   await page.getByRole('button',{name:'Revisar selección'}).click();
