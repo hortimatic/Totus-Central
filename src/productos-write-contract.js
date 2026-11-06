@@ -138,3 +138,83 @@ export async function sha256Text(value){
  const digest=await crypto.subtle.digest('SHA-256',bytes);
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
+
+
+// Product creation is separate from selective PUT. The destination shop supplies
+// the blank schema and language IDs; we never copy entity IDs from another shop.
+export function validateProductCreateRequest(input){
+ if(!input||typeof input!=='object'||Array.isArray(input))invalid();
+ const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','expected_fingerprint','request_id','confirmed']);
+ if(Object.keys(input).some(key=>!accepted.has(key))||!['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)||
+ !['hortimatic','newoldsmok'].includes(input.store)||!uuid.test(String(input.id||''))||!uuid.test(String(input.call_id||''))||
+ !Number.isSafeInteger(input.revision)||input.revision<1||!integer.test(String(input.category_id||'')))invalid('Solicitud de alta de producto no válida.');
+ if(typeof input.reference!=='string'||!/^[a-z0-9][a-z0-9._-]{2,63}$/i.test(input.reference))invalid('Referencia no válida para evitar duplicados.');
+ validateValue('price',input.price,'products');
+ if(!Array.isArray(input.translations)||input.translations.length<1||input.translations.length>12)invalid('Selecciona los idiomas de destino.');
+ const seen=new Set();
+ const translations=input.translations.map(t=>{
+  if(!t||typeof t!=='object'||Array.isArray(t)||Object.keys(t).some(k=>!['language_id','name','link_rewrite'].includes(k))||
+  !integer.test(String(t.language_id||''))||seen.has(String(t.language_id)))invalid('Idiomas repetidos o no válidos.');
+  seen.add(String(t.language_id));
+  validateValue('name',t.name,'products');
+  validateValue('link_rewrite',t.link_rewrite,'products');
+  if(!t.name.trim())invalid('No se puede crear un producto sin nombre.');
+  return {language_id:String(t.language_id),name:t.name,link_rewrite:t.link_rewrite};
+ });
+ const commit=input.action==='prestashop_product_create_commit';
+ if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))
+  invalid('El alta exige confirmación, huella vigente y request_id estable.');
+ if(!commit&&(own(input,'expected_fingerprint')||own(input,'request_id')||own(input,'confirmed')))
+  invalid('No se aceptan confirmaciones durante la preparación.');
+ return {store:input.store,resource:'products',reference:input.reference,price:input.price,category_id:String(input.category_id),translations,
+  commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
+}
+export function prepareProductCreationXml(schema,create){
+ const root=tree(schema),product=direct(root,'product'),id=direct(product,'id');
+ if(xmlValue(schema.slice(id.contentStart,id.contentEnd)).trim())invalid('El esquema de alta contiene un ID; no es una ficha en blanco.');
+ const desired=new Map();
+ const set=(node,value)=>{
+  if(node.selfClosing||node.children.length)invalid('El esquema contiene campos complejos no compatibles.');
+  if(desired.has(node.contentStart))invalid('Campo XML de alta duplicado.');
+  desired.set(node.contentStart,{start:node.contentStart,end:node.contentEnd,value:safeCdata(value)});
+ };
+ for(const [field,value] of [['reference',create.reference],['price',create.price],['active','0'],['id_category_default',create.category_id]]){
+  set(direct(product,field),value);
+ }
+ const names=direct(product,'name'),slugs=direct(product,'link_rewrite');
+ const ids=names.children.filter(x=>x.name==='language').map(x=>x.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2]);
+ if(!ids.length||ids.some(x=>!x)||new Set(ids).size!==ids.length)invalid('No se han identificado los idiomas del esquema.');
+ const expected=new Set(ids),given=new Set(create.translations.map(t=>t.language_id));
+ if(ids.length!==given.size||[...given].some(x=>!expected.has(x)))invalid('Las traducciones no cubren los idiomas del destino.');
+ for(const t of create.translations){
+  for(const [node,value] of [[names,t.name],[slugs,t.link_rewrite]]){
+   const matches=node.children.filter(x=>x.name==='language'&&x.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2]===t.language_id);
+   if(matches.length!==1)invalid('Idioma no reconocido en el esquema de alta.');
+   set(matches[0],value);
+  }
+ }
+ const associations=direct(product,'associations'),categories=direct(associations,'categories');
+ const category=direct(categories,'category');
+ set(direct(category,'id'),create.category_id);
+ let xml=schema;
+ for(const change of [...desired.values()].sort((a,b)=>b.start-a.start))xml=xml.slice(0,change.start)+change.value+xml.slice(change.end);
+ tree(xml);
+ return xml;
+}
+export function parseCreatedProductId(xml){
+ const root=tree(xml),product=direct(root,'product'),node=direct(product,'id');
+ const id=xmlValue(xml.slice(node.contentStart,node.contentEnd)).trim();
+ if(!integer.test(id))invalid('PrestaShop no ha devuelto un ID de producto válido.');
+ return id;
+}
+export function inspectProductReferenceListing(xml){
+ const root=tree(xml),collection=direct(root,'products');
+ if(collection.children.some(n=>n.name!=='product'))invalid('Listado de referencias no válido.');
+ const result=collection.children.map(n=>{
+  const id=n.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2];
+  if(!id||!integer.test(id))invalid('Producto listado sin identificador.');
+  return id;
+ });
+ if(new Set(result).size!==result.length)invalid('Listado de productos duplicado.');
+ return result;
+}
