@@ -69,7 +69,8 @@ BEGIN
   THEN RAISE EXCEPTION 'Invalid shop or product reference'; END IF;
   SELECT id,name,revision,enabled,verified_revision,real_data_authorized
   INTO v_conn FROM private.totus_api_connections WHERE id=v_connection;
-  IF NOT FOUND OR v_conn.revision<>v_revision OR v_conn.enabled IS DISTINCT FROM true OR
+  IF NOT FOUND THEN RAISE EXCEPTION 'Store connection does not exist'; END IF;
+  IF v_conn.revision<>v_revision OR v_conn.enabled IS DISTINCT FROM true OR
      v_conn.verified_revision<>v_revision OR v_conn.real_data_authorized IS DISTINCT FROM true OR
      v_conn.name<>(CASE WHEN v_store='hortimatic' THEN 'PrestaShop · Hortimatic' ELSE 'PrestaShop · NewOldSmok' END)
   THEN RAISE EXCEPTION 'Store connection is not verified'; END IF;
