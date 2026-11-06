@@ -21,7 +21,7 @@ const fixture=(extra={})=>{
   if(path==='/api/products/301')return response(readBack);
   if(path==='/api/products'&&params.get('schema')==='blank')return extra.schema500?new Response('<prestashop><errors><error><code>5</code></error></errors></prestashop>',{status:500,headers:{'content-type':'application/xml'}}):response(blank);
   if(path==='/api/languages'&&params.get('display')==='[id]')return response('<prestashop><languages><language id="1"/><language id="2"/></languages></prestashop>');
-  if(path==='/api/products'&&params.has('filter[reference]'))return response(extra.duplicate?'<prestashop><products><product id="120"/></products></prestashop>':created?'<prestashop><products><product><id><![CDATA[301]]></id><reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><price><![CDATA[0.000000]]></price><id_category_default><![CDATA[33]]></id_category_default></product></products></prestashop>':list);
+  if(path==='/api/products'&&params.has('filter[reference]'))return response(extra.duplicate?'<prestashop><products><product id="120"/></products></prestashop>':created?'<prestashop><products><product><id><![CDATA[301]]></id><reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><price><![CDATA[0.000000]]></price><id_category_default><![CDATA[33]]></id_category_default><name><language id="1"><![CDATA[Pruebas]]></language><language id="2"><![CDATA[Tests]]></language></name><link_rewrite><language id="1"><![CDATA[pruebas]]></language><language id="2"><![CDATA[tests]]></language></link_rewrite></product></products></prestashop>':list);
   throw Error('Consulta inesperada: '+method+' '+path);
  };
  return {calls,request};
@@ -69,7 +69,7 @@ test('POST aislado con journal, ID asignado por PrestaShop y relectura completa'
  const result=await runPrestashopProductCreate(connection,commit,{request,resolve,env:{get:()=> '1'},journal});
  assert.equal(result.record_id,'301');assert.equal(result.verified,true);assert.equal(result.active,false);
  assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','POST','GET']);
- assert.equal(calls.at(-1).params.find(x=>x[0]==='display')?.[1],'[id,reference,active,price,id_category_default]');
+ assert.equal(calls.at(-1).params.find(x=>x[0]==='display')?.[1],'[id,reference,active,price,id_category_default,name,link_rewrite]');
  assert.equal(logged[0][0],'claim');assert.equal(logged[1][0],'complete');
  assert.ok(calls.find(c=>c.method==='POST').body.includes('<active><![CDATA[0]]></active>'));
 });
@@ -126,7 +126,7 @@ test('HTTP 500 tras crear: un GET demuestra el alta y el diario la completa sin 
  assert.equal(calls.filter(c=>c.method==='POST').length,1);
 });
 test('comprobación de relectura exige precio, categoría, referencia e inactividad',()=>{
- const xml='<prestashop><products><product><id>301</id><reference>TOTUS-PRUEBAS-DEMO</reference><active>0</active><price>0.000000</price><id_category_default>33</id_category_default></product></products></prestashop>';
+ const xml='<prestashop><products><product><id>301</id><reference>TOTUS-PRUEBAS-DEMO</reference><active>0</active><price>0.000000</price><id_category_default>33</id_category_default><name><language id="1">Pruebas</language><language id="2">Tests</language></name><link_rewrite><language id="1">pruebas</language><language id="2">tests</language></link_rewrite></product></products></prestashop>';
  const op={reference:input.reference,price:input.price,category_id:input.category_id};
  assert.equal(inspectReconciledNewProduct(xml,op,'301').id,'301');
  assert.throws(()=>inspectReconciledNewProduct(xml,{...op,price:'1.00'}),/precio/i);
