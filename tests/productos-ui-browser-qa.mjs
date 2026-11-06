@@ -23,6 +23,8 @@ try{
    q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
+    if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1'],persisted:false};
+    if(body.action==='prestashop_product_create_prepare')return {ok:true,store:body.store,resource:'products',reference:body.reference,fingerprint:'b'.repeat(64),persisted:false};
     if(body.action==='prestashop_product_prepare')return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,persisted:false,fingerprint:'a'.repeat(64),changes:body.changes.map(c=>({...c,before:'original',changed:true}))};
     if(body.action==='prestashop_item_read'){
      const item=fixture[body.store+'|'+body.resource+'|'+body.record_id];
@@ -30,6 +32,7 @@ try{
      return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,item};
     }
     if(body.action==='prestashop_read'){
+     if(body.resource==='categories')return {ok:true,store:body.store,resource:'categories',page:body.page,rows:[{id:'33',name:'Inicio'}],possibly_more:false};
      const rows=body.references?.length?body.store==='newoldsmok'?[]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
      return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:false};
     }
@@ -61,7 +64,7 @@ try{
   await page.getByText(/Variación #200 de newoldsmok comprobada/).waitFor();
   assert.equal(await page.evaluate(()=>productosQA.calls.find(c=>c.action==='prestashop_product_prepare'&&c.resource==='combinations')?.expected_product_id),'55');
   assert.equal(await page.getByRole('button',{name:/Publicar en tiendas seleccionadas/}).isDisabled(),true);
-  assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare'].includes(c.action))),true);
+  assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   await page.getByRole('button',{name:'Cambios masivos'}).click();
   await page.locator('[data-pr-bulk="101"]').check();
   await page.getByRole('button',{name:'Revisar selección'}).click();
@@ -79,6 +82,16 @@ try{
   await page.getByText(/Propuesta preparada para 2 tienda/).waitFor();
   assert.equal(await page.locator('.prd-plan').count(),2);
   assert.equal(await page.locator('.prd-plan').filter({hasText:'Crear producto nuevo'}).count(),2);
+  await page.getByRole('button',{name:'Consultar idiomas de la tienda'}).first().click();
+  await page.getByText(/Idiomas y categorías consultados en hortimatic/).waitFor();
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').fill('33');
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').blur();
+  await page.getByRole('button',{name:'Validar alta sin escribir'}).click();
+  await page.getByText(/Prevalidación de hortimatic correcta/).waitFor();
+  await page.locator('[data-pr-create-confirm="hortimatic"]').fill('CREAR');
+  await page.locator('[data-pr-create-confirm="hortimatic"]').blur();
+  assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);
+  assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action==='prestashop_product_create_commit')),false);
   assert.equal(await page.getByRole('button',{name:/Publicar en tiendas seleccionadas/}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare'].includes(c.action))),true);
   assert.ok(await page.evaluate(()=>productosQA.ui.hasDraft()));
