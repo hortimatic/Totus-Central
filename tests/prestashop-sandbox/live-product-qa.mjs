@@ -19,7 +19,9 @@ async function localOnlyRequest(url,opts={}){
  const headers=new Headers(opts.headers);
  assert.equal(headers.get('authorization'),'Basic '+btoa(key+':'));
  calls.push({method:opts.method||'GET',path:local.pathname});
- return fetch(local,{...opts,redirect:'manual',headers});
+ const response=await fetch(local,{...opts,redirect:'manual',headers});
+ if(!response.ok){const body=await response.clone().text();console.error('CI isolated webservice HTTP',response.status,local.pathname+local.search,'body=',body.slice(0,1600));}
+ return response;
 }
 const environment={get:name=>name==='TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED'?'1':undefined};
 const journalData=new Map();
