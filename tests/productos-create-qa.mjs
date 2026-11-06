@@ -127,11 +127,13 @@ test('HTTP 500 tras crear: un GET demuestra el alta y el diario la completa sin 
 });
 test('comprobación de relectura exige precio, categoría, referencia e inactividad',()=>{
  const xml='<prestashop><products><product><id>301</id><reference>TOTUS-PRUEBAS-DEMO</reference><active>0</active><price>0.000000</price><id_category_default>33</id_category_default><name><language id="1">Pruebas</language><language id="2">Tests</language></name><link_rewrite><language id="1">pruebas</language><language id="2">tests</language></link_rewrite></product></products></prestashop>';
- const op={reference:input.reference,price:input.price,category_id:input.category_id};
+ const op={reference:input.reference,price:input.price,category_id:input.category_id,translations:input.translations};
  assert.equal(inspectReconciledNewProduct(xml,op,'301').id,'301');
  assert.throws(()=>inspectReconciledNewProduct(xml,{...op,price:'1.00'}),/precio/i);
  assert.throws(()=>inspectReconciledNewProduct(xml,{...op,category_id:'2'}),/categoría/i);
  assert.throws(()=>inspectReconciledNewProduct(xml,{...op,reference:'OTRA-REF'}),/referencia/i);
  assert.throws(()=>inspectReconciledNewProduct(xml.replace('<active>0</active>','<active>1</active>'),op),/inactivo/i);
  assert.throws(()=>inspectReconciledNewProduct(xml,op,'302'),/otro ID/i);
+ assert.throws(()=>inspectReconciledNewProduct(xml.replace('>Pruebas</language>','>Otro nombre</language>'),op),/Traducción name/i);
+ assert.throws(()=>inspectReconciledNewProduct(xml.replace('>tests</language>','>otro-slug</language>'),op),/Traducción link_rewrite/i);
 });
