@@ -42,8 +42,13 @@ export function prestashopCapabilities(xml,version=''){
  const resources=[];
  for(const match of block.matchAll(/<([a-z][a-z0-9_]{0,63})\b([^>]*?)(?:\/?>)/gi)){
   if(['description','schema'].includes(match[1]))continue;
-  const attrs=match[2],get=/\bget=["']true["']/i.test(attrs);if(!/\bget=/.test(attrs))continue;
-  resources.push({name:match[1],readable:get});
+  const attrs=match[2];
+  const permissions=Object.fromEntries(['GET','POST','PUT','DELETE','HEAD'].map(method=>{
+   const re=new RegExp('\\b'+method.toLowerCase()+'\\s*=\\s*(["\\x27])true\\1','i');
+   return [method,re.test(attrs)];
+  }));
+  if(!/\b(?:get|post|put|delete|head)\s*=/i.test(attrs))continue;
+  resources.push({name:match[1],readable:permissions.GET,permissions,writable:permissions.POST||permissions.PUT,deletable:permissions.DELETE,full_crud:permissions.GET&&permissions.POST&&permissions.PUT&&permissions.DELETE});
  }
  const names=new Set();for(const r of resources){if(names.has(r.name))throw Error('Catálogo duplicado.');names.add(r.name);}
  return {version:/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(version)?version:null,resources,tpv_resources:resources.filter(r=>r.readable&&/(?:posp|tpv|cash|caja|till)/i.test(r.name)).map(r=>r.name)};
