@@ -20,7 +20,15 @@ async function localOnlyRequest(url,opts={}){
  assert.equal(headers.get('authorization'),'Basic '+btoa(key+':'));
  calls.push({method:opts.method||'GET',path:local.pathname});
  const response=await fetch(local,{...opts,redirect:'manual',headers});
- if(!response.ok){const body=await response.clone().text();console.error('CI isolated webservice HTTP',response.status,local.pathname+local.search,'body=',body.slice(0,1600));}
+ if(!response.ok){
+  const body=await response.clone().text();
+  console.error('CI isolated webservice HTTP',response.status,local.pathname+local.search,'body=',body.slice(0,1600));
+  if(opts.method==='POST'&&response.status===500){
+   const path='/api/products?filter%5Breference%5D=%5BTOTUS-CI-PRUEBAS%5D&display=%5Bid%2Creference%2Cactive%2Cprice%2Cid_category_default%5D';
+   const inspect=await fetch(new URL(path,localBase),{headers,redirect:'manual'});
+   console.log('POST 500 reconciliation diagnostic',inspect.status,(await inspect.text()).slice(0,2200));
+  }
+ }
  return response;
 }
 const environment={get:name=>name==='TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED'?'1':undefined};
