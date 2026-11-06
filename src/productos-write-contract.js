@@ -102,16 +102,16 @@ const unescapeXml=value=>value.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-
  const point=name[1]==='x'?parseInt(name.slice(2),16):parseInt(name.slice(1),10);
  return Number.isInteger(point)&&point>=0&&point<=0x10FFFF?String.fromCodePoint(point):m;
 });
-const xmlValue=value=>unescapeXml(value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,(_,s)=>s).trim());
+const xmlValue=value=>unescapeXml(value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,(_,s)=>s));
 const safeCdata=value=>'<![CDATA['+value.replaceAll(']]>',']]]]><![CDATA[>')+']]>';
 export function selectedXmlValues(xml,resource,id,changes,expectedProductId=null){
  const root=tree(xml),singular=resource==='products'?'product':'combination';
  const item=direct(root,singular),idNode=direct(item,'id'),actual=xmlValue(xml.slice(idNode.contentStart,idNode.contentEnd));
- if(actual!==String(id))invalid('El XML no corresponde al registro solicitado.');
+ if(actual.trim()!==String(id))invalid('El XML no corresponde al registro solicitado.');
  if(resource==='combinations'){
   if(!integer.test(String(expectedProductId||'')))invalid('Falta el producto padre de la combinación.');
   const parent=direct(item,'id_product');
-  if(xmlValue(xml.slice(parent.contentStart,parent.contentEnd))!==String(expectedProductId))invalid('La combinación no pertenece al producto de destino previsto.');
+  if(xmlValue(xml.slice(parent.contentStart,parent.contentEnd)).trim()!==String(expectedProductId))invalid('La combinación no pertenece al producto de destino previsto.');
  }
  const result=[],slots=[];
  for(const change of changes){
