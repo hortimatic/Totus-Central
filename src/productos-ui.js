@@ -185,7 +185,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   const changes=variant.changes.filter(c=>c.changed);
   if(!changes.length)throw Error('No hay cambios para comprobar en esta variación.');
   if(changes.some(c=>!PRODUCT_WRITE_FIELDS.combinations.includes(c.field)||typeof c.after!=='string'&&typeof c.after!=='number'))throw Error('Hay campos de variante sin contrato de escritura validado.');
-  const result=await invokeShop(dest,'prestashop_product_prepare',{resource:'combinations',record_id:id,changes:changes.map(c=>({field:c.field,value:String(c.after)}))});
+  const result=await invokeShop(dest,'prestashop_product_prepare',{resource:'combinations',record_id:id,expected_product_id:plan.target_id,changes:changes.map(c=>({field:c.field,value:String(c.after)}))});
   if(result.persisted!==false||result.record_id!==id||!/^[a-f0-9]{64}$/.test(result.fingerprint||''))throw Error('La validación XML de la variación no es verificable.');
   variantPreflight.set(dest+'|'+id,{fingerprint:result.fingerprint,fields:changes.map(c=>c.field)});
   status='Variación #'+id+' de '+dest+' comprobada sin escribir. Pendiente de verificar atributos antes de guardar.';
