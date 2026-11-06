@@ -90,7 +90,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    const values=payload(shop,plan,source),response=await invoke(shop,'prestashop_product_create_prepare',values);
    if(response.persisted!==false||response.resource!=='products'||response.reference!==values.reference||
        !/^[a-f0-9]{64}$/.test(response.fingerprint||''))throw Error('La validación del servidor no es comprobable.');
-   previews.set(shop,{fingerprint:response.fingerprint,values});confirmations.delete(shop);
+   previews.set(shop,{fingerprint:response.fingerprint,values,can_commit:response.can_commit===true});confirmations.delete(shop);
    return 'Prevalidación de '+shop+' correcta, sin escritura. Confirma únicamente cuando hayas revisado la ficha.';
   }
   if(action==='create-commit'){
