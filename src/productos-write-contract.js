@@ -236,3 +236,16 @@ export function inspectNewProduct(xml,id,reference){
  if(found!==reference||enabled!=='0')invalid('El producto creado no coincide o quedó activo sin autorización.');
  return {id:actual,reference:found,active:false};
 }
+
+
+export function productCreateLanguageIds(xml){
+ const root=tree(xml),product=direct(root,'product'),names=direct(product,'name'),slugs=direct(product,'link_rewrite');
+ const extract=node=>{
+  const ids=node.children.map(child=>child.name==='language'?child.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/i)?.[2]:null);
+  if(!ids.length||ids.some(x=>!x)||new Set(ids).size!==ids.length)invalid('Idiomas no válidos en la ficha en blanco.');
+  return ids;
+ };
+ const n=extract(names),l=extract(slugs);
+ if(n.length!==l.length||n.some(x=>!l.includes(x)))invalid('Idiomas incoherentes entre nombre y URL amigable.');
+ return n;
+}
