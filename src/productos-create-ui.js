@@ -94,6 +94,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    return 'Prevalidación de '+shop+' correcta, sin escritura. Confirma únicamente cuando hayas revisado la ficha.';
   }
   if(action==='create-commit'){
+   if(plan.variants.some(v=>v.changes?.length))throw Error('El alta contiene variaciones aún sin correspondencia validada. No se creará un producto incompleto.');
    if(!canEdit())throw Error('La sesión no tiene permiso de edición.');
    if(confirmations.get(shop)!=='CREAR')throw Error('Escribe CREAR para confirmar.');
    const prepared=previews.get(shop);
