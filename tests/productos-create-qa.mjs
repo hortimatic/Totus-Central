@@ -19,7 +19,8 @@ const fixture=(extra={})=>{
   if(method==='POST')return response(newProduct);
   if(path==='/api/categories/33')return response(category);
   if(path==='/api/products/301')return response(readBack);
-  if(path==='/api/products'&&params.get('schema')==='blank')return response(blank);
+  if(path==='/api/products'&&params.get('schema')==='blank')return extra.schema500?new Response('<prestashop><errors><error><code>5</code></error></errors></prestashop>',{status:500,headers:{'content-type':'application/xml'}}):response(blank);
+  if(path==='/api/languages'&&params.get('display')==='[id]')return response('<prestashop><languages><language id="1"/><language id="2"/></languages></prestashop>');
   if(path==='/api/products'&&params.has('filter[reference]'))return response(extra.duplicate?'<prestashop><products><product id="120"/></products></prestashop>':list);
   throw Error('Consulta inesperada: '+method+' '+path);
  };
@@ -84,4 +85,16 @@ test('no admite enlaces, IDs o referencias ajenos a Hortimatic',async()=>{
  const f=fixture();
  await assert.rejects(()=>runPrestashopProductCreate({...connection,endpoint:'https://newoldsmok.com/api/'},input,{request:f.request,resolve,env:{get:()=>''}}),/URL oficial/);
  await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,store:'newoldsmok'},{request:f.request,resolve,env:{get:()=>''}}),/no corresponde/);
+});
+
+
+test('PrestaShop 1.7.8 con schema=blank HTTP 500: plantilla mínima usa idiomas propios y no copia productos',async()=>{
+ const {request,calls}=fixture({schema500:true});
+ const result=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}});
+ assert.equal(result.persisted,false);
+ assert.equal(result.legacy_schema_fallback,true);
+ assert.match(result.fingerprint,/^[a-f0-9]{64}$/);
+ assert.equal(calls.some(c=>c.path==='/api/languages'),true);
+ assert.equal(calls.some(c=>c.method==='POST'),false);
+ assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','GET']);
 });
