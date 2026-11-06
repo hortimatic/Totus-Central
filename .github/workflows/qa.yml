@@ -34,6 +34,25 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/068_automation_reference_indexes.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/068_automation_reference_indexes.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/automation-indexes-db-qa.sql
+  prestashop-product-create-journal-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate product POST idempotency and permissions in disposable database
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-product-journal-db-qa.sql
   audit-hardening-database:
     runs-on: ubuntu-latest
     services:
