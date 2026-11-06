@@ -34,3 +34,19 @@ Módulo propio **Productos**, separado del Centro PrestaShop, para Hortimatic y 
 
 ## Normas de despliegue
 No fusionar ni publicar por existir esta rama o un CI verde. Un PR en borrador indica implementación parcial, pendiente de validación. No crear pruebas reales, productos falsos ni cambios de stock en las tiendas en producción. El contrato previo de Gastos, Cajas, PrestaShop, Recepciones y Pricing se conserva.
+
+## Ampliación API de prevalidación y escritura protegida (06/11/2026)
+
+- Acción prestashop_product_prepare: GET del XML de producto o combinación existente; devuelve huella SHA-256 y diferencias seleccionadas. No envía PUT ni entrega el XML al navegador.
+- Acción prestashop_product_commit: motor PUT preparado y probado con datos ficticios, pero bloqueado por defecto mediante la variable de servidor TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED. No habilitar esta variable todavía.
+- Solo admin autorizado mediante totus_api_manager y una conexión activa/verificada de tienda. Claves en servidor, tienda y dominio exactos, campos permitidos, ID validado y rechazo de relaciones internas arbitrarias.
+- Preflight con XML fresco y conservación de campos no seleccionados; futuras escrituras exigirían huella coincidente, segundo GET, PUT y relectura final. Un GET no hace transaccional el PUT de PrestaShop.
+- Campos multidioma requieren ID real de idioma de destino; la interfaz no lo mapea automáticamente. XML autocerrado u otros nodos no comprendidos se rechazan.
+- Precios: el de producto es base sin IVA; el precio de una combinación es impacto sobre la base, no PVP final.
+- La interfaz permite comprobar contra XML real campos simples en fichas existentes sin escribir. El botón Publicar continúa deshabilitado.
+
+## Bloqueos pendientes antes de activar escritura
+
+NO ACTIVAR la bandera de escritura sin diario durable de request_id, bloqueo de concurrencia, recuperación de respuestas inciertas, pruebas de entorno PrestaShop 1.7 aislado y revisión técnica competente. También falta la creación POST con campos obligatorios por tienda, mapeo de idiomas/categorías/atributos, alta de combinaciones, imágenes, bulk persistente e historial recuperable.
+
+Las pruebas de transporte usan únicamente XML ficticio y HTTP simulado. No aseguran compatibilidad comercial en tiendas reales. El código en GitHub no significa que el servicio esté publicado en Supabase.
