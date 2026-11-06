@@ -37,11 +37,13 @@ function validateValue(field,value,resource){
 }
 export function validateProductWriteRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
- const keys=new Set(['action','id','call_id','revision','store','resource','record_id','changes','expected_fingerprint','request_id','confirmed']);
+ const keys=new Set(['action','id','call_id','revision','store','resource','record_id','expected_product_id','changes','expected_fingerprint','request_id','confirmed']);
  if(Object.keys(input).some(k=>!keys.has(k)))invalid('Campos de solicitud no admitidos.');
  if(!['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)||!['hortimatic','newoldsmok'].includes(input.store)||
   !['products','combinations'].includes(input.resource)||!integer.test(String(input.record_id??''))||!uuid.test(String(input.id??''))||!uuid.test(String(input.call_id??''))||
   !Number.isSafeInteger(input.revision)||input.revision<1)invalid();
+ if(input.resource==='combinations'&&!integer.test(String(input.expected_product_id||'')))invalid('Falta el ID del producto al que pertenece la combinación.');
+ if(input.resource==='products'&&own(input,'expected_product_id'))invalid('Un producto no acepta un ID de padre.');
  if(!Array.isArray(input.changes)||input.changes.length<1||input.changes.length>12)invalid('Selecciona entre 1 y 12 campos para validar.');
  const fields=new Set(),normalized=[];
  for(const row of input.changes){
@@ -59,7 +61,7 @@ export function validateProductWriteRequest(input){
  if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))invalid('Para escribir debes aportar huella previa, request_id y confirmación explícita.');
  if(!commit&&(own(input,'expected_fingerprint')||own(input,'request_id')||own(input,'confirmed')))invalid('La preparación no acepta confirmaciones de escritura.');
  return {action:input.action,store:input.store,resource:input.resource,record_id:String(input.record_id),
-  changes:normalized,commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
+  changes:normalized,...(input.resource==='combinations'?{expected_product_id:String(input.expected_product_id)}:{}),commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
 }
 const tag=/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<\/?[A-Za-z_][^>]*?>/g;
 function tree(xml){
@@ -102,10 +104,15 @@ const unescapeXml=value=>value.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-
 });
 const xmlValue=value=>unescapeXml(value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,(_,s)=>s).trim());
 const safeCdata=value=>'<![CDATA['+value.replaceAll(']]>',']]]]><![CDATA[>')+']]>';
-export function selectedXmlValues(xml,resource,id,changes){
+export function selectedXmlValues(xml,resource,id,changes,expectedProductId=null){
  const root=tree(xml),singular=resource==='products'?'product':'combination';
  const item=direct(root,singular),idNode=direct(item,'id'),actual=xmlValue(xml.slice(idNode.contentStart,idNode.contentEnd));
  if(actual!==String(id))invalid('El XML no corresponde al registro solicitado.');
+ if(resource==='combinations'){
+  if(!integer.test(String(expectedProductId||'')))invalid('Falta el producto padre de la combinación.');
+  const parent=direct(item,'id_product');
+  if(xmlValue(xml.slice(parent.contentStart,parent.contentEnd))!==String(expectedProductId))invalid('La combinación no pertenece al producto de destino previsto.');
+ }
  const result=[],slots=[];
  for(const change of changes){
   const node=direct(item,change.field);
