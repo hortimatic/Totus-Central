@@ -150,7 +150,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   root.onchange=e=>{
    if(e.target.matches('[data-pr-store]')){store=e.target.value;rows=[];page=0;hasMore=false;query='';resetDraft();status='Tienda de origen: '+store+'.';render();return;}
    if(e.target.matches('[data-pr-target]')){e.target.checked?targets.add(e.target.dataset.prTarget):targets.delete(e.target.dataset.prTarget);invalidate();render();return;}
-   if(e.target.matches('[data-pr-field]')){const field=e.target.dataset.prField;e.target.checked?fields.add(field):fields.delete(field);if(!e.target.checked)delete overrides[field];invalidate();render();return;}
+   if(e.target.matches('[data-pr-field]')){const field=e.target.dataset.prField;e.target.checked?fields.add(field):fields.delete(field);if(!e.target.checked){delete overrides[field];for(const values of targetOverrides.values())delete values[field];}invalidate();render();return;}
    if(e.target.matches('[data-pr-value]')){overrides[e.target.dataset.prValue]=e.target.value;invalidate();return;}
    if(e.target.matches('[data-pr-target-field]')){const dest=e.target.dataset.prTargetStore,field=e.target.dataset.prTargetField,values=targetOverrides.get(dest)||{};values[field]=e.target.value;targetOverrides.set(dest,values);invalidate();return;}
    if(e.target.matches('[data-pr-vfield]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVfield,set=variantFields.get(id)||new Set();e.target.checked?set.add(field):set.delete(field);variantFields.set(id,set);invalidate();render();return;}
