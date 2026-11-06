@@ -119,6 +119,7 @@
         "supabase/functions/totus-ai/cloudflare.js",
         "supabase/functions/totus-connections/github.js",
         "supabase/functions/totus-connections/index.ts",
+        "supabase/functions/totus-connections/prestashop-create.js",
         "supabase/functions/totus-connections/prestashop-write.js",
         "supabase/functions/totus-connections/prestashop.js",
         "supabase/functions/totus-connections/transport.js"
