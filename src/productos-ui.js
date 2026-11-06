@@ -13,14 +13,14 @@ const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
- let root=null,owner=null,epoch=0,mode='catalogo',store='hortimatic',pending=false,status='Selecciona una tienda y consulta su catálogo.',connections=[],rows=[],hasMore=false,page=0,query='',record=null,variants=[],fields=new Set(),overrides={},variantFields=new Map(),variantOverrides=new Map(),targets=new Set(['newoldsmok']),comparison=new Map(),preview=[],selection=new Set(),targetOverrides=new Map(),preflight=new Map();
+ let root=null,owner=null,epoch=0,mode='catalogo',store='hortimatic',pending=false,status='Selecciona una tienda y consulta su catálogo.',connections=[],rows=[],hasMore=false,page=0,query='',record=null,variants=[],fields=new Set(),overrides={},variantFields=new Map(),variantOverrides=new Map(),targets=new Set(['newoldsmok']),comparison=new Map(),preview=[],selection=new Set(),targetOverrides=new Map(),preflight=new Map(),targetRaw=new Map(),targetLanguages=new Map();
  const connection=shop=>storeConnection(connections,shop);
  const ready=shop=>{const c=connection(shop);return !!c&&c.enabled&&c.configured&&c.verified_revision===c.revision&&c.real_data_authorized===true;};
  const current=()=>!!root?.isConnected&&owner===actor()&&allowed()&&root.dataset.prEpoch===String(epoch);
  const stateSnapshot=()=>({store,mode,record:record?.id||null});
  const invalidate=()=>{preview=[];comparison.clear();preflight.clear();};
  function resetDraft(){
-  record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();invalidate();
+  record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();targetRaw.clear();targetLanguages.clear();invalidate();
  }
  function sectionTitle(section){return ({general:'Información y descripción',precios:'Precios e impuestos',seo:'SEO',transporte:'Transporte',inventario:'Disponibilidad',organizacion:'Organización'})[section]||section;}
  function showField(field){
@@ -54,9 +54,19 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   if(!record)return empty('Abre un producto o crea un borrador','El editor mostrará los datos completos y los campos seleccionables.');
   return '<header class="prd-product-name"><h3>'+h(text(record.name)||'Producto nuevo')+'</h3><span>'+(record.id?'Producto #'+h(record.id):'Borrador sin ID de PrestaShop')+'</span></header>'+form()+rawPanel();
  }
+ function targetLanguageIds(dest,field){
+  const value=targetRaw.get(dest)?.[field];
+  const langs=Array.isArray(value)?value:Array.isArray(value?.language)?value.language:value?.language?[value.language]:[];
+  return [...new Set(langs.map(x=>String(x?.id??x?.id_lang??'')).filter(id=>/^[1-9]\d{0,14}$/.test(id)))];
+ }
+ function languagePicker(dest,field){
+  if(!LOCALIZED_PRODUCT_FIELDS.includes(field)||!targetRaw.get(dest))return '';
+  const ids=targetLanguageIds(dest,field),selected=targetLanguages.get(dest)?.[field]||'';
+  return '<span class="prd-lang-label">Idioma de destino</span><select data-pr-lang-store="'+h(dest)+'" data-pr-lang-field="'+h(field)+'"><option value="">Seleccionar idioma</option>'+ids.map(id=>'<option value="'+h(id)+'" '+(selected===id?'selected':'')+'>Idioma #'+h(id)+'</option>').join('')+'</select>'+(ids.length?'':'<small>No se han detectado idiomas en esta ficha; revisión necesaria.</small>');
+ }
  function comparisonPanel(){
   if(!record)return empty('Selecciona una ficha','Primero abre un producto o crea un borrador.');
-  return '<section class="card card-pad"><h3>Tiendas de destino</h3><p>Selecciona una o ambas. Cada tienda conserva sus propios ID, categorías, imágenes y atributos.</p><div class="prd-targets">'+PRODUCT_STORES.map(s=>'<label><input type="checkbox" data-pr-target="'+s.key+'" '+(targets.has(s.key)?'checked':'')+'> '+h(s.label)+' '+(ready(s.key)?'':'· sin conexión verificada')+'</label>').join('')+'</div><div class="prd-target-overrides">'+[...targets].map(dest=>'<fieldset><legend>Adaptación específica · '+h(PRODUCT_STORES.find(x=>x.key===dest)?.label)+'</legend><div class="prd-fields-grid">'+[...fields].map(field=>'<label class="prd-field"><b>'+h(metadata[field]||field)+'</b><input data-pr-target-field="'+h(field)+'" data-pr-target-store="'+h(dest)+'" value="'+h(Object.prototype.hasOwnProperty.call(targetOverrides.get(dest)||{},field)?targetOverrides.get(dest)[field]:Object.prototype.hasOwnProperty.call(overrides,field)?overrides[field]:textValue(record[field]))+'"></label>').join('')+'</div></fieldset>').join('')+'</div><div class="inline-actions">'+btn('Buscar coincidencias y preparar cambios','compare','',pending||!targets.size)+btn('Descartar propuesta','clear-preview','',pending)+'</div><div class="prd-preview">'+(preview.length?preview.map(plan=>'<section class="prd-plan"><h4>'+h(PRODUCT_STORES.find(s=>s.key===plan.store)?.label)+' · '+(plan.operation==='update'?'Actualizar #'+h(plan.target_id):'Crear producto nuevo')+'</h4><p>'+plan.changes.filter(x=>x.changed).length+' campos cambiados · '+plan.variants.length+' variaciones seleccionadas</p><ul>'+plan.changes.filter(x=>x.changed).map(change=>'<li><b>'+h(metadata[change.field]||change.field)+'</b>: '+h(text(change.before))+' → '+h(text(change.after))+'</li>').join('')+'</ul>'+((preflight.get(plan.store)?.record_id===plan.target_id)?'<p class="prd-api-ok">XML real consultado y campos seleccionados verificados, sin escribir.</p>':'')+btn('Validar contra el XML de la tienda','api-preview','data-pr-dest="'+h(plan.store)+'"',pending||!plan.target_id||!plan.changes.some(c=>c.changed))+plan.warnings.map(w=>'<p class="prd-warning">'+h(w)+'</p>').join('')+'</section>').join(''):'<p>Sin propuesta calculada. Primero selecciona los campos de la ficha y, si corresponde, de cada combinación.</p>')+'</div><p class="prd-note"><b>Publicación bloqueada en esta fase.</b> Preparar cambios no escribe en PrestaShop. El guardado real exigirá una operación de servidor validada y confirmación expresa.</p><button class="btn primary" type="button" disabled title="Pendiente de validar la escritura por Webservice">Publicar en tiendas seleccionadas · pendiente</button></section>';
+  return '<section class="card card-pad"><h3>Tiendas de destino</h3><p>Selecciona una o ambas. Cada tienda conserva sus propios ID, categorías, imágenes y atributos.</p><div class="prd-targets">'+PRODUCT_STORES.map(s=>'<label><input type="checkbox" data-pr-target="'+s.key+'" '+(targets.has(s.key)?'checked':'')+'> '+h(s.label)+' '+(ready(s.key)?'':'· sin conexión verificada')+'</label>').join('')+'</div><div class="prd-target-overrides">'+[...targets].map(dest=>'<fieldset><legend>Adaptación específica · '+h(PRODUCT_STORES.find(x=>x.key===dest)?.label)+'</legend><div class="prd-fields-grid">'+[...fields].map(field=>'<label class="prd-field"><b>'+h(metadata[field]||field)+'</b><input data-pr-target-field="'+h(field)+'" data-pr-target-store="'+h(dest)+'" value="'+h(Object.prototype.hasOwnProperty.call(targetOverrides.get(dest)||{},field)?targetOverrides.get(dest)[field]:Object.prototype.hasOwnProperty.call(overrides,field)?overrides[field]:textValue(record[field]))+'">'+languagePicker(dest,field)+'</label>').join('')+'</div></fieldset>').join('')+'</div><div class="inline-actions">'+btn('Buscar coincidencias y preparar cambios','compare','',pending||!targets.size)+btn('Descartar propuesta','clear-preview','',pending)+'</div><div class="prd-preview">'+(preview.length?preview.map(plan=>'<section class="prd-plan"><h4>'+h(PRODUCT_STORES.find(s=>s.key===plan.store)?.label)+' · '+(plan.operation==='update'?'Actualizar #'+h(plan.target_id):'Crear producto nuevo')+'</h4><p>'+plan.changes.filter(x=>x.changed).length+' campos cambiados · '+plan.variants.length+' variaciones seleccionadas</p><ul>'+plan.changes.filter(x=>x.changed).map(change=>'<li><b>'+h(metadata[change.field]||change.field)+'</b>: '+h(text(change.before))+' → '+h(text(change.after))+'</li>').join('')+'</ul>'+((preflight.get(plan.store)?.record_id===plan.target_id)?'<p class="prd-api-ok">XML real consultado y campos seleccionados verificados, sin escribir.</p>':'')+btn('Validar contra el XML de la tienda','api-preview','data-pr-dest="'+h(plan.store)+'"',pending||!plan.target_id||!plan.changes.some(c=>c.changed))+plan.warnings.map(w=>'<p class="prd-warning">'+h(w)+'</p>').join('')+'</section>').join(''):'<p>Sin propuesta calculada. Primero selecciona los campos de la ficha y, si corresponde, de cada combinación.</p>')+'</div><p class="prd-note"><b>Publicación bloqueada en esta fase.</b> Preparar cambios no escribe en PrestaShop. El guardado real exigirá una operación de servidor validada y confirmación expresa.</p><button class="btn primary" type="button" disabled title="Pendiente de validar la escritura por Webservice">Publicar en tiendas seleccionadas · pendiente</button></section>';
  }
  function bulk(){
   return '<section class="card card-pad"><h3>Selección masiva por variación</h3><p>Las combinaciones no se mezclan con el producto principal. Selecciona exactamente las referencias que quieras tratar.</p>'+(!variants.length?empty('Abre un producto con variaciones','En esta fase se prepara la selección, todavía no se ejecutan actualizaciones masivas.'):variants.map(v=>'<label class="prd-bulk-row"><input type="checkbox" data-pr-bulk="'+h(keyFor(v))+'" '+(selection.has(keyFor(v))?'checked':'')+'><span>'+h(text(v.reference)||'Sin referencia')+'</span><small>ID '+h(v.id||'borrador')+'</small></label>').join(''))+'<div class="inline-actions">'+btn('Revisar selección','bulk-preview','',!selection.size)+'</div><p class="prd-note">La ejecución masiva por lotes, historial y reintentos estará disponible tras comprobar el contrato de escritura.</p></section>';
@@ -117,7 +127,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  async function prepare(){
   if(!record)throw Error('Abre una ficha o prepara un producto nuevo.');
   if(!targets.size)throw Error('Selecciona alguna tienda de destino.');
-  const plans=[];
+  const plans=[],readTargets=new Map();
   for(const dest of targets){
    const sourceRef=String(Object.prototype.hasOwnProperty.call(overrides,'reference')?overrides.reference:textValue(record.reference)).trim();
    let target=null,related=[];
@@ -128,6 +138,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
     if(match.status==='ambiguous')throw Error('Referencia duplicada en '+dest+'. Revisión manual necesaria.');
     if(match.status==='matched'){
      target=await loadItem(dest,'products',match.product.id);
+     readTargets.set(dest,target);
      related=await combinations(dest,target);
     }
    }
@@ -138,7 +149,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    });
    plans.push(buildProductPlan({source:record,target,store:dest,fields:[...fields],overrides:{...overrides,...(targetOverrides.get(dest)||{})},variants:selected}));
   }
-  comparison=new Map(plans.map(p=>[p.store,p]));preview=plans;mode='comparar';status='Propuesta preparada para '+plans.length+' tienda(s). Ningún dato se ha modificado.';
+  targetRaw=readTargets;comparison=new Map(plans.map(p=>[p.store,p]));preview=plans;mode='comparar';status='Propuesta preparada para '+plans.length+' tienda(s). Ningún dato se ha modificado.';
  }
  async function previewXml(dest){
   const plan=comparison.get(dest);
@@ -148,10 +159,13 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   if(!requested.length)throw Error('No hay cambios de campos para validar.');
   const enabled=new Set(PRODUCT_WRITE_FIELDS.products),localized=new Set(LOCALIZED_PRODUCT_FIELDS);
   if(requested.some(c=>!enabled.has(c.field)))throw Error('Hay campos cuyo contrato de escritura está pendiente. Deselecciónalos para validar los demás.');
-  if(requested.some(c=>localized.has(c.field)))throw Error('Los textos multidioma necesitan elegir el ID real de idioma en el destino. No se escribirá ningún idioma automáticamente.');
+  for(const change of requested.filter(c=>localized.has(c.field))){
+   const id=targetLanguages.get(dest)?.[change.field];
+   if(!id||!targetLanguageIds(dest,change.field).includes(id))throw Error('Elige el idioma real de destino para '+change.field+' antes de validar.');
+  }
   if(requested.some(c=>typeof c.after!=='string'&&typeof c.after!=='number'&&typeof c.after!=='boolean'))throw Error('El campo no admite escritura automática; revisa sus idiomas o relaciones.');
   const response=await invokeShop(dest,'prestashop_product_prepare',{resource:'products',record_id:plan.target_id,
-   changes:requested.map(c=>({field:c.field,value:String(c.after)}))});
+   changes:requested.map(c=>({field:c.field,value:String(c.after),...(localized.has(c.field)?{language_id:targetLanguages.get(dest)[c.field]}:{})}))});
   if(response.persisted!==false||response.record_id!==plan.target_id||!/^[a-f0-9]{64}$/.test(response.fingerprint||''))throw Error('La preparación del servidor no es verificable.');
   preflight.set(dest,{record_id:plan.target_id,fingerprint:response.fingerprint,fields:response.changes.map(c=>c.field)});
   status='Comprobación XML correcta para '+dest+'. Solo lectura: '+response.changes.length+' campos; todavía no hay guardado.';
@@ -171,6 +185,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-field]')){const field=e.target.dataset.prField;e.target.checked?fields.add(field):fields.delete(field);if(!e.target.checked){delete overrides[field];for(const values of targetOverrides.values())delete values[field];}invalidate();render();return;}
    if(e.target.matches('[data-pr-value]')){overrides[e.target.dataset.prValue]=e.target.value;invalidate();return;}
    if(e.target.matches('[data-pr-target-field]')){const dest=e.target.dataset.prTargetStore,field=e.target.dataset.prTargetField,values=targetOverrides.get(dest)||{};values[field]=e.target.value;targetOverrides.set(dest,values);invalidate();return;}
+   if(e.target.matches('[data-pr-lang-store]')){const dest=e.target.dataset.prLangStore,field=e.target.dataset.prLangField,values=targetLanguages.get(dest)||{};values[field]=e.target.value;targetLanguages.set(dest,values);preflight.clear();return;}
    if(e.target.matches('[data-pr-vfield]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVfield,set=variantFields.get(id)||new Set();e.target.checked?set.add(field):set.delete(field);variantFields.set(id,set);invalidate();render();return;}
    if(e.target.matches('[data-pr-vvalue]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVvalue,values=variantOverrides.get(id)||{};values[field]=e.target.value;variantOverrides.set(id,values);invalidate();return;}
    if(e.target.matches('[data-pr-bulk]')){e.target.checked?selection.add(e.target.dataset.prBulk):selection.delete(e.target.dataset.prBulk);render();}
