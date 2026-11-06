@@ -61,8 +61,8 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function languagePicker(dest,field){
   if(!LOCALIZED_PRODUCT_FIELDS.includes(field)||!targetRaw.get(dest))return '';
-  const ids=targetLanguageIds(dest,field),selected=targetLanguages.get(dest)?.[field]||'';
-  return '<span class="prd-lang-label">Idioma de destino</span><select data-pr-lang-store="'+h(dest)+'" data-pr-lang-field="'+h(field)+'"><option value="">Seleccionar idioma</option>'+ids.map(id=>'<option value="'+h(id)+'" '+(selected===id?'selected':'')+'>Idioma #'+h(id)+'</option>').join('')+'</select>'+(ids.length?'':'<small>No se han detectado idiomas en esta ficha; revisión necesaria.</small>');
+  const ids=targetLanguageIds(dest,field),selected=targetLanguages.get(dest)?.[field]||'',raw=targetRaw.get(dest)?.[field],entries=Array.isArray(raw)?raw:Array.isArray(raw?.language)?raw.language:raw?.language?[raw.language]:[];
+  return '<span class="prd-lang-label">Idioma de destino</span><select data-pr-lang-store="'+h(dest)+'" data-pr-lang-field="'+h(field)+'"><option value="">Seleccionar idioma</option>'+ids.map(id=>'<option value="'+h(id)+'" '+(selected===id?'selected':'')+'>Idioma #'+h(id)+(entries.find(x=>String(x.id??x.id_lang)===id)?' · '+h(text(entries.find(x=>String(x.id??x.id_lang)===id)?.value,30)):'')+'</option>').join('')+'</select>'+(ids.length?'':'<small>No se han detectado idiomas en esta ficha; revisión necesaria.</small>');
  }
  function comparisonPanel(){
   if(!record)return empty('Selecciona una ficha','Primero abre un producto o crea un borrador.');
