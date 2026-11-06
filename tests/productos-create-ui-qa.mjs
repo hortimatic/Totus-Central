@@ -15,7 +15,7 @@ const fixture=(opts={})=>{
   calls.push({shop:s,action:a,args});
   if(a==='prestashop_product_create_profile')return {ok:true,resource:'products',store:s,language_ids:['1','2'],persisted:false};
   if(a==='prestashop_read')return {ok:true,store:s,resource:'categories',rows:[{id:'33',name:'Inicio'}],possibly_more:false};
-  if(a==='prestashop_product_create_prepare')return {ok:true,store:s,resource:'products',reference:args.reference,fingerprint:'a'.repeat(64),persisted:false};
+  if(a==='prestashop_product_create_prepare')return {ok:true,store:s,resource:'products',reference:args.reference,fingerprint:'a'.repeat(64),persisted:false,can_commit:opts.canCommit!==false};
   if(a==='prestashop_product_create_commit'){
    if(opts.networkError)throw Error('Respuesta incierta');
    return {ok:true,store:s,resource:'products',record_id:'701',persisted:true,verified:true,active:false};
