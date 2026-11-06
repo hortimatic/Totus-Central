@@ -117,6 +117,9 @@ END $fn$;
 REVOKE ALL ON TABLE private.totus_prestashop_product_create_requests FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.totus_prestashop_product_create_journal(text,uuid,jsonb) FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA private TO service_role;
+-- Read only the public connection metadata required by this journal, not stored secrets.
+GRANT SELECT (id,name,revision,enabled,verified_revision,real_data_authorized)
+ ON TABLE private.totus_api_connections TO service_role;
 GRANT SELECT,INSERT,UPDATE ON TABLE private.totus_prestashop_product_create_requests TO service_role;
 GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_create_journal(text,uuid,jsonb) TO service_role;
 
