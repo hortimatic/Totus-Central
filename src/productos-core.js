@@ -64,11 +64,13 @@ export function buildProductPlan({source,target=null,store,fields=[],overrides={
  if(!Array.isArray(variants)||variants.length>500)throw Error('Selección de combinaciones no válida.');
  const seen=new Set();
  const planned=variants.map(v=>{
-  if(!v||!v.source||!cleanId(v.source.id))throw Error('Combinación de origen inválida.');
-  const sourceId=cleanId(v.source.id);
-  if(seen.has(sourceId))throw Error('Combinación repetida.');seen.add(sourceId);
+  if(!v||!v.source||typeof v.source!=='object')throw Error('Combinación de origen inválida.');
+  const sourceId=cleanId(v.source.id),draftKey=typeof v.source.draft_key==='string'&&/^draft-[a-z0-9-]{10,}$/.test(v.source.draft_key)?v.source.draft_key:null;
+  if(!sourceId&&!draftKey)throw Error('Combinación sin identificador temporal o real.');
+  const key=sourceId||draftKey;
+  if(seen.has(key))throw Error('Combinación repetida.');seen.add(key);
   if(v.target&&!cleanId(v.target.id))throw Error('Combinación de destino sin ID.');
-  return {source_id:sourceId,target_id:v.target?cleanId(v.target.id):null,
+  return {source_id:sourceId,draft_key:draftKey,target_id:v.target?cleanId(v.target.id):null,
     changes:planSelectedFields({source:v.source,target:v.target,fields:v.fields||[],overrides:v.overrides||{},variant:true}),
     attributes:associationIds(v.source,'product_option_values'),
     requires_attribute_mapping:!v.target};
