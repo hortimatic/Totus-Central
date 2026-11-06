@@ -1,0 +1,87 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateProductCreateRequest,prepareProductCreationXml,inspectProductReferenceListing,parseCreatedProductId} from '../src/productos-write-contract.js';
+import {runPrestashopProductCreate} from '../supabase/functions/totus-connections/prestashop-create.js';
+const id='11111111-1111-4111-8111-111111111111',call='22222222-2222-4222-8222-222222222222';
+const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,real_data_authorized:true,verified_revision:2,revision:2,endpoint:'https://hortimatic.com/api/',secret:'fake-local-only'};
+const input={action:'prestashop_product_create_prepare',id,call_id:call,revision:2,store:'hortimatic',reference:'TOTUS-PRUEBAS-DEMO',price:'0.00',category_id:'33',translations:[{language_id:'1',name:'Pruebas',link_rewrite:'pruebas'},{language_id:'2',name:'Tests',link_rewrite:'tests'}]};
+const blank='<?xml version="1.0"?><prestashop><product><id><![CDATA[]]></id><id_category_default><![CDATA[]]></id_category_default><reference><![CDATA[]]></reference><price><![CDATA[]]></price><active><![CDATA[]]></active><name><language id="1"><![CDATA[]]></language><language id="2"><![CDATA[]]></language></name><link_rewrite><language id="1"><![CDATA[]]></language><language id="2"><![CDATA[]]></language></link_rewrite><associations><categories><category><id><![CDATA[]]></id></category></categories></associations></product></prestashop>';
+const category='<prestashop><category><id><![CDATA[33]]></id><name><language id="1"><![CDATA[Cat]]></language></name></category></prestashop>';
+const list='<prestashop><products/></prestashop>',newProduct='<prestashop><product><id><![CDATA[301]]></id></product></prestashop>';
+const readBack='<prestashop><product><id><![CDATA[301]]></id><reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active></product></prestashop>';
+const response=xml=>new Response(xml,{status:200,headers:{'content-type':'application/xml'}});
+const resolve=async()=>['8.8.8.8'];
+const fixture=(extra={})=>{
+ const calls=[];
+ const request=async(url,options)=>{
+  const path=new URL(url).pathname,method=options.method,params=new URL(url).searchParams;
+  calls.push({path,method,params:[...params.entries()],body:options.body});
+  if(method==='POST')return response(newProduct);
+  if(path==='/api/categories/33')return response(category);
+  if(path==='/api/products/301')return response(readBack);
+  if(path==='/api/products'&&params.get('schema')==='blank')return response(blank);
+  if(path==='/api/products'&&params.has('filter[reference]'))return response(extra.duplicate?'<prestashop><products><product id="120"/></products></prestashop>':list);
+  throw Error('Consulta inesperada: '+method+' '+path);
+ };
+ return {calls,request};
+};
+test('preparación completa idioma por idioma, precio y categoría sin activar el producto',()=>{
+ const op=validateProductCreateRequest(input);
+ const xml=prepareProductCreationXml(blank,op);
+ assert.ok(xml.includes('<reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference>'));
+ assert.ok(xml.includes('<price><![CDATA[0.00]]></price>'));
+ assert.ok(xml.includes('<active><![CDATA[0]]></active>'));
+ assert.ok(xml.includes('<language id="2"><![CDATA[Tests]]></language>'));
+ assert.ok(xml.includes('<id><![CDATA[33]]></id>'));
+ assert.ok(!xml.includes('<id><![CDATA[301]]></id>'));
+ assert.throws(()=>prepareProductCreationXml(blank,{...op,translations:[op.translations[0]]}),/idiomas del destino/);
+ assert.throws(()=>validateProductCreateRequest({...input,reference:'Pruebas español'}),/Referencia/);
+ assert.throws(()=>validateProductCreateRequest({...input,price:'-1'}),/Importe/);
+ assert.throws(()=>validateProductCreateRequest({...input,translations:[op.translations[0],op.translations[0]]}),/repetidos/);
+});
+test('no crear si falta uno de los idiomas o existe referencia',async()=>{
+ const {request,calls}=fixture({duplicate:true});
+ await assert.rejects(()=>runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}}),/Ya existe/);
+ assert.equal(calls.some(x=>x.method==='POST'),false);
+ assert.deepEqual(inspectProductReferenceListing('<prestashop><products><product id="100"/></products></prestashop>'),['100']);
+ assert.equal(parseCreatedProductId(newProduct),'301');
+});
+test('preflight solo hace GET de esquema, categoría y duplicados sin tocar la tienda',async()=>{
+ const {request,calls}=fixture();
+ const result=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}});
+ assert.equal(result.persisted,false);assert.equal(result.operation,'create');assert.match(result.fingerprint,/^[a-f0-9]{64}$/);
+ assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET']);
+ assert.ok(calls.every(c=>!c.body));
+ assert.equal(result.language_ids.join(','),'1,2');
+});
+test('el commit requiere circuito de idempotencia y habilitación antes de llamar a PrestaShop',async()=>{
+ const {request,calls}=fixture();
+ await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,action:'prestashop_product_create_commit',confirmed:true,request_id:id,expected_fingerprint:'a'.repeat(64)},{request,resolve,env:{get:()=>''}}),/Alta bloqueada/);
+ assert.equal(calls.length,0);
+});
+test('POST aislado con journal, ID asignado por PrestaShop y relectura completa',async()=>{
+ const {request,calls}=fixture(),logged=[];
+ const journal={lookup:async()=>null,claim:async v=>(logged.push(['claim',v]),{status:'claimed'}),complete:async v=>logged.push(['complete',v]),uncertain:async()=>{throw Error('No hay incertidumbre');}};
+ const prepare=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}});
+ calls.length=0;
+ const commit={...input,action:'prestashop_product_create_commit',request_id:id,confirmed:true,expected_fingerprint:prepare.fingerprint};
+ const result=await runPrestashopProductCreate(connection,commit,{request,resolve,env:{get:()=> '1'},journal});
+ assert.equal(result.record_id,'301');assert.equal(result.verified,true);assert.equal(result.active,false);
+ assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','POST','GET']);
+ assert.equal(logged[0][0],'claim');assert.equal(logged[1][0],'complete');
+ assert.ok(calls.find(c=>c.method==='POST').body.includes('<active><![CDATA[0]]></active>'));
+});
+test('POST con respuesta incierta no se reintenta automáticamente',async()=>{
+ const f=fixture(),logged=[];
+ const journal={lookup:async()=>null,claim:async()=>({status:'claimed'}),complete:async()=>{},uncertain:async data=>logged.push(data)};
+ const prepare=await runPrestashopProductCreate(connection,input,{request:f.request,resolve,env:{get:()=>''}});
+ const bad=async(url,opts)=>opts.method==='POST'?Promise.reject(Error('Error red')):f.request(url,opts);
+ await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,action:'prestashop_product_create_commit',request_id:id,confirmed:true,expected_fingerprint:prepare.fingerprint},{request:bad,resolve,env:{get:()=> '1'},journal}),/incierto/);
+ assert.equal(logged.length,1);
+ assert.equal(logged[0].request_id,id);
+});
+test('no admite enlaces, IDs o referencias ajenos a Hortimatic',async()=>{
+ const f=fixture();
+ await assert.rejects(()=>runPrestashopProductCreate({...connection,endpoint:'https://newoldsmok.com/api/'},input,{request:f.request,resolve,env:{get:()=>''}}),/URL oficial/);
+ await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,store:'newoldsmok'},{request:f.request,resolve,env:{get:()=>''}}),/no corresponde/);
+});
