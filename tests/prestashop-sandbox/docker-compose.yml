@@ -5,10 +5,11 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: test-only
       MYSQL_DATABASE: prestashop
+      MYSQL_HOST: mysql
       MYSQL_USER: prestashop
       MYSQL_PASSWORD: prestashop
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "prestashop", "-pprestashop"]
+      test: ["CMD", "healthcheck.sh", "--connect"]
       interval: 8s
       timeout: 5s
       retries: 18
