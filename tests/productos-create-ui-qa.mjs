@@ -80,3 +80,15 @@ test('el usuario sin permiso de edición solo puede preparar, nunca crear',async
  await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/no tiene permiso/);
  assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,0);
 });
+
+
+test('alta deshabilitada en servidor: muestra bloqueo y no envía POST ni consume request_id',async()=>{
+ const f=fixture({canCommit:false});await complete(f);
+ const html=f.wizard.render(plan,source);
+ assert.match(html,/POST aún no está habilitada/);
+ assert.doesNotMatch(html,/data-pr-action="create-commit"/);
+ f.wizard.handleChange(confirmation(shop,'CREAR'));
+ await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/sigue deshabilitada/);
+ assert.equal(f.wizard.hasAttempted(shop),false);
+ assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,0);
+});
