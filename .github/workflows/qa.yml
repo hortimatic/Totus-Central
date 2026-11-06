@@ -106,6 +106,7 @@ jobs:
       - run: node --test tests/productos-core-qa.mjs
       - run: node --test tests/productos-write-qa.mjs
       - run: node --test tests/productos-create-qa.mjs
+      - run: node --test tests/productos-create-ui-qa.mjs
       - run: node --test tests/prestashop-permissions-qa.mjs
       - run: node tests/prestashop-automation-qa.mjs
       - run: node tests/prestashop-alert-worker-qa.mjs
