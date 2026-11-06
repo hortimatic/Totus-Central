@@ -20,9 +20,12 @@ services:
         condition: service_healthy
     environment:
       PS_DOMAIN: localhost:8000
+      MYSQL_EXTRA_DUMP: /tmp/ci-webservice.sql
       MYSQL_HOST: mysql
       MYSQL_DATABASE: prestashop
       MYSQL_USER: prestashop
       MYSQL_PASSWORD: prestashop
+    volumes:
+      - ./bootstrap.sql:/tmp/ci-webservice.sql:ro
     ports:
       - "127.0.0.1:8000:80"
