@@ -48,15 +48,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 25); do
             status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 4 \
               --user 'TOTUSPRESTASHOPQA123456789012345:' http://localhost:8000/api/ || true)
             if [ "$status" = '200' ]; then
               break
             fi
-            if [ "$attempt" -eq 90 ]; then
+            if [ "$attempt" -eq 25 ]; then
               echo "La API aislada no llegó a HTTP 200 (último HTTP $status)."
-              docker compose -f tests/prestashop-sandbox/docker-compose.yml logs --tail=100
+              echo "Respuesta XML del servidor de prueba (sin credenciales):"
+              curl --silent --max-time 5 --user 'TOTUSPRESTASHOPQA123456789012345:' http://localhost:8000/api/ | head -c 1600 || true
+              echo ""
+              echo "Valores de configuración del entorno efímero:"
+              docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T mysql \
+                mariadb -uprestashop -pprestashop prestashop -e \
+                "SELECT name,value,id_shop,id_shop_group FROM ps_configuration WHERE name IN ('PS_WEBSERVICE','PS_SHOP_ENABLE','PS_SSL_ENABLED') ORDER BY name,id_shop"
+              echo "Información de cuenta de prueba, sin mostrar su clave:"
+              docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T mysql \
+                mariadb -uprestashop -pprestashop prestashop -e \
+                "SELECT id_webservice_account,active FROM ps_webservice_account"
+              docker compose -f tests/prestashop-sandbox/docker-compose.yml logs --tail=60
               exit 1
             fi
             sleep 2
