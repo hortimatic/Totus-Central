@@ -50,3 +50,12 @@ No fusionar ni publicar por existir esta rama o un CI verde. Un PR en borrador i
 NO ACTIVAR la bandera de escritura sin diario durable de request_id, bloqueo de concurrencia, recuperación de respuestas inciertas, pruebas de entorno PrestaShop 1.7 aislado y revisión técnica competente. También falta la creación POST con campos obligatorios por tienda, mapeo de idiomas/categorías/atributos, alta de combinaciones, imágenes, bulk persistente e historial recuperable.
 
 Las pruebas de transporte usan únicamente XML ficticio y HTTP simulado. No aseguran compatibilidad comercial en tiendas reales. El código en GitHub no significa que el servicio esté publicado en Supabase.
+
+## Alta POST: adaptación de conexión (06/11/2026)
+- Añadido contrato de creación de producto en la rama: `prestashop_product_create_prepare` y `prestashop_product_create_commit`. Comparten la conexión verificada de cada tienda, y nunca reciben claves por el navegador.
+- La preparación comprueba en lectura el esquema en blanco de la **tienda de destino**, un ID de categoría real, la existencia de la referencia y la cobertura de idiomas de destino. Prepara nombre, referencia, slug y precio. El nuevo producto siempre nace **inactivo** hasta una publicación separada y autorizada.
+- El POST está implementado en un adaptador servidor, pero bloqueado por dos requisitos independientes: habilitación técnica revisada e inyección de un registro de idempotencia persistente. El index aún no suministra este registro: **NO EXISTE ALTA REAL HABILITADA**.
+- El adaptador define reconciliación de la respuesta y relectura posterior del ID asignado por PrestaShop. En caso de respuesta incierta no se repite la creación a ciegas.
+- Se añadieron pruebas aisladas de XML, dos idiomas, duplicados, validación de categoría, bloqueo del POST, journal simulado y relectura de producto inactivo.
+- La captura facilitada por el titular indica los permisos de la API de Hortimatic habilitados. No se atribuye ningún bloqueo a PrestaShop sin un diagnóstico autenticado de sus recursos. El bloqueo de escritura conocido está en Totus.
+- Las operaciones completas para combinaciones nuevas, imágenes, stock y otros recursos siguen pendientes. Los permisos Webservice amplios no autorizan a Totus a ejecutar operaciones no implementadas ni a publicar en caliente.
