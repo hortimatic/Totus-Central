@@ -58,15 +58,15 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   if(!result.ok){await result.body?.cancel();throw Error('PrestaShop respondió HTTP '+result.status+'.');}
   id=parseCreatedProductId(await boundedText(result,2097152));
  }catch(e){
-  await journal.uncertain({request_id:op.request_id,reason:'Respuesta de alta incierta'});
+  await journal.uncertain({request_id:op.request_id,signature,reason:'Respuesta de alta incierta'});
   throw Error('Resultado del alta incierto; revisar la referencia antes de reintentar. '+(e instanceof Error?e.message:''));
  }
  try{
   const written=await fetchXml('products/'+id);
   inspectNewProduct(written,id,op.reference);
-  await journal.complete({request_id:op.request_id,product_id:id});
+  await journal.complete({request_id:op.request_id,signature,product_id:id});
  }catch{
-  await journal.uncertain({request_id:op.request_id,product_id:id,reason:'Fallo de relectura'});
+  await journal.uncertain({request_id:op.request_id,signature,product_id:id,reason:'Fallo de relectura'});
   throw Error('PrestaShop respondió al alta, pero la verificación final está pendiente. No reintentar automáticamente.');
  }
  return {ok:true,store:op.store,resource:'products',record_id:id,request_id:op.request_id,persisted:true,verified:true,active:false};
