@@ -59,7 +59,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const body=prepareProductCreationXml(schema,op);
  const fingerprint=await sha256Text(schema+'|'+category+'|'+signature);
  if(!op.commit)return {ok:true,store:op.store,resource:'products',operation:'create',reference:op.reference,category_id:op.category_id,
-  language_ids:op.translations.map(t=>t.language_id),fingerprint,legacy_schema_fallback,persisted:false,can_commit:false};
+  language_ids:op.translations.map(t=>t.language_id),fingerprint,legacy_schema_fallback,persisted:false,can_commit:env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'};
  if(fingerprint!==op.expected_fingerprint)throw Error('El esquema o la categoría han cambiado. Prepara el alta de nuevo.');
  const claim=await journal.claim({request_id:op.request_id,store:op.store,reference:op.reference,signature});
  if(claim?.status!=='claimed')throw Error('El alta está registrada por otro proceso o pendiente de conciliación. No se repetirá.');
