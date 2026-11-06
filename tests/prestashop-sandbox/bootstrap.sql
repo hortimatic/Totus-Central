@@ -1,5 +1,7 @@
 -- Applied ONLY to disposable PrestaShop Flashlight database in GitHub Actions.
-UPDATE ps_configuration SET value = '1' WHERE name = 'PS_WEBSERVICE';
+UPDATE ps_configuration SET value = '1' WHERE name IN ('PS_WEBSERVICE','PS_SHOP_ENABLE');
+UPDATE ps_configuration SET value = '0' WHERE name IN ('PS_SSL_ENABLED','PS_SSL_ENABLED_EVERYWHERE');
+UPDATE ps_shop_url SET domain='localhost:8000',domain_ssl='localhost:8000' WHERE main=1;
 INSERT INTO ps_webservice_account (
   `key`, description, active
 ) VALUES (
