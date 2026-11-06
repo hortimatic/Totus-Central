@@ -9,6 +9,7 @@ import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords,accessDeadline} from './login-controls.js';
 import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
 import {createPrestashopUI} from './prestashop-ui.js';
+import {createProductosUI} from './productos-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -109,13 +110,13 @@ const titles={
  equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
  inicio:['General','Inicio'],pricing:['Trabajo','Precio'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
  cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
- informes:['Control','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Operaciones tienda','PrestaShop'],configuracion:['Sistema','Configuración']
+ informes:['Control','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Operaciones tienda','PrestaShop'],productos:['Operaciones tienda','Productos'],configuracion:['Sistema','Configuración']
 };
 
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
-function can(module,action='view'){if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+function can(module,action='view'){if(module==='productos')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[]));if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state),saveStyle:async command=>{
  const owner=state.user?.id;if(!owner||!can('configuracion','view'))throw Error('No tienes acceso a tu configuración.');
  const saved=await rpc('totus_interface_styles',{p_action:command.action,p_id:command.id,p_name:command.name,p_config:command.config,p_expected_revision:command.revision});
@@ -168,6 +169,12 @@ async function loadStockCatalog(storeId,references,valid){
  },active);
 }
 const automationsUI=createAutomationsUI({rpc,actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
+const productosUI=createProductosUI({rpc,actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),invoke:async body=>{
+ const result=await sb.functions.invoke('totus-connections',{body});
+ if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
+ if(result.data?.error)throw Error(result.data.error);
+ return result.data;
+}});
 // Only the explicitly public login appearance is readable before authentication.
 let loginAppearanceGeneration=0;
 async function loadPublicLoginAppearance(){
@@ -268,8 +275,8 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
- activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop','automatizaciones'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones'].includes(state.route)?state.route:'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();automationsUI.dispose();
+ activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones'].includes(state.route)?state.route:'');
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();productosUI.dispose();automationsUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -297,6 +304,7 @@ function render(){
   if(target&&can('tareas','view'))rpc('totus_tasks_context',{p_from:today,p_to:today}).then(result=>{if(!target.isConnected||state.user?.email!==owner)return;const rows=result?.rows||[];target.innerHTML=rows.length?'<p>'+rows.filter(r=>r.state==='done').length+' de '+rows.length+' completadas hoy</p><div class="stack">'+rows.filter(r=>r.state!=='done'&&r.state!=='cancelled').slice(0,5).map(r=>'<div class="summary-row"><span>'+esc(r.title)+'</span><small>'+esc(r.assigned_email||'Sin asignar')+'</small></div>').join('')+'</div>':'<p>No hay tareas previstas para hoy.</p>';}).catch(()=>{if(target.isConnected)target.textContent='No se pudo consultar el calendario. Abre Tareas para actualizar.';});
  }
  if(state.route==='prestashop')void prestashopUI.mount($('#prestashopRoot'));
+ if(state.route==='productos')void productosUI.mount($('#productosRoot'));
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion'){
   appearanceUI.mount($('#appearanceRoot'));
@@ -311,10 +319,11 @@ function render(){
  }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
-const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion','prestashop','automatizaciones'].includes(state.route)||root!==$('#content')));
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion','prestashop','productos','automatizaciones'].includes(state.route)||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
+ if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
  if(!modalOnly&&state.route==='prestashop'&&prestashopUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla de automatización?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;prestashopUI.discardDraft();}
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
@@ -336,7 +345,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
@@ -455,7 +464,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState({totusModuleNavigation:true},'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();automationsUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();productosUI.dispose();automationsUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -3286,7 +3295,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
