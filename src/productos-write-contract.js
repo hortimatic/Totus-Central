@@ -18,11 +18,11 @@ const hash=/^[a-f0-9]{64}$/;
 const own=(v,k)=>Object.prototype.hasOwnProperty.call(v,k);
 function invalid(message='Solicitud de escritura de Productos no válida.'){throw Error(message);}
 function validateValue(field,value,resource){
- if(typeof value!=='string'||value.length>16000||/\u0000/.test(value))invalid('Valor de '+field+' no válido.');
+ if(typeof value!=='string'||value.length>16000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value))invalid('Valor de '+field+' no válido.');
  const max=field==='reference'?64:['ean13','upc','isbn','mpn'].includes(field)?40:field==='name'?128:field==='link_rewrite'?128:field==='meta_title'?255:field==='meta_description'?512:field==='description_short'?8000:field==='description'?16000:255;
  if(value.length>max)invalid('El campo '+field+' supera el tamaño permitido.');
  if(decimal.has(field)){
-  if(!/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/.test(value))invalid('Importe o medida de '+field+' no válido.');
+  if(!(resource==='combinations'&&field==='price'?/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/:/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/).test(value))invalid('Importe o medida de '+field+' no válido.');
  }
  if(flags.has(field)&&!['0','1'].includes(value))invalid('Indicador de '+field+' no válido.');
  if(field==='visibility'&&!allowedVisibility.has(value))invalid('Visibilidad no admitida.');
@@ -32,7 +32,7 @@ function validateValue(field,value,resource){
  if(field==='upc'&&value!==''&&!/^\d{12}$/.test(value))invalid('UPC debe contener 12 dígitos.');
  if(field==='minimal_quantity'&&(!/^[1-9]\d{0,6}$/.test(value)))invalid('Cantidad mínima incorrecta.');
  if(field==='low_stock_threshold'&&(!/^\d{1,7}$/.test(value)))invalid('Umbral de stock incorrecto.');
- if(resource==='combinations'&&field==='price'&&!/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/.test(value))invalid('Impacto en precio no válido.');
+ // A combination price is an impact on base price and may legitimately be negative.
  return value;
 }
 export function validateProductWriteRequest(input){
@@ -63,6 +63,7 @@ export function validateProductWriteRequest(input){
 }
 const tag=/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<\/?[A-Za-z_][^>]*?>/g;
 function tree(xml){
+ tag.lastIndex=0;
  if(typeof xml!=='string'||xml.length>2097152||/<!DOCTYPE|<!ENTITY/i.test(xml))invalid('XML del proveedor no permitido.');
  const roots=[],stack=[];let m,last=0;
  while((m=tag.exec(xml))){
