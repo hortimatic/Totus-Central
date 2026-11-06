@@ -99,6 +99,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    if(confirmations.get(shop)!=='CREAR')throw Error('Escribe CREAR para confirmar.');
    const prepared=previews.get(shop);
    if(!prepared||attempted.has(shop))throw Error('Valida de nuevo el alta; no se repetirá una operación ya enviada.');
+   if(!prepared.can_commit)throw Error('La escritura POST sigue deshabilitada en el servidor. No se ha enviado nada.');
    const request_id=requestIds.get(shop)||crypto.randomUUID();requestIds.set(shop,request_id);
    attempted.add(shop); // Lock locally BEFORE sending: prevents uncertain duplicate clicks.
    const response=await invoke(shop,'prestashop_product_create_commit',{
