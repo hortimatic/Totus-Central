@@ -55,7 +55,7 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
   throw Error('PrestaShop rechazó la escritura (HTTP '+code+'). Comprueba el producto antes de reintentar.');}
  await response.body?.cancel();
  let verification;
- try{verification=selectedXmlValues(await read(),operation.resource,operation.record_id,operation.changes);}
+ try{verification=selectedXmlValues(await read(),operation.resource,operation.record_id,operation.changes,operation.expected_product_id);}
  catch{throw Error('PrestaShop respondió correctamente pero la relectura falló. Estado incierto: comprobar manualmente.');}
  if(verification.changes.some(row=>row.changed))throw Error('PrestaShop respondió, pero la relectura no coincide con los valores solicitados. Revisión obligatoria.');
  return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,
