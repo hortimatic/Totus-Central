@@ -121,3 +121,14 @@ test('alta verificada por ruta completa utiliza diario idempotente y jamás llam
  assert.deepEqual(f.calls.filter(x=>x.name==='totus_prestashop_product_create_journal').map(x=>x.payload.p_action),['lookup','claim','complete']);
  assert(!JSON.stringify(result).includes('fake-key-not-real'));
 }));
+
+
+test('habilitar altas no habilita ediciones PUT que aún carecen de diario durable',()=>context(async()=>{
+ const f=fixture();
+ const body={...base,action:'prestashop_product_commit',resource:'products',record_id:'701',
+  changes:[{field:'price',value:'7.00'}],expected_fingerprint:'a'.repeat(64),
+  request_id:'55555555-5555-4555-8555-555555555555',confirmed:true};
+ const res=await handle(req(body),environment(true),f.factory,f.request);
+ assert.equal(res.status,400);assert.match((await res.json()).error,/Escritura de productos bloqueada/);
+ assert.equal(f.calls.filter(x=>x.type==='http'&&x.method!=='GET').length,0);
+}));
