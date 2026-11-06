@@ -77,6 +77,6 @@ test('el usuario sin permiso de edición solo puede preparar, nunca crear',async
  const f=fixture({canEdit:false});await complete(f);
  f.wizard.handleChange(confirmation(shop,'CREAR'));
  assert.match(f.wizard.render(plan,source),/Crear en PrestaShop/);
- await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/sin permiso/);
+ await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/no tiene permiso/);
  assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,0);
 });
