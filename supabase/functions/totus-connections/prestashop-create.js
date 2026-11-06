@@ -6,7 +6,7 @@ import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProdu
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
 
-export async function runPrestashopProductCreate(connection,input,{request=fetch,resolve,env=Deno.env,journal=null}={}){
+export async function runPrestashopProductCreate(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
  const op=validateProductCreateRequest(input),store=prestashopStore(op.store);
  if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||
   connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)
