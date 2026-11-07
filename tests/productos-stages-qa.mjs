@@ -133,3 +133,42 @@ test('producto existente rechaza atributos ya usados aunque cambie la referencia
  await assert.rejects(()=>runPrestashopProductStage(connection,{...base,existing_product:true},f),/esos atributos/);
  assert.equal(f.calls.some(c=>c.method==='POST'),false);
 });
+
+test('existing variant image: prepares, preserves costs and attributes, verifies PUT, and never creates a second combination',async()=>{
+ const input={...base,kind:'variation_images',step_key:'black_image_901',existing_product:true,fields:{id_product_attribute:'701'},associations:{images:['901']}};
+ const native='<prestashop><combination><id>701</id><id_product>601</id_product><reference>KEEP-BLACK</reference><price>0.000000</price><wholesale_price>23.660000</wholesale_price><default_on>1</default_on><quantity>0</quantity><associations><product_option_values><product_option_value><id>10</id></product_option_value></product_option_values><images><image><id>0</id></image></images></associations></combination></prestashop>';
+ let combo=native,writes=0,ownerImage='901',combinationParent='601';
+ const f=fixture();f.journal.parent=async()=>({status:'completed',store:'hortimatic',product_id:'601'});
+ f.request=async(url,opts)=>{
+  const u=new URL(url),p=u.pathname;
+  if(p==='/api/products/601'&&u.searchParams.get('output_format')==='JSON')return json({product:{id:601,associations:{images:[{id:Number(ownerImage)}]}}});
+  if(p==='/api/products/601')return xml(root);
+  if(p==='/api/combinations/701'&&u.searchParams.get('output_format')==='JSON')return json({combination:{id:701,id_product:Number(combinationParent)}});
+  if(p==='/api/combinations/701'&&opts.method==='PUT'){writes++;combo=opts.body;return xml(combo);}
+  if(p==='/api/combinations/701')return xml(combo);
+  throw Error('Unexpected image association test URL: '+u.href);
+ };
+ assert.equal(validateProductStage(input).resource,'combinations');
+ const prepared=await runPrestashopProductStage(connection,input,f);
+ assert.equal(prepared.persisted,false);assert.equal(prepared.record_id,'701');assert.equal(writes,0);
+ const op={...input,action:'prestashop_product_step_commit',expected_fingerprint:prepared.fingerprint,confirmed:true};
+ const saved=await runPrestashopProductStage(connection,op,f);
+ assert.equal(saved.verified,true);assert.equal(saved.record_id,'701');assert.equal(writes,1);
+ assert(combo.includes('<wholesale_price>23.660000</wholesale_price>'));
+ assert(combo.includes('<default_on>1</default_on>'));
+ assert(combo.includes('<reference>KEEP-BLACK</reference>'));
+ assert(combo.includes('<product_option_value><id>10</id></product_option_value>'));
+ assert(combo.includes('<image><id>901</id></image>'));
+ assert(!combo.includes('<quantity>'));
+ const reused=await runPrestashopProductStage(connection,op,f);
+ assert.equal(reused.reused,true);assert.equal(writes,1);
+ const invalid={...input,existing_product:undefined};
+ assert.throws(()=>validateProductStage(invalid),/combinación existente/);
+ assert.throws(()=>validateProductStage({...input,associations:{images:['901','902']}}),/imagen real/);
+ assert.throws(()=>validateProductStage({...input,associations:{images:[]}}),/imagen real/);
+ assert.throws(()=>validateProductStage({...input,associations:{product_option_values:['10'],images:['901']}}),/Relaciones/);
+ ownerImage='902';
+ await assert.rejects(()=>runPrestashopProductStage(connection,{...input,step_key:'other'},f),/no pertenece/);
+ ownerImage='901';combinationParent='602';
+ await assert.rejects(()=>runPrestashopProductStage(connection,{...input,step_key:'other2'},f),/otro producto/);
+});
