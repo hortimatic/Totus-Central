@@ -102,6 +102,8 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(readBack.status,200);
  const verified=inspectReconciledNewProduct(await readBack.text(),record,result.record_id);
  assert.equal(verified.active,false);
+ const savedState=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,state,active]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ const savedProduct=(await savedState.json()).product;assert.equal(String(savedProduct.state),'1','Native BO listing requires STATE_SAVED even while inactive');assert.equal(String(savedProduct.active),'0');
  console.log('SANDBOX 1.7.8.11: ID '+result.record_id+' inactivo, 1 POST, relectura y reintento idempotente.');
  const stageData=new Map(),stageJournal={parent:async()=>journalData.get(request_id),lookup:async op=>stageData.get(op.stage)||null,
   claim:async(op,signature)=>{if(stageData.has(op.stage))return stageData.get(op.stage);stageData.set(op.stage,{status:'pending',signature});return {status:'claimed'};},

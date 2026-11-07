@@ -82,6 +82,7 @@ test('preparación completa idioma por idioma, precio y categoría sin activar e
  assert.ok(xml.includes('<reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference>'));
  assert.ok(xml.includes('<price><![CDATA[0.00]]></price>'));
  assert.ok(xml.includes('<active><![CDATA[0]]></active>'));
+ assert.ok(xml.includes('<state><![CDATA[1]]></state>'),'saved state is independent of public activation');
  assert.ok(xml.includes('<language id="2"><![CDATA[Tests]]></language>'));
  assert.ok(xml.includes('<id><![CDATA[33]]></id>'));
  assert.ok(!xml.includes('<id><![CDATA[301]]></id>'));

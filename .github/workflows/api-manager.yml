@@ -36,6 +36,10 @@ jobs:
         env:
           PGPASSWORD: test-only
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/058_chat_ai_directory.sql -f tests/chat-ai-directory-db-qa.sql
+      - name: Verify PrestaShop service credentials without chat identities
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_prestashop_service_identity.sql -f tests/prestashop-service-identity-db-qa.sql
       - name: Preserve the current Cloudflare configuration and counters
         env:
           PGPASSWORD: test-only
