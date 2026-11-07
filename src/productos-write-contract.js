@@ -231,7 +231,7 @@ export function validateProductRelations(input,categoryId){
 }
 export function validateProductCreateRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
- const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','fields','relations','expected_fingerprint','request_id','confirmed']);
+ const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','fields','relations','expected_fingerprint','request_id','confirmed','retry_absent']);
  if(Object.keys(input).some(key=>!accepted.has(key))||!['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)||
  !['hortimatic','newoldsmok'].includes(input.store)||!uuid.test(String(input.id||''))||!uuid.test(String(input.call_id||''))||
  !Number.isSafeInteger(input.revision)||input.revision<1||!integer.test(String(input.category_id||'')))invalid('Solicitud de alta de producto no válida.');
@@ -258,16 +258,23 @@ export function validateProductCreateRequest(input){
   chosen.add(row.field);return {field:row.field,value:validateValue(row.field,row.value,'products')};
  });
  const commit=input.action==='prestashop_product_create_commit';
+ if(own(input,'retry_absent')&&(!commit||input.retry_absent!==true))invalid('El reintento necesita confirmación expresa de una solicitud previa.');
  if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))
   invalid('El alta exige confirmación, huella vigente y request_id estable.');
  if(!commit&&(own(input,'expected_fingerprint')||own(input,'request_id')||own(input,'confirmed')))
   invalid('No se aceptan confirmaciones durante la preparación.');
  return {store:input.store,resource:'products',reference:input.reference,price:input.price,category_id:String(input.category_id),translations,fields:extra,relations:validateProductRelations(input.relations,input.category_id),
-  commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
+  commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id,...(input.retry_absent===true?{retry_absent:true}:{})}:{})};
 }
 export function prepareProductCreationXml(schema,create){
- const root=tree(schema),product=direct(root,'product'),id=direct(product,'id');
+ let root=tree(schema),product=direct(root,'product'),id=direct(product,'id');
  if(xmlValue(schema.slice(id.contentStart,id.contentEnd)).trim())invalid('El esquema de alta contiene un ID; no es una ficha en blanco.');
+ // A native blank schema is a catalogue of possible fields, not a POST body.
+ // Sending its empty stock/image/pack associations invokes setters for records
+ // which do not exist yet. Calculated fields can also invoke write-only setters.
+ // Keep destination languages, then include only the reviewed create contract.
+ schema=minimalBlankProductSchema(productCreateLanguageIds(schema));
+ root=tree(schema);product=direct(root,'product');
  const desired=new Map();
  const set=(node,value)=>{
   if(node.selfClosing||node.children.length)invalid('El esquema contiene campos complejos no compatibles.');

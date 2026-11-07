@@ -3,7 +3,7 @@ import test from 'node:test';
 import {deflateSync,crc32} from 'node:zlib';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../supabase/functions/totus-connections/prestashop-create.js';
 import {runPrestashopProductWrite} from '../../supabase/functions/totus-connections/prestashop-write.js';
-import {inspectReconciledNewProduct} from '../../src/productos-write-contract.js';
+import {inspectReconciledNewProduct,minimalBlankProductSchema} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
@@ -18,6 +18,15 @@ async function localOnlyRequest(url,opts={}){
  const remote=new URL(url);
  assert.equal(remote.origin,'https://hortimatic.com','No test request may target any other origin.');
  assert(remote.pathname.startsWith('/api/'));
+ // Hortimatic returns a complete blank schema, unlike this image's legacy
+ // schema=blank HTTP500. Model that read response; every POST/PUT still reaches
+ // the real disposable PrestaShop and its database, never the live shop.
+ if(remote.pathname==='/api/products'&&remote.searchParams.get('schema')==='blank'){
+  const complete=minimalBlankProductSchema(['1'])
+   .replace('<reference>','<id_default_image><![CDATA[]]></id_default_image><id_default_combination><![CDATA[]]></id_default_combination><position_in_category><![CDATA[]]></position_in_category><type><![CDATA[]]></type><reference>')
+   .replace('</associations>','<images><image><id><![CDATA[]]></id></image></images><stock_availables><stock_available><id><![CDATA[]]></id><id_product_attribute><![CDATA[]]></id_product_attribute></stock_available></stock_availables><product_bundle><product><id><![CDATA[]]></id><quantity><![CDATA[]]></quantity></product></product_bundle></associations>');
+  return new Response(complete,{headers:{'Content-Type':'application/xml'}});
+ }
  const local=new URL(remote.pathname+remote.search,localBase);
  const headers=new Headers(opts.headers);
  assert.equal(headers.get('authorization'),'Basic '+btoa(key+':'));
