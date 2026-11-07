@@ -28,6 +28,11 @@ try{
   await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-column="ean13"]').uncheck();
   await page.locator('[data-pr-column="ean13"]').check();
+  await page.locator('[data-pr-column-key="image"][data-pr-direction="1"]').click();
+  await page.locator('[data-pr-view-name]').fill('Revisión de catálogo');
+  await page.locator('[data-pr-action="catalog-view-save"]').click();
+  assert.equal(await page.locator('[data-pr-catalog-view]').inputValue(),'Revisión de catálogo');
+  assert.equal(await page.locator('.prd-columns input[data-pr-column]').first().getAttribute('data-pr-column'),'id');
   await page.locator('.prd-columns summary').click();
   assert.equal(await page.locator('th').filter({hasText:'EAN'}).count(),1);
   await page.locator('[data-pr-catalog-all]').check();
@@ -43,21 +48,35 @@ try{
   await page.locator('[data-pr-action="mode"][data-mode="ficha"]').click();
   assert.equal(await page.locator('#store-context-select').inputValue(),'newoldsmok');
   assert.equal(await page.evaluate(()=>stitchQA.calls.filter(x=>x.action==='prestashop_item_read').at(-1).store),'newoldsmok');
-  await page.locator('#subtabs-bar').waitFor();
+  await page.locator('#subtabs-bar').waitFor().catch(async error=>{console.error(await page.locator('#productosRoot').innerText(),errors);throw error;});
   assert.equal(await page.locator('#subtabs-bar button').count(),9);
   await page.locator('[data-pr-value="name"]').fill('Nombre editado seguro');
   await page.locator('[data-pr-value="name"]').blur();
   for(const section of ['contenido','precios','variaciones','imagenes','seo','transporte','inventario','organizacion','general']){
    await page.locator('[data-pr-action="editor-section"][data-pr-section="'+section+'"]').click();
+   await page.screenshot({path:'qa-artifacts/productos-stitch-'+section+'-'+width+'.png',fullPage:true});
   }
   assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre editado seguro');
+  await page.locator('[data-pr-section="contenido"]').click();
+  const description=page.locator('#sub-desc [data-pr-value="description"]');
+  await description.fill('Texto seguro');await description.press('ControlOrMeta+A');
+  await page.locator('[data-pr-format="bold"]').click();
+  assert.equal(await description.inputValue(),'<strong>Texto seguro</strong>');
+  await page.getByRole('button',{name:'Vista previa',exact:true}).click();
+  assert.equal(await page.locator('.prd-description-dialog iframe').getAttribute('sandbox'),'');
+  await page.getByRole('button',{name:'Cerrar vista previa'}).click();
+  await page.locator('[data-pr-section="general"]').click();
+
   assert.equal(await page.locator('#productosRoot [onclick]').count(),0);
   assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/VP-AG2|Voopoo Argus GT II|69,95|38 uds/);
   await page.screenshot({path:'qa-artifacts/productos-stitch-ficha-'+width+'.png',fullPage:true});
   await page.locator('#store-context-select').selectOption('hortimatic');
   await page.getByText('Producto real de prueba',{exact:true}).waitFor();
   await page.locator('#store-context-select').selectOption('newoldsmok');
-  await page.locator('#subtabs-bar').waitFor();
+  await page.locator('#subtabs-bar').waitFor().catch(async error=>{console.error(await page.locator('#productosRoot').innerText(),errors);throw error;});
+  assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre editado seguro');
+  await page.getByRole('tab',{name:/5\./}).click();
+  await page.locator('[data-pr-action="draft-open"][data-pr-draft-key="newoldsmok|42"]').click();
   assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre editado seguro');
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   assert.equal(await page.locator('#panel-store-source [data-pr-value="name"]').inputValue(),'Nombre editado seguro');

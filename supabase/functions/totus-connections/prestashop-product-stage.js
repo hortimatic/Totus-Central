@@ -1,3 +1,4 @@
+import {runProductRemoval} from './prestashop-product-remove.js';
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
 import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
@@ -32,12 +33,14 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const productDisplay='['+[...new Set(['id','reference','price','active','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']';
  const root=await xml('products/'+op.product_id,{display:op.kind==='finish'?productDisplay:op.existing_product?'[id,reference,price,active,available_for_order,visibility]':'[id,reference]'});
  if(parsePrestashopResourceId(root,'product')!==op.product_id||(!op.existing_product&&readPrestashopXmlField(root,'product','reference')!==parent.reference))throw Error('La ficha de destino no corresponde al producto registrado.');
+ if(['remove_variation','remove_image'].includes(op.kind))return runProductRemoval(op,{root,xml,json,call,journal,env});
  const rootJson=async()=>{const data=await json('products/'+op.product_id,{display:'[id,reference,images[id]]'});const product=data.product||data.products?.[0];if(String(product?.id)!==op.product_id)throw Error('Ficha de producto no verificable.');return product;};
  const assertVariant=async id=>{
   if(id==='0')return;
   const data=await json('combinations/'+id),row=data.combination||data.combinations?.[0];
   if(String(row?.id)!==id||String(row.id_product)!==op.product_id)throw Error('La combinación pertenece a otro producto.');
  };
+ if(op.kind==='variation_edit')await assertVariant(op.record_id);
  if(op.fields.id_product_attribute)await assertVariant(op.fields.id_product_attribute);
  if(op.kind==='variation'){
   const groups=new Set();
@@ -52,13 +55,19 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    const data=await json(resource+'/'+op.fields[key]),row=data[singular]||data[resource]?.[0];if(String(row?.id)!==op.fields[key])throw Error('Proveedor o moneda no verificable.');
   }
  }
+ if(op.kind==='finish'){
+  const verifyRelation=async(resource,singular,id)=>{if(id==='0')return;const data=await json(resource+'/'+id),row=data[singular]||data[resource]?.[0];if(String(row?.id)!==id)throw Error('Relación de '+resource+' no verificable en esta tienda.');};
+  for(const [key,resource,singular]of [['id_category_default','categories','category'],['id_manufacturer','manufacturers','manufacturer'],['id_supplier','suppliers','supplier'],['id_tax_rules_group','tax_rule_groups','tax_rule_group']])if(op.fields[key])await verifyRelation(resource,singular,op.fields[key]);
+  for(const [key,resource,singular]of [['categories','categories','category'],['tags','tags','tag'],['accessories','products','product']])for(const id of op.associations[key]||[]){if(key==='accessories'&&id===op.product_id)throw Error('Un producto no puede ser accesorio de sí mismo.');await verifyRelation(resource,singular,id);}
+  if(op.associations.categories){const main=op.fields.id_category_default||readPrestashopXmlField(root,'product','id_category_default');if(!op.associations.categories.includes(main))throw Error('La categoría principal debe estar entre las asociadas.');}
+ }
  if(op.fields.id_default_combination)await assertVariant(op.fields.id_default_combination);
  if(op.associations.images?.length||op.fields.id_default_image){
   const product=await rootJson(),ids=new Set((product.associations?.images||[]).map(row=>String(row.id)));
   if([...(op.associations.images||[]),...(op.fields.id_default_image?[op.fields.id_default_image]:[])].some(id=>!ids.has(id)))throw Error('La imagen no pertenece a este producto.');
  }
  const image=op.kind==='image'?await inspectTransparentProductPng(op.image.base64):null;
- const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,fields:op.fields,associations:op.associations,...(image?{image:op.image.base64}:{})}));
+ const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,...(op.kind==='variation_edit'?{record_id:op.record_id}:{}),fields:op.fields,associations:op.associations,...(image?{image:op.image.base64}:{})}));
  const filters={'filter[id_product]':'['+op.product_id+']'};
  if(op.kind==='variation')filters['filter[reference]']='['+op.fields.reference+']';
  if(['stock','supplier_price','special_price'].includes(op.kind))filters['filter[id_product_attribute]']='['+op.fields.id_product_attribute+']';
@@ -72,14 +81,14 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):{id_product:op.product_id,...op.fields};
  let nativeHtmlNormalized=false;
  const verify=async(recordId)=>{
-  const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+Object.keys(desired).join(',')+']'}:{}),op.resource,desired,op.associations);
+  const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+[...Object.keys(desired),...Object.keys(op.associations).map(key=>key+'[id]')].join(',')+']'}:{}),op.resource,desired,op.associations);
   nativeHtmlNormalized||=checked.native_html_normalized===true;
   return checked;
  };
  const prior=op.commit?await journal.lookup(op):null;
  if(prior){
   if(prior.signature!==signature)throw Error('Esta etapa ya está vinculada a otros datos.');
-  const recordId=prior.record_id||(op.kind==='finish'?op.product_id:op.kind==='image'?null:await find());
+  const recordId=prior.record_id||(op.kind==='finish'?op.product_id:op.kind==='variation_edit'?op.record_id:op.kind==='image'?null:await find());
   if(!recordId)throw Error('Resultado incierto. No se repetirá una carga o creación: revisa el registro de la tienda.');
   if(op.kind!=='image')await verify(String(recordId));
   else{const product=await rootJson();if(!(product.associations?.images||[]).some(row=>String(row.id)===String(recordId)))throw Error('No se confirma la imagen en este producto.');}
@@ -102,7 +111,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    if(page>=1000)throw Error('No se pudo completar la comprobación de atributos existentes.');
   }
  }
- const recordId=op.kind==='finish'?op.product_id:op.kind==='image'?null:await find();
+ const recordId=op.kind==='finish'?op.product_id:op.kind==='variation_edit'?op.record_id:op.kind==='image'?null:await find();
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
  if(op.kind==='variation'&&recordId)throw Error('Ya hay una combinación con esa referencia. No se creará otra.');
  if(op.kind==='stock'&&!recordId)throw Error('PrestaShop todavía no ha creado el registro de existencias para este producto o combinación.');

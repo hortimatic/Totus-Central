@@ -27,7 +27,19 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   creación, existencias, imagen transparente, descripción visual y recuperación.
 - Selección de portada y combinación predeterminada mediante revisión explícita,
   guardado y relectura; comprobada en simulación a 390 y 1440 píxeles.
-- 70 comprobaciones unitarias de Productos cubiertas en esta rama.
+- Vistas de catálogo con nombre, orden de columnas, filtros y contexto de tienda por cuenta.
+- Recuperación de fichas conservadas y corrección del intercambio de tiendas.
+- Disposición nativa de Información, Descripciones, SEO, Transporte y Disponibilidad,
+  con campos adicionales plegados; herramientas de texto y vista previa aislada.
+- Organización: revisión de categorías, principal, marca, proveedor e impuestos
+  comprobada mediante simulación de API y navegador. Requiere desplegar el servicio.
+- Matriz con nombres de atributos, existencias verificadas y fotos por combinación.
+- Asociación de imágenes a combinaciones existentes, sin recrearlas.
+- Eliminación de imágenes y combinaciones con confirmación escrita, identidad propia,
+  comprobación de permisos DELETE, huella y relectura; sin repetir un borrado incierto.
+- Normalización de imágenes al tipo configurado en la tienda, conservando el producto
+  completo; la transparencia se comprueba antes de añadir márgenes al lienzo.
+- 74 comprobaciones unitarias de Productos cubiertas en esta rama.
 
 ## Pendiente antes de poder decir «idéntico y completo»
 
@@ -37,14 +49,14 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
 2. Contrastar la experiencia completa de la cola de copias múltiples con datos
    reales. La selección admite varias fichas y mantiene sus solicitudes, pero
    la confirmación de cada tienda sigue siendo individual y explícita.
-3. Conectar edición de organización, relaciones y atributos nuevos sobre fichas
-   existentes. El alta ya mapea relaciones; no atribuir ese soporte a toda edición.
-4. Completar controles de orden, sustitución y eliminación de imágenes,
-   y eliminación de combinaciones. No sustituir
-   controles faltantes por avisos que simulen una operación correcta.
-5. Revisar la cola completa de borradores e historial frente a las tarjetas del
-   prototipo; la aplicación actual conserva las solicitudes por cuenta/tienda,
-   no debe mostrar tres borradores ficticios.
+3. Completar características, materiales, etiquetas y accesorios editables, y creación
+   de atributos nuevos. Categorías, marca, proveedor e impuestos ya tienen revisión.
+   Contrastar las nuevas operaciones en el PrestaShop desechable y luego en ambas conexiones.
+4. Completar orden y sustitución de imágenes. La eliminación de imágenes y combinaciones
+   ya está conectada y probada por simulación; falta el resultado de su prueba nativa en CI.
+   No sustituir controles faltantes por avisos que simulen una operación correcta.
+5. Contrastar visualmente la lista de borradores recuperables y las etapas reales
+   frente al prototipo. No mostrar borradores ni historiales ficticios.
 6. CI completo y contraste con datos reales de ambas conexiones. Los nuevos
    campos de lectura y filtros de existencias requieren desplegar el servicio.
 

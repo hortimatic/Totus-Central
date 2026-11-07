@@ -2,7 +2,7 @@ import {inspectTransparentProductPng} from './productos-png.js';
 
 // Local-only normalization. Flood fill removes a uniform edge-connected backdrop
 // rather than erasing matching colours inside the product itself.
-export async function normalizeProductImage(file,{removeBackground=true}={}){
+export async function normalizeProductImage(file,{removeBackground=true,canvasSize=null}={}){
  if(!file||!file.type?.startsWith('image/')||file.size>20971520)throw Error('Selecciona una imagen de hasta 20 MB.');
  let bitmap,objectUrl=null;
  try{bitmap=await createImageBitmap(file);}
@@ -28,7 +28,11 @@ export async function normalizeProductImage(file,{removeBackground=true}={}){
    }
   }
  }
- const base64=canvas.toDataURL('image/png').split(',')[1];await inspectTransparentProductPng(base64);
+ // Padding is not evidence of background removal: validate the image itself first.
+ await inspectTransparentProductPng(canvas.toDataURL('image/png').split(',')[1]);
+ let output=canvas;
+ if(canvasSize){const width=Number(canvasSize.width),height=Number(canvasSize.height);if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||width*height>4194304)throw Error('El tipo de imagen de la tienda supera el tamaño admitido por el editor.');output=document.createElement('canvas');output.width=width;output.height=height;const target=output.getContext('2d');if(!target)throw Error('No se pudo preparar el lienzo de la tienda.');const scale=Math.min(width*.94/canvas.width,height*.94/canvas.height);target.imageSmoothingQuality='high';target.drawImage(canvas,(width-canvas.width*scale)/2,(height-canvas.height*scale)/2,canvas.width*scale,canvas.height*scale);}
+ const base64=output.toDataURL('image/png').split(',')[1];await inspectTransparentProductPng(base64);
  const name=String(file.name||'producto').replace(/\.[^.]+$/,'').replace(/[\x00-\x1f/\\]/g,'-').slice(0,110)+'.png';
  return {name,mime:'image/png',base64};
 }

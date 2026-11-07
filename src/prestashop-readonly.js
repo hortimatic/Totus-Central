@@ -21,10 +21,11 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  product_feature_values:Object.freeze(['id','id_feature','custom','value']),
  tags:Object.freeze(['id','id_lang','name']),
  tax_rule_groups:Object.freeze(['id','name','active','deleted']),
+ image_types:Object.freeze(['id','name','width','height','products']),
  product_options:Object.freeze(['id','name','public_name','group_type','position']),
  product_option_values:Object.freeze(['id','id_attribute_group','name','color','position']),
  order_details:Object.freeze(['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','total_price_tax_incl','total_price_tax_excl','unit_price_tax_incl','unit_price_tax_excl','reduction_percent','purchase_supplier_price','original_wholesale_price','associations']),
- stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity']),
+ stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity','out_of_stock','depends_on_stock','location']),
  stock_movements:Object.freeze(['id','id_product','id_product_attribute','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','id_order','id_supply_order'])
 });
 export function prestashopStore(key){const store=PRESTASHOP_STORES.find(s=>s.key===key);if(!store)throw Error('Tienda PrestaShop no admitida.');return store;}

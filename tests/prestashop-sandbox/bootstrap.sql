@@ -21,10 +21,10 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'categories','GET'),
  (@account_id,'languages','GET'),
  (@account_id,'products','PUT'),
- (@account_id,'combinations','GET'),(@account_id,'combinations','POST'),
+ (@account_id,'combinations','GET'),(@account_id,'combinations','POST'),(@account_id,'combinations','PUT'),(@account_id,'combinations','DELETE'),
  (@account_id,'product_option_values','GET'),
  (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
- (@account_id,'images','GET'),(@account_id,'images','POST'),
+ (@account_id,'images','GET'),(@account_id,'images','POST'),(@account_id,'images','DELETE'),(@account_id,'image_types','GET'),
  (@account_id,'suppliers','GET'),(@account_id,'currencies','GET'),
  (@account_id,'product_suppliers','GET'),(@account_id,'product_suppliers','POST'),(@account_id,'product_suppliers','PUT'),
  (@account_id,'specific_prices','GET'),(@account_id,'specific_prices','POST'),(@account_id,'specific_prices','PUT');

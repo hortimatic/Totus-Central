@@ -19,7 +19,7 @@ export function productDisplayAmounts(product,rate){
  const numeric=v=>v===null||v===undefined||String(v).trim()===''?NaN:Number(v);
  const net=numeric(product?.price),cost=numeric(product?.wholesale_price);
  const noSeparateEcotax=product?.ecotax===undefined||Number(product.ecotax)===0;
- return {net:Number.isFinite(net)?net:null,gross:Number.isFinite(net)&&rate!==null&&Number.isFinite(rate)&&noSeparateEcotax?net*(1+rate/100):null,
+ return {rate:rate!==null&&Number.isFinite(rate)?rate:null,net:Number.isFinite(net)?net:null,gross:Number.isFinite(net)&&rate!==null&&Number.isFinite(rate)&&noSeparateEcotax?net*(1+rate/100):null,
   cost:Number.isFinite(cost)?cost:null,margin:Number.isFinite(net)&&Number.isFinite(cost)?net-cost:null,
   marginPct:Number.isFinite(net)&&net>0&&Number.isFinite(cost)?(net-cost)/net*100:null};
 }

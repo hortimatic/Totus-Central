@@ -180,7 +180,7 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
  }
  const parent=item.children.find(node=>node.name==='associations');let added='';
  for(const [name,ids] of Object.entries(associations)){
-  const nodeName={product_option_values:'product_option_value',images:'image'}[name];if(!nodeName||!parent)invalid('Asociación de etapa no admitida.');
+  const nodeName={product_option_values:'product_option_value',images:'image',categories:'category',tags:'tag',accessories:'product'}[name];if(!nodeName||!parent)invalid('Asociación de etapa no admitida.');
   const content=ids.map(id=>'<'+nodeName+'><id>'+safeCdata(id)+'</id></'+nodeName+'>').join('');
   const nodes=parent.children.filter(node=>node.name===name);if(nodes.length>1)invalid('Asociación duplicada.');
   if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';

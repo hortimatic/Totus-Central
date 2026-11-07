@@ -212,5 +212,25 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const countBeforeReplay=calls.filter(c=>c.method==='POST').length;
  assert.equal((await runPrestashopProductStage(connection,existingCommit,existingOptions)).reused,true);
  assert.equal(calls.filter(c=>c.method==='POST').length,countBeforeReplay);
+ // Real isolated coverage for the newly connected organization/image/removal controls.
+ const organization={...existing,kind:'finish',step_key:'existing_organization',fields:{active:'1',available_for_order:'0',visibility:'none',id_category_default:'2',id_supplier:String(supplier.id),id_tax_rules_group:'0'},associations:{categories:['2']}};
+ const organizationPrepared=await runPrestashopProductStage(connection,organization,existingOptions);
+ assert.equal((await runPrestashopProductStage(connection,{...organization,action:'prestashop_product_step_commit',expected_fingerprint:organizationPrepared.fingerprint,confirmed:true},existingOptions)).verified,true);
+ await checkLanguages();
+ const pictures={...existing,kind:'variation_edit',record_id:existingDone.record_id,step_key:'existing_variant_photos',fields:{},associations:{images:[picture.record_id]}};
+ const picturesPrepared=await runPrestashopProductStage(connection,pictures,existingOptions);
+ const picturesCommit={...pictures,action:'prestashop_product_step_commit',expected_fingerprint:picturesPrepared.fingerprint,confirmed:true};
+ assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).verified,true);
+ assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).reused,true);
+ for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id]]){
+  const removal={...existing,kind,record_id:id,step_key:'ci_'+kind,fields:{},associations:{}};
+  const preparation=await runPrestashopProductStage(connection,removal,existingOptions);
+  assert.equal(preparation.can_commit,true,'Disposable test key must allow deletion');
+  const request={...removal,action:'prestashop_product_step_commit',expected_fingerprint:preparation.fingerprint,confirmed:true};
+  assert.equal((await runPrestashopProductStage(connection,request,existingOptions)).deleted,true);
+  const deletes=calls.filter(c=>c.method==='DELETE').length;
+  assert.equal((await runPrestashopProductStage(connection,request,existingOptions)).reused,true);
+  assert.equal(calls.filter(c=>c.method==='DELETE').length,deletes,'A repeated verification must not repeat DELETE');
+ }
  console.log('SANDBOX: PNG transparente cargado y publicación no comprable verificada; coste, precio y peso conservados.');
 });

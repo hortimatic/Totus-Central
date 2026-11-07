@@ -45,7 +45,7 @@ try{
     }
     if(body.action==='prestashop_read'){
      if(body.resource==='categories')return {ok:true,store:body.store,resource:'categories',page:body.page,rows:[{id:'33',name:'Inicio'}],possibly_more:false};
-     const catalogs={product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
+     const catalogs={image_types:[{id:'1',name:'large_default',products:'1',width:'800',height:'800'}],product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
      if(catalogs[body.resource])return {ok:true,store:body.store,resource:body.resource,rows:catalogs[body.resource],possibly_more:false};
      const rows=body.references?.length?body.store==='newoldsmok'?[]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
      return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:false};
