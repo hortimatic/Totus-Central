@@ -1,9 +1,9 @@
 import {prestashopCapabilities} from './prestashop.js';
-import {sha256Text} from '../../../src/productos-write-contract.js';
+import {sha256Text,inspectProductAssociationIds} from '../../../src/productos-write-contract.js';
 // Called only after the shared stage contract, account and parent ownership checks.
 export async function runProductRemoval(op,{root,xml,json,call,journal,env}){
  const group=op.kind==='remove_variation'?'combinations':'images',target=String(op.record_id);
- const snapshot=async()=>{const response=await json('products/'+op.product_id,{display:'[id,'+group+'[id]]'}),product=response.product||response.products?.[0],rows=product?.associations?.[group];if(String(product?.id)!==op.product_id||!Array.isArray(rows)||rows.some(row=>!/^\d+$/.test(String(row.id))))throw Error('No se ha podido verificar la pertenencia del registro.');return rows.map(row=>String(row.id));};
+ const snapshot=async()=>{const response=await json('products/'+op.product_id,{display:'[id,'+group+'[id]]'}),product=response.product||response.products?.[0],rows=product?.associations?.[group];if(String(product?.id)!==op.product_id)throw Error('No se ha podido verificar la pertenencia del registro.');if(!Array.isArray(rows))return inspectProductAssociationIds(await xml('products/'+op.product_id,{display:'[id,'+group+'[id]]'}),op.product_id,group);if(rows.some(row=>!/^\d+$/.test(String(row.id))))throw Error('No se ha podido verificar la pertenencia del registro.');return rows.map(row=>String(row.id));};
  const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,record_id:target}));
  const result=()=>({ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:target,persisted:true,verified:true,deleted:true});
  const prior=op.commit?await journal.lookup(op):null;

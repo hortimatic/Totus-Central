@@ -33,6 +33,7 @@ async function localOnlyRequest(url,opts={}){
  assert.equal(headers.get('authorization'),'Basic '+btoa(key+':'));
  calls.push({method:opts.method||'GET',path:local.pathname});
  const response=await fetch(local,{...opts,redirect:'manual',headers});
+ if(response.ok&&remote.pathname.startsWith('/api/products/')&&/\[id,(?:images|combinations)\[id\]\]/.test(remote.searchParams.get('display')||''))console.log('CI association re-read',remote.searchParams.get('display'),(await response.clone().text()).slice(0,1800));
  if(!response.ok){
   const body=await response.clone().text();
   console.error('CI isolated webservice HTTP',response.status,local.pathname+local.search,'body=',body.slice(0,1600));

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {deflateSync,crc32} from 'node:zlib';
 import {validateProductStage} from '../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,productFinalizationFields} from '../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,productFinalizationFields,inspectProductAssociationIds} from '../src/productos-write-contract.js';
 
 test('finalización deriva tipo de combinaciones reales y guardado, sin activar compras',()=>{
  const root=ids=>'<prestashop><product><id>601</id><associations><combinations>'+ids.map(id=>'<combination><id>'+id+'</id></combination>').join('')+'</combinations></associations></product></prestashop>';
@@ -185,4 +185,13 @@ test('removal checks ownership, explicit target and fingerprint; reconciles with
  for(const kind of ['remove_variation','remove_image']){const f=setup(),op=remove(kind),prepared=await runPrestashopProductStage(connection,op,f);assert(!f.calls.some(c=>c.method==='DELETE'));await assert.rejects(()=>runPrestashopProductStage(connection,{...op,action:'prestashop_product_step_commit',expected_fingerprint:'b'.repeat(64),confirmed:true},f),/destino cambió/);const commit={...op,action:'prestashop_product_step_commit',expected_fingerprint:prepared.fingerprint,confirmed:true};assert.equal((await runPrestashopProductStage(connection,commit,f)).deleted,true);assert.equal((await runPrestashopProductStage(connection,commit,f)).reused,true);assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1);assert.equal(f.calls.find(c=>c.method==='DELETE').path,kind==='remove_image'?'/api/images/products/601/90':'/api/combinations/701');}
  const lost=setup({post500:true}),op=remove(),ready=await runPrestashopProductStage(connection,op,lost);assert.equal((await runPrestashopProductStage(connection,{...op,action:'prestashop_product_step_commit',expected_fingerprint:ready.fingerprint,confirmed:true},lost)).reconciled,true);
  const stuck=setup({stillPresent:true}),p=await runPrestashopProductStage(connection,op,stuck),commit={...op,action:'prestashop_product_step_commit',expected_fingerprint:p.fingerprint,confirmed:true};await assert.rejects(()=>runPrestashopProductStage(connection,commit,stuck),/incierta/);await assert.rejects(()=>runPrestashopProductStage(connection,commit,stuck),/No se repite/);assert.equal(stuck.calls.filter(c=>c.method==='DELETE').length,1);
+});
+
+
+test('empty native XML association is zero, but missing nodes and another product are not',()=>{
+ const empty='<prestashop><product><id>601</id><associations><images nodeType="image" api="images/products"/></associations></product></prestashop>';
+ assert.deepEqual(inspectProductAssociationIds(empty,'601','images'),[]);
+ assert.throws(()=>inspectProductAssociationIds(empty,'602','images'),/otro producto/);
+ assert.throws(()=>inspectProductAssociationIds(empty.replace('<images nodeType="image" api="images/products"/>',''),'601','images'),/campo único/);
+ assert.throws(()=>inspectProductAssociationIds(empty.replace('<images nodeType="image" api="images/products"/>','<images><image><id>bad</id></image></images>'),'601','images'),/no válido/);
 });

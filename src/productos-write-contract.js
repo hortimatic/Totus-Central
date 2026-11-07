@@ -525,3 +525,14 @@ export function minimalBlankProductSchema(languageIds){
  if(productCreateLanguageIds(schema).length!==languageIds.length)invalid('No se pudo generar la ficha segura.');
  return schema;
 }
+
+
+// Empty JSON associations are omitted by some native 1.7 responses. XML must
+// still contain the requested association node; missing/partial data is not zero.
+export function inspectProductAssociationIds(xml,productId,group){
+ const names={images:'image',combinations:'combination'};if(!names[group])invalid('Asociación no admitida.');
+ const product=direct(tree(xml),'product');if(fieldText(xml,product,'id')!==String(productId))invalid('Ficha de otro producto.');
+ const association=direct(direct(product,'associations'),group),ids=[];
+ for(const row of association.children){if(row.name!==names[group])invalid('Asociación no verificable.');const id=fieldText(xml,row,'id');if(!integer.test(id)||ids.includes(id))invalid('Identificador de asociación no válido.');ids.push(id);}
+ return ids;
+}

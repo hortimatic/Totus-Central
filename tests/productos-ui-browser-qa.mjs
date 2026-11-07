@@ -211,6 +211,7 @@ try{
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+  await page.getByText('large_default · 800 × 800 px',{exact:false}).waitFor();
   await page.getByText(/Imágenes guardado y verificado/).waitFor();
   await page.getByRole('button',{name:'Revisión y publicación',exact:true}).click();
   await page.getByRole('button',{name:'Añadir revisión y publicación',exact:true}).click();
