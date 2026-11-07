@@ -37,7 +37,7 @@ Orden: comprobar conexión e identidad; leer las fichas; preparar los campos; co
 | Precio especial | Combinación, cantidad mínima, precio o reducción, impuestos, fechas y restricciones de tienda/moneda/país/grupo/cliente/carrito |
 | Imágenes | Importación local y normalización a PNG con transparencia verificada, previsualización, subida por API y asociación a combinaciones; descarga del original y enlace a la copia de la tienda |
 
-El precio por unidad de la API nativa 1.7 utiliza unit_price_ratio (precio base dividido por precio unitario), no un campo unit_price inexistente. Los precios de coste de variaciones pueden estar redondeados en origen: presentar márgenes aproximados, no beneficio contable real.
+El precio por unidad de la API nativa 1.7 utiliza unit_price_ratio (precio base dividido por precio unitario), no un campo unit_price inexistente en su contrato. PrestaShop 1.7.8.11 puede sobrescribir la relación recibida al recalcularla desde su valor interno. Para conservarla por API se incluye el módulo separado `totusproductbridge`: debe instalarse con autorización y verificarse en la versión de cada tienda. No modifica el núcleo ni añade acceso; las ediciones manuales y las lecturas quedan excluidas. Si falta o la lectura no coincide, detener el proceso, conservar el ID creado y corregir ese producto; nunca repetir el alta ni aceptar un valor distinto para superar el control. Los precios de coste de variaciones pueden estar redondeados en origen: presentar márgenes aproximados, no beneficio contable real.
 
 La transparencia se verifica en los píxeles del PNG, no en su extensión. PrestaShop puede convertir sus derivados al formato configurado. No cambiar globalmente el tratamiento de imágenes de la tienda para una prueba.
 
