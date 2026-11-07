@@ -247,7 +247,7 @@ declare uid uuid;job uuid=gen_random_uuid();token text=encode(extensions.gen_ran
 begin
  if session_user<>'postgres' or current_user<>'postgres' or auth.uid() is not null then raise exception 'Conector administrativo requerido';end if;
  if p_action not in ('session_check','validate_expense','save_expense','attach_chat_file','expense_context','review_document','chat_read','chat_send','chat_direct','operation') then raise exception 'Acción no admitida';end if;
- if jsonb_typeof(p_payload)<>'object' or octet_length(p_payload::text)>case when p_action='operation' and p_payload->>'operation'='products' then 6291456 else 131072 end then raise exception 'Solicitud no válida o demasiado grande';end if;
+ if jsonb_typeof(p_payload)<>'object' or octet_length(p_payload::text)>(case when p_action='operation' and p_payload->>'operation'='products' then 6291456 else 131072 end) then raise exception 'Solicitud no válida o demasiado grande';end if;
  if p_action in ('save_expense','validate_expense') and nullif(p_payload#>>'{expense,request_id}','') is null then raise exception 'request_id obligatorio';end if;
  select u.id into uid from auth.users u join public.team_members t on lower(t.email)=lower(u.email)
  where lower(u.email)=lower(btrim(p_actor_email)) and u.deleted_at is null and t.active and t.deleted_at is null and t.purged_at is null;
