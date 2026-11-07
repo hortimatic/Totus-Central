@@ -1,0 +1,53 @@
+name: Temporary authorized Vaperalia Argus P3 photo retrieval
+on:
+  pull_request:
+    branches: [totus-central]
+    paths:
+      - '.github/workflows/temporary-vaperalia-argus-p3-assets.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  download-supplier-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download seven specific public supplier originals (no credentials or store changes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p original
+          printf 'id\tfinish\turl\tbytes\n' > original/sources.tsv
+          OK=0
+          for record in '34328 black-leather' '34329 black-metal' '34330 blue-leather' '34331 brown-leather' '34332 grey-leather' '34333 red-leather' '34334 silver-leather'; do
+            read -r ID FINISH <<< "$record"
+            DEST="original/${ID}-${FINISH}.jpg"
+            DEEP=$(echo "$ID" | sed 's/./&\//g;s/\/$//')
+            URLS=(
+              "https://vaperalia.es/img/p/${DEEP}/${ID}.jpg"
+              "https://vaperalia.es/${ID}/argus-p3-1500mah-voopoo.jpg"
+              "https://vaperalia.es/${ID}-large_default/argus-p3-1500mah-voopoo.jpg"
+            )
+            for URL in "${URLS[@]}"; do
+              if curl --silent --show-error --fail --location --retry 2 --retry-delay 1 --connect-timeout 12 --max-time 50 --max-filesize 4194304 --user-agent 'Mozilla/5.0 (compatible; ProductImageReview/1.0)' --header 'Referer: https://vaperalia.es/voopoo/argus-p3-1500mah-voopoo-15303.html' --output "$DEST" "$URL"; then
+                if python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); sys.exit(0 if (len(d)>500 and d[:3]==bytes.fromhex("ffd8ff")) else 1)' "$DEST"; then
+                  printf '%s\t%s\t%s\t%s\n' "$ID" "$FINISH" "$URL" "$(stat -c%s "$DEST")" >> original/sources.tsv
+                  OK=$((OK+1))
+                  break
+                fi
+              fi
+              rm -f "$DEST"
+            done
+            if [ ! -f "$DEST" ]; then
+              echo "::warning::Original supplier photo $ID ($FINISH) not downloadable"
+            fi
+          done
+          echo "Verified JPEG originals: $OK/7"
+          test "$OK" -gt 0
+      - name: Upload temporary image originals for visual inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: argus-p3-vaperalia-original-jpegs
+          path: original/
+          retention-days: 1
+          if-no-files-found: error
