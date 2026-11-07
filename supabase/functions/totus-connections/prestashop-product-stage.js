@@ -1,6 +1,6 @@
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
@@ -13,7 +13,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(!journal||typeof journal.parent!=='function')throw Error('Falta el registro de la creación del producto.');
  const parent=await journal.parent(op.parent_request_id);
  if(parent?.status!=='completed'||String(parent.product_id)!==op.product_id||parent.store!==op.store)throw Error('Esta etapa no pertenece a un producto creado y verificado por tu sesión.');
- const languageIds=[...new Set(['description','description_short'].flatMap(field=>Array.isArray(op.fields[field])?op.fields[field].map(t=>t.language_id):[]))];
+ let languageIds=[];
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
  const call=async(path,options={},query={})=>{
   const url=new URL(base.href);url.pathname='/api/'+path;if(path.startsWith('products/')&&languageIds.length)url.searchParams.set('language','['+languageIds.join('|')+']');for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
@@ -24,6 +24,9 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  };
  const xml=async(path,query={})=>boundedText(await call(path,{},query),2097152);
  const json=async(path,query={})=>boundedJson(await call(path,{headers:{Accept:'application/json'}},{...query,output_format:'JSON'}),2097152);
+ // PUT replaces the full multilingual product, even when finishing only flags.
+ // Reading selected/active languages would erase the installed inactive ones.
+ if(op.kind==='finish')languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
  const productDisplay='['+[...new Set(['id','reference','price','active','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']';
