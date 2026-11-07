@@ -5,6 +5,7 @@ import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../
 import {runPrestashopProductWrite} from '../../supabase/functions/totus-connections/prestashop-write.js';
 import {inspectReconciledNewProduct,minimalBlankProductSchema} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
+import {buildVisualProductDescription} from '../../src/productos-description.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
 const localBase='http://localhost:8000';
@@ -150,7 +151,8 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const uploadPrep=await runPrestashopProductStage(connection,upload,options);
  const picture=await runPrestashopProductStage(connection,{...upload,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:uploadPrep.fingerprint},options);
  assert.equal(picture.verified,true);assert.equal(picture.original_transparent,true);
- const finish={...stage,kind:'finish',step_key:'ci_finish',fields:{active:'1',available_for_order:'0',visibility:'none',description:profile.language_ids.map(language_id=>({language_id,value:'<h2>Pruebas</h2><p>Ficha visual de prueba aislada.</p>'}))}};delete finish.associations;
+ const visual=buildVisualProductDescription({store:'hortimatic',title:'Pruebas CI',intro:'Muestra no comprable.',detailTitle:'Detalle',detailText:'Contenido de prueba.',specifications:'Capacidad: 2 litros\nMaterial: Metal',box:'Una muestra.',notice:'No comprar: demostración.',images:[{id:picture.record_id}]});
+ const finish={...stage,kind:'finish',step_key:'ci_finish',fields:{active:'1',available_for_order:'0',visibility:'none',description:profile.language_ids.map(language_id=>({language_id,value:visual.description})),description_short:profile.language_ids.map(language_id=>({language_id,value:visual.description_short}))}};delete finish.associations;
  const finishPrep=await runPrestashopProductStage(connection,finish,options);
  const finished=await runPrestashopProductStage(connection,{...finish,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:finishPrep.fingerprint},options);
  assert.equal(finished.verified,true);

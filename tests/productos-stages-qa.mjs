@@ -19,6 +19,18 @@ test('constructor visual usa imágenes de la tienda, escapa textos y admite deci
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,revision:2,verified_revision:2,real_data_authorized:true,endpoint:'https://hortimatic.com/api/',secret:'only-a-fixture'};
 const root='<prestashop><product><id>601</id><reference>PRUEBAS</reference></product></prestashop>';
 const blank='<prestashop><combination><id></id><id_product></id_product><reference></reference><price></price><wholesale_price></wholesale_price><weight></weight><minimal_quantity></minimal_quantity><default_on></default_on><quantity>0</quantity><associations><product_option_values><product_option_value><id></id></product_option_value></product_option_values><images/></associations></combination></prestashop>';
+test('legacy Totus HTML5 recovery requires all text and images; arbitrary transformations fail',()=>{
+ const root='<section style="max-width:1100px;margin:0 auto;color:#17382b;font-family:Arial,Helvetica,sans-serif;">';
+ const image='<img src="https://hortimatic.com/901-large_default/product.jpg" alt="Demo" style="display:block;width:100%;max-width:900px;height:auto;margin:0 auto;" />';
+ const original=root+'<header style="padding:28px;background:#edf5ef;border-radius:20px;"><h2>Demo</h2></header>'+image+'</section>';
+ const saved='<h2>Demo</h2>'+image.replace('display:block;width:100%;','');
+ const xmlFor=html=>'<prestashop><product><id>601</id><description><language id="1"><![CDATA['+html+']]></language></description></product></prestashop>';
+ const fields={description:[{language_id:'1',value:original}]};
+ assert.equal(inspectProductStageXml(xmlFor(saved),'products',fields).native_html_normalized,true);
+ for(const broken of [saved.replace('Demo','Lost'),saved.replace(/<img[^>]+>/,''),saved.replace('/901-','/902-')])assert.throws(()=>inspectProductStageXml(xmlFor(broken),'products',fields),/no coincide/);
+ assert.throws(()=>inspectProductStageXml(xmlFor(saved),'products',{description:[{language_id:'1',value:original.replace('<header style=','<header onclick="bad()" style=')}]}),/no coincide/);
+ assert.throws(()=>inspectProductStageXml(xmlFor('<p>text</p>'),'products',{description:[{language_id:'1',value:'<section><p>text</p></section>'}]}),/no coincide/);
+});
 test('native NULL means a non-default combination; missing fields and actual defaults still fail',()=>{
  const secondary='<prestashop><combination><id>702</id><default_on><![CDATA[]]></default_on></combination></prestashop>';
  assert.equal(inspectProductStageXml(secondary,'combinations',{default_on:'0'}).verified,true);
