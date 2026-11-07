@@ -52,6 +52,17 @@ try{
    }});
    await q.ui.mount(document.querySelector('#productosRoot'));
   });
+  await page.getByRole('button',{name:'Encargo para ChatGPT',exact:true}).click();
+  await page.locator('[data-pr-request="url"]').fill('https://proveedor.example/producto');
+  await page.locator('[data-pr-request="url"]').blur();
+  await page.locator('[data-pr-request="sale"]').fill('19,90');
+  await page.locator('[data-pr-request="sale"]').blur();
+  await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();
+  assert.match(await page.locator('textarea[readonly]').inputValue(),/19,90/);
+  assert.match(await page.locator('textarea[readonly]').inputValue(),/state=1/);
+  assert.equal(await page.evaluate(()=>window.productosQA.calls.some(c=>c.action.includes('commit'))),false);
+  assert(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth<=window.innerWidth+2));
+  await page.getByRole('button',{name:'Catálogo',exact:true}).click();
   await page.getByRole('button',{name:'Consultar catálogo'}).click();
   await page.getByRole('button',{name:'Abrir ficha'}).click();
   await page.getByText(/2 combinaciones leídas/).waitFor();
@@ -190,6 +201,9 @@ try{
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action.endsWith('_commit'))),false,'Recargar nunca repite un alta ni una etapa');
   await page.evaluate(async()=>{productosQA.actor='admin-2';await productosQA.ui.mount(document.querySelector('#productosRoot'));});
   assert.equal(await page.locator('.prd-plan').count(),0);
+  await page.getByRole('button',{name:'Encargo para ChatGPT',exact:true}).click();
+  assert.equal(await page.locator('[data-pr-request="url"]').inputValue(),'','Otro usuario no hereda el encargo');
+  assert.equal(await page.locator('textarea[readonly]').count(),0);
   assert.deepEqual(errors,[]);
   await page.close();
  }

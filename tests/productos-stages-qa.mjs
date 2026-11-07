@@ -115,3 +115,21 @@ test('imágenes: comprueba píxeles transparentes reales y rechaza PNG opacos o 
  await assert.rejects(()=>inspectTransparentProductPng(png(255)),/opaco/);
  await assert.rejects(()=>inspectTransparentProductPng('not a png'),/PNG/);
 });
+
+test('producto existente: añade combinación sin diario de alta y no repite el POST',async()=>{
+ const f=fixture();f.journal.parent=async()=>({status:'completed',store:'hortimatic',product_id:'601'});
+ await assert.rejects(()=>runPrestashopProductStage(connection,base,f),/no corresponde/);
+ const args={...base,existing_product:true},prepared=await runPrestashopProductStage(connection,args,f);
+ const commit={...args,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint};
+ const done=await runPrestashopProductStage(connection,commit,f);assert.equal(done.verified,true);
+ const repeat=await runPrestashopProductStage(connection,commit,f);assert.equal(repeat.reused,true);
+ assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+ assert.throws(()=>validateProductStage({...args,existing_product:false}),/expresamente/);
+});
+
+test('producto existente rechaza atributos ya usados aunque cambie la referencia',async()=>{
+ const f=fixture(),original=f.request;f.journal.parent=async()=>({status:'completed',store:'hortimatic',product_id:'601'});
+ f.request=async(url,opts)=>new URL(url).searchParams.get('display')==='full'?json({combinations:[{id:999,id_product:601,reference:'OTHER',associations:{product_option_values:[{id:10}]}}]}):original(url,opts);
+ await assert.rejects(()=>runPrestashopProductStage(connection,{...base,existing_product:true},f),/esos atributos/);
+ assert.equal(f.calls.some(c=>c.method==='POST'),false);
+});

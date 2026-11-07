@@ -152,3 +152,5 @@ END $history$;
 
 \ir ../supabase/review_patches/069_product_corrected_absent_recovery.sql
 \ir product-corrected-recovery-db-qa.sql
+
+\ir existing-product-steps-db-qa.sql
