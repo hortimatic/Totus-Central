@@ -3,7 +3,17 @@ import assert from 'node:assert/strict';
 import {deflateSync,crc32} from 'node:zlib';
 import {validateProductStage} from '../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml} from '../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,productFinalizationFields} from '../src/productos-write-contract.js';
+
+test('finalización deriva tipo de combinaciones reales y guardado, sin activar compras',()=>{
+ const root=ids=>'<prestashop><product><id>601</id><associations><combinations>'+ids.map(id=>'<combination><id>'+id+'</id></combination>').join('')+'</combinations></associations></product></prestashop>';
+ assert.deepEqual(productFinalizationFields(root(['701','702']),{active:'0',available_for_order:'0'}),{active:'0',available_for_order:'0',state:'1',product_type:'combinations'});
+ assert.equal(productFinalizationFields(root([]),{active:'0'}).product_type,'standard');
+ assert.throws(()=>productFinalizationFields(root(['wrong']),{active:'0'}),/verificables/);
+ const actual=root(['701']),fields=productFinalizationFields(actual,{active:'0',available_for_order:'0'}),saved=prepareProductStageXml(actual,'products',fields,{},'601');
+ assert.equal(inspectProductStageXml(saved,'products',fields).verified,true);
+ assert.throws(()=>inspectProductStageXml(saved.replace('CDATA[combinations','CDATA[standard'),'products',fields),/no coincide/);
+});
 import {runPrestashopProductStage} from '../supabase/functions/totus-connections/prestashop-product-stage.js';
 import {buildVisualProductDescription} from '../src/productos-description.js';
 import {productInputValue} from '../src/productos-core.js';

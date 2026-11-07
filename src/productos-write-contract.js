@@ -150,6 +150,14 @@ export function minimalProductStageSchema(resource){
 }
 // Used only after the stage contract has validated every field and relationship.
 // No raw XML can arrive from the browser; schema/current XML is fetched by server.
+export function productFinalizationFields(xml,fields){
+ const product=direct(tree(xml),'product'),associations=direct(product,'associations');
+ const groups=associations.children.filter(n=>n.name==='combinations');
+ if(groups.length>1)invalid('Asociación de combinaciones duplicada.');
+ const combinations=groups[0]?.children||[];
+ for(const row of combinations)if(row.name!=='combination'||!integer.test(fieldText(xml,row,'id')))invalid('Combinaciones de destino no verificables.');
+ return {...fields,state:'1',product_type:combinations.length?'combinations':'standard'};
+}
 export function prepareProductStageXml(xml,resource,fields,associations={},recordId=null){
  const singular=nativeNodes[resource];if(!singular)invalid('Recurso de etapa no admitido.');
  const item=direct(tree(xml),singular),edits=[];let extra='';
@@ -308,7 +316,7 @@ export function prepareProductCreationXml(schema,create){
   if(desired.has(node.contentStart))invalid('Campo XML de alta duplicado.');
   desired.set(node.contentStart,{start:node.contentStart,end:node.contentEnd,value:safeCdata(value)});
  };
- for(const [field,value] of [['reference',create.reference],['price',create.price],['active','0'],['id_category_default',create.category_id]]){
+ for(const [field,value] of [['reference',create.reference],['price',create.price],['active','0'],['state','1'],['id_category_default',create.category_id]]){
   set(direct(product,field),value);
  }
  const names=direct(product,'name'),slugs=direct(product,'link_rewrite');
@@ -509,7 +517,7 @@ export function minimalBlankProductSchema(languageIds){
  const schema='<?xml version="1.0" encoding="UTF-8"?>'
   +'<prestashop xmlns:xlink="http://www.w3.org/1999/xlink"><product>'
   +'<id><![CDATA[]]></id><id_category_default><![CDATA[]]></id_category_default>'
-  +'<reference><![CDATA[]]></reference><price><![CDATA[]]></price><active><![CDATA[]]></active>'
+  +'<reference><![CDATA[]]></reference><price><![CDATA[]]></price><active><![CDATA[]]></active><state><![CDATA[]]></state>'
   +'<name>'+languages+'</name><link_rewrite>'+languages+'</link_rewrite>'
   +'<associations><categories><category><id><![CDATA[]]></id></category></categories></associations>'
   +'</product></prestashop>';

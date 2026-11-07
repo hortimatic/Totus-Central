@@ -24,7 +24,7 @@ const conf={id,name:'PrestaShop · Hortimatic',protocol:'prestashop',revision:2,
 const base={id,call_id,revision:2,store:'hortimatic'};
 const blank='<prestashop><product><id><![CDATA[]]></id><id_category_default><![CDATA[]]></id_category_default><reference><![CDATA[]]></reference><price><![CDATA[]]></price><active><![CDATA[]]></active><name><language id="1"><![CDATA[]]></language></name><link_rewrite><language id="1"><![CDATA[]]></language></link_rewrite><associations><categories><category><id><![CDATA[]]></id></category></categories></associations></product></prestashop>';
 const c='<prestashop><category><id><![CDATA[33]]></id></category></prestashop>',empty='<prestashop><products/></prestashop>',
- created='<prestashop><product><id><![CDATA[701]]></id></product></prestashop>',verified='<prestashop><product><id><![CDATA[701]]></id><reference><![CDATA[PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active></product></prestashop>';
+ created='<prestashop><product><id><![CDATA[701]]></id></product></prestashop>',verified='<prestashop><product><id><![CDATA[701]]></id><reference><![CDATA[PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active><associations><combinations/></associations></product></prestashop>';
 const xml=s=>new Response(s,{status:200,headers:{'content-type':'application/xml'}});
 const req=(body,token=true)=>new Request('https://example.invalid',{method:'POST',headers:{'Content-Type':'application/json',
  ...(token?{Authorization:'Bearer account-session-valid'}:{})},body:JSON.stringify(body)});
