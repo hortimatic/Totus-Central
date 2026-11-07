@@ -42,11 +42,42 @@ export function prestashopCapabilities(xml,version=''){
  const resources=[];
  for(const match of block.matchAll(/<([a-z][a-z0-9_]{0,63})\b([^>]*?)(?:\/?>)/gi)){
   if(['description','schema'].includes(match[1]))continue;
-  const attrs=match[2],get=/\bget=["']true["']/i.test(attrs);if(!/\bget=/.test(attrs))continue;
-  resources.push({name:match[1],readable:get});
+  const attrs=match[2];
+  const permissions=Object.fromEntries(['GET','POST','PUT','DELETE','HEAD'].map(method=>{
+   const re=new RegExp('\\b'+method.toLowerCase()+'\\s*=\\s*(["\\x27])true\\1','i');
+   return [method,re.test(attrs)];
+  }));
+  if(!/\b(?:get|post|put|delete|head)\s*=/i.test(attrs))continue;
+  resources.push({name:match[1],readable:permissions.GET,permissions,writable:permissions.POST||permissions.PUT,deletable:permissions.DELETE,full_crud:permissions.GET&&permissions.POST&&permissions.PUT&&permissions.DELETE});
  }
  const names=new Set();for(const r of resources){if(names.has(r.name))throw Error('Catálogo duplicado.');names.add(r.name);}
  return {version:/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(version)?version:null,resources,tpv_resources:resources.filter(r=>r.readable&&/(?:posp|tpv|cash|caja|till)/i.test(r.name)).map(r=>r.name)};
+}
+// These are permissions advertised by the destination, not proof of a successful
+// write. Keep them separate from operation results and from Totus user privileges.
+export function prestashopProductCapabilities(resources){
+ const requirements=[
+  ['products','Ficha del producto',['GET','POST','PUT']],
+  ['combinations','Variaciones',['GET','POST','PUT']],
+  ['stock_availables','Existencias',['GET','PUT']],
+  ['categories','Categorías y categoría padre',['GET','POST','PUT']],
+  ['manufacturers','Marca',['GET','POST','PUT']],
+  ['suppliers','Proveedor',['GET','POST','PUT']],
+  ['product_options','Atributos de variaciones',['GET','POST','PUT']],
+  ['product_option_values','Valores de atributos',['GET','POST','PUT']],
+  ['product_features','Características y materiales',['GET','POST','PUT']],
+  ['product_feature_values','Valores de características',['GET','POST','PUT']],
+  ['tags','Etiquetas',['GET','POST','PUT']],
+  ['tax_rule_groups','Grupos de impuestos',['GET']],
+  ['languages','Idiomas',['GET']],
+  ['images','Imágenes: carga y descarga',['GET','POST','PUT']]
+ ];
+ const entries=requirements.map(([resource,label,methods])=>{
+  const advertised=resources.find(r=>r.name===resource);
+  const missing=methods.filter(method=>advertised?.permissions?.[method]!==true);
+  return {resource,label,methods,available:!!advertised,missing,ready:missing.length===0};
+ });
+ return {permissions_complete:entries.every(entry=>entry.ready),verified_by_operation:false,entries};
 }
 export async function discoverPrestashop(connection,input,{request=fetch,resolve}={}){
  const store=prestashopStore(input.store);
@@ -54,5 +85,28 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
  const base=new URL(connection.endpoint);if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice no válida.');base.pathname=base.pathname.replace(/\/$/,'')+'/';
  const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar el catálogo del Webservice (HTTP '+response.status+').');}
- return {ok:true,store:store.key,...prestashopCapabilities(await boundedText(response,131072),response.headers.get('psws-version')||'')};
+ const capabilities=prestashopCapabilities(await boundedText(response,131072),response.headers.get('psws-version')||'');
+ return {ok:true,store:store.key,...capabilities,product_workspace:prestashopProductCapabilities(capabilities.resources)};
+}
+
+
+// Detail uses an exact resource/ID, never an arbitrary URL or field expression.
+// This is intentionally read-only: writes require a separately audited contract.
+export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
+ const store=prestashopStore(input.store);
+ if(!['products','combinations'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
+ if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
+ if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
+ const base=new URL(connection.endpoint);
+ if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice inválida.');
+ base.pathname=base.pathname.replace(/\/$/,'')+'/'+input.resource+'/'+input.record_id;
+ base.searchParams.set('output_format','JSON');
+ const target=await safeEndpoint(base.href,resolve);
+ const response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+ if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer la ficha de PrestaShop (HTTP '+response.status+').');}
+ if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
+ const raw=await boundedJson(response,2097152);
+ const singular=input.resource==='products'?'product':'combination',item=raw?.[singular];
+ if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
+ return {ok:true,store:store.key,resource:input.resource,record_id:String(input.record_id),item};
 }

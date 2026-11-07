@@ -13,6 +13,12 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  products:Object.freeze(['id','reference','name','ean13','weight','active','date_add','date_upd','id_default_image','id_default_combination','id_shop_default','id_category_default','price','associations']),
  combinations:Object.freeze(['id','id_product','reference','ean13','price','weight','default_on','associations']),
  categories:Object.freeze(['id','name','active','id_parent']),
+ manufacturers:Object.freeze(['id','name','active']),
+ suppliers:Object.freeze(['id','name','active']),
+ product_features:Object.freeze(['id','name','position']),
+ product_feature_values:Object.freeze(['id','id_feature','custom','value']),
+ tags:Object.freeze(['id','id_lang','name']),
+ tax_rule_groups:Object.freeze(['id','name','active','deleted']),
  product_options:Object.freeze(['id','name','public_name','group_type','position']),
  product_option_values:Object.freeze(['id','id_attribute_group','name','color','position']),
  order_details:Object.freeze(['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','total_price_tax_incl','total_price_tax_excl','unit_price_tax_incl','unit_price_tax_excl','reduction_percent','purchase_supplier_price','original_wholesale_price','associations']),
@@ -43,7 +49,7 @@ export function prestashopQuery(input){
   if(!valid(input.from)||!valid(input.to)||input.to<input.from)throw Error('Revisa el periodo de consulta.');
   out.from=input.from;out.to=input.to;
  }
- if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
+ if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)&&!(input.resource==='currencies'&&input.record_id===undefined)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
  if(input.product_ids!==undefined){if(input.resource!=='products')throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
  if(input.references!==undefined){

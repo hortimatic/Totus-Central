@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import {state} from '../src/state.js';
 import {productRecordHtml,pricing} from '../src/pages/main.js';
-import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant,pricingProviderCost,pricingProviderPreview,pricingCompetition} from '../src/pricing-core.js';
+import {parseVariantAttributes,formatVariantAttributes,variantStudy,numericRange,validateVariant,pricingProviderCost,pricingProviderPreview,pricingCompetition,productPriceStudy} from '../src/pricing-core.js';
+const productStudy=productPriceStudy({saleNet:'10',costNet:'3,90',vat:21,re:5.2});
+assert(Math.abs(productStudy.finalSale-12.1)<1e-9);
+assert(Math.abs(productStudy.netMargin-6.1)<1e-9);
+assert(Math.abs(productStudy.costReal-4.9218)<1e-9);
+assert(Math.abs(productStudy.margin-7.1782)<1e-9);
+assert.equal(productPriceStudy({saleNet:'10',costNet:''}),null);
+assert.equal(productPriceStudy({saleNet:'10',costNet:'3',vat:'invalid'}),null);
+assert.equal(productPriceStudy({saleNet:'-1',costNet:'3'}),null);
 const attrs=parseVariantAttributes('Color: Negro; Resistencia: 0,8 Ω\nNicotina: 10 mg');
 assert.deepEqual(attrs,{Color:'Negro',Resistencia:'0,8 Ω',Nicotina:'10 mg'});
 assert.deepEqual(parseVariantAttributes(formatVariantAttributes(attrs)),attrs);

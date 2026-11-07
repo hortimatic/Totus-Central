@@ -12,6 +12,7 @@ export const ROUTES=[
  {id:'cotejos',label:'Recepciones',icon:'⇄',group:'Operaciones tienda'},
  {id:'tareas',label:'Tareas',icon:'✓',group:'Operaciones tienda'},
  {id:'prestashop',label:'PrestaShop',icon:'▣',group:'Operaciones tienda'},
+ {id:'productos',label:'Productos',icon:'▧',group:'Operaciones tienda'},
  {id:'documentos',label:'Documentos',icon:'▥',group:'Operaciones tienda'},
  {id:'equipo',label:'Chat',icon:'☏',group:'Contactos'},
  {id:'clientes',label:'Clientes',icon:'♙',group:'Contactos'},

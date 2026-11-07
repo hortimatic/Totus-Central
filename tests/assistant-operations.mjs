@@ -17,3 +17,12 @@ test('server errors remain errors and no retries are invented',async()=>{const m
 test('destructive commands require confirmation in addition to server checks',async()=>{const m=mock();await assert.rejects(()=>runOperation(m.client,{operation:'rpc',name:'totus_delete_expense',args:{p_id:request,p_reason:'Authorized test'}},{email:'codex@totuscentral.invalid'}),/Confirmación/);assert.equal(m.calls.length,0);});
 test('bounded reads preserve RLS and deny credentials and unknown filters',async()=>{const m=mock(),user={email:'chatgpt@totuscentral.invalid'};for(const p of [{table:'vault.secrets'},{table:'ops_expenses',limit:201},{table:'ops_expenses',filters:[{column:'id',operator:'or',value:'x'}]}])await assert.rejects(()=>runOperation(m.client,{operation:'read',...p},user));assert.equal(m.calls.length,1);const r=await runOperation(m.client,{operation:'read',table:'ops_expenses',limit:20},user);assert.equal(r.rows.length,1);assert.equal(r.limit,20);});
 test('catalogue advertises exact arguments without exposing credential maintenance',()=>{const c=operationCatalogue();assert(c.rpc.totus_save_closing.includes('p_closing'));assert(!Object.hasOwn(c.rpc,'totus_onedrive_secret'));assert(!c.read_tables.includes('team_members'));});
+
+test('Products uses the assistants own authenticated functions client and rejects foreign store results',async()=>{
+ const calls=[],client={functions:{invoke:async(name,options)=>{calls.push({name,options});return {data:{ok:true,store:'hortimatic',resource:'products',persisted:false}}}}};
+ const args={action:'prestashop_product_create_prepare',store:'hortimatic',reference:'FICTIONAL'};
+ const result=await runOperation(client,{operation:'products',args},{email:'chatgpt@totuscentral.invalid'});
+ assert.equal(result.data.store,'hortimatic');assert.deepEqual(calls,[{name:'totus-connections',options:{body:args}}]);
+ await assert.rejects(()=>runOperation(client,{operation:'products',args:{...args,store:'newoldsmok'}},{email:'chatgpt@totuscentral.invalid'}),/no verificable/);
+ await assert.rejects(()=>runOperation(client,{operation:'products',args:{action:'create_actor',store:'hortimatic'}},{email:'chatgpt@totuscentral.invalid'}),/no admitida/);
+});

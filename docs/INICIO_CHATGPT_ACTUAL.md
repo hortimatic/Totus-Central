@@ -67,3 +67,7 @@ Leer [protocolo](PROTOCOLO_MANTENIMIENTO_2026-10-27.md), crear revisión separad
 
 ## Fuentes que conservar
 Conservar el paquete de código exacto de la revisión publicada y este inicio, el índice de entrega, los manuales de trabajo y el informe de estabilización. Archivar las auditorías históricas como antecedentes; no tratarlas como tareas vigentes. Las fuentes financieras originales se conservan: no son basura del código.
+
+## Productos y cuentas explícitas
+
+Para creación, copia y edición de productos consultar docs/PROTOCOLO_PRODUCTOS.md y verificar su versión instalada. El alias totus_assistant_submit puede apuntar al lector seleccionado: para la cuenta ChatGPT elegida, usar private.totus_agent_submit con su correo activo y comprobar email/rol en session_check antes de operar. No confundir una propuesta con un alta guardada.

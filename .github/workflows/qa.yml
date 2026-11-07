@@ -34,6 +34,68 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/068_automation_reference_indexes.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/068_automation_reference_indexes.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/automation-indexes-db-qa.sql
+  prestashop-178-isolated-webservice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Start isolated PrestaShop 1.7.8.11
+        run: docker compose -f tests/prestashop-sandbox/docker-compose.yml up -d
+      - name: Wait for the isolated Webservice to initialize with its fictional key
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 25); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 4 \
+              --user 'TOTUSPRESTASHOPQA123456789012345:' http://localhost:8000/api/ || true)
+            if [ "$status" = '200' ]; then
+              break
+            fi
+            if [ "$attempt" -eq 25 ]; then
+              echo "La API aislada no llegó a HTTP 200 (último HTTP $status)."
+              echo "Respuesta XML del servidor de prueba (sin credenciales):"
+              curl --silent --max-time 5 --user 'TOTUSPRESTASHOPQA123456789012345:' http://localhost:8000/api/ | head -c 1600 || true
+              echo ""
+              echo "Valores de configuración del entorno efímero:"
+              docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T mysql \
+                mariadb -uprestashop -pprestashop prestashop -e \
+                "SELECT name,value,id_shop,id_shop_group FROM ps_configuration WHERE name IN ('PS_WEBSERVICE','PS_SHOP_ENABLE','PS_SSL_ENABLED') ORDER BY name,id_shop"
+              echo "Información de cuenta de prueba, sin mostrar su clave:"
+              docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T mysql \
+                mariadb -uprestashop -pprestashop prestashop -e \
+                "SELECT id_webservice_account,active FROM ps_webservice_account"
+              docker compose -f tests/prestashop-sandbox/docker-compose.yml logs --tail=60
+              exit 1
+            fi
+            sleep 2
+          done
+      - name: Test REAL POST and verification in isolated PrestaShop only
+        run: node --test tests/prestashop-sandbox/live-product-qa.mjs
+      - name: Remove disposable shop and database
+        if: always()
+        run: docker compose -f tests/prestashop-sandbox/docker-compose.yml down -v --remove-orphans
+  prestashop-product-create-journal-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate product POST idempotency and permissions in disposable database
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-product-journal-db-qa.sql
   audit-hardening-database:
     runs-on: ubuntu-latest
     services:
@@ -84,6 +146,13 @@ jobs:
       - run: node tests/prestashop-payment-filter-qa.mjs
       - run: node tests/prestashop-list-page-qa.mjs
       - run: node tests/prestashop-margin-qa.mjs
+      - run: node --test tests/productos-core-qa.mjs
+      - run: node --test tests/productos-write-qa.mjs
+      - run: node --test tests/productos-create-qa.mjs
+      - run: node --test tests/productos-create-ui-qa.mjs
+      - run: node --test tests/productos-stages-qa.mjs
+      - run: node --test tests/prestashop-product-create-edge-qa.mjs
+      - run: node --test tests/prestashop-permissions-qa.mjs
       - run: node tests/prestashop-automation-qa.mjs
       - run: node tests/prestashop-alert-worker-qa.mjs
       - run: node tests/stock-backup-qa.mjs
@@ -205,6 +274,7 @@ jobs:
       - run: node tests/stock-async-browser-qa.mjs
       - run: node tests/stock-rules-browser-qa.mjs
       - run: node tests/prestashop-automations-browser-qa.mjs
+      - run: node tests/productos-ui-browser-qa.mjs
       - run: node tests/pricing-directory-browser-qa.mjs
       - run: node tests/deep-editing-browser-qa.mjs
       - run: node tests/template-editor-browser-qa.mjs
