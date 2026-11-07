@@ -72,6 +72,10 @@ jobs:
             fi
             sleep 2
           done
+      - name: Install and verify the isolated unit-price compatibility module
+        run: |
+          docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T prestashop php bin/console prestashop:module install totusproductbridge --no-interaction
+          docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T prestashop php /tmp/totus-bridge-qa.php
       - name: Test REAL POST and verification in isolated PrestaShop only
         run: node --test tests/prestashop-sandbox/live-product-qa.mjs
       - name: Remove disposable shop and database

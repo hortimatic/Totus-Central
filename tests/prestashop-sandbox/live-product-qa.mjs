@@ -72,7 +72,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
-   price:'1.00',category_id:'2',fields:[{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'}],
+   price:'1.00',category_id:'2',fields:[{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unit_price_ratio',value:'2'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
    translations:profile.language_ids.map(id=>({language_id:id,name:'Pruebas CI',link_rewrite:'pruebas-ci',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
@@ -152,6 +152,12 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const editPrepared=await runPrestashopProductWrite(connection,edit,editOptions);
  const editCommit={...edit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:editPrepared.fingerprint,confirmed:true};
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).verified,true);
+ const ratioResponse=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,price,unit_price_ratio,unity]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(ratioResponse.status,200);
+ const ratioData=await ratioResponse.json(),ratioProduct=ratioData.product||ratioData.products?.[0];
+ assert.equal(Number(ratioProduct.price),2.35);
+ assert.equal(Number(ratioProduct.unit_price_ratio),2,'Changing price must preserve the original unit ratio');
+ assert.equal(ratioProduct.unity,'l');
  const writesBefore=calls.filter(c=>c.method==='PUT').length;
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).replayed,true);
  assert.equal(calls.filter(c=>c.method==='PUT').length,writesBefore);
