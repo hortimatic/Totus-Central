@@ -49,10 +49,10 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
    };
   })():null;
   const productStageJournal=['prestashop_product_step_prepare','prestashop_product_step_commit'].includes(input.action)?(()=>{
-   const shared={actor_id:user.id,connection_id:input.id,revision:input.revision,product_id:input.product_id};
-   const stageCall=(action:string,op:any,signature?:string,record_id?:string)=>checkResult(admin.rpc('totus_prestashop_product_step',{p_action:action,p_request_id:input.parent_request_id,p_stage:op.stage,p_data:{...shared,...(signature?{signature}:{}),...(record_id?{record_id}:{})}}));
+   const shared={actor_id:user.id,connection_id:input.id,revision:input.revision,product_id:input.product_id,...(input.existing_product===true?{store:input.store}:{})};
+   const stageCall=(action:string,op:any,signature?:string,record_id?:string)=>checkResult(admin.rpc(input.existing_product===true?'totus_prestashop_existing_product_step':'totus_prestashop_product_step',{p_action:action,p_request_id:input.parent_request_id,p_stage:op.stage,p_data:{...shared,...(signature?{signature}:{}),...(record_id?{record_id}:{})}}));
    const checkResult=async(promise:any)=>check(await promise);
-   return {parent:(request_id:string)=>checkResult(admin.rpc('totus_prestashop_product_create_journal',{p_action:'lookup',p_request_id:request_id,p_data:shared})),
+   return {parent:(request_id:string)=>input.existing_product===true?Promise.resolve({status:'completed',store:input.store,product_id:input.product_id}):checkResult(admin.rpc('totus_prestashop_product_create_journal',{p_action:'lookup',p_request_id:request_id,p_data:shared})),
     lookup:(op:any)=>stageCall('lookup',op),claim:(op:any,signature:string)=>stageCall('claim',op,signature),complete:(op:any,signature:string,id:string)=>stageCall('complete',op,signature,id),uncertain:(op:any,signature:string)=>stageCall('uncertain',op,signature)};
   })():null;
   const productEditJournal=input.action==='prestashop_product_commit'?(()=>{

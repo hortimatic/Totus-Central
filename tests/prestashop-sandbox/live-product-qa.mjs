@@ -177,5 +177,20 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const writesBefore=calls.filter(c=>c.method==='PUT').length;
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).replayed,true);
  assert.equal(calls.filter(c=>c.method==='PUT').length,writesBefore);
+ const existingStages=new Map();
+ const existingJournal={parent:async()=>({status:'completed',store:'hortimatic',product_id:result.record_id}),
+  lookup:async op=>existingStages.get(op.stage)||null,
+  claim:async(op,signature)=>{if(existingStages.has(op.stage))return existingStages.get(op.stage);existingStages.set(op.stage,{status:'pending',signature});return {status:'claimed'};},
+  complete:async(op,signature,record_id)=>{existingStages.set(op.stage,{status:'completed',signature,record_id});},
+  uncertain:async op=>{existingStages.get(op.stage).status='uncertain';}};
+ const anotherOptionResponse=await localOnlyRequest('https://hortimatic.com/api/product_option_values?output_format=JSON&display=[id]&sort=[id_DESC]&limit=1,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(anotherOptionResponse.status,200);const anotherOption=(await anotherOptionResponse.json()).product_option_values[0];assert(anotherOption?.id);
+ const existing={...stage,associations:{product_option_values:[String(anotherOption.id)]},parent_request_id:crypto.randomUUID(),existing_product:true,step_key:'existing_variation',fields:{...stage.fields,reference:'TOTUS-CI-EXISTING-VARIANT',default_on:'0'}};
+ const existingOptions={...options,journal:existingJournal},existingPrepared=await runPrestashopProductStage(connection,existing,existingOptions);
+ const existingCommit={...existing,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:existingPrepared.fingerprint};
+ const existingDone=await runPrestashopProductStage(connection,existingCommit,existingOptions);assert.equal(existingDone.verified,true);
+ const countBeforeReplay=calls.filter(c=>c.method==='POST').length;
+ assert.equal((await runPrestashopProductStage(connection,existingCommit,existingOptions)).reused,true);
+ assert.equal(calls.filter(c=>c.method==='POST').length,countBeforeReplay);
  console.log('SANDBOX: PNG transparente cargado y publicación no comprable verificada; coste, precio y peso conservados.');
 });

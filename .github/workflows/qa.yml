@@ -152,6 +152,7 @@ jobs:
       - run: node tests/prestashop-margin-qa.mjs
       - run: node --test tests/productos-core-qa.mjs
       - run: node --test tests/productos-write-qa.mjs
+      - run: node --test tests/productos-request-qa.mjs
       - run: node --test tests/productos-create-qa.mjs
       - run: node --test tests/productos-create-ui-qa.mjs
       - run: node --test tests/productos-stages-qa.mjs

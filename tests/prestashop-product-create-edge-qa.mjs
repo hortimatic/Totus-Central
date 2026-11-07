@@ -39,7 +39,7 @@ const fixture=(opts={})=>{
    if(name==='totus_api_manager')return opts.denied?{error:{message:'Permiso de administración necesario'}}:{data:{connections:[{id,revision:2}]}};
    if(name==='totus_api_server')return {data:conf};
    if(name==='totus_api_call')return {data:null};
-   if(name==='totus_prestashop_product_step'){
+   if(name==='totus_prestashop_product_step'||name==='totus_prestashop_existing_product_step'){
     assert.equal(key,'server-only');assert.equal(payload.p_data.actor_id,user_id);assert.equal(payload.p_data.product_id,'701');
     if(payload.p_action==='lookup')return {data:null};throw Error('No child writes enabled in this fixture');
    }
@@ -152,4 +152,17 @@ test('habilitar altas no habilita ediciones PUT que aún carecen de diario durab
  const res=await handle(req(body),environment(true),f.factory,f.request);
  assert.equal(res.status,400);assert.match((await res.json()).error,/Escritura de productos bloqueada/);
  assert.equal(f.calls.filter(x=>x.type==='http'&&x.method!=='GET').length,0);
+}));
+
+
+test('producto existente usa sesión autenticada y diario independiente, sin apropiarse de un alta',()=>context(async()=>{
+ const f=fixture(),body={...base,action:'prestashop_product_step_prepare',existing_product:true,parent_request_id:user_id,product_id:'701',kind:'finish',step_key:'existing_metadata',fields:{active:'0',available_for_order:'0'}};
+ const prepared=await handle(req(body),environment(),f.factory,f.request);
+ assert.equal(prepared.status,200,JSON.stringify(await prepared.clone().json()));
+ assert.equal(f.calls.some(c=>c.name==='totus_prestashop_product_create_journal'),false);
+ const res=await handle(req({...body,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:(await prepared.json()).fingerprint}),environment(),f.factory,f.request);
+ assert.equal(res.status,400);
+ const lookup=f.calls.find(c=>c.name==='totus_prestashop_existing_product_step');
+ assert.equal(lookup.payload.p_data.actor_id,user_id);assert.equal(lookup.payload.p_data.store,'hortimatic');
+ assert.equal(f.calls.some(c=>c.type==='http'&&c.method==='POST'),false);
 }));

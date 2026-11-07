@@ -26,8 +26,8 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
  const productDisplay='['+[...new Set(['id','reference','price','active','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']';
- const root=await xml('products/'+op.product_id,{display:op.kind==='finish'?productDisplay:'[id,reference]'});
- if(parsePrestashopResourceId(root,'product')!==op.product_id||readPrestashopXmlField(root,'product','reference')!==parent.reference)throw Error('La ficha de destino no corresponde al producto registrado.');
+ const root=await xml('products/'+op.product_id,{display:op.kind==='finish'?productDisplay:op.existing_product?'[id,reference,price,active,available_for_order,visibility]':'[id,reference]'});
+ if(parsePrestashopResourceId(root,'product')!==op.product_id||(!op.existing_product&&readPrestashopXmlField(root,'product','reference')!==parent.reference))throw Error('La ficha de destino no corresponde al producto registrado.');
  const rootJson=async()=>{const data=await json('products/'+op.product_id,{display:'[id,reference,images[id]]'});const product=data.product||data.products?.[0];if(String(product?.id)!==op.product_id)throw Error('Ficha de producto no verificable.');return product;};
  const assertVariant=async id=>{
   if(id==='0')return;
@@ -82,6 +82,22 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(prior.status!=='completed')await journal.complete(op,signature,String(recordId));
   return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:String(recordId),persisted:true,verified:true,reused:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};
  }
+ if(op.existing_product&&op.kind==='variation'){
+  const expected=[...op.associations.product_option_values].sort().join(',');
+  for(let page=0;;page++){
+   const data=await json('combinations',{'filter[id_product]':'['+op.product_id+']',display:'full',limit:(page*100)+',100'});
+   const rows=Array.isArray(data)&&!data.length?[]:data.combinations;
+   if(!Array.isArray(rows))throw Error('No se han podido comprobar las combinaciones existentes.');
+   for(const row of rows){
+    if(String(row.id_product)!==op.product_id||!Array.isArray(row.associations?.product_option_values))throw Error('Combinaciones existentes incompletas.');
+    const values=row.associations.product_option_values.map(v=>String(v.id));
+    if(values.some(v=>!/^[1-9]\d{0,14}$/.test(v)))throw Error('Atributos existentes no verificables.');
+    if([...values].sort().join(',')===expected)throw Error('Ya existe una combinación con esos atributos. No se creará otra.');
+   }
+   if(rows.length<100)break;
+   if(page>=1000)throw Error('No se pudo completar la comprobación de atributos existentes.');
+  }
+ }
  const recordId=op.kind==='finish'?op.product_id:op.kind==='image'?null:await find();
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
  if(op.kind==='variation'&&recordId)throw Error('Ya hay una combinación con esa referencia. No se creará otra.');
@@ -98,7 +114,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   }
  }
  const body=image?null:prepareProductStageXml(original,op.resource,desired,op.associations,recordId);
- const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||''));
+ const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||'')+(op.existing_product?'|'+root:''));
  const enabled=env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';
  if(!op.commit)return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:recordId,fingerprint,persisted:false,can_commit:enabled,legacy_schema_fallback};
  if(!enabled)throw Error('Las etapas de creación todavía no están habilitadas en este servidor.');
