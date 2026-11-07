@@ -43,6 +43,7 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
    return {
     lookup:(request_id:string)=>journalCall('lookup',request_id),
     claim:(op:any)=>journalCall('claim',op.request_id,{store:op.store,reference:op.reference,signature:op.signature}),
+    retryAbsent:async(op:any)=>check(await admin.rpc('totus_prestashop_product_retry_absent',{p_request_id:op.request_id,p_data:{...shared,store:op.store,reference:op.reference,signature:op.signature}})),
     complete:(op:any)=>journalCall('complete',op.request_id,{signature:op.signature,product_id:op.product_id}),
     uncertain:(op:any)=>journalCall('uncertain',op.request_id,{signature:op.signature,product_id:op.product_id})
    };

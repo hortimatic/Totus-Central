@@ -12,6 +12,21 @@ const readBack='<prestashop><product><id><![CDATA[301]]></id><reference><![CDATA
 const response=xml=>new Response(xml,{status:200,headers:{'content-type':'application/xml'}});
 const resolve=async()=>['8.8.8.8'];
 
+test('el esquema nativo completo no envía setters calculados ni asociaciones vacías',()=>{
+ const full=blank.replace('<reference>',
+  '<id_default_image><![CDATA[]]></id_default_image><id_default_combination><![CDATA[]]></id_default_combination><position_in_category><![CDATA[]]></position_in_category><type><![CDATA[]]></type><reference>')
+  .replace('</associations>', '<images><image><id><![CDATA[]]></id></image></images><stock_availables><stock_available><id><![CDATA[]]></id><id_product_attribute><![CDATA[]]></id_product_attribute></stock_available></stock_availables><product_bundle><product><id><![CDATA[]]></id><quantity><![CDATA[]]></quantity></product></product_bundle></associations>');
+ const request=validateProductCreateRequest({...input,fields:[{field:'weight',value:'0.65'},{field:'wholesale_price',value:'3.90'}],relations:{supplier_id:'1',category_ids:['33','40'],features:[{feature_id:'4',value_id:'51'}]}});
+ const actual=prepareProductCreationXml(full,request);
+ assert.doesNotMatch(actual,/<(?:id_default_image|id_default_combination|position_in_category|type|images|stock_availables|product_bundle)>/);
+ assert.match(actual,/<weight><!\[CDATA\[0\.65\]\]><\/weight>/);
+ assert.match(actual,/<wholesale_price><!\[CDATA\[3\.90\]\]><\/wholesale_price>/);
+ assert.match(actual,/<id_supplier><!\[CDATA\[1\]\]><\/id_supplier>/);
+ assert.match(actual,/<id_feature_value><!\[CDATA\[51\]\]><\/id_feature_value>/);
+ assert.match(actual,/<language id="2"><!\[CDATA\[Tests\]\]><\/language>/);
+ assert.throws(()=>prepareProductCreationXml(full.replace('<id><![CDATA[]]></id>','<id>12</id>'),request),/no es una ficha en blanco/);
+});
+
 test('alta relaciona múltiples categorías, marca, proveedor, impuestos, materiales, etiquetas y productos relacionados',()=>{
  const op=validateProductCreateRequest({...input,relations:{manufacturer_id:'3',supplier_id:'4',tax_rules_group_id:'1',category_ids:['33','40'],related_product_ids:['51'],tag_ids:['8'],features:[{feature_id:'2',value_id:'5'}]}});
  const xml=prepareProductCreationXml(blank,op);
@@ -183,4 +198,23 @@ test('reconciliar una respuesta perdida solo relee: no repite POST y completa el
  const recovered=await runPrestashopProductCreate(connection,command,{request,resolve,env:{get:()=> '1'},journal});
  assert.equal(recovered.record_id,'301');assert.equal(recovered.reused,true);assert.equal(entries.get(id).status,'completed');
  assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+});
+
+test('recuperación explícita conserva UUID e intención, comprueba ausencia dos veces y solo reclama un incierto',async()=>{
+ const f=fixture();let saved=null,retries=0;
+ const j={lookup:async()=>saved,claim:async()=>{throw Error('No usar claim nuevo');},complete:async r=>{saved={...saved,status:'completed',product_id:r.product_id};},uncertain:async()=>{},retryAbsent:async()=>{assert.equal(saved.status,'uncertain');saved.status='pending';retries++;return {status:'claimed'};}};
+ const preview=await runPrestashopProductCreate(connection,input,{request:f.request,resolve,env:{get:()=> '1'}});
+ const signature=await (await import('../src/productos-write-contract.js')).sha256Text(JSON.stringify({store:'hortimatic',reference:input.reference,price:input.price,category_id:input.category_id,translations:input.translations,fields:[]}));
+ saved={status:'uncertain',store:'hortimatic',reference:input.reference,signature,product_id:null};
+ const cmd={...input,action:'prestashop_product_create_commit',confirmed:true,request_id:id,expected_fingerprint:preview.fingerprint};
+ await assert.rejects(()=>runPrestashopProductCreate(connection,cmd,{request:f.request,resolve,env:{get:()=> '1'},journal:j}),/exactamente/);
+ assert.equal(retries,0);assert.equal(f.calls.some(c=>c.method==='POST'),false);
+ const before=f.calls.length;
+ const result=await runPrestashopProductCreate(connection,{...cmd,retry_absent:true},{request:f.request,resolve,env:{get:()=> '1'},journal:j});
+ assert.equal(result.record_id,'301');assert.equal(retries,1);
+ assert.equal(f.calls.slice(before).filter(c=>c.method==='GET'&&c.params.some(([k,v])=>k==='display'&&v==='[id,reference]')).length,2);
+ assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+ const again=await runPrestashopProductCreate(connection,{...cmd,retry_absent:true},{request:f.request,resolve,env:{get:()=> '1'},journal:j});
+ assert.equal(again.reused,true);assert.equal(retries,1);assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+ assert.throws(()=>validateProductCreateRequest({...input,retry_absent:true}),/confirmación expresa/);
 });

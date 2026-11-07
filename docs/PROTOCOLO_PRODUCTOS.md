@@ -109,3 +109,8 @@ Pruebas exigidas: contratos y permisos; diario en PostgreSQL aislado; PrestaShop
 ## Relevo
 
 Conservar versión publicada, PR y ejecución de controles, tienda/ID/referencia de pruebas, resultados verificados, pendientes explícitos y solicitudes inciertas. No incluir claves, contraseñas ni URLs del administrador con tokens de sesión. Antes de ampliar a otra versión de PrestaShop, repetir la integración aislada y la lectura de capacidades de esa tienda.
+
+## Recuperación del alta y plantilla nativa completa (07/11/2026)
+La plantilla `schema=blank` es un catálogo de campos, no un documento para enviar completo. El alta conserva los idiomas del destino y genera únicamente los campos y relaciones seleccionados. No envía relaciones vacías de imágenes, existencias o packs ni setters calculados.
+
+Si una petición queda incierta, primero usar «Comprobar resultado sin repetir el alta». Tras corregir su causa, «Recuperar un alta que no llegó a crearse» exige escribir REINTENTAR. El servidor conserva UUID, referencia, contenido y firma; consulta dos veces la referencia, vuelve a validar esquema/categoría/relaciones y solo reclama atómicamente un registro incierto propio sin ID. Si ya existe un producto, lo recupera por lectura. Un registro pendiente, completado, ajeno o con ID no admite otro POST. Los reintentos se añaden al historial privado, sin borrar el registro. ChatGPT puede usar `retry_absent:true` únicamente en la misma operación confirmada de alta, después de revisar el fallo; no debe modificar el contenido ni inventar otro UUID.

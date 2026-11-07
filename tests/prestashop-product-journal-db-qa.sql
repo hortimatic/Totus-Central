@@ -18,6 +18,7 @@ INSERT INTO private.totus_api_connections VALUES
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','PrestaShop · Hortimatic',2,2,true,true),
  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','PrestaShop · NewOldSmok',3,3,true,true);
 \ir ../supabase/migrations/20261106170000_prestashop_product_create_journal.sql
+\ir ../supabase/migrations/20261107040000_product_absent_recovery.sql
 -- Re-applying the migration must be harmless and must not delete pending rows.
 SET ROLE service_role;
 DO $tests$
@@ -120,3 +121,31 @@ BEGIN
  IF has_function_privilege('authenticated','public.totus_prestashop_product_edit(text,uuid,jsonb)','EXECUTE') THEN RAISE EXCEPTION 'Browser can call private journal'; END IF;
 END $edit_test$;
 RESET ROLE;
+
+SET ROLE service_role;
+DO $retry$
+DECLARE d jsonb:='{"actor_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","connection_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","revision":2,"store":"hortimatic","reference":"RECOVERY-TEST","signature":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}';
+ i uuid:='88888888-8888-4888-8888-888888888888';
+BEGIN
+ PERFORM public.totus_prestashop_product_create_journal('claim',i,d);
+ BEGIN
+  PERFORM public.totus_prestashop_product_retry_absent(i,d);RAISE EXCEPTION 'Pending retried';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='Pending retried' THEN RAISE;END IF;END;
+ PERFORM public.totus_prestashop_product_create_journal('uncertain',i,d);
+ BEGIN
+  PERFORM public.totus_prestashop_product_retry_absent(i,jsonb_set(d,'{actor_id}','"dddddddd-dddd-4ddd-8ddd-dddddddddddd"'));RAISE EXCEPTION 'Foreign retry';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='Foreign retry' THEN RAISE;END IF;END;
+ IF public.totus_prestashop_product_retry_absent(i,d)->>'status'<>'claimed' THEN RAISE EXCEPTION 'Retry not claimed';END IF;
+ BEGIN
+  PERFORM public.totus_prestashop_product_retry_absent(i,d);RAISE EXCEPTION 'Concurrent retry';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='Concurrent retry' THEN RAISE;END IF;END;
+ PERFORM public.totus_prestashop_product_create_journal('complete',i,d||'{"product_id":999}');
+ BEGIN
+  PERFORM public.totus_prestashop_product_retry_absent(i,d);RAISE EXCEPTION 'Completed retried';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='Completed retried' THEN RAISE;END IF;END;
+ IF has_function_privilege('authenticated','public.totus_prestashop_product_retry_absent(uuid,jsonb)','EXECUTE') OR has_function_privilege('anon','public.totus_prestashop_product_retry_absent(uuid,jsonb)','EXECUTE') THEN RAISE EXCEPTION 'Browser retry privilege';END IF;
+END $retry$;
+RESET ROLE;
+DO $history$ BEGIN
+ IF (SELECT jsonb_array_length(retry_history) FROM private.totus_prestashop_product_create_requests WHERE request_id='88888888-8888-4888-8888-888888888888')<>1 THEN RAISE EXCEPTION 'Retry history lost';END IF;
+END $history$;

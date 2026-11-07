@@ -35,16 +35,24 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
   return inspectReconciledNewProduct(xml,op,expectedId);
  };
+ let retrying=false;
  if(op.commit){
   const prior=await journal.lookup(op.request_id);
   if(prior){
    if(prior.signature!==signature||prior.store!==op.store||prior.reference!==op.reference)
     throw Error('El request_id ya se ha usado para otra solicitud.');
    if(!['pending','uncertain','completed'].includes(prior.status))throw Error('Estado de alta no verificable.');
-   const verified=await verifyReadback(prior.product_id||null);
-   if(prior.status!=='completed')await journal.complete({request_id:op.request_id,signature,product_id:verified.id});
-   return {ok:true,store:op.store,resource:'products',record_id:String(verified.id),request_id:op.request_id,persisted:true,verified:true,active:false,reused:true};
+   const found=inspectProductReferenceListing(await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference]'}));
+   if(op.retry_absent&&prior.status==='uncertain'&&!prior.product_id&&found.length===0){
+    if(typeof journal.retryAbsent!=='function')throw Error('Falta el registro de recuperación revisado.');
+    retrying=true;
+   }else{
+    const verified=await verifyReadback(prior.product_id||null);
+    if(prior.status!=='completed')await journal.complete({request_id:op.request_id,signature,product_id:verified.id});
+    return {ok:true,store:op.store,resource:'products',record_id:String(verified.id),request_id:op.request_id,persisted:true,verified:true,active:false,reused:true};
+   }
   }
+  else if(op.retry_absent)throw Error('No existe una solicitud incierta propia que recuperar.');
  }
  let schema,legacy_schema_fallback=false;
  try{schema=await fetchXml('products',{schema:'blank'});}
@@ -81,7 +89,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  if(!op.commit)return {ok:true,store:op.store,resource:'products',operation:'create',reference:op.reference,category_id:op.category_id,
   language_ids:op.translations.map(t=>t.language_id),fingerprint,legacy_schema_fallback,persisted:false,can_commit:env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'};
  if(fingerprint!==op.expected_fingerprint)throw Error('El esquema o la categoría han cambiado. Prepara el alta de nuevo.');
- const claim=await journal.claim({request_id:op.request_id,store:op.store,reference:op.reference,signature});
+ const claim=await (retrying?journal.retryAbsent:journal.claim)({request_id:op.request_id,store:op.store,reference:op.reference,signature});
  if(claim?.status!=='claimed')throw Error('El alta está registrada por otro proceso o pendiente de conciliación. No se repetirá.');
  const url=new URL(base.href);url.pathname='/api/products';const target=await safeEndpoint(url.href,resolve);
  let id=null,postProblem=null;

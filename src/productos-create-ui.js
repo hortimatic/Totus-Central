@@ -66,7 +66,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    (prepared?'<span class="prd-api-ok">Esquema, idiomas, categoría y duplicados validados. Todavía no se ha creado nada.</span>':'')+'</div>'+
    (prepared&&!prepared.can_commit?'<p class="prd-warning">La escritura POST aún no está habilitada en el servidor de Totus. Esta propuesta es solo consulta.</p>':'')+(prepared&&prepared.can_commit?'<div class="prd-create-confirm"><label>Para confirmar esta alta escribe <b>CREAR</b><input data-pr-create-confirm="'+h(shop)+'" autocomplete="off" value="'+h(confirmation)+'" '+(locked?'disabled':'')+'></label>'+
     b('Crear en PrestaShop (inactivo)','create-commit',shop,locked||!canEdit()||confirmation!=='CREAR')+'</div>':'')+
-   (locked?'<p class="prd-warning">Petición de alta: <code>'+h(requestIds.get(shop))+'</code>. Conserva este identificador si hay un error. No cambies la referencia ni repitas el alta: comprueba primero el resultado.</p>'+b('Comprobar resultado sin repetir el alta','create-verify',shop,!canEdit()):'')+
+   (locked?'<p class="prd-warning">Petición de alta: <code>'+h(requestIds.get(shop))+'</code>. Conserva este identificador si hay un error. No cambies la referencia ni repitas el alta: comprueba primero el resultado.</p>'+b('Comprobar resultado sin repetir el alta','create-verify',shop,!canEdit())+'<details><summary>Recuperar un alta que no llegó a crearse</summary><p>Solo después de resolver el error. Totus comprobará dos veces la ausencia de la referencia, conservará esta misma solicitud y registrará el reintento. Si existe un producto, lo recuperará sin crear otro.</p><label>Escribe REINTENTAR<input data-pr-create-retry-confirm="'+h(shop)+'" value="'+h(confirmation)+'" autocomplete="off"></label>'+b('Reintentar solo si no existe','create-retry-absent',shop,!canEdit()||confirmation!=='REINTENTAR')+'</details>':'')+
    '</section>';
  }
  const reset=()=>{profiles.clear();categories.clear();relationCatalogs.clear();config.clear();previews.clear();requestIds.clear();attempted.clear();results.clear();confirmations.clear();stages.reset();};
@@ -75,6 +75,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   if(stages.handleChange(el))return true;
   const shop=el?.dataset?.prCreateStore,language=el?.dataset?.prCreateLanguage,field=el?.dataset?.prCreateField;
   if(el?.dataset?.prCreateConfirm!==undefined){confirmations.set(el.dataset.prCreateConfirm,el.value);return true;}
+  if(el?.dataset?.prCreateRetryConfirm!==undefined){confirmations.set(el.dataset.prCreateRetryConfirm,el.value);return true;}
   const relation=el?.dataset?.prCreateRelation,features=el?.dataset?.prCreateFeatures;
   if(!shop||(!field&&!language&&!relation&&!features))return false;
   if(attempted.has(shop))return true;
@@ -171,12 +172,14 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    results.set(shop,{record_id:response.record_id,request_id});
    return 'Base guardada en '+shop+' con ID '+response.record_id+'. Completa las etapas pendientes; permanece inactivo.';
   }
-  if(action==='create-verify'){
+  if(action==='create-verify'||action==='create-retry-absent'){
    const prepared=previews.get(shop),request_id=requestIds.get(shop);
    if(!canEdit()||!attempted.has(shop)||!prepared||!request_id)throw Error('No hay una petición de alta propia que comprobar.');
-   const response=await invoke(shop,'prestashop_product_create_commit',{...prepared.values,expected_fingerprint:prepared.fingerprint,request_id,confirmed:true});
+   const retry=action==='create-retry-absent';
+   if(retry&&confirmations.get(shop)!=='REINTENTAR')throw Error('Escribe REINTENTAR después de revisar el error.');
+   const response=await invoke(shop,'prestashop_product_create_commit',{...prepared.values,expected_fingerprint:prepared.fingerprint,request_id,confirmed:true,...(retry?{retry_absent:true}:{})});
    if(response.persisted!==true||response.verified!==true||!/^[1-9]\d{0,14}$/.test(String(response.record_id||'')))throw Error('Resultado aún no comprobado. No repitas el alta.');
-   results.set(shop,{record_id:response.record_id,request_id});return 'Alta recuperada por relectura en '+shop+' · ID '+response.record_id+'. No se ha repetido el POST.';
+   results.set(shop,{record_id:response.record_id,request_id});return 'Alta recuperada y verificada en '+shop+' · ID '+response.record_id+'. '+(response.reused?'Sin repetir el POST.':'Reintento confirmado registrado con la misma solicitud.');
   }
   throw Error('Acción de alta desconocida.');
  }

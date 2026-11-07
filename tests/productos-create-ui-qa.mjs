@@ -122,3 +122,19 @@ test('comprobar resultado reutiliza el identificador de una solicitud incierta',
  options.networkError=false;await f.wizard.perform('create-verify',shop,plan,source);
  assert.equal(f.calls.at(-1).args.request_id,original);assert.match(f.wizard.render(plan,source),/Base del producto guardada/);
 });
+
+test('la recuperación manual pide REINTENTAR y conserva el mismo request_id y contenido',async()=>{
+ const options={networkError:true},f=fixture(options);await complete(f);
+ f.wizard.handleChange(confirmation(shop,'CREAR'));
+ await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/incierta/);
+ const original=f.calls.at(-1).args;
+ assert.match(f.wizard.render(plan,source),/Reintentar solo si no existe/);
+ await assert.rejects(()=>f.wizard.perform('create-retry-absent',shop,plan,source),/REINTENTAR/);
+ f.wizard.handleChange({dataset:{prCreateRetryConfirm:shop},value:'REINTENTAR'});
+ options.networkError=false;
+ await f.wizard.perform('create-retry-absent',shop,plan,source);
+ const retry=f.calls.at(-1).args;
+ assert.equal(retry.retry_absent,true);assert.equal(retry.request_id,original.request_id);
+ assert.deepEqual({...retry,retry_absent:undefined},{...original,retry_absent:undefined});
+ assert.match(f.wizard.render(plan,source),/#701/);
+});
