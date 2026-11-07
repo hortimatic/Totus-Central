@@ -44,6 +44,7 @@ try{
      return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,item};
     }
     if(body.action==='prestashop_read'){
+     if(body.resource==='stock_availables')return {ok:true,store:body.store,resource:body.resource,page:body.page,possibly_more:false,rows:(body.product_ids||[]).flatMap(id=>[{id:'1001',id_product:id,id_product_attribute:'0',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''},{id:'1002',id_product:id,id_product_attribute:'801',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''}])};
      if(body.resource==='categories')return {ok:true,store:body.store,resource:'categories',page:body.page,rows:[{id:'33',name:'Inicio'}],possibly_more:false};
      const catalogs={image_types:[{id:'1',name:'large_default',products:'1',width:'800',height:'800'}],product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
      if(catalogs[body.resource])return {ok:true,store:body.store,resource:body.resource,rows:catalogs[body.resource],possibly_more:false};
@@ -112,7 +113,7 @@ try{
   assert.equal(await page.getByRole('button',{name:'Guardar cambios en newoldsmok'}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   await page.evaluate(()=>{productosQA.allowWrites=true;});
-  assert.equal(await page.locator('.prd-stitch-copy-fields').count(),2,'Dos fichas paralelas');
+  assert.equal(await page.locator('#panel-store-source,#panel-store-target').count(),2,'Dos fichas paralelas');
   if(width===1440&&process.env.TOTUS_PRODUCTS_CAPTURE){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:process.env.TOTUS_PRODUCTS_CAPTURE,fullPage:false});}
   await page.locator('[data-pr-lang-store="newoldsmok"][data-pr-lang-field="name"]').selectOption('1');
   await page.getByRole('button',{name:'Validar contra el XML de la tienda'}).click();

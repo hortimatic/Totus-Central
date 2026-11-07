@@ -32,6 +32,10 @@ try{
   assert.match(await page.locator('.prd-photo-dialog img').getAttribute('src'),/91-large_default/);
   await page.getByRole('button',{name:'Cerrar imagen',exact:true}).click();
 
+  await page.locator('[data-pr-section="variaciones"]').click();await page.locator('[data-pr-action="stock-stages"][data-pr-vid="301"]').click();
+  const stockReview=page.locator('.prd-stage-row').last();assert.equal(await stockReview.locator('[data-pr-stage-field="quantity"]').inputValue(),'7');assert.equal(await stockReview.locator('[data-pr-stage-field="location"]').inputValue(),'Estante B');
+  await stockReview.getByRole('button',{name:'Descartar esta etapa',exact:true}).click();assert.equal(await page.locator('.prd-stage-row').count(),0);
+  await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="imagenes"]').click();
   await page.locator('[data-pr-action="image-cover"][data-pr-image="91"]').click();
   await page.locator('#tab-borradores').waitFor();
   assert.equal(await page.locator('[data-pr-stage-field="id_default_image"]').inputValue(),'91');
@@ -115,6 +119,9 @@ try{
   await replacement.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
   await page.getByText(/Sustituir imagen guardado y verificado/).waitFor();
   const replacementWrite=await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')).at(-1));assert.equal(replacementWrite.kind,'image_replace');assert.equal(replacementWrite.record_id,'91');assert.equal(replacementWrite.image.mime,'image/png');assert.equal(replacementWrite.fields,undefined);
+  await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="imagenes"]').click();
+  await page.locator('[data-pr-image-drop]').evaluate(node=>{const transfer=new DataTransfer();transfer.items.add(new File(['<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect x="30" y="10" width="40" height="80" fill="navy"/></svg>'],'drop.svg',{type:'image/svg+xml'}));node.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));});
+  await page.getByText(/1 fotos preparadas/).waitFor();assert.equal(await page.locator('.prd-stage-image').count(),1);assert.equal(await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')).length),8,'Dropping photos prepares a review without uploading');
   assert.deepEqual(errors,[]);await page.close();
  }
  console.log('Existing product cover/default: explicit review, simulated commit, readback and preserved publication at 390/1440: PASS');

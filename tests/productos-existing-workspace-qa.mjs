@@ -64,3 +64,11 @@ test('cover/default choices are owned, explicit, resumable review steps and do n
  assert.equal(args.existing_product,true);
  assert(!calls.some(c=>c.action.endsWith('_commit')));
 });
+
+import {productDraftFacts} from '../src/productos-drafts.js';
+test('draft cleanup never drops sent, uncertain, completed, undated or malformed operation state',()=>{
+ const now=1800000000000,old={savedAt:now-31*86400000,wizard:{attempted:[],stages:[]},editRequests:new Map()};
+ assert.equal(productDraftFacts(old,now).canPurge,true);
+ for(const changed of [{savedAt:undefined},{savedAt:now},{wizard:{attempted:['hortimatic'],stages:[]}},{editRequests:new Map([['request',{}]])},{wizard:{stages:[['session',{rows:[{attempted:true}]}]]}},{wizard:{stages:[['session',{rows:[{done:{verified:true}}]}]]}},{wizard:{stages:'broken'}}])assert.equal(productDraftFacts({...old,...changed},now).canPurge,false);
+ assert.deepEqual(productDraftFacts({...old,wizard:{stages:[['session',{rows:[{}, {done:{verified:true}}]}]]}},now),{sent:true,canPurge:false,pendingSteps:1,doneSteps:1});
+});

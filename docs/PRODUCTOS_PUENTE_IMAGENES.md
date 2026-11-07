@@ -20,3 +20,12 @@ incluidos los instalados inactivos. Reordenar no sustituye el texto alternativo.
 El módulo continúa siendo compatible por declaración con 1.7.8–8.x; la validación
 nativa de este cambio se realiza en 1.7.8.11. No declarar probado en PrestaShop 8
 sin ejecutar la misma batería allí antes de una migración.
+
+## Contraste nativo de esta rama
+
+El trabajo aislado de GitHub Actions `42412423845`, tarea
+`prestashop-178-isolated-webservice`, ha finalizado correctamente. Incluye
+orden y leyendas, rechazo de cambio de producto/portada, sustitución binaria
+con el mismo ID y eliminación con relectura. Se usaron únicamente datos y una
+clave ficticia dentro de contenedores desechables. No acredita instalación en
+Hortimatic/NewOldSmok ni compatibilidad verificada con PrestaShop 8.

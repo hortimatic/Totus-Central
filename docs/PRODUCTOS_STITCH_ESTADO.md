@@ -39,7 +39,19 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   comprobación de permisos DELETE, huella y relectura; sin repetir un borrado incierto.
 - Normalización de imágenes al tipo configurado en la tienda, conservando el producto
   completo; la transparencia se comprueba antes de añadir márgenes al lienzo.
-- 77 comprobaciones unitarias de Productos cubiertas en esta rama.
+- 81 comprobaciones unitarias de Productos cubiertas en esta rama.
+- Puente 1.1.0: orden y leyendas por idioma verificados contra PrestaShop 1.7.8.11
+  aislado, con rechazo de intentos de cambiar producto o portada desde ese recurso.
+- Sustitución nativa de fotos con el mismo ID: respuesta binaria contrastada con GET,
+  galería y portada conservadas; respuesta perdida no provoca otra sustitución.
+- Galería y dos fichas de copia restauradas con las tarjetas originales de Stitch;
+  miniaturas de toda la galería, foto ampliada sin recorte y arrastre a revisión.
+- Tarjetas originales de guardado con borradores de la cuenta y contadores de etapas;
+  limpieza local de más de 30 días excluye cualquier operación enviada o incierta.
+- Existencias existentes precargadas y total derivado de combinaciones conservado;
+  ubicación y política sin existencias se gestionan en su registro de stock.
+- Redirecciones SEO nativas con destino verificado en la misma tienda; los ID no
+  se copian implícitamente entre tiendas. Pendiente contraste nativo de esta ampliación.
 
 ## Pendiente antes de poder decir «idéntico y completo»
 
@@ -52,14 +64,15 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
 3. Completar creación de atributos nuevos. La edición de características, materiales,
    etiquetas y accesorios ya tiene revisión y comprobación simulada. Ampliar su
    contraste nativo y verificar después ambas conexiones reales.
-4. Verificar nativamente orden y leyendas de imagen mediante el puente 1.1.0
-   preparado, aún sin instalar en las tiendas reales. Completar sustitución de imágenes. La eliminación de imágenes y combinaciones
+4. Instalar y autorizar el puente 1.1.0 en las dos tiendas reales después de los
+   controles. Orden, leyendas y sustitución ya han pasado la prueba nativa aislada.
+   La eliminación de imágenes y combinaciones
    ya está conectada y ha superado la prueba nativa aislada de PrestaShop 1.7.8.11.
    No sustituir controles faltantes por avisos que simulen una operación correcta.
 5. Contrastar visualmente la lista de borradores recuperables y las etapas reales
    frente al prototipo. No mostrar borradores ni historiales ficticios.
 6. CI completo y contraste con datos reales de ambas conexiones. Los nuevos
-   campos de lectura y filtros de existencias requieren desplegar el servicio.
+   campos de lectura, filtros de existencias y redirecciones requieren desplegar el servicio.
 
 No se han modificado productos, ventas, facturas, existencias, permisos ni
 servicios de producción mediante estas pruebas. Las simulaciones usan transporte

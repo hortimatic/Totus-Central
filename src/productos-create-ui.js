@@ -99,6 +99,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   const requested=plan.changes.filter(c=>c.changed);
   if(requested.some(c=>!supported.has(c.field)&&textValue(c.after)!==''))throw Error('El alta contiene campos sin contrato de creación. Deselecciónalos: '+requested.filter(c=>!supported.has(c.field)).map(c=>c.field).join(', '));
   const fields=requested.filter(c=>PRODUCT_CREATE_FIELDS.includes(c.field)).map(c=>({field:c.field,value:productInputValue(c.field,textValue(c.after))}));
+  if(fields.some(f=>f.field==='redirect_type')!==fields.some(f=>f.field==='id_type_redirected'))throw Error('Selecciona juntos el tipo y el destino de redirección.');
   return {reference:entry.reference,price:productInputValue('price',entry.price),category_id:entry.category_id,translations,...(fields.length?{fields}:{}),...(entry.relations?{relations:entry.relations}:{})};
  };
  async function perform(action,shop,plan,source,detail={}){

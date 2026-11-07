@@ -3,11 +3,11 @@
 // The source XML comes exclusively from a freshly validated server-side GET.
 // The caller must explicitly map each language ID in the TARGET shop.
 export const PRODUCT_WRITE_FIELDS=Object.freeze({
- products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite','meta_keywords','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','available_now','available_later','delivery_in_stock','delivery_out_stock']),
+ products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite','meta_keywords','redirect_type','id_type_redirected','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','available_now','available_later','delivery_in_stock','delivery_out_stock']),
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
 export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','meta_keywords','link_rewrite','available_now','available_later','delivery_in_stock','delivery_out_stock']);
-export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times']);
+export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','redirect_type','id_type_redirected']);
 const local=new Set(LOCALIZED_PRODUCT_FIELDS);
 const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold','unit_price_ratio','ecotax']);
 const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert','show_condition']);
@@ -26,6 +26,8 @@ function validateValue(field,value,resource){
   if(!(resource==='combinations'&&field==='price'?/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/:/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/).test(value))invalid('Importe o medida de '+field+' no válido.');
  }
  if(flags.has(field)&&!['0','1'].includes(value))invalid('Indicador de '+field+' no válido.');
+ if(field==='redirect_type'&&!['404','301-product','302-product','301-category','302-category'].includes(value))invalid('Tipo de redirección no admitido por PrestaShop 1.7.8.');
+ if(field==='id_type_redirected'&&!/^(?:0|[1-9]\d{0,14})$/.test(value))invalid('Destino de redirección no válido.');
  if(field==='visibility'&&!allowedVisibility.has(value))invalid('Visibilidad no admitida.');
  if(field==='condition'&&!allowedCondition.has(value))invalid('Estado del artículo no admitido.');
  if(field==='link_rewrite'&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))invalid('URL amigable no válida.');
@@ -294,6 +296,7 @@ export function validateProductCreateRequest(input){
   if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).some(k=>!['field','value'].includes(k))||!PRODUCT_CREATE_FIELDS.includes(row.field)||chosen.has(row.field))invalid('Campo adicional de alta no admitido o repetido.');
   chosen.add(row.field);return {field:row.field,value:validateValue(row.field,row.value,'products')};
  });
+ if(chosen.has('redirect_type')!==chosen.has('id_type_redirected'))invalid('Selecciona el tipo y el destino de redirección juntos.');
  const commit=input.action==='prestashop_product_create_commit';
  if(own(input,'retry_absent')&&(!commit||input.retry_absent!==true))invalid('El reintento necesita confirmación expresa de una solicitud previa.');
  if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))
@@ -536,4 +539,12 @@ export function inspectProductAssociationIds(xml,productId,group){
  const association=direct(direct(product,'associations'),group),ids=[];
  for(const row of association.children){if(row.name!==names[group])invalid('Asociación no verificable.');const id=fieldText(xml,row,'id');if(!integer.test(id)||ids.includes(id))invalid('Identificador de asociación no válido.');ids.push(id);}
  return ids;
+}
+
+export function productRedirectTarget(type,id,currentId=null){
+ if(!['404','301-product','302-product','301-category','302-category'].includes(type)||!/^(?:0|[1-9]\d{0,14})$/.test(String(id)))invalid('Tipo o destino de redirección no válido.');
+ if(type==='404')return null;
+ if(String(id)==='0')invalid('Selecciona un destino real para la redirección.');
+ const product=type.endsWith('-product');if(product&&String(id)===String(currentId))invalid('Un producto no puede redirigir a sí mismo.');
+ return {resource:product?'products':'categories',node:product?'product':'category',id:String(id)};
 }

@@ -1,5 +1,5 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,PRODUCT_WRITE_FIELDS} from '../../../src/productos-write-contract.js';
+import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,productRedirectTarget,parsePrestashopResourceId,readPrestashopXmlField,PRODUCT_WRITE_FIELDS} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
@@ -45,6 +45,10 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  const signature=await sha256Text(JSON.stringify({store:operation.store,resource:operation.resource,id:operation.record_id,parent:operation.expected_product_id||null,changes:operation.changes}));
  const previous=operation.commit?await journal.lookup(signature):null;
  const original=await read(),fingerprint=await sha256Text(original);
+ if(operation.resource==='products'&&operation.changes.some(c=>['redirect_type','id_type_redirected'].includes(c.field))){
+  const value=field=>operation.changes.find(c=>c.field===field)?.value??readPrestashopXmlField(original,'product',field),redirect=productRedirectTarget(value('redirect_type'),value('id_type_redirected'),operation.record_id);
+  if(redirect){const url=new URL(connection.endpoint);url.pathname='/api/'+redirect.resource+'/'+redirect.id;url.searchParams.set('display','[id]');const target=await safeEndpoint(url.href,resolve),response=await request(target.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});if(!response.ok){await response.body?.cancel();throw Error('El destino de redirección no está disponible en esta tienda.');}if(parsePrestashopResourceId(await boundedText(response,2097152),redirect.node)!==redirect.id)throw Error('El destino de redirección no coincide con el registro elegido.');}
+ }
  const result=selectedXmlValues(original,operation.resource,operation.record_id,operation.changes,operation.expected_product_id);
  if(previous){
   if(result.changes.some(row=>row.changed))throw Error('Actualización pendiente o incierta: no se repetirá el PUT. Revisa la ficha real.');

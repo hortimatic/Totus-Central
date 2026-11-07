@@ -12,7 +12,7 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  currencies:Object.freeze(['id','iso_code','name']),
  customers:Object.freeze(['id','firstname','lastname','email','company']),
  addresses:Object.freeze(['id','firstname','lastname','company','address1','address2','postcode','city','phone','phone_mobile','vat_number','dni']),
- products:Object.freeze(['id','reference','name','ean13','weight','width','height','depth','active','available_for_order','visibility','date_add','date_upd','id_default_image','id_default_combination','id_shop_default','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','wholesale_price','price','ecotax','associations']),
+ products:Object.freeze(['id','reference','name','ean13','weight','width','height','depth','active','available_for_order','visibility','redirect_type','id_type_redirected','date_add','date_upd','id_default_image','id_default_combination','id_shop_default','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','wholesale_price','price','ecotax','associations']),
  combinations:Object.freeze(['id','id_product','reference','ean13','price','weight','default_on','associations']),
  categories:Object.freeze(['id','name','active','id_parent']),
  manufacturers:Object.freeze(['id','name','active']),

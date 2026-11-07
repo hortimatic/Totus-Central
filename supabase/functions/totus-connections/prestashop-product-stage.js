@@ -2,7 +2,7 @@ import {runProductImageReplacement} from './prestashop-product-image-replace.js'
 import {runProductRemoval} from './prestashop-product-remove.js';
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,inspectProductAssociationIds,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
@@ -131,6 +131,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    original=minimalProductStageSchema(op.resource);legacy_schema_fallback=true;
   }
  }
+ if(op.kind==='stock'&&op.fields.id_product_attribute==='0'){const data=await json('products/'+op.product_id,{display:'[id,combinations[id]]'}),product=data.product||data.products?.[0];if(String(product?.id)!==op.product_id)throw Error('No se pudo verificar el producto de estas existencias.');const combinations=Array.isArray(product.associations?.combinations)?product.associations.combinations:inspectProductAssociationIds(await xml('products/'+op.product_id,{display:'[id,combinations[id]]'}),op.product_id,'combinations');if(combinations.length){try{inspectProductStageXml(original,'stock_availables',{id_product:op.product_id,id_product_attribute:'0',quantity:op.fields.quantity});}catch{throw Error('La cantidad total se deriva de las combinaciones. Ajusta sus existencias individuales.');}}}
  if(op.kind==='image_metadata'){const image=inspectProductStageXml(original,'totus_product_images',{id_product:op.product_id});if(image.id!==op.record_id)throw Error('Metadatos de otra imagen.');}
  const body=image?null:prepareProductStageXml(original,op.resource,desired,op.associations,recordId);
  const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||'')+(op.existing_product?'|'+root:''));

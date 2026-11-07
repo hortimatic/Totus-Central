@@ -226,3 +226,11 @@ test('replacement keeps native image ID, verifies returned bytes and never retri
  const foreign=setup(false,true);await assert.rejects(()=>runPrestashopProductStage(connection,op,foreign),/pertenece/);assert(!foreign.calls.some(c=>c.method==='POST'));
  for(const lost of [false,true]){const f=setup(lost),p=await runPrestashopProductStage(connection,op,f),commit={...op,action:'prestashop_product_step_commit',expected_fingerprint:p.fingerprint,confirmed:true};if(lost){await assert.rejects(()=>runPrestashopProductStage(connection,commit,f),/incierta/);await assert.rejects(()=>runPrestashopProductStage(connection,commit,f),/incierta/);}else{const saved=await runPrestashopProductStage(connection,commit,f);assert.equal(saved.record_id,'90');assert.equal(saved.replaced,true);assert.equal((await runPrestashopProductStage(connection,commit,f)).reused,true);}assert.equal(f.calls.filter(c=>c.method==='POST').length,1);}
 });
+
+test('parent stock quantity is preserved when combinations supply its aggregate',async()=>{
+ const op={...base,existing_product:true,kind:'stock',fields:{id_product_attribute:'0',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:'A'},associations:{}};
+ let writes=0;const request=async(url,options)=>{const u=new URL(url);if(options.method!=='GET')writes++;if(u.pathname==='/api/products/601')return u.searchParams.get('output_format')==='JSON'?json({product:{id:'601',associations:{combinations:[{id:'701'}]}}}):xml(root);if(u.pathname==='/api/stock_availables')return json({stock_availables:[{id:'800'}]});if(u.pathname==='/api/stock_availables/800')return xml('<prestashop><stock_available><id>800</id><id_product>601</id_product><id_product_attribute>0</id_product_attribute><quantity>7</quantity><out_of_stock>0</out_of_stock><depends_on_stock>0</depends_on_stock><location>B</location></stock_available></prestashop>');throw Error('Unexpected aggregate request');};
+ const options={request,resolve:async()=>['8.8.8.8'],env:{get:()=> '1'},journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601'})}};
+ await assert.rejects(()=>runPrestashopProductStage(connection,op,options),/cantidad total/);assert.equal(writes,0);
+ assert.equal((await runPrestashopProductStage(connection,{...op,fields:{...op.fields,quantity:'7',location:'New shelf'}},options)).can_commit,true);assert.equal(writes,0);
+});

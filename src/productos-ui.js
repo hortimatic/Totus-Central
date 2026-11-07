@@ -1,3 +1,4 @@
+import {productDraftFacts} from './productos-drafts.js';
 import {productCountryTaxRate,productDisplayAmounts} from './productos-tax.js';
 import {stitchHeader,stitchCatalog,stitchFiche,stitchCopy,stitchRequest,stitchSaved,ensureStitchProductFonts} from './productos-stitch-view.js';
 import {PRODUCT_COLUMNS,DEFAULT_PRODUCT_COLUMNS,productColumns,catalogProductKey,productPhoto,filterProductCatalog,productCatalogCsv} from './productos-catalog.js';
@@ -37,7 +38,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  const current=()=>!!root?.isConnected&&owner===actor()&&allowed()&&root.dataset.prEpoch===String(epoch);
  const stateSnapshot=()=>({store,mode,record:record?.id||null});
  const createWizard=createProductWizard({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit});
- const snapshotDraft=()=>({organization,copyQueue,requestBrief,requestOutput,editorSection,catalogScope,store,mode,parallelSection,bulkField,bulkValue,bulkItems,bulkConfirm,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
+ const snapshotDraft=()=>({savedAt:Date.now(),organization,copyQueue,requestBrief,requestOutput,editorSection,catalogScope,store,mode,parallelSection,bulkField,bulkValue,bulkItems,bulkConfirm,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
  const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record||requestBrief.url||draftsByShop.size||draftsByProduct.size||copyQueue.length?structuredClone({...snapshotDraft(),shopDrafts:[...draftsByShop],productDrafts:[...draftsByProduct]}):null;storageError=null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(error=>{storageError=error||Error('Borrador local no disponible');if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
  function restoreDraft(d){
   if(!d||!PRODUCT_STORES.some(s=>s.key===d.store)||!d.record&&!d.requestBrief?.url&&!d.shopDrafts?.length&&!d.productDrafts?.length&&!d.copyQueue?.length)return false;
@@ -56,7 +57,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function sectionTitle(section){return ({general:'Información y descripción',precios:'Precios e impuestos',seo:'SEO',transporte:'Transporte',inventario:'Disponibilidad',organizacion:'Organización'})[section]||section;}
  function fieldControl(field,value,attrs,disabled=false){
-  const enums={active:[['0','Inactivo'],['1','Activo']],available_for_order:[['0','No permitir compra'],['1','Permitir compra']],show_price:[['0','Ocultar precio'],['1','Mostrar precio']],online_only:[['0','No'],['1','Sí']],on_sale:[['0','No'],['1','Sí']],show_condition:[['0','No'],['1','Sí']],low_stock_alert:[['0','No'],['1','Sí']],visibility:[['both','Catálogo y búsqueda'],['catalog','Solo catálogo'],['search','Solo búsqueda'],['none','Oculto']],condition:[['new','Nuevo'],['used','Usado'],['refurbished','Reacondicionado']],additional_delivery_times:[['0','Sin plazo'],['1','Plazo general'],['2','Plazo específico']],out_of_stock:[['0','Denegar pedidos'],['1','Permitir pedidos'],['2','Preferencia de la tienda']]};
+  const enums={redirect_type:[['404','Sin redirección (404)'],['301-product','Producto · permanente (301)'],['302-product','Producto · temporal (302)'],['301-category','Categoría · permanente (301)'],['302-category','Categoría · temporal (302)']],active:[['0','Inactivo'],['1','Activo']],available_for_order:[['0','No permitir compra'],['1','Permitir compra']],show_price:[['0','Ocultar precio'],['1','Mostrar precio']],online_only:[['0','No'],['1','Sí']],on_sale:[['0','No'],['1','Sí']],show_condition:[['0','No'],['1','Sí']],low_stock_alert:[['0','No'],['1','Sí']],visibility:[['both','Catálogo y búsqueda'],['catalog','Solo catálogo'],['search','Solo búsqueda'],['none','Oculto']],condition:[['new','Nuevo'],['used','Usado'],['refurbished','Reacondicionado']],additional_delivery_times:[['0','Sin plazo'],['1','Plazo general'],['2','Plazo específico']],out_of_stock:[['0','Denegar pedidos'],['1','Permitir pedidos'],['2','Preferencia de la tienda']]};
   const locked=disabled?' disabled':'';
   if(enums[field])return '<select '+attrs+locked+'><option value="">Sin indicar</option>'+enums[field].map(([id,label])=>'<option value="'+id+'" '+(String(value)===id?'selected':'')+'>'+label+'</option>').join('')+'</select>';
   return ['description','description_short','meta_description'].includes(field)?'<textarea '+attrs+' rows="4"'+locked+'>'+h(value)+'</textarea>':'<input '+attrs+' value="'+h(value)+'"'+locked+'>';
@@ -86,6 +87,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  function catalogValue(p,key){
   const money=v=>v===undefined||v===null||v===''?'—':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(v));
   if(key==='brand')return textValue((catalogMeta.get(p.__store||store)?.brands||catalogBrands).find(x=>String(x.id)===String(p.id_manufacturer))?.name)||(p.id_manufacturer&&p.id_manufacturer!=='0'?'Marca #'+p.id_manufacturer:'—');
+  if(key==='supplier')return textValue((catalogMeta.get(p.__store||store)?.suppliers||[]).find(x=>String(x.id)===String(p.id_supplier))?.name)||(p.id_supplier&&p.id_supplier!=='0'?'Proveedor #'+p.id_supplier:'—');
   if(key==='category')return textValue((catalogMeta.get(p.__store||store)?.categories||catalogCategories).find(x=>String(x.id)===String(p.id_category_default))?.name)||(p.id_category_default?'Categoría #'+p.id_category_default:'—');
   if(key==='store')return PRODUCT_STORES.find(s=>s.key===(p.__store||store)).label;
   if(key==='gross'||key==='margin'){const a=productDisplayAmounts(p,productCountryTaxRate(p.id_tax_rules_group,catalogMeta.get(p.__store||store)?.tax||catalogTaxContext));return key==='gross'?(a.gross===null?'Sin verificar':money(a.gross)):(a.marginPct===null?'—':a.marginPct.toFixed(1)+' %');}
@@ -97,7 +99,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function visibleCatalog(){return filterProductCatalog(rows,{query,...catalogFilters});}
  function saveCatalogPreferences(){try{localStorage.setItem('totus-products-columns:'+owner,JSON.stringify(catalogColumns));localStorage.setItem('totus-products-views:'+owner,JSON.stringify(catalogViews));}catch{status='No se han podido conservar las vistas del catálogo.';}}
- function savedDraftCards(){const saved=new Map(draftsByProduct);if(record)saved.set(store+'|'+(record.id||record.draft_key||'new'),snapshotDraft());return [...saved].map(([key,d])=>({key,shop:PRODUCT_STORES.find(s=>s.key===d.store)?.label||d.store,name:textValue(d.overrides?.name??d.record?.name),reference:textValue(d.overrides?.reference??d.record?.reference),changes:d.fields?.size||0}));}
+ function savedDraftCards(){const saved=new Map(draftsByProduct);if(record)saved.set(store+'|'+(record.id||record.draft_key||'new'),snapshotDraft());return [...saved].map(([key,d])=>({key,shop:PRODUCT_STORES.find(s=>s.key===d.store)?.label||d.store,name:textValue(d.overrides?.name??d.record?.name),reference:textValue(d.overrides?.reference??d.record?.reference),changes:d.fields?.size||0,...productDraftFacts(d)}));}
  function catalog(){
   const filtered=visibleCatalog(),pages=Math.max(1,Math.ceil(filtered.length/listSize));listPage=Math.min(listPage,pages-1);
   const visibleIds=new Set(filtered.map(catalogKey));
@@ -124,7 +126,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function editor(){
   if(!record)return empty('Abre un producto o crea un borrador','Elige una ficha del catálogo para trabajar con sus datos.');
-  return stitchFiche({record,store,section:editorSection,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml:priceStudy(),rawHtml:rawPanel(),brands:catalogBrands,categories:catalogCategories,stock:catalogStock.get(store+'|'+record.id)??null,amounts:productDisplayAmounts({...record,...overrides},productCountryTaxRate(record.id_tax_rules_group,catalogTaxContext))});
+  return stitchFiche({record,store,section:editorSection,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml:priceStudy(),rawHtml:rawPanel(),organization,brands:catalogBrands,categories:catalogCategories,stock:catalogStock.get(store+'|'+record.id)??null,amounts:productDisplayAmounts({...record,...overrides},productCountryTaxRate(record.id_tax_rules_group,catalogTaxContext))});
  }
 
  function targetLanguageIds(dest,field){
@@ -213,7 +215,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   const opened=[...root.querySelectorAll('.prd-variant[open]')].map(el=>el.dataset.prVariant);
   const columnsOpen=!!root.querySelector('.prd-columns[open]');
   const content=mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?(record?stitchCopy({store,legacyHtml:comparisonPanel()}):comparisonPanel()):mode==='encargo'?stitchRequest({legacyHtml:renderProductRequestForm(requestBrief,requestOutput),output:requestOutput}):mode==='guardado'?stitchSaved({record,legacyHtml:record?comparisonPanel():'',queue:copyQueue,drafts:savedDraftCards()}):bulk();
-  root.innerHTML='<div class="prd-shell prd-stitch">'+stitchHeader({store:catalogScope,mode,status,count:rows.length,product:text(record?.name),pending,connected:catalogScope==='both'?PRODUCT_STORES.every(s=>ready(s.key)):ready(store)})+'<div class="prd-body">'+content+'</div></div>';
+  root.innerHTML='<div class="prd-shell prd-stitch">'+stitchHeader({store:catalogScope,mode,status,count:rows.length,product:text(record?.name),draftCount:savedDraftCards().length,pending,connected:catalogScope==='both'?PRODUCT_STORES.every(s=>ready(s.key)):ready(store)})+'<div class="prd-body">'+content+'</div></div>';
 
   for(const detail of root.querySelectorAll('.prd-variant'))if(opened.includes(detail.dataset.prVariant))detail.open=true;
   if(columnsOpen&&root.querySelector('.prd-columns'))root.querySelector('.prd-columns').open=true;
@@ -293,11 +295,11 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    for(const product of response.rows){const row={...product,__store:shop},key=catalogKey(row);if(keys.has(key))throw Error('Producto duplicado entre páginas de la misma tienda.');keys.add(key);rows.push(row);}
    catalogMore.set(shop,!!response.possibly_more);
    if(!more){
-    const meta={categories:[],brands:[],tax:{countries:[],rules:[],taxes:[]}};
-    await Promise.allSettled([['categories','categories'],['manufacturers','brands'],['countries','countries'],['tax_rules','rules']].map(async([resource,key])=>{
+    const meta={categories:[],brands:[],suppliers:[],tax:{countries:[],rules:[],taxes:[]}};
+    await Promise.allSettled([['categories','categories'],['manufacturers','brands'],['suppliers','suppliers'],['countries','countries'],['tax_rules','rules']].map(async([resource,key])=>{
      const all=[];for(let p=0;p<=1000;p++){
       const data=await invokeShop(shop,'prestashop_read',{resource,page:p,page_size:100});all.push(...data.rows);
-      if(!data.possibly_more){if(['categories','brands'].includes(key))meta[key]=all;else meta.tax[key]=all;return;}
+      if(!data.possibly_more){if(['categories','brands','suppliers'].includes(key))meta[key]=all;else meta.tax[key]=all;return;}
      }throw Error('Catálogo auxiliar incompleto.');
     }));
     const country=meta.tax.countries.find(c=>String(c.iso_code).toUpperCase()==='ES'&&String(c.active)==='1');
@@ -328,7 +330,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  function freshProduct(){
   rememberProductDraft();
   if(catalogScope==='both'){catalogScope=store;rows=[];page=0;hasMore=false;}
-  resetDraft();record={draft_key:'draft-'+crypto.randomUUID(),...Object.fromEntries(Object.values(PRODUCT_SECTIONS).flat().map(field=>[field,''])),id:null,active:'0',minimal_quantity:'1',available_for_order:'0',show_price:'1',online_only:'0',on_sale:'0',visibility:'both',condition:'new'};
+  resetDraft();record={draft_key:'draft-'+crypto.randomUUID(),...Object.fromEntries(Object.values(PRODUCT_SECTIONS).flat().map(field=>[field,''])),id:null,redirect_type:'404',id_type_redirected:'0',active:'0',minimal_quantity:'1',available_for_order:'0',show_price:'1',online_only:'0',on_sale:'0',visibility:'both',condition:'new'};
   fields=new Set(['name','reference','price','description','meta_title','link_rewrite']);
   targets=new Set([store]);mode='ficha';status='Borrador nuevo. Prepara los campos y después selecciona la tienda de destino.';
  }
@@ -338,6 +340,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   const plans=[],readTargets=new Map();
   for(const dest of targets){
    const adapted=targetOverrides.get(dest)||{};
+   if(dest!==store&&(fields.has('redirect_type')||fields.has('id_type_redirected'))){const type=String(adapted.redirect_type??overrides.redirect_type??record.redirect_type);if(type!=='404'&&!Object.hasOwn(adapted,'id_type_redirected'))throw Error('Selecciona expresamente el destino de redirección de '+dest+'. Los ID de origen no se copian entre tiendas.');}
    const sourceRef=String(Object.prototype.hasOwnProperty.call(adapted,'reference')?adapted.reference:Object.prototype.hasOwnProperty.call(overrides,'reference')?overrides.reference:textValue(record.reference)).trim();
    let target=null,related=[];
    const explicit=String(targetIds.get(dest)||'').trim();
@@ -407,6 +410,15 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   ensureStitchProductFonts();
   dispose();draftsByShop.clear();draftsByProduct.clear();copyQueue=[];storageReady=false;root=node;owner=actor();if(requestOwner!==owner){requestBrief={operation:'url',store:'hortimatic'};requestOutput='';requestOwner=owner;}const gen=++epoch;root.dataset.prEpoch=String(gen);mode='catalogo';store='hortimatic';catalogScope='hortimatic';catalogMeta.clear();catalogMore.clear();catalogSelected.clear();catalogStock.clear();catalogFilters={category:'',brand:'',active:''};try{catalogColumns=productColumns(JSON.parse(localStorage.getItem('totus-products-columns:'+owner)||'null'));}catch{catalogColumns=[...DEFAULT_PRODUCT_COLUMNS];}catalogViewName='';try{catalogViews=JSON.parse(localStorage.getItem('totus-products-views:'+owner)||'[]').filter(v=>v&&typeof v.name==='string'&&Array.isArray(v.columns)&&[20,50,100].includes(v.size)).map(v=>({...v,columns:productColumns(v.columns),filters:{category:v.filters?.category||'',brand:v.filters?.brand||'',active:['0','1'].includes(v.filters?.active)?v.filters.active:''}}));}catch{catalogViews=[];}status='Comprobando conexiones. Ningún dato se modifica.';rows=[];page=0;hasMore=false;resetDraft();
   if(!allowed()){root.textContent='No tienes permiso de consulta de PrestaShop.';return;}
+  root.ondragover=e=>{if(e.target.closest('[data-pr-image-drop]')){e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';}};
+  root.ondrop=e=>{if(!e.target.closest('[data-pr-image-drop]'))return;e.preventDefault();const files=Array.from(e.dataTransfer?.files||[]);if(!files.length)return;void work(async()=>{
+   if(!record?.id)throw Error('Guarda primero la base del producto nuevo.');
+   const fresh=await loadItem(store,'products',String(record.id));await createWizard.openExisting(store,fresh);
+   const plan={operation:'update',store,source_id:String(record.id),target_id:String(record.id),changes:[],variants:[],warnings:[]};comparison.set(store,plan);preview=[plan];targetRaw.set(store,fresh);targets=new Set([store]);
+   await createWizard.perform('create-stage-tab',store,plan,fresh,{tab:'image'});mode='guardado';
+   for(const file of files){await createWizard.perform('create-stage-add',store,plan,fresh,{kind:'image'});render();const input=[...root.querySelectorAll('[data-pr-stage-file]')].at(-1);status=await createWizard.handleFile({files:[file],dataset:{...input.dataset}});}
+   status=files.length+' fotos preparadas. Revisa, valida y guarda cada imagen antes de enviarla a la tienda.';
+  });};
   root.oninput=e=>{if(e.target.matches('[data-pr-search]')){query=e.target.value;listPage=0;render();const f=root.querySelector('[data-pr-search]');f?.focus();f?.setSelectionRange(query.length,query.length);}};
   root.onchange=e=>{
    if(e.target.matches('[data-pr-org-list]')&&organization){organization[e.target.dataset.prOrgList]=[...e.target.selectedOptions].map(o=>o.value);persistDraft();return;}
@@ -443,15 +455,17 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-vvalue]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVvalue,values=variantOverrides.get(id)||{},chosen=variantFields.get(id)||new Set();chosen.add(field);variantFields.set(id,chosen);values[field]=e.target.value;variantOverrides.set(id,values);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-bulk]')){e.target.checked?selection.add(e.target.dataset.prBulk):selection.delete(e.target.dataset.prBulk);bulkItems=[];bulkConfirm='';render();}
   };
-  root.onkeydown=e=>{if(['Enter',' '].includes(e.key)&&e.target.matches('[data-pr-action="photo-zoom"]')){e.preventDefault();e.target.click();return;}if(e.key==='Escape'){const panel=root.querySelector('.prd-columns[open]');if(panel){panel.open=false;panel.querySelector('summary')?.focus();}}};
+  root.onkeydown=e=>{if(['Enter',' '].includes(e.key)&&e.target.matches('[data-pr-action="photo-zoom"], [data-pr-image-drop]')){e.preventDefault();e.target.click();return;}if(e.key==='Escape'){const panel=root.querySelector('.prd-columns[open]');if(panel){panel.open=false;panel.querySelector('summary')?.focus();}}};
   root.onclick=e=>{if(!e.target.closest('.prd-columns'))root.querySelectorAll('.prd-columns[open]').forEach(d=>d.open=false);const b=e.target.closest('[data-pr-action]');if(!b||!current())return;const a=b.dataset.prAction;
    if(a==='catalog-column-move'){const i=catalogColumns.indexOf(b.dataset.prColumnKey),j=i+Number(b.dataset.prDirection);if(i>=0&&j>=0&&j<catalogColumns.length){[catalogColumns[i],catalogColumns[j]]=[catalogColumns[j],catalogColumns[i]];saveCatalogPreferences();render();}return;}
    if(a==='catalog-view-save'){const name=(root.querySelector('[data-pr-view-name]')?.value||'').trim().slice(0,60);if(!name){status='Escribe un nombre para guardar la vista.';render();return;}const v={name,columns:[...catalogColumns],scope:catalogScope,filters:{...catalogFilters},query,size:listSize};catalogViews=catalogViews.filter(v=>v.name!==name);catalogViews.push(v);catalogViewName=name;saveCatalogPreferences();status='Vista «'+name+'» guardada para esta cuenta.';render();return;}
    if(a==='catalog-view-delete'){catalogViews=catalogViews.filter(v=>v.name!==catalogViewName);catalogViewName='';saveCatalogPreferences();render();return;}
+   if(a==='draft-purge'){const candidates=savedDraftCards().filter(d=>d.canPurge);if(!candidates.length){status='No hay borradores antiguos sin operaciones enviadas.';render();return;}if(!confirm('Eliminar '+candidates.length+' borradores locales de más de 30 días, sin operaciones enviadas: '+candidates.map(d=>d.name||d.reference||d.key).join(', ')+'. No borra productos ni datos de tienda.'))return;for(const candidate of candidates){draftsByProduct.delete(candidate.key);for(const [shop,d]of draftsByShop){const key=shop+'|'+(d.record?.id||d.record?.draft_key||textValue(d.record?.reference)||'new');if(key===candidate.key)draftsByShop.delete(shop);}}status=candidates.length+' borradores antiguos retirados. Los productos y operaciones de tienda se conservan.';render();return;}
    if(a==='draft-open'){void work(async()=>{rememberProductDraft();const key=b.dataset.prDraftKey,saved=draftsByProduct.get(key);if(!saved)throw Error('Este borrador ya no está disponible.');const queue=copyQueue;restoreDraft(structuredClone(saved));copyQueue=queue;catalogScope=store;await loadCatalog(false);if(record?.id){record=normalizedProduct(await loadItem(store,'products',record.id)).raw;shopRecords.set(store,record);}mode='ficha';status='Borrador recuperado; se conservan sus solicitudes y cambios pendientes.';});return;}
    if(a==='copy-reverse'){void work(async()=>{if(!record?.id)throw Error('Selecciona primero una ficha guardada.');const dest=PRODUCT_STORES.find(s=>s.key!==store).key,ref=textValue(record.reference);if(!ref)throw Error('Falta referencia para buscar la ficha de la otra tienda.');const result=await invokeShop(dest,'prestashop_read',{resource:'products',references:[ref],page:0,page_size:100});if(result.possibly_more)throw Error('La búsqueda de correspondencia está incompleta.');const match=matchExactReference(result.rows,ref);if(!match.product)throw Error('No existe una ficha única en la otra tienda para usarla como origen.');await openProduct(match.product.id,dest);mode='comparar';});return;}
    if(a==='draft-save'){persistDraft();void storageQueue.then(()=>{if(current()){status=storageError?'No se ha podido guardar el borrador local.':'Borrador guardado para esta cuenta.';render();}});return;}
    if(a==='organization-related'){void work(async()=>{if(!organization?.relatedReference?.trim())throw Error('Indica la referencia exacta del producto relacionado.');const response=await invokeShop(store,'prestashop_read',{resource:'products',references:[organization.relatedReference.trim()],page:0,page_size:100});if(response.possibly_more)throw Error('Consulta de referencia incompleta.');const match=matchExactReference(response.rows,organization.relatedReference);if(!match.product||String(match.product.id)===String(record.id))throw Error('Selecciona una referencia única de otro producto de esta tienda.');organization.related=[...new Set([...organization.related,String(match.product.id)])];organization.catalog.related_products=[...organization.catalog.related_products.filter(p=>String(p.id)!==String(match.product.id)),match.product];organization.relatedReference='';status='Producto relacionado añadido al borrador.';});return;}
+   if(a==='organization-primary'){void work(async()=>{const id=b.dataset.prCategory;if(!organization||organization.store!==store||organization.id!==String(record.id))await loadOrganization();if(!organization.categories.includes(id))throw Error('La categoría no está asociada a este producto.');organization.fields.id_category_default=id;status='Categoría principal seleccionada en el borrador. Revisa y guarda organización para aplicarla.';});return;}
    if(a==='organization-load'){void work(loadOrganization);return;}
    if(a==='description-format'){
     const input=root.querySelector('#sub-desc [data-pr-value="description"]');if(!input)return;
@@ -466,7 +480,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
     dialog.append(close,frame);dialog.addEventListener('close',()=>dialog.remove(),{once:true});root.append(dialog);dialog.showModal();return;
    }
    if(a==='photo-zoom'){const id=b.dataset.prImage;if(!associationIds(record,'images').includes(id))return;const dialog=document.createElement('dialog');dialog.className='prd-photo-dialog';const close=document.createElement('button');close.type='button';close.textContent='Cerrar imagen';close.className='btn secondary';close.onclick=()=>dialog.close();const img=document.createElement('img');img.src=productPhoto({id_default_image:id},store).replace('-home_default/','-large_default/');img.alt=textValue(record.name);dialog.append(close,img);dialog.addEventListener('close',()=>dialog.remove(),{once:true});root.append(dialog);dialog.showModal();return;}
-   if(a==='photo-view'){const img=root.querySelector('#sticky-main-img');if(img){img.src=productPhoto({id_default_image:b.dataset.prPhoto},store);img.dataset.prImage=b.dataset.prPhoto;}return;}
+   if(a==='photo-view'){const id=b.dataset.prPhoto;if(!associationIds(record,'images').includes(id))return;const url=productPhoto({id_default_image:id},store),img=root.querySelector('#sticky-main-img'),header=root.querySelector('#sticky-header-thumb');if(img){img.src=url.replace('-home_default/','-large_default/');img.dataset.prImage=id;}if(header)header.src=url;for(const thumb of root.querySelectorAll('.sticky-thumb-btn')){const active=thumb.dataset.prPhoto===id;thumb.classList.toggle('ring-2',active);thumb.classList.toggle('ring-primary',active);thumb.setAttribute('aria-pressed',String(active));}const label=root.querySelector('[data-pr-photo-label]');if(label)label.textContent='Foto '+(associationIds(record,'images').indexOf(id)+1)+' de '+associationIds(record,'images').length;return;}
    if(a==='fiche-validate'){void work(async()=>{targets=new Set([store]);await prepare();mode='guardado';});return;}
    if(['image-stages','variation-stages','stock-stages','organization-review','variation-images','variation-remove','image-remove','image-position','image-metadata','image-replace','image-cover','variation-default'].includes(a)){void work(async()=>{
     if(!record?.id){
@@ -537,6 +551,6 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function hasDraft(){return !!record&&(fields.size>0||[...variantFields.values()].some(s=>s.size>0));}
  function discardDraft(){if(record)draftsByProduct.delete(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'));draftsByShop.delete(store);resetDraft();status='Propuesta descartada.';if(current())render();}
- function dispose(){persistDraft();storageReady=false;if(root){root.onclick=null;root.onchange=null;root.oninput=null;root.onkeydown=null;}root=null;owner=null;++epoch;pending=false;}
+ function dispose(){persistDraft();storageReady=false;if(root){root.onclick=null;root.onchange=null;root.oninput=null;root.onkeydown=null;root.ondragover=null;root.ondrop=null;}root=null;owner=null;++epoch;pending=false;}
  return {mount,dispose,hasDraft,discardDraft,stateSnapshot};
 }

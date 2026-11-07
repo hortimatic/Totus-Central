@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
 const server=await startLocalServer();
 const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
@@ -8,6 +8,7 @@ await mkdir('qa-artifacts',{recursive:true});
 try{
  for(const width of [390,768,1440]){
   const page=await browser.newPage({viewport:{width,height:900}}),errors=[];
+  const reference=await browser.newPage({viewport:{width,height:900}});await reference.goto('http://127.0.0.1:4173/design-reference/stitch-products/console.original.html');
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
   await page.addStyleTag({url:'http://127.0.0.1:4173/src/productos.css'});
@@ -50,12 +51,23 @@ try{
   assert.equal(await page.evaluate(()=>stitchQA.calls.filter(x=>x.action==='prestashop_item_read').at(-1).store),'newoldsmok');
   await page.locator('#subtabs-bar').waitFor().catch(async error=>{console.error(await page.locator('#productosRoot').innerText(),errors);throw error;});
   assert.equal(await page.locator('#subtabs-bar button').count(),9);
+  const parity=[];
+  for(const [current,original]of [['#sub-info [data-pr-value="name"]','#sub-info input:nth-of-type(1)'],['#sub-info [data-pr-value="reference"]','#sub-info input'],['#sub-desc [data-pr-value="description"]','#sub-desc textarea'],['#sub-seo [data-pr-value="meta_title"]','#sub-seo input'],['#sub-envio [data-pr-value="weight"]','#sub-envio input']]){
+   const properties=['fontSize','fontFamily','lineHeight','backgroundColor','color','borderRadius','paddingTop','paddingBottom','paddingLeft','paddingRight'];
+   const style=async(p,selector)=>p.locator(selector).first().evaluate((n,keys)=>Object.fromEntries(keys.map(k=>[k,getComputedStyle(n)[k]])),properties);
+   const actual=await style(page,current),expected=await style(reference,original);parity.push({current,original,actual,expected});assert.deepEqual(actual,expected,'Native Stitch field styling '+current);
+  }
+  await writeFile('qa-artifacts/productos-stitch-style-parity-'+width+'.json',JSON.stringify(parity,null,2));
   assert.equal(await page.locator('#sub-info textarea').getAttribute('rows'),'2');assert.equal(await page.locator('#sub-desc textarea[data-pr-value="description"]').getAttribute('rows'),'6');assert.equal(await page.locator('#sub-seo textarea[data-pr-value="meta_description"]').getAttribute('rows'),'2');
   await page.locator('[data-pr-value="name"]').fill('Nombre editado seguro');
   await page.locator('[data-pr-value="name"]').blur();
   for(const section of ['contenido','precios','variaciones','imagenes','seo','transporte','inventario','organizacion','general']){
    await page.locator('[data-pr-action="editor-section"][data-pr-section="'+section+'"]').click();
+   assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Every visible fiche button has a real action: '+section);
    await page.screenshot({path:'qa-artifacts/productos-stitch-'+section+'-'+width+'.png',fullPage:true});
+   const ids={general:'sub-info',contenido:'sub-desc',precios:'sub-precios',variaciones:'sub-variaciones',imagenes:'sub-imagenes',seo:'sub-seo',transporte:'sub-envio',inventario:'sub-stock',organizacion:'sub-organizacion'};
+   await reference.evaluate(id=>{for(const name of ['tab-catalogo','tab-ficha','tab-copiar','tab-alta','tab-borradores']){const n=document.getElementById(name);if(n)n.style.display=name==='tab-ficha'?'flex':'none';}document.querySelectorAll('.subtab-content').forEach(n=>n.style.display=n.id===id?'flex':'none');},ids[section]);
+   await reference.screenshot({path:'qa-artifacts/stitch-original-'+section+'-'+width+'.png',fullPage:true});
   }
   assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre editado seguro');
   await page.locator('[data-pr-section="contenido"]').click();
@@ -97,10 +109,13 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-stitch-url-'+width+'.png',fullPage:true});
   await page.locator('[data-pr-action="mode"][data-mode="guardado"]').click();
   assert.equal(await page.locator('#tab-borradores').isVisible(),true);
-  assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/Voopoo|3 en cola|Purgar Antiguos/);
+  assert.equal(await page.locator('[data-pr-action="draft-purge"]').isDisabled(),true);
+  await page.screenshot({path:'qa-artifacts/productos-stitch-guardado-'+width+'.png',fullPage:true});
+  assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Saved view buttons');
+  assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/Voopoo|3 en cola|3 productos esperando|Hace 2 horas/);
   assert.deepEqual(errors,[]);
   assert.equal(await page.evaluate(()=>stitchQA.calls.every(x=>['prestashop_read','prestashop_item_read'].includes(x.action))),true);
-  await page.close();
+  await reference.close();await page.close();
  }
  console.log('Stitch original shell/catalog: 390/768/1440, real-data binding, columns, selection, no demo handlers: PASS');
 }finally{await browser.close();await server?.close();}

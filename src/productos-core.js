@@ -8,7 +8,7 @@ export const PRODUCT_SECTIONS=Object.freeze({
  precios:['price','wholesale_price','unit_price_ratio','unity','on_sale','ecotax'],
  seo:['meta_title','meta_description','meta_keywords','link_rewrite','redirect_type','id_type_redirected'],
  transporte:['weight','width','height','depth','additional_shipping_cost','additional_delivery_times','delivery_in_stock','delivery_out_stock'],
- inventario:['location','minimal_quantity','low_stock_threshold','low_stock_alert','out_of_stock','available_date','available_now','available_later']
+ inventario:['minimal_quantity','low_stock_threshold','low_stock_alert','available_date','available_now','available_later']
 });
 export const VARIANT_FIELDS=Object.freeze(['reference','ean13','isbn','upc','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert','default_on']);
 const FIELDS=new Set(Object.values(PRODUCT_SECTIONS).flat());
