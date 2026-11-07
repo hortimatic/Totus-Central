@@ -213,6 +213,8 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const countBeforeReplay=calls.filter(c=>c.method==='POST').length;
  assert.equal((await runPrestashopProductStage(connection,existingCommit,existingOptions)).reused,true);
  assert.equal(calls.filter(c=>c.method==='POST').length,countBeforeReplay);
+ const secondUpload={...upload,step_key:'ci_picture_secondary'},secondPreparation=await runPrestashopProductStage(connection,secondUpload,options);
+ const secondPicture=await runPrestashopProductStage(connection,{...secondUpload,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:secondPreparation.fingerprint},options);
  // Real isolated coverage for the newly connected organization/image/removal controls.
  const relation=async(resource,display)=>{const response=await localOnlyRequest('https://hortimatic.com/api/'+resource+'?output_format=JSON&display='+display+'&sort=[id_DESC]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(response.status,200);return (await response.json())[resource][0];};
  const material=await relation('product_feature_values','[id,id_feature]'),tag=await relation('tags','[id]');
@@ -225,8 +227,12 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const picturesCommit={...pictures,action:'prestashop_product_step_commit',expected_fingerprint:picturesPrepared.fingerprint,confirmed:true};
  assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).verified,true);
  assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).reused,true);
- for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id]]){
-  const removal={...existing,kind,record_id:id,step_key:'ci_'+kind,fields:{},associations:{}};
+ const metadata={...existing,kind:'image_metadata',record_id:secondPicture.record_id,step_key:'ci_image_metadata',fields:{position:'1',legend:profile.language_ids.map(language_id=>({language_id,value:'CI image '+language_id}))},associations:{}};
+ const metadataPreparation=await runPrestashopProductStage(connection,metadata,existingOptions);
+ assert.equal((await runPrestashopProductStage(connection,{...metadata,action:'prestashop_product_step_commit',expected_fingerprint:metadataPreparation.fingerprint,confirmed:true},existingOptions)).verified,true);
+ const metadataRead=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id+'?output_format=JSON',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(metadataRead.status,200);const imageMetadata=(await metadataRead.json()).totus_product_image;assert.equal(String(imageMetadata.id_product),String(result.record_id));assert.equal(Number(imageMetadata.position),1);
+ for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id]]){
+  const removal={...existing,kind,record_id:id,step_key:'ci_'+kind+'_'+id,fields:{},associations:{}};
   const preparation=await runPrestashopProductStage(connection,removal,existingOptions);
   assert.equal(preparation.can_commit,true,'Disposable test key must allow deletion');
   const request={...removal,action:'prestashop_product_step_commit',expected_fingerprint:preparation.fingerprint,confirmed:true};

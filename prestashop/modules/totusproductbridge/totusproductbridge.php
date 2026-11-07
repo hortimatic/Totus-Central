@@ -4,27 +4,39 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once __DIR__ . '/classes/TotusProductImage.php';
+
 class TotusProductBridge extends Module
 {
     public function __construct()
     {
         $this->name = 'totusproductbridge';
         $this->tab = 'administration';
-        $this->version = '1.0.0';
+        $this->version = '1.1.0';
         $this->author = 'Totus Central';
         $this->need_instance = 0;
         $this->bootstrap = true;
         $this->ps_versions_compliancy = array('min' => '1.7.8.0', 'max' => '8.99.99');
         parent::__construct();
-        $this->displayName = 'Totus · precios unitarios por API';
-        $this->description = 'Conserva la relación de precio unitario enviada al Webservice de productos. Sin endpoints, claves ni overrides.';
+        $this->displayName = 'Totus · puente de productos';
+        $this->description = 'Conserva precios unitarios y permite ordenar y describir imágenes mediante el Webservice autenticado. Sin claves propias ni overrides.';
     }
 
     public function install()
     {
         return parent::install()
             && $this->registerHook('actionObjectProductAddBefore')
-            && $this->registerHook('actionObjectProductUpdateBefore');
+            && $this->registerHook('actionObjectProductUpdateBefore')
+            && $this->registerHook('addWebserviceResources');
+    }
+
+    public function hookAddWebserviceResources($params)
+    {
+        return array('totus_product_images' => array(
+            'description' => 'Totus: posiciones y leyendas de imágenes existentes',
+            'class' => 'TotusProductImage',
+            'forbidden_method' => array('POST', 'DELETE'),
+        ));
     }
 
     public function hookActionObjectProductAddBefore($params)

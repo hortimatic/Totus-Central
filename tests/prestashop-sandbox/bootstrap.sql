@@ -24,6 +24,7 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'combinations','GET'),(@account_id,'combinations','POST'),(@account_id,'combinations','PUT'),(@account_id,'combinations','DELETE'),
  (@account_id,'product_option_values','GET'),
  (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
+ (@account_id,'totus_product_images','GET'),(@account_id,'totus_product_images','PUT'),
  (@account_id,'images','GET'),(@account_id,'images','POST'),(@account_id,'images','DELETE'),(@account_id,'image_types','GET'),
  (@account_id,'product_features','GET'),(@account_id,'product_feature_values','GET'),(@account_id,'tags','GET'),
  (@account_id,'suppliers','GET'),(@account_id,'currencies','GET'),

@@ -94,7 +94,7 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
 // This is intentionally read-only: writes require a separately audited contract.
 export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
  const store=prestashopStore(input.store);
- if(!['products','combinations'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
+ if(!['products','combinations','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
  if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
  const base=new URL(connection.endpoint);
@@ -106,7 +106,7 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer la ficha de PrestaShop (HTTP '+response.status+').');}
  if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
  const raw=await boundedJson(response,2097152);
- const singular=input.resource==='products'?'product':'combination',item=raw?.[singular];
+ const singular={products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
  if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
  return {ok:true,store:store.key,resource:input.resource,record_id:String(input.record_id),item};
 }

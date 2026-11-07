@@ -143,7 +143,7 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-const nativeNodes=Object.freeze({products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image'});
+const nativeNodes=Object.freeze({products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
 export function minimalProductStageSchema(resource){
  if(!['combinations','product_suppliers','specific_prices'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
  const singular=nativeNodes[resource];
@@ -186,6 +186,7 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
   if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';
  }
  if(added)edits.push({start:parent.contentEnd,end:parent.contentEnd,value:added});
+ if(resource==='totus_product_images')for(const name of ['id_product','cover']){const node=item.children.find(n=>n.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});}
  // PrestaShop sends calculated fields on GET which it rejects on PUT.
  for(const name of resource==='products'?['manufacturer_name','quantity',...['position_in_category','id_default_image','id_default_combination','type'].filter(key=>!Object.hasOwn(fields,key))]:resource==='combinations'?['quantity']:[]){
   const node=item.children.find(node=>node.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});

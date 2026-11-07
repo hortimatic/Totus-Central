@@ -17,7 +17,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  let languageIds=[];
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
  const call=async(path,options={},query={})=>{
-  const url=new URL(base.href);url.pathname='/api/'+path;if(path.startsWith('products/')&&languageIds.length)url.searchParams.set('language','['+languageIds.join('|')+']');for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
+  const url=new URL(base.href);url.pathname='/api/'+path;if((path.startsWith('products/')||path.startsWith('totus_product_images/'))&&languageIds.length)url.searchParams.set('language','['+languageIds.join('|')+']');for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
   const target=await safeEndpoint(url.href,resolve),response=await request(target.href,{...options,method:options.method||'GET',headers:{...headers,...options.headers},redirect:'error',credentials:'omit',signal:AbortSignal.timeout(30000)});
   if(!response.ok){await response.body?.cancel();throw Error('PrestaShop rechazó '+path+' (HTTP '+response.status+').');}
   if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La tienda devolvió HTML en vez del recurso solicitado.');}
@@ -27,7 +27,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const json=async(path,query={})=>boundedJson(await call(path,{headers:{Accept:'application/json'}},{...query,output_format:'JSON'}),2097152);
  // PUT replaces the full multilingual product, even when finishing only flags.
  // Reading selected/active languages would erase the installed inactive ones.
- if(op.kind==='finish')languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
+ if(['finish','image_metadata'].includes(op.kind))languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
  const productDisplay='['+[...new Set(['id','reference','price','active','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']';
@@ -40,6 +40,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   const data=await json('combinations/'+id),row=data.combination||data.combinations?.[0];
   if(String(row?.id)!==id||String(row.id_product)!==op.product_id)throw Error('La combinación pertenece a otro producto.');
  };
+ if(op.kind==='image_metadata'){const product=await rootJson(),images=product.associations?.images;if(!Array.isArray(images)||!images.some(row=>String(row.id)===op.record_id))throw Error('La imagen pertenece a otro producto.');if(Number(op.fields.position)>images.length)throw Error('La posición supera el número de imágenes del producto.');}
  if(op.kind==='variation_edit')await assertVariant(op.record_id);
  if(op.fields.id_product_attribute)await assertVariant(op.fields.id_product_attribute);
  if(op.kind==='variation'){
@@ -68,7 +69,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if([...(op.associations.images||[]),...(op.fields.id_default_image?[op.fields.id_default_image]:[])].some(id=>!ids.has(id)))throw Error('La imagen no pertenece a este producto.');
  }
  const image=op.kind==='image'?await inspectTransparentProductPng(op.image.base64):null;
- const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,...(op.kind==='variation_edit'?{record_id:op.record_id}:{}),fields:op.fields,associations:op.associations,...(image?{image:op.image.base64}:{})}));
+ const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,...(['variation_edit','image_metadata'].includes(op.kind)?{record_id:op.record_id}:{}),fields:op.fields,associations:op.associations,...(image?{image:op.image.base64}:{})}));
  const filters={'filter[id_product]':'['+op.product_id+']'};
  if(op.kind==='variation')filters['filter[reference]']='['+op.fields.reference+']';
  if(['stock','supplier_price','special_price'].includes(op.kind))filters['filter[id_product_attribute]']='['+op.fields.id_product_attribute+']';
@@ -79,17 +80,18 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(!Array.isArray(rows)||rows.length>1)throw Error('La etapa devuelve varios registros: selecciona y revisa el destino antes de escribir.');
   if(rows.length&&!/^[1-9]\d{0,14}$/.test(String(rows[0].id)))throw Error('Registro de etapa no válido.');return rows.length?String(rows[0].id):null;
  };
- const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):{id_product:op.product_id,...op.fields};
+ const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):op.kind==='image_metadata'?op.fields:{id_product:op.product_id,...op.fields};
  let nativeHtmlNormalized=false;
  const verify=async(recordId)=>{
   const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+[...Object.keys(desired),...Object.keys(op.associations).map(key=>key==='product_features'?'product_features[id,id_feature_value]':key+'[id]')].join(',')+']'}:{}),op.resource,desired,op.associations);
+  if(checked.id!==String(recordId))throw Error('La relectura pertenece a otro registro.');
   nativeHtmlNormalized||=checked.native_html_normalized===true;
   return checked;
  };
  const prior=op.commit?await journal.lookup(op):null;
  if(prior){
   if(prior.signature!==signature)throw Error('Esta etapa ya está vinculada a otros datos.');
-  const recordId=prior.record_id||(op.kind==='finish'?op.product_id:op.kind==='variation_edit'?op.record_id:op.kind==='image'?null:await find());
+  const recordId=prior.record_id||(op.kind==='finish'?op.product_id:['variation_edit','image_metadata'].includes(op.kind)?op.record_id:op.kind==='image'?null:await find());
   if(!recordId)throw Error('Resultado incierto. No se repetirá una carga o creación: revisa el registro de la tienda.');
   if(op.kind!=='image')await verify(String(recordId));
   else{const product=await rootJson();if(!(product.associations?.images||[]).some(row=>String(row.id)===String(recordId)))throw Error('No se confirma la imagen en este producto.');}
@@ -112,7 +114,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    if(page>=1000)throw Error('No se pudo completar la comprobación de atributos existentes.');
   }
  }
- const recordId=op.kind==='finish'?op.product_id:op.kind==='variation_edit'?op.record_id:op.kind==='image'?null:await find();
+ const recordId=op.kind==='finish'?op.product_id:['variation_edit','image_metadata'].includes(op.kind)?op.record_id:op.kind==='image'?null:await find();
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
  if(op.kind==='variation'&&recordId)throw Error('Ya hay una combinación con esa referencia. No se creará otra.');
  if(op.kind==='stock'&&!recordId)throw Error('PrestaShop todavía no ha creado el registro de existencias para este producto o combinación.');
@@ -127,6 +129,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    original=minimalProductStageSchema(op.resource);legacy_schema_fallback=true;
   }
  }
+ if(op.kind==='image_metadata'){const image=inspectProductStageXml(original,'totus_product_images',{id_product:op.product_id});if(image.id!==op.record_id)throw Error('Metadatos de otra imagen.');}
  const body=image?null:prepareProductStageXml(original,op.resource,desired,op.associations,recordId);
  const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||'')+(op.existing_product?'|'+root:''));
  const enabled=env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';

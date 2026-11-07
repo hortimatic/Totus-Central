@@ -50,6 +50,7 @@ try{
   assert.equal(await page.evaluate(()=>stitchQA.calls.filter(x=>x.action==='prestashop_item_read').at(-1).store),'newoldsmok');
   await page.locator('#subtabs-bar').waitFor().catch(async error=>{console.error(await page.locator('#productosRoot').innerText(),errors);throw error;});
   assert.equal(await page.locator('#subtabs-bar button').count(),9);
+  assert.equal(await page.locator('#sub-info textarea').getAttribute('rows'),'2');assert.equal(await page.locator('#sub-desc textarea[data-pr-value="description"]').getAttribute('rows'),'6');assert.equal(await page.locator('#sub-seo textarea[data-pr-value="meta_description"]').getAttribute('rows'),'2');
   await page.locator('[data-pr-value="name"]').fill('Nombre editado seguro');
   await page.locator('[data-pr-value="name"]').blur();
   for(const section of ['contenido','precios','variaciones','imagenes','seo','transporte','inventario','organizacion','general']){

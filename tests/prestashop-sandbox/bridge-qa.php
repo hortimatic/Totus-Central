@@ -4,6 +4,9 @@ $module = Module::getInstanceByName('totusproductbridge');
 if (!$module || !Module::isInstalled('totusproductbridge')) {
     throw new Exception('Bridge is not installed');
 }
+if (!$module->isRegisteredInHook('addWebserviceResources')) { throw new Exception('Image metadata hook is missing'); }
+$resources = $module->hookAddWebserviceResources(array());
+if ($resources['totus_product_images']['forbidden_method'] !== array('POST', 'DELETE')) { throw new Exception('Image metadata must forbid creation and deletion'); }
 function verifyBridge($module, $script, $method, $price, $ratio, $before, $expected)
 {
     $_SERVER['SCRIPT_FILENAME'] = $script;

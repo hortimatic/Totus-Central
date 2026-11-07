@@ -39,7 +39,7 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   comprobación de permisos DELETE, huella y relectura; sin repetir un borrado incierto.
 - Normalización de imágenes al tipo configurado en la tienda, conservando el producto
   completo; la transparencia se comprueba antes de añadir márgenes al lienzo.
-- 76 comprobaciones unitarias de Productos cubiertas en esta rama.
+- 77 comprobaciones unitarias de Productos cubiertas en esta rama.
 
 ## Pendiente antes de poder decir «idéntico y completo»
 
@@ -52,7 +52,8 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
 3. Completar creación de atributos nuevos. La edición de características, materiales,
    etiquetas y accesorios ya tiene revisión y comprobación simulada. Ampliar su
    contraste nativo y verificar después ambas conexiones reales.
-4. Completar orden y sustitución de imágenes. La eliminación de imágenes y combinaciones
+4. Verificar nativamente orden y leyendas de imagen mediante el puente 1.1.0
+   preparado, aún sin instalar en las tiendas reales. Completar sustitución de imágenes. La eliminación de imágenes y combinaciones
    ya está conectada y ha superado la prueba nativa aislada de PrestaShop 1.7.8.11.
    No sustituir controles faltantes por avisos que simulen una operación correcta.
 5. Contrastar visualmente la lista de borradores recuperables y las etapas reales

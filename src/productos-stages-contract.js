@@ -3,24 +3,24 @@ const id=/^[1-9]\d{0,14}$/;
 const unsigned=/^\d{1,15}$/;
 const decimal=/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/;
 const signed=/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/;
-export const PRODUCT_STAGE_RESOURCES=Object.freeze({variation:'combinations',variation_edit:'combinations',remove_variation:'combinations',remove_image:'images',stock:'stock_availables',supplier_price:'product_suppliers',special_price:'specific_prices',image:'images',finish:'products'});
+export const PRODUCT_STAGE_RESOURCES=Object.freeze({variation:'combinations',variation_edit:'combinations',remove_variation:'combinations',remove_image:'images',image_metadata:'totus_product_images',stock:'stock_availables',supplier_price:'product_suppliers',special_price:'specific_prices',image:'images',finish:'products'});
 const fields=Object.freeze({
  variation:['reference','ean13','upc','isbn','mpn','supplier_reference','price','wholesale_price','weight','ecotax','unit_price_impact','minimal_quantity','low_stock_threshold','low_stock_alert','default_on','available_date'],
- remove_variation:[],remove_image:[],variation_edit:[],
+ image_metadata:['position','legend'],remove_variation:[],remove_image:[],variation_edit:[],
  stock:['id_product_attribute','quantity','out_of_stock','depends_on_stock','location'],
  supplier_price:['id_product_attribute','id_supplier','id_currency','product_supplier_reference','product_supplier_price_te'],
  special_price:['id_product_attribute','id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','price','from_quantity','reduction','reduction_tax','reduction_type','from','to'],
  finish:['active','available_for_order','visibility','id_default_image','id_default_combination','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','description','description_short']
 });
-const required=Object.freeze({remove_variation:[],remove_image:[],variation_edit:[],variation:['reference','minimal_quantity','default_on'],stock:['id_product_attribute','quantity','out_of_stock','depends_on_stock'],supplier_price:['id_product_attribute','id_supplier','id_currency','product_supplier_reference','product_supplier_price_te'],special_price:['id_product_attribute','id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','price','from_quantity','reduction','reduction_tax','reduction_type','from','to'],finish:['active','available_for_order']});
+const required=Object.freeze({image_metadata:['position'],remove_variation:[],remove_image:[],variation_edit:[],variation:['reference','minimal_quantity','default_on'],stock:['id_product_attribute','quantity','out_of_stock','depends_on_stock'],supplier_price:['id_product_attribute','id_supplier','id_currency','product_supplier_reference','product_supplier_price_te'],special_price:['id_product_attribute','id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','price','from_quantity','reduction','reduction_tax','reduction_type','from','to'],finish:['active','available_for_order']});
 function fail(message){throw Error(message);}
 export function validateProductStage(input){
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['action','id','call_id','revision','store','parent_request_id','product_id','kind','step_key','fields','associations','image','record_id','expected_fingerprint','confirmed','existing_product'].includes(k)))fail('Solicitud de etapa no válida.');
  if(!['prestashop_product_step_prepare','prestashop_product_step_commit'].includes(input.action)||!uuid.test(input.id)||!uuid.test(input.call_id)||!uuid.test(input.parent_request_id)||!['hortimatic','newoldsmok'].includes(input.store)||!id.test(String(input.product_id))||!Number.isSafeInteger(input.revision)||input.revision<1||!Object.hasOwn(PRODUCT_STAGE_RESOURCES,input.kind)||!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(input.step_key||''))fail('Identidad de etapa no válida.');
  const out={store:input.store,kind:input.kind,resource:PRODUCT_STAGE_RESOURCES[input.kind],product_id:String(input.product_id),parent_request_id:input.parent_request_id,stage:input.kind+'_'+input.step_key,fields:{},associations:{},commit:input.action.endsWith('_commit')};
  if(input.existing_product!==undefined){if(input.existing_product!==true)fail('El recorrido de producto existente debe seleccionarse expresamente.');out.existing_product=true;}
- if(input.record_id!==undefined){if(!id.test(String(input.record_id))||!['stock','finish','variation_edit','remove_variation','remove_image'].includes(input.kind))fail('Registro de etapa no admitido.');out.record_id=String(input.record_id);}
- if(['variation_edit','remove_variation','remove_image'].includes(input.kind)&&(!out.existing_product||!out.record_id))fail('Selecciona una combinación existente de este producto.');
+ if(input.record_id!==undefined){if(!id.test(String(input.record_id))||!['stock','finish','variation_edit','remove_variation','remove_image','image_metadata'].includes(input.kind))fail('Registro de etapa no admitido.');out.record_id=String(input.record_id);}
+ if(['variation_edit','remove_variation','remove_image','image_metadata'].includes(input.kind)&&(!out.existing_product||!out.record_id))fail('Selecciona un registro existente de este producto.');
  if(out.commit&&(!/^[a-f0-9]{64}$/.test(input.expected_fingerprint||'')||input.confirmed!==true))fail('La etapa exige validación previa y confirmación.');
  if(!out.commit&&(input.expected_fingerprint!==undefined||input.confirmed!==undefined))fail('La preparación no escribe ni acepta confirmaciones.');
  if(out.commit)out.expected_fingerprint=input.expected_fingerprint;
@@ -32,8 +32,9 @@ export function validateProductStage(input){
  }
  if(!input.fields||typeof input.fields!=='object'||Array.isArray(input.fields)||Object.keys(input.fields).some(k=>!fields[input.kind].includes(k))||required[input.kind].some(k=>!Object.hasOwn(input.fields,k)))fail('Completa los campos obligatorios de esta etapa.');
  for(const [field,value] of Object.entries(input.fields)){
-  if(['description','description_short'].includes(field)){
-   if(!Array.isArray(value)||!value.length||value.some(t=>!t||Object.keys(t).some(k=>!['language_id','value'].includes(k))||!id.test(String(t.language_id))||typeof t.value!=='string'||t.value.length>250000)||new Set(value.map(t=>String(t.language_id))).size!==value.length)fail('Traducciones de etapa no válidas.');
+  if(['description','description_short','legend'].includes(field)){
+   if(!Array.isArray(value)||!value.length||value.some(t=>!t||Object.keys(t).some(k=>!['language_id','value'].includes(k))||!id.test(String(t.language_id))||typeof t.value!=='string'||t.value.length>(field==='legend'?128:250000))||new Set(value.map(t=>String(t.language_id))).size!==value.length)fail('Traducciones de etapa no válidas.');
+   if(field==='legend'&&value.some(t=>/[<>={}]/.test(t.value)))fail('El texto alternativo no admite < > = { }.');
    out.fields[field]=value.map(t=>({language_id:String(t.language_id),value:t.value}));continue;
   }
   if(typeof value!=='string'||value.length>255||/[\x00-\x1f]/.test(value))fail('Valor incorrecto para '+field+'.');
@@ -42,6 +43,7 @@ export function validateProductStage(input){
   if(['active','available_for_order','low_stock_alert','default_on','reduction_tax','depends_on_stock'].includes(field)&&!['0','1'].includes(value))fail('Indicador incorrecto para '+field+'.');
   if(field==='depends_on_stock'&&value!=='0')fail('El alta utiliza existencias normales; no activa gestión avanzada.');
   if(field==='out_of_stock'&&!['0','1','2'].includes(value))fail('Preferencia de disponibilidad incorrecta.');
+  if(field==='position'&&!id.test(value))fail('La posición debe ser un entero mayor que cero.');
   if(field==='id_category_default'&&!id.test(value))fail('Selecciona una categoría principal real.');
   if(field==='quantity'&&!/^\d{1,10}$/.test(value))fail('Cantidad no válida.');
   if(['minimal_quantity','from_quantity'].includes(field)&&!id.test(value))fail('La cantidad mínima debe ser mayor que cero.');

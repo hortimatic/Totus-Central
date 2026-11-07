@@ -21,6 +21,7 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  product_feature_values:Object.freeze(['id','id_feature','custom','value']),
  tags:Object.freeze(['id','id_lang','name']),
  tax_rule_groups:Object.freeze(['id','name','active','deleted']),
+ totus_product_images:Object.freeze(['id','id_product','position','cover','legend']),
  image_types:Object.freeze(['id','name','width','height','products']),
  product_options:Object.freeze(['id','name','public_name','group_type','position']),
  product_option_values:Object.freeze(['id','id_attribute_group','name','color','position']),
