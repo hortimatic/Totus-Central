@@ -88,6 +88,10 @@ select private.totus_agent_submit('<correo de la cuenta ChatGPT activa>', 'opera
 9. Obtener datos de la URL facilitada, redactar contenido propio y adaptar SEO a la tienda. En datos comerciales reales, no inventar coste, impuestos, stock, proveedor o EAN para completar huecos. En el producto «pruebas», Diego ha autorizado expresamente datos ficticios.
 10. Entregar tienda, referencia, ID, estado activo/comprable y comprobaciones reales. No devolver «creado» si el trabajo solo está queued, prevalidado o parcialmente guardado.
 
+## Cambios masivos por combinación
+
+Seleccionar combinaciones concretas, elegir un campo común y su nuevo valor; preparar y validar el lote, revisar sus diferencias y escribir GUARDAR LOTE. Cada combinación conserva una solicitud propia. El lote se detiene ante el primer fallo, conserva las completadas y permite comprobar la pendiente sin repetirla. No incluye combinaciones inexistentes en destino ni constituye una transacción única entre tiendas. Referencias y códigos únicos se editan individualmente; no asignar un mismo EAN a todas.
+
 ## Recuperación y concurrencia
 
 El borrador local se conserva por cuenta en IndexedDB, incluidas imágenes y solicitudes estables; no contiene claves. Una reapertura no envía escrituras. Cambiar de cuenta no carga el trabajo de otra. No es una copia de seguridad remota ni sustituye el diario del servidor.

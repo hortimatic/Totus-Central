@@ -94,6 +94,17 @@ try{
   await page.getByRole('button',{name:'Guardar combinación',exact:true}).click();
   await page.getByText(/Combinación #200 guardada y releída/).waitFor();
   assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_commit').length),2);
+  await page.getByRole('button',{name:'Cambios masivos'}).click();
+  await page.locator('[data-pr-bulk="100"]').check();
+  await page.locator('[data-pr-bulk-value]').fill('4,25');await page.locator('[data-pr-bulk-value]').blur();
+  await page.getByRole('button',{name:'Preparar y validar el lote'}).click();
+  await page.getByText(/Lote validado sin escribir: 1 combinaciones/).waitFor();
+  await page.locator('[data-pr-bulk-confirm]').fill('GUARDAR LOTE');await page.locator('[data-pr-bulk-confirm]').blur();
+  await page.getByRole('button',{name:'Guardar lote seleccionado'}).click();
+  await page.getByText(/Lote terminado: 1 combinaciones guardadas y releídas/).waitFor();
+  assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_commit').length),3);
+  assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_commit').at(-1).changes[0].value),'4.25');
+  await page.locator('[data-pr-bulk="100"]').uncheck();
   await page.evaluate(()=>{productosQA.calls=[];productosQA.allowWrites=false;});
   await page.getByRole('button',{name:'Cambios masivos'}).click();
   await page.locator('[data-pr-bulk="101"]').check();

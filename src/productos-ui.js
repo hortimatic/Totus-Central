@@ -17,9 +17,9 @@ const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
- let storageReady=false,storageQueue=Promise.resolve();
+ let storageReady=false,storageQueue=Promise.resolve(),storageError=null;
  let priceOptions={vat:'21',re:'5.2',discount:'0'};
- let listSize=20,listPage=0,parallelSection='general';
+ let listSize=20,listPage=0,parallelSection='general',bulkField='price',bulkValue='',bulkItems=[],bulkConfirm='';
  let root=null,owner=null,epoch=0,mode='catalogo',store='hortimatic',pending=false,status='Selecciona una tienda y consulta su catálogo.',connections=[],rows=[],hasMore=false,page=0,query='',record=null,variants=[],fields=new Set(),overrides={},variantFields=new Map(),variantOverrides=new Map(),targets=new Set(['newoldsmok']),comparison=new Map(),preview=[],selection=new Set(),targetOverrides=new Map(),preflight=new Map(),targetRaw=new Map(),targetLanguages=new Map(),targetIds=new Map(),variantPreflight=new Map();
  const connection=shop=>storeConnection(connections,shop);
  const shopRecords=new Map(),editRequests=new Map(),editConfirm=new Map();
@@ -27,17 +27,17 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  const current=()=>!!root?.isConnected&&owner===actor()&&allowed()&&root.dataset.prEpoch===String(epoch);
  const stateSnapshot=()=>({store,mode,record:record?.id||null});
  const createWizard=createProductWizard({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit});
- const snapshotDraft=()=>({store,mode,parallelSection,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
- const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record?structuredClone(snapshotDraft()):null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(()=>{if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
+ const snapshotDraft=()=>({store,mode,parallelSection,bulkField,bulkValue,bulkItems,bulkConfirm,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
+ const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record?structuredClone(snapshotDraft()):null;storageError=null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(error=>{storageError=error||Error('Borrador local no disponible');if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
  function restoreDraft(d){
   if(!d||!PRODUCT_STORES.some(s=>s.key===d.store)||!d.record)return false;
-  ({store,mode,parallelSection,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight}=d);
+  ({store,mode,parallelSection,bulkField,bulkValue,bulkItems,bulkConfirm,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight}=d);
   for(const [map,values] of [[shopRecords,d.shops],[editRequests,d.editRequests],[editConfirm,d.editConfirm]]){map.clear();for(const [key,value] of values||[])map.set(key,value);}
   createWizard.restore(d.wizard);return true;
  }
  const invalidate=()=>{preview=[];comparison.clear();preflight.clear();variantPreflight.clear();createWizard.invalidate();};
  function resetDraft(){
-  shopRecords.clear();editRequests.clear();editConfirm.clear();record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();targetRaw.clear();targetLanguages.clear();targetIds.clear();createWizard.reset();invalidate();
+  shopRecords.clear();editRequests.clear();editConfirm.clear();bulkItems=[];bulkConfirm='';record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();targetRaw.clear();targetLanguages.clear();targetIds.clear();createWizard.reset();invalidate();
  }
  function sectionTitle(section){return ({general:'Información y descripción',precios:'Precios e impuestos',seo:'SEO',transporte:'Transporte',inventario:'Disponibilidad',organizacion:'Organización'})[section]||section;}
  function fieldControl(field,value,attrs,disabled=false){
@@ -143,8 +143,32 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   if(!record)return empty('Selecciona una ficha','Primero abre un producto o crea un borrador.');
   return '<section class="card card-pad"><h3>Tiendas de destino</h3><p>Selecciona una o ambas. Cada tienda conserva sus propios ID, categorías, imágenes y atributos.</p><div class="prd-targets">'+PRODUCT_STORES.map(s=>'<label><input type="checkbox" data-pr-target="'+s.key+'" '+(targets.has(s.key)?'checked':'')+'> '+h(s.label)+' '+(ready(s.key)?'':'· sin conexión verificada')+'</label>').join('')+'</div>'+parallelEditors()+'<div class="inline-actions">'+btn('Buscar coincidencias y preparar cambios','compare','',pending||!targets.size)+btn('Descartar propuesta','clear-preview','',pending)+'</div><div class="prd-preview">'+(preview.length?preview.map(plan=>'<section class="prd-plan"><h4>'+h(PRODUCT_STORES.find(s=>s.key===plan.store)?.label)+' · '+(plan.operation==='update'?'Actualizar #'+h(plan.target_id):'Crear producto nuevo')+'</h4><p>'+plan.changes.filter(x=>x.changed).length+' campos cambiados · '+plan.variants.length+' variaciones seleccionadas</p><ul>'+plan.changes.filter(x=>x.changed).map(change=>'<li><b>'+h(metadata[change.field]||change.field)+'</b>: '+h(text(change.before))+' → '+h(text(change.after))+'</li>').join('')+'</ul>'+((preflight.get(plan.store)?.record_id===plan.target_id)?'<p class="prd-api-ok">XML real consultado y campos seleccionados verificados, sin escribir.</p>':'')+btn('Validar contra el XML de la tienda','api-preview','data-pr-dest="'+h(plan.store)+'"',pending||!plan.target_id||!plan.changes.some(c=>c.changed))+plan.variants.filter(v=>v.changes.some(c=>c.changed)).map(v=>'<div class="prd-variant-review"><span>Variación #'+h(v.target_id||'nueva')+' · '+h(v.changes.filter(c=>c.changed).length)+' campos</span>'+((variantPreflight.has(plan.store+'|'+v.target_id))?'<small>XML comprobado</small>':'')+btn('Validar variación','variant-api-preview','data-pr-dest="'+h(plan.store)+'" data-pr-variation="'+h(v.target_id||'')+'"',pending||!v.target_id)+variantSaveControls(plan.store,v.target_id)+'</div>').join('')+plan.warnings.map(w=>'<p class="prd-warning">'+h(w)+'</p>').join('')+(plan.operation==='create'?createWizard.render(plan,record):editControls(plan))+'</section>').join(''):'<p>Sin propuesta calculada. Primero selecciona los campos de la ficha y, si corresponde, de cada combinación.</p>')+'</div><p class="prd-note"><b>El alta base tiene su propia confirmación por tienda.</b> Tras el alta base, completa combinaciones, existencias, precios e imágenes en sus etapas. Las actualizaciones de productos anteriores y los lotes se mantienen separados.</p></section>';
  }
+ async function prepareBulk(){
+  bulkItems=[];bulkConfirm='';bulkVariantSelection(variants,[...selection],[bulkField]);
+  if(!selection.size||!bulkValue.trim())throw Error('Selecciona combinaciones y un valor nuevo.');
+  const saved={fields,overrides,variantFields,variantOverrides};
+  try{fields=new Set();overrides={};variantFields=new Map();variantOverrides=new Map();
+   for(const id of selection){variantFields.set(id,new Set([bulkField]));variantOverrides.set(id,{[bulkField]:productInputValue(bulkField,bulkValue)});}
+   await prepare();
+   const items=preview.flatMap(plan=>plan.variants.filter(v=>v.changes.some(c=>c.changed)).map(v=>({shop:plan.store,id:v.target_id,parent:plan.target_id,source:v.source_id,changes:v.changes,done:false})));
+   if(!items.length)throw Error('No hay diferencias que guardar.');
+   if(items.some(item=>!item.id||!item.parent))throw Error('El lote incluye combinaciones inexistentes en destino. Créales primero sus atributos desde el alta individual; no se ha escrito nada.');
+   bulkItems=items;bulkConfirm='';
+   for(const item of items)await previewVariant(item.shop,item.id);
+   status='Lote validado sin escribir: '+items.length+' combinaciones. Revisa cada cambio y confirma.';
+  }finally{({fields,overrides,variantFields,variantOverrides}=saved);mode='bulk';}
+ }
+ async function commitBulk(){
+  if(!canEdit()||bulkConfirm!=='GUARDAR LOTE'||!bulkItems.length)throw Error('Valida el lote y escribe GUARDAR LOTE.');
+  for(const item of bulkItems){if(item.done)continue;editConfirm.set(item.shop+'|'+item.id,'GUARDAR');await commitVariant(item.shop,item.id);item.done=true;status='Lote: '+bulkItems.filter(row=>row.done).length+' de '+bulkItems.length+' combinaciones verificadas.';render();}
+  status='Lote terminado: '+bulkItems.length+' combinaciones guardadas y releídas. No se han modificado las demás.';
+ }
  function bulk(){
-  return '<section class="card card-pad"><h3>Selección masiva por variación</h3><p>Las combinaciones no se mezclan con el producto principal. Selecciona exactamente las referencias que quieras tratar.</p>'+(!variants.length?empty('Abre un producto con variaciones','En esta fase se prepara la selección, todavía no se ejecutan actualizaciones masivas.'):variants.map(v=>'<label class="prd-bulk-row"><input type="checkbox" data-pr-bulk="'+h(keyFor(v))+'" '+(selection.has(keyFor(v))?'checked':'')+'><span>'+h(text(v.reference)||'Sin referencia')+'</span><small>ID '+h(v.id||'borrador')+'</small></label>').join(''))+'<div class="inline-actions">'+btn('Revisar selección','bulk-preview','',!selection.size)+'</div><p class="prd-note">La ejecución masiva por lotes, historial y reintentos estará disponible tras comprobar el contrato de escritura.</p></section>';
+  return '<section class="card card-pad"><h3>Selección masiva por variación</h3><p>Las combinaciones no se mezclan con el producto principal. Selecciona exactamente las referencias que quieras tratar.</p>'+(!variants.length?empty('Abre un producto con variaciones','Selecciona sus combinaciones y prepara los cambios del lote.'):variants.map(v=>'<label class="prd-bulk-row"><input type="checkbox" data-pr-bulk="'+h(keyFor(v))+'" '+(selection.has(keyFor(v))?'checked':'')+'><span>'+h(text(v.reference)||'Sin referencia')+'</span><small>ID '+h(v.id||'borrador')+'</small></label>').join(''))+'<div class="inline-actions">'+btn('Revisar selección','bulk-preview','',!selection.size)+'</div>'+bulkForm()+'</section>';
+ }
+ function bulkForm(){
+  const options=['price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'];
+  return '<div class="prd-fields-grid"><label class="prd-field"><b>Campo común del lote</b><select data-pr-bulk-field>'+options.map(field=>'<option value="'+field+'" '+(bulkField===field?'selected':'')+'>'+h(metadata[field]||field)+'</option>').join('')+'</select></label><label class="prd-field"><b>Valor nuevo (precios e impactos sin impuestos)</b><input data-pr-bulk-value value="'+h(bulkValue)+'"></label></div>'+btn('Preparar y validar el lote','bulk-prepare','',pending||!selection.size)+'<div class="prd-bulk-results">'+bulkItems.map(item=>'<p><b>'+h(item.shop)+' · combinación #'+h(item.id)+'</b>: '+item.changes.filter(c=>c.changed).map(c=>h(metadata[c.field]||c.field)+': '+h(text(c.before))+' → '+h(text(c.after))).join('; ')+(item.done?' · guardada y verificada':' · pendiente')+'</p>').join('')+'</div>'+(bulkItems.length?'<label class="prd-field">Para guardar escribe GUARDAR LOTE<input data-pr-bulk-confirm value="'+h(bulkConfirm)+'"></label>'+btn('Guardar lote seleccionado','bulk-commit','',pending||!canEdit()||bulkItems.some(item=>!item.done&&!variantPreflight.get(item.shop+'|'+item.id)?.can_commit)):'')+'<p class="prd-note">Cada combinación tiene su solicitud y comprobación. Ante un fallo el lote se detiene, conserva las completadas y permite comprobar la pendiente sin repetirla. No es una transacción única entre tiendas.</p>';
  }
  function render(){
   if(!current())return;
@@ -158,6 +182,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   if(!current())throw Error('La sesión ha cambiado.');
   const generation=epoch;
   const c=connection(shop);if(!ready(shop))throw Error('Comprueba la conexión de '+shop+' antes de consultar.');
+  if(action.endsWith('_commit')){persistDraft();await storageQueue;if(storageError)throw Error('No se ha podido conservar la solicitud local. No se ha enviado a la tienda.');if(!current()||epoch!==generation)throw Error('La sesión ha cambiado.');}
   const r=await invoke({action,store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args});
   if(!current()||epoch!==generation)throw Error('La sesión ha cambiado.');
   if(r?.ok!==true||r.store!==shop)throw Error('Respuesta de tienda no verificada.');
@@ -281,6 +306,9 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   root.onchange=e=>{
    if(e.target.matches('[data-pr-price-option]')){priceOptions[e.target.dataset.prPriceOption]=e.target.value;render();return;}
    if(pending||!current())return;
+   if(e.target.matches('[data-pr-bulk-field]')){bulkField=e.target.value;bulkItems=[];bulkConfirm='';render();return;}
+   if(e.target.matches('[data-pr-bulk-value]')){bulkValue=e.target.value;bulkItems=[];bulkConfirm='';persistDraft();return;}
+   if(e.target.matches('[data-pr-bulk-confirm]')){bulkConfirm=e.target.value;persistDraft();return;}
    if(e.target.matches('[data-pr-edit-confirm]')){editConfirm.set(e.target.dataset.prEditConfirm,e.target.value);return;}
    if(e.target.matches('[data-pr-stage-file]')){const input={files:Array.from(e.target.files||[]),dataset:{...e.target.dataset}};void work(async()=>{status=await createWizard.handleFile(input);});return;}
    if(e.target.matches('[data-pr-page-size]')){listSize=Number(e.target.value);listPage=0;render();return;}
@@ -294,7 +322,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-lang-store]')){const dest=e.target.dataset.prLangStore,field=e.target.dataset.prLangField,values=targetLanguages.get(dest)||{};values[field]=e.target.value;targetLanguages.set(dest,values);preflight.clear();persistDraft();return;}
    if(e.target.matches('[data-pr-vfield]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVfield,set=variantFields.get(id)||new Set();e.target.checked?set.add(field):set.delete(field);variantFields.set(id,set);invalidate();render();return;}
    if(e.target.matches('[data-pr-vvalue]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVvalue,values=variantOverrides.get(id)||{};values[field]=e.target.value;variantOverrides.set(id,values);invalidate();persistDraft();return;}
-   if(e.target.matches('[data-pr-bulk]')){e.target.checked?selection.add(e.target.dataset.prBulk):selection.delete(e.target.dataset.prBulk);render();}
+   if(e.target.matches('[data-pr-bulk]')){e.target.checked?selection.add(e.target.dataset.prBulk):selection.delete(e.target.dataset.prBulk);bulkItems=[];bulkConfirm='';render();}
   };
   root.onclick=e=>{const b=e.target.closest('[data-pr-action]');if(!b||!current())return;const a=b.dataset.prAction;
    if(a==='shop-open'){void work(async()=>{const shop=b.dataset.prShop,item=shopRecords.get(shop);if(!item)throw Error('Comprueba primero la correspondencia.');store=shop;await openProduct(item.id);});return;}
@@ -306,7 +334,9 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(a==='new-product'){freshProduct();render();return;}
    if(a==='new-variant'){newVariant();render();return;}
    if(a==='clear-preview'){invalidate();status='Propuesta descartada; la ficha original sigue cargada.';render();return;}
-   if(a==='bulk-preview'){try{bulkVariantSelection(variants,[...selection],['reference']);status='Selección comprobada: '+selection.size+' variaciones distintas. Ejecutar en lote permanece desactivado.';}catch(error){status=error.message;}render();return;}
+   if(a==='bulk-prepare'){void work(prepareBulk);return;}
+   if(a==='bulk-commit'){void work(commitBulk);return;}
+   if(a==='bulk-preview'){try{bulkVariantSelection(variants,[...selection],['reference']);status='Selección comprobada: '+selection.size+' variaciones distintas. Elige el campo y valor antes de validar el lote.';}catch(error){status=error.message;}render();return;}
    if(a==='catalog-prev'){listPage=Math.max(0,listPage-1);render();return;}
    if(a==='catalog-next'){void work(async()=>{if((listPage+1)*listSize>=rows.length&&hasMore)await loadCatalog(true);listPage++;});return;}
    if(a==='catalog-load')void work(()=>loadCatalog(false));
