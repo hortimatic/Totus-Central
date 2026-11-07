@@ -12,6 +12,10 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
 - Cinco pestañas principales y nueve apartados de ficha navegables.
 - Catálogo real por tienda, fotografías, columnas configurables por usuario,
   filtros, selección de página, paginación y CSV con protección de fórmulas.
+- Vista de ambas tiendas con claves compuestas por tienda e ID; los números
+  coincidentes no mezclan fichas, relaciones, imágenes ni existencias.
+- Selección múltiple conservada en una cola de revisión por producto; las
+  solicitudes de cada ficha se conservan al abrir otra.
 - Edición de campos, selección para copia y dos fichas con origen y destino explícitos.
 - Encargo desde URL con los datos aportados, sin fingir una extracción automática.
 - Guardado local por cuenta y conservación de borradores al cambiar de tienda.
@@ -21,15 +25,16 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   se comprueban país, regla e impuesto. Los casos territoriales o compuestos no se inventan.
 - Recorrido completo simulado en 390, 768 y 1440: edición, combinación, lote,
   creación, existencias, imagen transparente, descripción visual y recuperación.
-- 68 comprobaciones unitarias de Productos superadas antes de esta anotación.
+- 69 comprobaciones unitarias de Productos cubiertas en esta rama.
 
 ## Pendiente antes de poder decir «idéntico y completo»
 
 1. Contraste visual por captura de **cada** vista y subvista con el original,
    con iguales medidas y un conjunto de datos comparable. Los estilos reutilizados
    y las pruebas de navegación no acreditan por sí solos igualdad visual.
-2. Completar la vista consolidada de ambas tiendas y el tratamiento de selección
-   múltiple de productos para copiar. Actualmente la copia operativa es individual.
+2. Contrastar la experiencia completa de la cola de copias múltiples con datos
+   reales. La selección admite varias fichas y mantiene sus solicitudes, pero
+   la confirmación de cada tienda sigue siendo individual y explícita.
 3. Conectar edición de organización, relaciones y atributos nuevos sobre fichas
    existentes. El alta ya mapea relaciones; no atribuir ese soporte a toda edición.
 4. Completar controles de portada, orden, sustitución y eliminación de imágenes,

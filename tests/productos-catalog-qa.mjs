@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productColumns,productPhoto,filterProductCatalog,productCatalogCsv} from '../src/productos-catalog.js';
+import {productColumns,productPhoto,filterProductCatalog,productCatalogCsv,catalogProductKey} from '../src/productos-catalog.js';
 import {readPrestashopPage} from '../supabase/functions/totus-connections/prestashop.js';
 test('catálogo conserva nombre, descarta preferencias desconocidas y busca por EAN/categoría/marca/estado',()=>{
  assert.deepEqual(productColumns(['name','price','name','<script>']),['name','price']);
@@ -11,6 +11,13 @@ test('catálogo conserva nombre, descarta preferencias desconocidas y busca por 
  assert.equal(productPhoto({id_default_image:'7'},'newoldsmok'),'https://newoldsmok.com/7-home_default/product.jpg');
  assert.equal(productPhoto({id_default_image:'https://evil.test'},'hortimatic'),null);
  const csv=productCatalogCsv([{name:'  =HYPERLINK("bad")'}],['name'],(r,k)=>r[k]);assert(csv.includes('"\'  =HYPERLINK(""bad"")"'));
+});
+
+test('combined catalog keeps store identity even when product, category and brand IDs coincide',()=>{
+ const rows=[{id:'42',__store:'hortimatic',name:'A',id_category_default:'3',id_manufacturer:'8'},{id:'42',__store:'newoldsmok',name:'B',id_category_default:'3',id_manufacturer:'8'}];
+ assert.notEqual(catalogProductKey(rows[0]),catalogProductKey(rows[1]));
+ assert.equal(filterProductCatalog(rows,{category:'newoldsmok|3',brand:'newoldsmok|8'})[0].name,'B');
+ assert.equal(filterProductCatalog(rows,{category:'newoldsmok|3',brand:'hortimatic|8'}).length,0);
 });
 test('existencias por productos filtra id_product y rechaza datos ajenos sin escribir',async()=>{
  const c={protocol:'prestashop',name:'PrestaShop · Hortimatic',endpoint:'https://hortimatic.com/api',secret:'fixture',enabled:true,revision:2,verified_revision:2,real_data_authorized:true};

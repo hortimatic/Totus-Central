@@ -122,3 +122,8 @@
 #productosRoot .prd-stitch .prd-columns input{width:16px;height:16px;margin:0}
 #productosRoot .prd-stitch .prd-thumb{width:40px;height:40px;object-fit:contain;display:inline-flex;align-items:center;justify-content:center;background:#fff;font-size:10px;color:#6e7881}
 #productosRoot .prd-stitch .prd-parallel-identity{display:flex;align-items:center;gap:12px;padding:10px 0;margin-bottom:10px}
+.productos-page{grid-template-columns:minmax(0,1fr)}
+#productosRoot{min-width:0;max-width:100%;width:100%}
+#productosRoot .prd-stitch>section>div:first-child>div{flex-wrap:wrap}
+#productosRoot .prd-stitch .master-tab-btn{max-width:100%;flex-wrap:wrap;text-align:left}
+#productosRoot .prd-stitch #tab-catalogo>div:first-child .flex{flex-wrap:wrap} #productosRoot .prd-stitch button{min-width:0;max-width:100%}

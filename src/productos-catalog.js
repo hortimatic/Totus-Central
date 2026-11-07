@@ -5,13 +5,17 @@ export const PRODUCT_COLUMNS=Object.freeze([
 ]);
 export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','id','reference','name','ean13','brand','category','store','cost','gross','margin','stock','variants','active']);
 export function productColumns(value){const valid=new Set(PRODUCT_COLUMNS.map(c=>c[0]));return Array.isArray(value)&&value.includes('name')?[...new Set(value.filter(k=>valid.has(k)))]:[...DEFAULT_PRODUCT_COLUMNS];}
+export function catalogProductKey(product,fallbackStore='hortimatic'){
+ return (product.__store||fallbackStore)+'|'+String(product.id);
+}
 export function productPhoto(item,store){
  const id=String(item?.id_default_image||associationIds(item,'images')[0]||'');
  return /^[1-9]\d{0,14}$/.test(id)?'https://'+(store==='newoldsmok'?'newoldsmok.com':'hortimatic.com')+'/'+id+'-home_default/product.jpg':null;
 }
 export function filterProductCatalog(rows,{query='',category='',brand='',active=''}={}){
  const q=query.trim().toLocaleLowerCase('es');
- return rows.filter(r=>(!q||[r.id,r.name,r.reference,r.ean13].map(textValue).join(' ').toLocaleLowerCase('es').includes(q))&&(!category||String(r.id_category_default)===category||associationIds(r,'categories').includes(category))&&(!brand||String(r.id_manufacturer)===brand)&&(active===''||String(r.active)===active));
+ const relation=(row,key,current,ids=[])=>{if(!current)return true;const [shop,id]=current.includes('|')?current.split('|'):[null,current];return (!shop||row.__store===shop)&&(String(row[key])===id||ids.includes(id));};
+ return rows.filter(r=>(!q||[r.id,r.name,r.reference,r.ean13].map(textValue).join(' ').toLocaleLowerCase('es').includes(q))&&relation(r,'id_category_default',category,associationIds(r,'categories'))&&relation(r,'id_manufacturer',brand)&&(active===''||String(r.active)===active));
 }
 export function productCatalogCsv(rows,columns,value){
  const cell=csvCell;

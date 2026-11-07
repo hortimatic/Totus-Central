@@ -20,7 +20,7 @@ function serialize(node){const wrap=document.createElement('div');wrap.append(no
 function label(button,value){const spans=button.querySelectorAll('span');setText(spans[1]||button,value);}
 export function stitchHeader({store,mode,status,count,product,pending,connected}){
  const f=fragment(STITCH_HEADER),select=f.querySelector('select');
- select.dataset.prStore='';select.querySelector('[value="both"]')?.remove();
+ select.dataset.prStore='';
  for(const option of select.options)option.toggleAttribute('selected',option.value===store);
  const badges=f.querySelectorAll('.rounded-full');
  setText(badges[0],connected?'Conexión verificada':'Revisar conexión');
@@ -45,7 +45,7 @@ export function stitchHeader({store,mode,status,count,product,pending,connected}
  return serialize(f);
 }
 
-export function stitchCatalog({store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo}){
+export function stitchCatalog({store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo,rowKey=p=>String(p.id)}){
  const f=fragment(STITCH_VIEWS['tab-catalogo']),view=f.firstElementChild;
  view.classList.remove('hidden');view.classList.add('flex');
  const summary=view.firstElementChild.firstElementChild.firstElementChild;
@@ -53,7 +53,7 @@ export function stitchCatalog({store,rows,columns,selected,query,filters,brands,
  setText(summarySpans[1],hasMore?'Consulta parcial:':'Productos consultados:');
  setText(summarySpans[2],rows.length+' referencias');
  // No demo totals, fabricated latency or claims of live synchronisation.
- setText(summarySpans[3],'de');setText(summarySpans[4],store==='hortimatic'?'Hortimatic':'NewOldSmok');
+ setText(summarySpans[3],'de');setText(summarySpans[4],store==='both'?'Ambas tiendas':store==='hortimatic'?'Hortimatic':'NewOldSmok');
  const connection=summary.lastElementChild;setText(connection,ready?'Conexión verificada':'Conexión pendiente');
  const search=f.querySelector('#catalogo-search-input');search.value=query;search.setAttribute('value',query);search.dataset.prSearch='';
  const fillSelect=(select,key,items,title,current)=>{
@@ -63,7 +63,7 @@ export function stitchCatalog({store,rows,columns,selected,query,filters,brands,
  fillSelect(f.querySelector('#catalogo-brand-filter'),'brand',brands,'Todas las marcas',filters.brand);
  fillSelect(f.querySelector('#catalogo-category-filter'),'category',categories,'Todas las categorías',filters.category);
  const selects=[...f.querySelectorAll('select')];
- const shop=selects[2];shop.dataset.prStore='';shop.replaceChildren(new Option('Hortimatic','hortimatic'),new Option('NewOldSmok','newoldsmok'));shop.value=store;shop.querySelector('[value="'+store+'"]')?.setAttribute('selected','');
+ const shop=selects[2];shop.dataset.prStore='';shop.replaceChildren(new Option('Hortimatic','hortimatic'),new Option('NewOldSmok','newoldsmok'),new Option('Ambas tiendas','both'));shop.value=store;shop.querySelector('[value="'+store+'"]')?.setAttribute('selected','');
  fillSelect(selects[3],'active',[['1','Activo'],['0','Inactivo']],'Todos los estados',filters.active);
  const tools=[...f.querySelectorAll('button')];
  const columnsButton=tools[0],details=document.createElement('details');details.className='prd-columns';
@@ -72,9 +72,9 @@ export function stitchCatalog({store,rows,columns,selected,query,filters,brands,
  for(const [key,text]of PRODUCT_COLUMNS){const l=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.prColumn=key;input.checked=columns.includes(key);if(input.checked)input.setAttribute('checked','');input.disabled=key==='name';l.append(input,document.createTextNode(text));options.append(l);}
  details.append(options);columnsButton.replaceWith(details);
  action(tools[1],'catalog-export');label(tools[1],'Exportar CSV');tools[1].disabled=pending||!rows.length;
- action(tools[2],'catalog-copy');tools[2].disabled=pending||selected.size!==1;
+ action(tools[2],'catalog-copy');tools[2].disabled=pending||!selected.size;
  action(tools[3],'new-product');label(tools[3],'Nuevo producto');
- const full=f.querySelector('#check-full-catalog');full.dataset.prCatalogLoaded='';full.checked=rows.length>0&&rows.every(r=>selected.has(String(r.id)));if(full.checked)full.setAttribute('checked','');
+ const full=f.querySelector('#check-full-catalog');full.dataset.prCatalogLoaded='';full.checked=rows.length>0&&rows.every(r=>selected.has(rowKey(r)));if(full.checked)full.setAttribute('checked','');
  setText(f.querySelector('label[for="check-full-catalog"]'),'Seleccionar todos los productos consultados');
  setText(full.parentElement.parentElement.querySelector('span'),'Seleccionados: '+selected.size);
  const filtered=rows.filter(r=>r.__visible!==false),pages=Math.max(1,Math.ceil(filtered.length/size));
@@ -83,8 +83,8 @@ export function stitchCatalog({store,rows,columns,selected,query,filters,brands,
  const indexes={image:1,reference:2,name:3,brand:4,category:5,store:6,cost:7,price:8,gross:8,margin:8,stock:9,active:10};
  const hc=k=>originalCells[indexes[k]??2]?.className||'p-space-sm';
  const dc=k=>originalData[indexes[k]??2]?.className||'p-space-sm';
- head.innerHTML='<th class="'+esc(originalCells[0].className)+'"><input type="checkbox" aria-label="Seleccionar página" data-pr-catalog-all '+(visible.length&&visible.every(p=>selected.has(String(p.id)))?'checked':'')+'></th>'+columns.map(k=>'<th class="'+esc(hc(k))+'">'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'</th>').join('')+'<th class="'+esc(originalCells.at(-1).className)+'">Acciones</th>';
- body.innerHTML=visible.map(p=>'<tr><td class="'+esc(originalData[0].className)+'"><input type="checkbox" aria-label="Seleccionar producto '+esc(p.id)+'" data-pr-catalog-select="'+esc(p.id)+'" '+(selected.has(String(p.id))?'checked':'')+'></td>'+columns.map(k=>'<td class="'+esc(dc(k))+'" data-label="'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'">'+(k==='image'?photo(p):k==='name'?'<strong>'+esc(value(p,k))+'</strong><br><small>'+esc(p.reference||'')+'</small>':esc(value(p,k)))+'</td>').join('')+'<td class="'+esc(originalData.at(-1).className)+'"><button type="button" data-pr-action="open-product" data-id="'+esc(p.id)+'" class="px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">Abrir ficha</button></td></tr>').join('');
+ head.innerHTML='<th class="'+esc(originalCells[0].className)+'"><input type="checkbox" aria-label="Seleccionar página" data-pr-catalog-all '+(visible.length&&visible.every(p=>selected.has(rowKey(p)))?'checked':'')+'></th>'+columns.map(k=>'<th class="'+esc(hc(k))+'">'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'</th>').join('')+'<th class="'+esc(originalCells.at(-1).className)+'">Acciones</th>';
+ body.innerHTML=visible.map(p=>'<tr><td class="'+esc(originalData[0].className)+'"><input type="checkbox" aria-label="Seleccionar producto '+esc(p.id)+'" data-pr-catalog-select="'+esc(rowKey(p))+'" '+(selected.has(rowKey(p))?'checked':'')+'></td>'+columns.map(k=>'<td class="'+esc(dc(k))+'" data-label="'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'">'+(k==='image'?photo(p):k==='name'?'<strong>'+esc(value(p,k))+'</strong><br><small>'+esc(p.reference||'')+'</small>':esc(value(p,k)))+'</td>').join('')+'<td class="'+esc(originalData.at(-1).className)+'"><button type="button" data-pr-action="open-product" data-id="'+esc(p.id)+'" data-pr-shop="'+esc(p.__store||store)+'" class="px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">Abrir ficha</button></td></tr>').join('');
  table.parentElement.classList.add('prd-catalog-table');
  const footer=table.parentElement.nextElementSibling;
  if(footer){footer.innerHTML='<span>'+filtered.length+' resultados · página '+(page+1)+' de '+pages+'</span><div class="flex items-center gap-space-sm"><label>Mostrar <select data-pr-page-size>'+[20,50,100].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" data-pr-action="catalog-prev" '+(page===0?'disabled':'')+'>Anterior</button><button type="button" data-pr-action="catalog-next" '+(page+1>=pages&&!hasMore?'disabled':'')+'>Siguiente</button></div>';}
@@ -211,7 +211,7 @@ export function stitchRequest({legacyHtml,output}){
  return serialize(f);
 }
 
-export function stitchSaved({record,legacyHtml}){
+export function stitchSaved({record,legacyHtml,queue=[]}){
  const f=fragment(STITCH_VIEWS['tab-borradores']),view=f.firstElementChild;
  view.classList.remove('hidden');view.classList.add('flex');
  const toolbar=view.firstElementChild;toolbar.querySelector('button')?.remove();
@@ -222,6 +222,12 @@ export function stitchSaved({record,legacyHtml}){
  card.append(heading,text);
  if(record){const open=document.createElement('button');action(open,'mode');open.dataset.mode='ficha';open.textContent='Completar ficha';card.append(open);}
  grid.append(card);
+ for(const item of queue){
+  const row=card.cloneNode(false),h=document.createElement('h3'),p=document.createElement('p'),b=document.createElement('button');
+  h.className=heading.className;h.textContent=item.name||item.reference||'Producto #'+item.id;
+  p.className=text.className;p.textContent=(item.store==='hortimatic'?'Hortimatic':'NewOldSmok')+' · #'+item.id+' · '+(item.reference||'Sin referencia');
+  action(b,'open-copy-item');b.dataset.id=item.id;b.dataset.prShop=item.store;b.textContent='Revisar copia';row.append(h,p,b);grid.append(row);
+ }
  if(record&&legacyHtml){const actual=fragment(legacyHtml);const previews=actual.querySelector('.prd-preview');if(previews)view.append(previews);}
  adoptDesignControls(view);
  return serialize(f);

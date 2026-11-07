@@ -12,4 +12,6 @@ test('retail display uses verified country/rule/tax IDs, never a name or hard-co
  assert.equal(productCountryTaxRate('0'),0);
  assert.equal(productDisplayAmounts({price:'10',wholesale_price:'0'},null).gross,null);
  assert.equal(productDisplayAmounts({},21).cost,null);
+ assert.equal(productDisplayAmounts({price:' ',wholesale_price:null},21).gross,null);
+ assert.equal(productDisplayAmounts({price:'10',ecotax:'0.20'},21).gross,null);
 });
