@@ -1,6 +1,6 @@
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
@@ -81,11 +81,21 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
  if(op.kind==='variation'&&recordId)throw Error('Ya hay una combinación con esa referencia. No se creará otra.');
  if(op.kind==='stock'&&!recordId)throw Error('PrestaShop todavía no ha creado el registro de existencias para este producto o combinación.');
- const original=image?'':op.kind==='finish'?root:await xml(recordId?op.resource+'/'+recordId:op.resource,recordId?{}:{schema:'blank'});
+ let original,legacy_schema_fallback=false;
+ if(image)original='';else if(op.kind==='finish')original=root;else if(recordId)original=await xml(op.resource+'/'+recordId);
+ else{
+  try{original=await xml(op.resource,{schema:'blank'});}
+  catch(error){
+   if(!String(error?.message||'').includes('(HTTP 500)'))throw error;
+   // The same 1.7 OutputBuilder defect affects blank combination and price
+   // schemas. Only our typed, fixed native entity contract can be substituted.
+   original=minimalProductStageSchema(op.resource);legacy_schema_fallback=true;
+  }
+ }
  const body=image?null:prepareProductStageXml(original,op.resource,desired,op.associations,recordId);
  const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||''));
  const enabled=env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';
- if(!op.commit)return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:recordId,fingerprint,persisted:false,can_commit:enabled};
+ if(!op.commit)return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:recordId,fingerprint,persisted:false,can_commit:enabled,legacy_schema_fallback};
  if(!enabled)throw Error('Las etapas de creación todavía no están habilitadas en este servidor.');
  if(fingerprint!==op.expected_fingerprint)throw Error('El destino cambió: prepara de nuevo la etapa antes de guardar.');
  if((await journal.claim(op,signature))?.status!=='claimed')throw Error('La etapa ya está en curso; comprueba el resultado sin repetirla.');

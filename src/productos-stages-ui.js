@@ -3,15 +3,16 @@ import {textValue,productInputValue} from './productos-core.js';
 import {fieldHelp} from './components.js';
 import {normalizeProductImage} from './productos-image-editor.js';
 import {prestashopStore} from './prestashop-readonly.js';
+import {buildVisualProductDescription} from './productos-description.js';
 const h=v=>esc(String(v??''));
 const titles={variation:'Combinaciones',stock:'Existencias',supplier_price:'Precios de proveedor',special_price:'Ofertas y precios especiales',image:'Imágenes',finish:'Revisión y publicación'};
-const labels={reference:'Referencia',ean13:'EAN-13',upc:'UPC',isbn:'ISBN',mpn:'Referencia fabricante',supplier_reference:'Referencia proveedor',price:'Precio / impacto sin impuestos',wholesale_price:'Coste sin impuestos',weight:'Impacto de peso',ecotax:'Ecotasa',unit_price_impact:'Impacto de precio por unidad',minimal_quantity:'Cantidad mínima de venta',low_stock_threshold:'Umbral de pocas existencias',low_stock_alert:'Aviso de pocas existencias',default_on:'Combinación predeterminada',available_date:'Fecha de disponibilidad',id_product_attribute:'Producto o combinación',quantity:'Unidades',out_of_stock:'Pedidos sin existencias',depends_on_stock:'Gestión avanzada de existencias',location:'Ubicación',id_supplier:'Proveedor',id_currency:'Moneda',product_supplier_reference:'Referencia del proveedor',product_supplier_price_te:'Precio del proveedor sin impuestos',from_quantity:'Desde esta cantidad',reduction:'Reducción (importe o fracción)',reduction_tax:'Reducción con impuestos',reduction_type:'Tipo de reducción',from:'Inicio (AAAA-MM-DD HH:MM:SS)',to:'Fin (AAAA-MM-DD HH:MM:SS)',active:'Producto activo',available_for_order:'Se permite comprar',visibility:'Visibilidad',id_default_image:'Imagen de portada',id_default_combination:'Combinación predeterminada'};
+const labels={reference:'Referencia',ean13:'EAN-13',upc:'UPC',isbn:'ISBN',mpn:'Referencia fabricante',supplier_reference:'Referencia proveedor',price:'Precio / impacto sin impuestos',wholesale_price:'Coste sin impuestos',weight:'Impacto de peso',ecotax:'Ecotasa',unit_price_impact:'Impacto de precio por unidad',minimal_quantity:'Cantidad mínima de venta',low_stock_threshold:'Umbral de pocas existencias',low_stock_alert:'Aviso de pocas existencias',default_on:'Combinación predeterminada',available_date:'Fecha de disponibilidad',id_product_attribute:'Producto o combinación',quantity:'Unidades',out_of_stock:'Pedidos sin existencias',depends_on_stock:'Gestión avanzada de existencias',location:'Ubicación',id_supplier:'Proveedor',id_currency:'Moneda',product_supplier_reference:'Referencia del proveedor',product_supplier_price_te:'Precio del proveedor sin impuestos',from_quantity:'Desde esta cantidad',reduction:'Reducción (importe o fracción)',reduction_tax:'Reducción con impuestos',reduction_type:'Tipo de reducción',from:'Inicio (AAAA-MM-DD HH:MM:SS)',to:'Fin (AAAA-MM-DD HH:MM:SS)',active:'Producto activo',available_for_order:'Se permite comprar',visibility:'Visibilidad',id_default_image:'Imagen de portada',id_default_combination:'Combinación predeterminada',id_shop:'Tienda (0: todas)',id_shop_group:'Grupo de tiendas (0: todos)',id_country:'País (0: todos)',id_group:'Grupo de clientes (0: todos)',id_customer:'Cliente concreto (0: todos)',id_cart:'Carrito concreto (0: todos)'};
 const defaults={
  variation:{reference:'',ean13:'',upc:'',isbn:'',mpn:'',supplier_reference:'',price:'0',wholesale_price:'0',weight:'0',ecotax:'0',unit_price_impact:'0',minimal_quantity:'1',low_stock_threshold:'1',low_stock_alert:'0',default_on:'0',available_date:''},
  stock:{id_product_attribute:'0',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''},
  supplier_price:{id_product_attribute:'0',id_supplier:'',id_currency:'',product_supplier_reference:'',product_supplier_price_te:'0'},
  special_price:{id_product_attribute:'0',id_shop:'0',id_shop_group:'0',id_currency:'0',id_country:'0',id_group:'0',id_customer:'0',id_cart:'0',price:'-1',from_quantity:'1',reduction:'0.10',reduction_tax:'1',reduction_type:'percentage',from:'0000-00-00 00:00:00',to:'0000-00-00 00:00:00'},
- finish:{active:'0',available_for_order:'0',visibility:'none'}
+ finish:{active:'0',available_for_order:'0',visibility:'none',id_default_image:'',id_default_combination:''}
 };
 export function createProductStagesUI({invoke,canEdit=()=>false}){
  const sessions=new Map(),rows=new Map();
@@ -33,7 +34,8 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   const data='data-pr-stage-field="'+h(key)+'" data-pr-stage-row="'+row.id+'" '+(locked?'disabled':'');
   const combinationRows=state.rows.filter(r=>r.kind==='variation'&&r.done).map(r=>({id:r.done.record_id,name:r.fields.reference}));
   let options=null;
-  if(key==='id_product_attribute'||key==='id_default_combination')options=[{id:'0',name:'Producto base / todas'},...combinationRows];
+  if(key==='id_product_attribute')options=[{id:'0',name:'Producto base / todas'},...combinationRows];
+  if(key==='id_default_combination')options=combinationRows;
   if(key==='id_supplier')options=state.catalogs.suppliers||[];
   if(key==='id_currency')options=[...(row.kind==='special_price'?[{id:'0',name:'Todas las monedas'}]:[]),...(state.catalogs.currencies||[]).map(r=>({...r,name:textValue(r.name)+' · '+r.iso_code}))];
   if(key==='id_default_image')options=state.rows.filter(r=>r.kind==='image'&&r.done).map((r,i)=>({id:r.done.record_id,name:'Imagen '+(i+1)+' · '+r.image.name}));
@@ -49,8 +51,9 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
    content='<div class="prd-fields-grid">'+Object.keys(row.fields).filter(k=>!['description','description_short'].includes(k)).map(key=>input(state,row,key)).join('')+'</div>';
    if(row.kind==='variation')content+='<label class="prd-field"><b>Atributos de esta combinación</b><select multiple size="5" data-pr-stage-attributes="true" data-pr-stage-row="'+row.id+'" '+(locked?'disabled':'')+'>'+((state.catalogs.product_options||[]).map(group=>'<optgroup label="'+h(textValue(group.public_name)||textValue(group.name))+'">'+(state.catalogs.product_option_values||[]).filter(v=>String(v.id_attribute_group)===String(group.id)).map(value=>'<option value="'+h(value.id)+'" '+(row.attributes.includes(String(value.id))?'selected':'')+'>'+h(textValue(value.name))+'</option>').join('')+'</optgroup>').join(''))+'</select><small>Elige un valor de cada atributo. El servidor verifica la pertenencia a sus grupos.</small></label><label class="prd-field"><b>Imágenes de esta combinación</b><select multiple size="3" data-pr-stage-images="true" data-pr-stage-row="'+row.id+'" '+(locked?'disabled':'')+'>'+state.rows.filter(r=>r.kind==='image'&&r.done).map(image=>'<option value="'+h(image.done.record_id)+'" '+(row.imageIds.includes(String(image.done.record_id))?'selected':'')+'>'+h(image.image.name)+'</option>').join('')+'</select><small>Guarda primero las imágenes que quieras asociar. Si no eliges ninguna se usa la galería general.</small></label>';
    if(row.kind==='finish'){
-    content+='<p>La ficha permanece inactiva hasta esta revisión. Puedes activarla y dejar «Se permite comprar» en No para revisar una muestra sin vender existencias ficticias.</p>'+button(state,row,'Preparar descripción visual con las imágenes guardadas','description',!!locked);
+    content+='<p>La ficha permanece inactiva hasta esta revisión. Puedes activarla y dejar «Se permite comprar» en No para revisar una muestra sin vender existencias ficticias.</p><fieldset class="prd-relationships"><legend>Constructor de descripción visual</legend><div class="prd-fields-grid">'+[['title','Título'],['intro','Introducción / resumen'],['detailTitle','Título del bloque de detalles'],['detailText','Detalles y ventajas'],['specifications','Especificaciones (campo: valor, una por línea)'],['box','Contenido y cuidados'],['notice','Aviso o información final']].map(([key,label])=>'<label class="prd-field"><b>'+h(label)+'</b><textarea rows="3" data-pr-stage-presentation="'+key+'" data-pr-stage-row="'+row.id+'" '+(locked?'disabled':'')+'>'+h(row.presentation?.[key]||'')+'</textarea></label>').join('')+'</div>'+button(state,row,'Preparar descripción visual con las imágenes guardadas','description',!!locked)+'</fieldset><details><summary>Editar el HTML por idioma (avanzado)</summary>';
     for(const field of ['description_short','description'])for(const translation of row.fields[field]||[])content+='<label class="prd-field"><b>'+h(field==='description'?'Descripción completa':'Resumen')+' · idioma '+h(translation.language_id)+'</b><textarea rows="6" data-pr-stage-field="'+field+'" data-pr-stage-language="'+h(translation.language_id)+'" data-pr-stage-row="'+row.id+'" '+(locked?'disabled':'')+'>'+h(translation.value)+'</textarea></label>';
+    content+='</details>';
    }
   }
   const otherPending=state.rows.some(r=>r!==row&&!r.done);
@@ -70,6 +73,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   else if(el.dataset.prStageAttributes)row.attributes=Array.from(el.selectedOptions).map(o=>o.value);
   else if(el.dataset.prStageImages)row.imageIds=Array.from(el.selectedOptions).map(o=>o.value);
   else if(el.dataset.prStageRemoveBackground)row.removeBackground=el.checked;
+  else if(el.dataset.prStagePresentation){row.presentation??={};row.presentation[el.dataset.prStagePresentation]=el.value;}
   else return false;
   delete row.prepared;return true;
  }
@@ -82,7 +86,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
  function values(state,row){
   const base={parent_request_id:state.result.request_id,product_id:state.result.record_id,kind:row.kind,step_key:row.id};
   if(row.kind==='image'){if(!row.image)throw Error('Carga una imagen sin fondo.');return {...base,image:row.image};}
-  return {...base,fields:Object.fromEntries(Object.entries(row.fields).filter(([key,value])=>!(key==='available_date'&&value==='')).map(([key,value])=>[key,Array.isArray(value)?value:productInputValue(key,value)])),...(row.kind==='variation'?{associations:{product_option_values:row.attributes,...(row.imageIds.length?{images:row.imageIds}:{})}}:{})};
+  return {...base,fields:Object.fromEntries(Object.entries(row.fields).filter(([key,value])=>!(['available_date','id_default_image','id_default_combination'].includes(key)&&value==='')).map(([key,value])=>[key,Array.isArray(value)?value:productInputValue(key,value)])),...(row.kind==='variation'?{associations:{product_option_values:row.attributes,...(row.imageIds.length?{images:row.imageIds}:{})}}:{})};
  }
  async function perform(action,shop,result,plan,source,profile,catalogs,detail={}){
   const state=session(shop,result,plan,source,profile,catalogs);
@@ -91,7 +95,10 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
    const kind=detail.kind;if(!Object.hasOwn(titles,kind))throw Error('Etapa desconocida.');const row=add(state,kind);
    if(kind==='variation'){row.fields.wholesale_price=textValue(source.wholesale_price)||'0';if(!state.rows.some(r=>r!==row&&r.kind==='variation'))row.fields.default_on='1';}
    if(kind==='supplier_price'){row.fields.id_supplier=String(catalogs?.selected_supplier_id||'');row.fields.id_currency=String(state.catalogs.currencies?.[0]?.id||'');}
-   if(kind==='finish')for(const field of ['description','description_short'])row.fields[field]=(profile.language_ids||[]).map(language_id=>({language_id,value:textValue(source[field])}));
+   if(kind==='finish'){
+    for(const field of ['description','description_short'])row.fields[field]=(profile.language_ids||[]).map(language_id=>({language_id,value:textValue(source[field])}));
+    row.presentation={title:textValue(source.name)||'Producto',intro:textValue(source.description_short).replace(/<[^>]+>/g,' ').trim()||'',detailTitle:'Diseño y detalles',detailText:'',specifications:['reference','weight','width','height','depth','ean13'].filter(key=>textValue(source[key])).map(key=>(labels[key]||key)+': '+textValue(source[key])).join('\n'),box:'',notice:''};
+   }
    return 'Etapa añadida. Completa sus datos y valida antes de guardar.';
   }
   if(action==='stage-load'){
@@ -104,9 +111,10 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   }
   const found=rows.get(detail.row);if(!found||found.state!==state)throw Error('La etapa no corresponde a este producto.');const row=found.row;
   if(action==='stage-description'){
-   const pictures=state.rows.filter(r=>r.kind==='image'&&r.done),title=textValue(source.name)||'pruebas';
-   const html='<section><h2>'+h(title)+'</h2><p>Ficha de demostración: datos ficticios para verificar el creador de productos.</p>'+pictures.map((image,i)=>'<section><h3>'+h(['Diseño y detalles','Características del producto','Todo lo que incluye'][i%3])+'</h3><img src="'+prestashopStore(shop).origin+'/'+image.done.record_id+'-large_default/product.jpg" alt="'+h(title)+'" style="width:100%;height:auto;max-width:100%;" /><p>'+h('Imagen '+(i+1)+' del producto de demostración.')+'</p></section>').join('')+'<h3>Especificaciones</h3><ul>'+['reference','weight','width','height','depth','ean13'].filter(key=>textValue(source[key])).map(key=>'<li><strong>'+h(labels[key]||key)+':</strong> '+h(textValue(source[key]))+'</li>').join('')+'</ul><h3>Contenido</h3><p>Una unidad de demostración. No corresponde a un artículo comercial real.</p></section>';
-   row.fields.description=(profile.language_ids||[]).map(language_id=>({language_id,value:html}));delete row.prepared;return 'Descripción visual preparada. Puedes editar el texto antes de validarla.';
+   const pictures=state.rows.filter(r=>r.kind==='image'&&r.done).map(image=>({id:image.done.record_id,alt:row.presentation?.title||textValue(source.name)}));
+   const built=buildVisualProductDescription({store:shop,...row.presentation,images:pictures});
+   for(const field of ['description','description_short'])row.fields[field]=(profile.language_ids||[]).map(language_id=>({language_id,value:built[field]}));
+   delete row.prepared;return 'Descripción y resumen visuales preparados. Puedes editar el texto antes de validarlos.';
   }
   if(action==='stage-prepare'){
    if(row.attempted)throw Error('Comprueba el resultado de la etapa iniciada; no cambies sus datos.');

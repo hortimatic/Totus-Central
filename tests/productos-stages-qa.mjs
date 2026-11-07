@@ -5,7 +5,17 @@ import {validateProductStage} from '../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../src/productos-png.js';
 import {prepareProductStageXml,inspectProductStageXml} from '../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../supabase/functions/totus-connections/prestashop-product-stage.js';
+import {buildVisualProductDescription} from '../src/productos-description.js';
+import {productInputValue} from '../src/productos-core.js';
 const base={action:'prestashop_product_step_prepare',id:'11111111-1111-4111-8111-111111111111',call_id:'22222222-2222-4222-8222-222222222222',revision:2,store:'hortimatic',parent_request_id:'33333333-3333-4333-8333-333333333333',product_id:'601',kind:'variation',step_key:'blue',fields:{reference:'PRUEBAS-BLUE',price:'1.25',wholesale_price:'3.90',weight:'0.15',minimal_quantity:'1',default_on:'1'},associations:{product_option_values:['10']}};
+test('constructor visual usa imágenes de la tienda, escapa textos y admite decimales españoles sin cambiar EAN',()=>{
+ const built=buildVisualProductDescription({store:'hortimatic',title:'pruebas <script>',intro:'Riego de plantas',detailText:'Cuerpo metálico',specifications:'Capacidad: 2 L\nMaterial: Metal',box:'Una regadera',notice:'Datos ficticios',images:[{id:'901'}]});
+ assert(built.description.includes('https://hortimatic.com/901-large_default/product.jpg'));
+ assert(!built.description.includes('<script>'));assert(built.description.includes('&lt;script&gt;'));assert(built.description_short.includes('Capacidad'));
+ assert.throws(()=>buildVisualProductDescription({store:'hortimatic',title:'pruebas',images:[{id:'https://evil.test/a'}]}),/verificadas/);
+ assert.throws(()=>buildVisualProductDescription({store:'hortimatic',title:'pruebas',specifications:'sin separador'}),/especificaciones/);
+ assert.equal(productInputValue('price','3,90'),'3.90');assert.equal(productInputValue('price',',39'),'0.39');assert.equal(productInputValue('price','-,50'),'-0.50');assert.equal(productInputValue('ean13','0000000000001'),'0000000000001');
+});
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,revision:2,verified_revision:2,real_data_authorized:true,endpoint:'https://hortimatic.com/api/',secret:'only-a-fixture'};
 const root='<prestashop><product><id>601</id><reference>PRUEBAS</reference></product></prestashop>';
 const blank='<prestashop><combination><id></id><id_product></id_product><reference></reference><price></price><wholesale_price></wholesale_price><weight></weight><minimal_quantity></minimal_quantity><default_on></default_on><quantity>0</quantity><associations><product_option_values><product_option_value><id></id></product_option_value></product_option_values><images/></associations></combination></prestashop>';
@@ -16,7 +26,7 @@ function fixture(options={}){
   const u=new URL(url);calls.push({path:u.pathname,method:opts.method,body:opts.body});
   if(u.pathname==='/api/products/601')return xml(root);
   if(u.pathname==='/api/product_option_values/10')return json({product_option_value:{id:10,id_attribute_group:5}});
-  if(u.pathname==='/api/combinations'&&u.searchParams.get('schema')==='blank')return xml(blank);
+  if(u.pathname==='/api/combinations'&&u.searchParams.get('schema')==='blank')return options.schema500?new Response('error',{status:500}):xml(blank);
   if(u.pathname==='/api/combinations'&&opts.method==='POST'){
    saved=opts.body.replace('<id></id>','<id>701</id>');
    return options.post500?new Response('error',{status:500}):xml(saved);
@@ -48,6 +58,12 @@ test('HTTP 500 después de insertar una variación se concilia por relectura',as
  const f=fixture({post500:true}),prepared=await runPrestashopProductStage(connection,base,f);
  const done=await runPrestashopProductStage(connection,{...base,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint},f);
  assert.equal(done.reconciled,true);assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+});
+test('el esquema vacío defectuoso de PrestaShop 1.7 usa solo el contrato tipado conocido',async()=>{
+ const f=fixture({schema500:true}),prepared=await runPrestashopProductStage(connection,base,f);
+ assert.equal(prepared.legacy_schema_fallback,true);
+ const done=await runPrestashopProductStage(connection,{...base,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint},f);
+ assert.equal(done.verified,true);assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
 });
 test('sin habilitación o con otra tienda nunca se escriben etapas',async()=>{
  const f=fixture({disabled:true}),prepared=await runPrestashopProductStage(connection,base,f);

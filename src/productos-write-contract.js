@@ -143,6 +143,11 @@ export async function sha256Text(value){
 }
 
 const nativeNodes=Object.freeze({products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image'});
+export function minimalProductStageSchema(resource){
+ if(!['combinations','product_suppliers','specific_prices'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
+ const singular=nativeNodes[resource];
+ return '<prestashop><'+singular+'><id></id><id_product></id_product>'+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
+}
 // Used only after the stage contract has validated every field and relationship.
 // No raw XML can arrive from the browser; schema/current XML is fetched by server.
 export function prepareProductStageXml(xml,resource,fields,associations={},recordId=null){
