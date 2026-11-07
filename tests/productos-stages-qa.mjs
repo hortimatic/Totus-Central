@@ -158,7 +158,7 @@ test('existing variant image: prepares, preserves costs and attributes, verifies
  assert(combo.includes('<default_on>1</default_on>'));
  assert(combo.includes('<reference>KEEP-BLACK</reference>'));
  assert(combo.includes('<product_option_value><id>10</id></product_option_value>'));
- assert(combo.includes('<image><id>901</id></image>'));
+ assert(combo.includes('<image><id><![CDATA[901]]></id></image>'));
  assert(!combo.includes('<quantity>'));
  const reused=await runPrestashopProductStage(connection,op,f);
  assert.equal(reused.reused,true);assert.equal(writes,1);
