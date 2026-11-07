@@ -70,7 +70,13 @@ export async function runOperation(client:any,payload:any,user:any){
   // Invoke through the SAME authenticated session as the manual form. No keys,
   // arbitrary endpoint or privileged shortcut is provided to the assistant.
   const {data,error}=await client.functions.invoke('totus-connections',{body:args});
-  if(error)throw new Error('Productos rechazó la operación: '+error.message);
+  if(error){
+   let detail=typeof data?.error==='string'?data.error:null;
+   if(!detail&&error.context instanceof Response){
+    try{const raw=await error.context.clone().text();if(raw.length<=8192){const body=JSON.parse(raw);if(typeof body?.error==='string')detail=body.error;}}catch{}
+   }
+   throw new Error('Productos rechazó la operación: '+(detail?detail.slice(0,2000):error.message));
+  }
   if(data?.error||data?.ok!==true||data.store!==args.store)throw new Error(data?.error||'Respuesta de Productos no verificable');
   return {operation:'products',data,executed:true,requires_readback:true};
  }

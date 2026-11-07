@@ -83,3 +83,11 @@ test('PUT 500 reconciles only after exact readback and replay never writes twice
  const first=await runPrestashopProductWrite(connection,args,opts);assert.equal(first.reconciled,true);assert.equal(first.verified,true);
  assert.equal((await runPrestashopProductWrite(connection,args,opts)).replayed,true);assert.equal(count,1);
 });
+
+test('edición de traducción usa el idioma elegido tanto en GET como PUT y relectura',async()=>{
+ let current=X;const calls=[];
+ const request=async(url,opts)=>{assert.equal(new URL(url).searchParams.get('language'),'[2]');calls.push(opts.method);if(opts.method==='PUT')current=opts.body;return response(current);};
+ const prepared=await runPrestashopProductWrite(connection,input('prestashop_product_prepare',[{field:'name',language_id:'2',value:'Corrected translation'}]),{request,resolve,env:{get:()=> '1'}});
+ const done=await runPrestashopProductWrite(connection,{...input('prestashop_product_commit',[{field:'name',language_id:'2',value:'Corrected translation'}]),request_id:UUID,expected_fingerprint:prepared.fingerprint,confirmed:true},{request,resolve,env:{get:()=> '1'},journal:journal()});
+ assert.equal(done.verified,true);assert.equal(calls.filter(m=>m==='PUT').length,1);assert.match(current,/CDATA\[Nombre\]/);
+});

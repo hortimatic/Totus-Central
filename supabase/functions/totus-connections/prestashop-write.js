@@ -17,6 +17,8 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  if(base.origin!==store.origin||base.search||base.hash||base.pathname.replace(/\/$/,'')!=='/api')
   throw Error('La escritura exige la URL oficial /api de la tienda correspondiente.');
  base.pathname='/api/'+operation.resource+'/'+operation.record_id;
+ const languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
+ if(languageIds.length)base.searchParams.set('language','['+languageIds.join('|')+']');
  const target=await safeEndpoint(base.href,resolve);
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
  const read=async()=>{
