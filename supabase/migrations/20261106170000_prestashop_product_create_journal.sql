@@ -238,4 +238,25 @@ REVOKE ALL ON TABLE private.totus_prestashop_product_edits FROM PUBLIC,anon,auth
 REVOKE ALL ON FUNCTION public.totus_prestashop_product_edit(text,uuid,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT,UPDATE ON TABLE private.totus_prestashop_product_edits TO service_role;
 GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_edit(text,uuid,jsonb) TO service_role;
+
+-- Product images and rich descriptions use the existing own-account worker.
+-- Preserve every other operation limit and all credential/access checks.
+create or replace function private.totus_agent_submit(p_actor_email text,p_action text,p_payload jsonb default '{}'::jsonb) returns jsonb
+language plpgsql security invoker set search_path='' as $$
+declare uid uuid;job uuid=gen_random_uuid();token text=encode(extensions.gen_random_bytes(32),'hex');request bigint;
+begin
+ if session_user<>'postgres' or current_user<>'postgres' or auth.uid() is not null then raise exception 'Conector administrativo requerido';end if;
+ if p_action not in ('session_check','validate_expense','save_expense','attach_chat_file','expense_context','review_document','chat_read','chat_send','chat_direct','operation') then raise exception 'Acción no admitida';end if;
+ if jsonb_typeof(p_payload)<>'object' or octet_length(p_payload::text)>case when p_action='operation' and p_payload->>'operation'='products' then 6291456 else 131072 end then raise exception 'Solicitud no válida o demasiado grande';end if;
+ if p_action in ('save_expense','validate_expense') and nullif(p_payload#>>'{expense,request_id}','') is null then raise exception 'request_id obligatorio';end if;
+ select u.id into uid from auth.users u join public.team_members t on lower(t.email)=lower(u.email)
+ where lower(u.email)=lower(btrim(p_actor_email)) and u.deleted_at is null and t.active and t.deleted_at is null and t.purged_at is null;
+ if uid is null then raise exception 'Cuenta propia de IA no activa';end if;
+ if not exists(select 1 from vault.secrets where name='totus_agent_credentials_'||uid) then raise exception 'Vincula esta cuenta desde Administración → Usuarios → Acceso de IA.';end if;
+ delete from vault.secrets where name like 'totus_assistant_job_%' and created_at<now()-interval '7 days';
+ perform vault.create_secret(jsonb_build_object('actor','agent','actor_id',uid,'action','agent_'||p_action,'payload',p_payload,'token_hash',encode(extensions.digest(token,'sha256'),'hex'),'status','queued','expires_at',now()+interval '2 minutes')::text,'totus_assistant_job_'||job,'Short-lived own-account operation');
+ select net.http_post(url:='https://awmojepsasikxocoeqtu.supabase.co/functions/v1/totus-assistant',headers:='{"Content-Type":"application/json"}'::jsonb,body:=jsonb_build_object('job',job,'ticket',token),timeout_milliseconds:=30000) into request;
+ return jsonb_build_object('job_id',job,'http_request_id',request,'status','queued');
+end$$;
+revoke all on function private.totus_agent_submit(text,text,jsonb) from public,anon,authenticated,service_role;
 COMMIT;

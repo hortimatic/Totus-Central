@@ -3,7 +3,7 @@
 // The source XML comes exclusively from a freshly validated server-side GET.
 // The caller must explicitly map each language ID in the TARGET shop.
 export const PRODUCT_WRITE_FIELDS=Object.freeze({
- products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite']),
+ products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite','meta_keywords','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','available_now','available_later','delivery_in_stock','delivery_out_stock']),
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
 export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','meta_keywords','link_rewrite','available_now','available_later','delivery_in_stock','delivery_out_stock']);

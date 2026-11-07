@@ -1,67 +1,107 @@
-# Productos · procedimiento de alta y mantenimiento
+# Productos · creación, copia y edición desde Totus Central
 
-Revisión: 06/11/2026. Entrega: PR #133. Este procedimiento es la referencia de trabajo; un cambio en GitHub no está operativo hasta comprobar también base de datos, servicio y web publicada.
+Revisión: 07/11/2026 · PR #133. Este documento describe el contrato del cambio. La rama, las pruebas, la instalación del servicio y la comprobación en cada tienda son estados distintos; no afirmar que está publicado por existir este manual.
 
-## Qué permite esta entrega
+## Resultado solicitado y regla de trabajo
 
-**Estado de revisión:** el alcance exigido se ha ampliado al creador integral. El alta básica descrita debajo no constituye la entrega completa ni debe publicarse como tal. La comprobación de permisos muestra capacidades anunciadas por PrestaShop; no acredita por sí sola que una escritura funcione.
+Dos fichas paralelas, Hortimatic y NewOldSmok. Abrir una ficha, elegir únicamente los campos que se desean copiar y completar o adaptar el resto en el destino. La copia no es automática ni obliga a igualar las dos tiendas. Cada escritura se dirige a la conexión elegida y se vuelve a consultar antes de declarar éxito.
 
-### Condiciones de aceptación del creador integral
+Orden: comprobar conexión e identidad; leer las fichas; preparar los campos; completar relaciones e idiomas del destino; validar; confirmar; guardar; releer. No modificar otros módulos, ventas, cierres ni contabilidad para completar un producto.
 
-- Lectura, creación, edición, carga y descarga desde Totus, con identidad del usuario y comprobación del resultado en cada tienda.
-- Producto y combinaciones: referencias, EAN/UPC/ISBN/MPN, atributos, precio e impacto, coste, impuestos, existencias, disponibilidad, peso y medidas.
-- Nombre, descripción completa, resumen, URL, metatítulo, metadescripción y palabras clave por idioma; etiquetas y productos relacionados.
-- Marca, proveedor, características/materiales, categorías múltiples, categoría predeterminada y jerarquía de categorías con su padre.
-- Imágenes sin fondo, portada, orden, leyendas y asociación a combinaciones; carga y descarga. Verificar el resultado servido por la tienda: la extensión o el nombre del archivo no demuestran transparencia. PrestaShop 1.7 procesa las imágenes en su servidor.
-- Cada campo editable del esquema de la tienda debe tener tratamiento explícito. Los campos calculados o administrados por módulos se identifican; no se descartan silenciosamente ni se prometen operaciones que la API instalada no admite.
-- Prueba aislada de un producto completo, lectura posterior y recuperación de fallos entre etapas sin duplicar productos, combinaciones ni imágenes. Comprobar ambos destinos y las versiones instaladas. Una etapa pendiente impide declarar terminado el producto.
+## Interfaz manual
 
-La API requiere permisos distintos por recurso. El diagnóstico comprueba productos, combinaciones, existencias, categorías, marcas, proveedores, atributos/valores, características/valores, etiquetas, impuestos, idiomas e imágenes. La autorización anunciada y la prueba efectiva son comprobaciones independientes.
+1. Abrir Productos y seleccionar la tienda. Las dos tarjetas identifican las fichas; «Comprobar correspondencia» busca una referencia exacta, sin elegir arbitrariamente entre duplicados.
+2. Abrir un producto o «Crear borrador nuevo». En «Fichas paralelas», la columna de origen tiene casillas de selección. La columna de destino permite completar los valores, incluido SEO propio. En pantalla estrecha se apilan sin desbordar.
+3. «Copiar y adaptar aquí» prepara la transferencia de los campos elegidos; no escribe. Revisar metatítulo, metadescripción, URL y enlaces de las descripciones. Una sustitución del nombre de la tienda no constituye un trabajo SEO completo.
+4. Buscar coincidencias. Una referencia existente propone actualizar esa ficha; no crear un duplicado. Si las referencias difieren, indicar el ID real de destino y releerlo.
+5. Para un alta: consultar idiomas y categorías del destino; seleccionar categoría predeterminada y categorías adicionales por nombre; elegir marca, proveedor, impuestos, etiquetas, características/materiales y relacionados desde los catálogos de esa tienda. La categoría padre forma parte de la jerarquía del catálogo; no se inventa ni se copia su ID desde otra tienda.
+6. Completar nombre y URL por idioma, textos y campos comerciales. Validar el alta, escribir CREAR y pulsar «Crear en PrestaShop (inactivo)». Se conserva la solicitud original y el ID asignado.
+7. Completar las etapas de imágenes, combinaciones, existencias, precios de proveedor y ofertas. Cada etapa tiene su validación, guardado y comprobación propios. Las combinaciones preparadas desde origen se conservan como borradores: hay que seleccionar sus atributos reales en destino.
+8. Preparar la descripción visual con imágenes ya guardadas en esa tienda, textos propios, especificaciones y contenido del producto. Revisar el HTML y cada idioma antes de publicar.
+9. En revisión final, seleccionar portada y combinación predeterminada cuando proceda. Activar y permitir compras son opciones separadas. No activar con etapas de la ficha pendientes.
+10. Para editar un producto o una combinación existente: seleccionar campos, validar contra su XML real, revisar diferencias, escribir GUARDAR y usar el botón de su ficha. La respuesta debe acreditar guardado y relectura; conservar la solicitud si hay incertidumbre.
 
-Productos es un módulo independiente de PrestaShop. Consulta las dos tiendas, sus fichas y variaciones; permite preparar campos y comparar destinos. El alta operativa crea **un producto base inactivo** en una o ambas tiendas, cada una con su validación, confirmación e identificador.
+## Campos cubiertos por el contrato
 
-El alta admite nombre y URL por idioma, referencia, precio base sin impuestos, categoría propia del destino, descripciones y SEO seleccionados; también los campos admitidos de coste, EAN/UPC/ISBN/MPN, peso, dimensiones, cantidad mínima y disponibilidad. El servidor comprueba los campos recibidos mediante una lectura posterior. Los costes de variantes siguen siendo orientativos.
+| Área | Tratamiento |
+| --- | --- |
+| Identificación | Nombre por idioma, referencia, EAN, UPC, ISBN y MPN; los códigos se conservan como texto |
+| Contenido y SEO | Resumen, descripción completa, metatítulo, metadescripción, palabras clave y URL por idioma |
+| Organización del alta | Marca, proveedor principal, grupo fiscal, categorías múltiples/predeterminada, características y valores, etiquetas y relacionados existentes en destino |
+| Precio | Precio base sin impuestos, coste orientativo, unidad/relación de precio unitario, ecotasa, en oferta; cálculo compartido con Precio para PVP y márgenes con IVA y recargo |
+| Combinaciones | Atributos del destino, referencias/códigos, coste, impactos de precio/peso/ecotasa/unidad, mínimo, umbral/alerta, fecha, predeterminada e imágenes del producto |
+| Existencias | Cantidad por producto/combinación, ubicación y preferencia de pedidos sin existencias; no usar cantidad del producto como sustituto del recurso stock_availables |
+| Disponibilidad | Pedido permitido, precio visible, solo online, visibilidad, condición, etiquetas/plazos por idioma y fecha |
+| Transporte | Peso, anchura, altura, profundidad y suplemento; comprobar unidades configuradas en cada tienda (Hortimatic: kg y m) |
+| Proveedor | Precio y referencia propios por proveedor/combinación y moneda |
+| Precio especial | Combinación, cantidad mínima, precio o reducción, impuestos, fechas y restricciones de tienda/moneda/país/grupo/cliente/carrito |
+| Imágenes | Importación local y normalización a PNG con transparencia verificada, previsualización, subida por API y asociación a combinaciones; descarga del original y enlace a la copia de la tienda |
 
-**No confundir preparación con guardado:** las actualizaciones de fichas existentes, nuevas combinaciones, imágenes, stock y lotes siguen sin ejecución de escritura. No se anuncia una ficha con variaciones o imágenes como creada íntegramente. No se copian identificadores entre tiendas ni se activa un producto en la web al darlo de alta.
+El precio por unidad de la API nativa 1.7 utiliza unit_price_ratio (precio base dividido por precio unitario), no un campo unit_price inexistente. Los precios de coste de variaciones pueden estar redondeados en origen: presentar márgenes aproximados, no beneficio contable real.
 
-## Crear un producto desde la interfaz
+La transparencia se verifica en los píxeles del PNG, no en su extensión. PrestaShop puede convertir sus derivados al formato configurado. No cambiar globalmente el tratamiento de imágenes de la tienda para una prueba.
 
-1. Entrar en Totus con una cuenta administradora activa y acceso de edición a Configuración. Productos comprueba esos permisos; conocer la clave de PrestaShop no sustituye iniciar sesión.
-2. Abrir **Operaciones tienda → Productos**. Elegir Hortimatic o NewOldSmok y comprobar su conexión.
-3. Pulsar **Crear borrador nuevo**. Rellenar nombre, referencia única y precio base sin IVA. Seleccionar los campos adicionales que se quieran incluir y completar sus valores.
-4. Pulsar **Continuar: elegir destino y validar alta**. Elegir una o ambas tiendas y buscar coincidencias. Una referencia existente lleva a una propuesta de actualización; no a un duplicado.
-5. En cada destino nuevo, pulsar **Consultar idiomas de la tienda**. Totus carga los idiomas reales y todas las páginas de categorías. Elegir la categoría por nombre, no copiando un ID de otra tienda.
-6. Revisar el nombre, URL y textos de cada idioma. Revisar los campos y valores de la propuesta. Las ayudas «i» explican referencia y categoría.
-7. Pulsar **Validar alta sin escribir**. Se comprueban esquema, idiomas, categoría, referencia y datos. Hasta aquí solamente se han realizado consultas.
-8. Si existe un error, corregir la ficha y validar otra vez. Si se indica que el alta no está habilitada en Totus, no cambiar claves ni probar repetidamente: comprobar el despliegue descrito abajo.
-9. Escribir **CREAR** y pulsar **Crear en PrestaShop (inactivo)** en la tienda correspondiente. Cada destino se confirma por separado.
-10. Esperar el resultado. Solo se presenta como creado cuando PrestaShop devuelve un producto verificable y el registro de operaciones queda completado. Conservar tienda, referencia, ID e identificador de solicitud.
-11. Volver a consultar el catálogo y abrir la ficha por su ID. Comprobar nombre, categoría, precio, textos e inactividad. El alta no modifica existencias, facturas, ventas ni cierres.
-12. La activación pública o la configuración de imágenes y combinaciones pertenece a un circuito posterior; no dar por realizadas esas operaciones.
+Los identificadores de categorías, impuestos, atributos, imágenes, características y proveedores pertenecen a su tienda. Se seleccionan o verifican en destino. Los campos calculados se leen pero no se reenvían como si fueran datos editables.
 
-## Si se corta la conexión o aparece HTTP 500
+## Campos de módulos y límites explícitos
 
-PrestaShop puede guardar el producto y fallar al construir su respuesta. Un HTTP 500 **no demuestra que no exista**. Totus consulta por referencia y contrasta ID, precio, categoría, idiomas, campos seleccionados y estado inactivo antes de declarar éxito.
+El formulario del administrador incluye también extensiones instaladas: Elementor, IQIT (pestañas, tallas, vídeos/360), SEO ampliado y POSTPV. No se debe afirmar que la API nativa escribe sus tablas privadas. Los datos adicionales recibidos se muestran como información de solo lectura; cada extensión necesita un adaptador comprobado antes de habilitar su escritura.
 
-Si el resultado queda incierto, la referencia se mantiene bloqueada. Usar **Comprobar resultado sin repetir el alta**: conserva la solicitud original y consulta el resultado, sin enviar otro POST. No cambiar la referencia para saltar el bloqueo ni volver a crear el mismo producto desde otra pestaña.
+No anunciar como implementadas operaciones de packs/descargables, creación de maestros, adjuntos o asignación específica de transportistas si no existe un control y una prueba efectiva para ellas. Tampoco confundir copiar campos del producto con clonar automáticamente todas las relaciones y ficheros. Registrar estas necesidades sin descartar datos silenciosamente.
 
-Conservar el identificador mostrado antes de cerrar la pestaña. Tras una recarga, comprobar la referencia en el catálogo; si sigue pendiente, un administrador de mantenimiento debe contrastar el registro de operaciones y la ficha. No se libera una operación incierta borrando el diario ni se ejecuta SQL libre para forzar un éxito.
+## ChatGPT convencional sin navegador de PrestaShop
 
-## Permisos, identidad y claves
+La URL de referencia aporta información; no concede acceso ni ejecuta un alta. El chat necesita las herramientas de GitHub y Supabase del proyecto y una cuenta propia de IA activa, vinculada en Administración → Usuarios → Acceso de IA. No pedir claves de PrestaShop ni leer Vault.
 
-- La sesión de Totus determina quién realiza la operación y queda registrada. Una IA no debe presentar una cuenta de otro proveedor como su identidad propia.
-- Las claves Webservice permanecen en el servidor. No copiarlas al chat, documentos, archivos exportados ni código del navegador.
-- La conexión debe estar habilitada, autorizada para datos reales y verificada en su revisión actual. Cambiar la clave exige guardar y probar esa misma conexión.
-- La creación usa POST, exige categoría e idiomas propios y siempre nace inactiva. La habilitación de POST no habilita PUT, imágenes, stock ni operaciones masivas.
+1. Leer este protocolo y la entrada vigente desde la rama totus-central. Consultar el catálogo real del trabajador.
+2. Comprobar explícitamente la cuenta elegida; no asumir que el alias genérico totus_assistant_submit sigue apuntando a ChatGPT. Puede estar asociado a otro lector.
 
-## Protocolo de entrega para quien mantenga el módulo
+```sql
+select private.totus_agent_submit('<correo de la cuenta ChatGPT activa>', 'session_check');
+-- Recoger después el UUID devuelto, nunca inventarlo:
+select private.totus_assistant_result('<job_id>'::uuid);
+```
 
-1. Leer este documento y `PRODUCTOS_GESTOR_2026-11-06.md`. Revisar estado real del PR, commit de producción, versión de `totus-connections` y existencia del diario. No repetir explicaciones antiguas como si fueran fallos actuales de PrestaShop.
-2. Trabajar en rama o copia aislada. Conservar los contratos de Cajas, Precio, Facturación, Recepciones y conexiones existentes. Revisar que ningún campo preparado se pierda silenciosamente al guardar.
-3. Probar validación, XML, idiomas, referencias duplicadas, permisos, doble clic, respuesta perdida y reconciliación. Probar POST y relectura en PrestaShop 1.7.8.11 aislado; repetir al cambiar a PrestaShop 8 antes de activar la nueva tienda.
-4. Revisar el diario y sus permisos: tabla privada con RLS, función invocadora y acceso exclusivo del servidor; ninguna clave en logs. La identidad y la tienda deben quedar vinculadas a cada solicitud.
-5. Superar los controles del commit exacto. Orden de instalación: diario → servicio y dependencias completas del manifiesto → habilitación deliberada de creación → web. Mantener la edición PUT desactivada mientras no tenga un circuito operativo propio.
-6. La variable `TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED=1` habilita el alta implementada. `TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED` es independiente y debe permanecer sin activar en esta entrega. No eliminar comprobaciones de usuario o permisos para resolver una incidencia.
-7. Volver a leer las definiciones instaladas, versión y archivos del servicio. Comprobar el commit que sirve la web, permisos negativos y una operación autorizada mediante la interfaz normal. Una pantalla publicada o un CI verde por sí solos no cierran la entrega.
-8. Ante un problema, deshabilitar nuevas altas conservando diario y productos ya creados; restaurar el servicio anterior si corresponde. No borrar el registro de operaciones para volver atrás: impediría distinguir altas ya persistidas.
-9. Publicar un acta con commit, versión de servicio, pruebas, resultado real y límites restantes. Actualizar los manuales de OneDrive; conservar antecedentes fechados. No comunicar «todo terminado» si alguna operación sigue siendo solo una propuesta.
+Exigir completed, authenticated=true, session_verified=true y el email/rol esperados. Codex utiliza su propio acceso; no suplantar al titular ni a otra IA.
+
+3. Pedir el catálogo:
+
+```sql
+select private.totus_agent_submit('<correo de la cuenta ChatGPT activa>', 'operation',
+ '{"operation":"catalogue"}'::jsonb);
+```
+
+4. Consultar las conexiones mediante la RPC normal totus_prestashop_context o totus_api_manager, enumeradas en el catálogo. Mantener el ID y revisión actuales de la conexión seleccionada; no incluir secretos.
+5. Para trabajar con Productos, enviar una operación products. Sus args son EXACTAMENTE el cuerpo usado por el formulario de Totus, con action, store, id, revision y call_id. El trabajador inicia su propia sesión y llama a totus-connections con ella. No usa un servicio privilegiado como sustituto de los permisos del usuario.
+
+```sql
+select private.totus_agent_submit('<correo de la cuenta ChatGPT activa>', 'operation',
+ jsonb_build_object('operation','products','args',jsonb_build_object(
+ 'action','prestashop_product_create_profile','store','hortimatic',
+ 'id','<UUID real de conexión>','revision',<revisión real>,
+ 'call_id','<UUID nuevo de esta llamada>')));
+```
+
+6. Acciones disponibles: prestashop_read, prestashop_item_read, prestashop_product_create_profile, prestashop_product_prepare/commit, prestashop_product_create_prepare/commit y prestashop_product_step_prepare/commit. Preparar y confirmar son llamadas distintas. Los contratos tipados y ejemplos verificables están en src/productos-write-contract.js, src/productos-stages-contract.js y sus pruebas.
+7. Seguir los mismos pasos manuales: datos completos, categorías e idiomas, prevalidación, confirmación autorizada, alta inactiva, imágenes/combinaciones/stock/precios, revisión y lectura final. Conservar request_id, parent_request_id y step_key. Un call_id nuevo no reemplaza una solicitud de escritura ya enviada.
+8. Los textos e imágenes de Productos admiten hasta 6 MiB de solicitud en el puente; los límites de las demás operaciones no se amplían. El PNG de etapa tiene su propio máximo y validación. Preparar imágenes antes de enviar; no subir una URL remota arbitraria como si fueran bytes verificados.
+9. Obtener datos de la URL facilitada, redactar contenido propio y adaptar SEO a la tienda. En datos comerciales reales, no inventar coste, impuestos, stock, proveedor o EAN para completar huecos. En el producto «pruebas», Diego ha autorizado expresamente datos ficticios.
+10. Entregar tienda, referencia, ID, estado activo/comprable y comprobaciones reales. No devolver «creado» si el trabajo solo está queued, prevalidado o parcialmente guardado.
+
+## Recuperación y concurrencia
+
+El borrador local se conserva por cuenta en IndexedDB, incluidas imágenes y solicitudes estables; no contiene claves. Una reapertura no envía escrituras. Cambiar de cuenta no carga el trabajo de otra. No es una copia de seguridad remota ni sustituye el diario del servidor.
+
+Cada alta y etapa queda registrada en un diario persistente. Ante respuesta perdida o HTTP 500, comprobar la misma solicitud: PrestaShop puede haber guardado antes de fallar al construir la respuesta. Solo una relectura exacta permite conciliar. No repetir POST/PUT ni cambiar referencias para esquivar una operación incierta.
+
+Las actualizaciones comparan la huella leída antes de escribir. Si otro usuario cambia la ficha, volver a leer y preparar; no forzar una propuesta obsoleta. La API de PrestaShop no proporciona una transacción distribuida con Totus: cada fase debe conservar evidencia verificable.
+
+## Publicación y pruebas
+
+Producción requiere migración del diario, servicio totus-connections completo, trabajador totus-assistant actualizado y tres indicadores revisados de creación/etapas/edición. Mantener las claves exclusivamente en servidor y la autorización normal de administración.
+
+Pruebas exigidas: contratos y permisos; diario en PostgreSQL aislado; PrestaShop 1.7.8.11 real aislado con alta, combinación, stock, proveedor, oferta, PNG, publicación no comprable, edición y repetición sin duplicados; recorridos de navegador a 390/768/1440, dos columnas, edición y recuperación por cuenta. Después, crear «pruebas» mediante Totus y contrastarlo en Hortimatic. No presentar las pruebas simuladas como prueba de esa última operación.
+
+## Relevo
+
+Conservar versión publicada, PR y ejecución de controles, tienda/ID/referencia de pruebas, resultados verificados, pendientes explícitos y solicitudes inciertas. No incluir claves, contraseñas ni URLs del administrador con tokens de sesión. Antes de ampliar a otra versión de PrestaShop, repetir la integración aislada y la lectura de capacidades de esa tienda.

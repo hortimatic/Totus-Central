@@ -16,7 +16,7 @@ try{
    const q=window.productosQA={actor:'admin-1',calls:[],slow:false,connections:['hortimatic','newoldsmok'].map((store,i)=>({id:String(i+1).padStart(8,'0')+'-1111-4111-8111-111111111111',name:'PrestaShop · '+(store==='hortimatic'?'Hortimatic':'NewOldSmok'),protocol:'prestashop',configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true}))};
    const fixture={
     'hortimatic|products|42':{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>',description:'Origen',price:'12.90',meta_title:'SEO de origen',associations:{combinations:[{id:'100'},{id:'101'}],categories:[{id:'3'}]}},
-    'newoldsmok|products|55':{id:'55',reference:'DESTINO-55',name:'Destino antiguo',description:'Destino',price:'14.90',meta_title:'SEO propio',associations:{combinations:[{id:'200'}]}},
+    'newoldsmok|products|55':{id:'55',reference:'DESTINO-55',name:[{id:'1',value:'Destino antiguo'}],description:'Destino',price:'14.90',meta_title:'SEO propio',associations:{combinations:[{id:'200'}]}},
     'hortimatic|combinations|100':{id:'100',id_product:'42',reference:'REF-42-10',price:'1',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}},
     'hortimatic|combinations|101':{id:'101',id_product:'42',reference:'REF-42-20',price:'2',minimal_quantity:'1',associations:{product_option_values:[{id:'20'}]}},
     'newoldsmok|combinations|200':{id:'200',id_product:'55',reference:'REF-42-10',price:'1.50',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}}
@@ -29,7 +29,12 @@ try{
     if(body.action==='prestashop_product_create_commit'&&q.allowWrites)return {ok:true,store:body.store,resource:'products',record_id:'701',persisted:true,verified:true,active:false};
     if(body.action==='prestashop_product_step_prepare'&&q.allowWrites)return {ok:true,store:body.store,fingerprint:'c'.repeat(64),persisted:false,can_commit:true};
     if(body.action==='prestashop_product_step_commit'&&q.allowWrites)return {ok:true,store:body.store,record_id:body.kind==='variation'?'801':body.kind==='image'?'901':body.kind==='finish'?'701':'1001',persisted:true,verified:true};
-    if(body.action==='prestashop_product_prepare')return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,persisted:false,fingerprint:'a'.repeat(64),changes:body.changes.map(c=>({...c,before:'original',changed:true}))};
+    if(body.action==='prestashop_product_prepare')return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,persisted:false,can_commit:q.allowWrites===true,fingerprint:'a'.repeat(64),changes:body.changes.map(c=>({...c,before:'original',changed:true}))};
+    if(body.action==='prestashop_product_commit'&&q.allowWrites){
+     const item=fixture[body.store+'|'+body.resource+'|'+body.record_id];
+     for(const change of body.changes){if(change.language_id)item[change.field]=[{id:change.language_id,value:change.value}];else item[change.field]=change.value;}
+     return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,persisted:true,verified:true};
+    }
     if(body.action==='prestashop_item_read'){
      const item=fixture[body.store+'|'+body.resource+'|'+body.record_id];
      if(!item)throw Error('Ficha desconocida');
@@ -71,6 +76,23 @@ try{
   assert.equal(await page.evaluate(()=>productosQA.calls.find(c=>c.action==='prestashop_product_prepare'&&c.resource==='combinations')?.expected_product_id),'55');
   assert.equal(await page.getByRole('button',{name:'Guardar cambios en newoldsmok'}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
+  await page.evaluate(()=>{productosQA.allowWrites=true;});
+  assert.equal(await page.locator('.prd-parallel-editors > fieldset').count(),2,'Dos fichas paralelas');
+  await page.locator('[data-pr-lang-store="newoldsmok"][data-pr-lang-field="name"]').selectOption('1');
+  await page.getByRole('button',{name:'Validar contra el XML de la tienda'}).click();
+  await page.getByText(/XML del producto validado/).waitFor();
+  await page.locator('[data-pr-edit-confirm="newoldsmok"]').fill('GUARDAR');
+  await page.locator('[data-pr-edit-confirm="newoldsmok"]').blur();
+  await page.getByRole('button',{name:'Guardar cambios en newoldsmok'}).click();
+  await page.getByText(/Actualización guardada y releída/).waitFor();
+  await page.getByRole('button',{name:'Validar variación'}).click();
+  await page.getByText(/Variación #200 de newoldsmok comprobada/).waitFor();
+  await page.locator('[data-pr-edit-confirm="newoldsmok|200"]').fill('GUARDAR');
+  await page.locator('[data-pr-edit-confirm="newoldsmok|200"]').blur();
+  await page.getByRole('button',{name:'Guardar combinación',exact:true}).click();
+  await page.getByText(/Combinación #200 guardada y releída/).waitFor();
+  assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_commit').length),2);
+  await page.evaluate(()=>{productosQA.calls=[];productosQA.allowWrites=false;});
   await page.getByRole('button',{name:'Cambios masivos'}).click();
   await page.locator('[data-pr-bulk="101"]').check();
   await page.getByRole('button',{name:'Revisar selección'}).click();

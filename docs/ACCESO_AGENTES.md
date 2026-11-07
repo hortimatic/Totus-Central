@@ -87,3 +87,7 @@ Al llenar el chat, dejar un relevo compacto con: versión/commit verificados, pe
 ## Mantenimiento de código
 
 Preservar estructura, funcionalidades y datos. Una petición concreta, un cambio revisable, pruebas dirigidas al recorrido afectado y sus consumidores; publicación solo tras controles. No mezclar una mejora visual con restauraciones, limpieza de datos o cambios fiscales. GitHub contiene código/manuales; Supabase, datos y funciones; OneDrive, documentos y diez copias completas. No instalar un servicio permanente en un ordenador para que funcione Totus. La cuenta en el chat interno no implica escucha automática de un modelo con el ordenador apagado.
+
+## Productos (PR #133)
+
+Consultar [PROTOCOLO_PRODUCTOS.md](PROTOCOLO_PRODUCTOS.md). El trabajador incorpora operation=products y llama al mismo servicio autenticado que el formulario. Comprobar primero su despliegue y catálogo. Utilizar totus_agent_submit con el correo de la cuenta ChatGPT elegida, ya que el alias genérico puede estar asociado a otra IA. No afirmar que la documentación habilita por sí sola una conexión.
