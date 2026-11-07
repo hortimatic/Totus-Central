@@ -25,6 +25,7 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'product_option_values','GET'),
  (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
  (@account_id,'images','GET'),(@account_id,'images','POST'),(@account_id,'images','DELETE'),(@account_id,'image_types','GET'),
+ (@account_id,'product_features','GET'),(@account_id,'product_feature_values','GET'),(@account_id,'tags','GET'),
  (@account_id,'suppliers','GET'),(@account_id,'currencies','GET'),
  (@account_id,'product_suppliers','GET'),(@account_id,'product_suppliers','POST'),(@account_id,'product_suppliers','PUT'),
  (@account_id,'specific_prices','GET'),(@account_id,'specific_prices','POST'),(@account_id,'specific_prices','PUT');
@@ -41,3 +42,13 @@ SET @ci_attribute=LAST_INSERT_ID();
 INSERT INTO ps_attribute_lang(id_attribute,id_lang,name) SELECT @ci_attribute,id_lang,'CI Blue' FROM ps_lang;
 INSERT INTO ps_attribute_shop(id_attribute,id_shop) SELECT @ci_attribute,id_shop FROM ps_shop;
 SELECT 'PrestaShop Webservice CI configured' AS status;
+
+-- Named material and tag for organization edits in the disposable store only.
+INSERT INTO ps_feature(position) VALUES(90);
+SET @ci_feature=LAST_INSERT_ID();
+INSERT INTO ps_feature_lang(id_feature,id_lang,name) SELECT @ci_feature,id_lang,'CI Material' FROM ps_lang;
+INSERT INTO ps_feature_shop(id_feature,id_shop) SELECT @ci_feature,id_shop FROM ps_shop;
+INSERT INTO ps_feature_value(id_feature,custom) VALUES(@ci_feature,0);
+SET @ci_feature_value=LAST_INSERT_ID();
+INSERT INTO ps_feature_value_lang(id_feature_value,id_lang,value) SELECT @ci_feature_value,id_lang,'CI Metal' FROM ps_lang;
+INSERT INTO ps_tag(id_lang,name) VALUES(1,'TOTUS CI Tag');

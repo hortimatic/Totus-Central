@@ -58,8 +58,9 @@ export function validateProductStage(input){
  }
  if(input.kind==='special_price'&&input.fields.reduction_type==='percentage'&&Number(input.fields.reduction)>1)fail('El descuento porcentual se expresa entre 0 y 1.');
  const associations=input.associations??{};
- if(typeof associations!=='object'||Array.isArray(associations)||Object.keys(associations).some(k=>!(input.kind==='variation'?['product_option_values','images']:input.kind==='finish'?['categories','tags','accessories']:input.kind==='variation_edit'?['images']:[]).includes(k)))fail('Relaciones de etapa no admitidas.');
+ if(typeof associations!=='object'||Array.isArray(associations)||Object.keys(associations).some(k=>!(input.kind==='variation'?['product_option_values','images']:input.kind==='finish'?['categories','tags','accessories','product_features']:input.kind==='variation_edit'?['images']:[]).includes(k)))fail('Relaciones de etapa no admitidas.');
  for(const [key,values] of Object.entries(associations)){
+  if(key==='product_features'){if(!Array.isArray(values))fail('Características no válidas.');const seen=new Set();for(const row of values){if(!row||Object.keys(row).some(k=>!['feature_id','value_id'].includes(k))||!id.test(String(row.feature_id))||!id.test(String(row.value_id))||seen.has(String(row.feature_id)))fail('Características repetidas o no válidas.');seen.add(String(row.feature_id));}out.associations[key]=values.map(row=>({feature_id:String(row.feature_id),value_id:String(row.value_id)}));continue;}
   if(!Array.isArray(values)||values.some(v=>!id.test(String(v)))||new Set(values.map(String)).size!==values.length)fail('Selecciona relaciones, atributos e imágenes válidos, sin selección duplicada.');
   out.associations[key]=values.map(String);
  }

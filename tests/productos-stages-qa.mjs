@@ -151,14 +151,17 @@ test('organization review validates principal category, writes only selected rel
 
 test('organization finish verifies destination relationships before PUT and rereads all selected categories',async()=>{
  const requestBase={...base,kind:'finish',existing_product:true,fields:{active:'0',available_for_order:'0',visibility:'none',id_category_default:'4',id_manufacturer:'6',id_supplier:'0',id_tax_rules_group:'0'},associations:{categories:['4','5']}};
- const setup=(wrong=false)=>{
+ const setup=(wrong=false,wrongFeature=false)=>{
   const calls=[];let entry=null,saved='<prestashop><product><id>601</id><reference>PRUEBAS</reference><id_category_default>4</id_category_default><id_manufacturer>3</id_manufacturer><id_supplier>0</id_supplier><id_tax_rules_group>0</id_tax_rules_group><active>0</active><available_for_order>0</available_for_order><visibility>none</visibility><associations><categories><category><id>4</id></category></categories><images><image><id>90</id></image></images><combinations/></associations></product></prestashop>';
-  return {calls,request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,method:options.method});if(u.pathname==='/api/languages')return xml('<prestashop><languages><language id="1"/></languages></prestashop>');if(u.pathname==='/api/products/601'){if(options.method==='PUT')saved=options.body;return xml(saved);}if(u.pathname.startsWith('/api/categories/'))return json({category:{id:u.pathname.split('/').at(-1)}});if(u.pathname==='/api/manufacturers/6')return json({manufacturer:{id:wrong?'999':'6'}});throw Error('Unexpected organization path '+u.pathname);},resolve:async()=>['8.8.8.8'],env:{get:()=> '1'},journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601',reference:'PRUEBAS'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={status:'completed',signature,record_id};},uncertain:async()=>{entry.status='uncertain';}}};
+  return {calls,request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,method:options.method});if(u.pathname==='/api/languages')return xml('<prestashop><languages><language id="1"/></languages></prestashop>');if(u.pathname==='/api/products/601'){if(options.method==='PUT')saved=options.body;return xml(saved);}if(u.pathname.startsWith('/api/categories/'))return json({category:{id:u.pathname.split('/').at(-1)}});if(u.pathname==='/api/manufacturers/6')return json({manufacturer:{id:wrong?'999':'6'}});if(u.pathname==='/api/product_features/8')return json({product_feature:{id:'8'}});if(u.pathname==='/api/product_feature_values/80')return json({product_feature_value:{id:'80',id_feature:wrongFeature?'999':'8'}});throw Error('Unexpected organization path '+u.pathname);},resolve:async()=>['8.8.8.8'],env:{get:()=> '1'},journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601',reference:'PRUEBAS'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={status:'completed',signature,record_id};},uncertain:async()=>{entry.status='uncertain';}}};
  };
  const bad=setup(true);await assert.rejects(()=>runPrestashopProductStage(connection,requestBase,bad),/no verificable/);assert(!bad.calls.some(c=>c.method==='PUT'));
  const f=setup(),prepared=await runPrestashopProductStage(connection,requestBase,f);assert(!f.calls.some(c=>c.method==='PUT'));
  const done=await runPrestashopProductStage(connection,{...requestBase,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint},f);
  assert.equal(done.verified,true);assert.equal(f.calls.filter(c=>c.method==='PUT').length,1);
+ const withFeatures={...requestBase,associations:{categories:['4','5'],product_features:[{feature_id:'8',value_id:'80'}]}};
+ const foreignFeature=setup(false,true);await assert.rejects(()=>runPrestashopProductStage(connection,withFeatures,foreignFeature),/no pertenece/);assert(!foreignFeature.calls.some(c=>c.method==='PUT'));
+ const features=setup(),featurePreparation=await runPrestashopProductStage(connection,withFeatures,features);assert.equal((await runPrestashopProductStage(connection,{...withFeatures,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:featurePreparation.fingerprint},features)).verified,true);
 });
 
 
@@ -194,4 +197,14 @@ test('empty native XML association is zero, but missing nodes and another produc
  assert.throws(()=>inspectProductAssociationIds(empty,'602','images'),/otro producto/);
  assert.throws(()=>inspectProductAssociationIds(empty.replace('<images nodeType="image" api="images/products"/>',''),'601','images'),/campo único/);
  assert.throws(()=>inspectProductAssociationIds(empty.replace('<images nodeType="image" api="images/products"/>','<images><image><id>bad</id></image></images>'),'601','images'),/no válido/);
+});
+
+
+test('organization features preserve the feature/value pair and reject duplicate or foreign values',()=>{
+ const request={...base,kind:'finish',fields:{active:'0',available_for_order:'0'},associations:{product_features:[{feature_id:'4',value_id:'8'}],tags:['9'],accessories:['600']}};
+ const op=validateProductStage(request);assert.deepEqual(op.associations.product_features,[{feature_id:'4',value_id:'8'}]);
+ assert.throws(()=>validateProductStage({...request,associations:{product_features:[{feature_id:'4',value_id:'8'},{feature_id:'4',value_id:'10'}]}}),/repetidas/);
+ const original='<prestashop><product><id>601</id><associations><combinations/><product_features/><tags/><accessories/></associations></product></prestashop>',saved=prepareProductStageXml(original,'products',request.fields,request.associations,'601');
+ assert.equal(inspectProductStageXml(saved,'products',request.fields,request.associations).verified,true);
+ assert.throws(()=>inspectProductStageXml(saved,'products',request.fields,{...request.associations,product_features:[{feature_id:'4',value_id:'99'}]}),/no coinciden/);
 });

@@ -180,8 +180,8 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
  }
  const parent=item.children.find(node=>node.name==='associations');let added='';
  for(const [name,ids] of Object.entries(associations)){
-  const nodeName={product_option_values:'product_option_value',images:'image',categories:'category',tags:'tag',accessories:'product'}[name];if(!nodeName||!parent)invalid('Asociación de etapa no admitida.');
-  const content=ids.map(id=>'<'+nodeName+'><id>'+safeCdata(id)+'</id></'+nodeName+'>').join('');
+  const nodeName={product_option_values:'product_option_value',images:'image',categories:'category',tags:'tag',accessories:'product',product_features:'product_feature'}[name];if(!nodeName||!parent)invalid('Asociación de etapa no admitida.');
+  const content=ids.map(id=>name==='product_features'?'<product_feature><id>'+safeCdata(id.feature_id)+'</id><id_feature_value>'+safeCdata(id.value_id)+'</id_feature_value></product_feature>':'<'+nodeName+'><id>'+safeCdata(id)+'</id></'+nodeName+'>').join('');
   const nodes=parent.children.filter(node=>node.name===name);if(nodes.length>1)invalid('Asociación duplicada.');
   if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';
  }
@@ -234,8 +234,9 @@ export function inspectProductStageXml(xml,resource,fields,associations={}){
   }
  }
  for(const [name,ids] of Object.entries(associations)){
-  const actual=direct(direct(item,'associations'),name).children.map(row=>fieldText(xml,row,'id')).sort();
-  if(JSON.stringify(actual)!==JSON.stringify([...ids].sort()))invalid('Los valores de '+name+' no coinciden.');
+  const actual=direct(direct(item,'associations'),name).children.map(row=>name==='product_features'?fieldText(xml,row,'id')+':'+fieldText(xml,row,'id_feature_value'):fieldText(xml,row,'id')).sort();
+  const expected=ids.map(row=>name==='product_features'?row.feature_id+':'+row.value_id:row).sort();
+  if(JSON.stringify(actual)!==JSON.stringify(expected))invalid('Los valores de '+name+' no coinciden.');
  }
  return {id,verified:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};
 }

@@ -59,6 +59,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   const verifyRelation=async(resource,singular,id)=>{if(id==='0')return;const data=await json(resource+'/'+id),row=data[singular]||data[resource]?.[0];if(String(row?.id)!==id)throw Error('Relación de '+resource+' no verificable en esta tienda.');};
   for(const [key,resource,singular]of [['id_category_default','categories','category'],['id_manufacturer','manufacturers','manufacturer'],['id_supplier','suppliers','supplier'],['id_tax_rules_group','tax_rule_groups','tax_rule_group']])if(op.fields[key])await verifyRelation(resource,singular,op.fields[key]);
   for(const [key,resource,singular]of [['categories','categories','category'],['tags','tags','tag'],['accessories','products','product']])for(const id of op.associations[key]||[]){if(key==='accessories'&&id===op.product_id)throw Error('Un producto no puede ser accesorio de sí mismo.');await verifyRelation(resource,singular,id);}
+  for(const feature of op.associations.product_features||[]){await verifyRelation('product_features','product_feature',feature.feature_id);const data=await json('product_feature_values/'+feature.value_id),value=data.product_feature_value||data.product_feature_values?.[0];if(String(value?.id)!==feature.value_id||String(value.id_feature)!==feature.feature_id)throw Error('El valor no pertenece a la característica seleccionada.');}
   if(op.associations.categories){const main=op.fields.id_category_default||readPrestashopXmlField(root,'product','id_category_default');if(!op.associations.categories.includes(main))throw Error('La categoría principal debe estar entre las asociadas.');}
  }
  if(op.fields.id_default_combination)await assertVariant(op.fields.id_default_combination);
@@ -81,7 +82,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):{id_product:op.product_id,...op.fields};
  let nativeHtmlNormalized=false;
  const verify=async(recordId)=>{
-  const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+[...Object.keys(desired),...Object.keys(op.associations).map(key=>key+'[id]')].join(',')+']'}:{}),op.resource,desired,op.associations);
+  const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+[...Object.keys(desired),...Object.keys(op.associations).map(key=>key==='product_features'?'product_features[id,id_feature_value]':key+'[id]')].join(',')+']'}:{}),op.resource,desired,op.associations);
   nativeHtmlNormalized||=checked.native_html_normalized===true;
   return checked;
  };

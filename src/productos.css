@@ -142,3 +142,8 @@
 #productosRoot .prd-description-dialog::backdrop{background:#0b172a99;}
 
 #productosRoot .prd-variant-photo{width:32px;height:32px;object-fit:contain;}
+
+#productosRoot .prd-stitch .prd-photo-open{padding:0;border:0;background:transparent;cursor:zoom-in;width:100%;}
+#productosRoot .prd-photo-dialog{width:min(950px,95vw);max-height:95dvh;border:0;border-radius:12px;padding:16px;background:var(--surface,#fff);}
+#productosRoot .prd-photo-dialog img{display:block;max-width:100%;max-height:80dvh;object-fit:contain;margin:auto;}
+#productosRoot .prd-photo-dialog::backdrop{background:#0b172a99;}

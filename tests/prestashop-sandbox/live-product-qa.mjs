@@ -214,7 +214,9 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal((await runPrestashopProductStage(connection,existingCommit,existingOptions)).reused,true);
  assert.equal(calls.filter(c=>c.method==='POST').length,countBeforeReplay);
  // Real isolated coverage for the newly connected organization/image/removal controls.
- const organization={...existing,kind:'finish',step_key:'existing_organization',fields:{active:'1',available_for_order:'0',visibility:'none',id_category_default:'2',id_supplier:String(supplier.id),id_tax_rules_group:'0'},associations:{categories:['2']}};
+ const relation=async(resource,display)=>{const response=await localOnlyRequest('https://hortimatic.com/api/'+resource+'?output_format=JSON&display='+display+'&sort=[id_DESC]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(response.status,200);return (await response.json())[resource][0];};
+ const material=await relation('product_feature_values','[id,id_feature]'),tag=await relation('tags','[id]');
+ const organization={...existing,kind:'finish',step_key:'existing_organization',fields:{active:'1',available_for_order:'0',visibility:'none',id_category_default:'2',id_supplier:String(supplier.id),id_tax_rules_group:'0'},associations:{categories:['2'],product_features:[{feature_id:String(material.id_feature),value_id:String(material.id)}],tags:[String(tag.id)]}};
  const organizationPrepared=await runPrestashopProductStage(connection,organization,existingOptions);
  assert.equal((await runPrestashopProductStage(connection,{...organization,action:'prestashop_product_step_commit',expected_fingerprint:organizationPrepared.fingerprint,confirmed:true},existingOptions)).verified,true);
  await checkLanguages();
