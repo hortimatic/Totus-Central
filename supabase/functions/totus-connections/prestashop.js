@@ -94,6 +94,19 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
 // This is intentionally read-only: writes require a separately audited contract.
 export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
  const store=prestashopStore(input.store);
+ if(input.resource==='images'){
+  if(!/^[1-9]\d{0,14}$/.test(String(input.product_id||''))||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Imagen de producto no válida.');
+  const parent=await readPrestashopProductItem(connection,{...input,resource:'products',record_id:input.product_id},{request,resolve});
+  if(!Array.isArray(parent.item.associations?.images)||!parent.item.associations.images.some(i=>String(i.id)===String(input.record_id)))throw Error('La imagen no pertenece a este producto.');
+  const base=new URL(connection.endpoint);base.pathname=base.pathname.replace(/\/$/,'')+'/images/products/'+input.product_id+'/'+input.record_id;
+  const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+  const mime=(response.headers.get('content-type')||'').split(';')[0].toLowerCase();
+  if(!response.ok||!['image/jpeg','image/png','image/webp','image/gif'].includes(mime)){await response.body?.cancel();throw Error('La tienda no devolvió una fotografía válida.');}
+  const reader=response.body?.getReader();if(!reader)throw Error('La imagen está vacía.');const chunks=[];let size=0;
+  try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>8388608){await reader.cancel();throw Error('La imagen supera 8 MB.');}chunks.push(value);}}finally{reader.releaseLock();}
+  if(!size)throw Error('La imagen está vacía.');let binary='';for(const chunk of chunks)for(let offset=0;offset<chunk.length;offset+=16384)binary+=String.fromCharCode(...chunk.subarray(offset,offset+16384));
+  return {ok:true,store:store.key,resource:'images',record_id:String(input.record_id),item:{id:String(input.record_id),id_product:String(input.product_id),mime,base64:btoa(binary)}};
+ }
  if(!['products','combinations','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
  if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');

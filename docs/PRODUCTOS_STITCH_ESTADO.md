@@ -39,7 +39,7 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   comprobación de permisos DELETE, huella y relectura; sin repetir un borrado incierto.
 - Normalización de imágenes al tipo configurado en la tienda, conservando el producto
   completo; la transparencia se comprueba antes de añadir márgenes al lienzo.
-- 86 comprobaciones unitarias de Productos cubiertas en esta rama.
+- 87 comprobaciones unitarias de Productos cubiertas en esta rama.
 - Puente 1.1.0: orden y leyendas por idioma verificados contra PrestaShop 1.7.8.11
   aislado, con rechazo de intentos de cambiar producto o portada desde ese recurso.
 - Sustitución nativa de fotos con el mismo ID: respuesta binaria contrastada con GET,
@@ -106,3 +106,11 @@ como terminada ni crear más bases para resolver sus etapas pendientes.
 Producción sigue en 3262132b. No se ha instalado el puente 1.1.0 ni desplegado
 el nuevo servicio. Su ausencia impide usar orden y leyendas en las tiendas reales.
 La compatibilidad nativa con PrestaShop 8 no está acreditada por estas pruebas.
+
+- Copia de galería entre tiendas: lectura autenticada del original, pertenencia
+  al producto, límite de 8 MB y MIME de foto. No admite URL arbitraria ni SVG remoto.
+  Normaliza cada foto al lienzo del destino y conserva etapas sin duplicarlas.
+  Preparar no sube nada; cada foto se revisa y guarda con su identidad del destino.
+  Prueba de navegador 390/1440 y prueba de límites, pertenencia y rutas correctas.
+- La entrada del servicio admite expresamente la lectura de `totus_product_images`;
+  comprobada con sesión y auditoría mínima, sin registrar fotos ni leyendas.

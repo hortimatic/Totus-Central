@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict';
+import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer();
+const {chromium}=await import('playwright');
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
+try{for(const width of [390,1440]){
+ const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
+ await page.evaluate(async()=>{
+ const {createProductWizard}=await import('../src/productos-create-ui.js');const canvas=document.createElement('canvas');canvas.width=60;canvas.height=80;const ctx=canvas.getContext('2d');ctx.fillStyle='navy';ctx.fillRect(20,10,20,60);const base64=canvas.toDataURL('image/png').split(',')[1];
+ const q=window.copyQA={calls:[],source:{id:'42',__sourceStore:'hortimatic',reference:'SRC',associations:{images:[{id:'91'},{id:'92'}]}},plan:{store:'newoldsmok',operation:'update',target_id:'500',changes:[],variants:[]}};
+ q.wizard=createProductWizard({canEdit:()=>true,invoke:async(store,action,args)=>{q.calls.push({store,action,args});if(action==='prestashop_product_create_profile')return {persisted:false,language_ids:['1']};if(action==='prestashop_read')return {rows:[{id:'1',name:'large_default',products:'1',width:'80',height:'100'}],possibly_more:false};if(action==='prestashop_item_read')return {item:{id:args.record_id,id_product:args.product_id,mime:'image/png',base64}};if(action==='prestashop_product_step_prepare')return {persisted:false,can_commit:true,fingerprint:'a'.repeat(64)};if(action==='prestashop_product_step_commit')return {persisted:true,verified:true,record_id:'901'};throw Error(action);}});
+ await q.wizard.openExisting('newoldsmok',{id:'500',reference:'DST'});const root=document.querySelector('#chatHarness');q.paint=()=>root.innerHTML=q.wizard.render(q.plan,q.source);q.paint();root.onclick=async e=>{const b=e.target.closest('[data-pr-action]');if(!b)return;await q.wizard.perform(b.dataset.prAction,'newoldsmok',q.plan,q.source,{row:b.dataset.prStageRow});q.paint();};
+ });
+ await page.getByRole('button',{name:'Copiar galería de origen a revisión',exact:true}).click();await page.locator('.prd-stage-image').nth(1).waitFor();assert.equal(await page.locator('.prd-stage-image').count(),2);
+ let facts=await page.evaluate(()=>({calls:copyQA.calls,rows:copyQA.wizard.snapshot().stages[0][1].rows}));assert.equal(facts.calls.filter(c=>c.action.endsWith('_commit')).length,0);assert.equal(facts.calls.filter(c=>c.action==='prestashop_item_read').length,2);assert(facts.calls.filter(c=>c.action==='prestashop_item_read').every(c=>c.store==='hortimatic'&&c.args.product_id==='42'));assert(facts.rows.every(r=>r.image.name.startsWith('newoldsmok-')&&r.imageSize.width===80&&r.imageSize.height===100));
+ await page.getByRole('button',{name:'Copiar galería de origen a revisión',exact:true}).click();assert.equal(await page.evaluate(()=>copyQA.calls.filter(c=>c.action==='prestashop_item_read').length),2,'Preparing again must not duplicate existing photo stages');
+ await page.locator('.prd-stage-row').first().getByRole('button',{name:'Validar esta etapa',exact:true}).click();await page.locator('.prd-stage-row').first().getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+ const commit=await page.evaluate(()=>copyQA.calls.find(c=>c.action.endsWith('_commit')));assert.equal(commit.store,'newoldsmok');assert.equal(commit.args.product_id,'500');assert.equal(commit.args.existing_product,true);assert.equal(commit.args.image.mime,'image/png');assert.deepEqual(errors,[]);await page.close();
+}console.log('Photo copy: authenticated source, destination canvas, explicit staged save and no duplicate import at 390/1440: PASS');}finally{await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}

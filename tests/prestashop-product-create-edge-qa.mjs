@@ -166,3 +166,16 @@ test('producto existente usa sesión autenticada y diario independiente, sin apr
  assert.equal(lookup.payload.p_data.actor_id,user_id);assert.equal(lookup.payload.p_data.store,'hortimatic');
  assert.equal(f.calls.some(c=>c.type==='http'&&c.method==='POST'),false);
 }));
+
+
+test('image metadata detail reaches the authenticated shop route and never exposes credentials or raw audit data',()=>context(async()=>{
+ const calls=[];
+ const factory=(_url,key)=>({auth:{getUser:async()=>({data:{user:{id:user_id,email:'admin@example.invalid'}}})},rpc:async(name,payload)=>{
+ calls.push({name,payload});if(name==='totus_api_manager')return {data:{connections:[{id,revision:2}]}};if(name==='totus_api_server')return {data:conf};if(name==='totus_api_call')return {data:null};throw Error('Unexpected RPC '+name);
+ }});
+ const response=await handle(req({...base,action:'prestashop_item_read',resource:'totus_product_images',record_id:'91'}),environment(false),factory,async(url,opts)=>{
+ assert.equal(new URL(url).pathname,'/api/totus_product_images/91');assert.equal(opts.method,'GET');return Response.json({totus_product_image:{id:'91',id_product:'701',position:'2',legend:[{id:'1',value:'Foto propia'}]}});
+ });
+ assert.equal(response.status,200);const body=await response.json();assert.equal(body.item.id_product,'701');assert(!JSON.stringify(body).includes(conf.secret));
+ const logged=calls.find(c=>c.name==='totus_api_call'&&c.payload.p_result)?.payload.p_result;assert.deepEqual(logged,{ok:true,store:'hortimatic',resource:'totus_product_images',record_id:'91'});
+}));
