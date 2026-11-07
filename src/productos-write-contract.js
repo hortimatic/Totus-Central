@@ -186,7 +186,6 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
   if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';
  }
  if(added)edits.push({start:parent.contentEnd,end:parent.contentEnd,value:added});
- if(resource==='totus_product_images')for(const name of ['id_product','cover']){const node=item.children.find(n=>n.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});}
  // PrestaShop sends calculated fields on GET which it rejects on PUT.
  for(const name of resource==='products'?['manufacturer_name','quantity',...['position_in_category','id_default_image','id_default_combination','type'].filter(key=>!Object.hasOwn(fields,key))]:resource==='combinations'?['quantity']:[]){
   const node=item.children.find(node=>node.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});

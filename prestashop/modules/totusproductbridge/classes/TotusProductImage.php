@@ -7,12 +7,36 @@ class TotusProductImage extends Image
         'objectNodeName' => 'totus_product_image',
         'objectsNodeName' => 'totus_product_images',
         'fields' => array(
-            'id_product' => array('setter' => false),
+            'id_product' => array('setter' => 'setImmutableProduct'),
             'position' => array(),
-            'cover' => array('setter' => false),
+            'cover' => array('setter' => 'setImmutableCover', 'required' => true),
             'legend' => array(),
         ),
     );
+
+    // The native Webservice requires these fields on PUT. Accept only the
+    // persisted values; never turn a metadata edit into a move or cover change.
+    public function setImmutableProduct($value)
+    {
+        $before = new Image((int) $this->id);
+        if (!Validate::isLoadedObject($before) || !ctype_digit((string) $value)
+            || (int) $value !== (int) $before->id_product) {
+            throw new PrestaShopException('The image product is immutable.');
+        }
+        $this->id_product = $before->id_product;
+        return true;
+    }
+
+    public function setImmutableCover($value)
+    {
+        $before = new Image((int) $this->id);
+        if (!Validate::isLoadedObject($before) || !in_array((string) $value, array('', '0', '1'), true)
+            || (int) $value !== (int) $before->cover) {
+            throw new PrestaShopException('The image cover is immutable.');
+        }
+        $this->cover = $before->cover;
+        return true;
+    }
 
     public function update($nullValues = false)
     {

@@ -231,6 +231,13 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const metadataPreparation=await runPrestashopProductStage(connection,metadata,existingOptions);
  assert.equal((await runPrestashopProductStage(connection,{...metadata,action:'prestashop_product_step_commit',expected_fingerprint:metadataPreparation.fingerprint,confirmed:true},existingOptions)).verified,true);
  const metadataRead=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id+'?output_format=JSON',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(metadataRead.status,200);const imageMetadata=(await metadataRead.json()).totus_product_image;assert.equal(String(imageMetadata.id_product),String(result.record_id));assert.equal(Number(imageMetadata.position),1);
+ // The metadata resource must reject direct attempts to move an image or change its cover.
+ const originalMetadata=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
+ const immutableXml=await originalMetadata.text();
+ for(const tampered of [immutableXml.replace(/<id_product>[\s\S]*?<\/id_product>/,'<id_product>999999</id_product>'),immutableXml.replace(/<cover>[\s\S]*?<\/cover>/,'<cover>1</cover>')]){
+  const rejected=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id,{method:'PUT',headers:{Authorization:'Basic '+btoa(key+':'),'Content-Type':'application/xml'},body:tampered});
+  assert(!rejected.ok,'Immutable metadata fields must reject foreign values');
+ }
  for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id]]){
   const removal={...existing,kind,record_id:id,step_key:'ci_'+kind+'_'+id,fields:{},associations:{}};
   const preparation=await runPrestashopProductStage(connection,removal,existingOptions);
