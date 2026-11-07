@@ -178,7 +178,7 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
  }
  if(added)edits.push({start:parent.contentEnd,end:parent.contentEnd,value:added});
  // PrestaShop sends calculated fields on GET which it rejects on PUT.
- for(const name of resource==='products'?['manufacturer_name','quantity']:resource==='combinations'?['quantity']:[]){
+ for(const name of resource==='products'?['manufacturer_name','quantity',...['position_in_category','id_default_image','id_default_combination','type'].filter(key=>!Object.hasOwn(fields,key))]:resource==='combinations'?['quantity']:[]){
   const node=item.children.find(node=>node.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});
  }
  if(resource==='products'&&parent){const node=parent.children.find(node=>node.name==='stock_availables');if(node)edits.push({start:node.open,end:node.end,value:''});}
