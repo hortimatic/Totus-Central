@@ -66,7 +66,7 @@ test('confirma CREAR, respeta el permiso y solo envía un POST lógico con reque
  const calls=f.calls.filter(x=>x.action==='prestashop_product_create_commit');
  assert.equal(calls.length,1);
  assert.equal(calls[0].args.confirmed,true);assert.match(calls[0].args.request_id,/^[a-f0-9-]{36}$/);
- assert.match(f.wizard.render(plan,source),/producto permanece inactivo/i);
+ assert.match(f.wizard.render(plan,source),/permanece inactiva/i);
  await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/no se repetirá/);
  assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,1);
 });
@@ -78,12 +78,14 @@ test('error de red deja el alta bloqueada: nunca se genera otro request_id autom
  await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/no se repetirá/);
  assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,1);
 });
-test('nunca crea un producto con variantes seleccionadas que el servidor no ha mapeado',async()=>{
- const f=fixture(),withVariants={...plan,variants:[{changes:[{field:'reference',changed:true}]}]};
+test('la base inactiva conserva las variaciones planificadas como etapas pendientes, sin publicarlas',async()=>{
+ const f=fixture(),withVariants={...plan,variants:[{changes:[{field:'reference',after:'PRUEBAS-AZUL',changed:true}]}]};
  await complete(f,withVariants);
  f.wizard.handleChange(confirmation(shop,'CREAR'));
- await assert.rejects(()=>f.wizard.perform('create-commit',shop,withVariants,source),/variaciones aún sin correspondencia/);
- assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,0);
+ await f.wizard.perform('create-commit',shop,withVariants,source);
+ const html=f.wizard.render(withVariants,source);assert.match(html,/PRUEBAS-AZUL/);assert.match(html,/pendiente/);assert.match(html,/permanece inactiva/);
+ assert.equal(f.calls.filter(x=>x.action==='prestashop_product_create_commit').length,1);
+ assert.equal(f.calls.filter(x=>x.action==='prestashop_product_step_commit').length,0);
 });
 test('el usuario sin permiso de edición solo puede preparar, nunca crear',async()=>{
  const f=fixture({canEdit:false});await complete(f);
@@ -118,5 +120,5 @@ test('comprobar resultado reutiliza el identificador de una solicitud incierta',
  await assert.rejects(()=>f.wizard.perform('create-commit',shop,plan,source),/incierta/);
  const original=f.calls.at(-1).args.request_id;assert.match(f.wizard.render(plan,source),new RegExp(original));
  options.networkError=false;await f.wizard.perform('create-verify',shop,plan,source);
- assert.equal(f.calls.at(-1).args.request_id,original);assert.match(f.wizard.render(plan,source),/Producto creado/);
+ assert.equal(f.calls.at(-1).args.request_id,original);assert.match(f.wizard.render(plan,source),/Base del producto guardada/);
 });

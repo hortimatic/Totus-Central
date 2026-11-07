@@ -24,7 +24,13 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'combinations','GET'),(@account_id,'combinations','POST'),
  (@account_id,'product_option_values','GET'),
  (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
- (@account_id,'images','GET'),(@account_id,'images','POST');
+ (@account_id,'images','GET'),(@account_id,'images','POST'),
+ (@account_id,'suppliers','GET'),(@account_id,'currencies','GET'),
+ (@account_id,'product_suppliers','GET'),(@account_id,'product_suppliers','POST'),(@account_id,'product_suppliers','PUT'),
+ (@account_id,'specific_prices','GET'),(@account_id,'specific_prices','POST'),(@account_id,'specific_prices','PUT');
+INSERT INTO ps_supplier(name,active,date_add,date_upd) VALUES('TOTUS CI Supplier',1,NOW(),NOW());
+SET @ci_supplier=LAST_INSERT_ID();
+INSERT INTO ps_supplier_shop(id_supplier,id_shop) SELECT @ci_supplier,id_shop FROM ps_shop;
 -- Fictional attribute for testing complete product creation, only in Docker.
 INSERT INTO ps_attribute_group(is_color_group,group_type,position) VALUES(0,'select',90);
 SET @ci_attribute_group=LAST_INSERT_ID();

@@ -49,7 +49,7 @@ export function prestashopQuery(input){
   if(!valid(input.from)||!valid(input.to)||input.to<input.from)throw Error('Revisa el periodo de consulta.');
   out.from=input.from;out.to=input.to;
  }
- if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
+ if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)&&!(input.resource==='currencies'&&input.record_id===undefined)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
  if(input.product_ids!==undefined){if(input.resource!=='products')throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
  if(input.references!==undefined){

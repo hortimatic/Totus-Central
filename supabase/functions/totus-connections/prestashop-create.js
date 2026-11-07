@@ -31,7 +31,8 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations,fields:op.fields,relations:op.relations}));
  const verifyReadback=async(expectedId=null)=>{
   const extra=[...op.fields.map(f=>f.field),...LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)).filter(f=>op.translations.some(t=>Object.prototype.hasOwnProperty.call(t,f)))];
-  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:op.relations?'full':'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
+  for(const [key,field] of [['manufacturer_id','id_manufacturer'],['supplier_id','id_supplier'],['tax_rules_group_id','id_tax_rules_group'],['category_ids','categories[id]'],['related_product_ids','accessories[id]'],['tag_ids','tags[id]'],['features','product_features[id,id_feature_value]']])if(Object.prototype.hasOwnProperty.call(op.relations||{},key))extra.push(field);
+  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
   return inspectReconciledNewProduct(xml,op,expectedId);
  };
  if(op.commit){
@@ -61,7 +62,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const verifyRelation=async(resource,node,id)=>{
   const key=resource+'/'+id;
   if(checked.has(key))return null;
-  const xml=await fetchXml(key);
+  const xml=await fetchXml(key,resource==='products'?{display:'[id]'}:{});
   if(parsePrestashopResourceId(xml,node)!==id)throw Error('La relación '+resource+' no coincide con el registro elegido.');
   checked.add(key);return xml;
  };

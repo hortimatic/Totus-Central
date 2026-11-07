@@ -1,11 +1,13 @@
 import {esc} from './utils.js';
-import {textValue} from './productos-core.js';
+import {textValue,productInputValue,matchExactReference} from './productos-core.js';
 import {PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from './productos-write-contract.js';
 import {fieldHelp} from './components.js';
+import {createProductStagesUI} from './productos-stages-ui.js';
 
 // A small opt-in creation flow. It neither copies shop IDs nor changes existing
 // products. Each destination is validated and committed separately.
 export function createProductWizard({invoke,canEdit=()=>false}){
+ const stages=createProductStagesUI({invoke,canEdit});
  const profiles=new Map(),categories=new Map(),relationCatalogs=new Map(),config=new Map(),previews=new Map(),requestIds=new Map(),
   attempted=new Set(),results=new Map(),confirmations=new Map();
  const h=v=>esc(String(v??''));
@@ -40,12 +42,12 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    select('manufacturer_id','Marca',catalog.manufacturers)+select('supplier_id','Proveedor',catalog.suppliers)+select('tax_rules_group_id','Grupo de impuestos',catalog.tax_rule_groups)+
    select('category_ids','Categorías asociadas',cats.map(c=>({...c,name:(categoryName(c.id_parent)?categoryName(c.id_parent)+' / ':'')+textValue(c.name)})),true)+
    select('tag_ids','Etiquetas',catalog.tags,true)+
-   '<label class="prd-field"><b>Características y materiales</b><select multiple size="6" data-pr-create-features="true" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+catalog.product_features.map(feature=>'<optgroup label="'+h(textValue(feature.name))+'">'+catalog.product_feature_values.filter(value=>String(value.id_feature)===String(feature.id)).map(value=>'<option value="'+h(feature.id)+':'+h(value.id)+'" '+((data.relations?.features||[]).some(f=>f.feature_id===String(feature.id)&&f.value_id===String(value.id))?'selected':'')+'>'+h(textValue(value.value))+'</option>').join('')+'</optgroup>').join('')+'</select><small>Selecciona un valor por característica. Se comprueba su pertenencia antes del alta.</small></label></div></fieldset>';
+   '<label class="prd-field"><b>Características y materiales</b><select multiple size="6" data-pr-create-features="true" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+catalog.product_features.map(feature=>'<optgroup label="'+h(textValue(feature.name))+'">'+catalog.product_feature_values.filter(value=>String(value.id_feature)===String(feature.id)).map(value=>'<option value="'+h(feature.id)+':'+h(value.id)+'" '+((data.relations?.features||[]).some(f=>f.feature_id===String(feature.id)&&f.value_id===String(value.id))?'selected':'')+'>'+h(textValue(value.value))+'</option>').join('')+'</optgroup>').join('')+'</select><small>Selecciona un valor por característica. Se comprueba su pertenencia antes del alta.</small></label>'+select('related_product_ids','Productos relacionados seleccionados',catalog.related_products||[],true)+'</div><label class="prd-field"><b>Buscar producto relacionado por referencia exacta</b><input data-pr-create-field="related_reference" data-pr-create-store="'+h(shop)+'" value="'+h(data.related_reference||'')+'" '+(locked?'disabled':'')+'></label>'+b('Buscar y añadir relacionado','create-find-related',shop,locked)+'</fieldset>';
  }
  function render(plan,source){
   if(plan.operation!=='create')return '';
   const shop=plan.store,profile=profiles.get(shop),result=results.get(shop);
-  if(result)return '<section class="prd-creation"><h5>Producto creado</h5><p>PrestaShop asignó el ID <b>#'+h(result.record_id)+'</b>. Alta comprobada por relectura; el producto permanece inactivo hasta una publicación autorizada.</p></section>';
+  if(result)return '<section class="prd-creation"><h5>Base del producto guardada</h5><p>PrestaShop asignó el ID <b>#'+h(result.record_id)+'</b>. '+(result.active===true?'Publicación activa verificada.':'La base está verificada y permanece inactiva. Completa y revisa las etapas siguientes antes de publicarlo.')+'</p>'+stages.render(shop,result,plan,{...source,...Object.fromEntries(plan.changes.map(c=>[c.field,c.after]))},profiles.get(shop),relationCatalogs.get(shop))+'</section>';
   if(!profile)return '<section class="prd-creation"><h5>Alta en '+h(shop)+'</h5><p>Consulta primero los idiomas reales de esta tienda. No se copian los identificadores del origen.</p>'+b('Consultar idiomas de la tienda','create-load',shop)+'</section>';
   const data=draft(shop,plan,source),cats=categories.get(shop)||[],locked=attempted.has(shop),prepared=previews.get(shop),confirmation=confirmations.get(shop)||'';
   return '<section class="prd-creation"><h5>Alta individual · '+h(shop)+'</h5><p>El producto se crea inicialmente <b>inactivo</b>. Categoría e idiomas son específicos del destino.</p>'+
@@ -67,9 +69,10 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    (locked?'<p class="prd-warning">Petición de alta: <code>'+h(requestIds.get(shop))+'</code>. Conserva este identificador si hay un error. No cambies la referencia ni repitas el alta: comprueba primero el resultado.</p>'+b('Comprobar resultado sin repetir el alta','create-verify',shop,!canEdit()):'')+
    '</section>';
  }
- const reset=()=>{profiles.clear();categories.clear();relationCatalogs.clear();config.clear();previews.clear();requestIds.clear();attempted.clear();results.clear();confirmations.clear();};
+ const reset=()=>{profiles.clear();categories.clear();relationCatalogs.clear();config.clear();previews.clear();requestIds.clear();attempted.clear();results.clear();confirmations.clear();stages.reset();};
  const invalidate=()=>{for(const [shop] of previews){if(!attempted.has(shop))previews.delete(shop);}for(const shop of confirmations.keys()){if(!attempted.has(shop))confirmations.delete(shop);}};
  function handleChange(el){
+  if(stages.handleChange(el))return true;
   const shop=el?.dataset?.prCreateStore,language=el?.dataset?.prCreateLanguage,field=el?.dataset?.prCreateField;
   if(el?.dataset?.prCreateConfirm!==undefined){confirmations.set(el.dataset.prCreateConfirm,el.value);return true;}
   const relation=el?.dataset?.prCreateRelation,features=el?.dataset?.prCreateFeatures;
@@ -78,7 +81,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   const entry=config.get(shop);if(!entry)return false;
   if(relation){entry.relations??={};if(el.multiple)entry.relations[relation]=Array.from(el.selectedOptions).map(o=>o.value);else if(el.value)entry.relations[relation]=el.value;else delete entry.relations[relation];}
   else if(features){entry.relations??={};entry.relations.features=Array.from(el.selectedOptions).map(o=>{const [feature_id,value_id]=o.value.split(':');return {feature_id,value_id};});}
-  else if(field&&['reference','price','category_id'].includes(field)){entry[field]=el.value;if(field==='category_id'&&entry.relations)entry.relations.category_ids=[...new Set([...(entry.relations.category_ids||[]),el.value].filter(Boolean))];}
+  else if(field&&['reference','price','category_id','related_reference'].includes(field)){entry[field]=productInputValue(field,el.value);if(field==='category_id'&&entry.relations)entry.relations.category_ids=[...new Set([...(entry.relations.category_ids||[]),el.value].filter(Boolean))];}
   else if(language&&LOCALIZED_PRODUCT_FIELDS.includes(el.dataset.prCreateProperty)){
    entry.translations[language]??={name:'',link_rewrite:''};
    entry.translations[language][el.dataset.prCreateProperty]=el.value;
@@ -94,11 +97,23 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   const supported=new Set(['name','reference','price','link_rewrite',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS]);
   const requested=plan.changes.filter(c=>c.changed);
   if(requested.some(c=>!supported.has(c.field)&&textValue(c.after)!==''))throw Error('El alta contiene campos sin contrato de creación. Deselecciónalos: '+requested.filter(c=>!supported.has(c.field)).map(c=>c.field).join(', '));
-  const fields=requested.filter(c=>PRODUCT_CREATE_FIELDS.includes(c.field)).map(c=>({field:c.field,value:textValue(c.after)}));
-  return {reference:entry.reference,price:entry.price,category_id:entry.category_id,translations,...(fields.length?{fields}:{}),...(entry.relations?{relations:entry.relations}:{})};
+  const fields=requested.filter(c=>PRODUCT_CREATE_FIELDS.includes(c.field)).map(c=>({field:c.field,value:productInputValue(c.field,textValue(c.after))}));
+  return {reference:entry.reference,price:productInputValue('price',entry.price),category_id:entry.category_id,translations,...(fields.length?{fields}:{}),...(entry.relations?{relations:entry.relations}:{})};
  };
- async function perform(action,shop,plan,source){
+ async function perform(action,shop,plan,source,detail={}){
   if(plan.operation!=='create'||!shop||plan.store!==shop)throw Error('La operación no pertenece a esta tienda.');
+  if(action.startsWith('create-stage-')){
+   const result=results.get(shop);if(!result)throw Error('Guarda y verifica primero la base del producto.');
+   return stages.perform(action.slice(7),shop,result,plan,{...source,...Object.fromEntries(plan.changes.map(c=>[c.field,c.after]))},profiles.get(shop),relationCatalogs.get(shop),detail);
+  }
+  if(action==='create-find-related'){
+   if(attempted.has(shop))throw Error('Las relaciones de la base ya están guardadas.');
+   const entry=draft(shop,plan,source),catalog=relationCatalogs.get(shop);if(!catalog||!entry.related_reference?.trim())throw Error('Consulta los catálogos e indica la referencia exacta.');
+   const response=await invoke(shop,'prestashop_read',{resource:'products',references:[entry.related_reference.trim()],page:0,page_size:100,sort:'oldest'});
+   const match=matchExactReference(response.rows,entry.related_reference);if(match.status!=='matched')throw Error('No se ha encontrado una referencia única en esta tienda.');
+   catalog.related_products=[...(catalog.related_products||[]).filter(row=>String(row.id)!==String(match.product.id)),match.product];entry.relations??={category_ids:[entry.category_id]};entry.relations.related_product_ids=[...new Set([...(entry.relations.related_product_ids||[]),String(match.product.id)])];entry.related_reference='';invalidate();
+   return 'Producto relacionado encontrado y seleccionado: '+textValue(match.product.name)+'.';
+  }
   if(action==='create-load-relations'){
    if(attempted.has(shop))throw Error('No se cambian relaciones durante una operación iniciada.');
    const catalogs={};
@@ -141,7 +156,6 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    return 'Prevalidación de '+shop+' correcta, sin escritura. Confirma únicamente cuando hayas revisado la ficha.';
   }
   if(action==='create-commit'){
-   if(plan.variants.some(v=>v.changes?.length))throw Error('El alta contiene variaciones aún sin correspondencia validada. No se creará un producto incompleto.');
    if(!canEdit())throw Error('La sesión no tiene permiso de edición.');
    if(confirmations.get(shop)!=='CREAR')throw Error('Escribe CREAR para confirmar.');
    const prepared=previews.get(shop);
@@ -155,7 +169,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    if(response.persisted!==true||response.verified!==true||!/^[1-9]\d{0,14}$/.test(String(response.record_id||'')))
     throw Error('PrestaShop no ha confirmado un ID verificable. Conserva el request_id para conciliación.');
    results.set(shop,{record_id:response.record_id,request_id});
-   return 'Alta completada en '+shop+' con ID '+response.record_id+'. El producto permanece inactivo.';
+   return 'Base guardada en '+shop+' con ID '+response.record_id+'. Completa las etapas pendientes; permanece inactivo.';
   }
   if(action==='create-verify'){
    const prepared=previews.get(shop),request_id=requestIds.get(shop);
@@ -166,5 +180,5 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   }
   throw Error('Acción de alta desconocida.');
  }
- return {render,reset,invalidate,handleChange,perform,hasAttempted:shop=>attempted.has(shop)};
+ return {render,reset,invalidate,handleChange,perform,handleFile:stages.handleFile,hasAttempted:shop=>attempted.has(shop)};
 }

@@ -22,6 +22,12 @@ export const textValue=value=>{
  if(typeof value==='object'&&own(value,'value'))return textValue(value.value);
  return '';
 };
+const decimalInputs=new Set(['price','wholesale_price','unit_price','unit_price_impact','ecotax','weight','width','height','depth','additional_shipping_cost','product_supplier_price_te','reduction']);
+export function productInputValue(field,value){
+ const text=String(value??'');if(!decimalInputs.has(field))return text;
+ const raw=text.trim();if(!/^-?(?:\d+(?:[,.]\d+)?|[,.]\d+)$/.test(raw))return text;
+ return raw.replace(',','.').replace(/^(-?)\./,(_,sign)=>sign+'0.').replace(/^(-?)0+(?=\d)/,'$1');
+}
 export function normalizedProduct(raw){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('La ficha de PrestaShop no es válida.');
  const id=cleanId(raw.id);

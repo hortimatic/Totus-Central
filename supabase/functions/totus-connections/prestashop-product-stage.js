@@ -1,11 +1,11 @@
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,sha256Text,parsePrestashopResourceId,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
 
-export async function runPrestashopProductStage(connection,input,{request=fetch,resolve,env=Deno.env,journal}={}){
+export async function runPrestashopProductStage(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
  const op=validateProductStage(input),store=prestashopStore(op.store);
  if(!connection||storeConnection([connection],op.store)!==connection||connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
  const base=new URL(connection.endpoint);
@@ -23,9 +23,12 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  };
  const xml=async(path,query={})=>boundedText(await call(path,{},query),2097152);
  const json=async(path,query={})=>boundedJson(await call(path,{headers:{Accept:'application/json'}},{...query,output_format:'JSON'}),2097152);
- const root=await xml('products/'+op.product_id);
+ // 1.7's getCoverWs dereferences false when a newly created product has no
+ // image yet. Do not request calculated cover/position fields for this workflow.
+ const productDisplay='['+[...new Set(['id','reference','price','active','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']';
+ const root=await xml('products/'+op.product_id,{display:op.kind==='finish'?productDisplay:'[id,reference]'});
  if(parsePrestashopResourceId(root,'product')!==op.product_id||readPrestashopXmlField(root,'product','reference')!==parent.reference)throw Error('La ficha de destino no corresponde al producto registrado.');
- const rootJson=async()=>{const data=await json('products/'+op.product_id);const product=data.product||data.products?.[0];if(String(product?.id)!==op.product_id)throw Error('Ficha de producto no verificable.');return product;};
+ const rootJson=async()=>{const data=await json('products/'+op.product_id,{display:'[id,reference,images[id]]'});const product=data.product||data.products?.[0];if(String(product?.id)!==op.product_id)throw Error('Ficha de producto no verificable.');return product;};
  const assertVariant=async id=>{
   if(id==='0')return;
   const data=await json('combinations/'+id),row=data.combination||data.combinations?.[0];
@@ -63,7 +66,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(rows.length&&!/^[1-9]\d{0,14}$/.test(String(rows[0].id)))throw Error('Registro de etapa no válido.');return rows.length?String(rows[0].id):null;
  };
  const desired=op.kind==='finish'?op.fields:{id_product:op.product_id,...op.fields};
- const verify=async(recordId)=>inspectProductStageXml(await xml(op.resource+'/'+recordId),op.resource,desired,op.associations);
+ const verify=async(recordId)=>inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+Object.keys(desired).join(',')+']'}:{}),op.resource,desired,op.associations);
  const prior=op.commit?await journal.lookup(op):null;
  if(prior){
   if(prior.signature!==signature)throw Error('Esta etapa ya está vinculada a otros datos.');
@@ -72,7 +75,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(op.kind!=='image')await verify(String(recordId));
   else{const product=await rootJson();if(!(product.associations?.images||[]).some(row=>String(row.id)===String(recordId)))throw Error('No se confirma la imagen en este producto.');}
   if(prior.status!=='completed')await journal.complete(op,signature,String(recordId));
-  return {ok:true,kind:op.kind,resource:op.resource,record_id:String(recordId),persisted:true,verified:true,reused:true};
+  return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:String(recordId),persisted:true,verified:true,reused:true};
  }
  const recordId=op.kind==='finish'?op.product_id:op.kind==='image'?null:await find();
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
@@ -82,7 +85,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const body=image?null:prepareProductStageXml(original,op.resource,desired,op.associations,recordId);
  const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||''));
  const enabled=env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';
- if(!op.commit)return {ok:true,kind:op.kind,resource:op.resource,record_id:recordId,fingerprint,persisted:false,can_commit:enabled};
+ if(!op.commit)return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:recordId,fingerprint,persisted:false,can_commit:enabled};
  if(!enabled)throw Error('Las etapas de creación todavía no están habilitadas en este servidor.');
  if(fingerprint!==op.expected_fingerprint)throw Error('El destino cambió: prepara de nuevo la etapa antes de guardar.');
  if((await journal.claim(op,signature))?.status!=='claimed')throw Error('La etapa ya está en curso; comprueba el resultado sin repetirla.');
@@ -100,9 +103,9 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    await verify(saved);
   }
  }catch(error){
-  if(!image){try{saved=saved||await find();if(saved){await verify(saved);await journal.complete(op,signature,saved);return {ok:true,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,reconciled:true};}}catch{}}
+  if(!image){try{saved=saved||await find();if(saved){await verify(saved);await journal.complete(op,signature,saved);return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,reconciled:true};}}catch{}}
   await journal.uncertain(op,signature);throw Error('Etapa incierta; no se repetirá automáticamente. '+String(error?.message||error));
  }
  await journal.complete(op,signature,saved);
- return {ok:true,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,...(image?{original_transparent:true,store_may_convert_format:true}:{})};
+ return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,...(image?{original_transparent:true,store_may_convert_format:true}:{})};
 }

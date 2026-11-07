@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deflateSync} from 'node:zlib';
+import {deflateSync,crc32} from 'node:zlib';
 import {validateProductStage} from '../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../src/productos-png.js';
 import {prepareProductStageXml,inspectProductStageXml} from '../src/productos-write-contract.js';
@@ -62,7 +62,7 @@ test('una traducción de descripción conserva los demás idiomas y elimina solo
  assert(result.includes('<language id="2">Keep</language>'));assert(result.includes('<category><id>3</id></category>'));assert(!result.includes('manufacturer_name'));assert(!result.includes('stock_availables'));
  assert.equal(inspectProductStageXml(result,'products',values).verified,true);
 });
-const chunk=(name,data)=>{const b=Buffer.alloc(data.length+12);b.writeUInt32BE(data.length);b.write(name,4);data.copy(b,8);return b;};
+const chunk=(name,data)=>{const b=Buffer.alloc(data.length+12);b.writeUInt32BE(data.length);b.write(name,4);data.copy(b,8);b.writeUInt32BE(crc32(b.subarray(4,8+data.length)),8+data.length);return b;};
 function png(alpha){const header=Buffer.alloc(13);header.writeUInt32BE(2);header.writeUInt32BE(1,4);header[8]=8;header[9]=6;return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(Buffer.from([0,30,120,70,alpha,40,130,80,255]))),chunk('IEND',Buffer.alloc(0))]).toString('base64');}
 test('imágenes: comprueba píxeles transparentes reales y rechaza PNG opacos o truncados',async()=>{
  const image=await inspectTransparentProductPng(png(0));assert.equal(image.transparent_pixels,1);assert.equal(image.width,2);

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {deflateSync,crc32} from 'node:zlib';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../supabase/functions/totus-connections/prestashop-create.js';
 import {inspectReconciledNewProduct} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
@@ -109,4 +110,30 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const stockDone=await runPrestashopProductStage(connection,{...stock,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:stockPrep.fingerprint},options);
  assert.equal(stockDone.verified,true);
  console.log('SANDBOX: variación '+variation.record_id+' creada una vez y existencias 7 verificadas por GET.');
+ const supplierResponse=await localOnlyRequest('https://hortimatic.com/api/suppliers?output_format=JSON&display=[id]&sort=[id_DESC]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(supplierResponse.status,200);const supplier=(await supplierResponse.json()).suppliers[0];
+ const currencyResponse=await localOnlyRequest('https://hortimatic.com/api/currencies?output_format=JSON&display=[id]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(currencyResponse.status,200);const currency=(await currencyResponse.json()).currencies[0];
+ const supplierPrice={...stage,kind:'supplier_price',step_key:'ci_supplier',fields:{id_product_attribute:variation.record_id,id_supplier:String(supplier.id),id_currency:String(currency.id),product_supplier_reference:'CI-SUPPLIER-BLUE',product_supplier_price_te:'0.35'}};delete supplierPrice.associations;
+ const supplierPrep=await runPrestashopProductStage(connection,supplierPrice,options);
+ assert.equal((await runPrestashopProductStage(connection,{...supplierPrice,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:supplierPrep.fingerprint},options)).verified,true);
+ const offer={...stage,kind:'special_price',step_key:'ci_offer',fields:{id_product_attribute:variation.record_id,id_shop:'0',id_shop_group:'0',id_currency:'0',id_country:'0',id_group:'0',id_customer:'0',id_cart:'0',price:'-1',from_quantity:'1',reduction:'0.10',reduction_tax:'1',reduction_type:'percentage',from:'0000-00-00 00:00:00',to:'0000-00-00 00:00:00'}};delete offer.associations;
+ const offerPrep=await runPrestashopProductStage(connection,offer,options);
+ assert.equal((await runPrestashopProductStage(connection,{...offer,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:offerPrep.fingerprint},options)).verified,true);
+ const chunk=(name,data)=>{const b=Buffer.alloc(data.length+12);b.writeUInt32BE(data.length);b.write(name,4);data.copy(b,8);b.writeUInt32BE(crc32(b.subarray(4,8+data.length)),8+data.length);return b;};
+ const header=Buffer.alloc(13);header.writeUInt32BE(64);header.writeUInt32BE(64,4);header[8]=8;header[9]=6;
+ const pixels=Buffer.alloc(64*(64*4+1));for(let y=16;y<48;y++)for(let x=16;x<48;x++){const p=y*257+1+x*4;pixels[p]=20;pixels[p+1]=130;pixels[p+2]=80;pixels[p+3]=255;}
+ const image64=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(pixels)),chunk('IEND',Buffer.alloc(0))]).toString('base64');
+ const upload={...stage,kind:'image',step_key:'ci_picture',image:{name:'ci-transparent.png',mime:'image/png',base64:image64}};delete upload.fields;delete upload.associations;
+ const uploadPrep=await runPrestashopProductStage(connection,upload,options);
+ const picture=await runPrestashopProductStage(connection,{...upload,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:uploadPrep.fingerprint},options);
+ assert.equal(picture.verified,true);assert.equal(picture.original_transparent,true);
+ const finish={...stage,kind:'finish',step_key:'ci_finish',fields:{active:'1',available_for_order:'0',visibility:'none',description:profile.language_ids.map(language_id=>({language_id,value:'<h2>Pruebas</h2><p>Ficha visual de prueba aislada.</p>'}))}};delete finish.associations;
+ const finishPrep=await runPrestashopProductStage(connection,finish,options);
+ const finished=await runPrestashopProductStage(connection,{...finish,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:finishPrep.fingerprint},options);
+ assert.equal(finished.verified,true);
+ const untouched=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,wholesale_price,price,weight,active,available_for_order]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(untouched.status,200);const saved=(await untouched.json()).product;
+ assert.equal(Number(saved.wholesale_price),0.39);assert.equal(Number(saved.price),1);assert.equal(Number(saved.weight),0.15);assert.equal(Number(saved.available_for_order),0);
+ console.log('SANDBOX: PNG transparente cargado y publicación no comprable verificada; coste, precio y peso conservados.');
 });
