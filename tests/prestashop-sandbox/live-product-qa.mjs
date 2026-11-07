@@ -67,14 +67,14 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  await root.body?.cancel();
  const profile=await readPrestashopProductCreateProfile(connection,{store:'hortimatic'},
   {request:localOnlyRequest,resolve});
- assert.equal(profile.persisted,false);assert(profile.language_ids.length>0);
+ assert.equal(profile.persisted,false);assert(profile.language_ids.length>1,'Fixture must include an installed inactive language');
  const record={action:'prestashop_product_create_prepare',
    id:'11111111-1111-4111-8111-111111111111',
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
    price:'1.00',category_id:'2',fields:[{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unit_price_ratio',value:'2'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
-   translations:profile.language_ids.map(id=>({language_id:id,name:'Pruebas CI',link_rewrite:'pruebas-ci',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
+   translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
  assert.equal(preflight.persisted,false);
@@ -98,6 +98,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
  url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth]');
+ url.searchParams.set('language','['+profile.language_ids.join('|')+']');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
  const verified=inspectReconciledNewProduct(await readBack.text(),record,result.record_id);
@@ -105,6 +106,13 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const savedState=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,state,active]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
  assert.equal(savedState.status,200);const catalogStateData=await savedState.json(),savedProduct=catalogStateData.product||catalogStateData.products?.[0];assert.ok(savedProduct,'Native JSON must contain the created product');assert.equal(String(savedProduct.id),result.record_id);assert.equal(String(savedProduct.state),'1','Native BO listing requires STATE_SAVED even while inactive');assert.equal(String(savedProduct.active),'0');
  console.log('SANDBOX 1.7.8.11: ID '+result.record_id+' inactivo, 1 POST, relectura y reintento idempotente.');
+ const inactiveId=profile.language_ids.find(id=>id!=='1');assert(inactiveId);
+ let translationState=null;
+ const translationJournal={lookup:async()=>translationState,claim:async()=>{translationState={status:'pending'};return {status:'claimed'};},complete:async()=>{translationState={status:'completed'};},uncertain:async()=>{translationState={status:'uncertain'};}};
+ const translationEdit={action:'prestashop_product_prepare',id:record.id,call_id:crypto.randomUUID(),revision:record.revision,store:'hortimatic',resource:'products',record_id:result.record_id,changes:[{field:'name',language_id:inactiveId,value:'Repaired inactive translation'}]};
+ const translationOptions={request:localOnlyRequest,resolve,env:environment,journal:translationJournal};
+ const translationPrep=await runPrestashopProductWrite(connection,translationEdit,translationOptions);
+ assert.equal((await runPrestashopProductWrite(connection,{...translationEdit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:translationPrep.fingerprint,confirmed:true},translationOptions)).verified,true);
  const stageData=new Map(),stageJournal={parent:async()=>journalData.get(request_id),lookup:async op=>stageData.get(op.stage)||null,
   claim:async(op,signature)=>{if(stageData.has(op.stage))return stageData.get(op.stage);stageData.set(op.stage,{status:'pending',signature});return {status:'claimed'};},
   complete:async(op,signature,record_id)=>{assert.equal(stageData.get(op.stage).signature,signature);stageData.set(op.stage,{status:'completed',signature,record_id});},

@@ -26,3 +26,8 @@ test('Products uses the assistants own authenticated functions client and reject
  await assert.rejects(()=>runOperation(client,{operation:'products',args:{...args,store:'newoldsmok'}},{email:'chatgpt@totuscentral.invalid'}),/no verificable/);
  await assert.rejects(()=>runOperation(client,{operation:'products',args:{action:'create_actor',store:'hortimatic'}},{email:'chatgpt@totuscentral.invalid'}),/no admitida/);
 });
+
+test('Products forwards the bounded diagnostic from its own service instead of hiding every failure',async()=>{
+ const client={functions:{invoke:async()=>({data:null,error:{message:'Edge Function returned a non-2xx status code',context:new Response(JSON.stringify({error:'Traducción name del idioma 1 no coincide'}),{status:400})}})}};
+ await assert.rejects(()=>runOperation(client,{operation:'products',args:{action:'prestashop_product_create_commit',store:'newoldsmok'}},{email:'chatgpt@totuscentral.invalid'}),/idioma 1/);
+});

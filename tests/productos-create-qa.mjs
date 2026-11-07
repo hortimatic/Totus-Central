@@ -253,3 +253,14 @@ test('corregir alta ausente conserva UUID y referencia y exige CAS de la firma a
  const again=await runPrestashopProductCreate(connection,{...cmd,retry_absent:true},{request:f.request,resolve,env:{get:()=> '1'},journal});
  assert.equal(again.reused,true);assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
 });
+
+test('alta y relectura solicitan expresamente todos los idiomas instalados',async()=>{
+ const f=fixture(),request=async(url,opts)=>{
+  const u=new URL(url);
+  if(opts.method==='POST'||u.searchParams.get('display')?.includes('active'))assert.equal(u.searchParams.get('language'),'[1|2]');
+  return f.request(url,opts);
+ };
+ const j={lookup:async()=>null,claim:async()=>({status:'claimed'}),complete:async()=>{},uncertain:async()=>{throw Error('Idioma perdido');}};
+ const prepared=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=> '1'}});
+ assert.equal((await runPrestashopProductCreate(connection,{...input,action:'prestashop_product_create_commit',request_id:id,expected_fingerprint:prepared.fingerprint,confirmed:true},{request,resolve,env:{get:()=> '1'},journal:j})).verified,true);
+});

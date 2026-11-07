@@ -32,7 +32,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  const verifyReadback=async(expectedId=null)=>{
   const extra=[...op.fields.map(f=>f.field),...LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)).filter(f=>op.translations.some(t=>Object.prototype.hasOwnProperty.call(t,f)))];
   for(const [key,field] of [['manufacturer_id','id_manufacturer'],['supplier_id','id_supplier'],['tax_rules_group_id','id_tax_rules_group'],['category_ids','categories[id]'],['related_product_ids','accessories[id]'],['tag_ids','tags[id]'],['features','product_features[id,id_feature_value]']])if(Object.prototype.hasOwnProperty.call(op.relations||{},key))extra.push(field);
-  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
+  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',language:'['+op.translations.map(t=>t.language_id).join('|')+']',display:'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
   return inspectReconciledNewProduct(xml,op,expectedId);
  };
  let retrying=false,previousSignature=null;
@@ -99,7 +99,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  if(fingerprint!==op.expected_fingerprint)throw Error('El esquema o la categoría han cambiado. Prepara el alta de nuevo.');
  const claim=await (retrying?journal.retryAbsent:journal.claim)({request_id:op.request_id,store:op.store,reference:op.reference,signature,...(retrying?{previous_signature:previousSignature}:{})});
  if(claim?.status!=='claimed')throw Error('El alta está registrada por otro proceso o pendiente de conciliación. No se repetirá.');
- const url=new URL(base.href);url.pathname='/api/products';const target=await safeEndpoint(url.href,resolve);
+ const url=new URL(base.href);url.pathname='/api/products';url.searchParams.set('language','['+op.translations.map(t=>t.language_id).join('|')+']');const target=await safeEndpoint(url.href,resolve);
  let id=null,postProblem=null;
  try{
   const response=await request(target.href,{method:'POST',headers:{...headers,'Content-Type':'application/xml; charset=utf-8'},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(30000)});

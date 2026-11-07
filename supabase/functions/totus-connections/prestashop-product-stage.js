@@ -13,9 +13,10 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(!journal||typeof journal.parent!=='function')throw Error('Falta el registro de la creación del producto.');
  const parent=await journal.parent(op.parent_request_id);
  if(parent?.status!=='completed'||String(parent.product_id)!==op.product_id||parent.store!==op.store)throw Error('Esta etapa no pertenece a un producto creado y verificado por tu sesión.');
+ const languageIds=[...new Set(['description','description_short'].flatMap(field=>Array.isArray(op.fields[field])?op.fields[field].map(t=>t.language_id):[]))];
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
  const call=async(path,options={},query={})=>{
-  const url=new URL(base.href);url.pathname='/api/'+path;for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
+  const url=new URL(base.href);url.pathname='/api/'+path;if(path.startsWith('products/')&&languageIds.length)url.searchParams.set('language','['+languageIds.join('|')+']');for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
   const target=await safeEndpoint(url.href,resolve),response=await request(target.href,{...options,method:options.method||'GET',headers:{...headers,...options.headers},redirect:'error',credentials:'omit',signal:AbortSignal.timeout(30000)});
   if(!response.ok){await response.body?.cancel();throw Error('PrestaShop rechazó '+path+' (HTTP '+response.status+').');}
   if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La tienda devolvió HTML en vez del recurso solicitado.');}
