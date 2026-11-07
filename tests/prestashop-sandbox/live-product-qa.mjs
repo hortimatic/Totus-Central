@@ -227,6 +227,11 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const picturesCommit={...pictures,action:'prestashop_product_step_commit',expected_fingerprint:picturesPrepared.fingerprint,confirmed:true};
  assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).verified,true);
  assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).reused,true);
+ const replacement={...existing,kind:'image_replace',record_id:secondPicture.record_id,step_key:'ci_image_replacement',image:{name:'ci-replacement.png',mime:'image/png',base64:image64}};delete replacement.fields;delete replacement.associations;
+ const replacementPrepared=await runPrestashopProductStage(connection,replacement,existingOptions);assert.equal(replacementPrepared.can_commit,true);
+ const replacementCommit={...replacement,action:'prestashop_product_step_commit',expected_fingerprint:replacementPrepared.fingerprint,confirmed:true};
+ assert.equal((await runPrestashopProductStage(connection,replacementCommit,existingOptions)).replaced,true);
+ assert.equal((await runPrestashopProductStage(connection,replacementCommit,existingOptions)).reused,true);
  const metadata={...existing,kind:'image_metadata',record_id:secondPicture.record_id,step_key:'ci_image_metadata',fields:{position:'1',legend:profile.language_ids.map(language_id=>({language_id,value:'CI image '+language_id}))},associations:{}};
  const metadataPreparation=await runPrestashopProductStage(connection,metadata,existingOptions);
  assert.equal((await runPrestashopProductStage(connection,{...metadata,action:'prestashop_product_step_commit',expected_fingerprint:metadataPreparation.fingerprint,confirmed:true},existingOptions)).verified,true);

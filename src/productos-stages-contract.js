@@ -3,7 +3,7 @@ const id=/^[1-9]\d{0,14}$/;
 const unsigned=/^\d{1,15}$/;
 const decimal=/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/;
 const signed=/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/;
-export const PRODUCT_STAGE_RESOURCES=Object.freeze({variation:'combinations',variation_edit:'combinations',remove_variation:'combinations',remove_image:'images',image_metadata:'totus_product_images',stock:'stock_availables',supplier_price:'product_suppliers',special_price:'specific_prices',image:'images',finish:'products'});
+export const PRODUCT_STAGE_RESOURCES=Object.freeze({image_replace:'images',variation:'combinations',variation_edit:'combinations',remove_variation:'combinations',remove_image:'images',image_metadata:'totus_product_images',stock:'stock_availables',supplier_price:'product_suppliers',special_price:'specific_prices',image:'images',finish:'products'});
 const fields=Object.freeze({
  variation:['reference','ean13','upc','isbn','mpn','supplier_reference','price','wholesale_price','weight','ecotax','unit_price_impact','minimal_quantity','low_stock_threshold','low_stock_alert','default_on','available_date'],
  image_metadata:['position','legend'],remove_variation:[],remove_image:[],variation_edit:[],
@@ -19,12 +19,12 @@ export function validateProductStage(input){
  if(!['prestashop_product_step_prepare','prestashop_product_step_commit'].includes(input.action)||!uuid.test(input.id)||!uuid.test(input.call_id)||!uuid.test(input.parent_request_id)||!['hortimatic','newoldsmok'].includes(input.store)||!id.test(String(input.product_id))||!Number.isSafeInteger(input.revision)||input.revision<1||!Object.hasOwn(PRODUCT_STAGE_RESOURCES,input.kind)||!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(input.step_key||''))fail('Identidad de etapa no válida.');
  const out={store:input.store,kind:input.kind,resource:PRODUCT_STAGE_RESOURCES[input.kind],product_id:String(input.product_id),parent_request_id:input.parent_request_id,stage:input.kind+'_'+input.step_key,fields:{},associations:{},commit:input.action.endsWith('_commit')};
  if(input.existing_product!==undefined){if(input.existing_product!==true)fail('El recorrido de producto existente debe seleccionarse expresamente.');out.existing_product=true;}
- if(input.record_id!==undefined){if(!id.test(String(input.record_id))||!['stock','finish','variation_edit','remove_variation','remove_image','image_metadata'].includes(input.kind))fail('Registro de etapa no admitido.');out.record_id=String(input.record_id);}
- if(['variation_edit','remove_variation','remove_image','image_metadata'].includes(input.kind)&&(!out.existing_product||!out.record_id))fail('Selecciona un registro existente de este producto.');
+ if(input.record_id!==undefined){if(!id.test(String(input.record_id))||!['stock','finish','variation_edit','remove_variation','remove_image','image_metadata','image_replace'].includes(input.kind))fail('Registro de etapa no admitido.');out.record_id=String(input.record_id);}
+ if(['variation_edit','remove_variation','remove_image','image_metadata','image_replace'].includes(input.kind)&&(!out.existing_product||!out.record_id))fail('Selecciona un registro existente de este producto.');
  if(out.commit&&(!/^[a-f0-9]{64}$/.test(input.expected_fingerprint||'')||input.confirmed!==true))fail('La etapa exige validación previa y confirmación.');
  if(!out.commit&&(input.expected_fingerprint!==undefined||input.confirmed!==undefined))fail('La preparación no escribe ni acepta confirmaciones.');
  if(out.commit)out.expected_fingerprint=input.expected_fingerprint;
- if(input.kind==='image'){
+ if(['image','image_replace'].includes(input.kind)){
   const image=input.image;
   if(!image||typeof image!=='object'||Object.keys(image).some(k=>!['name','mime','base64'].includes(k))||image.mime!=='image/png'||typeof image.name!=='string'||!image.name.toLowerCase().endsWith('.png')||image.name.length>120||/[\x00-\x1f/\\]/.test(image.name)||typeof image.base64!=='string'||image.base64.length>5592408||!/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(image.base64))fail('Carga una imagen PNG transparente válida, de hasta 4 MB.');
   if(input.fields!==undefined||input.associations!==undefined)fail('La imagen no acepta campos adicionales.');
