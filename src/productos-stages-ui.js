@@ -1,5 +1,5 @@
 import {esc} from './utils.js';
-import {textValue,productInputValue} from './productos-core.js';
+import {textValue,productInputValue,associationIds} from './productos-core.js';
 import {fieldHelp} from './components.js';
 import {normalizeProductImage} from './productos-image-editor.js';
 import {prestashopStore} from './prestashop-readonly.js';
@@ -32,13 +32,16 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
  function input(state,row,key){
   const value=row.fields[key],locked=row.attempted||row.done;
   const data='data-pr-stage-field="'+h(key)+'" data-pr-stage-row="'+row.id+'" '+(locked?'disabled':'');
-  const combinationRows=state.rows.filter(r=>r.kind==='variation'&&r.done).map(r=>({id:r.done.record_id,name:r.fields.reference}));
+  const combinationRows=[...new Map([
+   ...associationIds(state.source,'combinations').map(id=>[id,{id,name:'Combinación #'+id}]),
+   ...state.rows.filter(r=>r.kind==='variation'&&r.done).map(r=>[String(r.done.record_id),{id:String(r.done.record_id),name:r.fields.reference}])
+  ]).values()];
   let options=null;
   if(key==='id_product_attribute')options=[{id:'0',name:'Producto base / todas'},...combinationRows];
   if(key==='id_default_combination')options=combinationRows;
   if(key==='id_supplier')options=state.catalogs.suppliers||[];
   if(key==='id_currency')options=[...(row.kind==='special_price'?[{id:'0',name:'Todas las monedas'}]:[]),...(state.catalogs.currencies||[]).map(r=>({...r,name:textValue(r.name)+' · '+r.iso_code}))];
-  if(key==='id_default_image')options=state.rows.filter(r=>r.kind==='image'&&r.done).map((r,i)=>({id:r.done.record_id,name:'Imagen '+(i+1)+' · '+r.image.name}));
+  if(key==='id_default_image')options=[...associationIds(state.source,'images').map(id=>({id,name:'Imagen existente #'+id})),...state.rows.filter(r=>r.kind==='image'&&r.done).map((r,i)=>({id:r.done.record_id,name:'Imagen '+(i+1)+' · '+r.image.name}))];
   const enums={active:[['0','Inactivo'],['1','Activo']],available_for_order:[['0','No comprable'],['1','Comprable']],visibility:[['none','Oculto'],['both','Catálogo y búsqueda'],['catalog','Catálogo'],['search','Búsqueda']],out_of_stock:[['0','Denegar'],['1','Permitir'],['2','Preferencia de la tienda']],depends_on_stock:[['0','Existencias normales']],default_on:[['0','No'],['1','Sí']],low_stock_alert:[['0','No'],['1','Sí']],reduction_tax:[['0','Sin impuestos'],['1','Con impuestos']],reduction_type:[['percentage','Porcentaje: 0,10 equivale al 10 %'],['amount','Importe fijo']]};
   if(enums[key])options=enums[key].map(([id,name])=>({id,name}));
   return '<label class="prd-field"><b>'+h(labels[key]||key)+'</b>'+fieldHelp(labels[key]||key,key==='reduction'?'En porcentaje usa una fracción: 0,10 significa el 10 %. En importe fijo indica el descuento monetario.':key==='price'?'En una variación es el impacto sobre el precio base, sin impuestos. En un precio especial, -1 conserva el precio normal.':'Este dato se guarda en la tienda seleccionada y se comprueba por relectura. Los importes aceptan coma o punto decimal.')+(options?'<select '+data+'><option value="">Seleccionar</option>'+options.map(option=>'<option value="'+h(option.id)+'" '+(String(option.id)===String(value)?'selected':'')+'>'+h(textValue(option.name))+'</option>').join('')+'</select>':'<input '+data+' value="'+h(value)+'" '+(key.includes('price')||key==='reduction'?'inputmode="decimal"':'')+'>')+'</label>';
@@ -57,8 +60,9 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
    }
   }
   const otherPending=state.rows.some(r=>r!==row&&!r.done);
-  const lacksImage=!state.rows.some(r=>r.kind==='image'&&r.done);
-  const publishBlocked=row.kind==='finish'&&row.fields.active==='1'&&(otherPending||lacksImage);
+  const lacksImage=!(state.result.existing_product&&associationIds(state.source,'images').length)&&!state.rows.some(r=>r.kind==='image'&&r.done);
+  const activating=row.kind==='finish'&&row.fields.active==='1'&&(!state.result.existing_product||textValue(state.source.active)!=='1');
+  const publishBlocked=activating&&(otherPending||lacksImage);
   return '<article class="prd-stage-row"><header><h5>'+h(titles[row.kind])+' '+(row.done?'· guardado y verificado':'· pendiente')+'</h5>'+(row.done?'<span>#'+h(row.done.record_id)+'</span>':'')+'</header>'+content+(row.kind==='image'&&row.image?'<div class="inline-actions"><a class="btn secondary" download="'+h(row.image.name)+'" href="data:image/png;base64,'+row.image.base64+'">Descargar PNG original</a>'+(row.done?'<a class="btn secondary" target="_blank" rel="noopener" href="'+prestashopStore(state.shop).origin+'/'+h(row.done.record_id)+'-large_default/product.jpg">Ver copia guardada en la tienda</a>':'')+'</div>':'')+(publishBlocked?'<p class="prd-warning">Completa las etapas pendientes y guarda al menos una imagen antes de activar el producto.</p>':'')+'<div class="inline-actions">'+(!row.done?button(state,row,'Validar esta etapa','prepare',!!locked)+button(state,row,row.attempted?'Comprobar resultado sin repetir':'Guardar esta etapa',row.attempted?'verify':'commit',!canEdit()||!row.prepared?.can_commit||publishBlocked):'')+'</div>'+(row.prepared&&!row.prepared.can_commit?'<p>Etapa validada para consulta. Su escritura todavía no está habilitada en el servidor.</p>':'')+'</article>';
  }
  function render(shop,result,plan,source,profile,catalogs){
@@ -84,7 +88,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   return 'Imagen preparada con transparencia. Valida y guarda la carga.';
  }
  function values(state,row){
-  const base={parent_request_id:state.result.request_id,product_id:state.result.record_id,kind:row.kind,step_key:row.id};
+  const base={parent_request_id:state.result.request_id,product_id:state.result.record_id,kind:row.kind,step_key:row.id,...(state.result.existing_product?{existing_product:true}:{})};
   if(row.kind==='image'){if(!row.image)throw Error('Carga una imagen sin fondo.');return {...base,image:row.image};}
   return {...base,fields:Object.fromEntries(Object.entries(row.fields).filter(([key,value])=>!(['available_date','id_default_image','id_default_combination'].includes(key)&&value==='')).map(([key,value])=>[key,Array.isArray(value)?value:productInputValue(key,value)])),...(row.kind==='variation'?{associations:{product_option_values:row.attributes,...(row.imageIds.length?{images:row.imageIds}:{})}}:{})};
  }
@@ -93,10 +97,11 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   if(action==='stage-tab'){if(Object.hasOwn(titles,detail.tab))state.tab=detail.tab;return 'Etapa: '+titles[state.tab]+'.';}
   if(action==='stage-add'){
    const kind=detail.kind;if(!Object.hasOwn(titles,kind))throw Error('Etapa desconocida.');const row=add(state,kind);
-   if(kind==='variation'){row.fields.wholesale_price=textValue(source.wholesale_price)||'0';if(!state.rows.some(r=>r!==row&&r.kind==='variation'))row.fields.default_on='1';}
+   if(kind==='variation'){row.fields.wholesale_price=textValue(source.wholesale_price)||'0';if(!state.result.existing_product&&!state.rows.some(r=>r!==row&&r.kind==='variation'))row.fields.default_on='1';}
    if(kind==='supplier_price'){row.fields.id_supplier=String(catalogs?.selected_supplier_id||'');row.fields.id_currency=String(state.catalogs.currencies?.[0]?.id||'');}
    if(kind==='finish'){
-    for(const field of ['description','description_short'])row.fields[field]=(profile.language_ids||[]).map(language_id=>({language_id,value:textValue(source[field])}));
+    if(state.result.existing_product){for(const field of ['active','available_for_order','visibility'])row.fields[field]=textValue(source[field]);row.fields.id_default_combination=textValue(source.id_default_combination);}
+    for(const field of ['description','description_short'])row.fields[field]=(profile.language_ids||[]).map(language_id=>({language_id,value:Array.isArray(source[field])?textValue(source[field].find(t=>String(t.id??t.language_id)===String(language_id))?.value):textValue(source[field])}));
     row.presentation={title:textValue(source.name)||'Producto',intro:textValue(source.description_short).replace(/<[^>]+>/g,' ').trim()||'',detailTitle:'Diseño y detalles',detailText:'',specifications:['reference','weight','width','height','depth','ean13'].filter(key=>textValue(source[key])).map(key=>(labels[key]||key)+': '+textValue(source[key])).join('\n'),box:'',notice:''};
    }
    return 'Etapa añadida. Completa sus datos y valida antes de guardar.';
@@ -123,7 +128,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   }
   if(['stage-commit','stage-verify'].includes(action)){
    if(!canEdit()||!row.prepared?.can_commit||row.done)throw Error('La etapa no tiene una validación vigente para guardar.');
-   if(row.kind==='finish'&&row.fields.active==='1'&&(state.rows.some(r=>r!==row&&!r.done)||!state.rows.some(r=>r.kind==='image'&&r.done)))throw Error('Completa las etapas e imágenes antes de activar el producto.');
+   if(row.kind==='finish'&&row.fields.active==='1'&&(!state.result.existing_product||textValue(state.source.active)!=='1')&&(state.rows.some(r=>r!==row&&!r.done)||!(state.result.existing_product&&associationIds(state.source,'images').length)&&!state.rows.some(r=>r.kind==='image'&&r.done)))throw Error('Completa las etapas e imágenes antes de activar el producto.');
    row.attempted=true;const response=await invoke(shop,'prestashop_product_step_commit',{...row.prepared.values,expected_fingerprint:row.prepared.fingerprint,confirmed:true});
    if(response.persisted!==true||response.verified!==true||!/^[1-9]\d{0,14}$/.test(String(response.record_id)))throw Error('Resultado de etapa no verificado.');row.done=response;
    if(row.kind==='finish')state.result.active=row.fields.active==='1';

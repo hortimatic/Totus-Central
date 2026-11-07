@@ -7,10 +7,12 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_wrapping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl','module']),
  order_states:Object.freeze(['id','name']),
  taxes:Object.freeze(['id','rate','name','active']),
+ tax_rules:Object.freeze(['id','id_tax_rules_group','id_country','id_state','zipcode_from','zipcode_to','id_tax','behavior']),
+ countries:Object.freeze(['id','iso_code','name','active']),
  currencies:Object.freeze(['id','iso_code','name']),
  customers:Object.freeze(['id','firstname','lastname','email','company']),
  addresses:Object.freeze(['id','firstname','lastname','company','address1','address2','postcode','city','phone','phone_mobile','vat_number','dni']),
- products:Object.freeze(['id','reference','name','ean13','weight','active','date_add','date_upd','id_default_image','id_default_combination','id_shop_default','id_category_default','price','associations']),
+ products:Object.freeze(['id','reference','name','ean13','weight','width','height','depth','active','available_for_order','visibility','date_add','date_upd','id_default_image','id_default_combination','id_shop_default','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','wholesale_price','price','associations']),
  combinations:Object.freeze(['id','id_product','reference','ean13','price','weight','default_on','associations']),
  categories:Object.freeze(['id','name','active','id_parent']),
  manufacturers:Object.freeze(['id','name','active']),
@@ -51,7 +53,7 @@ export function prestashopQuery(input){
  }
  if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)&&!(input.resource==='currencies'&&input.record_id===undefined)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
- if(input.product_ids!==undefined){if(input.resource!=='products')throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
+ if(input.product_ids!==undefined){if(!['products','stock_availables'].includes(input.resource))throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
  if(input.references!==undefined){
   const refs=input.references;
   if(!['products','combinations'].includes(input.resource)||input.product_ids!==undefined||!Array.isArray(refs)||!refs.length||refs.length>35||refs.some(r=>typeof r!=='string'||!r.trim()||r.length>64||/[\[\]|%,\\\x00-\x1f]/.test(r))||new Set(refs).size!==refs.length)throw Error('Selecciona referencias exactas de producto, sin filtros especiales.');
