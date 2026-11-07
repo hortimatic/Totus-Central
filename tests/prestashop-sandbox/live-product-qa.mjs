@@ -166,6 +166,17 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const finishPrep=await runPrestashopProductStage(connection,finish,options);
  const finished=await runPrestashopProductStage(connection,{...finish,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:finishPrep.fingerprint},options);
  assert.equal(finished.verified,true);
+ // Regression: a flags-only finish must preserve inactive translations too.
+ const flagsOnly={...finish,step_key:'ci_finish_flags_only',fields:{active:'1',available_for_order:'0',visibility:'none'}};
+ const flagsPrep=await runPrestashopProductStage(connection,flagsOnly,options);
+ assert.equal((await runPrestashopProductStage(connection,{...flagsOnly,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:flagsPrep.fingerprint},options)).verified,true);
+ const checkLanguages=async()=>{
+  const r=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,name,description]&language=['+profile.language_ids.join('|')+']',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+  assert.equal(r.status,200);const d=await r.json(),p=d.product||d.products?.[0];
+  assert.equal(p.name.find(t=>String(t.id)===inactiveId).value,'Repaired inactive translation');
+  for(const id of profile.language_ids)assert(p.description.find(t=>String(t.id)===id).value.includes('Muestra no comprable.'),'Finish and price edits must preserve every installed description');
+ };
+ await checkLanguages();
  const untouched=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,wholesale_price,price,weight,active,available_for_order,state,product_type]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
  assert.equal(untouched.status,200);const savedData=await untouched.json(),saved=savedData.product||savedData.products?.[0];assert(saved,'Native response must contain its product');
  assert.equal(String(saved.state),'1');assert.equal(saved.product_type,'combinations');assert.equal(Number(saved.wholesale_price),0.39);assert.equal(Number(saved.price),1);assert.equal(Number(saved.weight),0.15);assert.equal(Number(saved.available_for_order),0);
@@ -176,6 +187,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const editPrepared=await runPrestashopProductWrite(connection,edit,editOptions);
  const editCommit={...edit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:editPrepared.fingerprint,confirmed:true};
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).verified,true);
+ await checkLanguages();
  const ratioResponse=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,price,unit_price_ratio,unity]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
  assert.equal(ratioResponse.status,200);
  const ratioData=await ratioResponse.json(),ratioProduct=ratioData.product||ratioData.products?.[0];

@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {validateProductWriteRequest,selectedXmlValues,sha256Text} from '../src/productos-write-contract.js';
-import {runPrestashopProductWrite} from '../supabase/functions/totus-connections/prestashop-write.js';
+import {runPrestashopProductWrite as runWrite} from '../supabase/functions/totus-connections/prestashop-write.js';
 const UUID='11111111-1111-4111-8111-111111111111';
 const X='<?xml version="1.0"?><prestashop><product><id><![CDATA[19]]></id><reference><![CDATA[REF-1]]></reference><price><![CDATA[12.900000]]></price><name><language id="1"><![CDATA[Nombre]]></language><language id="2"><![CDATA[Name]]></language></name><associations><categories><category><id><![CDATA[33]]></id></category></categories><images><image><id><![CDATA[99]]></id></image></images></associations></product></prestashop>';
 const input=(action='prestashop_product_prepare',changes=[{field:'price',value:'13.50'}])=>({action,store:'hortimatic',resource:'products',record_id:'19',id:UUID,call_id:UUID,revision:4,changes});
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,verified_revision:4,revision:4,real_data_authorized:true,endpoint:'https://hortimatic.com/api',secret:'fake'};
 const response=x=>new Response(x,{status:200,headers:{'content-type':'application/xml'}});
+const runPrestashopProductWrite=(connection,input,options)=>runWrite(connection,input,{...options,request:async(url,opts)=>{
+ if(new URL(url).pathname==='/api/languages')return response('<prestashop><languages><language id="1"/><language id="2"/></languages></prestashop>');
+ if(input.resource==='products')assert.equal(new URL(url).searchParams.get('language'),'[1|2]');
+ return options.request(url,opts);
+}});
 const resolve=async()=>['8.8.8.8'];
 const journal=()=>({lookup:async()=>null,claim:async()=>({status:'claimed'}),complete:async()=>{},uncertain:async()=>{}});
 test('validación rechaza IDs, stock, valores inválidos y duplicaciones',()=>{
@@ -86,7 +91,7 @@ test('PUT 500 reconciles only after exact readback and replay never writes twice
 
 test('edición de traducción usa el idioma elegido tanto en GET como PUT y relectura',async()=>{
  let current=X;const calls=[];
- const request=async(url,opts)=>{assert.equal(new URL(url).searchParams.get('language'),'[2]');calls.push(opts.method);if(opts.method==='PUT')current=opts.body;return response(current);};
+ const request=async(url,opts)=>{assert.equal(new URL(url).searchParams.get('language'),'[1|2]');calls.push(opts.method);if(opts.method==='PUT')current=opts.body;return response(current);};
  const prepared=await runPrestashopProductWrite(connection,input('prestashop_product_prepare',[{field:'name',language_id:'2',value:'Corrected translation'}]),{request,resolve,env:{get:()=> '1'}});
  const done=await runPrestashopProductWrite(connection,{...input('prestashop_product_commit',[{field:'name',language_id:'2',value:'Corrected translation'}]),request_id:UUID,expected_fingerprint:prepared.fingerprint,confirmed:true},{request,resolve,env:{get:()=> '1'},journal:journal()});
  assert.equal(done.verified,true);assert.equal(calls.filter(m=>m==='PUT').length,1);assert.match(current,/CDATA\[Nombre\]/);

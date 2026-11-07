@@ -1,5 +1,5 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,PRODUCT_WRITE_FIELDS} from '../../../src/productos-write-contract.js';
+import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,PRODUCT_WRITE_FIELDS} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
@@ -20,10 +20,20 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  // Native 1.7 can throw while rendering computed image fields before any image
  // exists. Fetch the editable contract and real relations, not cover getters.
  if(operation.resource==='products')base.searchParams.set('display','['+[...new Set(['id','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','state','product_type',...PRODUCT_WRITE_FIELDS.products,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']');
- const languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
+ if(operation.commit&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')!=='1')
+  throw Error('Escritura de productos bloqueada: falta habilitación técnica revisada.');
+ if(operation.commit&&!journal)throw Error('Falta el diario duradero de actualización.');
+ const headers={...connectionHeaders(connection),Accept:'application/xml'};
+ let languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
+ if(operation.resource==='products'){
+  const inventory=new URL(connection.endpoint);inventory.pathname='/api/languages';inventory.searchParams.set('display','[id]');
+  const destination=await safeEndpoint(inventory.href,resolve);
+  const response=await request(destination.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
+  if(!response.ok){await response.body?.cancel();throw Error('No se pudo verificar el inventario de idiomas (HTTP '+response.status+').');}
+  languageIds=productLanguageIdsFromListing(await boundedText(response,2097152));
+ }
  if(languageIds.length)base.searchParams.set('language','['+languageIds.join('|')+']');
  const target=await safeEndpoint(base.href,resolve);
- const headers={...connectionHeaders(connection),Accept:'application/xml'};
  const read=async()=>{
   const response=await request(target.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
   if(!response.ok){await response.body?.cancel();throw Error('PrestaShop rechazó la ficha de origen (HTTP '+response.status+').');}
@@ -32,11 +42,6 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
   }
   return boundedText(response,2097152);
  };
- // This is a dry-run GET unless both authenticated API access and a guarded commit
- // have been configured in a separate, reviewed deployment.
- if(operation.commit&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')!=='1')
-  throw Error('Escritura de productos bloqueada: falta habilitación técnica revisada.');
- if(operation.commit&&!journal)throw Error('Falta el diario duradero de actualización.');
  const signature=await sha256Text(JSON.stringify({store:operation.store,resource:operation.resource,id:operation.record_id,parent:operation.expected_product_id||null,changes:operation.changes}));
  const previous=operation.commit?await journal.lookup(signature):null;
  const original=await read(),fingerprint=await sha256Text(original);
