@@ -1,6 +1,7 @@
 # Generated dependencies and evidence; source and manuals stay versioned.
 /node_modules/
 /artifacts/
+/qa-artifacts/
 /tests/.audit*.mjs
 /tests/.controls-*.mjs
 /tests/.panels-*.mjs

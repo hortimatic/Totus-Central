@@ -1,0 +1,898 @@
+[
+  {
+    "tag": "select",
+    "id": "store-context-select",
+    "type": null,
+    "prototype_action": "window.totusSwitchContext(this.value)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-catalogo', this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-ficha', this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-copiar', this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-alta', this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-borradores', this)",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": "catalogo-search-input",
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": "catalogo-brand-filter",
+    "type": null,
+    "prototype_action": "window.totusFilterTable()",
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": "catalogo-category-filter",
+    "type": null,
+    "prototype_action": "window.totusFilterTable()",
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Menú de configuración: 14 columnas activables (ID, Foto, Ref, EAN, Nombre, Fabricante, Cat, Coste, PVP, Stock, Tienda, Estado, Fecha, Acciones)')",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Generando exportación del catálogo en formato CSV / Excel...')",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Iniciando duplicación masiva al canal secundario...')",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-alta', document.querySelectorAll('.master-tab-btn')[3])",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": "check-full-catalog",
+    "type": "checkbox",
+    "prototype_action": "alert(this.checked ? 'Se han marcado los 1.428 registros del catálogo para acciones en lote' : 'Selección cancelada')",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": "check-all-catalogo",
+    "type": "checkbox",
+    "prototype_action": "window.totusToggleCheckAll(this)",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-ficha', document.querySelectorAll('.master-tab-btn')[1])",
+    "text": "Ficha"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-copiar', document.querySelectorAll('.master-tab-btn')[2])",
+    "text": "Copiar"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Abriendo ficha VP-GEN-200G...')",
+    "text": "Ficha"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-copiar', document.querySelectorAll('.master-tab-btn')[2])",
+    "text": "Copiar"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "Ficha"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-copiar', document.querySelectorAll('.master-tab-btn')[2])",
+    "text": "Copiar"
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "Anterior"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "2"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "3"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "Siguiente"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Guardado en borrador correctamente')",
+    "text": "Guardar Borrador"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Producto validado y sincronizado con API PrestaShop exitosamente')",
+    "text": "Validar &amp; Publicar"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-info', this)",
+    "text": "Información"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-desc', this)",
+    "text": "Descripciones"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-precios', this)",
+    "text": "Precios &amp; Margen"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-variaciones', this)",
+    "text": "Variaciones &amp; Atributos"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-imagenes', this)",
+    "text": "Galería &amp; Fotos"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-seo', this)",
+    "text": "SEO &amp; Index"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-envio', this)",
+    "text": "Transporte &amp; Envíos"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-stock', this)",
+    "text": "Stock &amp; Almacén"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenSubTab('sub-organizacion', this)",
+    "text": "Organización"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "textarea",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "Kit avanzado de 200W con protección IP68 tri-proof, chip GENE.TT 2.0 y tanque MAAT de 6.5ml con flujo de aire volcánico."
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "Negrita"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "Lista"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "Limpiar Etiquetas"
+  },
+  {
+    "tag": "textarea",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "&lt;h3&gt;Rendimiento Imparable y Resistencia Extrema&lt;/h3&gt;\n&lt;p&gt;El &lt;strong&gt;Voopoo Argus GT II Kit 200W&lt;/strong&gt; está diseñado para soportar las condiciones más duras gracias a su certificación IP68. Equipado con el chipset de última generación GENE.TT 2.0, ofrece modos inteligentes: Smart, RBA, Turbo y TC.&lt;/p&gt;\n&lt;ul&gt;\n  &lt;li&gt;Potencia regulable de 5W a 200W.&lt;/li&gt;\n  &lt;li&gt;Doble batería 18650 (no incluidas).&lt;/li&gt;\n  &lt;li&gt;Carga ultrarrápida 3A USB Tipo-C.&lt;/li&gt;\n&lt;/ul&gt;"
+  },
+  {
+    "tag": "input",
+    "id": "calc-cost",
+    "type": "number",
+    "prototype_action": "window.totusRecalcPrice()",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": "calc-margin",
+    "type": "number",
+    "prototype_action": "window.totusRecalcPrice()",
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": "calc-tax",
+    "type": null,
+    "prototype_action": "window.totusRecalcPrice()",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": "calc-pvp",
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Generador de combinaciones masivo abierto')",
+    "text": "Añadir Combinación"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "radio",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "photo_camera"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "delete"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "radio",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "photo_camera"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "delete"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "radio",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "photo_camera"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "delete"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": null,
+    "text": "Añadir Imagen"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "textarea",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": "Compra el nuevo Voopoo Argus GT II Kit 200W. Certificación IP68 a prueba de agua y golpes, doble 18650 y MAAT Tank. Envío 24h garantizado."
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "radio",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "radio",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusChangeStickyPhoto(0, this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusChangeStickyPhoto(1, this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusChangeStickyPhoto(2, this)",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Guardando cambios en borrador...')",
+    "text": "Guardar Borrador"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Publicando actualización a PrestaShop...')",
+    "text": "Validar y Sincronizar"
+  },
+  {
+    "tag": "button",
+    "id": "btn-swap-stores",
+    "type": "button",
+    "prototype_action": "window.totusSwapStores()",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusToggleCopyAll(true)",
+    "text": "Seleccionar Todo"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusToggleCopyAll(false)",
+    "text": "Deseleccionar"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Se han copiado los campos marcados como Borrador en tienda destino. Stock fijado en 0.')",
+    "text": "Copiar a Borrador"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Publicando en destino... Mapeo completado por Nombre. IDs preservados como nuevos registros.')",
+    "text": "Revisar y Publicar en Destino"
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "checkbox",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": "alta-url-input",
+    "type": "url",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "select",
+    "id": null,
+    "type": null,
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusGeneratePrompt()",
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusCopyPrompt()",
+    "text": ""
+  },
+  {
+    "tag": "textarea",
+    "id": "chatgpt-prompt-textarea",
+    "type": null,
+    "prototype_action": null,
+    "text": "Actúa como extractor de catálogo e-commerce para PrestaShop 1.7.\nAnaliza la siguiente URL: https://www.voopoo.com/argus-series/argus-gt-ii.html\nExtrae la información técnica en JSON estricto:\n{\n  \"name\": \"Nombre comercial\",\n  \"brand\": \"Marca\",\n  \"sku\": \"Referencia estimada\",\n  \"short_desc\": \"Resumen máximo 150 caracteres\",\n  \"specs\": [\"potencia\", \"bateria\", \"peso\", \"dimensiones\"],\n  \"variants\": [\"colores o acabados\"],\n  \"suggested_price\": 0.00\n}\nSi algún dato no aparece explícito, deja el campo con null."
+  },
+  {
+    "tag": "textarea",
+    "id": "ai-json-input",
+    "type": null,
+    "prototype_action": null,
+    "text": "{\n  \"name\": \"Voopoo Argus GT II Kit 200W\",\n  \"brand\": \"Voopoo\",\n  \"sku\": \"VP-ARGUS-GT2\",\n  \"short_desc\": \"Kit IP68 200W con chip GENE.TT 2.0 y tanque MAAT 6.5ml\",\n  \"specs\": [\"200W\", \"2x18650\", \"IP68 Tri-Proof\", \"MAAT Tank\"],\n  \"variants\": [\"Carbon Fiber\", \"Dark Blue\", \"Graphite\"],\n  \"suggested_price\": 69.95,\n  \"ean\": null,\n  \"net_cost\": null\n}"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusValidateJson()",
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "text",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "input",
+    "id": null,
+    "type": "number",
+    "prototype_action": null,
+    "text": ""
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Alta guardada como borrador técnico pendiente de escaneo de EAN')",
+    "text": "Guardar en Cola de Borradores"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Ficha creada y lista para edición avanzada')",
+    "text": "Abrir en Ficha &amp; Edición"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "alert('Limpiando borradores descartados...')",
+    "text": "Purgar Antiguos (&gt;30 días)"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-ficha', document.querySelectorAll('.master-tab-btn')[1])",
+    "text": "Completar Ficha"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-ficha', document.querySelectorAll('.master-tab-btn')[1])",
+    "text": "Completar Ficha"
+  },
+  {
+    "tag": "button",
+    "id": null,
+    "type": "button",
+    "prototype_action": "window.totusOpenMasterTab('tab-ficha', document.querySelectorAll('.master-tab-btn')[1])",
+    "text": "Completar Ficha"
+  }
+]

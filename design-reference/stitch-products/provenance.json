@@ -1,0 +1,23 @@
+{
+  "project": "5869856515258186560",
+  "node": "6572b3976ec14951908a50d400cbf949",
+  "source_sha256": "ba8ce351a8eeec9ede9794d1f4f6e2ab60792ea95e2fc304ab506c88273859dc",
+  "controls": 128,
+  "views": [
+    "tab-catalogo",
+    "tab-ficha",
+    "sub-info",
+    "sub-desc",
+    "sub-precios",
+    "sub-variaciones",
+    "sub-imagenes",
+    "sub-seo",
+    "sub-envio",
+    "sub-stock",
+    "sub-organizacion",
+    "tab-copiar",
+    "tab-alta",
+    "tab-borradores"
+  ],
+  "status": "reference only; prototype handlers excluded"
+}

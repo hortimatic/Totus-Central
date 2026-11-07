@@ -280,6 +280,7 @@ jobs:
       - run: node tests/stock-rules-browser-qa.mjs
       - run: node tests/prestashop-automations-browser-qa.mjs
       - run: node tests/productos-ui-browser-qa.mjs
+      - run: node tests/productos-stitch-browser-qa.mjs
       - run: node tests/pricing-directory-browser-qa.mjs
       - run: node tests/deep-editing-browser-qa.mjs
       - run: node tests/template-editor-browser-qa.mjs
