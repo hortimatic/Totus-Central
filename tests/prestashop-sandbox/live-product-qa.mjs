@@ -98,7 +98,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
- url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth]');
+ url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,redirect_type,id_type_redirected,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth]');
  url.searchParams.set('language','['+profile.language_ids.join('|')+']');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
