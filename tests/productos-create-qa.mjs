@@ -102,7 +102,7 @@ test('preflight solo hace GET de esquema, categoría y duplicados sin tocar la t
  const {request,calls}=fixture();
  const result=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}});
  assert.equal(result.persisted,false);assert.equal(result.operation,'create');assert.match(result.fingerprint,/^[a-f0-9]{64}$/);
- assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET']);
+ assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','GET']);
  assert.ok(calls.every(c=>!c.body));
  assert.equal(result.language_ids.join(','),'1,2');
 });
@@ -119,7 +119,7 @@ test('POST aislado con journal, ID asignado por PrestaShop y relectura completa'
  const commit={...input,action:'prestashop_product_create_commit',request_id:id,confirmed:true,expected_fingerprint:prepare.fingerprint};
  const result=await runPrestashopProductCreate(connection,commit,{request,resolve,env:{get:()=> '1'},journal});
  assert.equal(result.record_id,'301');assert.equal(result.verified,true);assert.equal(result.active,false);
- assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','POST','GET']);
+ assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','GET','POST','GET']);
  assert.equal(calls.at(-1).params.find(x=>x[0]==='display')?.[1],'[id,reference,active,price,id_category_default,name,link_rewrite]');
  assert.equal(logged[0][0],'claim');assert.equal(logged[1][0],'complete');
  assert.ok(calls.find(c=>c.method==='POST').body.includes('<active><![CDATA[0]]></active>'));
@@ -218,4 +218,38 @@ test('recuperación explícita conserva UUID e intención, comprueba ausencia do
  const again=await runPrestashopProductCreate(connection,{...cmd,retry_absent:true},{request:f.request,resolve,env:{get:()=> '1'},journal:j});
  assert.equal(again.reused,true);assert.equal(retries,1);assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
  assert.throws(()=>validateProductCreateRequest({...input,retry_absent:true}),/confirmación expresa/);
+});
+
+test('nombre nativo inválido se rechaza antes de consultar o reservar un alta',async()=>{
+ const f=fixture();
+ await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,translations:input.translations.map(t=>({...t,name:'pruebas#2'}))},{request:f.request,resolve,env:{get:()=>''}}),/caracteres/);
+ assert.equal(f.calls.length,0);
+});
+
+test('perfil multilingüe prevalece sobre un blank limitado al idioma predeterminado',async()=>{
+ const f=fixture();
+ const request=async(url,options)=>new URL(url).searchParams.get('schema')==='blank'
+  ?response(blank.replaceAll('<language id="1"><![CDATA[]]></language>','')):f.request(url,options);
+ const result=await runPrestashopProductCreate(connection,input,{request,resolve,env:{get:()=>''}});
+ assert.deepEqual(result.language_ids,['1','2']);
+ assert.equal(result.persisted,false);
+ assert.equal(f.calls.some(c=>c.method==='POST'),false);
+});
+
+test('corregir alta ausente conserva UUID y referencia y exige CAS de la firma anterior',async()=>{
+ const f=fixture(),old='b'.repeat(64);let saved={status:'uncertain',store:input.store,reference:input.reference,signature:old,product_id:null};
+ const journal={lookup:async()=>saved,claim:async()=>{throw Error('No nueva reserva');},uncertain:async()=>{},
+ retryAbsent:async row=>{
+  assert.equal(row.previous_signature,old);assert.notEqual(row.signature,old);
+  assert.equal(row.request_id,id);assert.equal(row.reference,input.reference);
+  assert.equal(f.calls.filter(c=>c.params.some(([k,v])=>k==='display'&&v==='[id,reference]')).length,3);
+  saved={...saved,signature:row.signature,status:'pending'};return {status:'claimed'};
+ },complete:async row=>{saved={...saved,status:'completed',product_id:row.product_id};}};
+ const preview=await runPrestashopProductCreate(connection,input,{request:f.request,resolve,env:{get:()=> '1'}});
+ const cmd={...input,action:'prestashop_product_create_commit',confirmed:true,request_id:id,expected_fingerprint:preview.fingerprint};
+ await assert.rejects(()=>runPrestashopProductCreate(connection,cmd,{request:f.request,resolve,env:{get:()=> '1'},journal}),/otra solicitud/);
+ const result=await runPrestashopProductCreate(connection,{...cmd,retry_absent:true},{request:f.request,resolve,env:{get:()=> '1'},journal});
+ assert.equal(result.record_id,'301');assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+ const again=await runPrestashopProductCreate(connection,{...cmd,retry_absent:true},{request:f.request,resolve,env:{get:()=> '1'},journal});
+ assert.equal(again.reused,true);assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
 });

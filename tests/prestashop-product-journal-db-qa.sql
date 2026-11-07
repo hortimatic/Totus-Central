@@ -149,3 +149,6 @@ RESET ROLE;
 DO $history$ BEGIN
  IF (SELECT jsonb_array_length(retry_history) FROM private.totus_prestashop_product_create_requests WHERE request_id='88888888-8888-4888-8888-888888888888')<>1 THEN RAISE EXCEPTION 'Retry history lost';END IF;
 END $history$;
+
+\ir ../supabase/review_patches/069_product_corrected_absent_recovery.sql
+\ir product-corrected-recovery-db-qa.sql
