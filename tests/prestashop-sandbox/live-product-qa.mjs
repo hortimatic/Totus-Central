@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {deflateSync,crc32} from 'node:zlib';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../supabase/functions/totus-connections/prestashop-create.js';
+import {runPrestashopProductWrite} from '../../supabase/functions/totus-connections/prestashop-write.js';
 import {inspectReconciledNewProduct} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
 
@@ -33,7 +34,7 @@ async function localOnlyRequest(url,opts={}){
  }
  return response;
 }
-const environment={get:name=>['TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED','TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED'].includes(name)?'1':undefined};
+const environment={get:name=>['TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED','TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED','TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED'].includes(name)?'1':undefined};
 const journalData=new Map();
 const journal={
  lookup:async key=>journalData.get(key)||null,
@@ -135,5 +136,15 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const untouched=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,wholesale_price,price,weight,active,available_for_order]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
  assert.equal(untouched.status,200);const saved=(await untouched.json()).product;
  assert.equal(Number(saved.wholesale_price),0.39);assert.equal(Number(saved.price),1);assert.equal(Number(saved.weight),0.15);assert.equal(Number(saved.available_for_order),0);
+ let editStatus=null;
+ const editJournal={lookup:async()=>editStatus,claim:async()=>{assert.equal(editStatus,null);editStatus={status:'pending'};return {status:'claimed'};},complete:async()=>{editStatus={status:'completed'};},uncertain:async()=>{editStatus={status:'uncertain'};}};
+ const edit={action:'prestashop_product_prepare',id:record.id,call_id:crypto.randomUUID(),revision:record.revision,store:'hortimatic',resource:'products',record_id:result.record_id,changes:[{field:'price',value:'2.35'}]};
+ const editOptions={request:localOnlyRequest,resolve,env:environment,journal:editJournal};
+ const editPrepared=await runPrestashopProductWrite(connection,edit,editOptions);
+ const editCommit={...edit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:editPrepared.fingerprint,confirmed:true};
+ assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).verified,true);
+ const writesBefore=calls.filter(c=>c.method==='PUT').length;
+ assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).replayed,true);
+ assert.equal(calls.filter(c=>c.method==='PUT').length,writesBefore);
  console.log('SANDBOX: PNG transparente cargado y publicación no comprable verificada; coste, precio y peso conservados.');
 });

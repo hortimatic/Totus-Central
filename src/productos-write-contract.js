@@ -7,9 +7,9 @@ export const PRODUCT_WRITE_FIELDS=Object.freeze({
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
 export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','meta_keywords','link_rewrite','available_now','available_later','delivery_in_stock','delivery_out_stock']);
-export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times']);
+export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times']);
 const local=new Set(LOCALIZED_PRODUCT_FIELDS);
-const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold','unit_price','ecotax']);
+const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold','unit_price_ratio','ecotax']);
 const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert','show_condition']);
 const allowedVisibility=new Set(['both','catalog','search','none']);
 const allowedCondition=new Set(['new','used','refurbished']);
@@ -47,7 +47,7 @@ export function validateProductWriteRequest(input){
   !Number.isSafeInteger(input.revision)||input.revision<1)invalid();
  if(input.resource==='combinations'&&!integer.test(String(input.expected_product_id||'')))invalid('Falta el ID del producto al que pertenece la combinación.');
  if(input.resource==='products'&&own(input,'expected_product_id'))invalid('Un producto no acepta un ID de padre.');
- if(!Array.isArray(input.changes)||input.changes.length<1||input.changes.length>12)invalid('Selecciona entre 1 y 12 campos para validar.');
+ if(!Array.isArray(input.changes)||input.changes.length<1||input.changes.length>100)invalid('Selecciona entre 1 y 100 campos e idiomas para validar.');
  const fields=new Set(),normalized=[];
  for(const row of input.changes){
   if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).some(k=>!['field','value','language_id'].includes(k)))invalid();
@@ -125,10 +125,10 @@ export function selectedXmlValues(xml,resource,id,changes,expectedProductId=null
    if(matching.length!==1)invalid('Idioma '+change.language_id+' ausente o duplicado en '+change.field+'.');
    slot=matching[0];
   }else if(node.children.length)invalid('Campo complejo requiere idioma y mapeo explícitos: '+change.field+'.');
-  if(slot.selfClosing)invalid('Campo XML autocerrado: actualizar requiere un adaptador específico, no se escribirá.');
-  const before=xmlValue(xml.slice(slot.contentStart,slot.contentEnd));
-  result.push({...change,before,changed:before!==change.value});
-  slots.push({start:slot.contentStart,end:slot.contentEnd,value:safeCdata(change.value)});
+  const before=slot.selfClosing?'':xmlValue(xml.slice(slot.contentStart,slot.contentEnd));
+  const same=before===change.value||((decimal.has(change.field)||flags.has(change.field))&&before!==''&&change.value!==''&&Number(before)===Number(change.value));
+  result.push({...change,before,changed:!same});
+  slots.push(slot.selfClosing?{start:slot.open,end:slot.end,value:'<'+slot.name+slot.attributes.replace(/\/$/,'')+'>'+safeCdata(change.value)+'</'+slot.name+'>'}:{start:slot.contentStart,end:slot.contentEnd,value:safeCdata(change.value)});
  }
  let patched=xml;
  for(const replacement of slots.sort((a,b)=>b.start-a.start))patched=patched.slice(0,replacement.start)+replacement.value+patched.slice(replacement.end);

@@ -5,7 +5,7 @@ export const PRODUCT_STORES=Object.freeze([
 ]);
 export const PRODUCT_SECTIONS=Object.freeze({
  general:['name','reference','ean13','isbn','upc','mpn','active','visibility','condition','show_condition','available_for_order','show_price','online_only','description_short','description'],
- precios:['price','wholesale_price','unit_price','unity','on_sale','ecotax'],
+ precios:['price','wholesale_price','unit_price_ratio','unity','on_sale','ecotax'],
  seo:['meta_title','meta_description','meta_keywords','link_rewrite','redirect_type','id_type_redirected'],
  transporte:['weight','width','height','depth','additional_shipping_cost','additional_delivery_times','delivery_in_stock','delivery_out_stock'],
  inventario:['location','minimal_quantity','low_stock_threshold','low_stock_alert','out_of_stock','available_date','available_now','available_later']
@@ -22,7 +22,7 @@ export const textValue=value=>{
  if(typeof value==='object'&&own(value,'value'))return textValue(value.value);
  return '';
 };
-const decimalInputs=new Set(['price','wholesale_price','unit_price','unit_price_impact','ecotax','weight','width','height','depth','additional_shipping_cost','product_supplier_price_te','reduction']);
+const decimalInputs=new Set(['price','wholesale_price','unit_price_ratio','unit_price_impact','ecotax','weight','width','height','depth','additional_shipping_cost','product_supplier_price_te','reduction']);
 export function productInputValue(field,value){
  const text=String(value??'');if(!decimalInputs.has(field))return text;
  const raw=text.trim();if(!/^-?(?:\d+(?:[,.]\d+)?|[,.]\d+)$/.test(raw))return text;

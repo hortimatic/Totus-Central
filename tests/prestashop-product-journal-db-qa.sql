@@ -101,3 +101,22 @@ BEGIN
  THEN RAISE EXCEPTION 'Browser roles can access child stages'; END IF;
 END $verify$;
 SELECT 'prestashop_product_journal_qa_ok' AS result;
+
+SET ROLE service_role;
+DO $edit_test$
+DECLARE d jsonb:='{"actor_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","connection_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","revision":2,"signature":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}';
+ i uuid:='77777777-7777-4777-8777-777777777777';
+BEGIN
+ IF public.totus_prestashop_product_edit('lookup',i,d) IS NOT NULL THEN RAISE EXCEPTION 'Unexpected edit'; END IF;
+ IF public.totus_prestashop_product_edit('claim',i,d)->>'status'<>'claimed' THEN RAISE EXCEPTION 'Not claimed'; END IF;
+ IF public.totus_prestashop_product_edit('claim',i,d)->>'status'<>'pending' THEN RAISE EXCEPTION 'Repeat claim wrote again'; END IF;
+ PERFORM public.totus_prestashop_product_edit('uncertain',i,d);
+ PERFORM public.totus_prestashop_product_edit('complete',i,d);
+ IF public.totus_prestashop_product_edit('lookup',i,d)->>'status'<>'completed' THEN RAISE EXCEPTION 'Not completed'; END IF;
+ BEGIN
+  PERFORM public.totus_prestashop_product_edit('lookup',i,jsonb_set(d,'{actor_id}','"dddddddd-dddd-4ddd-8ddd-dddddddddddd"'));
+  RAISE EXCEPTION 'Foreign identity accepted';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='Foreign identity accepted' THEN RAISE; END IF; END;
+ IF has_function_privilege('authenticated','public.totus_prestashop_product_edit(text,uuid,jsonb)','EXECUTE') THEN RAISE EXCEPTION 'Browser can call private journal'; END IF;
+END $edit_test$;
+RESET ROLE;

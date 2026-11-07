@@ -8,6 +8,7 @@ const input=(action='prestashop_product_prepare',changes=[{field:'price',value:'
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,verified_revision:4,revision:4,real_data_authorized:true,endpoint:'https://hortimatic.com/api',secret:'fake'};
 const response=x=>new Response(x,{status:200,headers:{'content-type':'application/xml'}});
 const resolve=async()=>['8.8.8.8'];
+const journal=()=>({lookup:async()=>null,claim:async()=>({status:'claimed'}),complete:async()=>{},uncertain:async()=>{}});
 test('validación rechaza IDs, stock, valores inválidos y duplicaciones',()=>{
  assert.equal(validateProductWriteRequest(input()).changes[0].field,'price');
  for(const c of [{field:'id_category_default',value:'3'},{field:'price',value:'-10'},{field:'active',value:'yes'},{field:'associations',value:'hack'}])
@@ -43,7 +44,7 @@ test('commit no habilitado se bloquea antes de ninguna llamada',async()=>{
 test('PUT ficticio con relectura verificada y comprobación de huella',async()=>{
  let current=X;const methods=[];
  const c={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true};
- const result=await runPrestashopProductWrite(connection,c,{env:{get:()=> '1'},resolve,request:async(_url,opt)=>{
+ const result=await runPrestashopProductWrite(connection,c,{journal:journal(),env:{get:()=> '1'},resolve,request:async(_url,opt)=>{
   methods.push(opt.method);if(opt.method==='PUT')current=opt.body;return response(current);
  }});
  assert.equal(result.persisted,true);assert.equal(result.verified,true);
@@ -52,13 +53,13 @@ test('PUT ficticio con relectura verificada y comprobación de huella',async()=>
 });
 test('huella obsoleta cancela sin PUT',async()=>{
  const methods=[],c={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true};
- await assert.rejects(()=>runPrestashopProductWrite(connection,c,{env:{get:()=> '1'},resolve,request:async(_url,opt)=>{methods.push(opt.method);return response(X.replace('12.900000','13.900000'));}}),/ha cambiado/);
+ await assert.rejects(()=>runPrestashopProductWrite(connection,c,{journal:journal(),env:{get:()=> '1'},resolve,request:async(_url,opt)=>{methods.push(opt.method);return response(X.replace('12.900000','13.900000'));}}),/ha cambiado/);
  assert.deepEqual(methods,['GET']);
 });
 test('respuesta PUT incierta no declara resultado completado',async()=>{
  let times=0;
  const c={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true};
- await assert.rejects(()=>runPrestashopProductWrite(connection,c,{env:{get:()=> '1'},resolve,request:async(_url,opt)=>{times++;if(times===4)throw Error('red');return response(X);}}),/Estado incierto/);
+ await assert.rejects(()=>runPrestashopProductWrite(connection,c,{journal:journal(),env:{get:()=> '1'},resolve,request:async(_url,opt)=>{times++;if(times===4)throw Error('red');return response(X);}}),/Estado incierto/);
 });
 
 

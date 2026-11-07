@@ -197,4 +197,45 @@ REVOKE ALL ON TABLE private.totus_prestashop_product_steps FROM PUBLIC,anon,auth
 REVOKE ALL ON FUNCTION public.totus_prestashop_product_step(text,uuid,text,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT,UPDATE ON TABLE private.totus_prestashop_product_steps TO service_role;
 GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_step(text,uuid,text,jsonb) TO service_role;
+
+-- Independent journal for selective updates to pre-existing products. Its actor
+-- comes from the verified JWT in totus-connections, never from browser arguments.
+CREATE TABLE IF NOT EXISTS private.totus_prestashop_product_edits(
+ request_id uuid PRIMARY KEY,actor_id uuid NOT NULL,connection_id uuid NOT NULL,
+ revision bigint NOT NULL,signature text NOT NULL CHECK(signature ~ '^[a-f0-9]{64}$'),
+ status text NOT NULL CHECK(status IN ('pending','uncertain','completed')),
+ updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+ALTER TABLE private.totus_prestashop_product_edits ENABLE ROW LEVEL SECURITY;
+DO $p$ BEGIN
+ IF NOT EXISTS(SELECT FROM pg_policies WHERE schemaname='private' AND tablename='totus_prestashop_product_edits' AND policyname='product_edits_service') THEN
+ CREATE POLICY product_edits_service ON private.totus_prestashop_product_edits TO service_role USING(true) WITH CHECK(true);
+ END IF;
+END $p$;
+CREATE OR REPLACE FUNCTION public.totus_prestashop_product_edit(p_action text,p_request_id uuid,p_data jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $e$
+DECLARE r private.totus_prestashop_product_edits%rowtype; c private.totus_api_connections%rowtype;
+ a uuid:=(p_data->>'actor_id')::uuid; k uuid:=(p_data->>'connection_id')::uuid;
+ v bigint:=(p_data->>'revision')::bigint; h text:=p_data->>'signature';
+BEGIN
+ IF p_action NOT IN ('lookup','claim','complete','uncertain') OR a IS NULL OR k IS NULL OR v IS NULL OR h IS NULL OR h !~ '^[a-f0-9]{64}$' THEN RAISE EXCEPTION 'Invalid edit identity'; END IF;
+ SELECT id,name,revision,enabled,verified_revision,real_data_authorized INTO c.id,c.name,c.revision,c.enabled,c.verified_revision,c.real_data_authorized FROM private.totus_api_connections WHERE id=k;
+ IF NOT FOUND OR NOT c.enabled OR NOT c.real_data_authorized OR c.revision<>v OR c.verified_revision<>v THEN RAISE EXCEPTION 'Connection is not verified'; END IF;
+ IF p_action='claim' THEN
+ INSERT INTO private.totus_prestashop_product_edits(request_id,actor_id,connection_id,revision,signature,status) VALUES(p_request_id,a,k,v,h,'pending') ON CONFLICT DO NOTHING RETURNING * INTO r;
+ IF FOUND THEN RETURN jsonb_build_object('status','claimed'); END IF;
+ END IF;
+ SELECT * INTO r FROM private.totus_prestashop_product_edits WHERE request_id=p_request_id FOR UPDATE;
+ IF NOT FOUND THEN IF p_action='lookup' THEN RETURN NULL; END IF; RAISE EXCEPTION 'Edit not claimed'; END IF;
+ IF r.actor_id<>a OR r.connection_id<>k OR r.revision<>v OR r.signature<>h THEN RAISE EXCEPTION 'Edit belongs to another intent or identity'; END IF;
+ IF p_action IN ('complete','uncertain') THEN
+ IF r.status NOT IN ('pending','uncertain') THEN RAISE EXCEPTION 'Edit already completed'; END IF;
+ UPDATE private.totus_prestashop_product_edits SET status=CASE WHEN p_action='complete' THEN 'completed' ELSE 'uncertain' END,updated_at=clock_timestamp() WHERE request_id=p_request_id RETURNING * INTO r;
+ END IF;
+ RETURN jsonb_build_object('status',r.status);
+END $e$;
+REVOKE ALL ON TABLE private.totus_prestashop_product_edits FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.totus_prestashop_product_edit(text,uuid,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT,UPDATE ON TABLE private.totus_prestashop_product_edits TO service_role;
+GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_edit(text,uuid,jsonb) TO service_role;
 COMMIT;

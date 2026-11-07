@@ -1,12 +1,12 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductWriteRequest,selectedXmlValues,sha256Text} from '../../../src/productos-write-contract.js';
+import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
 // Server-only XML transport. Do NOT expose raw XML, secrets, the prepared XML,
 // arbitrary URLs or audit payloads containing descriptions to the browser.
 // POST (new product), stock and associations intentionally remain unsupported.
-export async function runPrestashopProductWrite(connection,input,{request=fetch,resolve,env=Deno.env}={}){
+export async function runPrestashopProductWrite(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
  const operation=validateProductWriteRequest(input);
  const store=prestashopStore(operation.store);
  if(!connection||storeConnection([connection],operation.store)!==connection)throw Error('La conexión no corresponde a la tienda seleccionada.');
@@ -31,10 +31,18 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  // have been configured in a separate, reviewed deployment.
  if(operation.commit&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')!=='1')
   throw Error('Escritura de productos bloqueada: falta habilitación técnica revisada.');
+ if(operation.commit&&!journal)throw Error('Falta el diario duradero de actualización.');
+ const signature=await sha256Text(JSON.stringify({store:operation.store,resource:operation.resource,id:operation.record_id,parent:operation.expected_product_id||null,changes:operation.changes}));
+ const previous=operation.commit?await journal.lookup(signature):null;
  const original=await read(),fingerprint=await sha256Text(original);
  const result=selectedXmlValues(original,operation.resource,operation.record_id,operation.changes,operation.expected_product_id);
+ if(previous){
+  if(result.changes.some(row=>row.changed))throw Error('Actualización pendiente o incierta: no se repetirá el PUT. Revisa la ficha real.');
+  if(previous.status!=='completed')await journal.complete(signature);
+  return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,changes:result.changes,persisted:true,verified:true,replayed:true,request_id:operation.request_id};
+ }
  if(!operation.commit)return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,
-  fingerprint,changes:result.changes,persisted:false,can_commit:false,revision_required:true};
+  fingerprint,changes:result.changes,persisted:false,can_commit:env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')==='1',revision_required:true};
  if(fingerprint!==operation.expected_fingerprint)
   throw Error('La ficha ha cambiado desde la preparación. Actualiza la vista previa, no se ha escrito nada.');
  const dirty=result.changes.filter(row=>row.changed);
@@ -44,20 +52,24 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  // A persistent request_id journal and technical review are prerequisites to enabling writes.
  const second=await read();
  if(await sha256Text(second)!==fingerprint)throw Error('La ficha ha cambiado durante la operación. No se ha escrito nada.');
+ const claim=await journal.claim(signature);if(claim?.status!=='claimed')throw Error('Esta actualización ya se ha enviado; comprueba su resultado.');
  let response;
  try{
-  response=await request(target.href,{method:'PUT',headers:{...headers,'Content-Type':'application/xml; charset=utf-8'},body:result.patched,
+  response=await request(target.href,{method:'PUT',headers:{...headers,'Content-Type':'application/xml; charset=utf-8'},body:prepareProductStageXml(result.patched,operation.resource,{}),
    credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
  }catch{
+  await journal.uncertain(signature);
   throw Error('Resultado de escritura incierto. Consulta el producto real antes de reintentar; no generes otro request_id.');
  }
  if(!response.ok){const code=response.status;await response.body?.cancel();
+  await journal.uncertain(signature);
   throw Error('PrestaShop rechazó la escritura (HTTP '+code+'). Comprueba el producto antes de reintentar.');}
  await response.body?.cancel();
  let verification;
  try{verification=selectedXmlValues(await read(),operation.resource,operation.record_id,operation.changes,operation.expected_product_id);}
- catch{throw Error('PrestaShop respondió correctamente pero la relectura falló. Estado incierto: comprobar manualmente.');}
- if(verification.changes.some(row=>row.changed))throw Error('PrestaShop respondió, pero la relectura no coincide con los valores solicitados. Revisión obligatoria.');
+ catch{await journal.uncertain(signature);throw Error('PrestaShop respondió correctamente pero la relectura falló. Estado incierto: comprobar manualmente.');}
+ if(verification.changes.some(row=>row.changed)){await journal.uncertain(signature);throw Error('PrestaShop respondió, pero la relectura no coincide con los valores solicitados. Revisión obligatoria.');}
+ await journal.complete(signature);
  return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,
   changes:result.changes,persisted:true,verified:true,request_id:operation.request_id};
 }

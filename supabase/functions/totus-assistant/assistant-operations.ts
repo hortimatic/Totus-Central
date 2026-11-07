@@ -3,6 +3,8 @@
 import {agentIdentity} from '../../../src/agent-identity.js';
 const rpcArguments:Record<string,string[]>=Object.fromEntries([
  ['totus_business_write_contract',''],
+ ['totus_prestashop_context',''],
+ ['totus_api_manager',''],
  ['totus_save_closing','p_closing p_drawers'],
  ['totus_delete_closing','p_id p_reason'],
  ['totus_save_sales_document','p_document p_lines'],
@@ -53,13 +55,25 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]
 const object=(value:any)=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const column=(value:any)=>typeof value==='string'&&/^[a-z][a-z0-9_]{0,62}$/.test(value);
 
-export function operationCatalogue(){return {rpc:rpcArguments,read_tables:[...tables],
+const productActions=new Set(['prestashop_read','prestashop_item_read','prestashop_product_create_profile','prestashop_product_prepare','prestashop_product_commit','prestashop_product_create_prepare','prestashop_product_create_commit','prestashop_product_step_prepare','prestashop_product_step_commit']);
+export function operationCatalogue(){return {rpc:rpcArguments,read_tables:[...tables],product_actions:[...productActions],
  policy:'Own authenticated session; no arbitrary SQL, credentials, service-role RPCs or owner impersonation. Re-read after writes. Destructive operations require explicit authorization.'};}
 
 export async function runOperation(client:any,payload:any,user:any){
  agentIdentity(user);if(!object(payload))throw new Error('Identidad o solicitud no válida');
  const {operation}=payload;
  if(operation==='catalogue')return {catalogue:operationCatalogue()};
+ if(operation==='products'){
+  if(!object(payload.args)||!productActions.has(payload.args.action))throw new Error('Acción de Productos no admitida; consulta el catálogo');
+  const args=structuredClone(payload.args);
+  if(!['hortimatic','newoldsmok'].includes(args.store))throw new Error('Selecciona la tienda de destino');
+  // Invoke through the SAME authenticated session as the manual form. No keys,
+  // arbitrary endpoint or privileged shortcut is provided to the assistant.
+  const {data,error}=await client.functions.invoke('totus-connections',{body:args});
+  if(error)throw new Error('Productos rechazó la operación: '+error.message);
+  if(data?.error||data?.ok!==true||data.store!==args.store)throw new Error(data?.error||'Respuesta de Productos no verificable');
+  return {operation:'products',data,executed:true,requires_readback:true};
+ }
  if(operation==='read'){
   if(!tables.has(payload.table))throw new Error('Tabla no admitida; consulta el catálogo');
   const limit=payload.limit??100,offset=payload.offset??0;

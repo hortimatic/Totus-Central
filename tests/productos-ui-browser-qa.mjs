@@ -58,7 +58,7 @@ try{
   await page.locator('[data-pr-vid="100"][data-pr-vfield="price"]').check();
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').fill('3.50');
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').blur();
-  await page.getByRole('button',{name:'Comparar y preparar'}).click();
+  await page.getByRole('button',{name:'Fichas paralelas'}).click();
   await page.locator('[data-pr-existing-id="newoldsmok"]').fill('55');
   await page.locator('[data-pr-existing-id="newoldsmok"]').blur();
   await page.getByRole('button',{name:'Buscar coincidencias y preparar cambios'}).click();
@@ -69,7 +69,7 @@ try{
   await page.getByRole('button',{name:'Validar variación'}).first().click();
   await page.getByText(/Variación #200 de newoldsmok comprobada/).waitFor();
   assert.equal(await page.evaluate(()=>productosQA.calls.find(c=>c.action==='prestashop_product_prepare'&&c.resource==='combinations')?.expected_product_id),'55');
-  assert.equal(await page.getByRole('button',{name:/Aplicar actualizaciones/}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'Guardar cambios en newoldsmok'}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   await page.getByRole('button',{name:'Cambios masivos'}).click();
   await page.locator('[data-pr-bulk="101"]').check();
@@ -85,7 +85,7 @@ try{
   await page.getByRole('button',{name:'Variaciones'}).click();
   await page.getByRole('button',{name:'Añadir variación de borrador'}).click();
   await page.getByText(/Variación de borrador añadida/).waitFor();
-  await page.getByRole('button',{name:'Comparar y preparar'}).click();
+  await page.getByRole('button',{name:'Fichas paralelas'}).click();
   await page.locator('[data-pr-target="newoldsmok"]').check();
   await page.getByRole('button',{name:'Buscar coincidencias y preparar cambios'}).click();
   await page.getByText(/Propuesta preparada para 2 tienda/).waitFor();
@@ -101,7 +101,7 @@ try{
   await page.locator('[data-pr-create-confirm="hortimatic"]').blur();
   assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action==='prestashop_product_create_commit')),false);
-  assert.equal(await page.getByRole('button',{name:/Aplicar actualizaciones/}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'Guardar cambios en newoldsmok'}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   assert.ok(await page.evaluate(()=>productosQA.ui.hasDraft()));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'Sin desbordamiento a '+width);
