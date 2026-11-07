@@ -65,11 +65,12 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(op.kind==='supplier_price')filters['filter[id_supplier]']='['+op.fields.id_supplier+']';
  if(op.kind==='special_price')for(const key of ['id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','from_quantity','from','to'])filters['filter['+key+']']='['+op.fields[key]+']';
  const find=async()=>{
+  if(op.kind==='variation_images')return op.fields.id_product_attribute;
   const data=await json(op.resource,{...filters,display:'[id]',limit:'0,2'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];
   if(!Array.isArray(rows)||rows.length>1)throw Error('La etapa devuelve varios registros: selecciona y revisa el destino antes de escribir.');
   if(rows.length&&!/^[1-9]\d{0,14}$/.test(String(rows[0].id)))throw Error('Registro de etapa no válido.');return rows.length?String(rows[0].id):null;
  };
- const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):{id_product:op.product_id,...op.fields};
+ const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):op.kind==='variation_images'?{id_product:op.product_id}:{id_product:op.product_id,...op.fields};
  let nativeHtmlNormalized=false;
  const verify=async(recordId)=>{
   const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+Object.keys(desired).join(',')+']'}:{}),op.resource,desired,op.associations);
