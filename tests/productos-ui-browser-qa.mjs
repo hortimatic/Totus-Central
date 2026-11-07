@@ -201,6 +201,9 @@ try{
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action.endsWith('_commit'))),false,'Recargar nunca repite un alta ni una etapa');
   await page.evaluate(async()=>{productosQA.actor='admin-2';await productosQA.ui.mount(document.querySelector('#productosRoot'));});
   assert.equal(await page.locator('.prd-plan').count(),0);
+  await page.getByRole('button',{name:'Encargo para ChatGPT',exact:true}).click();
+  assert.equal(await page.locator('[data-pr-request="url"]').inputValue(),'','Otro usuario no hereda el encargo');
+  assert.equal(await page.locator('textarea[readonly]').count(),0);
   assert.deepEqual(errors,[]);
   await page.close();
  }

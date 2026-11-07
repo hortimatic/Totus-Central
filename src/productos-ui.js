@@ -18,7 +18,7 @@ const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
- let requestBrief={operation:'url',store:'hortimatic'},requestOutput='';
+ let requestBrief={operation:'url',store:'hortimatic'},requestOutput='',requestOwner=null;
  let storageReady=false,storageQueue=Promise.resolve(),storageError=null;
  let priceOptions={vat:'21',re:'5.2',discount:'0'};
  let listSize=20,listPage=0,parallelSection='general',bulkField='price',bulkValue='',bulkItems=[],bulkConfirm='';
@@ -302,7 +302,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   variants.push(item);variantFields.set(keyFor(item),new Set(['reference','price','minimal_quantity']));status='Variación de borrador añadida. Sus atributos requerirán correspondencia en destino.';
  }
  async function mount(node){
-  dispose();storageReady=false;root=node;owner=actor();const gen=++epoch;root.dataset.prEpoch=String(gen);mode='catalogo';store='hortimatic';status='Comprobando conexiones. Ningún dato se modifica.';rows=[];page=0;hasMore=false;resetDraft();
+  dispose();storageReady=false;root=node;owner=actor();if(requestOwner!==owner){requestBrief={operation:'url',store:'hortimatic'};requestOutput='';requestOwner=owner;}const gen=++epoch;root.dataset.prEpoch=String(gen);mode='catalogo';store='hortimatic';status='Comprobando conexiones. Ningún dato se modifica.';rows=[];page=0;hasMore=false;resetDraft();
   if(!allowed()){root.textContent='No tienes permiso de consulta de PrestaShop.';return;}
   root.oninput=e=>{if(e.target.matches('[data-pr-search]')){query=e.target.value;listPage=0;render();const f=root.querySelector('[data-pr-search]');f?.focus();f?.setSelectionRange(query.length,query.length);}};
   root.onchange=e=>{
