@@ -4,17 +4,19 @@ import {PRODUCT_WRITE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from './productos-write-c
 import {createProductWizard} from './productos-create-ui.js';
 import {esc} from './utils.js';
 import {fieldHelp} from './components.js';
+import {productPriceStudy} from './pricing-core.js';
 
 export const productosWorkspacePage=()=>'<div class="page productos-page"><section id="productosRoot" aria-label="Gestión de productos"><p role="status">Cargando Productos…</p></section></div>';
 const h=x=>esc(String(x??''));
 const btn=(label,action,extra='',disabled=false)=>'<button type="button" class="btn secondary" data-pr-action="'+action+'" '+extra+(disabled?' disabled':'')+'>'+h(label)+'</button>';
 const STORE_OPTIONS=PRODUCT_STORES.map(s=>'<option value="'+s.key+'">'+s.label+'</option>').join('');
 const MODES=[['catalogo','Catálogo'],['ficha','Ficha y campos'],['variantes','Variaciones'],['comparar','Comparar y preparar'],['bulk','Cambios masivos']];
-const metadata={name:'Nombre',reference:'Referencia',description_short:'Descripción breve',description:'Descripción completa',meta_title:'Título SEO',meta_description:'Descripción SEO',meta_keywords:'Palabras clave',link_rewrite:'URL amigable',price:'Precio',wholesale_price:'Coste',ean13:'EAN',weight:'Peso',id_tax_rules_group:'Regla de impuestos',active:'Activo',visibility:'Visibilidad',isbn:'ISBN',upc:'UPC',mpn:'Referencia del fabricante',condition:'Estado del producto',available_for_order:'Disponible para pedidos',show_price:'Mostrar precio',online_only:'Solo venta online',unit_price:'Precio unitario',unity:'Unidad de medida',on_sale:'En oferta',ecotax:'Ecotasa',redirect_type:'Tipo de redirección',id_type_redirected:'Destino de redirección',width:'Anchura',height:'Altura',depth:'Profundidad',additional_shipping_cost:'Suplemento de envío',minimal_quantity:'Cantidad mínima',available_date:'Fecha de disponibilidad',location:'Ubicación',low_stock_threshold:'Umbral de pocas existencias',low_stock_alert:'Aviso de pocas existencias',out_of_stock:'Pedidos sin existencias'};
+const metadata={name:'Nombre',reference:'Referencia',description_short:'Descripción breve',description:'Descripción completa',meta_title:'Título SEO',meta_description:'Descripción SEO',meta_keywords:'Palabras clave',link_rewrite:'URL amigable',price:'Precio',wholesale_price:'Coste',ean13:'EAN',weight:'Peso',id_tax_rules_group:'Regla de impuestos',active:'Activo',visibility:'Visibilidad',isbn:'ISBN',upc:'UPC',mpn:'Referencia del fabricante',condition:'Estado del producto',available_for_order:'Disponible para pedidos',show_price:'Mostrar precio',online_only:'Solo venta online',unit_price:'Precio unitario',unity:'Unidad de medida',on_sale:'En oferta',ecotax:'Ecotasa',redirect_type:'Tipo de redirección',id_type_redirected:'Destino de redirección',width:'Anchura',height:'Altura',depth:'Profundidad',additional_shipping_cost:'Suplemento de envío',minimal_quantity:'Cantidad mínima',available_date:'Fecha de disponibilidad',location:'Ubicación',low_stock_threshold:'Umbral de pocas existencias',low_stock_alert:'Aviso de pocas existencias',out_of_stock:'Pedidos sin existencias',show_condition:'Mostrar condición',additional_delivery_times:'Tipo de plazo de entrega',delivery_in_stock:'Plazo con existencias',delivery_out_stock:'Plazo sin existencias',available_now:'Etiqueta con existencias',available_later:'Etiqueta sin existencias'};
 const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)+'…':s;};
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
+ let priceOptions={vat:'21',re:'5.2',discount:'0'};
  let listSize=20,listPage=0;
  let root=null,owner=null,epoch=0,mode='catalogo',store='hortimatic',pending=false,status='Selecciona una tienda y consulta su catálogo.',connections=[],rows=[],hasMore=false,page=0,query='',record=null,variants=[],fields=new Set(),overrides={},variantFields=new Map(),variantOverrides=new Map(),targets=new Set(['newoldsmok']),comparison=new Map(),preview=[],selection=new Set(),targetOverrides=new Map(),preflight=new Map(),targetRaw=new Map(),targetLanguages=new Map(),targetIds=new Map(),variantPreflight=new Map();
  const connection=shop=>storeConnection(connections,shop);
@@ -36,6 +38,12 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   return '<section class="prd-fields"><p class="prd-note">Selecciona únicamente los campos que quieres preparar. El texto es editable antes de comparar o aplicar. Los campos sin seleccionar nunca entran en el plan.</p>'+priceHelp()+Object.entries(PRODUCT_SECTIONS).map(([section,names])=>'<details open class="card card-pad"><summary><strong>'+h(sectionTitle(section))+'</strong></summary><div class="prd-fields-grid">'+names.filter(n=>record&&Object.prototype.hasOwnProperty.call(record,n)||['name','reference','description','meta_title','meta_description','price','link_rewrite'].includes(n)).map(showField).join('')+'</div></details>').join('')+'</section>';
  }
  function priceHelp(){return '<p class="prd-note">PrestaShop utiliza precio base de producto sin impuestos y, en cada combinación, un impacto de precio. No es necesariamente el PVP final. No se cambia el stock desde esta pantalla.</p>';}
+ function priceStudy(){
+  const value=field=>Object.prototype.hasOwnProperty.call(overrides,field)?overrides[field]:textValue(record?.[field]);
+  const study=productPriceStudy({saleNet:value('price'),costNet:value('wholesale_price'),...priceOptions});
+  const euro=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value),pct=value=>new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(value)+' %';
+  return '<section class="card card-pad prd-price-study"><h3>Estudio de precio</h3><p>Cálculo compartido con Precio. Estos porcentajes son de simulación: no sustituyen el grupo de impuestos elegido en PrestaShop. El coste recuperado de la tienda es orientativo.</p><div class="prd-fields-grid">'+[['vat','IVA de compra y venta (%)'],['re','Recargo de equivalencia de compra (%)'],['discount','Descuento simulado (%)']].map(([key,label])=>'<label class="prd-field"><b>'+label+'</b><input inputmode="decimal" data-pr-price-option="'+key+'" value="'+h(priceOptions[key])+'"></label>').join('')+'</div>'+(study?'<dl class="prd-price-results"><div><dt>Venta sin impuestos</dt><dd>'+euro(study.saleNet)+'</dd></div><div><dt>Venta con impuestos</dt><dd>'+euro(study.finalSale)+'</dd></div><div><dt>Coste de compra con IVA y recargo</dt><dd>'+euro(study.costReal)+'</dd></div><div><dt>Margen sin impuestos</dt><dd>'+euro(study.netMargin)+' · '+pct(study.netMarginPct)+'</dd></div><div><dt>Margen con recargo de equivalencia</dt><dd>'+euro(study.margin)+' · '+pct(study.marginPct)+'</dd></div></dl>':'<p role="status">Completa precio de venta sin impuestos, coste y porcentajes válidos para calcular el margen.</p>')+'</section>';
+ }
  function variantsPanel(){
   if(!record)return empty('Selecciona un producto','Puedes gestionar y comparar cada variación de forma independiente.');
   const add=btn('Añadir variación de borrador','new-variant','','');
@@ -57,7 +65,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function editor(){
   if(!record)return empty('Abre un producto o crea un borrador','El editor mostrará los datos completos y los campos seleccionables.');
-  return '<header class="prd-product-name"><h3>'+h(text(record.name)||'Producto nuevo')+'</h3><span>'+(record.id?'Producto #'+h(record.id):'Borrador sin ID de PrestaShop')+'</span></header>'+form()+rawPanel()+'<div class="prd-footer">'+btn(record.id?'Continuar: comparar campos seleccionados':'Continuar: elegir destino y validar alta','compare','',pending)+'</div>';
+  return '<header class="prd-product-name"><h3>'+h(text(record.name)||'Producto nuevo')+'</h3><span>'+(record.id?'Producto #'+h(record.id):'Borrador sin ID de PrestaShop')+'</span></header>'+form()+priceStudy()+rawPanel()+'<div class="prd-footer">'+btn(record.id?'Continuar: comparar campos seleccionados':'Continuar: elegir destino y validar alta','compare','',pending)+'</div>';
  }
  function targetLanguageIds(dest,field){
   const value=targetRaw.get(dest)?.[field];
@@ -206,6 +214,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   if(!allowed()){root.textContent='No tienes permiso de consulta de PrestaShop.';return;}
   root.oninput=e=>{if(e.target.matches('[data-pr-search]')){query=e.target.value;listPage=0;render();const f=root.querySelector('[data-pr-search]');f?.focus();f?.setSelectionRange(query.length,query.length);}};
   root.onchange=e=>{
+   if(e.target.matches('[data-pr-price-option]')){priceOptions[e.target.dataset.prPriceOption]=e.target.value;render();return;}
    if(pending||!current())return;
    if(e.target.matches('[data-pr-page-size]')){listSize=Number(e.target.value);listPage=0;render();return;}
    if(createWizard.handleChange(e.target)){render();return;}

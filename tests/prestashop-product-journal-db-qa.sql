@@ -52,6 +52,21 @@ BEGIN
  IF r->>'status'<>'completed' OR r->>'product_id'<>'701' THEN RAISE EXCEPTION 'Completed record missing: %',r; END IF;
  r:=public.totus_prestashop_product_create_journal('lookup',id1,a);
  IF r->>'status'<>'completed' OR r->>'product_id'<>'701' THEN RAISE EXCEPTION 'Completed lookup incorrect: %',r; END IF;
+ r:=public.totus_prestashop_product_step('claim',id1,'variation_blue',a||'{"product_id":701}'::jsonb);
+ IF r->>'status'<>'claimed' THEN RAISE EXCEPTION 'Child stage not claimed'; END IF;
+ r:=public.totus_prestashop_product_step('claim',id1,'variation_blue',a||'{"product_id":701}'::jsonb);
+ IF r->>'status'<>'pending' THEN RAISE EXCEPTION 'Child stage duplicate claim'; END IF;
+ r:=public.totus_prestashop_product_step('uncertain',id1,'variation_blue',a||'{"product_id":701}'::jsonb);
+ r:=public.totus_prestashop_product_step('complete',id1,'variation_blue',a||'{"product_id":701,"record_id":801}'::jsonb);
+ IF r->>'status'<>'completed' OR r->>'record_id'<>'801' THEN RAISE EXCEPTION 'Child stage reconciliation failed'; END IF;
+ BEGIN
+  PERFORM public.totus_prestashop_product_step('lookup',id1,'variation_blue',a||'{"product_id":999}'::jsonb);
+  RAISE EXCEPTION 'WRONG STAGE PRODUCT ACCEPTED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='WRONG STAGE PRODUCT ACCEPTED' THEN RAISE; END IF; END;
+ BEGIN
+  PERFORM public.totus_prestashop_product_step('lookup',id1,'variation_blue',a||'{"product_id":701,"actor_id":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"}'::jsonb);
+  RAISE EXCEPTION 'WRONG STAGE ACTOR ACCEPTED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='WRONG STAGE ACTOR ACCEPTED' THEN RAISE; END IF; END;
  BEGIN
   PERFORM public.totus_prestashop_product_create_journal('complete',id1,a||'{"product_id":702}'::jsonb);
   RAISE EXCEPTION 'REPLAY ACCEPTED';
@@ -82,5 +97,7 @@ BEGIN
  IF has_table_privilege('authenticated','private.totus_prestashop_product_create_requests','SELECT')
  OR has_table_privilege('anon','private.totus_prestashop_product_create_requests','UPDATE')
  THEN RAISE EXCEPTION 'Browser roles can access the journal'; END IF;
+ IF has_function_privilege('authenticated','public.totus_prestashop_product_step(text,uuid,text,jsonb)','EXECUTE') OR has_table_privilege('anon','private.totus_prestashop_product_steps','SELECT')
+ THEN RAISE EXCEPTION 'Browser roles can access child stages'; END IF;
 END $verify$;
 SELECT 'prestashop_product_journal_qa_ok' AS result;

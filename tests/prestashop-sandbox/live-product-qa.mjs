@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../supabase/functions/totus-connections/prestashop-create.js';
 import {inspectReconciledNewProduct} from '../../src/productos-write-contract.js';
+import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
 const localBase='http://localhost:8000';
@@ -31,7 +32,7 @@ async function localOnlyRequest(url,opts={}){
  }
  return response;
 }
-const environment={get:name=>name==='TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED'?'1':undefined};
+const environment={get:name=>['TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED','TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED'].includes(name)?'1':undefined};
 const journalData=new Map();
 const journal={
  lookup:async key=>journalData.get(key)||null,
@@ -90,4 +91,22 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const verified=inspectReconciledNewProduct(await readBack.text(),record,result.record_id);
  assert.equal(verified.active,false);
  console.log('SANDBOX 1.7.8.11: ID '+result.record_id+' inactivo, 1 POST, relectura y reintento idempotente.');
+ const stageData=new Map(),stageJournal={parent:async()=>journalData.get(request_id),lookup:async op=>stageData.get(op.stage)||null,
+  claim:async(op,signature)=>{if(stageData.has(op.stage))return stageData.get(op.stage);stageData.set(op.stage,{status:'pending',signature});return {status:'claimed'};},
+  complete:async(op,signature,record_id)=>{assert.equal(stageData.get(op.stage).signature,signature);stageData.set(op.stage,{status:'completed',signature,record_id});},
+  uncertain:async op=>{stageData.get(op.stage).status='uncertain';}};
+ const optionResponse=await localOnlyRequest('https://hortimatic.com/api/product_option_values?output_format=JSON&display=[id]&sort=[id_DESC]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(optionResponse.status,200);const option=(await optionResponse.json()).product_option_values[0];assert(option?.id);
+ const stage={action:'prestashop_product_step_prepare',id:record.id,call_id:record.call_id,revision:2,store:'hortimatic',parent_request_id:request_id,product_id:result.record_id,kind:'variation',step_key:'ci_blue',fields:{reference:'TOTUS-CI-PRUEBAS-BLUE',price:'0.50',wholesale_price:'0.39',weight:'0.02',minimal_quantity:'1',default_on:'1'},associations:{product_option_values:[String(option.id)]}};
+ const options={request:localOnlyRequest,resolve,env:environment,journal:stageJournal};
+ const prep=await runPrestashopProductStage(connection,stage,options);
+ const variation=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);
+ assert.equal(variation.verified,true);
+ const replay=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);assert.equal(replay.reused,true);
+ assert.equal(calls.filter(c=>c.method==='POST'&&c.path==='/api/combinations').length,1);
+ const stock={...stage,kind:'stock',step_key:'ci_stock',fields:{id_product_attribute:variation.record_id,quantity:'7',out_of_stock:'0',depends_on_stock:'0'}};delete stock.associations;
+ const stockPrep=await runPrestashopProductStage(connection,stock,options);
+ const stockDone=await runPrestashopProductStage(connection,{...stock,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:stockPrep.fingerprint},options);
+ assert.equal(stockDone.verified,true);
+ console.log('SANDBOX: variación '+variation.record_id+' creada una vez y existencias 7 verificadas por GET.');
 });

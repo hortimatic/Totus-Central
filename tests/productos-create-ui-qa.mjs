@@ -14,7 +14,7 @@ const fixture=(opts={})=>{
  invoke:async(s,a,args)=>{
   calls.push({shop:s,action:a,args});
   if(a==='prestashop_product_create_profile')return {ok:true,resource:'products',store:s,language_ids:['1','2'],persisted:false};
-  if(a==='prestashop_read')return {ok:true,store:s,resource:'categories',rows:[{id:'33',name:'Inicio'}],possibly_more:false};
+  if(a==='prestashop_read')return {ok:true,store:s,resource:args.resource,rows:args.resource==='categories'?[{id:'33',name:'Inicio'}]:opts.catalogs?.[args.resource]||[],possibly_more:false};
   if(a==='prestashop_product_create_prepare')return {ok:true,store:s,resource:'products',reference:args.reference,fingerprint:'a'.repeat(64),persisted:false,can_commit:opts.canCommit!==false};
   if(a==='prestashop_product_create_commit'){
    if(opts.networkError)throw Error('Respuesta incierta');
@@ -34,6 +34,18 @@ const complete=async(f,p=plan)=>{
  assert(f.wizard.handleChange(lang(shop,'2','link_rewrite','tests')));
  return f.wizard.perform('create-prepare',shop,p,source);
 };
+
+test('marca, proveedor, impuestos y materiales se seleccionan en los catálogos del destino',async()=>{
+ const f=fixture({catalogs:{manufacturers:[{id:'2',name:'Marca local'}],suppliers:[{id:'3',name:'Proveedor local'}],tax_rule_groups:[{id:'1',name:'IVA 21%'}],product_features:[{id:'4',name:'Material'}],product_feature_values:[{id:'5',id_feature:'4',value:'Aluminio'}]}});
+ await f.wizard.perform('create-load',shop,plan,source);f.wizard.render(plan,source);
+ f.wizard.handleChange(field(shop,'category_id','33'));
+ await f.wizard.perform('create-load-relations',shop,plan,source);
+ const html=f.wizard.render(plan,source);assert.match(html,/Marca local/);assert.match(html,/Material/);assert.match(html,/Aluminio/);
+ f.wizard.handleChange({dataset:{prCreateStore:shop,prCreateRelation:'manufacturer_id'},value:'2'});
+ f.wizard.handleChange({dataset:{prCreateStore:shop,prCreateFeatures:'true'},selectedOptions:[{value:'4:5'}]});
+ await f.wizard.perform('create-prepare',shop,plan,source);
+ assert.deepEqual(f.calls.at(-1).args.relations,{category_ids:['33'],manufacturer_id:'2',features:[{feature_id:'4',value_id:'5'}]});
+});
 test('prepara una alta de producto inactivo sin usar un ID de otro PrestaShop',async()=>{
  const f=fixture();
  assert.match(f.wizard.render(plan,source),/Consultar idiomas de la tienda/);
@@ -98,7 +110,8 @@ test('los campos preparados no desaparecen del alta y los no implementados se ex
  const values=f.calls.at(-1).args;
  assert.equal(values.translations[0].description,'Descripción');assert.equal(values.translations[1].description,'Descripción');
  assert.deepEqual(values.fields,[{field:'wholesale_price',value:'3.90'}]);
- const bad=fixture();await assert.rejects(()=>complete(bad,{...plan,changes:[...plan.changes,{field:'unit_price',after:'10',changed:true}]}),/sin contrato/);
+ const units=fixture();await complete(units,{...plan,changes:[...plan.changes,{field:'unit_price',after:'10',changed:true}]});assert.deepEqual(units.calls.at(-1).args.fields,[{field:'unit_price',value:'10'}]);
+ const bad=fixture();await assert.rejects(()=>complete(bad,{...plan,changes:[...plan.changes,{field:'redirect_type',after:'301-product',changed:true}]}),/sin contrato/);
 });
 test('comprobar resultado reutiliza el identificador de una solicitud incierta',async()=>{
  const options={networkError:true},f=fixture(options);await complete(f);f.wizard.handleChange(confirmation(shop,'CREAR'));

@@ -2,7 +2,7 @@
 // Real POST is gated: never enable until the persistent idempotency journal is deployed,
 // reviewed, and injected. Do not use this for an unapproved production test.
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text} from '../../../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text,LOCALIZED_PRODUCT_FIELDS,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 import {discoverPrestashop} from './prestashop.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
@@ -28,10 +28,10 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La tienda devolvió HTML, no datos Webservice.');}
   return boundedText(response,2097152);
  };
- const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations,fields:op.fields}));
+ const signature=await sha256Text(JSON.stringify({store:op.store,reference:op.reference,price:op.price,category_id:op.category_id,translations:op.translations,fields:op.fields,relations:op.relations}));
  const verifyReadback=async(expectedId=null)=>{
-  const extra=[...op.fields.map(f=>f.field),...['description','description_short','meta_title','meta_description'].filter(f=>op.translations.some(t=>Object.prototype.hasOwnProperty.call(t,f)))];
-  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
+  const extra=[...op.fields.map(f=>f.field),...LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)).filter(f=>op.translations.some(t=>Object.prototype.hasOwnProperty.call(t,f)))];
+  const xml=await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:op.relations?'full':'['+['id','reference','active','price','id_category_default','name','link_rewrite',...extra].join(',')+']'});
   return inspectReconciledNewProduct(xml,op,expectedId);
  };
  if(op.commit){
@@ -57,6 +57,22 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
  }
  const category=await fetchXml('categories/'+op.category_id);
  if(parsePrestashopResourceId(category,'category')!==op.category_id)throw Error('La categoría pertenece a otro registro.');
+ const checked=new Set(['categories/'+op.category_id]);
+ const verifyRelation=async(resource,node,id)=>{
+  const key=resource+'/'+id;
+  if(checked.has(key))return null;
+  const xml=await fetchXml(key);
+  if(parsePrestashopResourceId(xml,node)!==id)throw Error('La relación '+resource+' no coincide con el registro elegido.');
+  checked.add(key);return xml;
+ };
+ for(const [key,resource,node] of [['manufacturer_id','manufacturers','manufacturer'],['supplier_id','suppliers','supplier'],['tax_rules_group_id','tax_rule_groups','tax_rule_group']])if(op.relations?.[key])await verifyRelation(resource,node,op.relations[key]);
+ for(const [key,resource,node] of [['category_ids','categories','category'],['related_product_ids','products','product'],['tag_ids','tags','tag']])for(const id of op.relations?.[key]||[])await verifyRelation(resource,node,id);
+ for(const feature of op.relations?.features||[]){
+  await verifyRelation('product_features','product_feature',feature.feature_id);
+  const xml=await verifyRelation('product_feature_values','product_feature_value',feature.value_id);
+  if(!xml||readPrestashopXmlField(xml,'product_feature_value','id_feature')!==feature.feature_id)throw Error('El valor no pertenece a la característica seleccionada.');
+ }
+
  const duplicates=inspectProductReferenceListing(await fetchXml('products',{'filter[reference]':'['+op.reference+']',display:'[id,reference]'}));
  if(duplicates.length)throw Error('Ya existe un producto con esa referencia en la tienda de destino. No se creará otro.');
  const body=prepareProductCreationXml(schema,op);

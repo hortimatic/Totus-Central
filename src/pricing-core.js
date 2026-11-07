@@ -21,6 +21,19 @@ export function variantStudy(variant,settings={},discount=0){
  return previewQuickPriceStudy({cost,pvp,discount,vat:settings.default_sales_vat_rate??21,re:settings.purchase_re_rate??5.2});
 }
 
+// Product editors use the same economic calculation as Precio. A missing cost
+// stays unknown; it is never treated as a free purchase or a 100% margin.
+export function productPriceStudy({saleNet,costNet,vat=21,re=5.2,discount=0}={}){
+ if([saleNet,costNet].some(value=>value==null||String(value).trim()===''))return null;
+ try{
+  const net=parseDecimal(saleNet),rate=parseDecimal(vat);
+  const study=previewQuickPriceStudy({cost:costNet,pvp:net*(1+rate/100),vat:rate,re,discount});
+  if(!study)return null;
+  const netMargin=study.saleNet-study.cost;
+  return {...study,netMargin,netMarginPct:study.saleNet>0?netMargin/study.saleNet*100:0};
+ }catch{return null;}
+}
+
 // A live input is not a stored amount: invalid or missing costs stay unknown.
 export function pricingProviderPreview(row){
  if(row?.net_cost==null||String(row.net_cost).trim()==='')return null;

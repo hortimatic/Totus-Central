@@ -11,6 +11,7 @@ for(const [relative,path] of [
  ["./transport.js","../supabase/functions/totus-connections/transport.js"],
  ["./prestashop-create.js","../supabase/functions/totus-connections/prestashop-create.js"],
  ["./prestashop-write.js","../supabase/functions/totus-connections/prestashop-write.js"],
+ ["./prestashop-product-stage.js","../supabase/functions/totus-connections/prestashop-product-stage.js"],
  ["../../../src/prestashop-readonly.js","../src/prestashop-readonly.js"]
 ]){
  code=code.replaceAll("'"+relative+"'",JSON.stringify(new URL(path,import.meta.url).href));
@@ -38,6 +39,10 @@ const fixture=(opts={})=>{
    if(name==='totus_api_manager')return opts.denied?{error:{message:'Permiso de administración necesario'}}:{data:{connections:[{id,revision:2}]}};
    if(name==='totus_api_server')return {data:conf};
    if(name==='totus_api_call')return {data:null};
+   if(name==='totus_prestashop_product_step'){
+    assert.equal(key,'server-only');assert.equal(payload.p_data.actor_id,user_id);assert.equal(payload.p_data.product_id,'701');
+    if(payload.p_action==='lookup')return {data:null};throw Error('No child writes enabled in this fixture');
+   }
    if(name==='totus_prestashop_product_create_journal'){
     assert.equal(key,'server-only');
     assert.equal(payload.p_data.actor_id,user_id);
@@ -77,6 +82,20 @@ const context=async(run)=>{
  globalThis.Deno={resolveDns:async()=>['8.8.8.8']};
  try{return await run();}finally{if(original===undefined)delete globalThis.Deno;else globalThis.Deno=original;}
 };
+
+test('las etapas usan la identidad autenticada y solo alcanzan su propio producto verificado',()=>context(async()=>{
+ const f=fixture(),parent='33333333-3333-4333-8333-333333333333';
+ const body={...base,action:'prestashop_product_step_prepare',parent_request_id:parent,product_id:'701',kind:'finish',step_key:'publication',fields:{active:'0',available_for_order:'0'}};
+ assert.equal((await handle(req(body,false),environment(),f.factory,f.request)).status,401);
+ f.journal.set(parent,{status:'completed',store:'hortimatic',product_id:701,reference:'PRUEBAS-DEMO'});
+ const response=await handle(req(body),environment(),f.factory,f.request),prepared=await response.json();
+ assert.equal(response.status,200,JSON.stringify(prepared));assert.equal(prepared.persisted,false);assert.equal(prepared.can_commit,false);
+ const commit=await handle(req({...body,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint}),environment(),f.factory,f.request);
+ assert.equal(commit.status,400);assert.match((await commit.json()).error,/habilitadas/);
+ assert.equal(f.calls.some(c=>c.type==='http'&&['POST','PUT'].includes(c.method)),false);
+ const payload=f.calls.find(c=>c.name==='totus_prestashop_product_step').payload;
+ assert.equal(payload.p_data.actor_id,user_id);assert.equal(payload.p_data.connection_id,id);
+}));
 test('perfil sin login y sesión sin permiso no leen credenciales ni salen a PrestaShop',()=>context(async()=>{
  const f=fixture({denied:true}),body={...base,action:'prestashop_product_create_profile'};
  let res=await handle(req(body,false),environment(),f.factory,f.request);

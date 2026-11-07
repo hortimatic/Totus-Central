@@ -81,3 +81,7 @@
 .prd-connection-capabilities{min-width:0;padding:10px;border:1px solid var(--line);border-radius:9px}
 .prd-connection-capabilities summary{cursor:pointer;font-weight:650}
 .prd-connection-capabilities ul{margin:8px 0 0;padding-inline-start:20px;display:grid;gap:5px;overflow-wrap:anywhere}
+.prd-relationships{min-width:0;display:grid;gap:12px;padding:12px;border:1px solid var(--line);border-radius:9px}
+.prd-relationships legend{font-weight:650;padding:0 6px}
+.prd-price-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:14px 0 0}
+.prd-price-results div{min-width:0}.prd-price-results dt{font-size:12px;color:var(--muted)}.prd-price-results dd{margin:5px 0 0;font-weight:650;overflow-wrap:anywhere}

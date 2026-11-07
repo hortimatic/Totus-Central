@@ -11,6 +11,32 @@ const list='<prestashop><products/></prestashop>',newProduct='<prestashop><produ
 const readBack='<prestashop><product><id><![CDATA[301]]></id><reference><![CDATA[TOTUS-PRUEBAS-DEMO]]></reference><active><![CDATA[0]]></active></product></prestashop>';
 const response=xml=>new Response(xml,{status:200,headers:{'content-type':'application/xml'}});
 const resolve=async()=>['8.8.8.8'];
+
+test('alta relaciona múltiples categorías, marca, proveedor, impuestos, materiales, etiquetas y productos relacionados',()=>{
+ const op=validateProductCreateRequest({...input,relations:{manufacturer_id:'3',supplier_id:'4',tax_rules_group_id:'1',category_ids:['33','40'],related_product_ids:['51'],tag_ids:['8'],features:[{feature_id:'2',value_id:'5'}]}});
+ const xml=prepareProductCreationXml(blank,op);
+ assert.match(xml,/<id_manufacturer><!\[CDATA\[3\]\]><\/id_manufacturer>/);
+ assert.match(xml,/<accessories><product><id><!\[CDATA\[51\]\]><\/id><\/product><\/accessories>/);
+ assert.match(xml,/<id_feature_value><!\[CDATA\[5\]\]><\/id_feature_value>/);
+ const persisted=xml.replace('<id><![CDATA[]]></id>','<id><![CDATA[301]]></id>').replace('<product>','<products><product>').replace('</prestashop>','</products></prestashop>');
+ assert.equal(inspectReconciledNewProduct(persisted,op,'301').verified,true);
+ assert.throws(()=>inspectReconciledNewProduct(persisted.replace('CDATA[51','CDATA[52'),op,'301'),/accessories/);
+ assert.throws(()=>validateProductCreateRequest({...input,relations:{category_ids:['40']}}),/principal/);
+ assert.throws(()=>validateProductCreateRequest({...input,relations:{features:[{feature_id:'2',value_id:'5'},{feature_id:'2',value_id:'6'}]}}),/repetida/);
+ assert.throws(()=>validateProductCreateRequest({...input,relations:{manufacturer_id:'https://evil.test'}}),/registro real/);
+});
+
+test('un valor de otra característica se rechaza antes de crear el producto',async()=>{
+ const f=fixture();const calls=[];
+ const request=async(url,opts)=>{
+  const path=new URL(url).pathname;calls.push({path,method:opts.method});
+  if(path==='/api/product_features/2')return response('<prestashop><product_feature><id>2</id></product_feature></prestashop>');
+  if(path==='/api/product_feature_values/5')return response('<prestashop><product_feature_value><id>5</id><id_feature>9</id_feature></product_feature_value></prestashop>');
+  return f.request(url,opts);
+ };
+ await assert.rejects(()=>runPrestashopProductCreate(connection,{...input,relations:{features:[{feature_id:'2',value_id:'5'}]}},{request,resolve,env:{get:()=>''}}),/no pertenece/);
+ assert.equal(calls.some(c=>c.method==='POST'),false);
+});
 test('alta conserva campos adicionales, traducciones y entidades literales; la relectura detecta pérdidas',()=>{
  const extra={...input,fields:[{field:'wholesale_price',value:'3.90'},{field:'ean13',value:'1234567890123'}],translations:input.translations.map(t=>({...t,description:'Texto &amp; literal ]]> fin',meta_title:'Título SEO'}))};
  const op=validateProductCreateRequest(extra),xml=prepareProductCreationXml(blank,op);

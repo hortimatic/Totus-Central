@@ -6,11 +6,11 @@ export const PRODUCT_WRITE_FIELDS=Object.freeze({
  products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite']),
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
-export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','link_rewrite']);
-export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale']);
+export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','meta_keywords','link_rewrite','available_now','available_later','delivery_in_stock','delivery_out_stock']);
+export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times']);
 const local=new Set(LOCALIZED_PRODUCT_FIELDS);
-const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold']);
-const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert']);
+const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold','unit_price','ecotax']);
+const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert','show_condition']);
 const allowedVisibility=new Set(['both','catalog','search','none']);
 const allowedCondition=new Set(['new','used','refurbished']);
 const uuid=/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
@@ -19,8 +19,8 @@ const hash=/^[a-f0-9]{64}$/;
 const own=(v,k)=>Object.prototype.hasOwnProperty.call(v,k);
 function invalid(message='Solicitud de escritura de Productos no válida.'){throw Error(message);}
 function validateValue(field,value,resource){
- if(typeof value!=='string'||value.length>16000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value))invalid('Valor de '+field+' no válido.');
- const max=field==='reference'?64:['ean13','upc','isbn','mpn'].includes(field)?40:field==='name'?128:field==='link_rewrite'?128:field==='meta_title'?255:field==='meta_description'?512:field==='description_short'?8000:field==='description'?16000:255;
+ if(typeof value!=='string'||value.length>250000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value))invalid('Valor de '+field+' no válido.');
+ const max=field==='reference'?64:['ean13','upc','isbn','mpn'].includes(field)?40:field==='name'?128:field==='link_rewrite'?128:field==='meta_title'?255:field==='meta_description'?512:field==='description_short'?8000:field==='description'?250000:255;
  if(value.length>max)invalid('El campo '+field+' supera el tamaño permitido.');
  if(decimal.has(field)){
   if(!(resource==='combinations'&&field==='price'?/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/:/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/).test(value))invalid('Importe o medida de '+field+' no válido.');
@@ -33,6 +33,8 @@ function validateValue(field,value,resource){
  if(field==='upc'&&value!==''&&!/^\d{12}$/.test(value))invalid('UPC debe contener 12 dígitos.');
  if(field==='minimal_quantity'&&(!/^[1-9]\d{0,6}$/.test(value)))invalid('Cantidad mínima incorrecta.');
  if(field==='low_stock_threshold'&&(!/^\d{1,7}$/.test(value)))invalid('Umbral de stock incorrecto.');
+ if(field==='additional_delivery_times'&&!['0','1','2'].includes(value))invalid('Selecciona el tipo de plazo de entrega.');
+ if(field==='available_date'&&value!==''&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value+'T00:00:00Z'))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value))invalid('Fecha de disponibilidad incorrecta.');
  // A combination price is an impact on base price and may legitimately be negative.
  return value;
 }
@@ -140,12 +142,91 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
+const nativeNodes=Object.freeze({products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image'});
+// Used only after the stage contract has validated every field and relationship.
+// No raw XML can arrive from the browser; schema/current XML is fetched by server.
+export function prepareProductStageXml(xml,resource,fields,associations={},recordId=null){
+ const singular=nativeNodes[resource];if(!singular)invalid('Recurso de etapa no admitido.');
+ const item=direct(tree(xml),singular),edits=[];let extra='';
+ if(recordId!==null&&fieldText(xml,item,'id')!==String(recordId))invalid('La ficha de etapa pertenece a otro registro.');
+ const block=(node,content)=>edits.push({start:node.open,end:node.end,value:'<'+node.name+'>'+content+'</'+node.name+'>'});
+ for(const [field,value] of Object.entries(fields)){
+  if(!/^[a-z][a-z0-9_]*$/.test(field)||field==='id')invalid('Campo de etapa no admitido.');
+  const content=Array.isArray(value)?value.map(t=>'<language id="'+t.language_id+'">'+safeCdata(t.value)+'</language>').join(''):safeCdata(String(value));
+  const nodes=item.children.filter(node=>node.name===field);if(nodes.length>1)invalid('Campo de etapa duplicado.');
+  if(Array.isArray(value)&&nodes.length){
+   for(const translation of value){
+    const matches=nodes[0].children.filter(node=>node.name==='language'&&node.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/)?.[2]===translation.language_id);
+    if(matches.length!==1)invalid('Idioma de etapa no presente en la tienda.');
+    const slot=matches[0];
+    if(slot.selfClosing)edits.push({start:slot.open,end:slot.end,value:'<language id="'+translation.language_id+'">'+safeCdata(translation.value)+'</language>'});
+    else edits.push({start:slot.contentStart,end:slot.contentEnd,value:safeCdata(translation.value)});
+   }
+  }else if(nodes.length)block(nodes[0],content);else extra+='<'+field+'>'+content+'</'+field+'>';
+ }
+ const parent=item.children.find(node=>node.name==='associations');let added='';
+ for(const [name,ids] of Object.entries(associations)){
+  const nodeName={product_option_values:'product_option_value',images:'image'}[name];if(!nodeName||!parent)invalid('Asociación de etapa no admitida.');
+  const content=ids.map(id=>'<'+nodeName+'><id>'+safeCdata(id)+'</id></'+nodeName+'>').join('');
+  const nodes=parent.children.filter(node=>node.name===name);if(nodes.length>1)invalid('Asociación duplicada.');
+  if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';
+ }
+ if(added)edits.push({start:parent.contentEnd,end:parent.contentEnd,value:added});
+ // PrestaShop sends calculated fields on GET which it rejects on PUT.
+ for(const name of resource==='products'?['manufacturer_name','quantity']:resource==='combinations'?['quantity']:[]){
+  const node=item.children.find(node=>node.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});
+ }
+ if(resource==='products'&&parent){const node=parent.children.find(node=>node.name==='stock_availables');if(node)edits.push({start:node.open,end:node.end,value:''});}
+ if(extra)edits.push({start:item.contentEnd,end:item.contentEnd,value:extra});
+ for(const edit of edits.sort((a,b)=>b.start-a.start))xml=xml.slice(0,edit.start)+edit.value+xml.slice(edit.end);
+ tree(xml);return xml;
+}
+export function inspectProductStageXml(xml,resource,fields,associations={}){
+ const singular=nativeNodes[resource];if(!singular)invalid('Recurso de etapa no admitido.');
+ const item=direct(tree(xml),singular),id=fieldText(xml,item,'id');if(!integer.test(id))invalid('Etapa sin identificador real.');
+ const numeric=new Set(['id_product','id_product_attribute','id_supplier','id_currency','id_shop','id_shop_group','id_country','id_group','id_customer','id_cart','price','wholesale_price','product_supplier_price_te','reduction','from_quantity','weight','ecotax','unit_price_impact','minimal_quantity','low_stock_threshold','quantity','out_of_stock','depends_on_stock','default_on','active','available_for_order','id_default_image','id_default_combination']);
+ const number=value=>{if(!/^-?\d+(?:\.\d{1,6})?$/.test(value))return null;const negative=value.startsWith('-'),[whole,fraction='']=value.replace(/^-/,'').split('.');return (negative?-1n:1n)*(BigInt(whole)*1000000n+BigInt(fraction.padEnd(6,'0')));};
+ for(const [field,value] of Object.entries(fields)){
+  if(Array.isArray(value)){
+   const node=direct(item,field);
+   for(const translation of value){const languages=node.children.filter(child=>child.name==='language'&&child.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/)?.[2]===translation.language_id);if(languages.length!==1||xmlValue(xml.slice(languages[0].contentStart,languages[0].contentEnd))!==translation.value)invalid('La traducción de '+field+' no coincide.');}
+  }else{const actual=fieldText(xml,item,field),expected=String(value);if(numeric.has(field)?number(actual)===null||number(actual)!==number(expected):actual!==expected)invalid('El campo '+field+' de la etapa no coincide.');}
+ }
+ for(const [name,ids] of Object.entries(associations)){
+  const actual=direct(direct(item,'associations'),name).children.map(row=>fieldText(xml,row,'id')).sort();
+  if(JSON.stringify(actual)!==JSON.stringify([...ids].sort()))invalid('Los valores de '+name+' no coinciden.');
+ }
+ return {id,verified:true};
+}
+
 
 // Product creation is separate from selective PUT. The destination shop supplies
 // the blank schema and language IDs; we never copy entity IDs from another shop.
+export function validateProductRelations(input,categoryId){
+ if(input===undefined)return undefined;
+ const allowed=['manufacturer_id','supplier_id','tax_rules_group_id','category_ids','related_product_ids','tag_ids','features'];
+ if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!allowed.includes(k)))invalid('Relaciones de producto no admitidas.');
+ const out={};
+ for(const key of ['manufacturer_id','supplier_id','tax_rules_group_id'])if(own(input,key)){
+  if(!integer.test(String(input[key])))invalid('Selecciona un registro real para '+key+'.');out[key]=String(input[key]);
+ }
+ for(const key of ['category_ids','related_product_ids','tag_ids'])if(own(input,key)){
+  if(!Array.isArray(input[key])||input[key].some(id=>!integer.test(String(id)))||new Set(input[key].map(String)).size!==input[key].length)invalid('Selección duplicada o inválida para '+key+'.');
+  out[key]=input[key].map(String).sort((a,b)=>Number(a)-Number(b));
+ }
+ if(out.category_ids&&!out.category_ids.includes(String(categoryId)))invalid('La categoría principal debe estar entre las categorías asociadas.');
+ if(own(input,'features')){
+  if(!Array.isArray(input.features))invalid('Características incorrectas.');const ids=new Set();
+  out.features=input.features.map(f=>{
+   if(!f||typeof f!=='object'||Object.keys(f).some(k=>!['feature_id','value_id'].includes(k))||!integer.test(String(f.feature_id))||!integer.test(String(f.value_id))||ids.has(String(f.feature_id)))invalid('Característica repetida o sin valor válido.');
+   ids.add(String(f.feature_id));return {feature_id:String(f.feature_id),value_id:String(f.value_id)};
+  }).sort((a,b)=>Number(a.feature_id)-Number(b.feature_id));
+ }
+ return out;
+}
 export function validateProductCreateRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
- const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','fields','expected_fingerprint','request_id','confirmed']);
+ const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','fields','relations','expected_fingerprint','request_id','confirmed']);
  if(Object.keys(input).some(key=>!accepted.has(key))||!['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)||
  !['hortimatic','newoldsmok'].includes(input.store)||!uuid.test(String(input.id||''))||!uuid.test(String(input.call_id||''))||
  !Number.isSafeInteger(input.revision)||input.revision<1||!integer.test(String(input.category_id||'')))invalid('Solicitud de alta de producto no válida.');
@@ -176,7 +257,7 @@ export function validateProductCreateRequest(input){
   invalid('El alta exige confirmación, huella vigente y request_id estable.');
  if(!commit&&(own(input,'expected_fingerprint')||own(input,'request_id')||own(input,'confirmed')))
   invalid('No se aceptan confirmaciones durante la preparación.');
- return {store:input.store,resource:'products',reference:input.reference,price:input.price,category_id:String(input.category_id),translations,fields:extra,
+ return {store:input.store,resource:'products',reference:input.reference,price:input.price,category_id:String(input.category_id),translations,fields:extra,relations:validateProductRelations(input.relations,input.category_id),
   commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
 }
 export function prepareProductCreationXml(schema,create){
@@ -204,8 +285,9 @@ export function prepareProductCreationXml(schema,create){
   }
  }
  const associations=direct(product,'associations'),categories=direct(associations,'categories');
- const category=direct(categories,'category');
- set(direct(category,'id'),create.category_id);
+ const categoryIds=create.relations?.category_ids;
+ if(categoryIds){desired.set(categories.contentStart,{start:categories.contentStart,end:categories.contentEnd,value:categoryIds.map(id=>'<category><id>'+safeCdata(id)+'</id></category>').join('')});}
+ else set(direct(direct(categories,'category'),'id'),create.category_id);
  let additional='';
  // Only known fields may be added to a minimal 1.7 schema; never accept raw XML or relationships.
  for(const entry of create.fields||[]){
@@ -222,6 +304,20 @@ export function prepareProductCreationXml(schema,create){
    for(const t of create.translations){const matches=nodes[0].children.filter(n=>n.name==='language'&&n.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2]===t.language_id);if(matches.length!==1)invalid('Idioma adicional no válido.');set(matches[0],t[field]);}
   }else additional+='<'+field+'>'+create.translations.map(t=>'<language id="'+t.language_id+'">'+safeCdata(t[field])+'</language>').join('')+'</'+field+'>';
  }
+ for(const [key,field] of [['manufacturer_id','id_manufacturer'],['supplier_id','id_supplier'],['tax_rules_group_id','id_tax_rules_group']])if(create.relations?.[key]){
+  const nodes=product.children.filter(n=>n.name===field);
+  if(nodes.length>1)invalid('Relación duplicada en el esquema.');
+  if(nodes.length)set(nodes[0],create.relations[key]);else additional+='<'+field+'>'+safeCdata(create.relations[key])+'</'+field+'>';
+ }
+ let addedAssociations='';
+ for(const [key,group,singular] of [['related_product_ids','accessories','product'],['tag_ids','tags','tag'],['features','product_features','product_feature']])if(own(create.relations||{},key)){
+  const content=create.relations[key].map(value=>key==='features'?'<product_feature><id>'+safeCdata(value.feature_id)+'</id><id_feature_value>'+safeCdata(value.value_id)+'</id_feature_value></product_feature>':'<'+singular+'><id>'+safeCdata(value)+'</id></'+singular+'>').join('');
+  const nodes=associations.children.filter(n=>n.name===group);
+  if(nodes.length>1)invalid('Asociación duplicada en el esquema.');
+  if(nodes.length){const node=nodes[0];if(node.selfClosing)desired.set(node.open,{start:node.open,end:node.end,value:'<'+group+'>'+content+'</'+group+'>'});else desired.set(node.contentStart,{start:node.contentStart,end:node.contentEnd,value:content});}
+  else addedAssociations+='<'+group+'>'+content+'</'+group+'>';
+ }
+ if(addedAssociations)desired.set(associations.contentEnd,{start:associations.contentEnd,end:associations.contentEnd,value:addedAssociations});
  if(additional)desired.set(associations.open,{start:associations.open,end:associations.open,value:additional});
  let xml=schema;
  for(const change of [...desired.values()].sort((a,b)=>b.start-a.start))xml=xml.slice(0,change.start)+change.value+xml.slice(change.end);
@@ -301,12 +397,22 @@ export function inspectReconciledNewProduct(xml,expected,expectedId=null){
   const actual=fieldText(xml,product,entry.field);
   if(decimal.has(entry.field)?normalized(actual)!==normalized(entry.value):actual!==entry.value)invalid('El campo '+entry.field+' no coincide tras crear.');
  }
+ for(const [key,field] of [['manufacturer_id','id_manufacturer'],['supplier_id','id_supplier'],['tax_rules_group_id','id_tax_rules_group']])if(expected.relations?.[key]&&fieldText(xml,product,field)!==expected.relations[key])invalid('La relación '+field+' no coincide tras crear.');
+ for(const [key,group] of [['category_ids','categories'],['related_product_ids','accessories'],['tag_ids','tags'],['features','product_features']])if(own(expected.relations||{},key)){
+  const actual=direct(direct(product,'associations'),group).children.map(row=>key==='features'?fieldText(xml,row,'id')+':'+fieldText(xml,row,'id_feature_value'):fieldText(xml,row,'id')).sort();
+  const wanted=expected.relations[key].map(row=>key==='features'?row.feature_id+':'+row.value_id:row).sort();
+  if(JSON.stringify(actual)!==JSON.stringify(wanted))invalid('La asociación '+group+' no coincide tras crear.');
+ }
  return {id,reference:expected.reference,active:false,verified:true};
 }
 
 
+export function readPrestashopXmlField(xml,resource,field){
+ if(!['product','category','combination','manufacturer','supplier','tax_rule_group','product_feature','product_feature_value','tag'].includes(resource)||!['id','id_feature','reference'].includes(field))invalid('Recurso o campo no admitido.');
+ return fieldText(xml,direct(tree(xml),resource),field);
+}
 export function parsePrestashopResourceId(xml,resource){
- if(!['product','category','combination'].includes(resource))invalid('Recurso no admitido.');
+ if(!['product','category','combination','manufacturer','supplier','tax_rule_group','product_feature','product_feature_value','tag'].includes(resource))invalid('Recurso no admitido.');
  const root=tree(xml),item=direct(root,resource),node=direct(item,'id');
  const id=xmlValue(xml.slice(node.contentStart,node.contentEnd)).trim();
  if(!integer.test(id))invalid('Respuesta del proveedor sin identificador válido.');

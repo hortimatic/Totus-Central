@@ -135,4 +135,66 @@ GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_create_journal(text,uu
 
 COMMENT ON TABLE private.totus_prestashop_product_create_requests IS
  'Idempotent product POST journal, locked on shop/reference until explicit reconciliation; no shop data or keys stored.';
+-- Child writes share the verified parent request but have independent immutable
+-- intent hashes. Losing an HTTP response must not create a second combination,
+-- price or image. The browser cannot inspect or call this journal directly.
+CREATE TABLE IF NOT EXISTS private.totus_prestashop_product_steps (
+ request_id uuid NOT NULL REFERENCES private.totus_prestashop_product_create_requests(request_id),
+ stage text NOT NULL CHECK (stage ~ '^[a-z][a-z0-9_-]{1,95}$'),
+ signature text NOT NULL CHECK (signature ~ '^[0-9a-f]{64}$'),
+ status text NOT NULL CHECK (status IN ('pending','uncertain','completed')),
+ record_id bigint CHECK (record_id>0),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ PRIMARY KEY(request_id,stage)
+);
+ALTER TABLE private.totus_prestashop_product_steps ENABLE ROW LEVEL SECURITY;
+DO $steps_policy$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='private' AND tablename='totus_prestashop_product_steps' AND policyname='product_steps_service') THEN
+  CREATE POLICY product_steps_service ON private.totus_prestashop_product_steps TO service_role USING(true) WITH CHECK(true);
+ END IF;
+END $steps_policy$;
+CREATE OR REPLACE FUNCTION public.totus_prestashop_product_step(
+ p_action text,p_request_id uuid,p_stage text,p_data jsonb DEFAULT '{}'::jsonb
+) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $step$
+DECLARE
+ v_parent private.totus_prestashop_product_create_requests%rowtype;
+ v_step private.totus_prestashop_product_steps%rowtype;
+ v_signature text:=p_data->>'signature';
+ v_record bigint;
+BEGIN
+ IF p_action NOT IN ('lookup','claim','complete','uncertain') OR p_stage IS NULL OR p_stage !~ '^[a-z][a-z0-9_-]{1,95}$' OR jsonb_typeof(p_data)<>'object'
+ THEN RAISE EXCEPTION 'Invalid product stage'; END IF;
+ SELECT * INTO v_parent FROM private.totus_prestashop_product_create_requests WHERE request_id=p_request_id;
+ IF NOT FOUND OR v_parent.status<>'completed' OR v_parent.actor_id IS DISTINCT FROM (p_data->>'actor_id')::uuid
+  OR v_parent.connection_id IS DISTINCT FROM (p_data->>'connection_id')::uuid
+  OR v_parent.connection_revision IS DISTINCT FROM (p_data->>'revision')::bigint
+  OR v_parent.product_id IS DISTINCT FROM (p_data->>'product_id')::bigint
+ THEN RAISE EXCEPTION 'Verified product request does not belong to this session'; END IF;
+ IF p_action<>'lookup' AND (v_signature IS NULL OR v_signature !~ '^[0-9a-f]{64}$') THEN RAISE EXCEPTION 'Invalid stage signature'; END IF;
+ IF p_action='claim' THEN
+  INSERT INTO private.totus_prestashop_product_steps(request_id,stage,signature,status) VALUES(p_request_id,p_stage,v_signature,'pending') ON CONFLICT DO NOTHING RETURNING * INTO v_step;
+  IF FOUND THEN RETURN jsonb_build_object('status','claimed'); END IF;
+ END IF;
+ SELECT * INTO v_step FROM private.totus_prestashop_product_steps WHERE request_id=p_request_id AND stage=p_stage FOR UPDATE;
+ IF NOT FOUND THEN
+  IF p_action='lookup' THEN RETURN NULL; END IF;
+  RAISE EXCEPTION 'Stage has not been claimed';
+ END IF;
+ IF p_action<>'lookup' AND v_step.signature<>v_signature THEN RAISE EXCEPTION 'Stage is bound to another intent'; END IF;
+ IF p_action='complete' THEN
+  v_record:=(p_data->>'record_id')::bigint;
+  IF v_record IS NULL OR v_record<1 OR v_step.status NOT IN ('pending','uncertain') OR (v_step.record_id IS NOT NULL AND v_step.record_id<>v_record) THEN RAISE EXCEPTION 'Stage cannot be completed'; END IF;
+  UPDATE private.totus_prestashop_product_steps SET status='completed',record_id=v_record,updated_at=clock_timestamp() WHERE request_id=p_request_id AND stage=p_stage RETURNING * INTO v_step;
+ ELSIF p_action='uncertain' THEN
+  IF v_step.status<>'pending' THEN RAISE EXCEPTION 'Stage is no longer pending'; END IF;
+  UPDATE private.totus_prestashop_product_steps SET status='uncertain',updated_at=clock_timestamp() WHERE request_id=p_request_id AND stage=p_stage RETURNING * INTO v_step;
+ END IF;
+ RETURN jsonb_build_object('status',v_step.status,'signature',v_step.signature,'record_id',v_step.record_id);
+END $step$;
+REVOKE ALL ON TABLE private.totus_prestashop_product_steps FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.totus_prestashop_product_step(text,uuid,text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT,UPDATE ON TABLE private.totus_prestashop_product_steps TO service_role;
+GRANT EXECUTE ON FUNCTION public.totus_prestashop_product_step(text,uuid,text,jsonb) TO service_role;
 COMMIT;

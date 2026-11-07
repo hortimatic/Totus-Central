@@ -19,5 +19,19 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'products','GET'),
  (@account_id,'products','POST'),
  (@account_id,'categories','GET'),
- (@account_id,'languages','GET');
+ (@account_id,'languages','GET'),
+ (@account_id,'products','PUT'),
+ (@account_id,'combinations','GET'),(@account_id,'combinations','POST'),
+ (@account_id,'product_option_values','GET'),
+ (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
+ (@account_id,'images','GET'),(@account_id,'images','POST');
+-- Fictional attribute for testing complete product creation, only in Docker.
+INSERT INTO ps_attribute_group(is_color_group,group_type,position) VALUES(0,'select',90);
+SET @ci_attribute_group=LAST_INSERT_ID();
+INSERT INTO ps_attribute_group_lang(id_attribute_group,id_lang,name,public_name) SELECT @ci_attribute_group,id_lang,'CI Color','CI Color' FROM ps_lang;
+INSERT INTO ps_attribute_group_shop(id_attribute_group,id_shop) SELECT @ci_attribute_group,id_shop FROM ps_shop;
+INSERT INTO ps_attribute(id_attribute_group,color,position) VALUES(@ci_attribute_group,'',0);
+SET @ci_attribute=LAST_INSERT_ID();
+INSERT INTO ps_attribute_lang(id_attribute,id_lang,name) SELECT @ci_attribute,id_lang,'CI Blue' FROM ps_lang;
+INSERT INTO ps_attribute_shop(id_attribute,id_shop) SELECT @ci_attribute,id_shop FROM ps_shop;
 SELECT 'PrestaShop Webservice CI configured' AS status;

@@ -6,7 +6,7 @@ import {fieldHelp} from './components.js';
 // A small opt-in creation flow. It neither copies shop IDs nor changes existing
 // products. Each destination is validated and committed separately.
 export function createProductWizard({invoke,canEdit=()=>false}){
- const profiles=new Map(),categories=new Map(),config=new Map(),previews=new Map(),requestIds=new Map(),
+ const profiles=new Map(),categories=new Map(),relationCatalogs=new Map(),config=new Map(),previews=new Map(),requestIds=new Map(),
   attempted=new Set(),results=new Map(),confirmations=new Map();
  const h=v=>esc(String(v??''));
  const slug=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
@@ -29,6 +29,19 @@ export function createProductWizard({invoke,canEdit=()=>false}){
  };
  const b=(label,action,shop,disabled=false)=>
   '<button type="button" class="btn secondary" data-pr-action="'+action+'" data-pr-dest="'+h(shop)+'" '+(disabled?'disabled':'')+'>'+h(label)+'</button>';
+ const resourceLabels={manufacturers:'Marca',suppliers:'Proveedor',tax_rule_groups:'Grupo de impuestos',tags:'Etiquetas',product_features:'Características',product_feature_values:'Valores de características'};
+ function relationsForm(shop,data,locked){
+  const catalog=relationCatalogs.get(shop);
+  if(!catalog)return '<div class="prd-relationships"><h5>Organización, marca y características</h5><p>Los registros se eligen por nombre desde esta tienda; sus identificadores no se copian entre destinos.</p>'+b('Consultar marcas, proveedores y características','create-load-relations',shop,locked)+'</div>';
+  const select=(key,label,rows,multiple=false)=>'<label class="prd-field"><b>'+h(label)+'</b><select '+(multiple?'multiple size="5"':'')+' data-pr-create-relation="'+key+'" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+(multiple?'':'<option value="">Sin asignar</option>')+rows.map(row=>'<option value="'+h(row.id)+'" '+((multiple?data.relations?.[key]||[]:[data.relations?.[key]]).includes(String(row.id))?'selected':'')+'>'+h(textValue(row.name)||textValue(row.value))+'</option>').join('')+'</select></label>';
+  const cats=categories.get(shop)||[];
+  const categoryName=id=>textValue(cats.find(c=>String(c.id)===String(id))?.name)||'';
+  return '<fieldset class="prd-relationships"><legend>Relaciones de la tienda de destino</legend><div class="prd-fields-grid">'+
+   select('manufacturer_id','Marca',catalog.manufacturers)+select('supplier_id','Proveedor',catalog.suppliers)+select('tax_rules_group_id','Grupo de impuestos',catalog.tax_rule_groups)+
+   select('category_ids','Categorías asociadas',cats.map(c=>({...c,name:(categoryName(c.id_parent)?categoryName(c.id_parent)+' / ':'')+textValue(c.name)})),true)+
+   select('tag_ids','Etiquetas',catalog.tags,true)+
+   '<label class="prd-field"><b>Características y materiales</b><select multiple size="6" data-pr-create-features="true" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+catalog.product_features.map(feature=>'<optgroup label="'+h(textValue(feature.name))+'">'+catalog.product_feature_values.filter(value=>String(value.id_feature)===String(feature.id)).map(value=>'<option value="'+h(feature.id)+':'+h(value.id)+'" '+((data.relations?.features||[]).some(f=>f.feature_id===String(feature.id)&&f.value_id===String(value.id))?'selected':'')+'>'+h(textValue(value.value))+'</option>').join('')+'</optgroup>').join('')+'</select><small>Selecciona un valor por característica. Se comprueba su pertenencia antes del alta.</small></label></div></fieldset>';
+ }
  function render(plan,source){
   if(plan.operation!=='create')return '';
   const shop=plan.store,profile=profiles.get(shop),result=results.get(shop);
@@ -41,11 +54,11 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    '<label class="prd-field"><b>Referencia nueva</b>'+fieldHelp('Referencia nueva','Identificador único por tienda. Una respuesta incierta no autoriza repetir el alta con otra referencia.')+'<input data-pr-create-field="reference" data-pr-create-store="'+h(shop)+'" value="'+h(data.reference)+'" '+(locked?'disabled':'')+'></label>'+
    '<label class="prd-field"><b>Precio base sin impuestos</b><input data-pr-create-field="price" data-pr-create-store="'+h(shop)+'" value="'+h(data.price)+'" '+(locked?'disabled':'')+'></label>'+
    '<label class="prd-field"><b>Categoría de destino</b>'+fieldHelp('Categoría de destino','Selecciona el nombre de una categoría de esta tienda. Los identificadores nunca se copian entre tiendas.')+'<select data-pr-create-field="category_id" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'><option value="">Selecciona una categoría</option>'+cats.map(c=>'<option value="'+h(c.id)+'" '+(data.category_id===String(c.id)?'selected':'')+'>'+h(textValue(c.name))+' · #'+h(c.id)+'</option>').join('')+'</select><small>'+cats.length+' categorías verificadas.</small></label>'+
-   '</div><div class="prd-fields-grid">'+profile.language_ids.map(id=>{
+   '</div>'+relationsForm(shop,data,locked)+'<div class="prd-fields-grid">'+profile.language_ids.map(id=>{
     const t=data.translations[id]||{name:'',link_rewrite:''};
     return '<fieldset class="prd-create-translation"><legend>Idioma de destino #'+h(id)+'</legend>'+
      '<label class="prd-field"><b>Nombre</b><input data-pr-create-language="'+h(id)+'" data-pr-create-property="name" data-pr-create-store="'+h(shop)+'" value="'+h(t.name)+'" '+(locked?'disabled':'')+'></label>'+
-     '<label class="prd-field"><b>URL amigable</b><input data-pr-create-language="'+h(id)+'" data-pr-create-property="link_rewrite" data-pr-create-store="'+h(shop)+'" value="'+h(t.link_rewrite)+'" '+(locked?'disabled':'')+'></label>'+LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)&&Object.prototype.hasOwnProperty.call(t,f)).map(f=>'<label class="prd-field"><b>'+h(({description:'Descripción completa',description_short:'Descripción breve',meta_title:'Título SEO',meta_description:'Descripción SEO'})[f])+'</b><textarea data-pr-create-language="'+h(id)+'" data-pr-create-property="'+f+'" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+h(t[f])+'</textarea></label>').join('')+'</fieldset>';
+     '<label class="prd-field"><b>URL amigable</b><input data-pr-create-language="'+h(id)+'" data-pr-create-property="link_rewrite" data-pr-create-store="'+h(shop)+'" value="'+h(t.link_rewrite)+'" '+(locked?'disabled':'')+'></label>'+LOCALIZED_PRODUCT_FIELDS.filter(f=>!['name','link_rewrite'].includes(f)&&Object.prototype.hasOwnProperty.call(t,f)).map(f=>'<label class="prd-field"><b>'+h(({description:'Descripción completa',description_short:'Descripción breve',meta_title:'Título SEO',meta_description:'Descripción SEO',meta_keywords:'Palabras clave',available_now:'Etiqueta con existencias',available_later:'Etiqueta sin existencias',delivery_in_stock:'Entrega con existencias',delivery_out_stock:'Entrega sin existencias'})[f])+'</b><textarea data-pr-create-language="'+h(id)+'" data-pr-create-property="'+f+'" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+h(t[f])+'</textarea></label>').join('')+'</fieldset>';
    }).join('')+'</div>'+
    '<div class="inline-actions">'+b('Validar alta sin escribir','create-prepare',shop,locked)+
    (prepared?'<span class="prd-api-ok">Esquema, idiomas, categoría y duplicados validados. Todavía no se ha creado nada.</span>':'')+'</div>'+
@@ -54,15 +67,18 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    (locked?'<p class="prd-warning">Petición de alta: <code>'+h(requestIds.get(shop))+'</code>. Conserva este identificador si hay un error. No cambies la referencia ni repitas el alta: comprueba primero el resultado.</p>'+b('Comprobar resultado sin repetir el alta','create-verify',shop,!canEdit()):'')+
    '</section>';
  }
- const reset=()=>{profiles.clear();categories.clear();config.clear();previews.clear();requestIds.clear();attempted.clear();results.clear();confirmations.clear();};
+ const reset=()=>{profiles.clear();categories.clear();relationCatalogs.clear();config.clear();previews.clear();requestIds.clear();attempted.clear();results.clear();confirmations.clear();};
  const invalidate=()=>{for(const [shop] of previews){if(!attempted.has(shop))previews.delete(shop);}for(const shop of confirmations.keys()){if(!attempted.has(shop))confirmations.delete(shop);}};
  function handleChange(el){
   const shop=el?.dataset?.prCreateStore,language=el?.dataset?.prCreateLanguage,field=el?.dataset?.prCreateField;
   if(el?.dataset?.prCreateConfirm!==undefined){confirmations.set(el.dataset.prCreateConfirm,el.value);return true;}
-  if(!shop||(!field&&!language))return false;
+  const relation=el?.dataset?.prCreateRelation,features=el?.dataset?.prCreateFeatures;
+  if(!shop||(!field&&!language&&!relation&&!features))return false;
   if(attempted.has(shop))return true;
   const entry=config.get(shop);if(!entry)return false;
-  if(field&&['reference','price','category_id'].includes(field))entry[field]=el.value;
+  if(relation){entry.relations??={};if(el.multiple)entry.relations[relation]=Array.from(el.selectedOptions).map(o=>o.value);else if(el.value)entry.relations[relation]=el.value;else delete entry.relations[relation];}
+  else if(features){entry.relations??={};entry.relations.features=Array.from(el.selectedOptions).map(o=>{const [feature_id,value_id]=o.value.split(':');return {feature_id,value_id};});}
+  else if(field&&['reference','price','category_id'].includes(field)){entry[field]=el.value;if(field==='category_id'&&entry.relations)entry.relations.category_ids=[...new Set([...(entry.relations.category_ids||[]),el.value].filter(Boolean))];}
   else if(language&&LOCALIZED_PRODUCT_FIELDS.includes(el.dataset.prCreateProperty)){
    entry.translations[language]??={name:'',link_rewrite:''};
    entry.translations[language][el.dataset.prCreateProperty]=el.value;
@@ -79,10 +95,26 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   const requested=plan.changes.filter(c=>c.changed);
   if(requested.some(c=>!supported.has(c.field)&&textValue(c.after)!==''))throw Error('El alta contiene campos sin contrato de creación. Deselecciónalos: '+requested.filter(c=>!supported.has(c.field)).map(c=>c.field).join(', '));
   const fields=requested.filter(c=>PRODUCT_CREATE_FIELDS.includes(c.field)).map(c=>({field:c.field,value:textValue(c.after)}));
-  return {reference:entry.reference,price:entry.price,category_id:entry.category_id,translations,...(fields.length?{fields}:{})};
+  return {reference:entry.reference,price:entry.price,category_id:entry.category_id,translations,...(fields.length?{fields}:{}),...(entry.relations?{relations:entry.relations}:{})};
  };
  async function perform(action,shop,plan,source){
   if(plan.operation!=='create'||!shop||plan.store!==shop)throw Error('La operación no pertenece a esta tienda.');
+  if(action==='create-load-relations'){
+   if(attempted.has(shop))throw Error('No se cambian relaciones durante una operación iniciada.');
+   const catalogs={};
+   for(const resource of Object.keys(resourceLabels)){
+    const all=[],seen=new Set();let page=0;
+    while(true){
+     const response=await invoke(shop,'prestashop_read',{resource,page,page_size:100,sort:'oldest'});
+     if(response.resource!==resource||!Array.isArray(response.rows))throw Error('No se pudo consultar '+resourceLabels[resource]+'.');
+     for(const row of response.rows){if(seen.has(String(row.id)))throw Error('La consulta devolvió registros duplicados.');seen.add(String(row.id));all.push(row);}
+     if(!response.possibly_more)break;if(!response.rows.length||++page>1000)throw Error('No se pudo completar el catálogo de '+resourceLabels[resource]+'.');
+    }
+    catalogs[resource]=all;
+   }
+   relationCatalogs.set(shop,catalogs);const data=draft(shop,plan,source);data.relations??={category_ids:data.category_id?[data.category_id]:[]};invalidate();
+   return 'Relaciones consultadas en '+shop+'. Selecciona los registros de destino por su nombre.';
+  }
   if(action==='create-load'){
    if(attempted.has(shop))throw Error('Esta alta ya se intentó. No se cambia el esquema de la petición.');
    const response=await invoke(shop,'prestashop_product_create_profile',{});

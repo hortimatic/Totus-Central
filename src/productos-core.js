@@ -4,11 +4,11 @@ export const PRODUCT_STORES=Object.freeze([
  {key:'newoldsmok',label:'NewOldSmok'}
 ]);
 export const PRODUCT_SECTIONS=Object.freeze({
- general:['name','reference','ean13','isbn','upc','mpn','active','visibility','condition','available_for_order','show_price','online_only','description_short','description'],
+ general:['name','reference','ean13','isbn','upc','mpn','active','visibility','condition','show_condition','available_for_order','show_price','online_only','description_short','description'],
  precios:['price','wholesale_price','unit_price','unity','on_sale','ecotax'],
  seo:['meta_title','meta_description','meta_keywords','link_rewrite','redirect_type','id_type_redirected'],
- transporte:['weight','width','height','depth','additional_shipping_cost','minimal_quantity','available_date'],
- inventario:['location','low_stock_threshold','low_stock_alert','out_of_stock']
+ transporte:['weight','width','height','depth','additional_shipping_cost','additional_delivery_times','delivery_in_stock','delivery_out_stock'],
+ inventario:['location','minimal_quantity','low_stock_threshold','low_stock_alert','out_of_stock','available_date','available_now','available_later']
 });
 export const VARIANT_FIELDS=Object.freeze(['reference','ean13','isbn','upc','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert','default_on']);
 const FIELDS=new Set(Object.values(PRODUCT_SECTIONS).flat());
