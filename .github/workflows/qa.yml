@@ -152,7 +152,7 @@ jobs:
       - run: node --test tests/productos-create-qa.mjs
       - run: node --test tests/productos-create-ui-qa.mjs
       - run: node --test tests/productos-stages-qa.mjs tests/productos-attributes-qa.mjs
-      - run: node --test tests/productos-catalog-qa.mjs tests/productos-image-copy-qa.mjs tests/productos-tax-qa.mjs tests/productos-existing-workspace-qa.mjs
+      - run: node --test tests/productos-catalog-qa.mjs tests/productos-image-copy-qa.mjs tests/productos-gallery-qa.mjs tests/productos-tax-qa.mjs tests/productos-existing-workspace-qa.mjs
       - run: node --test tests/mock-style-parity-qa.mjs
       - run: node --test tests/prestashop-product-create-edge-qa.mjs
       - run: node --test tests/prestashop-permissions-qa.mjs

@@ -25,7 +25,6 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'product_options','GET'),(@account_id,'product_options','POST'),
  (@account_id,'product_option_values','GET'),(@account_id,'product_option_values','POST'),
  (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
- (@account_id,'totus_product_images','GET'),(@account_id,'totus_product_images','PUT'),
  (@account_id,'images','GET'),(@account_id,'images','POST'),(@account_id,'images','PUT'),(@account_id,'images','DELETE'),(@account_id,'image_types','GET'),
  (@account_id,'product_features','GET'),(@account_id,'product_feature_values','GET'),(@account_id,'tags','GET'),
  (@account_id,'suppliers','GET'),(@account_id,'currencies','GET'),
@@ -54,3 +53,9 @@ INSERT INTO ps_feature_value(id_feature,custom) VALUES(@ci_feature,0);
 SET @ci_feature_value=LAST_INSERT_ID();
 INSERT INTO ps_feature_value_lang(id_feature_value,id_lang,value) SELECT @ci_feature_value,id_lang,'CI Metal' FROM ps_lang;
 INSERT INTO ps_tag(id_lang,name) VALUES(1,'TOTUS CI Tag');
+
+-- Installed inactive language fixture; data only, no module or shop code changes.
+INSERT INTO ps_lang(name,active,iso_code,language_code,locale,date_format_lite,date_format_full,is_rtl)
+ VALUES('CI inactive language',0,'zz','zz-ZZ','zz-ZZ','Y-m-d','Y-m-d H:i:s',0);
+SET @ci_inactive_language=LAST_INSERT_ID();
+INSERT INTO ps_lang_shop(id_lang,id_shop) SELECT @ci_inactive_language,id_shop FROM ps_shop;

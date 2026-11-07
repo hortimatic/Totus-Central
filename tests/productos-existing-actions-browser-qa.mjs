@@ -101,15 +101,12 @@ try{
   await page.locator('[data-pr-section="imagenes"]').click();
   assert.equal(await page.locator('[data-pr-action="image-remove"][data-pr-image="90"]').count(),0);
   await page.locator('[data-pr-action="image-metadata"][data-pr-image="91"]').click();
-  const metadata=page.locator('.prd-stage-row').last();
-  await metadata.locator('[data-pr-stage-field="legend"]').fill('Imagen de la tienda');await metadata.locator('[data-pr-stage-field="legend"]').blur();
-  await metadata.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
-  await metadata.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
-  await page.getByText(/Orden y textos de imagen guardado y verificado/).waitFor();
+  const metadata=page.getByRole('dialog');await metadata.locator('input[name="caption"]').fill('Imagen de la tienda');await metadata.getByRole('button',{name:'Guardar texto en Totus',exact:true}).click();
+  await page.getByText(/Texto de imagen guardado en el borrador de Totus/).waitFor();
   const writes=await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')));
-  assert.equal(writes.length,7);assert(writes.slice(0,3).every(c=>c.existing_product===true&&c.kind==='finish'&&!Object.hasOwn(c.fields,'active')&&!Object.hasOwn(c.fields,'available_for_order')&&!Object.hasOwn(c.fields,'description')));
+  assert.equal(writes.length,6);assert(writes.slice(0,3).every(c=>c.existing_product===true&&c.kind==='finish'&&!Object.hasOwn(c.fields,'active')&&!Object.hasOwn(c.fields,'available_for_order')&&!Object.hasOwn(c.fields,'description')));
   assert.equal(writes[0].parent_request_id,writes[1].parent_request_id);
-  assert.notEqual(writes[0].step_key,writes[1].step_key);assert.deepEqual(writes[2].associations,{categories:['4','5'],tags:['81'],accessories:[],product_features:[{feature_id:'8',value_id:'80'}]});assert.equal(writes[2].fields.id_manufacturer,'6');assert.equal(writes[3].kind,'variation_edit');assert.equal(writes[3].record_id,'301');assert.deepEqual(writes[3].associations,{images:['91']});assert.equal(writes[4].kind,'remove_variation');assert.equal(writes[5].kind,'remove_image');assert.equal(writes[6].kind,'image_metadata');assert.equal(writes[6].record_id,'91');assert.deepEqual(writes[6].fields.legend,[{language_id:'1',value:'Imagen de la tienda'}]);
+  assert.notEqual(writes[0].step_key,writes[1].step_key);assert.deepEqual(writes[2].associations,{categories:['4','5'],tags:['81'],accessories:[],product_features:[{feature_id:'8',value_id:'80'}]});assert.equal(writes[2].fields.id_manufacturer,'6');assert.equal(writes[3].kind,'variation_edit');assert.equal(writes[3].record_id,'301');assert.deepEqual(writes[3].associations,{images:['91']});assert.equal(writes[4].kind,'remove_variation');assert.equal(writes[5].kind,'remove_image');assert(!writes.some(c=>c.kind==='image_metadata'),'Local gallery text never calls a private PrestaShop resource');
   await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();
   await page.locator('[data-pr-section="imagenes"]').click();
   await page.locator('[data-pr-action="image-replace"][data-pr-image="91"]').click();
@@ -121,7 +118,7 @@ try{
   const replacementWrite=await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')).at(-1));assert.equal(replacementWrite.kind,'image_replace');assert.equal(replacementWrite.record_id,'91');assert.equal(replacementWrite.image.mime,'image/png');assert.equal(replacementWrite.fields,undefined);
   await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="imagenes"]').click();
   await page.locator('[data-pr-image-drop]').evaluate(node=>{const transfer=new DataTransfer();transfer.items.add(new File(['<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect x="30" y="10" width="40" height="80" fill="navy"/></svg>'],'drop.svg',{type:'image/svg+xml'}));node.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));});
-  await page.getByText(/1 fotos preparadas/).waitFor();assert.equal(await page.locator('.prd-stage-image').count(),1);assert.equal(await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')).length),8,'Dropping photos prepares a review without uploading');
+  await page.getByText(/1 fotos preparadas/).waitFor();assert.equal(await page.locator('.prd-stage-image').count(),1);assert.equal(await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')).length),7,'Dropping photos prepares a review without uploading');
   await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="variaciones"]').click();await page.locator('[data-pr-action="attribute-group"]').click();
   const group=page.locator('.prd-stage-row').last();await group.locator('[data-pr-stage-field="name"]').fill('Formato');await group.locator('[data-pr-stage-field="name"]').blur();await group.locator('[data-pr-stage-field="public_name"]').fill('Formato');await group.locator('[data-pr-stage-field="public_name"]').blur();await group.getByRole('button',{name:'Validar esta etapa',exact:true}).click();await group.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();await page.getByText(/Nuevo atributo guardado y verificado/).waitFor();
   await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="variaciones"]').click();await page.locator('[data-pr-action="attribute-value"]').click();

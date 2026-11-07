@@ -1,3 +1,4 @@
+import {productGallery} from './productos-gallery.js';
 import {STITCH_HEADER,STITCH_VIEWS} from './productos-stitch-template.js';
 import {PRODUCT_COLUMNS,productPhoto} from './productos-catalog.js';
 import {PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,associationIds} from './productos-core.js';
@@ -100,7 +101,7 @@ export const STITCH_FICHE_TABS=Object.freeze([
 ]);
 const inputClass='bg-surface-container-low text-on-surface font-body-md text-body-md px-3 py-1.5 rounded shadow-sm focus:outline-none focus:bg-surface-container-lowest w-full';
 const labelClass='font-label-md text-label-md text-on-surface-variant';
-export function stitchFiche({record,store,section,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml,rawHtml,amounts,brands=[],categories=[],stock=null,organization=null,taxGroups=[]}){
+export function stitchFiche({galleryDraft={},record,store,section,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml,rawHtml,amounts,brands=[],categories=[],stock=null,organization=null,taxGroups=[]}){
  const f=fragment(STITCH_VIEWS['tab-ficha']),view=f.firstElementChild;
  view.classList.remove('hidden');view.classList.add('flex');
  setText(f.querySelector('h2'),textValue(overrides.name??record.name)||'Nuevo producto');
@@ -181,18 +182,19 @@ export function stitchFiche({record,store,section,overrides,variants,variantOver
  if(main&&url){main.dataset.prAction='photo-zoom';main.dataset.prImage=String(record.id_default_image||associationIds(record,'images')[0]);main.tabIndex=0;main.setAttribute('role','button');main.setAttribute('aria-label','Ampliar imagen del producto');}
  for(const img of [main,thumb])if(img){img.removeAttribute('data-alt');img.alt=textValue(record.name)||'Producto';img.src=(img===main&&url?url.replace('-home_default/','-large_default/'):url)||blank;img.classList.replace('object-cover','object-contain');}
  const thumbnailButtons=[...f.querySelectorAll('.sticky-thumb-btn')];
- const images=associationIds(record,'images');
+ const localGallery=productGallery(associationIds(record,'images'),galleryDraft),images=localGallery.order;
  const gallery=f.querySelector('#sub-imagenes');
  const galleryGrid=gallery.querySelector('.grid'),imageCard=galleryGrid.firstElementChild.cloneNode(true),addCard=galleryGrid.lastElementChild.cloneNode(true);
  const upload=gallery.querySelector('button');action(upload,'image-stages');
+ const galleryInfo=document.createElement('p');galleryInfo.className='font-body-sm text-body-sm text-on-surface-variant';galleryInfo.textContent='El orden y los textos se conservan en tu borrador de Totus. La API 1.7 no los modifica en la galería principal de la tienda.';gallery.append(galleryInfo);const descriptionGallery=document.createElement('button');action(descriptionGallery,'gallery-description');descriptionGallery.className='px-space-md py-space-sm rounded bg-primary-container text-on-primary font-label-md text-label-md';descriptionGallery.textContent='Añadir esta galería a la descripción';descriptionGallery.disabled=!images.length;gallery.append(descriptionGallery);
  galleryGrid.replaceChildren();
  images.forEach((id,index)=>{
   const card=imageCard.cloneNode(true),holder=card.querySelector('img').parentElement,picture=card.querySelector('img');
-  picture.src=productPhoto({id_default_image:id},store);picture.alt=textValue(record.name);picture.classList.replace('object-cover','object-contain');picture.removeAttribute('data-alt');
+  picture.src=productPhoto({id_default_image:id},store);picture.alt=localGallery.captions[id]||textValue(record.name);picture.classList.replace('object-cover','object-contain');picture.removeAttribute('data-alt');
   const zoom=document.createElement('button');zoom.className=holder.className+' prd-photo-open';action(zoom,'photo-zoom');zoom.dataset.prImage=id;zoom.setAttribute('aria-label','Ampliar imagen '+id);holder.replaceWith(zoom);zoom.append(picture);
   const caption=card.querySelector('.font-label-sm'),cover=document.createElement('button');cover.className='px-1.5 py-0.2 rounded '+(String(record.id_default_image)===id?'bg-primary text-on-primary font-bold':'bg-primary-fixed text-on-primary-fixed');action(cover,'image-cover');cover.dataset.prImage=id;cover.disabled=String(record.id_default_image)===id;cover.textContent=cover.disabled?'Portada actual':'Usar como portada';caption.replaceChildren(cover);
   const menu=document.createElement('div');menu.className='flex items-center gap-space-xs flex-wrap';
-  for(const [name,symbol,title,disabled,position]of [['image-position','arrow_back','Adelantar imagen '+id,index===0,index],['image-position','arrow_forward','Retrasar imagen '+id,index===images.length-1,index+2],['image-metadata','edit_note','Texto y orden',false],['image-replace','swap_horiz','Sustituir foto',false],['image-remove','delete','Eliminar imagen '+id,false]]){const b=document.createElement('button');action(b,name);b.dataset.prImage=id;if(position!==undefined)b.dataset.prPosition=String(position);b.disabled=disabled;b.className='material-symbols-outlined text-[18px] p-1 rounded '+(name==='image-remove'?'text-error':'text-primary hover:bg-surface-container-high');b.textContent=symbol;b.setAttribute('aria-label',title);b.title=title;menu.append(b);}
+  for(const [name,symbol,title,disabled,position]of [['image-position','arrow_back','Adelantar imagen '+id,index===0,index],['image-position','arrow_forward','Retrasar imagen '+id,index===images.length-1,index+2],['image-metadata','edit_note','Texto de imagen en Totus',false],['image-replace','swap_horiz','Sustituir foto',false],['image-remove','delete','Eliminar imagen '+id,false]]){const b=document.createElement('button');action(b,name);b.dataset.prImage=id;if(position!==undefined)b.dataset.prPosition=String(position);b.disabled=disabled;b.className='material-symbols-outlined text-[18px] p-1 rounded '+(name==='image-remove'?'text-error':'text-primary hover:bg-surface-container-high');b.textContent=symbol;b.setAttribute('aria-label',title);b.title=title;menu.append(b);}
   card.append(menu);galleryGrid.append(card);
  });
  addCard.setAttribute('role','button');addCard.tabIndex=0;addCard.dataset.prAction='image-stages';addCard.dataset.prImageDrop='';galleryGrid.append(addCard);
