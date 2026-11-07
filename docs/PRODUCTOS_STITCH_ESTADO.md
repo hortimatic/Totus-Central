@@ -25,7 +25,9 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   se comprueban país, regla e impuesto. Los casos territoriales o compuestos no se inventan.
 - Recorrido completo simulado en 390, 768 y 1440: edición, combinación, lote,
   creación, existencias, imagen transparente, descripción visual y recuperación.
-- 69 comprobaciones unitarias de Productos cubiertas en esta rama.
+- Selección de portada y combinación predeterminada mediante revisión explícita,
+  guardado y relectura; comprobada en simulación a 390 y 1440 píxeles.
+- 70 comprobaciones unitarias de Productos cubiertas en esta rama.
 
 ## Pendiente antes de poder decir «idéntico y completo»
 
@@ -37,8 +39,8 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
    la confirmación de cada tienda sigue siendo individual y explícita.
 3. Conectar edición de organización, relaciones y atributos nuevos sobre fichas
    existentes. El alta ya mapea relaciones; no atribuir ese soporte a toda edición.
-4. Completar controles de portada, orden, sustitución y eliminación de imágenes,
-   cambio de variante predeterminada y eliminación de combinaciones. No sustituir
+4. Completar controles de orden, sustitución y eliminación de imágenes,
+   y eliminación de combinaciones. No sustituir
    controles faltantes por avisos que simulen una operación correcta.
 5. Revisar la cola completa de borradores e historial frente a las tarjetas del
    prototipo; la aplicación actual conserva las solicitudes por cuenta/tienda,

@@ -423,12 +423,21 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(a==='draft-save'){persistDraft();void storageQueue.then(()=>{if(current()){status=storageError?'No se ha podido guardar el borrador local.':'Borrador guardado para esta cuenta.';render();}});return;}
    if(a==='photo-view'){const img=root.querySelector('#sticky-main-img');if(img)img.src=productPhoto({id_default_image:b.dataset.prPhoto},store);return;}
    if(a==='fiche-validate'){void work(async()=>{targets=new Set([store]);await prepare();mode='guardado';});return;}
-   if(a==='image-stages'||a==='variation-stages'){void work(async()=>{
-    if(!record?.id)throw Error('Guarda primero la base del producto nuevo.');
-    await createWizard.openExisting(store,record);
+   if(['image-stages','variation-stages','image-cover','variation-default'].includes(a)){void work(async()=>{
+    if(!record?.id){
+     if(a!=='variation-default')throw Error('Guarda primero la base del producto nuevo.');
+     for(const variant of variants){const id=keyFor(variant),values=variantOverrides.get(id)||{},chosen=variantFields.get(id)||new Set();values.default_on=id===b.dataset.prVid?'1':'0';chosen.add('default_on');variantOverrides.set(id,values);variantFields.set(id,chosen);}
+     invalidate();status='Variación predeterminada seleccionada en el borrador.';return;
+    }
+    const fresh=await loadItem(store,'products',record.id);
+    await createWizard.openExisting(store,fresh);
     const plan={operation:'update',store,source_id:String(record.id),target_id:String(record.id),changes:[],variants:[],warnings:[]};
-    comparison.set(store,plan);preview=[plan];targetRaw.set(store,record);targets=new Set([store]);
-    status=await createWizard.perform('create-stage-tab',store,plan,record,{tab:a==='image-stages'?'image':'variation'});mode='guardado';
+    comparison.set(store,plan);preview=[plan];targetRaw.set(store,fresh);targets=new Set([store]);
+    const finishFields=a==='image-cover'?{id_default_image:b.dataset.prImage}:a==='variation-default'?{id_default_combination:b.dataset.prVid}:null;
+    const tab=finishFields?'finish':a==='image-stages'?'image':'variation';
+    status=await createWizard.perform('create-stage-tab',store,plan,fresh,{tab});
+    if(finishFields){status=await createWizard.perform('create-stage-add',store,plan,fresh,{kind:'finish',finishFields});status+=' Valida y guarda la revisión para enviarla a la tienda.';}
+    mode='guardado';
    });return;}
 
    if(a==='editor-section'){editorSection=b.dataset.prSection;render();return;}
@@ -447,7 +456,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(a==='shop-open'){void work(async()=>{const shop=b.dataset.prShop,item=shopRecords.get(shop);if(!item)throw Error('Comprueba primero la correspondencia.');store=shop;await openProduct(item.id);});return;}
    if(a==='shop-check'){void work(async()=>{const shop=b.dataset.prShop;if(!record?.id){store=shop;rows=[];mode='catalogo';return;}const ref=textValue(record.reference);if(!ref.trim())throw Error('Falta referencia para comprobar la otra tienda.');const response=await invokeShop(shop,'prestashop_read',{resource:'products',references:[ref],page:0,page_size:100,sort:'oldest'});if(response.possibly_more)throw Error('Correspondencias incompletas.');const match=matchExactReference(response.rows,ref);if(match.status==='ambiguous')throw Error('Referencia duplicada; selecciona una ficha exacta.');if(match.product)shopRecords.set(shop,await loadItem(shop,'products',match.product.id));else shopRecords.delete(shop);status=match.product?'Ficha encontrada en '+shop+'.':'No existe esa referencia en '+shop+'. Puedes preparar su copia.';});return;}
    if(a==='shop-copy'){void work(async()=>{const shop=b.dataset.prShop;targets=new Set([shop]);const sourceName=PRODUCT_STORES.find(s=>s.key===store).label,destName=PRODUCT_STORES.find(s=>s.key===shop).label;const adapted=targetOverrides.get(shop)||{};for(const field of ['meta_title','meta_description','meta_keywords'])adapted[field]=textValue(record[field]).replaceAll(sourceName,destName);targetOverrides.set(shop,adapted);invalidate();mode='comparar';if(fields.size)await prepare();status='Copia selectiva preparada para '+destName+'. Revisa SEO, enlaces y relaciones; categorías y atributos se eligen en destino. Aún no se ha escrito nada.';});return;}
-   if(a.startsWith('create-')){void work(async()=>{const plan=comparison.get(b.dataset.prDest);status=await createWizard.perform(a,b.dataset.prDest,plan,record,{row:b.dataset.prStageRow,tab:b.dataset.prStageTab,kind:b.dataset.prStageKind});});return;}
+   if(a.startsWith('create-')){void work(async()=>{const plan=comparison.get(b.dataset.prDest);status=await createWizard.perform(a,b.dataset.prDest,plan,record,{row:b.dataset.prStageRow,tab:b.dataset.prStageTab,kind:b.dataset.prStageKind});if(['create-stage-commit','create-stage-verify'].includes(a)&&record?.id&&plan?.operation==='update'&&String(plan.target_id)===String(record.id)){try{record=await loadItem(plan.store,'products',record.id);variants=await combinations(plan.store,record);}catch{status+=' El guardado está verificado; queda pendiente refrescar la ficha.';}}});return;}
    if(a==='parallel-section'){parallelSection=b.dataset.prSection;render();return;}
    if(a==='mode'){mode=b.dataset.mode;render();return;}
    if(a==='request-build'){try{requestOutput=buildProductRequest(requestBrief);status='Encargo preparado. Revísalo y cópialo a tu chat con los archivos que quieras aportar.';}catch(error){status=error.message;}render();return;}

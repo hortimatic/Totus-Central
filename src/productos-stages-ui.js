@@ -96,13 +96,21 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   const state=session(shop,result,plan,source,profile,catalogs);
   if(action==='stage-tab'){if(Object.hasOwn(titles,detail.tab))state.tab=detail.tab;return 'Etapa: '+titles[state.tab]+'.';}
   if(action==='stage-add'){
-   const kind=detail.kind;if(!Object.hasOwn(titles,kind))throw Error('Etapa desconocida.');const row=add(state,kind);
+   const kind=detail.kind;if(!Object.hasOwn(titles,kind))throw Error('Etapa desconocida.');
+   if(detail.finishFields){
+    if(kind!=='finish'||!state.result.existing_product||Object.keys(detail.finishFields).some(key=>!['id_default_image','id_default_combination'].includes(key)))throw Error('Selección de portada o combinación no válida.');
+    for(const [key,value]of Object.entries(detail.finishFields))if(!associationIds(source,key==='id_default_image'?'images':'combinations').includes(String(value)))throw Error('La selección no pertenece a este producto.');
+    const pending=state.rows.find(row=>row.kind==='finish'&&!row.attempted&&!row.done);
+    if(pending){Object.assign(pending.fields,detail.finishFields);delete pending.prepared;return 'Selección añadida a la revisión pendiente. Valida y guarda para aplicarla.';}
+   }
+   const row=add(state,kind);
    if(kind==='variation'){row.fields.wholesale_price=textValue(source.wholesale_price)||'0';if(!state.result.existing_product&&!state.rows.some(r=>r!==row&&r.kind==='variation'))row.fields.default_on='1';}
    if(kind==='supplier_price'){row.fields.id_supplier=String(catalogs?.selected_supplier_id||'');row.fields.id_currency=String(state.catalogs.currencies?.[0]?.id||'');}
    if(kind==='finish'){
     if(state.result.existing_product){for(const field of ['active','available_for_order','visibility'])row.fields[field]=textValue(source[field]);row.fields.id_default_combination=textValue(source.id_default_combination);}
     for(const field of ['description','description_short'])row.fields[field]=(profile.language_ids||[]).map(language_id=>({language_id,value:Array.isArray(source[field])?textValue(source[field].find(t=>String(t.id??t.language_id)===String(language_id))?.value):textValue(source[field])}));
     row.presentation={title:textValue(source.name)||'Producto',intro:textValue(source.description_short).replace(/<[^>]+>/g,' ').trim()||'',detailTitle:'Diseño y detalles',detailText:'',specifications:['reference','weight','width','height','depth','ean13'].filter(key=>textValue(source[key])).map(key=>(labels[key]||key)+': '+textValue(source[key])).join('\n'),box:'',notice:''};
+    if(detail.finishFields)Object.assign(row.fields,detail.finishFields);
    }
    return 'Etapa añadida. Completa sus datos y valida antes de guardar.';
   }
