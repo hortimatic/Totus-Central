@@ -1,3 +1,13 @@
+# Componente retirado — no instalar
+
+El 8 de noviembre de 2026 Diego revocó la instalación y ordenó retirar el componente propio de PrestaShop.
+
+Hortimatic: desinstalado desde el gestor nativo con retirada del directorio; búsqueda «totus» sin tarjeta posterior. NewOldSmok: búsqueda «totus» sin componente instalado; no se realizó la instalación prevista.
+
+No se habilitó el recurso propio ni se publicó el PR #144 o el servicio nuevo. La documentación siguiente es histórica y NO autoriza instalar el componente. La integración debe adaptarse a la API oficial y distinguir las funciones nativas de las que no admite esta versión.
+
+---
+
 # Puente de imágenes · versión 1.1.0 en desarrollo
 
 No instalado en las tiendas reales. El ZIP se genera con `tools/build-prestashop-bridge.py`.

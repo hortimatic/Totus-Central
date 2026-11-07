@@ -1,3 +1,13 @@
+# Cambio de alcance · API nativa exclusivamente
+
+8 de noviembre de 2026: retirado el complemento de Hortimatic y verificada su ausencia en NewOldSmok. Diego prohíbe instalaciones adicionales en las tiendas y en otros servicios. No reutilizar aprobaciones anteriores.
+
+El PR #144 NO está publicado. Se está retirando su dependencia de recursos privados y se exige repetir la prueba nativa con PrestaShop sin modificar. Los resultados siguientes son históricos; no acreditan el nuevo recorrido sin complemento.
+
+Objetivos vigentes: interfaz completa fiel al original de Stitch y creación completa desde URL por la cuenta propia de ChatGPT en ambas tiendas. Las operaciones deben usar únicamente la API oficial existente.
+
+---
+
 # Productos · integración del original de Stitch
 
 Estado de trabajo: **en rama de desarrollo; no publicado ni declarado completo**.

@@ -74,7 +74,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
-   price:'1.00',category_id:'2',fields:[{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unit_price_ratio',value:'2'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
+   price:'1.00',category_id:'2',fields:[{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
    translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
@@ -193,7 +193,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(ratioResponse.status,200);
  const ratioData=await ratioResponse.json(),ratioProduct=ratioData.product||ratioData.products?.[0];
  assert.equal(Number(ratioProduct.price),2.35);
- assert.equal(Number(ratioProduct.unit_price_ratio),2,'Changing price must preserve the original unit ratio');
+ assert.equal(Number(ratioProduct.unit_price_ratio),0,'Native API without a configured unit price keeps the native zero ratio');
  assert.equal(ratioProduct.unity,'l');
  const writesBefore=calls.filter(c=>c.method==='PUT').length;
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).replayed,true);
@@ -237,17 +237,8 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const groupRequest={...groupOp,action:'prestashop_product_step_commit',expected_fingerprint:groupPrepared.fingerprint,confirmed:true},groupResult=await runPrestashopProductStage(connection,groupRequest,existingOptions);assert.equal(groupResult.verified,true);assert.equal((await runPrestashopProductStage(connection,groupRequest,existingOptions)).reused,true);
  const valueOp={...existing,kind:'attribute_value',step_key:'ci_format_value',fields:{id_attribute_group:groupResult.record_id,color:'',name:profile.language_ids.map(language_id=>({language_id,value:'CI unit '+language_id}))},associations:{}},valuePrepared=await runPrestashopProductStage(connection,valueOp,existingOptions);assert.equal(valuePrepared.can_commit,true);
  const valueRequest={...valueOp,action:'prestashop_product_step_commit',expected_fingerprint:valuePrepared.fingerprint,confirmed:true};assert.equal((await runPrestashopProductStage(connection,valueRequest,existingOptions)).verified,true);assert.equal((await runPrestashopProductStage(connection,valueRequest,existingOptions)).reused,true);
- const metadata={...existing,kind:'image_metadata',record_id:secondPicture.record_id,step_key:'ci_image_metadata',fields:{position:'1',legend:profile.language_ids.map(language_id=>({language_id,value:'CI image '+language_id}))},associations:{}};
- const metadataPreparation=await runPrestashopProductStage(connection,metadata,existingOptions);
- assert.equal((await runPrestashopProductStage(connection,{...metadata,action:'prestashop_product_step_commit',expected_fingerprint:metadataPreparation.fingerprint,confirmed:true},existingOptions)).verified,true);
- const metadataRead=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id+'?output_format=JSON',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(metadataRead.status,200);const imageMetadata=(await metadataRead.json()).totus_product_image;assert.equal(String(imageMetadata.id_product),String(result.record_id));assert.equal(Number(imageMetadata.position),1);
- // The metadata resource must reject direct attempts to move an image or change its cover.
- const originalMetadata=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
- const immutableXml=await originalMetadata.text();
- for(const tampered of [immutableXml.replace(/<id_product>[\s\S]*?<\/id_product>/,'<id_product>999999</id_product>'),immutableXml.replace(/<cover>[\s\S]*?<\/cover>/,'<cover>1</cover>')]){
-  const rejected=await localOnlyRequest('https://hortimatic.com/api/totus_product_images/'+secondPicture.record_id,{method:'PUT',headers:{Authorization:'Basic '+btoa(key+':'),'Content-Type':'application/xml'},body:tampered});
-  assert(!rejected.ok,'Immutable metadata fields must reject foreign values');
- }
+ // This suite intentionally uses unmodified PrestaShop, without private resources.
+ const nativeRoot=await localOnlyRequest('https://hortimatic.com/api/',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});assert(!String(await nativeRoot.text()).includes('totus_product_images'));
  for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id]]){
   const removal={...existing,kind,record_id:id,step_key:'ci_'+kind+'_'+id,fields:{},associations:{}};
   const preparation=await runPrestashopProductStage(connection,removal,existingOptions);

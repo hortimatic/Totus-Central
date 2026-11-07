@@ -27,7 +27,5 @@ services:
       MYSQL_PASSWORD: prestashop
     volumes:
       - ./bootstrap.sql:/tmp/ci-webservice.sql:ro
-      - ../../prestashop/modules/totusproductbridge:/var/www/html/modules/totusproductbridge:ro
-      - ./bridge-qa.php:/tmp/totus-bridge-qa.php:ro
     ports:
       - "127.0.0.1:8000:80"
