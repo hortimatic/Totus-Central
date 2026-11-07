@@ -91,3 +91,9 @@ test('edición de traducción usa el idioma elegido tanto en GET como PUT y rele
  const done=await runPrestashopProductWrite(connection,{...input('prestashop_product_commit',[{field:'name',language_id:'2',value:'Corrected translation'}]),request_id:UUID,expected_fingerprint:prepared.fingerprint,confirmed:true},{request,resolve,env:{get:()=> '1'},journal:journal()});
  assert.equal(done.verified,true);assert.equal(calls.filter(m=>m==='PUT').length,1);assert.match(current,/CDATA\[Nombre\]/);
 });
+
+
+test('edita productos sin imagen sin invocar getters calculados de portada',async()=>{
+ const request=async(url)=>{const display=new URL(url).searchParams.get('display');assert(display?.includes('categories[id]'));assert(!display.includes('id_default_image'));assert(!display.includes('id_default_combination'));return response(X);};
+ assert.equal((await runPrestashopProductWrite(connection,input(),{request,resolve,env:{get:()=>''}})).persisted,false);
+});

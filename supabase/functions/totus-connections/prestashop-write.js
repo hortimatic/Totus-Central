@@ -1,5 +1,5 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text} from '../../../src/productos-write-contract.js';
+import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,PRODUCT_WRITE_FIELDS} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
@@ -17,6 +17,9 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  if(base.origin!==store.origin||base.search||base.hash||base.pathname.replace(/\/$/,'')!=='/api')
   throw Error('La escritura exige la URL oficial /api de la tienda correspondiente.');
  base.pathname='/api/'+operation.resource+'/'+operation.record_id;
+ // Native 1.7 can throw while rendering computed image fields before any image
+ // exists. Fetch the editable contract and real relations, not cover getters.
+ if(operation.resource==='products')base.searchParams.set('display','['+[...new Set(['id','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','state','product_type',...PRODUCT_WRITE_FIELDS.products,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']');
  const languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
  if(languageIds.length)base.searchParams.set('language','['+languageIds.join('|')+']');
  const target=await safeEndpoint(base.href,resolve);
