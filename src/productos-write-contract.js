@@ -150,6 +150,14 @@ export function minimalProductStageSchema(resource){
 }
 // Used only after the stage contract has validated every field and relationship.
 // No raw XML can arrive from the browser; schema/current XML is fetched by server.
+export function productFinalizationFields(xml,fields){
+ const product=direct(tree(xml),'product'),associations=direct(product,'associations');
+ const groups=associations.children.filter(n=>n.name==='combinations');
+ if(groups.length>1)invalid('Asociación de combinaciones duplicada.');
+ const combinations=groups[0]?.children||[];
+ for(const row of combinations)if(row.name!=='combination'||!integer.test(fieldText(xml,row,'id')))invalid('Combinaciones de destino no verificables.');
+ return {...fields,state:'1',product_type:combinations.length?'combinations':'standard'};
+}
 export function prepareProductStageXml(xml,resource,fields,associations={},recordId=null){
  const singular=nativeNodes[resource];if(!singular)invalid('Recurso de etapa no admitido.');
  const item=direct(tree(xml),singular),edits=[];let extra='';
