@@ -145,11 +145,11 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-const nativeNodes=Object.freeze({products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+const nativeNodes=Object.freeze({product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
 export function minimalProductStageSchema(resource){
- if(!['combinations','product_suppliers','specific_prices'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
+ if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
  const singular=nativeNodes[resource];
- return '<prestashop><'+singular+'><id></id><id_product></id_product>'+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
+ return '<prestashop><'+singular+'><id></id>'+(resource.startsWith('product_option')?'':'<id_product></id_product>')+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
 }
 // Used only after the stage contract has validated every field and relationship.
 // No raw XML can arrive from the browser; schema/current XML is fetched by server.
@@ -187,6 +187,7 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
   const nodes=parent.children.filter(node=>node.name===name);if(nodes.length>1)invalid('Asociación duplicada.');
   if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';
  }
+ if(resource==='product_options'&&parent)edits.push({start:parent.open,end:parent.end,value:''});
  if(added)edits.push({start:parent.contentEnd,end:parent.contentEnd,value:added});
  // PrestaShop sends calculated fields on GET which it rejects on PUT.
  for(const name of resource==='products'?['manufacturer_name','quantity',...['position_in_category','id_default_image','id_default_combination','type'].filter(key=>!Object.hasOwn(fields,key))]:resource==='combinations'?['quantity']:[]){

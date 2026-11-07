@@ -33,7 +33,7 @@ export function stitchHeader({store,mode,status,count,product,pending,connected,
   b.setAttribute('aria-selected',String(active));
   b.classList.toggle('bg-primary-container',active);b.classList.toggle('text-on-primary',active);
   b.classList.toggle('bg-surface-container',!active);b.classList.toggle('text-on-surface-variant',!active);
-  b.classList.toggle('hover:bg-surface-container-high',!active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+  b.classList.toggle('hover:bg-surface-container-high',!active);b.classList.toggle('font-semibold',active);b.classList.toggle('shadow-sm',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   if(i===0)setText(b.querySelector('span:last-child'),count);
   if(i===1)setText(b.querySelector('span:last-child'),product||'Selecciona un producto');
   if(i===3)b.querySelector('span:last-child')?.remove();
@@ -116,7 +116,7 @@ export function stitchFiche({record,store,section,overrides,variants,variantOver
   const active=section===STITCH_FICHE_TABS[i][0];
   b.classList.toggle('bg-primary',active);b.classList.toggle('text-on-primary',active);
   b.classList.toggle('bg-surface-container',!active);b.classList.toggle('text-on-surface-variant',!active);
-  b.setAttribute('aria-current',active?'page':'false');b.classList.toggle('hover:bg-surface-container-high',!active);
+  b.setAttribute('aria-current',active?'page':'false');b.classList.toggle('hover:bg-surface-container-high',!active);b.classList.toggle('font-semibold',active);
  });
  const groups={general:PRODUCT_SECTIONS.general.filter(k=>!['description','description_short'].includes(k)),contenido:['description'],precios:PRODUCT_SECTIONS.precios,seo:PRODUCT_SECTIONS.seo,transporte:PRODUCT_SECTIONS.transporte,inventario:PRODUCT_SECTIONS.inventario};
  const fields=keys=>'<div class="grid grid-cols-2 gap-space-md">'+keys.map(key=>{
@@ -162,6 +162,7 @@ export function stitchFiche({record,store,section,overrides,variants,variantOver
  // Use the original matrix, populated only with the selected shop's real variants.
  const vPanel=f.querySelector('#sub-variaciones'),addVariant=vPanel.querySelector('button');action(addVariant,record.id?'variation-stages':'new-variant');
  const bulk=addVariant.cloneNode(true);action(bulk,'mode');bulk.dataset.mode='bulk';bulk.textContent='Cambios masivos';addVariant.after(bulk);
+ for(const [name,title]of [['attribute-group','Nuevo atributo'],['attribute-value','Nuevo valor']]){const b=addVariant.cloneNode(true);action(b,name);b.textContent=title;bulk.after(b);}
  const table=vPanel.querySelector('table'),sample=table.querySelector('tbody tr');
  const cellClass=sample?.querySelector('td')?.className||'p-space-sm';
  table.querySelector('thead tr').innerHTML=['Pred.','Color / Atributo','Referencia','EAN-13','Coste sin IVA','Impacto sin IVA','Peso (kg)','Existencias','Mínimo','Imagen','Borrar'].map(x=>'<th class="p-space-sm">'+esc(x)+'</th>').join('');
