@@ -195,7 +195,14 @@ export function inspectProductStageXml(xml,resource,fields,associations={}){
   if(Array.isArray(value)){
    const node=direct(item,field);
    for(const translation of value){const languages=node.children.filter(child=>child.name==='language'&&child.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/)?.[2]===translation.language_id);if(languages.length!==1||xmlValue(xml.slice(languages[0].contentStart,languages[0].contentEnd))!==translation.value)invalid('La traducción de '+field+' no coincide.');}
-  }else{const actual=fieldText(xml,item,field),expected=String(value);if(numeric.has(field)?number(actual)===null||number(actual)!==number(expected):actual!==expected)invalid('El campo '+field+' de la etapa no coincide.');}
+  }else{
+   const raw=fieldText(xml,item,field),expected=String(value);
+   // Combination::setWsDefaultOn stores false as SQL NULL. The native
+   // Webservice serializes that as an empty element, meaning not default.
+   // Still require the element, and never normalize other flags or values.
+   const actual=resource==='combinations'&&field==='default_on'&&raw===''?'0':raw;
+   if(numeric.has(field)?number(actual)===null||number(actual)!==number(expected):actual!==expected)invalid('El campo '+field+' de la etapa no coincide.');
+  }
  }
  for(const [name,ids] of Object.entries(associations)){
   const actual=direct(direct(item,'associations'),name).children.map(row=>fieldText(xml,row,'id')).sort();
