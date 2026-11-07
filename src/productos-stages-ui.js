@@ -131,5 +131,5 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   }
   throw Error('Acción de etapa desconocida.');
  }
- return {render,perform,handleChange,handleFile,reset:()=>{sessions.clear();rows.clear();}};
+ return {render,perform,handleChange,handleFile,snapshot:()=>[...sessions],restore:data=>{sessions.clear();rows.clear();for(const [key,state] of data||[]){sessions.set(key,state);for(const row of state.rows)rows.set(row.id,{state,row});}},reset:()=>{sessions.clear();rows.clear();}};
 }

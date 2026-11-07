@@ -148,6 +148,11 @@ try{
   assert.deepEqual(writes.map(c=>c.kind),['variation','stock','image','finish']);
   assert.equal(writes.at(-1).fields.available_for_order,'0');assert(writes.at(-1).fields.description[0].value.includes('/901-large_default/'));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'Etapas sin desbordamiento a '+width);
+  const planCountBefore=await page.locator('.prd-plan').count();
+  await page.evaluate(async()=>{productosQA.calls=[];await productosQA.ui.mount(document.querySelector('#productosRoot'));});
+  await page.getByText(/Borrador recuperado de esta cuenta/).waitFor();
+  assert.equal(await page.locator('.prd-plan').count(),planCountBefore,'Recuperar las fichas con sus solicitudes estables');
+  assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action.endsWith('_commit'))),false,'Recargar nunca repite un alta ni una etapa');
   await page.evaluate(async()=>{productosQA.actor='admin-2';await productosQA.ui.mount(document.querySelector('#productosRoot'));});
   assert.equal(await page.locator('.prd-plan').count(),0);
   assert.deepEqual(errors,[]);

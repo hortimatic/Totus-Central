@@ -62,6 +62,13 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
   throw Error('Resultado de escritura incierto. Consulta el producto real antes de reintentar; no generes otro request_id.');
  }
  if(!response.ok){const code=response.status;await response.body?.cancel();
+  // Native 1.7 may save successfully and then fail serializing calculated fields.
+  // Only an exact readback can reconcile that response; never issue another PUT.
+  if(code===500){
+   try{const checked=selectedXmlValues(await read(),operation.resource,operation.record_id,operation.changes,operation.expected_product_id);
+    if(checked.changes.every(row=>!row.changed)){await journal.complete(signature);return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,changes:result.changes,persisted:true,verified:true,reconciled:true,request_id:operation.request_id};}
+   }catch{}
+  }
   await journal.uncertain(signature);
   throw Error('PrestaShop rechazó la escritura (HTTP '+code+'). Comprueba el producto antes de reintentar.');}
  await response.body?.cancel();

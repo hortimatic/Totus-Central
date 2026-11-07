@@ -74,3 +74,12 @@ test('variaciones: precio de impacto negativo y padre obligatorio; no se puede e
  const r=await runPrestashopProductWrite(shop,args,{resolve,env:{get:()=>''},request:async()=>response(combination)});
  assert.equal(r.persisted,false);assert.equal(r.changes[0].value,'-1.25');
 });
+
+test('PUT 500 reconciles only after exact readback and replay never writes twice',async()=>{
+ let current=X,status=null,count=0;
+ const j={lookup:async()=>status,claim:async()=>{status={status:'pending'};return {status:'claimed'};},complete:async()=>{status={status:'completed'};},uncertain:async()=>{status={status:'uncertain'};}};
+ const args={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true};
+ const opts={journal:j,env:{get:()=> '1'},resolve,request:async(_url,opt)=>{if(opt.method==='PUT'){count++;current=opt.body;return new Response('native serialization error',{status:500});}return response(current);}};
+ const first=await runPrestashopProductWrite(connection,args,opts);assert.equal(first.reconciled,true);assert.equal(first.verified,true);
+ assert.equal((await runPrestashopProductWrite(connection,args,opts)).replayed,true);assert.equal(count,1);
+});

@@ -4,6 +4,7 @@ import {PRODUCT_WRITE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from './productos-write-c
 import {createProductWizard} from './productos-create-ui.js';
 import {esc} from './utils.js';
 import {fieldHelp} from './components.js';
+import {productDraftStore} from './productos-draft-store.js';
 import {productPriceStudy} from './pricing-core.js';
 
 export const productosWorkspacePage=()=>'<div class="page productos-page"><section id="productosRoot" aria-label="Gestión de productos"><p role="status">Cargando Productos…</p></section></div>';
@@ -16,6 +17,7 @@ const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
+ let storageReady=false,storageQueue=Promise.resolve();
  let priceOptions={vat:'21',re:'5.2',discount:'0'};
  let listSize=20,listPage=0;
  let root=null,owner=null,epoch=0,mode='catalogo',store='hortimatic',pending=false,status='Selecciona una tienda y consulta su catálogo.',connections=[],rows=[],hasMore=false,page=0,query='',record=null,variants=[],fields=new Set(),overrides={},variantFields=new Map(),variantOverrides=new Map(),targets=new Set(['newoldsmok']),comparison=new Map(),preview=[],selection=new Set(),targetOverrides=new Map(),preflight=new Map(),targetRaw=new Map(),targetLanguages=new Map(),targetIds=new Map(),variantPreflight=new Map();
@@ -25,6 +27,14 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  const current=()=>!!root?.isConnected&&owner===actor()&&allowed()&&root.dataset.prEpoch===String(epoch);
  const stateSnapshot=()=>({store,mode,record:record?.id||null});
  const createWizard=createProductWizard({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit});
+ const snapshotDraft=()=>({store,mode,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
+ const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record?structuredClone(snapshotDraft()):null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(()=>{if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
+ function restoreDraft(d){
+  if(!d||!PRODUCT_STORES.some(s=>s.key===d.store)||!d.record)return false;
+  ({store,mode,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight}=d);
+  for(const [map,values] of [[shopRecords,d.shops],[editRequests,d.editRequests],[editConfirm,d.editConfirm]]){map.clear();for(const [key,value] of values||[])map.set(key,value);}
+  createWizard.restore(d.wizard);return true;
+ }
  const invalidate=()=>{preview=[];comparison.clear();preflight.clear();variantPreflight.clear();createWizard.invalidate();};
  function resetDraft(){
   shopRecords.clear();editRequests.clear();editConfirm.clear();record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();targetRaw.clear();targetLanguages.clear();targetIds.clear();createWizard.reset();invalidate();
@@ -122,6 +132,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   root.innerHTML='<div class="prd-shell"><header class="prd-intro"><div><span class="eyebrow">Centro independiente PrestaShop</span><h2>Productos</h2><p>Fichas completas, variaciones y transferencias selectivas entre Hortimatic y NewOldSmok.</p></div><label>Tienda de origen<select data-pr-store>'+PRODUCT_STORES.map(s=>'<option value="'+s.key+'" '+(store===s.key?'selected':'')+'>'+h(s.label)+'</option>').join('')+'</select></label></header><p role="status" class="prd-status">'+h(status)+'</p>'+shopCards()+'<nav class="prd-tabs" aria-label="Secciones de Productos">'+MODES.map(([id,label])=>btn(label,'mode','data-mode="'+id+'"'+(mode===id?' aria-current="page"':''),pending)).join('')+'</nav><div class="prd-body">'+(mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?comparisonPanel():bulk())+'</div></div>';
   for(const detail of root.querySelectorAll('.prd-variant'))if(opened.includes(detail.dataset.prVariant))detail.open=true;
   if(pending)for(const el of root.querySelectorAll('button,input,select,textarea'))el.disabled=true;
+  persistDraft();
  }
  async function invokeShop(shop,action,args){
   if(!current())throw Error('La sesión ha cambiado.');
@@ -244,7 +255,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   variants.push(item);variantFields.set(keyFor(item),new Set(['reference','price','minimal_quantity']));status='Variación de borrador añadida. Sus atributos requerirán correspondencia en destino.';
  }
  async function mount(node){
-  dispose();root=node;owner=actor();const gen=++epoch;root.dataset.prEpoch=String(gen);mode='catalogo';store='hortimatic';status='Comprobando conexiones. Ningún dato se modifica.';rows=[];page=0;hasMore=false;resetDraft();
+  dispose();storageReady=false;root=node;owner=actor();const gen=++epoch;root.dataset.prEpoch=String(gen);mode='catalogo';store='hortimatic';status='Comprobando conexiones. Ningún dato se modifica.';rows=[];page=0;hasMore=false;resetDraft();
   if(!allowed()){root.textContent='No tienes permiso de consulta de PrestaShop.';return;}
   root.oninput=e=>{if(e.target.matches('[data-pr-search]')){query=e.target.value;listPage=0;render();const f=root.querySelector('[data-pr-search]');f?.focus();f?.setSelectionRange(query.length,query.length);}};
   root.onchange=e=>{
@@ -258,11 +269,11 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-target]')){e.target.checked?targets.add(e.target.dataset.prTarget):targets.delete(e.target.dataset.prTarget);invalidate();render();return;}
    if(e.target.matches('[data-pr-field]')){const field=e.target.dataset.prField;e.target.checked?fields.add(field):fields.delete(field);if(!e.target.checked){delete overrides[field];for(const values of targetOverrides.values())delete values[field];}invalidate();render();return;}
    if(e.target.matches('[data-pr-value]')){overrides[e.target.dataset.prValue]=e.target.value;invalidate();if(['price','wholesale_price'].includes(e.target.dataset.prValue))render();return;}
-   if(e.target.matches('[data-pr-existing-id]')){targetIds.set(e.target.dataset.prExistingId,e.target.value);invalidate();return;}
-   if(e.target.matches('[data-pr-target-field]')){const dest=e.target.dataset.prTargetStore,field=e.target.dataset.prTargetField,values=targetOverrides.get(dest)||{};targets.add(dest);fields.add(field);values[field]=e.target.value;targetOverrides.set(dest,values);invalidate();return;}
-   if(e.target.matches('[data-pr-lang-store]')){const dest=e.target.dataset.prLangStore,field=e.target.dataset.prLangField,values=targetLanguages.get(dest)||{};values[field]=e.target.value;targetLanguages.set(dest,values);preflight.clear();return;}
+   if(e.target.matches('[data-pr-existing-id]')){targetIds.set(e.target.dataset.prExistingId,e.target.value);invalidate();persistDraft();return;}
+   if(e.target.matches('[data-pr-target-field]')){const dest=e.target.dataset.prTargetStore,field=e.target.dataset.prTargetField,values=targetOverrides.get(dest)||{};targets.add(dest);fields.add(field);values[field]=e.target.value;targetOverrides.set(dest,values);invalidate();persistDraft();return;}
+   if(e.target.matches('[data-pr-lang-store]')){const dest=e.target.dataset.prLangStore,field=e.target.dataset.prLangField,values=targetLanguages.get(dest)||{};values[field]=e.target.value;targetLanguages.set(dest,values);preflight.clear();persistDraft();return;}
    if(e.target.matches('[data-pr-vfield]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVfield,set=variantFields.get(id)||new Set();e.target.checked?set.add(field):set.delete(field);variantFields.set(id,set);invalidate();render();return;}
-   if(e.target.matches('[data-pr-vvalue]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVvalue,values=variantOverrides.get(id)||{};values[field]=e.target.value;variantOverrides.set(id,values);invalidate();return;}
+   if(e.target.matches('[data-pr-vvalue]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVvalue,values=variantOverrides.get(id)||{};values[field]=e.target.value;variantOverrides.set(id,values);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-bulk]')){e.target.checked?selection.add(e.target.dataset.prBulk):selection.delete(e.target.dataset.prBulk);render();}
   };
   root.onclick=e=>{const b=e.target.closest('[data-pr-action]');if(!b||!current())return;const a=b.dataset.prAction;
@@ -288,10 +299,10 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   render();
   try{const response=await rpc('totus_prestashop_context',{});if(!current()||epoch!==gen)return;connections=response?.connections||[];status='Conexiones consultadas. Selecciona la tienda y carga el catálogo.';}
   catch(e){if(current()&&epoch===gen)status='No se han podido comprobar las conexiones: '+(e.message||'error');}
-  if(current()&&epoch===gen)render();
+  if(current()&&epoch===gen){try{await storageQueue;const saved=await productDraftStore(owner);if(current()&&epoch===gen&&restoreDraft(saved))status='Borrador recuperado de esta cuenta. Comprueba las operaciones enviadas antes de repetir un guardado.';}catch{}storageReady=true;render();}
  }
  function hasDraft(){return !!record&&(fields.size>0||[...variantFields.values()].some(s=>s.size>0));}
  function discardDraft(){resetDraft();status='Propuesta descartada.';if(current())render();}
- function dispose(){if(root){root.onclick=null;root.onchange=null;root.oninput=null;}root=null;owner=null;++epoch;pending=false;}
+ function dispose(){persistDraft();storageReady=false;if(root){root.onclick=null;root.onchange=null;root.oninput=null;}root=null;owner=null;++epoch;pending=false;}
  return {mount,dispose,hasDraft,discardDraft,stateSnapshot};
 }

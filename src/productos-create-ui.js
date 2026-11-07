@@ -180,5 +180,5 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   }
   throw Error('Acción de alta desconocida.');
  }
- return {render,reset,invalidate,handleChange,perform,handleFile:stages.handleFile,hasAttempted:shop=>attempted.has(shop)};
+ return {render,reset,invalidate,handleChange,perform,handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
 }
