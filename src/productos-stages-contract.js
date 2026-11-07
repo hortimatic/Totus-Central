@@ -3,15 +3,16 @@ const id=/^[1-9]\d{0,14}$/;
 const unsigned=/^\d{1,15}$/;
 const decimal=/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/;
 const signed=/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/;
-export const PRODUCT_STAGE_RESOURCES=Object.freeze({variation:'combinations',stock:'stock_availables',supplier_price:'product_suppliers',special_price:'specific_prices',image:'images',finish:'products'});
+export const PRODUCT_STAGE_RESOURCES=Object.freeze({variation:'combinations',variation_images:'combinations',stock:'stock_availables',supplier_price:'product_suppliers',special_price:'specific_prices',image:'images',finish:'products'});
 const fields=Object.freeze({
+ variation_images:['id_product_attribute'],
  variation:['reference','ean13','upc','isbn','mpn','supplier_reference','price','wholesale_price','weight','ecotax','unit_price_impact','minimal_quantity','low_stock_threshold','low_stock_alert','default_on','available_date'],
  stock:['id_product_attribute','quantity','out_of_stock','depends_on_stock','location'],
  supplier_price:['id_product_attribute','id_supplier','id_currency','product_supplier_reference','product_supplier_price_te'],
  special_price:['id_product_attribute','id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','price','from_quantity','reduction','reduction_tax','reduction_type','from','to'],
  finish:['active','available_for_order','visibility','id_default_image','id_default_combination','description','description_short']
 });
-const required=Object.freeze({variation:['reference','minimal_quantity','default_on'],stock:['id_product_attribute','quantity','out_of_stock','depends_on_stock'],supplier_price:['id_product_attribute','id_supplier','id_currency','product_supplier_reference','product_supplier_price_te'],special_price:['id_product_attribute','id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','price','from_quantity','reduction','reduction_tax','reduction_type','from','to'],finish:['active','available_for_order']});
+const required=Object.freeze({variation_images:['id_product_attribute'],variation:['reference','minimal_quantity','default_on'],stock:['id_product_attribute','quantity','out_of_stock','depends_on_stock'],supplier_price:['id_product_attribute','id_supplier','id_currency','product_supplier_reference','product_supplier_price_te'],special_price:['id_product_attribute','id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','price','from_quantity','reduction','reduction_tax','reduction_type','from','to'],finish:['active','available_for_order']});
 function fail(message){throw Error(message);}
 export function validateProductStage(input){
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['action','id','call_id','revision','store','parent_request_id','product_id','kind','step_key','fields','associations','image','record_id','expected_fingerprint','confirmed','existing_product'].includes(k)))fail('Solicitud de etapa no válida.');
@@ -55,11 +56,12 @@ export function validateProductStage(input){
  }
  if(input.kind==='special_price'&&input.fields.reduction_type==='percentage'&&Number(input.fields.reduction)>1)fail('El descuento porcentual se expresa entre 0 y 1.');
  const associations=input.associations??{};
- if(typeof associations!=='object'||Array.isArray(associations)||Object.keys(associations).some(k=>input.kind!=='variation'||!['product_option_values','images'].includes(k)))fail('Relaciones de etapa no admitidas.');
+ if(typeof associations!=='object'||Array.isArray(associations)||Object.keys(associations).some(k=>!['variation','variation_images'].includes(input.kind)||!(input.kind==='variation'?['product_option_values','images']:['images']).includes(k)))fail('Relaciones de etapa no admitidas.');
  for(const [key,values] of Object.entries(associations)){
   if(!Array.isArray(values)||values.some(v=>!id.test(String(v)))||new Set(values.map(String)).size!==values.length)fail('Selecciona atributos e imágenes válidos.');
   out.associations[key]=values.map(String);
  }
  if(input.kind==='variation'&&!out.associations.product_option_values?.length)fail('La variación necesita valores de atributos del destino.');
+ if(input.kind==='variation_images'&&(!out.existing_product||out.associations.images?.length!==1))fail('Asocia una imagen real únicamente a una combinación existente.');
  return out;
 }
