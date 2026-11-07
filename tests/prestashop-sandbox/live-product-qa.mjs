@@ -134,7 +134,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const finished=await runPrestashopProductStage(connection,{...finish,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:finishPrep.fingerprint},options);
  assert.equal(finished.verified,true);
  const untouched=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,wholesale_price,price,weight,active,available_for_order]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
- assert.equal(untouched.status,200);const saved=(await untouched.json()).product;
+ assert.equal(untouched.status,200);const savedData=await untouched.json(),saved=savedData.product||savedData.products?.[0];assert(saved,'Native response must contain its product');
  assert.equal(Number(saved.wholesale_price),0.39);assert.equal(Number(saved.price),1);assert.equal(Number(saved.weight),0.15);assert.equal(Number(saved.available_for_order),0);
  let editStatus=null;
  const editJournal={lookup:async()=>editStatus,claim:async()=>{assert.equal(editStatus,null);editStatus={status:'pending'};return {status:'claimed'};},complete:async()=>{editStatus={status:'completed'};},uncertain:async()=>{editStatus={status:'uncertain'};}};

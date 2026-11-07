@@ -112,7 +112,7 @@ test('los campos preparados no desaparecen del alta y los no implementados se ex
  const values=f.calls.at(-1).args;
  assert.equal(values.translations[0].description,'Descripción');assert.equal(values.translations[1].description,'Descripción');
  assert.deepEqual(values.fields,[{field:'wholesale_price',value:'3.90'}]);
- const units=fixture();await complete(units,{...plan,changes:[...plan.changes,{field:'unit_price',after:'10',changed:true}]});assert.deepEqual(units.calls.at(-1).args.fields,[{field:'unit_price',value:'10'}]);
+ const units=fixture();await complete(units,{...plan,changes:[...plan.changes,{field:'unit_price_ratio',after:'10',changed:true}]});assert.deepEqual(units.calls.at(-1).args.fields,[{field:'unit_price_ratio',value:'10'}]);
  const bad=fixture();await assert.rejects(()=>complete(bad,{...plan,changes:[...plan.changes,{field:'redirect_type',after:'301-product',changed:true}]}),/sin contrato/);
 });
 test('comprobar resultado reutiliza el identificador de una solicitud incierta',async()=>{
