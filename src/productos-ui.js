@@ -19,7 +19,7 @@ const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  let storageReady=false,storageQueue=Promise.resolve();
  let priceOptions={vat:'21',re:'5.2',discount:'0'};
- let listSize=20,listPage=0;
+ let listSize=20,listPage=0,parallelSection='general';
  let root=null,owner=null,epoch=0,mode='catalogo',store='hortimatic',pending=false,status='Selecciona una tienda y consulta su catálogo.',connections=[],rows=[],hasMore=false,page=0,query='',record=null,variants=[],fields=new Set(),overrides={},variantFields=new Map(),variantOverrides=new Map(),targets=new Set(['newoldsmok']),comparison=new Map(),preview=[],selection=new Set(),targetOverrides=new Map(),preflight=new Map(),targetRaw=new Map(),targetLanguages=new Map(),targetIds=new Map(),variantPreflight=new Map();
  const connection=shop=>storeConnection(connections,shop);
  const shopRecords=new Map(),editRequests=new Map(),editConfirm=new Map();
@@ -27,11 +27,11 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  const current=()=>!!root?.isConnected&&owner===actor()&&allowed()&&root.dataset.prEpoch===String(epoch);
  const stateSnapshot=()=>({store,mode,record:record?.id||null});
  const createWizard=createProductWizard({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit});
- const snapshotDraft=()=>({store,mode,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
+ const snapshotDraft=()=>({store,mode,parallelSection,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
  const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record?structuredClone(snapshotDraft()):null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(()=>{if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
  function restoreDraft(d){
   if(!d||!PRODUCT_STORES.some(s=>s.key===d.store)||!d.record)return false;
-  ({store,mode,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight}=d);
+  ({store,mode,parallelSection,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight}=d);
   for(const [map,values] of [[shopRecords,d.shops],[editRequests,d.editRequests],[editConfirm,d.editConfirm]]){map.clear();for(const [key,value] of values||[])map.set(key,value);}
   createWizard.restore(d.wizard);return true;
  }
@@ -40,10 +40,15 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   shopRecords.clear();editRequests.clear();editConfirm.clear();record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();targetRaw.clear();targetLanguages.clear();targetIds.clear();createWizard.reset();invalidate();
  }
  function sectionTitle(section){return ({general:'Información y descripción',precios:'Precios e impuestos',seo:'SEO',transporte:'Transporte',inventario:'Disponibilidad',organizacion:'Organización'})[section]||section;}
+ function fieldControl(field,value,attrs,disabled=false){
+  const enums={active:[['0','Inactivo'],['1','Activo']],available_for_order:[['0','No permitir compra'],['1','Permitir compra']],show_price:[['0','Ocultar precio'],['1','Mostrar precio']],online_only:[['0','No'],['1','Sí']],on_sale:[['0','No'],['1','Sí']],show_condition:[['0','No'],['1','Sí']],low_stock_alert:[['0','No'],['1','Sí']],visibility:[['both','Catálogo y búsqueda'],['catalog','Solo catálogo'],['search','Solo búsqueda'],['none','Oculto']],condition:[['new','Nuevo'],['used','Usado'],['refurbished','Reacondicionado']],additional_delivery_times:[['0','Sin plazo'],['1','Plazo general'],['2','Plazo específico']],out_of_stock:[['0','Denegar pedidos'],['1','Permitir pedidos'],['2','Preferencia de la tienda']]};
+  const locked=disabled?' disabled':'';
+  if(enums[field])return '<select '+attrs+locked+'><option value="">Sin indicar</option>'+enums[field].map(([id,label])=>'<option value="'+id+'" '+(String(value)===id?'selected':'')+'>'+label+'</option>').join('')+'</select>';
+  return ['description','description_short','meta_description'].includes(field)?'<textarea '+attrs+' rows="4"'+locked+'>'+h(value)+'</textarea>':'<input '+attrs+' value="'+h(value)+'"'+locked+'>';
+ }
  function showField(field){
   const value=Object.prototype.hasOwnProperty.call(overrides,field)?overrides[field]:textValue(record?.[field]);
-  const large=['description','description_short','meta_description'].includes(field);
-  return '<label class="prd-field"><span><input type="checkbox" data-pr-field="'+h(field)+'" '+(fields.has(field)?'checked':'')+'><b>'+h(metadata[field]||field)+'</b>'+fieldHelp(metadata[field]||field,'Selecciona este campo para incluirlo en la propuesta. Precio y coste se expresan sin impuestos; las categorías y relaciones se verifican en la tienda de destino.')+'</span>'+(large?'<textarea data-pr-value="'+h(field)+'" rows="3" '+(!fields.has(field)?'disabled':'')+'>'+h(value)+'</textarea>':'<input data-pr-value="'+h(field)+'" value="'+h(value)+'" '+(!fields.has(field)?'disabled':'')+'>')+'</label>';
+  return '<label class="prd-field"><span><input type="checkbox" data-pr-field="'+h(field)+'" '+(fields.has(field)?'checked':'')+'><b>'+h(metadata[field]||field)+'</b>'+fieldHelp(metadata[field]||field,'Selecciona este campo para incluirlo en la propuesta. Precio y coste se expresan sin impuestos; las categorías y relaciones se verifican en la tienda de destino.')+'</span>'+fieldControl(field,value,'data-pr-value="'+h(field)+'"',!fields.has(field))+'</label>';
  }
  function form(){
   return '<section class="prd-fields"><p class="prd-note">Selecciona únicamente los campos que quieres preparar. El texto es editable antes de comparar o aplicar. Los campos sin seleccionar nunca entran en el plan.</p>'+priceHelp()+Object.entries(PRODUCT_SECTIONS).map(([section,names])=>'<details open class="card card-pad"><summary><strong>'+h(sectionTitle(section))+'</strong></summary><div class="prd-fields-grid">'+names.filter(n=>record&&Object.prototype.hasOwnProperty.call(record,n)||['name','reference','description','meta_title','meta_description','price','link_rewrite'].includes(n)).map(showField).join('')+'</div></details>').join('')+'</section>';
@@ -122,14 +127,16 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function parallelEditors(){
   const stores=[store,...PRODUCT_STORES.map(s=>s.key).filter(s=>s!==store)];
-  return '<div class="prd-parallel-editors">'+stores.map(shop=>{
+  const sections={general:PRODUCT_SECTIONS.general.filter(f=>!['description','description_short'].includes(f)),contenido:['description_short','description'],...Object.fromEntries(Object.entries(PRODUCT_SECTIONS).filter(([key])=>key!=='general'))};
+  if(!sections[parallelSection])parallelSection='general';
+  return '<nav class="prd-parallel-tabs" aria-label="Apartados de ambas fichas">'+Object.keys(sections).map(key=>btn(key==='contenido'?'Contenido':key==='general'?'Datos':sectionTitle(key),'parallel-section','data-pr-section="'+key+'"'+(parallelSection===key?' aria-current="page"':''),pending)).join('')+'</nav><div class="prd-parallel-editors">'+stores.map(shop=>{
    const source=shop===store,target=targetRaw.get(shop),values=targetOverrides.get(shop)||{};
-   return '<fieldset><legend>'+h(PRODUCT_STORES.find(s=>s.key===shop).label)+(source?' · origen':' · destino')+'</legend><p class="small">'+(source?'Marca los campos que deseas copiar.':'Completa o adapta los campos del destino. Nada se envía hasta validar y confirmar.')+'</p>'+(!source?'<label class="prd-field"><b>ID de destino existente (opcional)</b><input data-pr-existing-id="'+shop+'" value="'+h(targetIds.get(shop)||'')+'" placeholder="Buscar por referencia si se deja vacío"></label>':'')+Object.entries(PRODUCT_SECTIONS).map(([section,names])=>'<details'+(['general','seo'].includes(section)?' open':'')+'><summary>'+h(sectionTitle(section))+'</summary><div class="prd-fields-grid">'+names.map(field=>{
+   return '<fieldset><legend>'+h(PRODUCT_STORES.find(s=>s.key===shop).label)+(source?' · origen':' · destino')+'</legend><p class="small">'+(source?'Marca los campos que deseas copiar.':'Completa o adapta los campos del destino. Nada se envía hasta validar y confirmar.')+'</p>'+(!source?'<label class="prd-field"><b>ID de destino existente (opcional)</b><input data-pr-existing-id="'+shop+'" value="'+h(targetIds.get(shop)||'')+'" placeholder="Buscar por referencia si se deja vacío"></label>':'')+'<div class="prd-fields-grid">'+sections[parallelSection].map(field=>{
     if(source)return showField(field);
     const value=Object.prototype.hasOwnProperty.call(values,field)?values[field]:fields.has(field)?Object.prototype.hasOwnProperty.call(overrides,field)?overrides[field]:textValue(record[field]):textValue(target?.[field]);
     const attrs='data-pr-target-field="'+h(field)+'" data-pr-target-store="'+shop+'"';
-    return '<label class="prd-field"><b>'+h(metadata[field]||field)+'</b>'+(['description','description_short','meta_description'].includes(field)?'<textarea '+attrs+' rows="3">'+h(value)+'</textarea>':'<input '+attrs+' value="'+h(value)+'">')+languagePicker(shop,field)+'</label>';
-   }).join('')+'</div></details>').join('')+'</fieldset>';
+    return '<label class="prd-field"><b>'+h(metadata[field]||field)+'</b>'+fieldControl(field,value,attrs)+languagePicker(shop,field)+'</label>';
+   }).join('')+'</div></fieldset>';
   }).join('')+'</div>';
  }
  function comparisonPanel(){
@@ -142,7 +149,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  function render(){
   if(!current())return;
   const opened=[...root.querySelectorAll('.prd-variant[open]')].map(el=>el.dataset.prVariant);
-  root.innerHTML='<div class="prd-shell"><header class="prd-intro"><div><span class="eyebrow">Centro independiente PrestaShop</span><h2>Productos</h2><p>Fichas completas, variaciones y transferencias selectivas entre Hortimatic y NewOldSmok.</p></div><label>Tienda de origen<select data-pr-store>'+PRODUCT_STORES.map(s=>'<option value="'+s.key+'" '+(store===s.key?'selected':'')+'>'+h(s.label)+'</option>').join('')+'</select></label></header><p role="status" class="prd-status">'+h(status)+'</p>'+shopCards()+'<nav class="prd-tabs" aria-label="Secciones de Productos">'+MODES.map(([id,label])=>btn(label,'mode','data-mode="'+id+'"'+(mode===id?' aria-current="page"':''),pending)).join('')+'</nav><div class="prd-body">'+(mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?comparisonPanel():bulk())+'</div></div>';
+  root.innerHTML='<div class="prd-shell"><header class="prd-intro"><div><span class="eyebrow">Centro independiente PrestaShop</span><h2>Productos</h2><p>Fichas completas, variaciones y transferencias selectivas entre Hortimatic y NewOldSmok.</p></div><label>Tienda de origen<select data-pr-store>'+PRODUCT_STORES.map(s=>'<option value="'+s.key+'" '+(store===s.key?'selected':'')+'>'+h(s.label)+'</option>').join('')+'</select></label></header><p role="status" class="prd-status">'+h(status)+'</p>'+(mode==='comparar'?'':shopCards())+'<nav class="prd-tabs" aria-label="Secciones de Productos">'+MODES.map(([id,label])=>btn(label,'mode','data-mode="'+id+'"'+(mode===id?' aria-current="page"':''),pending)).join('')+'</nav><div class="prd-body">'+(mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?comparisonPanel():bulk())+'</div></div>';
   for(const detail of root.querySelectorAll('.prd-variant'))if(opened.includes(detail.dataset.prVariant))detail.open=true;
   if(pending)for(const el of root.querySelectorAll('button,input,select,textarea'))el.disabled=true;
   persistDraft();
@@ -189,7 +196,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   resetDraft();record=normalizedProduct(await loadItem(store,'products',id)).raw;
   shopRecords.clear();shopRecords.set(store,record);
   variants=await combinations(store,record);
-  mode='ficha';status='Ficha #'+id+' y '+variants.length+' combinaciones leídas de '+store+'. Selecciona campos para preparar cambios.';
+  mode='comparar';targets=new Set(PRODUCT_STORES.map(s=>s.key).filter(s=>s!==store));status='Ficha #'+id+' y '+variants.length+' combinaciones leídas de '+store+'. Selecciona campos para preparar cambios.';
  }
  function freshProduct(){
   resetDraft();record={...Object.fromEntries(Object.values(PRODUCT_SECTIONS).flat().map(field=>[field,''])),id:null,active:'0',minimal_quantity:'1',available_for_order:'1',show_price:'1',online_only:'0',on_sale:'0',visibility:'both',condition:'new'};
@@ -294,6 +301,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(a==='shop-check'){void work(async()=>{const shop=b.dataset.prShop;if(!record?.id){store=shop;rows=[];mode='catalogo';return;}const ref=textValue(record.reference);if(!ref.trim())throw Error('Falta referencia para comprobar la otra tienda.');const response=await invokeShop(shop,'prestashop_read',{resource:'products',references:[ref],page:0,page_size:100,sort:'oldest'});if(response.possibly_more)throw Error('Correspondencias incompletas.');const match=matchExactReference(response.rows,ref);if(match.status==='ambiguous')throw Error('Referencia duplicada; selecciona una ficha exacta.');if(match.product)shopRecords.set(shop,await loadItem(shop,'products',match.product.id));else shopRecords.delete(shop);status=match.product?'Ficha encontrada en '+shop+'.':'No existe esa referencia en '+shop+'. Puedes preparar su copia.';});return;}
    if(a==='shop-copy'){void work(async()=>{const shop=b.dataset.prShop;targets=new Set([shop]);const sourceName=PRODUCT_STORES.find(s=>s.key===store).label,destName=PRODUCT_STORES.find(s=>s.key===shop).label;const adapted=targetOverrides.get(shop)||{};for(const field of ['meta_title','meta_description','meta_keywords'])adapted[field]=textValue(record[field]).replaceAll(sourceName,destName);targetOverrides.set(shop,adapted);invalidate();mode='comparar';if(fields.size)await prepare();status='Copia selectiva preparada para '+destName+'. Revisa SEO, enlaces y relaciones; categorías y atributos se eligen en destino. Aún no se ha escrito nada.';});return;}
    if(a.startsWith('create-')){void work(async()=>{const plan=comparison.get(b.dataset.prDest);status=await createWizard.perform(a,b.dataset.prDest,plan,record,{row:b.dataset.prStageRow,tab:b.dataset.prStageTab,kind:b.dataset.prStageKind});});return;}
+   if(a==='parallel-section'){parallelSection=b.dataset.prSection;render();return;}
    if(a==='mode'){mode=b.dataset.mode;render();return;}
    if(a==='new-product'){freshProduct();render();return;}
    if(a==='new-variant'){newVariant();render();return;}

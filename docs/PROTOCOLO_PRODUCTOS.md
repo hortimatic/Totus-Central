@@ -11,7 +11,7 @@ Orden: comprobar conexión e identidad; leer las fichas; preparar los campos; co
 ## Interfaz manual
 
 1. Abrir Productos y seleccionar la tienda. Las dos tarjetas identifican las fichas; «Comprobar correspondencia» busca una referencia exacta, sin elegir arbitrariamente entre duplicados.
-2. Abrir un producto o «Crear borrador nuevo». En «Fichas paralelas», la columna de origen tiene casillas de selección. La columna de destino permite completar los valores, incluido SEO propio. En pantalla estrecha se apilan sin desbordar.
+2. Abrir un producto o «Crear borrador nuevo». En «Fichas paralelas», ambas columnas comparten pestañas de Datos, Contenido, Precios, SEO, Transporte y Disponibilidad. La columna de origen tiene casillas de selección. La columna de destino permite completar los valores, incluido SEO propio. En pantalla estrecha se apilan sin desbordar.
 3. «Copiar y adaptar aquí» prepara la transferencia de los campos elegidos; no escribe. Revisar metatítulo, metadescripción, URL y enlaces de las descripciones. Una sustitución del nombre de la tienda no constituye un trabajo SEO completo.
 4. Buscar coincidencias. Una referencia existente propone actualizar esa ficha; no crear un duplicado. Si las referencias difieren, indicar el ID real de destino y releerlo.
 5. Para un alta: consultar idiomas y categorías del destino; seleccionar categoría predeterminada y categorías adicionales por nombre; elegir marca, proveedor, impuestos, etiquetas, características/materiales y relacionados desde los catálogos de esa tienda. La categoría padre forma parte de la jerarquía del catálogo; no se inventa ni se copia su ID desde otra tienda.

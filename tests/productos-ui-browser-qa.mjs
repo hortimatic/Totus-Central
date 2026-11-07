@@ -79,7 +79,7 @@ try{
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   await page.evaluate(()=>{productosQA.allowWrites=true;});
   assert.equal(await page.locator('.prd-parallel-editors > fieldset').count(),2,'Dos fichas paralelas');
-  if(width===1440&&process.env.TOTUS_PRODUCTS_CAPTURE)await page.screenshot({path:process.env.TOTUS_PRODUCTS_CAPTURE,fullPage:false});
+  if(width===1440&&process.env.TOTUS_PRODUCTS_CAPTURE){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:process.env.TOTUS_PRODUCTS_CAPTURE,fullPage:false});}
   await page.locator('[data-pr-lang-store="newoldsmok"][data-pr-lang-field="name"]').selectOption('1');
   await page.getByRole('button',{name:'Validar contra el XML de la tienda'}).click();
   await page.getByText(/XML del producto validado/).waitFor();
