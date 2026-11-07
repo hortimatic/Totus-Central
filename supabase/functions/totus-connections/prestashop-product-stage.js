@@ -66,7 +66,12 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(rows.length&&!/^[1-9]\d{0,14}$/.test(String(rows[0].id)))throw Error('Registro de etapa no válido.');return rows.length?String(rows[0].id):null;
  };
  const desired=op.kind==='finish'?op.fields:{id_product:op.product_id,...op.fields};
- const verify=async(recordId)=>inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+Object.keys(desired).join(',')+']'}:{}),op.resource,desired,op.associations);
+ let nativeHtmlNormalized=false;
+ const verify=async(recordId)=>{
+  const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+Object.keys(desired).join(',')+']'}:{}),op.resource,desired,op.associations);
+  nativeHtmlNormalized||=checked.native_html_normalized===true;
+  return checked;
+ };
  const prior=op.commit?await journal.lookup(op):null;
  if(prior){
   if(prior.signature!==signature)throw Error('Esta etapa ya está vinculada a otros datos.');
@@ -75,7 +80,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(op.kind!=='image')await verify(String(recordId));
   else{const product=await rootJson();if(!(product.associations?.images||[]).some(row=>String(row.id)===String(recordId)))throw Error('No se confirma la imagen en este producto.');}
   if(prior.status!=='completed')await journal.complete(op,signature,String(recordId));
-  return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:String(recordId),persisted:true,verified:true,reused:true};
+  return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:String(recordId),persisted:true,verified:true,reused:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};
  }
  const recordId=op.kind==='finish'?op.product_id:op.kind==='image'?null:await find();
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
@@ -113,9 +118,9 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
    await verify(saved);
   }
  }catch(error){
-  if(!image){try{saved=saved||await find();if(saved){await verify(saved);await journal.complete(op,signature,saved);return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,reconciled:true};}}catch{}}
+  if(!image){try{saved=saved||await find();if(saved){await verify(saved);await journal.complete(op,signature,saved);return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,reconciled:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};}}catch{}}
   await journal.uncertain(op,signature);throw Error('Etapa incierta; no se repetirá automáticamente. '+String(error?.message||error));
  }
  await journal.complete(op,signature,saved);
- return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,...(image?{original_transparent:true,store_may_convert_format:true}:{})};
+ return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:saved,persisted:true,verified:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{}),...(image?{original_transparent:true,store_may_convert_format:true}:{})};
 }

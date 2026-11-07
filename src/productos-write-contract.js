@@ -191,10 +191,30 @@ export function inspectProductStageXml(xml,resource,fields,associations={}){
  const item=direct(tree(xml),singular),id=fieldText(xml,item,'id');if(!integer.test(id))invalid('Etapa sin identificador real.');
  const numeric=new Set(['id_product','id_product_attribute','id_supplier','id_currency','id_shop','id_shop_group','id_country','id_group','id_customer','id_cart','price','wholesale_price','product_supplier_price_te','reduction','from_quantity','weight','ecotax','unit_price_impact','minimal_quantity','low_stock_threshold','quantity','out_of_stock','depends_on_stock','default_on','active','available_for_order','id_default_image','id_default_combination']);
  const number=value=>{if(!/^-?\d+(?:\.\d{1,6})?$/.test(value))return null;const negative=value.startsWith('-'),[whole,fraction='']=value.replace(/^-/,'').split('.');return (negative?-1n:1n)*(BigInt(whole)*1000000n+BigInt(fraction.padEnd(6,'0')));};
+ let nativeHtmlNormalized=false;
+ const legacyRoot='<section style="max-width:1100px;margin:0 auto;color:#17382b;font-family:Arial,Helvetica,sans-serif;">';
+ const legacyDescription=value=>{
+  if(typeof value!=='string'||!value.startsWith(legacyRoot))return null;
+  for(const wrapper of [legacyRoot,'<header style="padding:28px;background:#edf5ef;border-radius:20px;">',
+   '<figure style="margin:26px 0;padding:20px;background:#f3f7f3;border-radius:20px;">','<figure style="margin:26px 0;padding:20px;background:#edf3f7;border-radius:20px;">',
+   '<section style="padding:12px 6px;">','<section style="margin-top:24px;">','<section style="margin-top:24px;padding:24px;background:#f3f6fa;border-radius:18px;">',
+   '<aside style="margin-top:22px;padding:14px;border:1px solid #cad8cd;border-radius:12px;font-size:13px;line-height:1.6;">'])value=value.replaceAll(wrapper,'');
+  return value.replace(/<\/(?:section|header|figure|aside)>/g,'').replaceAll('display:block;width:100%;','');
+ };
  for(const [field,value] of Object.entries(fields)){
   if(Array.isArray(value)){
    const node=direct(item,field);
-   for(const translation of value){const languages=node.children.filter(child=>child.name==='language'&&child.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/)?.[2]===translation.language_id);if(languages.length!==1||xmlValue(xml.slice(languages[0].contentStart,languages[0].contentEnd))!==translation.value)invalid('La traducción de '+field+' no coincide.');}
+   for(const translation of value){
+    const languages=node.children.filter(child=>child.name==='language'&&child.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/)?.[2]===translation.language_id);
+    if(languages.length!==1)invalid('La traducción de '+field+' no coincide.');
+    const actual=xmlValue(xml.slice(languages[0].contentStart,languages[0].contentEnd));
+    if(actual!==translation.value){
+     // Recover only the previous Totus builder's known HTML5-to-HTML4
+     // transformation. All text, images, links and table cells stay exact.
+     if(resource!=='products'||field!=='description'||legacyDescription(translation.value)!==actual)invalid('La traducción de '+field+' no coincide.');
+     nativeHtmlNormalized=true;
+    }
+   }
   }else{
    const raw=fieldText(xml,item,field),expected=String(value);
    // Combination::setWsDefaultOn stores false as SQL NULL. The native
@@ -208,7 +228,7 @@ export function inspectProductStageXml(xml,resource,fields,associations={}){
   const actual=direct(direct(item,'associations'),name).children.map(row=>fieldText(xml,row,'id')).sort();
   if(JSON.stringify(actual)!==JSON.stringify([...ids].sort()))invalid('Los valores de '+name+' no coinciden.');
  }
- return {id,verified:true};
+ return {id,verified:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};
 }
 
 

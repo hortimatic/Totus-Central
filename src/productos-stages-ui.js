@@ -127,7 +127,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
    row.attempted=true;const response=await invoke(shop,'prestashop_product_step_commit',{...row.prepared.values,expected_fingerprint:row.prepared.fingerprint,confirmed:true});
    if(response.persisted!==true||response.verified!==true||!/^[1-9]\d{0,14}$/.test(String(response.record_id)))throw Error('Resultado de etapa no verificado.');row.done=response;
    if(row.kind==='finish')state.result.active=row.fields.active==='1';
-   return titles[row.kind]+' guardado y verificado en '+shop+' · #'+response.record_id+'.';
+   return titles[row.kind]+' guardado y verificado en '+shop+' · #'+response.record_id+'.'+(response.native_html_normalized?' La tienda ha adaptado el formato HTML anterior; textos e imágenes comprobados.':'');
   }
   throw Error('Acción de etapa desconocida.');
  }
