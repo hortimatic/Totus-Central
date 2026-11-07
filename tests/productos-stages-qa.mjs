@@ -234,3 +234,11 @@ test('parent stock quantity is preserved when combinations supply its aggregate'
  await assert.rejects(()=>runPrestashopProductStage(connection,op,options),/cantidad total/);assert.equal(writes,0);
  assert.equal((await runPrestashopProductStage(connection,{...op,fields:{...op.fields,quantity:'7',location:'New shelf'}},options)).can_commit,true);assert.equal(writes,0);
 });
+
+
+test('existing metadata review is partial while a new product still requires publication choices',()=>{
+ const request={...base,kind:'finish',step_key:'metadata',existing_product:true,fields:{id_manufacturer:'6'},associations:{}};
+ assert.deepEqual(validateProductStage(request).fields,{id_manufacturer:'6'});
+ const {existing_product,...newProduct}=request;
+ assert.throws(()=>validateProductStage(newProduct),/obligatorios/);
+});

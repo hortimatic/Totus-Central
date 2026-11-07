@@ -21,6 +21,7 @@ try{
     invoke:async b=>{q.calls.push(b);if(b.action==='prestashop_item_read')return {ok:true,store:b.store,resource:b.resource,record_id:b.record_id,item:{id:b.record_id,name:'Producto real de prueba',reference:'REAL-42',price:'10.90',description:'Descripción real',active:'1',associations:{images:[],combinations:[]}}};if(b.action!=='prestashop_read')throw Error('Unexpected mutation');return {ok:true,store:b.store,resource:b.resource,page:b.page,possibly_more:false,rows:b.resource==='products'?[{id:'42',name:'Producto real de prueba',reference:'REAL-42',ean13:'1234567890128',price:'10.90',active:'1'}]:[]};}
    });await q.ui.mount(document.querySelector('#productosRoot'));
   });
+  const sourceCapture=async(id,name)=>{await reference.evaluate(id=>{document.querySelectorAll('.master-tab-view,.subtab-content').forEach(n=>n.style.removeProperty('display'));const buttons=[...document.querySelectorAll('.master-tab-btn')],ids=['tab-catalogo','tab-ficha','tab-copiar','tab-alta','tab-borradores'];window.totusOpenMasterTab(id,buttons[ids.indexOf(id)]);},id);await reference.screenshot({path:'qa-artifacts/stitch-original-'+name+'-'+width+'.png',fullPage:true});};
   assert.equal(await page.getByRole('tab').count(),5);
   await page.getByText('Producto real de prueba',{exact:true}).waitFor();
   assert.equal(await page.locator('tbody tr').count(),1);
@@ -38,7 +39,7 @@ try{
   assert.equal(await page.locator('th').filter({hasText:'EAN'}).count(),1);
   await page.locator('[data-pr-catalog-all]').check();
   assert.equal(await page.locator('[data-pr-action="catalog-copy"]').isEnabled(),true);
-  await page.screenshot({path:'qa-artifacts/productos-stitch-catalogo-'+width+'.png',fullPage:true});
+  await page.screenshot({path:'qa-artifacts/productos-stitch-catalogo-'+width+'.png',fullPage:true});await sourceCapture('tab-catalogo','catalogo');
   await page.locator('#store-context-select').selectOption('both');
   await page.locator('tbody tr').nth(1).waitFor();
   assert.equal(await page.locator('tbody tr').count(),2,'Same numeric ID in two stores remains two distinct records');
@@ -66,8 +67,9 @@ try{
    assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Every visible fiche button has a real action: '+section);
    await page.screenshot({path:'qa-artifacts/productos-stitch-'+section+'-'+width+'.png',fullPage:true});
    const ids={general:'sub-info',contenido:'sub-desc',precios:'sub-precios',variaciones:'sub-variaciones',imagenes:'sub-imagenes',seo:'sub-seo',transporte:'sub-envio',inventario:'sub-stock',organizacion:'sub-organizacion'};
-   await reference.evaluate(id=>{for(const name of ['tab-catalogo','tab-ficha','tab-copiar','tab-alta','tab-borradores']){const n=document.getElementById(name);if(n)n.style.display=name==='tab-ficha'?'flex':'none';}document.querySelectorAll('.subtab-content').forEach(n=>n.style.display=n.id===id?'flex':'none');},ids[section]);
+   await reference.evaluate(id=>{document.querySelectorAll('.master-tab-view,.subtab-content').forEach(n=>n.style.removeProperty('display'));window.totusOpenMasterTab('tab-ficha',document.querySelectorAll('.master-tab-btn')[1]);const ids=['sub-info','sub-desc','sub-precios','sub-variaciones','sub-imagenes','sub-seo','sub-envio','sub-stock','sub-organizacion'];window.totusOpenSubTab(id,document.querySelectorAll('.subtab-btn')[ids.indexOf(id)]);},ids[section]);
    await reference.screenshot({path:'qa-artifacts/stitch-original-'+section+'-'+width+'.png',fullPage:true});
+   const activeStyle=p=>p.locator('.subtab-btn[aria-current="page"],.subtab-btn.bg-primary').evaluateAll(ns=>{const c=getComputedStyle(ns[0]);return {background:c.backgroundColor,color:c.color,fontWeight:c.fontWeight};});assert.deepEqual(await activeStyle(page),await activeStyle(reference),'Active tab follows source styling '+section);
   }
   assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre editado seguro');
   await page.locator('[data-pr-section="contenido"]').click();
@@ -95,7 +97,7 @@ try{
   assert.equal(await page.locator('#panel-store-source [data-pr-value="name"]').inputValue(),'Nombre editado seguro');
   await page.locator('[data-pr-action="fields-all"]').click();
   assert.equal(await page.locator('[data-pr-field="name"]').isChecked(),true);
-  await page.screenshot({path:'qa-artifacts/productos-stitch-copia-'+width+'.png',fullPage:true});
+  await page.screenshot({path:'qa-artifacts/productos-stitch-copia-'+width+'.png',fullPage:true});await sourceCapture('tab-copiar','copia');
   assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/VP-AG2|VAP-XROS|38 uds|ps_nos_/);
   await page.locator('[data-pr-action="mode"][data-mode="encargo"]').click();
   await page.locator('[data-pr-request="url"]').fill('https://proveedor.example/producto');
@@ -106,11 +108,11 @@ try{
   assert.match(await page.locator('textarea[readonly]').inputValue(),/38,49/);
   assert.match(await page.locator('textarea[readonly]').inputValue(),/proveedor.example/);
   assert.equal(await page.locator('[data-pr-action="request-copy"]').isEnabled(),true);
-  await page.screenshot({path:'qa-artifacts/productos-stitch-url-'+width+'.png',fullPage:true});
+  await page.screenshot({path:'qa-artifacts/productos-stitch-url-'+width+'.png',fullPage:true});await sourceCapture('tab-alta','url');
   await page.locator('[data-pr-action="mode"][data-mode="guardado"]').click();
   assert.equal(await page.locator('#tab-borradores').isVisible(),true);
   assert.equal(await page.locator('[data-pr-action="draft-purge"]').isDisabled(),true);
-  await page.screenshot({path:'qa-artifacts/productos-stitch-guardado-'+width+'.png',fullPage:true});
+  await page.screenshot({path:'qa-artifacts/productos-stitch-guardado-'+width+'.png',fullPage:true});await sourceCapture('tab-borradores','guardado');
   assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Saved view buttons');
   assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/Voopoo|3 en cola|3 productos esperando|Hace 2 horas/);
   assert.deepEqual(errors,[]);

@@ -30,7 +30,7 @@ export function validateProductStage(input){
   if(input.fields!==undefined||input.associations!==undefined)fail('La imagen no acepta campos adicionales.');
   out.image={...image};return out;
  }
- if(!input.fields||typeof input.fields!=='object'||Array.isArray(input.fields)||Object.keys(input.fields).some(k=>!fields[input.kind].includes(k))||required[input.kind].some(k=>!Object.hasOwn(input.fields,k)))fail('Completa los campos obligatorios de esta etapa.');
+ if(!input.fields||typeof input.fields!=='object'||Array.isArray(input.fields)||Object.keys(input.fields).some(k=>!fields[input.kind].includes(k))||required[input.kind].some(k=>!(input.kind==='finish'&&out.existing_product)&&!Object.hasOwn(input.fields,k)))fail('Completa los campos obligatorios de esta etapa.');
  for(const [field,value] of Object.entries(input.fields)){
   if(['description','description_short','legend'].includes(field)||['attribute_group','attribute_value'].includes(input.kind)&&['name','public_name'].includes(field)){
    if(!Array.isArray(value)||!value.length||value.some(t=>!t||Object.keys(t).some(k=>!['language_id','value'].includes(k))||!id.test(String(t.language_id))||typeof t.value!=='string'||t.value.length>(field==='public_name'?64:['name','legend'].includes(field)?128:250000))||new Set(value.map(t=>String(t.language_id))).size!==value.length)fail('Traducciones de etapa no válidas.');

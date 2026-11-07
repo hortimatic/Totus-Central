@@ -39,7 +39,7 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
   comprobación de permisos DELETE, huella y relectura; sin repetir un borrado incierto.
 - Normalización de imágenes al tipo configurado en la tienda, conservando el producto
   completo; la transparencia se comprueba antes de añadir márgenes al lienzo.
-- 81 comprobaciones unitarias de Productos cubiertas en esta rama.
+- 86 comprobaciones unitarias de Productos cubiertas en esta rama.
 - Puente 1.1.0: orden y leyendas por idioma verificados contra PrestaShop 1.7.8.11
   aislado, con rechazo de intentos de cambiar producto o portada desde ese recurso.
 - Sustitución nativa de fotos con el mismo ID: respuesta binaria contrastada con GET,
@@ -51,7 +51,7 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
 - Existencias existentes precargadas y total derivado de combinaciones conservado;
   ubicación y política sin existencias se gestionan en su registro de stock.
 - Redirecciones SEO nativas con destino verificado en la misma tienda; los ID no
-  se copian implícitamente entre tiendas. Pendiente contraste nativo de esta ampliación.
+  se copian implícitamente entre tiendas. Contraste nativo aislado superado.
 
 ## Pendiente antes de poder decir «idéntico y completo»
 
@@ -61,9 +61,10 @@ Referencia: consola `6572b3976ec14951908a50d400cbf949`, proyecto
 2. Contrastar la experiencia completa de la cola de copias múltiples con datos
    reales. La selección admite varias fichas y mantiene sus solicitudes, pero
    la confirmación de cada tienda sigue siendo individual y explícita.
-3. Completar creación de atributos nuevos. La edición de características, materiales,
-   etiquetas y accesorios ya tiene revisión y comprobación simulada. Ampliar su
-   contraste nativo y verificar después ambas conexiones reales.
+3. Creación de atributos y valores, características, etiquetas y accesorios:
+   pruebas simuladas y nativas aisladas superadas. Las dos conexiones reales se
+   comprobaron por lectura: 70 recursos nativos autorizados; falta el recurso
+   propio de leyendas y orden de fotos hasta instalar el puente.
 4. Instalar y autorizar el puente 1.1.0 en las dos tiendas reales después de los
    controles. Orden, leyendas y sustitución ya han pasado la prueba nativa aislada.
    La eliminación de imágenes y combinaciones
@@ -85,3 +86,23 @@ ChatGPT ha informado de cuatro fichas del Argus P3: Hortimatic 170807056 y
 pero esta anotación **no acredita una relectura independiente ni un borrado**.
 Faltan imágenes y un valor de atributo en Hortimatic. No presentar esta creación
 como terminada ni crear más bases para resolver sus etapas pendientes.
+
+## Cierre de controles de la ficha (rama PR #144)
+
+- Margen sobre venta y PVP desde el impuesto real; coste aproximado y coma decimal.
+- Marca e impuestos seleccionables en la ficha, con revisión explícita parcial.
+- Cambiar portada, marca, categorías o impuestos no envía descripciones ni indicadores
+  de publicación ajenos a la selección. Una alta nueva sigue exigiendo esos indicadores.
+- Cada campo genérico visible tiene contrato de escritura; stock y predeterminados
+  usan sus acciones propias, no campos genéricos sin soporte.
+- Capturas de las cinco vistas y nueve apartados, fuente y módulo, a 390/768/1440.
+  Contraste de estilos activos y controles visibles. Las diferencias por datos,
+  ayudas y pasos reales se conservan; no se afirma igualdad de píxeles universal.
+- Aplicación completa con datos ficticios comprobada en 320/390/831/1440.
+- CI del commit 3dbd663: 14 trabajos correctos. Incluye PrestaShop 1.7.8.11 real
+  desechable: atributos, SEO, imágenes, variantes y recuperación. Los cambios
+  posteriores de precio y guardados parciales requieren el siguiente CI.
+
+Producción sigue en 3262132b. No se ha instalado el puente 1.1.0 ni desplegado
+el nuevo servicio. Su ausencia impide usar orden y leyendas en las tiendas reales.
+La compatibilidad nativa con PrestaShop 8 no está acreditada por estas pruebas.

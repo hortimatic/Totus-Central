@@ -10,7 +10,7 @@ export const PRODUCT_SECTIONS=Object.freeze({
  transporte:['weight','width','height','depth','additional_shipping_cost','additional_delivery_times','delivery_in_stock','delivery_out_stock'],
  inventario:['minimal_quantity','low_stock_threshold','low_stock_alert','available_date','available_now','available_later']
 });
-export const VARIANT_FIELDS=Object.freeze(['reference','ean13','isbn','upc','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert','default_on']);
+export const VARIANT_FIELDS=Object.freeze(['reference','ean13','isbn','upc','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert']);
 const FIELDS=new Set(Object.values(PRODUCT_SECTIONS).flat());
 const own=(x,k)=>Object.prototype.hasOwnProperty.call(x||{},k);
 export const cleanId=value=>/^[1-9]\d{0,14}$/.test(String(value??''))?String(value):null;

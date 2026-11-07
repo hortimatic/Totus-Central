@@ -149,3 +149,7 @@
 #productosRoot .prd-photo-dialog::backdrop{background:#0b172a99;}
 
 #productosRoot .prd-stitch #subtabs-bar{flex-wrap:wrap;overflow:visible;}
+
+/* Keep the source copy cards compact while retaining every editable field. */
+#productosRoot .prd-stitch .prd-copy-control{padding:2px 8px;min-height:28px;font-size:12px;line-height:18px;box-shadow:none}
+#productosRoot .prd-stitch textarea.prd-copy-control{min-height:72px}

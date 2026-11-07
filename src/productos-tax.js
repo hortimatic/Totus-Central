@@ -23,3 +23,10 @@ export function productDisplayAmounts(product,rate){
   cost:Number.isFinite(cost)?cost:null,margin:Number.isFinite(net)&&Number.isFinite(cost)?net-cost:null,
   marginPct:Number.isFinite(net)&&net>0&&Number.isFinite(cost)?(net-cost)/net*100:null};
 }
+
+// Margin on sale (not markup on cost); result remains an approximate price study.
+export function productPriceForMargin(cost,percent){
+ const buy=Number(cost),margin=Number(percent);
+ if(String(cost??'').trim()===''||!Number.isFinite(buy)||buy<=0||String(percent??'').trim()===''||!Number.isFinite(margin)||margin>=100)throw Error('Introduce un coste mayor que cero y un margen sobre venta inferior al 100 %.');
+ const price=buy/(1-margin/100);if(!Number.isFinite(price)||price<0)throw Error('El margen no permite calcular un precio válido.');return price;
+}

@@ -1,5 +1,5 @@
 import {productDraftFacts} from './productos-drafts.js';
-import {productCountryTaxRate,productDisplayAmounts} from './productos-tax.js';
+import {productCountryTaxRate,productDisplayAmounts,productPriceForMargin} from './productos-tax.js';
 import {stitchHeader,stitchCatalog,stitchFiche,stitchCopy,stitchRequest,stitchSaved,ensureStitchProductFonts} from './productos-stitch-view.js';
 import {PRODUCT_COLUMNS,DEFAULT_PRODUCT_COLUMNS,productColumns,catalogProductKey,productPhoto,filterProductCatalog,productCatalogCsv} from './productos-catalog.js';
 import {buildProductRequest,renderProductRequestForm} from './productos-request.js';
@@ -126,7 +126,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  }
  function editor(){
   if(!record)return empty('Abre un producto o crea un borrador','Elige una ficha del catálogo para trabajar con sus datos.');
-  return stitchFiche({record,store,section:editorSection,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml:priceStudy(),rawHtml:rawPanel(),organization,brands:catalogBrands,categories:catalogCategories,stock:catalogStock.get(store+'|'+record.id)??null,amounts:productDisplayAmounts({...record,...overrides},productCountryTaxRate(record.id_tax_rules_group,catalogTaxContext))});
+  return stitchFiche({record,store,section:editorSection,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml:priceStudy(),rawHtml:rawPanel(),organization,taxGroups:catalogMeta.get(store)?.taxGroups||[],brands:catalogBrands,categories:catalogCategories,stock:catalogStock.get(store+'|'+record.id)??null,amounts:productDisplayAmounts({...record,...overrides},productCountryTaxRate(record.id_tax_rules_group,catalogTaxContext))});
  }
 
  function targetLanguageIds(dest,field){
@@ -295,11 +295,11 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    for(const product of response.rows){const row={...product,__store:shop},key=catalogKey(row);if(keys.has(key))throw Error('Producto duplicado entre páginas de la misma tienda.');keys.add(key);rows.push(row);}
    catalogMore.set(shop,!!response.possibly_more);
    if(!more){
-    const meta={categories:[],brands:[],suppliers:[],tax:{countries:[],rules:[],taxes:[]}};
-    await Promise.allSettled([['categories','categories'],['manufacturers','brands'],['suppliers','suppliers'],['countries','countries'],['tax_rules','rules']].map(async([resource,key])=>{
+    const meta={categories:[],brands:[],suppliers:[],taxGroups:[],tax:{countries:[],rules:[],taxes:[]}};
+    await Promise.allSettled([['categories','categories'],['manufacturers','brands'],['suppliers','suppliers'],['tax_rule_groups','taxGroups'],['countries','countries'],['tax_rules','rules']].map(async([resource,key])=>{
      const all=[];for(let p=0;p<=1000;p++){
       const data=await invokeShop(shop,'prestashop_read',{resource,page:p,page_size:100});all.push(...data.rows);
-      if(!data.possibly_more){if(['categories','brands','suppliers'].includes(key))meta[key]=all;else meta.tax[key]=all;return;}
+      if(!data.possibly_more){if(['categories','brands','suppliers','taxGroups'].includes(key))meta[key]=all;else meta.tax[key]=all;return;}
      }throw Error('Catálogo auxiliar incompleto.');
     }));
     const country=meta.tax.countries.find(c=>String(c.iso_code).toUpperCase()==='ES'&&String(c.active)==='1');
@@ -424,6 +424,8 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-org-list]')&&organization){organization[e.target.dataset.prOrgList]=[...e.target.selectedOptions].map(o=>o.value);persistDraft();return;}
    if(e.target.matches('[data-pr-org-features]')&&organization){organization.features=[...e.target.selectedOptions].map(o=>{const [feature_id,value_id]=o.value.split(':');return {feature_id,value_id};});persistDraft();return;}
    if(e.target.matches('[data-pr-org-related]')&&organization){organization.relatedReference=e.target.value;persistDraft();return;}
+   if(e.target.matches('[data-pr-margin]')){try{const cost=productInputValue('price',overrides.wholesale_price??textValue(record.wholesale_price)),margin=productInputValue('price',e.target.value);overrides.price=productPriceForMargin(cost,margin).toFixed(6);fields.add('price');invalidate();status='Precio base preparado con el margen sobre venta solicitado. El coste y el margen son aproximados; revisa antes de guardar.';}catch(error){status=error.message;}render();return;}
+   if(e.target.matches('[data-pr-tax-group],[data-pr-fiche-organization]')){const id=e.target.value,field=e.target.dataset.prFicheOrganization||'id_tax_rules_group';void work(async()=>{const fresh=await loadItem(store,'products',String(record.id));record=normalizedProduct(fresh).raw;shopRecords.set(store,record);if(!organization||organization.store!==store||organization.id!==String(record.id))await loadOrganization();organization.fields[field]=id;await createWizard.openExisting(store,record);const plan={operation:'update',store,source_id:String(record.id),target_id:String(record.id),changes:[],variants:[],warnings:[]};comparison.set(store,plan);preview=[plan];targetRaw.set(store,record);targets=new Set([store]);await createWizard.perform('create-stage-tab',store,plan,record,{tab:'finish'});status=await createWizard.perform('create-stage-add',store,plan,record,{kind:'finish',finishFields:{[field]:id}});mode='guardado';status+=' Revisa y guarda el cambio seleccionado antes de aplicarlo.';});return;}
    if(e.target.matches('[data-pr-gross]')){const rate=productCountryTaxRate(record.id_tax_rules_group,catalogTaxContext),gross=Number(productInputValue('price',e.target.value));if(!e.target.value.trim()||rate===null||productDisplayAmounts(record,rate).gross===null||!Number.isFinite(gross)||gross<0){status='Indica un PVP válido y verifica el grupo de impuestos.';render();return;}overrides.price=(gross/(1+rate/100)).toFixed(6);fields.add('price');invalidate();status='PVP convertido a precio base usando el impuesto verificado de la tienda. Revisa antes de guardar.';render();return;}
    if(e.target.matches('[data-pr-org]')&&organization){organization.fields[e.target.dataset.prOrg]=e.target.value;if(e.target.dataset.prOrg==='id_category_default'&&!organization.categories.includes(e.target.value))organization.categories.push(e.target.value);persistDraft();return;}
    if(e.target.matches('[data-pr-org-category]')&&organization){const id=e.target.dataset.prOrgCategory;organization.categories=e.target.checked?[...new Set([...organization.categories,id])]:organization.categories.filter(x=>x!==id);persistDraft();return;}
@@ -447,7 +449,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-store]')){const next=e.target.value;void work(()=>switchStore(next));return;}
    if(e.target.matches('[data-pr-target]')){e.target.checked?targets.add(e.target.dataset.prTarget):targets.delete(e.target.dataset.prTarget);invalidate();render();return;}
    if(e.target.matches('[data-pr-field]')){const field=e.target.dataset.prField;e.target.checked?fields.add(field):fields.delete(field);if(!e.target.checked){delete overrides[field];for(const values of targetOverrides.values())delete values[field];}invalidate();render();return;}
-   if(e.target.matches('[data-pr-value]')){fields.add(e.target.dataset.prValue);overrides[e.target.dataset.prValue]=e.target.value;invalidate();if(['price','wholesale_price'].includes(e.target.dataset.prValue))render();else persistDraft();return;}
+   if(e.target.matches('[data-pr-value]')){fields.add(e.target.dataset.prValue);overrides[e.target.dataset.prValue]=productInputValue(e.target.dataset.prValue,e.target.value);invalidate();if(['price','wholesale_price'].includes(e.target.dataset.prValue))render();else persistDraft();return;}
    if(e.target.matches('[data-pr-existing-id]')){targetIds.set(e.target.dataset.prExistingId,e.target.value);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-target-field]')){const dest=e.target.dataset.prTargetStore,field=e.target.dataset.prTargetField,values=targetOverrides.get(dest)||{};targets.add(dest);fields.add(field);values[field]=e.target.value;targetOverrides.set(dest,values);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-lang-store]')){const dest=e.target.dataset.prLangStore,field=e.target.dataset.prLangField,values=targetLanguages.get(dest)||{};values[field]=e.target.value;targetLanguages.set(dest,values);preflight.clear();persistDraft();return;}

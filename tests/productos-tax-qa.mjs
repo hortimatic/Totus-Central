@@ -15,3 +15,9 @@ test('retail display uses verified country/rule/tax IDs, never a name or hard-co
  assert.equal(productDisplayAmounts({price:' ',wholesale_price:null},21).gross,null);
  assert.equal(productDisplayAmounts({price:'10',ecotax:'0.20'},21).gross,null);
 });
+
+import {productPriceForMargin} from '../src/productos-tax.js';
+test('target sales margin derives a net price without confusing markup or unreliable cost',()=>{
+ assert.equal(productPriceForMargin('10','20'),12.5);assert.equal(productPriceForMargin('10','-25'),8);assert.equal(productPriceForMargin('4','75'),16);
+ for(const args of [['0','20'],['','20'],['10','100'],['10','not a margin']])assert.throws(()=>productPriceForMargin(...args),/coste|margen/);
+});

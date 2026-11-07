@@ -100,7 +100,7 @@ export const STITCH_FICHE_TABS=Object.freeze([
 ]);
 const inputClass='bg-surface-container-low text-on-surface font-body-md text-body-md px-3 py-1.5 rounded shadow-sm focus:outline-none focus:bg-surface-container-lowest w-full';
 const labelClass='font-label-md text-label-md text-on-surface-variant';
-export function stitchFiche({record,store,section,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml,rawHtml,amounts,brands=[],categories=[],stock=null,organization=null}){
+export function stitchFiche({record,store,section,overrides,variants,variantOverrides,metadata,fieldControl,priceHtml,rawHtml,amounts,brands=[],categories=[],stock=null,organization=null,taxGroups=[]}){
  const f=fragment(STITCH_VIEWS['tab-ficha']),view=f.firstElementChild;
  view.classList.remove('hidden');view.classList.add('flex');
  setText(f.querySelector('h2'),textValue(overrides.name??record.name)||'Nuevo producto');
@@ -132,9 +132,10 @@ export function stitchFiche({record,store,section,overrides,variants,variantOver
     if(key==='precios'){
      const cost=panel.querySelector('#calc-cost'),margin=panel.querySelector('#calc-margin'),tax=panel.querySelector('#calc-tax'),gross=panel.querySelector('#calc-pvp');
      cost.type='text';cost.inputMode='decimal';cost.value=String(overrides.wholesale_price??record.wholesale_price??'');cost.setAttribute('value',cost.value);cost.dataset.prValue='wholesale_price';cost.setAttribute('aria-label','Coste sin impuestos');
-     margin.readOnly=true;margin.value=amounts?.marginPct==null?'':amounts.marginPct.toFixed(2);margin.setAttribute('value',margin.value);margin.setAttribute('aria-label','Margen aproximado calculado');margin.title='Margen calculado a partir del precio y coste; no es beneficio neto.';
-     const rate=amounts?.rate;tax.replaceChildren(new Option(rate==null?'Impuesto sin verificar':rate+' % · regla de la tienda',String(rate??'')));tax.disabled=true;tax.setAttribute('aria-label','Impuesto verificado de la tienda');
+     margin.type='text';margin.inputMode='decimal';margin.readOnly=!(amounts?.cost>0);margin.dataset.prMargin='';margin.value=amounts?.marginPct==null?'':amounts.marginPct.toFixed(2);margin.setAttribute('value',margin.value);margin.setAttribute('aria-label','Margen sobre venta aproximado');setText(margin.previousElementSibling,'Margen sobre venta (%) · aprox.');
+     const rate=amounts?.rate,currentTax=String(record.id_tax_rules_group??'');tax.replaceChildren(...[{id:'0',name:'Sin grupo de impuestos'},...taxGroups].map(group=>new Option(textValue(group.name)+(String(group.id)===currentTax&&rate!==null?' · '+rate+' % verificado':''),String(group.id))));if(currentTax&&!Array.from(tax.options).some(o=>o.value===currentTax))tax.add(new Option('Grupo actual #'+currentTax,currentTax));tax.value=currentTax;tax.dataset.prTaxGroup='';tax.disabled=!record.id||!taxGroups.length;tax.setAttribute('aria-label','Grupo real de impuestos de la tienda');
      gross.type='text';gross.inputMode='decimal';gross.value=amounts?.gross==null?'':amounts.gross.toFixed(2);gross.setAttribute('value',gross.value);gross.dataset.prGross='';gross.step='0.01';gross.min='0';gross.readOnly=amounts?.gross==null;gross.setAttribute('aria-label','PVP base con IVA de España');
+     for(const [control,help]of [[cost,'Coste de PrestaShop sin impuestos. Puede estar redondeado y se trata como aproximado.'],[margin,'Margen sobre el precio de venta sin impuestos: (venta − coste) / venta. Al cambiarlo se prepara el precio base; no se guarda hasta confirmar.'],[tax,'Grupo real de esta tienda. Cambiarlo abre una revisión antes de guardar; no sustituye el impuesto por un porcentaje inventado.'],[gross,'Precio base con la regla general de IVA de España verificada. No incluye descuentos, dirección especial, transporte ni ecotasa separada.']]){const caption=control.previousElementSibling;if(caption?.tagName==='LABEL'){caption.htmlFor=control.id;caption.append(fragment(fieldHelp(control.getAttribute('aria-label')||caption.textContent,help)));}}
      const notices=[...panel.querySelectorAll('div,span')].filter(n=>!n.children.length);
      for(const n of notices){if(n.textContent.includes('Beneficio Neto Estimado')){n.textContent='Margen sin impuestos, aproximado:';setText(n.nextElementSibling,amounts?.margin==null?'Sin coste verificado':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(amounts.margin));}if(n.textContent.includes('PVP Base sin'))setText(n.nextElementSibling,textValue(overrides.price??record.price)||'—');if(n.textContent.includes('Regla de Redondeo'))setText(n.nextElementSibling,'Sin redondeo comercial automático');}
      const extra=document.createElement('details');extra.className='prd-native-extra';extra.innerHTML='<summary class="font-label-md text-label-md">Precio base y campos adicionales</summary>'+fields(groups[key].filter(k=>k!=='wholesale_price'))+priceHtml;panel.append(extra);
@@ -145,8 +146,8 @@ export function stitchFiche({record,store,section,overrides,variants,variantOver
     const field=native[i];
     if(field){const value=Object.hasOwn(overrides,field)?overrides[field]:textValue(record[field]);const replacement=fragment(fieldControl(field,value,'class="'+control.className+'" data-pr-value="'+field+'"')).firstElementChild;if(control.tagName==='TEXTAREA')replacement.rows=control.rows;replacement.setAttribute('aria-label',metadata[field]||field);const caption=control.parentElement.querySelector(':scope > label');if(caption){caption.querySelectorAll('[title]').forEach(n=>n.remove());replacement.id='prd-fiche-'+field;caption.htmlFor=replacement.id;caption.append(fragment(fieldHelp(metadata[field]||field,field==='weight'?'Peso en kilogramos; distingue dispositivo y embalaje.':field==='description'?'Admite texto y HTML. La vista previa está aislada y no ejecuta scripts.':'Edita el borrador. Los cambios se revisan, validan y guardan antes de enviarlos a la tienda.')));}control.replaceWith(replacement);used.add(field);}
     else if(key==='general'){
-     const value=i===3?textValue(brands.find(b=>String(b.id)===String(record.id_manufacturer))?.name)||'Sin marca asignada':variants.length?'Producto con combinaciones':'Producto simple';
-     control.replaceChildren(new Option(value,value));control.disabled=true;
+     if(i===3){control.replaceChildren(...[{id:'0',name:'Sin marca asignada'},...brands].map(brand=>new Option(textValue(brand.name),String(brand.id))));control.value=String(record.id_manufacturer||'0');control.dataset.prFicheOrganization='id_manufacturer';control.disabled=!record.id||!brands.length;control.setAttribute('aria-label','Marca de esta tienda');}
+     else{const value=variants.length?'Producto con combinaciones':'Producto simple';control.replaceChildren(new Option(value,value));control.disabled=true;}
     }else if(key==='inventario'){
      const b=document.createElement('button');b.className=control.className;b.type='button';action(b,'stock-stages');b.textContent=i===1?'Consultar y ajustar ubicación':'Consultar y ajustar existencias';control.replaceWith(b);
     }
@@ -211,7 +212,7 @@ export function stitchFiche({record,store,section,overrides,variants,variantOver
  categoryContainer.replaceChildren();
  const currentOrganization=organization?.store===store&&organization?.id===String(record.id)?organization:null;
  const selectedCategories=currentOrganization?.categories||associationIds(record,'categories'),selectedMain=currentOrganization?.fields.id_category_default||String(record.id_category_default);
- const path=id=>{const names=[],seen=new Set();while(id&&id!=='0'&&!seen.has(id)){seen.add(id);const category=categories.find(c=>String(c.id)===id);names.unshift(textValue(category?.name)||'Categoría #'+id);id=category?String(category.id_parent):'0';}return names.join(' > ');};
+ const path=id=>{const names=[],seen=new Set();while(id&&id!=='0'&&!seen.has(id)){seen.add(id);const category=categories.find(c=>String(c.id)===id);names.unshift(textValue(category?.name)||'Categoría #'+id);id=category&&/^\d+$/.test(String(category.id_parent))?String(category.id_parent):'0';}return names.join(' > ');};
  for(const id of selectedCategories){const row=categoryTemplate.cloneNode(true),radio=row.querySelector('input');radio.checked=selectedMain===id;if(radio.checked)radio.setAttribute('checked','');else radio.removeAttribute('checked');radio.dataset.prAction='organization-primary';radio.dataset.prCategory=id;radio.name='prd-category-main';setText(row.querySelector('span'),path(id));categoryContainer.append(row);}
  if(!selectedCategories.length)setText(categoryContainer,'Sin categorías asociadas. Selecciona las de esta tienda antes de publicar.');
  org.insertAdjacentHTML('beforeend',rawHtml);
@@ -246,7 +247,7 @@ export function stitchCopy({store,legacyHtml}){
     if(caption){caption.className='font-label-md text-label-md font-semibold text-on-surface';oldTitle.replaceWith(caption);}
     const preview=container.lastElementChild;if(preview!==caption)preview.remove();
     container.classList.add('w-full');
-    if(control){control.className=inputClass;control.setAttribute('aria-label',(i?'Destino · ':'Origen · ')+title);container.append(control);}
+    if(control){control.className=inputClass+' prd-copy-control';control.setAttribute('aria-label',(i?'Destino · ':'Origen · ')+title);container.append(control);}
     for(const language of field.querySelectorAll('.prd-lang-label,[data-pr-lang-store],small'))container.append(language);
     // The prototype badge is an example, not proof of destination equality.
     if(i&&row.lastElementChild!==container)row.lastElementChild.remove();
@@ -255,7 +256,7 @@ export function stitchCopy({store,legacyHtml}){
   }
 
  }
- const stockNote=[...view.querySelectorAll('span')].find(n=>!n.children.length&&n.textContent.includes('Regla de Stock:'));if(stockNote)setText(stockNote,'Existencias: la copia de campos no traslada stock físico entre tiendas. Revisa las cantidades propias en la etapa de existencias.');
+ const stockNote=[...view.querySelectorAll('span')].find(n=>n.textContent.trim().startsWith('Regla de Stock:'));if(stockNote)setText(stockNote,'Existencias: la copia de campos no traslada stock físico entre tiendas. Revisa las cantidades propias en la etapa de existencias.');
  // Remove design-only database prefixes and sample direction badges, not controls.
  for(const node of [...view.querySelectorAll('span,small,code')])if(!node.children.length&&/PS_PREFIX:|ps_nos_|ps_hort_|Hortimatic 1\.7\.8\.11|#10482/.test(node.textContent))node.remove();
  const nav=actual.querySelector('.prd-parallel-tabs');if(nav)view.firstElementChild.after(nav);

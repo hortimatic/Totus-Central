@@ -60,7 +60,7 @@ test('cover/default choices are owned, explicit, resumable review steps and do n
  await wizard.perform('create-stage-prepare','hortimatic',plan,source,{row:ids[0]});
  const args=calls.at(-1).args;
  assert.equal(args.fields.id_default_image,'91');assert.equal(args.fields.id_default_combination,'301');
- assert.equal(args.fields.active,'0');assert.equal(args.fields.available_for_order,'0');
+ assert.deepEqual(Object.keys(args.fields).sort(),['id_default_combination','id_default_image']);
  assert.equal(args.existing_product,true);
  assert(!calls.some(c=>c.action.endsWith('_commit')));
 });
