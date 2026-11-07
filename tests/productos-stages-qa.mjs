@@ -19,6 +19,14 @@ test('constructor visual usa imágenes de la tienda, escapa textos y admite deci
 const connection={protocol:'prestashop',name:'PrestaShop · Hortimatic',enabled:true,revision:2,verified_revision:2,real_data_authorized:true,endpoint:'https://hortimatic.com/api/',secret:'only-a-fixture'};
 const root='<prestashop><product><id>601</id><reference>PRUEBAS</reference></product></prestashop>';
 const blank='<prestashop><combination><id></id><id_product></id_product><reference></reference><price></price><wholesale_price></wholesale_price><weight></weight><minimal_quantity></minimal_quantity><default_on></default_on><quantity>0</quantity><associations><product_option_values><product_option_value><id></id></product_option_value></product_option_values><images/></associations></combination></prestashop>';
+test('native NULL means a non-default combination; missing fields and actual defaults still fail',()=>{
+ const secondary='<prestashop><combination><id>702</id><default_on><![CDATA[]]></default_on></combination></prestashop>';
+ assert.equal(inspectProductStageXml(secondary,'combinations',{default_on:'0'}).verified,true);
+ assert.throws(()=>inspectProductStageXml(secondary,'combinations',{default_on:'1'}),/no coincide/);
+ assert.throws(()=>inspectProductStageXml(secondary.replace('<![CDATA[]]>','1'),'combinations',{default_on:'0'}),/no coincide/);
+ assert.throws(()=>inspectProductStageXml(secondary.replace('<default_on><![CDATA[]]></default_on>',''),'combinations',{default_on:'0'}),/campo único/);
+ assert.throws(()=>inspectProductStageXml('<prestashop><product><id>601</id><active></active></product></prestashop>','products',{active:'0'}),/no coincide/);
+});
 const xml=body=>new Response(body,{headers:{'Content-Type':'application/xml'}}),json=body=>new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}});
 function fixture(options={}){
  let saved=null,entry=null;const calls=[];

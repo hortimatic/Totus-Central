@@ -115,6 +115,18 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(variation.verified,true);
  const replay=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);assert.equal(replay.reused,true);
  assert.equal(calls.filter(c=>c.method==='POST'&&c.path==='/api/combinations').length,1);
+ const otherOptionsResponse=await localOnlyRequest('https://hortimatic.com/api/product_option_values?output_format=JSON&display=[id]&sort=[id_ASC]&limit=0,2',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(otherOptionsResponse.status,200);
+ const otherOption=(await otherOptionsResponse.json()).product_option_values.find(o=>String(o.id)!==String(option.id));assert(otherOption?.id);
+ const secondary={...stage,step_key:'ci_secondary',fields:{...stage.fields,reference:'TOTUS-CI-PRUEBAS-SECONDARY',default_on:'0'},associations:{product_option_values:[String(otherOption.id)]}};
+ const secondaryPrep=await runPrestashopProductStage(connection,secondary,options);
+ const secondaryCommit={...secondary,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:secondaryPrep.fingerprint};
+ const secondaryDone=await runPrestashopProductStage(connection,secondaryCommit,options);assert.equal(secondaryDone.verified,true);
+ const secondaryRead=await localOnlyRequest('https://hortimatic.com/api/combinations/'+secondaryDone.record_id+'?output_format=JSON',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
+ assert.equal(secondaryRead.status,200);assert.equal((await secondaryRead.json()).combination.default_on,null,'Native non-default combinations use SQL NULL');
+ const secondaryWrites=calls.filter(c=>c.method==='POST'&&c.path==='/api/combinations').length;
+ assert.equal((await runPrestashopProductStage(connection,secondaryCommit,options)).reused,true);
+ assert.equal(calls.filter(c=>c.method==='POST'&&c.path==='/api/combinations').length,secondaryWrites);
  const stock={...stage,kind:'stock',step_key:'ci_stock',fields:{id_product_attribute:variation.record_id,quantity:'7',out_of_stock:'0',depends_on_stock:'0'}};delete stock.associations;
  const stockPrep=await runPrestashopProductStage(connection,stock,options);
  const stockDone=await runPrestashopProductStage(connection,{...stock,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:stockPrep.fingerprint},options);
