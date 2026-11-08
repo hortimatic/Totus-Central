@@ -284,6 +284,7 @@ jobs:
       - run: node tests/prestashop-automations-browser-qa.mjs
       - run: node tests/productos-ui-browser-qa.mjs
       - run: node tests/productos-table-browser-qa.mjs
+      - run: node tests/productos-usability-browser-qa.mjs
       - run: node tests/productos-copy-circuit-browser-qa.mjs
       - run: node tests/productos-stitch-browser-qa.mjs
       - run: node tests/productos-existing-actions-browser-qa.mjs

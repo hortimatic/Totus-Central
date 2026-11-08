@@ -138,3 +138,22 @@ test('la recuperación manual pide REINTENTAR y conserva el mismo request_id y c
  assert.deepEqual({...retry,retry_absent:undefined},{...original,retry_absent:undefined});
  assert.match(f.wizard.render(plan,source),/#701/);
 });
+
+
+test('la edición posterior del destino actualiza el alta recuperada sin perder categoría ni idiomas',async()=>{
+ const f=fixture();await complete(f);const recovered=fixture();recovered.wizard.restore(f.wizard.snapshot());
+ recovered.wizard.syncField(shop,'reference','QA-DESTINO-NUEVO');recovered.wizard.syncField(shop,'name','Nombre de destino nuevo');
+ await recovered.wizard.perform('create-prepare',shop,plan,source);
+ const prepared=recovered.calls.find(c=>c.action==='prestashop_product_create_prepare').args;
+ assert.equal(prepared.reference,'QA-DESTINO-NUEVO');assert.equal(prepared.category_id,'33');
+ assert.deepEqual(prepared.translations.map(t=>t.name),['Nombre de destino nuevo','Nombre de destino nuevo']);
+ assert.deepEqual(prepared.translations.map(t=>t.link_rewrite),['pruebas','tests']);
+});
+
+
+test('una copia nueva no ofrece IDs de fotos ni combinaciones de la tienda de origen como destino',async()=>{
+ const f=fixture();await complete(f);f.wizard.handleChange(confirmation(shop,'CREAR'));await f.wizard.perform('create-commit',shop,plan,source);
+ const html=f.wizard.render(plan,{...source,__sourceStore:'newoldsmok',id:'55',associations:{images:[{id:'9876'}],combinations:[{id:'9998'}]}});
+ assert.doesNotMatch(html,/Imagen existente #9876|Combinación #9998/);
+ assert.match(html,/Copiar galería de origen a revisión/);
+});

@@ -185,6 +185,13 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   }
   throw Error('Acción de alta desconocida.');
  }
+ function syncField(shop,key,value){
+  const entry=config.get(shop);if(!entry||attempted.has(shop))return;
+  if(['reference','price'].includes(key))entry[key]=productInputValue(key,value);
+  else if(LOCALIZED_PRODUCT_FIELDS.includes(key))for(const translation of Object.values(entry.translations||{}))translation[key]=value;
+  else return;
+  previews.delete(shop);confirmations.delete(shop);
+ }
  async function openExisting(shop,source){
   if(!canEdit()||!/^\d+$/.test(String(source?.id||'')))throw Error('Selecciona un producto existente con permiso de edición.');
   const previous=results.get(shop);if(previous){if(previous.record_id!==String(source.id)||!previous.existing_product)throw Error('Hay otra operación de producto pendiente en esta tienda.');return;}
@@ -193,5 +200,5 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   profiles.set(shop,{language_ids:response.language_ids,product_workspace:response.product_workspace});
   results.set(shop,{record_id:String(source.id),request_id:crypto.randomUUID(),existing_product:true});
  }
- return {removed:stages.removed,render,reset,invalidate,handleChange,perform,openExisting,setCatalogs:(shop,catalog)=>relationCatalogs.set(shop,catalog),handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
+ return {syncField,result:shop=>results.get(shop),removed:stages.removed,render,reset,invalidate,handleChange,perform,openExisting,setCatalogs:(shop,catalog)=>relationCatalogs.set(shop,catalog),handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
 }
