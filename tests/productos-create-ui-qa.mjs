@@ -149,3 +149,11 @@ test('la edición posterior del destino actualiza el alta recuperada sin perder 
  assert.deepEqual(prepared.translations.map(t=>t.name),['Nombre de destino nuevo','Nombre de destino nuevo']);
  assert.deepEqual(prepared.translations.map(t=>t.link_rewrite),['pruebas','tests']);
 });
+
+
+test('una copia nueva no ofrece IDs de fotos ni combinaciones de la tienda de origen como destino',async()=>{
+ const f=fixture();await complete(f);f.wizard.handleChange(confirmation(shop,'CREAR'));await f.wizard.perform('create-commit',shop,plan,source);
+ const html=f.wizard.render(plan,{...source,__sourceStore:'newoldsmok',id:'55',associations:{images:[{id:'9876'}],combinations:[{id:'9998'}]}});
+ assert.doesNotMatch(html,/Imagen existente #9876|Combinación #9998/);
+ assert.match(html,/Copiar galería de origen a revisión/);
+});
