@@ -20,7 +20,7 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'products','POST'),
  (@account_id,'categories','GET'),
  (@account_id,'languages','GET'),
- (@account_id,'products','PUT'),
+ (@account_id,'products','PUT'),(@account_id,'products','DELETE'),
  (@account_id,'combinations','GET'),(@account_id,'combinations','POST'),(@account_id,'combinations','PUT'),(@account_id,'combinations','DELETE'),
  (@account_id,'product_options','GET'),(@account_id,'product_options','POST'),
  (@account_id,'product_option_values','GET'),(@account_id,'product_option_values','POST'),

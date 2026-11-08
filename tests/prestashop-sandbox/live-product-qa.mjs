@@ -239,7 +239,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const valueRequest={...valueOp,action:'prestashop_product_step_commit',expected_fingerprint:valuePrepared.fingerprint,confirmed:true};assert.equal((await runPrestashopProductStage(connection,valueRequest,existingOptions)).verified,true);assert.equal((await runPrestashopProductStage(connection,valueRequest,existingOptions)).reused,true);
  // This suite intentionally uses unmodified PrestaShop, without private resources.
  const nativeRoot=await localOnlyRequest('https://hortimatic.com/api/',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});assert(!String(await nativeRoot.text()).includes('totus_product_images'));
- for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id]]){
+ for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id],['remove_product',existing.product_id]]){
   const removal={...existing,kind,record_id:id,step_key:'ci_'+kind+'_'+id,fields:{},associations:{}};
   const preparation=await runPrestashopProductStage(connection,removal,existingOptions);
   assert.equal(preparation.can_commit,true,'Disposable test key must allow deletion');
