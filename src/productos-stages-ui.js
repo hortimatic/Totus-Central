@@ -1,5 +1,5 @@
 import {esc} from './utils.js';
-import {textValue,productInputValue,associationIds} from './productos-core.js';
+import {textValue,productInputValue,associationIds,mapVariantAttributes} from './productos-core.js';
 import {fieldHelp} from './components.js';
 import {normalizeProductImage} from './productos-image-editor.js';
 import {prestashopStore} from './prestashop-readonly.js';
@@ -20,7 +20,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
  function session(shop,result,plan,source,profile,catalogs){
   const key=shop+'|'+result.request_id;let state=sessions.get(key);
   if(!state){state={shop,result,source,profile,catalogs:catalogs||{},tab:'image',rows:[]};sessions.set(key,state);
-   for(const variant of plan.variants||[]){const row=add(state,'variation');for(const change of variant.changes||[])row.fields[change.field]=textValue(change.after);}
+   for(const variant of plan.variants||[]){const row=add(state,'variation');row.sourceAttributes=variant.source_attributes||[];for(const change of variant.changes||[])row.fields[change.field]=textValue(change.after);}
    if(state.rows.length){state.tab='variation';state.rows[0].fields.default_on='1';}
   }
   state.source=source;state.profile=profile;state.catalogs={...state.catalogs,...catalogs};return state;
@@ -76,7 +76,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   const lacksImage=!(state.result.existing_product&&associationIds(state.source,'images').length)&&!state.rows.some(r=>r.kind==='image'&&r.done);
   const activating=row.kind==='finish'&&row.fields.active==='1'&&(!state.result.existing_product||textValue(state.source.active)!=='1');
   const incompleteNotice=activating&&(otherPending||lacksImage);
-  return '<article class="prd-stage-row"><header><h5>'+h(titles[row.kind])+' '+(row.done?'· guardado y verificado':'· pendiente')+'</h5>'+(row.done?'<span>#'+h(row.done.record_id)+'</span>':'')+'</header>'+(row.sourceError?'<p class="prd-warning">'+h(row.sourceError)+'</p>':'')+content+(['image','image_replace'].includes(row.kind)&&row.image?'<div class="inline-actions"><a class="btn secondary" download="'+h(row.image.name)+'" href="data:image/png;base64,'+row.image.base64+'">Descargar PNG original</a>'+(row.done?'<a class="btn secondary" target="_blank" rel="noopener" href="'+prestashopStore(state.shop).origin+'/'+h(row.done.record_id)+'-large_default/product.jpg">Ver copia guardada en la tienda</a>':'')+'</div>':'')+(incompleteNotice?'<p class="prd-warning">La ficha tiene etapas pendientes o no tiene fotos. Puedes activarla ahora y completarla después.</p>':'')+'<div class="inline-actions">'+(!row.done?button(state,row,'Validar esta etapa','prepare',!!locked)+(!row.attempted?button(state,row,'Descartar esta etapa','discard'): '')+button(state,row,row.attempted?'Comprobar resultado sin repetir':'Guardar esta etapa',row.attempted?'verify':'commit',!canEdit()||!row.prepared?.can_commit):'')+'</div>'+(row.prepared&&!row.prepared.can_commit?'<p>Etapa validada para consulta. '+(row.prepared?.missing_permissions?.length?'Faltan permisos de la conexión: '+h(row.prepared.missing_permissions.join(', '))+'.':'Su escritura todavía no está habilitada en el servidor.')+'</p>':'')+'</article>';
+  return '<article class="prd-stage-row"><header><h5>'+h(titles[row.kind])+' '+(row.done?'· guardado y verificado':'· pendiente')+'</h5>'+(row.done?'<span>#'+h(row.done.record_id)+'</span>':'')+'</header>'+(row.sourceError?'<p class="prd-warning">'+h(row.sourceError)+'</p>':'')+(row.mappingNotice?'<p>'+h(row.mappingNotice)+'</p>':'')+content+(['image','image_replace'].includes(row.kind)&&row.image?'<div class="inline-actions"><a class="btn secondary" download="'+h(row.image.name)+'" href="data:image/png;base64,'+row.image.base64+'">Descargar PNG original</a>'+(row.done?'<a class="btn secondary" target="_blank" rel="noopener" href="'+prestashopStore(state.shop).origin+'/'+h(row.done.record_id)+'-large_default/product.jpg">Ver copia guardada en la tienda</a>':'')+'</div>':'')+(incompleteNotice?'<p class="prd-warning">La ficha tiene etapas pendientes o no tiene fotos. Puedes activarla ahora y completarla después.</p>':'')+'<div class="inline-actions">'+(!row.done?button(state,row,'Validar esta etapa','prepare',!!locked)+(!row.attempted?button(state,row,'Descartar esta etapa','discard'): '')+button(state,row,row.attempted?'Comprobar resultado sin repetir':'Guardar esta etapa',row.attempted?'verify':'commit',!canEdit()||!row.prepared?.can_commit):'')+'</div>'+(row.prepared&&!row.prepared.can_commit?'<p>Etapa validada para consulta. '+(row.prepared?.missing_permissions?.length?'Faltan permisos de la conexión: '+h(row.prepared.missing_permissions.join(', '))+'.':'Su escritura todavía no está habilitada en el servidor.')+'</p>':'')+'</article>';
  }
  function render(shop,result,plan,source,profile,catalogs){
   const state=session(shop,result,plan,source,profile,catalogs),visible=state.rows.filter(row=>row.kind===state.tab);
@@ -87,7 +87,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
   const {row}=found;if(row.attempted||row.done)return true;
   const field=el.dataset.prStageField;
   if(field){if(el.dataset.prStageLanguage){const translation=row.fields[field]?.find(t=>t.language_id===el.dataset.prStageLanguage);if(translation)translation.value=el.value;}else if(Object.hasOwn(row.fields,field)){row.fields[field]=el.value;if(row.kind==='stock'&&field==='id_product_attribute'){const matches=(found.state.catalogs.productStock||[]).filter(s=>String(s.id_product_attribute)===el.value);if(matches.length!==1){row.stockError='Consulta las existencias actuales antes de elegir este registro.';row.fields.quantity='';delete row.prepared;return true;}row.stockError=null;for(const key of ['quantity','out_of_stock','depends_on_stock','location'])row.fields[key]=String(matches[0][key]??(key==='location'?'':'0'));row.aggregate=el.value==='0'&&(associationIds(found.state.source,'combinations').length>0||found.state.rows.some(r=>r.kind==='variation'&&r.done));}}}
-  else if(el.dataset.prStageAttributes)row.attributes=Array.from(el.selectedOptions).map(o=>o.value);
+  else if(el.dataset.prStageAttributes){row.attributes=Array.from(el.selectedOptions).map(o=>o.value);row.attributesChosen=true;}
   else if(el.dataset.prStageRemoveConfirm){row.removeConfirm=el.value;return true;}
   else if(el.dataset.prStageVariantRecord)row.recordId=el.value;
   else if(el.dataset.prStageImages)row.imageIds=Array.from(el.selectedOptions).map(o=>o.value);
@@ -164,6 +164,7 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
     while(true){const response=await invoke(shop,'prestashop_read',{resource,page,page_size:100,sort:'oldest'});if(response.resource!==resource||!Array.isArray(response.rows))throw Error('Catálogo de '+resource+' no verificable.');for(const row of response.rows){if(seen.has(String(row.id)))throw Error('El catálogo devuelve filas repetidas.');seen.add(String(row.id));all.push(row);}if(!response.possibly_more)break;if(!response.rows.length||++page>1000)throw Error('Catálogo incompleto.');}
     state.catalogs[resource]=all;
    }
+   for(const row of state.rows)if(row.kind==='variation'&&row.sourceAttributes?.length&&!row.attributesChosen&&!row.attempted&&!row.done){const mapped=mapVariantAttributes(row.sourceAttributes,state.catalogs.product_options||[],state.catalogs.product_option_values||[]);row.attributes=mapped.ids;row.mappingNotice=mapped.complete?'Atributos de destino preparados por nombre de grupo y valor.':'Revisa los atributos: falta una correspondencia única en esta tienda.';}
    return 'Atributos, proveedores y monedas consultados en '+shop+'.';
   }
   const found=rows.get(detail.row);if(!found||found.state!==state)throw Error('La etapa no corresponde a este producto.');const row=found.row;

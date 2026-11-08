@@ -4,7 +4,7 @@ import {productCountryTaxRate,productDisplayAmounts,productPriceForMargin} from 
 import {stitchHeader,stitchCatalog,stitchFiche,stitchCopy,stitchRequest,stitchSaved,ensureStitchProductFonts} from './productos-stitch-view.js';
 import {PRODUCT_COLUMNS,DEFAULT_PRODUCT_COLUMNS,productColumns,catalogProductKey,productPhoto,filterProductCatalog,productCatalogCsv} from './productos-catalog.js';
 import {buildProductRequest,renderProductRequestForm} from './productos-request.js';
-import {PRODUCT_STORES,PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,productInputValue,associationIds,normalizedProduct,matchExactReference,buildProductPlan,bulkVariantSelection,productCopyRedirect} from './productos-core.js';
+import {PRODUCT_STORES,PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,productInputValue,associationIds,normalizedProduct,matchExactReference,buildProductPlan,bulkVariantSelection,productCopyRedirect,matchVariantInStore} from './productos-core.js';
 import {storeConnection} from './prestashop-readonly.js';
 import {PRODUCT_WRITE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from './productos-write-contract.js';
 import {createProductWizard} from './productos-create-ui.js';
@@ -21,7 +21,7 @@ const text=(v,max=140)=>{const s=textValue(v);return s.length>max?s.slice(0,max)
 const keyFor=(item)=>String(item?.id||item?.draft_key||'');
 const validReference=s=>typeof s==='string'&&s.trim().length>0;
 export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
- const draftsByShop=new Map(),draftsByProduct=new Map(),attributeNames=new Map();
+ const draftsByShop=new Map(),draftsByProduct=new Map(),attributeNames=new Map(),attributeValues=new Map(),attributeGroups=new Map();
  let organization=null,galleryDraft={};
  let copyQueue=[],catalogViews=[],catalogViewName='';
  let requestBrief={operation:'url',store:'hortimatic'},requestOutput='',requestOwner=null;
@@ -166,13 +166,18 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   const saved=await loadItem(shop,'products',args.record_id);shopRecords.set(shop,saved);targetRaw.set(shop,saved);preflight.delete(shop);editRequests.delete(shop);editConfirm.delete(shop);
   status='Actualización guardada y releída en '+shop+' · #'+args.record_id+'.';
  }
+ function copyVariationChoices(){
+  if(!variants.length)return '';
+  const selected=variants.filter(v=>variantFields.get(keyFor(v))?.size).length;
+  return '<details class="prd-copy-variant-options"><summary>Combinaciones · '+selected+' de '+variants.length+' seleccionadas</summary><div class="flex flex-col gap-space-sm">'+variants.map(v=>'<label><input type="checkbox" data-pr-copy-variant="'+h(keyFor(v))+'" '+(variantFields.get(keyFor(v))?.size?'checked':'')+'><span><b>'+h((v.__attributeNames||[]).join(' · ')||v.reference||'Combinación')+'</b><small>'+h(v.reference||'')+'</small></span></label>').join('')+'</div><small>Se copian los campos de las combinaciones elegidas. Las fotos se preparan y revisan en la etapa Imágenes del destino.</small></details>';
+ }
  function parallelEditors(){
   const stores=[store,...PRODUCT_STORES.map(s=>s.key).filter(s=>s!==store)];
   const sections={general:PRODUCT_SECTIONS.general.filter(f=>!['description','description_short'].includes(f)),contenido:['description_short','description'],...Object.fromEntries(Object.entries(PRODUCT_SECTIONS).filter(([key])=>key!=='general'))};
   if(!sections[parallelSection])parallelSection='general';
   return '<div class="prd-field-selection">'+btn('Seleccionar todos los campos','fields-all')+btn('Ninguno','fields-none')+'<span>'+fields.size+' campos seleccionados para copiar</span></div><nav class="prd-parallel-tabs" aria-label="Apartados de ambas fichas">'+Object.keys(sections).map(key=>btn(key==='contenido'?'Contenido':key==='general'?'Datos':sectionTitle(key),'parallel-section','data-pr-section="'+key+'"'+(parallelSection===key?' aria-current="page"':''),pending)).join('')+'</nav><div class="prd-parallel-editors">'+stores.map(shop=>{
    const source=shop===store,target=targetRaw.get(shop),values=targetOverrides.get(shop)||{};
-   return '<fieldset><legend>'+h(PRODUCT_STORES.find(s=>s.key===shop).label)+(source?' · origen':' · destino')+'</legend><div class="prd-parallel-identity">'+photo(source?record:target,shop)+'<strong>'+h(text((source?record:target)?.name)||'Nueva ficha')+'</strong></div><p class="small">'+(source?'Marca los campos que deseas copiar.':'Completa o adapta los campos del destino. Nada se envía hasta validar y confirmar.')+'</p>'+(!source?'<label class="prd-field"><b>ID de destino existente (opcional)</b><input data-pr-existing-id="'+shop+'" value="'+h(targetIds.get(shop)||'')+'" placeholder="Buscar por referencia si se deja vacío"></label>':'<label class="prd-field"><b>ID de origen</b><input value="'+h(record.id||'Borrador nuevo')+'" disabled></label>')+'<div class="prd-fields-grid">'+sections[parallelSection].map(field=>{
+   return '<fieldset><legend>'+h(PRODUCT_STORES.find(s=>s.key===shop).label)+(source?' · origen':' · destino')+'</legend><div class="prd-parallel-identity">'+photo(source?record:target,shop)+'<strong>'+h(text((source?record:target)?.name)||'Nueva ficha')+'</strong></div><p class="small">'+(source?'Marca los campos que deseas copiar.':'Completa o adapta los campos del destino. Nada se envía hasta validar y confirmar.')+'</p>'+(source?copyVariationChoices():'')+(!source?'<label class="prd-field"><b>ID de destino existente (opcional)</b><input data-pr-existing-id="'+shop+'" value="'+h(targetIds.get(shop)||'')+'" placeholder="Buscar por referencia si se deja vacío"></label>':'<label class="prd-field"><b>ID de origen</b><input value="'+h(record.id||'Borrador nuevo')+'" disabled></label>')+'<div class="prd-fields-grid">'+sections[parallelSection].map(field=>{
     if(source)return showField(field);
     const value=Object.prototype.hasOwnProperty.call(values,field)?values[field]:fields.has(field)?Object.prototype.hasOwnProperty.call(overrides,field)?overrides[field]:textValue(record[field]):textValue(target?.[field]);
     const attrs='data-pr-target-field="'+h(field)+'" data-pr-target-store="'+shop+'"';
@@ -255,7 +260,9 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    list.push(item);
   }
   const wanted=new Set(list.flatMap(v=>associationIds(v,'product_option_values')));
-  try{for(let page=0;[...wanted].some(id=>!attributeNames.has(shop+'|'+id));page++){const data=await invokeShop(shop,'prestashop_read',{resource:'product_option_values',page,page_size:100});for(const value of data.rows||[])attributeNames.set(shop+'|'+value.id,textValue(value.name));if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Valores de atributos incompletos.');}}catch{/* Missing names are explicit; no substitutions. */}
+  try{for(let page=0;[...wanted].some(id=>!attributeNames.has(shop+'|'+id));page++){const data=await invokeShop(shop,'prestashop_read',{resource:'product_option_values',page,page_size:100});for(const value of data.rows||[]){attributeNames.set(shop+'|'+value.id,textValue(value.name));attributeValues.set(shop+'|'+value.id,value);}if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Valores de atributos incompletos.');}}catch{/* Missing names are explicit; no substitutions. */}
+  try{if(!attributeGroups.has(shop)){const groups=new Map();for(let page=0;;page++){const data=await invokeShop(shop,'prestashop_read',{resource:'product_options',page,page_size:100});for(const group of data.rows||[])groups.set(String(group.id),textValue(group.name));if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Grupos incompletos.');}attributeGroups.set(shop,groups);}}catch{/* Unknown groups do not authorize a match by attribute. */}
+  for(const variant of list)variant.__attributes=associationIds(variant,'product_option_values').map(id=>{const value=attributeValues.get(shop+'|'+id);return {group:attributeGroups.get(shop)?.get(String(value?.id_attribute_group))||'',value:attributeNames.get(shop+'|'+id)||''};});
   for(const variant of list)variant.__attributeNames=associationIds(variant,'product_option_values').map(id=>attributeNames.get(shop+'|'+id)||'Atributo #'+id);
   try{const stock=[];for(let page=0;;page++){const data=await invokeShop(shop,'prestashop_read',{resource:'stock_availables',product_ids:[String(product.id)],page,page_size:100});if(data.rows.some(row=>String(row.id_product)!==String(product.id)))throw Error('Existencias ajenas.');stock.push(...data.rows);if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Existencias incompletas.');}for(const variant of list){const matches=stock.filter(row=>String(row.id_product_attribute)===String(variant.id)&&(!product.id_shop_default||['0',String(product.id_shop_default)].includes(String(row.id_shop))));if(matches.length===1&&String(matches[0].quantity).trim()!==''&&Number.isFinite(Number(matches[0].quantity)))variant.__stock=matches[0];}}catch{/* A failed read is never zero. */}
   return list;
@@ -318,11 +325,19 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  function rememberProductDraft(){
   if(record)draftsByProduct.set(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'),structuredClone(snapshotDraft()));
  }
+ async function refreshStoredProduct(){
+  if(!record?.id)return true;
+  const activeStore=store,activeId=String(record.id),activeEpoch=epoch;
+  const fresh=normalizedProduct(await loadItem(activeStore,'products',activeId)).raw;
+  const freshVariants=await combinations(activeStore,fresh);
+  if(!current()||epoch!==activeEpoch||store!==activeStore||String(record?.id)!==activeId)return false;
+  record=fresh;variants=freshVariants;shopRecords.set(activeStore,record);return true;
+ }
  async function openProduct(id,shop=store){
   rememberProductDraft();
   if(shop!==store||catalogScope==='both'){store=shop;catalogScope=shop;await loadCatalog(false);}
   const saved=draftsByProduct.get(store+'|'+id),queue=copyQueue;
-  if(saved){restoreDraft(saved);copyQueue=queue;record=normalizedProduct(await loadItem(store,'products',id)).raw;shopRecords.set(store,record);status='Borrador del producto #'+id+' recuperado y ficha releída.';return;}
+  if(saved){restoreDraft(saved);copyQueue=queue;if(!await refreshStoredProduct())return;mode='ficha';status='Borrador del producto #'+id+' recuperado; ficha y '+variants.length+' combinaciones releídas.';return;}
   resetDraft();record=normalizedProduct(await loadItem(store,'products',id)).raw;
   shopRecords.clear();shopRecords.set(store,record);
   variants=await combinations(store,record);
@@ -362,10 +377,10 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
      related=await combinations(dest,target);
     }
    }
+   const matchedVariantIds=new Set();
    const selected=variants.filter(v=>(variantFields.get(keyFor(v))?.size||0)>0).map(v=>{
-    const same=related.filter(t=>validReference(textValue(v.reference))&&textValue(v.reference).trim().toLocaleLowerCase('es')===textValue(t.reference).trim().toLocaleLowerCase('es'));
-    if(same.length>1)throw Error('Referencia de combinación duplicada en '+dest+'.');
-    return {source:v,target:same[0]||null,fields:[...(variantFields.get(keyFor(v))||[])],overrides:variantOverrides.get(keyFor(v))||{}};
+    const match=matchVariantInStore(v,related);if(match.status==='ambiguous')throw Error('Referencia o atributos de combinación ambiguos en '+dest+'.');if(match.variant){if(matchedVariantIds.has(String(match.variant.id)))throw Error('Dos combinaciones de origen coinciden con la misma combinación de destino. Revisa la selección.');matchedVariantIds.add(String(match.variant.id));}
+    return {source:v,target:match.variant,fields:[...(variantFields.get(keyFor(v))||[])],overrides:variantOverrides.get(keyFor(v))||{}};
    });
    plans.push(buildProductPlan({source:record,target,store:dest,fields:redirect.fields,overrides:redirect.overrides,variants:selected}));
   }
@@ -454,6 +469,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(e.target.matches('[data-pr-existing-id]')){targetIds.set(e.target.dataset.prExistingId,e.target.value);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-target-field]')){const dest=e.target.dataset.prTargetStore,field=e.target.dataset.prTargetField,values=targetOverrides.get(dest)||{};targets.add(dest);fields.add(field);values[field]=e.target.value;targetOverrides.set(dest,values);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-lang-store]')){const dest=e.target.dataset.prLangStore,field=e.target.dataset.prLangField,values=targetLanguages.get(dest)||{};values[field]=e.target.value;targetLanguages.set(dest,values);preflight.clear();persistDraft();return;}
+   if(e.target.matches('[data-pr-copy-variant]')){const id=e.target.dataset.prCopyVariant,variant=variants.find(v=>keyFor(v)===id);if(variant){variantFields.set(id,new Set(e.target.checked?VARIANT_FIELDS.filter(f=>variant[f]!==undefined&&variant[f]!==null):[]));invalidate();render();persistDraft();}return;}
    if(e.target.matches('[data-pr-vfield]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVfield,set=variantFields.get(id)||new Set();e.target.checked?set.add(field):set.delete(field);variantFields.set(id,set);invalidate();render();return;}
    if(e.target.matches('[data-pr-vvalue]')){const id=e.target.dataset.prVid,field=e.target.dataset.prVvalue,values=variantOverrides.get(id)||{},chosen=variantFields.get(id)||new Set();chosen.add(field);variantFields.set(id,chosen);values[field]=e.target.value;variantOverrides.set(id,values);invalidate();persistDraft();return;}
    if(e.target.matches('[data-pr-bulk]')){e.target.checked?selection.add(e.target.dataset.prBulk):selection.delete(e.target.dataset.prBulk);bulkItems=[];bulkConfirm='';render();}
@@ -464,7 +480,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(a==='catalog-view-save'){const name=(root.querySelector('[data-pr-view-name]')?.value||'').trim().slice(0,60);if(!name){status='Escribe un nombre para guardar la vista.';render();return;}const v={name,columns:[...catalogColumns],scope:catalogScope,filters:{...catalogFilters},query,size:listSize};catalogViews=catalogViews.filter(v=>v.name!==name);catalogViews.push(v);catalogViewName=name;saveCatalogPreferences();status='Vista «'+name+'» guardada para esta cuenta.';render();return;}
    if(a==='catalog-view-delete'){catalogViews=catalogViews.filter(v=>v.name!==catalogViewName);catalogViewName='';saveCatalogPreferences();render();return;}
    if(a==='draft-purge'){const candidates=savedDraftCards().filter(d=>d.canPurge);if(!candidates.length){status='No hay borradores antiguos sin operaciones enviadas.';render();return;}if(!confirm('Eliminar '+candidates.length+' borradores locales de más de 30 días, sin operaciones enviadas: '+candidates.map(d=>d.name||d.reference||d.key).join(', ')+'. No borra productos ni datos de tienda.'))return;for(const candidate of candidates){draftsByProduct.delete(candidate.key);for(const [shop,d]of draftsByShop){const key=shop+'|'+(d.record?.id||d.record?.draft_key||textValue(d.record?.reference)||'new');if(key===candidate.key)draftsByShop.delete(shop);}}status=candidates.length+' borradores antiguos retirados. Los productos y operaciones de tienda se conservan.';render();return;}
-   if(a==='draft-open'){void work(async()=>{rememberProductDraft();const key=b.dataset.prDraftKey,saved=draftsByProduct.get(key);if(!saved)throw Error('Este borrador ya no está disponible.');const queue=copyQueue;restoreDraft(structuredClone(saved));copyQueue=queue;catalogScope=store;await loadCatalog(false);if(record?.id){record=normalizedProduct(await loadItem(store,'products',record.id)).raw;shopRecords.set(store,record);}mode='ficha';status='Borrador recuperado; se conservan sus solicitudes y cambios pendientes.';});return;}
+   if(a==='draft-open'){void work(async()=>{rememberProductDraft();const key=b.dataset.prDraftKey,saved=draftsByProduct.get(key);if(!saved)throw Error('Este borrador ya no está disponible.');const queue=copyQueue;restoreDraft(structuredClone(saved));copyQueue=queue;catalogScope=store;await loadCatalog(false);if(record?.id&&!await refreshStoredProduct())return;mode='ficha';status='Borrador recuperado; se conservan sus solicitudes y cambios pendientes.';});return;}
    if(a==='copy-reverse'){void work(async()=>{if(!record?.id)throw Error('Selecciona primero una ficha guardada.');const dest=PRODUCT_STORES.find(s=>s.key!==store).key,ref=textValue(record.reference);if(!ref)throw Error('Falta referencia para buscar la ficha de la otra tienda.');const result=await invokeShop(dest,'prestashop_read',{resource:'products',references:[ref],page:0,page_size:100});if(result.possibly_more)throw Error('La búsqueda de correspondencia está incompleta.');const match=matchExactReference(result.rows,ref);if(!match.product)throw Error('No existe una ficha única en la otra tienda para usarla como origen.');await openProduct(match.product.id,dest);mode='comparar';});return;}
    if(a==='draft-save'){persistDraft();void storageQueue.then(()=>{if(current()){status=storageError?'No se ha podido guardar el borrador local.':'Borrador guardado para esta cuenta.';render();}});return;}
    if(a==='organization-related'){void work(async()=>{if(!organization?.relatedReference?.trim())throw Error('Indica la referencia exacta del producto relacionado.');const response=await invokeShop(store,'prestashop_read',{resource:'products',references:[organization.relatedReference.trim()],page:0,page_size:100});if(response.possibly_more)throw Error('Consulta de referencia incompleta.');const match=matchExactReference(response.rows,organization.relatedReference);if(!match.product||String(match.product.id)===String(record.id))throw Error('Selecciona una referencia única de otro producto de esta tienda.');organization.related=[...new Set([...organization.related,String(match.product.id)])];organization.catalog.related_products=[...organization.catalog.related_products.filter(p=>String(p.id)!==String(match.product.id)),match.product];organization.relatedReference='';status='Producto relacionado añadido al borrador.';});return;}
@@ -515,7 +531,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    });return;}
 
    if(a==='editor-section'){editorSection=b.dataset.prSection;render();return;}
-   if(a==='fields-all'||a==='fields-none'){fields=new Set(a==='fields-all'?Object.values(PRODUCT_SECTIONS).flat().filter(f=>record&&record[f]!==undefined&&record[f]!==null):[]);if(a==='fields-none'){overrides={};targetOverrides.clear();}invalidate();render();return;}
+   if(a==='fields-all'||a==='fields-none'){fields=new Set(a==='fields-all'?Object.values(PRODUCT_SECTIONS).flat().filter(f=>record&&record[f]!==undefined&&record[f]!==null):[]);if(a==='fields-all')for(const variant of variants)variantFields.set(keyFor(variant),new Set(VARIANT_FIELDS.filter(f=>variant[f]!==undefined&&variant[f]!==null)));if(a==='fields-none'){overrides={};targetOverrides.clear();variantFields.clear();}invalidate();render();return;}
    if(a==='catalog-columns-reset'){catalogColumns=[...DEFAULT_PRODUCT_COLUMNS];try{localStorage.removeItem('totus-products-columns:'+owner);}catch{}render();return;}
    if(a==='catalog-clear-selection'){catalogSelected.clear();render();return;}
    if(a==='catalog-copy'){void work(async()=>{
@@ -555,7 +571,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   render();
   try{const response=await rpc('totus_prestashop_context',{});if(!current()||epoch!==gen)return;connections=response?.connections||[];status='Conexiones consultadas.';if(ready(store))await loadCatalog(false);}
   catch(e){if(current()&&epoch===gen)status='No se han podido comprobar las conexiones: '+(e.message||'error');}
-  if(current()&&epoch===gen){try{await storageQueue;const saved=await productDraftStore(owner);if(current()&&epoch===gen){const previousStore=store;if(restoreDraft(saved)){if(store!==previousStore&&ready(store))await loadCatalog(false);status='Borrador recuperado de esta cuenta. Comprueba las operaciones enviadas antes de repetir un guardado.';}}}catch{}storageReady=true;render();}
+  if(current()&&epoch===gen){try{await storageQueue;const saved=await productDraftStore(owner);if(current()&&epoch===gen){const previousStore=store;if(restoreDraft(saved)){if(store!==previousStore&&ready(store))await loadCatalog(false);if(record?.id&&ready(store)&&!await refreshStoredProduct())return;status='Borrador recuperado de esta cuenta. Comprueba las operaciones enviadas antes de repetir un guardado.';}}}catch{}storageReady=true;render();}
  }
  function hasDraft(){return !!record&&(fields.size>0||[...variantFields.values()].some(s=>s.size>0));}
  function discardDraft(){if(record)draftsByProduct.delete(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'));draftsByShop.delete(store);resetDraft();status='Propuesta descartada.';if(current())render();}

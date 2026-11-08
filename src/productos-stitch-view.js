@@ -163,6 +163,7 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
  }
  // Use the original matrix, populated only with the selected shop's real variants.
  const vPanel=f.querySelector('#sub-variaciones'),addVariant=vPanel.querySelector('button');action(addVariant,record.id?'variation-stages':'new-variant');
+ const variantNotice=[...vPanel.querySelectorAll('span')].find(p=>p.textContent.includes('Impacto Precio'));if(variantNotice)variantNotice.textContent='El impacto de precio sin IVA se suma al precio base sin IVA del producto. No introduzcas el precio total de venta en esta casilla.';
  const bulk=addVariant.cloneNode(true);action(bulk,'mode');bulk.dataset.mode='bulk';bulk.textContent='Cambios masivos';addVariant.after(bulk);
  for(const [name,title]of [['attribute-group','Nuevo atributo'],['attribute-value','Nuevo valor']]){const b=addVariant.cloneNode(true);action(b,name);b.textContent=title;bulk.after(b);}
  const table=vPanel.querySelector('table'),sample=table.querySelector('tbody tr');
@@ -240,6 +241,7 @@ export function stitchCopy({store,legacyHtml}){
   if(actualIdentity){const picture=actualIdentity.querySelector('img'),slot=identity.firstElementChild,description=identity.lastElementChild;slot.replaceChildren();if(picture){picture.className='w-full h-full object-contain';slot.append(picture);}else slot.textContent='Sin foto';description.replaceChildren();const name=document.createElement('strong');name.className='font-headline-sm text-headline-sm text-on-surface';name.textContent=actualIdentity.querySelector('strong')?.textContent||'Nueva ficha';const note=document.createElement('span');note.className='font-body-sm text-body-sm text-on-surface-variant';note.textContent=i?'Completa los datos y revisa las coincidencias antes de guardar.':'Selecciona los campos que quieres copiar.';description.append(name,note);}
   const fieldsPanel=panel.children[2],rowTemplate=fieldsPanel.children[1].cloneNode(true),heading=fieldsPanel.firstElementChild.cloneNode(true);fieldsPanel.replaceChildren(heading);
   if(editor){
+   const variations=editor.querySelector('.prd-copy-variant-options');if(variations)fieldsPanel.append(variations);
    const idLabel=editor.querySelector(':scope>label.prd-field');if(idLabel){idLabel.className='flex flex-col gap-space-xs';idLabel.querySelector('input').className=inputClass;fieldsPanel.append(idLabel);}
    for(const field of editor.querySelectorAll('.prd-fields-grid>.prd-field')){
     const row=rowTemplate.cloneNode(true),check=field.querySelector('input[type="checkbox"]'),control=field.querySelector('[data-pr-value],[data-pr-target-field]'),caption=field.querySelector(':scope>span:has(b)')||document.createElement('span'),title=field.querySelector('b')?.textContent||'';

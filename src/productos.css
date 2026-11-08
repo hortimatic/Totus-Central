@@ -159,3 +159,8 @@
  #productosRoot .prd-stitch [class~="min-w-[320px]"]{min-width:320px}
  #productosRoot .prd-stitch [class~="min-w-[240px]"]{min-width:240px}
 }
+
+#productosRoot .prd-copy-variant-options{margin:8px 0;padding:8px 0;border-bottom:1px solid #dce3ed}
+#productosRoot .prd-copy-variant-options summary{cursor:pointer;font-weight:600}
+#productosRoot .prd-copy-variant-options label{display:flex;align-items:center;gap:8px;padding:4px}
+#productosRoot .prd-copy-variant-options small{display:block;font-size:12px;color:#58677a}

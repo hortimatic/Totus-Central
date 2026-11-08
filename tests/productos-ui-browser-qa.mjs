@@ -24,6 +24,7 @@ try{
     'hortimatic|combinations|101':{id:'101',id_product:'42',reference:'REF-42-20',price:'2',minimal_quantity:'1',associations:{product_option_values:[{id:'20'}]}},
     'newoldsmok|combinations|200':{id:'200',id_product:'55',reference:'REF-42-10',price:'1.50',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}}
    };
+   q.fixture=fixture;
    q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,canEdit:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
@@ -87,9 +88,20 @@ try{
   await page.locator('[data-pr-action="editor-section"][data-pr-section="variaciones"]').click();
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').fill('3.50');
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').blur();
+  await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
+  await page.evaluate(()=>{const p=productosQA.fixture['hortimatic|products|42'];p.description='Contenido actualizado por otro operador';p.associations.images=[{id:'99'}];productosQA.fixture['hortimatic|combinations|100'].associations.images=[{id:'99'}];});
+  await page.getByRole('button',{name:'Abrir ficha',exact:true}).click();
+  await page.locator('[data-pr-section="variaciones"]').waitFor();
+  await page.locator('[data-pr-section="general"]').click();
+  assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre personalizado','Reopening keeps unsaved text');
+  await page.locator('[data-pr-section="variaciones"]').click();
+  assert.equal(await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').inputValue(),'3.50','Reopening keeps unsaved variant price');
+  assert.match(await page.locator('[data-pr-action="variation-images"][data-pr-vid="100"] img').getAttribute('src'),/99-home_default/,'Reopening reloads images from the shop');
+
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-action="fields-all"]').click();
   assert.equal(await page.locator('[data-pr-field="name"]').isChecked(),true);
+  assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2,'Select all includes the combinations');
   await page.locator('[data-pr-action="parallel-section"][data-pr-section="seo"]').click();
   assert.equal(await page.locator('[data-pr-field="meta_title"]').isChecked(),true);
   await page.locator('[data-pr-action="parallel-section"][data-pr-section="general"]').click();
@@ -97,6 +109,7 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-copia-'+width+'.png',fullPage:true});
 
   await page.locator('[data-pr-action="fields-none"]').click();
+  await page.locator('.prd-copy-variant-options summary').click();await page.locator('[data-pr-copy-variant="100"]').check();
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();

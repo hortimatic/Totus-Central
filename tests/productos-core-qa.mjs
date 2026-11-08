@@ -80,3 +80,22 @@ test('copy all keeps ordinary fields reviewable without copying another shop red
  const chosen=productCopyRedirect({fields,source:{redirect_type:'301-product',id_type_redirected:'72'},adapted:{id_type_redirected:'94'},crossStore:true});
  assert.equal(chosen.overrides.id_type_redirected,'94');assert.deepEqual(chosen.fields,fields);
 });
+
+import {matchVariantInStore} from '../src/productos-core.js';
+test('variant copy matches verified group and value names across shop IDs without guessing',()=>{
+ const source={reference:'ORIGIN',__attributes:[{group:'Color',value:'Negro leather'}]};
+ const target={id:'94',reference:'OTHER',__attributes:[{group:'COLOR',value:'Negro leather'}]};
+ assert.equal(matchVariantInStore(source,[target]).variant.id,'94');
+ assert.equal(matchVariantInStore(source,[target,{...target,id:'95'}]).status,'ambiguous');
+ assert.equal(matchVariantInStore(source,[{...target,__attributes:[{group:'Material',value:'Negro leather'}]}]).status,'missing');
+ assert.equal(matchVariantInStore({...source,__attributes:[{value:'Negro leather'}]},[target]).status,'missing');
+ assert.equal(matchVariantInStore(source,[{...target,reference:'ORIGIN'}]).status,'matched');
+});
+
+import {mapVariantAttributes} from '../src/productos-core.js';
+test('new combination mapping uses destination IDs and requires unique group/value matches',()=>{
+ const attrs=[{group:'Color',value:'Negro'}],groups=[{id:'90',name:'Color'}],values=[{id:'900',id_attribute_group:'90',name:'Negro'}];
+ assert.deepEqual(mapVariantAttributes(attrs,groups,values),{ids:['900'],complete:true});
+ assert.equal(mapVariantAttributes(attrs,groups,[...values,{...values[0],id:'901'}]).complete,false);
+ assert.equal(mapVariantAttributes(attrs,[],values).complete,false);
+});
