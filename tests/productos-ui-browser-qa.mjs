@@ -10,6 +10,7 @@ try{
   const page=await browser.newPage({viewport:{width,height:850}}),errors=[];
   page.setDefaultTimeout(10000);
   page.on('pageerror',e=>errors.push(e.message));
+  await page.route('https://hortimatic.com/91-**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect x="10" y="10" width="60" height="60" fill="green"/></svg>'}));
   await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
   await page.addStyleTag({url:'http://127.0.0.1:4173/src/productos.css'});
   await page.evaluate(async()=>{
@@ -18,7 +19,7 @@ try{
    root.innerHTML=productosWorkspacePage();
    const q=window.productosQA={actor:'admin-1',calls:[],slow:false,connections:['hortimatic','newoldsmok'].map((store,i)=>({id:String(i+1).padStart(8,'0')+'-1111-4111-8111-111111111111',name:'PrestaShop · '+(store==='hortimatic'?'Hortimatic':'NewOldSmok'),protocol:'prestashop',configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true}))};
    const fixture={
-    'hortimatic|products|42':{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>',description:'Origen',price:'12.90',meta_title:'SEO de origen',associations:{combinations:[{id:'100'},{id:'101'}],categories:[{id:'3'}]}},
+    'hortimatic|products|42':{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>',description:'Origen',price:'12.90',meta_title:'SEO de origen',associations:{images:[{id:'91'}],combinations:[{id:'100'},{id:'101'}],categories:[{id:'3'}]}},
     'newoldsmok|products|55':{id:'55',reference:'DESTINO-55',name:[{id:'1',value:'Destino antiguo'}],description:'Destino',price:'14.90',meta_title:'SEO propio',associations:{combinations:[{id:'200'}]}},
     'hortimatic|combinations|100':{id:'100',id_product:'42',reference:'REF-42-10',price:'1',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}},
     'hortimatic|combinations|101':{id:'101',id_product:'42',reference:'REF-42-20',price:'2',minimal_quantity:'1',associations:{product_option_values:[{id:'20'}]}},
@@ -86,13 +87,22 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-catalogo-'+width+'.png',fullPage:true});
 
   await page.getByRole('button',{name:'Abrir ficha'}).click();
-  await page.getByText(/2 combinaciones leídas/).waitFor();
+  await page.getByText(/2 combinaciones (?:leídas|releídas)/).waitFor();
   assert.equal(await page.locator('#productosRoot script').count(),0);
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-action="fields-none"]').click();
   assert.equal(await page.locator('.prd-copy-image-choice input').isChecked(),false);
   await page.locator('[data-pr-action="fields-all"]').click();
   assert.equal(await page.locator('.prd-copy-image-choice input').isChecked(),true,'Select all includes images');
+  assert.equal(await page.locator('#panel-store-target img').count(),2,'Destination shows selected main photo and gallery before upload');
+  assert.match(await page.locator('#panel-store-target').innerText(),/Vista previa.*pendiente de copiar/);
+  assert.match(await page.locator('#panel-store-target img').first().getAttribute('src'),/hortimatic.com\/91-/,'Preview keeps source image ID and is not claimed as native destination');
+  await page.waitForFunction(()=>[...document.querySelectorAll('#panel-store-target img')].every(i=>i.complete&&i.naturalWidth>0));
+  const copyMetrics=await page.evaluate(()=>{const a=document.querySelector('#panel-store-source [data-pr-copy-field="name"]').getBoundingClientRect(),b=document.querySelector('#panel-store-target [data-pr-copy-field="name"]').getBoundingClientRect();return {source:{width:a.width,height:a.height},target:{width:b.width,height:b.height}};});
+  assert.equal(copyMetrics.source.height,34);assert.equal(copyMetrics.target.height,34);assert(Math.abs(copyMetrics.source.width-copyMetrics.target.width)<2,'Parallel cards share the same input width');
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Copy workspace fits the viewport');
+  await page.screenshot({path:'qa-artifacts/productos-copia-homogenea-'+width+'.png',fullPage:true});
+
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();
