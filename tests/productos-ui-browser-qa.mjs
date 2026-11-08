@@ -70,6 +70,7 @@ try{
   await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
   assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
   assert.equal(await page.evaluate(()=>{const r=document.querySelector('.prd-catalog-filters').getBoundingClientRect();return [...document.querySelectorAll('.prd-catalog-filters label')].every(e=>{const b=e.getBoundingClientRect();return b.left>=r.left-1&&b.right<=r.right+1;});}),true,'Filters fit the available module width');
+  if(width===390)assert.equal(await page.evaluate(()=>{const v=document.querySelector('.prd-catalog-table');return parseFloat(v.style.getPropertyValue('--prd-pinned-width'))<v.clientWidth*.6;}),true,'Pinned identity leaves useful reading space on mobile');
   const position=page.locator('[data-pr-table-position]');
   await position.focus();await position.press('End');
   await page.waitForFunction(()=>{const v=document.querySelector('.prd-catalog-table');return v.scrollLeft>=v.scrollWidth-v.clientWidth-2;});

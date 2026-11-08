@@ -52,7 +52,7 @@ export function enhanceProductSelects(root){
 export function pinProductIdentityColumns(root){
  for(const viewport of root.querySelectorAll('.prd-catalog-table')){
   const headers=[...viewport.querySelectorAll('thead th[data-pr-column-heading]')];let offset=40;
-  for(const header of headers.filter(n=>['image','name'].includes(n.dataset.prColumnHeading))){
+  for(const header of headers.filter(n=>['image','name'].includes(n.dataset.prColumnHeading)&&getComputedStyle(n).position==='sticky')){
    viewport.style.setProperty('--prd-'+header.dataset.prColumnHeading+'-left',offset+'px');offset+=header.getBoundingClientRect().width;
   }
   viewport.style.setProperty('--prd-pinned-width',(offset+8)+'px');viewport.style.scrollPaddingLeft=(offset+8)+'px';
