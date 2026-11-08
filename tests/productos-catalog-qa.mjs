@@ -33,3 +33,9 @@ test('public product links retain the actual store and reject draft/invalid iden
  for(const id of ['',null,'0','../bad','42&evil=1'])assert.equal(productWebUrl({id},'hortimatic'),null);
  assert.equal(productWebUrl({id:'42'},'both'),null);
 });
+
+test('default catalogue places photo and product first without replacing custom column views',()=>{
+ assert.deepEqual(productColumns(null).slice(0,2),['image','name']);
+ assert.deepEqual(productColumns(['image','id','reference','name','ean13','brand','category','store','cost','gross','margin','stock','variants','active']).slice(0,2),['image','name']);
+ assert.deepEqual(productColumns(['id','name','image']),['id','name','image']);
+});

@@ -36,7 +36,7 @@ try{
   await page.locator('[data-pr-view-name]').fill('Revisión de catálogo');
   await page.locator('[data-pr-action="catalog-view-save"]').click();
   assert.equal(await page.locator('[data-pr-catalog-view]').inputValue(),'Revisión de catálogo');
-  assert.equal(await page.locator('.prd-columns input[data-pr-column]').first().getAttribute('data-pr-column'),'id');
+  assert.equal(await page.locator('.prd-columns input[data-pr-column]').first().getAttribute('data-pr-column'),'name');
   await page.locator('.prd-columns summary').click();
   assert.equal(await page.locator('th').filter({hasText:'EAN'}).count(),1);
   await page.locator('[data-pr-catalog-all]').check();
