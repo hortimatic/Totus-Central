@@ -22,6 +22,11 @@ test('validación rechaza IDs, stock, valores inválidos y duplicaciones',()=>{
  assert.throws(()=>validateProductWriteRequest(input('prestashop_product_prepare',[{field:'name',value:'Sin idioma'}])),/idioma real/);
  assert.throws(()=>validateProductWriteRequest(input('prestashop_product_prepare',[{field:'reference',value:'A'},{field:'reference',value:'B'}])),/repetido/);
 });
+test('conserva el cero nativo de cantidad mínima sin aceptar negativos ni decimales',()=>{
+ assert.equal(validateProductWriteRequest(input('prestashop_product_prepare',[{field:'minimal_quantity',value:'0'}])).changes[0].value,'0');
+ for(const value of ['-1','1.5',''])assert.throws(()=>validateProductWriteRequest(input('prestashop_product_prepare',[{field:'minimal_quantity',value}])),/entero sin signo|vacío|no válido/);
+});
+
 test('XML preserva todas las asociaciones e idiomas no seleccionados',()=>{
  const r=selectedXmlValues(X,'products','19',[{field:'price',value:'13.50'},{field:'name',language_id:'1',value:'Nuevo & <b>nombre</b> ]]> final'}]);
  assert.equal(r.changes[0].before,'12.900000');
