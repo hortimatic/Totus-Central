@@ -64,6 +64,7 @@ try{
   await page.locator('[data-pr-value="name"]').fill('Nombre editado seguro');
   await page.locator('[data-pr-value="name"]').blur();
   for(const section of ['contenido','precios','variaciones','imagenes','seo','transporte','inventario','organizacion','general']){
+   if(section==='variaciones'){assert.ok(!(await page.locator('#sub-variaciones').textContent()).includes('69,95'));assert.ok((await page.locator('#sub-variaciones').textContent()).includes('precio base sin IVA'));}
    await page.locator('[data-pr-action="editor-section"][data-pr-section="'+section+'"]').click();
    assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Every visible fiche button has a real action: '+section);
    await page.screenshot({path:'qa-artifacts/productos-stitch-'+section+'-'+width+'.png',fullPage:true});
