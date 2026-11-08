@@ -34,7 +34,9 @@ function validateValue(field,value,resource){
  if(field==='name'&&/[<>;=#{}]/.test(value))invalid('El nombre contiene caracteres que PrestaShop no admite: < > ; = # { }.');
  if(field==='ean13'&&value!==''&&!/^\d{13}$/.test(value))invalid('EAN debe contener 13 dígitos.');
  if(field==='upc'&&value!==''&&!/^\d{12}$/.test(value))invalid('UPC debe contener 12 dígitos.');
- if(field==='minimal_quantity'&&(!/^[1-9]\d{0,6}$/.test(value)))invalid('Cantidad mínima incorrecta.');
+ // Native PrestaShop records can contain zero (including freshly created bases).
+ // Preserve that unsigned value during a copy instead of inventing a minimum.
+ if(field==='minimal_quantity'&&(!/^\d{1,7}$/.test(value)))invalid('La cantidad mínima debe ser un entero sin signo.');
  if(field==='low_stock_threshold'&&(!/^\d{1,7}$/.test(value)))invalid('Umbral de stock incorrecto.');
  if(field==='additional_delivery_times'&&!['0','1','2'].includes(value))invalid('Selecciona el tipo de plazo de entrega.');
  if(field==='available_date'&&value!==''&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value+'T00:00:00Z'))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value))invalid('Fecha de disponibilidad incorrecta.');
