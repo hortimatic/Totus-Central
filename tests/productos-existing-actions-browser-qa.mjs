@@ -13,7 +13,7 @@ try{
   await page.evaluate(async()=>{
    const {createProductosUI,productosWorkspacePage}=await import('../src/productos-ui.js');
    document.querySelector('#chatHarness').innerHTML=productosWorkspacePage();
-   const q=window.existingActions={calls:[],attributeGroups:[],attributeValues:[],imageMetadata:{'91':{position:'1',legend:[{id:'1',value:'Texto anterior'}]}},variantImages:{},product:{id:'42',name:'Producto de prueba',reference:'REAL-42',price:'10',wholesale_price:'4',active:'0',available_for_order:'0',visibility:'none',id_default_image:'90',id_default_combination:'300',id_category_default:'4',id_manufacturer:'3',id_supplier:'0',id_tax_rules_group:'0',description:'Descripción original',description_short:'Resumen original',associations:{categories:[{id:'4'}],images:[{id:'90'},{id:'91'}],combinations:[{id:'300'},{id:'301'}]}}};
+   const q=window.existingActions={calls:[],attributeGroups:[],attributeValues:[],imageMetadata:{'91':{position:'1',legend:[{id:'1',value:'Texto anterior'}]}},variantImages:{},product:{id:'42',name:'Producto de prueba',reference:'REAL-42',price:'10',wholesale_price:'4',active:'0',available_for_order:'0',visibility:'none',id_default_image:'90',id_default_combination:'300',id_category_default:'4',id_manufacturer:'3',id_supplier:'0',id_tax_rules_group:'0',description:'Descripción original',description_short:'<p>Resumen original</p>',associations:{categories:[{id:'4'}],images:[{id:'90'},{id:'91'}],combinations:[{id:'300'},{id:'301'}]}}};
    q.ui=createProductosUI({actor:()=> 'existing-actions-'+innerWidth,allowed:()=>true,canEdit:()=>true,
     rpc:async()=>({connections:[{id:'1',name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]}),
     invoke:async body=>{
@@ -32,6 +32,8 @@ try{
   assert.match(await page.locator('.prd-photo-dialog img').getAttribute('src'),/91-large_default/);
   await page.getByRole('button',{name:'Cerrar imagen',exact:true}).click();
 
+  assert.equal(await page.locator('[data-pr-fiche-organization="id_manufacturer"]').inputValue(),'3','Saved brand remains selected after HTML serialization');
+  assert.equal(await page.locator('[data-pr-value="description_short"]').inputValue(),'Resumen original');assert.equal(await page.evaluate(()=>existingActions.product.description_short),'<p>Resumen original</p>','Readable summary does not mutate the saved HTML');assert.match(await page.locator('#sticky-cost-display').innerText(),/4,00/);
   await page.locator('[data-pr-section="variaciones"]').click();await page.locator('[data-pr-action="stock-stages"][data-pr-vid="301"]').click();
   const stockReview=page.locator('.prd-stage-row').last();assert.equal(await stockReview.locator('[data-pr-stage-field="quantity"]').inputValue(),'7');assert.equal(await stockReview.locator('[data-pr-stage-field="location"]').inputValue(),'Estante B');
   await stockReview.getByRole('button',{name:'Descartar esta etapa',exact:true}).click();assert.equal(await page.locator('.prd-stage-row').count(),0);
@@ -126,7 +128,7 @@ try{
   await page.getByRole('button',{name:'Combinaciones',exact:true}).click();await page.getByRole('button',{name:'Añadir combinaciones',exact:true}).click();await page.locator('[data-pr-stage-attributes]').last().selectOption('96');assert.match(await page.locator('[data-pr-stage-attributes]').last().innerText(),/Unidad/);
   await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="precios"]').click();await page.locator('[data-pr-tax-group]').selectOption('7');
   const taxReview=page.locator('.prd-stage-row').last();assert.equal(await taxReview.locator('[data-pr-stage-field="id_tax_rules_group"]').inputValue(),'7');await taxReview.getByRole('button',{name:'Validar esta etapa',exact:true}).click();await taxReview.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();await page.getByText(/Revisión y publicación guardado y verificado/).waitFor();
-  await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="precios"]').click();assert.equal(await page.locator('#calc-pvp').inputValue(),'12.10');
+  await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();await page.locator('[data-pr-section="precios"]').click();assert.equal(await page.locator('#calc-pvp').inputValue(),'12.10');assert.equal(await page.locator('[data-pr-tax-group]').inputValue(),'7','Saved tax group remains selected after render');
   await page.locator('[data-pr-margin]').fill('75');await page.locator('[data-pr-margin]').blur();assert.equal(await page.locator('[data-pr-value="price"]').inputValue(),'16.000000');assert.equal(await page.locator('#calc-pvp').inputValue(),'19.36');assert.equal(await page.evaluate(()=>existingActions.product.price),'10','Margin calculation only changes the draft');
   await page.locator('#calc-cost').fill('3,90');await page.locator('#calc-cost').blur();assert.equal(await page.locator('#calc-cost').inputValue(),'3.90');assert.notEqual(await page.locator('[data-pr-margin]').inputValue(),'');
   await page.locator('[data-pr-section="general"]').click();await page.locator('[data-pr-fiche-organization="id_manufacturer"]').selectOption('3');
