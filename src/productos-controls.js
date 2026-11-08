@@ -2,6 +2,13 @@
 // inside one keyboard-accessible dialog before dispatching the form change.
 const fold=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
 export function enhanceProductSelects(root){
+ const controller=new AbortController();
+ const closeMenus=()=>root.querySelectorAll('.prd-columns[open],.prd-row-menu[open]').forEach(menu=>menu.open=false);
+ const scrolling=event=>{if(!event.target?.closest?.('.prd-columns>div,.prd-row-menu>div,.prd-select-dialog'))closeMenus();};
+ for(const name of ['wheel','touchmove'])document.addEventListener(name,scrolling,{capture:true,passive:true,signal:controller.signal});
+ document.addEventListener('pointerdown',event=>{if(!event.target?.closest?.('.prd-columns,.prd-row-menu,.prd-select-dialog'))closeMenus();},{capture:true,signal:controller.signal});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'||['PageDown','PageUp','Home','End'].includes(event.key)&&!event.target?.matches?.('input,textarea,select'))closeMenus();},{signal:controller.signal});
+ window.addEventListener('resize',closeMenus,{signal:controller.signal});
  for(const menu of root.querySelectorAll('.prd-columns,.prd-row-menu')){
   menu.addEventListener('toggle',()=>{if(!menu.open)return;for(const other of root.querySelectorAll('.prd-columns[open],.prd-row-menu[open]'))if(other!==menu)other.open=false;const panel=menu.querySelector(':scope>div'),anchor=menu.querySelector('summary').getBoundingClientRect();if(panel){const width=Math.min(menu.matches('.prd-columns')?300:220,innerWidth-24);Object.assign(panel.style,{position:'fixed',width:width+'px',left:Math.max(12,Math.min(anchor.left,innerWidth-width-12))+'px',top:Math.min(anchor.bottom+6,Math.max(12,innerHeight-Math.min(panel.scrollHeight,360)-16))+'px',right:'auto',maxHeight:'min(60dvh,360px)'});}});
  }
@@ -38,6 +45,7 @@ export function enhanceProductSelects(root){
   select.addEventListener('mousedown',e=>{if(e.button===0){e.preventDefault();open();}});
   select.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '||e.altKey&&e.key==='ArrowDown'){e.preventDefault();open();}});
  }
+ return ()=>controller.abort();
 }
 
 // Respect saved column order while keeping the product's identity in view.

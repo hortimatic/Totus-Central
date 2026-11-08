@@ -26,3 +26,11 @@ Se conserva aparte la evidencia comercial previa de copia con dos fotos y tres v
 ## Límites nativos que se mantienen visibles
 
 La API de PrestaShop 1.7 no permite prometer todas las operaciones de orden y textos ALT de la galería principal. El borrador de Totus diferencia esos datos locales de los efectivamente guardados y releídos. Costes y márgenes siguen identificados como aproximados. No se presentan imágenes inexistentes ni datos de demostración como datos de tienda.
+
+## Revisión adicional de ventanas y menús
+
+Se corrigió la ventana de textos de imagen, que se montaba fuera del módulo y perdía sus estilos. Las vistas previas y la edición de textos ahora usan un cierre común: Escape, botón, pulsación fuera y devolución del foco. Cerrar una foto también retira la ampliación flotante anterior. Los menús se cierran al desplazar con rueda o toque, al pulsar fuera, con Escape o al redimensionar, sin confundirse con el desplazamiento automático que necesita el navegador para alcanzar un botón.
+
+La matriz ampliada añade 390 × 500, 390 × 900, 680 × 660 y 1440 × 900. Comprueba límites de ventanas y menús, flechas de columnas, las nueve secciones, ayudas solo desde el icono, cancelación sin guardar, textos locales, selección de portada, variante predeterminada, existencias, organización, fotos por variante, eliminación confirmada, sustitución, arrastrar fotos, atributos, impuestos y margen. El informe estructurado se guarda como `qa-artifacts/productos-existing-actions-report.json`; son operaciones simuladas.
+
+Se corrigió también la caché de publicación: `productos.css` y sus importaciones locales reciben el identificador de la versión. `tests/productos-release-cache-qa.py` ejecuta el ensamblado real de publicación en una carpeta desechable y comprueba que tanto los estilos como los módulos nuevos se actualizan juntos, sin incluir pruebas ni código de Supabase en la web publicada.

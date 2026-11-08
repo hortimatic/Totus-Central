@@ -21,6 +21,6 @@ export function attachProductPhotoPreviews(root){
   if(!anchor){anchor=document.createElement('button');anchor.type='button';anchor.className='prd-photo-trigger';anchor.dataset.prPhotoPreview=largeSource(img);anchor.setAttribute('aria-label','Ampliar imagen de '+(img.alt||'producto'));img.before(anchor);anchor.append(img);anchor.addEventListener('click',()=>zoom(img,anchor),{signal});}
   anchor.addEventListener('pointerenter',event=>{if(event.pointerType!=='touch')show(img,anchor);},{signal});anchor.addEventListener('pointerleave',hide,{signal});anchor.addEventListener('focus',()=>{if(!suppressFocus)show(img,anchor);},{signal});anchor.addEventListener('blur',hide,{signal});
  }
- document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();},{signal});document.addEventListener('scroll',hide,{signal,capture:true});window.addEventListener('resize',hide,{signal});
+ root.addEventListener('prd-dialog-close',hide,{signal});document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();},{signal});document.addEventListener('scroll',hide,{signal,capture:true});window.addEventListener('resize',hide,{signal});
  return ()=>{controller.abort();hide();dialog?.remove();dialog=null;};
 }

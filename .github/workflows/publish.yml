@@ -46,6 +46,7 @@ jobs:
           html=html.replace('href="src/interface-design.css"',f'href="src/interface-design.css?v={sha}"')
           html=html.replace('href="src/stitch-design.css"',f'href="src/stitch-design.css?v={sha}"')
           html=html.replace('href="src/prestashop.css"',f'href="src/prestashop.css?v={sha}"')
+          html=html.replace('href="src/productos.css"',f'href="src/productos.css?v={sha}"')
           html=html.replace('href="src/tasks.css"',f'href="src/tasks.css?v={sha}"')
           html=html.replace('href="src/team-chat.css"',f'href="src/team-chat.css?v={sha}"')
           html=html.replace('href="src/styles.css"',f'href="src/styles.css?v={sha}"').replace('src="src/bootstrap.js"',f'src="src/bootstrap.js?v={sha}"')
@@ -56,6 +57,9 @@ jobs:
           for file in (root/'src').rglob('*.js'):
               source=pattern.sub(version,file.read_text())
               file.write_text(dynamic_pattern.sub(version,source))
+          css_import=re.compile(r"""(@import\s+url\(\s*['"])(\.[^'"]+\.css)(['"])""")
+          for file in (root/'src').rglob('*.css'):
+              file.write_text(css_import.sub(version,file.read_text()))
           config=(root/'src/config.js').read_text()
           assert 'awmojepsasikxocoeqtu.supabase.co' in config and 'zwkpmjjuurgjygcrejiw' not in config
           (root/'build-info.json').write_text(json.dumps({'environment':'production','commit':sha},separators=(',',':'))+'\n')

@@ -81,7 +81,10 @@ try{
   await page.locator('[data-pr-format="bold"]').click();
   assert.equal(await description.inputValue(),'<strong>Texto seguro</strong>');
   await page.getByRole('button',{name:'Vista previa',exact:true}).click();
+  const preview=page.getByRole('dialog',{name:'Vista previa de la descripción',exact:true}),previewBounds=await preview.boundingBox();assert(previewBounds.x>=0&&previewBounds.y>=0&&previewBounds.x+previewBounds.width<=width+1&&previewBounds.y+previewBounds.height<=901,'Description preview fits the screen');
   assert.equal(await page.locator('.prd-description-dialog iframe').getAttribute('sandbox'),'');
+  await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);assert.equal(await page.evaluate(()=>document.activeElement.dataset.prAction),'description-preview');
+  await page.getByRole('button',{name:'Vista previa',exact:true}).click();
   await page.getByRole('button',{name:'Cerrar vista previa'}).click();
   await page.locator('[data-pr-section="general"]').click();
 
