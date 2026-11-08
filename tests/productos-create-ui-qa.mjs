@@ -152,7 +152,7 @@ test('la edición posterior del destino actualiza el alta recuperada sin perder 
 
 
 test('una copia nueva no ofrece IDs de fotos ni combinaciones de la tienda de origen como destino',async()=>{
- const origin={...source,__sourceStore:'newoldsmok',id:'55',associations:{images:[{id:'9876'}],combinations:[{id:'9998'}]}};
+ const origin={...source,__sourceStore:'newoldsmok',id:'701',associations:{images:[{id:'9876'}],combinations:[{id:'9998'}]}};
  const f=fixture();await complete(f,plan,origin);f.wizard.handleChange(confirmation(shop,'CREAR'));await f.wizard.perform('create-commit',shop,plan,origin);
  const html=f.wizard.render(plan,{...origin,associations:{images:[{id:'12345'}]}});
  assert.doesNotMatch(html,/12345/,'An initiated copy retains its verified source snapshot');
