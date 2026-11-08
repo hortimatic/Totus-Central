@@ -472,6 +472,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
    status=files.length+' fotos preparadas. Revisa, valida y guarda cada imagen antes de enviarla a la tienda.';
   });};
   root.oninput=e=>{
+   if(e.target.matches('[data-pr-create-language],[data-pr-create-field="reference"],[data-pr-create-field="related_reference"]')&&createWizard.handleChange(e.target)){persistDraft();root.querySelectorAll('.prd-create-confirm').forEach(n=>n.hidden=true);return;}
    if(e.target.matches('[data-pr-table-position]')){const viewport=root.querySelector('.prd-catalog-table');if(viewport)viewport.scrollLeft=(viewport.scrollWidth-viewport.clientWidth)*Number(e.target.value)/1000;return;}if(e.target.matches('[data-pr-create-confirm],[data-pr-create-retry-confirm],[data-pr-stage-remove-confirm]')&&createWizard.handleChange(e.target)){syncWizardTextControls(e.target);return;}if(e.target.matches('[data-pr-search]')){query=e.target.value;listPage=0;render();const f=root.querySelector('[data-pr-search]');f?.focus();f?.setSelectionRange(query.length,query.length);}};
   root.onchange=e=>{
    if(e.target.matches('[data-pr-table-field]')){try{tableEditor.change(e.target.dataset.prShop,e.target.dataset.prId,e.target.dataset.prTableField,e.target.value);persistDraft();}catch(err){status=err.message;render();}return;}

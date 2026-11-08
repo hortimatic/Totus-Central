@@ -36,3 +36,5 @@ Controles remotos de esta corrección, actualización del servicio y recuperaci�
 
 ## Prueba comercial solicitada
 La bandeja Hortimatic #170807053 se ha localizado mediante Totus: Bandeja Metal Mario Jump 18x14 cm, referencia BANDEJA-MARIO.JUMP, coste base 1,90 €, PVP 6 €, sin combinaciones. Copia todavía en preparación: no se declara terminada hasta comprobar la imagen nativa y todos los campos en NewOldSmok.
+
+La selección de imágenes está visible junto a Seleccionar todo y se incluye en esa acción. Los enlaces de categorías solo se adaptan con el mapa de categorías reales; los desconocidos no se redirigen a un ID inventado. Los textos de cada idioma se conservan mientras se escriben, antes del cambio de foco. Las pruebas incluyen envío del segundo idioma a la validación y categoría con ID distinto en destino.

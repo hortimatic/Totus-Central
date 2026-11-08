@@ -28,7 +28,7 @@ try{
    q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,canEdit:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
-    if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1'],persisted:false};
+    if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1','2'],persisted:false};
     if(body.action==='prestashop_product_create_prepare')return {ok:true,store:body.store,resource:'products',reference:body.reference,fingerprint:'b'.repeat(64),persisted:false,can_commit:true};
     if(body.action==='prestashop_product_create_commit'&&q.allowWrites)return {ok:true,store:body.store,resource:'products',record_id:'701',persisted:true,verified:true,active:false};
     if(body.action==='prestashop_product_step_prepare'&&q.allowWrites)return {ok:true,store:body.store,fingerprint:'c'.repeat(64),persisted:false,can_commit:true};
@@ -206,8 +206,10 @@ try{
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').selectOption('33');
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').blur();
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="reference"]').fill('NEW-REF-UI');
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-language="2"][data-pr-create-property="description"]').fill('<p>Descripción de destino dos</p>');
   await page.getByRole('button',{name:'Validar alta sin escribir'}).click();
   await page.getByText(/Prevalidación de hortimatic correcta/).waitFor();
+  assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_create_prepare').at(-1).translations.find(t=>t.language_id==='2').description),'<p>Descripción de destino dos</p>','Second-language edits reach validation without a separate blur');
   await page.locator('[data-pr-create-confirm="hortimatic"]').fill('CREAR');
   assert.equal(await page.locator('[data-pr-create-confirm="hortimatic"]').evaluate(el=>document.activeElement===el),true,'Confirmation stays focused and save enables while typing');
   assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);

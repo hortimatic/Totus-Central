@@ -138,6 +138,8 @@ export function createProductWizard({invoke,canEdit=()=>false,onProgress=()=>{}}
     }
    }
    if(!copyPreferences.has(shop))copyPreferences.set(shop,{images:true,stock:false,publication:false});
+   copyPreferences.get(shop).categoryMap=mapped.categoryMap;
+   for(const translation of Object.values(entry.translations))for(const key of ['description','description_short'])if(translation[key])translation[key]=adaptStoreHTML(translation[key],source.__sourceStore,shop,{categoryMap:mapped.categoryMap}).value;
    if(!plan.variants?.length&&copyPreferences.get(shop)?.stock){const response=await invoke(source.__sourceStore,'prestashop_read',{resource:'stock_availables',product_ids:[String(source.id)],page:0,page_size:100,sort:'oldest'});const stocks=(response.rows||[]).filter(row=>String(row.id_product)===String(source.id)&&String(row.id_product_attribute)==='0');if(response.possibly_more||stocks.length!==1)warnings.push('Existencias base: selecciona el registro de tienda antes de copiar cantidades');else copyPreferences.get(shop).baseStock=Object.fromEntries(['quantity','out_of_stock','depends_on_stock','location'].map(key=>[key,String(stocks[0][key]??(key==='location'?'':'0'))]));}
    if(copyPreferences.get(shop)?.prices){
     const sourceCurrencies=await readAll(source.__sourceStore,'currencies'),destinationCurrencies=await readAll(shop,'currencies');
