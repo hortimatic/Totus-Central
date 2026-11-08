@@ -318,11 +318,19 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  function rememberProductDraft(){
   if(record)draftsByProduct.set(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'),structuredClone(snapshotDraft()));
  }
+ async function refreshStoredProduct(){
+  if(!record?.id)return true;
+  const activeStore=store,activeId=String(record.id),activeEpoch=epoch;
+  const fresh=normalizedProduct(await loadItem(activeStore,'products',activeId)).raw;
+  const freshVariants=await combinations(activeStore,fresh);
+  if(!current()||epoch!==activeEpoch||store!==activeStore||String(record?.id)!==activeId)return false;
+  record=fresh;variants=freshVariants;shopRecords.set(activeStore,record);return true;
+ }
  async function openProduct(id,shop=store){
   rememberProductDraft();
   if(shop!==store||catalogScope==='both'){store=shop;catalogScope=shop;await loadCatalog(false);}
   const saved=draftsByProduct.get(store+'|'+id),queue=copyQueue;
-  if(saved){restoreDraft(saved);copyQueue=queue;record=normalizedProduct(await loadItem(store,'products',id)).raw;shopRecords.set(store,record);status='Borrador del producto #'+id+' recuperado y ficha releída.';return;}
+  if(saved){restoreDraft(saved);copyQueue=queue;if(!await refreshStoredProduct())return;mode='ficha';status='Borrador del producto #'+id+' recuperado; ficha y '+variants.length+' combinaciones releídas.';return;}
   resetDraft();record=normalizedProduct(await loadItem(store,'products',id)).raw;
   shopRecords.clear();shopRecords.set(store,record);
   variants=await combinations(store,record);
@@ -464,7 +472,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
    if(a==='catalog-view-save'){const name=(root.querySelector('[data-pr-view-name]')?.value||'').trim().slice(0,60);if(!name){status='Escribe un nombre para guardar la vista.';render();return;}const v={name,columns:[...catalogColumns],scope:catalogScope,filters:{...catalogFilters},query,size:listSize};catalogViews=catalogViews.filter(v=>v.name!==name);catalogViews.push(v);catalogViewName=name;saveCatalogPreferences();status='Vista «'+name+'» guardada para esta cuenta.';render();return;}
    if(a==='catalog-view-delete'){catalogViews=catalogViews.filter(v=>v.name!==catalogViewName);catalogViewName='';saveCatalogPreferences();render();return;}
    if(a==='draft-purge'){const candidates=savedDraftCards().filter(d=>d.canPurge);if(!candidates.length){status='No hay borradores antiguos sin operaciones enviadas.';render();return;}if(!confirm('Eliminar '+candidates.length+' borradores locales de más de 30 días, sin operaciones enviadas: '+candidates.map(d=>d.name||d.reference||d.key).join(', ')+'. No borra productos ni datos de tienda.'))return;for(const candidate of candidates){draftsByProduct.delete(candidate.key);for(const [shop,d]of draftsByShop){const key=shop+'|'+(d.record?.id||d.record?.draft_key||textValue(d.record?.reference)||'new');if(key===candidate.key)draftsByShop.delete(shop);}}status=candidates.length+' borradores antiguos retirados. Los productos y operaciones de tienda se conservan.';render();return;}
-   if(a==='draft-open'){void work(async()=>{rememberProductDraft();const key=b.dataset.prDraftKey,saved=draftsByProduct.get(key);if(!saved)throw Error('Este borrador ya no está disponible.');const queue=copyQueue;restoreDraft(structuredClone(saved));copyQueue=queue;catalogScope=store;await loadCatalog(false);if(record?.id){record=normalizedProduct(await loadItem(store,'products',record.id)).raw;shopRecords.set(store,record);}mode='ficha';status='Borrador recuperado; se conservan sus solicitudes y cambios pendientes.';});return;}
+   if(a==='draft-open'){void work(async()=>{rememberProductDraft();const key=b.dataset.prDraftKey,saved=draftsByProduct.get(key);if(!saved)throw Error('Este borrador ya no está disponible.');const queue=copyQueue;restoreDraft(structuredClone(saved));copyQueue=queue;catalogScope=store;await loadCatalog(false);if(record?.id&&!await refreshStoredProduct())return;mode='ficha';status='Borrador recuperado; se conservan sus solicitudes y cambios pendientes.';});return;}
    if(a==='copy-reverse'){void work(async()=>{if(!record?.id)throw Error('Selecciona primero una ficha guardada.');const dest=PRODUCT_STORES.find(s=>s.key!==store).key,ref=textValue(record.reference);if(!ref)throw Error('Falta referencia para buscar la ficha de la otra tienda.');const result=await invokeShop(dest,'prestashop_read',{resource:'products',references:[ref],page:0,page_size:100});if(result.possibly_more)throw Error('La búsqueda de correspondencia está incompleta.');const match=matchExactReference(result.rows,ref);if(!match.product)throw Error('No existe una ficha única en la otra tienda para usarla como origen.');await openProduct(match.product.id,dest);mode='comparar';});return;}
    if(a==='draft-save'){persistDraft();void storageQueue.then(()=>{if(current()){status=storageError?'No se ha podido guardar el borrador local.':'Borrador guardado para esta cuenta.';render();}});return;}
    if(a==='organization-related'){void work(async()=>{if(!organization?.relatedReference?.trim())throw Error('Indica la referencia exacta del producto relacionado.');const response=await invokeShop(store,'prestashop_read',{resource:'products',references:[organization.relatedReference.trim()],page:0,page_size:100});if(response.possibly_more)throw Error('Consulta de referencia incompleta.');const match=matchExactReference(response.rows,organization.relatedReference);if(!match.product||String(match.product.id)===String(record.id))throw Error('Selecciona una referencia única de otro producto de esta tienda.');organization.related=[...new Set([...organization.related,String(match.product.id)])];organization.catalog.related_products=[...organization.catalog.related_products.filter(p=>String(p.id)!==String(match.product.id)),match.product];organization.relatedReference='';status='Producto relacionado añadido al borrador.';});return;}
@@ -555,7 +563,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
   render();
   try{const response=await rpc('totus_prestashop_context',{});if(!current()||epoch!==gen)return;connections=response?.connections||[];status='Conexiones consultadas.';if(ready(store))await loadCatalog(false);}
   catch(e){if(current()&&epoch===gen)status='No se han podido comprobar las conexiones: '+(e.message||'error');}
-  if(current()&&epoch===gen){try{await storageQueue;const saved=await productDraftStore(owner);if(current()&&epoch===gen){const previousStore=store;if(restoreDraft(saved)){if(store!==previousStore&&ready(store))await loadCatalog(false);status='Borrador recuperado de esta cuenta. Comprueba las operaciones enviadas antes de repetir un guardado.';}}}catch{}storageReady=true;render();}
+  if(current()&&epoch===gen){try{await storageQueue;const saved=await productDraftStore(owner);if(current()&&epoch===gen){const previousStore=store;if(restoreDraft(saved)){if(store!==previousStore&&ready(store))await loadCatalog(false);if(record?.id&&ready(store)&&!await refreshStoredProduct())return;status='Borrador recuperado de esta cuenta. Comprueba las operaciones enviadas antes de repetir un guardado.';}}}catch{}storageReady=true;render();}
  }
  function hasDraft(){return !!record&&(fields.size>0||[...variantFields.values()].some(s=>s.size>0));}
  function discardDraft(){if(record)draftsByProduct.delete(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'));draftsByShop.delete(store);resetDraft();status='Propuesta descartada.';if(current())render();}
