@@ -31,9 +31,10 @@ try{
   const inside=async locator=>{await page.waitForFunction(()=>[...document.querySelectorAll('.prd-columns[open]>div,.prd-row-menu[open]>div')].every(n=>n.style.position==='fixed'));const r=await locator.boundingBox();assert(r&&r.x>=0&&r.y>=0&&r.x+r.width<=width+1&&r.y+r.height<=height+1,'Overlay fits the viewport: '+JSON.stringify(r));};
   await page.locator('.prd-columns summary').click();await inside(page.locator('.prd-columns[open]>div'));
   const arrows=await page.locator('.prd-columns[open] [data-pr-direction]').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {height:r.height,width:r.width};}));assert(arrows.every(r=>r.height>=28&&r.width>=20),'Column arrows retain useful, consistent targets');
-  await page.locator('.prd-catalog-table').hover();await page.mouse.wheel(50,0);await page.waitForFunction(()=>!document.querySelector('.prd-columns[open]'));
+  await page.mouse.move(1,1);await page.mouse.wheel(0,60);await page.waitForFunction(()=>!document.querySelector('.prd-columns[open]'));
   await page.locator('.prd-row-menu summary').click();await inside(page.locator('.prd-row-menu[open]>div'));await page.keyboard.press('Escape');assert.equal(await page.locator('.prd-row-menu[open]').count(),0);
   await page.getByRole('button',{name:'Abrir ficha',exact:true}).click();
+  await page.evaluate(()=>document.fonts.ready);
   const info=page.locator('#sub-info .field-help').first();
   await info.locator('..').hover({position:{x:2,y:2}});assert.equal(await info.getAttribute('open'),null,'A field label does not open the information icon');
   await info.locator('summary').hover();await page.waitForFunction(()=>document.querySelector('#sub-info .field-help')?.open);await inside(info.locator('[role=note]'));await page.mouse.move(1,1);assert.equal(await info.getAttribute('open'),null);
