@@ -20,8 +20,8 @@ export function createProductStagesUI({invoke,canEdit=()=>false}){
  function session(shop,result,plan,source,profile,catalogs){
   const key=shop+'|'+result.request_id;let state=sessions.get(key);
   if(!state){state={shop,result,source,profile,catalogs:catalogs||{},tab:'image',rows:[]};sessions.set(key,state);
-   for(const variant of plan.variants||[]){const row=add(state,'variation');row.sourceAttributes=variant.source_attributes||[];for(const change of variant.changes||[])row.fields[change.field]=textValue(change.after);}
-   if(state.rows.length){state.tab='variation';state.rows[0].fields.default_on='1';}
+   for(const variant of plan.variants||[]){const row=add(state,'variation');row.sourceAttributes=variant.source_attributes||[];row.sourceDefault=variant.source_default_on===true;for(const change of variant.changes||[])row.fields[change.field]=textValue(change.after);}
+   if(state.rows.length){state.tab='variation';const defaults=state.rows.filter(row=>row.sourceDefault);const preferred=defaults.length===1?defaults[0]:state.rows[0];for(const row of state.rows)row.fields.default_on=row===preferred?'1':'0';}
    const active=(plan.changes||[]).find(c=>c.field==='active'&&c.changed);if(!result.existing_product&&active?.after==='1'){const row=add(state,'finish');row.fields.active='1';row.fields.available_for_order=String((plan.changes||[]).find(c=>c.field==='available_for_order')?.after??'0');}
   }
   state.source=source;state.profile=profile;state.catalogs={...state.catalogs,...catalogs};return state;

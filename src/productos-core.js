@@ -75,7 +75,7 @@ export function buildProductPlan({source,target=null,store,fields=[],overrides={
   const key=sourceId||draftKey;
   if(seen.has(key))throw Error('Combinación repetida.');seen.add(key);
   if(v.target&&!cleanId(v.target.id))throw Error('Combinación de destino sin ID.');
-  return {source_id:sourceId,draft_key:draftKey,target_id:v.target?cleanId(v.target.id):null,
+  return {source_id:sourceId,draft_key:draftKey,target_id:v.target?cleanId(v.target.id):null,source_default_on:String(v.source.default_on)==='1',
     changes:planSelectedFields({source:v.source,target:v.target,fields:v.fields||[],overrides:v.overrides||{},variant:true}),
     attributes:associationIds(v.source,'product_option_values'),source_attributes:(v.source.__attributes||[]).map(a=>({group:a.group,value:a.value})),
     requires_attribute_mapping:!v.target};
