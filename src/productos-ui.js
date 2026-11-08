@@ -355,7 +355,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
  function freshProduct(){
   rememberProductDraft();
   if(catalogScope==='both'){catalogScope=store;rows=[];page=0;hasMore=false;}
-  resetDraft();record={draft_key:'draft-'+crypto.randomUUID(),...Object.fromEntries(Object.values(PRODUCT_SECTIONS).flat().map(field=>[field,''])),id:null,redirect_type:'404',id_type_redirected:'0',active:'0',minimal_quantity:'1',available_for_order:'0',show_price:'1',online_only:'0',on_sale:'0',visibility:'both',condition:'new'};
+  resetDraft();editorSection='general';record={draft_key:'draft-'+crypto.randomUUID(),...Object.fromEntries(Object.values(PRODUCT_SECTIONS).flat().map(field=>[field,''])),id:null,redirect_type:'404',id_type_redirected:'0',active:'0',minimal_quantity:'1',available_for_order:'0',show_price:'1',online_only:'0',on_sale:'0',visibility:'both',condition:'new'};
   fields=new Set(['name','reference','price','description','meta_title','link_rewrite']);
   targets=new Set([store]);mode='ficha';status='Borrador nuevo. Prepara los campos y después selecciona la tienda de destino.';
  }
