@@ -28,7 +28,7 @@ Controles remotos de esta corrección, actualización del servicio y recuperaci�
 
 ## Catálogo y copia: revisión de uso
 - Buscador en su propia fila y filtros que se ajustan al ancho disponible del módulo.
-- Control horizontal superior continuo, accesible con teclado y sincronizado con la tabla; se conservan las flechas y la identidad fija. No añade desplazamiento vertical anidado.
+- Control horizontal superior continuo, accesible con teclado y sincronizado con la tabla; se conservan las flechas; todas las columnas se desplazan juntas, sin columnas inmovilizadas ni espacios reservados. No añade desplazamiento vertical anidado.
 - Coste base, coste con IVA, coste con IVA y RE, precio base, PVP y diferencia PVP menos coste total. El recargo es editable; la fórmula suma IVA y RE sobre la base, sin componerlos. Si falta coste o impuesto verificado no se inventa un resultado. No se presenta como beneficio neto.
 - La vista predeterminada anterior incorpora las columnas nuevas; las vistas personalizadas se conservan.
 - Fichas de copia con foto principal de 112 px, galería de fotos nativas y recuentos de fotos/combinaciones. El destino solo muestra imágenes existentes, nunca una copia ficticia de la foto de origen.

@@ -109,6 +109,3 @@
 #productosRoot .prd-professional .prd-copy-view :is(input,textarea,select){min-width:0;max-width:100%;box-sizing:border-box}
 #productosRoot .prd-professional .prd-copy-view textarea{resize:vertical;min-height:64px}
 @media(max-width:500px){#productosRoot .prd-professional .prd-copy-identity{grid-template-columns:88px minmax(0,1fr)}#productosRoot .prd-professional .prd-copy-identity>div:first-child{width:88px;height:88px}}
-
-/* On narrow workspaces pin the photo, leaving room to read actual data. */
-@container(max-width:650px){#productosRoot .prd-stitch.prd-professional .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch.prd-professional .prd-catalog-table td[data-label=Producto]{position:static;width:180px;min-width:180px;max-width:200px;box-shadow:none}}

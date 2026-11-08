@@ -11,11 +11,9 @@
 #productosRoot .prd-product-photo-dialog p{font-size:13px;margin:0}
 #productosRoot .prd-product-photo-dialog button{min-height:36px;padding:7px 12px;border:1px solid var(--line,#cdd6e2);border-radius:6px;background:var(--panel,#fff);color:inherit}
 
-#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=image],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Foto]{position:sticky;left:var(--prd-image-left,40px);z-index:3;width:88px;min-width:88px;max-width:88px;background:var(--panel,#fff)}
-#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Producto]{position:sticky;left:var(--prd-name-left,128px);z-index:3;width:220px;min-width:220px;max-width:240px;background:var(--panel,#fff);box-shadow:4px 0 7px #18334b10}
-#productosRoot .prd-stitch .prd-catalog-table{scroll-padding-left:360px}
-@media(max-width:600px){#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Producto]{width:100px;min-width:100px;max-width:100px}#productosRoot .prd-stitch .prd-catalog-table{scroll-padding-left:296px}}
+#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=image],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Foto]{width:88px;min-width:88px;max-width:88px;background:var(--panel,#fff)}
+#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Producto]{width:220px;min-width:220px;max-width:240px;background:var(--panel,#fff)}
+#productosRoot .prd-stitch .prd-catalog-table{scroll-padding-left:0}
+@media(max-width:600px){#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Producto]{width:100px;min-width:100px;max-width:100px}#productosRoot .prd-stitch .prd-catalog-table{scroll-padding-left:0}}
 
 #productosRoot .prd-stitch .prd-catalog-table td :is(button,input,select,a){scroll-margin-inline-start:0;scroll-margin-inline-end:12px}
-/* A trailing table gutter lets the final actions clear the frozen identity columns. */
-#productosRoot .prd-stitch .prd-catalog-table tr::after{content:"";display:table-cell;min-width:var(--prd-pinned-width,360px);width:var(--prd-pinned-width,360px);background:var(--panel,#fff)}
