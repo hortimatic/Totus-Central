@@ -16,7 +16,8 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  base.searchParams.set('sort',page.sort==='newest'?'[id_DESC]':'[id_ASC]');
  if(page.from){base.searchParams.set('date','1');base.searchParams.set('filter[date_add]','['+page.from+','+page.to+']');}
  if(page.recordId)base.searchParams.set('filter[id]','['+page.recordId+']');
- if(page.productIds)base.searchParams.set(page.resource==='stock_availables'?'filter[id_product]':'filter[id]','['+page.productIds.join('|')+']');
+ const productChildren=['stock_availables','product_suppliers','specific_prices'];
+ if(page.productIds)base.searchParams.set(productChildren.includes(page.resource)?'filter[id_product]':'filter[id]','['+page.productIds.join('|')+']');
  if(page.references)base.searchParams.set('filter[reference]','['+page.references.join('|')+']');
  if(page.orderIds)base.searchParams.set('filter[id_order]','['+page.orderIds.join('|')+']');
  if(page.orderId)base.searchParams.set('filter[id_order]','['+page.orderId+']');
@@ -30,7 +31,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.from&&parsed.rows.some(row=>!row.date_add||row.date_add<page.from||row.date_add>page.to))throw Error('PrestaShop devolvió registros fuera del periodo. No se han atribuido al intervalo solicitado.');
  if(page.recordId&&parsed.rows.some(row=>row.id!==page.recordId))throw Error('PrestaShop devolvió otro registro de detalle.');
  if(page.orderId&&parsed.rows.some(row=>row.id_order!==page.orderId))throw Error('PrestaShop devolvió líneas de otro pedido.');
- if(page.productIds&&parsed.rows.some(row=>!page.productIds.includes(page.resource==='stock_availables'?row.id_product:row.id)))throw Error('Producto ajeno a la selección.');
+ if(page.productIds&&parsed.rows.some(row=>!page.productIds.includes(productChildren.includes(page.resource)?row.id_product:row.id)))throw Error('Producto ajeno a la selección.');
  if(page.references&&parsed.rows.some(row=>!page.references.some(ref=>ref.toUpperCase()===String(row.reference||'').toUpperCase())))throw Error('PrestaShop devolvió una referencia ajena a la selección.');
  if(page.orderIds&&parsed.rows.some(row=>!page.orderIds.includes(row.id_order)))throw Error('Línea ajena a los pedidos seleccionados.');
  return {ok:true,store:store.key,resource:page.resource,page:page.page,page_size:page.pageSize,...parsed};

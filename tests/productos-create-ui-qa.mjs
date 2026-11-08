@@ -24,15 +24,15 @@ const fixture=(opts={})=>{
  }});
  return {wizard,calls};
 };
-const complete=async(f,p=plan)=>{
- await f.wizard.perform('create-load',shop,p,source);
- f.wizard.render(p,source); // The real browser renders the form immediately after loading its profile.
+const complete=async(f,p=plan,origin=source)=>{
+ await f.wizard.perform('create-load',shop,p,origin);
+ f.wizard.render(p,origin); // The real browser renders the form immediately after loading its profile.
  assert(f.wizard.handleChange(field(shop,'category_id','33')));
  assert(f.wizard.handleChange(lang(shop,'1','name','Pruebas')));
  assert(f.wizard.handleChange(lang(shop,'1','link_rewrite','pruebas')));
  assert(f.wizard.handleChange(lang(shop,'2','name','Tests')));
  assert(f.wizard.handleChange(lang(shop,'2','link_rewrite','tests')));
- return f.wizard.perform('create-prepare',shop,p,source);
+ return f.wizard.perform('create-prepare',shop,p,origin);
 };
 
 test('marca, proveedor, impuestos y materiales se seleccionan en los catálogos del destino',async()=>{
@@ -152,8 +152,10 @@ test('la edición posterior del destino actualiza el alta recuperada sin perder 
 
 
 test('una copia nueva no ofrece IDs de fotos ni combinaciones de la tienda de origen como destino',async()=>{
- const f=fixture();await complete(f);f.wizard.handleChange(confirmation(shop,'CREAR'));await f.wizard.perform('create-commit',shop,plan,source);
- const html=f.wizard.render(plan,{...source,__sourceStore:'newoldsmok',id:'55',associations:{images:[{id:'9876'}],combinations:[{id:'9998'}]}});
+ const origin={...source,__sourceStore:'newoldsmok',id:'701',associations:{images:[{id:'9876'}],combinations:[{id:'9998'}]}};
+ const f=fixture();await complete(f,plan,origin);f.wizard.handleChange(confirmation(shop,'CREAR'));await f.wizard.perform('create-commit',shop,plan,origin);
+ const html=f.wizard.render(plan,{...origin,associations:{images:[{id:'12345'}]}});
+ assert.doesNotMatch(html,/12345/,'An initiated copy retains its verified source snapshot');
  assert.doesNotMatch(html,/Imagen existente #9876|Combinación #9998/);
  assert.match(html,/Copiar galería de origen a revisión/);
 });

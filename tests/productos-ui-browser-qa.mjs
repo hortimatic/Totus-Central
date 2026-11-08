@@ -88,6 +88,14 @@ try{
   await page.locator('[data-pr-action="editor-section"][data-pr-section="variaciones"]').click();
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').fill('3.50');
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').blur();
+  const writesBeforeTabs=await page.evaluate(()=>productosQA.calls.filter(call=>/commit$/.test(call.action)).length);
+  for(const mode of ['comparar','encargo','guardado','catalogo','ficha'])await page.locator('[data-pr-action="mode"][data-mode="'+mode+'"]').click();
+  await page.locator('[data-pr-section="general"]').click();
+  assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre personalizado','Every main tab preserves unsaved product text');
+  await page.locator('[data-pr-section="variaciones"]').click();
+  assert.equal(await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').inputValue(),'3.50','Every main tab preserves the edited combination');
+  assert.equal(await page.evaluate(()=>productosQA.calls.filter(call=>/commit$/.test(call.action)).length),writesBeforeTabs,'Navigation never sends a write');
+
   await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
   await page.evaluate(()=>{const p=productosQA.fixture['hortimatic|products|42'];p.description='Contenido actualizado por otro operador';p.associations.images=[{id:'99'}];productosQA.fixture['hortimatic|combinations|100'].associations.images=[{id:'99'}];});
   await page.getByRole('button',{name:'Abrir ficha',exact:true}).click();
@@ -109,7 +117,7 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-copia-'+width+'.png',fullPage:true});
 
   await page.locator('[data-pr-action="fields-none"]').click();
-  await page.locator('.prd-copy-variant-options summary').click();await page.locator('[data-pr-copy-variant="100"]').check();
+  assert.equal(await page.locator('.prd-copy-variant-options').getAttribute('open'),'','Selected combinations are visible by default');await page.locator('[data-pr-copy-variant="100"]').check();
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();
