@@ -39,7 +39,7 @@ function validateValue(field,value,resource){
  if(field==='minimal_quantity'&&(!/^\d{1,7}$/.test(value)))invalid('La cantidad mínima debe ser un entero sin signo.');
  if(field==='low_stock_threshold'&&(!/^\d{1,7}$/.test(value)))invalid('Umbral de stock incorrecto.');
  if(field==='additional_delivery_times'&&!['0','1','2'].includes(value))invalid('Selecciona el tipo de plazo de entrega.');
- if(field==='available_date'&&value!==''&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value+'T00:00:00Z'))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value))invalid('Fecha de disponibilidad incorrecta.');
+ if(field==='available_date'&&!['','0000-00-00'].includes(value)&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value+'T00:00:00Z'))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value))invalid('Fecha de disponibilidad incorrecta.');
  // A combination price is an impact on base price and may legitimately be negative.
  return value;
 }

@@ -27,6 +27,11 @@ test('conserva el cero nativo de cantidad mínima sin aceptar negativos ni decim
  for(const value of ['-1','1.5',''])assert.throws(()=>validateProductWriteRequest(input('prestashop_product_prepare',[{field:'minimal_quantity',value}])),/entero sin signo|vacío|no válido/);
 });
 
+test('fecha nativa no informada se conserva y las fechas imposibles se rechazan',()=>{
+ assert.equal(validateProductWriteRequest(input('prestashop_product_prepare',[{field:'available_date',value:'0000-00-00'}])).changes[0].value,'0000-00-00');
+ for(const value of ['2026-02-30','2026-13-01','ayer'])assert.throws(()=>validateProductWriteRequest(input('prestashop_product_prepare',[{field:'available_date',value}])),/Fecha de disponibilidad/);
+});
+
 test('XML preserva todas las asociaciones e idiomas no seleccionados',()=>{
  const r=selectedXmlValues(X,'products','19',[{field:'price',value:'13.50'},{field:'name',language_id:'1',value:'Nuevo & <b>nombre</b> ]]> final'}]);
  assert.equal(r.changes[0].before,'12.900000');

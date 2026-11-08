@@ -74,7 +74,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
-   price:'1.00',category_id:'2',fields:[{field:'minimal_quantity',value:'0'},{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
+   price:'1.00',category_id:'2',fields:[{field:'available_date',value:'0000-00-00'},{field:'minimal_quantity',value:'0'},{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
    translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
@@ -98,7 +98,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
- url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,redirect_type,id_type_redirected,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth,minimal_quantity]');
+ url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,redirect_type,id_type_redirected,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth,minimal_quantity,available_date]');
  url.searchParams.set('language','['+profile.language_ids.join('|')+']');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
