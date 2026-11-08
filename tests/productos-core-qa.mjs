@@ -69,3 +69,14 @@ test('every generic fiche and bulk-edit field has a write contract; stock and de
  assert(editableVariantFields.every(field=>PRODUCT_WRITE_FIELDS.combinations.includes(field)));
  assert(!editableVariantFields.includes('default_on'));assert(!Object.values(editableSections).flat().includes('quantity'));
 });
+
+import {productCopyRedirect} from '../src/productos-core.js';
+test('copy all keeps ordinary fields reviewable without copying another shop redirect IDs',()=>{
+ const fields=['name','price','redirect_type','id_type_redirected'];
+ const empty=productCopyRedirect({fields,source:{redirect_type:'301-product',id_type_redirected:'0'},crossStore:true});
+ assert.equal(empty.overrides.redirect_type,'404');assert.equal(empty.overrides.id_type_redirected,'0');assert(empty.fields.includes('price'));
+ const linked=productCopyRedirect({fields,source:{redirect_type:'301-product',id_type_redirected:'72'},crossStore:true});
+ assert.deepEqual(linked.fields,['name','price']);assert.match(linked.notice,/pendiente/);assert.equal(linked.overrides.id_type_redirected,undefined);
+ const chosen=productCopyRedirect({fields,source:{redirect_type:'301-product',id_type_redirected:'72'},adapted:{id_type_redirected:'94'},crossStore:true});
+ assert.equal(chosen.overrides.id_type_redirected,'94');assert.deepEqual(chosen.fields,fields);
+});
