@@ -77,7 +77,7 @@ export function buildProductPlan({source,target=null,store,fields=[],overrides={
   if(v.target&&!cleanId(v.target.id))throw Error('Combinación de destino sin ID.');
   return {source_id:sourceId,draft_key:draftKey,target_id:v.target?cleanId(v.target.id):null,
     changes:planSelectedFields({source:v.source,target:v.target,fields:v.fields||[],overrides:v.overrides||{},variant:true}),
-    attributes:associationIds(v.source,'product_option_values'),
+    attributes:associationIds(v.source,'product_option_values'),source_attributes:(v.source.__attributes||[]).map(a=>({group:a.group,value:a.value})),
     requires_attribute_mapping:!v.target};
  });
  return {
@@ -104,4 +104,20 @@ export function productCopyRedirect({fields,source,overrides={},adapted={},cross
  const type=String(values.redirect_type??source.redirect_type??''),target=String(values.id_type_redirected??source.id_type_redirected??'');
  if(type==='404'||target==='0')return {fields:[...new Set([...selected,'redirect_type','id_type_redirected'])],overrides:{...values,redirect_type:'404',id_type_redirected:'0'},notice:type!=='404'?'La redirección de origen no tiene destino: se prepara sin redirección.':''};
  return {fields:selected.filter(k=>!['redirect_type','id_type_redirected'].includes(k)),overrides:values,notice:'La redirección queda pendiente de elegir en esta tienda. Los demás campos están preparados.'};
+}
+
+export function matchVariantInStore(source,rows){
+ const normal=v=>String(v??'').normalize('NFKC').trim().toLocaleLowerCase('es');
+ const ref=normal(source.reference),byRef=ref?rows.filter(r=>normal(r.reference)===ref):[];
+ if(byRef.length)return {status:byRef.length===1?'matched':'ambiguous',variant:byRef.length===1?byRef[0]:null};
+ const key=row=>{const a=row.__attributes;if(!Array.isArray(a)||!a.length||a.some(v=>!normal(v.group)||!normal(v.value))||new Set(a.map(v=>normal(v.group))).size!==a.length)return null;return JSON.stringify(a.map(v=>[normal(v.group),normal(v.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));};
+ const sourceKey=key(source),found=sourceKey?rows.filter(r=>key(r)===sourceKey):[];
+ return {status:found.length===1?'matched':found.length?'ambiguous':'missing',variant:found.length===1?found[0]:null};
+}
+
+export function mapVariantAttributes(attributes,groups,values){
+ const normal=v=>textValue(v).normalize('NFKC').trim().toLocaleLowerCase('es'),ids=[];
+ if(!attributes?.length)return {ids:[],complete:false};
+ for(const attr of attributes){if(!normal(attr.group)||!normal(attr.value))return {ids:[],complete:false};const group=groups.filter(g=>normal(g.name)===normal(attr.group));if(group.length!==1)return {ids:[],complete:false};const found=values.filter(v=>String(v.id_attribute_group)===String(group[0].id)&&normal(v.name)===normal(attr.value));if(found.length!==1)return {ids:[],complete:false};ids.push(String(found[0].id));}
+ return {ids,complete:new Set(ids).size===attributes.length};
 }

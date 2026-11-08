@@ -101,6 +101,7 @@ try{
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-action="fields-all"]').click();
   assert.equal(await page.locator('[data-pr-field="name"]').isChecked(),true);
+  assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2,'Select all includes the combinations');
   await page.locator('[data-pr-action="parallel-section"][data-pr-section="seo"]').click();
   assert.equal(await page.locator('[data-pr-field="meta_title"]').isChecked(),true);
   await page.locator('[data-pr-action="parallel-section"][data-pr-section="general"]').click();
@@ -108,6 +109,7 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-copia-'+width+'.png',fullPage:true});
 
   await page.locator('[data-pr-action="fields-none"]').click();
+  await page.locator('.prd-copy-variant-options summary').click();await page.locator('[data-pr-copy-variant="100"]').check();
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();

@@ -83,3 +83,13 @@ test('owner can activate an incomplete product without photos and finish other s
  assert.equal(calls.length,1);assert.equal(calls[0].args.fields.active,'1');assert.equal(calls[0].args.fields.available_for_order,'0');
  assert.equal(ui.snapshot()[0][1].rows[1].done,undefined,'Unfinished variation remains available to resume');
 });
+
+test('copied variation stage maps native destination attributes without overriding a manual choice',async()=>{
+ const ui=createProductStagesUI({invoke:async(shop,action,args)=>({resource:args.resource,rows:args.resource==='product_options'?[{id:'90',name:'Color'}]:args.resource==='product_option_values'?[{id:'900',id_attribute_group:'90',name:'Negro'}]:[],possibly_more:false})});
+ const result={request_id:'copy',record_id:'42'},source={},plan={variants:[{changes:[{field:'reference',after:'COPIED'}],source_attributes:[{group:'Color',value:'Negro'}]}]};
+ await ui.perform('stage-load','newoldsmok',result,plan,source,{language_ids:['1']},{});
+ const row=ui.snapshot()[0][1].rows[0];assert.deepEqual(row.attributes,['900']);
+ ui.handleChange({dataset:{prStageRow:row.id,prStageAttributes:'true'},selectedOptions:[]});
+ await ui.perform('stage-load','newoldsmok',result,plan,source,{language_ids:['1']},{});
+ assert.deepEqual(row.attributes,[],'Manual selection stays authoritative');
+});
