@@ -2,10 +2,11 @@
 export const PERMISSION_MODULES=[
  ['inicio','Inicio'],['pricing','Precio'],['cajas','Cajas'],['gastos','Gastos'],
  ['facturacion','Facturación'],['documentos','Documentos y recepciones de PrestaShop'],['equipo','Chat'],['tareas','Tareas'],['fiscalidad','Fiscalidad'],
- ['informes','Informes'],['administracion','Administración'],['configuracion','Configuración'],['prestashop','PrestaShop · consultas'],['automatizaciones','Automatizaciones y avisos']
+ ['informes','Informes'],['administracion','Administración'],['configuracion','Configuración'],['prestashop','PrestaShop · consultas'],['automatizaciones','Automatizaciones y avisos'],['productos','Productos · catálogo y edición']
 ];
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];
 export const PERMISSION_HELP={
+ productos:'Ver permite consultar fichas. Crear autoriza altas y combinaciones nuevas; editar permite actualizar datos e imágenes y archivar; borrar permite eliminar registros seleccionados; exportar permite descargar el catálogo. Las claves siguen reservadas a Administración.',
  documentos:'Incluye la biblioteca de documentos y las recepciones, accesibles desde PrestaShop. Mantiene los permisos sobre sus documentos y cotejos.',
  prestashop:'Ver permite consultar las tiendas; exportar permite descargar resultados. Las conexiones y sus claves se administran en Configuración. Las reglas programadas se gestionan en Automatizaciones.',
  automatizaciones:'Permite consultar, crear, editar o retirar reglas programadas. Cada ejecución comprueba también los permisos del responsable en el módulo de origen y en el canal de destino.',
@@ -16,7 +17,7 @@ export function setRolePermissions(rows=[]){roleOverrides=Array.isArray(rows)?ro
 export function defaultRolePermissions(role,module){
  if(!role||!PERMISSION_MODULES.some(([code])=>code===module))return {view:false,create:false,edit:false,delete:false,export:false};
  if(role==='admin')return {view:true,create:true,edit:true,delete:true,export:true};
- if(['prestashop','automatizaciones'].includes(module))return {view:false,create:false,edit:false,delete:false,export:false};
+ if(['prestashop','automatizaciones','productos'].includes(module))return {view:false,create:false,edit:false,delete:false,export:false};
  if(module==='configuracion')return {view:true,create:false,edit:false,delete:false,export:false};
  if(['equipo','tareas'].includes(module))return {view:true,create:true,edit:true,delete:true,export:true};
  if(role==='gerente')return module==='fiscalidad'

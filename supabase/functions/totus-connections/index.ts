@@ -23,7 +23,15 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   const url=env.get('SUPABASE_URL')||'',key=JSON.parse(env.get('SUPABASE_PUBLISHABLE_KEYS')||'{}').default||env.get('SUPABASE_ANON_KEY')||'',secret=JSON.parse(env.get('SUPABASE_SECRET_KEYS')||'{}').default||env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
   const bearer=req.headers.get('Authorization')?.replace(/^Bearer\s+/i,'');if(!bearer)return respond({error:'Inicia sesión para probar conexiones.'},401);
   const options={auth:{persistSession:false,autoRefreshToken:false}},auth=factory(url,key,options);const user=check(await auth.auth.getUser(bearer)).user;if(!user)return respond({error:'Sesión no válida.'},401);
-  const scoped=factory(url,key,{...options,global:{headers:{Authorization:'Bearer '+bearer}}}),context=check(await scoped.rpc(['prestashop_read','prestashop_discover'].includes(input.action)?'totus_prestashop_context':'totus_api_manager',{}));
+  const scoped=factory(url,key,{...options,global:{headers:{Authorization:'Bearer '+bearer}}});
+  const productAction=input.action.startsWith('prestashop_product_')||input.action==='prestashop_item_read';
+  const productPermission=input.action.includes('_create_')&&input.action!=='prestashop_product_create_profile'?'create':input.action.includes('_step_')?(String(input.kind).startsWith('remove_')?'delete':input.existing_product!==true||['variation','attribute_group','attribute_value'].includes(input.kind)?'create':'edit'):['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)?'edit':'view';
+  let context:any;
+  if(input.action==='prestashop_read'){
+   const normal=await scoped.rpc('totus_prestashop_context',{});
+   const productResources=['products','combinations','product_options','product_option_values','stock_availables','categories','manufacturers','suppliers','tax_rule_groups','tax_rules','taxes','countries','currencies','image_types','tags','product_features','product_feature_values'];
+   context=normal.error&&productResources.includes(input.resource)?check(await scoped.rpc('totus_products_context',{p_action:'view'})):check(normal);
+  }else context=check(await scoped.rpc(productAction?'totus_products_context':input.action==='prestashop_discover'?'totus_prestashop_context':'totus_api_manager',productAction?{p_action:productPermission}:{}));
   if(input.action==='create_actor'){
    admin=factory(url,secret,options);const password=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(x=>x.toString(16).padStart(2,'0')).join('');const prepared=check(await admin.rpc('totus_api_prepare_actor',{p_id:input.request_id,p_owner:user.id,p_name:input.name,p_role:input.role,p_password:password}));if(prepared.complete)return respond({ok:true,actor:prepared.actor});
    const credentials=prepared.credentials;await admin.auth.admin.createUser({email:credentials.email,password:credentials.password,email_confirm:true,app_metadata:{totus_integration:true,totus_provision_id:input.request_id},user_metadata:{full_name:prepared.name}});

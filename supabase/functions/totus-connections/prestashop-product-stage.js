@@ -1,6 +1,6 @@
 import {prestashopCapabilities} from './prestashop.js';
 import {runProductImageReplacement} from './prestashop-product-image-replace.js';
-import {runProductRemoval} from './prestashop-product-remove.js';
+import {runProductRemoval,runWholeProductRemoval} from './prestashop-product-remove.js';
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
 import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,inspectProductAssociationIds,PRODUCT_CREATE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
@@ -33,6 +33,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
  const productDisplay='['+[...new Set(['id','reference','price','active','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']';
+ if(op.kind==='remove_product')return runWholeProductRemoval(op,{xml,call,journal,env});
  const root=await xml('products/'+op.product_id,{display:op.kind==='finish'?productDisplay:op.existing_product?'[id,reference,price,active,available_for_order,visibility]':'[id,reference]'});
  if(parsePrestashopResourceId(root,'product')!==op.product_id||(!op.existing_product&&readPrestashopXmlField(root,'product','reference')!==parent.reference))throw Error('La ficha de destino no corresponde al producto registrado.');
  if(op.kind==='image_replace')return runProductImageReplacement(op,{root,xml,json,call,journal,env});

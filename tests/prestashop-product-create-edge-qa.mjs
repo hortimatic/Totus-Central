@@ -36,7 +36,7 @@ const fixture=(opts={})=>{
   auth:{getUser:async()=>({data:{user:{id:user_id,email:'admin@example.invalid'}}})},
   rpc:async(name,payload)=>{
    calls.push({type:'rpc',name,key,payload});
-   if(name==='totus_api_manager')return opts.denied?{error:{message:'Permiso de administración necesario'}}:{data:{connections:[{id,revision:2}]}};
+   if(name==='totus_products_context')return (opts.denied||opts.allowedPermissions&&!opts.allowedPermissions.includes(payload.p_action))?{error:{message:'Permiso de administración necesario'}}:{data:{connections:[{id,revision:2}]}};
    if(name==='totus_api_server')return {data:conf};
    if(name==='totus_api_call')return {data:null};
    if(name==='totus_prestashop_product_step'||name==='totus_prestashop_existing_product_step'){
@@ -171,11 +171,18 @@ test('producto existente usa sesión autenticada y diario independiente, sin apr
 test('image metadata detail reaches the authenticated shop route and never exposes credentials or raw audit data',()=>context(async()=>{
  const calls=[];
  const factory=(_url,key)=>({auth:{getUser:async()=>({data:{user:{id:user_id,email:'admin@example.invalid'}}})},rpc:async(name,payload)=>{
- calls.push({name,payload});if(name==='totus_api_manager')return {data:{connections:[{id,revision:2}]}};if(name==='totus_api_server')return {data:conf};if(name==='totus_api_call')return {data:null};throw Error('Unexpected RPC '+name);
+ calls.push({name,payload});if(name==='totus_products_context')return {data:{connections:[{id,revision:2}]}};if(name==='totus_api_server')return {data:conf};if(name==='totus_api_call')return {data:null};throw Error('Unexpected RPC '+name);
  }});
  const response=await handle(req({...base,action:'prestashop_item_read',resource:'totus_product_images',record_id:'91'}),environment(false),factory,async(url,opts)=>{
  assert.equal(new URL(url).pathname,'/api/totus_product_images/91');assert.equal(opts.method,'GET');return Response.json({totus_product_image:{id:'91',id_product:'701',position:'2',legend:[{id:'1',value:'Foto propia'}]}});
  });
  assert.equal(response.status,200);const body=await response.json();assert.equal(body.item.id_product,'701');assert(!JSON.stringify(body).includes(conf.secret));
  const logged=calls.find(c=>c.name==='totus_api_call'&&c.payload.p_result)?.payload.p_result;assert.deepEqual(logged,{ok:true,store:'hortimatic',resource:'totus_product_images',record_id:'91'});
+}));
+
+
+test('product create and edit require their independent permission before credentials are read',()=>context(async()=>{
+ const f=fixture({allowedPermissions:['view']}),body={...base,action:'prestashop_product_create_prepare',reference:'PRUEBAS-DEMO',price:'10',category_id:'33',translations:[{language_id:'1',name:'Pruebas',link_rewrite:'pruebas'}]};
+ assert.equal((await handle(req(body),environment(),f.factory,f.request)).status,400);assert(!f.calls.some(c=>c.name==='totus_api_server'));assert.equal(f.calls.find(c=>c.name==='totus_products_context').payload.p_action,'create');
+ const g=fixture({allowedPermissions:['view']}),edit={...base,action:'prestashop_product_prepare',resource:'products',record_id:'701',changes:[{field:'price',value:'11'}]};assert.equal((await handle(req(edit),environment(),g.factory,g.request)).status,400);assert(!g.calls.some(c=>c.name==='totus_api_server'));assert.equal(g.calls.find(c=>c.name==='totus_products_context').payload.p_action,'edit');
 }));

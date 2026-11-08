@@ -1,3 +1,4 @@
+import {PRODUCT_TABLE_FIELDS} from './productos-table-editor.js';
 import {productGallery} from './productos-gallery.js';
 import {STITCH_HEADER,STITCH_VIEWS} from './productos-stitch-template.js';
 import {PRODUCT_COLUMNS,productPhoto} from './productos-catalog.js';
@@ -46,7 +47,7 @@ export function stitchHeader({store,mode,status,count,product,pending,connected,
  return serialize(f);
 }
 
-export function stitchCatalog({store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo,views=[],viewName='',rowKey=p=>String(p.id)}){
+export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit,canExport=canEdit,tableEdits=new Map(),store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo,views=[],viewName='',rowKey=p=>String(p.id)}){
  const f=fragment(STITCH_VIEWS['tab-catalogo']),view=f.firstElementChild;
  view.classList.remove('hidden');view.classList.add('flex');
  const summary=view.firstElementChild.firstElementChild.firstElementChild;
@@ -74,9 +75,9 @@ export function stitchCatalog({store,rows,columns,selected,query,filters,brands,
  const saved=document.createElement('div');saved.className='prd-column-views';
  saved.innerHTML='<label>Vista guardada<select data-pr-catalog-view><option value="">Personalizada</option>'+views.map(v=>'<option value="'+esc(v.name)+'" '+(viewName===v.name?'selected':'')+'>'+esc(v.name)+'</option>').join('')+'</select></label><label>Nombre de vista<input data-pr-view-name maxlength="60" value="'+esc(viewName)+'" placeholder="Mi catálogo"></label><div><button type="button" data-pr-action="catalog-view-save">Guardar vista</button><button type="button" data-pr-action="catalog-view-delete" '+(!views.some(v=>v.name===viewName)?'disabled':'')+'>Eliminar vista</button><button type="button" data-pr-action="catalog-columns-reset">Restablecer columnas</button></div>';
  options.append(saved);details.append(options);columnsButton.replaceWith(details);
- action(tools[1],'catalog-export');label(tools[1],'Exportar CSV');tools[1].disabled=pending||!rows.length;
+ action(tools[1],'catalog-export');label(tools[1],'Exportar CSV');tools[1].disabled=pending||!rows.length||!canExport;
  action(tools[2],'catalog-copy');tools[2].disabled=pending||!selected.size;
- action(tools[3],'new-product');label(tools[3],'Nuevo producto');
+ action(tools[3],'new-product');label(tools[3],'Nuevo producto');tools[3].disabled=pending||!canCreate;
  const full=f.querySelector('#check-full-catalog');full.dataset.prCatalogLoaded='';full.checked=rows.length>0&&rows.every(r=>selected.has(rowKey(r)));if(full.checked)full.setAttribute('checked','');
  setText(f.querySelector('label[for="check-full-catalog"]'),'Seleccionar todos los productos consultados');
  setText(full.parentElement.parentElement.querySelector('span'),'Seleccionados: '+selected.size);
@@ -85,10 +86,19 @@ export function stitchCatalog({store,rows,columns,selected,query,filters,brands,
  const table=f.querySelector('table'),head=table.querySelector('thead tr'),originalCells=[...head.children],body=f.querySelector('tbody'),originalData=[...body.querySelector('tr').children];
  const indexes={image:1,reference:2,name:3,brand:4,category:5,store:6,cost:7,price:8,gross:8,margin:8,stock:9,active:10};
  const hc=k=>originalCells[indexes[k]??2]?.className||'p-space-sm';
+ const tableButton=(p,name,title)=>'<button type="button" data-pr-action="table-'+name+'" data-pr-shop="'+esc(p.__store||store)+'" data-pr-id="'+esc(p.id)+'" class="prd-table-button">'+esc(title)+'</button>';
+ const editCell=(p,k)=>{const row=tableEdits.get(rowKey(p)),field=PRODUCT_TABLE_FIELDS[k];if(!row||!field||field==='name'&&!row.language)return null;const val=row.values[field]??textValue(p[field]),attrs='data-pr-table-field="'+field+'" data-pr-shop="'+esc(p.__store||store)+'" data-pr-id="'+esc(p.id)+'" aria-label="'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]+' · '+p.id)+'" '+(row.request?'disabled':'');return field==='active'?'<select '+attrs+'><option value="0" '+(String(val)==='0'?'selected':'')+'>Inactivo</option><option value="1" '+(String(val)==='1'?'selected':'')+'>Activo</option></select>':'<input '+attrs+' value="'+esc(val)+'" '+(['price','wholesale_price','weight','width','height','depth'].includes(field)?'inputmode="decimal"':'')+'>';};
+ const rowActions=p=>{
+  const row=tableEdits.get(rowKey(p)),shop=esc(p.__store||store),id=esc(p.id);
+  const extra=(a,title)=>'<button type="button" data-pr-action="'+a+'" data-pr-shop="'+shop+'" data-pr-id="'+id+'" class="prd-table-button">'+title+'</button>';
+  if(!row)return (canEdit?tableButton(p,'open','Editar fila')+tableButton(p,'archive','Archivar (desactivar)'):'')+(canCreate?extra('product-duplicate','Duplicar producto'):'')+(canDelete?extra('product-remove','Eliminar producto'):'');
+  return '<div class="prd-table-actions">'+(row.languages.length>1?'<label>Idioma<select data-pr-table-language data-pr-shop="'+shop+'" data-pr-id="'+id+'" '+(row.request?'disabled':'')+'>'+row.languages.map(id=>'<option value="'+esc(id)+'" '+(id===row.language?'selected':'')+'>#'+esc(id)+'</option>').join('')+'</select></label>':'')+(row.prepared?'<details class="prd-row-review"><summary>'+row.prepared.review.filter(c=>c.changed).length+' cambios revisados</summary>'+row.prepared.review.filter(c=>c.changed).map(c=>'<p><b>'+esc(c.field)+'</b>: '+esc(textValue(c.before))+' → '+esc(textValue(c.after??c.value))+'</p>').join('')+'</details>':'')+(!row.request?tableButton(p,'prepare','Revisar')+tableButton(p,'discard','Descartar'):'')+(row.request||row.prepared?.can_commit?tableButton(p,'save',row.request?'Comprobar guardado':'Guardar cambios'):'')+'</div>';
+ };
  const dc=k=>originalData[indexes[k]??2]?.className||'p-space-sm';
  head.innerHTML='<th class="'+esc(originalCells[0].className)+'"><input type="checkbox" aria-label="Seleccionar página" data-pr-catalog-all '+(visible.length&&visible.every(p=>selected.has(rowKey(p)))?'checked':'')+'></th>'+columns.map(k=>'<th class="'+esc(hc(k))+'">'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'</th>').join('')+'<th class="'+esc(originalCells.at(-1).className)+'">Acciones</th>';
- body.innerHTML=visible.map(p=>'<tr><td class="'+esc(originalData[0].className)+'"><input type="checkbox" aria-label="Seleccionar producto '+esc(p.id)+'" data-pr-catalog-select="'+esc(rowKey(p))+'" '+(selected.has(rowKey(p))?'checked':'')+'></td>'+columns.map(k=>'<td class="'+esc(dc(k))+'" data-label="'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'">'+(k==='image'?photo(p):k==='name'?'<strong>'+esc(value(p,k))+'</strong><br><small>'+esc(p.reference||'')+'</small>':esc(value(p,k)))+'</td>').join('')+'<td class="'+esc(originalData.at(-1).className)+'"><button type="button" data-pr-action="open-product" data-id="'+esc(p.id)+'" data-pr-shop="'+esc(p.__store||store)+'" class="px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">Abrir ficha</button></td></tr>').join('');
- table.parentElement.classList.add('prd-catalog-table');
+ body.innerHTML=visible.map(p=>'<tr><td class="'+esc(originalData[0].className)+'"><input type="checkbox" aria-label="Seleccionar producto '+esc(p.id)+'" data-pr-catalog-select="'+esc(rowKey(p))+'" '+(selected.has(rowKey(p))?'checked':'')+'></td>'+columns.map(k=>'<td class="'+esc(dc(k))+'" data-label="'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'">'+(editCell(p,k)??(k==='image'?photo(p):k==='name'?'<strong>'+esc(value(p,k))+'</strong><br><small>'+esc(p.reference||'')+'</small>':esc(value(p,k))))+'</td>').join('')+'<td class="'+esc(originalData.at(-1).className)+'"><button type="button" data-pr-action="open-product" data-id="'+esc(p.id)+'" data-pr-shop="'+esc(p.__store||store)+'" class="px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">Abrir ficha</button>'+rowActions(p)+'</td></tr>').join('');
+ table.parentElement.classList.add('prd-catalog-table');table.parentElement.tabIndex=0;table.parentElement.setAttribute('aria-label','Catálogo de productos. Usa las flechas en las celdas para recorrer filas y columnas.');
+ const hint=document.createElement('p');hint.className='prd-table-hint';hint.textContent='Selecciona filas para copiar. Las flechas recorren las celdas y desplazan las columnas. Editar fila permite revisar y guardar sus cambios.';table.parentElement.before(hint);const arrows=document.createElement('div');arrows.className='prd-table-navigation';arrows.innerHTML='<button type="button" data-pr-action="catalog-scroll" data-direction="-1" aria-label="Ver columnas anteriores">← Columnas</button><button type="button" data-pr-action="catalog-scroll" data-direction="1" aria-label="Ver columnas siguientes">Columnas →</button>';table.parentElement.before(arrows);
  const footer=table.parentElement.nextElementSibling;
  if(footer){footer.innerHTML='<span>'+filtered.length+' resultados · página '+(page+1)+' de '+pages+'</span><div class="flex items-center gap-space-sm"><label>Mostrar <select data-pr-page-size>'+[20,50,100].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" data-pr-action="catalog-prev" '+(page===0?'disabled':'')+'>Anterior</button><button type="button" data-pr-action="catalog-next" '+(page+1>=pages&&!hasMore?'disabled':'')+'>Siguiente</button></div>';}
  return serialize(f);

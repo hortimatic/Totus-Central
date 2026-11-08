@@ -116,7 +116,7 @@ const titles={
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
-function can(module,action='view'){if(module==='productos')return !!state.user&&state.user.active!==false&&isAdmin()&&can('configuracion','edit');if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
+function can(module,action='view'){if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
 const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state),saveStyle:async command=>{
  const owner=state.user?.id;if(!owner||!can('configuracion','view'))throw Error('No tienes acceso a tu configuración.');
  const saved=await rpc('totus_interface_styles',{p_action:command.action,p_id:command.id,p_name:command.name,p_config:command.config,p_expected_revision:command.revision});
@@ -169,7 +169,7 @@ async function loadStockCatalog(storeId,references,valid){
  },active);
 }
 const automationsUI=createAutomationsUI({rpc,actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
-const productosUI=createProductosUI({rpc,actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),invoke:async body=>{
+const productosUI=createProductosUI({rpc,actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),canCreate:()=>can('productos','create'),canDelete:()=>can('productos','delete'),canExport:()=>can('productos','export'),invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
  if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
  if(result.data?.error)throw Error(result.data.error);

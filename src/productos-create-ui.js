@@ -95,7 +95,7 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   if(!/^[1-9]\d{0,14}$/.test(entry.category_id))throw Error('Selecciona un ID de categoría válido para '+shop+'.');
   const translations=profile.language_ids.map(id=>({language_id:id,...entry.translations[id]}));
   if(translations.some(t=>!t.name||!t.link_rewrite))throw Error('Completa el nombre y la URL de todos los idiomas de '+shop+'.');
-  const supported=new Set(['name','reference','price','link_rewrite',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS]);
+  const supported=new Set(['active','name','reference','price','link_rewrite',...PRODUCT_CREATE_FIELDS,...LOCALIZED_PRODUCT_FIELDS]);
   const requested=plan.changes.filter(c=>c.changed);
   if(requested.some(c=>!supported.has(c.field)&&textValue(c.after)!==''))throw Error('El alta contiene campos sin contrato de creación. Deselecciónalos: '+requested.filter(c=>!supported.has(c.field)).map(c=>c.field).join(', '));
   const fields=requested.filter(c=>PRODUCT_CREATE_FIELDS.includes(c.field)).map(c=>({field:c.field,value:productInputValue(c.field,textValue(c.after))}));
@@ -193,5 +193,5 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   profiles.set(shop,{language_ids:response.language_ids,product_workspace:response.product_workspace});
   results.set(shop,{record_id:String(source.id),request_id:crypto.randomUUID(),existing_product:true});
  }
- return {render,reset,invalidate,handleChange,perform,openExisting,setCatalogs:(shop,catalog)=>relationCatalogs.set(shop,catalog),handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
+ return {removed:stages.removed,render,reset,invalidate,handleChange,perform,openExisting,setCatalogs:(shop,catalog)=>relationCatalogs.set(shop,catalog),handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
 }

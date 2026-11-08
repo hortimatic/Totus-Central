@@ -18,7 +18,7 @@ try{
    const q=window.stitchQA={calls:[]};
    q.ui=createProductosUI({actor:()=> 'stitch-test',allowed:()=>true,canEdit:()=>true,
     rpc:async()=>({connections:['Hortimatic','NewOldSmok'].map((name,i)=>({id:String(i+1),name:'PrestaShop · '+name,protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}))}),
-    invoke:async b=>{q.calls.push(b);if(b.action==='prestashop_item_read')return {ok:true,store:b.store,resource:b.resource,record_id:b.record_id,item:{id:b.record_id,name:'Producto real de prueba',reference:'REAL-42',price:'10.90',description:'Descripción real',active:'1',associations:{images:[],combinations:[]}}};if(b.action!=='prestashop_read')throw Error('Unexpected mutation');return {ok:true,store:b.store,resource:b.resource,page:b.page,possibly_more:false,rows:b.resource==='products'?[{id:'42',name:'Producto real de prueba',reference:'REAL-42',ean13:'1234567890128',price:'10.90',active:'1'}]:[]};}
+    invoke:async b=>{q.calls.push(b);if(b.action==='prestashop_product_create_profile')return {ok:true,store:b.store,persisted:false,language_ids:['1']};if(b.action==='prestashop_item_read')return {ok:true,store:b.store,resource:b.resource,record_id:b.record_id,item:{id:b.record_id,name:'Producto real de prueba',reference:'REAL-42',price:'10.90',description:'Descripción real',active:'1',associations:{images:[],combinations:[]}}};if(b.action!=='prestashop_read')throw Error('Unexpected mutation');return {ok:true,store:b.store,resource:b.resource,page:b.page,possibly_more:false,rows:b.resource==='products'?[{id:'42',name:'Producto real de prueba',reference:'REAL-42',ean13:'1234567890128',price:'10.90',active:'1'}]:[]};}
    });await q.ui.mount(document.querySelector('#productosRoot'));
   });
   const sourceCapture=async(id,name)=>{await reference.evaluate(id=>{document.querySelectorAll('.master-tab-view,.subtab-content').forEach(n=>n.style.removeProperty('display'));const buttons=[...document.querySelectorAll('.master-tab-btn')],ids=['tab-catalogo','tab-ficha','tab-copiar','tab-alta','tab-borradores'];window.totusOpenMasterTab(id,buttons[ids.indexOf(id)]);},id);await reference.screenshot({path:'qa-artifacts/stitch-original-'+name+'-'+width+'.png',fullPage:true});};
@@ -118,7 +118,7 @@ try{
   assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Saved view buttons');
   assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/Voopoo|3 en cola|3 productos esperando|Hace 2 horas/);
   assert.deepEqual(errors,[]);
-  assert.equal(await page.evaluate(()=>stitchQA.calls.every(x=>['prestashop_read','prestashop_item_read'].includes(x.action))),true);
+  assert.equal(await page.evaluate(()=>stitchQA.calls.every(x=>['prestashop_read','prestashop_item_read','prestashop_product_create_profile'].includes(x.action))),true);
   await reference.close();await page.close();
  }
  console.log('Stitch original shell/catalog: 390/768/1440, real-data binding, columns, selection, no demo handlers: PASS');

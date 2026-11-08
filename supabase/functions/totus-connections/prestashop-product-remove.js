@@ -1,5 +1,5 @@
 import {prestashopCapabilities} from './prestashop.js';
-import {sha256Text,inspectProductAssociationIds} from '../../../src/productos-write-contract.js';
+import {sha256Text,inspectProductAssociationIds,parsePrestashopResourceId} from '../../../src/productos-write-contract.js';
 // Called only after the shared stage contract, account and parent ownership checks.
 export async function runProductRemoval(op,{root,xml,json,call,journal,env}){
  const group=op.kind==='remove_variation'?'combinations':'images',target=String(op.record_id);
@@ -21,4 +21,21 @@ export async function runProductRemoval(op,{root,xml,json,call,journal,env}){
  try{const response=await call(group==='images'?'images/products/'+op.product_id+'/'+target:'combinations/'+target,{method:'DELETE'});await response.body?.cancel();if((await snapshot()).includes(target))throw Error('El registro todavía aparece en el producto.');}
  catch(error){try{if(!(await snapshot()).includes(target)){await journal.complete(op,signature,target);return {...result(),reconciled:true};}}catch{}await journal.uncertain(op,signature);throw Error('Eliminación incierta; no se repetirá automáticamente. '+String(error?.message||error));}
  await journal.complete(op,signature,target);return result();
+}
+
+// Whole-product removal is separate from child membership deletion. Only a
+// verified HTTP 404 counts as absence; connection failures never do.
+export async function runWholeProductRemoval(op,{xml,call,journal,env}){
+ const path='products/'+op.product_id,signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id}));
+ const read=async()=>{try{const raw=await xml(path,{display:'[id,reference,active,combinations[id],images[id]]'});if(parsePrestashopResourceId(raw,'product')!==op.product_id)throw Error('Producto no verificable.');return raw;}catch(error){if(/\(HTTP 404\)/.test(String(error.message)))return null;throw error;}};
+ const result=()=>({ok:true,store:op.store,kind:op.kind,resource:'products',record_id:op.product_id,persisted:true,verified:true,deleted:true});
+ const prior=op.commit?await journal.lookup(op):null,original=await read();
+ if(prior){if(prior.signature!==signature)throw Error('El borrado pertenece a otra operación.');if(original!==null)throw Error('El producto sigue presente. Comprueba el borrado sin repetirlo.');if(prior.status!=='completed')await journal.complete(op,signature,op.product_id);return {...result(),reused:true};}
+ if(original===null)throw Error('El producto ya no existe.');
+ const fingerprint=await sha256Text(signature+'|'+original),cap=prestashopCapabilities(await xml('')).resources.find(r=>r.name==='products'),missing_permissions=['GET','DELETE'].filter(m=>cap?.permissions?.[m]!==true),enabled=!missing_permissions.length&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';
+ if(!op.commit)return {ok:true,store:op.store,kind:op.kind,resource:'products',record_id:op.product_id,persisted:false,fingerprint,can_commit:enabled,missing_permissions};
+ if(!enabled||op.expected_fingerprint!==fingerprint)throw Error('Revisa la ficha actual y los permisos antes de eliminar.');
+ if((await journal.claim(op,signature))?.status!=='claimed')throw Error('El borrado ya está en curso.');
+ try{const response=await call(path,{method:'DELETE'});await response.body?.cancel();if(await read()!==null)throw Error('El producto sigue presente.');}catch(error){try{if(await read()===null){await journal.complete(op,signature,op.product_id);return {...result(),reconciled:true};}}catch{}await journal.uncertain(op,signature);throw Error('Borrado pendiente de comprobar. No se repetirá automáticamente.');}
+ await journal.complete(op,signature,op.product_id);return result();
 }
