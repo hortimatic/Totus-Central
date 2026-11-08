@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productColumns,productPhoto,filterProductCatalog,productCatalogCsv,catalogProductKey} from '../src/productos-catalog.js';
+import {productColumns,productPhoto,productWebUrl,filterProductCatalog,productCatalogCsv,catalogProductKey} from '../src/productos-catalog.js';
 import {readPrestashopPage} from '../supabase/functions/totus-connections/prestashop.js';
 test('catálogo conserva nombre, descarta preferencias desconocidas y busca por EAN/categoría/marca/estado',()=>{
  assert.deepEqual(productColumns(['name','price','name','<script>']),['name','price']);
@@ -25,4 +25,11 @@ test('existencias por productos filtra id_product y rechaza datos ajenos sin esc
  const opts={resolve:async()=>['8.8.8.8'],request:async(url,init)=>{assert.equal(init.method,'GET');assert.equal(new URL(url).searchParams.get('filter[id_product]'),'[42]');return Response.json({stock_availables:[{id:9,id_product:42,id_product_attribute:0,id_shop:1,quantity:3}]});}};
  assert.equal((await readPrestashopPage(c,input,opts)).rows[0].quantity,'3');
  await assert.rejects(()=>readPrestashopPage(c,input,{...opts,request:async()=>Response.json({stock_availables:[{id:9,id_product:99,quantity:3}]})}),/ajeno/);
+});
+
+test('public product links retain the actual store and reject draft/invalid identities',()=>{
+ assert.equal(productWebUrl({id:'42'},'hortimatic'),'https://hortimatic.com/index.php?controller=product&id_product=42');
+ assert.equal(productWebUrl({id:'42'},'newoldsmok'),'https://newoldsmok.com/index.php?controller=product&id_product=42');
+ for(const id of ['',null,'0','../bad','42&evil=1'])assert.equal(productWebUrl({id},'hortimatic'),null);
+ assert.equal(productWebUrl({id:'42'},'both'),null);
 });

@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Totus Central - Módulo Productos v4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            totus: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              200: '#bae0fd',
+              500: '#006591',
+              600: '#005277',
+              700: '#003e5c',
+              cyan: '#00aac6',
+              amber: '#d97706',
+              border: '#dbe5f0',
+              slate: '#475569',
+              dark: '#0b1c30'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          fontSize: {
+            '2xs': ['10px', '13px'],
+            'xs': ['11px', '15px'],
+            'sm': ['12px', '16px'],
+            'base': ['13px', '18px'],
+            'md': ['14px', '20px']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --totus-primary: #006591;
+      --totus-cyan: #00aac6;
+      --totus-bg: #f4f7fb;
+      --totus-border: #dbe4ef;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--totus-bg);
+      color: #0b1c30;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #eef3f9; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    .sticky-col-shadow {
+      box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.08);
+    }
+    .hover-thumb-container:hover .hover-popover-zoom,
+    .hover-thumb-container:focus-within .hover-popover-zoom {
+      display: flex;
+    }
+  </style>
+</head>
+<body class="p-1 sm:p-2 md:p-3 text-totus-dark">
+
+  <!-- CONTENEDOR MAESTRO .totus-module-v4 (Sin cabecera ni barra lateral global de Totus) -->
+  <main class="totus-module-v4 w-full max-w-[1380px] mx-auto bg-white rounded-lg shadow-sm border border-totus-border overflow-hidden flex flex-col min-h-[560px] max-h-[96vh]">
+
+    <!-- 1. CABECERA INTERNA DE UNA LÍNEA (40px) -->
+    <header class="h-10 px-3 bg-white border-b border-totus-border flex items-center justify-between gap-2 flex-shrink-0 z-30">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <div class="w-6 h-6 rounded bg-[#006591] flex items-center justify-center text-white">
+            <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+          </div>
+          <span class="font-display font-bold text-xs tracking-tight text-[#006591]">Productos</span>
+          <span class="text-2xs font-mono px-1 py-0.2 rounded bg-totus-50 text-[#006591] font-semibold border border-totus-200">v4.0</span>
+        </div>
+
+        <div class="h-3.5 w-px bg-slate-200 hidden sm:block"></div>
+
+        <!-- Selector de tienda activa pequeño -->
+        <div class="flex items-center gap-1 bg-[#f8fafc] px-1.5 py-0.5 rounded border border-totus-border text-xs">
+          <span class="material-symbols-outlined text-[13px] text-totus-slate">storefront</span>
+          <select id="v4-store-context" onchange="v4SwitchStore(this.value)" class="bg-transparent border-0 py-0 pl-0 pr-4 text-xs font-medium text-slate-800 focus:ring-0 cursor-pointer">
+            <option value="both" selected>Ambas Tiendas (Global)</option>
+            <option value="hortimatic">Hortimatic (Growshop)</option>
+            <option value="newoldsmok">NewOldSmok (Vape & Smoke)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Estado discreto y acciones -->
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <div class="hidden sm:flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>● Conexión lista (Demo)</span>
+        </div>
+        <button type="button" onclick="v4TriggerSyncNotification()" title="Sincronizar" class="p-1 rounded text-slate-500 hover:text-totus-500 hover:bg-slate-100 transition">
+          <span class="material-symbols-outlined text-[16px]">sync</span>
+        </button>
+        <button type="button" onclick="v4OpenMasterTab('cambios')" class="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-xs font-semibold transition">
+          <span class="material-symbols-outlined text-[13px]">pending</span>
+          <span class="hidden sm:inline">Cola:</span>
+          <span class="font-mono text-2xs px-1 bg-amber-200/80 rounded" id="header-changes-badge">2</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. CINCO PESTAÑAS MAESTRAS COMPACTAS (32px de altura) -->
+    <nav class="h-8 px-2 sm:px-3 bg-[#f8fafc] border-b border-totus-border flex items-center justify-between gap-1 overflow-x-auto custom-scroll flex-shrink-0 z-20">
+      <div class="flex items-center gap-1 min-w-max">
+        <button type="button" onclick="v4OpenMasterTab('catalogo')" id="nav-btn-catalogo" class="master-tab-btn h-6 px-2 rounded text-xs font-semibold flex items-center gap-1 transition bg-white text-[#006591] border border-totus-border shadow-xs">
+          <span class="material-symbols-outlined text-[14px]">table_rows</span>
+          <span>Catálogo</span>
+          <span class="text-2xs font-mono font-bold px-1 rounded bg-slate-100 text-slate-600">1.428</span>
+        </button>
+        <button type="button" onclick="v4OpenMasterTab('producto')" id="nav-btn-producto" class="master-tab-btn h-6 px-2 rounded text-xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-white/80 hover:text-slate-900">
+          <span class="material-symbols-outlined text-[14px]">edit_note</span>
+          <span>Producto</span>
+          <span class="text-2xs text-[#00aac6] font-semibold hidden sm:inline">(Argus GT II)</span>
+        </button>
+        <button type="button" onclick="v4OpenMasterTab('copiar')" id="nav-btn-copiar" class="master-tab-btn h-6 px-2 rounded text-xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-white/80 hover:text-slate-900">
+          <span class="material-symbols-outlined text-[14px]">compare_arrows</span>
+          <span>Copiar</span>
+          <span class="text-2xs font-mono px-1 rounded bg-totus-100 text-[#006591] hidden sm:inline">Horti ⇄ NOS</span>
+        </button>
+        <button type="button" onclick="v4OpenMasterTab('alta')" id="nav-btn-alta" class="master-tab-btn h-6 px-2 rounded text-xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-white/80 hover:text-slate-900">
+          <span class="material-symbols-outlined text-[14px]">smart_toy</span>
+          <span>Alta asistida</span>
+          <span class="text-2xs px-1 rounded bg-cyan-100 text-cyan-800 font-semibold hidden md:inline">URL &amp; ChatGPT</span>
+        </button>
+        <button type="button" onclick="v4OpenMasterTab('cambios')" id="nav-btn-cambios" class="master-tab-btn h-6 px-2 rounded text-xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-white/80 hover:text-slate-900">
+          <span class="material-symbols-outlined text-[14px]">published_with_changes</span>
+          <span>Cambios</span>
+          <span class="text-2xs font-mono font-bold px-1 rounded bg-amber-100 text-amber-800">2</span>
+        </button>
+      </div>
+
+      <div class="hidden lg:flex items-center gap-1 text-2xs text-slate-400 font-mono">
+        <span>PS WS 1.7.8.11</span>
+      </div>
+    </nav>
+
+    <!-- 3. CONTENEDOR CON SCROLL INTELIGENTE -->
+    <div class="flex-1 overflow-y-auto custom-scroll p-2 sm:p-2.5 md:p-3 bg-[#f8fafc]">
+
+      <!-- =====================================================================
+           VISTA 1: CATÁLOGO PROTAGONISTA (TABLA CON MINIATURA FIJA 64px Y ZOOM)
+           ===================================================================== -->
+      <section id="view-catalogo" class="master-view flex flex-col gap-2 w-full">
+        
+        <!-- BARRA DE FILTROS EN 2 FILAS COMPACTAS -->
+        <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-col gap-1.5">
+          <!-- Fila 1 -->
+          <div class="flex flex-wrap items-center justify-between gap-1">
+            <div class="flex flex-wrap items-center gap-1 flex-1 min-w-[260px]">
+              <div class="relative flex-1 min-w-[170px]">
+                <span class="material-symbols-outlined absolute left-2 top-1.5 text-[15px] text-slate-400">search</span>
+                <input type="text" id="cat-search" oninput="v4FilterCatalogue()" placeholder="Buscar por Nombre, Ref, EAN-13 o ID..." 
+                  class="w-full bg-[#f8fafc] border border-totus-border rounded h-7 pl-6 pr-2 text-xs text-totus-dark placeholder:text-slate-400 focus:bg-white focus:border-[#006591] focus:ring-0">
+              </div>
+              <select id="cat-brand" onchange="v4FilterCatalogue()" class="bg-[#f8fafc] border border-totus-border rounded h-7 px-1.5 text-xs text-slate-700 cursor-pointer focus:ring-0">
+                <option value="">Todas las Marcas</option>
+                <option value="Voopoo">Voopoo</option>
+                <option value="Vaporesso">Vaporesso</option>
+                <option value="BioBizz">BioBizz</option>
+              </select>
+              <select id="cat-category" onchange="v4FilterCatalogue()" class="bg-[#f8fafc] border border-totus-border rounded h-7 px-1.5 text-xs text-slate-700 cursor-pointer focus:ring-0">
+                <option value="">Todas las Categorías</option>
+                <option value="Kits & Mods">Kits &amp; Mods</option>
+                <option value="Nutrientes">Nutrientes</option>
+              </select>
+              <select id="cat-status" onchange="v4FilterCatalogue()" class="bg-[#f8fafc] border border-totus-border rounded h-7 px-1.5 text-xs text-slate-700 cursor-pointer focus:ring-0">
+                <option value="">Cualquier Estado</option>
+                <option value="Activo">Activos</option>
+                <option value="Agotado">Agotados</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="v4OpenColumnConfig()" class="h-7 px-2 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-medium text-slate-700 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">view_column</span>
+                <span class="hidden sm:inline">Columnas</span>
+              </button>
+              <button type="button" onclick="v4ExportCatalogue()" class="h-7 px-2 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-medium text-slate-700 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">download</span>
+                <span class="hidden sm:inline">Exportar</span>
+              </button>
+              <button type="button" onclick="v4ToggleBatchDropdown()" class="h-7 px-2 rounded bg-[#006591] hover:bg-[#005277] text-white text-xs font-medium flex items-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">checklist</span>
+                <span>Lote</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Fila 2: Control de registros, estado y paginado -->
+          <div class="flex flex-wrap items-center justify-between gap-1 pt-1 border-t border-slate-100 text-xs text-slate-600">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 font-medium text-2xs sm:text-xs">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>Consulta:</span>
+                <strong class="font-mono text-totus-dark" id="cat-loaded-counter">20 de 1.428 refs</strong>
+                <span class="text-slate-400 font-normal hidden sm:inline">(Completa)</span>
+              </span>
+              <button type="button" id="btn-toggle-load-mode" onclick="v4ToggleLoadFull()" class="text-2xs px-1.5 py-0.2 rounded bg-slate-100 hover:bg-slate-200 text-[#006591] font-semibold border border-slate-200">
+                Alternar Parcial
+              </button>
+            </div>
+
+            <div class="flex items-center gap-1.5 text-2xs">
+              <span class="text-slate-500">Por pág:</span>
+              <select class="bg-[#f8fafc] border border-totus-border rounded h-5 px-1 text-2xs text-slate-700 cursor-pointer">
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span class="text-slate-400">Pág 1 de 72</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA COMPACTA CON COLUMNA STICKY IZQUIERDA Y ZOOM POPUP -->
+        <div class="bg-white rounded border border-totus-border shadow-xs overflow-hidden flex flex-col">
+          <div class="overflow-x-auto custom-scroll relative">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-[#f1f5f9] text-slate-600 font-semibold border-b border-totus-border uppercase text-2xs tracking-wider">
+                  <th scope="col" class="sticky left-0 bg-[#f1f5f9] z-20 py-1.5 px-2 w-[240px] min-w-[240px] border-r border-totus-border sticky-col-shadow">
+                    <div class="flex items-center gap-1.5">
+                      <input type="checkbox" id="check-master-rows" onclick="v4ToggleAllRows(this)" class="rounded border-slate-300 text-[#006591] focus:ring-0 cursor-pointer">
+                      <span>Producto &amp; Identidad</span>
+                    </div>
+                  </th>
+                  <th scope="col" class="py-1.5 px-2">EAN-13</th>
+                  <th scope="col" class="py-1.5 px-2">Marca</th>
+                  <th scope="col" class="py-1.5 px-2">Categoría</th>
+                  <th scope="col" class="py-1.5 px-2 text-right">Coste Aprox</th>
+                  <th scope="col" class="py-1.5 px-2 text-right">PVP (IVA Inc)</th>
+                  <th scope="col" class="py-1.5 px-2 text-center">Stock HORTI</th>
+                  <th scope="col" class="py-1.5 px-2 text-center">Stock NOS</th>
+                  <th scope="col" class="py-1.5 px-2 text-center">Variantes</th>
+                  <th scope="col" class="py-1.5 px-2 text-center">Estado</th>
+                  <th scope="col" class="py-1.5 px-2 text-right pr-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="catalogue-table-body" class="divide-y divide-slate-100">
+                
+                <!-- FILA 1: Voopoo Argus GT II -->
+                <tr class="hover:bg-totus-50/50 transition-colors group">
+                  <!-- STICKY LEFT: Foto (64px) + Nombre + Ref -->
+                  <td class="sticky left-0 bg-white group-hover:bg-[#fbfdff] z-10 py-1.5 px-2 border-r border-totus-border sticky-col-shadow">
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" class="row-selector rounded border-slate-300 text-[#006591] focus:ring-0 cursor-pointer">
+                      
+                      <!-- Miniatura (64x64px) con ZOOM FLOTANTE (200x200px) -->
+                      <div class="relative hover-thumb-container flex-shrink-0 cursor-pointer" tabindex="0">
+                        <div class="w-16 h-16 rounded bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center p-0.5">
+                          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWbtkZc62vbHJYmaCY5UCZQhr44TK_qnqpt0sMKrkW5MA08--vS2ZS4qy6Bot4rtoM1dNwtgfnlGvXv9ZbK2LomfGptuBrXmPwL4czQxBJve-bSYwlah4BXUf9cUTJKCR1rjrBmf1pLt7DXdgPPHnCMrasC4XiOHaeEWc2BF1V-PQYsbuDRq2YeL3E9FCi054SwZDp3B6ZAKdilkXyyYZBO9PX99aTjvS5TznCT0w" 
+                            alt="Voopoo Argus GT II" class="w-full h-full object-contain">
+                        </div>
+                        
+                        <!-- Popover Zoom Flotante -->
+                        <div class="hover-popover-zoom hidden absolute left-16 top-0 ml-1.5 w-52 bg-white rounded shadow-xl border border-slate-300 p-2 z-50 flex-col gap-1 pointer-events-none">
+                          <div class="w-48 h-48 bg-slate-50 rounded overflow-hidden flex items-center justify-center border border-slate-100">
+                            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWbtkZc62vbHJYmaCY5UCZQhr44TK_qnqpt0sMKrkW5MA08--vS2ZS4qy6Bot4rtoM1dNwtgfnlGvXv9ZbK2LomfGptuBrXmPwL4czQxBJve-bSYwlah4BXUf9cUTJKCR1rjrBmf1pLt7DXdgPPHnCMrasC4XiOHaeEWc2BF1V-PQYsbuDRq2YeL3E9FCi054SwZDp3B6ZAKdilkXyyYZBO9PX99aTjvS5TznCT0w" 
+                              alt="Zoom Voopoo Argus GT II" class="w-full h-full object-contain">
+                          </div>
+                          <div class="text-2xs font-semibold text-totus-dark truncate">Voopoo Argus GT II Kit 200W</div>
+                          <div class="text-2xs font-mono text-slate-500">VP-AG2-200W • 1200x1200px</div>
+                        </div>
+                      </div>
+
+                      <div class="min-w-0 flex flex-col">
+                        <button type="button" onclick="v4OpenProductRecord('VP-AG2-200W')" class="text-left font-semibold text-slate-900 hover:text-[#006591] truncate block text-xs">
+                          Voopoo Argus GT II 200W
+                        </button>
+                        <span class="font-mono text-2xs text-slate-500 truncate">SKU: VP-AG2-200W</span>
+                        <span class="text-2xs text-totus-cyan font-mono">ID PS: #8842</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="py-1.5 px-2 font-mono text-2xs text-slate-600">6941291538201</td>
+                  <td class="py-1.5 px-2 font-medium text-slate-800">Voopoo</td>
+                  <td class="py-1.5 px-2 text-slate-600">Kits &amp; Mods</td>
+                  <td class="py-1.5 px-2 text-right font-mono text-slate-600" title="Coste redondeado por WS PrestaShop">32,45 €</td>
+                  <td class="py-1.5 px-2 text-right font-mono font-bold text-[#006591]">69,95 €</td>
+                  <td class="py-1.5 px-2 text-center font-mono">
+                    <span class="px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold text-2xs">26 uds</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center font-mono">
+                    <span class="px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold text-2xs">12 uds</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center font-mono text-2xs text-slate-600">
+                    <span class="px-1 py-0.2 rounded bg-slate-100">5 var</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-2xs font-semibold">
+                      <span class="w-1 h-1 rounded-full bg-emerald-600"></span> Activo
+                    </span>
+                  </td>
+                  <td class="py-1.5 px-2 text-right pr-2">
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" onclick="v4OpenProductRecord('VP-AG2-200W')" class="p-1 rounded hover:bg-totus-100 text-[#006591]" title="Editar Ficha">
+                        <span class="material-symbols-outlined text-[15px]">edit</span>
+                      </button>
+                      <button type="button" onclick="v4OpenCopyModule('VP-AG2-200W')" class="p-1 rounded hover:bg-slate-100 text-slate-600" title="Copiar">
+                        <span class="material-symbols-outlined text-[15px]">compare_arrows</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- FILA 2: Vaporesso Gen 200 Mod -->
+                <tr class="hover:bg-totus-50/50 transition-colors group">
+                  <td class="sticky left-0 bg-white group-hover:bg-[#fbfdff] z-10 py-1.5 px-2 border-r border-totus-border sticky-col-shadow">
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" class="row-selector rounded border-slate-300 text-[#006591] focus:ring-0 cursor-pointer">
+                      
+                      <div class="relative hover-thumb-container flex-shrink-0 cursor-pointer" tabindex="0">
+                        <div class="w-16 h-16 rounded bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center p-0.5">
+                          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvI0ixRfC07MF2JFkOREwp6ItF7QiA41bmAbLaRRl8jLvxmZqk3ugbpV2_qeA6-pigfBz8MqxsZ46ny0QGCSLwGKVfm35nOwCUi5al45sgpXWfRx8c0iPYvIZ3ItBZzje4dsl6Q0pE6XCtbv3O2NpHmSqmj0M3p5BOg11v-03xpWdbnP7O3wn-KdA2th25yBThp6xl44zjbovs67RCO90C-lHuQ59zpUVVQeqS7Ps" 
+                            alt="Vaporesso Gen 200" class="w-full h-full object-contain">
+                        </div>
+                        
+                        <div class="hover-popover-zoom hidden absolute left-16 top-0 ml-1.5 w-52 bg-white rounded shadow-xl border border-slate-300 p-2 z-50 flex-col gap-1 pointer-events-none">
+                          <div class="w-48 h-48 bg-slate-50 rounded overflow-hidden flex items-center justify-center border border-slate-100">
+                            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvI0ixRfC07MF2JFkOREwp6ItF7QiA41bmAbLaRRl8jLvxmZqk3ugbpV2_qeA6-pigfBz8MqxsZ46ny0QGCSLwGKVfm35nOwCUi5al45sgpXWfRx8c0iPYvIZ3ItBZzje4dsl6Q0pE6XCtbv3O2NpHmSqmj0M3p5BOg11v-03xpWdbnP7O3wn-KdA2th25yBThp6xl44zjbovs67RCO90C-lHuQ59zpUVVQeqS7Ps" 
+                              alt="Zoom Vaporesso Gen 200" class="w-full h-full object-contain">
+                          </div>
+                          <div class="text-2xs font-semibold text-totus-dark truncate">Vaporesso Gen 200 Mod</div>
+                          <div class="text-2xs font-mono text-slate-500">VP-GEN-200G • Aurora Green</div>
+                        </div>
+                      </div>
+
+                      <div class="min-w-0 flex flex-col">
+                        <button type="button" class="text-left font-semibold text-slate-900 hover:text-[#006591] truncate block text-xs">
+                          Vaporesso Gen 200 Mod
+                        </button>
+                        <span class="font-mono text-2xs text-slate-500 truncate">SKU: VP-GEN-200G</span>
+                        <span class="text-2xs text-totus-cyan font-mono">ID PS: #8410</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="py-1.5 px-2 font-mono text-2xs text-slate-600">6943400512890</td>
+                  <td class="py-1.5 px-2 font-medium text-slate-800">Vaporesso</td>
+                  <td class="py-1.5 px-2 text-slate-600">Kits &amp; Mods</td>
+                  <td class="py-1.5 px-2 text-right font-mono text-slate-600">24,80 €</td>
+                  <td class="py-1.5 px-2 text-right font-mono font-bold text-[#006591]">54,50 €</td>
+                  <td class="py-1.5 px-2 text-center font-mono">
+                    <span class="px-1 py-0.2 rounded bg-slate-100 text-slate-600 text-2xs">0 uds</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center font-mono">
+                    <span class="px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold text-2xs">14 uds</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center font-mono text-2xs text-slate-600">
+                    <span class="px-1 py-0.2 rounded bg-slate-100">Simple</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-2xs font-semibold">
+                      <span class="w-1 h-1 rounded-full bg-emerald-600"></span> Activo
+                    </span>
+                  </td>
+                  <td class="py-1.5 px-2 text-right pr-2">
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" class="p-1 rounded hover:bg-totus-100 text-[#006591]" title="Editar Ficha">
+                        <span class="material-symbols-outlined text-[15px]">edit</span>
+                      </button>
+                      <button type="button" onclick="v4OpenCopyModule('VP-GEN-200G')" class="p-1 rounded hover:bg-slate-100 text-slate-600" title="Copiar">
+                        <span class="material-symbols-outlined text-[15px]">compare_arrows</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- FILA 3: BioBizz Bio-Grow 1L -->
+                <tr class="hover:bg-totus-50/50 transition-colors group">
+                  <td class="sticky left-0 bg-white group-hover:bg-[#fbfdff] z-10 py-1.5 px-2 border-r border-totus-border sticky-col-shadow">
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" class="row-selector rounded border-slate-300 text-[#006591] focus:ring-0 cursor-pointer">
+                      
+                      <div class="relative hover-thumb-container flex-shrink-0 cursor-pointer" tabindex="0">
+                        <div class="w-16 h-16 rounded bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center p-0.5">
+                          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxpZsWatDNf6tnuY1Qqv1U0l1FY4LJD8RBnM9FhwU3O8QQp3-gfyiifpGDCRwObI_WxM5YkotZ-7ObV8gBH_kKwR4wGA4_7PjrKVLLgKXaPrMguv4O362mdGw2M4g3YzItyejxxJrtx1y80yBfoBeYzLvgzhj0Zd1MXTtGyR5fdg7Sv1EmczrcQNtHne-LhHhrsH1VP0NXQXPO169Y7n57WGKKygOQvgFg11Zgq0U" 
+                            alt="BioBizz Bio-Grow 1L" class="w-full h-full object-contain">
+                        </div>
+                        
+                        <div class="hover-popover-zoom hidden absolute left-16 top-0 ml-1.5 w-52 bg-white rounded shadow-xl border border-slate-300 p-2 z-50 flex-col gap-1 pointer-events-none">
+                          <div class="w-48 h-48 bg-slate-50 rounded overflow-hidden flex items-center justify-center border border-slate-100">
+                            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxpZsWatDNf6tnuY1Qqv1U0l1FY4LJD8RBnM9FhwU3O8QQp3-gfyiifpGDCRwObI_WxM5YkotZ-7ObV8gBH_kKwR4wGA4_7PjrKVLLgKXaPrMguv4O362mdGw2M4g3YzItyejxxJrtx1y80yBfoBeYzLvgzhj0Zd1MXTtGyR5fdg7Sv1EmczrcQNtHne-LhHhrsH1VP0NXQXPO169Y7n57WGKKygOQvgFg11Zgq0U" 
+                              alt="Zoom BioBizz Bio-Grow 1L" class="w-full h-full object-contain">
+                          </div>
+                          <div class="text-2xs font-semibold text-totus-dark truncate">BioBizz Bio-Grow 1L</div>
+                          <div class="text-2xs font-mono text-slate-500">BB-GROW-1L • Orgánico</div>
+                        </div>
+                      </div>
+
+                      <div class="min-w-0 flex flex-col">
+                        <button type="button" class="text-left font-semibold text-slate-900 hover:text-[#006591] truncate block text-xs">
+                          BioBizz Bio-Grow Fertilizante 1L
+                        </button>
+                        <span class="font-mono text-2xs text-slate-500 truncate">SKU: BB-GROW-1L</span>
+                        <span class="text-2xs text-totus-cyan font-mono">ID PS: #3120</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="py-1.5 px-2 font-mono text-2xs text-slate-600">8718403111019</td>
+                  <td class="py-1.5 px-2 font-medium text-slate-800">BioBizz</td>
+                  <td class="py-1.5 px-2 text-slate-600">Nutrientes</td>
+                  <td class="py-1.5 px-2 text-right font-mono text-slate-600">5,90 €</td>
+                  <td class="py-1.5 px-2 text-right font-mono font-bold text-[#006591]">14,20 €</td>
+                  <td class="py-1.5 px-2 text-center font-mono">
+                    <span class="px-1 py-0.2 rounded bg-red-50 text-red-700 font-bold text-2xs">0 uds</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center font-mono">
+                    <span class="px-1 py-0.2 rounded bg-slate-100 text-slate-500 text-2xs">-</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center font-mono text-2xs text-slate-600">
+                    <span class="px-1 py-0.2 rounded bg-slate-100">Simple</span>
+                  </td>
+                  <td class="py-1.5 px-2 text-center">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-red-100 text-red-800 text-2xs font-semibold">
+                      <span class="w-1 h-1 rounded-full bg-red-600"></span> Agotado
+                    </span>
+                  </td>
+                  <td class="py-1.5 px-2 text-right pr-2">
+                    <div class="flex items-center justify-end gap-1">
+                      <button type="button" class="p-1 rounded hover:bg-totus-100 text-[#006591]" title="Editar Ficha">
+                        <span class="material-symbols-outlined text-[15px]">edit</span>
+                      </button>
+                      <button type="button" class="p-1 rounded hover:bg-slate-100 text-slate-600" title="Copiar">
+                        <span class="material-symbols-outlined text-[15px]">compare_arrows</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Paginación integrada -->
+          <div class="p-1.5 bg-[#f8fafc] border-t border-totus-border flex items-center justify-between text-xs text-slate-600">
+            <span class="text-2xs text-slate-500">Seleccionadas: <span id="selected-rows-count" class="font-mono font-semibold">0</span></span>
+            <div class="flex items-center gap-1">
+              <button type="button" class="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-400 cursor-not-allowed text-2xs" disabled>Anterior</button>
+              <button type="button" class="px-1.5 py-0.5 bg-[#006591] text-white rounded font-bold text-2xs">1</button>
+              <button type="button" class="px-1.5 py-0.5 bg-white hover:bg-slate-100 border border-slate-200 rounded text-2xs">2</button>
+              <button type="button" class="px-1.5 py-0.5 bg-white hover:bg-slate-100 border border-slate-200 rounded text-2xs">Siguiente</button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- =====================================================================
+           VISTA 2: PRODUCTO (FICHA Y EDICIÓN COMPACTA CON LOS 9 APARTADOS)
+           ===================================================================== -->
+      <section id="view-producto" class="master-view hidden flex-col gap-2 w-full">
+        
+        <!-- BANDA SUPERIOR COMPACTA DE IDENTIDAD -->
+        <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-wrap items-center justify-between gap-1.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-12 h-12 rounded bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 flex-shrink-0">
+              <img id="detail-main-thumb" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWbtkZc62vbHJYmaCY5UCZQhr44TK_qnqpt0sMKrkW5MA08--vS2ZS4qy6Bot4rtoM1dNwtgfnlGvXv9ZbK2LomfGptuBrXmPwL4czQxBJve-bSYwlah4BXUf9cUTJKCR1rjrBmf1pLt7DXdgPPHnCMrasC4XiOHaeEWc2BF1V-PQYsbuDRq2YeL3E9FCi054SwZDp3B6ZAKdilkXyyYZBO9PX99aTjvS5TznCT0w" 
+                alt="Miniatura Ficha" class="w-full h-full object-contain">
+            </div>
+            <div class="flex flex-col min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <h2 class="font-display font-bold text-xs sm:text-sm text-totus-dark truncate">Voopoo Argus GT II Kit 200W</h2>
+                <span class="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-2xs font-semibold">Activo PS</span>
+                <span class="px-1 py-0.2 rounded bg-slate-100 text-slate-700 font-mono text-2xs">ID: 8842</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-2xs text-slate-500 font-mono flex-wrap">
+                <span>SKU: <strong class="text-slate-700">VP-AG2-200W</strong></span>
+                <span>•</span>
+                <span>EAN: <strong class="text-slate-700">6941291538201</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="v4QueueFieldChange('Guardar como borrador')" class="h-6 px-2 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-medium text-slate-700 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">save</span>
+              <span>Borrador</span>
+            </button>
+            <button type="button" onclick="v4SaveToShop('hortimatic')" class="h-6 px-2 rounded bg-[#006591] hover:bg-[#005277] text-white text-xs font-semibold flex items-center gap-1 shadow-xs">
+              <span class="material-symbols-outlined text-[14px]">cloud_sync</span>
+              <span>Publicar en Tienda</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SELECTOR DE LOS 9 APARTADOS COMPACTO (Botones de 28px) -->
+        <div class="flex items-center gap-1 overflow-x-auto custom-scroll pb-0.5 bg-white p-1 rounded border border-totus-border">
+          <button type="button" onclick="v4OpenSubTab('sub-1-info', this)" class="subtab-btn active h-7 px-2 rounded text-2xs font-semibold flex items-center gap-1 transition bg-[#006591] text-white shadow-xs">
+            <span class="material-symbols-outlined text-[13px]">info</span> 1. Información
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-2-desc', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">description</span> 2. Descripciones
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-3-precios', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">payments</span> 3. Precios
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-4-var', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">style</span> 4. Variaciones
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-5-img', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">photo_library</span> 5. Imágenes
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-6-seo', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">travel_explore</span> 6. SEO
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-7-trans', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">local_shipping</span> 7. Transporte
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-8-disp', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">warehouse</span> 8. Disponibilidad
+          </button>
+          <button type="button" onclick="v4OpenSubTab('sub-9-org', this)" class="subtab-btn h-7 px-2 rounded text-2xs font-medium flex items-center gap-1 transition text-slate-600 hover:bg-slate-100">
+            <span class="material-symbols-outlined text-[13px]">account_tree</span> 9. Organización
+          </button>
+        </div>
+
+        <!-- SPLIT LAYOUT: FORMULARIO IZQUIERDA + PANEL REFERENCIA DERECHA -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
+          
+          <!-- PANEL IZQUIERDO: CONTENIDO DE LOS 9 APARTADOS -->
+          <div class="lg:col-span-8 xl:col-span-9 bg-white p-2.5 rounded border border-totus-border shadow-xs">
+            
+            <!-- APARTADO 1: INFORMACIÓN -->
+            <div id="sub-1-info" class="subtab-content flex flex-col gap-2">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div class="md:col-span-2 flex flex-col gap-0.5">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-800">Nombre Oficial del Producto</label>
+                    <button type="button" onclick="v4ShowHelpTooltip('Nombre visible en front de PrestaShop y catálogo web.')" class="text-slate-400 hover:text-[#006591]">
+                      <span class="material-symbols-outlined text-[13px]">info</span>
+                    </button>
+                  </div>
+                  <input type="text" value="Voopoo Argus GT II Kit 200W" onchange="v4RegisterChange('Nombre de producto')" 
+                    class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs focus:bg-white focus:border-[#006591]">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Referencia Propia (SKU)</label>
+                  <input type="text" value="VP-AG2-200W" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Referencia Fabricante</label>
+                  <input type="text" value="ARGUS-GT2-OEM" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-800">Código EAN-13</label>
+                    <span class="text-2xs text-emerald-600 font-mono">Válido</span>
+                  </div>
+                  <input type="text" value="6941291538201" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">UPC / MPN</label>
+                  <input type="text" value="VP-8842-MPN" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Marca / Fabricante</label>
+                  <select class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                    <option selected>Voopoo</option>
+                    <option>Vaporesso</option>
+                    <option>BioBizz</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Condición</label>
+                  <select class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                    <option selected>Nuevo</option>
+                    <option>Usado</option>
+                    <option>Reacondicionado</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Tipo de Producto</label>
+                  <select class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                    <option selected>Con combinaciones</option>
+                    <option>Producto simple</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- APARTADO 2: DESCRIPCIONES -->
+            <div id="sub-2-desc" class="subtab-content hidden flex-col gap-2">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-semibold text-slate-800">Resumen Corto Comercial</label>
+                  <span class="text-2xs text-slate-400">Máx 400 caracteres</span>
+                </div>
+                <textarea rows="2" class="bg-[#f8fafc] border border-totus-border rounded p-1.5 text-xs focus:bg-white" onchange="v4RegisterChange('Resumen corto')">Kit avanzado de 200W con protección IP68 tri-proof, chip GENE.TT 2.0 y tanque MAAT de 6.5ml.</textarea>
+              </div>
+
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-semibold text-slate-800">Descripción Completa (HTML)</label>
+                  <div class="flex items-center gap-1 text-2xs">
+                    <button type="button" class="px-1.5 py-0.2 bg-slate-100 rounded hover:bg-slate-200">Negrita</button>
+                    <button type="button" class="px-1.5 py-0.2 bg-slate-100 rounded hover:bg-slate-200">Lista</button>
+                  </div>
+                </div>
+                <textarea rows="4" class="bg-[#f8fafc] border border-totus-border rounded p-1.5 font-mono text-xs focus:bg-white">&lt;h3&gt;Rendimiento Imparable con Protección IP68&lt;/h3&gt;
+&lt;p&gt;El &lt;strong&gt;Voopoo Argus GT II Kit 200W&lt;/strong&gt; está preparado para soportar caídas, polvo y agua gracias a su clasificación IP68 oficial.&lt;/p&gt;</textarea>
+              </div>
+            </div>
+
+            <!-- APARTADO 3: PRECIOS & MARGEN -->
+            <div id="sub-3-precios" class="subtab-content hidden flex-col gap-2">
+              <div class="p-1.5 bg-amber-50 border border-amber-200 rounded text-2xs text-amber-800 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px] text-amber-600">info</span>
+                <span><strong>Aviso de Cálculo:</strong> El coste devuelto por el Webservices de PrestaShop es aproximado por redondeo en BD. Verifique con albarán.</span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Coste Compra (€)</label>
+                  <input type="number" id="f-cost" value="32.45" step="0.01" oninput="v4CalculateMargin()" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">PVP Sugerido</label>
+                  <input type="number" value="69.90" step="0.05" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">IVA Aplicable</label>
+                  <select id="f-tax" onchange="v4CalculateMargin()" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                    <option value="21" selected>General 21%</option>
+                    <option value="10">Reducido 10%</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-bold text-[#006591]">PVP IVA Inc (€)</label>
+                  <input type="number" id="f-pvp" value="69.95" step="0.05" oninput="v4CalculateMarginReverse()" class="h-7 bg-totus-50 border border-totus-200 text-[#006591] font-bold rounded px-2 font-mono text-xs">
+                </div>
+              </div>
+
+              <div class="p-2 bg-[#f8fafc] rounded border border-totus-border flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div>
+                  <span class="text-2xs uppercase text-slate-500 font-semibold block">Margen Bruto Calculado:</span>
+                  <span class="text-sm font-bold font-mono text-emerald-700" id="f-calc-margin">78,1% (+25,36 €)</span>
+                </div>
+                <div>
+                  <span class="text-2xs uppercase text-slate-500 font-semibold block">Venta Neto (Sin IVA):</span>
+                  <span class="text-xs font-mono text-slate-700" id="f-calc-neto">57,81 €</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-2xs uppercase text-slate-500 font-semibold block">Redondeo:</span>
+                  <span class="text-2xs font-medium text-slate-700">Terminación .95</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- APARTADO 4: VARIACIONES & ATRIBUTOS -->
+            <div id="sub-4-var" class="subtab-content hidden flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-800">5 Combinaciones Activas (Atributo: Color)</span>
+                <button type="button" onclick="v4AddVariationRow()" class="h-6 px-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded text-2xs font-semibold text-slate-700 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px]">add</span> Añadir
+                </button>
+              </div>
+
+              <div class="p-1.5 bg-cyan-50 border border-cyan-200 rounded text-2xs text-cyan-900 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px] text-[#00aac6]">lightbulb</span>
+                <span><strong>Regla de negocio:</strong> "Impacto (+€)" es el suplemento sobre el PVP base (69,95 €). Nunca registre el PVP total en esa celda.</span>
+              </div>
+
+              <div class="overflow-x-auto rounded border border-totus-border">
+                <table class="w-full text-left text-2xs">
+                  <thead class="bg-[#f1f5f9] text-slate-600 font-semibold">
+                    <tr>
+                      <th class="p-1 text-center">Pred.</th>
+                      <th class="p-1">Color / Atributo</th>
+                      <th class="p-1">Ref Combinación</th>
+                      <th class="p-1">EAN-13</th>
+                      <th class="p-1 text-right">Impacto (+€)</th>
+                      <th class="p-1 text-center">Stock Horti</th>
+                      <th class="p-1 text-center">Stock NOS</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-mono">
+                    <tr>
+                      <td class="p-1 text-center"><input type="radio" name="var-def" checked class="cursor-pointer"></td>
+                      <td class="p-1 font-sans font-medium">Carbon Fiber</td>
+                      <td class="p-1"><input type="text" value="VP-AG2-CF" class="h-5 w-20 px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1"><input type="text" value="6941291538218" class="h-5 w-24 px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1 text-right"><input type="number" value="0.00" step="0.5" class="h-5 w-14 text-right px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1 text-center"><input type="number" value="12" class="h-5 w-10 text-center px-1 border border-slate-200 rounded text-2xs font-bold text-emerald-700"></td>
+                      <td class="p-1 text-center"><input type="number" value="4" class="h-5 w-10 text-center px-1 border border-slate-200 rounded text-2xs"></td>
+                    </tr>
+                    <tr>
+                      <td class="p-1 text-center"><input type="radio" name="var-def" class="cursor-pointer"></td>
+                      <td class="p-1 font-sans font-medium">Graphite Grey</td>
+                      <td class="p-1"><input type="text" value="VP-AG2-GR" class="h-5 w-20 px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1"><input type="text" value="6941291538225" class="h-5 w-24 px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1 text-right"><input type="number" value="0.00" step="0.5" class="h-5 w-14 text-right px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1 text-center"><input type="number" value="8" class="h-5 w-10 text-center px-1 border border-slate-200 rounded text-2xs font-bold text-emerald-700"></td>
+                      <td class="p-1 text-center"><input type="number" value="2" class="h-5 w-10 text-center px-1 border border-slate-200 rounded text-2xs"></td>
+                    </tr>
+                    <tr>
+                      <td class="p-1 text-center"><input type="radio" name="var-def" class="cursor-pointer"></td>
+                      <td class="p-1 font-sans font-medium text-[#00aac6]">Leather Silver (Special)</td>
+                      <td class="p-1"><input type="text" value="VP-AG2-LSLV" class="h-5 w-20 px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1"><input type="text" value="6941291538232" class="h-5 w-24 px-1 border border-slate-200 rounded text-2xs"></td>
+                      <td class="p-1 text-right"><input type="number" value="5.00" step="0.5" class="h-5 w-14 text-right px-1 border border-slate-200 rounded text-2xs font-bold text-[#00aac6]"></td>
+                      <td class="p-1 text-center"><input type="number" value="6" class="h-5 w-10 text-center px-1 border border-slate-200 rounded text-2xs font-bold text-emerald-700"></td>
+                      <td class="p-1 text-center"><input type="number" value="6" class="h-5 w-10 text-center px-1 border border-slate-200 rounded text-2xs"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- APARTADO 5: IMÁGENES -->
+            <div id="sub-5-img" class="subtab-content hidden flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-800">Galería de Imágenes</span>
+                <span class="text-2xs text-slate-400">Límites de ordenación en PrestaShop 1.7</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div class="border border-totus-border rounded p-1 flex flex-col gap-1 bg-[#f8fafc]">
+                  <div class="w-full h-20 bg-white rounded overflow-hidden flex items-center justify-center border border-slate-200">
+                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWbtkZc62vbHJYmaCY5UCZQhr44TK_qnqpt0sMKrkW5MA08--vS2ZS4qy6Bot4rtoM1dNwtgfnlGvXv9ZbK2LomfGptuBrXmPwL4czQxBJve-bSYwlah4BXUf9cUTJKCR1rjrBmf1pLt7DXdgPPHnCMrasC4XiOHaeEWc2BF1V-PQYsbuDRq2YeL3E9FCi054SwZDp3B6ZAKdilkXyyYZBO9PX99aTjvS5TznCT0w" class="w-full h-full object-contain">
+                  </div>
+                  <div class="flex items-center justify-between text-2xs">
+                    <span class="font-bold text-[#006591]">PORTADA</span>
+                    <span class="font-mono text-slate-400">#1</span>
+                  </div>
+                </div>
+                <div class="border border-totus-border rounded p-1 flex flex-col gap-1 bg-[#f8fafc]">
+                  <div class="w-full h-20 bg-white rounded overflow-hidden flex items-center justify-center border border-slate-200">
+                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIyPcILhi2Y-g9vbx8toOsxqe1Gl_pAeiF9T7MkwGPLoM03ncQdR1ec6W5E60e7qHNPEiejdfZ6KBRyadzX-P_aiyoF3PAmsSqu_yyVngGo_Bw5uOucBCh9KELMUbrVSIfRj4n6NaGQ-huGs6IfOh6j8JJOBKb_mE6GyE_AvcXvQR55lINAlI10237-2poWIZ1wqr0YpRz1Q6_UtBgs_4tyctCwv1MWtHAr6xzIIs" class="w-full h-full object-contain">
+                  </div>
+                  <div class="flex items-center justify-between text-2xs">
+                    <span class="text-slate-600">Galería</span>
+                    <span class="font-mono text-slate-400">#2</span>
+                  </div>
+                </div>
+                <div class="border border-dashed border-slate-300 rounded p-1 flex flex-col items-center justify-center gap-1 text-center cursor-pointer hover:bg-slate-50 min-h-[90px]">
+                  <span class="material-symbols-outlined text-[20px] text-slate-400">add_photo_alternate</span>
+                  <span class="text-2xs text-slate-600 font-medium">Subir archivo</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- APARTADO 6: SEO -->
+            <div id="sub-6-seo" class="subtab-content hidden flex-col gap-2">
+              <div class="flex flex-col gap-0.5">
+                <label class="text-xs font-semibold text-slate-800">Meta Título (SERP)</label>
+                <input type="text" value="Voopoo Argus GT II Kit 200W | Máxima Resistencia IP68" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <label class="text-xs font-semibold text-slate-800">Meta Descripción</label>
+                <textarea rows="2" class="bg-[#f8fafc] border border-totus-border rounded p-1.5 text-xs">Compra el auténtico Voopoo Argus GT II Kit 200W con IP68 y doble 18650.</textarea>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <label class="text-xs font-semibold text-slate-800">URL Amigable (Slug)</label>
+                <input type="text" value="voopoo-argus-gt-ii-kit-200w" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+              </div>
+            </div>
+
+            <!-- APARTADO 7: TRANSPORTE -->
+            <div id="sub-7-trans" class="subtab-content hidden flex-col gap-2">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Peso Neto (kg)</label>
+                  <input type="text" value="0.380" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Largo (cm)</label>
+                  <input type="text" value="14.2" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Ancho (cm)</label>
+                  <input type="text" value="8.4" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Alto (cm)</label>
+                  <input type="text" value="5.5" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+              </div>
+            </div>
+
+            <!-- APARTADO 8: DISPONIBILIDAD -->
+            <div id="sub-8-disp" class="subtab-content hidden flex-col gap-2">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Comportamiento sin Stock</label>
+                  <select class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                    <option selected>Denegar pedidos</option>
+                    <option>Permitir reserva</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Ubicación Almacén</label>
+                  <input type="text" value="ESTANTERIA-VAPE-B3" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <label class="text-xs font-semibold text-slate-800">Plazo Entrega</label>
+                  <input type="text" value="24 / 48 Horas Laborables" class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                </div>
+              </div>
+            </div>
+
+            <!-- APARTADO 9: ORGANIZACIÓN -->
+            <div id="sub-9-org" class="subtab-content hidden flex-col gap-2">
+              <div class="flex flex-col gap-0.5">
+                <label class="text-xs font-semibold text-slate-800">Categoría Principal PrestaShop</label>
+                <div class="p-2 bg-[#f8fafc] border border-totus-border rounded flex flex-col gap-1 text-xs">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="cat-org-master" checked class="cursor-pointer">
+                    <span>Inicio &gt; Cigarrillos Electrónicos &gt; <strong>Kits &amp; Mods Avanzados</strong> (ID: 41)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="cat-org-master" class="cursor-pointer">
+                    <span>Inicio &gt; Marcas &gt; <strong>Voopoo Official</strong> (ID: 88)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- PANEL DERECHO: IMAGEN DE REFERENCIA & RESUMEN COMERCIAL -->
+          <div class="lg:col-span-4 xl:col-span-3 bg-white p-2.5 rounded border border-totus-border shadow-xs flex flex-col gap-2">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+              <span class="text-xs font-bold text-slate-800">Inspección de Referencia</span>
+              <span class="text-2xs text-[#006591] font-mono font-semibold">1200x1200px</span>
+            </div>
+
+            <div class="w-full aspect-square bg-[#f8fafc] rounded border border-slate-200 overflow-hidden flex items-center justify-center p-2">
+              <img id="detail-side-preview" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWbtkZc62vbHJYmaCY5UCZQhr44TK_qnqpt0sMKrkW5MA08--vS2ZS4qy6Bot4rtoM1dNwtgfnlGvXv9ZbK2LomfGptuBrXmPwL4czQxBJve-bSYwlah4BXUf9cUTJKCR1rjrBmf1pLt7DXdgPPHnCMrasC4XiOHaeEWc2BF1V-PQYsbuDRq2YeL3E9FCi054SwZDp3B6ZAKdilkXyyYZBO9PX99aTjvS5TznCT0w" 
+                alt="Referencia Producto" class="w-full h-full object-contain">
+            </div>
+
+            <div class="bg-[#f8fafc] p-2 rounded border border-totus-border flex flex-col gap-1 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-2xs">PVP Recomendado:</span>
+                <span class="font-bold text-[#006591] font-mono" id="side-pvp-val">69,95 €</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-2xs">Coste Compra:</span>
+                <span class="font-mono text-slate-700" id="side-cost-val">32,45 €</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500 text-2xs">Margen Bruto:</span>
+                <span class="font-mono font-bold text-emerald-700" id="side-margin-val">78,1% (+25,36 €)</span>
+              </div>
+              <div class="flex items-center justify-between pt-1 border-t border-slate-200">
+                <span class="text-slate-500 text-2xs">Stock Global:</span>
+                <span class="font-mono font-bold text-slate-900">38 uds</span>
+              </div>
+            </div>
+
+            <button type="button" onclick="v4OpenCopyModule('VP-AG2-200W')" class="w-full h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1 border border-slate-200">
+              <span class="material-symbols-outlined text-[14px]">compare_arrows</span>
+              <span>Copiar a otra tienda</span>
+            </button>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- =====================================================================
+           VISTA 3: COPIAR ENTRE TIENDAS (LADO A LADO REVERSIBLE 50/50)
+           ===================================================================== -->
+      <section id="view-copiar" class="master-view hidden flex-col gap-2 w-full">
+        
+        <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-wrap items-center justify-between gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[#006591] text-[18px]">compare_arrows</span>
+            <span class="font-display font-bold text-xs sm:text-sm text-slate-900">Copia Asistida entre Tiendas</span>
+            <button type="button" onclick="v4ReverseCopyDirection()" id="btn-reverse-stores" class="h-6 px-1.5 rounded bg-totus-100 hover:bg-totus-200 text-[#006591] font-semibold text-2xs flex items-center gap-1 border border-totus-200">
+              <span class="material-symbols-outlined text-[12px]">swap_horiz</span>
+              <span id="label-swap-direction">Invertir [ Hortimatic ➔ NewOldSmok ]</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1 text-xs">
+            <button type="button" onclick="v4ToggleCopyCheckboxes(true)" class="h-6 px-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-2xs font-medium">Todos</button>
+            <button type="button" onclick="v4ToggleCopyCheckboxes(false)" class="h-6 px-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-2xs font-medium">Ninguno</button>
+            <button type="button" onclick="v4ExecuteCopySimulation('draft')" class="h-6 px-2 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">save_as</span>
+              <span>Borrador</span>
+            </button>
+            <button type="button" onclick="v4ExecuteCopySimulation('publish')" class="h-6 px-2 rounded bg-[#006591] hover:bg-[#005277] text-white text-xs font-semibold flex items-center gap-1 shadow-xs">
+              <span class="material-symbols-outlined text-[14px]">send</span>
+              <span>Publicar en Destino</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-2xs">
+          <div class="p-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px] text-emerald-600">verified</span>
+            <span><strong>Mapeo por Nombre:</strong> IDs de PrestaShop NO se reutilizan en destino para evitar solapamientos.</span>
+          </div>
+          <div class="p-1.5 bg-amber-50 border border-amber-200 text-amber-900 rounded flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px] text-amber-600">inventory_2</span>
+            <span><strong>Regla de Stock:</strong> El stock en la tienda destino siempre se inicializa en <strong>0 unidades</strong>.</span>
+          </div>
+        </div>
+
+        <!-- LADO A LADO PARALELO (50% / 50%) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+          
+          <!-- ORIGEN -->
+          <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-col gap-1.5">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+              <span class="font-bold text-xs text-[#006591] flex items-center gap-1" id="label-origin-store">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#006591]"></span> ORIGEN: Hortimatic
+              </span>
+              <span class="font-mono text-2xs text-slate-500">ID: 8842</span>
+            </div>
+
+            <div class="flex items-center gap-2 p-1.5 bg-[#f8fafc] rounded border border-totus-border">
+              <div class="w-14 h-14 rounded bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 flex-shrink-0">
+                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWbtkZc62vbHJYmaCY5UCZQhr44TK_qnqpt0sMKrkW5MA08--vS2ZS4qy6Bot4rtoM1dNwtgfnlGvXv9ZbK2LomfGptuBrXmPwL4czQxBJve-bSYwlah4BXUf9cUTJKCR1rjrBmf1pLt7DXdgPPHnCMrasC4XiOHaeEWc2BF1V-PQYsbuDRq2YeL3E9FCi054SwZDp3B6ZAKdilkXyyYZBO9PX99aTjvS5TznCT0w" class="w-full h-full object-contain">
+              </div>
+              <div class="min-w-0 flex flex-col text-xs">
+                <span class="font-bold text-slate-900 truncate">Voopoo Argus GT II Kit 200W</span>
+                <span class="font-mono text-2xs text-slate-500">SKU: VP-AG2-200W • EAN: 6941291538201</span>
+                <span class="text-2xs text-emerald-700 font-medium">Activo • 26 uds en Hortimatic</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1 text-xs">
+              <label class="flex items-center gap-1.5 p-1 rounded hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked class="copy-field-check rounded border-slate-300 text-[#006591]">
+                <span class="font-medium text-slate-800">Nombre Oficial y Título Comercial</span>
+              </label>
+              <label class="flex items-center gap-1.5 p-1 rounded hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked class="copy-field-check rounded border-slate-300 text-[#006591]">
+                <span class="font-medium text-slate-800">Descripciones completas y viñetas</span>
+              </label>
+              <label class="flex items-center gap-1.5 p-1 rounded hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked class="copy-field-check rounded border-slate-300 text-[#006591]">
+                <span class="font-medium text-slate-800">Tarifa PVP (69,95 €)</span>
+              </label>
+              <label class="flex items-center gap-1.5 p-1 rounded hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked class="copy-field-check rounded border-slate-300 text-[#006591]">
+                <span class="font-medium text-slate-800">Combinaciones / Variaciones (5 colores)</span>
+              </label>
+              <label class="flex items-center gap-1.5 p-1 rounded hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked class="copy-field-check rounded border-slate-300 text-[#006591]">
+                <span class="font-medium text-slate-800">Galería de Imágenes de Alta Calidad</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- DESTINO -->
+          <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-col gap-1.5">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+              <span class="font-bold text-xs text-[#00aac6] flex items-center gap-1" id="label-target-store">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#00aac6]"></span> DESTINO: NewOldSmok
+              </span>
+              <span class="font-mono text-2xs px-1 rounded bg-cyan-100 text-cyan-800 font-semibold">NUEVO</span>
+            </div>
+
+            <div class="flex items-center gap-2 p-1.5 bg-[#f8fafc] rounded border border-totus-border">
+              <div class="w-14 h-14 rounded bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 flex-shrink-0">
+                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvMlh5c7neIb-xRB0eZ4o817BHQOrwXY5GDqnAJ8ZQsI3p_ERWMFU8CQje2cWG5bVbGmaxaNY1JLOPBiNdDhigu2GR8X0HCVQrPGcV-_-rIL1OFnYne0jCbo_6CbYFXuibwvjosOL92tyz7D4TRtXjossw5JUKwaRz1H5UxydGknVOonHa3jgTkK2Fp5aUwsA7hp1uXCAINnpvt0K6z01Utx3NvPQ7bpJZkAX7_ns" class="w-full h-full object-contain">
+              </div>
+              <div class="min-w-0 flex flex-col text-xs">
+                <span class="font-bold text-slate-900">Estado en Destino: No Registrado</span>
+                <span class="text-2xs text-emerald-600 font-medium">Verificación EAN: Sin colisiones</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1.5 text-xs">
+              <div class="flex flex-col gap-0.5">
+                <label class="font-semibold text-slate-800">Categoría en NewOldSmok</label>
+                <select class="h-6 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                  <option selected>Vapeo &gt; Kits Avanzados (ID: 19)</option>
+                  <option>Novedades &gt; 200W (ID: 4)</option>
+                </select>
+              </div>
+              
+              <div class="flex items-center justify-between p-1.5 bg-amber-50 border border-amber-200 rounded text-2xs">
+                <span class="font-medium text-amber-900">Stock Forzado</span>
+                <span class="font-mono font-bold text-amber-900 bg-amber-100 px-1.5 py-0.2 rounded">0 UDS</span>
+              </div>
+
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="font-medium text-slate-800 text-2xs">Publicar como Activo de inmediato</span>
+                <input type="checkbox" checked class="rounded border-slate-300 text-[#006591] cursor-pointer">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- =====================================================================
+           VISTA 4: ALTA ASISTIDA (MANUAL & DESDE URL CON ENCARGO CHATGPT)
+           ===================================================================== -->
+      <section id="view-alta" class="master-view hidden flex-col gap-2 w-full">
+        
+        <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-wrap items-center justify-between gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[#006591] text-[18px]">smart_toy</span>
+            <span class="font-display font-bold text-xs sm:text-sm text-slate-900">Alta Asistida de Nuevos Productos</span>
+          </div>
+
+          <div class="flex items-center gap-1 bg-[#f8fafc] p-0.5 rounded border border-totus-border">
+            <button type="button" onclick="v4SwitchAltaMode('url')" id="alta-tab-url" class="px-2 py-0.5 rounded text-xs font-semibold bg-[#006591] text-white shadow-xs">
+              URL Mayorista &amp; ChatGPT
+            </button>
+            <button type="button" onclick="v4SwitchAltaMode('manual')" id="alta-tab-manual" class="px-2 py-0.5 rounded text-xs font-medium text-slate-600 hover:text-slate-900">
+              Creación Manual
+            </button>
+          </div>
+        </div>
+
+        <div id="alta-content-url" class="flex flex-col gap-2">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            
+            <div class="bg-white rounded p-2.5 border border-totus-border shadow-xs flex flex-col gap-1.5">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <span class="w-4 h-4 rounded-full bg-[#006591] text-white flex items-center justify-center font-mono text-2xs">1</span>
+                URL Mayorista (Caso Real Vaperalia)
+              </span>
+              <div class="flex flex-col gap-0.5">
+                <label class="text-2xs font-semibold text-slate-600">URL del Producto</label>
+                <input type="url" id="alta-url-input" value="https://vaperalia.es/pods-y-kits/voopoo-argus-p3-pod-kit-1500mah" 
+                  class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 font-mono text-xs">
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <label class="text-2xs font-semibold text-slate-600">Tienda PrestaShop Destino</label>
+                <select class="h-7 bg-[#f8fafc] border border-totus-border rounded px-2 text-xs">
+                  <option selected>NewOldSmok (Vape & Smoke)</option>
+                  <option>Hortimatic (Growshop)</option>
+                </select>
+              </div>
+              <button type="button" onclick="v4GeneratePromptForUrl()" class="h-6 rounded bg-[#006591] hover:bg-[#005277] text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-xs mt-0.5">
+                <span class="material-symbols-outlined text-[13px]">auto_fix_high</span>
+                <span>Generar Encargo ChatGPT</span>
+              </button>
+            </div>
+
+            <div class="bg-white rounded p-2.5 border border-totus-border shadow-xs flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                  <span class="w-4 h-4 rounded-full bg-[#006591] text-white flex items-center justify-center font-mono text-2xs">2</span>
+                  Encargo para ChatGPT (Sin APIs ocultas)
+                </span>
+                <button type="button" onclick="v4CopyPromptToClipboard()" class="h-5 px-1.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-2xs font-semibold flex items-center gap-0.5">
+                  <span class="material-symbols-outlined text-[12px]">content_copy</span>
+                  <span id="label-copy-prompt">Copiar</span>
+                </button>
+              </div>
+              <textarea id="alta-prompt-box" rows="4" readonly class="w-full bg-[#f8fafc] border border-totus-border rounded p-1.5 font-mono text-2xs text-slate-700 focus:outline-none">Actúa como especialista de catálogo PrestaShop 1.7.
+URL: https://vaperalia.es/pods-y-kits/voopoo-argus-p3-pod-kit-1500mah
+Extrae:
+Nombre: Voopoo Argus P3 Pod Kit 1500mAh
+Marca: Voopoo
+SKU: VP-ARG-P3-1500
+Batería: 1500 mAh
+PVP: 34.90
+EAN: (Dejar null si no está visible)</textarea>
+            </div>
+
+          </div>
+
+          <!-- PASO 3: FORMULARIO DE REVISIÓN VISUAL -->
+          <div class="bg-white rounded p-2.5 border border-totus-border shadow-xs flex flex-col gap-1.5">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <span class="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-mono text-2xs">3</span>
+                Revisión Visual y Validación Humana (Argus P3)
+              </span>
+              <span class="text-2xs px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold flex items-center gap-1">
+                <span class="material-symbols-outlined text-[12px]">barcode_scanner</span>
+                <span>1 pendiente: EAN en caja física</span>
+              </span>
+            </div>
+
+            <div class="overflow-x-auto rounded border border-totus-border">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-[#f1f5f9] text-slate-600 font-semibold text-2xs uppercase">
+                  <tr>
+                    <th class="p-1.5">Campo</th>
+                    <th class="p-1.5">Dato Obtenido</th>
+                    <th class="p-1.5">Estado</th>
+                    <th class="p-1.5">Valor Aceptado</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-2xs">
+                  <tr>
+                    <td class="p-1.5 font-medium">Nombre</td>
+                    <td class="p-1.5 text-slate-800">Voopoo Argus P3 Pod Kit 1500mAh</td>
+                    <td class="p-1.5"><span class="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">Conforme</span></td>
+                    <td class="p-1.5"><input type="text" value="Voopoo Argus P3 Pod Kit 1500mAh" class="h-5 w-full max-w-xs px-1 border border-slate-200 rounded text-2xs"></td>
+                  </tr>
+                  <tr class="bg-amber-50/50">
+                    <td class="p-1.5 font-medium text-amber-950 flex items-center gap-1">
+                      <span>EAN-13</span>
+                      <span class="material-symbols-outlined text-[12px] text-amber-600">warning</span>
+                    </td>
+                    <td class="p-1.5 font-mono text-slate-400">No disponible en web</td>
+                    <td class="p-1.5"><span class="px-1 py-0.2 rounded bg-amber-200 text-amber-900 font-bold">Escanear caja</span></td>
+                    <td class="p-1.5">
+                      <div class="flex items-center gap-1">
+                        <input type="text" id="manual-ean-scanner" placeholder="Escanear con pistola..." class="h-5 w-36 px-1 font-mono border border-amber-300 rounded text-2xs bg-white">
+                        <button type="button" onclick="v4SimulateScanEAN()" class="h-5 px-1 bg-amber-200 hover:bg-amber-300 rounded text-2xs font-semibold text-amber-900">Simular</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="p-1.5 font-medium">Coste Albarán</td>
+                    <td class="p-1.5 font-mono text-slate-500">14,20 € neto</td>
+                    <td class="p-1.5"><span class="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">Comprobado</span></td>
+                    <td class="p-1.5 font-mono font-bold text-slate-800">14,20 €</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1.5 font-medium">PVP Sugerido</td>
+                    <td class="p-1.5 font-mono text-[#006591] font-bold">34,90 €</td>
+                    <td class="p-1.5"><span class="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">Margen 105%</span></td>
+                    <td class="p-1.5 font-mono font-bold text-[#006591]">34,90 €</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex items-center justify-end gap-1 pt-1">
+              <button type="button" onclick="v4QueueFieldChange('Alta guardada en cola borradores: Argus P3')" class="h-6 px-2 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-medium">
+                Guardar Borrador
+              </button>
+              <button type="button" onclick="v4CreateAndOpenRecord('VP-ARG-P3-1500')" class="h-6 px-2 rounded bg-[#006591] hover:bg-[#005277] text-white text-xs font-semibold flex items-center gap-1 shadow-xs">
+                <span class="material-symbols-outlined text-[13px]">check_circle</span>
+                <span>Crear y Abrir Ficha</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- =====================================================================
+           VISTA 5: CAMBIOS & GUARDADO (CONTROL Y REINTENTO)
+           ===================================================================== -->
+      <section id="view-cambios" class="master-view hidden flex-col gap-2 w-full">
+        
+        <div class="bg-white rounded p-2 border border-totus-border shadow-xs flex flex-wrap items-center justify-between gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-amber-600 text-[18px]">published_with_changes</span>
+            <div>
+              <h3 class="font-display font-bold text-xs sm:text-sm text-slate-900">Control de Cambios y Guardado en Tienda</h3>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="v4ClearChanges()" class="h-6 px-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium">Descartar</button>
+            <button type="button" onclick="v4SaveAllQueueToShop()" class="h-6 px-2.5 rounded bg-[#006591] hover:bg-[#005277] text-white text-xs font-semibold flex items-center gap-1 shadow-xs">
+              <span class="material-symbols-outlined text-[13px]">cloud_upload</span>
+              <span>Guardar en Tienda Seleccionada</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+          
+          <div class="md:col-span-7 bg-white p-2.5 rounded border border-totus-border shadow-xs flex flex-col gap-1.5">
+            <span class="text-xs font-bold text-slate-800">Modificaciones en Sesión</span>
+            
+            <div id="session-changes-list" class="flex flex-col gap-1">
+              <div class="p-1.5 rounded bg-totus-50 border border-totus-100 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[15px] text-[#006591]">edit</span>
+                  <span class="font-medium text-slate-800">PVP en Argus GT II: <strong>69,95 €</strong></span>
+                </div>
+                <span class="text-2xs font-mono text-slate-500">Hortimatic</span>
+              </div>
+              <div class="p-1.5 rounded bg-totus-50 border border-totus-100 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[15px] text-[#006591]">inventory</span>
+                  <span class="font-medium text-slate-800">Variante Leather Silver: <strong>+5.00 €</strong></span>
+                </div>
+                <span class="text-2xs font-mono text-slate-500">Ambas</span>
+              </div>
+            </div>
+
+            <!-- SIMULACIÓN DE ERROR CON REINTENTO -->
+            <div class="mt-1 p-1.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between">
+              <span class="text-2xs text-slate-600">Simulación de contingencia API:</span>
+              <button type="button" onclick="v4SimulateApiError()" class="h-5 px-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-2xs font-medium">
+                Simular error sync
+              </button>
+            </div>
+            
+            <div id="api-error-banner" class="hidden p-1.5 bg-red-50 border border-red-200 rounded text-2xs text-red-800 flex items-center justify-between">
+              <span><strong>Error 504 Timeout:</strong> Datos locales conservados sin pérdida.</span>
+              <button type="button" onclick="v4RetrySync()" class="px-1.5 py-0.2 bg-red-700 text-white rounded font-bold hover:bg-red-800 text-2xs">Reintentar</button>
+            </div>
+          </div>
+
+          <div class="md:col-span-5 bg-white p-2.5 rounded border border-totus-border shadow-xs flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">Borradores en Cola (Totus)</span>
+              <span class="text-2xs font-mono text-slate-400">Reanudar con 1 clic</span>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <div class="p-1.5 rounded border border-slate-200 hover:border-[#006591] bg-[#f8fafc] flex items-center justify-between text-xs cursor-pointer transition" onclick="v4ResumeDraft('Vaporesso Armour Max')">
+                <div class="flex flex-col min-w-0">
+                  <span class="font-bold text-slate-900 truncate">Vaporesso Armour Max Kit</span>
+                  <span class="text-2xs text-amber-700 font-medium">Falta escaneo de código EAN</span>
+                </div>
+                <span class="material-symbols-outlined text-[15px] text-slate-400">arrow_forward</span>
+              </div>
+
+              <div class="p-1.5 rounded border border-slate-200 hover:border-[#006591] bg-[#f8fafc] flex items-center justify-between text-xs cursor-pointer transition" onclick="v4ResumeDraft('Canna Terra Flores 5L')">
+                <div class="flex flex-col min-w-0">
+                  <span class="font-bold text-slate-900 truncate">Canna Terra Flores 5 Litros</span>
+                  <span class="text-2xs text-slate-500">Clonado a Hortimatic • Stock 0</span>
+                </div>
+                <span class="material-symbols-outlined text-[15px] text-slate-400">arrow_forward</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- POPOVER TOOLTIP FLOTANTE GLOBAL -->
+    <div id="totus-help-popover" class="hidden fixed bg-slate-900 text-white text-xs px-2 py-1 rounded shadow-xl z-50 max-w-xs leading-tight">
+      <span id="totus-help-popover-text"></span>
+    </div>
+
+    <!-- MODAL / ALERTA DE NOTIFICACIÓN COMPACTA -->
+    <div id="totus-toast" class="hidden fixed bottom-3 right-3 bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded shadow-xl z-50 flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-[15px] text-emerald-400">check_circle</span>
+      <span id="totus-toast-text">Acción completada.</span>
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT NATIVO INTERACTIVO TOTALMENTE FUNCIONAL (VANILLA JS) -->
+  <script>
+    // 1. NAVEGACIÓN ENTRE PESTAÑAS MAESTRAS
+    window.v4OpenMasterTab = function(tabKey) {
+      document.querySelectorAll('.master-view').forEach(view => {
+        view.classList.add('hidden');
+        view.classList.remove('flex');
+      });
+      const targetView = document.getElementById('view-' + tabKey);
+      if (targetView) {
+        targetView.classList.remove('hidden');
+        targetView.classList.add('flex');
+      }
+
+      document.querySelectorAll('.master-tab-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-[#006591]', 'border', 'border-totus-border', 'shadow-xs', 'font-semibold');
+        btn.classList.add('text-slate-600', 'font-medium');
+      });
+      const activeBtn = document.getElementById('nav-btn-' + tabKey);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-600', 'font-medium');
+        activeBtn.classList.add('bg-white', 'text-[#006591]', 'border', 'border-totus-border', 'shadow-xs', 'font-semibold');
+      }
+    };
+
+    // 2. NAVEGACIÓN SUB-PESTAÑAS DE FICHA (9 APARTADOS)
+    window.v4OpenSubTab = function(subId, triggerBtn) {
+      document.querySelectorAll('.subtab-content').forEach(view => {
+        view.classList.add('hidden');
+        view.classList.remove('flex');
+      });
+      const target = document.getElementById(subId);
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('flex');
+      }
+
+      document.querySelectorAll('.subtab-btn').forEach(btn => {
+        btn.classList.remove('bg-[#006591]', 'text-white', 'shadow-xs', 'font-semibold');
+        btn.classList.add('text-slate-600', 'font-medium');
+      });
+      if (triggerBtn) {
+        triggerBtn.classList.remove('text-slate-600', 'font-medium');
+        triggerBtn.classList.add('bg-[#006591]', 'text-white', 'shadow-xs', 'font-semibold');
+      }
+    };
+
+    // 3. SELECCIÓN DE FILAS EN CATÁLOGO
+    window.v4ToggleAllRows = function(masterCb) {
+      const cbs = document.querySelectorAll('.row-selector');
+      cbs.forEach(cb => cb.checked = masterCb.checked);
+      v4UpdateSelectedCount();
+    };
+
+    document.addEventListener('change', function(e) {
+      if (e.target.classList.contains('row-selector')) {
+        v4UpdateSelectedCount();
+      }
+    });
+
+    function v4UpdateSelectedCount() {
+      const selected = document.querySelectorAll('.row-selector:checked').length;
+      const el = document.getElementById('selected-rows-count');
+      if (el) el.innerText = selected;
+    }
+
+    // 4. FILTRADO RÁPIDO DE CATÁLOGO
+    window.v4FilterCatalogue = function() {
+      const q = (document.getElementById('cat-search').value || '').toLowerCase();
+      const brand = (document.getElementById('cat-brand').value || '').toLowerCase();
+      const cat = (document.getElementById('cat-category').value || '').toLowerCase();
+      const status = (document.getElementById('cat-status').value || '').toLowerCase();
+
+      const rows = document.querySelectorAll('#catalogue-table-body tr');
+      let visible = 0;
+      rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        const matchesQ = !q || text.includes(q);
+        const matchesB = !brand || text.includes(brand);
+        const matchesC = !cat || text.includes(cat);
+        const matchesS = !status || text.includes(status);
+
+        if (matchesQ && matchesB && matchesC && matchesS) {
+          r.style.display = '';
+          visible++;
+        } else {
+          r.style.display = 'none';
+        }
+      });
+      document.getElementById('cat-loaded-counter').innerText = `${visible} de 1.428 refs`;
+    };
+
+    // 5. CÁLCULO DE MARGEN Y PRECIOS DINÁMICO
+    window.v4CalculateMargin = function() {
+      const cost = parseFloat(document.getElementById('f-cost').value) || 0;
+      const tax = parseFloat(document.getElementById('f-tax').value) || 0;
+      const pvpEl = document.getElementById('f-pvp');
+      const pvp = parseFloat(pvpEl.value) || 0;
+
+      const pvpNeto = pvp / (1 + tax / 100);
+      const profit = pvpNeto - cost;
+      const margin = cost > 0 ? (profit / cost) * 100 : 0;
+
+      document.getElementById('f-calc-margin').innerText = `${margin.toFixed(1)}% (+${profit.toFixed(2)} €)`;
+      document.getElementById('f-calc-neto').innerText = `${pvpNeto.toFixed(2)} €`;
+
+      document.getElementById('side-pvp-val').innerText = `${pvp.toFixed(2)} €`;
+      document.getElementById('side-cost-val').innerText = `${cost.toFixed(2)} €`;
+      document.getElementById('side-margin-val').innerText = `${margin.toFixed(1)}% (+${profit.toFixed(2)} €)`;
+    };
+
+    window.v4CalculateMarginReverse = function() {
+      v4CalculateMargin();
+    };
+
+    // 6. COPIAR ENTRE TIENDAS: DIRECCIÓN REVERSIBLE
+    let currentStoreSource = 'hortimatic';
+    window.v4ReverseCopyDirection = function() {
+      const originLabel = document.getElementById('label-origin-store');
+      const targetLabel = document.getElementById('label-target-store');
+      const directionBtn = document.getElementById('label-swap-direction');
+
+      if (currentStoreSource === 'hortimatic') {
+        currentStoreSource = 'newoldsmok';
+        originLabel.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-[#00aac6]"></span> ORIGEN: NewOldSmok';
+        targetLabel.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-[#006591]"></span> DESTINO: Hortimatic';
+        directionBtn.innerText = 'Invertir [ NewOldSmok ➔ Hortimatic ]';
+      } else {
+        currentStoreSource = 'hortimatic';
+        originLabel.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-[#006591]"></span> ORIGEN: Hortimatic';
+        targetLabel.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-[#00aac6]"></span> DESTINO: NewOldSmok';
+        directionBtn.innerText = 'Invertir [ Hortimatic ➔ NewOldSmok ]';
+      }
+      v4ShowToast(`Dirección de copia cambiada: Origen ${currentStoreSource.toUpperCase()}`);
+    };
+
+    window.v4ToggleCopyCheckboxes = function(state) {
+      document.querySelectorAll('.copy-field-check').forEach(cb => cb.checked = state);
+    };
+
+    // 7. ALTA ASISTIDA Y CHATGPT
+    window.v4SwitchAltaMode = function(mode) {
+      const urlTab = document.getElementById('alta-tab-url');
+      const manualTab = document.getElementById('alta-tab-manual');
+      if (mode === 'url') {
+        urlTab.classList.add('bg-[#006591]', 'text-white', 'shadow-xs');
+        urlTab.classList.remove('text-slate-600');
+        manualTab.classList.remove('bg-[#006591]', 'text-white', 'shadow-xs');
+        manualTab.classList.add('text-slate-600');
+        document.getElementById('alta-content-url').classList.remove('hidden');
+      } else {
+        manualTab.classList.add('bg-[#006591]', 'text-white', 'shadow-xs');
+        manualTab.classList.remove('text-slate-600');
+        urlTab.classList.remove('bg-[#006591]', 'text-white', 'shadow-xs');
+        urlTab.classList.add('text-slate-600');
+        v4OpenMasterTab('producto');
+        v4ShowToast('Modo Creación Manual activado en Ficha');
+      }
+    };
+
+    window.v4CopyPromptToClipboard = function() {
+      const text = document.getElementById('alta-prompt-box').value;
+      navigator.clipboard.writeText(text).then(() => {
+        document.getElementById('label-copy-prompt').innerText = '¡Copiado!';
+        setTimeout(() => {
+          document.getElementById('label-copy-prompt').innerText = 'Copiar';
+        }, 2000);
+        v4ShowToast('Encargo para ChatGPT copiado al portapapeles');
+      }).catch(() => {
+        v4ShowToast('Encargo listo para copiar manualmente');
+      });
+    };
+
+    window.v4SimulateScanEAN = function() {
+      const scanner = document.getElementById('manual-ean-scanner');
+      scanner.value = '6941291539987';
+      v4ShowToast('Código EAN-13 escaneado desde caja física: 6941291539987');
+    };
+
+    // 8. NOTIFICACIONES Y CAMBIOS
+    window.v4ShowToast = function(msg) {
+      const toast = document.getElementById('totus-toast');
+      document.getElementById('totus-toast-text').innerText = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    };
+
+    window.v4TriggerSyncNotification = function() {
+      v4ShowToast('Sincronización PrestaShop 1.7.8.11 verificada.');
+    };
+
+    window.v4OpenProductRecord = function(sku) {
+      v4OpenMasterTab('producto');
+      v4ShowToast(`Ficha abierta: ${sku}`);
+    };
+
+    window.v4OpenCopyModule = function(sku) {
+      v4OpenMasterTab('copiar');
+      v4ShowToast(`Módulo de copia preparado para: ${sku}`);
+    };
+
+    window.v4QueueFieldChange = function(desc) {
+      v4ShowToast(desc);
+    };
+
+    window.v4SaveToShop = function(store) {
+      v4ShowToast(`Publicación registrada en ${store.toUpperCase()} (Demo)`);
+    };
+
+    window.v4ClearChanges = function() {
+      v4ShowToast('Cambios descartados');
+    };
+
+    window.v4SaveAllQueueToShop = function() {
+      v4ShowToast('Todos los cambios de la cola han sido guardados');
+    };
+
+    window.v4SimulateApiError = function() {
+      document.getElementById('api-error-banner').classList.remove('hidden');
+    };
+
+    window.v4RetrySync = function() {
+      document.getElementById('api-error-banner').classList.add('hidden');
+      v4ShowToast('Reintento completado con éxito. Estado 200 OK.');
+    };
+
+    window.v4ResumeDraft = function(name) {
+      v4OpenMasterTab('producto');
+      v4ShowToast(`Borrador reanudado: ${name}`);
+    };
+
+    window.v4ToggleLoadFull = function() {
+      const btn = document.getElementById('btn-toggle-load-mode');
+      const counter = document.getElementById('cat-loaded-counter');
+      if (btn.innerText.includes('Parcial')) {
+        btn.innerText = 'Alternar Completa';
+        counter.innerText = '20 de 120 refs (Parcial)';
+        v4ShowToast('Modo de consulta cambiado a Parcial (Límite 120)');
+      } else {
+        btn.innerText = 'Alternar Parcial';
+        counter.innerText = '20 de 1.428 refs (Completa)';
+        v4ShowToast('Modo de consulta cambiado a Catálogo Completo (1.428 refs)');
+      }
+    };
+
+    window.v4ShowHelpTooltip = function(text) {
+      const popover = document.getElementById('totus-help-popover');
+      const pText = document.getElementById('totus-help-popover-text');
+      pText.innerText = text;
+      popover.style.top = '100px';
+      popover.style.left = '40%';
+      popover.classList.remove('hidden');
+    };
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const popover = document.getElementById('totus-help-popover');
+        if (popover) popover.classList.add('hidden');
+      }
+    });
+
+    document.addEventListener('click', function(e) {
+      const popover = document.getElementById('totus-help-popover');
+      if (popover && !popover.classList.contains('hidden')) {
+        if (!e.target.closest('#totus-help-popover') && !e.target.closest('button[onclick*="v4ShowHelpTooltip"]')) {
+          popover.classList.add('hidden');
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -12,6 +12,11 @@ export function productPhoto(item,store){
  const id=String(item?.id_default_image||associationIds(item,'images')[0]||'');
  return /^[1-9]\d{0,14}$/.test(id)?'https://'+(store==='newoldsmok'?'newoldsmok.com':'hortimatic.com')+'/'+id+'-home_default/product.jpg':null;
 }
+export function productWebUrl(item,store){
+ const id=String(item?.id||'');
+ if(!/^[1-9]\d{0,14}$/.test(id)||!['hortimatic','newoldsmok'].includes(store))return null;
+ return 'https://'+(store==='newoldsmok'?'newoldsmok.com':'hortimatic.com')+'/index.php?controller=product&id_product='+id;
+}
 export function filterProductCatalog(rows,{query='',category='',brand='',active=''}={}){
  const q=query.trim().toLocaleLowerCase('es');
  const relation=(row,key,current,ids=[])=>{if(!current)return true;const [shop,id]=current.includes('|')?current.split('|'):[null,current];return (!shop||row.__store===shop)&&(String(row[key])===id||ids.includes(id));};

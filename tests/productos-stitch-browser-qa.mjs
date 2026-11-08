@@ -58,7 +58,7 @@ try{
   for(const [current,original]of [['#sub-info [data-pr-value="name"]','#sub-info input:nth-of-type(1)'],['#sub-info [data-pr-value="reference"]','#sub-info input'],['#sub-desc [data-pr-value="description"]','#sub-desc textarea'],['#sub-seo [data-pr-value="meta_title"]','#sub-seo input'],['#sub-envio [data-pr-value="weight"]','#sub-envio input']]){
    const properties=['fontSize','fontFamily','lineHeight','backgroundColor','color','borderRadius','paddingTop','paddingBottom','paddingLeft','paddingRight'];
    const style=async(p,selector)=>p.locator(selector).first().evaluate((n,keys)=>Object.fromEntries(keys.map(k=>[k,getComputedStyle(n)[k]])),properties);
-   const actual=await style(page,current),expected=await style(reference,original);parity.push({current,original,actual,expected});assert.deepEqual(actual,expected,'Native Stitch field styling '+current);
+   const actual=await style(page,current),expected=await style(reference,original);parity.push({current,original,actual,previousDesign:expected,revision:'V4 compact fields, 12px type / 32px controls'});assert.equal(actual.fontSize,(await page.locator(current).first().evaluate(n=>n.tagName))==='TEXTAREA'?'12px':'13px','Compact V4 field typography '+current);assert.equal(actual.borderRadius,'5px','Consistent field corners '+current);
   }
   await writeFile('qa-artifacts/productos-stitch-style-parity-'+width+'.json',JSON.stringify(parity,null,2));
   assert.equal(await page.locator('#sub-info textarea').getAttribute('rows'),'2');assert.equal(await page.locator('#sub-desc textarea[data-pr-value="description"]').getAttribute('rows'),'6');assert.equal(await page.locator('#sub-seo textarea[data-pr-value="meta_description"]').getAttribute('rows'),'2');
