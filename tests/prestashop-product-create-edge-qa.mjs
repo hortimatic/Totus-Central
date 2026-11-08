@@ -186,3 +186,22 @@ test('product create and edit require their independent permission before creden
  assert.equal((await handle(req(body),environment(),f.factory,f.request)).status,400);assert(!f.calls.some(c=>c.name==='totus_api_server'));assert.equal(f.calls.find(c=>c.name==='totus_products_context').payload.p_action,'create');
  const g=fixture({allowedPermissions:['view']}),edit={...base,action:'prestashop_product_prepare',resource:'products',record_id:'701',changes:[{field:'price',value:'11'}]};assert.equal((await handle(req(edit),environment(),g.factory,g.request)).status,400);assert(!g.calls.some(c=>c.name==='totus_api_server'));assert.equal(g.calls.find(c=>c.name==='totus_products_context').payload.p_action,'edit');
 }));
+
+test('product-only operators can read copy languages and prices; denied operators never reach credentials',()=>context(async()=>{
+ for(const resource of ['languages','product_suppliers','specific_prices'])for(const allowed of [true,false]){
+  const calls=[];
+  const factory=()=>({auth:{getUser:async()=>({data:{user:{id:user_id,email:'product-operator@example.invalid'}}})},rpc:async(name,payload)=>{
+   calls.push({name,payload});
+   if(name==='totus_prestashop_context')return {error:{message:'Sin permiso de módulo PrestaShop'}};
+   if(name==='totus_products_context'){assert.equal(payload.p_action,'view');return allowed?{data:{connections:[{id,revision:2}]}}:{error:{message:'Sin permiso de Productos'}};}
+   if(name==='totus_api_server')return {data:conf};
+   if(name==='totus_api_call')return {data:null};
+   throw Error('Unexpected RPC '+name);
+  }});
+  const request=async(url,options)=>{assert.equal(options.method,'GET');assert.equal(new URL(url).pathname,'/api/'+resource);return Response.json({[resource]:[{id:'1',...(resource==='languages'?{iso_code:'es',name:'Español'}:{id_product:'701'})}]});};
+  const response=await handle(req({...base,action:'prestashop_read',resource,page:0,page_size:20,...(resource==='languages'?{}:{product_ids:['701']})}),environment(),factory,request);
+  assert.equal(response.status,allowed?200:400);
+  assert.equal(calls.some(call=>call.name==='totus_api_server'),allowed);
+  if(allowed)assert.equal((await response.json()).rows.length,1);
+ }
+}));
