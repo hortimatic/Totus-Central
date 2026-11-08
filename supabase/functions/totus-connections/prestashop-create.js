@@ -2,7 +2,7 @@
 // Real POST is gated: never enable until the persistent idempotency journal is deployed,
 // reviewed, and injected. Do not use this for an unapproved production test.
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text,LOCALIZED_PRODUCT_FIELDS,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
+import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text,LOCALIZED_PRODUCT_FIELDS,readPrestashopXmlField,productRedirectTarget} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 import {discoverPrestashop} from './prestashop.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
@@ -82,6 +82,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
   if(parsePrestashopResourceId(xml,node)!==id)throw Error('La relación '+resource+' no coincide con el registro elegido.');
   checked.add(key);return xml;
  };
+ const redirectType=op.fields.find(f=>f.field==='redirect_type');if(redirectType){const redirect=productRedirectTarget(redirectType.value,op.fields.find(f=>f.field==='id_type_redirected')?.value);if(redirect)await verifyRelation(redirect.resource,redirect.node,redirect.id);}
  for(const [key,resource,node] of [['manufacturer_id','manufacturers','manufacturer'],['supplier_id','suppliers','supplier'],['tax_rules_group_id','tax_rule_groups','tax_rule_group']])if(op.relations?.[key])await verifyRelation(resource,node,op.relations[key]);
  for(const [key,resource,node] of [['category_ids','categories','category'],['related_product_ids','products','product'],['tag_ids','tags','tag']])for(const id of op.relations?.[key]||[])await verifyRelation(resource,node,id);
  for(const feature of op.relations?.features||[]){

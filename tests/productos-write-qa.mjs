@@ -102,3 +102,12 @@ test('edita productos sin imagen sin invocar getters calculados de portada',asyn
  const request=async(url)=>{const display=new URL(url).searchParams.get('display');assert(display?.includes('categories[id]'));assert(!display.includes('id_default_image'));assert(!display.includes('id_default_combination'));return response(X);};
  assert.equal((await runPrestashopProductWrite(connection,input(),{request,resolve,env:{get:()=>''}})).persisted,false);
 });
+
+import {productRedirectTarget} from '../src/productos-write-contract.js';
+test('SEO redirection validates native types and verifies the destination in the same shop',async()=>{
+ assert.equal(productRedirectTarget('404','0'),null);assert.throws(()=>productRedirectTarget('301-product','19','19'),/sí mismo/);assert.throws(()=>productRedirectTarget('302-category','0'),/destino real/);assert.throws(()=>productRedirectTarget('https://external.test','1'),/no válido/);
+ assert.deepEqual(productRedirectTarget('301-category','33'),{resource:'categories',node:'category',id:'33'});
+ const base=X.replace('<reference>', '<redirect_type>404</redirect_type><id_type_redirected>0</id_type_redirected><reference>'),calls=[];
+ const options={resolve:async()=>['8.8.8.8'],env:{get:()=> '1'},request:async(url,opts)=>{const u=new URL(url);calls.push({path:u.pathname,method:opts.method});if(u.pathname==='/api/languages')return response('<prestashop><languages><language id="1"/></languages></prestashop>');if(u.pathname==='/api/categories/33')return response('<prestashop><category><id>33</id></category></prestashop>');return response(base);}};
+ const prepared=await runWrite(connection,input('prestashop_product_prepare',[{field:'redirect_type',value:'301-category'},{field:'id_type_redirected',value:'33'}]),options);assert.equal(prepared.persisted,false);assert(calls.some(c=>c.path==='/api/categories/33'));assert(calls.every(c=>c.method==='GET'));
+});

@@ -16,7 +16,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  base.searchParams.set('sort',page.sort==='newest'?'[id_DESC]':'[id_ASC]');
  if(page.from){base.searchParams.set('date','1');base.searchParams.set('filter[date_add]','['+page.from+','+page.to+']');}
  if(page.recordId)base.searchParams.set('filter[id]','['+page.recordId+']');
- if(page.productIds)base.searchParams.set('filter[id]','['+page.productIds.join('|')+']');
+ if(page.productIds)base.searchParams.set(page.resource==='stock_availables'?'filter[id_product]':'filter[id]','['+page.productIds.join('|')+']');
  if(page.references)base.searchParams.set('filter[reference]','['+page.references.join('|')+']');
  if(page.orderIds)base.searchParams.set('filter[id_order]','['+page.orderIds.join('|')+']');
  if(page.orderId)base.searchParams.set('filter[id_order]','['+page.orderId+']');
@@ -30,7 +30,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.from&&parsed.rows.some(row=>!row.date_add||row.date_add<page.from||row.date_add>page.to))throw Error('PrestaShop devolvió registros fuera del periodo. No se han atribuido al intervalo solicitado.');
  if(page.recordId&&parsed.rows.some(row=>row.id!==page.recordId))throw Error('PrestaShop devolvió otro registro de detalle.');
  if(page.orderId&&parsed.rows.some(row=>row.id_order!==page.orderId))throw Error('PrestaShop devolvió líneas de otro pedido.');
- if(page.productIds&&parsed.rows.some(row=>!page.productIds.includes(row.id)))throw Error('Producto ajeno a la selección.');
+ if(page.productIds&&parsed.rows.some(row=>!page.productIds.includes(page.resource==='stock_availables'?row.id_product:row.id)))throw Error('Producto ajeno a la selección.');
  if(page.references&&parsed.rows.some(row=>!page.references.some(ref=>ref.toUpperCase()===String(row.reference||'').toUpperCase())))throw Error('PrestaShop devolvió una referencia ajena a la selección.');
  if(page.orderIds&&parsed.rows.some(row=>!page.orderIds.includes(row.id_order)))throw Error('Línea ajena a los pedidos seleccionados.');
  return {ok:true,store:store.key,resource:page.resource,page:page.page,page_size:page.pageSize,...parsed};
@@ -94,7 +94,20 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
 // This is intentionally read-only: writes require a separately audited contract.
 export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
  const store=prestashopStore(input.store);
- if(!['products','combinations'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
+ if(input.resource==='images'){
+  if(!/^[1-9]\d{0,14}$/.test(String(input.product_id||''))||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Imagen de producto no válida.');
+  const parent=await readPrestashopProductItem(connection,{...input,resource:'products',record_id:input.product_id},{request,resolve});
+  if(!Array.isArray(parent.item.associations?.images)||!parent.item.associations.images.some(i=>String(i.id)===String(input.record_id)))throw Error('La imagen no pertenece a este producto.');
+  const base=new URL(connection.endpoint);base.pathname=base.pathname.replace(/\/$/,'')+'/images/products/'+input.product_id+'/'+input.record_id;
+  const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+  const mime=(response.headers.get('content-type')||'').split(';')[0].toLowerCase();
+  if(!response.ok||!['image/jpeg','image/png','image/webp','image/gif'].includes(mime)){await response.body?.cancel();throw Error('La tienda no devolvió una fotografía válida.');}
+  const reader=response.body?.getReader();if(!reader)throw Error('La imagen está vacía.');const chunks=[];let size=0;
+  try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>8388608){await reader.cancel();throw Error('La imagen supera 8 MB.');}chunks.push(value);}}finally{reader.releaseLock();}
+  if(!size)throw Error('La imagen está vacía.');let binary='';for(const chunk of chunks)for(let offset=0;offset<chunk.length;offset+=16384)binary+=String.fromCharCode(...chunk.subarray(offset,offset+16384));
+  return {ok:true,store:store.key,resource:'images',record_id:String(input.record_id),item:{id:String(input.record_id),id_product:String(input.product_id),mime,base64:btoa(binary)}};
+ }
+ if(!['products','combinations','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
  if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
  const base=new URL(connection.endpoint);
@@ -106,7 +119,7 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer la ficha de PrestaShop (HTTP '+response.status+').');}
  if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
  const raw=await boundedJson(response,2097152);
- const singular=input.resource==='products'?'product':'combination',item=raw?.[singular];
+ const singular={products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
  if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
  return {ok:true,store:store.key,resource:input.resource,record_id:String(input.record_id),item};
 }

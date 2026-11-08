@@ -1,4 +1,5 @@
-/* Productos: isolated workspace styles. Does not replace PrestaShop/Precio styles. */
+@import url("./productos-stitch.css");
+/* Legacy business controls retained until their individual Stitch mapping is verified. */
 .productos-page{min-width:0}
 .prd-shell{display:grid;gap:16px;min-width:0}
 .prd-intro,.prd-heading,.prd-product-name{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -100,3 +101,55 @@
 .prd-parallel-editors .prd-field input:not([type=checkbox]),.prd-parallel-editors .prd-field textarea,.prd-parallel-editors .prd-field select,.prd-fields select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface,#fff);color:var(--text,#17243a)}.prd-parallel-editors .prd-fields-grid{align-content:start}.prd-parallel-editors .prd-field>span{min-height:24px}
 
 .prd-parallel-editors .prd-fields-grid>.prd-field{min-height:94px}.prd-parallel-editors .prd-fields-grid>.prd-field:has([data-pr-value=name]),.prd-parallel-editors .prd-fields-grid>.prd-field:has([data-pr-target-field=name]){min-height:150px}@media(min-width:1200px){.prd-parallel-editors .prd-fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.prd-parallel-editors .prd-fields-grid>.prd-field:has(textarea){grid-column:1/-1}}
+/* Stitch's own module typography and symbol font; no global shell overrides. */
+#productosRoot .prd-stitch{font-family:Inter,sans-serif;background:#f8f9ff;color:#0b1c30;font-size:13px;line-height:18px;padding:0;min-width:0}
+#productosRoot .prd-stitch .material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;font-feature-settings:'liga';-webkit-font-smoothing:antialiased}
+#productosRoot .prd-stitch #master-tabs-bar{flex-wrap:wrap;overflow:visible}
+#productosRoot .prd-stitch .prd-columns>div{max-height:min(65vh,480px);overflow-y:auto;position:absolute;inset:auto 0 auto auto;z-index:30}
+#productosRoot .prd-stitch .prd-columns{position:relative}
+#productosRoot .prd-stitch .prd-columns>div{left:0;right:auto;width:235px;max-width:calc(100vw - 48px)}
+#productosRoot .prd-stitch-copy-fields{margin:0;padding:0;border:0;min-width:0} #productosRoot .prd-stitch .prd-columns summary{white-space:nowrap} #productosRoot .prd-stitch-copy-fields .prd-fields-grid{grid-template-columns:1fr}
+#productosRoot .prd-stitch .grid,#productosRoot .prd-stitch .grid>*,#productosRoot .prd-stitch label,#productosRoot .prd-stitch input,#productosRoot .prd-stitch select,#productosRoot .prd-stitch textarea{min-width:0;max-width:100%}
+@media(max-width:640px){#productosRoot .prd-stitch [class*="min-w-"]{min-width:0!important}#productosRoot .prd-stitch #subtabs-bar{flex-wrap:wrap;overflow:visible}}
+#productosRoot .prd-stitch{grid-template-columns:minmax(0,1fr);width:100%;max-width:100%}
+#productosRoot .prd-stitch .flex{min-width:0}
+@media(max-width:640px){#productosRoot .prd-stitch>section>div:first-child>div{flex-wrap:wrap}#productosRoot .prd-stitch .master-tab-btn{max-width:100%;flex-wrap:wrap;text-align:left}#productosRoot .prd-stitch .master-tab-btn span{overflow-wrap:anywhere}}
+
+#productosRoot .prd-stitch .prd-columns{position:relative}
+#productosRoot .prd-stitch .prd-columns summary{cursor:pointer;list-style:none;white-space:nowrap}
+#productosRoot .prd-stitch .prd-columns>div{position:absolute;left:0;right:auto;width:235px;max-width:calc(100vw - 48px);max-height:min(65vh,480px);overflow:auto;z-index:30;padding:10px;display:grid;gap:4px;background:#fff;box-shadow:0 8px 30px #14284426;border:1px solid #bec8d2;border-radius:8px}
+#productosRoot .prd-stitch .prd-columns label{display:flex;flex-direction:row;align-items:center;gap:8px;padding:4px}
+#productosRoot .prd-stitch .prd-columns input{width:16px;height:16px;margin:0}
+#productosRoot .prd-stitch .prd-thumb{width:40px;height:40px;object-fit:contain;display:inline-flex;align-items:center;justify-content:center;background:#fff;font-size:10px;color:#6e7881}
+#productosRoot .prd-stitch .prd-parallel-identity{display:flex;align-items:center;gap:12px;padding:10px 0;margin-bottom:10px}
+.productos-page{grid-template-columns:minmax(0,1fr)}
+#productosRoot{min-width:0;max-width:100%;width:100%}
+#productosRoot .prd-stitch>section>div:first-child>div{flex-wrap:wrap}
+#productosRoot .prd-stitch .master-tab-btn{max-width:100%;flex-wrap:wrap;text-align:left}
+#productosRoot .prd-stitch #tab-catalogo>div:first-child .flex{flex-wrap:wrap} #productosRoot .prd-stitch button{min-width:0;max-width:100%}
+
+#productosRoot .prd-columns label{min-width:0;gap:6px;}
+#productosRoot .prd-columns label>button{padding:2px 6px;margin-left:auto;}
+#productosRoot .prd-column-views{border-top:1px solid #dce3ed;padding-top:10px;display:grid;gap:8px;}
+#productosRoot .prd-column-views>div{display:flex;flex-wrap:wrap;gap:8px;}
+
+#productosRoot .prd-stitch .prd-columns .prd-column-views label{flex-direction:column;align-items:stretch;}
+#productosRoot .prd-stitch .prd-column-views input{width:100%;height:32px;}
+#productosRoot .prd-native-extra{margin-top:16px;}
+#productosRoot .prd-native-extra summary{cursor:pointer;margin-bottom:12px;}
+#productosRoot .prd-description-dialog{width:min(960px,95vw);height:min(800px,90dvh);padding:12px;border:0;border-radius:12px;}
+#productosRoot .prd-description-dialog iframe{width:100%;height:calc(100% - 45px);border:0;}
+#productosRoot .prd-description-dialog::backdrop{background:#0b172a99;}
+
+#productosRoot .prd-variant-photo{width:32px;height:32px;object-fit:contain;}
+
+#productosRoot .prd-stitch .prd-photo-open{padding:0;border:0;background:transparent;cursor:zoom-in;width:100%;}
+#productosRoot .prd-photo-dialog{width:min(950px,95vw);max-height:95dvh;border:0;border-radius:12px;padding:16px;background:var(--surface,#fff);}
+#productosRoot .prd-photo-dialog img{display:block;max-width:100%;max-height:80dvh;object-fit:contain;margin:auto;}
+#productosRoot .prd-photo-dialog::backdrop{background:#0b172a99;}
+
+#productosRoot .prd-stitch #subtabs-bar{flex-wrap:wrap;overflow:visible;}
+
+/* Keep the source copy cards compact while retaining every editable field. */
+#productosRoot .prd-stitch .prd-copy-control{padding:2px 8px;min-height:28px;font-size:12px;line-height:18px;box-shadow:none}
+#productosRoot .prd-stitch textarea.prd-copy-control{min-height:72px}

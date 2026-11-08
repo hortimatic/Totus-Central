@@ -61,3 +61,11 @@ test('lectura de ficha API solo GET y autenticada para tienda exacta',async()=>{
  await assert.rejects(()=>readPrestashopProductItem(connection,{store:'newoldsmok',resource:'products',record_id:'19'},{resolve:async()=>['8.8.8.8'],request:()=>{throw Error('No debe llamarse');}}),/distinta/);
  await assert.rejects(()=>readPrestashopProductItem(connection,{store:'hortimatic',resource:'orders',record_id:'19'},{resolve:async()=>['8.8.8.8'],request:()=>{throw Error('No debe llamarse');}}),/no válida/);
 });
+
+import {PRODUCT_SECTIONS as editableSections,VARIANT_FIELDS as editableVariantFields} from '../src/productos-core.js';
+import {PRODUCT_WRITE_FIELDS} from '../src/productos-write-contract.js';
+test('every generic fiche and bulk-edit field has a write contract; stock and default use their own actions',()=>{
+ assert(Object.values(editableSections).flat().every(field=>PRODUCT_WRITE_FIELDS.products.includes(field)));
+ assert(editableVariantFields.every(field=>PRODUCT_WRITE_FIELDS.combinations.includes(field)));
+ assert(!editableVariantFields.includes('default_on'));assert(!Object.values(editableSections).flat().includes('quantity'));
+});

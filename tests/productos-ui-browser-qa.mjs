@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+await mkdir('qa-artifacts',{recursive:true});
 import {startLocalServer} from './local-static-server.mjs';
 const localServer=await startLocalServer();
 const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
@@ -42,8 +44,9 @@ try{
      return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,item};
     }
     if(body.action==='prestashop_read'){
+     if(body.resource==='stock_availables')return {ok:true,store:body.store,resource:body.resource,page:body.page,possibly_more:false,rows:(body.product_ids||[]).flatMap(id=>[{id:'1001',id_product:id,id_product_attribute:'0',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''},{id:'1002',id_product:id,id_product_attribute:'801',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''}])};
      if(body.resource==='categories')return {ok:true,store:body.store,resource:'categories',page:body.page,rows:[{id:'33',name:'Inicio'}],possibly_more:false};
-     const catalogs={product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
+     const catalogs={image_types:[{id:'1',name:'large_default',products:'1',width:'800',height:'800'}],product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
      if(catalogs[body.resource])return {ok:true,store:body.store,resource:body.resource,rows:catalogs[body.resource],possibly_more:false};
      const rows=body.references?.length?body.store==='newoldsmok'?[]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
      return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:false};
@@ -52,7 +55,7 @@ try{
    }});
    await q.ui.mount(document.querySelector('#productosRoot'));
   });
-  await page.getByRole('button',{name:'Encargo para ChatGPT',exact:true}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="encargo"]').click();
   await page.locator('[data-pr-request="url"]').fill('https://proveedor.example/producto');
   await page.locator('[data-pr-request="url"]').blur();
   await page.locator('[data-pr-request="sale"]').fill('19,90');
@@ -61,24 +64,45 @@ try{
   assert.match(await page.locator('textarea[readonly]').inputValue(),/19,90/);
   assert.match(await page.locator('textarea[readonly]').inputValue(),/state=1/);
   assert.equal(await page.evaluate(()=>window.productosQA.calls.some(c=>c.action.includes('commit'))),false);
+  if(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth>window.innerWidth+2))console.log('OVERFLOW',await page.evaluate(()=>[...document.querySelectorAll('#productosRoot *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2).slice(0,18).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right,w:e.getBoundingClientRect().width}))));
   assert(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth<=window.innerWidth+2));
-  await page.getByRole('button',{name:'Catálogo',exact:true}).click();
-  await page.getByRole('button',{name:'Consultar catálogo'}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
+  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
+  await page.locator('.prd-columns summary').click();
+  await page.locator('[data-pr-column="ean13"]').check();
+  await page.locator('.prd-columns summary').click();
+  assert.equal(await page.locator('.prd-catalog-table th').filter({hasText:'EAN'}).count(),1);
+  await page.locator('[data-pr-catalog-all]').check();
+  assert.equal(await page.locator('[data-pr-action="catalog-copy"]').isEnabled(),true);
+  await page.screenshot({path:'qa-artifacts/productos-catalogo-'+width+'.png',fullPage:true});
+
   await page.getByRole('button',{name:'Abrir ficha'}).click();
   await page.getByText(/2 combinaciones leídas/).waitFor();
   assert.equal(await page.locator('#productosRoot script').count(),0);
+  await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();
-  await page.getByRole('button',{name:'Variaciones'}).click();
-  await page.locator('.prd-variant').first().locator('summary').click();
-  await page.locator('[data-pr-vid="100"][data-pr-vfield="price"]').check();
+  await page.locator('[data-pr-action="mode"][data-mode="ficha"]').click();
+  await page.locator('[data-pr-action="editor-section"][data-pr-section="variaciones"]').click();
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').fill('3.50');
   await page.locator('[data-pr-vid="100"][data-pr-vvalue="price"]').blur();
-  await page.getByRole('button',{name:'Fichas paralelas'}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
+  await page.locator('[data-pr-action="fields-all"]').click();
+  assert.equal(await page.locator('[data-pr-field="name"]').isChecked(),true);
+  await page.locator('[data-pr-action="parallel-section"][data-pr-section="seo"]').click();
+  assert.equal(await page.locator('[data-pr-field="meta_title"]').isChecked(),true);
+  await page.locator('[data-pr-action="parallel-section"][data-pr-section="general"]').click();
+  assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre personalizado');
+  await page.screenshot({path:'qa-artifacts/productos-copia-'+width+'.png',fullPage:true});
+
+  await page.locator('[data-pr-action="fields-none"]').click();
+  await page.locator('[data-pr-field="name"]').check();
+  await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
+  await page.locator('[data-pr-value="name"]').blur();
   await page.locator('[data-pr-existing-id="newoldsmok"]').fill('55');
   await page.locator('[data-pr-existing-id="newoldsmok"]').blur();
-  await page.getByRole('button',{name:'Buscar coincidencias y preparar cambios'}).click();
+  await page.locator('[data-pr-action="compare"]').first().click();
   await page.getByText(/Propuesta preparada para 1 tienda/).waitFor();
   assert.equal(await page.locator('.prd-plan').count(),1);
   assert.match(await page.locator('.prd-plan').innerText(),/Actualizar #55/);
@@ -89,7 +113,7 @@ try{
   assert.equal(await page.getByRole('button',{name:'Guardar cambios en newoldsmok'}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.every(c=>['prestashop_read','prestashop_item_read','prestashop_product_prepare','prestashop_product_create_profile','prestashop_product_create_prepare'].includes(c.action))),true);
   await page.evaluate(()=>{productosQA.allowWrites=true;});
-  assert.equal(await page.locator('.prd-parallel-editors > fieldset').count(),2,'Dos fichas paralelas');
+  assert.equal(await page.locator('#panel-store-source,#panel-store-target').count(),2,'Dos fichas paralelas');
   if(width===1440&&process.env.TOTUS_PRODUCTS_CAPTURE){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:process.env.TOTUS_PRODUCTS_CAPTURE,fullPage:false});}
   await page.locator('[data-pr-lang-store="newoldsmok"][data-pr-lang-field="name"]').selectOption('1');
   await page.getByRole('button',{name:'Validar contra el XML de la tienda'}).click();
@@ -105,7 +129,9 @@ try{
   await page.getByRole('button',{name:'Guardar combinación',exact:true}).click();
   await page.getByText(/Combinación #200 guardada y releída/).waitFor();
   assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_commit').length),2);
-  await page.getByRole('button',{name:'Cambios masivos'}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="ficha"]').click();
+  await page.locator('[data-pr-action="editor-section"][data-pr-section="variaciones"]').click();
+  await page.locator('[data-pr-action="mode"][data-mode="bulk"]').click();
   await page.locator('[data-pr-bulk="100"]').check();
   await page.locator('[data-pr-bulk-value]').fill('4,25');await page.locator('[data-pr-bulk-value]').blur();
   await page.getByRole('button',{name:'Preparar y validar el lote'}).click();
@@ -117,23 +143,28 @@ try{
   assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_commit').at(-1).changes[0].value),'4.25');
   await page.locator('[data-pr-bulk="100"]').uncheck();
   await page.evaluate(()=>{productosQA.calls=[];productosQA.allowWrites=false;});
-  await page.getByRole('button',{name:'Cambios masivos'}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="ficha"]').click();
+  await page.locator('[data-pr-action="editor-section"][data-pr-section="variaciones"]').click();
+  await page.locator('[data-pr-action="mode"][data-mode="bulk"]').click();
   await page.locator('[data-pr-bulk="101"]').check();
   await page.getByRole('button',{name:'Revisar selección'}).click();
   await page.getByText(/1 variaciones distintas/).waitFor();
-  await page.getByRole('button',{name:'Catálogo',exact:true}).click();
-  await page.getByRole('button',{name:'Crear borrador nuevo'}).click();
-  for(const field of ['ean13','weight','width','height','depth','description_short','meta_description']){
-   assert.equal(await page.locator('[data-pr-value="'+field+'"]').count(),1,'El borrador nuevo debe mostrar '+field);
+  await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
+  await page.locator('[data-pr-action="new-product"]').click();
+  for(const [section,fields] of [['general',['ean13']],['contenido',['description_short']],['transporte',['weight','width','height','depth']],['seo',['meta_description']]]){
+   await page.locator('[data-pr-action="editor-section"][data-pr-section="'+section+'"]').click();
+   for(const field of fields)assert.equal(await page.locator('[data-pr-value="'+field+'"]').count(),1,'La pestaña debe mostrar '+field);
   }
+  await page.locator('[data-pr-action="editor-section"][data-pr-section="general"]').click();
   await page.locator('[data-pr-value="name"]').fill('Pruebas');
   await page.locator('[data-pr-value="reference"]').fill('PRUEBAS-SIMULACION');
-  await page.getByRole('button',{name:'Variaciones'}).click();
-  await page.getByRole('button',{name:'Añadir variación de borrador'}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="ficha"]').click();
+  await page.locator('[data-pr-action="editor-section"][data-pr-section="variaciones"]').click();
+  await page.locator('[data-pr-action="new-variant"]').click();
   await page.getByText(/Variación de borrador añadida/).waitFor();
-  await page.getByRole('button',{name:'Fichas paralelas'}).click();
+  await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-target="newoldsmok"]').check();
-  await page.getByRole('button',{name:'Buscar coincidencias y preparar cambios'}).click();
+  await page.locator('[data-pr-action="compare"]').first().click();
   await page.getByText(/Propuesta preparada para 2 tienda/).waitFor();
   assert.equal(await page.locator('.prd-plan').count(),2);
   assert.equal(await page.locator('.prd-plan').filter({hasText:'Crear producto nuevo'}).count(),2);
@@ -176,11 +207,12 @@ try{
   await page.getByRole('button',{name:'Imágenes',exact:true}).click();
   await page.getByRole('button',{name:'Añadir imágenes',exact:true}).click();
   await page.locator('[data-pr-stage-file]').setInputFiles({name:'jardineria.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><path d="M40 35h65v65H40zM105 50l35-25-10 55h-25" fill="#16845a"/><circle cx="30" cy="55" r="20" fill="none" stroke="#16845a" stroke-width="9"/></svg>')});
-  await page.getByText(/Imagen preparada con transparencia/).waitFor().catch(async error=>{console.error('IMAGE UI DIAGNOSTIC',await page.locator('.prd-status').innerText(),errors);throw error;});
+  await page.getByText(/Imagen preparada con transparencia/).waitFor().catch(async error=>{console.error('IMAGE UI DIAGNOSTIC',await page.locator('[role="status"]').innerText(),errors);throw error;});
   assert.equal(await page.locator('.prd-stage-image').count(),1);
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+  await page.getByText('large_default · 800 × 800 px',{exact:false}).waitFor();
   await page.getByText(/Imágenes guardado y verificado/).waitFor();
   await page.getByRole('button',{name:'Revisión y publicación',exact:true}).click();
   await page.getByRole('button',{name:'Añadir revisión y publicación',exact:true}).click();
@@ -201,9 +233,10 @@ try{
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action.endsWith('_commit'))),false,'Recargar nunca repite un alta ni una etapa');
   await page.evaluate(async()=>{productosQA.actor='admin-2';await productosQA.ui.mount(document.querySelector('#productosRoot'));});
   assert.equal(await page.locator('.prd-plan').count(),0);
-  await page.getByRole('button',{name:'Encargo para ChatGPT',exact:true}).click();
+  assert.equal(await page.evaluate(()=>localStorage.getItem('totus-products-columns:admin-2')),null);
+  await page.locator('[data-pr-action="mode"][data-mode="encargo"]').click();
   assert.equal(await page.locator('[data-pr-request="url"]').inputValue(),'','Otro usuario no hereda el encargo');
-  assert.equal(await page.locator('textarea[readonly]').count(),0);
+  assert.equal(await page.locator('textarea[readonly]').inputValue(),'');
   assert.deepEqual(errors,[]);
   await page.close();
  }

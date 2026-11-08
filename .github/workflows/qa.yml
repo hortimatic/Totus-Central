@@ -72,10 +72,8 @@ jobs:
             fi
             sleep 2
           done
-      - name: Install and verify the isolated unit-price compatibility module
-        run: |
-          docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T prestashop php bin/console prestashop:module install totusproductbridge --no-interaction
-          docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T prestashop php /tmp/totus-bridge-qa.php
+      - name: Initialize inactive language fixture through native PrestaShop class
+        run: docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T prestashop php /tmp/ci-language-fixture.php
       - name: Test REAL POST and verification in isolated PrestaShop only
         run: node --test tests/prestashop-sandbox/live-product-qa.mjs
       - name: Remove disposable shop and database
@@ -155,7 +153,9 @@ jobs:
       - run: node --test tests/productos-request-qa.mjs
       - run: node --test tests/productos-create-qa.mjs
       - run: node --test tests/productos-create-ui-qa.mjs
-      - run: node --test tests/productos-stages-qa.mjs
+      - run: node --test tests/productos-stages-qa.mjs tests/productos-attributes-qa.mjs
+      - run: node --test tests/productos-catalog-qa.mjs tests/productos-image-copy-qa.mjs tests/productos-gallery-qa.mjs tests/productos-tax-qa.mjs tests/productos-existing-workspace-qa.mjs
+      - run: node --test tests/mock-style-parity-qa.mjs
       - run: node --test tests/prestashop-product-create-edge-qa.mjs
       - run: node --test tests/prestashop-permissions-qa.mjs
       - run: node tests/prestashop-automation-qa.mjs
@@ -280,6 +280,9 @@ jobs:
       - run: node tests/stock-rules-browser-qa.mjs
       - run: node tests/prestashop-automations-browser-qa.mjs
       - run: node tests/productos-ui-browser-qa.mjs
+      - run: node tests/productos-stitch-browser-qa.mjs
+      - run: node tests/productos-existing-actions-browser-qa.mjs
+      - run: node tests/productos-image-copy-browser-qa.mjs
       - run: node tests/pricing-directory-browser-qa.mjs
       - run: node tests/deep-editing-browser-qa.mjs
       - run: node tests/template-editor-browser-qa.mjs

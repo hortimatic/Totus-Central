@@ -33,6 +33,7 @@ async function localOnlyRequest(url,opts={}){
  assert.equal(headers.get('authorization'),'Basic '+btoa(key+':'));
  calls.push({method:opts.method||'GET',path:local.pathname});
  const response=await fetch(local,{...opts,redirect:'manual',headers});
+ if(response.ok&&remote.pathname.startsWith('/api/products/')&&/\[id,(?:images|combinations)\[id\]\]/.test(remote.searchParams.get('display')||''))console.log('CI association re-read',remote.searchParams.get('display'),(await response.clone().text()).slice(0,1800));
  if(!response.ok){
   const body=await response.clone().text();
   console.error('CI isolated webservice HTTP',response.status,local.pathname+local.search,'body=',body.slice(0,1600));
@@ -73,7 +74,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
-   price:'1.00',category_id:'2',fields:[{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unit_price_ratio',value:'2'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
+   price:'1.00',category_id:'2',fields:[{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
    translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
@@ -97,7 +98,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
- url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth]');
+ url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,redirect_type,id_type_redirected,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth]');
  url.searchParams.set('language','['+profile.language_ids.join('|')+']');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
@@ -192,7 +193,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(ratioResponse.status,200);
  const ratioData=await ratioResponse.json(),ratioProduct=ratioData.product||ratioData.products?.[0];
  assert.equal(Number(ratioProduct.price),2.35);
- assert.equal(Number(ratioProduct.unit_price_ratio),2,'Changing price must preserve the original unit ratio');
+ assert.equal(Number(ratioProduct.unit_price_ratio),0,'Native API without a configured unit price keeps the native zero ratio');
  assert.equal(ratioProduct.unity,'l');
  const writesBefore=calls.filter(c=>c.method==='PUT').length;
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).replayed,true);
@@ -212,5 +213,41 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const countBeforeReplay=calls.filter(c=>c.method==='POST').length;
  assert.equal((await runPrestashopProductStage(connection,existingCommit,existingOptions)).reused,true);
  assert.equal(calls.filter(c=>c.method==='POST').length,countBeforeReplay);
+ const secondUpload={...upload,step_key:'ci_picture_secondary'},secondPreparation=await runPrestashopProductStage(connection,secondUpload,options);
+ const secondPicture=await runPrestashopProductStage(connection,{...secondUpload,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:secondPreparation.fingerprint},options);
+ // Real isolated coverage for the newly connected organization/image/removal controls.
+ const relation=async(resource,display)=>{const response=await localOnlyRequest('https://hortimatic.com/api/'+resource+'?output_format=JSON&display='+display+'&sort=[id_DESC]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(response.status,200);return (await response.json())[resource][0];};
+ const material=await relation('product_feature_values','[id,id_feature]'),tag=await relation('tags','[id]');
+ const organization={...existing,kind:'finish',step_key:'existing_organization',fields:{active:'1',available_for_order:'0',visibility:'none',id_category_default:'2',id_supplier:String(supplier.id),id_tax_rules_group:'0'},associations:{categories:['2'],product_features:[{feature_id:String(material.id_feature),value_id:String(material.id)}],tags:[String(tag.id)]}};
+ const organizationPrepared=await runPrestashopProductStage(connection,organization,existingOptions);
+ assert.equal((await runPrestashopProductStage(connection,{...organization,action:'prestashop_product_step_commit',expected_fingerprint:organizationPrepared.fingerprint,confirmed:true},existingOptions)).verified,true);
+ await checkLanguages();
+ const pictures={...existing,kind:'variation_edit',record_id:existingDone.record_id,step_key:'existing_variant_photos',fields:{},associations:{images:[picture.record_id]}};
+ const picturesPrepared=await runPrestashopProductStage(connection,pictures,existingOptions);
+ const picturesCommit={...pictures,action:'prestashop_product_step_commit',expected_fingerprint:picturesPrepared.fingerprint,confirmed:true};
+ assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).verified,true);
+ assert.equal((await runPrestashopProductStage(connection,picturesCommit,existingOptions)).reused,true);
+ const replacement={...existing,kind:'image_replace',record_id:secondPicture.record_id,step_key:'ci_image_replacement',image:{name:'ci-replacement.png',mime:'image/png',base64:image64}};delete replacement.fields;delete replacement.associations;
+ const replacementPrepared=await runPrestashopProductStage(connection,replacement,existingOptions);assert.equal(replacementPrepared.can_commit,true);
+ const replacementCommit={...replacement,action:'prestashop_product_step_commit',expected_fingerprint:replacementPrepared.fingerprint,confirmed:true};
+ assert.equal((await runPrestashopProductStage(connection,replacementCommit,existingOptions)).replaced,true);
+ assert.equal((await runPrestashopProductStage(connection,replacementCommit,existingOptions)).reused,true);
+ const groupFields={group_type:'select',name:profile.language_ids.map(language_id=>({language_id,value:'CI product format '+language_id})),public_name:profile.language_ids.map(language_id=>({language_id,value:'CI format '+language_id}))};
+ const groupOp={...existing,kind:'attribute_group',step_key:'ci_format_group',fields:groupFields,associations:{}},groupPrepared=await runPrestashopProductStage(connection,groupOp,existingOptions);assert.equal(groupPrepared.can_commit,true);
+ const groupRequest={...groupOp,action:'prestashop_product_step_commit',expected_fingerprint:groupPrepared.fingerprint,confirmed:true},groupResult=await runPrestashopProductStage(connection,groupRequest,existingOptions);assert.equal(groupResult.verified,true);assert.equal((await runPrestashopProductStage(connection,groupRequest,existingOptions)).reused,true);
+ const valueOp={...existing,kind:'attribute_value',step_key:'ci_format_value',fields:{id_attribute_group:groupResult.record_id,color:'',name:profile.language_ids.map(language_id=>({language_id,value:'CI unit '+language_id}))},associations:{}},valuePrepared=await runPrestashopProductStage(connection,valueOp,existingOptions);assert.equal(valuePrepared.can_commit,true);
+ const valueRequest={...valueOp,action:'prestashop_product_step_commit',expected_fingerprint:valuePrepared.fingerprint,confirmed:true};assert.equal((await runPrestashopProductStage(connection,valueRequest,existingOptions)).verified,true);assert.equal((await runPrestashopProductStage(connection,valueRequest,existingOptions)).reused,true);
+ // This suite intentionally uses unmodified PrestaShop, without private resources.
+ const nativeRoot=await localOnlyRequest('https://hortimatic.com/api/',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});assert(!String(await nativeRoot.text()).includes('totus_product_images'));
+ for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id]]){
+  const removal={...existing,kind,record_id:id,step_key:'ci_'+kind+'_'+id,fields:{},associations:{}};
+  const preparation=await runPrestashopProductStage(connection,removal,existingOptions);
+  assert.equal(preparation.can_commit,true,'Disposable test key must allow deletion');
+  const request={...removal,action:'prestashop_product_step_commit',expected_fingerprint:preparation.fingerprint,confirmed:true};
+  assert.equal((await runPrestashopProductStage(connection,request,existingOptions)).deleted,true);
+  const deletes=calls.filter(c=>c.method==='DELETE').length;
+  assert.equal((await runPrestashopProductStage(connection,request,existingOptions)).reused,true);
+  assert.equal(calls.filter(c=>c.method==='DELETE').length,deletes,'A repeated verification must not repeat DELETE');
+ }
  console.log('SANDBOX: PNG transparente cargado y publicación no comprable verificada; coste, precio y peso conservados.');
 });

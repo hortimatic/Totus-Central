@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {clickModuleLink} from './ui-navigation.mjs';
 import {APPEARANCE_PRESETS} from '../src/appearance-core.js';
-const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],views=[];
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],views=[];
 let stored={config:APPEARANCE_PRESETS.stitch,revision:0};
 page.on('pageerror',error=>errors.push(error.message));
 try{
@@ -43,6 +43,7 @@ try{
  assert.equal(await page.locator('.desktop-nav-collapse').isVisible(),false);
  await page.setViewportSize({width:1440,height:1000});
  for(const route of routes){
+  if(process.env.TOTUS_STITCH_ROUTE_FILTER&&route!==process.env.TOTUS_STITCH_ROUTE_FILTER)continue;
   await clickModuleLink(page,page.locator('#nav [data-route="'+route+'"]'));
   if(route==='tareas')await page.locator('.tasks-calendar').waitFor();
   if(route==='equipo')await page.locator('.team-chat').waitFor();

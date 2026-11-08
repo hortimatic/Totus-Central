@@ -45,9 +45,9 @@ export function createProductWizard({invoke,canEdit=()=>false}){
    '<label class="prd-field"><b>Características y materiales</b><select multiple size="6" data-pr-create-features="true" data-pr-create-store="'+h(shop)+'" '+(locked?'disabled':'')+'>'+catalog.product_features.map(feature=>'<optgroup label="'+h(textValue(feature.name))+'">'+catalog.product_feature_values.filter(value=>String(value.id_feature)===String(feature.id)).map(value=>'<option value="'+h(feature.id)+':'+h(value.id)+'" '+((data.relations?.features||[]).some(f=>f.feature_id===String(feature.id)&&f.value_id===String(value.id))?'selected':'')+'>'+h(textValue(value.value))+'</option>').join('')+'</optgroup>').join('')+'</select><small>Selecciona un valor por característica. Se comprueba su pertenencia antes del alta.</small></label>'+select('related_product_ids','Productos relacionados seleccionados',catalog.related_products||[],true)+'</div><label class="prd-field"><b>Buscar producto relacionado por referencia exacta</b><input data-pr-create-field="related_reference" data-pr-create-store="'+h(shop)+'" value="'+h(data.related_reference||'')+'" '+(locked?'disabled':'')+'></label>'+b('Buscar y añadir relacionado','create-find-related',shop,locked)+'</fieldset>';
  }
  function render(plan,source){
-  if(plan.operation!=='create')return '';
+  if(plan.operation!=='create'&&!results.get(plan.store)?.existing_product)return '';
   const shop=plan.store,profile=profiles.get(shop),result=results.get(shop);
-  if(result)return '<section class="prd-creation"><h5>Base del producto guardada</h5><p>PrestaShop asignó el ID <b>#'+h(result.record_id)+'</b>. '+(result.active===true?'Publicación activa verificada.':'La base está verificada y permanece inactiva. Completa y revisa las etapas siguientes antes de publicarlo.')+'</p>'+stages.render(shop,result,plan,{...source,...Object.fromEntries(plan.changes.map(c=>[c.field,c.after]))},profiles.get(shop),relationCatalogs.get(shop))+'</section>';
+  if(result)return '<section class="prd-creation"><h5>'+ (result.existing_product?'Etapas del producto existente':'Base del producto guardada')+'</h5><p>Producto <b>#'+h(result.record_id)+'</b>. '+(result.existing_product?'Cada etapa conserva el producto y las combinaciones anteriores.':result.active===true?'Publicación activa verificada.':'La base está verificada y permanece inactiva. Completa y revisa las etapas siguientes antes de publicarlo.')+'</p>'+stages.render(shop,result,plan,{...source,...Object.fromEntries(plan.changes.map(c=>[c.field,c.after]))},profiles.get(shop),relationCatalogs.get(shop))+'</section>';
   if(!profile)return '<section class="prd-creation"><h5>Alta en '+h(shop)+'</h5><p>Consulta primero los idiomas reales de esta tienda. No se copian los identificadores del origen.</p>'+b('Consultar idiomas de la tienda','create-load',shop)+'</section>';
   const data=draft(shop,plan,source),cats=categories.get(shop)||[],locked=attempted.has(shop),prepared=previews.get(shop),confirmation=confirmations.get(shop)||'';
   return '<section class="prd-creation"><h5>Alta individual · '+h(shop)+'</h5><p>El producto se crea inicialmente <b>inactivo</b>. Categoría e idiomas son específicos del destino.</p>'+
@@ -99,14 +99,16 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   const requested=plan.changes.filter(c=>c.changed);
   if(requested.some(c=>!supported.has(c.field)&&textValue(c.after)!==''))throw Error('El alta contiene campos sin contrato de creación. Deselecciónalos: '+requested.filter(c=>!supported.has(c.field)).map(c=>c.field).join(', '));
   const fields=requested.filter(c=>PRODUCT_CREATE_FIELDS.includes(c.field)).map(c=>({field:c.field,value:productInputValue(c.field,textValue(c.after))}));
+  if(fields.some(f=>f.field==='redirect_type')!==fields.some(f=>f.field==='id_type_redirected'))throw Error('Selecciona juntos el tipo y el destino de redirección.');
   return {reference:entry.reference,price:productInputValue('price',entry.price),category_id:entry.category_id,translations,...(fields.length?{fields}:{}),...(entry.relations?{relations:entry.relations}:{})};
  };
  async function perform(action,shop,plan,source,detail={}){
-  if(plan.operation!=='create'||!shop||plan.store!==shop)throw Error('La operación no pertenece a esta tienda.');
+  if(!shop||plan.store!==shop||plan.operation!=='create'&&!results.get(shop)?.existing_product)throw Error('La operación no pertenece a esta tienda.');
   if(action.startsWith('create-stage-')){
    const result=results.get(shop);if(!result)throw Error('Guarda y verifica primero la base del producto.');
    return stages.perform(action.slice(7),shop,result,plan,{...source,...Object.fromEntries(plan.changes.map(c=>[c.field,c.after]))},profiles.get(shop),relationCatalogs.get(shop),detail);
   }
+  if(plan.operation!=='create')throw Error('Este producto ya existe; utiliza sus etapas sin repetir el alta.');
   if(action==='create-find-related'){
    if(attempted.has(shop))throw Error('Las relaciones de la base ya están guardadas.');
    const entry=draft(shop,plan,source),catalog=relationCatalogs.get(shop);if(!catalog||!entry.related_reference?.trim())throw Error('Consulta los catálogos e indica la referencia exacta.');
@@ -183,5 +185,13 @@ export function createProductWizard({invoke,canEdit=()=>false}){
   }
   throw Error('Acción de alta desconocida.');
  }
- return {render,reset,invalidate,handleChange,perform,handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
+ async function openExisting(shop,source){
+  if(!canEdit()||!/^\d+$/.test(String(source?.id||'')))throw Error('Selecciona un producto existente con permiso de edición.');
+  const previous=results.get(shop);if(previous){if(previous.record_id!==String(source.id)||!previous.existing_product)throw Error('Hay otra operación de producto pendiente en esta tienda.');return;}
+  const response=await invoke(shop,'prestashop_product_create_profile',{});
+  if(response.persisted!==false||!Array.isArray(response.language_ids)||!response.language_ids.length)throw Error('No se han podido verificar los idiomas de esta tienda.');
+  profiles.set(shop,{language_ids:response.language_ids,product_workspace:response.product_workspace});
+  results.set(shop,{record_id:String(source.id),request_id:crypto.randomUUID(),existing_product:true});
+ }
+ return {render,reset,invalidate,handleChange,perform,openExisting,setCatalogs:(shop,catalog)=>relationCatalogs.set(shop,catalog),handleFile:stages.handleFile,snapshot:()=>({maps:[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].map(m=>[...m]),attempted:[...attempted],stages:stages.snapshot()}),restore:data=>{reset();if(!data)return;[profiles,categories,relationCatalogs,config,previews,requestIds,results,confirmations].forEach((m,i)=>{for(const [k,v] of data.maps[i])m.set(k,v);});for(const shop of data.attempted)attempted.add(shop);stages.restore(data.stages);},hasAttempted:shop=>attempted.has(shop)};
 }

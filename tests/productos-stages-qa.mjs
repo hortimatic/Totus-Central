@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {deflateSync,crc32} from 'node:zlib';
 import {validateProductStage} from '../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,productFinalizationFields} from '../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,productFinalizationFields,inspectProductAssociationIds} from '../src/productos-write-contract.js';
 
 test('finalización deriva tipo de combinaciones reales y guardado, sin activar compras',()=>{
  const root=ids=>'<prestashop><product><id>601</id><associations><combinations>'+ids.map(id=>'<combination><id>'+id+'</id></combination>').join('')+'</combinations></associations></product></prestashop>';
@@ -132,4 +132,113 @@ test('producto existente rechaza atributos ya usados aunque cambie la referencia
  f.request=async(url,opts)=>new URL(url).searchParams.get('display')==='full'?json({combinations:[{id:999,id_product:601,reference:'OTHER',associations:{product_option_values:[{id:10}]}}]}):original(url,opts);
  await assert.rejects(()=>runPrestashopProductStage(connection,{...base,existing_product:true},f),/esos atributos/);
  assert.equal(f.calls.some(c=>c.method==='POST'),false);
+});
+
+
+test('organization review validates principal category, writes only selected relations and detects missing readback',()=>{
+ const request={...base,kind:'finish',existing_product:true,fields:{active:'0',available_for_order:'0',id_category_default:'4',id_manufacturer:'3',id_supplier:'0',id_tax_rules_group:'0'},associations:{categories:['4','5']}};
+ assert.equal(validateProductStage(request).fields.id_supplier,'0');
+ assert.throws(()=>validateProductStage({...request,associations:{categories:['5']}}),/principal/);
+ assert.throws(()=>validateProductStage({...request,fields:{...request.fields,id_category_default:'0'}}),/principal/);
+ assert.throws(()=>validateProductStage({...request,associations:{categories:['4','4']}}),/duplicada/);
+ const original='<prestashop><product><id>601</id><name><language id="1">Conservar</language></name><associations><categories><category><id>2</id></category></categories><images><image><id>90</id></image></images><combinations/></associations></product></prestashop>';
+ const next=prepareProductStageXml(original,'products',request.fields,request.associations,'601');
+ assert.equal(inspectProductStageXml(next,'products',request.fields,request.associations).verified,true);
+ assert(next.includes('<image><id>90</id></image>'));assert(next.includes('Conservar'));
+ assert.throws(()=>inspectProductStageXml(next,'products',request.fields,{categories:['4']}),/no coinciden/);
+});
+
+
+test('organization finish verifies destination relationships before PUT and rereads all selected categories',async()=>{
+ const requestBase={...base,kind:'finish',existing_product:true,fields:{active:'0',available_for_order:'0',visibility:'none',id_category_default:'4',id_manufacturer:'6',id_supplier:'0',id_tax_rules_group:'0'},associations:{categories:['4','5']}};
+ const setup=(wrong=false,wrongFeature=false)=>{
+  const calls=[];let entry=null,saved='<prestashop><product><id>601</id><reference>PRUEBAS</reference><id_category_default>4</id_category_default><id_manufacturer>3</id_manufacturer><id_supplier>0</id_supplier><id_tax_rules_group>0</id_tax_rules_group><active>0</active><available_for_order>0</available_for_order><visibility>none</visibility><associations><categories><category><id>4</id></category></categories><images><image><id>90</id></image></images><combinations/></associations></product></prestashop>';
+  return {calls,request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,method:options.method});if(u.pathname==='/api/languages')return xml('<prestashop><languages><language id="1"/></languages></prestashop>');if(u.pathname==='/api/products/601'){if(options.method==='PUT')saved=options.body;return xml(saved);}if(u.pathname.startsWith('/api/categories/'))return json({category:{id:u.pathname.split('/').at(-1)}});if(u.pathname==='/api/manufacturers/6')return json({manufacturer:{id:wrong?'999':'6'}});if(u.pathname==='/api/product_features/8')return json({product_feature:{id:'8'}});if(u.pathname==='/api/product_feature_values/80')return json({product_feature_value:{id:'80',id_feature:wrongFeature?'999':'8'}});throw Error('Unexpected organization path '+u.pathname);},resolve:async()=>['8.8.8.8'],env:{get:()=> '1'},journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601',reference:'PRUEBAS'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={status:'completed',signature,record_id};},uncertain:async()=>{entry.status='uncertain';}}};
+ };
+ const bad=setup(true);await assert.rejects(()=>runPrestashopProductStage(connection,requestBase,bad),/no verificable/);assert(!bad.calls.some(c=>c.method==='PUT'));
+ const f=setup(),prepared=await runPrestashopProductStage(connection,requestBase,f);assert(!f.calls.some(c=>c.method==='PUT'));
+ const done=await runPrestashopProductStage(connection,{...requestBase,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint},f);
+ assert.equal(done.verified,true);assert.equal(f.calls.filter(c=>c.method==='PUT').length,1);
+ const withFeatures={...requestBase,associations:{categories:['4','5'],product_features:[{feature_id:'8',value_id:'80'}]}};
+ const foreignFeature=setup(false,true);await assert.rejects(()=>runPrestashopProductStage(connection,withFeatures,foreignFeature),/no pertenece/);assert(!foreignFeature.calls.some(c=>c.method==='PUT'));
+ const features=setup(),featurePreparation=await runPrestashopProductStage(connection,withFeatures,features);assert.equal((await runPrestashopProductStage(connection,{...withFeatures,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:featurePreparation.fingerprint},features)).verified,true);
+});
+
+
+test('existing combination image selection is signed to its record and never creates another combination',async()=>{
+ const selection={...base,kind:'variation_edit',existing_product:true,record_id:'701',fields:{},associations:{images:['90']}};
+ assert.equal(validateProductStage(selection).record_id,'701');assert.throws(()=>validateProductStage({...selection,existing_product:undefined}),/existente/);assert.throws(()=>validateProductStage({...selection,associations:{}}),/imágenes/);
+ const setup=(foreign=false)=>{let saved='<prestashop><combination><id>701</id><id_product>601</id_product><reference>KEEP-701</reference><price>1.25</price><associations><images/><product_option_values><product_option_value><id>10</id></product_option_value></product_option_values></associations></combination></prestashop>',entry=null;const calls=[];
+ return {calls,env:{get:()=> '1'},resolve:async()=>['8.8.8.8'],journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={status:'completed',signature,record_id};},uncertain:async()=>{entry.status='uncertain';}},request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,method:options.method,body:options.body});if(u.pathname==='/api/products/601')return u.searchParams.get('output_format')==='JSON'?json({product:{id:'601',associations:{images:[{id:'90'}]}}}):xml(root);if(u.pathname==='/api/combinations/701'){if(u.searchParams.get('output_format')==='JSON')return json({combination:{id:'701',id_product:foreign?'999':'601'}});if(options.method==='PUT')saved=options.body;return xml(saved);}throw Error('Unexpected combination path '+u.pathname);}};};
+ const bad=setup(true);await assert.rejects(()=>runPrestashopProductStage(connection,selection,bad),/otro producto/);assert(!bad.calls.some(c=>c.method==='PUT'));
+ const f=setup(),prepared=await runPrestashopProductStage(connection,selection,f),commit={...selection,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prepared.fingerprint};
+ assert.equal((await runPrestashopProductStage(connection,commit,f)).verified,true);
+ assert.equal((await runPrestashopProductStage(connection,commit,f)).reused,true);
+ assert.equal(f.calls.filter(c=>c.method==='PUT').length,1);assert(!f.calls.some(c=>c.method==='POST'));
+ const body=f.calls.find(c=>c.method==='PUT').body;assert(body.includes('KEEP-701'));assert(body.includes('1.25'));assert(body.includes('<id>10</id>'));assert.match(body,/<image><id>(?:<!\[CDATA\[)?90/);
+});
+
+
+test('removal checks ownership, explicit target and fingerprint; reconciles without a second DELETE',async()=>{
+ const remove=(kind='remove_variation')=>({...base,kind,existing_product:true,record_id:kind==='remove_image'?'90':'701',fields:{},associations:{}});
+ assert.throws(()=>validateProductStage({...remove(),record_id:'../702'}),/Registro/);
+ const setup=({foreign=false,post500=false,stillPresent=false,canDelete=true}={})=>{let present=true,entry=null;const calls=[];return {calls,env:{get:()=> '1'},resolve:async()=>['8.8.8.8'],journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={status:'completed',signature,record_id};},uncertain:async()=>{entry.status='uncertain';}},request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,method:options.method});if(u.pathname==='/api/')return xml('<prestashop><api><combinations get="true" delete="'+canDelete+'"/><images get="true" delete="'+canDelete+'"/></api></prestashop>');if(options.method==='DELETE'){if(!stillPresent)present=false;return post500?new Response('error',{status:500}):new Response(null,{status:204});}if(u.pathname==='/api/products/601')return u.searchParams.get('output_format')==='JSON'?json({product:{id:'601',associations:{images:present?[{id:'90'}]:[],combinations:present?[{id:'701'}]:[]}}}):xml(root);if(u.pathname==='/api/combinations/701')return u.searchParams.get('output_format')==='JSON'?json({combination:{id:'701',id_product:foreign?'999':'601'}}):xml('<prestashop><combination><id>701</id><id_product>601</id_product></combination></prestashop>');throw Error('Unexpected removal path '+u.pathname);}};};
+ const noDelete=setup({canDelete:false}),notAllowed=await runPrestashopProductStage(connection,remove(),noDelete);assert.equal(notAllowed.can_commit,false);assert.deepEqual(notAllowed.missing_permissions,['DELETE']);assert(!noDelete.calls.some(c=>c.method==='DELETE'));
+ const bad=setup({foreign:true});await assert.rejects(()=>runPrestashopProductStage(connection,remove(),bad),/otro producto/);assert(!bad.calls.some(c=>c.method==='DELETE'));
+ for(const kind of ['remove_variation','remove_image']){const f=setup(),op=remove(kind),prepared=await runPrestashopProductStage(connection,op,f);assert(!f.calls.some(c=>c.method==='DELETE'));await assert.rejects(()=>runPrestashopProductStage(connection,{...op,action:'prestashop_product_step_commit',expected_fingerprint:'b'.repeat(64),confirmed:true},f),/destino cambió/);const commit={...op,action:'prestashop_product_step_commit',expected_fingerprint:prepared.fingerprint,confirmed:true};assert.equal((await runPrestashopProductStage(connection,commit,f)).deleted,true);assert.equal((await runPrestashopProductStage(connection,commit,f)).reused,true);assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1);assert.equal(f.calls.find(c=>c.method==='DELETE').path,kind==='remove_image'?'/api/images/products/601/90':'/api/combinations/701');}
+ const lost=setup({post500:true}),op=remove(),ready=await runPrestashopProductStage(connection,op,lost);assert.equal((await runPrestashopProductStage(connection,{...op,action:'prestashop_product_step_commit',expected_fingerprint:ready.fingerprint,confirmed:true},lost)).reconciled,true);
+ const stuck=setup({stillPresent:true}),p=await runPrestashopProductStage(connection,op,stuck),commit={...op,action:'prestashop_product_step_commit',expected_fingerprint:p.fingerprint,confirmed:true};await assert.rejects(()=>runPrestashopProductStage(connection,commit,stuck),/incierta/);await assert.rejects(()=>runPrestashopProductStage(connection,commit,stuck),/No se repite/);assert.equal(stuck.calls.filter(c=>c.method==='DELETE').length,1);
+});
+
+
+test('empty native XML association is zero, but missing nodes and another product are not',()=>{
+ const empty='<prestashop><product><id>601</id><associations><images nodeType="image" api="images/products"/></associations></product></prestashop>';
+ assert.deepEqual(inspectProductAssociationIds(empty,'601','images'),[]);
+ assert.throws(()=>inspectProductAssociationIds(empty,'602','images'),/otro producto/);
+ assert.throws(()=>inspectProductAssociationIds(empty.replace('<images nodeType="image" api="images/products"/>',''),'601','images'),/campo único/);
+ assert.throws(()=>inspectProductAssociationIds(empty.replace('<images nodeType="image" api="images/products"/>','<images><image><id>bad</id></image></images>'),'601','images'),/no válido/);
+});
+
+
+test('organization features preserve the feature/value pair and reject duplicate or foreign values',()=>{
+ const request={...base,kind:'finish',fields:{active:'0',available_for_order:'0'},associations:{product_features:[{feature_id:'4',value_id:'8'}],tags:['9'],accessories:['600']}};
+ const op=validateProductStage(request);assert.deepEqual(op.associations.product_features,[{feature_id:'4',value_id:'8'}]);
+ assert.throws(()=>validateProductStage({...request,associations:{product_features:[{feature_id:'4',value_id:'8'},{feature_id:'4',value_id:'10'}]}}),/repetidas/);
+ const original='<prestashop><product><id>601</id><associations><combinations/><product_features/><tags/><accessories/></associations></product></prestashop>',saved=prepareProductStageXml(original,'products',request.fields,request.associations,'601');
+ assert.equal(inspectProductStageXml(saved,'products',request.fields,request.associations).verified,true);
+ assert.throws(()=>inspectProductStageXml(saved,'products',request.fields,{...request.associations,product_features:[{feature_id:'4',value_id:'99'}]}),/no coinciden/);
+});
+
+
+test('image metadata preserves the product, cover and other languages; validates ownership and record identity',async()=>{
+ const op={...base,kind:'image_metadata',existing_product:true,record_id:'90',fields:{position:'2',legend:[{language_id:'1',value:'Nuevo texto'}]},associations:{}};
+ assert.equal(validateProductStage(op).resource,'totus_product_images');assert.throws(()=>validateProductStage({...op,fields:{position:'0'}}),/posición/);assert.throws(()=>validateProductStage({...op,fields:{position:'1',legend:[{language_id:'1',value:'x'.repeat(129)}]}}),/Traducciones/);
+ const setup=(foreign=false)=>{let saved='<prestashop><totus_product_image><id>90</id><id_product>601</id_product><position>1</position><cover>1</cover><legend><language id="1">Anterior</language><language id="2">Keep other language</language></legend></totus_product_image></prestashop>',entry=null;const calls=[];return {calls,env:{get:()=> '1'},resolve:async()=>['8.8.8.8'],journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={status:'completed',signature,record_id};},uncertain:async()=>{entry.status='uncertain';}},request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,method:options.method,body:options.body});if(u.pathname==='/api/languages')return xml('<prestashop><languages><language id="1"/><language id="2"/></languages></prestashop>');if(u.pathname==='/api/products/601')return u.searchParams.get('output_format')==='JSON'?json({product:{id:'601',associations:{images:[{id:foreign?'999':'90'},{id:'91'}]}}}):xml(root);if(u.pathname==='/api/totus_product_images/90'){if(options.method==='PUT')saved=options.body;return xml(saved);}throw Error('Unexpected metadata path '+u.pathname);}};};
+ const bad=setup(true);await assert.rejects(()=>runPrestashopProductStage(connection,op,bad),/otro producto/);assert(!bad.calls.some(c=>c.method==='PUT'));
+ const f=setup(),p=await runPrestashopProductStage(connection,op,f),result=await runPrestashopProductStage(connection,{...op,action:'prestashop_product_step_commit',expected_fingerprint:p.fingerprint,confirmed:true},f);assert.equal(result.verified,true);
+ const body=f.calls.find(c=>c.method==='PUT').body;assert(body.includes('<id_product>601</id_product>'));assert(body.includes('<cover>1</cover>'));assert(body.includes('Keep other language'));assert(body.includes('Nuevo texto'));assert(!f.calls.some(c=>c.method==='POST'));
+});
+
+test('replacement keeps native image ID, verifies returned bytes and never retries an ambiguous upload',async()=>{
+ const op={...base,kind:'image_replace',existing_product:true,record_id:'90',image:{name:'picture.png',mime:'image/png',base64:png(0)}};delete op.fields;delete op.associations;
+ assert.equal(validateProductStage(op).record_id,'90');assert.throws(()=>validateProductStage({...op,record_id:undefined}),/registro/);
+ const setup=(lost=false,foreign=false)=>{let entry=null,bytes='before';const calls=[];return {calls,env:{get:()=> '1'},resolve:async()=>['8.8.8.8'],journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601'}),lookup:async()=>entry,claim:async(op,signature)=>{entry={signature};return {status:'claimed'};},complete:async(op,signature,record_id)=>{entry={signature,record_id,status:'completed'};},uncertain:async()=>{entry.status='uncertain';}},request:async(url,options)=>{const u=new URL(url);calls.push({path:u.pathname,query:u.search,method:options.method});if(u.pathname==='/api/')return xml('<prestashop><api><images get="true" put="true"/></api></prestashop>');if(u.pathname==='/api/products/601')return u.searchParams.get('output_format')==='JSON'?json({product:{id:'601',id_default_image:'90',associations:{images:[{id:foreign?'99':'90'}]}}}):xml(root);if(u.pathname==='/api/images/products/601/90'){if(options.method==='POST'){assert.equal(u.searchParams.get('ps_method'),'PUT');assert(options.body instanceof FormData);bytes='after';if(lost)throw Error('lost response');}return new Response(bytes,{headers:{'Content-Type':'image/jpeg'}});}throw Error('Unexpected replacement path');}};};
+ const foreign=setup(false,true);await assert.rejects(()=>runPrestashopProductStage(connection,op,foreign),/pertenece/);assert(!foreign.calls.some(c=>c.method==='POST'));
+ for(const lost of [false,true]){const f=setup(lost),p=await runPrestashopProductStage(connection,op,f),commit={...op,action:'prestashop_product_step_commit',expected_fingerprint:p.fingerprint,confirmed:true};if(lost){await assert.rejects(()=>runPrestashopProductStage(connection,commit,f),/incierta/);await assert.rejects(()=>runPrestashopProductStage(connection,commit,f),/incierta/);}else{const saved=await runPrestashopProductStage(connection,commit,f);assert.equal(saved.record_id,'90');assert.equal(saved.replaced,true);assert.equal((await runPrestashopProductStage(connection,commit,f)).reused,true);}assert.equal(f.calls.filter(c=>c.method==='POST').length,1);}
+});
+
+test('parent stock quantity is preserved when combinations supply its aggregate',async()=>{
+ const op={...base,existing_product:true,kind:'stock',fields:{id_product_attribute:'0',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:'A'},associations:{}};
+ let writes=0;const request=async(url,options)=>{const u=new URL(url);if(options.method!=='GET')writes++;if(u.pathname==='/api/products/601')return u.searchParams.get('output_format')==='JSON'?json({product:{id:'601',associations:{combinations:[{id:'701'}]}}}):xml(root);if(u.pathname==='/api/stock_availables')return json({stock_availables:[{id:'800'}]});if(u.pathname==='/api/stock_availables/800')return xml('<prestashop><stock_available><id>800</id><id_product>601</id_product><id_product_attribute>0</id_product_attribute><quantity>7</quantity><out_of_stock>0</out_of_stock><depends_on_stock>0</depends_on_stock><location>B</location></stock_available></prestashop>');throw Error('Unexpected aggregate request');};
+ const options={request,resolve:async()=>['8.8.8.8'],env:{get:()=> '1'},journal:{parent:async()=>({status:'completed',store:'hortimatic',product_id:'601'})}};
+ await assert.rejects(()=>runPrestashopProductStage(connection,op,options),/cantidad total/);assert.equal(writes,0);
+ assert.equal((await runPrestashopProductStage(connection,{...op,fields:{...op.fields,quantity:'7',location:'New shelf'}},options)).can_commit,true);assert.equal(writes,0);
+});
+
+
+test('existing metadata review is partial while a new product still requires publication choices',()=>{
+ const request={...base,kind:'finish',step_key:'metadata',existing_product:true,fields:{id_manufacturer:'6'},associations:{}};
+ assert.deepEqual(validateProductStage(request).fields,{id_manufacturer:'6'});
+ const {existing_product,...newProduct}=request;
+ assert.throws(()=>validateProductStage(newProduct),/obligatorios/);
 });

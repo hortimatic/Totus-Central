@@ -125,7 +125,9 @@
         "supabase/functions/totus-connections/prestashop-product-stage.js",
         "supabase/functions/totus-connections/prestashop-write.js",
         "supabase/functions/totus-connections/prestashop.js",
-        "supabase/functions/totus-connections/transport.js"
+        "supabase/functions/totus-connections/transport.js",
+        "supabase/functions/totus-connections/prestashop-product-remove.js",
+        "supabase/functions/totus-connections/prestashop-product-image-replace.js"
       ]
     },
     {

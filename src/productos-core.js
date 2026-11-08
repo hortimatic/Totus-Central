@@ -5,12 +5,12 @@ export const PRODUCT_STORES=Object.freeze([
 ]);
 export const PRODUCT_SECTIONS=Object.freeze({
  general:['name','reference','ean13','isbn','upc','mpn','active','visibility','condition','show_condition','available_for_order','show_price','online_only','description_short','description'],
- precios:['price','wholesale_price','unit_price_ratio','unity','on_sale','ecotax'],
+ precios:['price','wholesale_price','unity','on_sale','ecotax'],
  seo:['meta_title','meta_description','meta_keywords','link_rewrite','redirect_type','id_type_redirected'],
  transporte:['weight','width','height','depth','additional_shipping_cost','additional_delivery_times','delivery_in_stock','delivery_out_stock'],
- inventario:['location','minimal_quantity','low_stock_threshold','low_stock_alert','out_of_stock','available_date','available_now','available_later']
+ inventario:['minimal_quantity','low_stock_threshold','low_stock_alert','available_date','available_now','available_later']
 });
-export const VARIANT_FIELDS=Object.freeze(['reference','ean13','isbn','upc','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert','default_on']);
+export const VARIANT_FIELDS=Object.freeze(['reference','ean13','isbn','upc','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert']);
 const FIELDS=new Set(Object.values(PRODUCT_SECTIONS).flat());
 const own=(x,k)=>Object.prototype.hasOwnProperty.call(x||{},k);
 export const cleanId=value=>/^[1-9]\d{0,14}$/.test(String(value??''))?String(value):null;
