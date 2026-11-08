@@ -256,7 +256,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   const opened=[...root.querySelectorAll('.prd-variant[open]')].map(el=>el.dataset.prVariant);
   const columnsOpen=!!root.querySelector('.prd-columns[open]');
   const tableOffset=root.querySelector('.prd-catalog-table')?.scrollLeft||0;
-  const content=mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?(record?stitchCopy({store,record,copyImages:createWizard.copyImagesSelected(store==='hortimatic'?'newoldsmok':'hortimatic'),copyLocked:createWizard.hasAttempted(store==='hortimatic'?'newoldsmok':'hortimatic'),targetRecord:targetRaw.get(store==='hortimatic'?'newoldsmok':'hortimatic'),legacyHtml:comparisonPanel()}):comparisonPanel()):mode==='encargo'?stitchRequest({legacyHtml:renderProductRequestForm(requestBrief,requestOutput),output:requestOutput}):mode==='guardado'?stitchSaved({record,legacyHtml:record?comparisonPanel():'',queue:copyQueue,drafts:savedDraftCards()}):bulk();
+  const content=mode==='catalogo'?catalog():mode==='ficha'?editor():mode==='variantes'?variantsPanel():mode==='comparar'?productPicker()+(record?stitchCopy({store,record,copyImages:createWizard.copyImagesSelected(store==='hortimatic'?'newoldsmok':'hortimatic'),copyLocked:createWizard.hasAttempted(store==='hortimatic'?'newoldsmok':'hortimatic'),targetRecord:targetRaw.get(store==='hortimatic'?'newoldsmok':'hortimatic'),legacyHtml:comparisonPanel()}):comparisonPanel()):mode==='encargo'?stitchRequest({legacyHtml:renderProductRequestForm(requestBrief,requestOutput),output:requestOutput}):mode==='guardado'?stitchSaved({record,legacyHtml:record?comparisonPanel():'',queue:copyQueue,drafts:savedDraftCards()}):bulk();
   controlsCleanup();photoCleanup();
   root.innerHTML='<div class="prd-shell prd-stitch prd-professional">'+stitchHeader({store:catalogScope,mode,status,count:rows.length,product:text(record?.name),draftCount:savedDraftCards().length,pending,connected:catalogScope==='both'?PRODUCT_STORES.every(s=>ready(s.key)):ready(store)})+'<div class="prd-body">'+content+'</div></div>';
 
@@ -536,7 +536,7 @@ if(['Enter',' '].includes(e.key)&&e.target.matches('[data-pr-action="photo-zoom"
   root.onclick=e=>{if(!e.target.closest('.prd-columns,.prd-row-menu'))root.querySelectorAll('.prd-columns[open],.prd-row-menu[open]').forEach(d=>d.open=false);const b=e.target.closest('[data-pr-action]');if(!b||!current())return;const a=b.dataset.prAction;
    if(a==='picker-page'){productPickerPage=Math.max(0,productPickerPage+Number(b.dataset.direction));render();return;}
    if(a==='picker-catalog'){mode='catalogo';render();return;}
-   if(a==='picker-open'){void work(async()=>{await openProduct(b.dataset.id,b.dataset.prShop,{keepCatalog:true});mode='ficha';});return;}
+   if(a==='picker-open'){const nextMode=mode==='comparar'?'comparar':'ficha';void work(async()=>{await openProduct(b.dataset.id,b.dataset.prShop,{keepCatalog:true});mode=nextMode;});return;}
    if(a==='catalog-activate'){catalogSelected=new Set([b.dataset.prShop+'|'+b.dataset.id]);activateCatalogProduct(b.dataset.id,b.dataset.prShop);return;}
    if(a==='catalog-cancel'){catalogCancel=true;status='Se detendrá la consulta al terminar la página actual.';return;}
    if(a==='variant-scroll'){root.querySelector('.prd-table-viewport')?.scrollBy({left:Number(b.dataset.direction)*Math.max(240,root.querySelector('.prd-table-viewport').clientWidth*.7),behavior:'smooth'});return;}

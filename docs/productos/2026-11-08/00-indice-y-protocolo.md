@@ -41,3 +41,6 @@ Las muestras existentes identificadas por interfaz son `pruebas` (Hortimatic 170
 ## Evidencias y conservación
 
 Los archivos `qa-artifacts/productos-*-report.json` contienen resultados reproducibles del navegador. Las capturas y los datos leídos de tiendas comerciales permanecen fuera del repositorio público. Los informes distinguen expresamente sus niveles de comprobación. El espejo `sources/` es de solo lectura: estos documentos se preparan aquí para incorporarlos posteriormente a Fuentes del proyecto.
+
+## Recorridos consolidados para ChatGPT
+Consultar [12-recorridos-operativos-chatgpt.md](12-recorridos-operativos-chatgpt.md) para las instrucciones actuales de selección, creación desde URL, modificación, combinaciones y copia completa. El formato y las lecturas se describen en [11-protocolo-de-formato-y-lecturas.md](11-protocolo-de-formato-y-lecturas.md).
