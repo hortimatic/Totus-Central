@@ -246,7 +246,7 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
  return serialize(f);
 }
 
-export function stitchCopy({store,legacyHtml,record,targetRecord}){
+export function stitchCopy({store,legacyHtml,record,targetRecord,copyImages=true,copyLocked=false}){
  const f=fragment(STITCH_VIEWS['tab-copiar']),view=f.firstElementChild,actual=fragment(legacyHtml);
  view.classList.remove('hidden');view.classList.add('flex','prd-copy-view');
  const source=store==='hortimatic'?'Hortimatic':'NewOldSmok',target=store==='hortimatic'?'NewOldSmok':'Hortimatic';
@@ -254,6 +254,7 @@ export function stitchCopy({store,legacyHtml,record,targetRecord}){
  const buttons=[...view.querySelectorAll('button')];
  const all=buttons.find(b=>b.textContent.includes('Seleccionar Todo')),none=buttons.find(b=>b.textContent.includes('Deseleccionar'));
  if(all)action(all,'fields-all');if(none)action(none,'fields-none');
+ const imageChoice=document.createElement('label');imageChoice.className='prd-copy-image-choice';imageChoice.innerHTML='<input type="checkbox" data-pr-copy-option="images" data-pr-create-store="'+(store==='hortimatic'?'newoldsmok':'hortimatic')+'" '+(copyImages?'checked':'')+' '+(copyLocked?'disabled':'')+'> Copiar imágenes ('+associationIds(record,'images').length+')'+fieldHelp('Copiar imágenes','Seleccionar todo incluye las fotos. La copia sube cada imagen a la tienda destino y comprueba su ID nativo; la foto de origen no se considera una imagen ya copiada.');all?.after(imageChoice);
  for(const b of buttons)if(/Copiar a Borrador|Revisar y Publicar/.test(b.textContent))action(b,'compare');
  const editors=[...actual.querySelectorAll('.prd-parallel-editors>fieldset')];
  for(const [i,id]of ['panel-store-source','panel-store-target'].entries()){

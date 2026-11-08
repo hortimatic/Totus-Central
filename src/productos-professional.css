@@ -109,3 +109,5 @@
 #productosRoot .prd-professional .prd-copy-view :is(input,textarea,select){min-width:0;max-width:100%;box-sizing:border-box}
 #productosRoot .prd-professional .prd-copy-view textarea{resize:vertical;min-height:64px}
 @media(max-width:500px){#productosRoot .prd-professional .prd-copy-identity{grid-template-columns:88px minmax(0,1fr)}#productosRoot .prd-professional .prd-copy-identity>div:first-child{width:88px;height:88px}}
+
+#productosRoot .prd-professional .prd-copy-image-choice{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;font-size:12px}

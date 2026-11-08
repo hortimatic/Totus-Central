@@ -89,6 +89,10 @@ try{
   await page.getByText(/2 combinaciones leídas/).waitFor();
   assert.equal(await page.locator('#productosRoot script').count(),0);
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
+  await page.locator('[data-pr-action="fields-none"]').click();
+  assert.equal(await page.locator('.prd-copy-image-choice input').isChecked(),false);
+  await page.locator('[data-pr-action="fields-all"]').click();
+  assert.equal(await page.locator('.prd-copy-image-choice input').isChecked(),true,'Select all includes images');
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();
