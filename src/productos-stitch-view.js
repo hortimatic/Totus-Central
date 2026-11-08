@@ -39,7 +39,7 @@ function compactStitchHeader({store,mode,status,count,product,pending,connected,
  const live=document.createElement('p');live.className='prd-v4-status';live.setAttribute('role','status');live.textContent=status;f.append(live);
  return serialize(f);
 }
-export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit,canExport=canEdit,tableEdits=new Map(),store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo,views=[],viewName='',rowKey=p=>String(p.id)}){
+export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit,canExport=canEdit,tableEdits=new Map(),purchaseSurcharge='5.2',store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo,views=[],viewName='',rowKey=p=>String(p.id)}){
  const f=fragment(STITCH_VIEWS['tab-catalogo']),view=f.firstElementChild;
  view.classList.add('prd-catalog-view');
  view.classList.remove('hidden');view.classList.add('flex');
@@ -77,6 +77,7 @@ export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit
  const toolbar=document.createElement('div');toolbar.className='prd-catalog-toolbar';toolbar.append(details,tools[1],tools[2],tools[3]);
  const controls=view.firstElementChild;controls.classList.add('prd-panel','prd-catalog-controls');controls.replaceChildren(filterControls,toolbar,selectionBar);
  const loading=document.createElement('div');loading.className='prd-catalog-loading';loading.innerHTML='<span>'+rows.length+' productos cargados'+(hasMore?' · quedan páginas por consultar':' · consulta completa')+'</span>'+fieldHelp('Alcance del catálogo','Los filtros se aplican a los productos cargados. Busca una referencia o ID exacto en la tienda, carga la siguiente página o consulta todo el catálogo. Nunca se presenta una lista parcial como el total real.')+'<button type="button" data-pr-action="catalog-find" '+(pending?'disabled':'')+'>Buscar ID / referencia en tienda</button><button type="button" data-pr-action="catalog-load" '+(pending?'disabled':'')+'>Actualizar</button>'+(hasMore?'<button type="button" data-pr-action="catalog-more" '+(pending?'disabled':'')+'>Cargar 100 más</button><button type="button" data-pr-action="catalog-complete" '+(pending?'disabled':'')+'>Consultar catálogo completo</button>':'');toolbar.after(loading);
+ const purchase=document.createElement('label');purchase.className='prd-purchase-rate';purchase.innerHTML='<span>RE de compra estimado (%)</span><input type="number" min="0" max="100" step="0.01" data-pr-price-option="re" value="'+esc(purchaseSurcharge)+'" aria-label="Recargo de compra estimado (%)">'+fieldHelp('Coste con IVA y recargo','Coste base × (1 + IVA / 100 + recargo / 100). Usa el IVA general de España verificado para el producto y el recargo que indiques aquí. Es una estimación: no acredita el impuesto de vuestra factura de compra ni modifica la tienda.');toolbar.append(purchase);
  const full=f.querySelector('#check-full-catalog');full.dataset.prCatalogLoaded='';full.checked=rows.some(r=>r.__visible!==false)&&rows.filter(r=>r.__visible!==false).every(r=>selected.has(rowKey(r)));if(full.checked)full.setAttribute('checked','');
  setText(f.querySelector('label[for="check-full-catalog"]'),'Seleccionar todos los resultados del filtro');
  setText(full.parentElement.parentElement.querySelector('span'),'Seleccionados: '+selected.size);
@@ -101,7 +102,7 @@ export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit
  table.classList.add('prd-data-table');table.closest('.rounded-xl')?.classList.add('prd-panel');
  for(const td of body.querySelectorAll('td:last-child'))td.classList.add('prd-row-actions');
  if(!visible.length){const empty=document.createElement('p');empty.className='prd-catalog-empty';empty.setAttribute('role','note');empty.textContent=rows.length?'No hay productos que coincidan con estos filtros. Limpia el buscador o cambia los filtros.':'No hay productos cargados. Comprueba la conexión y pulsa Actualizar.';table.parentElement.before(empty);}
- const arrows=document.createElement('div');arrows.className='prd-table-navigation';arrows.innerHTML='<span>Foto y producto fijos · flechas para recorrer columnas</span><button type="button" data-pr-action="catalog-scroll" data-direction="-1" aria-label="Ver columnas anteriores">←</button><button type="button" data-pr-action="catalog-scroll" data-direction="1" aria-label="Ver columnas siguientes">→</button>';table.parentElement.before(arrows);
+ const arrows=document.createElement('div');arrows.className='prd-table-navigation';arrows.innerHTML='<label class="prd-column-position">Recorrer columnas <input type="range" min="0" max="1000" value="0" data-pr-table-position aria-label="Posición horizontal del catálogo"></label><button type="button" data-pr-action="catalog-scroll" data-direction="-1" aria-label="Ver columnas anteriores">←</button><button type="button" data-pr-action="catalog-scroll" data-direction="1" aria-label="Ver columnas siguientes">→</button>';table.parentElement.before(arrows);
  const footer=table.parentElement.nextElementSibling;
  if(footer){footer.innerHTML='<span>'+filtered.length+' resultados · página '+(page+1)+' de '+pages+'</span><div class="flex items-center gap-space-sm"><label>Mostrar <select data-pr-page-size>'+[20,50,100].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" data-pr-action="catalog-prev" '+(page===0?'disabled':'')+'>Anterior</button><button type="button" data-pr-action="catalog-next" '+(page+1>=pages&&!hasMore?'disabled':'')+'>Siguiente</button></div>';}
  return serialize(f);
@@ -245,9 +246,9 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
  return serialize(f);
 }
 
-export function stitchCopy({store,legacyHtml}){
+export function stitchCopy({store,legacyHtml,record,targetRecord}){
  const f=fragment(STITCH_VIEWS['tab-copiar']),view=f.firstElementChild,actual=fragment(legacyHtml);
- view.classList.remove('hidden');view.classList.add('flex');
+ view.classList.remove('hidden');view.classList.add('flex','prd-copy-view');
  const source=store==='hortimatic'?'Hortimatic':'NewOldSmok',target=store==='hortimatic'?'NewOldSmok':'Hortimatic';
  const swap=f.querySelector('#btn-swap-stores');action(swap,'copy-reverse');swap.setAttribute('aria-label','Intercambiar tiendas de origen y destino');
  const buttons=[...view.querySelectorAll('button')];
@@ -261,6 +262,9 @@ export function stitchCopy({store,legacyHtml}){
   const badge=panel.firstElementChild.lastElementChild,identity=panel.children[1],actualIdentity=editor?.querySelector('.prd-parallel-identity');
   setText(badge,i?'Revisar destino':'Ficha de origen');
   if(actualIdentity){const picture=actualIdentity.querySelector('img'),slot=identity.firstElementChild,description=identity.lastElementChild;slot.replaceChildren();if(picture){picture.className='prd-product-photo w-full h-full object-contain';slot.append(picture);}else slot.textContent='Sin foto';description.replaceChildren();const name=document.createElement('strong');name.className='font-headline-sm text-headline-sm text-on-surface';name.textContent=actualIdentity.querySelector('strong')?.textContent||'Nueva ficha';const note=document.createElement('span');note.className='font-body-sm text-body-sm text-on-surface-variant';note.textContent=i?'Completa los datos y revisa las coincidencias antes de guardar.':'Selecciona los campos que quieres copiar.';description.append(name,note);}
+  identity.classList.add('prd-copy-identity');
+  const product=i?targetRecord:record,shop=i?(store==='hortimatic'?'newoldsmok':'hortimatic'):store;
+  if(product){const gallery=document.createElement('div');gallery.className='prd-copy-gallery';for(const imageId of associationIds(product,'images')){if(!/^[1-9]\d{0,14}$/.test(String(imageId)))continue;const image=document.createElement('img');image.className='prd-product-photo';image.src='https://'+(shop==='hortimatic'?'hortimatic.com':'newoldsmok.com')+'/'+imageId+'-home_default/product.jpg';image.alt=textValue(product.name)||'Producto';gallery.append(image);}if(gallery.children.length)identity.lastElementChild.append(gallery);const facts=document.createElement('small');facts.textContent='ID '+product.id+' · '+(product.reference||'Sin referencia')+' · '+associationIds(product,'images').length+' fotos · '+associationIds(product,'combinations').length+' combinaciones';identity.lastElementChild.append(facts);}
   const fieldsPanel=panel.children[2],rowTemplate=fieldsPanel.children[1].cloneNode(true),heading=fieldsPanel.firstElementChild.cloneNode(true);fieldsPanel.replaceChildren(heading);
   if(editor){
    const variations=editor.querySelector('.prd-copy-variant-options');if(variations)fieldsPanel.append(variations);

@@ -69,6 +69,13 @@ try{
   assert(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth<=window.innerWidth+2));
   await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
   assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
+  assert.equal(await page.evaluate(()=>{const r=document.querySelector('.prd-catalog-filters').getBoundingClientRect();return [...document.querySelectorAll('.prd-catalog-filters label')].every(e=>{const b=e.getBoundingClientRect();return b.left>=r.left-1&&b.right<=r.right+1;});}),true,'Filters fit the available module width');
+  const position=page.locator('[data-pr-table-position]');
+  await position.focus();await position.press('End');
+  await page.waitForFunction(()=>{const v=document.querySelector('.prd-catalog-table');return v.scrollLeft>=v.scrollWidth-v.clientWidth-2;});
+  await position.press('Home');
+  await page.waitForFunction(()=>document.querySelector('.prd-catalog-table').scrollLeft<2);
+
   await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-column="ean13"]').check();
   await page.locator('.prd-columns summary').click();
@@ -193,10 +200,11 @@ try{
   await page.getByText(/Idiomas y categorías consultados en hortimatic/).waitFor();
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').selectOption('33');
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').blur();
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="reference"]').fill('NEW-REF-UI');
   await page.getByRole('button',{name:'Validar alta sin escribir'}).click();
   await page.getByText(/Prevalidación de hortimatic correcta/).waitFor();
   await page.locator('[data-pr-create-confirm="hortimatic"]').fill('CREAR');
-  await page.locator('[data-pr-create-confirm="hortimatic"]').blur();
+  assert.equal(await page.locator('[data-pr-create-confirm="hortimatic"]').evaluate(el=>document.activeElement===el),true,'Confirmation stays focused and save enables while typing');
   assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action==='prestashop_product_create_commit')),false);
   assert.equal(await page.locator('[data-pr-action=edit-commit]').count(),0,'Un alta nueva no muestra un guardado sobre un producto existente');

@@ -21,3 +21,13 @@ test('target sales margin derives a net price without confusing markup or unreli
  assert.equal(productPriceForMargin('10','20'),12.5);assert.equal(productPriceForMargin('10','-25'),8);assert.equal(productPriceForMargin('4','75'),16);
  for(const args of [['0','20'],['','20'],['10','100'],['10','not a margin']])assert.throws(()=>productPriceForMargin(...args),/coste|margen/);
 });
+
+import {productPurchaseAmounts} from '../src/productos-tax.js';
+test('purchase cost adds VAT and surcharge on the net base without compounding or premature rounding',()=>{
+ assert.equal(productPurchaseAmounts('10',21,5.2).total.toFixed(2),'12.62');
+ assert.equal(productPurchaseAmounts('3.90',21,5.2).total.toFixed(2),'4.92');
+ assert.equal(productPurchaseAmounts('0',0,0).total,0);
+ for(const tax of [null,undefined,'',-1,101])assert.equal(productPurchaseAmounts(10,tax,5.2).total,null);
+ assert.equal(productPurchaseAmounts('',21,5.2).total,null);
+ assert.equal(productPurchaseAmounts(10,21,'').total,null);
+});

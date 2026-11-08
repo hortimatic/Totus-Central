@@ -75,7 +75,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
    price:'1.00',category_id:'2',fields:[{field:'available_date',value:'0000-00-00'},{field:'minimal_quantity',value:'0'},{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
-   translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'Descripción de prueba aislada',meta_title:'SEO de prueba'}))
+   translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'<p>Descripción de prueba aislada<br><img src="https://example.com/91-home_default/product.jpg" alt="Imagen de prueba" width="260"></p>',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
  assert.equal(preflight.persisted,false);
