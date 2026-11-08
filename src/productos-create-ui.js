@@ -193,7 +193,7 @@ export function createProductWizard({invoke,canEdit=()=>false,onProgress=()=>{}}
    return 'Idiomas y categorías consultados en '+shop+'. Ahora elige la categoría y valida el alta.';
   }
   if(action==='create-prepare'){
-   const preferences=copyPreferences.get(shop);if(source.__sourceStore&&source.__sourceStore!==shop){if(preferences?.prices&&!Array.isArray(preferences.priceRows))throw Error('Pulsa Relacionar datos del origen para consultar los precios seleccionados antes del alta.');if(preferences?.stock&&!plan.variants?.length&&!preferences.baseStock)throw Error('Pulsa Relacionar datos del origen para consultar las cantidades antes del alta.');}
+   const preferences=copyPreferences.get(shop);if(preferences?.stock&&plan.variants?.some(variant=>!variant.source_stock))throw Error('Faltan cantidades verificadas de alguna combinación. Consulta sus existencias o desmarca la copia de cantidades.');if(source.__sourceStore&&source.__sourceStore!==shop){if(preferences?.prices&&!Array.isArray(preferences.priceRows))throw Error('Pulsa Relacionar datos del origen para consultar los precios seleccionados antes del alta.');if(preferences?.stock&&!plan.variants?.length&&!preferences.baseStock)throw Error('Pulsa Relacionar datos del origen para consultar las cantidades antes del alta.');}
    if(attempted.has(shop))throw Error('Existe una operación iniciada que requiere conciliación.');
    const values=payload(shop,plan,source),response=await invoke(shop,'prestashop_product_create_prepare',values);
    if(response.persisted!==false||response.resource!=='products'||response.reference!==values.reference||

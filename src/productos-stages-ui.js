@@ -125,6 +125,9 @@ export function createProductStagesUI({invoke,canEdit=()=>false,onProgress=()=>{
    const options=detail.options||{},save=async row=>{if(row.done)return;await perform(row.attempted?'stage-verify':'stage-commit',shop,result,plan,source,profile,state.catalogs,{row:row.id});};
    await perform('stage-load',shop,result,plan,source,profile,state.catalogs);
    const combinations=state.rows.filter(r=>r.kind==='variation');
+   let stockSource=source;
+   if(options.stock){const response=await invoke(shop,'prestashop_item_read',{resource:'products',record_id:String(result.record_id)});if(String(response.item?.id)!==String(result.record_id)||!/^[1-9]\d*$/.test(String(response.item.id_shop_default||'')))throw Error('No se pudo verificar la tienda nativa de las existencias de destino.');stockSource={...source,id_shop_default:String(response.item.id_shop_default)};}
+
    if(options.stock&&!combinations.length&&!options.baseStock)throw Error('Consulta las cantidades del origen al preparar la copia antes de copiar existencias.');
    if(options.prices&&!Array.isArray(options.priceRows))throw Error('Consulta los precios del origen al preparar la copia antes de guardarlos.');
    if(combinations.some(r=>!r.done&&(!r.attributes.length||!r.attributesChosen&&r.mappingComplete===false)))throw Error('Revisa la correspondencia de atributos antes de guardar la copia. No se han subido imágenes ni combinaciones.');
@@ -135,9 +138,9 @@ export function createProductStagesUI({invoke,canEdit=()=>false,onProgress=()=>{
    for(const row of combinations){
     if(!row.attempted&&!row.done){row.imageIds=options.images===false?[]:row.sourceImageIds.map(id=>imageMap[id]);if(row.imageIds.some(id=>!id))throw Error('Falta una imagen verificada de la combinación '+(row.fields.reference||row.sourceVariantId)+'.');}
     await save(row);
-    if(options.stock&&row.sourceStock){let stock=state.rows.find(r=>r.copyStockFor===row.id);if(!stock){await perform('stage-add',shop,result,plan,source,profile,state.catalogs,{kind:'stock',stockFields:{id_product_attribute:String(row.done.record_id)}});stock=state.rows.at(-1);stock.copyStockFor=row.id;Object.assign(stock.fields,row.sourceStock);}await save(stock);}
+    if(options.stock&&row.sourceStock){let stock=state.rows.find(r=>r.copyStockFor===row.id);if(!stock){await perform('stage-add',shop,result,plan,stockSource,profile,state.catalogs,{kind:'stock',stockFields:{id_product_attribute:String(row.done.record_id)}});stock=state.rows.at(-1);stock.copyStockFor=row.id;Object.assign(stock.fields,row.sourceStock);}await save(stock);}
    }
-   if(options.stock&&!combinations.length&&options.baseStock){let stock=state.rows.find(r=>r.copyStockFor==='base');if(!stock){await perform('stage-add',shop,result,plan,source,profile,state.catalogs,{kind:'stock',stockFields:{id_product_attribute:'0'}});stock=state.rows.at(-1);stock.copyStockFor='base';Object.assign(stock.fields,options.baseStock);}await save(stock);}
+   if(options.stock&&!combinations.length&&options.baseStock){let stock=state.rows.find(r=>r.copyStockFor==='base');if(!stock){await perform('stage-add',shop,result,plan,stockSource,profile,state.catalogs,{kind:'stock',stockFields:{id_product_attribute:'0'}});stock=state.rows.at(-1);stock.copyStockFor='base';Object.assign(stock.fields,options.baseStock);}await save(stock);}
    if(options.prices)for(const item of options.priceRows){
     const targetVariant=item.sourceVariant==='0'?'0':String(combinations.find(row=>String(row.sourceVariantId)===item.sourceVariant)?.done?.record_id||'');
     if(!targetVariant)continue; // An unselected combination has no price destination.
