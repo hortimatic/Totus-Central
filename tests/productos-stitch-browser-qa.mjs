@@ -23,7 +23,7 @@ try{
   });
   const sourceCapture=async(id,name)=>{await reference.evaluate(id=>{document.querySelectorAll('.master-tab-view,.subtab-content').forEach(n=>n.style.removeProperty('display'));const buttons=[...document.querySelectorAll('.master-tab-btn')],ids=['tab-catalogo','tab-ficha','tab-copiar','tab-alta','tab-borradores'];window.totusOpenMasterTab(id,buttons[ids.indexOf(id)]);},id);await reference.screenshot({path:'qa-artifacts/stitch-original-'+name+'-'+width+'.png',fullPage:true});};
   assert.equal(await page.getByRole('tab').count(),5);
-  await page.getByText('Producto real de prueba',{exact:true}).waitFor();
+  await page.locator('tbody').getByText('Producto real de prueba',{exact:true}).waitFor();
   assert.equal(await page.locator('tbody tr').count(),1);
   assert(await page.locator('.prd-catalog-filters').evaluate(n=>n.getBoundingClientRect().right<=innerWidth),'Filters fit the available workspace');
   assert(await page.locator('[data-pr-catalog-all]').evaluate(n=>n.getBoundingClientRect().width<=20),'Selection remains compact');
@@ -92,7 +92,8 @@ try{
   assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/VP-AG2|Voopoo Argus GT II|69,95|38 uds/);
   await page.screenshot({path:'qa-artifacts/productos-stitch-ficha-'+width+'.png',fullPage:true});
   await page.locator('#store-context-select').selectOption('hortimatic');
-  await page.getByText('Producto real de prueba',{exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Producto real de prueba',exact:true}).waitFor();
+  await page.getByRole('tab',{name:/1\. Catálogo General/}).click();
   await page.locator('#store-context-select').selectOption('newoldsmok');
   await page.locator('.prd-catalog-table').waitFor();
   assert.equal(await page.getByRole('tab',{name:/1\. Catálogo General/}).getAttribute('aria-selected'),'true','Changing store from catalogue must not jump to a recovered draft tab');
