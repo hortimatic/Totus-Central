@@ -6,7 +6,7 @@ import {state} from '../src/state.js';
 const admin={role:'admin',email:'admin@qa.invalid'};
 const manager={role:'gerente',email:'gerente@qa.invalid'};
 const staff={role:'encargado',email:'staff@qa.invalid'};
-assert.equal(PERMISSION_MODULES.length,14);
+assert.equal(PERMISSION_MODULES.length,15);
 assert.equal(defaultRolePermissions('encargado','gastos').delete,false);
 assert.equal(defaultRolePermissions('gerente','gastos').create,true);
 const baseline=defaultRolePermissions('gerente','gastos');
@@ -42,4 +42,4 @@ assert.ok(!html.includes('data-role="admin"'),'No permitir editar al administrad
 state.data.team=[{role:'gerente',active:true},{role:'gerente',active:false},{role:'gerente',active:false,deleted_at:'2026-11-02'},{role:'gerente',active:false,deleted_at:'2026-11-02',purged_at:'2026-11-02'}];
 let counts=administracion();assert(counts.includes('<b>2</b> usuarios · 1 activo · 1 inactivos'),'No contar retirados o purgados como usuarios actuales');
 state.data.team[0].role='encargado';counts=administracion();assert(counts.includes('<b>1</b> usuario · 0 activos · 1 inactivos'),'Actualizar el recuento al cambiar de rol');
-console.log('ROLES & HELP QA: rol configurable, excepciones, 14 módulos y ayudas i OK');
+console.log('ROLES & HELP QA: rol configurable, excepciones, 15 módulos y ayudas i OK');
