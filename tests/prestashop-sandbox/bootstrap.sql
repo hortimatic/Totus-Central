@@ -54,8 +54,3 @@ SET @ci_feature_value=LAST_INSERT_ID();
 INSERT INTO ps_feature_value_lang(id_feature_value,id_lang,value) SELECT @ci_feature_value,id_lang,'CI Metal' FROM ps_lang;
 INSERT INTO ps_tag(id_lang,name) VALUES(1,'TOTUS CI Tag');
 
--- Installed inactive language fixture; data only, no module or shop code changes.
-INSERT INTO ps_lang(name,active,iso_code,language_code,locale,date_format_lite,date_format_full,is_rtl)
- VALUES('CI inactive language',0,'zz','zz-ZZ','zz-ZZ','Y-m-d','Y-m-d H:i:s',0);
-SET @ci_inactive_language=LAST_INSERT_ID();
-INSERT INTO ps_lang_shop(id_lang,id_shop) SELECT @ci_inactive_language,id_shop FROM ps_shop;

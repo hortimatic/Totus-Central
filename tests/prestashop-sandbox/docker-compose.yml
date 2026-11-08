@@ -27,5 +27,6 @@ services:
       MYSQL_PASSWORD: prestashop
     volumes:
       - ./bootstrap.sql:/tmp/ci-webservice.sql:ro
+      - ./language-fixture.php:/tmp/ci-language-fixture.php:ro
     ports:
       - "127.0.0.1:8000:80"
