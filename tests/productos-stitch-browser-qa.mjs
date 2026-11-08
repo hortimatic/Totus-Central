@@ -91,6 +91,9 @@ try{
   await page.locator('#store-context-select').selectOption('hortimatic');
   await page.getByText('Producto real de prueba',{exact:true}).waitFor();
   await page.locator('#store-context-select').selectOption('newoldsmok');
+  await page.locator('.prd-catalog-table').waitFor();
+  assert.equal(await page.getByRole('tab',{name:/1\. Catálogo General/}).getAttribute('aria-selected'),'true','Changing store from catalogue must not jump to a recovered draft tab');
+  await page.getByRole('tab',{name:/2\. Ficha y Edición/}).click();
   await page.locator('#subtabs-bar').waitFor().catch(async error=>{console.error(await page.locator('#productosRoot').innerText(),errors);throw error;});
   assert.equal(await page.locator('[data-pr-value="name"]').inputValue(),'Nombre editado seguro');
   await page.getByRole('tab',{name:/5\./}).click();

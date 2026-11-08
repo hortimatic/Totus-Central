@@ -250,10 +250,12 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
  }
  async function switchStore(next){
   if(!['hortimatic','newoldsmok','both'].includes(next)||next===catalogScope)return;
+  const requestedMode=mode;
   rememberProductDraft();if(record||requestBrief.url)draftsByShop.set(store,structuredClone(snapshotDraft()));
   resetDraft();catalogScope=next;if(next!=='both')store=next;
   rows=[];page=0;hasMore=false;query='';catalogStock.clear();catalogSelected.clear();catalogFilters={category:'',brand:'',active:''};
   const saved=next==='both'?null:draftsByShop.get(next);if(saved){const edits=tableEditor.snapshot();restoreDraft(saved);tableEditor.restore(edits);if(record?.id&&ready(next))await refreshStoredProduct();}else mode='catalogo';
+  mode=['catalogo','encargo','guardado'].includes(requestedMode)?requestedMode:record?requestedMode:'catalogo';
   if(next==='both'||ready(next))await loadCatalog(false);else status='Revisa la conexión de '+next+'.';
  }
 
