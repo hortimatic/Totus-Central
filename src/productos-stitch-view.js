@@ -163,6 +163,7 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
  }
  // Use the original matrix, populated only with the selected shop's real variants.
  const vPanel=f.querySelector('#sub-variaciones'),addVariant=vPanel.querySelector('button');action(addVariant,record.id?'variation-stages':'new-variant');
+ const variantNotice=[...vPanel.querySelectorAll('p')].find(p=>p.textContent.includes('Impacto Precio'));if(variantNotice)variantNotice.textContent='El impacto de precio sin IVA se suma al precio base sin IVA del producto. No introduzcas el precio total de venta en esta casilla.';
  const bulk=addVariant.cloneNode(true);action(bulk,'mode');bulk.dataset.mode='bulk';bulk.textContent='Cambios masivos';addVariant.after(bulk);
  for(const [name,title]of [['attribute-group','Nuevo atributo'],['attribute-value','Nuevo valor']]){const b=addVariant.cloneNode(true);action(b,name);b.textContent=title;bulk.after(b);}
  const table=vPanel.querySelector('table'),sample=table.querySelector('tbody tr');
