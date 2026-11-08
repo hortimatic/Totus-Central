@@ -96,3 +96,12 @@ export function bulkVariantSelection(rows,ids,fields){
  if(matched.length!==selected.size)throw Error('Faltan combinaciones seleccionadas: no se modifica el resto.');
  return matched.map(row=>({id:cleanId(row.id),reference:textValue(row.reference),fields}));
 }
+
+// Redirect target IDs belong to one shop. Keep other selected fields copyable.
+export function productCopyRedirect({fields,source,overrides={},adapted={},crossStore=false}){
+ const selected=[...fields],values={...overrides,...adapted};
+ if(!crossStore||!selected.some(k=>['redirect_type','id_type_redirected'].includes(k))||Object.hasOwn(adapted,'id_type_redirected'))return {fields:selected,overrides:values,notice:''};
+ const type=String(values.redirect_type??source.redirect_type??''),target=String(values.id_type_redirected??source.id_type_redirected??'');
+ if(type==='404'||target==='0')return {fields:[...new Set([...selected,'redirect_type','id_type_redirected'])],overrides:{...values,redirect_type:'404',id_type_redirected:'0'},notice:type!=='404'?'La redirección de origen no tiene destino: se prepara sin redirección.':''};
+ return {fields:selected.filter(k=>!['redirect_type','id_type_redirected'].includes(k)),overrides:values,notice:'La redirección queda pendiente de elegir en esta tienda. Los demás campos están preparados.'};
+}

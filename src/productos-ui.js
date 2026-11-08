@@ -4,7 +4,7 @@ import {productCountryTaxRate,productDisplayAmounts,productPriceForMargin} from 
 import {stitchHeader,stitchCatalog,stitchFiche,stitchCopy,stitchRequest,stitchSaved,ensureStitchProductFonts} from './productos-stitch-view.js';
 import {PRODUCT_COLUMNS,DEFAULT_PRODUCT_COLUMNS,productColumns,catalogProductKey,productPhoto,filterProductCatalog,productCatalogCsv} from './productos-catalog.js';
 import {buildProductRequest,renderProductRequestForm} from './productos-request.js';
-import {PRODUCT_STORES,PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,productInputValue,associationIds,normalizedProduct,matchExactReference,buildProductPlan,bulkVariantSelection} from './productos-core.js';
+import {PRODUCT_STORES,PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,productInputValue,associationIds,normalizedProduct,matchExactReference,buildProductPlan,bulkVariantSelection,productCopyRedirect} from './productos-core.js';
 import {storeConnection} from './prestashop-readonly.js';
 import {PRODUCT_WRITE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from './productos-write-contract.js';
 import {createProductWizard} from './productos-create-ui.js';
@@ -338,10 +338,10 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
  async function prepare(){
   if(!record)throw Error('Abre una ficha o prepara un producto nuevo.');
   if(!targets.size)throw Error('Selecciona alguna tienda de destino.');
-  const plans=[],readTargets=new Map();
+  const plans=[],readTargets=new Map(),copyNotices=[];
   for(const dest of targets){
    const adapted=targetOverrides.get(dest)||{};
-   if(dest!==store&&(fields.has('redirect_type')||fields.has('id_type_redirected'))){const type=String(adapted.redirect_type??overrides.redirect_type??record.redirect_type);if(type!=='404'&&!Object.hasOwn(adapted,'id_type_redirected'))throw Error('Selecciona expresamente el destino de redirección de '+dest+'. Los ID de origen no se copian entre tiendas.');}
+   const redirect=productCopyRedirect({fields,source:record,overrides,adapted,crossStore:dest!==store});if(redirect.notice)copyNotices.push(dest+': '+redirect.notice);
    const sourceRef=String(Object.prototype.hasOwnProperty.call(adapted,'reference')?adapted.reference:Object.prototype.hasOwnProperty.call(overrides,'reference')?overrides.reference:textValue(record.reference)).trim();
    let target=null,related=[];
    const explicit=String(targetIds.get(dest)||'').trim();
@@ -367,10 +367,10 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false}){
     if(same.length>1)throw Error('Referencia de combinación duplicada en '+dest+'.');
     return {source:v,target:same[0]||null,fields:[...(variantFields.get(keyFor(v))||[])],overrides:variantOverrides.get(keyFor(v))||{}};
    });
-   plans.push(buildProductPlan({source:record,target,store:dest,fields:[...fields],overrides:{...overrides,...(targetOverrides.get(dest)||{})},variants:selected}));
+   plans.push(buildProductPlan({source:record,target,store:dest,fields:redirect.fields,overrides:redirect.overrides,variants:selected}));
   }
   for(const [shop,item] of readTargets)shopRecords.set(shop,item);
-  targetRaw=readTargets;comparison=new Map(plans.map(p=>[p.store,p]));preview=plans;mode='comparar';status='Propuesta preparada para '+plans.length+' tienda(s). Ningún dato se ha modificado.';
+  targetRaw=readTargets;comparison=new Map(plans.map(p=>[p.store,p]));preview=plans;mode='comparar';status='Propuesta preparada para '+plans.length+' tienda(s). Ningún dato se ha modificado.'+(copyNotices.length?' '+copyNotices.join(' '):'');
  }
  async function previewXml(dest){
   const plan=comparison.get(dest);

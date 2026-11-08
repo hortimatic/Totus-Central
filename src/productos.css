@@ -153,3 +153,9 @@
 /* Keep the source copy cards compact while retaining every editable field. */
 #productosRoot .prd-stitch .prd-copy-control{padding:2px 8px;min-height:28px;font-size:12px;line-height:18px;box-shadow:none}
 #productosRoot .prd-stitch textarea.prd-copy-control{min-height:72px}
+
+/* Preserve the original Stitch filter widths outside the mobile breakpoint. */
+@media(min-width:641px){
+ #productosRoot .prd-stitch [class~="min-w-[320px]"]{min-width:320px}
+ #productosRoot .prd-stitch [class~="min-w-[240px]"]{min-width:240px}
+}

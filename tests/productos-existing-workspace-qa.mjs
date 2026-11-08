@@ -72,3 +72,14 @@ test('draft cleanup never drops sent, uncertain, completed, undated or malformed
  for(const changed of [{savedAt:undefined},{savedAt:now},{wizard:{attempted:['hortimatic'],stages:[]}},{editRequests:new Map([['request',{}]])},{wizard:{stages:[['session',{rows:[{attempted:true}]}]]}},{wizard:{stages:[['session',{rows:[{done:{verified:true}}]}]]}},{wizard:{stages:'broken'}}])assert.equal(productDraftFacts({...old,...changed},now).canPurge,false);
  assert.deepEqual(productDraftFacts({...old,wizard:{stages:[['session',{rows:[{}, {done:{verified:true}}]}]]}},now),{sent:true,canPurge:false,pendingSteps:1,doneSteps:1});
 });
+
+import {createProductStagesUI} from '../src/productos-stages-ui.js';
+test('owner can activate an incomplete product without photos and finish other stages later',async()=>{
+ const calls=[],ui=createProductStagesUI({canEdit:()=>true,invoke:async(shop,action,args)=>{calls.push({action,args});return {persisted:true,verified:true,record_id:'42'};}});
+ const result={request_id:'request',record_id:'42',existing_product:true},source={id:'42',active:'0',associations:{images:[]}},plan={variants:[]};
+ const row={id:'finish',kind:'finish',fields:{active:'1',available_for_order:'0'},prepared:{can_commit:true,fingerprint:'a'.repeat(64),values:{kind:'finish',fields:{active:'1',available_for_order:'0'}}}};
+ ui.restore([['hortimatic|request',{shop:'hortimatic',result,source,profile:{language_ids:['1']},catalogs:{},tab:'finish',rows:[row,{id:'pending',kind:'variation',fields:{}}]}]]);
+ await ui.perform('stage-commit','hortimatic',result,plan,source,{language_ids:['1']},{},{row:'finish'});
+ assert.equal(calls.length,1);assert.equal(calls[0].args.fields.active,'1');assert.equal(calls[0].args.fields.available_for_order,'0');
+ assert.equal(ui.snapshot()[0][1].rows[1].done,undefined,'Unfinished variation remains available to resume');
+});
