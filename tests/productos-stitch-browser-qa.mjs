@@ -25,7 +25,8 @@ try{
   assert.equal(await page.getByRole('tab').count(),5);
   await page.getByText('Producto real de prueba',{exact:true}).waitFor();
   assert.equal(await page.locator('tbody tr').count(),1);
-  if(width>640)assert(await page.locator('#tab-catalogo [class~=\"min-w-[320px]\"]').evaluate(n=>n.getBoundingClientRect().width)>=319,'Stitch filters retain their native minimum width');
+  assert(await page.locator('.prd-catalog-filters').evaluate(n=>n.getBoundingClientRect().right<=innerWidth),'Filters fit the available workspace');
+  assert(await page.locator('[data-pr-catalog-all]').evaluate(n=>n.getBoundingClientRect().width<=20),'Selection remains compact');
   assert.doesNotMatch(await page.locator('#productosRoot').innerText(),/1\.428|VP-AG2|SANDBOX|Latencia:|12:44/);
   assert.equal(await page.locator('#productosRoot [onclick]').count(),0);
   await page.locator('.prd-columns summary').click();
