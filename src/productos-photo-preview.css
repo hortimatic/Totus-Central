@@ -1,0 +1,21 @@
+/* Recognizable product photography; scoped to this workspace. */
+#productosRoot .prd-stitch :is(img,span).prd-thumb{width:68px;height:68px;object-fit:contain;border-radius:6px;background:var(--panel,#fff)}
+#productosRoot .prd-stitch button.prd-photo-trigger{width:68px;height:68px;min-width:68px;padding:0!important;border:0;border-radius:6px;background:var(--panel,#fff);cursor:zoom-in;box-shadow:none;display:grid;place-items:center}
+#productosRoot .prd-photo-trigger:focus-visible{outline:2px solid var(--accent,#006591);outline-offset:3px}
+#productosRoot .prd-photo-peek{position:fixed;z-index:250;box-sizing:border-box;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:8px;padding:12px;pointer-events:none;border:1px solid var(--line,#cdd6e2);border-radius:10px;background:var(--panel,#fff);color:var(--ink,#17243a);box-shadow:0 12px 35px #10264038}
+#productosRoot .prd-photo-peek img{display:block;width:100%;height:250px;max-height:calc(100dvh - 100px);object-fit:contain;background:#fff;border-radius:5px}
+#productosRoot .prd-photo-peek span{font-size:12px;line-height:1.4;font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#productosRoot .prd-product-photo-dialog{width:min(640px,calc(100vw - 24px));max-height:90dvh;padding:14px;border:1px solid var(--line,#cdd6e2);border-radius:12px;background:var(--panel,#fff);color:var(--ink,#17243a);box-sizing:border-box}
+#productosRoot .prd-product-photo-dialog::backdrop{background:#10243888}
+#productosRoot .prd-product-photo-dialog img{display:block;max-width:100%;height:min(60dvh,500px);object-fit:contain;margin:12px auto;background:#fff}
+#productosRoot .prd-product-photo-dialog p{font-size:13px;margin:0}
+#productosRoot .prd-product-photo-dialog button{min-height:36px;padding:7px 12px;border:1px solid var(--line,#cdd6e2);border-radius:6px;background:var(--panel,#fff);color:inherit}
+
+#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=image],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Foto]{position:sticky;left:var(--prd-image-left,40px);z-index:3;width:88px;min-width:88px;max-width:88px;background:var(--panel,#fff)}
+#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Producto]{position:sticky;left:var(--prd-name-left,128px);z-index:3;width:220px;min-width:220px;max-width:240px;background:var(--panel,#fff);box-shadow:4px 0 7px #18334b10}
+#productosRoot .prd-stitch .prd-catalog-table{scroll-padding-left:360px}
+@media(max-width:600px){#productosRoot .prd-stitch .prd-catalog-table th[data-pr-column-heading=name],#productosRoot .prd-stitch .prd-catalog-table td[data-label=Producto]{width:100px;min-width:100px;max-width:100px}#productosRoot .prd-stitch .prd-catalog-table{scroll-padding-left:296px}}
+
+#productosRoot .prd-stitch .prd-catalog-table td :is(button,input,select,a){scroll-margin-inline-start:0;scroll-margin-inline-end:12px}
+/* A trailing table gutter lets the final actions clear the frozen identity columns. */
+#productosRoot .prd-stitch .prd-catalog-table tr::after{content:"";display:table-cell;min-width:var(--prd-pinned-width,360px);width:var(--prd-pinned-width,360px);background:var(--panel,#fff)}

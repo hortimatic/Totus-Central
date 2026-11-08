@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
 const server=await startLocalServer();
 const {chromium}=await import('playwright');
 const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
+const report=[];await mkdir('qa-artifacts',{recursive:true});
 try{
- for(const width of [390,1440]){
-  const page=await browser.newPage({viewport:{width,height:900}}),errors=[];
+ for(const [width,height] of [[390,500],[390,900],[680,660],[1440,900]]){
+  const page=await browser.newPage({viewport:{width,height}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://hortimatic.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect x="30" y="10" width="40" height="80" fill="navy"/></svg>'}));
   await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
@@ -26,11 +28,22 @@ try{
      throw Error('Unexpected operation '+body.action);
     }});await q.ui.mount(document.querySelector('#productosRoot'));
   });
+  const inside=async locator=>{await page.waitForFunction(()=>[...document.querySelectorAll('.prd-columns[open]>div,.prd-row-menu[open]>div')].every(n=>n.style.position==='fixed'));const r=await locator.boundingBox();assert(r&&r.x>=0&&r.y>=0&&r.x+r.width<=width+1&&r.y+r.height<=height+1,'Overlay fits the viewport: '+JSON.stringify(r));};
+  await page.locator('.prd-columns summary').click();await inside(page.locator('.prd-columns[open]>div'));
+  const arrows=await page.locator('.prd-columns[open] [data-pr-direction]').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {height:r.height,width:r.width};}));assert(arrows.every(r=>r.height>=28&&r.width>=20),'Column arrows retain useful, consistent targets');
+  await page.locator('.prd-catalog-table').hover();await page.mouse.wheel(50,0);await page.waitForFunction(()=>!document.querySelector('.prd-columns[open]'));
+  await page.locator('.prd-row-menu summary').click();await inside(page.locator('.prd-row-menu[open]>div'));await page.keyboard.press('Escape');assert.equal(await page.locator('.prd-row-menu[open]').count(),0);
   await page.getByRole('button',{name:'Abrir ficha',exact:true}).click();
+  const info=page.locator('#sub-info .field-help').first();
+  await info.locator('..').hover({position:{x:2,y:2}});assert.equal(await info.getAttribute('open'),null,'A field label does not open the information icon');
+  await info.locator('summary').hover();await page.waitForFunction(()=>document.querySelector('#sub-info .field-help')?.open);await inside(info.locator('[role=note]'));await page.mouse.move(1,1);assert.equal(await info.getAttribute('open'),null);
+  const sectionButtons=await page.locator('#subtabs-bar button').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,right:r.right,height:r.height};}));assert.equal(sectionButtons.length,9);assert(sectionButtons.every(r=>r.x>=0&&r.right<=width+1&&r.height>=30),'All nine sections have aligned, usable controls');
   await page.locator('[data-pr-section="imagenes"]').click();
   await page.locator('[data-pr-action="photo-zoom"][data-pr-image="91"]').click();
+  await inside(page.getByRole('dialog',{name:'Imagen del producto',exact:true}));
   assert.match(await page.locator('.prd-photo-dialog img').getAttribute('src'),/91-large_default/);
   await page.getByRole('button',{name:'Cerrar imagen',exact:true}).click();
+  await page.waitForFunction(()=>!document.querySelector('.prd-photo-peek'));assert.equal(await page.getByRole('tooltip').count(),0,'Closing a photo does not leave its hover preview stuck');
 
   assert.equal(await page.locator('[data-pr-fiche-organization="id_manufacturer"]').inputValue(),'3','Saved brand remains selected after HTML serialization');
   assert.equal(await page.locator('[data-pr-value="description_short"]').inputValue(),'Resumen original');assert.equal(await page.evaluate(()=>existingActions.product.description_short),'<p>Resumen original</p>','Readable summary does not mutate the saved HTML');assert.match(await page.locator('#sticky-cost-display').innerText(),/4,00/);
@@ -103,6 +116,13 @@ try{
   await page.locator('[data-pr-section="imagenes"]').click();
   assert.equal(await page.locator('[data-pr-action="image-remove"][data-pr-image="90"]').count(),0);
   await page.locator('[data-pr-action="image-metadata"][data-pr-image="91"]').click();
+  await inside(page.getByRole('dialog',{name:'Texto de imagen en Totus',exact:true}));
+  await page.screenshot({path:'qa-artifacts/productos-caption-dialog-'+width+'x'+height+'.png',fullPage:false});
+  assert.equal(await page.locator('#productosRoot .prd-caption-dialog').count(),1,'Caption dialog remains inside the styled workspace');
+  await page.getByRole('dialog').locator('input[name="caption"]').fill('Cambio cancelado');await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
+  await page.locator('[data-pr-action="image-metadata"][data-pr-image="91"]').click();assert.notEqual(await page.getByRole('dialog').locator('input[name="caption"]').inputValue(),'Cambio cancelado','Escape does not save caption changes');
+  await page.mouse.click(1,1);assert.equal(await page.getByRole('dialog').count(),0,'Outside click closes the caption dialog');
+  await page.locator('[data-pr-action="image-metadata"][data-pr-image="91"]').click();
   const metadata=page.getByRole('dialog');await metadata.locator('input[name="caption"]').fill('Imagen de la tienda');await metadata.getByRole('button',{name:'Guardar texto en Totus',exact:true}).click();
   await page.getByText(/Texto de imagen guardado en el borrador de Totus/).waitFor();
   const writes=await page.evaluate(()=>existingActions.calls.filter(c=>c.action.endsWith('_commit')));
@@ -133,7 +153,8 @@ try{
   await page.locator('#calc-cost').fill('3,90');await page.locator('#calc-cost').blur();assert.equal(await page.locator('#calc-cost').inputValue(),'3.90');assert.notEqual(await page.locator('[data-pr-margin]').inputValue(),'');
   await page.locator('[data-pr-section="general"]').click();await page.locator('[data-pr-fiche-organization="id_manufacturer"]').selectOption('3');
   const brandReview=page.locator('.prd-stage-row').last();assert.equal(await brandReview.locator('[data-pr-stage-field="id_manufacturer"]').inputValue(),'3');assert.equal(await brandReview.locator('[data-pr-stage-field="active"]').count(),0);assert.equal(await brandReview.locator('[data-pr-stage-field="description"]').count(),0);
-  assert.deepEqual(errors,[]);await page.close();
+  assert.deepEqual(errors,[]);report.push({width,height,mode:'isolated simulation',passed:['column_menu_bounds','aligned_column_arrows','menu_wheel_escape_close','help_icon_only_hover','nine_section_targets','gallery_zoom_bounds_and_close','caption_in_workspace','caption_escape_cancel','caption_outside_close','caption_local_save','cover_and_default','stock_review_discard','organization_readback','variant_photos','delete_confirmation','image_replace','image_drop','attribute_creation','tax_and_margin']});await page.close();
  }
- console.log('Existing product cover/default: explicit review, simulated commit, readback and preserved publication at 390/1440: PASS');
+ await writeFile('qa-artifacts/productos-existing-actions-report.json',JSON.stringify(report,null,2));
+ console.log('Products overlays and existing actions: layout, menus, help, cancel/close/focus, gallery, variants, organization and readback at 390/680/1440 PASS; isolated simulation.');
 }finally{await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}

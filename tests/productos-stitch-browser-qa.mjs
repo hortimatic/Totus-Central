@@ -36,7 +36,7 @@ try{
   await page.locator('[data-pr-view-name]').fill('Revisión de catálogo');
   await page.locator('[data-pr-action="catalog-view-save"]').click();
   assert.equal(await page.locator('[data-pr-catalog-view]').inputValue(),'Revisión de catálogo');
-  assert.equal(await page.locator('.prd-columns input[data-pr-column]').first().getAttribute('data-pr-column'),'id');
+  assert.equal(await page.locator('.prd-columns input[data-pr-column]').first().getAttribute('data-pr-column'),'name');
   await page.locator('.prd-columns summary').click();
   assert.equal(await page.locator('th').filter({hasText:'EAN'}).count(),1);
   await page.locator('[data-pr-catalog-all]').check();
@@ -58,7 +58,7 @@ try{
   for(const [current,original]of [['#sub-info [data-pr-value="name"]','#sub-info input:nth-of-type(1)'],['#sub-info [data-pr-value="reference"]','#sub-info input'],['#sub-desc [data-pr-value="description"]','#sub-desc textarea'],['#sub-seo [data-pr-value="meta_title"]','#sub-seo input'],['#sub-envio [data-pr-value="weight"]','#sub-envio input']]){
    const properties=['fontSize','fontFamily','lineHeight','backgroundColor','color','borderRadius','paddingTop','paddingBottom','paddingLeft','paddingRight'];
    const style=async(p,selector)=>p.locator(selector).first().evaluate((n,keys)=>Object.fromEntries(keys.map(k=>[k,getComputedStyle(n)[k]])),properties);
-   const actual=await style(page,current),expected=await style(reference,original);parity.push({current,original,actual,expected});assert.deepEqual(actual,expected,'Native Stitch field styling '+current);
+   const actual=await style(page,current),expected=await style(reference,original);parity.push({current,original,actual,previousDesign:expected,revision:'V4 compact fields, 12px type / 32px controls'});assert.equal(actual.fontSize,(await page.locator(current).first().evaluate(n=>n.tagName))==='TEXTAREA'?'12px':'13px','Compact V4 field typography '+current);assert.equal(actual.borderRadius,'5px','Consistent field corners '+current);
   }
   await writeFile('qa-artifacts/productos-stitch-style-parity-'+width+'.json',JSON.stringify(parity,null,2));
   assert.equal(await page.locator('#sub-info textarea').getAttribute('rows'),'2');assert.equal(await page.locator('#sub-desc textarea[data-pr-value="description"]').getAttribute('rows'),'6');assert.equal(await page.locator('#sub-seo textarea[data-pr-value="meta_description"]').getAttribute('rows'),'2');
@@ -81,7 +81,10 @@ try{
   await page.locator('[data-pr-format="bold"]').click();
   assert.equal(await description.inputValue(),'<strong>Texto seguro</strong>');
   await page.getByRole('button',{name:'Vista previa',exact:true}).click();
+  const preview=page.getByRole('dialog',{name:'Vista previa de la descripción',exact:true}),previewBounds=await preview.boundingBox();assert(previewBounds.x>=0&&previewBounds.y>=0&&previewBounds.x+previewBounds.width<=width+1&&previewBounds.y+previewBounds.height<=901,'Description preview fits the screen');
   assert.equal(await page.locator('.prd-description-dialog iframe').getAttribute('sandbox'),'');
+  await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);assert.equal(await page.evaluate(()=>document.activeElement.dataset.prAction),'description-preview');
+  await page.getByRole('button',{name:'Vista previa',exact:true}).click();
   await page.getByRole('button',{name:'Cerrar vista previa'}).click();
   await page.locator('[data-pr-section="general"]').click();
 

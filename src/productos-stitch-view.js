@@ -1,7 +1,8 @@
 import {PRODUCT_TABLE_FIELDS} from './productos-table-editor.js';
 import {productGallery} from './productos-gallery.js';
-import {STITCH_HEADER,STITCH_VIEWS} from './productos-stitch-template.js';
-import {PRODUCT_COLUMNS,productPhoto} from './productos-catalog.js';
+import {STITCH_VIEWS} from './productos-stitch-template.js';
+import {STITCH_V4_HEADER} from './productos-stitch-v4-template.js';
+import {PRODUCT_COLUMNS,productPhoto,productWebUrl} from './productos-catalog.js';
 import {PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,associationIds} from './productos-core.js';
 import {esc} from './utils.js';
 import {fieldHelp} from './components.js';
@@ -20,38 +21,24 @@ function action(node,name){node.type='button';node.dataset.prAction=name;return 
 function setText(node,value){if(node)node.textContent=String(value??'');}
 function serialize(node){for(const panel of node.querySelectorAll('.rounded-xl'))if(!panel.parentElement?.closest('.rounded-xl'))panel.classList.add('prd-panel');for(const select of node.querySelectorAll('select'))for(const option of select.options)option.toggleAttribute('selected',option.selected);const wrap=document.createElement('div');wrap.append(node);return wrap.innerHTML;}
 function label(button,value){const spans=button.querySelectorAll('span');setText(spans[1]||button,value);}
+function webLink(record,store){const url=productWebUrl(record,store);return url?'<a class="prd-web-link prd-table-button" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Abrir en '+(store==='hortimatic'?'Hortimatic':'NewOldSmok')+'. Un producto inactivo puede no estar disponible públicamente.">Ver en la web ↗</a>':'<span class="prd-web-unavailable">Sin enlace: producto aún no creado</span>';}
 export function stitchHeader({store,mode,status,count,product,pending,connected,draftCount=0}){
- const f=fragment(STITCH_HEADER),select=f.querySelector('select');
- f.firstElementChild.classList.add('prd-workspace-header');
- select.dataset.prStore='';
- for(const option of select.options)option.toggleAttribute('selected',option.value===store);
- const badges=f.querySelectorAll('.rounded-full');
- setText(badges[0],connected?'Conexión verificada':'Revisar conexión');
- const sandbox=f.querySelector('[title="Entorno Sandbox"]');
- if(sandbox){sandbox.removeAttribute('title');setText(sandbox,connected?'API conectada':'Sin verificar');}
- const tabs=[...f.querySelectorAll('.master-tab-btn')];
- tabs.forEach((b,i)=>{
-  const names=['1. Catálogo General','2. Ficha y Edición','3. Copiar entre Tiendas','4. Alta Asistida & ChatGPT','5. Guardado, Etapas y Trazabilidad'];
-  b.setAttribute('aria-label',names[i]);b.title=names[i];
-  action(b,'mode');b.dataset.mode=modes[i];b.disabled=!!pending;
-  const active=mode===modes[i]||modes[i]==='ficha'&&['variantes','bulk'].includes(mode);
-  b.setAttribute('aria-selected',String(active));
-  b.classList.toggle('bg-primary-container',active);b.classList.toggle('text-on-primary',active);
-  b.classList.toggle('bg-surface-container',!active);b.classList.toggle('text-on-surface-variant',!active);
-  b.classList.toggle('hover:bg-surface-container-high',!active);b.classList.toggle('font-semibold',active);b.classList.toggle('shadow-sm',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
-  if(i===0)setText(b.querySelector('span:last-child'),count);
-  if(i===2)b.querySelector('span:last-child')?.remove();
-  if(i===1)setText(b.querySelector('span:last-child'),product||'Selecciona un producto');
-  if(i===3)b.querySelector('span:last-child')?.remove();
-  if(i===4)setText(b.querySelector('span:last-child'),draftCount?draftCount+' borrador'+(draftCount===1?'':'es'):'Sin borrador');
-  const spans=b.querySelectorAll('span');for(const badge of [...spans].slice(2))badge.remove();if(spans[1])setText(spans[1],['Catálogo','Producto','Copiar','Alta asistida','Guardado'][i]);
- });
- f.querySelector('#master-tabs-bar')?.setAttribute('aria-label','Secciones de Productos');
- const live=document.createElement('p');live.className='font-body-sm text-body-sm text-on-surface-variant';live.setAttribute('role','status');live.textContent=status;
- f.querySelector('section').append(live);
+ return compactStitchHeader({store,mode,status,count,product,pending,connected,draftCount});
+}
+function compactStitchHeader({store,mode,status,count,product,pending,connected,draftCount}){
+ const f=fragment(STITCH_V4_HEADER),header=f.querySelector('header'),nav=f.querySelector('nav');
+ header.className='prd-v4-header';nav.className='prd-v4-nav';nav.id='master-tabs-bar';nav.setAttribute('aria-label','Secciones de Productos');nav.setAttribute('role','tablist');
+ const select=f.querySelector('#v4-store-context');select.id='store-context-select';select.dataset.prStore='';select.setAttribute('aria-label','Tienda de trabajo');
+ select.innerHTML='<option value="both">Ambas tiendas</option><option value="hortimatic">Hortimatic</option><option value="newoldsmok">NewOldSmok</option>';select.value=store;select.previousElementSibling?.remove();
+ for(const n of header.querySelectorAll('span'))if(n.textContent==='v4.0')n.remove();
+ const connection=[...header.querySelectorAll('span')].find(n=>n.textContent.includes('Conexión lista'));if(connection){const badge=connection.parentElement;badge.className='prd-v4-connection';badge.textContent=connected?'● Conectada':'○ Revisar';badge.title=connected?'Conexión API verificada':'Revisar la conexión API en Configuración';}
+ for(const b of header.querySelectorAll('button')){if(b.title==='Sincronizar'){action(b,'catalog-load');b.setAttribute('aria-label','Actualizar catálogo');}else b.remove();}
+ const names=['1. Catálogo General','2. Ficha y Edición','3. Copiar entre Tiendas','4. Alta Asistida & ChatGPT','5. Guardado, Etapas y Trazabilidad'];
+ [...nav.querySelectorAll('.master-tab-btn')].forEach((b,i)=>{action(b,'mode');b.dataset.mode=modes[i];b.setAttribute('role','tab');b.setAttribute('aria-label',names[i]);b.title=names[i];b.disabled=!!pending;const active=mode===modes[i]||i===1&&['variantes','bulk'].includes(mode);b.setAttribute('aria-selected',String(active));if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');for(const extra of [...b.querySelectorAll('span')].slice(2))extra.remove();if(i===0)b.insertAdjacentHTML('beforeend','<span class="prd-tab-count">'+count+'</span>');});
+ nav.lastElementChild?.remove();
+ const live=document.createElement('p');live.className='prd-v4-status';live.setAttribute('role','status');live.textContent=status;f.append(live);
  return serialize(f);
 }
-
 export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit,canExport=canEdit,tableEdits=new Map(),store,rows,columns,selected,query,filters,brands,categories,page,size,hasMore,pending,ready,value,photo,views=[],viewName='',rowKey=p=>String(p.id)}){
  const f=fragment(STITCH_VIEWS['tab-catalogo']),view=f.firstElementChild;
  view.classList.add('prd-catalog-view');
@@ -88,7 +75,7 @@ export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit
  for(const [control,title]of [[search,'Buscar en los productos cargados'],[f.querySelector('#catalogo-brand-filter'),'Marca'],[f.querySelector('#catalogo-category-filter'),'Categoría'],[shop,'Tienda'],[selects[3],'Estado']]){const label=document.createElement('label');label.append(document.createTextNode(title),control);filterControls.append(label);}
  const selectionBar=f.querySelector('#check-full-catalog').parentElement.parentElement;
  const toolbar=document.createElement('div');toolbar.className='prd-catalog-toolbar';toolbar.append(details,tools[1],tools[2],tools[3]);
- const controls=view.firstElementChild;controls.classList.add('prd-panel','prd-catalog-controls');controls.replaceChildren(summary,filterControls,toolbar,selectionBar);
+ const controls=view.firstElementChild;controls.classList.add('prd-panel','prd-catalog-controls');controls.replaceChildren(filterControls,toolbar,selectionBar);
  const loading=document.createElement('div');loading.className='prd-catalog-loading';loading.innerHTML='<span>'+rows.length+' productos cargados'+(hasMore?' · quedan páginas por consultar':' · consulta completa')+'</span>'+fieldHelp('Alcance del catálogo','Los filtros se aplican a los productos cargados. Busca una referencia o ID exacto en la tienda, carga la siguiente página o consulta todo el catálogo. Nunca se presenta una lista parcial como el total real.')+'<button type="button" data-pr-action="catalog-find" '+(pending?'disabled':'')+'>Buscar ID / referencia en tienda</button><button type="button" data-pr-action="catalog-load" '+(pending?'disabled':'')+'>Actualizar</button>'+(hasMore?'<button type="button" data-pr-action="catalog-more" '+(pending?'disabled':'')+'>Cargar 100 más</button><button type="button" data-pr-action="catalog-complete" '+(pending?'disabled':'')+'>Consultar catálogo completo</button>':'');toolbar.after(loading);
  const full=f.querySelector('#check-full-catalog');full.dataset.prCatalogLoaded='';full.checked=rows.some(r=>r.__visible!==false)&&rows.filter(r=>r.__visible!==false).every(r=>selected.has(rowKey(r)));if(full.checked)full.setAttribute('checked','');
  setText(f.querySelector('label[for="check-full-catalog"]'),'Seleccionar todos los resultados del filtro');
@@ -104,17 +91,17 @@ export function stitchCatalog({canEdit=false,canDelete=canEdit,canCreate=canEdit
  const rowActions=p=>{
   const row=tableEdits.get(rowKey(p)),shop=esc(p.__store||store),id=esc(p.id);
   const extra=(a,title)=>'<button type="button" data-pr-action="'+a+'" data-pr-shop="'+shop+'" data-pr-id="'+id+'" class="prd-table-button">'+title+'</button>';
-  if(!row)return (canEdit?tableButton(p,'open','Editar fila'):'')+'<details class="prd-row-menu"><summary aria-label="Más acciones de '+esc(p.reference||p.id)+'">⋯</summary><div>'+(canEdit?tableButton(p,'archive','Archivar (desactivar)'):'')+(canCreate?extra('product-duplicate','Duplicar producto'):'')+(canDelete?extra('product-remove','Eliminar producto'):'')+'</div></details>';
+  if(!row)return webLink(p,p.__store||store)+(canEdit?tableButton(p,'open','Editar fila'):'')+'<details class="prd-row-menu"><summary aria-label="Más acciones de '+esc(p.reference||p.id)+'">⋯</summary><div>'+(canEdit?tableButton(p,'archive','Archivar (desactivar)'):'')+(canCreate?extra('product-duplicate','Duplicar producto'):'')+(canDelete?extra('product-remove','Eliminar producto'):'')+'</div></details>';
   return '<div class="prd-table-actions">'+(row.languages.length>1?'<label>Idioma<select data-pr-table-language data-pr-shop="'+shop+'" data-pr-id="'+id+'" '+(row.request?'disabled':'')+'>'+row.languages.map(id=>'<option value="'+esc(id)+'" '+(id===row.language?'selected':'')+'>#'+esc(id)+'</option>').join('')+'</select></label>':'')+(row.prepared?'<details class="prd-row-review"><summary>'+row.prepared.review.filter(c=>c.changed).length+' cambios revisados</summary>'+row.prepared.review.filter(c=>c.changed).map(c=>'<p><b>'+esc(c.field)+'</b>: '+esc(textValue(c.before))+' → '+esc(textValue(c.after??c.value))+'</p>').join('')+'</details>':'')+(!row.request?tableButton(p,'prepare','Revisar')+tableButton(p,'discard','Descartar'):'')+(row.request||row.prepared?.can_commit?tableButton(p,'save',row.request?'Comprobar guardado':'Guardar cambios'):'')+'</div>';
  };
  const dc=k=>originalData[indexes[k]??2]?.className||'p-space-sm';
- head.innerHTML='<th class="'+esc(originalCells[0].className)+'"><input type="checkbox" aria-label="Seleccionar página" data-pr-catalog-all '+(visible.length&&visible.every(p=>selected.has(rowKey(p)))?'checked':'')+'></th>'+columns.map(k=>'<th class="'+esc(hc(k))+'">'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'</th>').join('')+'<th class="'+esc(originalCells.at(-1).className)+'">Acciones</th>';
+ head.innerHTML='<th class="'+esc(originalCells[0].className)+'"><input type="checkbox" aria-label="Seleccionar página" data-pr-catalog-all '+(visible.length&&visible.every(p=>selected.has(rowKey(p)))?'checked':'')+'></th>'+columns.map(k=>'<th data-pr-column-heading="'+esc(k)+'" class="'+esc(hc(k))+'">'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'</th>').join('')+'<th class="'+esc(originalCells.at(-1).className)+'">Acciones</th>';
  body.innerHTML=visible.map(p=>'<tr><td class="'+esc(originalData[0].className)+'"><input type="checkbox" aria-label="Seleccionar producto '+esc(p.id)+'" data-pr-catalog-select="'+esc(rowKey(p))+'" '+(selected.has(rowKey(p))?'checked':'')+'></td>'+columns.map(k=>'<td class="'+esc(dc(k))+'" data-label="'+esc(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)+'">'+(editCell(p,k)??(k==='image'?photo(p):k==='name'?'<strong>'+esc(value(p,k))+'</strong><br><small>'+esc(p.reference||'')+'</small>':esc(value(p,k))))+'</td>').join('')+'<td class="'+esc(originalData.at(-1).className)+'"><button type="button" data-pr-action="open-product" data-id="'+esc(p.id)+'" data-pr-shop="'+esc(p.__store||store)+'" class="px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">Abrir ficha</button>'+rowActions(p)+'</td></tr>').join('');
  table.parentElement.classList.add('prd-catalog-table');table.parentElement.tabIndex=0;table.parentElement.setAttribute('aria-label','Catálogo de productos. Usa las flechas en las celdas para recorrer filas y columnas.');
  table.classList.add('prd-data-table');table.closest('.rounded-xl')?.classList.add('prd-panel');
  for(const td of body.querySelectorAll('td:last-child'))td.classList.add('prd-row-actions');
  if(!visible.length){const empty=document.createElement('p');empty.className='prd-catalog-empty';empty.setAttribute('role','note');empty.textContent=rows.length?'No hay productos que coincidan con estos filtros. Limpia el buscador o cambia los filtros.':'No hay productos cargados. Comprueba la conexión y pulsa Actualizar.';table.parentElement.before(empty);}
- const hint=document.createElement('p');hint.className='prd-table-hint';hint.textContent='Selecciona filas para copiar. Las flechas recorren las celdas y desplazan las columnas. Editar fila permite revisar y guardar sus cambios.';table.parentElement.before(hint);const arrows=document.createElement('div');arrows.className='prd-table-navigation';arrows.innerHTML='<button type="button" data-pr-action="catalog-scroll" data-direction="-1" aria-label="Ver columnas anteriores">← Columnas</button><button type="button" data-pr-action="catalog-scroll" data-direction="1" aria-label="Ver columnas siguientes">Columnas →</button>';table.parentElement.before(arrows);
+ const arrows=document.createElement('div');arrows.className='prd-table-navigation';arrows.innerHTML='<span>Foto y producto fijos · flechas para recorrer columnas</span><button type="button" data-pr-action="catalog-scroll" data-direction="-1" aria-label="Ver columnas anteriores">←</button><button type="button" data-pr-action="catalog-scroll" data-direction="1" aria-label="Ver columnas siguientes">→</button>';table.parentElement.before(arrows);
  const footer=table.parentElement.nextElementSibling;
  if(footer){footer.innerHTML='<span>'+filtered.length+' resultados · página '+(page+1)+' de '+pages+'</span><div class="flex items-center gap-space-sm"><label>Mostrar <select data-pr-page-size>'+[20,50,100].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" data-pr-action="catalog-prev" '+(page===0?'disabled':'')+'>Anterior</button><button type="button" data-pr-action="catalog-next" '+(page+1>=pages&&!hasMore?'disabled':'')+'>Siguiente</button></div>';}
  return serialize(f);
@@ -134,6 +121,7 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
  const heading=f.querySelector('h2').parentElement;
  const badges=heading.querySelectorAll('span');setText(badges[0],String(overrides.active??record.active)==='1'?'Activo en PrestaShop':'Inactivo en PrestaShop');setText(badges[1],record.id?'ID: '+record.id:'Borrador');
  setText(heading.nextElementSibling,(store==='hortimatic'?'Hortimatic':'NewOldSmok')+' · SKU: '+textValue(overrides.reference??record.reference)+' · EAN: '+textValue(overrides.ean13??record.ean13));
+ heading.parentElement.insertAdjacentHTML('beforeend',webLink(record,store));
  for(const b of f.querySelectorAll('button')){
   if(/Guardar Borrador/i.test(b.textContent)){action(b,'draft-save');label(b,'Guardar borrador en Totus');b.title='Conserva los cambios en Totus. No modifica PrestaShop.';}
   if(/Validar|Sincronizar/i.test(b.textContent)){action(b,'fiche-validate');label(b,'Revisar cambios en tienda');b.title='Muestra las diferencias y permite guardarlas en '+(store==='hortimatic'?'Hortimatic':'NewOldSmok')+'.';}
@@ -165,7 +153,7 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
      for(const [control,help]of [[cost,'Coste de PrestaShop sin impuestos. Puede estar redondeado y se trata como aproximado.'],[margin,'Margen sobre el precio de venta sin impuestos: (venta − coste) / venta. Al cambiarlo se prepara el precio base; no se guarda hasta confirmar.'],[tax,'Grupo real de esta tienda. Cambiarlo abre una revisión antes de guardar; no sustituye el impuesto por un porcentaje inventado.'],[gross,'Precio base con la regla general de IVA de España verificada. No incluye descuentos, dirección especial, transporte ni ecotasa separada.']]){const caption=control.previousElementSibling;if(caption?.tagName==='LABEL'){caption.htmlFor=control.id;caption.append(fragment(fieldHelp(control.getAttribute('aria-label')||caption.textContent,help)));}}
      const notices=[...panel.querySelectorAll('div,span')].filter(n=>!n.children.length);
      for(const n of notices){if(n.textContent.includes('Beneficio Neto Estimado')){n.textContent='Margen sin impuestos, aproximado:';setText(n.nextElementSibling,amounts?.margin==null?'Sin coste verificado':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(amounts.margin));}if(n.textContent.includes('PVP Base sin'))setText(n.nextElementSibling,textValue(overrides.price??record.price)||'—');if(n.textContent.includes('Regla de Redondeo'))setText(n.nextElementSibling,'Sin redondeo comercial automático');}
-     const extra=document.createElement('details');extra.className='prd-native-extra';extra.innerHTML='<summary class="font-label-md text-label-md">Precio base y campos adicionales</summary>'+fields(groups[key].filter(k=>k!=='wholesale_price'))+priceHtml;panel.append(extra);
+     const extra=document.createElement('section');extra.className='prd-native-extra';extra.innerHTML='<h3 class="font-label-md text-label-md">Precio base y campos adicionales</h3>'+fields(groups[key].filter(k=>k!=='wholesale_price'))+priceHtml;panel.append(extra);
     }else panel.innerHTML=fields(groups[key]);continue;
    }
    const used=new Set(),controls=[...panel.querySelectorAll('input,select,textarea')];
@@ -184,7 +172,7 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
     const preview=document.createElement('button');preview.className='px-space-md py-space-sm rounded bg-primary-container text-on-primary font-label-md text-label-md';action(preview,'description-preview');preview.textContent='Vista previa';panel.append(preview);
    }
    const extra=groups[key].filter(k=>!used.has(k));
-   if(extra.length){const more=document.createElement('details');more.className='prd-native-extra';more.innerHTML='<summary class="font-label-md text-label-md">Más campos de '+esc(({general:'información',contenido:'contenido',seo:'SEO',transporte:'transporte',inventario:'disponibilidad'})[key])+'</summary>'+fields(extra);panel.append(more);}
+   if(extra.length){const more=document.createElement('section');more.className='prd-native-extra';more.innerHTML='<h3 class="font-label-md text-label-md">Más campos de '+esc(({general:'información',contenido:'contenido',seo:'SEO',transporte:'transporte',inventario:'disponibilidad'})[key])+'</h3>'+fields(extra);panel.append(more);}
   }
  }
  // Use the original matrix, populated only with the selected shop's real variants.
@@ -206,6 +194,13 @@ export function stitchFiche({galleryDraft={},record,store,section,overrides,vari
  if(calculationNotice&&calculationNotice.tagName==='P')setText(calculationNotice,'El impacto de precio de cada combinación se suma al precio base sin impuestos del producto.');
  // The design photo rail stays in place, but no supplier/demo picture is fabricated.
  const url=productPhoto(record,store),main=f.querySelector('#sticky-main-img'),thumb=f.querySelector('#sticky-header-thumb');
+ const photoFrame=main.parentElement,photoCard=photoFrame.parentElement,photoAside=photoCard.parentElement;
+ photoFrame.classList.add('prd-fiche-photo-frame');photoCard.classList.add('prd-fiche-photo-card');photoAside.classList.add('prd-fiche-photo-aside');photoAside.parentElement.classList.add('prd-fiche-layout');
+ photoFrame.nextElementSibling?.classList.add('prd-fiche-photo-rail');
+ photoCard.querySelector('#sticky-pvp-display')?.parentElement.parentElement.classList.add('prd-fiche-facts');
+ // Main save and draft actions stay together in the product header, not repeated below a large picture.
+ photoCard.lastElementChild?.remove();
+ thumb?.classList.add('prd-product-photo');thumb?.parentElement.classList.add('prd-fiche-header-photo');
  const blank='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#eff4ff"/><text x="200" y="205" text-anchor="middle" fill="#6e7881" font-family="sans-serif" font-size="16">Sin imagen</text></svg>');
  if(main&&url){main.dataset.prAction='photo-zoom';main.dataset.prImage=String(record.id_default_image||associationIds(record,'images')[0]);main.tabIndex=0;main.setAttribute('role','button');main.setAttribute('aria-label','Ampliar imagen del producto');}
  for(const img of [main,thumb])if(img){img.removeAttribute('data-alt');img.alt=textValue(record.name)||'Producto';img.src=(img===main&&url?url.replace('-home_default/','-large_default/'):url)||blank;img.classList.replace('object-cover','object-contain');}
@@ -265,7 +260,7 @@ export function stitchCopy({store,legacyHtml}){
   setText(panel.querySelector(i?'#target-store-title':'#source-store-title'),(i?'DESTINO: ':'ORIGEN: ')+(i?target:source));
   const badge=panel.firstElementChild.lastElementChild,identity=panel.children[1],actualIdentity=editor?.querySelector('.prd-parallel-identity');
   setText(badge,i?'Revisar destino':'Ficha de origen');
-  if(actualIdentity){const picture=actualIdentity.querySelector('img'),slot=identity.firstElementChild,description=identity.lastElementChild;slot.replaceChildren();if(picture){picture.className='w-full h-full object-contain';slot.append(picture);}else slot.textContent='Sin foto';description.replaceChildren();const name=document.createElement('strong');name.className='font-headline-sm text-headline-sm text-on-surface';name.textContent=actualIdentity.querySelector('strong')?.textContent||'Nueva ficha';const note=document.createElement('span');note.className='font-body-sm text-body-sm text-on-surface-variant';note.textContent=i?'Completa los datos y revisa las coincidencias antes de guardar.':'Selecciona los campos que quieres copiar.';description.append(name,note);}
+  if(actualIdentity){const picture=actualIdentity.querySelector('img'),slot=identity.firstElementChild,description=identity.lastElementChild;slot.replaceChildren();if(picture){picture.className='prd-product-photo w-full h-full object-contain';slot.append(picture);}else slot.textContent='Sin foto';description.replaceChildren();const name=document.createElement('strong');name.className='font-headline-sm text-headline-sm text-on-surface';name.textContent=actualIdentity.querySelector('strong')?.textContent||'Nueva ficha';const note=document.createElement('span');note.className='font-body-sm text-body-sm text-on-surface-variant';note.textContent=i?'Completa los datos y revisa las coincidencias antes de guardar.':'Selecciona los campos que quieres copiar.';description.append(name,note);}
   const fieldsPanel=panel.children[2],rowTemplate=fieldsPanel.children[1].cloneNode(true),heading=fieldsPanel.firstElementChild.cloneNode(true);fieldsPanel.replaceChildren(heading);
   if(editor){
    const variations=editor.querySelector('.prd-copy-variant-options');if(variations)fieldsPanel.append(variations);
