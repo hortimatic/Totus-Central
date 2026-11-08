@@ -1,11 +1,12 @@
 import {textValue,associationIds} from './productos-core.js';
 import {csvCell} from './utils.js';
 export const PRODUCT_COLUMNS=Object.freeze([
- ['image','Foto'],['name','Producto'],['id','ID'],['reference','Referencia'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste aprox. sin IVA'],['price','Precio base sin IVA'],['gross','PVP base IVA España'],['margin','Margen aprox.'],['stock','Existencias'],['variants','Variaciones'],['active','Estado'],['weight','Peso (kg)'],['width','Anchura (cm)'],['height','Altura (cm)'],['depth','Profundidad (cm)'],['date_upd','Actualizado']
+ ['image','Foto'],['name','Producto'],['id','ID'],['reference','Referencia'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste aprox. sin IVA'],['costVat','Coste aprox. con IVA'],['costTotal','Coste aprox. IVA + RE'],['price','Precio base sin IVA'],['gross','PVP base IVA España'],['margin','Margen sin impuestos aprox.'],['marginTotal','PVP − coste total aprox.'],['stock','Existencias'],['variants','Variaciones'],['active','Estado'],['weight','Peso (kg)'],['width','Anchura (cm)'],['height','Altura (cm)'],['depth','Profundidad (cm)'],['date_upd','Actualizado']
 ]);
-export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','name','id','reference','ean13','brand','category','store','cost','gross','margin','stock','variants','active']);
+export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','name','id','reference','ean13','brand','category','store','cost','costVat','costTotal','price','gross','marginTotal','margin','stock','variants','active']);
+const recentDefault=['image','name','id','reference','ean13','brand','category','store','cost','gross','margin','stock','variants','active'];
 const previousDefault=['image','id','reference','name','ean13','brand','category','store','cost','gross','margin','stock','variants','active'];
-export function productColumns(value){const valid=new Set(PRODUCT_COLUMNS.map(c=>c[0]));if(Array.isArray(value)&&value.join('|')===previousDefault.join('|'))return [...DEFAULT_PRODUCT_COLUMNS];return Array.isArray(value)&&value.includes('name')?[...new Set(value.filter(k=>valid.has(k)))]:[...DEFAULT_PRODUCT_COLUMNS];}
+export function productColumns(value){const valid=new Set(PRODUCT_COLUMNS.map(c=>c[0]));if(Array.isArray(value)&&[previousDefault,recentDefault].some(v=>value.join('|')===v.join('|')))return [...DEFAULT_PRODUCT_COLUMNS];return Array.isArray(value)&&value.includes('name')?[...new Set(value.filter(k=>valid.has(k)))]:[...DEFAULT_PRODUCT_COLUMNS];}
 export function catalogProductKey(product,fallbackStore='hortimatic'){
  return (product.__store||fallbackStore)+'|'+String(product.id);
 }

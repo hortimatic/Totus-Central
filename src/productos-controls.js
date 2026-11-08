@@ -47,14 +47,3 @@ export function enhanceProductSelects(root){
  }
  return ()=>controller.abort();
 }
-
-// Respect saved column order while keeping the product's identity in view.
-export function pinProductIdentityColumns(root){
- for(const viewport of root.querySelectorAll('.prd-catalog-table')){
-  const headers=[...viewport.querySelectorAll('thead th[data-pr-column-heading]')];let offset=40;
-  for(const header of headers.filter(n=>['image','name'].includes(n.dataset.prColumnHeading))){
-   viewport.style.setProperty('--prd-'+header.dataset.prColumnHeading+'-left',offset+'px');offset+=header.getBoundingClientRect().width;
-  }
-  viewport.style.setProperty('--prd-pinned-width',(offset+8)+'px');viewport.style.scrollPaddingLeft=(offset+8)+'px';
- }
-}

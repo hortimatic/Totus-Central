@@ -2,7 +2,7 @@ import {associationIds,textValue} from './productos-core.js';
 const fold=v=>textValue(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
 const id=v=>String(v??'');
 export function mapCopyRelations(product,source,destination){
- const unresolved=[],relations={category_ids:[],tag_ids:[],related_product_ids:[],features:[]};
+ const categoryMap={},unresolved=[],relations={category_ids:[],tag_ids:[],related_product_ids:[],features:[]};
  const match=(resource,sourceId,label)=>{
   if(!sourceId||String(sourceId)==='0')return null;
   const row=(source[resource]||[]).find(r=>id(r.id)===id(sourceId));
@@ -17,7 +17,7 @@ export function mapCopyRelations(product,source,destination){
  for(const sourceId of associationIds(product,'categories')){
   const path=categoryPath(source.categories||[],sourceId),exact=(destination.categories||[]).filter(r=>categoryPath(destination.categories||[],r.id)===path&&path);
   const mapped=exact.length===1?id(exact[0].id):match('categories',sourceId,'Categoría');
-  if(mapped){relations.category_ids.push(mapped);if(id(product.id_category_default)===sourceId)categoryId=mapped;}
+  if(mapped){categoryMap[sourceId]=mapped;relations.category_ids.push(mapped);if(id(product.id_category_default)===sourceId)categoryId=mapped;}
  }
  if(!categoryId&&product.id_category_default)categoryId=match('categories',product.id_category_default,'Categoría principal')||'';
  if(categoryId&&!relations.category_ids.includes(categoryId))relations.category_ids.push(categoryId);
@@ -33,5 +33,5 @@ export function mapCopyRelations(product,source,destination){
   const matches=reference?(destination.related_products||[]).filter(r=>textValue(r.reference)===reference):[];
   if(matches.length===1)relations.related_product_ids.push(id(matches[0].id));else unresolved.push('Relacionado '+(reference||sourceId)+' · sin referencia única en destino');
  }
- return {relations,categoryId,unresolved};
+ return {relations,categoryId,categoryMap,unresolved};
 }

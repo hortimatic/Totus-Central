@@ -131,7 +131,7 @@ export function selectedXmlValues(xml,resource,id,changes,expectedProductId=null
    slot=matching[0];
   }else if(node.children.length)invalid('Campo complejo requiere idioma y mapeo explícitos: '+change.field+'.');
   const before=slot.selfClosing?'':xmlValue(xml.slice(slot.contentStart,slot.contentEnd));
-  const same=before===change.value||((decimal.has(change.field)||flags.has(change.field))&&before!==''&&change.value!==''&&Number(before)===Number(change.value));
+  const same=before===change.value||(resource==='products'&&['description','description_short'].includes(change.field)&&equivalentProductHTML(before,change.value))||((decimal.has(change.field)||flags.has(change.field))&&before!==''&&change.value!==''&&Number(before)===Number(change.value));
   result.push({...change,before,changed:!same});
   slots.push(slot.selfClosing?{start:slot.open,end:slot.end,value:'<'+slot.name+slot.attributes.replace(/\/$/,'')+'>'+safeCdata(change.value)+'</'+slot.name+'>'}:{start:slot.contentStart,end:slot.contentEnd,value:safeCdata(change.value)});
  }
@@ -225,7 +225,7 @@ export function inspectProductStageXml(xml,resource,fields,associations={}){
     if(actual!==translation.value){
      // Recover only the previous Totus builder's known HTML5-to-HTML4
      // transformation. All text, images, links and table cells stay exact.
-     if(resource!=='products'||field!=='description'||legacyDescription(translation.value)!==actual)invalid('La traducción de '+field+' no coincide.');
+     if(resource!=='products'||!['description','description_short'].includes(field)||!equivalentProductHTML(translation.value,actual)&&(field!=='description'||!equivalentProductHTML(legacyDescription(translation.value),actual)))invalid('La traducción de '+field+' no coincide.');
      nativeHtmlNormalized=true;
     }
    }
@@ -411,6 +411,7 @@ export function inspectProductReferenceListing(xml){
 // may persist a POST but throw HTTP 500 when rendering product image details.
 // Never treat HTTP status alone as proof the product was or was not created.
 export function inspectReconciledNewProduct(xml,expected,expectedId=null){
+ let nativeHtmlNormalized=false;
  const root=tree(xml),collection=direct(root,'products');
  if(collection.children.length!==1||collection.children[0].name!=='product')
   invalid('No hay exactamente un producto comprobable con la referencia de destino.');
@@ -445,7 +446,7 @@ export function inspectReconciledNewProduct(xml,expected,expectedId=null){
   const node=direct(product,field);
   for(const t of expected.translations){
    const matches=node.children.filter(n=>n.name==='language'&&n.attributes.match(/\bid\s*=\s*(["'])(\d+)\1/i)?.[2]===t.language_id);
-   if(matches.length!==1||xmlValue(xml.slice(matches[0].contentStart,matches[0].contentEnd))!==t[field])invalid('El campo '+field+' no coincide tras crear.');
+   if(matches.length!==1)invalid('El campo '+field+' no coincide tras crear.');const actual=xmlValue(xml.slice(matches[0].contentStart,matches[0].contentEnd));if(actual!==t[field]){if(!['description','description_short'].includes(field)||!equivalentProductHTML(t[field],actual))invalid('El campo '+field+' no coincide tras crear.');nativeHtmlNormalized=true;}
   }
  }
  for(const entry of expected.fields||[]){
@@ -458,7 +459,7 @@ export function inspectReconciledNewProduct(xml,expected,expectedId=null){
   const wanted=expected.relations[key].map(row=>key==='features'?row.feature_id+':'+row.value_id:row).sort();
   if(JSON.stringify(actual)!==JSON.stringify(wanted))invalid('La asociación '+group+' no coincide tras crear.');
  }
- return {id,reference:expected.reference,active:false,verified:true};
+ return {id,reference:expected.reference,active:false,verified:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};
 }
 
 
@@ -550,4 +551,25 @@ export function productRedirectTarget(type,id,currentId=null){
  if(String(id)==='0')invalid('Selecciona un destino real para la redirección.');
  const product=type.endsWith('-product');if(product&&String(id)===String(currentId))invalid('Un producto no puede redirigir a sí mismo.');
  return {resource:product?'products':'categories',node:product?'product':'category',id:String(id)};
+}
+
+// PrestaShop serializes HTML void elements as XHTML. Accept only that syntactic
+// difference: preserve every text, attribute, URL, image and table cell exactly.
+export function equivalentProductHTML(left,right){
+ if(typeof left!=='string'||typeof right!=='string')return false;
+ if(left===right)return true;
+ const normalize=value=>{
+  if(/<(?:script|style|textarea|title|xmp|plaintext|noscript)(?:\s|>)/i.test(value))return value;
+  return value.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<(?:[^"'<>]|"[^"]*"|'[^']*')*>/g,token=>{
+   const tag=token.match(/^<(br|img|hr|wbr|col)(?=[\s/>])/i);if(!tag)return token;
+   const ending=token.match(/\s*\/?>$/);if(!ending)return token;
+   const body=token.slice(tag[0].length,token.length-ending[0].length);let remaining=body;
+   while(remaining.trim()){
+    const attribute=remaining.match(/^\s+[a-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?/i);
+    if(!attribute)return token;remaining=remaining.slice(attribute[0].length);
+   }
+   return token.slice(0,token.length-ending[0].length)+'>';
+  });
+ };
+ return normalize(left)===normalize(right);
 }

@@ -28,7 +28,7 @@ try{
    q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,canEdit:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
-    if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1'],persisted:false};
+    if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1','2'],persisted:false};
     if(body.action==='prestashop_product_create_prepare')return {ok:true,store:body.store,resource:'products',reference:body.reference,fingerprint:'b'.repeat(64),persisted:false,can_commit:true};
     if(body.action==='prestashop_product_create_commit'&&q.allowWrites)return {ok:true,store:body.store,resource:'products',record_id:'701',persisted:true,verified:true,active:false};
     if(body.action==='prestashop_product_step_prepare'&&q.allowWrites)return {ok:true,store:body.store,fingerprint:'c'.repeat(64),persisted:false,can_commit:true};
@@ -69,6 +69,14 @@ try{
   assert(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth<=window.innerWidth+2));
   await page.locator('[data-pr-action="mode"][data-mode="catalogo"]').click();
   assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
+  assert.equal(await page.evaluate(()=>{const r=document.querySelector('.prd-catalog-filters').getBoundingClientRect();return [...document.querySelectorAll('.prd-catalog-filters label')].every(e=>{const b=e.getBoundingClientRect();return b.left>=r.left-1&&b.right<=r.right+1;});}),true,'Filters fit the available module width');
+  if(width===390)assert.equal(await page.evaluate(()=>{const v=document.querySelector('.prd-catalog-table');return [...v.querySelectorAll('th,td')].every(c=>getComputedStyle(c).position!=='sticky');}),true,'No frozen columns reserve screen space');
+  const position=page.locator('[data-pr-table-position]');
+  await position.focus();await position.press('End');
+  await page.waitForFunction(()=>{const v=document.querySelector('.prd-catalog-table');return v.scrollLeft>=v.scrollWidth-v.clientWidth-2;});
+  await position.press('Home');
+  await page.waitForFunction(()=>document.querySelector('.prd-catalog-table').scrollLeft<2);
+
   await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-column="ean13"]').check();
   await page.locator('.prd-columns summary').click();
@@ -81,6 +89,10 @@ try{
   await page.getByText(/2 combinaciones leídas/).waitFor();
   assert.equal(await page.locator('#productosRoot script').count(),0);
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
+  await page.locator('[data-pr-action="fields-none"]').click();
+  assert.equal(await page.locator('.prd-copy-image-choice input').isChecked(),false);
+  await page.locator('[data-pr-action="fields-all"]').click();
+  assert.equal(await page.locator('.prd-copy-image-choice input').isChecked(),true,'Select all includes images');
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();
@@ -193,10 +205,13 @@ try{
   await page.getByText(/Idiomas y categorías consultados en hortimatic/).waitFor();
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').selectOption('33');
   await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="category_id"]').blur();
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-field="reference"]').fill('NEW-REF-UI');
+  await page.locator('[data-pr-create-store="hortimatic"][data-pr-create-language="2"][data-pr-create-property="description"]').fill('<p>Descripción de destino dos</p>');
   await page.getByRole('button',{name:'Validar alta sin escribir'}).click();
   await page.getByText(/Prevalidación de hortimatic correcta/).waitFor();
+  assert.equal(await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_create_prepare').at(-1).translations.find(t=>t.language_id==='2').description),'<p>Descripción de destino dos</p>','Second-language edits reach validation without a separate blur');
   await page.locator('[data-pr-create-confirm="hortimatic"]').fill('CREAR');
-  await page.locator('[data-pr-create-confirm="hortimatic"]').blur();
+  assert.equal(await page.locator('[data-pr-create-confirm="hortimatic"]').evaluate(el=>document.activeElement===el),true,'Confirmation stays focused and save enables while typing');
   assert.equal(await page.getByRole('button',{name:'Crear en PrestaShop (inactivo)'}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>productosQA.calls.some(c=>c.action==='prestashop_product_create_commit')),false);
   assert.equal(await page.locator('[data-pr-action=edit-commit]').count(),0,'Un alta nueva no muestra un guardado sobre un producto existente');

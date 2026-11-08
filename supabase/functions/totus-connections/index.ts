@@ -29,7 +29,7 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   let context:any;
   if(input.action==='prestashop_read'){
    const normal=await scoped.rpc('totus_prestashop_context',{});
-   const productResources=['products','combinations','product_options','product_option_values','stock_availables','categories','manufacturers','suppliers','tax_rule_groups','tax_rules','taxes','countries','currencies','image_types','tags','product_features','product_feature_values'];
+   const productResources=['products','combinations','product_options','product_option_values','stock_availables','categories','manufacturers','suppliers','tax_rule_groups','tax_rules','taxes','countries','currencies','image_types','tags','product_features','product_feature_values','languages','product_suppliers','specific_prices'];
    context=normal.error&&productResources.includes(input.resource)?check(await scoped.rpc('totus_products_context',{p_action:'view'})):check(normal);
   }else context=check(await scoped.rpc(productAction?'totus_products_context':input.action==='prestashop_discover'?'totus_prestashop_context':'totus_api_manager',productAction?{p_action:productPermission}:{}));
   if(input.action==='create_actor'){

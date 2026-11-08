@@ -30,3 +30,11 @@ export function productPriceForMargin(cost,percent){
  if(String(cost??'').trim()===''||!Number.isFinite(buy)||buy<=0||String(percent??'').trim()===''||!Number.isFinite(margin)||margin>=100)throw Error('Introduce un coste mayor que cero y un margen sobre venta inferior al 100 %.');
  const price=buy/(1-margin/100);if(!Number.isFinite(price)||price<0)throw Error('El margen no permite calcular un precio válido.');return price;
 }
+
+// Purchase estimate: both surcharges apply to the same net cost, never compound.
+export function productPurchaseAmounts(cost,vat,surcharge){
+ const number=v=>v===null||v===undefined||String(v).trim()===''?NaN:Number(v);
+ const base=number(cost),tax=number(vat),re=number(surcharge);
+ if(!Number.isFinite(base)||base<0||!Number.isFinite(tax)||tax<0||tax>100)return {withVat:null,total:null};
+ return {withVat:base*(1+tax/100),total:Number.isFinite(re)&&re>=0&&re<=100?base*(1+(tax+re)/100):null};
+}

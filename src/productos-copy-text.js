@@ -11,7 +11,7 @@ export function adaptStoreText(value,source,target,{slug=false}={}){
 }
 // Work on an inert HTML fragment. Never rename an image host while retaining
 // another shop's image ID, and never guess where another product's URL points.
-export function adaptStoreHTML(value,source,target,{sourceProductId='',targetProductId='',imageMap={}}={}){
+export function adaptStoreHTML(value,source,target,{sourceProductId='',targetProductId='',imageMap={},categoryMap={}}={}){
  if(!shops[source]||!shops[target])throw Error('Tiendas de adaptación no válidas.');
  const template=document.createElement('template');template.innerHTML=String(value??'');
  const walker=document.createTreeWalker(template.content,NodeFilter.SHOW_TEXT);let node;
@@ -27,6 +27,8 @@ export function adaptStoreHTML(value,source,target,{sourceProductId='',targetPro
    if(image&&/^[1-9]\d*$/.test(String(imageMap[image[1]]||''))){element.setAttribute(key,'https://'+shops[target].host+'/'+imageMap[image[1]]+'-'+(image[2]||'large_default')+'/product.'+image[3]);continue;}
    if(key==='href'&&['/','/index.php'].includes(url.pathname)&&!url.search){element.setAttribute(key,'https://'+shops[target].host+'/');continue;}
    if(key==='href'&&targetProductId&&sourceProductId&&(url.searchParams.get('controller')==='product'&&url.searchParams.get('id_product')===String(sourceProductId)||new RegExp('^/'+escape(String(sourceProductId))+'-').test(url.pathname))){element.setAttribute(key,'https://'+shops[target].host+'/index.php?controller=product&id_product='+targetProductId);continue;}
+   const category=key==='href'?(url.searchParams.get('controller')==='category'?url.searchParams.get('id_category'):url.pathname.match(/^\/(\d+)-[^/.]+$/)?.[1]):null;
+   if(category&&/^[1-9]\d*$/.test(String(categoryMap[category]||''))){element.setAttribute(key,'https://'+shops[target].host+'/index.php?controller=category&id_category='+categoryMap[category]);continue;}
    unresolved.push({attribute:key,url:raw,reason:image?'Imagen pendiente de importar':'Enlace interno que necesita correspondencia'});
   }
  }
