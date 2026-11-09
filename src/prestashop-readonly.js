@@ -96,7 +96,7 @@ export function prestashopRows(payload,resource,pageSize){
  const rows=values.map(value=>{
   if(!value||typeof value!=='object'||Array.isArray(value)||value.id===undefined||value.id===null)throw Error('Fila PrestaShop sin identificador.');
   const id=String(value.id);if(!/^\d+$/.test(id)||seen.has(id))throw Error('Fila PrestaShop duplicada o sin ID válido.');seen.add(id);
-  return Object.fromEntries(fields.map(k=>[k,k==='associations'?Object.fromEntries(['categories','images','product_option_values','taxes','combinations'].map(name=>{const list=value.associations?.[name];return [name,Array.isArray(list)?[...new Set(list.map(x=>String(x?.id||'')).filter(id=>/^\d{1,15}$/.test(id)))]:[]];})):scalar(value[k])]));
+  return Object.fromEntries(fields.map(k=>[k,k==='associations'?Object.fromEntries(['categories','images','product_option_values','taxes','combinations','product_features'].map(name=>{const list=value.associations?.[name];return [name,name==='product_features'?(Array.isArray(list)?list.filter(x=>/^[1-9]\d{0,14}$/.test(String(x?.id))&&/^[1-9]\d{0,14}$/.test(String(x?.id_feature_value))).map(x=>({id:String(x.id),id_feature_value:String(x.id_feature_value)})):[]):Array.isArray(list)?[...new Set(list.map(x=>String(x?.id||'')).filter(id=>/^\d{1,15}$/.test(id)))]:[]];})):scalar(value[k])]));
  });
  return {rows,possibly_more:rows.length===pageSize};
 }

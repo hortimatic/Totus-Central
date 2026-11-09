@@ -11,3 +11,12 @@ Totus consulta el historial completo de los pedidos seleccionados y conserva el 
 La caché de nombres se separa por tienda, conexión y revisión y se retira al cambiar de usuario. Cambiar de tienda o cerrar la sesión descarta respuestas tardías. Un error de lectura conserva el resto del pedido y explica que no hay vendedor vinculado.
 
 Comprobaciones: contratos de API con selección obligatoria por pedido, historial paginado, rechazo de datos de otra tienda o pedido, empleado inicial frente a ediciones posteriores y prueba de tabla con Playwright. La prueba real de lectura del servicio debe anotarse tras su despliegue; la comprobación SQL no equivale a una lectura de la API ya desplegada.
+
+
+## Lectura real verificada con Totus v41
+La cuenta Codex consultó el historial nativo y el empleado en ambas tiendas:
+- Hortimatic 46470 → historial 46957 → empleado 1, Davinia Hortimatic.
+- NewOldSmok 15162/15163 → historiales 15328/15329 → empleado 1, Diego Sequera.
+No se usan coincidencias de caja/hora para atribuir personas. La interfaz exige que el primer historial tenga la misma fecha de creación del pedido y un empleado único.
+
+La consulta de empleado pide dos plazas para un filtro de ID exacto: la paginación genérica marca una página llena como posiblemente incompleta. Se comprueba un único resultado, su ID y ausencia de más páginas. Pedir una sola plaza hacía que la lectura correcta pareciera incompleta; el contrato de pruebas reproduce ese caso.

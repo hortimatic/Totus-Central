@@ -76,8 +76,8 @@ try{
   await page.locator('[data-pr-section="organizacion"]').click();
   await page.getByRole('button',{name:'Editar categorías, marca, proveedor e impuestos'}).click();
   await page.locator('[data-pr-org="id_manufacturer"]').selectOption('6');
-  await page.locator('[data-pr-org-category="5"]').check();await page.locator('[data-pr-org-list="tags"]').selectOption(['81']);await page.locator('[data-pr-org-features]').selectOption(['8:80']);
-  await page.getByRole('button',{name:'Revisar cambios de organización'}).click();
+  await page.locator('[data-pr-org-category="5"]').check();await page.locator('[data-pr-org-list="tags"]').selectOption(['81']);await page.locator('[data-pr-feature="8"]').selectOption('80');
+  await page.getByRole('button',{name:'Revisar y sincronizar organización'}).click();
   const organization=page.locator('.prd-stage-row').last();
   await organization.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await organization.getByRole('button',{name:'Guardar y sincronizar',exact:true}).click();
@@ -89,7 +89,7 @@ try{
   for(const check of await photos.locator('[data-pr-stage-image-choice]').all())await check.setChecked(await check.getAttribute('value')==='91');
   await photos.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await photos.getByRole('button',{name:'Guardar y sincronizar',exact:true}).click();
-  await page.getByText(/Fotos por combinación guardado y verificado/).waitFor();
+  await page.getByText(/Atributos e imágenes de combinación guardado y verificado/).waitFor();
   await page.getByRole('tab',{name:/2. Ficha y Edición/}).click();
   await page.locator('[data-pr-section="variaciones"]').click();
   assert.match(await page.locator('[data-pr-action="variation-images"][data-pr-vid="301"] img').getAttribute('src'),/91-home_default/);

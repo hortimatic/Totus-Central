@@ -23,8 +23,8 @@ test('history is selected by order; employees never expose email or credentials'
 });
 test('complete history pagination and verified employee cache avoid redundant reads',async()=>{
  const calls=[],employees=new Map();
- const invoke=async args=>{calls.push(args);return args.resource==='employees'?{ok:true,store:'hortimatic',resource:'employees',rows:[{id:'1',firstname:'Test',lastname:'Vendedor'}],possibly_more:false}:{ok:true,store:'hortimatic',resource:'order_histories',page:args.page,rows:args.page?[{...first,id:'11',date_add:'2026-11-10 10:00:00',id_employee:'2'}]:[first],possibly_more:args.page===0};};
- const result=await loadOrderSellers({store:'hortimatic',orders:[order],invoke,employees});assert.equal(result.get('42').name,'Test Vendedor');assert.equal(calls.length,3);
+ const invoke=async args=>{calls.push(args);return args.resource==='employees'?{ok:true,store:'hortimatic',resource:'employees',rows:[{id:'1',firstname:'Test',lastname:'Vendedor'}],possibly_more:args.page_size===1}:{ok:true,store:'hortimatic',resource:'order_histories',page:args.page,rows:args.page?[{...first,id:'11',date_add:'2026-11-10 10:00:00',id_employee:'2'}]:[first],possibly_more:args.page===0};};
+ const result=await loadOrderSellers({store:'hortimatic',orders:[order],invoke,employees});assert.equal(result.get('42').name,'Test Vendedor');assert.equal(calls.length,3);assert.equal(calls.find(row=>row.resource==='employees').page_size,2,'An exact-ID result must not look truncated because the page size is one');
  await loadOrderSellers({store:'hortimatic',orders:[order],invoke,employees});assert.equal(calls.filter(row=>row.resource==='employees').length,1);
 });
 test('foreign-store, incomplete and cancelled reads never attribute a seller',async()=>{

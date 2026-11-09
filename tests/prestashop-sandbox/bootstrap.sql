@@ -26,7 +26,7 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method)
  (@account_id,'product_option_values','GET'),(@account_id,'product_option_values','POST'),
  (@account_id,'stock_availables','GET'),(@account_id,'stock_availables','PUT'),
  (@account_id,'images','GET'),(@account_id,'images','POST'),(@account_id,'images','PUT'),(@account_id,'images','DELETE'),(@account_id,'image_types','GET'),
- (@account_id,'product_features','GET'),(@account_id,'product_feature_values','GET'),(@account_id,'tags','GET'),
+ (@account_id,'product_features','GET'),(@account_id,'product_features','POST'),(@account_id,'product_features','PUT'),(@account_id,'product_feature_values','GET'),(@account_id,'product_feature_values','POST'),(@account_id,'product_feature_values','PUT'),(@account_id,'tags','GET'),
  (@account_id,'suppliers','GET'),(@account_id,'suppliers','POST'),(@account_id,'suppliers','PUT'),
  (@account_id,'manufacturers','GET'),(@account_id,'manufacturers','POST'),(@account_id,'manufacturers','PUT'),(@account_id,'currencies','GET'),
  (@account_id,'product_suppliers','GET'),(@account_id,'product_suppliers','POST'),(@account_id,'product_suppliers','PUT'),

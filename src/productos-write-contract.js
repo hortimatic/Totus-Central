@@ -7,13 +7,15 @@ export const PRODUCT_WRITE_FIELDS=Object.freeze({
  suppliers:Object.freeze(['name','active','description','meta_title','meta_description','meta_keywords']),
  product_options:Object.freeze(['name','public_name','group_type','position']),
  product_option_values:Object.freeze(['name','color','position']),
+ product_features:Object.freeze(['name','position']),
+ product_feature_values:Object.freeze(['value']),
  products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite','meta_keywords','redirect_type','id_type_redirected','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','available_now','available_later','delivery_in_stock','delivery_out_stock']),
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
 export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','meta_keywords','link_rewrite','available_now','available_later','delivery_in_stock','delivery_out_stock']);
 export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','redirect_type','id_type_redirected']);
 const local=new Set(LOCALIZED_PRODUCT_FIELDS);
-export const isLocalizedWriteField=(resource,field)=>['manufacturers','suppliers'].includes(resource)?['description','short_description','meta_title','meta_description','meta_keywords'].includes(field):['product_options','product_option_values'].includes(resource)?['name','public_name'].includes(field):local.has(field);
+export const isLocalizedWriteField=(resource,field)=>resource==='product_feature_values'?field==='value':['manufacturers','suppliers'].includes(resource)?['description','short_description','meta_title','meta_description','meta_keywords'].includes(field):['product_options','product_option_values','product_features'].includes(resource)?['name','public_name'].includes(field):local.has(field);
 const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold','unit_price_ratio','ecotax']);
 const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert','show_condition']);
 const allowedVisibility=new Set(['both','catalog','search','none']);
@@ -36,11 +38,12 @@ function validateValue(field,value,resource){
  if(field==='group_type'&&!['select','radio','color'].includes(value))invalid('Tipo de atributo no válido.');
  if(field==='color'&&value!==''&&!/^#[a-f0-9]{6}$/i.test(value))invalid('Color no válido.');
  if(field==='position'&&!/^\d{1,7}$/.test(value))invalid('Posición no válida.');
- if(['name','public_name'].includes(field)&&!value.trim())invalid('El nombre no puede quedar vacío.');
+ if(['name','public_name','value'].includes(field)&&!value.trim())invalid('El nombre o valor no puede quedar vacío.');
  if(field==='visibility'&&!allowedVisibility.has(value))invalid('Visibilidad no admitida.');
  if(field==='condition'&&!allowedCondition.has(value))invalid('Estado del artículo no admitido.');
  if(field==='link_rewrite'&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))invalid('URL amigable no válida.');
  if(field==='name'&&/[<>;=#{}]/.test(value))invalid('El nombre contiene caracteres que PrestaShop no admite: < > ; = # { }.');
+ if(field==='value'&&/[<>={}]/.test(value))invalid('El valor de característica contiene caracteres no admitidos.');
  if(field==='ean13'&&value!==''&&!/^\d{13}$/.test(value))invalid('EAN debe contener 13 dígitos.');
  if(field==='upc'&&value!==''&&!/^\d{12}$/.test(value))invalid('UPC debe contener 12 dígitos.');
  // Native PrestaShop records can contain zero (including freshly created bases).
@@ -158,7 +161,7 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-const nativeNodes=Object.freeze({manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+const nativeNodes=Object.freeze({product_features:'product_feature',product_feature_values:'product_feature_value',manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
 // Native PUT nulls omitted optional fields. Derive the preservation read from
 // the shop's own schema, not just the fields this editor happens to expose.
 export function productPreservationProjection(schema){
@@ -188,9 +191,9 @@ export function legacyProductPreservationProjection(version){
  return '['+[...new Set(fields)].join(',')+']';
 }
 export function minimalProductStageSchema(resource){
- if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values','manufacturers','suppliers'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
+ if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values','product_features','product_feature_values','manufacturers','suppliers'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
  const singular=nativeNodes[resource];
- return '<prestashop><'+singular+'><id></id>'+(resource.startsWith('product_option')||['manufacturers','suppliers'].includes(resource)?'':'<id_product></id_product>')+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
+ return '<prestashop><'+singular+'><id></id>'+(resource.startsWith('product_option')||['product_features','product_feature_values','manufacturers','suppliers'].includes(resource)?'':'<id_product></id_product>')+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
 }
 // Used only after the stage contract has validated every field and relationship.
 // No raw XML can arrive from the browser; schema/current XML is fetched by server.

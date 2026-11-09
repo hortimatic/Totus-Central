@@ -24,10 +24,10 @@ export async function loadOrderSellers({orders,store,invoke,current=()=>true,emp
  for(const order of orders){
   const id=orderRegistrationEmployee(order,history);if(!id)continue;
   if(!employees.has(id)){
-   const response=await invoke({resource:'employees',record_id:id,page:0,page_size:1});
+   const response=await invoke({resource:'employees',record_id:id,page:0,page_size:2});
    if(!current())return null;
    const employee=response?.rows?.[0];
-   if(!response?.ok||response.store!==store||response.resource!=='employees'||response.possibly_more||String(employee?.id)!==id)throw Error('No se pudo comprobar el empleado del registro.');
+   if(!response?.ok||response.store!==store||response.resource!=='employees'||response.possibly_more||response.rows?.length!==1||String(employee?.id)!==id)throw Error('No se pudo comprobar el empleado del registro.');
    const name=[employee.firstname,employee.lastname].filter(Boolean).join(' ').trim();
    if(name)employees.set(id,name);
   }
