@@ -212,6 +212,15 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const writesBefore=calls.filter(c=>c.method==='PUT').length;
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).replayed,true);
  assert.equal(calls.filter(c=>c.method==='PUT').length,writesBefore);
+ // Simulate transport loss BEFORE PUT reaches only the disposable native shop.
+ let recoveryState=null,dropPut=true,recoveryClaims=0;
+ const recoveryJournal={lookup:async()=>recoveryState,claim:async()=>{recoveryState={status:'pending'};return {status:'claimed'};},recover:async()=>{assert.equal(recoveryState.status,'uncertain');recoveryClaims++;recoveryState={status:'pending'};return {status:'claimed'};},complete:async()=>{recoveryState={status:'completed'};},uncertain:async()=>{recoveryState={status:'uncertain'};}};
+ const recoverEdit={...edit,changes:[{field:'meta_description',language_id:'1',value:'Verificacion nativa de recuperacion'}]},recoveryOptions={...editOptions,journal:recoveryJournal,request:async(url,opts)=>{if(opts?.method==='PUT'&&dropPut){dropPut=false;throw Error('Simulated transport interruption');}return localOnlyRequest(url,opts);}};
+ const recoveryPrepared=await runPrestashopProductWrite(connection,recoverEdit,recoveryOptions),recoveryCommit={...recoverEdit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:recoveryPrepared.fingerprint,confirmed:true};
+ await assert.rejects(runPrestashopProductWrite(connection,recoveryCommit,recoveryOptions),new RegExp(recoveryCommit.request_id));
+ const freshRecovery=await runPrestashopProductWrite(connection,recoverEdit,recoveryOptions),nativePutsBeforeRecovery=calls.filter(c=>c.method==='PUT').length;
+ const recoveredCommit={...recoveryCommit,expected_fingerprint:freshRecovery.fingerprint,recover_unchanged:true};assert.equal((await runPrestashopProductWrite(connection,recoveredCommit,recoveryOptions)).verified,true);assert.equal(recoveryClaims,1);assert.equal(calls.filter(c=>c.method==='PUT').length,nativePutsBeforeRecovery+1);
+ assert.equal((await runPrestashopProductWrite(connection,recoveredCommit,recoveryOptions)).replayed,true);assert.equal(calls.filter(c=>c.method==='PUT').length,nativePutsBeforeRecovery+1);await checkPreservedNative();await checkLanguages();
  const existingStages=new Map();
  const existingJournal={parent:async()=>({status:'completed',store:'hortimatic',product_id:result.record_id}),
   lookup:async op=>existingStages.get(op.stage)||null,

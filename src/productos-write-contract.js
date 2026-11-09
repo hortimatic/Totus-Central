@@ -45,7 +45,7 @@ function validateValue(field,value,resource){
 }
 export function validateProductWriteRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
- const keys=new Set(['action','id','call_id','revision','store','resource','record_id','expected_product_id','changes','expected_fingerprint','request_id','confirmed']);
+ const keys=new Set(['action','id','call_id','revision','store','resource','record_id','expected_product_id','changes','expected_fingerprint','request_id','confirmed','recover_unchanged']);
  if(Object.keys(input).some(k=>!keys.has(k)))invalid('Campos de solicitud no admitidos.');
  if(!['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)||!['hortimatic','newoldsmok'].includes(input.store)||
   !['products','combinations'].includes(input.resource)||!integer.test(String(input.record_id??''))||!uuid.test(String(input.id??''))||!uuid.test(String(input.call_id??''))||
@@ -66,10 +66,11 @@ export function validateProductWriteRequest(input){
   normalized.push({field,value:validateValue(field,row.value,input.resource),...(languageId?{language_id:languageId}:{})});
  }
  const commit=input.action==='prestashop_product_commit';
+ if(own(input,'recover_unchanged')&&(!commit||input.recover_unchanged!==true))invalid('La recuperación debe confirmarse en la misma solicitud de escritura.');
  if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))invalid('Para escribir debes aportar huella previa, request_id y confirmación explícita.');
  if(!commit&&(own(input,'expected_fingerprint')||own(input,'request_id')||own(input,'confirmed')))invalid('La preparación no acepta confirmaciones de escritura.');
  return {action:input.action,store:input.store,resource:input.resource,record_id:String(input.record_id),
-  changes:normalized,...(input.resource==='combinations'?{expected_product_id:String(input.expected_product_id)}:{}),commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id}:{})};
+  changes:normalized,...(input.resource==='combinations'?{expected_product_id:String(input.expected_product_id)}:{}),commit,...(commit?{expected_fingerprint:input.expected_fingerprint,request_id:input.request_id,...(input.recover_unchanged?{recover_unchanged:true}:{})}:{})};
 }
 const tag=/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<\/?[A-Za-z_][^>]*?>/g;
 function tree(xml){

@@ -156,3 +156,5 @@ END $history$;
 \ir existing-product-steps-db-qa.sql
 
 \ir productos-creation-metadata-db-qa.sql
+
+\ir product-edit-recovery-db-qa.sql

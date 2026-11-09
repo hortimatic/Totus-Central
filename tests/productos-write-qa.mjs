@@ -136,3 +136,18 @@ test('native 1.7.8 schema HTTP500 uses only its verified preservation projection
  const display=await run('1.7.8.11');for(const field of ['date_add','date_upd','is_virtual','supplier_reference','quantity_discount','product_bundle[id,id_product_attribute,quantity]'])assert(display.includes(field));
  await assert.rejects(run('8.2.0'),/HTTP 500/);await assert.rejects(run(''),/HTTP 500/);
 });
+
+test('uncertain edit recovery retains UUID and intent, reviews two reads, claims once and replays without another PUT',async()=>{
+ let xml=X,state='uncertain',puts=0,recovered=0;const j={lookup:async()=>({status:state}),claim:async()=>{throw Error('Must not create another intent');},recover:async(_signature,fingerprint)=>{assert.equal(fingerprint,await sha256Text(X));recovered++;state='pending';return {status:'claimed'};},complete:async()=>{state='completed';},uncertain:async()=>{state='uncertain';}};
+ const args={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true};
+ const request=async(_url,opt)=>{if(opt.method==='PUT'){puts++;xml=opt.body;}return response(xml);};
+ await assert.rejects(runPrestashopProductWrite(connection,args,{resolve,env:{get:()=> '1'},journal:j,request}),new RegExp(UUID));assert.equal(puts,0);
+ const result=await runPrestashopProductWrite(connection,{...args,recover_unchanged:true},{resolve,env:{get:()=> '1'},journal:j,request});assert.equal(result.verified,true);assert.equal(result.request_id,UUID);assert.equal(puts,1);assert.equal(recovered,1);assert.equal(state,'completed');
+ const replay=await runPrestashopProductWrite(connection,{...args,recover_unchanged:true},{resolve,env:{get:()=> '1'},journal:j,request});assert.equal(replay.replayed,true);assert.equal(puts,1);
+});
+test('recovery cannot claim a changed fingerprint or a pending/completed different result',async()=>{
+ const args={...input('prestashop_product_commit'),expected_fingerprint:await sha256Text(X),request_id:UUID,confirmed:true,recover_unchanged:true};
+ for(const status of ['pending','completed']){await assert.rejects(runPrestashopProductWrite(connection,args,{resolve,env:{get:()=> '1'},journal:{lookup:async()=>({status}),recover:async()=>{throw Error('No recovery claim');}},request:async()=>response(X)}),/pendiente o incierta/);}
+ let reads=0,puts=0,claims=0;await assert.rejects(runPrestashopProductWrite(connection,args,{resolve,env:{get:()=> '1'},journal:{lookup:async()=>({status:'uncertain'}),recover:async()=>{claims++;return {status:'claimed'};}},request:async(_u,opt)=>{if(opt.method==='PUT')puts++;return response(++reads===1?X:X.replace('Nombre','Otro'));}}),/ha cambiado/);assert.equal(puts,0);assert.equal(claims,0);
+ assert.throws(()=>validateProductWriteRequest({...input(),recover_unchanged:true}),/recuperaci/);
+});
