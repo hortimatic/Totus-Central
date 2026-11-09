@@ -143,7 +143,8 @@
         "supabase/functions/totus-ai/cloudflare.js",
         "supabase/functions/totus-connections/prestashop.js",
         "supabase/functions/totus-connections/transport.js",
-        "supabase/functions/totus-prestashop-alerts/index.ts"
+        "supabase/functions/totus-prestashop-alerts/index.ts",
+        "src/productos-write-contract.js"
       ]
     }
   ]
