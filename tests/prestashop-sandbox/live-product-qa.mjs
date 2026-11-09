@@ -167,7 +167,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  // flags-only PUT must preserve them, including a creation date in the past.
  const preserveUrl='https://hortimatic.com/api/products/'+result.record_id;
  const preserveHeaders={Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'};
- const preservedSource=await localOnlyRequest(preserveUrl,{headers:preserveHeaders});assert.equal(preservedSource.status,200);
+ const preservedSource=await localOnlyRequest(preserveUrl+'?language=['+profile.language_ids.join('|')+']',{headers:preserveHeaders});assert.equal(preservedSource.status,200);
  const preservedXml=prepareProductStageXml(await preservedSource.text(),'products',{date_add:'2020-01-02 03:04:05',customizable:'1',uploadable_files:'1',text_fields:'2'},{},result.record_id);
  const seeded=await localOnlyRequest(preserveUrl,{method:'PUT',headers:{...preserveHeaders,'Content-Type':'application/xml'},body:preservedXml});assert.equal(seeded.status,200);
  const checkPreservedNative=async()=>{
