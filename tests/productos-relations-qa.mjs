@@ -16,7 +16,7 @@ test('categories keep parent paths, primary and selection without Ctrl; cycles d
 });
 
 test('characteristics use typed translated fields and shared native values',()=>{
- assert.equal(validateProductStage({...base,kind:'feature',fields:{name:[{language_id:'1',value:'Material'}],position:'0'}}).resource,'product_features');
+ assert.equal(validateProductStage({...base,kind:'feature',fields:{name:[{language_id:'1',value:'Material'}]}}).resource,'product_features');
  const value={...base,kind:'feature_value',fields:{id_feature:'8',custom:'0',value:[{language_id:'1',value:'Metal'}]}};
  assert.equal(validateProductStage(value).resource,'product_feature_values');
  assert.throws(()=>validateProductStage({...value,fields:{...value.fields,custom:'1'}}));
@@ -27,7 +27,7 @@ test('characteristics use typed translated fields and shared native values',()=>
 test('native feature and value POST, readback and same-request recovery never duplicate',async()=>{
  for(const kind of ['feature','feature_value']){
   const resource=kind==='feature'?'product_features':'product_feature_values',node=kind==='feature'?'product_feature':'product_feature_value',field=kind==='feature'?'name':'value';
-  const fields=kind==='feature'?{name:[{language_id:'1',value:'QA material'}],position:'0'}:{id_feature:'8',custom:'0',value:[{language_id:'1',value:'QA metal'}]};
+  const fields=kind==='feature'?{name:[{language_id:'1',value:'QA material'}]}:{id_feature:'8',custom:'0',value:[{language_id:'1',value:'QA metal'}]};
   let saved=null,entry=null,posts=0;
   const input={...base,kind,fields},xml=value=>new Response(value,{headers:{'content-type':'application/xml'}});
   const blank='<prestashop><'+node+'><id></id><'+field+'><language id="1"/></'+field+'></'+node+'></prestashop>';
