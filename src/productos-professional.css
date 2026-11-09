@@ -173,3 +173,6 @@
 #productosRoot .prd-professional .prd-catalog-table td[data-pr-column-cell=reference]{min-width:130px;max-width:160px;overflow-wrap:anywhere;white-space:normal}
 #productosRoot .prd-professional .prd-row-actions{min-width:180px}
 #productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading=marginTotal] .field-help{display:inline-block;margin-left:3px;vertical-align:middle}
+#productosRoot .prd-professional .prd-column-caption>span{white-space:nowrap}
+#productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading=marginTotal]{position:relative;padding-right:27px!important;min-width:126px}
+#productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading=marginTotal] .field-help{position:absolute;right:5px;top:8px;margin:0}
