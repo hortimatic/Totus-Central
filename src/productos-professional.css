@@ -1,5 +1,28 @@
 /* Products V4: compact workspace hierarchy from the original Stitch delivery.
    Global appearance controls apply to the outer workspace; inner groups use dividers. */
+#productosRoot .prd-direct-save{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:var(--r,7px);background:var(--panel,#fff)}
+#productosRoot .prd-direct-save>div:first-child{flex:1 1 260px;min-width:0}
+#productosRoot .prd-direct-save p{margin:4px 0;color:var(--muted)}
+#productosRoot .prd-direct-save>label{display:grid;gap:4px;flex:0 1 160px}
+#productosRoot .prd-direct-differences{flex:1 0 100%;list-style:none;padding:0;margin:0;display:grid;gap:5px}
+#productosRoot .prd-direct-differences li{display:grid;grid-template-columns:minmax(100px,160px) minmax(0,1fr);gap:8px;overflow-wrap:anywhere}
+#productosRoot .prd-inline-stages{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:var(--r,7px);background:var(--panel,#fff)}
+#productosRoot .prd-inline-stage-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#productosRoot .prd-stage-photo-choices{display:flex;flex-wrap:wrap;gap:10px;border:1px solid var(--line);padding:10px;margin-top:10px;min-width:0}
+#productosRoot .prd-stage-photo-choices label{display:grid;grid-template-columns:18px 72px;align-items:center;gap:6px;padding:6px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
+#productosRoot .prd-stage-photo-choices img{width:72px;height:72px;object-fit:contain;background:var(--panel,#fff)}
+#productosRoot .prd-stage-photo-choices span{grid-column:2;font-size:11px}
+#productosRoot .prd-stage-photo-choices label:has(input:checked){outline:2px solid var(--primary,#0891b2);outline-offset:-2px}
+#productosRoot .prd-stage-photo-choices input{width:16px;height:16px}
+#productosRoot label:has(>select[data-pr-stage-images]){display:none}
+#productosRoot .prd-variant-review-list{font-size:11px;padding-left:14px;white-space:normal;max-width:240px}
+#productosRoot .prd-variation-table td:last-child{min-width:180px}
+#productosRoot .prd-variation-table td:last-child button{margin:3px}
+#productosRoot .prd-copy-variant-options>div:last-of-type{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}
+#productosRoot .prd-copy-variant-options label{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:6px}
+#productosRoot .prd-copy-variant-options small{display:block}
+#productosRoot [data-pr-quick-field]{cursor:text}
+#productosRoot [data-pr-quick-field]:hover{box-shadow:inset 0 0 0 1px var(--primary,#0891b2)}
 #productosRoot .prd-stitch.prd-professional{gap:0;border:var(--appearance-border-width,1px) solid var(--line,#dbe4ef);border-radius:var(--r,10px);background:var(--panel,#fff);overflow:clip;font-size:13px;line-height:1.45}
 #productosRoot .prd-professional :is(h1,h2,h3,h4){font-size:15px;line-height:1.4;margin-block:0 6px;font-weight:650}
 #productosRoot .prd-professional :is(p,label,input,select,textarea,button,summary,a){font-size:12px;line-height:1.45}
@@ -200,6 +223,16 @@
 #productosRoot .prd-professional .prd-copy-variant-options h3{font-size:13px;line-height:20px;margin:0;flex:1 1 220px}
 #productosRoot .prd-professional .prd-copy-variant-options .inline-actions{gap:8px;align-items:center;flex-wrap:wrap}
 #productosRoot .prd-professional .prd-copy-variant-options button{min-height:34px;padding:6px 10px;font-size:12px}
+#productosRoot .prd-masters-dialog{width:min(860px,calc(100vw - 24px));font-size:13px}
+#productosRoot .prd-masters-dialog h3{font-size:17px;margin:0}
+#productosRoot .prd-master-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+#productosRoot .prd-master-tools label{flex:1 1 160px;min-width:0}
+#productosRoot .prd-master-list article{display:grid;grid-template-columns:minmax(120px,1fr) minmax(140px,auto) 70px;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+#productosRoot .prd-master-list small{display:block;color:var(--muted)}
+#productosRoot .prd-masters-dialog :is(button,input,select){font:inherit;min-height:32px;border-radius:var(--r,7px)}
+#productosRoot .prd-master-edit textarea{width:100%;min-height:64px;resize:vertical}
+#productosRoot .prd-copy-variant-options img{width:56px;height:56px;object-fit:contain;flex-shrink:0}
+@media(max-width:560px){#productosRoot .prd-master-list article{grid-template-columns:minmax(0,1fr) 70px}#productosRoot .prd-master-list article>div{grid-column:1/-1}}
 
 #productosRoot .prd-professional .prd-catalog-loading>button{border:1px solid var(--line,#dbe4ef);border-radius:6px;background:var(--panel,#fff);color:var(--text,#16324b);box-shadow:none}
 

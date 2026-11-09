@@ -1,4 +1,4 @@
-export const LIST_PAGE_SIZES=['20','50','100','all'];
+export const LIST_PAGE_SIZES=['10','20','50','100','all'];
 export function listPage(rows,preferences={}){
  const size=LIST_PAGE_SIZES.includes(String(preferences.size))?String(preferences.size):'20';
  const pages=size==='all'?1:Math.max(1,Math.ceil(rows.length/Number(size)));

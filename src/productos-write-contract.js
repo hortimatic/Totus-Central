@@ -3,12 +3,17 @@
 // The source XML comes exclusively from a freshly validated server-side GET.
 // The caller must explicitly map each language ID in the TARGET shop.
 export const PRODUCT_WRITE_FIELDS=Object.freeze({
+ manufacturers:Object.freeze(['name','active','description','short_description','meta_title','meta_description','meta_keywords']),
+ suppliers:Object.freeze(['name','active','description','meta_title','meta_description','meta_keywords']),
+ product_options:Object.freeze(['name','public_name','group_type','position']),
+ product_option_values:Object.freeze(['name','color','position']),
  products:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','width','height','depth','additional_shipping_cost','active','available_for_order','show_price','online_only','visibility','condition','on_sale','minimal_quantity','name','description','description_short','meta_title','meta_description','link_rewrite','meta_keywords','redirect_type','id_type_redirected','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','available_now','available_later','delivery_in_stock','delivery_out_stock']),
  combinations:Object.freeze(['reference','ean13','upc','isbn','mpn','price','wholesale_price','weight','minimal_quantity','low_stock_threshold','low_stock_alert'])
 });
 export const LOCALIZED_PRODUCT_FIELDS=Object.freeze(['name','description','description_short','meta_title','meta_description','meta_keywords','link_rewrite','available_now','available_later','delivery_in_stock','delivery_out_stock']);
 export const PRODUCT_CREATE_FIELDS=Object.freeze(['ean13','upc','isbn','mpn','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','visibility','condition','available_for_order','show_price','online_only','on_sale','unit_price_ratio','unity','ecotax','available_date','show_condition','low_stock_threshold','low_stock_alert','additional_delivery_times','redirect_type','id_type_redirected']);
 const local=new Set(LOCALIZED_PRODUCT_FIELDS);
+export const isLocalizedWriteField=(resource,field)=>['manufacturers','suppliers'].includes(resource)?['description','short_description','meta_title','meta_description','meta_keywords'].includes(field):['product_options','product_option_values'].includes(resource)?['name','public_name'].includes(field):local.has(field);
 const decimal=new Set(['price','wholesale_price','weight','width','height','depth','additional_shipping_cost','minimal_quantity','low_stock_threshold','unit_price_ratio','ecotax']);
 const flags=new Set(['active','available_for_order','show_price','online_only','on_sale','low_stock_alert','show_condition']);
 const allowedVisibility=new Set(['both','catalog','search','none']);
@@ -20,7 +25,7 @@ const own=(v,k)=>Object.prototype.hasOwnProperty.call(v,k);
 function invalid(message='Solicitud de escritura de Productos no válida.'){throw Error(message);}
 function validateValue(field,value,resource){
  if(typeof value!=='string'||value.length>250000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value))invalid('Valor de '+field+' no válido.');
- const max=field==='reference'?64:['ean13','upc','isbn','mpn'].includes(field)?40:field==='name'?128:field==='link_rewrite'?128:field==='meta_title'?255:field==='meta_description'?512:field==='description_short'?8000:field==='description'?250000:255;
+ const max=field==='reference'?64:['ean13','upc','isbn','mpn'].includes(field)?40:field==='name'?(['manufacturers','suppliers'].includes(resource)?64:128):field==='public_name'?64:field==='link_rewrite'?128:field==='meta_title'?255:field==='meta_description'?512:field==='description_short'?8000:['description','short_description'].includes(field)?250000:255;
  if(value.length>max)invalid('El campo '+field+' supera el tamaño permitido.');
  if(decimal.has(field)){
   if(!(resource==='combinations'&&field==='price'?/^-?(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/:/^(?:0|[1-9]\d{0,10})(?:\.\d{1,6})?$/).test(value))invalid('Importe o medida de '+field+' no válido.');
@@ -28,6 +33,10 @@ function validateValue(field,value,resource){
  if(flags.has(field)&&!['0','1'].includes(value))invalid('Indicador de '+field+' no válido.');
  if(field==='redirect_type'&&!['404','301-product','302-product','301-category','302-category'].includes(value))invalid('Tipo de redirección no admitido por PrestaShop 1.7.8.');
  if(field==='id_type_redirected'&&!/^(?:0|[1-9]\d{0,14})$/.test(value))invalid('Destino de redirección no válido.');
+ if(field==='group_type'&&!['select','radio','color'].includes(value))invalid('Tipo de atributo no válido.');
+ if(field==='color'&&value!==''&&!/^#[a-f0-9]{6}$/i.test(value))invalid('Color no válido.');
+ if(field==='position'&&!/^\d{1,7}$/.test(value))invalid('Posición no válida.');
+ if(['name','public_name'].includes(field)&&!value.trim())invalid('El nombre no puede quedar vacío.');
  if(field==='visibility'&&!allowedVisibility.has(value))invalid('Visibilidad no admitida.');
  if(field==='condition'&&!allowedCondition.has(value))invalid('Estado del artículo no admitido.');
  if(field==='link_rewrite'&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))invalid('URL amigable no válida.');
@@ -48,23 +57,24 @@ export function validateProductWriteRequest(input){
  const keys=new Set(['action','id','call_id','revision','store','resource','record_id','expected_product_id','changes','expected_fingerprint','request_id','confirmed','recover_unchanged']);
  if(Object.keys(input).some(k=>!keys.has(k)))invalid('Campos de solicitud no admitidos.');
  if(!['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)||!['hortimatic','newoldsmok'].includes(input.store)||
-  !['products','combinations'].includes(input.resource)||!integer.test(String(input.record_id??''))||!uuid.test(String(input.id??''))||!uuid.test(String(input.call_id??''))||
+  !Object.hasOwn(PRODUCT_WRITE_FIELDS,input.resource)||!integer.test(String(input.record_id??''))||!uuid.test(String(input.id??''))||!uuid.test(String(input.call_id??''))||
   !Number.isSafeInteger(input.revision)||input.revision<1)invalid();
  if(input.resource==='combinations'&&!integer.test(String(input.expected_product_id||'')))invalid('Falta el ID del producto al que pertenece la combinación.');
- if(input.resource==='products'&&own(input,'expected_product_id'))invalid('Un producto no acepta un ID de padre.');
+ if(input.resource!=='combinations'&&own(input,'expected_product_id'))invalid('Un producto no acepta un ID de padre.');
  if(!Array.isArray(input.changes)||input.changes.length<1||input.changes.length>100)invalid('Selecciona entre 1 y 100 campos e idiomas para validar.');
  const fields=new Set(),normalized=[];
  for(const row of input.changes){
   if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).some(k=>!['field','value','language_id'].includes(k)))invalid();
   const field=row.field;
   if(typeof field!=='string'||!PRODUCT_WRITE_FIELDS[input.resource].includes(field))invalid('Campo no habilitado para escritura: '+field);
-  const languageId=local.has(field)?String(row.language_id??''):null;
-  if(local.has(field)&&!integer.test(languageId))invalid('Selecciona un idioma real de la tienda de destino para '+field+'.');
-  if(!local.has(field)&&own(row,'language_id'))invalid('Idioma no permitido para '+field+'.');
+  const languageId=isLocalizedWriteField(input.resource,field)?String(row.language_id??''):null;
+  if(isLocalizedWriteField(input.resource,field)&&!integer.test(languageId))invalid('Selecciona un idioma real de la tienda de destino para '+field+'.');
+  if(!isLocalizedWriteField(input.resource,field)&&own(row,'language_id'))invalid('Idioma no permitido para '+field+'.');
   const token=field+':'+(languageId??'');
   if(fields.has(token))invalid('El campo está repetido.');fields.add(token);
   normalized.push({field,value:validateValue(field,row.value,input.resource),...(languageId?{language_id:languageId}:{})});
  }
+ if(input.resource==='product_options'&&normalized.some(c=>c.field==='group_type'))normalized.push({field:'is_color_group',value:normalized.find(c=>c.field==='group_type').value==='color'?'1':'0'});
  const commit=input.action==='prestashop_product_commit';
  if(own(input,'recover_unchanged')&&(!commit||input.recover_unchanged!==true))invalid('La recuperación debe confirmarse en la misma solicitud de escritura.');
  if(commit&&(!hash.test(String(input.expected_fingerprint||''))||!uuid.test(String(input.request_id||''))||input.confirmed!==true))invalid('Para escribir debes aportar huella previa, request_id y confirmación explícita.');
@@ -114,7 +124,7 @@ const unescapeXml=value=>value.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-
 const xmlValue=value=>value.split(/(<!\[CDATA\[[\s\S]*?\]\]>)/g).map(part=>part.startsWith('<![CDATA[')?part.slice(9,-3):unescapeXml(part)).join('');
 const safeCdata=value=>'<![CDATA['+value.replaceAll(']]>',']]]]><![CDATA[>')+']]>';
 export function selectedXmlValues(xml,resource,id,changes,expectedProductId=null){
- const root=tree(xml),singular=resource==='products'?'product':'combination';
+ const root=tree(xml),singular=nativeNodes[resource];if(!singular)invalid('Recurso no admitido.');
  const item=direct(root,singular),idNode=direct(item,'id'),actual=xmlValue(xml.slice(idNode.contentStart,idNode.contentEnd));
  if(actual.trim()!==String(id))invalid('El XML no corresponde al registro solicitado.');
  if(resource==='combinations'){
@@ -148,7 +158,7 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-const nativeNodes=Object.freeze({product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+const nativeNodes=Object.freeze({manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
 // Native PUT nulls omitted optional fields. Derive the preservation read from
 // the shop's own schema, not just the fields this editor happens to expose.
 export function productPreservationProjection(schema){
@@ -218,8 +228,9 @@ export function prepareProductStageXml(xml,resource,fields,associations={},recor
   const nodes=parent.children.filter(node=>node.name===name);if(nodes.length>1)invalid('Asociación duplicada.');
   if(nodes.length)block(nodes[0],content);else added+='<'+name+'>'+content+'</'+name+'>';
  }
- if(resource==='product_options'&&parent)edits.push({start:parent.open,end:parent.end,value:''});
+ if(['product_options','manufacturers'].includes(resource)&&parent)edits.push({start:parent.open,end:parent.end,value:''});
  if(added)edits.push({start:parent.contentEnd,end:parent.contentEnd,value:added});
+ if(['manufacturers','suppliers'].includes(resource)){const computed=item.children.find(node=>node.name==='link_rewrite');if(computed)edits.push({start:computed.open,end:computed.end,value:''});}
  // PrestaShop sends calculated fields on GET which it rejects on PUT.
  for(const name of resource==='products'?['manufacturer_name','quantity',...['position_in_category','id_default_image','id_default_combination','type'].filter(key=>!Object.hasOwn(fields,key))]:resource==='combinations'?['quantity']:[]){
   const node=item.children.find(node=>node.name===name);if(node)edits.push({start:node.open,end:node.end,value:''});
