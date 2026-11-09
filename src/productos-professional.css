@@ -1,3 +1,4 @@
+@import url("./table-view-profiles.css");
 /* Products V4: compact workspace hierarchy from the original Stitch delivery.
    Global appearance controls apply to the outer workspace; inner groups use dividers. */
 #productosRoot .prd-direct-save{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:var(--r,7px);background:var(--panel,#fff)}
@@ -258,3 +259,31 @@
 .page.productos-page{width:100%;max-width:none;margin-inline:0;min-width:0}
 
 #productosRoot .prd-master-pages{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}#productosRoot .prd-master-pages label{display:flex;align-items:center;gap:6px}#productosRoot .prd-master-pages :is(input,select){width:80px}
+#productosRoot .prd-row-actions{vertical-align:middle;text-align:left}
+#productosRoot .prd-row-main-actions{display:grid;grid-template-columns:1fr;gap:6px;min-width:140px}
+#productosRoot .prd-row-main-actions button,#productosRoot .prd-row-menu>summary{min-height:32px;height:auto;padding:6px 10px;font-size:.82rem;line-height:1.25;border-radius:var(--r,7px);width:100%;margin:0;white-space:normal;text-align:center}
+#productosRoot .prd-row-menu{margin-top:6px;position:relative}
+#productosRoot .prd-row-menu>div{display:grid;gap:6px;padding:10px;background:var(--panel,#fff);border:1px solid var(--line);border-radius:var(--r,7px);min-width:190px;max-width:280px}
+#productosRoot .prd-row-menu .prd-table-button{display:block;width:100%;box-sizing:border-box;min-height:32px;padding:6px 10px;margin:0;font-size:.82rem;text-align:left}
+#productosRoot .prd-direct-save{margin:0 0 14px;align-items:center}
+#productosRoot .prd-direct-save .inline-actions{display:flex;flex-wrap:wrap;gap:8px}
+#productosRoot [data-pr-action=publication-review],#productosRoot .prd-primary-action{background:var(--primary,#087ea4);color:var(--on-primary,#fff);border:1px solid var(--primary,#087ea4)}
+#productosRoot .prd-quick-edit{width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:20px;overflow:auto;box-sizing:border-box;color:var(--text);background:var(--panel,#fff);border:1px solid var(--line);border-radius:var(--r,9px)}
+#productosRoot .prd-quick-edit header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+#productosRoot .prd-quick-edit h3{font-size:1.1rem;margin:0}
+#productosRoot .prd-quick-edit p{font-size:.88rem;line-height:1.5;margin:8px 0}
+#productosRoot .prd-quick-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+#productosRoot .prd-quick-edit label{display:grid;gap:5px;font-size:.85rem;min-width:0}
+#productosRoot .prd-quick-edit input,#productosRoot .prd-quick-edit select{width:100%;min-width:0;box-sizing:border-box;min-height:36px;padding:6px 8px;font-size:.88rem}
+#productosRoot .prd-quick-edit footer{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line)}
+#productosRoot .prd-quick-edit button{min-height:34px;padding:6px 10px;font-size:.85rem;border:1px solid var(--line);border-radius:var(--r,7px)}
+#productosRoot .prd-quick-review{border:1px solid var(--line);border-radius:var(--r,7px);padding:10px}
+#productosRoot .prd-publication-scope{padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:var(--r,7px)}
+#productosRoot .prd-publication-scope label{display:flex;align-items:flex-start;gap:8px;padding:8px 0}
+#productosRoot .prd-publication-scope input{width:auto;min-width:16px;flex:0 0 16px;margin:3px 0}
+@media(max-width:800px){#productosRoot .prd-quick-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){#productosRoot .prd-quick-fields{grid-template-columns:1fr}#productosRoot .prd-direct-save .inline-actions{width:100%}#productosRoot .prd-direct-save .inline-actions button{flex:1 1 180px;min-width:0}}
+
+#productosRoot .prd-publication-differences{padding:10px;border:1px solid var(--line);border-radius:var(--r,7px);margin:10px 0}
+#productosRoot :is(.prd-publication-differences,.prd-operation-history) dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,3fr);gap:8px;font-size:.85rem}
+#productosRoot :is(.prd-publication-differences,.prd-operation-history) dd{margin:0;overflow-wrap:anywhere;max-height:140px;overflow:auto}

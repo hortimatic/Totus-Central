@@ -8,9 +8,7 @@ export function productColumnHeading(key){
  return lines[key]||[PRODUCT_COLUMNS.find(c=>c[0]===key)?.[1]||key,''];
 }
 export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','name','id','reference','ean13','brand','category','store','cost','costVat','costTotal','price','gross','marginTotal','margin','stock','variants','active']);
-const recentDefault=['image','name','id','reference','ean13','brand','category','store','cost','gross','margin','stock','variants','active'];
-const previousDefault=['image','id','reference','name','ean13','brand','category','store','cost','gross','margin','stock','variants','active'];
-export function productColumns(value){const valid=new Set(PRODUCT_COLUMNS.map(c=>c[0]));if(Array.isArray(value)&&[previousDefault,recentDefault].some(v=>value.join('|')===v.join('|')))return [...DEFAULT_PRODUCT_COLUMNS];return Array.isArray(value)&&value.includes('name')?[...new Set(value.filter(k=>valid.has(k)))]:[...DEFAULT_PRODUCT_COLUMNS];}
+export function productColumns(value){const valid=new Set(PRODUCT_COLUMNS.map(c=>c[0]));return Array.isArray(value)&&value.includes('name')?[...new Set(value.filter(k=>valid.has(k)))]:[...DEFAULT_PRODUCT_COLUMNS];}
 export function catalogProductKey(product,fallbackStore='hortimatic'){
  return (product.__store||fallbackStore)+'|'+String(product.id);
 }

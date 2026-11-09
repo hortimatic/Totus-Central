@@ -11,3 +11,6 @@ assert.equal(calculate(order,{rows:[]}).margin,null);
 assert(calculate({...order,total_paid_tax_excl:'5'},detail).margin<0);
 assert.equal(calculate({...order,total_paid_tax_excl:'10'},detail).percent,null);
 console.log('Approximate margins: costs, quantities, fallback, VAT/shipping exclusion, incomplete data, zero costs and losses OK');
+
+assert.equal(calculate(order,{rows:[{product_quantity:'2',current_wholesale_price:'3.90',purchase_supplier_price:'3'}]}).cost,7.8);
+assert.equal(calculate(order,{rows:[{product_quantity:'1',current_wholesale_price:'0'}]}).cost,0);

@@ -61,3 +61,36 @@ No instalar módulos opcionales ni asumir que la adaptación de precio unitario 
 
 ## 6. Estado de comprobación
 PR140 ya desplegado: recuperación corregida, inventario de idiomas coherente y nombres nativos validados. El formulario y el recorrido de producto existente se publican en una revisión posterior, con pruebas propias de contrato, identidad, PostgreSQL, navegador y Webservice nativo aislado. Las pruebas reales realizadas por ChatGPT en ambas tiendas deben adjuntarse a la entrega y no darse por aprobadas por este texto.
+
+
+## Actualización del recorrido de interfaz · 9 de noviembre de 2026
+
+La pestaña **Historial** conserva las operaciones verificadas; no es la pantalla de publicación. Las acciones se realizan en la ficha, la combinación o la copia que se está trabajando.
+
+### Editar y publicar desde Producto
+1. Elegir tienda y producto en Catálogo; **Abrir ficha** conserva su identidad en las demás pestañas. Confirmar ID, referencia e imagen antes de editar.
+2. Modificar los campos. **Guardar cambios en PrestaShop** prepara las diferencias; **Aceptar y sincronizar** las escribe y relee en esa tienda. Si la petición queda incierta, comprobar la misma solicitud; no crear otra.
+3. En Variaciones, editar la combinación concreta, pulsar **Revisar cambios** y **Aceptar y sincronizar**. Para añadir una nueva, usar su formulario de atributos y referencia, conservando las combinaciones anteriores.
+4. **Publicar en PrestaShop** abre una revisión visible cerca de las acciones principales. Elegir **Solo producto** o **Producto y variaciones pendientes**. Solo producto conserva las variaciones que ya existen: no las elimina.
+5. Revisar activo, visibilidad y permiso de compra por separado. Una muestra puede ser activa y visible pero no comprable. Publicar no implica cambiar existencias.
+6. Al incluir variaciones, Totus guarda primero sus cambios y las cargas preparadas de fotos y asociaciones. Si una falla, no activa el producto y conserva las solicitudes para comprobarlas. No repetir las cargas con nuevos identificadores.
+7. Releer producto y combinaciones; anotar IDs, publicación y fotos. El botón pulsado no demuestra por sí solo que haya terminado.
+
+### Galería y fotos de una combinación
+Subir una foto desde Galería o desde la combinación. La subida y la asignación son dos operaciones nativas distintas. Tras verificar la foto, seleccionar visualmente las imágenes de la combinación y aceptar su asignación. Comprobar después los IDs de imagen asociados. La portada general no asigna automáticamente fotos a todas las combinaciones.
+
+### Edición rápida
+En Catálogo, **Edición rápida** o doble clic en una celda editable abre una ventana con campos alineados. Cambiar datos, **Revisar cambios**, comprobar las diferencias y **Guardar en PrestaShop**. Cerrar conserva el borrador; **Descartar y cerrar** lo elimina localmente. Una respuesta incierta conserva el UUID y ofrece comprobación/recuperación.
+
+### Accesos y alcance
+- **Ver en la web** abre la tienda pública del producto seleccionado.
+- **Vincular administración** solicita un enlace nativo de Catálogo o edición de la tienda. Se conserva solo en la sesión del navegador y usuario; al caducar la sesión debe renovarse. Un token del Dashboard no sirve para la ficha de Productos. No guardar estos tokens en manuales, código, exportaciones ni mensajes.
+- ChatGPT usa exclusivamente su cuenta vinculada. Codex usa Codex. Nunca adoptar la identidad de Diego para salvar una validación.
+- No instalar módulos, modificar núcleo ni ampliar el esquema/configuración de PrestaShop para completar el recorrido.
+- Los costes nativos se admiten como base del cálculo por decisión de Diego. En Pedidos se muestra margen comercial sin IVA, envío ni embalaje, no beneficio neto contable. Los costes actuales pueden diferir del coste histórico y no incluyen gastos generales. Si faltan líneas o costes, indicar el margen parcial; no inventar cero.
+
+
+### Perfiles de columnas: personales y del equipo
+En la rueda de Columnas, **Guardar vista personal** conserva nombre, columnas, orden y anchos en la cuenta. Productos conserva además su filtro y tamaño de página como datos privados. Pedidos conserva su densidad, paginación y vistas personales. No hay que reconstruirlas al usar otro equipo con la misma cuenta.
+
+**Perfiles del equipo** abre una ventana independiente. Escribir un nombre y **Compartir configuración actual** publica exclusivamente columnas y anchos; no publica búsquedas, precios, contenido de filas ni credenciales. Otro usuario con permiso de lectura del módulo abre la misma opción y pulsa **Aplicar a mi tabla**. Se crea una copia personal; publicar o retirar una plantilla no recoloca automáticamente las tablas de los demás. Solo el autor puede retirar su perfil del equipo. Compartir un perfil no otorga permisos de negocio ni acceso a los productos.

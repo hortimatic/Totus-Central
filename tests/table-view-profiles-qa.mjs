@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';
+import {createOrdersTablePreferences} from '../src/prestashop-orders-table.js';
+const local=new Map(),cloud=new Map();const storage={getItem:k=>local.get(k),setItem:(k,v)=>local.set(k,v)};
+const backend={load:async owner=>structuredClone(cloud.get(owner)),save:async(state,owner)=>cloud.set(owner,structuredClone(state))};
+const a=createOrdersTablePreferences(storage,'A',{cloud:backend});a.state.views=[{name:'Ventas',columns:['id','margin'],widths:{margin:180}}];a.state.columns=['id','margin'];a.save();await a.flush();local.clear();const restored=createOrdersTablePreferences(storage,'A',{cloud:backend});await restored.load();assert.equal(restored.state.views[0].name,'Ventas');assert.equal(restored.state.columns[1],'margin');const b=createOrdersTablePreferences(storage,'B',{cloud:backend});await b.load();assert.equal(b.state.views.length,0);assert.notDeepEqual(b.state.columns,restored.state.columns);console.log('Orders personal named profiles survive a new browser cache and remain isolated by account PASS');
