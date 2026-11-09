@@ -66,3 +66,6 @@ Entregar por recorrido: fecha, versión de Totus, tienda(s), ID/referencia, soli
 Pruebas reproducibles: productos-ui-browser-qa, productos-table-browser-qa, productos-copy-circuit-browser-qa, productos-copy-complete-browser-qa, productos-existing-actions-browser-qa, productos-image-copy-browser-qa y productos-shared-selection-browser-qa. Sus simulaciones no sustituyen una verificación comercial del artículo solicitado.
 
 Prueba comercial finalizada en el lote anterior: Bandeja Mario Jump, Hortimatic #170807053 → NewOldSmok #170807260, foto nativa #12673 y textos/enlaces adaptados en ambos idiomas. Stock destino 0; no se duplicó inventario. Esa bandeja no tiene combinaciones. La muestra Argus #170807259 sigue siendo una base incompleta; no presentarla como copia íntegra ni repetir su alta.
+
+## Generar órdenes desde Totus
+En Alta asistida, elegir Trabajo: Crear desde URL, Añadir variación a un producto, Modificar producto o Copiar entre tiendas. Para las tres últimas indicar una única tienda e ID; en Copiar elegir además origen diferente del destino. En Modificar detallar los campos en Indicaciones adicionales. Preparar encargo genera una petición revisable con este manual enlazado; Copiar para ChatGPT la copia al portapapeles, no ejecuta una escritura. ChatGPT debe ejecutar los pasos con su propia conexión y devolver evidencia de relectura.

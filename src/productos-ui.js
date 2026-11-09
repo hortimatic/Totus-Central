@@ -48,9 +48,9 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
  const tableEditor=createProductTableEditor({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit,onSaved:(shop,item)=>{const i=rows.findIndex(p=>catalogKey(p)===shop+'|'+item.id);if(i>=0)rows[i]={...item,__store:shop};if(store===shop&&String(record?.id)===String(item.id)){record=item;shopRecords.set(shop,item);}}});
  const createWizard=createProductWizard({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit:()=>canEdit()||canCreate()||canDelete(),onProgress:async message=>{status=message;persistDraft();await storageQueue;if(storageError)throw storageError;if(current())render();}});
  const snapshotDraft=()=>({savedAt:Date.now(),tableEdits:tableEditor.snapshot(),organization,galleryDraft,copyQueue,requestBrief,requestOutput,editorSection,catalogScope,store,mode,parallelSection,bulkField,bulkValue,bulkItems,bulkConfirm,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
- const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record||tableEditor.rows.size||requestBrief.url||draftsByShop.size||draftsByProduct.size||copyQueue.length?structuredClone({...snapshotDraft(),shopDrafts:[...draftsByShop],productDrafts:[...draftsByProduct]}):null;storageError=null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(error=>{storageError=error||Error('Borrador local no disponible');if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
+ const persistDraft=()=>{if(!storageReady||!owner)return;const key=owner,value=record||tableEditor.rows.size||(requestBrief.url||requestBrief.product_id)||draftsByShop.size||draftsByProduct.size||copyQueue.length?structuredClone({...snapshotDraft(),shopDrafts:[...draftsByShop],productDrafts:[...draftsByProduct]}):null;storageError=null;storageQueue=storageQueue.catch(()=>{}).then(()=>productDraftStore(key,value)).catch(error=>{storageError=error||Error('Borrador local no disponible');if(current())status='No se ha podido conservar el borrador local. No cierres esta pestaña hasta comprobar las operaciones pendientes.';});};
  function restoreDraft(d,{restoreTable=false}={}){
-  if(!d||!PRODUCT_STORES.some(s=>s.key===d.store)||!d.record&&!d.requestBrief?.url&&!d.tableEdits?.length&&!d.shopDrafts?.length&&!d.productDrafts?.length&&!d.copyQueue?.length)return false;
+  if(!d||!PRODUCT_STORES.some(s=>s.key===d.store)||!d.record&&!d.requestBrief?.url&&!d.requestBrief?.product_id&&!d.tableEdits?.length&&!d.shopDrafts?.length&&!d.productDrafts?.length&&!d.copyQueue?.length)return false;
   if(Array.isArray(d.productDrafts)){draftsByProduct.clear();for(const [key,value]of d.productDrafts)draftsByProduct.set(key,value);}
   copyQueue=Array.isArray(d.copyQueue)?d.copyQueue:copyQueue;
   if(Array.isArray(d.shopDrafts)){draftsByShop.clear();for(const [shop,value]of d.shopDrafts)if(PRODUCT_STORES.some(s=>s.key===shop))draftsByShop.set(shop,value);}
@@ -283,7 +283,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
  async function switchStore(next){
   if(!['hortimatic','newoldsmok','both'].includes(next)||next===catalogScope)return;
   const requestedMode=mode;
-  rememberProductDraft();if(record||requestBrief.url)draftsByShop.set(store,structuredClone(snapshotDraft()));
+  rememberProductDraft();if(record||requestBrief.url||requestBrief.product_id)draftsByShop.set(store,structuredClone(snapshotDraft()));
   resetDraft();catalogScope=next;if(next!=='both')store=next;
   rows=[];page=0;hasMore=false;query='';catalogStock.clear();catalogSelected.clear();catalogFilters={category:'',brand:'',active:''};
   const saved=next==='both'?null:draftsByShop.get(next);if(saved){const edits=tableEditor.snapshot();restoreDraft(saved);tableEditor.restore(edits);if(record?.id&&ready(next))await refreshStoredProduct();}else mode='catalogo';

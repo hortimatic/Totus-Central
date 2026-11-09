@@ -19,7 +19,7 @@ Revisión 9/11/2026. Complementa el manual 12, sin reemplazarlo. No se promete a
 | Copiar | Selector de origen dentro de la pestaña, fichas alineadas y destino con vista previa marcada como pendiente | productos-shared-selection-browser-qa; productos-ui-browser-qa |
 | Copiar | Todos los campos y combinaciones elegidos, correspondencias de destino, imágenes nativas y textos adaptados | productos-copy-complete-browser-qa |
 | Copiar | Interrupción recuperada conservando solicitudes sin fotos/productos duplicados | productos-copy-complete-browser-qa |
-| Alta asistida | Encargo con datos acreditados, creación de base y etapas con resultado verificado; no confundir encargo con ejecución | productos-ui-browser-qa; productos-create-ui-qa |
+| Alta asistida | Cuatro órdenes: crear desde URL, modificar producto, añadir variación y copiar entre tiendas; manual enlazado, datos acreditados e identidades exactas. No confundir encargo con ejecución | productos-ui-browser-qa; productos-create-ui-qa |
 | Cambios | Guardado explícito y relectura; no declarar una base o una vista previa como copia completa | productos-ui-browser-qa; productos-existing-actions-browser-qa |
 | Todas | Controles y desplegables sin desbordamiento, cierre/escape/foco, ajustes de apariencia | productos-existing-actions-browser-qa; productos-table-browser-qa |
 | Manual | Creación, modificación, combinaciones, copia en ambas direcciones, recuperación y límites de API acreditados | documento 12; contraste independiente de ChatGPT |
@@ -28,7 +28,7 @@ La revisión local utiliza datos ficticios en 390/680/768/1024/1440 según el ci
 
 ## Hoja de ejecución independiente de ChatGPT
 
-Encargo enviado al chat del proyecto «Creación de productos», ID 6aef5142-c1c8-83ed-8ebd-37063043abb5. La aceptación de ese encargo no es evidencia de pruebas completadas.
+El chat «Creación de productos» no registró el encargo y devolvió error de sistema. Se ha creado en el mismo proyecto «Productos · recorridos completos y pruebas», ID 6af10eb7-5d9c-83eb-ade5-0ebc36bfb1b5. El encargo está registrado; su estado activo no acredita todavía ejecución ni pruebas terminadas.
 
 | Caso | Trabajo | Criterio de aceptación |
 | --- | --- | --- |
