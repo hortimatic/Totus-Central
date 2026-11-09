@@ -129,3 +129,10 @@ test('native preservation schema includes unedited dates and flags but excludes 
  assert.equal(productPreservationProjection(schema),'[id,reference,price,date_add,date_upd,is_virtual,customizable,native_extra,categories[id],product_bundle[id,id_product_attribute,quantity]]');
  assert.throws(()=>productPreservationProjection('<prestashop><product><id/></product></prestashop>'),/incompleto/);
 });
+
+import {readProductPreservationProjection} from '../supabase/functions/totus-connections/prestashop-write.js';
+test('native 1.7.8 schema HTTP500 uses only its verified preservation projection',async()=>{
+ const run=version=>readProductPreservationProjection(connection,{resolve,request:async()=>new Response('legacy schema error',{status:500,headers:{'PSWS-Version':version}})});
+ const display=await run('1.7.8.11');for(const field of ['date_add','date_upd','is_virtual','supplier_reference','quantity_discount','product_bundle[id,id_product_attribute,quantity]'])assert(display.includes(field));
+ await assert.rejects(run('8.2.0'),/HTTP 500/);await assert.rejects(run(''),/HTTP 500/);
+});

@@ -168,6 +168,14 @@ export function productPreservationProjection(schema){
  if(fields.length<2)invalid('Esquema de producto incompleto.');
  return '['+[...new Set(fields)].join(',')+']';
 }
+// 1.7.8's schema renderer can crash on an empty association. This fallback
+// covers its official Product definition, only after the server identifies
+// that exact release family. It does not manufacture values or a template.
+export function legacyProductPreservationProjection(version){
+ if(!/^1\.7\.8(?:\.\d+)?$/.test(version||''))return null;
+ const fields=['id',...PRODUCT_WRITE_FIELDS.products,'id_shop_default','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','supplier_reference','location','quantity_discount','cache_is_pack','cache_has_attachments','is_virtual','state','product_type','customizable','text_fields','uploadable_files','indexed','cache_default_attribute','advanced_stock_management','date_add','date_upd','pack_stock_type','categories[id]','images[id]','combinations[id]','product_option_values[id]','product_features[id,id_feature_value]','tags[id]','attachments[id]','accessories[id]','product_bundle[id,id_product_attribute,quantity]'];
+ return '['+[...new Set(fields)].join(',')+']';
+}
 export function minimalProductStageSchema(resource){
  if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
  const singular=nativeNodes[resource];

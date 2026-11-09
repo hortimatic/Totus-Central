@@ -1,9 +1,10 @@
+import {readProductPreservationProjection} from './prestashop-write.js';
 import {prestashopCapabilities} from './prestashop.js';
 import {runProductImageReplacement} from './prestashop-product-image-replace.js';
 import {runProductRemoval,runWholeProductRemoval} from './prestashop-product-remove.js';
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productPreservationProjection,productLanguageIdsFromListing,inspectProductAssociationIds,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,inspectProductAssociationIds,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
@@ -32,7 +33,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(['finish','image_metadata','attribute_group','attribute_value'].includes(op.kind))languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
- const productDisplay=op.kind==='finish'?productPreservationProjection(await xml('products',{schema:'synopsis'})):null;
+ const productDisplay=op.kind==='finish'?await readProductPreservationProjection(connection,{request,resolve}):null;
  if(op.kind==='remove_product')return runWholeProductRemoval(op,{xml,call,journal,env});
  const root=await xml('products/'+op.product_id,{display:op.kind==='finish'?productDisplay:op.existing_product?'[id,reference,price,active,available_for_order,visibility]':'[id,reference]'});
  if(parsePrestashopResourceId(root,'product')!==op.product_id||(!op.existing_product&&readPrestashopXmlField(root,'product','reference')!==parent.reference))throw Error('La ficha de destino no corresponde al producto registrado.');

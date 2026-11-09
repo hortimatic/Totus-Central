@@ -1,8 +1,15 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,productPreservationProjection,productRedirectTarget,parsePrestashopResourceId,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
+import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,productPreservationProjection,legacyProductPreservationProjection,productRedirectTarget,parsePrestashopResourceId,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
+export async function readProductPreservationProjection(connection,{request=fetch,resolve}={}){
+ const schemaUrl=new URL(connection.endpoint);schemaUrl.pathname='/api/products';schemaUrl.searchParams.set('schema','synopsis');
+ const target=await safeEndpoint(schemaUrl.href,resolve),response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
+ if(response.status===500){const fallback=legacyProductPreservationProjection(response.headers.get('psws-version'));await response.body?.cancel();if(fallback)return fallback;throw Error('No se pudo consultar el esquema nativo de conservación (HTTP 500).');}
+ if(!response.ok){await response.body?.cancel();throw Error('No se pudo consultar el esquema nativo de conservación (HTTP '+response.status+').');}
+ return productPreservationProjection(await boundedText(response,2097152));
+}
 // Server-only XML transport. Do NOT expose raw XML, secrets, the prepared XML,
 // arbitrary URLs or audit payloads containing descriptions to the browser.
 // POST (new product), stock and associations intentionally remain unsupported.
@@ -24,12 +31,7 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
   throw Error('Escritura de productos bloqueada: falta habilitación técnica revisada.');
  if(operation.commit&&!journal)throw Error('Falta el diario duradero de actualización.');
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
- if(operation.resource==='products'){
-  const schemaUrl=new URL(connection.endpoint);schemaUrl.pathname='/api/products';schemaUrl.searchParams.set('schema','synopsis');
-  const schemaTarget=await safeEndpoint(schemaUrl.href,resolve),schemaResponse=await request(schemaTarget.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
-  if(!schemaResponse.ok){await schemaResponse.body?.cancel();throw Error('No se pudo consultar el esquema nativo de conservación (HTTP '+schemaResponse.status+').');}
-  base.searchParams.set('display',productPreservationProjection(await boundedText(schemaResponse,2097152)));
- }
+ if(operation.resource==='products')base.searchParams.set('display',await readProductPreservationProjection(connection,{request,resolve}));
  let languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
  if(operation.resource==='products'){
   const inventory=new URL(connection.endpoint);inventory.pathname='/api/languages';inventory.searchParams.set('display','[id]');
