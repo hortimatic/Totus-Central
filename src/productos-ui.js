@@ -160,7 +160,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
  }
  function cacheCatalogue(){if(catalogSearchTerm)return;for(const shop of catalogScope==='both'?PRODUCT_STORES.map(s=>s.key):[catalogScope]){const c=connection(shop);catalogCache.set(shop,{revision:c?.revision,id:c?.id,rows:rows.filter(p=>(p.__store||store)===shop),meta:catalogMeta.get(shop)});}}
  async function prefetchCatalog(version,scope,{refresh=false}={}){
-  const repaint=()=>{if(!document.querySelector('dialog[open],.prd-select-dialog')&&!root?.querySelector('details[open]'))render();};
+  const repaint=()=>{const active=document.activeElement,editing=root?.contains(active)&&active.matches('input,select,textarea');if(!editing&&!document.querySelector('dialog[open],.prd-select-dialog')&&!root?.querySelector('details[open]'))render();};
   const valid=()=>current()&&prefetchVersion===version&&catalogScope===scope&&!catalogSearchTerm;
   try{for(const shop of scope==='both'?PRODUCT_STORES.map(s=>s.key):[scope]){const seen=new Set();for(let cursor=0;valid();cursor++){
    while(pending&&valid())await new Promise(resolve=>setTimeout(resolve,100));if(!valid())return;
