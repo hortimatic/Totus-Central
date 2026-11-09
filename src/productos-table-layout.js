@@ -1,0 +1,18 @@
+import {productColumnDefaultWidth,PRODUCT_COLUMN_MIN_WIDTH as MIN,PRODUCT_COLUMN_MAX_WIDTH as MAX} from './productos-catalog.js';
+// Only presentation is changed; no product fields or business operations are sent.
+export function attachProductTableLayout(root,{onWidth,onMove}){
+ const abort=new AbortController(),options={signal:abort.signal};let resizing=null,moving=null;
+ const apply=(key,width)=>{const col=[...root.querySelectorAll('[data-pr-width-column]')].find(n=>n.dataset.prWidthColumn===key),table=col?.closest('table');if(!col||!table)return;col.style.width=width+'px';table.style.width=table.style.minWidth=[...table.querySelectorAll('col')].reduce((n,c)=>n+parseFloat(c.style.width),0)+'px';root.querySelector('[data-pr-resize-column="'+key+'"]')?.setAttribute('aria-valuenow',String(width));};
+ const clamp=n=>Math.max(MIN,Math.min(MAX,Math.round(n)));
+ root.addEventListener('pointerdown',e=>{const handle=e.target.closest('[data-pr-resize-column]');if(!handle||e.button!==0)return;e.preventDefault();e.stopPropagation();handle.focus({preventScroll:true});const key=handle.dataset.prResizeColumn;resizing={key,x:e.clientX,width:Number(handle.getAttribute('aria-valuenow')),next:Number(handle.getAttribute('aria-valuenow'))};root.classList.add('prd-column-resizing');},options);
+ window.addEventListener('pointermove',e=>{if(!resizing)return;e.preventDefault();resizing.next=clamp(resizing.width+e.clientX-resizing.x);apply(resizing.key,resizing.next);},options);
+ const finish=cancel=>{if(!resizing)return;const saved=resizing;resizing=null;root.classList.remove('prd-column-resizing');if(cancel)apply(saved.key,saved.width);else onWidth(saved.key,saved.next);};
+ window.addEventListener('pointerup',()=>finish(false),options);window.addEventListener('pointercancel',()=>finish(true),options);
+ root.addEventListener('dblclick',e=>{const h=e.target.closest('[data-pr-resize-column]');if(h){e.preventDefault();apply(h.dataset.prResizeColumn,productColumnDefaultWidth(h.dataset.prResizeColumn));onWidth(h.dataset.prResizeColumn,null);}},options);
+ root.addEventListener('keydown',e=>{const h=e.target.closest('[data-pr-resize-column]');if(h&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();e.stopPropagation();const key=h.dataset.prResizeColumn,width=e.key==='Home'?MIN:e.key==='End'?MAX:clamp(Number(h.getAttribute('aria-valuenow'))+(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?1:10));apply(key,width);onWidth(key,width);return;}const grip=e.target.closest('[data-pr-column-drag]');if(grip&&e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();e.stopPropagation();const rows=[...root.querySelectorAll('[data-pr-column-option]')].filter(n=>n.querySelector('[data-pr-column-position]')),i=rows.findIndex(n=>n.dataset.prColumnOption===grip.dataset.prColumnDrag);onMove(grip.dataset.prColumnDrag,i+(e.key==='ArrowUp'?-1:1));}},options);
+ root.addEventListener('dragstart',e=>{const h=e.target.closest('[data-pr-column-drag]');if(!h)return;moving=h.dataset.prColumnDrag;e.dataTransfer.setData('text/plain',moving);e.dataTransfer.effectAllowed='move';},options);
+ root.addEventListener('dragover',e=>{if(moving&&e.target.closest('[data-pr-column-position],[data-pr-column-option]')){e.preventDefault();e.dataTransfer.dropEffect='move';}},options);
+ root.addEventListener('drop',e=>{const row=e.target.closest('[data-pr-column-option]'),select=row?.querySelector('[data-pr-column-position]');if(!moving||!select)return;e.preventDefault();e.stopPropagation();const key=moving;moving=null;onMove(key,Number(select.value));},options);
+ root.addEventListener('dragend',()=>{moving=null;},options);
+ return ()=>{abort.abort();root.classList.remove('prd-column-resizing');};
+}

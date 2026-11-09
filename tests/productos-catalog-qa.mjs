@@ -39,3 +39,6 @@ test('default catalogue places photo and product first without replacing custom 
  assert.deepEqual(productColumns(['image','id','reference','name','ean13','brand','category','store','cost','gross','margin','stock','variants','active']).slice(0,2),['image','name']);
  assert.deepEqual(productColumns(['id','name','image']),['id','name','image']);
 });
+
+
+test('manual column widths and direct reordering retain valid personal values',async()=>{const {productColumnWidths,moveProductColumn}=await import('../src/productos-catalog.js');assert.deepEqual(productColumnWidths({name:310,image:90,bogus:120,reference:9999,id:-1}),{name:310,image:90});assert.deepEqual(moveProductColumn(['image','name','id','reference'],'reference',1),['image','reference','name','id']);assert.deepEqual(moveProductColumn(['name','id'],'id',-1),['name','id']);});

@@ -169,7 +169,7 @@ async function loadStockCatalog(storeId,references,valid){
  },active);
 }
 const automationsUI=createAutomationsUI({rpc,actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
-const productosUI=createProductosUI({rpc,actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),canCreate:()=>can('productos','create'),canDelete:()=>can('productos','delete'),canExport:()=>can('productos','export'),invoke:async body=>{
+const productosUI=createProductosUI({rpc,tableLayout:{load:owner=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:null}),save:(layout,owner)=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:layout})},actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),canCreate:()=>can('productos','create'),canDelete:()=>can('productos','delete'),canExport:()=>can('productos','export'),invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
  if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
  if(result.data?.error)throw Error(result.data.error);
@@ -2003,7 +2003,7 @@ function userPermissionsModal(email){
  const rows=PERMISSION_MODULES.map(([module,label])=>{
   const values=permissionsFor(member,module,state.data.userPermissions||[]);
   const cells=PERMISSION_ACTIONS.map(([action,actionLabel])=>`<td class="permission-cell"><label title="${esc(actionLabel)}: ${esc(label)}"><input type="checkbox" id="perm_${module}_${action}" ${values[action]?'checked':''} aria-label="${esc(actionLabel)} en ${esc(label)}"></label></td>`).join('');
-  return `<tr><th scope="row">${esc(label)}${PERMISSION_HELP[module]?`<p class="small muted">${esc(PERMISSION_HELP[module])}</p>`:''}</th>${cells}</tr>`;
+  return `<tr><th scope="row"><span class="permission-module-title">${esc(label)}</span><p class="permission-module-description">${esc(PERMISSION_HELP[module])}</p></th>${cells}</tr>`;
  }).join('');
  const head=PERMISSION_ACTIONS.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('');
  const body=`<div class="stack"><p>Define los permisos de <b>${esc(member.full_name||member.email)}</b> (<b>${esc(member.role)}</b>). Los cambios se aplican también en el servidor. Para restablecer los permisos habituales del rol, utiliza el botón correspondiente.</p><div class="table-scroll"><table class="permissions-table"><thead><tr><th scope="col">Módulo</th>${head}</tr></thead><tbody>${rows}</tbody></table></div><div class="form-actions">${btn('Restablecer rol','user-permissions-reset','secondary',`data-email="${esc(email)}"`)}${btn('Guardar permisos','user-permissions-save','primary',`data-email="${esc(email)}"`)}</div></div>`;

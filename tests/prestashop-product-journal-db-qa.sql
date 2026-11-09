@@ -158,3 +158,5 @@ END $history$;
 \ir productos-creation-metadata-db-qa.sql
 
 \ir product-edit-recovery-db-qa.sql
+
+\ir product-table-layout-db-qa.sql

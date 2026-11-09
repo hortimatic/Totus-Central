@@ -4,7 +4,7 @@ export const PRODUCT_COLUMNS=Object.freeze([
  ['image','Foto'],['name','Producto'],['id','ID'],['reference','Ref.'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste neto'],['costVat','Coste +IVA'],['costTotal','Coste total'],['price','PVP neto'],['gross','PVP final'],['margin','Margen %'],['marginTotal','Margen €'],['stock','Stock'],['variants','Variantes'],['active','Estado'],['weight','Peso'],['width','Ancho'],['height','Alto'],['depth','Fondo'],['date_add','Creado'],['creator','Autor'],['date_upd','Actualizado']
 ]);
 export function productColumnHeading(key){
- const lines={cost:['Coste','sin IVA'],costVat:['Coste','con IVA'],costTotal:['Coste','IVA + RE'],price:['PVP neto','sin IVA'],gross:['PVP final','con IVA'],margin:['Margen %','sin IVA'],marginTotal:['Margen €','PVP − coste'],weight:['Peso','kg'],width:['Anchura','cm'],height:['Altura','cm'],depth:['Profundidad','cm'],date_add:['Creado','fecha y hora'],creator:['Usuario','creador'],date_upd:['Actualizado','fecha y hora']};
+ const lines={cost:['Coste','sin IVA'],costVat:['Coste','con IVA'],costTotal:['Coste','IVA + RE'],price:['PVP','sin IVA'],gross:['PVP','con IVA'],margin:['Margen %','sin IVA'],marginTotal:['Margen €','IVA + RE'],weight:['Peso','kg'],width:['Anchura','cm'],height:['Altura','cm'],depth:['Profundidad','cm'],date_add:['Creado','fecha · hora'],creator:['Autor','de alta'],date_upd:['Actualizado','fecha · hora']};
  return lines[key]||[PRODUCT_COLUMNS.find(c=>c[0]===key)?.[1]||key,''];
 }
 export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','name','id','reference','ean13','brand','category','store','cost','costVat','costTotal','price','gross','marginTotal','margin','stock','variants','active']);
@@ -32,3 +32,8 @@ export function productCatalogCsv(rows,columns,value){
  const cell=csvCell;
  return '\uFEFF'+[columns.map(k=>cell(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)).join(';'),...rows.map(r=>columns.map(k=>cell(value(r,k))).join(';'))].join('\r\n');
 }
+
+export const PRODUCT_COLUMN_MIN_WIDTH=80,PRODUCT_COLUMN_MAX_WIDTH=640;
+export function productColumnDefaultWidth(key){return ({image:88,name:220,id:110,reference:170,ean13:140,brand:140,supplier:150,category:150,store:120,creator:150,date_add:170,date_upd:170,marginTotal:130,active:110,actions:250})[key]||112;}
+export function productColumnWidths(value){const keys=new Set([...PRODUCT_COLUMNS.map(([k])=>k),'actions']);return value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).filter(([k,v])=>keys.has(k)&&Number.isFinite(v)&&v>=PRODUCT_COLUMN_MIN_WIDTH&&v<=PRODUCT_COLUMN_MAX_WIDTH).map(([k,v])=>[k,Math.round(v)])):{};}
+export function moveProductColumn(columns,key,target){const next=productColumns(columns),index=next.indexOf(key);if(index<0||!Number.isInteger(target)||target<0||target>=next.length)return next;next.splice(index,1);next.splice(target,0,key);return next;}
