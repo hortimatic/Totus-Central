@@ -260,7 +260,7 @@
 
 #productosRoot .prd-master-pages{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}#productosRoot .prd-master-pages label{display:flex;align-items:center;gap:6px}#productosRoot .prd-master-pages :is(input,select){width:80px}
 #productosRoot .prd-row-actions{vertical-align:middle;text-align:left}
-#productosRoot .prd-row-main-actions{display:grid;grid-template-columns:1fr;gap:6px;min-width:140px}
+#productosRoot .prd-row-main-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:140px}
 #productosRoot .prd-row-main-actions button,#productosRoot .prd-row-menu>summary{min-height:32px;height:auto;padding:6px 10px;font-size:.82rem;line-height:1.25;border-radius:var(--r,7px);width:100%;margin:0;white-space:normal;text-align:center}
 #productosRoot .prd-row-menu{margin-top:6px;position:relative}
 #productosRoot .prd-row-menu>div{display:grid;gap:6px;padding:10px;background:var(--panel,#fff);border:1px solid var(--line);border-radius:var(--r,7px);min-width:190px;max-width:280px}
@@ -287,3 +287,5 @@
 #productosRoot .prd-publication-differences{padding:10px;border:1px solid var(--line);border-radius:var(--r,7px);margin:10px 0}
 #productosRoot :is(.prd-publication-differences,.prd-operation-history) dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,3fr);gap:8px;font-size:.85rem}
 #productosRoot :is(.prd-publication-differences,.prd-operation-history) dd{margin:0;overflow-wrap:anywhere;max-height:140px;overflow:auto}
+
+#productosRoot .prd-row-main-actions [data-pr-action=catalog-publish]{grid-column:1/-1;background:var(--primary,#087ea4);color:var(--on-primary,#fff)}

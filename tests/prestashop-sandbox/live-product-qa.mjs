@@ -5,7 +5,7 @@ import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../
 import {runPrestashopProductWrite} from '../../supabase/functions/totus-connections/prestashop-write.js';
 import {inspectReconciledNewProduct,minimalBlankProductSchema,prepareProductStageXml} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
-import {readPrestashopPage} from '../../supabase/functions/totus-connections/prestashop.js';
+import {readPrestashopPage,readPrestashopProductItem} from '../../supabase/functions/totus-connections/prestashop.js';
 import {buildVisualProductDescription} from '../../src/productos-description.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
@@ -126,6 +126,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const prep=await runPrestashopProductStage(connection,stage,options);
  const variation=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);
  assert.equal(variation.verified,true);
+ const nativeCombination=await readPrestashopProductItem(connection,{store:'hortimatic',resource:'combinations',record_id:variation.record_id},{request:localOnlyRequest,resolve});assert.equal(nativeCombination.item.id_product,result.record_id);assert.equal(Number(nativeCombination.item.wholesale_price),0.39);
  const replay=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);assert.equal(replay.reused,true);
  assert.equal(calls.filter(c=>c.method==='POST'&&c.path==='/api/combinations').length,1);
  const otherOptionsResponse=await localOnlyRequest('https://hortimatic.com/api/product_option_values?output_format=JSON&display=[id]&sort=[id_ASC]&limit=0,2',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});

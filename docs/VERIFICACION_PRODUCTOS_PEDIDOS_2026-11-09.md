@@ -12,7 +12,7 @@
 - Perfiles de columnas del equipo: compartir explícitamente, aplicar una copia personal y retirar solo los propios. No se comparten consultas, filas ni credenciales. Incluye Productos y Pedidos.
 
 ## Evidencia automatizada local
-128 comprobaciones de contratos de Productos superadas antes de añadir los perfiles; las pruebas nuevas de publicación también pasan. Pruebas Playwright verificadas:
+129 comprobaciones de contratos de Productos superadas antes de añadir los perfiles; las pruebas nuevas de publicación también pasan. Pruebas Playwright verificadas:
 - Crear desde cero, modificar, añadir variación, subir imagen, asignarla, publicar sin perder combinaciones e historial: 390, 969 y 1920 píxeles.
 - Edición rápida, relectura, archivo, recuperación de respuesta perdida y UUID estable: 390, 768 y 1440.
 - Copia integral: fotos, correspondencia de atributos, textos y enlaces por tienda; interrupción y recuperación sin duplicados.
@@ -31,6 +31,11 @@ Tienda Hortimatic. Muestra ficticia autorizada, referencia QA-RECORRIDO-20261109
 - Precio neto: 10,00; coste nativo: 3,90.
 - Publicación: active=1, visibility=both, available_for_order=0. Sin ventas ni cantidades comerciales ficticias.
 - Relecturas: trabajos 4807b27d-4799-42d7-b19c-2f9ee2b215b0, 0bafe49b-fd8a-4fe8-a04f-52319dec57bc y 4c16135a-c55c-40dd-bf5d-da8cfc4b659e.
+
+### Segunda tienda: copia de la muestra
+Se ha creado en NewOldSmok la muestra 170807262, referencia QA-RECORRIDO-20261109-N-CODEX, con ambas traducciones instaladas, textos adaptados a NewOldSmok y los mismos importes sintéticos. Imagen 12675; combinaciones 4861 (Rojo, atributo nativo 11) y 4862 (Amarillo, atributo nativo 13). La publicación se ha verificado con active=1 y available_for_order=0. Relectura de la ficha: f76b99fe-0288-48b0-bfca-2d2a58456521.
+
+Esta prueba detectó que la lectura individual JSON de combinaciones devolvía 403 aunque el guardado y la comprobación XML nativos funcionaban. La corrección usa XML como representación principal para leer combinaciones, igual que su verificador de escritura, con validación del ID, producto padre y asociaciones. También se aplica a la asignación de fotos y comprobación previa de borrado. Un 403 en esta lectura se conserva como error: no se reintenta por otra ruta ni se alteran permisos. La prueba del servicio actualizado debe completarse después de su despliegue; la creación y publicación citadas sí están verificadas por el servicio anterior.
 
 El circuito real utiliza las operaciones autenticadas de Totus y sus diarios; no debe describirse como prueba Playwright de la interfaz todavía no desplegada.
 

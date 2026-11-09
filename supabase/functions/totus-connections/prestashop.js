@@ -1,3 +1,4 @@
+import {readPrestashopCombinationXml} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 import {prestashopStore,storeConnection,prestashopQuery,prestashopRows} from '../../../src/prestashop-readonly.js';
 // Credentials and requests remain on the server. Never accept a URL, SQL or field name from the browser.
@@ -24,7 +25,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.orderId)base.searchParams.set('filter[id_order]','['+page.orderId+']');
  base.searchParams.set('limit',page.offset+','+page.pageSize);
  const target=await safeEndpoint(base.href,resolve);
- const response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+ const response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),...(input.resource==='combinations'?{Accept:'application/xml'}:{})},redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
  if(!response.ok){await response.body?.cancel();throw Error('PrestaShop rechazó la lectura (HTTP '+response.status+').');}
  const type=response.headers.get('content-type')||'';
  if(/(?:text\/html|application\/xhtml)/i.test(type)){await response.body?.cancel();throw Error('El destino devolvió HTML, no un recurso de PrestaShop.');}
@@ -115,11 +116,12 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
  const base=new URL(connection.endpoint);
  if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice inválida.');
  base.pathname=base.pathname.replace(/\/$/,'')+'/'+input.resource+'/'+input.record_id;
- base.searchParams.set('output_format','JSON');
+ if(input.resource!=='combinations')base.searchParams.set('output_format','JSON');
  const target=await safeEndpoint(base.href,resolve);
- const response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+ const response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),...(input.resource==='combinations'?{Accept:'application/xml'}:{})},redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer la ficha de PrestaShop (HTTP '+response.status+').');}
  if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
+ if(input.resource==='combinations')return {ok:true,store:store.key,resource:'combinations',record_id:String(input.record_id),item:readPrestashopCombinationXml(await boundedText(response,2097152),input.record_id)};
  const raw=await boundedJson(response,2097152);
  const singular={manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
  if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
