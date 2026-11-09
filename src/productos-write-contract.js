@@ -188,9 +188,9 @@ export function legacyProductPreservationProjection(version){
  return '['+[...new Set(fields)].join(',')+']';
 }
 export function minimalProductStageSchema(resource){
- if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
+ if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values','manufacturers','suppliers'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
  const singular=nativeNodes[resource];
- return '<prestashop><'+singular+'><id></id>'+(resource.startsWith('product_option')?'':'<id_product></id_product>')+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
+ return '<prestashop><'+singular+'><id></id>'+(resource.startsWith('product_option')||['manufacturers','suppliers'].includes(resource)?'':'<id_product></id_product>')+(resource==='combinations'?'<associations><product_option_values></product_option_values><images></images></associations>':'')+'</'+singular+'></prestashop>';
 }
 // Used only after the stage contract has validated every field and relationship.
 // No raw XML can arrive from the browser; schema/current XML is fetched by server.
