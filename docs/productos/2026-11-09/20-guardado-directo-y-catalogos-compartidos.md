@@ -7,6 +7,8 @@ Consultar junto al índice de cumplimiento 19. Hasta registrar despliegue y vers
 
 ChatGPT debe usar su cuenta propia «ChatGPT». Codex usa su cuenta propia. Comprobar identidad y tienda al iniciar cada recorrido; no aprovechar la sesión de otra persona ni cambiar permisos para sortear un rechazo. Los permisos efectivos de Productos distinguen consultar, crear, editar, borrar y exportar.
 
+El acceso de Codex mediante conectores utiliza el puente documentado en `docs/ACCESO_AGENTES.md`: `private.totus_codex_submit` y la recogida del resultado. El trabajador inicia y verifica su sesión propia y la cierra al terminar. No pedir al usuario que conozca una contraseña técnica ni leer Vault. ChatGPT debe comprobar su vinculación propia según `docs/PROTOCOLO_PRODUCTOS.md`.
+
 Hortimatic y NewOldSmok conservan identificadores propios. No trasladar sus ID de categoría, atributo, imagen, proveedor o producto como si fueran comunes. Totus relaciona por nombre, idioma, referencia y atributos y verifica el resultado nativo.
 
 ## Crear desde cero
