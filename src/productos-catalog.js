@@ -33,7 +33,8 @@ export function productCatalogCsv(rows,columns,value){
  return '\uFEFF'+[columns.map(k=>cell(PRODUCT_COLUMNS.find(c=>c[0]===k)?.[1]||k)).join(';'),...rows.map(r=>columns.map(k=>cell(value(r,k))).join(';'))].join('\r\n');
 }
 
-export const PRODUCT_COLUMN_MIN_WIDTH=80,PRODUCT_COLUMN_MAX_WIDTH=640;
+export const PRODUCT_COLUMN_MIN_WIDTH=80;
+export const PRODUCT_COLUMN_MAX_WIDTH=640;
 export function productColumnDefaultWidth(key){return ({image:88,name:220,id:110,reference:170,ean13:140,brand:140,supplier:150,category:150,store:120,creator:150,date_add:170,date_upd:170,marginTotal:130,active:110,actions:250})[key]||112;}
 export function productColumnWidths(value){const keys=new Set([...PRODUCT_COLUMNS.map(([k])=>k),'actions']);return value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).filter(([k,v])=>keys.has(k)&&Number.isFinite(v)&&v>=PRODUCT_COLUMN_MIN_WIDTH&&v<=PRODUCT_COLUMN_MAX_WIDTH).map(([k,v])=>[k,Math.round(v)])):{};}
 export function moveProductColumn(columns,key,target){const next=productColumns(columns),index=next.indexOf(key);if(index<0||!Number.isInteger(target)||target<0||target>=next.length)return next;next.splice(index,1);next.splice(target,0,key);return next;}
