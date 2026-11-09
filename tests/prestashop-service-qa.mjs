@@ -81,3 +81,10 @@ test('customer details are returned only to the authorized caller and not copied
   const recorded=f.calls.filter(c=>c.name==='totus_api_call'&&c.payload.p_result).map(c=>c.payload.p_result);assert.equal(recorded[0].rows_count,1);assert(!JSON.stringify(recorded).includes('private@example.invalid'));assert(!JSON.stringify(recorded).includes('Ficticio'));
  }finally{if(previous===undefined)delete globalThis.Deno;else globalThis.Deno=previous;}
 });
+
+test('product search passes the real HTTP entry contract before native filtering',async()=>{
+ const f=fixture(),old=globalThis.Deno;globalThis.Deno={resolveDns:async()=>['8.8.8.8']};
+ try{for(const search_field of ['name','reference','ean13']){let seen;const response=await handle(req({...args,resource:'products',search:'Mario',search_field,page_size:10}),env,f.factory,async url=>{seen=new URL(url);return Response.json({products:[{id:42,name:'Mario',reference:'MARIO'}]});});assert.equal(response.status,200);assert.equal(seen.searchParams.get('filter['+search_field+']'),'%[Mario]%');assert.equal(seen.searchParams.get('limit'),'0,10');assert.equal((await response.json()).rows[0].id,'42');}
+ let reached=false;const denied=await handle(req({...args,resource:'products',search:'Mario',search_field:'passwd'}),env,f.factory,async()=>{reached=true;throw Error('Unexpected request');});assert.equal(denied.status,400);assert.equal(reached,false);
+ }finally{if(old===undefined)delete globalThis.Deno;else globalThis.Deno=old;}
+});
