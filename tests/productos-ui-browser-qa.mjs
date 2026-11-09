@@ -65,6 +65,9 @@ try{
   await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();
   assert.match(await page.locator('textarea[readonly]').inputValue(),/19,90/);
   assert.match(await page.locator('textarea[readonly]').inputValue(),/state=1/);
+    await page.locator('[data-pr-request=operation]').selectOption('copy');await page.locator('[data-pr-request=store]').selectOption('newoldsmok');await page.locator('[data-pr-request=source_store]').selectOption('hortimatic');await page.locator('[data-pr-request=product_id]').fill('42');await page.locator('[data-pr-request=product_id]').blur();await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();assert.match(await page.locator('textarea[readonly]').inputValue(),/Origen: Hortimatic/);assert.match(await page.locator('textarea[readonly]').inputValue(),/imágenes y combinaciones/);
+  await page.locator('[data-pr-request=operation]').selectOption('edit');await page.locator('[data-pr-request=notes]').fill('Cambiar descripción y precio');await page.locator('[data-pr-request=notes]').blur();await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();assert.match(await page.locator('textarea[readonly]').inputValue(),/Modifica únicamente/);
+  await page.locator('[data-pr-request=operation]').selectOption('url');await page.locator('[data-pr-request=store]').selectOption('hortimatic');
   assert.equal(await page.evaluate(()=>window.productosQA.calls.some(c=>c.action.includes('commit'))),false);
   if(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth>window.innerWidth+2))console.log('OVERFLOW',await page.evaluate(()=>[...document.querySelectorAll('#productosRoot *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2).slice(0,18).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right,w:e.getBoundingClientRect().width}))));
   assert(await page.evaluate(()=>document.querySelector('#productosRoot').scrollWidth<=window.innerWidth+2));
@@ -78,6 +81,7 @@ try{
   await position.press('Home');
   await page.waitForFunction(()=>document.querySelector('.prd-catalog-table').scrollLeft<2);
 
+  await page.locator('[data-pr-search]').fill('NO-EXISTE-EN-PRUEBA');assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),0);await page.getByRole('button',{name:'Limpiar filtros',exact:true}).click();assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
   await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-column="ean13"]').check();
   await page.locator('.prd-columns summary').click();

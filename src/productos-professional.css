@@ -164,3 +164,15 @@
 #productosRoot .prd-professional .prd-catalog-name{display:grid;gap:3px;padding:0;text-align:left;background:none;border:0;box-shadow:none;font:inherit}
 #productosRoot .prd-professional .prd-catalog-table tr[data-pr-active-product=true]>td{background:color-mix(in srgb,var(--panel,#fff) 90%,var(--accent,#006591))}
 #productosRoot .prd-professional .prd-copy-field-content>span.font-label-md{display:flex;align-items:center;gap:6px;min-height:28px;margin:0;line-height:18px}
+/* Two-line headings keep monetary columns compact without freezing cells. */
+#productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading]{white-space:normal;vertical-align:middle;font-size:11px;line-height:15px;padding:7px 8px!important}
+#productosRoot .prd-professional .prd-column-caption{display:inline-grid;grid-template-rows:repeat(2,minmax(15px,auto));vertical-align:middle;white-space:normal;line-height:15px}
+#productosRoot .prd-professional .prd-catalog-table th:is([data-pr-column-heading=cost],[data-pr-column-heading=costVat],[data-pr-column-heading=costTotal],[data-pr-column-heading=price],[data-pr-column-heading=gross],[data-pr-column-heading=margin],[data-pr-column-heading=marginTotal]){min-width:96px;width:96px;max-width:120px}
+#productosRoot .prd-professional .prd-catalog-table td:is([data-pr-column-cell=cost],[data-pr-column-cell=costVat],[data-pr-column-cell=costTotal],[data-pr-column-cell=price],[data-pr-column-cell=gross],[data-pr-column-cell=margin],[data-pr-column-cell=marginTotal]){min-width:96px;max-width:120px;white-space:nowrap}
+#productosRoot .prd-professional .prd-catalog-table td[data-pr-column-cell=name]{min-width:180px;max-width:220px}
+#productosRoot .prd-professional .prd-catalog-table td[data-pr-column-cell=reference]{min-width:130px;max-width:160px;overflow-wrap:anywhere;white-space:normal}
+#productosRoot .prd-professional .prd-row-actions{min-width:180px}
+#productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading=marginTotal] .field-help{display:inline-block;margin-left:3px;vertical-align:middle}
+#productosRoot .prd-professional .prd-column-caption>span{white-space:nowrap}
+#productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading=marginTotal]{position:relative;padding-right:27px!important;min-width:126px}
+#productosRoot .prd-professional .prd-catalog-table th[data-pr-column-heading=marginTotal] .field-help{position:absolute;right:5px;top:8px;margin:0}

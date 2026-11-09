@@ -4,6 +4,21 @@ Fecha de revisión: 9 de noviembre de 2026. Este documento consolida el uso actu
 
 ## Entrada y producto activo
 
+### Identidad propia obligatoria, antes de cualquier escritura
+
+ChatGPT trabaja únicamente con la cuenta activa denominada ChatGPT ya vinculada por Diego. Cohere, Router, Groq y Codex conservan identidades diferentes. No usar la cuenta personal de Diego ni una cuenta distinta para resolver un permiso denegado. No cambiar roles, cuotas o vínculos como solución automática.
+
+Desde el conector administrativo autorizado de Supabase, usar el acceso por cuenta de `docs/AI_ACCOUNT_ACCESS.md`:
+
+1. Identificar inequívocamente la cuenta propia ChatGPT activa en el directorio de usuarios. No inferirla por ser la primera, por su rol ni por el último proveedor utilizado.
+2. Enviar `private.totus_agent_submit(p_actor_email, 'session_check', '{}'::jsonb)` con el correo de esa cuenta propia. Recoger `private.totus_assistant_result(job_id)` hasta su resultado final.
+3. Comparar correo/identificador y estado devueltos con la cuenta ChatGPT elegida. Si no coinciden, no enviar escrituras. No consultar Vault, contraseñas, tickets ni claves privadas.
+4. El alias antiguo `private.totus_assistant_submit` no garantiza esa identidad: depende de una configuración compartida y no debe usarse para escoger una cuenta por defecto. En la comprobación del 9/11 devolvió la cuenta de Cohere; eso no demuestra que la cuenta ChatGPT carezca de permisos.
+5. Una vez verificada la cuenta propia, consultar el catálogo con `private.totus_agent_submit(p_actor_email, 'operation', '{"operation":"catalogue"}'::jsonb)`; usar después los nombres y argumentos exactos del catálogo bajo la misma cuenta. El contexto de Productos es independiente del acceso al gestor de claves y del permiso del módulo PrestaShop.
+6. Conservar esa identidad durante todo el recorrido. Comprobarla de nuevo al abrir una sesión nueva o tras una recuperación de acceso. Registrar usuario efectivo en el informe, sin credenciales. Si no puede identificarse la cuenta propia o no existe su vínculo, informar el paso exacto requerido en Administración → Usuarios → ChatGPT → Acceso de IA. No crear otra identidad por comodidad.
+
+Esto es el uso de procedimientos autorizados de Totus desde su conector, no permiso para SQL libre en PrestaShop. Un chat sin ese conector debe indicar la falta de acceso; el manual no le concede una conexión ni sustituye autenticación.
+
 1. Entrar en Totus Central con la cuenta propia autorizada y abrir Productos. Elegir Hortimatic o NewOldSmok y comprobar que la conexión está disponible. No usar la identidad de otra IA.
 2. En Catálogo, buscar por ID/referencia exacta en tienda si el artículo no está entre los consultados. La búsqueda local solo filtra las páginas cargadas; una lista parcial no acredita ausencia.
 3. Pulsar el nombre o marcar una única casilla activa ese producto para Producto, Copiar y Cambios. Varias casillas son una selección de lote. En Producto y Copiar hay un selector visual con búsqueda, foto, referencia e ID; elegir allí otro artículo conserva su borrador y mantiene la pestaña de trabajo.
@@ -66,3 +81,6 @@ Entregar por recorrido: fecha, versión de Totus, tienda(s), ID/referencia, soli
 Pruebas reproducibles: productos-ui-browser-qa, productos-table-browser-qa, productos-copy-circuit-browser-qa, productos-copy-complete-browser-qa, productos-existing-actions-browser-qa, productos-image-copy-browser-qa y productos-shared-selection-browser-qa. Sus simulaciones no sustituyen una verificación comercial del artículo solicitado.
 
 Prueba comercial finalizada en el lote anterior: Bandeja Mario Jump, Hortimatic #170807053 → NewOldSmok #170807260, foto nativa #12673 y textos/enlaces adaptados en ambos idiomas. Stock destino 0; no se duplicó inventario. Esa bandeja no tiene combinaciones. La muestra Argus #170807259 sigue siendo una base incompleta; no presentarla como copia íntegra ni repetir su alta.
+
+## Generar órdenes desde Totus
+En Alta asistida, elegir Trabajo: Crear desde URL, Añadir variación a un producto, Modificar producto o Copiar entre tiendas. Para las tres últimas indicar una única tienda e ID; en Copiar elegir además origen diferente del destino. En Modificar detallar los campos en Indicaciones adicionales. Preparar encargo genera una petición revisable con este manual enlazado; Copiar para ChatGPT la copia al portapapeles, no ejecuta una escritura. ChatGPT debe ejecutar los pasos con su propia conexión y devolver evidencia de relectura.
