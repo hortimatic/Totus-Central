@@ -10,7 +10,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Configura la URL HTTPS del servicio /api de PrestaShop.');
  base.pathname=base.pathname.replace(/\/$/,'')+'/'+page.resource;
  base.searchParams.set('output_format','JSON');
- const associations={products:['categories[id]','images[id]','combinations[id]'],combinations:['product_option_values[id]','images[id]'],order_details:['taxes[id]']};
+ const associations={products:['categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]'],combinations:['product_option_values[id]','images[id]'],order_details:['taxes[id]']};
  // Webservice 1.7 requires named association subfields, not a field named associations.
  const display=page.fields.flatMap(field=>field==='associations'?(associations[page.resource]||[]):[field]);
  base.searchParams.set('display','['+display.join(',')+']');
@@ -110,7 +110,7 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
   if(!size)throw Error('La imagen está vacía.');let binary='';for(const chunk of chunks)for(let offset=0;offset<chunk.length;offset+=16384)binary+=String.fromCharCode(...chunk.subarray(offset,offset+16384));
   return {ok:true,store:store.key,resource:'images',record_id:String(input.record_id),item:{id:String(input.record_id),id_product:String(input.product_id),mime,base64:btoa(binary)}};
  }
- if(!['products','combinations','manufacturers','suppliers','product_options','product_option_values','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
+ if(!['products','combinations','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
  if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
  const base=new URL(connection.endpoint);
@@ -123,7 +123,7 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
  if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
  if(input.resource==='combinations')return {ok:true,store:store.key,resource:'combinations',record_id:String(input.record_id),item:readPrestashopCombinationXml(await boundedText(response,2097152),input.record_id)};
  const raw=await boundedJson(response,2097152);
- const singular={manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
+ const singular={manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',product_features:'product_feature',product_feature_values:'product_feature_value',products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
  if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
  return {ok:true,store:store.key,resource:input.resource,record_id:String(input.record_id),item};
 }

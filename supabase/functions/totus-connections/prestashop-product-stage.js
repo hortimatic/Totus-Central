@@ -20,7 +20,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  let languageIds=[];
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
  const call=async(path,options={},query={})=>{
-  const url=new URL(base.href);url.pathname='/api/'+path;if((path.startsWith('products/')||path.startsWith('totus_product_images/')||path.startsWith('product_options')||path.startsWith('product_option_values'))&&languageIds.length)url.searchParams.set('language','['+languageIds.join('|')+']');for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
+  const url=new URL(base.href);url.pathname='/api/'+path;if((path.startsWith('products/')||path.startsWith('totus_product_images/')||path.startsWith('product_options')||path.startsWith('product_option_values')||path.startsWith('product_features')||path.startsWith('product_feature_values'))&&languageIds.length)url.searchParams.set('language','['+languageIds.join('|')+']');for(const [k,v] of Object.entries(query))url.searchParams.set(k,String(v));
   const target=await safeEndpoint(url.href,resolve),response=await request(target.href,{...options,method:options.method||'GET',headers:{...headers,...options.headers},redirect:'error',credentials:'omit',signal:AbortSignal.timeout(30000)});
   if(!response.ok){await response.body?.cancel();throw Error('PrestaShop rechazó '+path+' (HTTP '+response.status+').');}
   if(/text\/html|application\/xhtml/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La tienda devolvió HTML en vez del recurso solicitado.');}
@@ -30,7 +30,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const json=async(path,query={})=>boundedJson(await call(path,{headers:{Accept:'application/json'}},{...query,output_format:'JSON'}),2097152);
  // PUT replaces the full multilingual product, even when finishing only flags.
  // Reading selected/active languages would erase the installed inactive ones.
- if(['finish','image_metadata','attribute_group','attribute_value','manufacturer','supplier'].includes(op.kind))languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
+ if(['finish','image_metadata','attribute_group','attribute_value','feature','feature_value','manufacturer','supplier'].includes(op.kind))languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
  const productDisplay=op.kind==='finish'?await readProductPreservationProjection(connection,{request,resolve}):null;
@@ -48,7 +48,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(op.kind==='image_metadata'){const product=await rootJson(),images=product.associations?.images;if(!Array.isArray(images)||!images.some(row=>String(row.id)===op.record_id))throw Error('La imagen pertenece a otro producto.');if(Number(op.fields.position)>images.length)throw Error('La posición supera el número de imágenes del producto.');}
  if(op.kind==='variation_edit')await assertVariant(op.record_id);
  if(op.fields.id_product_attribute)await assertVariant(op.fields.id_product_attribute);
- if(op.kind==='variation'){
+ if(op.kind==='variation'||op.kind==='variation_edit'&&op.associations.product_option_values){
   const groups=new Set();
   for(const id of op.associations.product_option_values){
    const data=await json('product_option_values/'+id),row=data.product_option_value||data.product_option_values?.[0];
@@ -73,20 +73,23 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   const product=await rootJson(),ids=new Set((product.associations?.images||[]).map(row=>String(row.id)));
   if([...(op.associations.images||[]),...(op.fields.id_default_image?[op.fields.id_default_image]:[])].some(id=>!ids.has(id)))throw Error('La imagen no pertenece a este producto.');
  }
- const attribute=['attribute_group','attribute_value'].includes(op.kind),master=attribute||['manufacturer','supplier'].includes(op.kind);
- if(attribute){for(const key of op.kind==='attribute_group'?['name','public_name']:['name']){const actual=op.fields[key].map(t=>t.language_id).sort();if(JSON.stringify(actual)!==JSON.stringify([...languageIds].sort()))throw Error('Completa el nombre en todos los idiomas instalados de esta tienda.');}}
+ const attribute=['attribute_group','attribute_value','feature','feature_value'].includes(op.kind),master=attribute||['manufacturer','supplier'].includes(op.kind);
+ if(attribute){for(const key of op.kind==='attribute_group'?['name','public_name']:op.kind==='feature_value'?['value']:['name']){const actual=op.fields[key].map(t=>t.language_id).sort();if(JSON.stringify(actual)!==JSON.stringify([...languageIds].sort()))throw Error('Completa el nombre en todos los idiomas instalados de esta tienda.');}}
  if(op.kind==='attribute_value'){const data=await json('product_options/'+op.fields.id_attribute_group),group=data.product_option||data.product_options?.[0];if(String(group?.id)!==op.fields.id_attribute_group)throw Error('El grupo de atributo no pertenece a esta tienda.');if(group.group_type==='color'&&!op.fields.color)throw Error('El grupo de color necesita un color #RRGGBB.');if(group.group_type!=='color'&&op.fields.color)throw Error('Este grupo no representa colores. Deja el color vacío.');}
+ if(op.kind==='feature_value'){const data=await json('product_features/'+op.fields.id_feature),feature=data.product_feature||data.product_features?.[0];if(String(feature?.id)!==op.fields.id_feature)throw Error('La característica no pertenece a esta tienda.');}
  const image=op.kind==='image'?await inspectTransparentProductPng(op.image.base64):null;
  const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,...(['variation_edit','image_metadata'].includes(op.kind)?{record_id:op.record_id}:{}),fields:op.fields,associations:op.associations,...(image?{image:op.image.base64}:{})}));
- const masterNames=()=>Array.isArray(op.fields.name)?op.fields.name.map(t=>t.value):[op.fields.name];
- const filters=master?{'filter[name]':'['+masterNames()[0]+']'}:{'filter[id_product]':'['+op.product_id+']'};
+ const nameField=op.kind==='feature_value'?'value':'name';
+ const masterNames=()=>Array.isArray(op.fields[nameField])?op.fields[nameField].map(t=>t.value):[op.fields[nameField]];
+ const filters=master?{['filter['+nameField+']']:'['+masterNames()[0]+']'}:{'filter[id_product]':'['+op.product_id+']'};
  if(op.kind==='attribute_value')filters['filter[id_attribute_group]']='['+op.fields.id_attribute_group+']';
+ if(op.kind==='feature_value')filters['filter[id_feature]']='['+op.fields.id_feature+']';
  if(op.kind==='variation')filters['filter[reference]']='['+op.fields.reference+']';
  if(['stock','supplier_price','special_price'].includes(op.kind))filters['filter[id_product_attribute]']='['+op.fields.id_product_attribute+']';
  if(op.kind==='supplier_price')filters['filter[id_supplier]']='['+op.fields.id_supplier+']';
  if(op.kind==='special_price')for(const key of ['id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','from_quantity','from','to'])filters['filter['+key+']']='['+op.fields[key]+']';
  const find=async()=>{
-  if(master){const found=new Set(),fold=v=>String(v).normalize('NFKC').trim().toLocaleLowerCase('es'),names=new Set(masterNames().map(fold));for(let page=0;;page++){const data=await json(op.resource,{...(op.kind==='attribute_value'?{'filter[id_attribute_group]':'['+op.fields.id_attribute_group+']'}:{}),display:'full',limit:(page*100)+',100'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];if(!Array.isArray(rows))throw Error('No se pudieron comprobar los atributos existentes.');for(const row of rows){if(!/^[1-9]\d{0,14}$/.test(String(row.id))||op.kind==='attribute_value'&&String(row.id_attribute_group)!==op.fields.id_attribute_group)throw Error('Catálogo de atributos no verificable.');const values=Array.isArray(row.name)?row.name.map(t=>t.value):[row.name];if(values.some(v=>names.has(fold(v))))found.add(String(row.id));}if(rows.length<100)break;if(page>=1000)throw Error('Catálogo de atributos incompleto.');}if(found.size>1)throw Error('Hay varios atributos con el mismo nombre. Selecciona el correcto sin crear otro.');return [...found][0]||null;}
+  if(master){const found=new Set(),fold=v=>String(v).normalize('NFKC').trim().toLocaleLowerCase('es'),names=new Set(masterNames().map(fold));for(let page=0;;page++){const data=await json(op.resource,{...(op.kind==='attribute_value'?{'filter[id_attribute_group]':'['+op.fields.id_attribute_group+']'}:op.kind==='feature_value'?{'filter[id_feature]':'['+op.fields.id_feature+']'}:{}),display:'full',limit:(page*100)+',100'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];if(!Array.isArray(rows))throw Error('No se pudieron comprobar los atributos existentes.');for(const row of rows){if(!/^[1-9]\d{0,14}$/.test(String(row.id))||op.kind==='attribute_value'&&String(row.id_attribute_group)!==op.fields.id_attribute_group||op.kind==='feature_value'&&String(row.id_feature)!==op.fields.id_feature)throw Error('Catálogo de atributos no verificable.');const values=Array.isArray(row[nameField])?row[nameField].map(t=>t.value):[row[nameField]];if(values.some(v=>names.has(fold(v))))found.add(String(row.id));}if(rows.length<100)break;if(page>=1000)throw Error('Catálogo de atributos incompleto.');}if(found.size>1)throw Error('Hay varios atributos con el mismo nombre. Selecciona el correcto sin crear otro.');return [...found][0]||null;}
   const data=await json(op.resource,{...filters,display:'[id]',limit:'0,2'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];
   if(!Array.isArray(rows)||rows.length>1)throw Error('La etapa devuelve varios registros: selecciona y revisa el destino antes de escribir.');
   if(rows.length&&!/^[1-9]\d{0,14}$/.test(String(rows[0].id)))throw Error('Registro de etapa no válido.');return rows.length?String(rows[0].id):null;
@@ -109,13 +112,14 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   if(prior.status!=='completed')await journal.complete(op,signature,String(recordId));
   return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:String(recordId),persisted:true,verified:true,reused:true,...(nativeHtmlNormalized?{native_html_normalized:true}:{})};
  }
- if(op.existing_product&&op.kind==='variation'){
+ if(op.existing_product&&(op.kind==='variation'||op.kind==='variation_edit'&&op.associations.product_option_values)){
   const expected=[...op.associations.product_option_values].sort().join(',');
   for(let page=0;;page++){
    const data=await json('combinations',{'filter[id_product]':'['+op.product_id+']',display:'full',limit:(page*100)+',100'});
    const rows=Array.isArray(data)&&!data.length?[]:data.combinations;
    if(!Array.isArray(rows))throw Error('No se han podido comprobar las combinaciones existentes.');
    for(const row of rows){
+    if(op.kind==='variation_edit'&&String(row.id)===op.record_id)continue;
     if(String(row.id_product)!==op.product_id||!Array.isArray(row.associations?.product_option_values))throw Error('Combinaciones existentes incompletas.');
     const values=row.associations.product_option_values.map(v=>String(v.id));
     if(values.some(v=>!/^[1-9]\d{0,14}$/.test(v)))throw Error('Atributos existentes no verificables.');
