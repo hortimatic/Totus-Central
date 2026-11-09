@@ -33,7 +33,7 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
  if(operation.resource==='products')base.searchParams.set('display',await readProductPreservationProjection(connection,{request,resolve}));
  let languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
- if(operation.resource==='products'){
+ if(operation.resource!=='combinations'){
   const inventory=new URL(connection.endpoint);inventory.pathname='/api/languages';inventory.searchParams.set('display','[id]');
   const destination=await safeEndpoint(inventory.href,resolve);
   const response=await request(destination.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});

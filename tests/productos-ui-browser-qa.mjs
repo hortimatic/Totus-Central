@@ -136,7 +136,7 @@ try{
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-action="fields-all"]').click();
   assert.equal(await page.locator('[data-pr-field="name"]').isChecked(),true);
-  assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2,'Select all includes the combinations');
+  await page.locator('[data-pr-action=parallel-section][data-pr-section=variaciones]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2,'Select all includes the combinations');
   await page.locator('[data-pr-action="parallel-section"][data-pr-section="seo"]').click();
   assert.equal(await page.locator('[data-pr-field="meta_title"]').isChecked(),true);
   await page.locator('[data-pr-action="parallel-section"][data-pr-section="general"]').click();
@@ -144,7 +144,7 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-copia-'+width+'.png',fullPage:true});
 
   await page.locator('[data-pr-action="fields-none"]').click();
-  assert.equal(await page.locator('.prd-copy-variant-options').isVisible(),true,'Combinations have a dedicated visible section');await page.locator('[data-pr-action=copy-variants-all]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2);await page.locator('[data-pr-action=copy-variants-none]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),0);await page.locator('[data-pr-copy-variant="100"]').check();
+  await page.locator('[data-pr-action=parallel-section][data-pr-section=variaciones]').click();assert.equal(await page.locator('.prd-copy-variant-options').isVisible(),true,'Combinations have a dedicated visible section');await page.locator('[data-pr-action=copy-variants-all]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2);await page.locator('[data-pr-action=copy-variants-none]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),0);await page.locator('[data-pr-copy-variant="100"]').check();await page.locator('[data-pr-action=parallel-section][data-pr-section=general]').click();
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();
@@ -245,7 +245,7 @@ try{
   await page.locator('[data-pr-stage-attributes]').selectOption(['10']);await page.locator('[data-pr-stage-attributes]').blur();
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor().catch(async error=>{console.error('STAGE UI DIAGNOSTIC',await page.locator('#productosRoot').innerText(),await page.evaluate(()=>productosQA.calls.slice(-3).map(c=>({action:c.action,kind:c.kind}))));throw error;});
-  await page.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+  await page.getByRole('button',{name:'Guardar y sincronizar',exact:true}).click();
   await page.getByText(/Combinaciones guardado y verificado/).waitFor();
   await page.getByRole('button',{name:'Existencias',exact:true}).click();
   await page.getByRole('button',{name:'Añadir existencias',exact:true}).click();
@@ -253,7 +253,7 @@ try{
   await page.locator('[data-pr-stage-field="quantity"]').fill('7');await page.locator('[data-pr-stage-field="quantity"]').blur();
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+  await page.getByRole('button',{name:'Guardar y sincronizar',exact:true}).click();
   await page.getByText(/Existencias guardado y verificado/).waitFor();
   await page.getByRole('button',{name:'Imágenes',exact:true}).click();
   await page.getByRole('button',{name:'Añadir imágenes',exact:true}).click();
@@ -262,7 +262,7 @@ try{
   assert.equal(await page.locator('.prd-stage-image').count(),1);
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+  await page.getByRole('button',{name:'Guardar y sincronizar',exact:true}).click();
   await page.getByText('large_default · 800 × 800 px',{exact:false}).waitFor();
   await page.getByText(/Imágenes guardado y verificado/).waitFor();
   await page.getByRole('button',{name:'Revisión y publicación',exact:true}).click();
@@ -271,7 +271,7 @@ try{
   await page.locator('[data-pr-stage-field="active"]').selectOption('1');await page.locator('[data-pr-stage-field="active"]').blur();
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'Guardar esta etapa',exact:true}).click();
+  await page.getByRole('button',{name:'Guardar y sincronizar',exact:true}).click();
   await page.getByText(/Revisión y publicación guardado y verificado/).waitFor();
   const writes=await page.evaluate(()=>productosQA.calls.filter(c=>c.action==='prestashop_product_step_commit'));
   assert.deepEqual(writes.map(c=>c.kind),['variation','stock','image','finish']);

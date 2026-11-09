@@ -109,7 +109,7 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
   if(!size)throw Error('La imagen está vacía.');let binary='';for(const chunk of chunks)for(let offset=0;offset<chunk.length;offset+=16384)binary+=String.fromCharCode(...chunk.subarray(offset,offset+16384));
   return {ok:true,store:store.key,resource:'images',record_id:String(input.record_id),item:{id:String(input.record_id),id_product:String(input.product_id),mime,base64:btoa(binary)}};
  }
- if(!['products','combinations','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
+ if(!['products','combinations','manufacturers','suppliers','product_options','product_option_values','totus_product_images'].includes(input.resource)||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Ficha de producto no válida.');
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('Conexión distinta de la tienda.');
  if(!connection.enabled||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
  const base=new URL(connection.endpoint);
@@ -121,7 +121,7 @@ export async function readPrestashopProductItem(connection,input,{request=fetch,
  if(!response.ok){await response.body?.cancel();throw Error('No se pudo leer la ficha de PrestaShop (HTTP '+response.status+').');}
  if(/(?:text\/html|application\/xhtml)/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La API devolvió HTML en lugar de la ficha.');}
  const raw=await boundedJson(response,2097152);
- const singular={products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
+ const singular={manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',totus_product_images:'totus_product_image'}[input.resource],item=raw?.[singular];
  if(!item||typeof item!=='object'||Array.isArray(item)||String(item.id)!==String(input.record_id))throw Error('La ficha de PrestaShop no coincide con el identificador solicitado.');
  return {ok:true,store:store.key,resource:input.resource,record_id:String(input.record_id),item};
 }

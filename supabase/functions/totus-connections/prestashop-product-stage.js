@@ -30,7 +30,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const json=async(path,query={})=>boundedJson(await call(path,{headers:{Accept:'application/json'}},{...query,output_format:'JSON'}),2097152);
  // PUT replaces the full multilingual product, even when finishing only flags.
  // Reading selected/active languages would erase the installed inactive ones.
- if(['finish','image_metadata','attribute_group','attribute_value'].includes(op.kind))languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
+ if(['finish','image_metadata','attribute_group','attribute_value','manufacturer','supplier'].includes(op.kind))languageIds=productLanguageIdsFromListing(await xml('languages',{display:'[id]'}));
  // 1.7's getCoverWs dereferences false when a newly created product has no
  // image yet. Do not request calculated cover/position fields for this workflow.
  const productDisplay=op.kind==='finish'?await readProductPreservationProjection(connection,{request,resolve}):null;
@@ -73,24 +73,25 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
   const product=await rootJson(),ids=new Set((product.associations?.images||[]).map(row=>String(row.id)));
   if([...(op.associations.images||[]),...(op.fields.id_default_image?[op.fields.id_default_image]:[])].some(id=>!ids.has(id)))throw Error('La imagen no pertenece a este producto.');
  }
- const attribute=['attribute_group','attribute_value'].includes(op.kind);
+ const attribute=['attribute_group','attribute_value'].includes(op.kind),master=attribute||['manufacturer','supplier'].includes(op.kind);
  if(attribute){for(const key of op.kind==='attribute_group'?['name','public_name']:['name']){const actual=op.fields[key].map(t=>t.language_id).sort();if(JSON.stringify(actual)!==JSON.stringify([...languageIds].sort()))throw Error('Completa el nombre en todos los idiomas instalados de esta tienda.');}}
  if(op.kind==='attribute_value'){const data=await json('product_options/'+op.fields.id_attribute_group),group=data.product_option||data.product_options?.[0];if(String(group?.id)!==op.fields.id_attribute_group)throw Error('El grupo de atributo no pertenece a esta tienda.');if(group.group_type==='color'&&!op.fields.color)throw Error('El grupo de color necesita un color #RRGGBB.');if(group.group_type!=='color'&&op.fields.color)throw Error('Este grupo no representa colores. Deja el color vacío.');}
  const image=op.kind==='image'?await inspectTransparentProductPng(op.image.base64):null;
  const signature=await sha256Text(JSON.stringify({kind:op.kind,product_id:op.product_id,...(['variation_edit','image_metadata'].includes(op.kind)?{record_id:op.record_id}:{}),fields:op.fields,associations:op.associations,...(image?{image:op.image.base64}:{})}));
- const filters=attribute?{'filter[name]':'['+op.fields.name[0].value+']'}:{'filter[id_product]':'['+op.product_id+']'};
+ const masterNames=()=>Array.isArray(op.fields.name)?op.fields.name.map(t=>t.value):[op.fields.name];
+ const filters=master?{'filter[name]':'['+masterNames()[0]+']'}:{'filter[id_product]':'['+op.product_id+']'};
  if(op.kind==='attribute_value')filters['filter[id_attribute_group]']='['+op.fields.id_attribute_group+']';
  if(op.kind==='variation')filters['filter[reference]']='['+op.fields.reference+']';
  if(['stock','supplier_price','special_price'].includes(op.kind))filters['filter[id_product_attribute]']='['+op.fields.id_product_attribute+']';
  if(op.kind==='supplier_price')filters['filter[id_supplier]']='['+op.fields.id_supplier+']';
  if(op.kind==='special_price')for(const key of ['id_shop','id_shop_group','id_currency','id_country','id_group','id_customer','id_cart','from_quantity','from','to'])filters['filter['+key+']']='['+op.fields[key]+']';
  const find=async()=>{
-  if(attribute){const found=new Set(),fold=v=>String(v).normalize('NFKC').trim().toLocaleLowerCase('es'),names=new Set(op.fields.name.map(t=>fold(t.value)));for(let page=0;;page++){const data=await json(op.resource,{...(op.kind==='attribute_value'?{'filter[id_attribute_group]':'['+op.fields.id_attribute_group+']'}:{}),display:'full',limit:(page*100)+',100'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];if(!Array.isArray(rows))throw Error('No se pudieron comprobar los atributos existentes.');for(const row of rows){if(!/^[1-9]\d{0,14}$/.test(String(row.id))||op.kind==='attribute_value'&&String(row.id_attribute_group)!==op.fields.id_attribute_group)throw Error('Catálogo de atributos no verificable.');const values=Array.isArray(row.name)?row.name.map(t=>t.value):[row.name];if(values.some(v=>names.has(fold(v))))found.add(String(row.id));}if(rows.length<100)break;if(page>=1000)throw Error('Catálogo de atributos incompleto.');}if(found.size>1)throw Error('Hay varios atributos con el mismo nombre. Selecciona el correcto sin crear otro.');return [...found][0]||null;}
+  if(master){const found=new Set(),fold=v=>String(v).normalize('NFKC').trim().toLocaleLowerCase('es'),names=new Set(masterNames().map(fold));for(let page=0;;page++){const data=await json(op.resource,{...(op.kind==='attribute_value'?{'filter[id_attribute_group]':'['+op.fields.id_attribute_group+']'}:{}),display:'full',limit:(page*100)+',100'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];if(!Array.isArray(rows))throw Error('No se pudieron comprobar los atributos existentes.');for(const row of rows){if(!/^[1-9]\d{0,14}$/.test(String(row.id))||op.kind==='attribute_value'&&String(row.id_attribute_group)!==op.fields.id_attribute_group)throw Error('Catálogo de atributos no verificable.');const values=Array.isArray(row.name)?row.name.map(t=>t.value):[row.name];if(values.some(v=>names.has(fold(v))))found.add(String(row.id));}if(rows.length<100)break;if(page>=1000)throw Error('Catálogo de atributos incompleto.');}if(found.size>1)throw Error('Hay varios atributos con el mismo nombre. Selecciona el correcto sin crear otro.');return [...found][0]||null;}
   const data=await json(op.resource,{...filters,display:'[id]',limit:'0,2'}),rows=Array.isArray(data)&&!data.length?[]:data[op.resource];
   if(!Array.isArray(rows)||rows.length>1)throw Error('La etapa devuelve varios registros: selecciona y revisa el destino antes de escribir.');
   if(rows.length&&!/^[1-9]\d{0,14}$/.test(String(rows[0].id)))throw Error('Registro de etapa no válido.');return rows.length?String(rows[0].id):null;
  };
- const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):op.kind==='image_metadata'?op.fields:attribute?{...op.fields,...(op.kind==='attribute_group'?{is_color_group:op.fields.group_type==='color'?'1':'0'}:{})}:{id_product:op.product_id,...op.fields};
+ const desired=op.kind==='finish'?productFinalizationFields(root,op.fields):op.kind==='image_metadata'?op.fields:master?{...op.fields,...(op.kind==='attribute_group'?{is_color_group:op.fields.group_type==='color'?'1':'0'}:{})}:{id_product:op.product_id,...op.fields};
  let nativeHtmlNormalized=false;
  const verify=async(recordId)=>{
   const checked=inspectProductStageXml(await xml(op.resource+'/'+recordId,op.kind==='finish'?{display:'[id,'+[...Object.keys(desired),...Object.keys(op.associations).map(key=>key==='product_features'?'product_features[id,id_feature_value]':key+'[id]')].join(',')+']'}:{}),op.resource,desired,op.associations);
@@ -126,7 +127,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  }
  const recordId=op.kind==='finish'?op.product_id:['variation_edit','image_metadata'].includes(op.kind)?op.record_id:op.kind==='image'?null:await find();
  if(op.record_id&&op.record_id!==recordId)throw Error('El registro de destino cambió desde la selección.');
- if(attribute&&recordId)throw Error('Ya existe un atributo con ese nombre en la tienda. Selecciónalo en lugar de crear otro.');
+ if(master&&recordId)throw Error('Ya existe un atributo con ese nombre en la tienda. Selecciónalo en lugar de crear otro.');
  if(op.kind==='variation'&&recordId)throw Error('Ya hay una combinación con esa referencia. No se creará otra.');
  if(op.kind==='stock'&&!recordId)throw Error('PrestaShop todavía no ha creado el registro de existencias para este producto o combinación.');
  let original,legacy_schema_fallback=false;
@@ -144,7 +145,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  if(op.kind==='image_metadata'){const image=inspectProductStageXml(original,'totus_product_images',{id_product:op.product_id});if(image.id!==op.record_id)throw Error('Metadatos de otra imagen.');}
  const body=image?null:prepareProductStageXml(original,op.resource,desired,op.associations,recordId);
  const fingerprint=await sha256Text(signature+'|'+original+'|'+(recordId||'')+(op.existing_product?'|'+root:''));
- const advertised=attribute?prestashopCapabilities(await xml('')).resources.find(r=>r.name===op.resource):null,missing_permissions=attribute?['GET','POST'].filter(m=>advertised?.permissions?.[m]!==true):[];
+ const advertised=master?prestashopCapabilities(await xml('')).resources.find(r=>r.name===op.resource):null,missing_permissions=master?['GET','POST'].filter(m=>advertised?.permissions?.[m]!==true):[];
  const enabled=!missing_permissions.length&&env.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';
  if(!op.commit)return {ok:true,store:op.store,kind:op.kind,resource:op.resource,record_id:recordId,fingerprint,persisted:false,can_commit:enabled,missing_permissions,legacy_schema_fallback};
  if(missing_permissions.length&&op.commit)throw Error('La conexión necesita '+op.resource+': '+missing_permissions.join(', ')+'.');

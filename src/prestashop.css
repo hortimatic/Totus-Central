@@ -76,6 +76,44 @@
 .ps-margin{margin:12px 0;padding:12px;border:1px dashed var(--line);border-radius:var(--r,10px);background:var(--panel)}.ps-margin>.ps-facts{margin:10px 0}.ps-margin>p{margin-bottom:0}
 
 /* Diagnóstico: permisos por recurso de la clave Webservice configurada. */
+.ps-orders-grid{min-width:0;max-width:100%;position:relative}
+.ps-order-table-tools,.ps-orders-table-navigation{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0}
+.ps-order-table-tools :is(button,summary,select,input:not([type=checkbox])),.ps-orders-table-navigation button{font:inherit;font-size:12px;min-height:32px;padding:5px 9px;border:1px solid var(--line);border-radius:var(--r,6px);background:var(--panel,#fff);color:inherit;box-shadow:none}
+.ps-orders-table-viewport{width:100%;max-width:100%;overflow-x:auto;overflow-y:visible;scrollbar-width:none;border:0}
+.ps-orders-table-viewport::-webkit-scrollbar{height:0}
+.ps-orders-table{table-layout:fixed;border-collapse:collapse;font-size:12px}
+.ps-orders-table :is(th,td){padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;text-align:left;overflow-wrap:anywhere;white-space:normal}
+.ps-orders-table th{height:48px;position:relative;background:var(--surface,#f1f5f9);color:inherit;font-weight:650}
+.ps-orders-table th>button{font:inherit;color:inherit;white-space:normal;text-align:left;border:0;background:none;padding:0 8px 0 0;box-shadow:none;width:100%;cursor:pointer}
+.ps-orders-table input[type=checkbox]{width:16px;height:16px;min-height:0;margin:0}
+.ps-orders-table .prd-column-resizer{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;touch-action:none;z-index:2}
+.ps-orders-table .prd-column-resizer:hover,.ps-orders-table .prd-column-resizer:focus{background:color-mix(in srgb,var(--primary,#0891b2) 30%,transparent);outline:1px solid var(--primary,#0891b2)}
+.ps-orders-table-viewport[data-density=compact] td{padding:4px 8px}
+.ps-orders-table-viewport[data-density=comfortable] td{padding:9px 8px}
+.ps-orders-table button{font-size:12px;min-height:30px;max-width:100%}
+.ps-orders-table .ps-order-thumbs{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.ps-orders-table .ps-order-thumbs img{width:42px;height:42px;object-fit:contain}
+.ps-orders-table .ps-order-expanded td{padding:12px;background:var(--panel,#fff)}
+.ps-orders-table .ps-order-detail{max-width:100%;overflow-wrap:anywhere}
+.ps-order-columns{position:relative}
+.ps-order-columns>summary{cursor:pointer;list-style:none}
+.ps-order-columns>div{box-sizing:border-box;background:var(--panel,#fff);color:var(--text,#172033);padding:12px;border:var(--appearance-border-width,1px) solid var(--line);border-radius:var(--r,7px);box-shadow:0 8px 24px #0002;overflow:auto;z-index:50;max-width:calc(100vw - 24px)}
+.ps-order-columns .prd-column-option{display:grid;grid-template-columns:minmax(0,1fr) 28px 54px;align-items:center;gap:6px;border-bottom:1px solid var(--line);padding:5px 0}
+.ps-order-columns .prd-column-option>label{display:flex;align-items:center;gap:6px;font-size:12px;min-width:0}
+.ps-order-columns input[type=checkbox]{width:16px;height:16px;min-height:0}
+.ps-order-columns .prd-column-grip{width:28px;padding:2px;cursor:grab}
+.ps-order-columns input:not([type=checkbox]),.ps-order-columns select{width:100%;min-width:0}
+.ps-order-view-save{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ps-order-view-save label{width:100%}
+.ps-order-columns p{font-size:11px;margin:8px 0}
+.ps-order-density{display:flex;align-items:center;gap:6px;font-size:12px}
+.ps-order-density select{width:auto}
+.ps-order-density select,.ps-list-controls input[data-ps-page-number]{border:1px solid var(--line);border-radius:var(--r,7px);background:var(--panel,#fff);color:inherit;padding:5px 8px;font:inherit;min-height:32px}
+.ps-orders-table tbody button[data-ps-table-action=expand]{border:1px solid var(--line);border-radius:var(--r,7px);background:var(--panel,#fff);color:inherit;padding:4px 7px;font:inherit;cursor:pointer}
+.ps-orders-table tbody button[data-ps-table-action=expand]:hover,.ps-orders-table tbody button[data-ps-table-action=expand]:focus-visible{background:var(--surface,#f1f5f9);outline:2px solid var(--primary,#0891b2);outline-offset:1px}
+.ps-orders-table th>button:disabled{cursor:default;opacity:1}
+.ps-list-controls input[data-ps-page-number]{width:70px;min-width:0;min-height:32px}
+@media(max-width:640px){.ps-orders-table-navigation{gap:6px}.ps-orders-table .ps-order-detail .ps-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.ps-orders-table .ps-customer-details{grid-template-columns:1fr}.ps-orders-table .ps-lines>div{grid-template-columns:42px minmax(0,1fr)}}
 .ps-permission-scroll{max-width:100%;max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:10px}
 .ps-permission-table{border-collapse:collapse;width:100%;min-width:480px;font-size:13px}
 .ps-permission-table th,.ps-permission-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}
