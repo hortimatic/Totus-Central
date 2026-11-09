@@ -58,8 +58,9 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
   if(redirect){const url=new URL(connection.endpoint);url.pathname='/api/'+redirect.resource+'/'+redirect.id;url.searchParams.set('display','[id]');const target=await safeEndpoint(url.href,resolve),response=await request(target.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});if(!response.ok){await response.body?.cancel();throw Error('El destino de redirección no está disponible en esta tienda.');}if(parsePrestashopResourceId(await boundedText(response,2097152),redirect.node)!==redirect.id)throw Error('El destino de redirección no coincide con el registro elegido.');}
  }
  const result=selectedXmlValues(original,operation.resource,operation.record_id,operation.changes,operation.expected_product_id);
- if(previous){
-  if(result.changes.some(row=>row.changed))throw Error('Actualización pendiente o incierta: no se repetirá el PUT. Revisa la ficha real.');
+ let recovering=false;
+ if(previous&&result.changes.some(row=>row.changed)){if(previous.status!=='uncertain'||operation.recover_unchanged!==true||!journal.recover)throw Error('Actualización pendiente o incierta. Solicitud '+operation.request_id+': revisa la ficha real y prepara la recuperación de esta misma solicitud.');recovering=true;}
+ if(previous&&!recovering){
   if(previous.status!=='completed')await journal.complete(signature);
   return {ok:true,store:store.key,resource:operation.resource,record_id:operation.record_id,changes:result.changes,persisted:true,verified:true,replayed:true,request_id:operation.request_id};
  }
@@ -74,14 +75,14 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  // A persistent request_id journal and technical review are prerequisites to enabling writes.
  const second=await read();
  if(await sha256Text(second)!==fingerprint)throw Error('La ficha ha cambiado durante la operación. No se ha escrito nada.');
- const claim=await journal.claim(signature);if(claim?.status!=='claimed')throw Error('Esta actualización ya se ha enviado; comprueba su resultado.');
+ const claim=recovering?await journal.recover(signature,fingerprint):await journal.claim(signature);if(claim?.status!=='claimed')throw Error('Esta actualización ya se ha enviado; comprueba su resultado.');
  let response;
  try{
   response=await request(target.href,{method:'PUT',headers:{...headers,'Content-Type':'application/xml; charset=utf-8'},body:prepareProductStageXml(result.patched,operation.resource,{}),
    credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
  }catch{
   await journal.uncertain(signature);
-  throw Error('Resultado de escritura incierto. Consulta el producto real antes de reintentar; no generes otro request_id.');
+  throw Error('Resultado de escritura incierto. Solicitud '+operation.request_id+'. Consulta el producto real antes de reintentar; no generes otro request_id.');
  }
  if(!response.ok){const code=response.status;await response.body?.cancel();
   // Native 1.7 may save successfully and then fail serializing calculated fields.

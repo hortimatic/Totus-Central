@@ -84,3 +84,8 @@ Prueba comercial finalizada en el lote anterior: Bandeja Mario Jump, Hortimatic 
 
 ## Generar órdenes desde Totus
 En Alta asistida, elegir Trabajo: Crear desde URL, Añadir variación a un producto, Modificar producto o Copiar entre tiendas. Para las tres últimas indicar una única tienda e ID; en Copiar elegir además origen diferente del destino. En Modificar detallar los campos en Indicaciones adicionales. Preparar encargo genera una petición revisable con este manual enlazado; Copiar para ChatGPT la copia al portapapeles, no ejecuta una escritura. ChatGPT debe ejecutar los pasos con su propia conexión y devolver evidencia de relectura.
+
+
+## Respuesta incierta al editar
+
+Seguir [recuperación de ediciones](17-recuperacion-ediciones.md). Conservar siempre el mismo `request_id` y cambios. Preparar de nuevo no escribe; recuperar requiere huella reciente, `recover_unchanged:true`, dos lecturas estables y reclamación exclusiva. No emitir otro UUID ni alterar el diario para sortear un guardado pendiente.
