@@ -148,6 +148,26 @@ export async function sha256Text(value){
 }
 
 const nativeNodes=Object.freeze({product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+// Native PUT nulls omitted optional fields. Derive the preservation read from
+// the shop's own schema, not just the fields this editor happens to expose.
+export function productPreservationProjection(schema){
+ const product=direct(tree(schema),'product'),fields=['id'];
+ const excluded=new Set(['id','associations','manufacturer_name','quantity','position_in_category','id_default_image','id_default_combination','type']);
+ for(const node of product.children){
+  if(excluded.has(node.name)||/\breadOnly\s*=\s*(["'])true\1/i.test(node.attributes))continue;
+  if(!/^[a-z_][a-z0-9_]*$/.test(node.name))invalid('Campo nativo no verificable.');
+  fields.push(node.name);
+ }
+ const associations=product.children.find(n=>n.name==='associations');
+ for(const group of associations?.children||[]){
+  if(group.name==='stock_availables'||/\breadOnly\s*=\s*(["'])true\1/i.test(group.attributes))continue;
+  const row=group.children[0],keys=(row?.children||[]).map(n=>n.name);
+  if(!/^[a-z_][a-z0-9_]*$/.test(group.name)||!keys.length||keys.some(k=>!/^[a-z_][a-z0-9_]*$/.test(k)))invalid('Asociación nativa no verificable.');
+  fields.push(group.name+'['+[...new Set(keys)].join(',')+']');
+ }
+ if(fields.length<2)invalid('Esquema de producto incompleto.');
+ return '['+[...new Set(fields)].join(',')+']';
+}
 export function minimalProductStageSchema(resource){
  if(!['combinations','product_suppliers','specific_prices','product_options','product_option_values'].includes(resource))invalid('Este recurso no admite plantilla de alta alternativa.');
  const singular=nativeNodes[resource];

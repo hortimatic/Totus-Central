@@ -3,7 +3,7 @@ import test from 'node:test';
 import {deflateSync,crc32} from 'node:zlib';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../supabase/functions/totus-connections/prestashop-create.js';
 import {runPrestashopProductWrite} from '../../supabase/functions/totus-connections/prestashop-write.js';
-import {inspectReconciledNewProduct,minimalBlankProductSchema} from '../../src/productos-write-contract.js';
+import {inspectReconciledNewProduct,minimalBlankProductSchema,prepareProductStageXml} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
 import {buildVisualProductDescription} from '../../src/productos-description.js';
 
@@ -163,10 +163,22 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const picture=await runPrestashopProductStage(connection,{...upload,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:uploadPrep.fingerprint},options);
  assert.equal(picture.verified,true);assert.equal(picture.original_transparent,true);
  const visual=buildVisualProductDescription({store:'hortimatic',title:'Pruebas CI',intro:'Muestra no comprable.',detailTitle:'Detalle',detailText:'Contenido de prueba.',specifications:'Capacidad: 2 litros\nMaterial: Metal',box:'Una muestra.',notice:'No comprar: demostración.',images:[{id:picture.record_id}]});
+ // Seed unedited native fields through the disposable shop's API. A later
+ // flags-only PUT must preserve them, including a creation date in the past.
+ const preserveUrl='https://hortimatic.com/api/products/'+result.record_id;
+ const preserveHeaders={Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'};
+ const preservedSource=await localOnlyRequest(preserveUrl,{headers:preserveHeaders});assert.equal(preservedSource.status,200);
+ const preservedXml=prepareProductStageXml(await preservedSource.text(),'products',{date_add:'2020-01-02 03:04:05',customizable:'1',uploadable_files:'1',text_fields:'2'},{},result.record_id);
+ const seeded=await localOnlyRequest(preserveUrl,{method:'PUT',headers:{...preserveHeaders,'Content-Type':'application/xml'},body:preservedXml});assert.equal(seeded.status,200);
+ const checkPreservedNative=async()=>{
+  const response=await localOnlyRequest(preserveUrl+'?output_format=JSON&display=[id,date_add,customizable,uploadable_files,text_fields]',{headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});assert.equal(response.status,200);
+  const data=await response.json(),p=data.product||data.products?.[0];assert.equal(p.date_add,'2020-01-02 03:04:05');assert.equal(String(p.customizable),'1');assert.equal(String(p.uploadable_files),'1');assert.equal(String(p.text_fields),'2');
+ };
+ await checkPreservedNative();
  const finish={...stage,kind:'finish',step_key:'ci_finish',fields:{active:'1',available_for_order:'0',visibility:'none',description:profile.language_ids.map(language_id=>({language_id,value:visual.description})),description_short:profile.language_ids.map(language_id=>({language_id,value:visual.description_short}))}};delete finish.associations;
  const finishPrep=await runPrestashopProductStage(connection,finish,options);
  const finished=await runPrestashopProductStage(connection,{...finish,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:finishPrep.fingerprint},options);
- assert.equal(finished.verified,true);
+ assert.equal(finished.verified,true);await checkPreservedNative();
  // Regression: a flags-only finish must preserve inactive translations too.
  const flagsOnly={...finish,step_key:'ci_finish_flags_only',fields:{active:'1',available_for_order:'0',visibility:'none'}};
  const flagsPrep=await runPrestashopProductStage(connection,flagsOnly,options);
@@ -188,7 +200,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const editPrepared=await runPrestashopProductWrite(connection,edit,editOptions);
  const editCommit={...edit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:editPrepared.fingerprint,confirmed:true};
  assert.equal((await runPrestashopProductWrite(connection,editCommit,editOptions)).verified,true);
- await checkLanguages();
+ await checkLanguages();await checkPreservedNative();
  const ratioResponse=await localOnlyRequest('https://hortimatic.com/api/products/'+result.record_id+'?output_format=JSON&display=[id,price,unit_price_ratio,unity]',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
  assert.equal(ratioResponse.status,200);
  const ratioData=await ratioResponse.json(),ratioProduct=ratioData.product||ratioData.products?.[0];

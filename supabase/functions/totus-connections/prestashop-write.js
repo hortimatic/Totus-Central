@@ -1,5 +1,5 @@
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,productRedirectTarget,parsePrestashopResourceId,readPrestashopXmlField,PRODUCT_WRITE_FIELDS} from '../../../src/productos-write-contract.js';
+import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,productPreservationProjection,productRedirectTarget,parsePrestashopResourceId,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 
@@ -19,11 +19,17 @@ export async function runPrestashopProductWrite(connection,input,{request=fetch,
  base.pathname='/api/'+operation.resource+'/'+operation.record_id;
  // Native 1.7 can throw while rendering computed image fields before any image
  // exists. Fetch the editable contract and real relations, not cover getters.
- if(operation.resource==='products')base.searchParams.set('display','['+[...new Set(['id','id_category_default','id_manufacturer','id_supplier','id_tax_rules_group','state','product_type',...PRODUCT_WRITE_FIELDS.products,'categories[id]','images[id]','combinations[id]','product_features[id,id_feature_value]','tags[id]','accessories[id]','attachments[id]'])].join(',')+']');
+
  if(operation.commit&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')!=='1')
   throw Error('Escritura de productos bloqueada: falta habilitación técnica revisada.');
  if(operation.commit&&!journal)throw Error('Falta el diario duradero de actualización.');
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
+ if(operation.resource==='products'){
+  const schemaUrl=new URL(connection.endpoint);schemaUrl.pathname='/api/products';schemaUrl.searchParams.set('schema','synopsis');
+  const schemaTarget=await safeEndpoint(schemaUrl.href,resolve),schemaResponse=await request(schemaTarget.href,{method:'GET',headers,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
+  if(!schemaResponse.ok){await schemaResponse.body?.cancel();throw Error('No se pudo consultar el esquema nativo de conservación (HTTP '+schemaResponse.status+').');}
+  base.searchParams.set('display',productPreservationProjection(await boundedText(schemaResponse,2097152)));
+ }
  let languageIds=[...new Set(operation.changes.map(row=>row.language_id).filter(Boolean))];
  if(operation.resource==='products'){
   const inventory=new URL(connection.endpoint);inventory.pathname='/api/languages';inventory.searchParams.set('display','[id]');
