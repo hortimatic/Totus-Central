@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {canUser,permissionsFor,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS} from '../src/permissions.js';
-assert.equal(PERMISSION_MODULES.length,15);
+import {canUser,permissionsFor,rolePermissions,PERMISSION_MODULES,PERMISSION_ACTIONS,PERMISSION_HELP} from '../src/permissions.js';
+assert.equal(PERMISSION_MODULES.length,15);assert(PERMISSION_MODULES.every(([module])=>typeof PERMISSION_HELP[module]==='string'&&PERMISSION_HELP[module].length>40),'Every permission module explains its scope');
 assert.deepEqual(PERMISSION_ACTIONS.map(x=>x[0]),['view','create','edit','delete','export']);
 const admin={email:'admin@example.invalid',role:'admin'};
 const manager={email:'manager@example.invalid',role:'gerente'};

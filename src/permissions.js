@@ -6,6 +6,16 @@ export const PERMISSION_MODULES=[
 ];
 export const PERMISSION_ACTIONS=[['view','Ver'],['create','Crear'],['edit','Editar'],['delete','Borrar'],['export','Exportar']];
 export const PERMISSION_HELP={
+ inicio:'Consultar el resumen de tiendas, actividad y accesos de trabajo. Las operaciones iniciadas aquí requieren también permiso en su módulo de destino.',
+ pricing:'Consultar y gestionar productos, familias y cálculos de precios, costes, impuestos y márgenes. Incluye el directorio compartido de marcas.',
+ cajas:'Consultar cierres, registrar cifras y movimientos de caja, corregir datos autorizados y descargar sus informes.',
+ gastos:'Consultar y registrar gastos y justificantes, gestionar proveedores y actualizar los datos fiscales y de pago autorizados.',
+ facturacion:'Consultar y gestionar clientes, borradores, facturas, series y plantillas. Emitir o corregir documentos conserva sus validaciones contables.',
+ equipo:'Leer conversaciones propias, participar, adjuntar archivos y gestionar mensajes o canales según los permisos y la pertenencia al canal.',
+ tareas:'Consultar, crear y actualizar tareas, responsables, fechas y documentos vinculados; archivar o eliminar requiere su acción correspondiente.',
+ fiscalidad:'Consultar y gestionar la clasificación fiscal y los periodos; descargar los informes y documentos permitidos.',
+ informes:'Consultar resultados por tienda y periodo, preparar informes y exportar los datos autorizados de los módulos de origen.',
+ administracion:'Gestionar usuarios, roles, negocio, almacenamiento, copias y registros. Las operaciones críticas conservan sus requisitos de administrador.',
  productos:'Ver permite consultar fichas. Crear autoriza altas y combinaciones nuevas; editar permite actualizar datos e imágenes y archivar; borrar permite eliminar registros seleccionados; exportar permite descargar el catálogo. Las claves siguen reservadas a Administración.',
  documentos:'Incluye la biblioteca de documentos y las recepciones, accesibles desde PrestaShop. Mantiene los permisos sobre sus documentos y cotejos.',
  prestashop:'Ver permite consultar las tiendas; exportar permite descargar resultados. Las conexiones y sus claves se administran en Configuración. Las reglas programadas se gestionan en Automatizaciones.',

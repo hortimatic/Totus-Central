@@ -286,6 +286,7 @@ jobs:
       - run: python3 tests/productos-release-cache-qa.py
       - run: node tests/productos-photo-preview-browser-qa.mjs
       - run: node tests/productos-table-browser-qa.mjs
+      - run: node tests/productos-table-layout-browser-qa.mjs
       - run: node tests/productos-usability-browser-qa.mjs
       - run: node tests/productos-copy-circuit-browser-qa.mjs
       - run: node tests/productos-copy-complete-browser-qa.mjs

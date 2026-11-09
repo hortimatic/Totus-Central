@@ -23,6 +23,6 @@ try{
  await page.evaluate(()=>{connectionRefresh.categoryFailure='forbidden';connectionRefresh.categoryAttempts=0;});
  await page.getByRole('button',{name:'Actualizar catálogo',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[data-pr-action="catalog-load"]').disabled);
  assert.equal(await page.evaluate(()=>connectionRefresh.categoryAttempts),1,'Permission denial is not retried');
- assert.match(await page.locator('#productosRoot [role="status"]').innerText(),/Lecturas auxiliares pendientes: categorías/);
+ assert.match(await page.locator('#productosRoot .prd-v4-status').innerText(),/Lecturas auxiliares pendientes: categorías/);
  console.log('Products connection refresh: changed quota/revision in another tab is reread before catalogue GET; product retained, no writes PASS');
 }finally{await browser.close();await server?.close();}

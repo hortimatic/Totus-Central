@@ -11,7 +11,7 @@ try{for(const width of [390,768,1024,1440]){
  await page.evaluate(async()=>{
   const {createProductosUI,productosWorkspacePage}=await import('../src/productos-ui.js');document.querySelector('#chatHarness').innerHTML=productosWorkspacePage();
   const q=window.tableQA={calls:[],item:{id:'42',name:'pruebas · simulación',reference:'QA-42',ean13:'',price:'10',wholesale_price:'4',active:'0',id_tax_rules_group:'0',associations:{images:[],combinations:[]}}};
-  const invoke=async b=>{q.calls.push(structuredClone(b));const out={ok:true,store:b.store,resource:b.resource,record_id:b.record_id};
+  const invoke=async b=>{q.calls.push(structuredClone(b));if(q.holdNextRefresh&&b.action==='prestashop_read'&&b.resource==='products'&&!b.product_ids){q.holdNextRefresh=false;q.refreshHeld=true;await new Promise(resolve=>q.releaseRefresh=resolve);}const out={ok:true,store:b.store,resource:b.resource,record_id:b.record_id};
    if(b.action==='prestashop_product_create_profile')return {...out,persisted:false,language_ids:['1','2']};
    if(b.action==='prestashop_product_step_prepare')return {...out,persisted:false,can_commit:true,fingerprint:'b'.repeat(64)};
    if(b.action==='prestashop_product_step_commit'){q.item=null;return {...out,record_id:b.product_id,persisted:true,verified:true,deleted:true};}
@@ -30,9 +30,14 @@ try{for(const width of [390,768,1024,1440]){
  await page.getByText('137 productos cargados · consulta completa',{exact:true}).waitFor();
  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),20);
  assert.equal(await page.getByRole('button',{name:'Consultar catálogo completo',exact:true}).count(),0);
+ await page.evaluate(()=>tableQA.holdNextRefresh=true);
  await page.locator('[data-pr-page-size]').selectOption('50');
  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),50);
- await page.locator('[data-pr-page-number]').fill('2');await page.locator('[data-pr-page-number]').blur();assert.equal(await page.locator('[data-pr-page-number]').inputValue(),'2');
+ await page.waitForFunction(()=>tableQA.refreshHeld);await page.locator('[data-pr-page-number]').fill('2');
+ const pagesBeforeRelease=await page.evaluate(()=>tableQA.calls.filter(c=>c.action==='prestashop_read'&&c.resource==='products'&&c.page===1).length);await page.evaluate(()=>tableQA.releaseRefresh());await page.waitForFunction(n=>tableQA.calls.filter(c=>c.action==='prestashop_read'&&c.resource==='products'&&c.page===1).length>n,pagesBeforeRelease);
+ assert.equal(await page.locator('[data-pr-page-number]').inputValue(),'2','A background refresh must not replace an uncommitted page number');
+ await page.locator('[data-pr-page-number]').blur();await page.waitForFunction(()=>!document.querySelector('[data-pr-page-number]').disabled);assert.equal(await page.locator('[data-pr-page-number]').inputValue(),'2');assert.match(await page.locator('.prd-catalog-table tbody tr').first().innerText(),/CAT-150/);
+
  await page.locator('[data-pr-search]').fill('9999');await page.locator('[data-pr-search]').blur();
  await page.getByRole('button',{name:'Buscar ID / referencia en tienda',exact:true}).click();
  await page.getByText('1 productos encontrados en la tienda por ID o referencia exacta.',{exact:true}).waitFor();
@@ -66,7 +71,7 @@ try{for(const width of [390,768,1024,1440]){
  await page.locator('#pickerQA select').focus();await page.keyboard.press('Enter');await page.getByRole('button',{name:'Limpiar selección',exact:true}).click();await page.keyboard.press('Escape');
  assert.equal(await page.locator('#pickerQA select').evaluate(n=>[...n.selectedOptions].map(o=>o.value).join(',')),'0,12','Escape discards unconfirmed choices');
  assert.deepEqual(errors,[]);
- report.push({width,passed:['catalog_137_paginated','page_size_50','server_exact_search_outside_first_page','searchable_picker_apply','escape_cancel','menu_within_viewport','multiple_selection_apply_and_cancel','keyboard_open_picker']});await page.close();
+ report.push({width,passed:['catalog_137_paginated','page_size_50','page_edit_survives_background_refresh','server_exact_search_outside_first_page','searchable_picker_apply','escape_cancel','menu_within_viewport','multiple_selection_apply_and_cancel','keyboard_open_picker']});await page.close();
 }}finally{await browser.close();await server?.close();await writeFile('qa-artifacts/productos-usability-report.json',JSON.stringify(report,null,2));}
 console.log('Products usability: full catalogue beyond 100, pagination, exact server search and picker at 390/768/1024/1440 PASS; simulation.');
 

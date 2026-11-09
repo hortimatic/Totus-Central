@@ -1,7 +1,10 @@
+import {startLocalServer} from './local-static-server.mjs';
+import {mkdir} from 'node:fs/promises';
+const server=await startLocalServer();await mkdir('qa-artifacts',{recursive:true});
 import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
-const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})}),page=await browser.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
@@ -12,7 +15,7 @@ try{
  });
  await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  const open=()=>page.locator('[data-action="user-permissions"][data-email="qa-worker@example.invalid"]').click();
- await open();await page.locator('#perm_gastos_edit').uncheck();await page.locator('#perm_gastos_delete').uncheck();
+ await open();for(const width of [390,969,1920]){await page.setViewportSize({width,height:900});assert.equal(await page.locator('.permission-module-description').count(),modules,'Every module has a description');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Permission modal does not overflow the page');await page.screenshot({path:'qa-artifacts/permission-descriptions-'+width+'.png',fullPage:false});}await page.setViewportSize({width:1280,height:900});assert.equal(await page.locator('.permission-module-description').count(),modules,'Every module has a description');assert(await page.locator('.permission-module-description').evaluateAll(ns=>ns.every(n=>n.textContent.trim().length>40)),'All descriptions explain the module');await page.locator('#perm_gastos_edit').uncheck();await page.locator('#perm_gastos_delete').uncheck();
  await page.locator('[data-action="user-permissions-save"]').click();
  await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
  const rows=await page.evaluate(()=>window.__mockDb.ops_user_permissions);
@@ -43,4 +46,4 @@ try{
  assert.equal(await page.evaluate(()=>window.__mockDb.team_members.find(u=>u.email==='qa-worker@example.invalid').role),'gerente');
  assert.deepEqual(errors,[]);
  console.log('USER PERMISSIONS UI: per-module overrides saved and reopened; reset removes only that user overrides and restores role defaults');
-}finally{await browser.close()}
+}finally{await browser.close();await server?.close()}
