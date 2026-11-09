@@ -14,7 +14,11 @@ test('finalización deriva tipo de combinaciones reales y guardado, sin activar 
  assert.equal(inspectProductStageXml(saved,'products',fields).verified,true);
  assert.throws(()=>inspectProductStageXml(saved.replace('CDATA[combinations','CDATA[standard'),'products',fields),/no coincide/);
 });
-import {runPrestashopProductStage} from '../supabase/functions/totus-connections/prestashop-product-stage.js';
+import {runPrestashopProductStage as nativeStage} from '../supabase/functions/totus-connections/prestashop-product-stage.js';
+const runPrestashopProductStage=(connection,input,options)=>nativeStage(connection,input,{...options,request:async(url,opts)=>{
+ const u=new URL(url);if(u.pathname==='/api/products'&&u.searchParams.get('schema')==='synopsis')return new Response('<prestashop><product><id/><reference/><price/><date_add/><date_upd/><is_virtual/><customizable/><associations><categories><category><id/></category></categories><combinations><combination><id/></combination></combinations><images><image><id/></image></images><tags><tag><id/></tag></tags><accessories><product><id/></product></accessories><product_features><product_feature><id/><id_feature_value/></product_feature></product_features></associations></product></prestashop>',{headers:{'Content-Type':'application/xml'}});
+ return options.request(url,opts);
+}});
 import {buildVisualProductDescription} from '../src/productos-description.js';
 import {productInputValue} from '../src/productos-core.js';
 const base={action:'prestashop_product_step_prepare',id:'11111111-1111-4111-8111-111111111111',call_id:'22222222-2222-4222-8222-222222222222',revision:2,store:'hortimatic',parent_request_id:'33333333-3333-4333-8333-333333333333',product_id:'601',kind:'variation',step_key:'blue',fields:{reference:'PRUEBAS-BLUE',price:'1.25',wholesale_price:'3.90',weight:'0.15',minimal_quantity:'1',default_on:'1'},associations:{product_option_values:['10']}};

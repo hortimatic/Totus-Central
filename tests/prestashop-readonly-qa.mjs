@@ -66,3 +66,8 @@ test('fail closed on wrong store, stale session, missing permission, unsafe endp
 test('bad provider responses do not produce fake empty results',async()=>{
  for(const response of [new Response('<html>Login</html>',{headers:{'content-type':'text/html'}}),Response.json({some_other_resource:[]}),new Response('',{status:401})])await assert.rejects(readPrestashopPage(base,{store:'hortimatic',resource:'orders',page:0,page_size:25},{resolve,request:async()=>response}));
 });
+
+ test('product search filters the whole native catalog and returns only the requested page',async()=>{
+ for(const search_field of ['name','reference','ean13']){let seen;const result=await readPrestashopPage(base,{store:'hortimatic',resource:'products',page:2,page_size:10,search:'Mario',search_field},{resolve,request:async url=>{seen=new URL(url);return Response.json({products:[]});}});assert.equal(seen.searchParams.get('filter['+search_field+']'),'%[Mario]%');assert.equal(seen.searchParams.get('limit'),'20,10');assert.equal(result.possibly_more,false);}
+ for(const search of ['x%','[x]','x|y','x\\y'])await assert.rejects(()=>readPrestashopPage(base,{store:'hortimatic',resource:'products',search,search_field:'name'},{resolve,request:()=>{throw Error('Network must not run');}}));
+ });

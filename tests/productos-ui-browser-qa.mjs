@@ -19,14 +19,14 @@ try{
    root.innerHTML=productosWorkspacePage();
    const q=window.productosQA={actor:'admin-1',calls:[],slow:false,connections:['hortimatic','newoldsmok'].map((store,i)=>({id:String(i+1).padStart(8,'0')+'-1111-4111-8111-111111111111',name:'PrestaShop · '+(store==='hortimatic'?'Hortimatic':'NewOldSmok'),protocol:'prestashop',configured:true,enabled:true,revision:1,verified_revision:1,real_data_authorized:true}))};
    const fixture={
-    'hortimatic|products|42':{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>',description:'Origen',price:'12.90',meta_title:'SEO de origen',associations:{images:[{id:'91'}],combinations:[{id:'100'},{id:'101'}],categories:[{id:'3'}]}},
+    'hortimatic|products|42':{id:'42',date_add:'2024-02-03 14:05:06',date_upd:'2026-11-09 18:19:20',reference:'REF-42',name:'Producto <script>alert(1)</script>',description:'Origen',price:'12.90',meta_title:'SEO de origen',associations:{images:[{id:'91'}],combinations:[{id:'100'},{id:'101'}],categories:[{id:'3'}]}},
     'newoldsmok|products|55':{id:'55',reference:'DESTINO-55',name:[{id:'1',value:'Destino antiguo'}],description:'Destino',price:'14.90',meta_title:'SEO propio',associations:{combinations:[{id:'200'}]}},
     'hortimatic|combinations|100':{id:'100',id_product:'42',reference:'REF-42-10',price:'1',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}},
     'hortimatic|combinations|101':{id:'101',id_product:'42',reference:'REF-42-20',price:'2',minimal_quantity:'1',associations:{product_option_values:[{id:'20'}]}},
     'newoldsmok|combinations|200':{id:'200',id_product:'55',reference:'REF-42-10',price:'1.50',minimal_quantity:'1',associations:{product_option_values:[{id:'10'}]}}
    };
    q.fixture=fixture;
-   q.ui=createProductosUI({rpc:async()=>({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,canEdit:()=>true,invoke:async body=>{
+   q.ui=createProductosUI({rpc:async(name)=>name==='totus_products_creation_metadata'?[{product_id:'42',creator:'ChatGPT QA'}]:({connections:q.connections}),actor:()=>q.actor,allowed:()=>true,canEdit:()=>true,invoke:async body=>{
     q.calls.push(structuredClone(body));
     if(q.slow)await new Promise(r=>setTimeout(r,200));
     if(body.action==='prestashop_product_create_profile')return {ok:true,store:body.store,resource:'products',language_ids:['1','2'],persisted:false};
@@ -50,7 +50,7 @@ try{
      if(body.resource==='categories')return {ok:true,store:body.store,resource:'categories',page:body.page,rows:[{id:'33',name:'Inicio'}],possibly_more:false};
      const catalogs={image_types:[{id:'1',name:'large_default',products:'1',width:'800',height:'800'}],product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
      if(catalogs[body.resource])return {ok:true,store:body.store,resource:body.resource,rows:catalogs[body.resource],possibly_more:false};
-     const rows=body.references?.length?body.store==='newoldsmok'?[]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
+     const rows=body.references?.length?body.store==='newoldsmok'?[]:[{id:'42',reference:'REF-42',name:'Origen'}]:body.store==='hortimatic'?[{id:'42',date_add:'2024-02-03 14:05:06',date_upd:'2026-11-09 18:19:20',reference:'REF-42',name:'Producto <script>alert(1)</script>'}]:[];
      return {ok:true,store:body.store,resource:body.resource,page:body.page,rows,possibly_more:false};
     }
     throw Error('Se ha intentado escribir en PrestaShop');
@@ -65,7 +65,7 @@ try{
   await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();
   assert.match(await page.locator('textarea[readonly]').inputValue(),/19,90/);
   assert.match(await page.locator('textarea[readonly]').inputValue(),/state=1/);
-    await page.locator('[data-pr-request=operation]').selectOption('copy');await page.locator('[data-pr-request=store]').selectOption('newoldsmok');await page.locator('[data-pr-request=source_store]').selectOption('hortimatic');await page.locator('[data-pr-request=product_id]').fill('42');await page.locator('[data-pr-request=product_id]').blur();await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();assert.match(await page.locator('textarea[readonly]').inputValue(),/Origen: Hortimatic/);assert.match(await page.locator('textarea[readonly]').inputValue(),/imágenes y combinaciones/);
+    await page.locator('[data-pr-request=operation]').selectOption('copy');await page.locator('[data-pr-request=store]').selectOption('newoldsmok');await page.locator('[data-pr-request=source_store]').selectOption('hortimatic');assert.equal(await page.locator('[data-pr-request-origin] [data-pr-request=source_store]').count(),1);assert.equal(await page.locator('[data-pr-request-origin] [data-pr-request=product_id]').count(),1);await page.locator('[data-pr-request=product_id]').fill('42');await page.locator('[data-pr-request=product_id]').blur();await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();assert.match(await page.locator('textarea[readonly]').inputValue(),/Origen: Hortimatic/);assert.match(await page.locator('textarea[readonly]').inputValue(),/imágenes y combinaciones/);
   await page.locator('[data-pr-request=operation]').selectOption('edit');await page.locator('[data-pr-request=notes]').fill('Cambiar descripción y precio');await page.locator('[data-pr-request=notes]').blur();await page.getByRole('button',{name:'Preparar encargo',exact:true}).click();assert.match(await page.locator('textarea[readonly]').inputValue(),/Modifica únicamente/);
   await page.locator('[data-pr-request=operation]').selectOption('url');await page.locator('[data-pr-request=store]').selectOption('hortimatic');
   assert.equal(await page.evaluate(()=>window.productosQA.calls.some(c=>c.action.includes('commit'))),false);
@@ -81,11 +81,12 @@ try{
   await position.press('Home');
   await page.waitForFunction(()=>document.querySelector('.prd-catalog-table').scrollLeft<2);
 
-  await page.locator('[data-pr-search]').fill('NO-EXISTE-EN-PRUEBA');assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),0);await page.getByRole('button',{name:'Limpiar filtros',exact:true}).click();assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
+  await page.locator('[data-pr-search]').fill('NO-EXISTE-EN-PRUEBA');assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),0);await page.getByRole('button',{name:'Limpiar búsqueda y filtros',exact:true}).click();assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
   await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-column="ean13"]').check();
   await page.locator('.prd-columns summary').click();
   assert.equal(await page.locator('.prd-catalog-table th').filter({hasText:'EAN'}).count(),1);
+  await page.locator('.prd-columns summary').click();await page.locator('[data-pr-columns-search]').fill('Margen');assert.equal(await page.locator('[data-pr-column-option=marginTotal]').isVisible(),true);assert.equal(await page.locator('[data-pr-column-option=reference]').isVisible(),false);await page.locator('[data-pr-columns-search]').fill('');await page.locator('[data-pr-column=creator]').check();await page.locator('.prd-catalog-table [data-pr-column-cell=creator]').filter({hasText:'ChatGPT QA'}).waitFor();if(!await page.locator('.prd-columns').evaluate(n=>n.open))await page.locator('.prd-columns summary').click();await page.locator('[data-pr-column=date_add]').check();assert.equal(await page.locator('.prd-catalog-table [data-pr-column-cell=date_add]').innerText(),'03/02/2024 14:05:06');if(await page.locator('.prd-columns').evaluate(n=>n.open))await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-catalog-all]').check();
   assert.equal(await page.locator('[data-pr-action="catalog-copy"]').isEnabled(),true);
   await page.screenshot({path:'qa-artifacts/productos-catalogo-'+width+'.png',fullPage:true});
@@ -143,7 +144,7 @@ try{
   await page.screenshot({path:'qa-artifacts/productos-copia-'+width+'.png',fullPage:true});
 
   await page.locator('[data-pr-action="fields-none"]').click();
-  assert.equal(await page.locator('.prd-copy-variant-options').getAttribute('open'),'','Selected combinations are visible by default');await page.locator('[data-pr-copy-variant="100"]').check();
+  assert.equal(await page.locator('.prd-copy-variant-options').isVisible(),true,'Combinations have a dedicated visible section');await page.locator('[data-pr-action=copy-variants-all]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),2);await page.locator('[data-pr-action=copy-variants-none]').click();assert.equal(await page.locator('[data-pr-copy-variant]:checked').count(),0);await page.locator('[data-pr-copy-variant="100"]').check();
   await page.locator('[data-pr-field="name"]').check();
   await page.locator('[data-pr-value="name"]').fill('Nombre personalizado');
   await page.locator('[data-pr-value="name"]').blur();

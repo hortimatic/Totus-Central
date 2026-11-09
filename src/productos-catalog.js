@@ -1,10 +1,10 @@
 import {textValue,associationIds} from './productos-core.js';
 import {csvCell} from './utils.js';
 export const PRODUCT_COLUMNS=Object.freeze([
- ['image','Foto'],['name','Producto'],['id','ID'],['reference','Referencia'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste aprox. sin IVA'],['costVat','Coste aprox. con IVA'],['costTotal','Coste aprox. IVA + RE'],['price','Precio base sin IVA'],['gross','PVP base IVA España'],['margin','Margen sin impuestos aprox.'],['marginTotal','Margen € con IVA + RE aprox.'],['stock','Existencias'],['variants','Variaciones'],['active','Estado'],['weight','Peso (kg)'],['width','Anchura (cm)'],['height','Altura (cm)'],['depth','Profundidad (cm)'],['date_upd','Actualizado']
+ ['image','Foto'],['name','Producto'],['id','ID'],['reference','Ref.'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste neto'],['costVat','Coste +IVA'],['costTotal','Coste total'],['price','PVP neto'],['gross','PVP final'],['margin','Margen %'],['marginTotal','Margen €'],['stock','Stock'],['variants','Variantes'],['active','Estado'],['weight','Peso'],['width','Ancho'],['height','Alto'],['depth','Fondo'],['date_add','Creado'],['creator','Autor'],['date_upd','Actualizado']
 ]);
 export function productColumnHeading(key){
- const lines={cost:['Coste','sin IVA · aprox.'],costVat:['Coste','con IVA · aprox.'],costTotal:['Coste','IVA + RE · aprox.'],price:['Precio base','sin IVA'],gross:['PVP base','IVA España'],margin:['Margen %','sin IVA · aprox.'],marginTotal:['Margen €','IVA + RE · aprox.'],weight:['Peso','kg'],width:['Anchura','cm'],height:['Altura','cm'],depth:['Profundidad','cm'],date_upd:['Última','actualización']};
+ const lines={cost:['Coste','sin IVA'],costVat:['Coste','con IVA'],costTotal:['Coste','IVA + RE'],price:['PVP neto','sin IVA'],gross:['PVP final','con IVA'],margin:['Margen %','sin IVA'],marginTotal:['Margen €','PVP − coste'],weight:['Peso','kg'],width:['Anchura','cm'],height:['Altura','cm'],depth:['Profundidad','cm'],date_add:['Creado','fecha y hora'],creator:['Usuario','creador'],date_upd:['Actualizado','fecha y hora']};
  return lines[key]||[PRODUCT_COLUMNS.find(c=>c[0]===key)?.[1]||key,''];
 }
 export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','name','id','reference','ean13','brand','category','store','cost','costVat','costTotal','price','gross','marginTotal','margin','stock','variants','active']);

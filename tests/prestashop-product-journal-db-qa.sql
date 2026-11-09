@@ -154,3 +154,5 @@ END $history$;
 \ir product-corrected-recovery-db-qa.sql
 
 \ir existing-product-steps-db-qa.sql
+
+\ir productos-creation-metadata-db-qa.sql
