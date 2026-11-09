@@ -40,6 +40,8 @@ begin
  clean=private.totus_validate_table_layout(p_table,p_layout);
  select coalesce(ui_preferences,'{}') into prefs from public.profiles where id=auth.uid() for update;
  if not found then raise exception 'Perfil no disponible.';end if;
+ -- Older tabs send only columns/widths. They must not erase named views saved by a newer client.
+ if not(p_layout ? 'views') and jsonb_typeof(prefs->slot->'views')='array' then clean=jsonb_set(clean,'{views}',prefs->slot->'views',true);if (prefs->slot) ? 'viewName' then clean=clean||jsonb_build_object('viewName',prefs->slot->'viewName');end if;end if;
  update public.profiles set ui_preferences=jsonb_set(prefs,array[slot],clean,true) where id=auth.uid();return clean;
 end $$;
 create or replace function public.totus_products_table_layout(p_owner uuid,p_layout jsonb default null) returns jsonb language sql security invoker set search_path='' as $$select private.totus_personal_table_layout(p_owner,'products',p_layout)$$;

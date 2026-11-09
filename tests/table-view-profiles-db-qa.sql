@@ -6,6 +6,8 @@ set role authenticated;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 select public.totus_products_table_layout('11111111-1111-4111-8111-111111111111','{"columns":["name","image"],"widths":{"name":210},"views":[{"name":"Mi vista","columns":["name","image"],"widths":{"name":210},"size":20,"query":"privado"}],"viewName":"Mi vista"}');
 select public.qa_assert(public.totus_products_table_layout('11111111-1111-4111-8111-111111111111',null)#>>'{views,0,name}'='Mi vista','named views persist across sessions');
+select public.totus_products_table_layout('11111111-1111-4111-8111-111111111111','{"columns":["name","image"],"widths":{"name":220}}');
+select public.qa_assert(public.totus_products_table_layout('11111111-1111-4111-8111-111111111111',null)#>>'{views,0,name}'='Mi vista','an older open tab cannot erase named profiles');
 select public.qa_denied($q$select public.totus_products_table_layout('22222222-2222-4222-8222-222222222222',null)$q$,'otra cuenta');
 select public.qa_denied($q$select public.totus_products_table_layout('11111111-1111-4111-8111-111111111111','{"columns":["name"],"widths":{"name":9999}}')$q$,'Ancho');
 select public.totus_table_profiles('products','share',null,'Equipo','{"columns":["name","image"],"widths":{"name":210},"query":"not shared"}');
