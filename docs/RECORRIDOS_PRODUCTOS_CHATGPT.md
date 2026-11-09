@@ -2,6 +2,16 @@
 
 Este documento complementa RECORRIDO_CREACION_PRODUCTOS.md. La configuración de acceso se realiza una vez; no es necesario crear usuarios de chat para las conexiones de las tiendas. ChatGPT utiliza su propia cuenta vinculada y las mismas acciones de Productos que la interfaz, a través del puente autenticado.
 
+## Publicación directa desde la ficha
+
+La ficha tiene un botón **Publicar en PrestaShop**, tanto para un producto nuevo como para uno existente. El selector **Al publicar** permite enviar el producto con sus variaciones e imágenes, o solo el producto. Los borradores de fotos y variaciones no enviados se conservan para publicarlos después, reutilizando el ID de producto. Un error no autoriza crear otro producto ni otra solicitud de alta: primero se consulta y concilia la operación guardada.
+
+En **Copiar**, seleccionar los campos e imágenes y pulsar **Copiar y publicar en [tienda]**. El botón prepara, valida, crea o actualiza, sube las imágenes y combinaciones seleccionadas y publica. Si una categoría o atributo no tiene correspondencia única, se muestra el dato concreto para elegirlo; no se debe repetir el alta ya iniciada. Los idiomas se relacionan por su código ISO, sin trasladar IDs entre tiendas. El contenido de base completa los idiomas instalados; no se presenta como traducción automática.
+
+**Variaciones** contiene el acceso a los atributos y sus valores nativos. **Organización** contiene categorías, marca, proveedor y características. Los gestores consultan registros de la tienda seleccionada y las modificaciones guardadas se releen; no son listas independientes de Totus.
+
+Las validaciones y la recuperación siguen funcionando por debajo del botón, sin obligar al usuario a recorrer el Historial. Historial sirve para consulta y trazabilidad. ChatGPT usa su identidad vinculada propia y las mismas operaciones; nunca la sesión de Diego ni la de Codex.
+
 ## 1. Preparar el encargo desde la interfaz
 Productos → Encargo para ChatGPT. Elegir trabajo y destino. El formulario prepara una petición que se revisa y copia al chat convencional; no contrata una API de ChatGPT ni realiza escrituras al pulsar Preparar.
 
