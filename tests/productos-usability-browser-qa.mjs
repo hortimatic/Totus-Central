@@ -27,13 +27,12 @@ try{for(const width of [390,768,1024,1440]){
 
  await page.evaluate(()=>{tableQA.catalog=true});
  await page.getByRole('button',{name:'Actualizar',exact:true}).click();
- await page.getByText('100 productos cargados · quedan páginas por consultar',{exact:true}).waitFor();
- await page.getByRole('button',{name:'Consultar catálogo completo',exact:true}).click();
- await page.getByText('Catálogo completo consultado: 137 productos.',{exact:true}).waitFor();
+ await page.getByText('137 productos cargados · consulta completa',{exact:true}).waitFor();
  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),20);
  assert.equal(await page.getByRole('button',{name:'Consultar catálogo completo',exact:true}).count(),0);
  await page.locator('[data-pr-page-size]').selectOption('50');
  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),50);
+ await page.locator('[data-pr-page-number]').fill('2');await page.locator('[data-pr-page-number]').blur();assert.equal(await page.locator('[data-pr-page-number]').inputValue(),'2');
  await page.locator('[data-pr-search]').fill('9999');await page.locator('[data-pr-search]').blur();
  await page.getByRole('button',{name:'Buscar ID / referencia en tienda',exact:true}).click();
  await page.getByText('1 productos encontrados en la tienda por ID o referencia exacta.',{exact:true}).waitFor();

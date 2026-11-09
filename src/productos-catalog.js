@@ -1,10 +1,10 @@
 import {textValue,associationIds} from './productos-core.js';
 import {csvCell} from './utils.js';
 export const PRODUCT_COLUMNS=Object.freeze([
- ['image','Foto'],['name','Producto'],['id','ID'],['reference','Referencia'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste sin IVA'],['costVat','Coste con IVA'],['costTotal','Coste IVA + RE'],['price','Precio base sin IVA'],['gross','PVP base IVA España'],['margin','Margen sin impuestos'],['marginTotal','Margen € con IVA + RE'],['stock','Existencias'],['variants','Variaciones'],['active','Estado'],['weight','Peso (kg)'],['width','Anchura (cm)'],['height','Altura (cm)'],['depth','Profundidad (cm)'],['date_upd','Actualizado']
+ ['image','Foto'],['name','Producto'],['id','ID'],['reference','Referencia'],['ean13','EAN'],['brand','Marca'],['supplier','Proveedor'],['category','Categoría'],['store','Tienda'],['cost','Coste sin IVA'],['costVat','Coste con IVA'],['costTotal','Coste IVA + RE'],['price','Precio base sin IVA'],['gross','PVP base IVA España'],['margin','Margen sin impuestos'],['marginTotal','Margen € con IVA + RE'],['stock','Existencias'],['variants','Variaciones'],['active','Estado'],['weight','Peso (kg)'],['width','Anchura (cm)'],['height','Altura (cm)'],['depth','Profundidad (cm)'],['date_add','Creado: fecha y hora'],['creator','Usuario creador'],['date_upd','Actualizado: fecha y hora']
 ]);
 export function productColumnHeading(key){
- const lines={cost:['Coste','sin IVA'],costVat:['Coste','con IVA'],costTotal:['Coste','IVA + RE'],price:['Precio base','sin IVA'],gross:['PVP base','IVA España'],margin:['Margen %','sin IVA'],marginTotal:['Margen €','IVA + RE'],weight:['Peso','kg'],width:['Anchura','cm'],height:['Altura','cm'],depth:['Profundidad','cm'],date_upd:['Última','actualización']};
+ const lines={cost:['Coste','sin IVA'],costVat:['Coste','con IVA'],costTotal:['Coste','IVA + RE'],price:['Precio base','sin IVA'],gross:['PVP base','IVA España'],margin:['Margen %','sin IVA'],marginTotal:['Margen €','IVA + RE'],weight:['Peso','kg'],width:['Anchura','cm'],height:['Altura','cm'],depth:['Profundidad','cm'],date_add:['Creado','fecha y hora'],creator:['Usuario','creador'],date_upd:['Actualizado','fecha y hora']};
  return lines[key]||[PRODUCT_COLUMNS.find(c=>c[0]===key)?.[1]||key,''];
 }
 export const DEFAULT_PRODUCT_COLUMNS=Object.freeze(['image','name','id','reference','ean13','brand','category','store','cost','costVat','costTotal','price','gross','marginTotal','margin','stock','variants','active']);

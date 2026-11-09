@@ -13,3 +13,11 @@ Las cabeceras no incluyen aprox.; la ayuda sigue explicando las limitaciones del
 ChatGPT debe seguir el protocolo de identidad del manual 12: verificar su propia cuenta antes de operar; nunca elegir otra IA ni una cuenta predeterminada.
 
 Cada borrador sin solicitudes enviadas permite eliminarse individualmente con confirmación. Los registros con operaciones enviadas conservan su historial. El borrado local no borra productos de la tienda.
+
+El listado general completa su lectura en segundo plano sin dibujar todas sus filas. La paginación controla los elementos visibles; el número de página permite saltar directamente. Producto y Copiar tienen su selector incluso sin ficha seleccionada. Una búsqueda cancela la precarga anterior y consulta toda la tienda mediante filtros nativos. Las respuestas de una precarga cancelada no sustituyen el resultado actual.
+
+Copiar tiene una sección visible propia de Variaciones y un acceso desde sus apartados. Seleccionar todas / Limpiar variaciones modifica solo esa selección; no los campos del producto ni sus fotos. Se mantiene el recorrido validado de correspondencias y guardado. La referencia se muestra una sola vez cuando su columna está activa.
+
+Columnas opcionales: Creado (fecha y hora nativas), Actualizado (fecha y hora nativas), Usuario creador. El usuario procede exclusivamente de la solicitud completada de creación de Totus. Sin registro se muestra No registrado; antes de consultar, Sin consultar. No se deduce el autor de la cuenta que abre la ficha. El acceso de solo lectura 072 exige permiso de visualización de Productos y limita la consulta a los ID de la tienda solicitada.
+
+Caché en memoria de sesión por cuenta y tienda, comprobando la revisión de conexión. No hay renovación temporizada. Volver al módulo muestra la caché y la contrasta en segundo plano con la tienda. Las pestañas reutilizan la misma información sin volver a cargarla. Actualizar fuerza una lectura; escribir invalida la tienda afectada y cambiar de usuario elimina la caché. Los borradores están separados de la lectura de catálogo. No se guardan claves.
