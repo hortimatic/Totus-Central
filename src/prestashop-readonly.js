@@ -59,6 +59,10 @@ export function prestashopQuery(input){
  if(['customers','addresses','currencies','taxes','order_states'].includes(input.resource)&&!(input.resource==='currencies'&&input.record_id===undefined)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
  if(input.product_ids!==undefined){if(!['products','stock_availables','product_suppliers','specific_prices'].includes(input.resource))throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
+ if(input.search!==undefined||input.search_field!==undefined){
+  if(input.resource!=='products'||!['name','reference','ean13'].includes(input.search_field)||typeof input.search!=='string'||!input.search.trim()||input.search.length>96||/[\[\]|%,\\\x00-\x1f]/.test(input.search)||input.references!==undefined||input.product_ids!==undefined)throw Error('Búsqueda de producto no válida.');
+  out.search=input.search.trim();out.searchField=input.search_field;
+ }
  if(input.references!==undefined){
   const refs=input.references;
   if(!['products','combinations'].includes(input.resource)||input.product_ids!==undefined||!Array.isArray(refs)||!refs.length||refs.length>35||refs.some(r=>typeof r!=='string'||!r.trim()||r.length>64||/[\[\]|%,\\\x00-\x1f]/.test(r))||new Set(refs).size!==refs.length)throw Error('Selecciona referencias exactas de producto, sin filtros especiales.');

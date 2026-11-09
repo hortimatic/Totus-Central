@@ -18,6 +18,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.recordId)base.searchParams.set('filter[id]','['+page.recordId+']');
  const productChildren=['stock_availables','product_suppliers','specific_prices'];
  if(page.productIds)base.searchParams.set(productChildren.includes(page.resource)?'filter[id_product]':'filter[id]','['+page.productIds.join('|')+']');
+ if(page.search)base.searchParams.set('filter['+page.searchField+']','%['+page.search+']%');
  if(page.references)base.searchParams.set('filter[reference]','['+page.references.join('|')+']');
  if(page.orderIds)base.searchParams.set('filter[id_order]','['+page.orderIds.join('|')+']');
  if(page.orderId)base.searchParams.set('filter[id_order]','['+page.orderId+']');

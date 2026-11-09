@@ -5,6 +5,7 @@ import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../
 import {runPrestashopProductWrite} from '../../supabase/functions/totus-connections/prestashop-write.js';
 import {inspectReconciledNewProduct,minimalBlankProductSchema,prepareProductStageXml} from '../../src/productos-write-contract.js';
 import {runPrestashopProductStage} from '../../supabase/functions/totus-connections/prestashop-product-stage.js';
+import {readPrestashopPage} from '../../supabase/functions/totus-connections/prestashop.js';
 import {buildVisualProductDescription} from '../../src/productos-description.js';
 
 const key='TOTUSPRESTASHOPQA123456789012345';
@@ -87,6 +88,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const result=await runPrestashopProductCreate(connection,commit,
   {request:localOnlyRequest,resolve,env:environment,journal});
  assert.equal(result.persisted,true);
+ for(const [search_field,search]of [['name','Pruebas CI'],['reference','TOTUS-CI-PRUEBAS']]){const found=await readPrestashopPage(connection,{store:'hortimatic',resource:'products',page:0,page_size:10,search_field,search},{resolve,request:localOnlyRequest});assert(found.rows.some(p=>String(p.id)===result.record_id),'Native search must find the newly created product');}
  assert.equal(result.active,false);
  assert.equal(result.verified,true);
  assert.match(result.record_id,/^[1-9]\d+$/);
