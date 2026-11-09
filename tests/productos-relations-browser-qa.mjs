@@ -75,4 +75,4 @@ try{
   report.push({width,height,result:'passed',operations:commits.map(c=>c.kind)});await page.close();
  }
  console.log(JSON.stringify(report));await writeFile('qa-artifacts/productos-relations.json',JSON.stringify(report,null,2));
-}finally{await browser.close();await server.close();}
+}finally{await browser.close();await server?.close();}
