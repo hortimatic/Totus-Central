@@ -24,6 +24,12 @@ try{for(const width of [390,768,1440]){
   // Stable identity throughout this fixture's authenticated session.
   const owner=crypto.randomUUID();q.ui=createProductosUI({actor:()=>owner,allowed:()=>true,canEdit:()=>true,rpc:async()=>({connections:[{id:'1',name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]}),invoke});await q.ui.mount(document.querySelector('#productosRoot'));
  });
+  assert.equal(await page.locator('th[data-pr-column-heading="costTotal"] .prd-column-caption>span').count(),2);
+ assert(await page.locator('th[data-pr-column-heading="costTotal"]').evaluate(n=>n.getBoundingClientRect().width<=130),'Two-line cost header stays compact');
+ assert.match(await page.locator('td[data-pr-column-cell="marginTotal"]').innerText(),/5,79/,'10 − 4 × 1.052 = 5.79, rounding only the final display');
+ await page.getByRole('spinbutton',{name:'Recargo de compra estimado (%)'}).fill('0');await page.getByRole('spinbutton',{name:'Recargo de compra estimado (%)'}).blur();
+ assert.match(await page.locator('td[data-pr-column-cell="marginTotal"]').innerText(),/6,00/,'Changing RE updates the euro margin');
+ await page.getByRole('spinbutton',{name:'Recargo de compra estimado (%)'}).fill('5.2');await page.getByRole('spinbutton',{name:'Recargo de compra estimado (%)'}).blur();
  await page.getByRole('button',{name:'Editar fila',exact:true}).click();
  await page.locator('[data-pr-table-field="reference"]').fill('QA-EDITADA');await page.locator('[data-pr-table-field="reference"]').blur();await page.evaluate(async()=>await tableQA.ui.mount(document.querySelector('#productosRoot')));await page.locator('[data-pr-table-field="reference"]').waitFor();assert.equal(await page.locator('[data-pr-table-field="reference"]').inputValue(),'QA-EDITADA');assert.equal(await page.evaluate(()=>tableQA.calls.some(c=>c.action.endsWith('_commit'))),false);
  await page.getByRole('button',{name:'Revisar',exact:true}).click();await page.getByRole('button',{name:'Guardar cambios',exact:true}).click();await page.getByText(/guardado y releído/).waitFor();

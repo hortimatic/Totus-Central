@@ -78,6 +78,7 @@ try{
   await position.press('Home');
   await page.waitForFunction(()=>document.querySelector('.prd-catalog-table').scrollLeft<2);
 
+  await page.locator('[data-pr-search]').fill('NO-EXISTE-EN-PRUEBA');assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),0);await page.getByRole('button',{name:'Limpiar filtros',exact:true}).click();assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
   await page.locator('.prd-columns summary').click();
   await page.locator('[data-pr-column="ean13"]').check();
   await page.locator('.prd-columns summary').click();
