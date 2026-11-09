@@ -19,6 +19,10 @@ select public.qa_assert(public.totus_products_table_layout('22222222-2222-4222-8
 select public.qa_denied(format('select public.totus_table_profiles(''products'',''remove'',%L::uuid)',current_setting('qa.shared_profile_id')),'Solo puedes retirar');
 select public.totus_orders_table_layout('22222222-2222-4222-8222-222222222222','{"columns":["id","total","margin"],"widths":{"margin":150},"views":[{"name":"Ventas","columns":["id","margin"],"widths":{}}],"pageSize":"50","density":"compact"}');
 select public.qa_assert(public.totus_orders_table_layout('22222222-2222-4222-8222-222222222222',null)->>'pageSize'='50','orders layout persists');
+select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
+select public.totus_table_profiles('products','remove',current_setting('qa.shared_profile_id')::uuid);
+select public.qa_assert(jsonb_array_length(public.totus_table_profiles('products'))=0,'owner can withdraw own shared profile');
+select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222"}',true);
 select set_config('qa.table_access','false',true);
 select public.qa_denied($q$select public.totus_table_profiles('products')$q$,'No tienes acceso');
 select public.qa_denied($q$select public.totus_orders_table_layout('22222222-2222-4222-8222-222222222222',null)$q$,'otra cuenta');

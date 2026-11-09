@@ -94,3 +94,5 @@ En Catálogo, **Edición rápida** o doble clic en una celda editable abre una v
 En la rueda de Columnas, **Guardar vista personal** conserva nombre, columnas, orden y anchos en la cuenta. Productos conserva además su filtro y tamaño de página como datos privados. Pedidos conserva su densidad, paginación y vistas personales. No hay que reconstruirlas al usar otro equipo con la misma cuenta.
 
 **Perfiles del equipo** abre una ventana independiente. Escribir un nombre y **Compartir configuración actual** publica exclusivamente columnas y anchos; no publica búsquedas, precios, contenido de filas ni credenciales. Otro usuario con permiso de lectura del módulo abre la misma opción y pulsa **Aplicar a mi tabla**. Se crea una copia personal; publicar o retirar una plantilla no recoloca automáticamente las tablas de los demás. Solo el autor puede retirar su perfil del equipo. Compartir un perfil no otorga permisos de negocio ni acceso a los productos.
+
+Los perfiles personales y compartidos se conservan en las preferencias de perfiles de usuario, incluidas en las copias de seguridad existentes; no se añade una base de datos paralela para estas vistas.

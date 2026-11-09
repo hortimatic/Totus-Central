@@ -1,12 +1,5 @@
 -- Presentation only: durable personal views and explicitly shared team layouts.
 begin;
-create table if not exists public.ops_table_view_profiles(
- id uuid primary key default gen_random_uuid(), owner_id uuid not null references public.profiles(id) on delete cascade,
- table_key text not null check(table_key in ('products','orders')), name text not null check(length(name) between 1 and 60),
- layout jsonb not null, updated_at timestamptz not null default now(), unique(owner_id,table_key,name)
-);
-alter table public.ops_table_view_profiles enable row level security;
-revoke all on public.ops_table_view_profiles from public,anon,authenticated;
 create or replace function private.totus_validate_table_layout(p_table text,p_layout jsonb) returns jsonb
 language plpgsql immutable set search_path='' as $$
 declare valid text[];col jsonb;k text;v jsonb;view jsonb;clean jsonb;views jsonb:='[]';
@@ -48,19 +41,29 @@ create or replace function public.totus_products_table_layout(p_owner uuid,p_lay
 create or replace function public.totus_orders_table_layout(p_owner uuid,p_layout jsonb default null) returns jsonb language sql security invoker set search_path='' as $$select private.totus_personal_table_layout(p_owner,'orders',p_layout)$$;
 create or replace function private.totus_table_profiles(p_table text,p_action text default 'list',p_id uuid default null,p_name text default null,p_layout jsonb default null) returns jsonb
 language plpgsql security definer set search_path='' as $$
-declare clean jsonb;
+declare clean jsonb;prefs jsonb;book jsonb;profile_id uuid;
 begin
  if auth.uid() is null or p_table is null or p_action is null or p_table not in ('products','orders') or not coalesce(private.totus_can(case p_table when 'products' then 'productos' else 'prestashop' end,'view'),false) then raise exception 'No tienes acceso a esta tabla.';end if;
+ if p_action in ('share','remove') then
+ select coalesce(ui_preferences,'{}') into prefs from public.profiles where id=auth.uid() for update;
+ if not found then raise exception 'Perfil no disponible.';end if;
+ book=case when jsonb_typeof(prefs#>array['table_view_profiles',p_table])='array' then prefs#>array['table_view_profiles',p_table] else '[]'::jsonb end;
  if p_action='share' then
  clean=private.totus_validate_table_layout(p_table,jsonb_build_object('columns',p_layout->'columns','widths',p_layout->'widths'));
  if length(trim(coalesce(p_name,''))) not between 1 and 60 then raise exception 'Escribe un nombre de hasta 60 caracteres.';end if;
- insert into public.ops_table_view_profiles(owner_id,table_key,name,layout) values(auth.uid(),p_table,trim(p_name),clean-'views') on conflict(owner_id,table_key,name) do update set layout=excluded.layout,updated_at=now();
- elsif p_action='remove' then
- delete from public.ops_table_view_profiles where id=p_id and owner_id=auth.uid() and table_key=p_table;
- if not found then raise exception 'Solo puedes retirar los perfiles compartidos por tu cuenta.';end if;
+ select (e.value->>'id')::uuid into profile_id from jsonb_array_elements(book)e where e.value->>'name'=trim(p_name) limit 1;
+ if profile_id is null and jsonb_array_length(book)>=30 then raise exception 'Puedes compartir hasta 30 perfiles por tabla.';end if;
+ select coalesce(jsonb_agg(e.value),'[]') into book from jsonb_array_elements(book)e where e.value->>'name' is distinct from trim(p_name);
+ book=book||jsonb_build_array(jsonb_build_object('id',coalesce(profile_id,gen_random_uuid()),'name',trim(p_name),'layout',clean-'views','updated_at',now()));
+ else
+ if not exists(select 1 from jsonb_array_elements(book)e where e.value->>'id'=p_id::text) then raise exception 'Solo puedes retirar los perfiles compartidos por tu cuenta.';end if;
+ select coalesce(jsonb_agg(e.value),'[]') into book from jsonb_array_elements(book)e where e.value->>'id' is distinct from p_id::text;
+ end if;
+ -- Stored inside profiles: existing backup/restore already preserves this book.
+ update public.profiles set ui_preferences=prefs||jsonb_build_object('table_view_profiles',(case when jsonb_typeof(prefs->'table_view_profiles')='object' then prefs->'table_view_profiles' else '{}'::jsonb end)||jsonb_build_object(p_table,book)) where id=auth.uid();
  elsif p_action<>'list' then raise exception 'Acción de perfiles desconocida.';
  end if;
- return coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'layout',layout,'mine',owner_id=auth.uid(),'updated_at',updated_at) order by name,id) from public.ops_table_view_profiles where table_key=p_table),'[]');
+ return coalesce((select jsonb_agg(jsonb_build_object('id',e.value->>'id','name',e.value->>'name','layout',jsonb_build_object('columns',e.value#>'{layout,columns}','widths',e.value#>'{layout,widths}'),'mine',p.id=auth.uid(),'updated_at',e.value->>'updated_at') order by e.value->>'name',e.value->>'id') from public.profiles p cross join lateral jsonb_array_elements(case when jsonb_typeof(p.ui_preferences#>array['table_view_profiles',p_table])='array' then p.ui_preferences#>array['table_view_profiles',p_table] else '[]'::jsonb end)e where jsonb_typeof(e.value#>'{layout,columns}')='array' and jsonb_typeof(e.value#>'{layout,widths}')='object'),'[]');
 end $$;
 create or replace function public.totus_table_profiles(p_table text,p_action text default 'list',p_id uuid default null,p_name text default null,p_layout jsonb default null) returns jsonb language sql security invoker set search_path='' as $$select private.totus_table_profiles(p_table,p_action,p_id,p_name,p_layout)$$;
 revoke all on function private.totus_validate_table_layout(text,jsonb),private.totus_personal_table_layout(uuid,text,jsonb),private.totus_table_profiles(text,text,uuid,text,jsonb),public.totus_products_table_layout(uuid,jsonb),public.totus_orders_table_layout(uuid,jsonb),public.totus_table_profiles(text,text,uuid,text,jsonb) from public,anon,authenticated;
