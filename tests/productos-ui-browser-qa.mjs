@@ -258,7 +258,7 @@ try{
   await page.getByRole('button',{name:'Imágenes',exact:true}).click();
   await page.getByRole('button',{name:'Añadir imágenes',exact:true}).click();
   await page.locator('[data-pr-stage-file]').setInputFiles({name:'jardineria.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><path d="M40 35h65v65H40zM105 50l35-25-10 55h-25" fill="#16845a"/><circle cx="30" cy="55" r="20" fill="none" stroke="#16845a" stroke-width="9"/></svg>')});
-  await page.getByText(/Imagen preparada con transparencia/).waitFor().catch(async error=>{console.error('IMAGE UI DIAGNOSTIC',await page.locator('[role="status"]').innerText(),errors);throw error;});
+  await page.getByText(/Imagen preparada con transparencia/).waitFor().catch(async error=>{console.error('IMAGE UI DIAGNOSTIC',await page.locator('[role="status"]').allTextContents(),errors);throw error;});
   assert.equal(await page.locator('.prd-stage-image').count(),1);
   await page.getByRole('button',{name:'Validar esta etapa',exact:true}).click();
   await page.getByText('Etapa validada sin escribir.',{exact:true}).waitFor();
