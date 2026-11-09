@@ -16,7 +16,7 @@ export const PERMISSION_HELP={
  fiscalidad:'Consultar y gestionar la clasificación fiscal y los periodos; descargar los informes y documentos permitidos.',
  informes:'Consultar resultados por tienda y periodo, preparar informes y exportar los datos autorizados de los módulos de origen.',
  administracion:'Gestionar usuarios, roles, negocio, almacenamiento, copias y registros. Las operaciones críticas conservan sus requisitos de administrador.',
- productos:'Ver permite consultar fichas. Crear autoriza altas y combinaciones nuevas; editar permite actualizar datos e imágenes y archivar; borrar permite eliminar registros seleccionados; exportar permite descargar el catálogo. Las claves siguen reservadas a Administración.',
+ productos:'Ver permite consultar fichas. Crear autoriza altas de productos, combinaciones y sus marcas, proveedores o atributos; editar permite actualizar fichas, imágenes y catálogos compartidos, y archivar; borrar permite eliminar registros seleccionados; exportar permite descargar el catálogo. Las claves siguen reservadas a Administración.',
  documentos:'Incluye la biblioteca de documentos y las recepciones, accesibles desde PrestaShop. Mantiene los permisos sobre sus documentos y cotejos.',
  prestashop:'Ver permite consultar las tiendas; exportar permite descargar resultados. Las conexiones y sus claves se administran en Configuración. Las reglas programadas se gestionan en Automatizaciones.',
  automatizaciones:'Permite consultar, crear, editar o retirar reglas programadas. Cada ejecución comprueba también los permisos del responsable en el módulo de origen y en el canal de destino.',

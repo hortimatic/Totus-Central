@@ -256,3 +256,5 @@
 #productosRoot .prd-professional .prd-column-views label{display:grid!important;grid-template-columns:1fr;align-items:stretch;gap:4px}
 
 .page.productos-page{width:100%;max-width:none;margin-inline:0;min-width:0}
+
+#productosRoot .prd-master-pages{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}#productosRoot .prd-master-pages label{display:flex;align-items:center;gap:6px}#productosRoot .prd-master-pages :is(input,select){width:80px}
