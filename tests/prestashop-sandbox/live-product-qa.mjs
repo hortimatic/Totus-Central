@@ -88,7 +88,6 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const result=await runPrestashopProductCreate(connection,commit,
   {request:localOnlyRequest,resolve,env:environment,journal});
  assert.equal(result.persisted,true);
- for(const [search_field,search]of [['name','Pruebas CI'],['reference','TOTUS-CI-PRUEBAS']]){const found=await readPrestashopPage(connection,{store:'hortimatic',resource:'products',page:0,page_size:10,search_field,search},{resolve,request:localOnlyRequest});assert(found.rows.some(p=>String(p.id)===result.record_id),'Native search must find the newly created product');}
  assert.equal(result.active,false);
  assert.equal(result.verified,true);
  assert.match(result.record_id,/^[1-9]\d+$/);
@@ -164,6 +163,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const uploadPrep=await runPrestashopProductStage(connection,upload,options);
  const picture=await runPrestashopProductStage(connection,{...upload,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:uploadPrep.fingerprint},options);
  assert.equal(picture.verified,true);assert.equal(picture.original_transparent,true);
+ for(const [search_field,search]of [['name','Pruebas CI'],['reference','TOTUS-CI-PRUEBAS']]){const found=await readPrestashopPage(connection,{store:'hortimatic',resource:'products',page:0,page_size:10,search_field,search},{resolve,request:localOnlyRequest});assert(found.rows.some(p=>String(p.id)===result.record_id),'Native search must find the newly created product');}
  const visual=buildVisualProductDescription({store:'hortimatic',title:'Pruebas CI',intro:'Muestra no comprable.',detailTitle:'Detalle',detailText:'Contenido de prueba.',specifications:'Capacidad: 2 litros\nMaterial: Metal',box:'Una muestra.',notice:'No comprar: demostración.',images:[{id:picture.record_id}]});
  // Seed unedited native fields through the disposable shop's API. A later
  // flags-only PUT must preserve them, including a creation date in the past.

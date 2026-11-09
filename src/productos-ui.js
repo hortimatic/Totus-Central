@@ -640,7 +640,7 @@ if(['Enter',' '].includes(e.key)&&e.target.matches('[data-pr-action="photo-zoom"
    if(a==='bulk-preview'){try{bulkVariantSelection(variants,[...selection],['reference']);status='Selección comprobada: '+selection.size+' variaciones distintas. Elige el campo y valor antes de validar el lote.';}catch(error){status=error.message;}render();return;}
    if(a==='catalog-prev'){void work(async()=>{listPage=Math.max(0,listPage-1);await loadCatalogStock();});return;}
    if(a==='catalog-next'){void work(async()=>{if((listPage+1)*listSize>=rows.length&&hasMore)await loadCatalog(true);listPage++;await loadCatalogStock();});return;}
-   if(a==='catalog-load')void work(async()=>{const generation=epoch,response=await rpc('totus_products_context',{});if(!current()||epoch!==generation)throw Error('La sesión ha cambiado.');connections=response?.connections||[];await loadCatalog(false);});
+   if(a==='catalog-load')void work(async()=>{const generation=epoch,response=await rpc('totus_products_context',{});if(!current()||epoch!==generation)throw Error('La sesión ha cambiado.');connections=response?.connections||[];catalogMeta.clear();await loadCatalog(false);});
    if(a==='catalog-more')void work(()=>loadCatalog(true));
    if(a==='open-product')void work(()=>openProduct(b.dataset.id,b.dataset.prShop||store));
    if(a==='compare')void work(prepare);
