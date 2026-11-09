@@ -72,7 +72,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   for(const [map,values] of [[shopRecords,d.shops],[editRequests,d.editRequests],[editConfirm,d.editConfirm]]){map.clear();for(const [key,value] of values||[])map.set(key,value);}
   createWizard.restore(d.wizard);return true;
  }
- const invalidate=()=>{const retained=new Set([...comparison.keys()].filter(shop=>createWizard.hasAttempted(shop)||createWizard.result(shop)));preview=preview.filter(plan=>retained.has(plan.store));for(const shop of comparison.keys())if(!retained.has(shop))comparison.delete(shop);preflight.clear();variantPreflight.clear();createWizard.invalidate();};
+ const invalidate=()=>{for(const [shop,item]of targetRaw)if(item.__copyCompleted){delete item.__copyCompleted;createWizard.forgetCompleted(shop);comparison.delete(shop);}const retained=new Set([...comparison.keys()].filter(shop=>createWizard.hasAttempted(shop)||createWizard.result(shop)));preview=preview.filter(plan=>retained.has(plan.store));for(const shop of comparison.keys())if(!retained.has(shop))comparison.delete(shop);preflight.clear();variantPreflight.clear();createWizard.invalidate();};
  function syncWizardTextControls(el){
   const scope=el.closest('.prd-creation');if(!scope)return;
   const shop=el.dataset.prCreateStore||el.dataset.prCreateConfirm||el.dataset.prCreateRetryConfirm||scope.querySelector('[data-pr-dest]')?.dataset.prDest,plan=comparison.get(shop);if(!plan)return;
