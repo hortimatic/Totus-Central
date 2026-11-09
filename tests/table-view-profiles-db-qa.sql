@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 begin;
 -- Isolate the function's authorization boundary from the role matrix already tested elsewhere.
-create or replace function private.totus_can(text,text) returns boolean language sql as $$select coalesce(nullif(current_setting('qa.table_access',true),''),'true')::boolean$$;
+create or replace function private.totus_can(p_module text,p_action text) returns boolean language sql as $$select coalesce(nullif(current_setting('qa.table_access',true),''),'true')::boolean$$;
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"11111111-1111-4111-8111-111111111111"}',true);
 select public.totus_products_table_layout('11111111-1111-4111-8111-111111111111','{"columns":["name","image"],"widths":{"name":210},"views":[{"name":"Mi vista","columns":["name","image"],"widths":{"name":210},"size":20,"query":"privado"}],"viewName":"Mi vista"}');
@@ -22,3 +22,4 @@ select public.qa_denied($q$select public.totus_table_profiles('products')$q$,'No
 select public.qa_denied($q$select public.totus_orders_table_layout('22222222-2222-4222-8222-222222222222',null)$q$,'otra cuenta');
 reset role;
 rollback;
+
