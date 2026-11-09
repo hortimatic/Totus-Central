@@ -57,7 +57,8 @@ try{
   const parity=[];
   for(const [current,original]of [['#sub-info [data-pr-value="name"]','#sub-info input:nth-of-type(1)'],['#sub-info [data-pr-value="reference"]','#sub-info input'],['#sub-desc [data-pr-value="description"]','#sub-desc textarea'],['#sub-seo [data-pr-value="meta_title"]','#sub-seo input'],['#sub-envio [data-pr-value="weight"]','#sub-envio input']]){
    const properties=['fontSize','fontFamily','lineHeight','backgroundColor','color','borderRadius','paddingTop','paddingBottom','paddingLeft','paddingRight'];
-   const style=async(p,selector)=>p.locator(selector).first().evaluate((n,keys)=>Object.fromEntries(keys.map(k=>[k,getComputedStyle(n)[k]])),properties);
+   // Resolve and read in one browser task: a background paint may detach a previously resolved node.
+   const style=async(p,selector)=>p.evaluate(({selector,properties})=>{const n=document.querySelector(selector);if(!n)throw Error('Missing field '+selector);return Object.fromEntries(properties.map(k=>[k,getComputedStyle(n)[k]]));},{selector,properties});
    const actual=await style(page,current),expected=await style(reference,original);parity.push({current,original,actual,previousDesign:expected,revision:'V4 compact fields, 12px type / 32px controls'});assert.equal(actual.fontSize,(await page.locator(current).first().evaluate(n=>n.tagName))==='TEXTAREA'?'12px':'13px','Compact V4 field typography '+current);assert.equal(actual.borderRadius,'5px','Consistent field corners '+current);
   }
   await writeFile('qa-artifacts/productos-stitch-style-parity-'+width+'.json',JSON.stringify(parity,null,2));
