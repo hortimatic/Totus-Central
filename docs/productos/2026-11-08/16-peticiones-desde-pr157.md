@@ -20,3 +20,5 @@ Esta lista registra el alcance acordado, sin declarar verificaciones comerciales
 16. Documentar pruebas, diferencias entre simulación y tienda real, y estado de publicación. No afirmar un recorrido de navegador de ChatGPT cuando solo ha usado API.
 
 La autoría requiere el acceso de solo lectura del parche 072. Las fechas nativas ya pertenecen al contrato de lectura existente. No se modifica contabilidad, permisos asignados ni el núcleo de las tiendas.
+
+17. Configuración de columnas bajo rueda dentada, nombres cortos, buscador de columnas y selección rápida de Precios / Inicial / Todas. Margen € visible y seleccionable, con fórmula PVP final menos coste total con IVA y recargo; no invertir la ganancia ni retirar la aclaración de precisión del origen. Mantener emergentes acotados a la pantalla y controles de tamaño homogéneo.
