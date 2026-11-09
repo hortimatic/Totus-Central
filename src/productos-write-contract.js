@@ -613,3 +613,23 @@ export function equivalentProductHTML(left,right){
  };
  return normalize(left)===normalize(right);
 }
+
+
+// Native XML is the canonical representation used by the verified combination
+// writer. Read the same representation instead of depending on JSON serialization.
+export function readPrestashopCombinationXml(xml,expectedId){
+ const item=direct(tree(xml),'combination'),result={};
+ for(const field of ['id','id_product',...PRODUCT_WRITE_FIELDS.combinations,'supplier_reference','ecotax','unit_price_impact','default_on','available_date']){
+  const nodes=item.children.filter(n=>n.name===field);if(!nodes.length)continue;if(nodes.length!==1)invalid('Campo de combinación duplicado.');
+  result[field]=nodes[0].selfClosing?'':fieldText(xml,item,field);
+ }
+ if(result.id!==String(expectedId)||!integer.test(result.id_product||''))invalid('La combinación no coincide con el identificador o su producto.');
+ if(result.default_on==='')result.default_on='0';
+ result.associations={};const associations=item.children.filter(n=>n.name==='associations');if(associations.length>1)invalid('Asociaciones de combinación duplicadas.');
+ for(const [name,singular]of [['images','image'],['product_option_values','product_option_value']]){
+  const groups=associations[0]?.children.filter(n=>n.name===name)||[];if(groups.length>1)invalid('Relación de combinación duplicada.');
+  const ids=(groups[0]?.children||[]).map(row=>{if(row.name!==singular)invalid('Relación de combinación no válida.');const id=fieldText(xml,row,'id');if(!integer.test(id))invalid('Relación de combinación sin ID.');return id;});
+  if(new Set(ids).size!==ids.length)invalid('Relación de combinación repetida.');result.associations[name]=ids.map(id=>({id}));
+ }
+ return result;
+}

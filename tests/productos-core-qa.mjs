@@ -99,3 +99,14 @@ test('new combination mapping uses destination IDs and requires unique group/val
  assert.equal(mapVariantAttributes(attrs,groups,[...values,{...values[0],id:'901'}]).complete,false);
  assert.equal(mapVariantAttributes(attrs,[],values).complete,false);
 });
+
+
+test('combination detail uses native XML, keeps cost and photos, and never retries a denied request',async()=>{
+ const connection={protocol:'prestashop',name:'PrestaShop · NewOldSmok',enabled:true,real_data_authorized:true,verified_revision:3,revision:3,endpoint:'https://newoldsmok.com/api',secret:'test-only'};
+ const input={store:'newoldsmok',resource:'combinations',record_id:'4861'},calls=[];
+ const xml='<prestashop><combination><id>4861</id><id_product>170807262</id_product><reference><![CDATA[ROJO & TEST]]></reference><wholesale_price>3.900000</wholesale_price><price>0.000000</price><default_on/><associations><images><image><id>12675</id></image></images><product_option_values><product_option_value><id>11</id></product_option_value></product_option_values></associations></combination></prestashop>';
+ const result=await readPrestashopProductItem(connection,input,{resolve:async()=>['8.8.8.8'],request:async(url,options)=>{calls.push({url,options});return new Response(xml,{headers:{'content-type':'application/xml'}});}});
+ assert.equal(calls.length,1);assert.equal(new URL(calls[0].url).searchParams.has('output_format'),false);assert.equal(calls[0].options.headers.Accept,'application/xml');assert.equal(result.item.wholesale_price,'3.900000');assert.equal(result.item.default_on,'0');assert.equal(result.item.reference,'ROJO & TEST');assert.deepEqual(result.item.associations.images,[{id:'12675'}]);
+ let denied=0;await assert.rejects(()=>readPrestashopProductItem(connection,input,{resolve:async()=>['8.8.8.8'],request:async()=>{denied++;return new Response('denied',{status:403});}}),/HTTP 403/);assert.equal(denied,1);
+ await assert.rejects(()=>readPrestashopProductItem(connection,{...input,record_id:'4862'},{resolve:async()=>['8.8.8.8'],request:async()=>new Response(xml)}),/identificador/);
+});

@@ -151,11 +151,13 @@ jobs:
       - run: node tests/prestashop-payment-filter-qa.mjs
       - run: node tests/prestashop-list-page-qa.mjs
       - run: node tests/prestashop-margin-qa.mjs
+      - run: node tests/prestashop-order-seller-qa.mjs
+      - run: node tests/table-view-profiles-qa.mjs
       - run: node --test tests/productos-core-qa.mjs tests/productos-table-editor-qa.mjs tests/productos-remove-product-qa.mjs
       - run: node --test tests/productos-write-qa.mjs tests/productos-html-readback-qa.mjs
       - run: node --test tests/productos-request-qa.mjs
       - run: node --test tests/productos-create-qa.mjs
-      - run: node --test tests/productos-create-ui-qa.mjs tests/productos-copy-text-qa.mjs tests/productos-copy-config-qa.mjs
+      - run: node --test tests/productos-create-ui-qa.mjs tests/productos-publication-ui-qa.mjs tests/productos-copy-text-qa.mjs tests/productos-copy-config-qa.mjs
       - run: node --test tests/productos-stages-qa.mjs tests/productos-attributes-qa.mjs tests/productos-masters-qa.mjs
       - run: node --test tests/productos-catalog-qa.mjs tests/productos-image-copy-qa.mjs tests/productos-gallery-qa.mjs tests/productos-tax-qa.mjs tests/productos-existing-workspace-qa.mjs
       - run: node --test tests/mock-style-parity-qa.mjs
@@ -287,6 +289,7 @@ jobs:
       - run: node tests/productos-photo-preview-browser-qa.mjs
       - run: node tests/productos-table-browser-qa.mjs
       - run: node tests/productos-table-layout-browser-qa.mjs
+      - run: node tests/table-view-profiles-browser-qa.mjs
       - run: node tests/productos-direct-save-browser-qa.mjs
       - run: node tests/productos-masters-browser-qa.mjs
       - run: node tests/productos-copy-upload-browser-qa.mjs
@@ -521,6 +524,9 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/031_personal_interface.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/personal-interface-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/075_table_view_profiles.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/075_table_view_profiles.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/table-view-profiles-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_personal_interface_styles.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_personal_interface_styles.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/interface-styles-db-qa.sql

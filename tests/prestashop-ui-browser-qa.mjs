@@ -34,7 +34,7 @@ try{
   await page.locator('[data-ps-order-row]').filter({hasText:'PEDIDO-1'}).waitFor();assert.equal(await page.getByRole('button',{name:'Página siguiente',exact:true}).isDisabled(),true);assert.equal(await page.locator('[data-ps-order-row]').count(),2);
   await page.locator('.ps-order-columns summary').click();await page.locator('[data-ps-order-column=payment]').uncheck();await page.locator('.ps-order-columns summary').click();assert.equal(await page.locator('.ps-order-payment').count(),0);
   await page.locator('[data-ps-filter=query]').fill('PEDIDO-1');await page.getByRole('button',{name:'Aplicar búsqueda',exact:true}).click();assert.equal(await page.locator('[data-ps-order-row]').count(),1);
-  await page.getByRole('button',{name:'Resumen',exact:true}).click();await page.getByRole('heading',{name:'Costes y beneficio neto',exact:true}).waitFor();assert.equal(await page.locator('.ps-kpi').getByText('42,60 €',{exact:true}).count(),1);
+  await page.getByRole('button',{name:'Resumen',exact:true}).click();await page.getByRole('heading',{name:'Margen sobre coste PrestaShop',exact:true}).waitFor();assert.equal(await page.locator('.ps-kpi').getByText('42,60 €',{exact:true}).count(),1);
   await page.screenshot({path:'artifacts/prestashop/summary-'+width+'.png',fullPage:true});
   await page.getByRole('button',{name:'Catálogo',exact:true}).click();await page.getByRole('button',{name:'Consultar productos',exact:true}).click();await page.getByText('Peso no positivo',{exact:true}).waitFor();
   await page.getByRole('button',{name:/NewOldSmok/}).click();assert.equal(await page.getByRole('button',{name:'Consultar productos',exact:true}).isDisabled(),true);assert.equal(await page.getByText('Producto catálogo',{exact:true}).count(),0);

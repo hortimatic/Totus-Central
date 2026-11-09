@@ -4,7 +4,7 @@ import {runProductImageReplacement} from './prestashop-product-image-replace.js'
 import {runProductRemoval,runWholeProductRemoval} from './prestashop-product-remove.js';
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
-import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,inspectProductAssociationIds,LOCALIZED_PRODUCT_FIELDS} from '../../../src/productos-write-contract.js';
+import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,inspectProductAssociationIds,LOCALIZED_PRODUCT_FIELDS,readPrestashopCombinationXml} from '../../../src/productos-write-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
@@ -42,7 +42,7 @@ export async function runPrestashopProductStage(connection,input,{request=fetch,
  const rootJson=async()=>{const data=await json('products/'+op.product_id,{display:'[id,reference,images[id]]'});const product=data.product||data.products?.[0];if(String(product?.id)!==op.product_id)throw Error('Ficha de producto no verificable.');return product;};
  const assertVariant=async id=>{
   if(id==='0')return;
-  const data=await json('combinations/'+id),row=data.combination||data.combinations?.[0];
+  const row=readPrestashopCombinationXml(await xml('combinations/'+id),id);
   if(String(row?.id)!==id||String(row.id_product)!==op.product_id)throw Error('La combinación pertenece a otro producto.');
  };
  if(op.kind==='image_metadata'){const product=await rootJson(),images=product.associations?.images;if(!Array.isArray(images)||!images.some(row=>String(row.id)===op.record_id))throw Error('La imagen pertenece a otro producto.');if(Number(op.fields.position)>images.length)throw Error('La posición supera el número de imágenes del producto.');}

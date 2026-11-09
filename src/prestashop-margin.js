@@ -4,7 +4,8 @@ export function approximateOrderMargin(order,detail){
  let cost=0,missing=0;
  for(const line of lines){
   const quantity=number(line.product_quantity),purchase=number(line.purchase_supplier_price),original=number(line.original_wholesale_price);
-  const unit=purchase>0?purchase:original>0?original:null;
+  const current=number(line.current_wholesale_price);
+  const unit=current!==null&&current>=0?current:purchase>0?purchase:original>0?original:null;
   if(unit===null||quantity===null||quantity<=0){missing++;continue;}
   cost+=unit*quantity;
  }

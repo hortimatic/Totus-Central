@@ -1,5 +1,5 @@
 import {prestashopCapabilities} from './prestashop.js';
-import {sha256Text,inspectProductAssociationIds,parsePrestashopResourceId} from '../../../src/productos-write-contract.js';
+import {sha256Text,inspectProductAssociationIds,parsePrestashopResourceId,readPrestashopCombinationXml} from '../../../src/productos-write-contract.js';
 // Called only after the shared stage contract, account and parent ownership checks.
 export async function runProductRemoval(op,{root,xml,json,call,journal,env}){
  const group=op.kind==='remove_variation'?'combinations':'images',target=String(op.record_id);
@@ -10,7 +10,7 @@ export async function runProductRemoval(op,{root,xml,json,call,journal,env}){
  if(prior){if(prior.signature!==signature||prior.record_id&&String(prior.record_id)!==target)throw Error('La eliminación está vinculada a otro registro.');if((await snapshot()).includes(target))throw Error('El registro sigue presente. No se repite una eliminación incierta; revisa el resultado.');if(prior.status!=='completed')await journal.complete(op,signature,target);return {...result(),reused:true};}
  const members=await snapshot();if(!members.includes(target))throw Error('El registro no pertenece a este producto o ya fue eliminado.');
  let original='';
- if(group==='combinations'){const response=await json('combinations/'+target),variant=response.combination||response.combinations?.[0];if(String(variant?.id)!==target||String(variant.id_product)!==op.product_id)throw Error('La combinación pertenece a otro producto.');original=await xml('combinations/'+target);}
+ if(group==='combinations'){original=await xml('combinations/'+target);const variant=readPrestashopCombinationXml(original,target);if(String(variant?.id)!==target||String(variant.id_product)!==op.product_id)throw Error('La combinación pertenece a otro producto.');}
  const fingerprint=await sha256Text(signature+'|'+root+'|'+original+'|'+JSON.stringify(members));
  const advertised=prestashopCapabilities(await xml('')).resources.find(resource=>resource.name===group);const missing_permissions=['GET','DELETE'].filter(method=>advertised?.permissions?.[method]!==true);
  const enabled=!missing_permissions.length&&env.get('TOTUS_PRESTASHOP_PRODUCT_WRITE_ENABLED')==='1'&&env.get('TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED')==='1';

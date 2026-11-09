@@ -1,3 +1,4 @@
+@import url("./table-view-profiles.css");
 /* PrestaShop workspace: composition follows the approved Stitch reference.
    Personal colours, borders, radii and spacing remain user preferences. */
 .ps-workspace{display:grid;gap:16px;min-width:0;color:var(--ink)}
@@ -122,3 +123,7 @@
 .ps-permission-table thead th:first-child{z-index:2}
 .ps-permission-yes{font-weight:700;color:#168049}
 .ps-permission-no{color:var(--muted);opacity:.8}
+.prestashop-page .ps-order-totals{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.prestashop-page .ps-order-totals>div{display:flex;align-items:center;flex-wrap:wrap;gap:10px 24px;padding:12px;border:1px solid var(--line);border-radius:var(--r,7px);flex:1 1 480px;min-width:0}
+.prestashop-page .ps-order-totals strong,.prestashop-page .ps-order-totals b{font-size:.95rem}
+.prestashop-page .ps-order-totals small{flex-basis:100%;color:var(--muted);line-height:1.4}
