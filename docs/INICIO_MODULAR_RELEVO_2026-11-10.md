@@ -33,3 +33,27 @@ En la continuación actual se corrigieron: recuperar widgets ocultos; confirmaci
 - Proyecto Supabase: `awmojepsasikxocoeqtu`.
 - Originales y copias: OneDrive personal, `Apps/Totus Central` (sin modificaciones de archivos por este frente).
 - Ningún `request_id` de escritura comercial pendiente del desarrollo de Inicio.
+
+## Continuación de auditoría funcional (10/11/2026)
+
+Petición activa #1: terminar **solo Inicio** de Totus Central en PR #166, sin publicar ni ejecutar escrituras comerciales, y sin intervenir en otras tareas de Codex.
+
+Hechos añadidos en la rama:
+- Se confirmó el CI completo **16/16 PASS** para commit `1083b975e249275ab1b36164295fa060916e415c` antes de continuar.
+- La biblioteca permite filtrar por módulo y buscar; se puede añadir, duplicar, ocultar, recuperar y **quitar una instancia** sin borrar datos del módulo. Formularios/estado único (gráfica, precio, tareas, avisos y sistema) no se duplican como copias inertes.
+- Las dimensiones son independientes entre escritorio (12 columnas), tablet (6) y móvil (una), con redimensión por teclado, ratón y gesto táctil. Hay pruebas Playwright para las 3 situaciones; consultar el CI de la última cabeza antes de afirmar PASS final.
+- Se corrigió `expenses.pending` para **revisión fiscal pendiente** (no impagados), con acceso a la ficha de gasto y filtro de tienda. Test con gasto pagado pero pendiente de revisión en mock aislado.
+- En PrestaShop los dos resúmenes comparten una sola consulta del contexto autorizado. Las tablas duplicadas pueden filtrar tiendas separadas, medios de pago, estado, búsqueda, fecha y orden; muestran 10 filas, selector numérico y flechas, scroll vertical/horizontal. Pedido enlazado al detalle nativo.
+- La tabla presenta nombres y cantidades de `order_details` solo con cobertura válida, conserva combinaciones/variantes para el Top de ventas, mantiene columna Cliente por ID cuando se acredita y Atendido por como **No informado** si el origen no lo acredita. Margen/ganancia comercial sigue **Sin validar** cuando faltan costes históricos verificados.
+- Se impone límite de 120 instancias en lectura, altas y duplicados; errores de cambios de diseño se informan sin romper la interfaz.
+- Se han añadido capturas de Playwright (escritorio/editor/móvil) como artefactos de GitHub Actions. Las imágenes son de la implementación, no una exportación remota de Stitch.
+
+Pendientes estrictos:
+1. Comprobar el **último** commit de la rama y CI correspondiente. Revisar fallo exacto de cada job antes de corregir; resultados de ejecuciones anteriores no validan cambios posteriores.
+2. Revisar visualmente capturas nuevas, especialmente tabla de productos y editor táctil; contrastar con referencias acordadas y comprobar accesibilidad.
+3. Validación real de la RPC `totus_home_dashboard` en entorno aislado (PASS en CI) y revisión técnica competente de seguridad antes de aplicar **ninguna** migración a Supabase de producción; hoy sigue sin instalarse.
+4. Recorrido autenticado con permisos reales y dos PrestaShop, guardado entre dispositivos y costes históricos no comprobados. No crear ventas/facturas/cierres para probar.
+5. Los widgets de catálogo de productos/recepciones/chat que aún usan acceso descriptivo al módulo no representan una lectura de datos validada; no declarar cobertura funcional universal.
+6. Cuando todo esté revisado, solicitar aprobación de publicación y hacer merge controlado, comprobar versión en producción y todos los flujos. PR todavía draft.
+
+Datos afectados: **ninguno**. Producción, stock, fiscalidad, OneDrive y registros: **sin cambios**. `request_id` comerciales pendientes: **ninguno**.
