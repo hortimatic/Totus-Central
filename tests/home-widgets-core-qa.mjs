@@ -90,4 +90,9 @@ test('Cuadrícula densa con 120 instancias mantiene geometría y velocidad razon
  }
  assert(performance.now()-start<8000);
 });
+test('El editor rechaza añadir o duplicar por encima del límite de 120 instancias',()=>{
+ const config=createHomeDashboard(Array.from({length:120},(_,i)=>({id:'max-'+i,type:'home.income'})));
+ assert.throws(()=>addHomeWidget(config,'home.income','max-new'),/120/);
+ assert.throws(()=>duplicateHomeWidget(config,'max-0','max-duplicate'),/120/);
+});
 console.log(`PASS ${count} tests`);
