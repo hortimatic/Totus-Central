@@ -10,7 +10,7 @@ import {prestashopReadiness} from './prestashop-ui.js';
 const defaultSpecs=[
  ['cash.openings','opening',12],['home.income','income',3],['home.expenses','expense',3],
  ['home.result','result',3],['home.internal','internal',3],['home.gain','gain',3],
- ['cash.history','recent-closings',3],['home.shortcuts','quick-links',6],
+ ['cash.history','recent-closings',4],['home.shortcuts','quick-links',5],
  ['home.activity','activity',12],['prestashop.summary','shop-h',6,'hortimatic'],
  ['prestashop.summary','shop-n',6,'newoldsmok'],['prestashop.orders','orders',12,'all'],
  ['cash.store','store',12],['expenses.quarter','expense-quarter',6],
