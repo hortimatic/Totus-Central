@@ -376,3 +376,19 @@
 .dashboard-page:not(.home-edit-mode) [data-home-command="save"],
 .dashboard-page:not(.home-edit-mode) [data-home-command="reset"]{display:none!important}
 .dashboard-page .home-widget-frame:focus-within{border-color:var(--accent,#0284c7)}
+
+/* Compact Stitch mobile composition: KPIs 2×2, complex tools at full width. */
+@media (max-width:600px){
+ .dashboard-page .home-widget-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .dashboard-page .home-widget-frame{grid-column:1/-1}
+ .dashboard-page .home-widget-frame:is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"],[data-home-type="home.gain"]){grid-column:span 1}
+ .dashboard-page .home-widget-frame:is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"],[data-home-type="home.gain"]) .home-widget-header{padding:9px 10px}
+ .dashboard-page .home-widget-frame:is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"],[data-home-type="home.gain"]) .home-widget-header h3{font-size:12px;min-width:0;overflow-wrap:anywhere}
+ .dashboard-page .home-widget-frame:is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"],[data-home-type="home.gain"]) .home-widget-body{padding:9px}
+ .dashboard-page .home-widget-frame:is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"],[data-home-type="home.gain"]) .kpi{padding:2px;gap:4px;min-height:0}
+ .dashboard-page .home-widget-frame:is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"],[data-home-type="home.gain"]) .kpi strong{font-size:clamp(16px,4.4vw,20px);white-space:normal;overflow-wrap:anywhere}
+ .dashboard-page .home-dashboard-toolbar{padding:10px 12px;gap:8px}
+ .dashboard-page .home-dashboard-toolbar p{display:none}
+ .dashboard-page .home-dashboard-toolbar>div>strong{font-size:13px}
+ .dashboard-page .home-ps-top li{align-items:start}
+}
