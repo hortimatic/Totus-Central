@@ -5,6 +5,7 @@ try{for(const width of [390,1440]){
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.evaluate(async()=>{const {state}=await import('../src/state.js');for(const row of [{email:'retired@example.invalid',full_name:'Cuenta retirada',role:'staff',active:false,deleted_at:'2026-01-01'},{email:'purged@example.invalid',full_name:'Cuenta purgada',role:'staff',active:false,deleted_at:'2026-01-01',purged_at:'2026-01-02'}]){__mockDb.team_members.push(row);state.data.team.push({...row});}});
  await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
+ console.log('INICIO UI CHECK',JSON.stringify(await page.evaluate(()=>({heading:document.getElementById('pageTitle')?.textContent,route:document.querySelector('#nav .nav-btn.active')?.textContent,login:document.getElementById('loginMessage')?.textContent,content:document.getElementById('content')?.textContent?.slice(0,250),lastNodes:document.querySelectorAll('.home-widget-frame').length}))),errors);
  await page.locator('[data-action=user-show-deleted]').click();
  assert.equal(await page.getByText('Cuenta purgada',{exact:true}).count(),0);
  const button=page.locator('[data-action=user-purge][data-email="retired@example.invalid"]');await button.click();
