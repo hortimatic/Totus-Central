@@ -179,14 +179,14 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
  }
  const makeId=()=>`hw-${crypto.randomUUID()}`;
- const mutate=fn=>{if(!edit)return;model=fn(model);selected=find(selected)?.id||model.widgets.at(-1)?.id||null;draw();status('Cambios pendientes de guardar.');};
+ const mutate=(fn,focusId=null)=>{if(!edit||busy)return;model=fn(model);selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');};
  function command(action,id,el){
   if(action==='edit'){if(edit){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null}else{edit=true;selected=model.widgets[0]?.id||null}draw();return}
   if(action==='exit'){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;draw();return}
   if(action==='select'){selected=id;edit=true;draw();return}
-  if(action==='add'){const type=el.dataset.type;const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};mutate(m=>addHomeWidget(m,type,makeId(),{scope}));return}
-  if(action==='duplicate'){const w=find(id);if(!w||nonClonable.has(w.type))return;mutate(m=>duplicateHomeWidget(m,id,makeId()));return}
-  if(action==='hide'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}));return}
+  if(action==='add'){const type=el.dataset.type;const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};const newId=makeId();mutate(m=>addHomeWidget(m,type,newId,{scope}),newId);return}
+  if(action==='duplicate'){const w=find(id);if(!w||nonClonable.has(w.type))return;const newId=makeId();mutate(m=>duplicateHomeWidget(m,id,newId),newId);return}
+  if(action==='hide'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}),model.widgets.find(x=>x.id!==id&&!x.hidden)?.id);return}
   if(action==='show'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:false}));selected=id;draw();return}
   if(action==='up'||action==='down'){mutate(m=>reorderHomeWidget(m,id,action));return}
   if(action==='reset'){mutate(()=>createDefault());return}
