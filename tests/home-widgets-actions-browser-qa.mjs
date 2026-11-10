@@ -119,8 +119,8 @@ try{
  const productWidget=page.locator('[data-home-type="prestashop.top"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.top"] .home-products-table tbody tr').length===4);
  assert((await productWidget.locator('thead').first().locator('th').allTextContents()).map(x=>x.trim()).includes('Referencia'),'Cada tabla contiene referencia incluso cuando su columna está fuera del área visible');
- assert((await productWidget.innerText()).includes('SKU-QA-10'),'La referencia de la combinación llega del pedido');
- assert((await productWidget.innerText()).includes('Combinación #20'),'No se mezclan variantes');
+ assert((await productWidget.locator('tbody td').allTextContents()).some(x=>x.includes('SKU-QA-10')),'La referencia de la combinación llega del pedido aunque la columna esté desplazada');
+ assert((await productWidget.locator('tbody td').allTextContents()).some(x=>x.includes('Combinación #20')),'No se mezclan variantes aunque la columna esté fuera del viewport');
  await page.locator('[data-home-config="productView"]').selectOption('bars');
  assert.equal(await productWidget.locator('.home-products-bars').count(),2,'La vista barras funciona separada por tienda');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
