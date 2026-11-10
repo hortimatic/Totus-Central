@@ -118,7 +118,7 @@ try{
  await page.locator('[data-home-command="add"][data-type="prestashop.top"]').click();
  const productWidget=page.locator('[data-home-type="prestashop.top"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.top"] .home-products-table tbody tr').length===4);
- assert((await productWidget.locator('thead').first().innerText()).includes('Referencia'),'Ambas tablas de productos ofrecen columnas detalladas');
+ assert((await productWidget.locator('thead').first().locator('th').allTextContents()).map(x=>x.trim()).includes('Referencia'),'Cada tabla contiene referencia incluso cuando su columna está fuera del área visible');
  assert((await productWidget.innerText()).includes('SKU-QA-10'),'La referencia de la combinación llega del pedido');
  assert((await productWidget.innerText()).includes('Combinación #20'),'No se mezclan variantes');
  await page.locator('[data-home-config="productView"]').selectOption('bars');
