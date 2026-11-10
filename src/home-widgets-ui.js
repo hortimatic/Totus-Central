@@ -127,7 +127,7 @@ function psOrders(w,data){
  <div class="home-order-footer"><div class="home-order-scroll-actions"><button type="button" aria-label="Mover columnas a la izquierda" data-home-command="scroll-left" data-id="${esc(w.id)}">◀</button><button type="button" aria-label="Mover columnas a la derecha" data-home-command="scroll-right" data-id="${esc(w.id)}">▶</button></div><label>Filas <select data-home-filter="pageSize" data-id="${esc(w.id)}">${[10,15,20].map(n=>`<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label><span>Página ${page+1} de ${pages}${partial?' · parcial':''}</span><button type="button" data-home-command="prev-page" data-id="${esc(w.id)}" ${page===0?'disabled':''}>‹</button><button type="button" data-home-command="next-page" data-id="${esc(w.id)}" ${page>=pages-1?'disabled':''}>›</button><button class="btn secondary" data-home-command="open-orders" data-id="${esc(w.id)}">Abrir pedidos</button></div>`;
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
- let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null;
+ let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
@@ -260,7 +260,19 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    if(live())status('Guardado sin confirmar: '+String(error.message||error)+'. Revisa el diseño antes de reintentar.',true);
   }finally{busy=false}
  }
- async function initConnections(){if(connections)return connections;const result=await rpc('totus_prestashop_context',{});if(!live())return null;connections=(result.connections||[]).filter(x=>x.protocol==='prestashop');return connections}
+ async function initConnections(){
+  if(connections)return connections;
+  if(connectionsTask)return connectionsTask;
+  const owned=owner,epoch=token;
+  const task=rpc('totus_prestashop_context',{}).then(result=>{
+   if(!live()||token!==epoch||owner!==owned)return null;
+   connections=(result.connections||[]).filter(x=>x.protocol==='prestashop');
+   return connections;
+  });
+  connectionsTask=task;
+  try{return await task}
+  finally{if(owner===owned&&token===epoch&&connectionsTask===task)connectionsTask=null}
+ }
  async function fetchFor(w,force=false){
   if(!w||!w.type.startsWith('prestashop.')||!can('prestashop','view')||!live())return;
   const {from,to}=dateRange(w);if(to<from){status('Fecha final anterior a la inicial.',true);return}
@@ -310,7 +322,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  function mount(target){
-  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;queries.clear();ordersData.clear();edit=false;selected=null;remoteReady=false;owner=state.user?.id;
+  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();edit=false;selected=null;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
   const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn primary" data-home-command="edit">Personalizar inicio</button><button class="btn secondary" data-home-command="save">Guardar cambios</button><button class="btn secondary" data-home-command="reset">Restaurar diseño</button></div>`;
@@ -420,5 +432,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);
  }
- return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();connections=null;model=null;owner=null},hasUnsaved:()=>!!model&&JSON.stringify(model?.widgets)!==JSON.stringify(original?.widgets)};
+ return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>!!model&&JSON.stringify(model?.widgets)!==JSON.stringify(original?.widgets)};
 }
