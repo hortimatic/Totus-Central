@@ -42,6 +42,21 @@ try{
  await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
  await page.locator('[data-home-config="width"]').selectOption('8');
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
+ await page.locator('[data-home-config="tabletWidth"]').selectOption('4');
+ await page.locator('[data-home-config="tabletHeight"]').selectOption('6');
+ await page.locator('[data-home-config="mobileHeight"]').selectOption('7');
+ await page.setViewportSize({width:768,height:900});
+ assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--tablet-span: 4'),'Anchura tablet independiente');
+ const tabletBox=await page.locator('[data-home-widget="shop-h"]').boundingBox();
+ assert(tabletBox?.height>=410&&tabletBox.height<=445,'La altura tablet debe ajustarse a seis unidades');
+ await page.setViewportSize({width:390,height:900});
+ assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--mobile-height: 7'),'Altura móvil independiente');
+ await page.locator('[data-home-resize="shop-h"]').focus();
+ await page.locator('[data-home-resize="shop-h"]').press('ArrowUp');
+ assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--mobile-height: 6'),'Las teclas ajustan la altura móvil');
+ await page.setViewportSize({width:1440,height:960});
+ assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'La edición móvil no altera la anchura de escritorio');
+
  await page.locator('[data-home-command="duplicate"]').click();
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Duplicación de instancia');
  await page.locator('[data-home-command="hide"]').click();
