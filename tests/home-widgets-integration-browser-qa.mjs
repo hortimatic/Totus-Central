@@ -37,6 +37,10 @@ try{
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
   if(width===390){
+   const income=await page.locator('[data-home-widget="income"]').boundingBox(),expense=await page.locator('[data-home-widget="expense"]').boundingBox();
+   assert(income&&expense&&Math.abs(income.y-expense.y)<24&&expense.x>income.x,'Stitch: los cuatro KPI usan composición móvil 2×2');
+  }
+  if(width===390){
    for(const type of ['home.activity','home.gain','pricing.quick']){
     const dimensions=await page.locator(`[data-home-type="${type}"] .home-widget-body`).evaluate(el=>({
      visibleHeight:el.clientHeight,contentHeight:el.scrollHeight,
@@ -48,6 +52,12 @@ try{
   }
  }
  await page.setViewportSize({width:1440,height:960});
+ // Stitch: ni altura fija ni barra de desplazamiento dentro de un widget.
+ for(const id of ['opening','income','expense','result','internal','activity','shop-h','shop-n']){
+  const box=await page.locator('[data-home-widget="'+id+'"] .home-widget-body').evaluate(el=>({visible:el.clientHeight,content:el.scrollHeight,overflow:getComputedStyle(el).overflowY}));
+  assert.equal(box.overflow,'visible',id+' debe adaptar su contenido a la tarjeta');
+  assert(box.content<=box.visible+2,id+' no recorta contenido ni crea barra vertical');
+ }
  await page.locator('[data-home-command="edit"]').click();
  await page.locator('[data-home-general="gap"]').selectOption('20');
  await page.locator('[data-home-general="width"]').selectOption('1600');
@@ -83,7 +93,10 @@ try{
  await page.setViewportSize({width:768,height:900});
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--tablet-span: 4'),'Anchura tablet independiente');
  const tabletBox=await page.locator('[data-home-widget="shop-h"]').boundingBox();
- assert(tabletBox?.height>=410&&tabletBox.height<=445,'La altura tablet debe ajustarse a seis unidades');
+ assert(tabletBox?.height>=150,'Un widget legible crece cuando su información necesita más altura');
+ const tabletContent=await page.locator('[data-home-widget="shop-h"] .home-widget-body').evaluate(el=>({height:el.clientHeight,content:el.scrollHeight,overflow:getComputedStyle(el).overflowY}));
+ assert.equal(tabletContent.overflow,'visible','Tablet sin desplazamiento interior del widget');
+ assert(tabletContent.content<=tabletContent.height+2,'Tablet muestra toda la información sin recortes');
  await page.setViewportSize({width:390,height:900});
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--mobile-height: 7'),'Altura móvil independiente');
  await page.locator('[data-home-resize="shop-h"]').focus();
