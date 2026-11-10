@@ -54,6 +54,7 @@ const safeFilters = x => {
   if(!isObj(x))return {};
   const out={};
   for(const key of ['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','chartMetric','tableDensity','productView','topLimit','showMetrics','showTop']){
+    if(!Object.hasOwn(x,key))continue;
     if(key==='chartMode')out.chartMode=['hours','days','off'].includes(x[key])?x[key]:'hours';
     else if(key==='chartMetric')out.chartMetric=['orders','sales'].includes(x[key])?x[key]:'orders';
     else if(key==='tableDensity')out.tableDensity=['compact','normal','comfortable'].includes(x[key])?x[key]:'normal';
