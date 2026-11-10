@@ -96,7 +96,8 @@ try{
  assert(!(await orders.locator('tbody').innerText()).includes('NewOldSmok'),'El filtro de tienda se aplica realmente');
  const resize=orders.locator('[data-home-resize="orders"]');
  await resize.focus();await resize.press('ArrowDown');
- assert((await orders.getAttribute('style')).includes('--height: 6'),'Redimensión accesible por teclado');
+ assert((await orders.getAttribute('style')).includes('--tablet-height: 10'),'Redimensión de tablet accesible por teclado sin afectar escritorio');
+ assert((await orders.getAttribute('style')).includes('--height: 5'),'El tamaño escritorio no cambia al redimensionar la tablet');
  await page.locator('[data-home-command="save"]').click();
  await page.waitForFunction(()=>window.__homeSaved?.revision===1);
  await page.getByText('Tu Inicio se ha guardado y verificado en tu cuenta.',{exact:true}).waitFor();
