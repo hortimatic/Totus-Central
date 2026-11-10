@@ -1,6 +1,6 @@
 /* Totus Central — Inicio modular. Enhances existing home DOM, preserving forms,
  * accounting functions and delegated data-action/data-route handlers. */
-import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget} from './home-widgets-core.js';
+import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget,homeCanvasSettings} from './home-widgets-core.js';
 import {nextOpeningSummary} from './home-openings-view.js';
 import {state,getFilters} from './state.js';
 import {esc,money,isoToday} from './utils.js';
@@ -132,6 +132,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const ordersData=new Map(),queries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
+ const changed=()=>!!model&&!!original&&(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)||JSON.stringify(model.settings)!==JSON.stringify(original.settings));
  const clones=new Map();
  const status=(message,warning=false)=>{const el=root?.querySelector('[data-home-status]');if(el){el.textContent=message;el.classList.toggle('home-error',warning)}};
  const layoutKey=w=>[safeStore(w.scope.store),...Object.values(dateRange(w))].join('|');
@@ -194,7 +195,14 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);
   }
   root.classList.toggle('home-edit-mode',edit);
-  root.classList.toggle('home-widgets-dirty',!!model&&!!original&&JSON.stringify(model.widgets)!==JSON.stringify(original.widgets));
+  root.classList.toggle('home-widgets-dirty',changed());
+  const settings=homeCanvasSettings(model.settings);
+  grid.style.gap=settings.gap==='inherit'?'var(--appearance-gap,14px)':settings.gap+'px';
+  grid.style.maxWidth=settings.width==='fluid'?'none':settings.width+'px';
+  grid.style.marginInline='auto';
+  grid.style.setProperty('--home-card-padding',settings.density==='compact'?'9px':settings.density==='comfortable'?'18px':'var(--appearance-card-pad,12px)');
+  root.dataset.homeCanvasBackground=settings.background;
+  root.dataset.homeCanvasDensity=settings.density;
   const toggle=root.querySelector('[data-home-command="edit"]');if(toggle)toggle.textContent=edit?'Salir de edición':'Personalizar inicio';
   renderDrawer();
  }
@@ -212,8 +220,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const makeId=()=>`hw-${crypto.randomUUID()}`;
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
-  if(action==='edit'){if(edit){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null}else{edit=true;selected=model.widgets[0]?.id||null}draw();return}
-  if(action==='exit'){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;draw();return}
+  if(action==='edit'){if(edit){if(changed()&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null}else{edit=true;selected=model.widgets[0]?.id||null}draw();return}
+  if(action==='exit'){if(changed()&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;draw();return}
   if(action==='select'){selected=id;edit=true;draw();return}
   if(action==='add'){const type=el.dataset.type;if(nonClonable.has(type)&&model.widgets.some(w=>w.type===type)){status('Ese widget contiene controles únicos y ya está añadido. Puedes moverlo o cambiar su tamaño.',true);return}const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};const newId=makeId();mutate(m=>addHomeWidget(m,type,newId,{scope}),newId);return}
   if(action==='duplicate'){const w=find(id);if(!w||nonClonable.has(w.type))return;const newId=makeId();mutate(m=>duplicateHomeWidget(m,id,newId),newId);return}
@@ -235,13 +243,13 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   const own=owner;try{
    const saved=await rpc('totus_home_dashboard',{p_action:'read',p_layout:null,p_expected_revision:null});
    if(!live()||owner!==own)return;
-   remoteReady=true;if(saved?.layout?.schemaVersion===1){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
+   remoteReady=true;if(saved?.layout?.schemaVersion===1){if(changed()){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
   }catch(error){if(live())status('Disposición local predeterminada. Guardado entre dispositivos no disponible hasta instalar la migración.',true)}
  }
  async function save(){if(busy||!live()||!model)return;
-  if(JSON.stringify(model.widgets)===JSON.stringify(original.widgets)){status('No hay cambios del Inicio pendientes de guardar.');return}
+  if(!changed()){status('No hay cambios del Inicio pendientes de guardar.');return}
   if(!remoteReady){status('No se puede guardar: falta el servicio de preferencias del Inicio.',true);return}
-  const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,widgets:structuredClone(model.widgets)};
+  const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,settings:structuredClone(model.settings),widgets:structuredClone(model.widgets)};
   busy=true;
   try{
    const result=await rpc('totus_home_dashboard',{p_action:'save',p_layout:snapshot,p_expected_revision:expected});
@@ -250,10 +258,10 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const checked=await rpc('totus_home_dashboard',{p_action:'read',p_layout:null,p_expected_revision:null});
    if(!live()||owner!==own)return;
    const persisted=readHomeDashboard(checked?.layout);
-   if(Number(checked.revision)!==Number(result.revision)||JSON.stringify(persisted.widgets)!==JSON.stringify(snapshot.widgets))throw Error('La relectura no coincide con el diseño guardado.');
+   if(Number(checked.revision)!==Number(result.revision)||JSON.stringify(persisted.widgets)!==JSON.stringify(snapshot.widgets)||JSON.stringify(persisted.settings)!==JSON.stringify(snapshot.settings))throw Error('La relectura no coincide con el diseño guardado.');
    model.revision=String(checked.revision);
    original={...structuredClone(snapshot),revision:model.revision};
-   if(JSON.stringify(model.widgets)!==JSON.stringify(snapshot.widgets)){
+   if(JSON.stringify(model.widgets)!==JSON.stringify(snapshot.widgets)||JSON.stringify(model.settings)!==JSON.stringify(snapshot.settings)){
     status('Se verificó el guardado anterior, pero hay cambios nuevos pendientes de guardar.',true);
     return;
    }
@@ -434,5 +442,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);
  }
- return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>!!model&&JSON.stringify(model?.widgets)!==JSON.stringify(original?.widgets)};
+ return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
 }
