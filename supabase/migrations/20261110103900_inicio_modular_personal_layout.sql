@@ -95,8 +95,22 @@ begin
    or coalesce(jsonb_typeof(item->'layout'->'tablet'->'h')<>'number',true)
    or coalesce(jsonb_typeof(item->'layout'->'mobile'->'order')<>'number',true)
    or coalesce(jsonb_typeof(item->'layout'->'mobile'->'h')<>'number',true)
-   or coalesce((item->'layout'->'desktop'->>'w') ~ '^([1-9]|1[0-2])
-   or coalesce((item->'layout'->'desktop'->>'h') ~ '^([1-9]|1[0-2])$',false)=false
+   or exists(
+    select 1 from jsonb_array_elements(
+     case when jsonb_typeof(item->'filters'->'columns')='array' then item->'filters'->'columns' else '[]'::jsonb end
+    ) as col(value)
+    where jsonb_typeof(col.value)<>'string'
+      or (col.value#>>'{}') not in ('order','reference','products','customer','total','payment','status','date','employee','margin')
+   )
+   or coalesce((item->'layout'->'desktop'->>'x') ~ '^(0|[1-9]|1[01])$',false)=false
+   or coalesce((item->'layout'->'desktop'->>'y') ~ '^(0|[1-9][0-9]{0,3})$',false)=false
+   or coalesce((item->'layout'->'desktop'->>'w') ~ '^([1-9]|1[0-2])$',false)=false
+   or coalesce((item->'layout'->'desktop'->>'h') ~ '^([2-9]|1[0-2])$',false)=false
+   or coalesce((item->'layout'->'tablet'->>'order') ~ '^(0|[1-9][0-9]{0,3})$',false)=false
+   or coalesce((item->'layout'->'tablet'->>'w') ~ '^[1-6]$',false)=false
+   or coalesce((item->'layout'->'tablet'->>'h') ~ '^([2-9]|1[0-6])$',false)=false
+   or coalesce((item->'layout'->'mobile'->>'order') ~ '^(0|[1-9][0-9]{0,3})$',false)=false
+   or coalesce((item->'layout'->'mobile'->>'h') ~ '^([2-9]|1[0-8])$',false)=false
  ) then raise exception 'Datos de widget no admitidos';end if;
  select count(distinct item->>'id') into distinct_count from jsonb_array_elements(p_layout->'widgets') item;
  if distinct_count<>found_count then raise exception 'Widget duplicado';end if;
