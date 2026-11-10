@@ -25,6 +25,10 @@ begin
  perform public.qa_assert(public.qa_rejected('delete',null,null),'Unknown operations refused');
  perform public.qa_assert(public.qa_rejected(null,layout,1),'Null action must not save as an implicit operation');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{schemaVersion}','"1"'),1),'Schema version must be a JSON number');
+ perform public.qa_assert(public.qa_rejected('save',layout-'schemaVersion',1),'Missing schema version must be rejected');
+ perform public.qa_assert(public.qa_rejected('save',layout-'widgets',1),'Missing widgets array must be rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0}',(layout->'widgets'->0)-'type'),1),'Missing widget type must be rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,type}','null'::jsonb),1),'Null widget type must be rejected');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,1}',layout->'widgets'->0,true),1),'Duplicate widget ID refused');
  saved:=public.totus_home_dashboard('save',jsonb_set(layout,'{settings}','{"gap":"20","width":"1600","density":"compact","background":"soft"}'),1);
  perform public.qa_assert(saved->>'revision'='2','Saving general settings increments revision');
