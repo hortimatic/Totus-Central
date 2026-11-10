@@ -265,6 +265,7 @@ jobs:
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
       - run: node tests/home-widgets-core-qa.mjs
       - run: node tests/home-widgets-integration-browser-qa.mjs
+      - run: node tests/home-widgets-actions-browser-qa.mjs
       - run: node tests/office-lazy-browser-qa.mjs
       - run: node tests/office-lazy-flows-browser-qa.mjs
       - run: node tests/office-lazy-resilience-browser-qa.mjs
