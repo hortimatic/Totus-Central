@@ -315,7 +315,7 @@ function render(){
  if(input('exDocKind'))updateExpenseTaxTreatment();
  if(state.route==='cajas'&&document.querySelector('.drawer-entry'))updateClosingSummary();
  captureFormDraft($('#content'));
- if(state.route==='inicio')homeUI.mount($('#content'));
+ if(state.route==='inicio')homeUI.mountOriginal($('#content'));
  if(state.route==='inicio'){
   const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
   if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
