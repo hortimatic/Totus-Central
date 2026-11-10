@@ -127,27 +127,46 @@ function orderStats(rows,currencies,complete){
  return {count:valid.length,total:total===null?null:total/100,ticket:total===null||!valid.length?null:total/100/valid.length,complete:ok};
 }
 function prestashopChart(w,read){
- const mode=['hours','days','off'].includes(w.filters.chartMode)?w.filters.chartMode:'hours';
- if(mode==='off')return '';
- const measure=w.filters.chartMetric==='sales'?'sales':'orders';
- const orders=read.rows.filter(row=>String(row.valid)==='1');
- if(measure==='sales'&&(!read.complete||orders.some(row=>read.currencies.get(String(row.id_currency))!=='EUR'||cents(row.total_paid_tax_incl)===null)))
-  return '<p class="home-chart-unverified">Ventas por horas no disponibles: falta completar la lectura o validar todos los importes en EUR.</p>';
+ const requested=['hours','days','off'].includes(w.filters.chartMode)?w.filters.chartMode:'hours';
+ if(requested==='off')return '';
+ const {from,to}=dateRange(w),period=w.filters.period||'custom';
+ const startDate=new Date(from+'T12:00:00Z'),endDate=new Date(to+'T12:00:00Z');
+ const days=Math.max(1,Math.round((endDate-startDate)/86400000)+1);
+ const measured=w.filters.chartMetric==='sales'?'sales':'orders';
+ const valid=read.rows.filter(row=>String(row.valid)==='1');
+ if(measured==='sales'&&(!read.complete||valid.some(row=>read.currencies.get(String(row.id_currency))!=='EUR'||cents(row.total_paid_tax_incl)===null)))
+  return '<p class="home-chart-unverified">Ventas EUR sin gráfica: falta completar la lectura o validar la moneda y los importes. No se estiman cifras.</p>';
+ if(!read.complete)return '<p class="home-chart-unverified">La consulta es parcial. No se dibujan series que pudieran interpretarse como totales completos.</p>';
+ const mode=period==='day'?'hours':period==='week'||period==='month'?'days':requested;
+ const group=mode==='hours'?'hours':days<=45?'days':days<=180?'weeks':'months';
+ const monday=date=>minusDays(date,(new Date(date+'T12:00:00Z').getUTCDay()+6)%7);
+ const keyFor=date=>group==='hours'?date.slice(11,13):group==='days'?date.slice(0,10):group==='weeks'?monday(date.slice(0,10)):date.slice(0,7);
  const bins=new Map();
- for(const order of orders){
-  const date=String(order.date_add||''),key=mode==='hours'?date.slice(11,13):date.slice(0,10);
-  if(mode==='hours'&&!/^(0\d|1\d|2[0-3])$/.test(key))continue;
-  if(mode==='days'&&!/^\d{4}-\d{2}-\d{2}$/.test(key))continue;
-  const amount=measure==='sales'?cents(order.total_paid_tax_incl):1;
+ for(const row of valid){
+  const date=String(row.date_add||''),key=keyFor(date);
+  if(group==='hours'&&!/^(0\d|1\d|2[0-3])$/.test(key))continue;
+  if(group!=='hours'&&!/^\d{4}-\d{2}(-\d{2})?$/.test(key))continue;
+  const amount=measured==='sales'?cents(row.total_paid_tax_incl):1;
   bins.set(key,(bins.get(key)||0)+amount);
  }
- const keys=mode==='hours'?Array.from({length:24},(_,i)=>String(i).padStart(2,'0')):[...bins.keys()].sort().slice(-14);
- const values=keys.map(k=>bins.get(k)||0),max=Math.max(1,...values);
- const total=values.reduce((sum,v)=>sum+v,0),title=measure==='sales'?'Ventas válidas EUR':'Pedidos válidos';
- const series=keys.map((label,i)=>{const value=values[i],tip=measure==='sales'?money(value/100):value+' pedidos';
-  return '<div class="home-chart-column"><span class="home-chart-number">'+(value?esc(measure==='sales'?money(value/100):String(value)):'')+'</span><div class="home-chart-track"><span class="home-chart-bar" style="height:'+Math.round(value/max*100)+'%" title="'+esc(label+(mode==='hours'?':00 · ':' · ')+tip)+'"></span></div><small>'+esc(mode==='hours'?(i%3===0?label+'h':''):label.slice(5))+'</small></div>';
+ const keys=[];
+ if(group==='hours')for(let i=0;i<24;i++)keys.push(String(i).padStart(2,'0'));
+ else if(group==='days'&&days<=45)for(let d=new Date(startDate);d<=endDate;d.setUTCDate(d.getUTCDate()+1))keys.push(d.toISOString().slice(0,10));
+ else if(group==='weeks'){for(let d=new Date(startDate);d<=endDate;d.setUTCDate(d.getUTCDate()+7)){const k=monday(d.toISOString().slice(0,10));if(keys.at(-1)!==k)keys.push(k)}}
+ else for(let d=new Date(Date.UTC(startDate.getUTCFullYear(),startDate.getUTCMonth(),1));d<=endDate;d.setUTCMonth(d.getUTCMonth()+1))keys.push(d.toISOString().slice(0,7));
+ const values=keys.map(k=>bins.get(k)||0),max=Math.max(1,...values),total=values.reduce((sum,v)=>sum+v,0);
+ const title=measured==='sales'?'Ventas válidas EUR':'Pedidos válidos';
+ const typeLabel=group==='hours'?'horas':group==='days'?'días':group==='weeks'?'semanas':'meses';
+ const series=keys.map((key,i)=>{
+  const value=values[i],tip=measured==='sales'?money(value/100):value+' pedidos';
+  const showLabel=keys.length<=8||i%Math.ceil(keys.length/7)===0||i===keys.length-1;
+  const label=group==='hours'?key+'h':group==='months'?key.slice(5)+'/'+key.slice(2,4):key.slice(5);
+  const clickDate=group==='days'?key:group==='hours'&&from===to?from:null;
+  const click=clickDate?'<button type="button" class="home-chart-bar" style="height:'+Math.round(value/max*100)+'%" data-home-command="chart-slice" data-shop="'+esc(safeStore(w.scope.store))+'" data-date="'+esc(clickDate)+'" aria-label="'+esc('Abrir pedidos '+key+': '+tip)+'" title="'+esc(key+': '+tip)+'"></button>':
+   '<span class="home-chart-bar" style="height:'+Math.round(value/max*100)+'%" title="'+esc(key+': '+tip)+'"></span>';
+  return '<div class="home-chart-column"><div class="home-chart-track">'+click+'</div><small aria-hidden="true">'+(showLabel?esc(label):'')+'</small></div>';
  }).join('');
- return '<figure class="home-ps-chart" role="img" aria-label="'+esc(title+' agrupados por '+(mode==='hours'?'hora':'día')+': '+(measure==='sales'?money(total/100):total+' pedidos'))+'"><figcaption><span>'+esc(title+' por '+(mode==='hours'?'horas':'días'))+'</span><strong>'+esc(measure==='sales'?money(total/100):String(total))+'</strong></figcaption><div class="home-chart-plot"><div class="home-chart-columns">'+series+'</div></div></figure>';
+ return '<figure class="home-ps-chart" role="group" aria-label="'+esc(title+' por '+typeLabel+', desde '+from+' hasta '+to)+'"><figcaption><span>'+esc(title+' por '+typeLabel)+'</span><strong>'+esc(measured==='sales'?money(total/100):String(total))+'</strong></figcaption><div class="home-chart-plot"><div class="home-chart-columns">'+series+'</div></div><small class="muted">Periodo '+esc(from)+' — '+esc(to)+(group==='hours'&&days>1?' · perfil horario agregado del periodo':'')+'. Selecciona una barra diaria para abrir sus pedidos.</small></figure>';
 }
 function psSummary(w,data,catalog){
  const shop=safeStore(w.scope.store),r=data?.[shop];
