@@ -171,7 +171,7 @@ function prestashopInspector(w){
  }
  if(['prestashop.summary','prestashop.top'].includes(w.type))html+=pick('topLimit','Productos en ranking',[['4','4 productos'],['8','8 productos'],['12','12 productos']],w.filters.topLimit||4);
  if(w.type==='prestashop.summary')html+='</fieldset>';
- if(w.type==='prestashop.orders')html+=columnsInspector(w);
+ if(w.type==='prestashop.orders'){html+=pick('tableDensity','Densidad de filas',[['compact','Compacta: más pedidos a la vista'],['normal','Normal: equilibrio'],['comfortable','Cómoda: más espacio']],w.filters.tableDensity||'normal');html+=columnsInspector(w)}
  return html;
 }
 function configureOrderColumns(host,w){
@@ -247,7 +247,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const body=document.createElement('div');body.className='home-widget-body';const content=freshWidget(w);
    if(typeof content==='string'){
     body.innerHTML=content;
-    if(w.type==='prestashop.orders')configureOrderColumns(body,w);
+    if(w.type==='prestashop.orders'){configureOrderColumns(body,w);body.dataset.homeTableDensity=w.filters.tableDensity||'normal'}
     // Widget presentation filters never count as unsaved business forms.
     body.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
    }else body.append(content);
@@ -296,7 +296,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='open-prestashop-tab'){const tab=el.dataset.tab;if(['catalog','receipts'].includes(tab))void onOpenOrders({tab});return}
   if(action==='open-order'){const shop=el.dataset.shop,order=el.dataset.order,date=el.dataset.date;if(PRESTA_SHOPS({scope:{store:shop}}).length!==1||!/^\d{1,15}$/.test(order||'')||!/^\d{4}-\d{2}-\d{2}$/.test(date||''))return;void onOpenOrders({tab:'orders',store:shop,order,date});return}
   if(action==='prev-page'||action==='next-page'){const w=find(id);if(!w)return;const current=Number(w.filters.page)||0;model=setHomeWidgetConfig(model,id,{filters:{page:Math.max(0,current+(action==='prev-page'?-1:1))}});draw();return}
-  if(action==='column-up'||action==='column-down'){const w=find(id),key=el.dataset.column;if(!edit||!w||w.type!=='prestashop.orders'||key==='order')return;const columns=selectedOrderColumns(w),index=columns.indexOf(key),dest=index+(action==='column-up'?-1:1);if(index<0||dest<1||dest>=columns.length)return;[columns[index],columns[dest]]=[columns[dest],columns[index]];mutate(m=>setHomeWidgetConfig(m,id,{filters:{columns}}));return}
+  if(action==='column-up'||action==='column-down'){const w=find(id),key=el.dataset.column;if(!edit||!w||w.type!=='prestashop.orders'||key==='order')return;const columns=selectedOrderColumns(w).slice(),index=columns.indexOf(key),dest=index+(action==='column-up'?-1:1);if(index<0||dest<1||dest>=columns.length)return;[columns[index],columns[dest]]=[columns[dest],columns[index]];mutate(m=>setHomeWidgetConfig(m,id,{filters:{columns}}));return}
   if(action==='scroll-left'||action==='scroll-right'){const viewport=root.querySelector(`[data-home-orders-viewport="${CSS.escape(id)}"]`);viewport?.scrollBy({left:action==='scroll-left'?-300:300,behavior:'smooth'});return}
   if(action==='save')void save();
  }
@@ -407,7 +407,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const key=el.dataset.homeConfig;
    if(key==='store'){mutate(m=>setHomeWidgetConfig(m,w.id,{scope:{store:safeStore(el.value)},filters:{page:0}}));void fetchFor(find(w.id));}
    if(key==='from'||key==='to'){mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:el.value,page:0}}));if(dateRange(find(w.id)).from<=dateRange(find(w.id)).to)void fetchFor(find(w.id));}
-   if(['chartMode','chartMetric','topLimit','showMetrics','showTop'].includes(key)){const value=key==='topLimit'?Number(el.value):['showMetrics','showTop'].includes(key)?el.value==='yes':el.value;mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:value}}));return}
+   if(['chartMode','chartMetric','topLimit','showMetrics','showTop','tableDensity'].includes(key)){const value=key==='topLimit'?Number(el.value):['showMetrics','showTop'].includes(key)?el.value==='yes':el.value;mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:value}}));return}
    if(key==='width')mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{w:Number(el.value)}}}));
    if(key==='height')mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{h:Number(el.value)}}}));
    if(key==='tabletWidth')mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{tablet:{w:Number(el.value)}}}));
