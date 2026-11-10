@@ -14,7 +14,7 @@ begin
   join public.team_members t on lower(t.email)=lower(p.email)
   where p.id=uid and p.active=true and t.active=true and lower(p.email)=lower(auth.jwt()->>'email')
  ) then raise exception 'Acceso denegado' using errcode='42501';end if;
- if p_action not in ('read','save') then raise exception 'Operación de Inicio no admitida'; end if;
+ if p_action is null or p_action not in ('read','save') then raise exception 'Operación de Inicio no admitida'; end if;
  -- Lock only the caller's own profile for atomic compare-and-swap.
  select coalesce(ui_preferences->'home_dashboard','{}'::jsonb)
  into current_data from public.profiles where id=uid for update;
@@ -26,7 +26,7 @@ begin
  if p_expected_revision is null or p_expected_revision<>current_rev then
   raise exception 'El diseño de Inicio ha cambiado en otra sesión. Recarga y vuelve a revisar.' using errcode='40001';
  end if;
- if p_layout is null or jsonb_typeof(p_layout)<>'object' or (p_layout->>'schemaVersion')<>'1'
+ if p_layout is null or jsonb_typeof(p_layout)<>'object' or jsonb_typeof(p_layout->'schemaVersion')<>'number' or (p_layout->>'schemaVersion')<>'1'
   or jsonb_typeof(p_layout->'widgets')<>'array' or pg_catalog.octet_length(p_layout::text)>120000
  then raise exception 'Diseño de Inicio incompatible o excesivo';end if;
 
