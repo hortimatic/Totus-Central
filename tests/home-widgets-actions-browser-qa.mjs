@@ -42,7 +42,7 @@ try{
   "  }));",
   "  if(resource==='currencies')rows=[{id:'1',iso_code:'EUR'}];",
   "  if(resource==='order_details')rows=(a.order_ids||[]).map(id=>({",
-  "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_name:'Producto QA',product_quantity:'1',",
+  "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_attribute_id:Number(id)%2?'10':'20',product_name:Number(id)%2?'Producto QA 10 mg':'Producto QA 0 mg',product_quantity:'1',",
   "   total_price_tax_incl:'12.50',total_price_tax_excl:'10.33'",
   "  }));",
   "  return {data:{ok:true,store:shop,resource,page:a.page,rows,possibly_more:false},error:null};",
@@ -64,6 +64,8 @@ try{
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
  assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');
+ assert((await page.locator('[data-home-widget="shop-h"] .home-ps-top').innerText()).includes('Producto QA 0 mg'),'Se conserva la combinación 0 mg en más vendidos');
+ assert((await page.locator('[data-home-widget="shop-h"] .home-ps-top').innerText()).includes('Producto QA 10 mg'),'Se conserva la combinación 10 mg sin mezclar variantes');
  const orders=page.locator('[data-home-widget="orders"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
  assert.equal(await orders.locator('[data-home-command="open-order"]').count(),10);
