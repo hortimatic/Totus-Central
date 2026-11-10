@@ -39,6 +39,9 @@ try{
  }
  await page.setViewportSize({width:1440,height:960});
  await page.locator('[data-home-command="edit"]').click();
+ assert(await page.locator('[data-home-command="add"][data-type="pricing.quick"]').isDisabled(),'No se añade otro formulario de precio con IDs repetidos');
+ await page.locator('[data-home-command="select"][data-id="activity"]').click();
+ assert(await page.locator('[data-home-command="duplicate"][data-id="activity"]').isDisabled(),'La gráfica con filtros vivos no se clona como formulario inerte');
  await page.locator('[data-home-category]').selectOption('PrestaShop');
  assert.equal(await page.locator('[data-home-command="add"][data-type="expenses.pending"]').count(),0,'La biblioteca filtra tipos de otros módulos');
  assert(await page.locator('[data-home-command="add"][data-type="prestashop.orders"]').count()>0,'La biblioteca muestra widgets de PrestaShop');
