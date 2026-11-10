@@ -30,6 +30,30 @@ const labelStore=k=>PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Todas las tiend
 const metric=(label,value)=>`<div class="home-ps-metric"><small>${esc(label)}</small><strong>${esc(String(value))}</strong></div>`;
 const allowedWidths=w=>[3,4,5,6,7,8,9,10,11,12].filter(x=>x>=HOME_WIDGET_CATALOG[w.type].minWidth&&x<=HOME_WIDGET_CATALOG[w.type].maxWidth);
 const dateRange=w=>{const today=isoToday();return {from:safeDate(w.filters.from)||minusDays(today,6),to:safeDate(w.filters.to)||today};};
+
+const homePeriodBounds=(mode,anchor=isoToday())=>{
+ const date=safeDate(anchor)||isoToday(),d=new Date(date+'T12:00:00Z');
+ if(mode==='day')return {from:date,to:date};
+ if(mode==='week'){const monday=minusDays(date,(d.getUTCDay()+6)%7);return {from:monday,to:minusDays(monday,-6)}}
+ if(mode==='month'){const first=date.slice(0,7)+'-01',last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);return {from:first,to:last}}
+ return {from:date,to:date};
+};
+const shiftedPeriod=(w,direction)=>{
+ const mode=['day','week','month'].includes(w.filters.period)?w.filters.period:'day',date=safeDate(w.filters.to)||isoToday();
+ if(mode==='month'){const d=new Date(date.slice(0,7)+'-15T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+direction);return homePeriodBounds('month',d.toISOString().slice(0,10))}
+ return homePeriodBounds(mode,minusDays(date,-direction*(mode==='week'?7:1)));
+};
+function periodControls(w){
+ const period=['day','week','month','custom'].includes(w.filters.period)?w.filters.period:'custom',dates=dateRange(w);
+ const buttons=[['day','Día'],['week','Semana'],['month','Mes'],['custom','Personalizado']].map(([key,name])=>'<button type="button" data-home-command="period-'+key+'" data-id="'+esc(w.id)+'" aria-pressed="'+(key===period?'true':'false')+'">'+name+'</button>').join('');
+ const picker=period==='month'?'<label>Mes <input type="month" aria-label="Elegir mes" data-home-filter="periodMonth" data-id="'+esc(w.id)+'" value="'+esc(dates.to.slice(0,7))+'"></label>':
+ period==='day'||period==='week'?'<label>Fecha <input type="date" aria-label="Elegir fecha" data-home-filter="periodDate" data-id="'+esc(w.id)+'" value="'+esc(dates.to)+'"></label>':
+ '<label>Desde <input type="date" data-home-filter="from" data-id="'+esc(w.id)+'" value="'+esc(dates.from)+'"></label><label>Hasta <input type="date" data-home-filter="to" data-id="'+esc(w.id)+'" value="'+esc(dates.to)+'"></label>';
+ return '<div class="home-period-controls" role="group" aria-label="Periodo de '+esc(w.title)+'"><div class="home-period-presets" aria-label="Seleccionar periodo">'+buttons+'</div>'+
+ (period!=='custom'?'<div class="home-period-nav"><button type="button" data-home-command="period-prev" data-id="'+esc(w.id)+'" aria-label="Periodo anterior">‹</button><small>'+esc(dates.from)+' — '+esc(dates.to)+'</small><button type="button" data-home-command="period-next" data-id="'+esc(w.id)+'" aria-label="Periodo siguiente">›</button></div>':'')+
+ '<div class="home-period-dates">'+picker+'</div></div>';
+}
+
 const permitted=(w,can)=>w.type.startsWith('prestashop.')?can('prestashop','view'):
  w.type.startsWith('cash.')?can('cajas','view'):
  w.type.startsWith('expenses.')?can('gastos','view'):
@@ -136,7 +160,7 @@ function psSummary(w,data,catalog){
  const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+metric('Catálogo',catalog?(catalog.complete?catalog.issues.filter(x=>x.issues.length).length+' avisos':'Parcial · '+catalog.issues.filter(x=>x.issues.length).length+' avisos'):'Sin consultar')+metric('Margen comercial','No validado')+'</div>':'';
  const chart=prestashopChart(w,r);
  const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li>'+esc(p.name)+' <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
- return '<div class="home-ps-content">'+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
+ return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function prestashopProductsTable(w,data){
  const shop=safeStore(w.scope.store),shops=shop==='all'?PRESTASHOP_STORES.map(s=>s.key):[shop];
@@ -157,7 +181,7 @@ function prestashopProductsTable(w,data){
    '<div class="home-products-table-scroll" role="region" aria-label="Productos vendidos y variantes; desplazamiento horizontal" tabindex="0"><table class="data-table home-products-table"><thead><tr><th>#</th><th>Producto</th><th>Variante</th><th>Referencia</th><th>Unidades</th><th>% unidades</th></tr></thead><tbody>'+values+'</tbody></table></div>';
   return '<section class="home-top-products"><header><h4>'+esc(labelStore(key))+'</h4><span class="small muted">'+esc(String(units))+' uds verificadas · '+esc(r.from)+' → '+esc(r.to)+'</span></header>'+(rows.length?body:'<p class="small muted">No hay unidades válidas vendidas en este periodo.</p>')+'</section>';
  }).join('');
- return '<div class="home-products-widget">'+sections+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar productos vendidos</button><button type="button" class="btn secondary" data-home-command="open-orders" data-id="'+esc(w.id)+'">Abrir pedidos originales</button></div></div>';
+ return '<div class="home-products-widget">'+periodControls(w)+sections+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar productos vendidos</button><button type="button" class="btn secondary" data-home-command="open-orders" data-id="'+esc(w.id)+'">Abrir pedidos originales</button></div></div>';
 }
 function prestashopCatalogQuality(w,data){
  const scope=safeStore(w.scope.store),shops=scope==='all'?PRESTASHOP_STORES.map(x=>x.key):[scope];
@@ -186,7 +210,7 @@ function psOrders(w,data){
  const pages=Math.max(1,Math.ceil(rows.length/pageSize)),page=Math.min(pages-1,Math.max(0,Number(w.filters.page)||0));
  const visible=rows.slice(page*pageSize,(page+1)*pageSize);
  const partial=shops.some(s=>!data?.[s]||!data[s].complete||data[s].error);
- return `<div class="home-order-toolbar"><label>Desde <input type="date" data-home-filter="from" data-id="${esc(w.id)}" value="${dateRange(w).from}"></label><label>Hasta <input type="date" data-home-filter="to" data-id="${esc(w.id)}" value="${dateRange(w).to}"></label><label>Buscar <input type="search" data-home-filter="query" data-id="${esc(w.id)}" value="${esc(w.filters.query||'')}" placeholder="Nº o referencia" maxlength="80"></label><label>Estado <select data-home-filter="status" data-id="${esc(w.id)}"><option value="all">Todos</option><option value="valid" ${w.filters.status==='valid'?'selected':''}>Válidos</option><option value="invalid" ${w.filters.status==='invalid'?'selected':''}>No válidos</option></select></label><label>Pago <select data-home-filter="payment" data-id="${esc(w.id)}"><option value="all">Todos</option>${paymentOptions.map(p=>`<option value="${esc(p)}" ${w.filters.payment===p?'selected':''}>${esc(p)}</option>`).join('')}</select></label><label>Orden <select data-home-filter="sort" data-id="${esc(w.id)}"><option value="newest">Más recientes</option><option value="oldest" ${w.filters.sort==='oldest'?'selected':''}>Más antiguos</option></select></label><button type="button" data-home-command="fetch" data-id="${esc(w.id)}" class="btn secondary">Actualizar</button></div>
+ return `${periodControls(w)}<div class="home-order-toolbar"><label>Desde <input type="date" data-home-filter="from" data-id="${esc(w.id)}" value="${dateRange(w).from}"></label><label>Hasta <input type="date" data-home-filter="to" data-id="${esc(w.id)}" value="${dateRange(w).to}"></label><label>Buscar <input type="search" data-home-filter="query" data-id="${esc(w.id)}" value="${esc(w.filters.query||'')}" placeholder="Nº o referencia" maxlength="80"></label><label>Estado <select data-home-filter="status" data-id="${esc(w.id)}"><option value="all">Todos</option><option value="valid" ${w.filters.status==='valid'?'selected':''}>Válidos</option><option value="invalid" ${w.filters.status==='invalid'?'selected':''}>No válidos</option></select></label><label>Pago <select data-home-filter="payment" data-id="${esc(w.id)}"><option value="all">Todos</option>${paymentOptions.map(p=>`<option value="${esc(p)}" ${w.filters.payment===p?'selected':''}>${esc(p)}</option>`).join('')}</select></label><label>Orden <select data-home-filter="sort" data-id="${esc(w.id)}"><option value="newest">Más recientes</option><option value="oldest" ${w.filters.sort==='oldest'?'selected':''}>Más antiguos</option></select></label><button type="button" data-home-command="fetch" data-id="${esc(w.id)}" class="btn secondary">Actualizar</button></div>
  ${errors.length?`<p class="home-error" role="alert">${esc(errors.join(' · '))}</p>`:''}${partial?'<p class="small muted">Consulta parcial o pendiente: el recuento no representa todas las ventas.</p>':''}
  <div class="home-orders-scroll" role="region" aria-label="Tabla de pedidos de PrestaShop; desplazamiento horizontal y vertical" tabindex="0" data-home-orders-viewport="${esc(w.id)}"><table class="data-table home-orders-table"><thead><tr><th>Pedido</th><th>Referencia</th><th>Productos</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Estado</th><th>Fecha y hora</th><th>Atendido por</th><th>Margen €</th></tr></thead><tbody>${visible.map(row=>`<tr><td><button type="button" class="home-order-link" data-home-command="open-order" data-shop="${esc(row._shop)}" data-order="${esc(String(row.id))}" data-date="${esc(String(row.date_add||'').slice(0,10))}">#${esc(row.id)}</button></td><td>${esc(row.reference||'—')}<small class="home-order-shop">${esc(labelStore(row._shop))}</small></td><td class="home-orders-products">${Array.isArray(row._products)&&row._products.length?row._products.slice(0,2).map(item=>`<span class="home-order-product-line" title="${esc(item.name)}">${esc(item.name)} · ${esc(String(item.qty))} uds</span>`).join('')+(row._products.length>2?`<small>+${row._products.length-2} líneas más</small>`:''):'<span class="small muted">Ver pedido para consultar productos</span>'}</td><td>${/^\d{1,15}$/.test(String(row.id_customer||''))&&Number(row.id_customer)>0?`ID cliente #${esc(String(row.id_customer))}`:'No informado'}</td><td>${row._currency==='EUR'&&cents(row.total_paid_tax_incl)!==null?money(cents(row.total_paid_tax_incl)/100):'Moneda sin verificar'}</td><td>${esc(row.payment||'—')}</td><td>${String(row.valid)==='1'?'Válido':'No válido'}</td><td>${esc(row.date_add||'')}</td><td>No informado por la tienda</td><td>Sin validar</td></tr>`).join('')||'<tr><td colspan="10">No hay pedidos para estos filtros.</td></tr>'}</tbody></table></div>
  <div class="home-order-footer"><div class="home-order-scroll-actions"><button type="button" aria-label="Mover columnas a la izquierda" data-home-command="scroll-left" data-id="${esc(w.id)}">◀</button><button type="button" aria-label="Mover columnas a la derecha" data-home-command="scroll-right" data-id="${esc(w.id)}">▶</button></div><label>Filas <select data-home-filter="pageSize" data-id="${esc(w.id)}">${[10,15,20].map(n=>`<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label><label>Página <input class="home-page-select" type="number" min="1" max="${pages}" step="1" inputmode="numeric" aria-label="Ir a página de pedidos" data-home-filter="page" data-id="${esc(w.id)}" value="${page+1}"></label><span>de ${pages}${partial?' · parcial':''}</span><button type="button" data-home-command="prev-page" data-id="${esc(w.id)}" ${page===0?'disabled':''}>‹</button><button type="button" data-home-command="next-page" data-id="${esc(w.id)}" ${page>=pages-1?'disabled':''}>›</button><button class="btn secondary" data-home-command="open-orders" data-id="${esc(w.id)}">Abrir pedidos</button></div>`;
@@ -329,6 +353,19 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='remove'){if(!confirm('¿Quitar este widget del Inicio? No se borrará ningún dato del módulo y podrás volver a añadirlo.'))return;mutate(m=>removeHomeWidget(m,id));return}
   if(action==='up'||action==='down'){mutate(m=>reorderHomeWidget(m,id,action));return}
   if(action==='reset'){if(!confirm('¿Restaurar la distribución inicial? Los cambios actuales quedarán pendientes de guardar y podrás descartarlos antes de confirmar.'))return;mutate(()=>createDefault());return}
+  if(['period-day','period-week','period-month','period-custom','period-prev','period-next'].includes(action)){
+   const w=find(id);if(!w||!['prestashop.summary','prestashop.orders','prestashop.top'].includes(w.type))return;
+   const cmd=action.replace('period-',''),period=['prev','next'].includes(cmd)?(w.filters.period||'day'):cmd;
+   const dates=cmd==='custom'?dateRange(w):['prev','next'].includes(cmd)?shiftedPeriod(w,cmd==='prev'?-1:1):homePeriodBounds(period);
+   model=setHomeWidgetConfig(model,id,{filters:{...dates,period,page:0}});draw();
+   if(period!=='custom')void fetchFor(find(id));
+   status('Periodo de consulta: '+dates.from+' a '+dates.to);return;
+  }
+  if(action==='chart-slice'){
+   const shop=el.dataset.shop,date=el.dataset.date;
+   if(!PRESTASHOP_STORES.some(s=>s.key===shop)||!safeDate(date))return;
+   void onOpenOrders({tab:'orders',store:shop,date});return;
+  }
   if(action==='fetch'){const w=find(id);if(w?.type==='prestashop.quality')void fetchCatalog(w,true);else void fetchFor(w,true);return}
   if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
   if(action==='open-orders'){void onOpenOrders({tab:'orders'});return}
@@ -472,7 +509,15 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // Source nodes are moved, never reimplemented; original data-action handlers stay intact.
   root.addEventListener('click',e=>{const el=e.target.closest('[data-home-command]');if(!el||!root.contains(el))return;e.preventDefault();e.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el)},true);
   root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
-   if(el.dataset.homeFilter){const key=el.dataset.homeFilter;let filters;if(key==='page'){const number=Number(el.value),limit=Number(el.max)||1;if(!Number.isSafeInteger(number)||number<1||number>limit){status('La página solicitada no existe.',true);return}filters={page:number-1}}else filters={[key]:el.value,page:0};const next=setHomeWidgetConfig(model,w.id,{filters});if((key==='from'||key==='to')&&dateRange(next.widgets.find(x=>x.id===w.id)).from>dateRange(next.widgets.find(x=>x.id===w.id)).to){status('La fecha final debe ser posterior o igual a la inicial.',true);return}model=next;draw();if(key==='from'||key==='to')void fetchFor(find(w.id));status('Filtros de esta tabla aplicados; guarda tu diseño para conservarlos.');return}
+   if(el.dataset.homeFilter){const key=el.dataset.homeFilter;let filters;
+    if(key==='periodDate'||key==='periodMonth'){
+     const mode=w.filters.period==='week'?'week':key==='periodMonth'?'month':'day';
+     const value=key==='periodMonth'?el.value+'-01':el.value;
+     if(!safeDate(value)){status('Fecha no válida',true);return}
+     const dates=homePeriodBounds(mode,value);
+     model=setHomeWidgetConfig(model,w.id,{filters:{...dates,period:mode,page:0}});draw();
+     void fetchFor(find(w.id));status('Periodo de consulta: '+dates.from+' a '+dates.to);return;
+    }if(key==='page'){const number=Number(el.value),limit=Number(el.max)||1;if(!Number.isSafeInteger(number)||number<1||number>limit){status('La página solicitada no existe.',true);return}filters={page:number-1}}else filters={[key]:el.value,page:0,...(['from','to'].includes(key)?{period:'custom'}:{})};const next=setHomeWidgetConfig(model,w.id,{filters});if((key==='from'||key==='to')&&dateRange(next.widgets.find(x=>x.id===w.id)).from>dateRange(next.widgets.find(x=>x.id===w.id)).to){status('La fecha final debe ser posterior o igual a la inicial.',true);return}model=next;draw();if(key==='from'||key==='to')void fetchFor(find(w.id));status('Filtros de consulta aplicados.');return}
    const key=el.dataset.homeConfig;
    if(key==='store'){mutate(m=>setHomeWidgetConfig(m,w.id,{scope:{store:safeStore(el.value)},filters:{page:0}}));void fetchFor(find(w.id));}
    if(key==='from'||key==='to'){mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:el.value,page:0}}));if(dateRange(find(w.id)).from<=dateRange(find(w.id)).to)void fetchFor(find(w.id));}
