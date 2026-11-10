@@ -9,7 +9,7 @@ select public.qa_assert((public.totus_home_dashboard('read',null,null)->>'revisi
 
 do $qa$
 declare
- layout jsonb='{"schemaVersion":1,"widgets":[{"id":"cash-h","type":"cash.openings","scope":{"store":"all"},"hidden":false,"filters":{},"layout":{"desktop":{"x":0,"y":0,"w":12,"h":3},"tablet":{"order":0},"mobile":{"order":0}}}]}';
+ layout jsonb='{"schemaVersion":1,"widgets":[{"id":"cash-h","type":"cash.openings","title":"Dinero para abrir mañana","scope":{"store":"all"},"hidden":false,"filters":{},"layout":{"desktop":{"x":0,"y":0,"w":12,"h":3},"tablet":{"order":0,"w":6,"h":7},"mobile":{"order":0,"h":8}}}]}';
  saved jsonb;
  checked jsonb;
 begin
@@ -29,6 +29,14 @@ begin
  perform public.qa_assert(public.qa_rejected('save',layout-'widgets',1),'Missing widgets array must be rejected');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0}',(layout->'widgets'->0)-'type'),1),'Missing widget type must be rejected');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,type}','null'::jsonb),1),'Null widget type must be rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{unknown}','"extra"'),1),'Unexpected top-level fields rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,service_role}','"not-a-preference"'),1),'Unexpected widget fields rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,scope,tenant}','"foreign"'),1),'Unexpected scope fields rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,filters,service_role}','"secret"'),1),'Unexpected filter fields rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,filters,query}','{"token":"secret"}'),1),'Nested filter object rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,layout,desktop,z}','1'),1),'Unexpected layout fields rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,layout,tablet,w}','"6"'),1),'Tablet width must be numeric');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,title}',to_jsonb(repeat('x',121))),1),'Oversized title rejected');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,1}',layout->'widgets'->0,true),1),'Duplicate widget ID refused');
  saved:=public.totus_home_dashboard('save',jsonb_set(layout,'{settings}','{"gap":"20","width":"1600","density":"compact","background":"soft"}'),1);
  perform public.qa_assert(saved->>'revision'='2','Saving general settings increments revision');
