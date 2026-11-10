@@ -55,6 +55,15 @@ try{
  assert.equal(await page.locator('[data-home-command="add"][data-type="expenses.pending"]').count(),0,'La biblioteca filtra tipos de otros módulos');
  assert(await page.locator('[data-home-command="add"][data-type="prestashop.orders"]').count()>0,'La biblioteca muestra widgets de PrestaShop');
  await page.locator('[data-home-category]').selectOption('all');
+ await page.locator('[data-home-command="add"][data-type="cash.openings"]').click();
+ await page.locator('[data-home-config="store"]').selectOption('hortimatic');
+ const shopCash=page.locator('.home-store-opening');
+ assert.equal(await shopCash.locator('.home-opening-drawer').count(),2,'Hortimatic conserva sus dos cajones independientes');
+ assert((await shopCash.innerText()).includes('Vape')&&(await shopCash.innerText()).includes('Head'),'Se distinguen Vape y Head');
+ assert(!(await shopCash.innerText()).includes('NewOldSmok'),'La vista filtrada no mezcla las tiendas');
+ await page.locator('[data-home-config="store"]').selectOption('newoldsmok');
+ assert.equal(await shopCash.locator('.home-opening-drawer').count(),1,'NewOldSmok muestra sus cajones reales');
+ await page.locator('[data-home-command="remove"]').click();
  await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
  await page.locator('[data-home-config="width"]').selectOption('8');
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
