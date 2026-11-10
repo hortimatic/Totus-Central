@@ -125,7 +125,7 @@ function psOrders(w,data){
  <div class="home-orders-scroll" role="region" aria-label="Tabla de pedidos de PrestaShop; desplazamiento horizontal y vertical" tabindex="0" data-home-orders-viewport="${esc(w.id)}"><table class="data-table home-orders-table"><thead><tr><th>Pedido</th><th>Referencia</th><th>Tienda</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Estado</th><th>Fecha y hora</th><th>Margen</th></tr></thead><tbody>${visible.map(row=>`<tr><td><button type="button" class="home-order-link" data-home-command="open-order" data-shop="${esc(row._shop)}" data-order="${esc(String(row.id))}" data-date="${esc(String(row.date_add||'').slice(0,10))}">#${esc(row.id)}</button></td><td>${esc(row.reference||'—')}</td><td>${esc(labelStore(row._shop))}</td><td>Consultar cliente</td><td>${row._currency==='EUR'&&cents(row.total_paid_tax_incl)!==null?money(cents(row.total_paid_tax_incl)/100):'Moneda sin verificar'}</td><td>${esc(row.payment||'—')}</td><td>${String(row.valid)==='1'?'Válido':'No válido'}</td><td>${esc(row.date_add||'')}</td><td>Sin validar</td></tr>`).join('')||'<tr><td colspan="9">No hay pedidos para estos filtros.</td></tr>'}</tbody></table></div>
  <div class="home-order-footer"><div class="home-order-scroll-actions"><button type="button" aria-label="Mover columnas a la izquierda" data-home-command="scroll-left" data-id="${esc(w.id)}">◀</button><button type="button" aria-label="Mover columnas a la derecha" data-home-command="scroll-right" data-id="${esc(w.id)}">▶</button></div><label>Filas <select data-home-filter="pageSize" data-id="${esc(w.id)}">${[10,15,20].map(n=>`<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label><span>Página ${page+1} de ${pages}${partial?' · parcial':''}</span><button type="button" data-home-command="prev-page" data-id="${esc(w.id)}" ${page===0?'disabled':''}>‹</button><button type="button" data-home-command="next-page" data-id="${esc(w.id)}" ${page>=pages-1?'disabled':''}>›</button><button class="btn secondary" data-home-command="open-orders" data-id="${esc(w.id)}">Abrir pedidos</button></div>`;
 }
-export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{}}){
+export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null;
  const ordersData=new Map(),queries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
@@ -146,16 +146,17 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
   if(w.type==='home.gain')return `<div class="home-gain-empty"><strong>Sin validar</strong><p>Ganancia comercial: ventas netas de producto menos su coste verificado en la fecha de venta. Los costes actuales de variaciones no acreditan la ganancia histórica.</p><button class="btn secondary" data-route="prestashop">Revisar costes y ventas</button></div>`;
   if(w.type==='expenses.pending'){
-   const target=safeStore(w.scope.store),selectedStore=state.data.stores.find(x=>String(x.name||'').trim().toLowerCase()===target);
-   const pending=(state.data.expenses||[]).filter(x=>{
-    if(target!=='all'&&x.store_id!==selectedStore?.id)return false;
-    if(archiveAccepted(state.data.settings,x,'expense')||!x.paid_status||x.paid_status==='pagado')return false;
-    try{const source=JSON.parse(x.source_ref||'{}');if(source.kind==='gestoria_book_entry'&&source.requires_payment_reconciliation===true)return false}catch{}
-    return true;
-   });
-   const due=row=>Math.max(0,Number(row.accounting_amount??row.gross_expense??0)-Number(row.withholding_amount||0)-Number(row.amount_paid||0));
-   const total=pending.reduce((sum,x)=>sum+due(x),0);
-   return `<div class="home-pending-expenses"><p><strong>${pending.length} gastos pendientes · ${money(total)}</strong></p><p class="small muted">Solo importes pendientes acreditados en los gastos cargados. No incluye anticipos de gestoría sin conciliar.</p><div class="stack">${pending.slice(0,6).map(x=>`<div class="summary-row"><span><strong>${esc(x.supplier_name||x.description||'Gasto')}</strong><small>${esc(x.expense_date||'Sin fecha')} · ${esc(state.data.stores.find(s=>s.id===x.store_id)?.name||'General')}</small></span><b>${money(due(x))}</b></div>`).join('')||'<p class="small muted">No hay gastos pendientes con esos filtros.</p>'}</div><button class="btn secondary" data-route="gastos">Abrir Gastos</button></div>`;
+   // Fiscal-review queue: not the unpaid-invoice balance. The original Inicio
+   // deliberately keeps payment status, document presence and fiscal review distinct.
+   const selected=w.scope?.store==='all'?null:state.data.stores.find(store=>store.name?.toLowerCase()===safeStore(w.scope.store));
+   const pending=(state.data.expenses||[]).filter(row=>
+    !archiveAccepted(state.data.settings,row,'expense')&&row.management_only!==true&&row.fiscal_reviewed===false&&
+    (!selected||row.store_id===selected.id)
+   ).sort((a,b)=>String(b.expense_date||'').localeCompare(String(a.expense_date||'')));
+   return `<div class="home-pending-expenses"><p><strong>${pending.length} gastos con revisión fiscal pendiente</strong></p>
+    <p class="small muted">Revisión fiscal pendiente no significa factura ausente ni pago pendiente. No se modifica ninguna deducción desde este widget.</p>
+    <div class="stack">${pending.slice(0,6).map(row=>`<div class="summary-row"><span><strong>${esc(row.supplier_name||row.description||'Gasto')}</strong><small>${esc(row.expense_date||'Fecha sin confirmar')} · ${esc(state.data.stores.find(x=>x.id===row.store_id)?.name||'General')}</small></span><button type="button" class="btn secondary" data-home-command="open-expense" data-expense="${esc(row.id)}">Ver gasto</button></div>`).join('')||'<p class="small muted">No hay gastos pendientes de revisión fiscal en los registros cargados.</p>'}</div>
+    <div class="home-widget-actions"><button class="btn secondary" data-route="gastos">Abrir Gastos</button></div></div>`;
   }
   if(w.type==='cash.withdrawals'){
    const closings=(state.data.closings||[]).filter(row=>row.cash_withdrawals!==null&&row.cash_withdrawals!==undefined).sort((a,b)=>String(b.business_date||'').localeCompare(String(a.business_date||''))).slice(0,6);
@@ -216,6 +217,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='up'||action==='down'){mutate(m=>reorderHomeWidget(m,id,action));return}
   if(action==='reset'){mutate(()=>createDefault());return}
   if(action==='fetch'){fetchFor(find(id),true);return}
+  if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
   if(action==='open-orders'){void onOpenOrders({tab:'orders'});return}
   if(action==='open-order'){const shop=el.dataset.shop,order=el.dataset.order,date=el.dataset.date;if(PRESTA_SHOPS({scope:{store:shop}}).length!==1||!/^\d{1,15}$/.test(order||'')||!/^\d{4}-\d{2}-\d{2}$/.test(date||''))return;void onOpenOrders({tab:'orders',store:shop,order,date});return}
   if(action==='prev-page'||action==='next-page'){const w=find(id);if(!w)return;const current=Number(w.filters.page)||0;model=setHomeWidgetConfig(model,id,{filters:{page:Math.max(0,current+(action==='prev-page'?-1:1))}});draw();return}
