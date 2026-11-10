@@ -132,26 +132,3 @@ language sql security definer set search_path='' as $function$
 $function$;
 revoke all on function public.totus_home_dashboard(text,jsonb,integer) from public, anon;
 grant execute on function public.totus_home_dashboard(text,jsonb,integer) to authenticated;
-,false)=false
-   or coalesce((item->'layout'->'desktop'->>'h') ~ '^([1-9]|1[0-2])$',false)=false
- ) then raise exception 'Datos de widget no admitidos';end if;
- select count(distinct item->>'id') into distinct_count from jsonb_array_elements(p_layout->'widgets') item;
- if distinct_count<>found_count then raise exception 'Widget duplicado';end if;
- new_rev:=current_rev+1;
- update public.profiles set ui_preferences=jsonb_set(coalesce(ui_preferences,'{}'::jsonb),'{home_dashboard}',jsonb_build_object('revision',new_rev,'layout',p_layout),true)
- where id=uid;
- return jsonb_build_object('revision',new_rev,'layout',p_layout);
-end
-$function$;
-revoke all on function private.totus_home_dashboard(text,jsonb,integer) from public, anon;
-revoke all on function private.totus_home_dashboard(text,jsonb,integer) from authenticated;
--- The public wrapper is the sole authenticated entry point. Never grant USAGE
--- on the private schema just to make this personal preference work.
-create or replace function public.totus_home_dashboard(
- p_action text, p_layout jsonb default null, p_expected_revision integer default null)
-returns jsonb
-language sql security definer set search_path='' as $function$
- select private.totus_home_dashboard(p_action,p_layout,p_expected_revision)
-$function$;
-revoke all on function public.totus_home_dashboard(text,jsonb,integer) from public, anon;
-grant execute on function public.totus_home_dashboard(text,jsonb,integer) to authenticated;
