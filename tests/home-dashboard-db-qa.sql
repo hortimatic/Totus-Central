@@ -24,6 +24,15 @@ begin
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,layout,desktop,w}','27'),1),'Oversized widget rejected');
  perform public.qa_assert(public.qa_rejected('delete',null,null),'Unknown operations refused');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,1}',layout->'widgets'->0,true),1),'Duplicate widget ID refused');
+ saved:=public.totus_home_dashboard('save',jsonb_set(layout,'{settings}','{"gap":"20","width":"1600","density":"compact","background":"soft"}'),1);
+ perform public.qa_assert(saved->>'revision'='2','Saving general settings increments revision');
+ checked:=public.totus_home_dashboard('read',null,null);
+ perform public.qa_assert(checked->'layout'->'settings'->>'gap'='20','General gap persists for this user');
+ perform public.qa_assert(checked->'layout'->'settings'->>'density'='compact','Density persists for this user');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(checked->'layout','{settings,gap}','"999px"'),2),'Arbitrary gap rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(checked->'layout','{settings,background}','"background:url(secret)"'),2),'Arbitrary background rejected');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(checked->'layout','{settings,unknown}','"secret-value"'),2),'Unknown settings rejected');
+
 end$qa$;
 
 reset role;
