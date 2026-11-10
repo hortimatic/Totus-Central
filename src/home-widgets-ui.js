@@ -327,43 +327,54 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    if(key==='position'){const prev=model.widgets.findIndex(x=>x.id===w.id),next=Number(el.value);if(Number.isSafeInteger(next)&&next>=0&&next<model.widgets.length){model.widgets.splice(prev,1);model.widgets.splice(next,0,w);draw();status('Cambios pendientes de guardar.')}}
   },true);
   let searchTimer;root.addEventListener('input',e=>{if(e.target.matches('[data-home-search]')){const d=root.querySelector('[data-home-drawer]');d.dataset.search=e.target.value;const start=e.target.selectionStart;renderDrawer();const current=root.querySelector('[data-home-search]');current?.focus();current?.setSelectionRange(start,start)}},true);
-  // Pointer resizing updates geometry only at release; the card stays in the grid.
-  // This avoids losing the pointer when its contents are re-rendered.
+  // Resize only the active breakpoint. A phone must never accidentally modify
+  // the desktop board; keyboard and pointer edits share the same constraints.
+  const resizeMode=()=>innerWidth<=600?'mobile':innerWidth<=1400?'tablet':'desktop';
+  const rangeFor=(mode,w)=>({desktop:{min:HOME_WIDGET_CATALOG[w.type].minWidth,max:HOME_WIDGET_CATALOG[w.type].maxWidth,limit:12},tablet:{min:1,max:6,limit:6},mobile:{min:1,max:1,limit:1}})[mode];
+  const geometry=(p,e,w)=>{
+   const bounds=rangeFor(p.mode,w),dw=Math.round((e.clientX-p.startX)/p.width),dh=Math.round((e.clientY-p.startY)/48);
+   return {w:Math.max(bounds.min,Math.min(bounds.max,p.w+dw)),h:Math.max(2,Math.min(p.mode==='desktop'?12:p.mode==='tablet'?16:18,p.h+dh))};
+  };
+  const preview=(p,size)=>{
+   if(p.mode==='desktop'){p.card.style.setProperty('--span',size.w);p.card.style.setProperty('--height',size.h)}
+   if(p.mode==='tablet'){p.card.style.setProperty('--tablet-span',size.w);p.card.style.setProperty('--tablet-height',size.h)}
+   if(p.mode==='mobile')p.card.style.setProperty('--mobile-height',size.h);
+   p.card.dataset.resizePreview=p.mode==='mobile'?size.h+' unidades móvil':size.w+' columnas · '+size.h+' unidades';
+  };
   root.addEventListener('pointerdown',e=>{
-   const handle=e.target.closest('[data-home-resize]');if(!edit||!handle)return;
+   const handle=e.target.closest('[data-home-resize]');if(!edit||busy||!handle)return;
    const w=find(handle.dataset.homeResize),card=handle.closest('[data-home-widget]');if(!w||!card)return;
    e.preventDefault();e.stopPropagation();
-   const columns=innerWidth<=600?1:innerWidth<=1400?6:12;
-   const width=Math.max(25,(grid.getBoundingClientRect().width-14*(columns-1))/columns+14);
-   activeResize={id:w.id,pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,w:w.layout.desktop.w,h:w.layout.desktop.h,width,card,handle};
+   const mode=resizeMode(),cols=rangeFor(mode,w).limit;
+   const width=Math.max(25,(grid.getBoundingClientRect().width-14*(cols-1))/cols+14);
+   activeResize={id:w.id,mode,pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,w:mode==='mobile'?1:w.layout[mode].w,h:w.layout[mode].h,width,card,handle};
    handle.setPointerCapture?.(e.pointerId);
   },true);
   root.addEventListener('pointermove',e=>{
    const p=activeResize;if(!p||e.pointerId!==p.pointerId||!edit)return;
-   e.preventDefault();const w=find(p.id);if(!w)return;
-   const def=HOME_WIDGET_CATALOG[w.type];
-   const resizedW=Math.max(def.minWidth,Math.min(def.maxWidth,p.w+Math.round((e.clientX-p.startX)/p.width)));
-   const resizedH=Math.max(def.minHeight,Math.min(def.maxHeight,p.h+Math.round((e.clientY-p.startY)/40)));
-   p.card.style.setProperty('--span',resizedW);p.card.style.setProperty('--height',resizedH);
-   p.card.dataset.resizePreview=resizedW+' columnas · '+resizedH+' unidades';
+   const w=find(p.id);if(!w)return;e.preventDefault();preview(p,geometry(p,e,w));
   },true);
   root.addEventListener('pointerup',e=>{
    const p=activeResize;if(!p||p.pointerId!==e.pointerId)return;
    activeResize=null;try{p.handle.releasePointerCapture?.(e.pointerId)}catch{}
    const w=find(p.id);if(!w||!edit)return;
-   const def=HOME_WIDGET_CATALOG[w.type];
-   const resizedW=Math.max(def.minWidth,Math.min(def.maxWidth,p.w+Math.round((e.clientX-p.startX)/p.width)));
-   const resizedH=Math.max(def.minHeight,Math.min(def.maxHeight,p.h+Math.round((e.clientY-p.startY)/40)));
-   if(resizedW!==p.w||resizedH!==p.h)mutate(m=>setHomeWidgetConfig(m,p.id,{layout:{desktop:{w:resizedW,h:resizedH}}}));
-   else{p.card.style.setProperty('--span',p.w);p.card.style.setProperty('--height',p.h);delete p.card.dataset.resizePreview;}
+   const size=geometry(p,e,w);
+   if(size.w!==p.w||size.h!==p.h){
+    mutate(m=>setHomeWidgetConfig(m,p.id,{layout:{[p.mode]:p.mode==='mobile'?{h:size.h}:size}}));
+   }else{preview(p,{w:p.w,h:p.h});delete p.card.dataset.resizePreview}
   },true);
-  root.addEventListener('pointercancel',e=>{const p=activeResize;if(!p||p.pointerId!==e.pointerId)return;activeResize=null;p.card.style.setProperty('--span',p.w);p.card.style.setProperty('--height',p.h);delete p.card.dataset.resizePreview},true);
+  root.addEventListener('pointercancel',e=>{
+   const p=activeResize;if(!p||p.pointerId!==e.pointerId)return;
+   activeResize=null;preview(p,{w:p.w,h:p.h});delete p.card.dataset.resizePreview;
+  },true);
   root.addEventListener('keydown',e=>{
    const handle=e.target.closest('[data-home-resize]');if(!handle||!edit||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
    const w=find(handle.dataset.homeResize);if(!w)return;e.preventDefault();
-   const horizontal=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0;
-   const vertical=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0;
-   mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{w:w.layout.desktop.w+horizontal,h:w.layout.desktop.h+vertical}}}));
+   const mode=resizeMode(),limits=rangeFor(mode,w),dx=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,dy=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0;
+   const newW=mode==='mobile'?1:Math.max(limits.min,Math.min(limits.max,w.layout[mode].w+dx));
+   const newH=Math.max(2,Math.min(mode==='desktop'?12:mode==='tablet'?16:18,w.layout[mode].h+dy));
+   mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{[mode]:mode==='mobile'?{h:newH}:{w:newW,h:newH}}}));
+   root.querySelector('[data-home-resize="'+CSS.escape(w.id)+'"]')?.focus();
   },true);
   // Touch grip: pointer-based reordering. Browser HTML5 drag events alone do
   // not work consistently on phones; do not trap ordinary page scrolling.
