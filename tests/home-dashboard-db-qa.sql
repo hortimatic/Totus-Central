@@ -23,6 +23,8 @@ begin
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,type}','"not-a-module"'),1),'Unknown widget rejected');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,0,layout,desktop,w}','27'),1),'Oversized widget rejected');
  perform public.qa_assert(public.qa_rejected('delete',null,null),'Unknown operations refused');
+ perform public.qa_assert(public.qa_rejected(null,layout,1),'Null action must not save as an implicit operation');
+ perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{schemaVersion}','"1"'),1),'Schema version must be a JSON number');
  perform public.qa_assert(public.qa_rejected('save',jsonb_set(layout,'{widgets,1}',layout->'widgets'->0,true),1),'Duplicate widget ID refused');
  saved:=public.totus_home_dashboard('save',jsonb_set(layout,'{settings}','{"gap":"20","width":"1600","density":"compact","background":"soft"}'),1);
  perform public.qa_assert(saved->>'revision'='2','Saving general settings increments revision');
