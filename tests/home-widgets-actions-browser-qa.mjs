@@ -40,6 +40,7 @@ try{
   "   id:String((shop==='hortimatic'?7000:8000)+i),reference:'QA-R'+i,date_add:day+' 12:00:00',",
   "   total_paid_tax_incl:'12.500000',total_paid_tax_excl:'10.330000',id_currency:'1',payment:'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
   "  }));",
+  "  if(resource==='products'&&a.page===0)rows=[{id:'101',name:'QA Producto A',reference:'',ean13:'',weight:'0'},{id:'102',name:'QA Producto B',reference:'SKU102',ean13:'1234567890123',weight:'0.1'},{id:'103',name:'QA Producto C',reference:'SKU103',ean13:'1234567890123',weight:'0.2'}];",
   "  if(resource==='currencies')rows=[{id:'1',iso_code:'EUR'}];",
   "  if(resource==='order_details')rows=(a.order_ids||[]).map(id=>({",
   "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_attribute_id:Number(id)%2?'10':'20',product_reference:Number(id)%2?'SKU-QA-10':'SKU-QA-0',product_name:Number(id)%2?'Producto QA 10 mg':'Producto QA 0 mg',product_quantity:'1',",
@@ -124,6 +125,15 @@ try{
  await page.locator('[data-home-config="productView"]').selectOption('bars');
  assert.equal(await productWidget.locator('.home-products-bars').count(),2,'La vista barras funciona separada por tienda');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
+ await page.locator('[data-home-command="add"][data-type="prestashop.quality"]').click();
+ const quality=page.locator('[data-home-type="prestashop.quality"]');
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.quality"] .home-quality-shop').length===2);
+ await quality.getByText('QA Producto A').first().waitFor();
+ assert((await quality.innerText()).includes('Sin referencia'),'Calidad muestra problemas de productos consultados');
+ await page.locator('[data-home-config="store"]').selectOption('hortimatic');
+ assert.equal(await quality.locator('.home-quality-shop').count(),1,'La revisión de calidad permite filtrar por tienda');
+ await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
+ await page.getByText('3 avisos',{exact:true}).first().waitFor();
  await page.locator('[data-home-command="select"][data-id="orders"]').click();
  await page.locator('[data-home-config="tableDensity"]').selectOption('compact');
  assert.equal(await orders.locator('tbody td').first().evaluate(el=>getComputedStyle(el).paddingTop),'5px','La densidad elegida modifica realmente las filas');
