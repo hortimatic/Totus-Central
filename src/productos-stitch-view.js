@@ -213,19 +213,21 @@ export function stitchFiche({galleryDraft={},record,backendUrl='',store,section,
  const localGallery=productGallery(associationIds(record,'images'),galleryDraft),images=localGallery.order;
  const gallery=f.querySelector('#sub-imagenes');
  const galleryGrid=gallery.querySelector('.grid'),imageCard=galleryGrid.firstElementChild.cloneNode(true),addCard=galleryGrid.lastElementChild.cloneNode(true);
+ galleryGrid.className='prd-gallery-grid';
  const upload=gallery.querySelector('button');action(upload,'image-stages');
  const galleryInfo=document.createElement('p');galleryInfo.className='font-body-sm text-body-sm text-on-surface-variant';galleryInfo.textContent='El orden y los textos se conservan en tu borrador de Totus. La API 1.7 no los modifica en la galería principal de la tienda.';gallery.append(galleryInfo);const descriptionGallery=document.createElement('button');action(descriptionGallery,'gallery-description');descriptionGallery.className='px-space-md py-space-sm rounded bg-primary-container text-on-primary font-label-md text-label-md';descriptionGallery.textContent='Añadir esta galería a la descripción';descriptionGallery.disabled=!images.length;gallery.append(descriptionGallery);
  galleryGrid.replaceChildren();
  images.forEach((id,index)=>{
   const card=imageCard.cloneNode(true),holder=card.querySelector('img').parentElement,picture=card.querySelector('img');
-  picture.src=productPhoto({id_default_image:id},store);picture.alt=localGallery.captions[id]||textValue(record.name);picture.classList.replace('object-cover','object-contain');picture.removeAttribute('data-alt');
-  const zoom=document.createElement('button');zoom.className=holder.className+' prd-photo-open';action(zoom,'photo-zoom');zoom.dataset.prImage=id;zoom.setAttribute('aria-label','Ampliar imagen '+id);holder.replaceWith(zoom);zoom.append(picture);
+  card.className='prd-gallery-card';
+  picture.src=productPhoto({id_default_image:id},store).replace('-home_default/','-large_default/');picture.alt=localGallery.captions[id]||textValue(record.name);picture.className='prd-gallery-image';picture.removeAttribute('data-alt');
+  const zoom=document.createElement('button');zoom.className='prd-photo-open';action(zoom,'photo-zoom');zoom.dataset.prImage=id;zoom.setAttribute('aria-label','Ampliar imagen '+id);holder.replaceWith(zoom);zoom.append(picture);
   const caption=card.querySelector('.font-label-sm'),cover=document.createElement('button');cover.className='px-1.5 py-0.2 rounded '+(String(record.id_default_image)===id?'bg-primary text-on-primary font-bold':'bg-primary-fixed text-on-primary-fixed');action(cover,'image-cover');cover.dataset.prImage=id;cover.disabled=String(record.id_default_image)===id;cover.textContent=cover.disabled?'Portada actual':'Usar como portada';caption.replaceChildren(cover);
   const menu=document.createElement('div');menu.className='flex items-center gap-space-xs flex-wrap';
   for(const [name,symbol,title,disabled,position]of [['image-position','arrow_back','Adelantar imagen '+id,index===0,index],['image-position','arrow_forward','Retrasar imagen '+id,index===images.length-1,index+2],['image-metadata','edit_note','Texto de imagen en Totus',false],['image-replace','swap_horiz','Sustituir foto',false],['image-remove','delete','Eliminar imagen '+id,false]]){const b=document.createElement('button');action(b,name);b.dataset.prImage=id;if(position!==undefined)b.dataset.prPosition=String(position);b.disabled=disabled;b.className='material-symbols-outlined text-[18px] p-1 rounded '+(name==='image-remove'?'text-error':'text-primary hover:bg-surface-container-high');b.textContent=symbol;b.setAttribute('aria-label',title);b.title=title;menu.append(b);}
   card.append(menu);galleryGrid.append(card);
  });
- addCard.setAttribute('role','button');addCard.tabIndex=0;addCard.dataset.prAction='image-stages';addCard.dataset.prImageDrop='';galleryGrid.append(addCard);
+ addCard.className='prd-gallery-upload';addCard.setAttribute('role','button');addCard.tabIndex=0;addCard.dataset.prAction='image-stages';addCard.dataset.prImageDrop='';galleryGrid.append(addCard);
 
  const thumbnailRail=thumbnailButtons[0]?.parentElement,thumbnailTemplate=thumbnailButtons[0]?.cloneNode(true);
  if(thumbnailRail&&thumbnailTemplate){thumbnailRail.replaceChildren();thumbnailRail.classList.add('flex-wrap');for(const [index,id]of images.entries()){const b=thumbnailTemplate.cloneNode(true);action(b,'photo-view');b.dataset.prPhoto=id;b.setAttribute('aria-label','Ver foto '+(index+1));const active=String(record.id_default_image||images[0])===id;b.classList.toggle('ring-2',active);b.classList.toggle('ring-primary',active);b.setAttribute('aria-pressed',String(active));const img=b.querySelector('img');img.src=productPhoto({id_default_image:id},store);img.alt='Imagen '+(index+1);img.classList.replace('object-cover','object-contain');img.removeAttribute('data-alt');thumbnailRail.append(b);}}
