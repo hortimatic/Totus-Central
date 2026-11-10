@@ -62,3 +62,8 @@
 .home-resize-handle:hover,.home-resize-handle:focus-visible{outline:2px solid var(--accent,#2367d1);outline-offset:1px}
 .home-widget-frame[data-resize-preview]::after{content:attr(data-resize-preview);position:absolute;right:6px;bottom:35px;background:var(--panel,#fff);border:1px solid var(--accent,#2367d1);border-radius:6px;padding:3px 7px;z-index:4;font-size:11px;pointer-events:none}
 @media(max-width:600px){.home-resize-handle{right:8px;bottom:8px;width:34px;height:34px}}
+
+/* Hidden widgets can always be restored from the editor. */
+.home-hidden-widgets{margin-top:12px;padding:8px;background:color-mix(in srgb,var(--accent,#2367d1) 4%,var(--panel,#fff));border-radius:7px}
+.home-hidden-widgets summary{cursor:pointer;font-weight:600;font-size:12px}
+.home-hidden-widgets .home-library-item{flex-wrap:wrap}
