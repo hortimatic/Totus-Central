@@ -210,7 +210,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
  }
  const makeId=()=>`hw-${crypto.randomUUID()}`;
- const mutate=(fn,focusId=null)=>{if(!edit||busy)return;model=fn(model);selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');};
+ const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
   if(action==='edit'){if(edit){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null}else{edit=true;selected=model.widgets[0]?.id||null}draw();return}
   if(action==='exit'){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;draw();return}
