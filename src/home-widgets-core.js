@@ -83,6 +83,7 @@ export function readHomeDashboard(raw){
 export function addHomeWidget(config,type,id,options={}){
   const next=readHomeDashboard(config);
   if(next.widgets.some(w=>w.id===id))throw new Error('Ya existe esa instancia');
+  if(next.widgets.length>=120)throw new Error('El Inicio admite hasta 120 widgets. Oculta o retira alguno antes de añadir más.');
   next.widgets.push(widget(type,id,options)); return next;
 }
 export function duplicateHomeWidget(config,sourceId,newId){
@@ -90,6 +91,7 @@ export function duplicateHomeWidget(config,sourceId,newId){
   const source=next.widgets.find(w=>w.id===sourceId);
   if(!source)throw new Error('Instancia no encontrada');
   if(next.widgets.some(w=>w.id===newId))throw new Error('Identificador duplicado');
+  if(next.widgets.length>=120)throw new Error('El Inicio admite hasta 120 widgets. No se puede duplicar otro.');
   const copy=widget(source.type,newId,{...source,layout:{...source.layout,desktop:{...source.layout.desktop,y:source.layout.desktop.y+source.layout.desktop.h}}});
   next.widgets.splice(next.widgets.indexOf(source)+1,0,copy);return next;
 }
