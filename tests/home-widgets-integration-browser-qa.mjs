@@ -19,6 +19,7 @@ try{
  assert.equal(await original.locator('.dashboard-hero [data-action="invoice-new"]').count(),1,'Nueva factura intacta');
  assert.equal(await original.locator('.dashboard-hero [data-action="document-new"]').count(),1,'Subir documento intacto');
  assert.equal(await original.locator('.home-dashboard-toolbar').count(),0,'Editor y gran barra modular retirados');
+ assert.equal(await page.evaluate(()=>document.querySelector('.dashboard-page').lastElementChild?.id),'homePrestashopSummary','PrestaShop aparece después de todos los bloques originales');
  assert.equal(await original.locator('.home-widgets-drawer').count(),0,'Biblioteca modular retirada');
  assert.equal(await original.locator('[data-home-type="prestashop.summary"]').count(),2,'Resumen independiente por tienda');
  assert.equal(await original.locator('[data-home-type="prestashop.orders"]').count(),1,'Tabla de pedidos conservada');
