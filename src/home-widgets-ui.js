@@ -337,6 +337,36 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const vertical=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0;
    mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{w:w.layout.desktop.w+horizontal,h:w.layout.desktop.h+vertical}}}));
   },true);
+  // Touch grip: pointer-based reordering. Browser HTML5 drag events alone do
+  // not work consistently on phones; do not trap ordinary page scrolling.
+  let touchMove=null;
+  const resetTouchTarget=()=>root?.querySelectorAll('.home-widget-drop-target').forEach(card=>card.classList.remove('home-widget-drop-target'));
+  root.addEventListener('pointerdown',e=>{
+   const grip=e.target.closest('[data-home-grip]');
+   if(!edit||busy||!grip||e.pointerType!=='touch')return;
+   touchMove={pointerId:e.pointerId,source:grip.dataset.homeGrip,startX:e.clientX,startY:e.clientY,target:null,active:false,grip};
+   e.preventDefault();
+   try{grip.setPointerCapture(e.pointerId)}catch{}
+  },true);
+  root.addEventListener('pointermove',e=>{
+   const d=touchMove;if(!d||!edit||e.pointerId!==d.pointerId)return;
+   if(!d.active&&Math.hypot(e.clientX-d.startX,e.clientY-d.startY)<10)return;
+   d.active=true;e.preventDefault();
+   const card=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-home-widget]');
+   resetTouchTarget();
+   d.target=card?.dataset.homeWidget!==d.source?card?.dataset.homeWidget:null;
+   if(d.target)card.classList.add('home-widget-drop-target');
+  },true);
+  root.addEventListener('pointerup',e=>{
+   const d=touchMove;if(!d||e.pointerId!==d.pointerId)return;
+   touchMove=null;resetTouchTarget();
+   try{d.grip.releasePointerCapture(e.pointerId)}catch{}
+   if(d.active&&d.target&&d.target!==d.source){
+    const from=model.widgets.findIndex(w=>w.id===d.source),to=model.widgets.findIndex(w=>w.id===d.target);
+    if(from>=0&&to>=0){const [entry]=model.widgets.splice(from,1);model.widgets.splice(to,0,entry);selected=d.source;draw();status('Posición cambiada. Guarda el diseño para conservarla.')}
+   }else if(edit){selected=d.source;draw()}
+  },true);
+  root.addEventListener('pointercancel',e=>{if(touchMove?.pointerId===e.pointerId){touchMove=null;resetTouchTarget()}},true);
   // Native drag and drop; select/reorder controls also work with keyboard and touch.
   root.addEventListener('dragstart',e=>{const grip=e.target.closest('[data-home-grip]');if(!edit||!grip)return;activeDrag=grip.dataset.homeGrip;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',activeDrag)},true);
   root.addEventListener('dragover',e=>{if(edit&&activeDrag&&e.target.closest('[data-home-widget]'))e.preventDefault()},true);
