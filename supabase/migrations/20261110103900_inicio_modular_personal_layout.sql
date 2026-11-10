@@ -34,7 +34,7 @@ begin
  -- arbitrary colors, SQL or provider credentials; only this allowlist is accepted.
  if p_layout ? 'settings' and (
   jsonb_typeof(p_layout->'settings')<>'object'
-  or p_layout->'settings' - 'gap' - 'width' - 'density' - 'background'<>'{}'::jsonb
+  or ((p_layout->'settings') - ARRAY['gap','width','density','background']::text[]) <> '{}'::jsonb
   or coalesce((p_layout->'settings'->>'gap') not in ('inherit','8','12','16','20','24'),true)
   or coalesce((p_layout->'settings'->>'width') not in ('fluid','1440','1600','1920'),true)
   or coalesce((p_layout->'settings'->>'density') not in ('inherit','compact','comfortable'),true)
