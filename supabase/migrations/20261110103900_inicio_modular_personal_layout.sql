@@ -29,6 +29,17 @@ begin
  if p_layout is null or jsonb_typeof(p_layout)<>'object' or (p_layout->>'schemaVersion')<>'1'
   or jsonb_typeof(p_layout->'widgets')<>'array' or pg_catalog.octet_length(p_layout::text)>120000
  then raise exception 'Diseño de Inicio incompatible o excesivo';end if;
+
+ -- The optional visual configuration is presentation only and never contains CSS,
+ -- arbitrary colors, SQL or provider credentials; only this allowlist is accepted.
+ if p_layout ? 'settings' and (
+  jsonb_typeof(p_layout->'settings')<>'object'
+  or p_layout->'settings' - 'gap' - 'width' - 'density' - 'background'<>'{}'::jsonb
+  or coalesce((p_layout->'settings'->>'gap') not in ('inherit','8','12','16','20','24'),true)
+  or coalesce((p_layout->'settings'->>'width') not in ('fluid','1440','1600','1920'),true)
+  or coalesce((p_layout->'settings'->>'density') not in ('inherit','compact','comfortable'),true)
+  or coalesce((p_layout->'settings'->>'background') not in ('inherit','soft'),true)
+ ) then raise exception 'Configuración general de Inicio no admitida';end if;
  found_count:=jsonb_array_length(p_layout->'widgets');
  if found_count>120 then raise exception 'Demasiados widgets';end if;
  if exists(
