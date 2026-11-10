@@ -80,7 +80,8 @@ function fallbackContent(w){
  'home.shortcuts':['Accesos rápidos','inicio']
  }[w.type];
  if(!dest)return `<p class="muted">No hay una lectura verificada para este widget.</p>`;
- return `<div class="home-widget-empty"><p>Consulta la información de ${esc(dest[0])} desde su módulo. No se mostrarán cifras inventadas.</p><button class="btn secondary" data-route="${dest[1]}">Abrir ${esc(dest[0])}</button></div>`;
+ const prestashopTab=w.type==='prestashop.quality'?'catalog':w.type==='receptions.pending'?'receipts':null;
+ return `<div class="home-widget-empty"><p>Consulta la información de ${esc(dest[0])} desde su módulo. No se mostrarán cifras inventadas.</p><button class="btn secondary" ${prestashopTab?`data-home-command="open-prestashop-tab" data-tab="${prestashopTab}"`:`data-route="${dest[1]}"`}>Abrir ${esc(dest[0])}</button></div>`;
 }
 function verifiedCurrency(orders,currencies){return orders.length&&orders.every(row=>currencies.get(String(row.id_currency))==='EUR')}
 const cents=value=>sourceCents(typeof value==='number'&&Number.isFinite(value)?value.toFixed(2):value);
@@ -219,6 +220,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='fetch'){fetchFor(find(id),true);return}
   if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
   if(action==='open-orders'){void onOpenOrders({tab:'orders'});return}
+  if(action==='open-prestashop-tab'){const tab=el.dataset.tab;if(['catalog','receipts'].includes(tab))void onOpenOrders({tab});return}
   if(action==='open-order'){const shop=el.dataset.shop,order=el.dataset.order,date=el.dataset.date;if(PRESTA_SHOPS({scope:{store:shop}}).length!==1||!/^\d{1,15}$/.test(order||'')||!/^\d{4}-\d{2}-\d{2}$/.test(date||''))return;void onOpenOrders({tab:'orders',store:shop,order,date});return}
   if(action==='prev-page'||action==='next-page'){const w=find(id);if(!w)return;const current=Number(w.filters.page)||0;model=setHomeWidgetConfig(model,id,{filters:{page:Math.max(0,current+(action==='prev-page'?-1:1))}});draw();return}
   if(action==='scroll-left'||action==='scroll-right'){const viewport=root.querySelector(`[data-home-orders-viewport="${CSS.escape(id)}"]`);viewport?.scrollBy({left:action==='scroll-left'?-300:300,behavior:'smooth'});return}
