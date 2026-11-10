@@ -55,3 +55,10 @@
 @media(max-width:960px){.home-edit-mode .home-widget-shell{grid-template-columns:minmax(0,1fr)}.home-widgets-drawer{position:static;max-height:none}.home-dashboard-toolbar{align-items:flex-start}.home-toolbar-actions{justify-content:flex-end}}
 @media(max-width:600px){.home-widget-grid{grid-template-columns:minmax(0,1fr);gap:12px}.home-widget-frame{grid-column:1/-1}.home-dashboard-toolbar{flex-direction:column;align-items:stretch;padding:12px}.home-toolbar-actions{justify-content:flex-start}.home-widget-header h3{font-size:13px}.home-widget-body{padding:10px}.home-ps-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.home-ps-panels{grid-template-columns:1fr}.home-orders-scroll{max-height:360px}.home-opening-summary{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.home-widget-frame{transition:none}}
+
+/* Resizing remains a deliberate edit-only action. The grid does not overlap cards. */
+.home-edit-mode .home-widget-frame{overflow:visible}
+.home-resize-handle{position:absolute;right:3px;bottom:3px;width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--accent,#2367d1);color:var(--accent,#2367d1);border-radius:7px;background:var(--panel,#fff);font-size:18px;cursor:nwse-resize;touch-action:none;z-index:4;box-shadow:0 2px 6px #152f581f}
+.home-resize-handle:hover,.home-resize-handle:focus-visible{outline:2px solid var(--accent,#2367d1);outline-offset:1px}
+.home-widget-frame[data-resize-preview]::after{content:attr(data-resize-preview);position:absolute;right:6px;bottom:35px;background:var(--panel,#fff);border:1px solid var(--accent,#2367d1);border-radius:6px;padding:3px 7px;z-index:4;font-size:11px;pointer-events:none}
+@media(max-width:600px){.home-resize-handle{right:8px;bottom:8px;width:34px;height:34px}}
