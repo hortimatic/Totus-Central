@@ -100,6 +100,15 @@ try{
  await page.locator('[data-home-config="chartMetric"]').selectOption('sales');
  assert((await page.locator('[data-home-widget="shop-h"] .home-ps-chart figcaption').innerText()).includes('Ventas válidas EUR'),'La gráfica de ventas lee importes EUR validados');
  assert((await page.locator('[data-home-widget="shop-n"] .home-ps-chart figcaption').innerText()).includes('Pedidos válidos'),'La gráfica de la segunda tienda conserva su configuración');
+ const theme=await page.evaluate(()=>{
+  const el=document.querySelector('[data-home-widget="shop-h"] .home-ps-chart'),root=document.documentElement;
+  const before=getComputedStyle(el).borderTopColor,old=root.style.getPropertyValue('--line');
+  root.style.setProperty('--line','#ed7600');const after=getComputedStyle(el).borderTopColor;
+  if(old)root.style.setProperty('--line',old);else root.style.removeProperty('--line');
+  return {before,after};
+ });
+ assert.notEqual(theme.before,theme.after,'Los bordes del gráfico heredan el color activo de Mi interfaz');
+
  await page.locator('[data-home-config="showMetrics"]').selectOption('no');
  assert.equal(await page.locator('[data-home-widget="shop-h"] .home-ps-metrics').count(),0,'Ocultar indicadores modifica el widget de verdad');
  await page.locator('[data-home-config="showMetrics"]').selectOption('yes');
@@ -107,6 +116,8 @@ try{
  assert.equal(await page.locator('[data-home-widget="shop-h"] .home-chart-column').count(),24,'La gráfica de horas presenta 24 franjas');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
  await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await page.locator('[data-home-config="tableDensity"]').selectOption('compact');
+ assert.equal(await orders.locator('tbody td').first().evaluate(el=>getComputedStyle(el).paddingTop),'5px','La densidad elegida modifica realmente las filas');
  await page.locator('[data-home-command="column-up"][data-id="orders"][data-column="products"]').click();
  assert.deepEqual((await orders.locator('thead th').allTextContents()).slice(0,3).map(x=>x.trim()),['Pedido','Productos','Referencia'],'Ordenar columnas cambia la tabla');
  await page.locator('[data-home-column="employee"]').uncheck();
