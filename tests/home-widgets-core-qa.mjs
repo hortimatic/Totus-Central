@@ -19,6 +19,19 @@ test('Los estilos generales se guardan, son personales y no aceptan CSS o secret
  assert.deepEqual(changed,{gap:'inherit',width:'fluid',density:'inherit',background:'inherit'});
  assert(!JSON.stringify(a).includes('privado'));
 });
+test('Cada tienda configura gráfica, ranking y columnas sin contaminar a otra',()=>{
+ const initial=createHomeDashboard([{id:'h',type:'prestashop.summary'},{id:'n',type:'prestashop.summary'},{id:'table',type:'prestashop.orders'}],{gap:'16'});
+ const result=setHomeWidgetConfig(setHomeWidgetConfig(initial,'h',{filters:{chartMode:'days',chartMetric:'sales',showTop:false,topLimit:8}}),'table',{filters:{columns:['order','products','total','date']}});
+ assert.equal(result.widgets.find(w=>w.id==='h').filters.chartMetric,'sales');
+ assert.equal(result.widgets.find(w=>w.id==='n').filters.chartMetric,undefined);
+ assert.equal(result.widgets.find(w=>w.id==='h').filters.showTop,false);
+ assert.deepEqual(result.widgets.find(w=>w.id==='table').filters.columns,['order','products','total','date']);
+ const unknown=setHomeWidgetConfig(result,'h',{filters:{chartMetric:'not-money',chartMode:'unsafe',topLimit:99}});
+ assert.equal(unknown.widgets.find(w=>w.id==='h').filters.chartMetric,'orders');
+ assert.equal(unknown.widgets.find(w=>w.id==='h').filters.topLimit,4);
+ const other=setHomeWidgetConfig(result,'table',{filters:{columns:['order','bad','order','total']}});
+ assert.deepEqual(other.widgets.find(w=>w.id==='table').filters.columns,['order','total']);
+});
 test('Dos tablas sin compartir filtros ni página',()=>{
  const a=createHomeDashboard([{id:'h',type:'prestashop.orders',filters:{query:'A',page:4}}]);
  const b=duplicateHomeWidget(a,'h','n');const c=setHomeWidgetConfig(b,'n',{filters:{page:0,query:'B'}});
