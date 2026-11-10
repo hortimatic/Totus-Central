@@ -7,6 +7,7 @@ import {esc,money,isoToday} from './utils.js';
 import {storeConnection,PRESTASHOP_STORES} from './prestashop-readonly.js';
 import {prestashopReadiness} from './prestashop-ui.js';
 import {sourceCents} from './prestashop-insights.js';
+import {archiveAccepted} from './historical-acceptance.js';
 
 const defaultSpecs=[
  ['cash.openings','opening',12],['home.income','income',3],['home.expenses','expense',3],
@@ -144,6 +145,18 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     return `<section class="home-top-products"><h4>${esc(labelStore(shop))}</h4>${read?.error?`<p role="alert">${esc(read.error)}</p>`:Array.isArray(top)?(top.length?`<ol class="home-ps-top">${top.map(x=>`<li>${esc(x.name)} <b>${esc(String(x.qty))} uds</b></li>`).join('')}</ol>`:'<p>Sin unidades vendidas en los pedidos consultados.</p>'):'<p class="small muted">Sin clasificación completa: consulta los pedidos y sus líneas.</p>'}`}).join('')}<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="${esc(w.id)}">Actualizar vendidos</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>`;
   }
   if(w.type==='home.gain')return `<div class="home-gain-empty"><strong>Sin validar</strong><p>Ganancia comercial: ventas netas de producto menos su coste verificado en la fecha de venta. Los costes actuales de variaciones no acreditan la ganancia histórica.</p><button class="btn secondary" data-route="prestashop">Revisar costes y ventas</button></div>`;
+  if(w.type==='expenses.pending'){
+   const target=safeStore(w.scope.store),selectedStore=state.data.stores.find(x=>String(x.name||'').trim().toLowerCase()===target);
+   const pending=(state.data.expenses||[]).filter(x=>{
+    if(target!=='all'&&x.store_id!==selectedStore?.id)return false;
+    if(archiveAccepted(state.data.settings,x,'expense')||!x.paid_status||x.paid_status==='pagado')return false;
+    try{const source=JSON.parse(x.source_ref||'{}');if(source.kind==='gestoria_book_entry'&&source.requires_payment_reconciliation===true)return false}catch{}
+    return true;
+   });
+   const due=row=>Math.max(0,Number(row.accounting_amount??row.gross_expense??0)-Number(row.withholding_amount||0)-Number(row.amount_paid||0));
+   const total=pending.reduce((sum,x)=>sum+due(x),0);
+   return `<div class="home-pending-expenses"><p><strong>${pending.length} gastos pendientes · ${money(total)}</strong></p><p class="small muted">Solo importes pendientes acreditados en los gastos cargados. No incluye anticipos de gestoría sin conciliar.</p><div class="stack">${pending.slice(0,6).map(x=>`<div class="summary-row"><span><strong>${esc(x.supplier_name||x.description||'Gasto')}</strong><small>${esc(x.expense_date||'Sin fecha')} · ${esc(state.data.stores.find(s=>s.id===x.store_id)?.name||'General')}</small></span><b>${money(due(x))}</b></div>`).join('')||'<p class="small muted">No hay gastos pendientes con esos filtros.</p>'}</div><button class="btn secondary" data-route="gastos">Abrir Gastos</button></div>`;
+  }
   if(w.type==='cash.withdrawals'){
    const closings=(state.data.closings||[]).filter(row=>row.cash_withdrawals!==null&&row.cash_withdrawals!==undefined).sort((a,b)=>String(b.business_date||'').localeCompare(String(a.business_date||''))).slice(0,6);
    return `<p class="small muted">Retiradas anotadas en los cierres. No son otra venta ni un gasto deducible por sí mismas. No se reparten entre cajones sin origen comprobado.</p><div class="stack">${closings.map(row=>{const v=Number(row.cash_withdrawals),label=Number.isFinite(v)&&v>=0?money(v):'Importe no verificado';return `<div class="summary-row"><span>${esc(row.business_date||'Sin fecha')} · ${esc(state.data.stores.find(store=>store.id===row.store_id)?.name||'Tienda')}</span><strong>${esc(label)}</strong></div>`}).join('')||'<p class="small muted">No constan retiradas en los cierres cargados.</p>'}</div><button class="btn secondary" data-route="cajas">Abrir Cajas</button>`;
