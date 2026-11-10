@@ -367,3 +367,12 @@
  .home-products-table td::before{content:attr(data-label);color:var(--muted,#607187);font-size:11px;flex:0 0 90px;font-weight:600}
  .home-products-table td>*{min-width:0}
 }
+
+/* Stitch visual fidelity: quiet surfaces in reading mode; edit tools only in edit mode. */
+.dashboard-page .home-widget-frame{border:1px solid var(--line,#dce5ee);box-shadow:var(--shadow,0 3px 14px rgb(15 23 42 / 5%))}
+.dashboard-page .home-widget-frame:hover{border-color:color-mix(in srgb,var(--accent,#0284c7) 36%,var(--line,#dce5ee))}
+.dashboard-page .home-widget-header{border-bottom:1px solid var(--line,#dce5ee);background:color-mix(in srgb,var(--accent,#0284c7) 3%,var(--panel,#fff))}
+.dashboard-page:not(.home-edit-mode) .home-widget-header :is(.home-widget-more,.home-move-handle){display:none!important}
+.dashboard-page:not(.home-edit-mode) [data-home-command="save"],
+.dashboard-page:not(.home-edit-mode) [data-home-command="reset"]{display:none!important}
+.dashboard-page .home-widget-frame:focus-within{border-color:var(--accent,#0284c7)}
