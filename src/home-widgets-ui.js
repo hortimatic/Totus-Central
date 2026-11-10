@@ -120,7 +120,7 @@ function psOrders(w,data){
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null;
- const ordersData=new Map(),queries=new Map();let activeDrag=null;
+ const ordersData=new Map(),queries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
  const clones=new Map();
@@ -158,7 +158,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{}}){
     // Widget presentation filters never count as unsaved business forms.
     body.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
    }else body.append(content);
-   card.append(heading,body);grid.append(card);
+   card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);
   }
   root.classList.toggle('home-edit-mode',edit);
   const toggle=root.querySelector('[data-home-command="edit"]');if(toggle)toggle.textContent=edit?'Salir de edición':'Personalizar inicio';
@@ -272,6 +272,44 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{}}){
    if(key==='position'){const prev=model.widgets.findIndex(x=>x.id===w.id),next=Number(el.value);if(Number.isSafeInteger(next)&&next>=0&&next<model.widgets.length){model.widgets.splice(prev,1);model.widgets.splice(next,0,w);draw();status('Cambios pendientes de guardar.')}}
   },true);
   let searchTimer;root.addEventListener('input',e=>{if(e.target.matches('[data-home-search]')){const d=root.querySelector('[data-home-drawer]');d.dataset.search=e.target.value;const start=e.target.selectionStart;renderDrawer();const current=root.querySelector('[data-home-search]');current?.focus();current?.setSelectionRange(start,start)}},true);
+  // Pointer resizing updates geometry only at release; the card stays in the grid.
+  // This avoids losing the pointer when its contents are re-rendered.
+  root.addEventListener('pointerdown',e=>{
+   const handle=e.target.closest('[data-home-resize]');if(!edit||!handle)return;
+   const w=find(handle.dataset.homeResize),card=handle.closest('[data-home-widget]');if(!w||!card)return;
+   e.preventDefault();e.stopPropagation();
+   const columns=innerWidth<=600?1:innerWidth<=1400?6:12;
+   const width=Math.max(25,(grid.getBoundingClientRect().width-14*(columns-1))/columns+14);
+   activeResize={id:w.id,pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,w:w.layout.desktop.w,h:w.layout.desktop.h,width,card,handle};
+   handle.setPointerCapture?.(e.pointerId);
+  },true);
+  root.addEventListener('pointermove',e=>{
+   const p=activeResize;if(!p||e.pointerId!==p.pointerId||!edit)return;
+   e.preventDefault();const w=find(p.id);if(!w)return;
+   const def=HOME_WIDGET_CATALOG[w.type];
+   const resizedW=Math.max(def.minWidth,Math.min(def.maxWidth,p.w+Math.round((e.clientX-p.startX)/p.width)));
+   const resizedH=Math.max(def.minHeight,Math.min(def.maxHeight,p.h+Math.round((e.clientY-p.startY)/40)));
+   p.card.style.setProperty('--span',resizedW);p.card.style.setProperty('--height',resizedH);
+   p.card.dataset.resizePreview=resizedW+' columnas · '+resizedH+' unidades';
+  },true);
+  root.addEventListener('pointerup',e=>{
+   const p=activeResize;if(!p||p.pointerId!==e.pointerId)return;
+   activeResize=null;try{p.handle.releasePointerCapture?.(e.pointerId)}catch{}
+   const w=find(p.id);if(!w||!edit)return;
+   const def=HOME_WIDGET_CATALOG[w.type];
+   const resizedW=Math.max(def.minWidth,Math.min(def.maxWidth,p.w+Math.round((e.clientX-p.startX)/p.width)));
+   const resizedH=Math.max(def.minHeight,Math.min(def.maxHeight,p.h+Math.round((e.clientY-p.startY)/40)));
+   if(resizedW!==p.w||resizedH!==p.h)mutate(m=>setHomeWidgetConfig(m,p.id,{layout:{desktop:{w:resizedW,h:resizedH}}}));
+   else{p.card.style.setProperty('--span',p.w);p.card.style.setProperty('--height',p.h);delete p.card.dataset.resizePreview;}
+  },true);
+  root.addEventListener('pointercancel',e=>{const p=activeResize;if(!p||p.pointerId!==e.pointerId)return;activeResize=null;p.card.style.setProperty('--span',p.w);p.card.style.setProperty('--height',p.h);delete p.card.dataset.resizePreview},true);
+  root.addEventListener('keydown',e=>{
+   const handle=e.target.closest('[data-home-resize]');if(!handle||!edit||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+   const w=find(handle.dataset.homeResize);if(!w)return;e.preventDefault();
+   const horizontal=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0;
+   const vertical=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0;
+   mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{w:w.layout.desktop.w+horizontal,h:w.layout.desktop.h+vertical}}}));
+  },true);
   // Native drag and drop; select/reorder controls also work with keyboard and touch.
   root.addEventListener('dragstart',e=>{const grip=e.target.closest('[data-home-grip]');if(!edit||!grip)return;activeDrag=grip.dataset.homeGrip;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',activeDrag)},true);
   root.addEventListener('dragover',e=>{if(edit&&activeDrag&&e.target.closest('[data-home-widget]'))e.preventDefault()},true);
