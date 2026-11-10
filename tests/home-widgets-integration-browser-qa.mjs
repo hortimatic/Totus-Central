@@ -39,6 +39,10 @@ try{
  }
  await page.setViewportSize({width:1440,height:960});
  await page.locator('[data-home-command="edit"]').click();
+ await page.locator('[data-home-category]').selectOption('PrestaShop');
+ assert.equal(await page.locator('[data-home-command="add"][data-type="expenses.pending"]').count(),0,'La biblioteca filtra tipos de otros módulos');
+ assert(await page.locator('[data-home-command="add"][data-type="prestashop.orders"]').count()>0,'La biblioteca muestra widgets de PrestaShop');
+ await page.locator('[data-home-category]').selectOption('all');
  await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
  await page.locator('[data-home-config="width"]').selectOption('8');
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
