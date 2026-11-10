@@ -39,6 +39,15 @@ try{
  }
  await page.setViewportSize({width:1440,height:960});
  await page.locator('[data-home-command="edit"]').click();
+ await page.locator('[data-home-general="gap"]').selectOption('20');
+ await page.locator('[data-home-general="width"]').selectOption('1600');
+ await page.locator('[data-home-general="density"]').selectOption('compact');
+ await page.locator('[data-home-general="background"]').selectOption('soft');
+ assert.equal(await page.locator('.home-widget-grid').evaluate(el=>getComputedStyle(el).gap),'20px','Separación general aplicada a las tarjetas');
+ assert.equal(await page.locator('.home-widget-grid').evaluate(el=>el.style.maxWidth),'1600px','Máximo ancho aplicado al tablero');
+ assert.equal(await page.locator('.dashboard-page').getAttribute('data-home-canvas-background'),'soft','Fondo suave aplicado');
+ assert.equal(await page.locator('[data-home-widget="income"] .home-widget-body').evaluate(el=>getComputedStyle(el).paddingTop),'9px','Densidad compacta aplicada a las tarjetas sin cambiar Mi interfaz');
+
  assert(await page.locator('[data-home-command="add"][data-type="pricing.quick"]').isDisabled(),'No se añade otro formulario de precio con IDs repetidos');
  await page.locator('[data-home-command="select"][data-id="activity"]').click();
  assert(await page.locator('[data-home-command="duplicate"][data-id="activity"]').isDisabled(),'La gráfica con filtros vivos no se clona como formulario inerte');
@@ -87,10 +96,12 @@ try{
  assert.equal(await fiscalWidget.locator('[data-home-command="open-expense"][data-expense="qa-fiscal-review"]').count(),1,'Se puede abrir la ficha fiscal concreta');
  await page.locator('[data-home-command="save"]').click();
  await page.waitForFunction(()=>window.__homePrefs?.revision===1);
+ assert.deepEqual(await page.evaluate(()=>window.__homePrefs.layout.settings),{gap:'20',width:'1600',density:'compact',background:'soft'},'Las preferencias generales quedan guardadas en cuenta');
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3);
  await page.locator('#nav [data-route="cajas"]').click();
  await page.locator('#nav [data-route="inicio"]').click();
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===3,undefined,{timeout:15000});
+ assert.equal(await page.locator('.home-widget-grid').evaluate(el=>getComputedStyle(el).gap),'20px','El tablero conserva la separación tras salir y regresar a Inicio');
  await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"][data-expense="qa-fiscal-review"]').click();
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.route==='gastos'&&state.views.gastos?.id==='qa-fiscal-review'},undefined,{timeout:18000});
 
