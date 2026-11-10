@@ -130,6 +130,27 @@ function psSummary(w,data){
  const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li>'+esc(p.name)+' <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
  return '<div class="home-ps-content">'+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
+function prestashopProductsTable(w,data){
+ const shop=safeStore(w.scope.store),shops=shop==='all'?PRESTASHOP_STORES.map(s=>s.key):[shop];
+ const limit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
+ const chart=w.filters.productView==='bars';
+ const sections=shops.map(key=>{
+  const r=data?.[key];
+  if(!r)return '<section class="home-top-products"><h4>'+esc(labelStore(key))+'</h4><p class="small muted">Sin consulta disponible. Actualiza el widget.</p></section>';
+  if(r.error)return '<section class="home-top-products"><h4>'+esc(labelStore(key))+'</h4><p role="alert">'+esc(r.error)+'</p></section>';
+  if(!Array.isArray(r.top)||!Number.isSafeInteger(r.totalUnits))return '<section class="home-top-products"><h4>'+esc(labelStore(key))+'</h4><p class="small muted">No se ha validado la cobertura de todas las líneas vendidas. No hay ranking completo.</p></section>';
+  const rows=r.top.slice(0,limit),units=r.totalUnits,max=Math.max(1,...rows.map(item=>item.qty)),values=rows.map((item,index)=>{
+   const share=units>0?Math.round(item.qty/units*1000)/10:null;
+   const product=esc(item.name),variant=String(item.attributeId)==='0'?'Sin combinación':'Combinación #'+String(item.attributeId);
+   if(chart)return '<li><div class="home-product-row"><b>#'+(index+1)+'</b><span>'+product+' <small>'+esc(variant)+'</small></span><strong>'+esc(String(item.qty))+' uds</strong></div><progress value="'+item.qty+'" max="'+max+'" aria-label="'+product+', '+item.qty+' unidades"></progress></li>';
+   return '<tr><td>'+(index+1)+'</td><td class="home-product-title">'+product+'</td><td>'+esc(variant)+'</td><td>'+esc(item.reference||'No informada')+'</td><td class="number">'+esc(String(item.qty))+'</td><td class="home-product-share">'+(share===null?'—':share.toLocaleString('es-ES')+' %')+(share===null?'':'<progress value="'+item.qty+'" max="'+units+'" aria-label="Porcentaje de unidades totales vendidas"></progress>')+'</td></tr>';
+  }).join('');
+  const body=chart?'<ol class="home-products-bars">'+values+'</ol>':
+   '<div class="home-products-table-scroll" role="region" aria-label="Productos vendidos y variantes; desplazamiento horizontal" tabindex="0"><table class="data-table home-products-table"><thead><tr><th>#</th><th>Producto</th><th>Variante</th><th>Referencia</th><th>Unidades</th><th>% unidades</th></tr></thead><tbody>'+values+'</tbody></table></div>';
+  return '<section class="home-top-products"><header><h4>'+esc(labelStore(key))+'</h4><span class="small muted">'+esc(String(units))+' uds verificadas · '+esc(r.from)+' → '+esc(r.to)+'</span></header>'+(rows.length?body:'<p class="small muted">No hay unidades válidas vendidas en este periodo.</p>')+'</section>';
+ }).join('');
+ return '<div class="home-products-widget">'+sections+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar productos vendidos</button><button type="button" class="btn secondary" data-home-command="open-orders" data-id="'+esc(w.id)+'">Abrir pedidos originales</button></div></div>';
+}
 function psOrders(w,data){
  const store=safeStore(w.scope.store);const shops=store==='all'?PRESTASHOP_STORES.map(s=>s.key):[store];
  const responses=shops.map(s=>data?.[s]).filter(Boolean);const errors=responses.map(r=>r.error).filter(Boolean);
@@ -199,12 +220,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const freshWidget=(w)=>{
   if(w.type==='prestashop.summary')return psSummary(w,dataFor(w));
   if(w.type==='prestashop.orders')return psOrders(w,dataFor(w));
-  if(w.type==='prestashop.top'){
-   const data=dataFor(w),shops=PRESTA_SHOPS(w);
-   return `<div class="home-ps-content">${shops.map(shop=>{
-    const read=data[shop],top=read?.top;
-    return `<section class="home-top-products"><h4>${esc(labelStore(shop))}</h4>${read?.error?`<p role="alert">${esc(read.error)}</p>`:Array.isArray(top)?(top.length?`<ol class="home-ps-top">${top.map(x=>`<li>${esc(x.name)} <b>${esc(String(x.qty))} uds</b></li>`).join('')}</ol>`:'<p>Sin unidades vendidas en los pedidos consultados.</p>'):'<p class="small muted">Sin clasificación completa: consulta los pedidos y sus líneas.</p>'}`}).join('')}<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="${esc(w.id)}">Actualizar vendidos</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>`;
-  }
+  if(w.type==='prestashop.top')return prestashopProductsTable(w,dataFor(w));
   if(w.type==='home.gain')return `<div class="home-gain-empty"><strong>Sin validar</strong><p>Ganancia comercial: ventas netas de producto menos su coste verificado en la fecha de venta. Los costes actuales de variaciones no acreditan la ganancia histórica.</p><button class="btn secondary" data-route="prestashop">Revisar costes y ventas</button></div>`;
   if(w.type==='expenses.pending'){
    // Fiscal-review queue: not the unpaid-invoice balance. The original Inicio
