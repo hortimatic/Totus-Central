@@ -1,6 +1,6 @@
 /* Totus Central — Inicio modular. Enhances existing home DOM, preserving forms,
  * accounting functions and delegated data-action/data-route handlers. */
-import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget,homeCanvasSettings} from './home-widgets-core.js';
+import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget,homeCanvasSettings,HOME_ORDER_COLUMNS} from './home-widgets-core.js';
 import {nextOpeningSummary} from './home-openings-view.js';
 import {state,getFilters} from './state.js';
 import {esc,money,isoToday} from './utils.js';
@@ -150,6 +150,26 @@ function psOrders(w,data){
  <div class="home-orders-scroll" role="region" aria-label="Tabla de pedidos de PrestaShop; desplazamiento horizontal y vertical" tabindex="0" data-home-orders-viewport="${esc(w.id)}"><table class="data-table home-orders-table"><thead><tr><th>Pedido</th><th>Referencia</th><th>Productos</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Estado</th><th>Fecha y hora</th><th>Atendido por</th><th>Margen €</th></tr></thead><tbody>${visible.map(row=>`<tr><td><button type="button" class="home-order-link" data-home-command="open-order" data-shop="${esc(row._shop)}" data-order="${esc(String(row.id))}" data-date="${esc(String(row.date_add||'').slice(0,10))}">#${esc(row.id)}</button></td><td>${esc(row.reference||'—')}<small class="home-order-shop">${esc(labelStore(row._shop))}</small></td><td class="home-orders-products">${Array.isArray(row._products)&&row._products.length?row._products.slice(0,2).map(item=>`<span class="home-order-product-line" title="${esc(item.name)}">${esc(item.name)} · ${esc(String(item.qty))} uds</span>`).join('')+(row._products.length>2?`<small>+${row._products.length-2} líneas más</small>`:''):'<span class="small muted">Ver pedido para consultar productos</span>'}</td><td>${/^\d{1,15}$/.test(String(row.id_customer||''))&&Number(row.id_customer)>0?`ID cliente #${esc(String(row.id_customer))}`:'No informado'}</td><td>${row._currency==='EUR'&&cents(row.total_paid_tax_incl)!==null?money(cents(row.total_paid_tax_incl)/100):'Moneda sin verificar'}</td><td>${esc(row.payment||'—')}</td><td>${String(row.valid)==='1'?'Válido':'No válido'}</td><td>${esc(row.date_add||'')}</td><td>No informado por la tienda</td><td>Sin validar</td></tr>`).join('')||'<tr><td colspan="10">No hay pedidos para estos filtros.</td></tr>'}</tbody></table></div>
  <div class="home-order-footer"><div class="home-order-scroll-actions"><button type="button" aria-label="Mover columnas a la izquierda" data-home-command="scroll-left" data-id="${esc(w.id)}">◀</button><button type="button" aria-label="Mover columnas a la derecha" data-home-command="scroll-right" data-id="${esc(w.id)}">▶</button></div><label>Filas <select data-home-filter="pageSize" data-id="${esc(w.id)}">${[10,15,20].map(n=>`<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label><label>Página <input class="home-page-select" type="number" min="1" max="${pages}" step="1" inputmode="numeric" aria-label="Ir a página de pedidos" data-home-filter="page" data-id="${esc(w.id)}" value="${page+1}"></label><span>de ${pages}${partial?' · parcial':''}</span><button type="button" data-home-command="prev-page" data-id="${esc(w.id)}" ${page===0?'disabled':''}>‹</button><button type="button" data-home-command="next-page" data-id="${esc(w.id)}" ${page>=pages-1?'disabled':''}>›</button><button class="btn secondary" data-home-command="open-orders" data-id="${esc(w.id)}">Abrir pedidos</button></div>`;
 }
+const orderColumnLabels={order:'Pedido',reference:'Referencia',products:'Productos',customer:'Cliente',total:'Total',payment:'Pago',status:'Estado',date:'Fecha y hora',employee:'Atendido por',margin:'Margen €'};
+function selectedOrderColumns(w){const v=w.filters.columns;return Array.isArray(v)&&v.length>=2&&v.includes('order')?v:HOME_ORDER_COLUMNS.slice()}
+function columnsInspector(w){
+ const selected=selectedOrderColumns(w),all=[...selected,...HOME_ORDER_COLUMNS.filter(key=>!selected.includes(key))];
+ return '<fieldset class="home-columns-inspector"><legend>Columnas de la tabla de pedidos</legend><p class="small muted">El pedido siempre queda visible para abrir su ficha. Puedes mostrar, ocultar y reordenar las demás columnas.</p>'+all.map(key=>{
+  const active=selected.includes(key),position=selected.indexOf(key);
+  return '<div class="home-column-item"><label><input type="checkbox" data-home-column="'+esc(key)+'" data-id="'+esc(w.id)+'" '+(active?'checked':'')+' '+(key==='order'?'disabled':'')+'><span>'+esc(orderColumnLabels[key])+'</span></label><button type="button" data-home-command="column-up" data-id="'+esc(w.id)+'" data-column="'+esc(key)+'" '+(!active||position<=1?'disabled':'')+' aria-label="Subir '+esc(orderColumnLabels[key])+'">↑</button><button type="button" data-home-command="column-down" data-id="'+esc(w.id)+'" data-column="'+esc(key)+'" '+(!active||position===selected.length-1||key==='order'?'disabled':'')+' aria-label="Bajar '+esc(orderColumnLabels[key])+'">↓</button></div>';
+ }).join('')+'</fieldset>';
+}
+function configureOrderColumns(host,w){
+ const visible=selectedOrderColumns(w),table=host.querySelector('.home-orders-table');
+ if(!table)return;
+ for(const row of table.querySelectorAll('tr')){
+  const cells=[...row.children];
+  if(cells.length===1&&cells[0].hasAttribute('colspan')){cells[0].colSpan=visible.length;continue}
+  if(cells.length!==HOME_ORDER_COLUMNS.length)continue;
+  visible.forEach(key=>row.append(cells[HOME_ORDER_COLUMNS.indexOf(key)]));
+  HOME_ORDER_COLUMNS.filter(key=>!visible.includes(key)).forEach(key=>cells[HOME_ORDER_COLUMNS.indexOf(key)].remove());
+ }
+}
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map();let activeDrag=null,activeResize=null;
@@ -212,6 +232,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const body=document.createElement('div');body.className='home-widget-body';const content=freshWidget(w);
    if(typeof content==='string'){
     body.innerHTML=content;
+    if(w.type==='prestashop.orders')configureOrderColumns(body,w);
     // Widget presentation filters never count as unsaved business forms.
     body.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
    }else body.append(content);
