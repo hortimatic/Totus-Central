@@ -102,6 +102,26 @@ try{
  await page.locator('[data-home-command="save"]').click();
  await page.waitForFunction(()=>window.__homeSaved?.revision===1);
  await page.getByText('Tu Inicio se ha guardado y verificado en tu cuenta.',{exact:true}).waitFor();
+ await page.locator('[data-home-command="edit"]').click();
+ await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await page.locator('[data-home-command="duplicate"][data-id="orders"]').click();
+ const duplicated=page.locator('[data-home-type="prestashop.orders"]');
+ assert.equal(await duplicated.count(),2,'Duplicación real de la tabla de pedidos');
+ const other=duplicated.last(),otherId=await other.getAttribute('data-home-widget');
+ assert(otherId&&otherId!=='orders','La tabla duplicada conserva identificador propio');
+ await page.locator('[data-home-config="store"]').selectOption('newoldsmok');
+ await page.waitForFunction(id=>[...document.querySelectorAll('[data-home-widget="'+id+'"] [data-home-command="open-order"]')].some(x=>x.dataset.order.startsWith('8')),otherId);
+ await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await page.locator('[data-home-config="store"]').selectOption('hortimatic');
+ await page.waitForFunction(()=>[...document.querySelectorAll('[data-home-widget="orders"] [data-home-command="open-order"]')].some(x=>x.dataset.order.startsWith('7')));
+ await other.locator('[data-home-filter="query"]').fill('QA-R18');
+ await other.locator('[data-home-filter="query"]').press('Tab');
+ assert.equal(await other.locator('[data-home-command="open-order"]').count(),1,'El filtro de la copia se aplica a NewOldSmok');
+ assert.equal(await orders.locator('[data-home-command="open-order"]').count(),10,'El otro widget mantiene sus diez pedidos y sus filtros');
+ await page.locator('[data-home-command="save"]').click();
+ await page.waitForFunction(()=>window.__homeSaved?.revision===2);
+ assert.equal(await duplicated.count(),2,'Persisten ambas instancias de pedidos');
+
  await page.setViewportSize({width:1440,height:960});
  await orders.locator('[data-home-command="open-orders"]').click();
  await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
