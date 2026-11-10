@@ -209,7 +209,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    remoteReady=true;if(saved?.layout?.schemaVersion===1){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
   }catch(error){if(live())status('Disposición local predeterminada. Guardado entre dispositivos no disponible hasta instalar la migración.',true)}
  }
- async function save(){if(!edit||busy||!live())return;
+ async function save(){if(busy||!live()||!model||JSON.stringify(model.widgets)===JSON.stringify(original.widgets))return;
   if(!remoteReady){status('No se puede guardar: falta el servicio de preferencias del Inicio.',true);return}
   const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,widgets:structuredClone(model.widgets)};
   busy=true;
@@ -378,5 +378,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);
  }
- return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();connections=null;model=null;owner=null},hasUnsaved:()=>edit&&JSON.stringify(model?.widgets)!==JSON.stringify(original?.widgets)};
+ return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();connections=null;model=null;owner=null},hasUnsaved:()=>!!model&&JSON.stringify(model?.widgets)!==JSON.stringify(original?.widgets)};
 }
