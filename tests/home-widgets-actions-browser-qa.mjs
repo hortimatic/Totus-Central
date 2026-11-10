@@ -193,7 +193,7 @@ try{
  await page.waitForFunction(()=>[...document.querySelectorAll('[data-home-widget="orders"] [data-home-command="open-order"]')].some(x=>x.dataset.order.startsWith('7')));
  await other.locator('[data-home-filter="query"]').fill('QA-R18');
  await other.locator('[data-home-filter="query"]').press('Tab');
- assert.equal(await other.locator('[data-home-command="open-order"]').count(),1,'El filtro de la copia se aplica a NewOldSmok');
+ assert.equal(await other.locator('.home-orders-table [data-home-command="open-order"]').count(),1,'El filtro de la copia se aplica a NewOldSmok');
  assert.equal(await orders.locator('.home-orders-table [data-home-command="open-order"]').count(),10,'El otro widget mantiene sus diez pedidos y sus filtros');
  await page.locator('[data-home-command="save"]').click();
  await page.waitForFunction(()=>window.__homeSaved?.revision===2);
@@ -204,7 +204,7 @@ try{
  await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
  assert.equal(new URL(page.url()).searchParams.get('module'),'prestashop','Abrir pedidos navega al módulo correcto');
  await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
- const item=page.locator('[data-home-widget="orders"] [data-home-command="open-order"]').first();
+ const item=page.locator('[data-home-widget="orders"] [data-home-command="open-order"]:visible').first();
  await item.waitFor({timeout:20000});
  const id=await item.getAttribute('data-order'),store=await item.getAttribute('data-shop');
  await item.click();
