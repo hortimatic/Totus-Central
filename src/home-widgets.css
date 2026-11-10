@@ -133,3 +133,40 @@
 .home-widget-grid{width:100%;box-sizing:border-box}
 .home-widget-frame{box-sizing:border-box}
 @media (max-width:600px){.dashboard-page[data-home-canvas-background="soft"] .home-widget-grid{padding:7px}}
+
+/* PrestaShop dashboard charts: clear 24-hour or 14-day data views.
+   All colors derive from the current Mi interfaz tokens, including dark themes. */
+.home-ps-panels{align-items:stretch}
+.home-ps-chart{min-width:0;max-width:100%;margin:0;padding:11px 12px 9px;border:1px solid var(--line,#dbe4ef);border-radius:calc(var(--r,10px) * .65);background:color-mix(in srgb,var(--accent,#2367d1) 2%,var(--panel,#fff))}
+.home-ps-chart figcaption{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;font-weight:650;color:var(--ink,#17253b)}
+.home-ps-chart figcaption strong{color:var(--accent,#2367d1);font-size:15px;font-variant-numeric:tabular-nums}
+.home-chart-plot{max-width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.home-chart-columns{min-width:355px;display:flex;align-items:stretch;height:146px;gap:3px}
+.home-chart-column{display:flex;flex:1;min-width:8px;align-items:center;flex-direction:column;position:relative;justify-content:flex-end}
+.home-chart-column .home-chart-number{display:none}
+.home-chart-column .home-chart-track{flex:1;width:100%;position:relative;border-bottom:1px solid var(--line,#dbe4ef);background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),color-mix(in srgb,var(--accent,#2367d1) 10%,transparent) calc(25% - 1px),color-mix(in srgb,var(--accent,#2367d1) 10%,transparent) 25%);min-height:0}
+.home-chart-column .home-chart-bar{position:absolute;bottom:0;left:10%;right:10%;width:80%;display:block;background:linear-gradient(to top,var(--accent,#2367d1),color-mix(in srgb,var(--accent,#2367d1) 55%,var(--panel,#fff)));border-radius:3px 3px 0 0;transition:filter .15s ease,opacity .15s ease;min-height:0}
+.home-chart-column .home-chart-bar:hover{filter:brightness(1.15);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#2367d1) 30%,transparent)}
+.home-chart-column small{font-size:9px;color:var(--muted,#64748b);margin-top:5px;height:13px;font-variant-numeric:tabular-nums}
+.home-chart-unverified{padding:12px;color:var(--muted,#64748b);border:1px dashed var(--line,#dbe4ef);border-radius:7px;font-size:12px}
+.home-ps-products{min-width:0;max-width:100%;padding:11px 12px;background:color-mix(in srgb,var(--accent,#2367d1) 2%,var(--panel,#fff));border:1px solid var(--line,#dbe4ef);border-radius:calc(var(--r,10px) * .65)}
+.home-ps-products h4{margin-top:0}
+.home-ps-top{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+.home-ps-top li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line,#dbe4ef);font-size:11px;line-height:1.35}
+.home-ps-top li:last-child{border-bottom:0}
+.home-ps-top li b{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--accent,#2367d1)}
+.home-ps-metric{background:color-mix(in srgb,var(--accent,#2367d1) 2%,var(--panel,#fff))}
+.home-columns-inspector,.home-ps-inspector{border:1px solid var(--line,#dbe4ef);border-radius:8px;padding:10px 8px;margin:12px 0;min-width:0}
+.home-columns-inspector legend,.home-ps-inspector legend{font-weight:700;color:var(--ink,#17253b);font-size:12px;padding:0 6px}
+.home-column-item{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line,#dbe4ef);padding:5px 0}
+.home-column-item:last-child{border-bottom:0}
+.home-column-item label{display:flex;align-items:center;flex:1;min-width:0;gap:6px;margin:0;font-weight:400}
+.home-column-item label span{min-width:0;font-size:11px}
+.home-column-item input[type="checkbox"]{min-height:16px;width:16px;flex:none;accent-color:var(--accent,#2367d1)}
+.home-column-item button{min-width:29px;min-height:29px;padding:2px;border:1px solid var(--line,#dbe4ef);background:var(--panel,#fff);color:var(--accent,#2367d1);border-radius:6px}
+.home-column-item button:disabled{opacity:.35;cursor:not-allowed}
+.home-orders-table th:first-child{position:sticky;left:0;z-index:3;background:var(--panel,#fff)}
+.home-orders-table td:first-child{position:sticky;left:0;z-index:1;background:var(--panel,#fff)}
+.home-orders-table tbody tr:hover td{background:color-mix(in srgb,var(--accent,#2367d1) 5%,var(--panel,#fff))}
+@media(max-width:540px){.home-ps-panels{grid-template-columns:minmax(0,1fr)}.home-chart-columns{min-width:330px}.home-ps-chart{padding:10px}}
+@media(prefers-reduced-motion:reduce){.home-chart-column .home-chart-bar{transition:none}}
