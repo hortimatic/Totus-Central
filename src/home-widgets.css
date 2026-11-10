@@ -22,7 +22,7 @@
 .home-move-handle:disabled{display:none}
 .home-edit-mode .home-move-handle{cursor:grab;color:var(--accent,#2367d1)}
 .home-widget-more:hover,.home-move-handle:hover{background:color-mix(in srgb,var(--accent,#2367d1) 8%,var(--panel,#fff));border-color:var(--line,#e2e8f0)}
-.home-widget-body{flex:1;min-width:0;overflow:hidden;padding:12px}
+.home-widget-body{flex:1;min-width:0;overflow:hidden;padding:var(--home-card-padding,var(--appearance-card-pad,12px))}
 .home-widget-body{container-type:inline-size}
 .home-widget-body>:is(.card,.kpi,.opening-panel,.home-activity,.dashboard-store-grid){border:0;box-shadow:none;border-radius:0;margin:0}
 .home-widget-body>:is(.card,.opening-panel,.home-activity){padding:4px}
@@ -56,7 +56,7 @@
 .home-widget-body :is(button,a,select,input):focus-visible,.home-widgets-drawer :is(button,select,input):focus-visible{outline:3px solid var(--accent,#2367d1);outline-offset:2px}
 @media(max-width:1400px){.home-widget-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.home-widget-frame{grid-column:span min(6,var(--span,6))}.home-edit-mode .home-widget-shell{grid-template-columns:minmax(0,1fr) minmax(235px,290px)}.home-edit-mode .home-widget-grid{background-size:calc(100%/6) 100%}}
 @media(max-width:960px){.home-edit-mode .home-widget-shell{grid-template-columns:minmax(0,1fr)}.home-widgets-drawer{position:static;max-height:none}.home-dashboard-toolbar{align-items:flex-start}.home-toolbar-actions{justify-content:flex-end}}
-@media(max-width:600px){.home-widget-grid{grid-template-columns:minmax(0,1fr);gap:12px}.home-widget-frame{grid-column:1/-1}.home-dashboard-toolbar{flex-direction:column;align-items:stretch;padding:12px}.home-toolbar-actions{justify-content:flex-start}.home-widget-header h3{font-size:13px}.home-widget-body{padding:10px}.home-ps-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.home-ps-panels{grid-template-columns:1fr}.home-orders-scroll{max-height:360px}.home-opening-summary{align-items:flex-start;flex-direction:column}}
+@media(max-width:600px){.home-widget-grid{grid-template-columns:minmax(0,1fr);gap:12px}.home-widget-frame{grid-column:1/-1}.home-dashboard-toolbar{flex-direction:column;align-items:stretch;padding:12px}.home-toolbar-actions{justify-content:flex-start}.home-widget-header h3{font-size:13px}.home-widget-body{padding:var(--home-card-padding,10px)}.home-ps-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.home-ps-panels{grid-template-columns:1fr}.home-orders-scroll{max-height:360px}.home-opening-summary{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.home-widget-frame{transition:none}}
 
 /* Resizing remains a deliberate edit-only action. The grid does not overlap cards. */
@@ -121,3 +121,15 @@
 
 /* Explicit page picker complements next/previous arrows and stays usable in small widgets. */
 .home-order-footer .home-page-select{width:56px;text-align:center;min-width:45px;max-width:70px}
+
+/* Personal dashboard settings; colors/borders always inherit the active Mi interfaz preset. */
+.home-board-settings{border:1px solid var(--line,#dfe6ef);border-radius:var(--r,10px);padding:10px 12px;margin:14px 0 12px;background:color-mix(in srgb,var(--accent,#2367d1) 3%,var(--panel,#fff))}
+.home-board-settings summary{cursor:pointer;font-weight:700;font-size:12px;color:var(--ink,#132236);padding:2px 0;list-style-position:inside}
+.home-board-settings[open] summary{padding-bottom:7px;border-bottom:1px solid var(--line,#dfe6ef)}
+.home-board-settings-fields{padding-top:4px;display:grid;grid-template-columns:minmax(0,1fr);gap:1px}
+.home-board-settings label{font-weight:600}
+.home-board-settings select{font-weight:400}
+.dashboard-page[data-home-canvas-background="soft"] .home-widget-grid{padding:12px;border-radius:var(--r,10px);background:color-mix(in srgb,var(--accent,#2367d1) 3%,var(--bg,#f6f8fc));border:1px solid var(--line,#dfe6ef)}
+.home-widget-grid{width:100%;box-sizing:border-box}
+.home-widget-frame{box-sizing:border-box}
+@media (max-width:600px){.dashboard-page[data-home-canvas-background="soft"] .home-widget-grid{padding:7px}}
