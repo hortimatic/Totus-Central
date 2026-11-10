@@ -12,7 +12,7 @@ begin
  if uid is null or not exists(
   select 1 from public.profiles p
   join public.team_members t on lower(t.email)=lower(p.email)
-  where p.id=uid and t.active=true and lower(p.email)=lower(auth.jwt()->>'email')
+  where p.id=uid and p.active=true and t.active=true and lower(p.email)=lower(auth.jwt()->>'email')
  ) then raise exception 'Acceso denegado' using errcode='42501';end if;
  if p_action not in ('read','save') then raise exception 'Operación de Inicio no admitida'; end if;
  -- Lock only the caller's own profile for atomic compare-and-swap.
@@ -43,10 +43,12 @@ begin
     'fiscal.forecast','reports.shortcut','tasks.today','system.status','receptions.pending',
     'products.pending','chat.alerts'
    )
-   or jsonb_typeof(item->'scope')<>'object'
-   or item->'scope'->>'store' not in ('all','hortimatic','newoldsmok')
-   or jsonb_typeof(item->'layout')<>'object'
-   or jsonb_typeof(item->'layout'->'desktop')<>'object'
+   or coalesce(jsonb_typeof(item->'scope')<>'object',true)
+   or coalesce(item->'scope'->>'store' not in ('all','hortimatic','newoldsmok'),true)
+   or coalesce(jsonb_typeof(item->'hidden')<>'boolean',true)
+   or coalesce(jsonb_typeof(item->'filters')<>'object',true)
+   or coalesce(jsonb_typeof(item->'layout')<>'object',true)
+   or coalesce(jsonb_typeof(item->'layout'->'desktop')<>'object',true)
    or coalesce((item->'layout'->'desktop'->>'w') ~ '^([1-9]|1[0-2])$',false)=false
    or coalesce((item->'layout'->'desktop'->>'h') ~ '^([1-9]|1[0-2])$',false)=false
  ) then raise exception 'Datos de widget no admitidos';end if;
