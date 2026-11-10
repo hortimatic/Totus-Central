@@ -368,26 +368,26 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     if(!live()||token!==requestToken||owner!==owned)return;
     // The top product list is calculated only when every requested order and its
     // detail lines have been read. A partial result is never advertised as Top.
-    let top=null,detailsByOrder=null;
+    let top=null,detailsByOrder=null,totalUnits=null;
     if(!possiblyMore&&rows.length<=200){
      try{
       const ids=rows.filter(o=>String(o.valid)==='1').map(o=>String(o.id));
-      const ranking=new Map(),details=new Map(),lineIds=new Set(),coveredOrders=new Set();let complete=true;
+      const ranking=new Map(),details=new Map(),lineIds=new Set(),coveredOrders=new Set();let complete=true,totalSoldUnits=0;
       for(let index=0;index<ids.length;index+=25){
        const batch=ids.slice(index,index+25);let detailPage=0,more=false;
        do{
         const detail=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'order_details',page:detailPage,page_size:100,order_ids:batch});
         if(!live()||token!==requestToken||owner!==owned)return;
         if(!detail?.ok||detail.store!==shop||detail.resource!=='order_details'||!Array.isArray(detail.rows)||detail.rows.some(l=>!batch.includes(String(l.id_order))))throw Error('Líneas de un pedido ajeno');
-        for(const line of detail.rows){const id=String(line.product_id||''),lid=String(line.id||''),qty=Number(line.product_quantity),attribute=String(line.product_attribute_id??'0');if(!/^\d{1,15}$/.test(id)||!/^\d{1,15}$/.test(lid)||!/^\d{1,15}$/.test(attribute)||lineIds.has(lid)||!Number.isSafeInteger(qty)||qty<=0){complete=false;break}lineIds.add(lid);const orderId=String(line.id_order),name=String(line.product_name||'Producto #'+id),group=id+':'+attribute;coveredOrders.add(orderId);const prev=ranking.get(group)||{name,qty:0};prev.qty+=qty;ranking.set(group,prev);if(!details.has(orderId))details.set(orderId,[]);details.get(orderId).push({name,qty})}
+        for(const line of detail.rows){const id=String(line.product_id||''),lid=String(line.id||''),qty=Number(line.product_quantity),attribute=String(line.product_attribute_id??'0');if(!/^\d{1,15}$/.test(id)||!/^\d{1,15}$/.test(lid)||!/^\d{1,15}$/.test(attribute)||lineIds.has(lid)||!Number.isSafeInteger(qty)||qty<=0){complete=false;break}lineIds.add(lid);const orderId=String(line.id_order),name=String(line.product_name||'Producto #'+id),group=id+':'+attribute;coveredOrders.add(orderId);const prev=ranking.get(group)||{name,qty:0,productId:id,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)};prev.qty+=qty;totalSoldUnits+=qty;ranking.set(group,prev);if(!details.has(orderId))details.set(orderId,[]);details.get(orderId).push({name,qty,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)})}
         more=detail.possibly_more===true;detailPage++;
        }while(more&&detailPage<20);
        if(more||batch.some(id=>!coveredOrders.has(id))){complete=false;break}
       }
-      if(complete){top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,12);detailsByOrder=details}
+      if(complete){top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,12);detailsByOrder=details;totalUnits=totalSoldUnits}
      }catch{top=null}
     }
-    ordersData.set(key,{shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,checked:new Date().toLocaleString('es-ES')});draw();
+    ordersData.set(key,{shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,checked:new Date().toLocaleString('es-ES')});draw();
    }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});draw()}
    })().finally(()=>queries.delete(key));queries.set(key,task);
   }
