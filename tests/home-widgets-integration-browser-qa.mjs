@@ -82,17 +82,16 @@ try{
  });
  await page.locator('[data-home-command="add"][data-type="expenses.pending"]').click();
  const fiscalWidget=page.locator('[data-home-type="expenses.pending"]');
- console.log('QA FISCAL WIDGET',JSON.stringify(await fiscalWidget.allInnerTexts()),'ERRORS',JSON.stringify(errors));
  await fiscalWidget.getByText(/gastos con revisión fiscal pendiente/).waitFor();
  assert((await page.locator('[data-home-type="expenses.pending"]').innerText()).includes('Proveedor pendiente fiscal QA'),'Los gastos pagados también pueden requerir revisión fiscal');
- assert.equal(await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"]').count(),1,'La ficha fiscal permite abrir gasto real');
+ assert.equal(await fiscalWidget.locator('[data-home-command="open-expense"][data-expense="qa-fiscal-review"]').count(),1,'Se puede abrir la ficha fiscal concreta');
  await page.locator('[data-home-command="save"]').click();
  await page.waitForFunction(()=>window.__homePrefs?.revision===1);
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3);
  await page.locator('#nav [data-route="cajas"]').click();
  await page.locator('#nav [data-route="inicio"]').click();
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===3,undefined,{timeout:15000});
- await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"]').click();
+ await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"][data-expense="qa-fiscal-review"]').click();
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.route==='gastos'&&state.views.gastos?.id==='qa-fiscal-review'},undefined,{timeout:18000});
 
  assert.deepEqual(errors,[],'Sin errores de Javascript');
