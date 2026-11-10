@@ -263,7 +263,17 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
-const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),invoke:async body=>{
+const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),onOpenOrders:async ({store,order,date}={})=>{
+ await navigateModule('prestashop',null,()=>{
+  const target=new URL(location.href);
+  for(const k of ['ps_store','ps_order','ps_date'])target.searchParams.delete(k);
+  if(store&&order&&date){
+   target.searchParams.set('ps_store',store);target.searchParams.set('ps_order',order);target.searchParams.set('ps_date',date);
+  }
+  history.replaceState(null,'',target.href);
+  prestashopUI.selectTab('orders');
+ });
+},invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
  if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
  if(result.data?.error)throw Error(result.data.error);return result.data;
