@@ -37,7 +37,7 @@ try{
   "  let rows=[];",
   "  if(resource==='orders'&&a.page===0)rows=Array.from({length:24},(_,i)=>({",
   "   id:String((shop==='hortimatic'?7000:8000)+i),reference:'QA-R'+i,date_add:day+' 12:00:00',",
-  "   total_paid_tax_incl:'12.50',total_paid_tax_excl:'10.33',id_currency:'1',payment:'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
+  "   total_paid_tax_incl:'12.500000',total_paid_tax_excl:'10.330000',id_currency:'1',payment:'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
   "  }));",
   "  if(resource==='currencies')rows=[{id:'1',iso_code:'EUR'}];",
   "  if(resource==='order_details')rows=(a.order_ids||[]).map(id=>({",
