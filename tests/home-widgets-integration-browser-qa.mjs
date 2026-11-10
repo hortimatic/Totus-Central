@@ -74,7 +74,9 @@ try{
   window.__mockDb.ops_expenses.push(row);
  });
  await page.locator('[data-home-command="add"][data-type="expenses.pending"]').click();
- await page.locator('[data-home-type="expenses.pending"]').getByText(/gastos con revisión fiscal pendiente/).waitFor();
+ const fiscalWidget=page.locator('[data-home-type="expenses.pending"]');
+ console.log('QA FISCAL WIDGET',JSON.stringify(await fiscalWidget.allInnerTexts()),'ERRORS',JSON.stringify(errors));
+ await fiscalWidget.getByText(/gastos con revisión fiscal pendiente/).waitFor();
  assert((await page.locator('[data-home-type="expenses.pending"]').innerText()).includes('Proveedor pendiente fiscal QA'),'Los gastos pagados también pueden requerir revisión fiscal');
  assert.equal(await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"]').count(),1,'La ficha fiscal permite abrir gasto real');
  await page.locator('[data-home-command="save"]').click();
