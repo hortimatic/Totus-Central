@@ -9,6 +9,7 @@ import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords,accessDeadline} from './login-controls.js';
 import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
 import {createPrestashopUI} from './prestashop-ui.js';
+import {createHomeWidgetsUI} from './home-widgets-ui.js';
 import {createProductosUI} from './productos-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
@@ -262,6 +263,21 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
+const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({tab='orders',store,order,date}={})=>{
+ await navigateModule('prestashop',null,()=>{
+  const target=new URL(location.href);
+  for(const k of ['ps_store','ps_order','ps_date'])target.searchParams.delete(k);
+  if(store&&order&&date){
+   target.searchParams.set('ps_store',store);target.searchParams.set('ps_order',order);target.searchParams.set('ps_date',date);
+  }
+  history.replaceState(null,'',target.href);
+  prestashopUI.selectTab(['orders','catalog','receipts'].includes(tab)?tab:'orders');
+ });
+},invoke:async body=>{
+ const result=await sb.functions.invoke('totus-connections',{body});
+ if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
+ if(result.data?.error)throw Error(result.data.error);return result.data;
+}});
 function render(){
  if(!state.user)return;
  headerTools.refreshAccess();
@@ -280,6 +296,7 @@ function render(){
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
+ homeUI.dispose();
  $('#content').innerHTML='<div class="note warn activity-status" data-activity-status role="status"'+(state.data.activityLogError?'':' hidden')+'>'+esc(state.data.activityLogError||'')+'</div><div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
  const records={cajas:state.data.closings,gastos:state.data.expenses,facturacion:state.data.invoices};
  rememberWriteVersion($('#content > .page'),records[state.route]?.find(row=>row.id===getView(state.route).id));
@@ -298,6 +315,7 @@ function render(){
  if(input('exDocKind'))updateExpenseTaxTreatment();
  if(state.route==='cajas'&&document.querySelector('.drawer-entry'))updateClosingSummary();
  captureFormDraft($('#content'));
+ if(state.route==='inicio')homeUI.mount($('#content'));
  if(state.route==='inicio'){
   const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
   if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
@@ -325,6 +343,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
  if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
  if(!modalOnly&&state.route==='prestashop'&&prestashopUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla de automatización?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;prestashopUI.discardDraft();}
+ if(!modalOnly&&state.route==='inicio'&&homeUI.hasUnsaved()&&!await confirmAction('¿Salir de Inicio sin guardar la nueva disposición de widgets?',{title:'Distribución sin guardar',acceptLabel:'Descartar cambios'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='tareas'&&tasks.hasDraft()&&!await confirmAction('Hay una ficha de tarea abierta. ¿Salir sin guardar los cambios?'))return false;
@@ -345,7 +364,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
@@ -2803,6 +2822,7 @@ document.addEventListener('click',async e=>{
   if(a==='toggle-menu'){mobileNavigation.toggle();return}
   if(a==='close-modal'){if(el.classList.contains('modal-backdrop')&&e.target!==el)return;closeModal();return}
   if(a==='role-bulk-apply'){const preset=val('roleBulkPreset');for(const [module] of PERMISSION_MODULES){setRoleModulePreset(module,preset);const select=input('rolepreset_'+module);if(select&&!select.disabled)select.value=preset}return}
+  if(['inicio-apply','inicio-clear','inicio-month'].includes(a)&&homeUI.hasUnsaved()&&!await confirmAction('Cambiar el periodo actualizará Inicio y descartará los cambios de widgets sin guardar.',{title:'Diseño sin guardar',acceptLabel:'Descartar edición'}))return;
   if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});await refresh();return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));await refresh();return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));await refresh();return}
