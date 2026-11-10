@@ -7,6 +7,8 @@ on:
 jobs:
   home-widgets-functional-browser:
     runs-on: ubuntu-latest
+    env:
+      TOTUS_START_SERVER: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
