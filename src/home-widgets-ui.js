@@ -260,17 +260,17 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     if(!possiblyMore&&rows.length<=200){
      try{
       const ids=rows.filter(o=>String(o.valid)==='1').map(o=>String(o.id));
-      const ranking=new Map();let complete=true;
+      const ranking=new Map(),lineIds=new Set(),coveredOrders=new Set();let complete=true;
       for(let index=0;index<ids.length;index+=25){
        const batch=ids.slice(index,index+25);let detailPage=0,more=false;
        do{
         const detail=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'order_details',page:detailPage,page_size:100,order_ids:batch});
         if(!live()||token!==requestToken||owner!==owned)return;
         if(!detail?.ok||detail.store!==shop||detail.resource!=='order_details'||!Array.isArray(detail.rows)||detail.rows.some(l=>!batch.includes(String(l.id_order))))throw Error('Líneas de un pedido ajeno');
-        for(const line of detail.rows){const id=String(line.product_id||'');if(!id)continue;const prev=ranking.get(id)||{name:String(line.product_name||'Producto #'+id),qty:0};prev.qty+=Number(line.product_quantity||0);ranking.set(id,prev)}
+        for(const line of detail.rows){const id=String(line.product_id||''),lid=String(line.id||''),qty=Number(line.product_quantity);if(!/^\d{1,15}$/.test(id)||!/^\d{1,15}$/.test(lid)||lineIds.has(lid)||!Number.isSafeInteger(qty)||qty<=0){complete=false;break}lineIds.add(lid);coveredOrders.add(String(line.id_order));const prev=ranking.get(id)||{name:String(line.product_name||'Producto #'+id),qty:0};prev.qty+=qty;ranking.set(id,prev)}
         more=detail.possibly_more===true;detailPage++;
        }while(more&&detailPage<20);
-       if(more){complete=false;break}
+       if(more||batch.some(id=>!coveredOrders.has(id))){complete=false;break}
       }
       if(complete)top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,4);
      }catch{top=null}
