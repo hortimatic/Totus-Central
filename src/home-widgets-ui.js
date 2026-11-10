@@ -228,7 +228,7 @@ function configureOrderColumns(host,w){
  }
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
- let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
+ let root=null,grid=null,legacyOrdersGrid=null,legacyMode=false,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
@@ -276,7 +276,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  };
  function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&(w.id==='tasks'&&sources.has('tasks')||permitted(w,can)))}
  function draw(){
-  if(!live())return;grid.replaceChildren();
+  if(!live())return;grid.replaceChildren();legacyOrdersGrid?.replaceChildren();
   for(const w of visibleOrder()){
    const card=document.createElement('section');card.className='home-widget-frame';card.dataset.homeWidget=w.id;card.dataset.homeType=w.type;
    card.style.setProperty('--span',Math.min(12,w.layout.desktop.w));card.style.setProperty('--height',Math.max(2,w.layout.desktop.h));card.style.setProperty('--tablet-span',w.layout.tablet.w);card.style.setProperty('--tablet-height',w.layout.tablet.h);card.style.setProperty('--mobile-height',w.layout.mobile.h);
@@ -290,10 +290,10 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     // Widget presentation filters never count as unsaved business forms.
     body.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
    }else body.append(content);
-   card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);
+   card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);(legacyMode&&w.type!=='prestashop.summary'?legacyOrdersGrid:grid).append(card);
   }
   root.classList.toggle('home-edit-mode',edit);
-  root.classList.toggle('home-widgets-dirty',changed());
+  root.classList.toggle('home-widgets-dirty',!legacyMode&&changed());
   const settings=homeCanvasSettings(model.settings);
   grid.style.gap=settings.gap==='inherit'?'var(--appearance-gap,14px)':settings.gap+'px';
   grid.style.maxWidth=settings.width==='fluid'?'none':settings.width+'px';
@@ -462,6 +462,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  function mount(target){
+  legacyMode=false;legacyOrdersGrid=null;
   token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
@@ -573,5 +574,63 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);
  }
- return {mount,dispose(){token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
+
+ // Recupera la pantalla original sin mover NINGÚN panel, gráfico ni formulario.
+ // PrestaShop conserva sus consultas autenticadas en un bloque adicional independiente.
+ function mountOriginal(target){
+  token++;root=target?.querySelector('.dashboard-page')||null;
+  grid=null;legacyOrdersGrid=null;legacyMode=true;
+  connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();
+  edit=false;selected=null;remoteReady=false;owner=state.user?.id;
+  model=null;original=null;
+  if(!root||!owner||!can('inicio','view')||!can('prestashop','view'))return;
+  const section=document.createElement('section');
+  section.className='home-zone home-legacy-prestashop';
+  section.id='homePrestashopSummary';
+  section.innerHTML=`<div class="home-zone-head"><div><div class="eyebrow">Consultas de las tiendas</div><h2>PrestaShop</h2><p>Datos por tienda. No modifica ventas, existencias ni cajas.</p></div></div>
+   <div class="home-widget-grid home-prestashop-overview"></div>
+   <details class="home-prestashop-more"><summary>Consultar pedidos, más vendidos y calidad del catálogo</summary><div class="home-widget-grid home-prestashop-details"></div></details>
+   <small data-home-status role="status" aria-live="polite"></small>`;
+  grid=section.querySelector('.home-prestashop-overview');
+  legacyOrdersGrid=section.querySelector('.home-prestashop-details');
+  const after=root.querySelector('.home-activity');
+  if(after)after.after(section);else root.append(section);
+  model=createHomeDashboard([
+   {id:'shop-h',type:'prestashop.summary',scope:{store:'hortimatic'},layout:{desktop:{w:6,h:8}}},
+   {id:'shop-n',type:'prestashop.summary',scope:{store:'newoldsmok'},layout:{desktop:{w:6,h:8}}},
+   {id:'orders',type:'prestashop.orders',scope:{store:'all'},layout:{desktop:{w:12,h:9}}},
+   {id:'top',type:'prestashop.top',scope:{store:'all'},layout:{desktop:{w:12,h:6}}},
+   {id:'quality',type:'prestashop.quality',scope:{store:'all'},layout:{desktop:{w:12,h:6}}}
+  ]);
+  original=structuredClone(model);
+  section.addEventListener('click',event=>{
+   const el=event.target.closest('[data-home-command]');
+   if(!el||!section.contains(el))return;
+   if(!['fetch','prev-page','next-page','scroll-left','scroll-right','open-order','open-orders','open-prestashop-tab'].includes(el.dataset.homeCommand))return;
+   event.preventDefault();event.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el);
+  },true);
+  section.addEventListener('change',event=>{
+   const el=event.target.closest('[data-home-filter]');
+   if(!el||!section.contains(el))return;
+   const w=find(el.dataset.id);if(!w||w.type!=='prestashop.orders')return;
+   const key=el.dataset.homeFilter;let value=el.value;
+   if(key==='page'){
+    const page=Number(value),max=Number(el.max)||1;
+    if(!Number.isSafeInteger(page)||page<1||page>max){status('La página solicitada no existe.',true);return}
+    value=page-1;
+   }
+   const next=setHomeWidgetConfig(model,w.id,{filters:{[key]:value,...(key==='page'?{}:{page:0})}});
+   if(['from','to'].includes(key)&&dateRange(next.widgets.find(item=>item.id===w.id)).from>dateRange(next.widgets.find(item=>item.id===w.id)).to){
+    status('La fecha final debe ser posterior o igual a la inicial.',true);return;
+   }
+   model=next;draw();
+   if(['from','to'].includes(key))void fetchFor(find(w.id),true);
+  },true);
+  section.querySelector('.home-prestashop-more').addEventListener('toggle',event=>{
+   if(event.target.open)void fetchCatalog(find('quality'));
+  });
+  draw();
+  for(const w of model.widgets)if(w.type!=='prestashop.quality')void fetchFor(w);
+ }
+ return {mount,mountOriginal,dispose(){token++;root=null;grid=null;legacyOrdersGrid=null;legacyMode=false;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>!legacyMode&&changed()};
 }
