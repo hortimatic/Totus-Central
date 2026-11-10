@@ -98,3 +98,16 @@
 /* Real widget width, not viewport width, controls compact product metrics. */
 @container (max-width:540px){.home-ps-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.home-ps-panels{grid-template-columns:minmax(0,1fr)}}
 @container (max-width:355px){.home-ps-metric strong{font-size:13px}.home-ps-metrics{gap:5px}}
+
+/* Each screen size keeps its own layout. Never stretch a mobile card to desktop width. */
+@media(min-width:601px) and (max-width:1400px){
+ .home-widget-frame{grid-column:span min(6,var(--tablet-span,6));height:max(160px,calc(var(--tablet-height,4)*70px))}
+}
+@media(max-width:600px){
+ .home-widget-frame{grid-column:1/-1;height:max(160px,calc(var(--mobile-height,6)*70px));min-height:0}
+ .home-widget-body{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-widget-body{display:flex;flex-direction:column;overflow:hidden}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-orders-scroll{flex:1;min-height:100px;max-height:none}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-order-toolbar,
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-order-footer{flex-shrink:0}
+}
