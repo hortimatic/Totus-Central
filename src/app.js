@@ -263,7 +263,7 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
-const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({store,order,date}={})=>{
+const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({tab='orders',store,order,date}={})=>{
  await navigateModule('prestashop',null,()=>{
   const target=new URL(location.href);
   for(const k of ['ps_store','ps_order','ps_date'])target.searchParams.delete(k);
@@ -271,7 +271,7 @@ const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),on
    target.searchParams.set('ps_store',store);target.searchParams.set('ps_order',order);target.searchParams.set('ps_date',date);
   }
   history.replaceState(null,'',target.href);
-  prestashopUI.selectTab('orders');
+  prestashopUI.selectTab(['orders','catalog','receipts'].includes(tab)?tab:'orders');
  });
 },invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
