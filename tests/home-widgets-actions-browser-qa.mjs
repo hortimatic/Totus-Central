@@ -67,6 +67,9 @@ try{
  const orders=page.locator('[data-home-widget="orders"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
  assert.equal(await orders.locator('[data-home-command="open-order"]').count(),10);
+ assert.equal(await orders.locator('.home-order-product-line').count(),10,'Los diez pedidos muestran sus productos recuperados por línea');
+ assert((await orders.locator('.home-order-product-line').first().innerText()).includes('Producto QA'),'Las unidades y nombres proceden de order_details');
+ assert((await orders.locator('thead').innerText()).includes('Atendido por'),'Se mantiene la columna de atención sin inventar empleado');
  fs.mkdirSync('qa-artifacts/inicio',{recursive:true});
  await page.screenshot({path:'qa-artifacts/inicio/escritorio-1440.png',fullPage:true});
  const number=await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order');
