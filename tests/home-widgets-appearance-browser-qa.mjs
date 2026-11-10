@@ -27,6 +27,15 @@ try{
  const a=luminance(colors.bg),b=luminance(colors.ink),contrast=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
  assert(contrast>=4.5,'Las etiquetas mantienen contraste AA en Mi interfaz oscuro: '+contrast);
  assert.equal(await page.locator('html').getAttribute('data-appearance'),'dark','El Inicio hereda el tema oscuro real');
+ const drawerStyles=await page.locator('[data-home-widget="opening"] .opening-card').first().evaluate(el=>{
+  const style=getComputedStyle(el),title=el.querySelector('h3'),amount=el.querySelector('strong'),meta=el.querySelector('p');
+  return {bg:style.backgroundColor,title:getComputedStyle(title).color,amount:getComputedStyle(amount).color,meta:getComputedStyle(meta).color};
+ });
+ for(const [label,ink] of [['Nombre del cajón',drawerStyles.title],['Importe de apertura',drawerStyles.amount],['Fecha/estado del cierre',drawerStyles.meta]]){
+  const light=luminance(drawerStyles.bg),dark=luminance(ink),ratio=(Math.max(light,dark)+.05)/(Math.min(light,dark)+.05);
+  assert(ratio>=4.5,label+' se debe leer sobre la tarjeta en Mi interfaz oscuro. Contraste observado: '+ratio);
+ }
+
  fs.mkdirSync('qa-artifacts/inicio',{recursive:true});
  await page.screenshot({path:'qa-artifacts/inicio/mi-interfaz-oscuro-1440.png',fullPage:true});
  for(const width of [390,768,1440]){
