@@ -137,6 +137,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const freshWidget=(w)=>{
   if(w.type==='prestashop.summary')return psSummary(w,dataFor(w));
   if(w.type==='prestashop.orders')return psOrders(w,dataFor(w));
+  if(w.type==='prestashop.top'){
+   const data=dataFor(w),shops=PRESTA_SHOPS(w);
+   return `<div class="home-ps-content">${shops.map(shop=>{
+    const read=data[shop],top=read?.top;
+    return `<section class="home-top-products"><h4>${esc(labelStore(shop))}</h4>${read?.error?`<p role="alert">${esc(read.error)}</p>`:Array.isArray(top)?(top.length?`<ol class="home-ps-top">${top.map(x=>`<li>${esc(x.name)} <b>${esc(String(x.qty))} uds</b></li>`).join('')}</ol>`:'<p>Sin unidades vendidas en los pedidos consultados.</p>'):'<p class="small muted">Sin clasificación completa: consulta los pedidos y sus líneas.</p>'}`}).join('')}<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="${esc(w.id)}">Actualizar vendidos</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>`;
+  }
   if(w.type==='home.gain')return `<div class="home-gain-empty"><strong>Sin validar</strong><p>Ganancia comercial: ventas netas de producto menos su coste verificado en la fecha de venta. Los costes actuales de variaciones no acreditan la ganancia histórica.</p><button class="btn secondary" data-route="prestashop">Revisar costes y ventas</button></div>`;
   if(w.type==='cash.withdrawals'){
    const closings=(state.data.closings||[]).filter(row=>row.cash_withdrawals!==null&&row.cash_withdrawals!==undefined).sort((a,b)=>String(b.business_date||'').localeCompare(String(a.business_date||''))).slice(0,6);
