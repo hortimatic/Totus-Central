@@ -13,14 +13,15 @@ function luminance(css){
 }
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await page.locator('[data-home-widget="opening"]').waitFor({timeout:30000});
+ await page.locator('.opening-panel').waitFor({timeout:30000});
+ await page.locator('[data-home-widget="shop-h"]').waitFor({timeout:30000});
  await page.evaluate(async()=>{
   const [{applyInterfaceAppearance},{APPEARANCE_PRESETS}]=await Promise.all([
    import('../src/appearance-ui.js'),import('../src/appearance-core.js')
   ]);
   applyInterfaceAppearance(APPEARANCE_PRESETS.newoldsmok);
  });
- const colors=await page.locator('[data-home-widget="income"]').evaluate(el=>{
+ const colors=await page.locator('[data-home-widget="shop-h"]').evaluate(el=>{
   const style=getComputedStyle(el),heading=el.querySelector('.home-widget-header h3');
   return {bg:style.backgroundColor,ink:getComputedStyle(heading).color};
  });
