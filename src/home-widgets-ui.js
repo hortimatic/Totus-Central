@@ -94,18 +94,41 @@ function orderStats(rows,currencies,complete){
  const total=ok?amountCents.reduce((a,b)=>a+b,0):null;
  return {count:valid.length,total:total===null?null:total/100,ticket:total===null||!valid.length?null:total/100/valid.length,complete:ok};
 }
-function smallBars(rows){
- const totals=new Map();for(const row of rows){const day=String(row.date_add||'').slice(0,10);totals.set(day,(totals.get(day)||0)+1)}
- const values=[...totals].sort((a,b)=>a[0].localeCompare(b[0])).slice(-12).map(([,n])=>n),max=Math.max(1,...values);
- return `<div class="home-sparkline" role="img" aria-label="Pedidos por día">${values.length?values.map(n=>`<span style="height:${Math.max(6,Math.round(n/max*100))}%"></span>`).join(''):'<span class="muted">Sin pedidos</span>'}</div>`;
+function prestashopChart(w,read){
+ const mode=['hours','days','off'].includes(w.filters.chartMode)?w.filters.chartMode:'hours';
+ if(mode==='off')return '';
+ const measure=w.filters.chartMetric==='sales'?'sales':'orders';
+ const orders=read.rows.filter(row=>String(row.valid)==='1');
+ if(measure==='sales'&&(!read.complete||orders.some(row=>read.currencies.get(String(row.id_currency))!=='EUR'||cents(row.total_paid_tax_incl)===null)))
+  return '<p class="home-chart-unverified">Ventas por horas no disponibles: falta completar la lectura o validar todos los importes en EUR.</p>';
+ const bins=new Map();
+ for(const order of orders){
+  const date=String(order.date_add||''),key=mode==='hours'?date.slice(11,13):date.slice(0,10);
+  if(mode==='hours'&&!/^(0\d|1\d|2[0-3])$/.test(key))continue;
+  if(mode==='days'&&!/^\d{4}-\d{2}-\d{2}$/.test(key))continue;
+  const amount=measure==='sales'?cents(order.total_paid_tax_incl):1;
+  bins.set(key,(bins.get(key)||0)+amount);
+ }
+ const keys=mode==='hours'?Array.from({length:24},(_,i)=>String(i).padStart(2,'0')):[...bins.keys()].sort().slice(-14);
+ const values=keys.map(k=>bins.get(k)||0),max=Math.max(1,...values);
+ const total=values.reduce((sum,v)=>sum+v,0),title=measure==='sales'?'Ventas válidas EUR':'Pedidos válidos';
+ const series=keys.map((label,i)=>{const value=values[i],tip=measure==='sales'?money(value/100):value+' pedidos';
+  return '<div class="home-chart-column"><span class="home-chart-number">'+(value?esc(measure==='sales'?money(value/100):String(value)):'')+'</span><div class="home-chart-track"><span class="home-chart-bar" style="height:'+Math.round(value/max*100)+'%" title="'+esc(label+(mode==='hours'?':00 · ':' · ')+tip)+'"></span></div><small>'+esc(mode==='hours'?(i%3===0?label+'h':''):label.slice(5))+'</small></div>';
+ }).join('');
+ return '<figure class="home-ps-chart" role="img" aria-label="'+esc(title+' agrupados por '+(mode==='hours'?'hora':'día')+': '+(measure==='sales'?money(total/100):total+' pedidos'))+'"><figcaption><span>'+esc(title+' por '+(mode==='hours'?'horas':'días'))+'</span><strong>'+esc(measure==='sales'?money(total/100):String(total))+'</strong></figcaption><div class="home-chart-plot"><div class="home-chart-columns">'+series+'</div></div></figure>';
 }
 function psSummary(w,data){
  const shop=safeStore(w.scope.store),r=data?.[shop];
  if(!r)return psPlaceholder(w);
- if(r.error)return `<div class="home-ps-message" role="alert">${esc(r.error)} <button data-home-command="fetch" data-id="${esc(w.id)}">Reintentar</button></div>`;
+ if(r.error)return '<div class="home-ps-message" role="alert">'+esc(r.error)+' <button data-home-command="fetch" data-id="'+esc(w.id)+'">Reintentar</button></div>';
  const {count,total,ticket,complete}=orderStats(r.rows,r.currencies,r.complete);
  const countText=complete?count:'Parcial: '+count;
- return `<div class="home-ps-content"><div class="home-ps-metrics">${metric('Ventas',complete?money(total):'Sin total fiable')}${metric('Pedidos válidos',countText)}${metric('Ticket medio',ticket!==null?money(ticket):'—')}${metric('Catálogo','Abrir para revisar')}${metric('Margen comercial','No validado')}</div><p class="small muted">${esc(labelStore(shop))} · ${esc(r.from)} → ${esc(r.to)} · ${r.complete?'lectura completa':'lectura parcial'} · ${esc(r.checked||'')}</p><div class="home-ps-panels"><div><h4>Pedidos por día</h4>${smallBars(r.rows)}</div><div><h4>Productos más vendidos</h4>${r.top?.length?`<ol class="home-ps-top">${r.top.map(p=>`<li>${esc(p.name)} <b>${esc(String(p.qty))} uds</b></li>`).join('')}</ol>`:'<p class="small muted">Líneas no consultadas o cobertura incompleta. Abrir PrestaShop.</p>'}</div></div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="${esc(w.id)}">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>`;
+ const showMetrics=w.filters.showMetrics!==false,showTop=w.filters.showTop!==false;
+ const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
+ const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+metric('Catálogo','Abrir para revisar')+metric('Margen comercial','No validado')+'</div>':'';
+ const chart=prestashopChart(w,r);
+ const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li>'+esc(p.name)+' <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
+ return '<div class="home-ps-content">'+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function psOrders(w,data){
  const store=safeStore(w.scope.store);const shops=store==='all'?PRESTASHOP_STORES.map(s=>s.key):[store];
@@ -324,7 +347,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
        }while(more&&detailPage<20);
        if(more||batch.some(id=>!coveredOrders.has(id))){complete=false;break}
       }
-      if(complete){top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,4);detailsByOrder=details}
+      if(complete){top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,12);detailsByOrder=details}
      }catch{top=null}
     }
     ordersData.set(key,{shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,checked:new Date().toLocaleString('es-ES')});draw();
