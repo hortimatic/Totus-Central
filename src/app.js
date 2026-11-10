@@ -333,6 +333,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
  if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
  if(!modalOnly&&state.route==='prestashop'&&prestashopUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla de automatización?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;prestashopUI.discardDraft();}
+ if(!modalOnly&&state.route==='inicio'&&homeUI.hasUnsaved()&&!await confirmAction('¿Salir de Inicio sin guardar la nueva disposición de widgets?',{title:'Distribución sin guardar',acceptLabel:'Descartar cambios'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&(apiManager.hasDraft())&&!await confirmAction('¿Salir sin guardar los cambios de conexión?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
  if(!modalOnly&&state.route==='tareas'&&tasks.hasDraft()&&!await confirmAction('Hay una ficha de tarea abierta. ¿Salir sin guardar los cambios?'))return false;
@@ -353,7 +354,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
