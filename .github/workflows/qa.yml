@@ -22,6 +22,12 @@ jobs:
         run: node tests/home-widgets-integration-browser-qa.mjs
       - name: Validate buttons, real filtering and navigation with Playwright
         run: node tests/home-widgets-actions-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inicio-modular-vistas
+          path: qa-artifacts/inicio/*.png
+          if-no-files-found: ignore
   home-dashboard-database:
     runs-on: ubuntu-latest
     services:
