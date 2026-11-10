@@ -206,3 +206,15 @@
 .home-product-row small{display:block;font-size:10px;font-weight:400;color:var(--muted,#64748b)}
 .home-product-row strong{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--accent,#2367d1)}
 .home-products-bars progress{height:9px;margin-top:9px}
+
+/* Opening per shop keeps every drawer independent, including future drawers. */
+.home-store-opening{min-width:0}
+.home-store-opening-heading{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.home-store-opening-heading strong{display:block;color:var(--ink,#17253b);font-size:14px}
+.home-store-opening-heading small{display:block;color:var(--muted,#64748b);font-size:11px;margin-top:5px}
+.home-store-opening-heading>b{font-size:13px;color:var(--accent,#2367d1);font-variant-numeric:tabular-nums;max-width:340px}
+.home-opening-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,185px),1fr));gap:10px}
+.home-opening-drawer{display:flex;flex-direction:column;gap:5px;padding:13px;border:1px solid var(--line,#dfe6ef);border-radius:calc(var(--r,10px) * .7);background:color-mix(in srgb,var(--accent,#2367d1) 3%,var(--panel,#fff))}
+.home-opening-drawer strong{font-size:12px;color:var(--ink,#17253b)}
+.home-opening-drawer b{font-size:18px;color:var(--accent,#2367d1);font-variant-numeric:tabular-nums}
+.home-opening-drawer small{font-size:10px;color:var(--muted,#64748b)}
