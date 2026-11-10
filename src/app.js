@@ -263,7 +263,7 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
-const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),onOpenOrders:async ({store,order,date}={})=>{
+const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({store,order,date}={})=>{
  await navigateModule('prestashop',null,()=>{
   const target=new URL(location.href);
   for(const k of ['ps_store','ps_order','ps_date'])target.searchParams.delete(k);
