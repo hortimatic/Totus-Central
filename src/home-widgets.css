@@ -392,3 +392,4 @@
  .dashboard-page .home-dashboard-toolbar>div>strong{font-size:13px}
  .dashboard-page .home-ps-top li{align-items:start}
 }
+@media(max-width:600px){.dashboard-page .home-widget-frame[data-home-type="home.gain"]{grid-column:1/-1}}
