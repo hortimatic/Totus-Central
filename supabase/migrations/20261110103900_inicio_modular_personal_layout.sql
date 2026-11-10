@@ -30,6 +30,11 @@ begin
   or coalesce(jsonb_typeof(p_layout->'widgets')<>'array',true) or pg_catalog.octet_length(p_layout::text)>120000
  then raise exception 'Diseño de Inicio incompatible o excesivo';end if;
 
+ -- Persist only presentation schema keys. A caller may bypass the browser
+ -- sanitizer, so unknown fields must never be stored in personal preferences.
+ if (p_layout - ARRAY['schemaVersion','settings','widgets']::text[]) <> '{}'::jsonb
+ then raise exception 'Campos de diseño no admitidos';end if;
+
  -- The optional visual configuration is presentation only and never contains CSS,
  -- arbitrary colors, SQL or provider credentials; only this allowlist is accepted.
  if p_layout ? 'settings' and (
@@ -45,6 +50,15 @@ begin
  if exists(
   select 1 from jsonb_array_elements(p_layout->'widgets') item
   where jsonb_typeof(item)<>'object'
+   or coalesce((item - ARRAY['id','type','title','scope','filters','hidden','layout']::text[]) <> '{}'::jsonb,true)
+   or coalesce((item->'scope' - ARRAY['store']::text[]) <> '{}'::jsonb,true)
+   or coalesce((item->'filters' - ARRAY['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','chartMetric','tableDensity','productView','topLimit','showMetrics','showTop']::text[]) <> '{}'::jsonb,true)
+   or coalesce((item->'layout' - ARRAY['desktop','tablet','mobile']::text[]) <> '{}'::jsonb,true)
+   or coalesce((item->'layout'->'desktop' - ARRAY['x','y','w','h']::text[]) <> '{}'::jsonb,true)
+   or coalesce((item->'layout'->'tablet' - ARRAY['order','w','h']::text[]) <> '{}'::jsonb,true)
+   or coalesce((item->'layout'->'mobile' - ARRAY['order','h']::text[]) <> '{}'::jsonb,true)
+   or coalesce(jsonb_typeof(item->'title')<>'string',true)
+   or coalesce(pg_catalog.char_length(item->>'title')>120,true)
    or item->>'id' is null or (item->>'id') !~ '^[a-zA-Z0-9_-]{1,80}$'
    or coalesce(item->>'type' not in (
     'cash.openings','home.income','home.expenses','home.result','home.internal','home.gain','home.activity',
@@ -60,7 +74,51 @@ begin
    or coalesce(jsonb_typeof(item->'filters')<>'object',true)
    or coalesce(jsonb_typeof(item->'layout')<>'object',true)
    or coalesce(jsonb_typeof(item->'layout'->'desktop')<>'object',true)
-   or coalesce((item->'layout'->'desktop'->>'w') ~ '^([1-9]|1[0-2])$',false)=false
+   or coalesce(jsonb_typeof(item->'layout'->'tablet')<>'object',true)
+   or coalesce(jsonb_typeof(item->'layout'->'mobile')<>'object',true)
+   or exists(
+    select 1 from jsonb_each(
+     case when jsonb_typeof(item->'filters')='object' then item->'filters' else '{}'::jsonb end
+    ) as f(key,value)
+    where jsonb_typeof(f.value) not in ('string','number','boolean','array')
+     or (jsonb_typeof(f.value)='string' and pg_catalog.char_length(f.value#>>'{}')>120)
+     or (jsonb_typeof(f.value)='array' and f.key<>'columns')
+     or (f.key='columns' and (jsonb_typeof(f.value)<>'array' or
+        (case when jsonb_typeof(f.value)='array' then jsonb_array_length(f.value)>10 else true end)))
+   )
+   or coalesce(jsonb_typeof(item->'layout'->'desktop'->'x')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'desktop'->'y')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'desktop'->'w')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'desktop'->'h')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'tablet'->'order')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'tablet'->'w')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'tablet'->'h')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'mobile'->'order')<>'number',true)
+   or coalesce(jsonb_typeof(item->'layout'->'mobile'->'h')<>'number',true)
+   or coalesce((item->'layout'->'desktop'->>'w') ~ '^([1-9]|1[0-2])
+   or coalesce((item->'layout'->'desktop'->>'h') ~ '^([1-9]|1[0-2])$',false)=false
+ ) then raise exception 'Datos de widget no admitidos';end if;
+ select count(distinct item->>'id') into distinct_count from jsonb_array_elements(p_layout->'widgets') item;
+ if distinct_count<>found_count then raise exception 'Widget duplicado';end if;
+ new_rev:=current_rev+1;
+ update public.profiles set ui_preferences=jsonb_set(coalesce(ui_preferences,'{}'::jsonb),'{home_dashboard}',jsonb_build_object('revision',new_rev,'layout',p_layout),true)
+ where id=uid;
+ return jsonb_build_object('revision',new_rev,'layout',p_layout);
+end
+$function$;
+revoke all on function private.totus_home_dashboard(text,jsonb,integer) from public, anon;
+revoke all on function private.totus_home_dashboard(text,jsonb,integer) from authenticated;
+-- The public wrapper is the sole authenticated entry point. Never grant USAGE
+-- on the private schema just to make this personal preference work.
+create or replace function public.totus_home_dashboard(
+ p_action text, p_layout jsonb default null, p_expected_revision integer default null)
+returns jsonb
+language sql security definer set search_path='' as $function$
+ select private.totus_home_dashboard(p_action,p_layout,p_expected_revision)
+$function$;
+revoke all on function public.totus_home_dashboard(text,jsonb,integer) from public, anon;
+grant execute on function public.totus_home_dashboard(text,jsonb,integer) to authenticated;
+,false)=false
    or coalesce((item->'layout'->'desktop'->>'h') ~ '^([1-9]|1[0-2])$',false)=false
  ) then raise exception 'Datos de widget no admitidos';end if;
  select count(distinct item->>'id') into distinct_count from jsonb_array_elements(p_layout->'widgets') item;
