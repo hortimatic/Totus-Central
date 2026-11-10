@@ -118,3 +118,6 @@
 .home-orders-products{max-width:240px;min-width:150px;white-space:normal!important;line-height:1.35}
 .home-order-product-line{display:block;max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .home-orders-products small{color:var(--muted,#667085)}
+
+/* Explicit page picker complements next/previous arrows and stays usable in small widgets. */
+.home-order-footer .home-page-select{width:56px;text-align:center;min-width:45px;max-width:70px}
