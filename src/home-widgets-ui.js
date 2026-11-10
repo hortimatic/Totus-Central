@@ -217,7 +217,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='hide'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}),model.widgets.find(x=>x.id!==id&&!x.hidden)?.id);return}
   if(action==='show'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:false}));selected=id;draw();return}
   if(action==='up'||action==='down'){mutate(m=>reorderHomeWidget(m,id,action));return}
-  if(action==='reset'){mutate(()=>createDefault());return}
+  if(action==='reset'){if(!confirm('¿Restaurar la distribución inicial? Los cambios actuales quedarán pendientes de guardar y podrás descartarlos antes de confirmar.'))return;mutate(()=>createDefault());return}
   if(action==='fetch'){fetchFor(find(id),true);return}
   if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
   if(action==='open-orders'){void onOpenOrders({tab:'orders'});return}
