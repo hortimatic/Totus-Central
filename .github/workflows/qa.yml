@@ -336,6 +336,7 @@ jobs:
       - run: node tests/productos-ui-browser-qa.mjs
       - run: python3 tests/productos-release-cache-qa.py
       - run: node tests/productos-photo-preview-browser-qa.mjs
+      - run: node tests/productos-gallery-fit-browser-qa.mjs
       - run: node tests/productos-table-browser-qa.mjs
       - run: node tests/productos-table-layout-browser-qa.mjs
       - run: node tests/table-view-profiles-browser-qa.mjs
