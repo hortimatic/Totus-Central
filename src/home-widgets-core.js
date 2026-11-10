@@ -49,14 +49,18 @@ const safeScope = x => {
   const obj=isObj(x)?x:{};
   return {store:typeof obj.store==='string'?obj.store.slice(0,100):'all'};
 };
+export const HOME_ORDER_COLUMNS=Object.freeze(['order','reference','products','customer','total','payment','status','date','employee','margin']);
 const safeFilters = x => {
   if(!isObj(x))return {};
   const out={};
-  for(const key of ['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns']){
-    if(typeof x[key]==='string')out[key]=x[key].slice(0,120);
+  for(const key of ['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','topLimit','showMetrics','showTop']){
+    if(key==='chartMode')out.chartMode=['hours','days','off'].includes(x[key])?x[key]:'hours';
+    else if(key==='topLimit')out.topLimit=[4,8,12].includes(Number(x[key]))?Number(x[key]):4;
+    else if(['showMetrics','showTop'].includes(key))out[key]=x[key]!==false;
+    else if(typeof x[key]==='string')out[key]=x[key].slice(0,120);
     else if(typeof x[key]==='boolean')out[key]=x[key];
     else if(['page','pageSize'].includes(key)&&Number.isFinite(x[key]))out[key]=bounded(x[key],0,200,0);
-    else if(key==='columns'&&Array.isArray(x[key]))out.columns=x[key].filter(k=>typeof k==='string').slice(0,20).map(k=>k.slice(0,40));
+    else if(key==='columns'&&Array.isArray(x[key]))out.columns=[...new Set(x[key].filter(k=>HOME_ORDER_COLUMNS.includes(k)))].slice(0,HOME_ORDER_COLUMNS.length);
   }
   return out;
 };
