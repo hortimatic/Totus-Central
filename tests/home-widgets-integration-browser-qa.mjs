@@ -70,6 +70,10 @@ try{
  await page.locator('.home-hidden-widgets summary').click();
  await page.locator('[data-home-command="show"]').last().click();
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Recuperación de ocultos');
+ await page.locator('[data-home-command="remove"]').click();
+ assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'Quitar una instancia no elimina las demás');
+ await page.locator('[data-home-command="add"][data-type="prestashop.summary"]').click();
+ assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Una instancia retirada puede volver a añadirse desde el catálogo');
  await page.evaluate(async()=>{
   const {state}=await import('../src/state.js');
   const row={id:'qa-fiscal-review',store_id:window.__mockDb.ops_stores[0].id,expense_date:'2026-11-10',supplier_name:'Proveedor pendiente fiscal QA',description:'Documento con revisión fiscal pendiente',fiscal_reviewed:false,management_only:false,paid_status:'pagado',accounting_amount:18,gross_expense:18,document_kind:'factura'};
