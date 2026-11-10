@@ -144,7 +144,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{}}){
   }
   return content;
  };
- function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&permitted(w,can))}
+ function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&(w.id==='tasks'&&sources.has('tasks')||permitted(w,can)))}
  function draw(){
   if(!live())return;grid.replaceChildren();
   for(const w of visibleOrder()){
