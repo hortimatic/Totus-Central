@@ -5,6 +5,20 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  home-widgets-functional-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx playwright install --with-deps chromium
+      - name: Validate pure widget logic
+        run: node tests/home-widgets-core-qa.mjs
+      - name: Validate integration and layout with Playwright
+        run: node tests/home-widgets-integration-browser-qa.mjs
+      - name: Validate buttons, real filtering and navigation with Playwright
+        run: node tests/home-widgets-actions-browser-qa.mjs
   home-dashboard-database:
     runs-on: ubuntu-latest
     services:
