@@ -112,6 +112,17 @@
  .home-widget-frame[data-home-type="prestashop.orders"] .home-order-toolbar,
  .home-widget-frame[data-home-type="prestashop.orders"] .home-order-footer{flex-shrink:0}
 }
+ 
+/* Mobile reading must not hide original forms or graphs behind a second
+   vertical scroll. The configured height is a minimum in reading mode;
+   editing retains its fixed height and accessible resize controls. */
+@media(max-width:600px){
+ .dashboard-page:not(.home-edit-mode) .home-widget-frame{
+  height:auto;
+  min-height:max(160px,calc(var(--mobile-height,6)*70px));
+ }
+ .dashboard-page:not(.home-edit-mode) .home-widget-body{overflow:visible}
+}
 
 /* Compact but truthful order rows: variants and quantities from verified order lines. */
 .home-order-shop{display:block;margin-top:3px;color:var(--muted,#667085);font-size:10px}
