@@ -8,6 +8,7 @@
 .home-toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .home-toolbar-actions [data-home-command="save"],.home-toolbar-actions [data-home-command="reset"]{display:none}
 .home-edit-mode .home-toolbar-actions [data-home-command="save"],.home-edit-mode .home-toolbar-actions [data-home-command="reset"]{display:inline-flex}
+.home-widgets-dirty .home-toolbar-actions [data-home-command="save"]{display:inline-flex}
 .home-widget-shell{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0;align-items:start}
 .home-edit-mode .home-widget-shell{grid-template-columns:minmax(0,1fr) minmax(250px,320px)}
 .home-widget-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch;min-width:0;grid-auto-flow:row dense}
