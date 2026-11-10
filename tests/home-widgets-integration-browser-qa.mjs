@@ -41,7 +41,7 @@ try{
  await page.locator('[data-home-command="edit"]').click();
  await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
  await page.locator('[data-home-config="width"]').selectOption('8');
- assert.match(await page.locator('[data-home-widget="shop-h"]').getAttribute('style'),/--span:\\s*8/);
+ assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
  await page.locator('[data-home-command="duplicate"]').click();
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Duplicación de instancia');
  await page.locator('[data-home-command="hide"]').click();
