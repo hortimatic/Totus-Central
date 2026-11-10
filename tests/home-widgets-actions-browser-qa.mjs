@@ -79,6 +79,12 @@ try{
  assert.notEqual(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number);
  await orders.locator('[data-home-command="prev-page"]').click();
  assert.equal(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number);
+ await orders.locator('[data-home-filter="page"]').fill('2');
+ await orders.locator('[data-home-filter="page"]').press('Tab');
+ assert.notEqual(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number,'El selector numérico cambia de página');
+ await orders.locator('[data-home-filter="page"]').fill('1');
+ await orders.locator('[data-home-filter="page"]').press('Tab');
+ assert.equal(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number,'El selector regresa a la primera página');
  await orders.locator('[data-home-filter="query"]').fill('QA-R18');
  await orders.locator('[data-home-filter="query"]').press('Tab');
  assert.equal(await orders.locator('[data-home-command="open-order"]').count(),2,'La búsqueda filtra ambos catálogos sin inventar pedidos');
