@@ -22,6 +22,8 @@ jobs:
         run: node tests/home-widgets-integration-browser-qa.mjs
       - name: Validate buttons, real filtering and navigation with Playwright
         run: node tests/home-widgets-actions-browser-qa.mjs
+      - name: Validate touch drag and resize on mobile
+        run: node tests/home-widgets-touch-browser-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
