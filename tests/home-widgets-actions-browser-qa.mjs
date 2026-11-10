@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
+import {clickModuleLink} from './ui-navigation.mjs';
 
 const server=await startLocalServer();
 const browser=await chromium.launch({headless:true});
@@ -100,20 +101,20 @@ try{
  await orders.locator('[data-home-command="open-orders"]').click();
  await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
  assert.equal(new URL(page.url()).searchParams.get('module'),'prestashop','Abrir pedidos navega al módulo correcto');
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  const item=page.locator('[data-home-widget="orders"] [data-home-command="open-order"]').first();
  await item.waitFor({timeout:20000});
  const id=await item.getAttribute('data-order'),store=await item.getAttribute('data-shop');
  await item.click();
  await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
  const url=new URL(page.url());assert.equal(url.searchParams.get('ps_order'),id);assert.equal(url.searchParams.get('ps_store'),store);
- await page.locator('#nav [data-route="inicio"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  await page.locator('.dashboard-hero [data-action="closing-new"]').click();
  await page.locator('#clStore').waitFor({timeout:16000});
  assert.equal(new URL(page.url()).searchParams.get('module'),'cajas','El botón Nuevo cierre abre el formulario existente');
  for(const width of [320,390,768,1024,1440,1920]){
   await page.setViewportSize({width,height:900});
-  await page.locator('#nav [data-route="inicio"]').click();
+  await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Inicio sin desbordamientos a '+width+'px');
  }
  assert.deepEqual(errors,[],'Sin errores Javascript');
