@@ -63,7 +63,7 @@ function widget(type,id,options={}){
     title:safeText(options.title)||def.title,
     hidden:options.hidden===true,
     layout:{desktop:{x:bounded(l.desktop?.x,0,11,0),y:bounded(l.desktop?.y,0,9999,0),w:bounded(l.desktop?.w,def.minWidth,def.maxWidth,def.width),h:bounded(l.desktop?.h,def.minHeight,def.maxHeight,def.height)},
-      tablet:{order:bounded(l.tablet?.order,0,9999,0)},mobile:{order:bounded(l.mobile?.order,0,9999,0)} }
+      tablet:{order:bounded(l.tablet?.order,0,9999,0),w:bounded(l.tablet?.w,1,6,Math.min(6,def.width)),h:bounded(l.tablet?.h,2,16,def.height)},mobile:{order:bounded(l.mobile?.order,0,9999,0),h:bounded(l.mobile?.h,2,18,type==='cash.openings'?8:Math.min(12,def.height))} }
   };
 }
 export function createHomeWidget(type,id,options={}) {return widget(type,id,options);}
@@ -123,8 +123,8 @@ export function layoutHomeDashboard(config,mode='desktop'){
   const occupied=new Set(),result=[];
   for(const {widget:w} of sorted){
     const def=HOME_WIDGET_CATALOG[w.type];
-    const width=mode==='desktop'?bounded(w.layout.desktop.w,def.minWidth,Math.min(def.maxWidth,columns),Math.min(def.width,columns)) : mode==='tablet'?Math.min(columns,Math.max(1,def.minWidth)):1;
-    const height=bounded(w.layout.desktop.h,def.minHeight,def.maxHeight,def.height);
+    const width=mode==='desktop'?bounded(w.layout.desktop.w,def.minWidth,Math.min(def.maxWidth,columns),Math.min(def.width,columns)) : mode==='tablet'?bounded(w.layout.tablet.w,1,columns,Math.min(columns,def.width)):1;
+    const height=mode==='desktop'?bounded(w.layout.desktop.h,def.minHeight,def.maxHeight,def.height):mode==='tablet'?bounded(w.layout.tablet.h,2,16,def.height):bounded(w.layout.mobile.h,2,18,def.height);
     const initialX=mode==='desktop'?bounded(w.layout.desktop.x,0,columns-width,0):0;
     const targetY=mode==='desktop'?w.layout.desktop.y:0;
     const clear=(x,y)=>{for(let dy=0;dy<height;dy++)for(let dx=0;dx<width;dx++)if(occupied.has(`${x+dx}:${y+dy}`))return false;return true};
