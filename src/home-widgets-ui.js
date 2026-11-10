@@ -86,7 +86,8 @@ const cents=value=>sourceCents(typeof value==='number'&&Number.isFinite(value)?v
 function orderStats(rows,currencies,complete){
  const valid=rows.filter(row=>String(row.valid)==='1');
  const amountCents=valid.map(r=>currencies.get(String(r.id_currency))==='EUR'?cents(r.total_paid_tax_incl):null);
- const ok=complete&&valid.length===amountCents.length&&amountCents.every(Number.isSafeInteger);
+ const unknownStatus=rows.some(row=>!['0','1'].includes(String(row.valid)));
+ const ok=complete&&!unknownStatus&&valid.length===amountCents.length&&amountCents.every(Number.isSafeInteger);
  const total=ok?amountCents.reduce((a,b)=>a+b,0):null;
  return {count:valid.length,total:total===null?null:total/100,ticket:total===null||!valid.length?null:total/100/valid.length,complete:ok};
 }
@@ -100,7 +101,7 @@ function psSummary(w,data){
  if(!r)return psPlaceholder(w);
  if(r.error)return `<div class="home-ps-message" role="alert">${esc(r.error)} <button data-home-command="fetch" data-id="${esc(w.id)}">Reintentar</button></div>`;
  const {count,total,ticket,complete}=orderStats(r.rows,r.currencies,r.complete);
- const countText=r.complete?count:'Parcial: '+count;
+ const countText=complete?count:'Parcial: '+count;
  return `<div class="home-ps-content"><div class="home-ps-metrics">${metric('Ventas',complete?money(total):'Sin total fiable')}${metric('Pedidos válidos',countText)}${metric('Ticket medio',ticket!==null?money(ticket):'—')}${metric('Catálogo','Abrir para revisar')}${metric('Margen comercial','No validado')}</div><p class="small muted">${esc(labelStore(shop))} · ${esc(r.from)} → ${esc(r.to)} · ${r.complete?'lectura completa':'lectura parcial'} · ${esc(r.checked||'')}</p><div class="home-ps-panels"><div><h4>Pedidos por día</h4>${smallBars(r.rows)}</div><div><h4>Productos más vendidos</h4>${r.top?.length?`<ol class="home-ps-top">${r.top.map(p=>`<li>${esc(p.name)} <b>${esc(String(p.qty))} uds</b></li>`).join('')}</ol>`:'<p class="small muted">Líneas no consultadas o cobertura incompleta. Abrir PrestaShop.</p>'}</div></div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="${esc(w.id)}">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>`;
 }
 function psOrders(w,data){
