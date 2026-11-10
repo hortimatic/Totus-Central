@@ -51,12 +51,12 @@ begin
   select 1 from jsonb_array_elements(p_layout->'widgets') item
   where jsonb_typeof(item)<>'object'
    or coalesce((item - ARRAY['id','type','title','scope','filters','hidden','layout']::text[]) <> '{}'::jsonb,true)
-   or coalesce((item->'scope' - ARRAY['store']::text[]) <> '{}'::jsonb,true)
-   or coalesce((item->'filters' - ARRAY['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','chartMetric','tableDensity','productView','topLimit','showMetrics','showTop']::text[]) <> '{}'::jsonb,true)
-   or coalesce((item->'layout' - ARRAY['desktop','tablet','mobile']::text[]) <> '{}'::jsonb,true)
-   or coalesce((item->'layout'->'desktop' - ARRAY['x','y','w','h']::text[]) <> '{}'::jsonb,true)
-   or coalesce((item->'layout'->'tablet' - ARRAY['order','w','h']::text[]) <> '{}'::jsonb,true)
-   or coalesce((item->'layout'->'mobile' - ARRAY['order','h']::text[]) <> '{}'::jsonb,true)
+   or coalesce(((item->'scope') - ARRAY['store']::text[]) <> '{}'::jsonb,true)
+   or coalesce(((item->'filters') - ARRAY['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','chartMetric','tableDensity','productView','topLimit','showMetrics','showTop']::text[]) <> '{}'::jsonb,true)
+   or coalesce(((item->'layout') - ARRAY['desktop','tablet','mobile']::text[]) <> '{}'::jsonb,true)
+   or coalesce(((item->'layout'->'desktop') - ARRAY['x','y','w','h']::text[]) <> '{}'::jsonb,true)
+   or coalesce(((item->'layout'->'tablet') - ARRAY['order','w','h']::text[]) <> '{}'::jsonb,true)
+   or coalesce(((item->'layout'->'mobile') - ARRAY['order','h']::text[]) <> '{}'::jsonb,true)
    or coalesce(jsonb_typeof(item->'title')<>'string',true)
    or coalesce(pg_catalog.char_length(item->>'title')>120,true)
    or item->>'id' is null or (item->>'id') !~ '^[a-zA-Z0-9_-]{1,80}$'
