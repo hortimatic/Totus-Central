@@ -42,7 +42,7 @@ try{
   "  }));",
   "  if(resource==='currencies')rows=[{id:'1',iso_code:'EUR'}];",
   "  if(resource==='order_details')rows=(a.order_ids||[]).map(id=>({",
-  "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_attribute_id:Number(id)%2?'10':'20',product_name:Number(id)%2?'Producto QA 10 mg':'Producto QA 0 mg',product_quantity:'1',",
+  "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_attribute_id:Number(id)%2?'10':'20',product_reference:Number(id)%2?'SKU-QA-10':'SKU-QA-0',product_name:Number(id)%2?'Producto QA 10 mg':'Producto QA 0 mg',product_quantity:'1',",
   "   total_price_tax_incl:'12.50',total_price_tax_excl:'10.33'",
   "  }));",
   "  return {data:{ok:true,store:shop,resource,page:a.page,rows,possibly_more:false},error:null};",
@@ -114,6 +114,15 @@ try{
  await page.locator('[data-home-config="showMetrics"]').selectOption('yes');
  await page.locator('[data-home-config="chartMode"]').selectOption('hours');
  assert.equal(await page.locator('[data-home-widget="shop-h"] .home-chart-column').count(),24,'La gráfica de horas presenta 24 franjas');
+ await page.locator('[data-home-config="topLimit"]').selectOption('8');
+ await page.locator('[data-home-command="add"][data-type="prestashop.top"]').click();
+ const productWidget=page.locator('[data-home-type="prestashop.top"]');
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.top"] .home-products-table tbody tr').length===4);
+ assert((await productWidget.locator('thead').innerText()).includes('Referencia'),'El widget de productos ofrece columnas detalladas');
+ assert((await productWidget.innerText()).includes('SKU-QA-10'),'La referencia de la combinación llega del pedido');
+ assert((await productWidget.innerText()).includes('Combinación #20'),'No se mezclan variantes');
+ await page.locator('[data-home-config="productView"]').selectOption('bars');
+ assert.equal(await productWidget.locator('.home-products-bars').count(),2,'La vista barras funciona separada por tienda');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
  await page.locator('[data-home-command="select"][data-id="orders"]').click();
  await page.locator('[data-home-config="tableDensity"]').selectOption('compact');
