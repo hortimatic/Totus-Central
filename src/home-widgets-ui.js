@@ -170,8 +170,8 @@ function prestashopChart(w,read){
 }
 function psSummary(w,data,catalog){
  const shop=safeStore(w.scope.store),r=data?.[shop];
- if(!r)return psPlaceholder(w);
- if(r.error)return '<div class="home-ps-message" role="alert">'+esc(r.error)+' <button data-home-command="fetch" data-id="'+esc(w.id)+'">Reintentar</button></div>';
+ if(!r)return periodControls(w)+psPlaceholder(w);
+ if(r.error)return periodControls(w)+'<div class="home-ps-message" role="alert">'+esc(r.error)+' <button data-home-command="fetch" data-id="'+esc(w.id)+'">Reintentar</button></div>';
  const {count,total,ticket,complete}=orderStats(r.rows,r.currencies,r.complete);
  const countText=complete?count:'Parcial: '+count;
  const showMetrics=w.filters.showMetrics!==false,showTop=w.filters.showTop!==false;
@@ -229,7 +229,7 @@ function compactOrderCard(row){
 function psOrders(w,data){
  const store=safeStore(w.scope.store);const shops=store==='all'?PRESTASHOP_STORES.map(s=>s.key):[store];
  const responses=shops.map(s=>data?.[s]).filter(Boolean);const errors=responses.map(r=>r.error).filter(Boolean);
- if(!responses.length)return psPlaceholder(w);
+ if(!responses.length)return periodControls(w)+psPlaceholder(w);
  const allRows=responses.flatMap(r=>r.error?[]:r.rows.map(order=>({...order,_shop:r.shop,_currency:r.currencies.get(String(order.id_currency))||null,_products:r.detailsByOrder?.get(String(order.id))||null})));
  const paymentOptions=[...new Set(allRows.map(r=>String(r.payment||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
  const rows=allRows
