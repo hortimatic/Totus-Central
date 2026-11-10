@@ -84,3 +84,7 @@
  .home-widget-body{overflow:visible}
  .home-widget-frame[data-home-type="prestashop.orders"] .home-orders-scroll{max-height:360px}
 }
+
+.home-order-link{display:inline-flex;align-items:center;border:1px solid var(--accent,#2367d1);background:transparent;color:var(--accent,#2367d1);font-weight:650;padding:3px 8px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.home-order-link:hover{background:color-mix(in srgb,var(--accent,#2367d1) 8%,var(--panel,#fff))}
+.home-order-link:focus-visible{outline:3px solid var(--accent,#2367d1);outline-offset:2px}
