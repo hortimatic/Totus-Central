@@ -68,6 +68,10 @@ try{
  assert((await page.locator('[data-home-widget="shop-h"] .home-ps-top').innerText()).includes('Producto QA 10 mg'),'Se conserva la combinación 10 mg sin mezclar variantes');
  const orders=page.locator('[data-home-widget="orders"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
+ const today=new Date().toISOString().slice(0,10);
+ await orders.locator('[data-home-filter="from"]').fill(today);
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
+ assert.equal(await orders.locator('[data-home-filter="from"]').inputValue(),today,'El periodo se cambia desde la propia tabla');
  assert.equal(await orders.locator('[data-home-command="open-order"]').count(),10);
  assert.equal(await orders.locator('.home-order-product-line').count(),10,'Los diez pedidos muestran sus productos recuperados por línea');
  assert((await orders.locator('.home-order-product-line').first().innerText()).includes('Producto QA'),'Las unidades y nombres proceden de order_details');
