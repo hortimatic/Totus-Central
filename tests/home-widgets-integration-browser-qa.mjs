@@ -28,7 +28,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('[data-home-widget="opening"]').waitFor({timeout:25000});
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'Dos resúmenes separados');
- assert.equal(await page.locator('[data-action="closing-new"]').count(),1,'Mantiene el botón de cierre');
+ assert.equal(await page.locator('.dashboard-hero [data-action="closing-new"]').count(),1,'Mantiene la acción original de nuevo cierre en su cabecera');
  assert.equal(await page.locator('[data-home-widget="activity"] svg').count(),1,'Mantiene la gráfica y sus funciones');
  const cash=await page.locator('[data-home-widget="opening"]').innerText();
  for(const label of ['Vape','Head','NewOldSmok'])assert(cash.includes(label),'Conserva la caja '+label);
