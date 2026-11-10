@@ -19,6 +19,7 @@
 .home-widget-scope{font-size:10px;color:var(--muted,#667085);margin-left:auto;white-space:nowrap}
 .home-widget-more,.home-move-handle{background:transparent;border:1px solid transparent;color:var(--muted,#64748b);font-size:18px;border-radius:5px;display:grid;place-items:center;min-width:30px;min-height:30px;cursor:pointer}
 .home-move-handle{font-size:20px;cursor:default}
+.home-move-handle:disabled{display:none}
 .home-edit-mode .home-move-handle{cursor:grab;color:var(--accent,#2367d1)}
 .home-widget-more:hover,.home-move-handle:hover{background:color-mix(in srgb,var(--accent,#2367d1) 8%,var(--panel,#fff));border-color:var(--line,#e2e8f0)}
 .home-widget-body{flex:1;min-width:0;overflow:hidden;padding:12px}
