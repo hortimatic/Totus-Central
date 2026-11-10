@@ -66,6 +66,8 @@ try{
  const orders=page.locator('[data-home-widget="orders"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
  assert.equal(await orders.locator('[data-home-command="open-order"]').count(),10);
+ fs.mkdirSync('qa-artifacts/inicio',{recursive:true});
+ await page.screenshot({path:'qa-artifacts/inicio/escritorio-1440.png',fullPage:true});
  const number=await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order');
  await orders.locator('[data-home-command="next-page"]').click();
  assert.notEqual(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number);
@@ -80,6 +82,7 @@ try{
  await page.locator('[data-home-command="select"][data-id="orders"]').click();
  await page.locator('[data-home-config="width"]').selectOption('8');
  await page.locator('[data-home-config="height"]').selectOption('5');
+ await page.screenshot({path:'qa-artifacts/inicio/editor-1440.png',fullPage:true});
  assert((await orders.getAttribute('style')).includes('--span: 8'));
  assert((await orders.getAttribute('style')).includes('--height: 5'));
  await page.setViewportSize({width:1024,height:900});
@@ -116,6 +119,7 @@ try{
   await page.setViewportSize({width,height:900});
   await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Inicio sin desbordamientos a '+width+'px');
+  if(width===390)await page.screenshot({path:'qa-artifacts/inicio/movil-390.png',fullPage:true});
  }
  assert.deepEqual(errors,[],'Sin errores Javascript');
  console.log('HOME WIDGET ACTIONS PASS: tiendas, ventas, 10 pedidos, filtros, paginación, scroll, resize, guardado verificado, pedido detallado, caja y seis tamaños');
