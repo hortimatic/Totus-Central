@@ -1,6 +1,13 @@
 /* Totus Central · inicio modular. Pure layout/model layer, no business writes. */
 export const HOME_WIDGET_SCHEMA = 1;
 export const HOME_GRID_COLUMNS = Object.freeze({desktop:12,tablet:6,mobile:1});
+export const HOME_CANVAS_DEFAULTS=Object.freeze({gap:'inherit',width:'fluid',density:'inherit',background:'inherit'});
+const HOME_CANVAS_CHOICES=Object.freeze({gap:['inherit','8','12','16','20','24'],width:['fluid','1440','1600','1920'],density:['inherit','compact','comfortable'],background:['inherit','soft']});
+export function homeCanvasSettings(input={}){
+ const source=isObj(input)?input:{};
+ return Object.fromEntries(Object.entries(HOME_CANVAS_CHOICES).map(([key,values])=>[key,values.includes(source[key])?source[key]:HOME_CANVAS_DEFAULTS[key]]));
+}
+
 
 const definitions = [
   ['cash.openings','Cajas','Dinero para abrir mañana',12,3,8,12],
@@ -67,7 +74,7 @@ function widget(type,id,options={}){
   };
 }
 export function createHomeWidget(type,id,options={}) {return widget(type,id,options);}
-export function createHomeDashboard(initialWidgets=[]){const result={schemaVersion:HOME_WIDGET_SCHEMA,revision:null,widgets:initialWidgets.map((item,i)=>widget(item.type,item.id||`inicio-${i}`,item))};
+export function createHomeDashboard(initialWidgets=[],settings={}){const result={schemaVersion:HOME_WIDGET_SCHEMA,revision:null,settings:homeCanvasSettings(settings),widgets:initialWidgets.map((item,i)=>widget(item.type,item.id||`inicio-${i}`,item))};
   if(new Set(result.widgets.map(w=>w.id)).size!==result.widgets.length)throw new Error('Hay identificadores de widgets repetidos');
   return result;}
 export function readHomeDashboard(raw){
@@ -78,7 +85,7 @@ export function readHomeDashboard(raw){
     if(!isObj(item)||!Object.hasOwn(HOME_WIDGET_CATALOG,item.type)||seen.has(item.id))throw new Error('El diseño contiene una instancia incompatible o duplicada');
     const w=widget(item.type,item.id,item);widgets.push(w);seen.add(w.id);
   }
-  return {schemaVersion:HOME_WIDGET_SCHEMA,revision:typeof raw.revision==='string'?raw.revision:null,widgets};
+  return {schemaVersion:HOME_WIDGET_SCHEMA,revision:typeof raw.revision==='string'?raw.revision:null,settings:homeCanvasSettings(raw.settings),widgets};
 }
 export function addHomeWidget(config,type,id,options={}){
   const next=readHomeDashboard(config);
