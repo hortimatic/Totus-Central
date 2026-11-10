@@ -593,8 +593,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    <small data-home-status role="status" aria-live="polite"></small>`;
   grid=section.querySelector('.home-prestashop-overview');
   legacyOrdersGrid=section.querySelector('.home-prestashop-details');
-  const after=root.querySelector('.home-activity');
-  if(after)after.after(section);else root.append(section);
+  // El Inicio original conserva incluso su orden: PrestaShop se añade al final.
+  root.append(section);
   model=createHomeDashboard([
    {id:'shop-h',type:'prestashop.summary',scope:{store:'hortimatic'},layout:{desktop:{w:6,h:8}}},
    {id:'shop-n',type:'prestashop.summary',scope:{store:'newoldsmok'},layout:{desktop:{w:6,h:8}}},
