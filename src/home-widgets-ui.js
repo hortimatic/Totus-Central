@@ -6,7 +6,7 @@ import {state,getFilters} from './state.js';
 import {esc,money,isoToday} from './utils.js';
 import {storeConnection,PRESTASHOP_STORES} from './prestashop-readonly.js';
 import {prestashopReadiness} from './prestashop-ui.js';
-import {sourceCents} from './prestashop-insights.js';
+import {sourceCents,catalogIssues} from './prestashop-insights.js';
 import {archiveAccepted} from './historical-acceptance.js';
 
 const defaultSpecs=[
@@ -125,7 +125,7 @@ function prestashopChart(w,read){
  }).join('');
  return '<figure class="home-ps-chart" role="img" aria-label="'+esc(title+' agrupados por '+(mode==='hours'?'hora':'día')+': '+(measure==='sales'?money(total/100):total+' pedidos'))+'"><figcaption><span>'+esc(title+' por '+(mode==='hours'?'horas':'días'))+'</span><strong>'+esc(measure==='sales'?money(total/100):String(total))+'</strong></figcaption><div class="home-chart-plot"><div class="home-chart-columns">'+series+'</div></div></figure>';
 }
-function psSummary(w,data){
+function psSummary(w,data,catalog){
  const shop=safeStore(w.scope.store),r=data?.[shop];
  if(!r)return psPlaceholder(w);
  if(r.error)return '<div class="home-ps-message" role="alert">'+esc(r.error)+' <button data-home-command="fetch" data-id="'+esc(w.id)+'">Reintentar</button></div>';
@@ -133,7 +133,7 @@ function psSummary(w,data){
  const countText=complete?count:'Parcial: '+count;
  const showMetrics=w.filters.showMetrics!==false,showTop=w.filters.showTop!==false;
  const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
- const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+metric('Catálogo','Abrir para revisar')+metric('Margen comercial','No validado')+'</div>':'';
+ const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+metric('Catálogo',catalog?(catalog.complete?catalog.issues.filter(x=>x.issues.length).length+' avisos':'Parcial · '+catalog.issues.filter(x=>x.issues.length).length+' avisos'):'Sin consultar')+metric('Margen comercial','No validado')+'</div>':'';
  const chart=prestashopChart(w,r);
  const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li>'+esc(p.name)+' <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
  return '<div class="home-ps-content">'+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
@@ -158,6 +158,18 @@ function prestashopProductsTable(w,data){
   return '<section class="home-top-products"><header><h4>'+esc(labelStore(key))+'</h4><span class="small muted">'+esc(String(units))+' uds verificadas · '+esc(r.from)+' → '+esc(r.to)+'</span></header>'+(rows.length?body:'<p class="small muted">No hay unidades válidas vendidas en este periodo.</p>')+'</section>';
  }).join('');
  return '<div class="home-products-widget">'+sections+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar productos vendidos</button><button type="button" class="btn secondary" data-home-command="open-orders" data-id="'+esc(w.id)+'">Abrir pedidos originales</button></div></div>';
+}
+function prestashopCatalogQuality(w,data){
+ const scope=safeStore(w.scope.store),shops=scope==='all'?PRESTASHOP_STORES.map(x=>x.key):[scope];
+ return '<div class="home-catalog-quality">'+shops.map(shop=>{
+  const current=data.get(shop);
+  if(!current)return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p class="small muted">Sin consulta de catálogo. Pulsa Actualizar calidad.</p></section>';
+  if(current.error)return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p role="alert">'+esc(current.error)+'</p></section>';
+  const issues=current.issues||[],rows=issues.filter(x=>x.issues.length>0);
+  const complete=current.complete,counts=[['Sin referencia',rows.filter(x=>x.issues.includes('Sin referencia')).length],['EAN por revisar',rows.filter(x=>x.issues.some(y=>y.includes('EAN'))).length],['Peso pendiente',rows.filter(x=>x.issues.some(y=>y.includes('Peso'))).length]];
+  const info=complete?'Catálogo consultado completo':'Consulta parcial: los totales no representan el catálogo completo';
+  return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p class="small muted">'+esc(info)+' · '+esc(String(current.rows.length))+' productos leídos</p><div class="home-quality-metrics">'+counts.map(([label,n])=>'<div><small>'+esc(label)+'</small><strong>'+esc(String(n))+(complete?'':' o más')+'</strong></div>').join('')+'</div><div class="home-quality-list">'+rows.slice(0,8).map(row=>'<div><span><b>'+esc(row.name||'Producto #'+row.id)+'</b><small>'+esc(row.reference||'Sin referencia')+'</small></span><small>'+esc(row.issues.join(' · '))+'</small></div>').join('')+(rows.length?'':'<p class="small muted">Sin incidencias en las fichas leídas.</p>')+'</div></section>';
+ }).join('')+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar calidad</button><button type="button" class="btn secondary" data-home-command="open-prestashop-tab" data-tab="catalog">Abrir catálogo</button></div></div>';
 }
 function psOrders(w,data){
  const store=safeStore(w.scope.store);const shops=store==='all'?PRESTASHOP_STORES.map(s=>s.key):[store];
@@ -217,7 +229,7 @@ function configureOrderColumns(host,w){
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
- const ordersData=new Map(),queries=new Map();let activeDrag=null,activeResize=null;
+ const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
  const changed=()=>!!model&&!!original&&(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)||JSON.stringify(model.settings)!==JSON.stringify(original.settings));
@@ -228,7 +240,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  function PRESTA_SHOPS(w){return safeStore(w.scope.store)==='all'?PRESTASHOP_STORES.map(x=>x.key):[safeStore(w.scope.store)]}
  const freshWidget=(w)=>{
   if(w.type==='cash.openings'&&safeStore(w.scope.store)!=='all')return storeOpeningWidget(w);
-  if(w.type==='prestashop.summary')return psSummary(w,dataFor(w));
+  if(w.type==='prestashop.summary')return psSummary(w,dataFor(w),catalogData.get(safeStore(w.scope.store)));
+  if(w.type==='prestashop.quality')return prestashopCatalogQuality(w,catalogData);
   if(w.type==='prestashop.orders')return psOrders(w,dataFor(w));
   if(w.type==='prestashop.top')return prestashopProductsTable(w,dataFor(w));
   if(w.type==='home.gain')return `<div class="home-gain-empty"><strong>Sin validar</strong><p>Ganancia comercial: ventas netas de producto menos su coste verificado en la fecha de venta. Los costes actuales de variaciones no acreditan la ganancia histórica.</p><button class="btn secondary" data-route="prestashop">Revisar costes y ventas</button></div>`;
