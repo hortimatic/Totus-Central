@@ -67,3 +67,20 @@
 .home-hidden-widgets{margin-top:12px;padding:8px;background:color-mix(in srgb,var(--accent,#2367d1) 4%,var(--panel,#fff));border-radius:7px}
 .home-hidden-widgets summary{cursor:pointer;font-weight:600;font-size:12px}
 .home-hidden-widgets .home-library-item{flex-wrap:wrap}
+
+
+/* A widget's height is a real size, not only a minimum: the content remains usable
+   in its own scroll region when the owner makes a card smaller. */
+@media(min-width:601px){
+ .home-widget-frame{height:max(160px,calc(var(--height,3)*70px));min-height:0}
+ .home-widget-body{overflow:auto;min-height:0;overscroll-behavior:contain;scrollbar-width:thin}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-widget-body{display:flex;flex-direction:column;overflow:hidden}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-orders-scroll{flex:1;min-height:82px;max-height:none}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-order-toolbar,
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-order-footer{flex-shrink:0}
+}
+@media(max-width:600px){
+ .home-widget-frame{height:auto;min-height:130px}
+ .home-widget-body{overflow:visible}
+ .home-widget-frame[data-home-type="prestashop.orders"] .home-orders-scroll{max-height:360px}
+}
