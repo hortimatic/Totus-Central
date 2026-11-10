@@ -53,8 +53,9 @@ export const HOME_ORDER_COLUMNS=Object.freeze(['order','reference','products','c
 const safeFilters = x => {
   if(!isObj(x))return {};
   const out={};
-  for(const key of ['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','topLimit','showMetrics','showTop']){
+  for(const key of ['from','to','status','query','payment','origin','sort','period','inheritPeriod','page','pageSize','columns','chartMode','chartMetric','topLimit','showMetrics','showTop']){
     if(key==='chartMode')out.chartMode=['hours','days','off'].includes(x[key])?x[key]:'hours';
+    else if(key==='chartMetric')out.chartMetric=['orders','sales'].includes(x[key])?x[key]:'orders';
     else if(key==='topLimit')out.topLimit=[4,8,12].includes(Number(x[key]))?Number(x[key]):4;
     else if(['showMetrics','showTop'].includes(key))out[key]=x[key]!==false;
     else if(typeof x[key]==='string')out[key]=x[key].slice(0,120);
