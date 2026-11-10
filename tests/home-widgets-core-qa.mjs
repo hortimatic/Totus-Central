@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {HOME_WIDGET_CATALOG,createHomeWidget,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,setHomeWidgetConfig,removeHomeWidget,reorderHomeWidget,layoutHomeDashboard} from '../src/home-widgets-core.js';
+import {HOME_WIDGET_CATALOG,homeCanvasSettings,createHomeWidget,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,setHomeWidgetConfig,removeHomeWidget,reorderHomeWidget,layoutHomeDashboard} from '../src/home-widgets-core.js';
 import {nextOpeningSummary} from '../src/home-openings-view.js';
 import {verifiedProductMargin} from '../src/home-commercial-margin.js';
 let count=0;const test=(name,fn)=>{fn();count++;console.log('PASS',name)};
@@ -8,6 +8,16 @@ test('Instancias independientes de resumen tienda',()=>{
  const a=createHomeDashboard([{type:'prestashop.summary',id:'h',scope:{store:'hortimatic'}}]);
  const b=duplicateHomeWidget(a,'h','n');const c=setHomeWidgetConfig(b,'n',{scope:{store:'newoldsmok'}});
  assert.equal(c.widgets[0].scope.store,'hortimatic');assert.equal(c.widgets[1].scope.store,'newoldsmok');
+});
+test('Los estilos generales se guardan, son personales y no aceptan CSS o secretos arbitrarios',()=>{
+ const a=createHomeDashboard([{id:'a',type:'home.income'}],{gap:'20',width:'1600',density:'compact',background:'soft',token:'privado'});
+ assert.deepEqual(a.settings,{gap:'20',width:'1600',density:'compact',background:'soft'});
+ const b=duplicateHomeWidget(a,'a','b');
+ assert.deepEqual(b.settings,a.settings);
+ assert.deepEqual(readHomeDashboard(b).settings,a.settings);
+ const changed=homeCanvasSettings({gap:'999',width:'url(https://untrusted.invalid)',density:'javascript:bad',background:'neon'});
+ assert.deepEqual(changed,{gap:'inherit',width:'fluid',density:'inherit',background:'inherit'});
+ assert(!JSON.stringify(a).includes('privado'));
 });
 test('Dos tablas sin compartir filtros ni página',()=>{
  const a=createHomeDashboard([{id:'h',type:'prestashop.orders',filters:{query:'A',page:4}}]);
