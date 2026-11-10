@@ -393,3 +393,9 @@
  .dashboard-page .home-ps-top li{align-items:start}
 }
 @media(max-width:600px){.dashboard-page .home-widget-frame[data-home-type="home.gain"]{grid-column:1/-1}}
+
+.dashboard-page .home-period-dates select{
+ min-width:130px;max-width:min(100%,210px);height:34px;
+ padding:5px 8px;border:1px solid var(--line,#dce5ee);
+ border-radius:7px;background:var(--panel,#fff);color:var(--ink,#172033);font-size:12px
+}
