@@ -36,6 +36,16 @@ try{
   await page.setViewportSize({width,height:960});
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
+  if(width===390){
+   for(const type of ['home.activity','home.gain','pricing.quick']){
+    const dimensions=await page.locator(`[data-home-type="${type}"] .home-widget-body`).evaluate(el=>({
+     visibleHeight:el.clientHeight,contentHeight:el.scrollHeight,
+     overflow:getComputedStyle(el).overflowY
+    }));
+    assert.equal(dimensions.overflow,'visible',type+' no debe esconder controles en un scroll vertical interno móvil');
+    assert(dimensions.contentHeight<=dimensions.visibleHeight+2,type+' conserva a la vista todos sus controles y contenido en móvil');
+   }
+  }
  }
  await page.setViewportSize({width:1440,height:960});
  await page.locator('[data-home-command="edit"]').click();
