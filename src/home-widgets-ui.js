@@ -195,7 +195,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{}}){
   const own=owner;try{
    const saved=await rpc('totus_home_dashboard',{p_action:'read',p_layout:null,p_expected_revision:null});
    if(!live()||owner!==own)return;
-   remoteReady=true;if(saved?.layout?.schemaVersion===1){model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
+   remoteReady=true;if(saved?.layout?.schemaVersion===1){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
   }catch(error){if(live())status('Disposición local predeterminada. Guardado entre dispositivos no disponible hasta instalar la migración.',true)}
  }
  async function save(){if(!edit||busy||!live())return;
