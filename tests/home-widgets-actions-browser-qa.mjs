@@ -48,7 +48,10 @@ try{
   " }"
  ].join('\n');
  assert(src.includes(rpcMarker)&&src.includes(fnMarker),'Contrato mock no encontrado');
- const injected=src.replace(rpcMarker,rpcInject).replace(fnMarker,fnInject);
+ const contextMarker="if(name==='totus_api_manager'||name==='totus_prestashop_context')";
+ assert(src.includes(contextMarker),'Mock client RPC debe permitir PrestaShop');
+ const adjusted=src.replace(contextMarker,"if(name==='totus_prestashop_context')return rpc(name,args);\n  "+contextMarker);
+ const injected=adjusted.replace(rpcMarker,rpcInject).replace(fnMarker,fnInject);
  await page.route('**/tests/mock-supabase.js',route=>route.fulfill({contentType:'text/javascript',body:injected}));
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('[data-home-widget="opening"]').waitFor({timeout:30000});
