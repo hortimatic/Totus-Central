@@ -26,8 +26,8 @@ begin
  if p_expected_revision is null or p_expected_revision<>current_rev then
   raise exception 'El diseño de Inicio ha cambiado en otra sesión. Recarga y vuelve a revisar.' using errcode='40001';
  end if;
- if p_layout is null or jsonb_typeof(p_layout)<>'object' or jsonb_typeof(p_layout->'schemaVersion')<>'number' or (p_layout->>'schemaVersion')<>'1'
-  or jsonb_typeof(p_layout->'widgets')<>'array' or pg_catalog.octet_length(p_layout::text)>120000
+ if p_layout is null or jsonb_typeof(p_layout)<>'object' or coalesce(jsonb_typeof(p_layout->'schemaVersion')<>'number',true) or coalesce((p_layout->>'schemaVersion')<>'1',true)
+  or coalesce(jsonb_typeof(p_layout->'widgets')<>'array',true) or pg_catalog.octet_length(p_layout::text)>120000
  then raise exception 'Diseño de Inicio incompatible o excesivo';end if;
 
  -- The optional visual configuration is presentation only and never contains CSS,
@@ -46,14 +46,14 @@ begin
   select 1 from jsonb_array_elements(p_layout->'widgets') item
   where jsonb_typeof(item)<>'object'
    or item->>'id' is null or (item->>'id') !~ '^[a-zA-Z0-9_-]{1,80}$'
-   or item->>'type' not in (
+   or coalesce(item->>'type' not in (
     'cash.openings','home.income','home.expenses','home.result','home.internal','home.gain','home.activity',
     'home.alerts','home.shortcuts','cash.store','cash.history','cash.withdrawals',
     'prestashop.summary','prestashop.orders','prestashop.top','prestashop.quality',
     'expenses.quarter','expenses.pending','billing.pending','pricing.quick','documents.latest',
     'fiscal.forecast','reports.shortcut','tasks.today','system.status','receptions.pending',
     'products.pending','chat.alerts'
-   )
+   ),true)
    or coalesce(jsonb_typeof(item->'scope')<>'object',true)
    or coalesce(item->'scope'->>'store' not in ('all','hortimatic','newoldsmok'),true)
    or coalesce(jsonb_typeof(item->'hidden')<>'boolean',true)
