@@ -245,3 +245,15 @@
 .home-quality-list small{display:block;font-size:10px;color:var(--muted,#64748b);overflow-wrap:anywhere}
 .home-quality-list>div>small{text-align:right;max-width:52%}
 @container (max-width:410px){.home-quality-metrics{grid-template-columns:minmax(0,1fr)}.home-quality-list>div{flex-direction:column;align-items:flex-start}.home-quality-list>div>small{text-align:left;max-width:100%}}
+
+/* Restauración Inicio: la página, sus KPIs y sus formularios permanecen intactos. */
+.home-legacy-prestashop{min-width:0}
+.home-legacy-prestashop .home-prestashop-overview{grid-template-columns:repeat(12,minmax(0,1fr))}
+.home-legacy-prestashop .home-widget-frame{height:auto;min-height:0;overflow:hidden}
+.home-legacy-prestashop .home-widget-body{height:auto;overflow:visible;min-height:0}
+.home-legacy-prestashop .home-move-handle,.home-legacy-prestashop .home-widget-more{display:none!important}
+.home-legacy-prestashop .home-prestashop-more{margin-top:14px;border:1px solid var(--line,#e2e8f0);border-radius:var(--r,10px);padding:10px 12px;background:var(--panel,#fff)}
+.home-legacy-prestashop .home-prestashop-more>summary{cursor:pointer;font-size:13px;font-weight:700;padding:5px 0;color:var(--ink,#17253b)}
+.home-legacy-prestashop .home-prestashop-details{margin-top:12px}
+.home-legacy-prestashop [data-home-status]{display:block;font-size:12px;margin-top:9px}
+@media(max-width:850px){.home-legacy-prestashop .home-prestashop-overview>.home-widget-frame{grid-column:span 12}}
