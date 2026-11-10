@@ -15,10 +15,10 @@ try{
  const rpcMarker='const rpc=async (name,args={})=>{';
  const rpcInject=[
   rpcMarker,
-  " if(name==='totus_prestashop_context')return {data:{connections:[",
+  " if(name==='totus_prestashop_context'){window.__qaHomeContextCalls=(window.__qaHomeContextCalls||0)+1;return {data:{connections:[",
   "  {protocol:'prestashop',name:'PrestaShop · Hortimatic',id:'ps-h',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true},",
   "  {protocol:'prestashop',name:'PrestaShop · NewOldSmok',id:'ps-n',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true}",
-  " ]},error:null};",
+  " ]},error:null};}",
   " if(name==='totus_home_dashboard'){",
   "  window.__homeSaved||={revision:0,layout:null};",
   "  if(args.p_action==='read')return {data:{...window.__homeSaved},error:null};",
@@ -60,6 +60,7 @@ try{
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="shop-h"] .home-ps-metrics strong').length>=5);
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="shop-n"] .home-ps-metrics strong').length>=5);
  await page.getByText('300,00 €',{exact:true}).first().waitFor();
+ assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
  assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');
