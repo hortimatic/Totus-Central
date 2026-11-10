@@ -57,3 +57,31 @@ Pendientes estrictos:
 6. Cuando todo esté revisado, solicitar aprobación de publicación y hacer merge controlado, comprobar versión en producción y todos los flujos. PR todavía draft.
 
 Datos afectados: **ninguno**. Producción, stock, fiscalidad, OneDrive y registros: **sin cambios**. `request_id` comerciales pendientes: **ninguno**.
+
+## Ampliación de dashboard, módulos y QA visual · 10/11/2026
+
+Petición activa #1 (en progreso): **Inicio exclusivamente**; la implementación debe respetar contenido y cálculos actuales, mejorar fidelidad a las referencias visuales, personalización modular, tablas y gráficos en todas las pantallas. No publicar mientras falten controles.
+
+Hechos comprobados del desarrollo:
+- Se parte de la rama `feat/inicio-widgets-modulares-20261110`, PR #166 **draft**, base `totus-central`.
+- Hay 28 tipos de widget. Configuración general del tablero: separación entre contenedores, ancho máximo, densidad y fondo suave. Los colores, tipografía, bordes y efectos se heredan de las variables reales de **Mi interfaz**. Preferencia de diseño por usuario, guardada con revisión CAS y relectura, sin introducir CSS arbitrario. PostgreSQL aislado valida valores allowlist; no se instala migración en producción.
+- Cada resumen PrestaShop permite elegir horas/días, pedidos válidos o ventas EUR verificadas, visibilidad de métricas y clasificación de 4/8/12 productos. No presenta total monetario si la moneda, el estado o la cobertura no son fiables. Gráficas con ejes, cifras, información accesible y colores de Mi interfaz.
+- Cada tabla de pedidos conserva 10 filas por defecto con scroll horizontal/vertical, filtros de fechas/tienda/búsqueda/pago/validez, orden, paginación numérica y flechas, densidad individual, columnas configurables y reordenables. Los productos se recuperan de líneas de pedido; referencia de cliente y responsable solo si existe evidencia; sin costes históricos verificados no se inventa margen.
+- Widget **Más vendidos** de productos por tienda: tabla o gráfico de barras, combinación, referencia, unidades y porcentaje sobre todas las unidades *verificadas* en la lectura; no mezcla variantes.
+- Widget **Calidad de catálogo** consulta `products` por el servicio autenticado existente, con paginación y límite, utiliza `catalogIssues` canónico (referencias, EAN, peso), separa tiendas y marca resultados parciales sin afirmar total completo. El resumen de tienda incorpora el recuento de avisos cuando se ha realizado una consulta.
+- Widget **Aperturas por tienda** permite duplicar y seleccionar Hortimatic o NewOldSmok, muestra cada cajón y su saldo acreditado de cierre anterior con aviso si está pendiente; el original general permanece intacto. Otras cifras de Inicio, gráfica, formularios y acciones se preservan.
+- La biblioteca permite buscar, filtrar por módulo, añadir, mover, duplicar instancias seguras, cambiar tamaños independientes escritorio/tablet/móvil, ocultar, recuperar y quitar sin eliminar datos de módulos; 120 instancias máximo con errores visibles.
+- CI dispone de tests de motor JS, PostgreSQL aislado, Playwright de módulos y pedidos, navegador táctil real, tema oscuro Mi interfaz y capturas.
+- Ejecución antigua `42818645219`: 16 de 16 jobs PASS de versión anterior. Ejecuciones posteriores incluyen nuevas funciones y **no se consideran aprobadas hasta completar el CI de la última cabeza**.
+- En la ejecución `42827944061` se localizaron (y corrigieron posteriormente) dos fallos: defaults involuntarios en opciones y operador PostgreSQL ambiguo; en `42830493845` se corrigieron selectores de columnas fuera del viewport. Los tests son herramientas de detección, no certificaciones de publicación.
+
+Pendientes bloqueantes:
+1. Leer última cabeza y logs completos del CI correspondiente; corregir causas, no relajar aserciones legítimas.
+2. Revisar capturas reales del Inicio claro/oscuro, escritorio/editor/móvil y posibles cortes por redimensión.
+3. Completar pruebas con sesión real autorizada: permisos, fuentes PrestaShop, caja y preferencias entre dispositivos; nunca ejecutar ventas, pagos, cierre ni emisión para probar.
+4. Revisión técnica competente del diseño de almacenamiento personal y de la migración SQL antes de ejecutar cambios en seguridad o producción.
+5. El **margen comercial histórico** permanece sin validar hasta tener costes de productos/variantes acreditados, descuentos, impuestos y devoluciones; no poner un importe falso.
+6. Algunos tipos (Productos, Recepciones, Chat) todavía muestran acceso nativo al módulo, no una lectura propia contrastada: no afirmar cobertura completa de cada tipo.
+7. Comprobar rama `totus-central` (avanzó durante el trabajo), revisión PR, publicación controlada y regresiones tras publicación solo cuando corresponda.
+
+Producción: sin cambios. Supabase operativo: migración sin aplicar. Registros comerciales: ninguno. OneDrive: sin modificaciones. IDs/request_id de operaciones comerciales pendientes: ninguno.
