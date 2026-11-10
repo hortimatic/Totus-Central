@@ -190,6 +190,7 @@ function prestashopInspector(w){
   html+=pick('showMetrics','Indicadores',[['yes','Mostrar cinco indicadores'],['no','Ocultar indicadores']],w.filters.showMetrics===false?'no':'yes');
   html+=pick('showTop','Productos más vendidos',[['yes','Mostrar clasificación'],['no','Ocultar clasificación']],w.filters.showTop===false?'no':'yes');
  }
+ if(w.type==='prestashop.top')html+=pick('productView','Presentación de productos',[['table','Tabla con todos los datos'],['bars','Gráfico de barras por unidades']],w.filters.productView||'table');
  if(['prestashop.summary','prestashop.top'].includes(w.type))html+=pick('topLimit','Productos en ranking',[['4','4 productos'],['8','8 productos'],['12','12 productos']],w.filters.topLimit||4);
  if(w.type==='prestashop.summary')html+='</fieldset>';
  if(w.type==='prestashop.orders'){html+=pick('tableDensity','Densidad de filas',[['compact','Compacta: más pedidos a la vista'],['normal','Normal: equilibrio'],['comfortable','Cómoda: más espacio']],w.filters.tableDensity||'normal');html+=columnsInspector(w)}
@@ -423,7 +424,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const key=el.dataset.homeConfig;
    if(key==='store'){mutate(m=>setHomeWidgetConfig(m,w.id,{scope:{store:safeStore(el.value)},filters:{page:0}}));void fetchFor(find(w.id));}
    if(key==='from'||key==='to'){mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:el.value,page:0}}));if(dateRange(find(w.id)).from<=dateRange(find(w.id)).to)void fetchFor(find(w.id));}
-   if(['chartMode','chartMetric','topLimit','showMetrics','showTop','tableDensity'].includes(key)){const value=key==='topLimit'?Number(el.value):['showMetrics','showTop'].includes(key)?el.value==='yes':el.value;mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:value}}));return}
+   if(['chartMode','chartMetric','productView','topLimit','showMetrics','showTop','tableDensity'].includes(key)){const value=key==='topLimit'?Number(el.value):['showMetrics','showTop'].includes(key)?el.value==='yes':el.value;mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{[key]:value}}));return}
    if(key==='width')mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{w:Number(el.value)}}}));
    if(key==='height')mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{desktop:{h:Number(el.value)}}}));
    if(key==='tabletWidth')mutate(m=>setHomeWidgetConfig(m,w.id,{layout:{tablet:{w:Number(el.value)}}}));
