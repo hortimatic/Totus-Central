@@ -17,7 +17,8 @@ try{
  await page.locator('[data-home-command="edit"]').click();
  const from=page.locator('[data-home-grip="income"]'),
        to=page.locator('[data-home-widget="expense"]');
- await from.scrollIntoViewIfNeeded();
+ await page.evaluate(()=>{const card=document.querySelector('[data-home-widget="income"]');window.scrollTo(0,window.scrollY+card.getBoundingClientRect().top-140)});
+ await page.waitForTimeout(100);
  const before=await page.locator('.home-widget-grid > [data-home-widget]').evaluateAll(els=>els.map(x=>x.dataset.homeWidget));
  assert(before.indexOf('income')>=0&&before.indexOf('expense')>=0);
  const a=await from.boundingBox(),b=await to.boundingBox();
