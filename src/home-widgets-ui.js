@@ -6,6 +6,7 @@ import {state,getFilters} from './state.js';
 import {esc,money,isoToday} from './utils.js';
 import {storeConnection,PRESTASHOP_STORES} from './prestashop-readonly.js';
 import {prestashopReadiness} from './prestashop-ui.js';
+import {sourceCents} from './prestashop-insights.js';
 
 const defaultSpecs=[
  ['cash.openings','opening',12],['home.income','income',3],['home.expenses','expense',3],
@@ -81,7 +82,7 @@ function fallbackContent(w){
  return `<div class="home-widget-empty"><p>Consulta la información de ${esc(dest[0])} desde su módulo. No se mostrarán cifras inventadas.</p><button class="btn secondary" data-route="${dest[1]}">Abrir ${esc(dest[0])}</button></div>`;
 }
 function verifiedCurrency(orders,currencies){return orders.length&&orders.every(row=>currencies.get(String(row.id_currency))==='EUR')}
-function cents(value){const s=typeof value==='number'?value.toFixed(2):String(value??'').trim();if(!/^-?\d+(?:\.\d{1,2})?$/.test(s))return null;const [a,b='']=s.split('.');const n=Number(a)*100+(a.startsWith('-')?-1:1)*Number((b+'00').slice(0,2));return Number.isSafeInteger(n)?n:null}
+const cents=value=>sourceCents(typeof value==='number'&&Number.isFinite(value)?value.toFixed(2):value);
 function orderStats(rows,currencies,complete){
  const valid=rows.filter(row=>String(row.valid)==='1');
  const amountCents=valid.map(r=>currencies.get(String(r.id_currency))==='EUR'?cents(r.total_paid_tax_incl):null);
