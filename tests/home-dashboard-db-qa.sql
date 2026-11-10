@@ -34,7 +34,7 @@ select public.qa_assert(ui_preferences->'home_dashboard' is null,'Other user lay
 set role authenticated;
 select set_config('request.jwt.claims','{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","email":"qa-two@example.invalid"}',false);
 select public.qa_assert((public.totus_home_dashboard('read',null,null)->>'revision')='0','Second user has isolated layout');
-select public.qa_assert((public.totus_home_dashboard('read',null,null)->'layout') is null,'Second user cannot read first layout');
+select public.qa_assert((public.totus_home_dashboard('read',null,null)->>'layout') is null,'Second user cannot read first layout');
 select set_config('request.jwt.claims','{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"qa-two@example.invalid"}',false);
 select public.qa_assert(public.qa_rejected('read',null,null),'Mismatched signed-in email rejected');
 select set_config('request.jwt.claims','{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","email":"qa-off@example.invalid"}',false);
