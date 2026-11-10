@@ -9,6 +9,7 @@ import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords,accessDeadline} from './login-controls.js';
 import {connectionsHtml,mountConnectionsTabs} from './connections-ui.js';
 import {createPrestashopUI} from './prestashop-ui.js';
+import {createHomeWidgetsUI} from './home-widgets-ui.js';
 import {createProductosUI} from './productos-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
@@ -262,6 +263,11 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
+const homeUI=createHomeWidgetsUI({rpc,can,notify:message=>toast(message,'ok'),invoke:async body=>{
+ const result=await sb.functions.invoke('totus-connections',{body});
+ if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
+ if(result.data?.error)throw Error(result.data.error);return result.data;
+}});
 function render(){
  if(!state.user)return;
  headerTools.refreshAccess();
@@ -280,6 +286,7 @@ function render(){
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
+ homeUI.dispose();
  $('#content').innerHTML='<div class="note warn activity-status" data-activity-status role="status"'+(state.data.activityLogError?'':' hidden')+'>'+esc(state.data.activityLogError||'')+'</div><div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
  const records={cajas:state.data.closings,gastos:state.data.expenses,facturacion:state.data.invoices};
  rememberWriteVersion($('#content > .page'),records[state.route]?.find(row=>row.id===getView(state.route).id));
@@ -298,6 +305,7 @@ function render(){
  if(input('exDocKind'))updateExpenseTaxTreatment();
  if(state.route==='cajas'&&document.querySelector('.drawer-entry'))updateClosingSummary();
  captureFormDraft($('#content'));
+ if(state.route==='inicio')homeUI.mount($('#content'));
  if(state.route==='inicio'){
   const target=$('#tasksHomeSummary'),owner=state.user.email,today=taskToday();
   if(target&&!can('tareas','view'))target.textContent='Tu cuenta no tiene acceso al calendario de tareas.';
