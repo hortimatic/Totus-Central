@@ -218,3 +218,19 @@
 .home-opening-drawer strong{font-size:12px;color:var(--ink,#17253b)}
 .home-opening-drawer b{font-size:18px;color:var(--accent,#2367d1);font-variant-numeric:tabular-nums}
 .home-opening-drawer small{font-size:10px;color:var(--muted,#64748b)}
+
+/* Read-only PrestaShop catalogue diagnostics use the canonical issues from the module. */
+.home-catalog-quality{display:flex;flex-direction:column;gap:12px;min-width:0}
+.home-quality-shop{min-width:0;padding:12px;border:1px solid var(--line,#dbe4ef);border-radius:calc(var(--r,10px) * .7);background:color-mix(in srgb,var(--accent,#2367d1) 2%,var(--panel,#fff))}
+.home-quality-shop h4{margin:0 0 5px;font-size:13px;color:var(--ink,#17253b)}
+.home-quality-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:11px 0}
+.home-quality-metrics>div{padding:9px 7px;border:1px solid var(--line,#dbe4ef);background:var(--panel,#fff);border-radius:7px;min-width:0}
+.home-quality-metrics small{display:block;font-size:10px;color:var(--muted,#64748b)}
+.home-quality-metrics strong{display:block;font-size:17px;margin-top:4px;color:var(--accent,#2367d1);font-variant-numeric:tabular-nums}
+.home-quality-list{max-height:210px;overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column}
+.home-quality-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 2px;border-bottom:1px solid var(--line,#dbe4ef);font-size:11px}
+.home-quality-list>div>span{min-width:0;flex:1}
+.home-quality-list b{display:block;overflow-wrap:anywhere;font-size:11px}
+.home-quality-list small{display:block;font-size:10px;color:var(--muted,#64748b);overflow-wrap:anywhere}
+.home-quality-list>div>small{text-align:right;max-width:52%}
+@container (max-width:410px){.home-quality-metrics{grid-template-columns:minmax(0,1fr)}.home-quality-list>div{flex-direction:column;align-items:flex-start}.home-quality-list>div>small{text-align:left;max-width:100%}}
