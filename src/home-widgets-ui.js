@@ -42,7 +42,7 @@ const permitted=(w,can)=>w.type.startsWith('prestashop.')?can('prestashop','view
  w.type.startsWith('products.')?can('productos','view'):true;
 function createDefault(){
  let y=0;
- return createHomeDashboard(defaultSpecs.map(([type,id,width,store])=>({type,id,scope:{store:store||'all'},layout:{desktop:{x:0,y:y++,w:width,h:HOME_WIDGET_CATALOG[type].height},tablet:{order:y},mobile:{order:y}}})));
+ return createHomeDashboard(defaultSpecs.map(([type,id,width,store])=>({type,id,scope:{store:store||'all'},layout:{desktop:{x:0,y:y++,w:width,h:type==='prestashop.orders'?9:HOME_WIDGET_CATALOG[type].height},tablet:{order:y},mobile:{order:y}}})));
 }
 function collectExisting(root){
  const old=root.querySelector('.home-period-kpis');const kpis=[...(old?.children||[])];
@@ -204,11 +204,26 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{}}){
  }
  async function save(){if(!edit||busy||!live())return;
   if(!remoteReady){status('No se puede guardar: falta el servicio de preferencias del Inicio.',true);return}
-  const own=owner;busy=true;
-  try{const result=await rpc('totus_home_dashboard',{p_action:'save',p_layout:{schemaVersion:1,widgets:model.widgets},p_expected_revision:Number(model.revision||0)});
+  const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,widgets:structuredClone(model.widgets)};
+  busy=true;
+  try{
+   const result=await rpc('totus_home_dashboard',{p_action:'save',p_layout:snapshot,p_expected_revision:expected});
    if(!live()||owner!==own)return;
-   model.revision=String(result.revision);original=structuredClone(model);edit=false;selected=null;draw();status('Tu Inicio se ha guardado en tu cuenta.');notify('Inicio personalizado guardado.');
-  }catch(error){if(live())status('No se guardó la disposición: '+String(error.message||error),true)}finally{busy=false}
+   if(!Number.isSafeInteger(Number(result?.revision))||Number(result.revision)!==expected+1)throw Error('La respuesta no acredita la revisión esperada.');
+   const checked=await rpc('totus_home_dashboard',{p_action:'read',p_layout:null,p_expected_revision:null});
+   if(!live()||owner!==own)return;
+   const persisted=readHomeDashboard(checked?.layout);
+   if(Number(checked.revision)!==Number(result.revision)||JSON.stringify(persisted.widgets)!==JSON.stringify(snapshot.widgets))throw Error('La relectura no coincide con el diseño guardado.');
+   model.revision=String(checked.revision);
+   original={...structuredClone(snapshot),revision:model.revision};
+   if(JSON.stringify(model.widgets)!==JSON.stringify(snapshot.widgets)){
+    status('Se verificó el guardado anterior, pero hay cambios nuevos pendientes de guardar.',true);
+    return;
+   }
+   edit=false;selected=null;draw();status('Tu Inicio se ha guardado y verificado en tu cuenta.');notify('Inicio personalizado guardado.');
+  }catch(error){
+   if(live())status('Guardado sin confirmar: '+String(error.message||error)+'. Revisa el diseño antes de reintentar.',true);
+  }finally{busy=false}
  }
  async function initConnections(){if(connections)return connections;const result=await rpc('totus_prestashop_context',{});if(!live())return null;connections=(result.connections||[]).filter(x=>x.protocol==='prestashop');return connections}
  async function fetchFor(w,force=false){
