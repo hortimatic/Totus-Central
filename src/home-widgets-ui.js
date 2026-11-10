@@ -149,10 +149,10 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(w.type==='expenses.pending'){
    // Fiscal-review queue: not the unpaid-invoice balance. The original Inicio
    // deliberately keeps payment status, document presence and fiscal review distinct.
-   const selected=w.scope?.store==='all'?null:state.data.stores.find(store=>store.name?.toLowerCase()===safeStore(w.scope.store));
+   const chosen=safeStore(w.scope.store),selected=chosen==='all'?null:state.data.stores.find(store=>store.name?.toLowerCase()===chosen);
    const pending=(state.data.expenses||[]).filter(row=>
     !archiveAccepted(state.data.settings,row,'expense')&&row.management_only!==true&&row.fiscal_reviewed===false&&
-    (target==='all'||row.store_id===selected?.id)
+    (chosen==='all'||row.store_id===selected?.id)
    ).sort((a,b)=>String(b.expense_date||'').localeCompare(String(a.expense_date||'')));
    return `<div class="home-pending-expenses"><p><strong>${pending.length} gastos con revisión fiscal pendiente</strong></p>
     <p class="small muted">Revisión fiscal pendiente no significa factura ausente ni pago pendiente. No se modifica ninguna deducción desde este widget.</p>
