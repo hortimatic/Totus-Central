@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {chromium} from 'playwright';
+import {startLocalServer} from './local-static-server.mjs';
+
+const server=await startLocalServer();
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:960},locale:'es-ES'});
+const errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+page.on('dialog',dialog=>dialog.accept());
+try{
+ const src=fs.readFileSync('tests/mock-supabase.js','utf8');
+ const rpcMarker='const rpc=async (name,args={})=>{';
+ const rpcInject=[
+  rpcMarker,
+  " if(name==='totus_prestashop_context')return {data:{connections:[",
+  "  {protocol:'prestashop',name:'PrestaShop · Hortimatic',id:'ps-h',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true},",
+  "  {protocol:'prestashop',name:'PrestaShop · NewOldSmok',id:'ps-n',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true}",
+  " ]},error:null};",
+  " if(name==='totus_home_dashboard'){",
+  "  window.__homeSaved||={revision:0,layout:null};",
+  "  if(args.p_action==='read')return {data:{...window.__homeSaved},error:null};",
+  "  if(args.p_action==='save'&&args.p_expected_revision===window.__homeSaved.revision){",
+  "   window.__homeSaved.revision++;window.__homeSaved.layout=structuredClone(args.p_layout);",
+  "   return {data:{...window.__homeSaved},error:null};",
+  "  }",
+  "  return {data:null,error:{message:'Revisión obsoleta'}};",
+  " }"
+ ].join('\n');
+ const fnMarker='functions:{invoke:async (name,options)=>{';
+ const fnInject=[
+  fnMarker,
+  " if(name==='totus-connections'){",
+  "  const a=options?.body||{},shop=a.store,resource=a.resource,day=new Date().toISOString().slice(0,10);",
+  "  if(a.action!=='prestashop_read')return {data:{error:'Acción no simulada'},error:null};",
+  "  let rows=[];",
+  "  if(resource==='orders'&&a.page===0)rows=Array.from({length:24},(_,i)=>({",
+  "   id:String((shop==='hortimatic'?7000:8000)+i),reference:'QA-R'+i,date_add:day+' 12:00:00',",
+  "   total_paid_tax_incl:'12.50',total_paid_tax_excl:'10.33',id_currency:'1',payment:'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
+  "  }));",
+  "  if(resource==='currencies')rows=[{id:'1',iso_code:'EUR'}];",
+  "  if(resource==='order_details')rows=(a.order_ids||[]).map(id=>({",
+  "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_name:'Producto QA',product_quantity:'1',",
+  "   total_price_tax_incl:'12.50',total_price_tax_excl:'10.33'",
+  "  }));",
+  "  return {data:{ok:true,store:shop,resource,page:a.page,rows,possibly_more:false},error:null};",
+  " }"
+ ].join('\n');
+ assert(src.includes(rpcMarker)&&src.includes(fnMarker),'Contrato mock no encontrado');
+ const injected=src.replace(rpcMarker,rpcInject).replace(fnMarker,fnInject);
+ await page.route('**/tests/mock-supabase.js',route=>route.fulfill({contentType:'text/javascript',body:injected}));
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
+ await page.locator('[data-home-widget="opening"]').waitFor({timeout:30000});
+ for(const label of ['Vape','Head','NewOldSmok'])assert((await page.locator('[data-home-widget="opening"]').innerText()).includes(label));
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="shop-h"] .home-ps-metrics strong').length>=5);
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="shop-n"] .home-ps-metrics strong').length>=5);
+ await page.getByText('300,00 €',{exact:true}).first().waitFor();
+ const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
+ const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
+ assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');
+ const orders=page.locator('[data-home-widget="orders"]');
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
+ assert.equal(await orders.locator('[data-home-command="open-order"]').count(),10);
+ const number=await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order');
+ await orders.locator('[data-home-command="next-page"]').click();
+ assert.notEqual(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number);
+ await orders.locator('[data-home-command="prev-page"]').click();
+ assert.equal(await orders.locator('[data-home-command="open-order"]').first().getAttribute('data-order'),number);
+ await orders.locator('[data-home-filter="query"]').fill('QA-R18');
+ await orders.locator('[data-home-filter="query"]').press('Tab');
+ assert.equal(await orders.locator('[data-home-command="open-order"]').count(),2,'La búsqueda filtra ambos catálogos sin inventar pedidos');
+ await orders.locator('[data-home-filter="query"]').fill('');
+ await orders.locator('[data-home-filter="query"]').press('Tab');
+ await page.locator('[data-home-command="edit"]').click();
+ await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await page.locator('[data-home-config="width"]').selectOption('8');
+ await page.locator('[data-home-config="height"]').selectOption('5');
+ assert((await orders.getAttribute('style')).includes('--span: 8'));
+ assert((await orders.getAttribute('style')).includes('--height: 5'));
+ await page.setViewportSize({width:1024,height:900});
+ const area=orders.locator('[data-home-orders-viewport]');
+ await orders.locator('[data-home-command="scroll-right"]').click();
+ await page.waitForTimeout(400);
+ if(await area.evaluate(x=>x.scrollWidth>x.clientWidth))
+  assert(await area.evaluate(x=>x.scrollLeft>0),'La flecha derecha debe desplazar columnas, no ser decorativa');
+ await page.locator('[data-home-config="store"]').selectOption('hortimatic');
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
+ assert(!(await orders.locator('tbody').innerText()).includes('NewOldSmok'),'El filtro de tienda se aplica realmente');
+ const resize=orders.locator('[data-home-resize="orders"]');
+ await resize.focus();await resize.press('ArrowDown');
+ assert((await orders.getAttribute('style')).includes('--height: 6'),'Redimensión accesible por teclado');
+ await page.locator('[data-home-command="save"]').click();
+ await page.waitForFunction(()=>window.__homeSaved?.revision===1);
+ await page.getByText('Tu Inicio se ha guardado y verificado en tu cuenta.',{exact:true}).waitFor();
+ await page.setViewportSize({width:1440,height:960});
+ await orders.locator('[data-home-command="open-orders"]').click();
+ await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
+ assert.equal(new URL(page.url()).searchParams.get('module'),'prestashop','Abrir pedidos navega al módulo correcto');
+ await page.locator('#nav [data-route="inicio"]').click();
+ const item=page.locator('[data-home-widget="orders"] [data-home-command="open-order"]').first();
+ await item.waitFor({timeout:20000});
+ const id=await item.getAttribute('data-order'),store=await item.getAttribute('data-shop');
+ await item.click();
+ await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
+ const url=new URL(page.url());assert.equal(url.searchParams.get('ps_order'),id);assert.equal(url.searchParams.get('ps_store'),store);
+ await page.locator('#nav [data-route="inicio"]').click();
+ await page.locator('.dashboard-hero [data-action="closing-new"]').click();
+ await page.locator('#clStore').waitFor({timeout:16000});
+ assert.equal(new URL(page.url()).searchParams.get('module'),'cajas','El botón Nuevo cierre abre el formulario existente');
+ for(const width of [320,390,768,1024,1440,1920]){
+  await page.setViewportSize({width,height:900});
+  await page.locator('#nav [data-route="inicio"]').click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Inicio sin desbordamientos a '+width+'px');
+ }
+ assert.deepEqual(errors,[],'Sin errores Javascript');
+ console.log('HOME WIDGET ACTIONS PASS: tiendas, ventas, 10 pedidos, filtros, paginación, scroll, resize, guardado verificado, pedido detallado, caja y seis tamaños');
+}finally{
+ await browser.close();
+ if(server)await new Promise(resolve=>server.close(resolve));
+}
