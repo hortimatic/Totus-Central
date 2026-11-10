@@ -63,7 +63,7 @@ function widget(type,id,options={}){
     title:safeText(options.title)||def.title,
     hidden:options.hidden===true,
     layout:{desktop:{x:bounded(l.desktop?.x,0,11,0),y:bounded(l.desktop?.y,0,9999,0),w:bounded(l.desktop?.w,def.minWidth,def.maxWidth,def.width),h:bounded(l.desktop?.h,def.minHeight,def.maxHeight,def.height)},
-      tablet:{order:bounded(l.tablet?.order,0,9999,0),w:bounded(l.tablet?.w,1,6,Math.min(6,def.width)),h:bounded(l.tablet?.h,2,16,def.height)},mobile:{order:bounded(l.mobile?.order,0,9999,0),h:bounded(l.mobile?.h,2,18,type==='cash.openings'?8:Math.min(12,def.height))} }
+      tablet:{order:bounded(l.tablet?.order,0,9999,0),w:bounded(l.tablet?.w,1,6,Math.min(6,def.width)),h:bounded(l.tablet?.h,2,16,type==='cash.openings'?7:type==='prestashop.orders'?9:def.height)},mobile:{order:bounded(l.mobile?.order,0,9999,0),h:bounded(l.mobile?.h,2,18,type==='cash.openings'?8:type==='prestashop.orders'?9:Math.min(12,def.height))} }
   };
 }
 export function createHomeWidget(type,id,options={}) {return widget(type,id,options);}
