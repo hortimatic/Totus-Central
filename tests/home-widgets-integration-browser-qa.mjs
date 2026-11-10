@@ -48,12 +48,25 @@ try{
  await page.locator('.home-hidden-widgets summary').click();
  await page.locator('[data-home-command="show"]').last().click();
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Recuperación de ocultos');
+ await page.evaluate(async()=>{
+  const {state}=await import('../src/state.js');
+  const row={id:'qa-fiscal-review',store_id:window.__mockDb.ops_stores[0].id,expense_date:'2026-11-10',supplier_name:'Proveedor pendiente fiscal QA',description:'Documento con revisión fiscal pendiente',fiscal_reviewed:false,management_only:false,paid_status:'pagado',accounting_amount:18,gross_expense:18,document_kind:'factura'};
+  state.data.expenses.push(row);
+  window.__mockDb.ops_expenses.push(row);
+ });
+ await page.locator('[data-home-command="add"][data-type="expenses.pending"]').click();
+ await page.locator('[data-home-type="expenses.pending"]').getByText('1 gastos con revisión fiscal pendiente').waitFor();
+ assert((await page.locator('[data-home-type="expenses.pending"]').innerText()).includes('Proveedor pendiente fiscal QA'),'Los gastos pagados también pueden requerir revisión fiscal');
+ assert.equal(await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"]').count(),1,'La ficha fiscal permite abrir gasto real');
  await page.locator('[data-home-command="save"]').click();
  await page.waitForFunction(()=>window.__homePrefs?.revision===1);
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3);
  await page.locator('#nav [data-route="cajas"]').click();
  await page.locator('#nav [data-route="inicio"]').click();
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===3,undefined,{timeout:15000});
+ await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"]').click();
+ await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.route==='gastos'&&state.views.gastos?.id==='qa-fiscal-review'},undefined,{timeout:18000});
+
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{
