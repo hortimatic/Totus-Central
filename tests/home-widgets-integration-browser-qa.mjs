@@ -37,6 +37,10 @@ try{
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
   if(width===390){
+   const income=await page.locator('[data-home-widget="income"]').boundingBox(),expense=await page.locator('[data-home-widget="expense"]').boundingBox();
+   assert(income&&expense&&Math.abs(income.y-expense.y)<24&&expense.x>income.x,'Stitch: los cuatro KPI usan composición móvil 2×2');
+  }
+  if(width===390){
    for(const type of ['home.activity','home.gain','pricing.quick']){
     const dimensions=await page.locator(`[data-home-type="${type}"] .home-widget-body`).evaluate(el=>({
      visibleHeight:el.clientHeight,contentHeight:el.scrollHeight,
