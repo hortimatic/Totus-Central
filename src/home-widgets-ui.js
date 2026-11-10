@@ -171,6 +171,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);
   }
   root.classList.toggle('home-edit-mode',edit);
+  root.classList.toggle('home-widgets-dirty',!!model&&!!original&&JSON.stringify(model.widgets)!==JSON.stringify(original.widgets));
   const toggle=root.querySelector('[data-home-command="edit"]');if(toggle)toggle.textContent=edit?'Salir de edición':'Personalizar inicio';
   renderDrawer();
  }
@@ -209,7 +210,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    remoteReady=true;if(saved?.layout?.schemaVersion===1){if(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
   }catch(error){if(live())status('Disposición local predeterminada. Guardado entre dispositivos no disponible hasta instalar la migración.',true)}
  }
- async function save(){if(busy||!live()||!model||JSON.stringify(model.widgets)===JSON.stringify(original.widgets))return;
+ async function save(){if(busy||!live()||!model)return;
+  if(JSON.stringify(model.widgets)===JSON.stringify(original.widgets)){status('No hay cambios del Inicio pendientes de guardar.');return}
   if(!remoteReady){status('No se puede guardar: falta el servicio de preferencias del Inicio.',true);return}
   const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,widgets:structuredClone(model.widgets)};
   busy=true;
