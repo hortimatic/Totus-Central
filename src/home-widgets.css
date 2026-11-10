@@ -88,3 +88,7 @@
 .home-order-link{display:inline-flex;align-items:center;border:1px solid var(--accent,#2367d1);background:transparent;color:var(--accent,#2367d1);font-weight:650;padding:3px 8px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .home-order-link:hover{background:color-mix(in srgb,var(--accent,#2367d1) 8%,var(--panel,#fff))}
 .home-order-link:focus-visible{outline:3px solid var(--accent,#2367d1);outline-offset:2px}
+
+/* Mobile grip drag is distinct from scrolling the rest of the dashboard. */
+.home-edit-mode .home-move-handle{touch-action:none;user-select:none;-webkit-user-select:none}
+.home-widget-drop-target{outline:3px dashed var(--accent,#2367d1);outline-offset:2px;background:color-mix(in srgb,var(--accent,#2367d1) 5%,var(--panel,#fff))}
