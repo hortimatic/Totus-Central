@@ -13,7 +13,7 @@ try{
  const source=fs.readFileSync('tests/mock-supabase.js','utf8');
  const marker='const rpc=async (name,args={})=>{';
  assert(source.includes(marker),'El mock debe exponer el contrato RPC conocido');
- const pref=\`const __homePrefs={revision:0,layout:null};
+ const pref=`const __homePrefs={revision:0,layout:null};
  window.__homePrefs=__homePrefs;
  const rpc=async (name,args={})=>{
   if(name==='totus_home_dashboard'){
@@ -23,7 +23,7 @@ try{
     return {data:{...__homePrefs},error:null};
    }
    return {data:null,error:{message:'Revisión de Inicio obsoleta'}};
-  }\`;
+  }`;
  await page.route('**/tests/mock-supabase.js',route=>route.fulfill({contentType:'text/javascript',body:source.replace(marker,pref)}));
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('[data-home-widget="opening"]').waitFor({timeout:25000});
@@ -53,7 +53,7 @@ try{
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3);
  await page.locator('#nav [data-route="cajas"]').click();
  await page.locator('#nav [data-route="inicio"]').click();
- await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===3,{timeout:15000});
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===3,undefined,{timeout:15000});
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{
