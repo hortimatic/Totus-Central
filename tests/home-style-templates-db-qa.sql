@@ -29,7 +29,7 @@ declare
  template_id uuid;
  returned jsonb;
 begin
- layout='{"schemaVersion":1,"settings":{"gap":"12","density":"compact","width":"fluid","background":"inherit"},"widgets":[{"id":"income","type":"home.income","title":"Ingresos del periodo","scope":{"store":"all"},"hidden":false,"filters":{"from":"2026-10-01","to":"2026-10-31","query":"CLIENTE PRIVADO","chartMetric":"orders"},"layout":{"desktop":{"x":0,"y":0,"w":3,"h":2},"tablet":{"order":0,"w":3,"h":2},"mobile":{"order":0,"h":3}}}]}';
+ layout='{"schemaVersion":1,"settings":{"gap":"12","density":"compact","width":"fluid","background":"inherit"},"widgets":[{"id":"income","type":"home.income","title":"Cliente PRIVADO ABC / datos sensibles","scope":{"store":"all"},"hidden":false,"filters":{"from":"2026-10-01","to":"2026-10-31","query":"CLIENTE PRIVADO","chartMetric":"orders"},"layout":{"desktop":{"x":0,"y":0,"w":3,"h":2},"tablet":{"order":0,"w":3,"h":2},"mobile":{"order":0,"h":3}}}]}';
  perform public.totus_home_dashboard('save',layout,0);
  result:=public.totus_home_styles('publish',null,'Mi tablero de trabajo');
  template_id=(result->>'id')::uuid;
@@ -38,6 +38,7 @@ begin
  perform public.qa_assert(returned->'layout'->'settings'->>'density'='compact','Estilo visual compartido');
  perform public.qa_assert(returned->'layout'->'widgets'->0->'filters'->>'chartMetric'='orders','Preferencia gráfica permitida');
  perform public.qa_assert(returned->'layout'->'widgets'->0->'filters'->>'query' is null,'Búsqueda privada NO compartida');
+ perform public.qa_assert(returned->'layout'->'widgets'->0->>'title'='Ingresos del periodo','Título personalizado sensible NO compartido');
  perform public.qa_assert(returned->'layout'->'widgets'->0->'filters'->>'from' is null,'Fecha personal NO compartida');
  perform public.qa_assert(public.qa_style_rejected('publish',null,'Mi tablero de trabajo'),'Nombre repetido bloqueado');
  perform public.qa_assert(public.qa_style_rejected('publish',null,'a'),'Nombre demasiado corto bloqueado');
