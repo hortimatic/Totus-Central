@@ -288,7 +288,7 @@ function configureOrderColumns(host,w){
  }
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
- let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
+ let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
@@ -390,12 +390,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(!head||!board||!items)return;
   const title=head.querySelector('h3'),close=head.querySelector('button');
   head.classList.add('home-editor-panel-head');
-  if(title){title.textContent=panelView==='library'?'Añadir widgets':panelView==='board'?'Diseño general':'Configurar widget';title.tabIndex=-1}
+  if(title){title.textContent=panelView==='library'?'Añadir widgets':panelView==='board'?'Diseño general':panelView==='styles'?'Estilos compartidos':'Configurar widget';title.tabIndex=-1}
   if(close){close.dataset.homeCommand='close-panel';close.setAttribute('aria-label','Cerrar inspector sin descartar cambios');close.title='Cerrar inspector';close.textContent='✕'}
   if(desc)desc.remove();
   const tabs=document.createElement('nav');
   tabs.className='home-editor-tabs';tabs.setAttribute('aria-label','Herramientas del Inicio');
-  tabs.innerHTML=[['library','＋ Añadir'],['widget','▣ Widget'],['board','⚙ Tablero']].map(([key,label])=>'<button type="button" data-home-command="panel-'+key+'" aria-pressed="'+(panelView===key)+'" '+(panelView===key?'class="active"':'')+'>'+label+'</button>').join('');
+  tabs.innerHTML=[['library','＋ Añadir'],['widget','▣ Widget'],['board','⚙ Tablero'],['styles','☆ Estilos']].map(([key,label])=>'<button type="button" data-home-command="panel-'+key+'" aria-pressed="'+(panelView===key)+'" '+(panelView===key?'class="active"':'')+'>'+label+'</button>').join('');
   const library=document.createElement('section');library.className='home-editor-view';library.dataset.editorView='library';
   library.insertAdjacentHTML('afterbegin','<div class="home-panel-intro"><strong>Biblioteca de widgets</strong><p>Busca herramientas y añádelas al tablero. No afecta al trabajo de los demás usuarios.</p></div>');
   for(const el of [search,category,items,hidden])if(el)library.append(el);
@@ -439,8 +439,17 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    widgetView.append(switcher,intro,presets,content,layout,advanced);
    if(actions)widgetView.append(actions);
   }else widgetView.innerHTML='<div class="home-panel-intro"><strong>Selecciona un widget</strong><p>Pulsa el menú de una tarjeta para configurar sus opciones y tamaño.</p><button class="btn secondary" type="button" data-home-command="panel-library">Añadir widgets</button></div>';
+  const stylesView=document.createElement('section');stylesView.className='home-editor-view';stylesView.dataset.editorView='styles';
+  const rows=styleItems.map(t=>'<article class="home-style-row"><div><strong>'+esc(t.name)+'</strong><small>'+esc(t.author||'Equipo')+(t.mine?' · Mi estilo':'')+'</small></div><div class="home-style-row-actions"><button type="button" data-home-command="style-apply" data-id="'+esc(t.id)+'" '+(!can('inicio','edit')?'disabled title="Sin permiso de edición"':'')+'>Aplicar</button>'+(t.mine?'<button type="button" data-home-command="style-remove" data-id="'+esc(t.id)+'" aria-label="Retirar '+esc(t.name)+'">Retirar</button>':'')+'</div></article>').join('');
+  stylesView.innerHTML='<div class="home-panel-intro"><strong>Estilos compartidos del equipo</strong><p>Guarda una distribución con nombre para que otros usuarios puedan aplicarla. No se comparten fechas, búsquedas personales, clientes ni datos comerciales; cada usuario conserva su diseño propio.</p></div>'+
+  '<div class="home-style-publish"><label>Nombre del estilo<input type="text" data-home-style-name maxlength="60" placeholder="Ej. Apertura de tiendas"></label>'+
+  '<button class="btn primary" type="button" data-home-command="style-publish" '+(stylesBusy||!can('inicio','edit')?'disabled':'')+'>Guardar y compartir</button>'+
+  '<small>Guarda primero los cambios de tu Inicio. Publicar copia su disposición, nunca modifica otros perfiles.</small></div>'+
+  '<div class="home-style-list-heading"><strong>Estilos disponibles ('+styleItems.length+')</strong><button type="button" data-home-command="style-refresh">Actualizar</button></div>'+
+  (stylesError?'<p class="home-error" role="alert">'+esc(stylesError)+'</p>':'')+
+  (stylesBusy?'<p class="small muted" role="status">Consultando estilos…</p>':rows||'<p class="small muted">No hay estilos compartidos disponibles.</p>');
   const body=document.createElement('div');body.className='home-editor-panel-body';
-  body.append(library,widgetView,boardView);
+  body.append(library,widgetView,boardView,stylesView);
   for(const section of body.children)section.hidden=section.dataset.editorView!==panelView;
   drawer.replaceChildren(head,tabs,body);
   const inspectorActions=widgetView.querySelector('.home-inspector-actions');
@@ -456,7 +465,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const makeId=()=>`hw-${crypto.randomUUID()}`;
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
-  if(['panel-library','panel-widget','panel-board'].includes(action)){if(!edit)return;panelView=action.slice(6);renderDrawer();return}
+  if(['panel-library','panel-widget','panel-board','panel-styles'].includes(action)){if(!edit)return;panelView=action.slice(6);renderDrawer();if(panelView==='styles')void loadStyles();return}
    if(action==='close-panel'){panelView='closed';renderDrawer();return}
    if(action==='preset-size'){const w=find(id);if(!edit||!w)return;const widths=allowedWidths(w),def=HOME_WIDGET_CATALOG[w.type];const options={compact:widths[0],balanced:def.width,wide:widths.filter(x=>x<=9).at(-1)||widths.at(-1),full:widths.at(-1)};const width=options[el.dataset.size];if(!widths.includes(width))return;mutate(m=>setHomeWidgetConfig(m,id,{layout:{desktop:{w:width}}}),id);panelView='widget';return}
 
@@ -616,7 +625,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  function mount(target){
-  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';remoteReady=false;owner=state.user?.id;
+  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
   const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn primary" data-home-command="edit">Personalizar inicio</button></div>`;
