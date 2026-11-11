@@ -226,8 +226,9 @@ html[data-appearance] #app .data-table :is(th,thead){background:var(--appearance
 html[data-appearance] #app .data-table tbody tr:hover td{background:var(--panel)}
 html[data-appearance] #app .btn.secondary{background:var(--appearance-secondary-bg);color:var(--appearance-secondary-ink);border-color:var(--line)}
 html[data-appearance] #app .note:not(.warn):not(.bad){background:var(--appearance-note-bg);color:var(--appearance-note-ink);border-color:var(--line)}
-html[data-appearance] #app :is(.filters,.attachment-box,.table-wrap::before){background:var(--appearance-filter-bg)}
-html[data-appearance] #app :is(.modal,.modal-head){background:var(--appearance-modal-bg);color:var(--ink)}
+html[data-appearance] #app :is(.filters,.attachment-box){background:var(--appearance-filter-bg)}
+html[data-appearance] #app .table-wrap::before{background:var(--appearance-filter-bg)}
+html[data-appearance] :is(.modal,.modal-head){background:var(--appearance-modal-bg);color:var(--ink)}
 /* The editor's own input labels must remain legible even if the user picks a low-contrast label colour. */
 html[data-appearance] .appearance-grid .field label{color:var(--ink)}
 /* Preview mirrors the same independent fields, even when the host has no live appearance saved. */
@@ -240,3 +241,9 @@ html[data-appearance] .appearance-grid .field label{color:var(--ink)}
 .appearance-demo .data-table tbody td{background:var(--appearance-table-row-bg)}
 .appearance-demo .btn.secondary{background:var(--appearance-secondary-bg);color:var(--appearance-secondary-ink)}
 .appearance-demo .note:not(.warn):not(.bad){background:var(--appearance-note-bg);color:var(--appearance-note-ink)}
+
+/* Extra sample boxes show these colours even when viewing only one example module. */
+.appearance-demo-samples{display:grid;gap:7px;min-width:0}
+.appearance-demo-samples .filters{padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--appearance-filter-bg);color:var(--ink);font-size:11px}
+.appearance-demo-samples .note{padding:8px 10px;background:var(--appearance-note-bg);color:var(--appearance-note-ink);font-size:11px}
+.appearance-demo-modal-sample{padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--appearance-modal-bg);color:var(--ink);font-size:11px}
