@@ -5,6 +5,29 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  appearance-element-colors-database:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: test-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated validator and roles
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA private; CREATE ROLE anon; CREATE ROLE authenticated;'
+      - name: Load production-equivalent validator baseline
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/061_personal_navigation_layout.sql
+      - name: Extend allowlist and verify repeatability
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/074_independent_interface_text_box_colors.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/074_independent_interface_text_box_colors.sql
+      - name: Verify new colours, legacy validation and no privilege expansion
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-element-colors-db-qa.sql
   home-widgets-functional-browser:
     runs-on: ubuntu-24.04
     env:
