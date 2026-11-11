@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   cloud-agent:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:17
@@ -36,7 +36,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/cloudflare-db-fixture.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/040_cloudflare_agent.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/cloudflare-db-qa.sql
-      - run: npx playwright install chromium
+      - run: npx playwright install --with-deps chromium
       - run: python3 -m http.server 4173 >/tmp/totus-cloud.log 2>&1 &
       - run: node tests/api-settings-browser-qa.mjs
       - run: node tests/cloudflare-chat-browser-qa.mjs
