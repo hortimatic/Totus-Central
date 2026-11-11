@@ -43,3 +43,6 @@ assert.equal(appearanceVariables({tableHeadBackground:'#123456'})['--appearance-
 assert.equal(appearanceVariables({headingText:'#112233'})['--appearance-heading-ink'],'#112233');
 assert.equal(appearanceVariables({secondaryButtonBackground:'#123456',secondaryButtonText:'#fefefe'})['--appearance-secondary-bg'],'#123456');
 assert.equal(appearanceExtendedDefaults('light').noteBackground,'#f6f8fb');
+
+assert.equal(appearanceValues('interfaz',null).topbarBackground,'#ffffff','Null profile during logout must keep default appearance');
+assert.equal(appearanceVariables(null)['--appearance-topbar-bg'],'#ffffff','Null appearance must not throw on sign-out');
