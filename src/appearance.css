@@ -207,3 +207,8 @@ html[data-appearance] #app .btn.secondary{background:var(--appearance-surface);c
 html[data-appearance] #app .note:not(.warn):not(.bad){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
 html[data-appearance] #app .module-tabs{background:var(--appearance-surface);color:var(--ink)}
 html[data-appearance] #app :is(.filters,.attachment-box):not(.emphasis-check){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+
+/* Optional header layout shortcuts reuse the validated existing settings. */
+.appearance-header-presets{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:10px 12px}
+.appearance-header-presets span{font-size:12px;font-weight:650;margin-right:5px}
+.appearance-header-presets .btn{padding:7px 10px}
