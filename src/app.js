@@ -61,7 +61,7 @@ import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
 import {parseDecimal,closingIncomeAmount,expenseCostAmount,quickPriceStudy,previewQuickPriceStudy,validateExpensePayment,validateExpenseLineAmounts,validateExpenseClassification,validateInvoiceSettlement,issuedDocumentFileLocked} from './calculations.js';
-import {validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
+import {documentMimeType,validateDocumentFile,previewKind,safeFileSegment,uniqueArchiveDocumentPath} from './file-utils.js';
 import {collectArchiveDocuments} from './archive-documents.js';
 import {expenseRegisterLines,GESTOR_EXPENSE_COLUMNS} from './expense-register.js';
 import {exportClosingsWorkbook,exportExpensesWorkbook,exportSummaryWorkbook,exportStoreMonthlyWorkbook,exportGestorWorkbook,buildStoreMonthlyWorkbook,buildGestorWorkbook,workbookBlob} from './excel.js';
@@ -722,7 +722,7 @@ async function createStoredDocument(file,{storeId=null,date,docType='otro',statu
  await upload('business-documents',path,file);
  let doc;
  try{
-   doc=await insert('ops_documents',{store_id:storeId||null,doc_type:docType,document_date:date,supplier_or_customer:party,tax_id:taxId,invoice_number:number,category_code:category,status,storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file),linked_entity_type:linkedType||'',linked_entity_id:linkedId,notes,uploaded_by:state.session?.user?.id||null});
+   doc=await insert('ops_documents',{store_id:storeId||null,doc_type:docType,document_date:date,supplier_or_customer:party,tax_id:taxId,invoice_number:number,category_code:category,status,storage_path:path,original_name:file.name,mime_type:documentMimeType(file),size_bytes:file.size,sha256:await fileSha256(file),linked_entity_type:linkedType||'',linked_entity_id:linkedId,notes,uploaded_by:state.session?.user?.id||null});
  }catch(e){throw await rollbackUploadedFile('business-documents',path,e)}
  return doc;
 }
@@ -1703,6 +1703,12 @@ async function toggleSeries(id,active){
  await refresh('Serie actualizada.');
 }
 
+function updateDocumentFileSelection(picker){
+ const file=picker.files?.[0],label=input('docSelectedFile'),clear=document.querySelector('[data-action="document-file-clear"]'),status=input('docUploadStatus');
+ if(label)label.textContent=file?file.name+' · '+(file.size/1024).toLocaleString('es-ES',{maximumFractionDigits:1})+' KB · pendiente de guardar':'Ningún archivo seleccionado.';
+ if(clear)clear.disabled=!file;
+ if(status)status.textContent=file?'Archivo seleccionado. Pulsa «Subir y guardar» o «Guardar cambios» para completar la subida.':'Selecciona un archivo antes de subir un documento nuevo.';
+}
 async function saveDocument(id=''){
  const current=id?state.data.documents.find(x=>x.id===id):null;
  if(id&&!current)throw new Error('Documento no encontrado. Actualiza el listado.');
@@ -1722,7 +1728,7 @@ async function saveDocument(id=''){
    newPath=`${y}/${quarterFromDate(date)}/${m}/${safeFileSegment(storeNameValue)}/${safeFileSegment(meta.doc_type)}/${safeFileSegment(meta.supplier_or_customer)}/${crypto.randomUUID()}_${safeFileSegment(file.name)}`;
    await upload('business-documents',newPath,file);
    try{
-     row=await update('ops_documents',id,{...meta,storage_path:newPath,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size,sha256:await fileSha256(file)});
+     row=await update('ops_documents',id,{...meta,storage_path:newPath,original_name:file.name,mime_type:documentMimeType(file),size_bytes:file.size,sha256:await fileSha256(file)});
    }catch(err){throw await rollbackUploadedFile('business-documents',newPath,err)}
    if(current.storage_path&&current.storage_path!==newPath)await removeFile('business-documents',current.storage_path).catch(()=>toast('El documento se ha actualizado. El archivo anterior sigue almacenado porque no se ha podido retirar.','bad'));
  }else{
@@ -2945,7 +2951,11 @@ document.addEventListener('click',async e=>{
   if(a==='document-new'){setView('documentos',{mode:'record',id:null});setRoute('documentos');render();return}
   if(a==='document-edit'){setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='document-back'){resetView('documentos');render();return}
-  if(a==='document-save'){await saveDocument(el.dataset.id||'');return}
+  if(a==='document-file-clear'){const picker=input('docFile');if(picker){picker.value='';updateDocumentFileSelection(picker)}return}
+  if(a==='document-save'){
+   const status=input('docUploadStatus');if(status)status.textContent='Comprobando y guardando el documento…';
+   try{await saveDocument(el.dataset.id||'')}catch(error){if(status?.isConnected)status.textContent='No se ha guardado: '+(error.message||String(error));throw error}return;
+  }
   if(a==='document-download'){await downloadDocument(el.dataset.id);return}
   if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
   if(a==='documents-zip'){await zipFilteredDocuments();return}
@@ -3123,6 +3133,7 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.id==='docFile'){updateDocumentFileSelection(e.target);return}
  if(e.target?.matches?.('.stock-file-field input[type=file]'))updateStockFileSelection(e.target);
  if(e.target?.id?.startsWith('tp')&&input('templateDraftPreview'))updateTemplateDraftPreview();
  if(e.target?.id==='ivTemplate'){

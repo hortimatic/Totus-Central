@@ -314,6 +314,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 /* File verification uses the same Spanish-language picker as other modules,
    avoiding an unstyled browser control and misaligned file-name text. */
 .backup-file-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.document-file-selection{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;min-width:0}.document-file-selection .file-picker{flex:0 0 auto;max-width:100%}.document-file-selection [role=status]{flex:1 1 220px;min-width:0;overflow-wrap:anywhere;font-size:13px}.document-file-selection .btn{flex:0 0 auto}
 .backup-file-picker{min-width:0;max-width:100%}
 #backupSelectedFile{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
 @media(max-width:480px){.backup-file-control{align-items:stretch;flex-direction:column}.backup-file-picker{width:100%}}
