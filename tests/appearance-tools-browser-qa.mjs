@@ -78,7 +78,7 @@ try{
  await page.locator('[name=startModule]').selectOption('equipo');
  await page.locator('[data-settings-search]').fill('');assert.equal(await page.locator('[name=startModule]').inputValue(),'equipo');
  await page.locator('[data-settings-fold]').click();assert.equal(await page.locator('[data-appearance-group][open]').count(),0);
- await page.locator('[data-settings-expand]').click();assert.equal(await page.locator('[data-appearance-group][open]').count(),6);assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
+ await page.locator('[data-settings-expand]').click();assert.equal(await page.locator('[data-appearance-group][open]').count(),8);assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
  await page.locator('[data-appearance-tab=login]').click();
  await page.locator('[data-login-preset]').selectOption('night');await page.locator('[data-login-style]').click();
  assert.equal(await page.locator('[name=loginCardPreset]').inputValue(),'dark');assert.equal(await page.locator('[name=loginBrandName]').inputValue(),'Marca compartida');assert.equal(await page.locator('[data-login-preset]').inputValue(),'night');
