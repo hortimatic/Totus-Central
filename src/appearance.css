@@ -283,3 +283,12 @@ html[data-appearance] .appearance-grid .field label{color:var(--ink)}
 .appearance-style-share .inline-actions{display:flex;flex-wrap:wrap;gap:8px}
 .appearance-style-share .btn{white-space:normal;text-align:left}
 .appearance-style-share [data-style-share-status]{overflow-wrap:anywhere}
+
+
+/* An enlarged preview is an in-page local simulator, not a second application. */
+.appearance-preview-card.is-expanded{position:fixed;inset:12px;z-index:1005;overflow:auto;max-width:none;width:auto;height:auto;box-shadow:0 16px 70px #0008}
+.appearance-preview-card.is-expanded .appearance-demo{grid-template-columns:minmax(155px,20%) minmax(0,1fr);min-height:min(640px,75vh)}
+.appearance-preview-card.is-expanded .appearance-preview{max-width:1200px;margin:15px auto}
+.appearance-preview-card.is-expanded .appearance-demo-main>section{padding:16px}
+.appearance-preview-card.is-expanded .appearance-demo .appearance-demo-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:600px){.appearance-preview-card.is-expanded{inset:3px;padding:8px}.appearance-preview-card.is-expanded .appearance-demo{grid-template-columns:105px minmax(0,1fr)}.appearance-preview-card.is-expanded .appearance-demo-main>section{padding:6px}}
