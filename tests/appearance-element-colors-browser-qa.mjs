@@ -9,7 +9,7 @@ try{
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
   const values=await page.evaluate(async()=>{
-   const sources=['styles.css','appearance.css','stitch-design.css'];
+   const sources=['styles.css','appearance.css','stitch-design.css','home-widgets.css','productos.css'];
    for(const source of sources){const link=document.createElement('link');link.rel='stylesheet';link.href='../src/'+source;document.head.append(link);await new Promise((ok,fail)=>{link.onload=ok;link.onerror=fail;});}
    const {appearanceVariables}=await import('../src/appearance-core.js');
    const settings={
@@ -23,10 +23,10 @@ try{
    const root=document.documentElement;root.dataset.appearance='dark';
    for(const [key,value] of Object.entries(appearanceVariables(settings)))root.style.setProperty(key,value);
    const fixture=document.createElement('div');fixture.id='app';
-   fixture.innerHTML='<header class="topbar"><h1>Cabecera</h1></header><div class="card"><h3>Título de tarjeta</h3><div class="field"><label>Etiqueta</label><input value="Valor"></div><table class="data-table"><thead><tr><th>Encabezado</th></tr></thead><tbody><tr><td>Fila</td></tr></tbody></table><button class="btn secondary">Botón</button><div class="note">Nota neutra</div><div class="filters">Filtros</div><div class="modal">Ventana</div></div>';
+   fixture.innerHTML='<header class="topbar"><h1>Cabecera</h1></header><div class="card"><h3>Título de tarjeta</h3><div class="field"><label>Etiqueta</label><input value="Valor"></div><table class="data-table"><thead><tr><th>Encabezado</th></tr></thead><tbody><tr><td>Fila</td></tr></tbody></table><button class="btn secondary">Botón</button><div class="note">Nota neutra</div><div class="filters">Filtros</div><div class="modal">Ventana</div><section class="home-widget-header"><h3>Inicio</h3></section><table class="home-orders-table"><thead><tr><th>Pedidos</th></tr></thead></table><div id="productosRoot"><div class="prd-stitch"><h3>Producto</h3><div class="prd-fields"><label>Referencia</label><input value="PR-001"></div><table class="prd-catalog-table"><thead><tr><th>Nombre</th></tr></thead><tbody><tr><td>Producto ficticio</td></tr></tbody></table></div></div></div>';
    document.body.append(fixture);
    const color=selector=>{const style=getComputedStyle(fixture.querySelector(selector));return {text:style.color,bg:style.backgroundColor};};
-   return Object.fromEntries(['.topbar','.topbar h1','.card h3','.field label','.field input','.data-table th','.data-table td','.btn.secondary','.note','.filters','.modal'].map(selector=>[selector,color(selector)]));
+   return Object.fromEntries(['.topbar','.topbar h1','.card h3','.field label','.field input','.data-table th','.data-table td','.btn.secondary','.note','.filters','.modal','.home-widget-header h3','.home-orders-table th','#productosRoot .prd-stitch h3','#productosRoot .prd-fields input','#productosRoot .prd-catalog-table th'].map(selector=>[selector,color(selector)]));
   });
   assert.equal(values['.topbar'].bg,'rgb(17, 34, 51)','Header background');
   assert.equal(values['.topbar h1'].text,'rgb(255, 255, 255)','Header text');
@@ -43,6 +43,11 @@ try{
   assert.equal(values['.note'].text,'rgb(190, 223, 255)','Notice text');
   assert.equal(values['.filters'].bg,'rgb(13, 41, 55)','Filter box');
   assert.equal(values['.modal'].bg,'rgb(26, 56, 72)','Modal box');
+  assert.equal(values['.home-widget-header h3'].text,'rgb(254, 220, 186)','Inicio widget heading');
+  assert.equal(values['.home-orders-table th'].bg,'rgb(51, 68, 85)','Inicio table header');
+  assert.equal(values['#productosRoot .prd-stitch h3'].text,'rgb(254, 220, 186)','Productos headings');
+  assert.equal(values['#productosRoot .prd-fields input'].bg,'rgb(36, 54, 74)','Productos input box');
+  assert.equal(values['#productosRoot .prd-catalog-table th'].bg,'rgb(51, 68, 85)','Productos table heading');
   assert.deepEqual(errors,[]);
   await page.close();
  }
