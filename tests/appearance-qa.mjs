@@ -32,3 +32,14 @@ assert.equal(corrected.card,unreadable.card,'A contrast correction cannot recolo
 assert.equal(corrected.navigationBackground,unreadable.navigationBackground,'A contrast correction cannot recolour navigation background');
 const safe=appearanceValues('interfaz',{card:'#ffffff',surface:'#ffffff',text:'#0f172a',muted:'#334155',navigationBackground:'#0b1228',navigationText:'#ffffff',navigationSectionText:'#cbd5e1'});
 assert.deepEqual(improveAppearanceContrast(safe),safe,'Readable custom colours must be kept');
+
+import {APPEARANCE_EXTENDED_KEYS,appearanceExtendedDefaults} from '../src/appearance-core.js';
+assert.equal(APPEARANCE_EXTENDED_KEYS.length,15);
+for(const key of APPEARANCE_EXTENDED_KEYS){assert.equal(APPEARANCE_FIELDS.interfaz[key].type,'color',key);assert.match(appearanceValues('interfaz',{theme:'dark'})[key],/^#[0-9a-f]{6}$/i,key);}
+assert.equal(appearanceValues('interfaz',{headingText:'not-a-hex'}).headingText,APPEARANCE_FIELDS.interfaz.headingText.value);
+assert.equal(appearanceValues('interfaz',{theme:'dark',surface:'#08152b',card:'#18263f',text:'#f0f5ff'}).topbarBackground,'#08152b','Saved old dark accounts keep the prior surface color');
+assert.equal(appearanceValues('interfaz',{theme:'dark',surface:'#08152b',card:'#18263f',text:'#f0f5ff'}).inputBackground,'#18263f','Dark forms keep old card color');
+assert.equal(appearanceVariables({tableHeadBackground:'#123456'})['--appearance-table-head-bg'],'#123456');
+assert.equal(appearanceVariables({headingText:'#112233'})['--appearance-heading-ink'],'#112233');
+assert.equal(appearanceVariables({secondaryButtonBackground:'#123456',secondaryButtonText:'#fefefe'})['--appearance-secondary-bg'],'#123456');
+assert.equal(appearanceExtendedDefaults('light').noteBackground,'#f6f8fb');
