@@ -35,13 +35,14 @@ try{
   const fixture=document.createElement('div');fixture.id='appearance-dark-smoke';
   fixture.innerHTML='<header class="topbar"><h1>Cabecera</h1><span class="eyebrow">Subtítulo</span></header><section class="card"><label class="field">Texto<input value="Campo"></label><div class="tabs"><button class="tab">Resumen</button></div><button class="btn secondary">Filtrar</button><div class="note">Nota neutral</div></section>';
   document.body.append(fixture);
-  const selectors=['.topbar h1','.topbar .eyebrow','.field','.field input','.tab','.btn.secondary','.note'];
+  const selectors=['.topbar h1','.topbar .eyebrow','.card','.field','.field input','.tab','.btn.secondary','.note'];
   const output=selectors.map(selector=>{const el=fixture.querySelector(selector),s=getComputedStyle(el);return {selector,color:s.color,background:s.backgroundColor};});
   fixture.remove();root.removeAttribute('data-appearance');
   for(const key of Object.keys(appearanceVariables({})))root.style.removeProperty(key);
   return output;
  });
  assert.equal(dark.find(x=>x.selector==='.topbar h1').color,'rgb(242, 247, 255)','Dark topbar text follows appearance');
+ assert.equal(dark.find(x=>x.selector==='.card').background,'rgb(18, 35, 59)','Custom dark card color must not be replaced by surface color');
  assert.equal(dark.find(x=>x.selector==='.field input').color,'rgb(242, 247, 255)','Dark input text follows appearance');
  assert.equal(dark.find(x=>x.selector==='.btn.secondary').color,'rgb(242, 247, 255)','Dark secondary button text remains readable');
  assert.equal(dark.find(x=>x.selector==='.note').color,'rgb(242, 247, 255)','Dark neutral note text remains readable');
