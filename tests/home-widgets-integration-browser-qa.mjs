@@ -15,7 +15,27 @@ try{
  assert(source.includes(marker),'El mock debe exponer el contrato RPC conocido');
  const pref=`const __homePrefs={revision:0,layout:null};
  window.__homePrefs=__homePrefs;
+ const __homeStyles=[];window.__homeStyles=__homeStyles;
  const rpc=async (name,args={})=>{
+  if(name==='totus_home_styles'){
+   if(args.p_action==='list')return {data:{items:__homeStyles.map(({layout,...row})=>row)},error:null};
+   if(args.p_action==='publish'&&args.p_expected_revision===__homePrefs.revision&&__homePrefs.layout){
+    const id='11111111-1111-4111-8111-111111111111';
+    __homeStyles.push({id,name:args.p_name,author:'QA',mine:true,layout:structuredClone(__homePrefs.layout)});
+    return {data:{id,published:true},error:null};
+   }
+   if(args.p_action==='read'){
+    const style=__homeStyles.find(x=>x.id===args.p_template_id);
+    return style?{data:{...structuredClone(style)},error:null}:{data:null,error:{message:'Plantilla no disponible'}};
+   }
+   if(args.p_action==='remove'){
+    const i=__homeStyles.findIndex(x=>x.id===args.p_template_id);
+    if(i<0)return {data:null,error:{message:'Solo puedes retirar una plantilla propia'}};
+    const [style]=__homeStyles.splice(i,1);
+    return {data:{removed:true,id:style.id},error:null};
+   }
+   return {data:null,error:{message:'No se publicó el estilo'}};
+  }
   if(name==='totus_home_dashboard'){
    if(args.p_action==='read')return {data:{...__homePrefs},error:null};
    if(args.p_action==='save'&&args.p_expected_revision===__homePrefs.revision){
@@ -62,7 +82,12 @@ try{
  await page.locator('[data-home-command="edit"]').click();
  assert.equal(await page.locator('[data-home-drawer]').isVisible(),false,'Personalizar no abre panel invasivo');
  assert(Math.abs((await page.locator('.home-widget-grid').evaluate(el=>el.getBoundingClientRect().width))-originalWidth)<3,'La edición no estrecha el tablero');
- await page.locator('[data-home-command="panel-board"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ assert.equal(await page.locator('[data-home-drawer]').getAttribute('data-active-panel'),'styles','Biblioteca de estilos con nombre abre su propia pestaña');
+ assert.equal(await page.locator('[data-home-style-name]').isVisible(),true,'El nombre del estilo se puede introducir');
+ assert.equal(await page.locator('[data-home-command="style-publish"]').isVisible(),true,'Publicar plantilla tiene acción explícita');
+ assert(Math.abs((await page.locator('.home-widget-grid').evaluate(el=>el.getBoundingClientRect().width))-originalWidth)<3,'Abrir estilos no estrecha tablero');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-board"]').click();
  await page.locator('[data-home-general="gap"]').selectOption('20');
  await page.locator('[data-home-general="width"]').selectOption('1600');
  await page.locator('[data-home-general="density"]').selectOption('compact');
@@ -70,6 +95,15 @@ try{
  assert.equal(await page.locator('.home-widget-grid').evaluate(el=>getComputedStyle(el).gap),'20px','Separación general aplicada a las tarjetas');
  assert.equal(await page.locator('.home-widget-grid').evaluate(el=>el.style.maxWidth),'1600px','Máximo ancho aplicado al tablero');
  assert.equal(await page.locator('.dashboard-page').getAttribute('data-home-canvas-background'),'soft','Fondo suave aplicado');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ await page.waitForFunction(()=>document.querySelector('[data-home-command="style-publish"]')?.disabled===false);
+ await page.locator('[data-home-style-name]').fill('Inicio del equipo QA');
+ await page.locator('[data-home-command="style-publish"]').click();
+ await page.waitForFunction(()=>window.__homeStyles?.length===1&&window.__homePrefs?.revision===1);
+ assert.equal(await page.evaluate(()=>window.__homeStyles[0].name),'Inicio del equipo QA','Compartir conserva el nombre elegido');
+ assert.equal(await page.locator('[data-home-command="edit"]').innerText(),'Cancelar edición','Guardar y compartir mantiene el editor');
+ assert.deepEqual(await page.evaluate(()=>window.__homePrefs.layout.settings),{gap:'20',width:'1600',density:'compact',background:'soft'},'Un clic guarda el diseño antes de compartir');
+
  assert.equal(await page.locator('[data-home-widget="income"] .home-widget-body').evaluate(el=>getComputedStyle(el).paddingTop),'9px','Densidad compacta aplicada a las tarjetas sin cambiar Mi interfaz');
 
  await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
@@ -144,7 +178,7 @@ try{
  assert((await page.locator('[data-home-type="expenses.pending"]').innerText()).includes('Proveedor pendiente fiscal QA'),'Los gastos pagados también pueden requerir revisión fiscal');
  assert.equal(await fiscalWidget.locator('[data-home-command="open-expense"][data-expense="qa-fiscal-review"]').count(),1,'Se puede abrir la ficha fiscal concreta');
  await page.locator('[data-home-command="save"]').click();
- await page.waitForFunction(()=>window.__homePrefs?.revision===1);
+ await page.waitForFunction(()=>window.__homePrefs?.revision===2);
  assert.deepEqual(await page.evaluate(()=>window.__homePrefs.layout.settings),{gap:'20',width:'1600',density:'compact',background:'soft'},'Las preferencias generales quedan guardadas en cuenta');
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3);
  await page.locator('#nav [data-route="cajas"]').click();
@@ -153,6 +187,27 @@ try{
  assert.equal(await page.locator('.home-widget-grid').evaluate(el=>getComputedStyle(el).gap),'20px','El tablero conserva la separación tras salir y regresar a Inicio');
  await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"][data-expense="qa-fiscal-review"]').click();
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.route==='gastos'&&state.views.gastos?.id==='qa-fiscal-review'},undefined,{timeout:18000});
+
+
+ // Apply a previously shared style only to this user's dashboard, then persist it.
+ await page.locator('#nav [data-route="inicio"]').click();
+ await page.locator('[data-home-widget="opening"]').waitFor();
+ await page.locator('[data-home-command="edit"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ await page.locator('[data-home-command="style-apply"]').waitFor();
+ await page.locator('[data-home-command="style-apply"]').click();
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===2);
+ assert.equal(await page.evaluate(()=>window.__homePrefs.revision),2,'Aplicar no modifica todavía el Inicio persistido');
+ await page.locator('[data-home-command="save"]').click();
+ await page.waitForFunction(()=>window.__homePrefs.revision===3);
+ assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'El Inicio adopta el estilo compartido tras guardar');
+ // An author can remove their template without changing the current layout.
+ await page.locator('[data-home-command="edit"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ await page.locator('[data-home-command="style-remove"]').waitFor();
+ await page.locator('[data-home-command="style-remove"]').click();
+ await page.waitForFunction(()=>window.__homeStyles.length===0);
+ assert.equal(await page.evaluate(()=>window.__homePrefs.revision),3,'Retirar estilo no modifica las preferencias del Inicio');
 
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
