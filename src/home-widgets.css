@@ -548,3 +548,11 @@
 @media (prefers-reduced-motion:reduce){
  .dashboard-page .home-widgets-drawer,.dashboard-page .home-editor-tabs button{transition:none}
 }
+
+/* Widget actions stay available while the inspector fields scroll. */
+.dashboard-page .home-editor-footer{flex:none;border-top:1px solid var(--line,#dce5ee);background:var(--panel,#fff);padding:10px 15px 12px}
+.dashboard-page .home-editor-footer .home-inspector-actions{margin:0;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.dashboard-page .home-editor-footer .home-inspector-actions button{padding:7px 5px;min-width:0;min-height:35px;font-size:11px}
+.dashboard-page .home-editor-footer .home-inspector-actions button[data-home-command="remove"]{grid-column:span 2}
+.dashboard-page .home-editor-footer .home-inspector-actions button[data-home-command="hide"]{grid-column:span 1}
+.dashboard-page .home-editor-widget-switcher{display:block!important;margin:0 0 14px!important}
