@@ -465,8 +465,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='select'){selected=id;edit=true;panelView='widget';advancedOpen=false;draw();return}
   if(action==='add'){panelView='widget';const type=el.dataset.type;if(nonClonable.has(type)&&model.widgets.some(w=>w.type===type)){status('Ese widget contiene controles únicos y ya está añadido. Puedes moverlo o cambiar su tamaño.',true);return}const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};const newId=makeId();mutate(m=>addHomeWidget(m,type,newId,{scope}),newId);if(type==='prestashop.quality')void fetchCatalog(find(newId));else if(type.startsWith('prestashop.'))void fetchFor(find(newId));return}
   if(action==='duplicate'){const w=find(id);if(!w||nonClonable.has(w.type))return;const newId=makeId();mutate(m=>duplicateHomeWidget(m,id,newId),newId);return}
-  if(action==='hide'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}),model.widgets.find(x=>x.id!==id&&!x.hidden)?.id);return}
-  if(action==='show'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:false}));selected=id;draw();return}
+  if(action==='hide'){panelView='library';mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}),model.widgets.find(x=>x.id!==id&&!x.hidden)?.id);return}
+  if(action==='show'){panelView='widget';mutate(m=>setHomeWidgetConfig(m,id,{hidden:false}),id);return}
   if(action==='remove'){if(!confirm('¿Quitar este widget del Inicio? No se borrará ningún dato del módulo y podrás volver a añadirlo.'))return;mutate(m=>removeHomeWidget(m,id));return}
   if(action==='up'||action==='down'){mutate(m=>reorderHomeWidget(m,id,action));return}
   if(action==='reset'){if(!confirm('¿Restaurar la distribución inicial? Los cambios actuales quedarán pendientes de guardar y podrás descartarlos antes de confirmar.'))return;mutate(()=>createDefault());return}
