@@ -40,7 +40,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
   const editable=canEdit(section);
   host.querySelectorAll('fieldset').forEach(el=>el.disabled=busy||!editable);
   host.querySelectorAll('button').forEach(el=>{
-   const navigation=el.hasAttribute('data-appearance-tab')||el.hasAttribute('data-cancel-preview')||el.hasAttribute('data-preview-size')||el.hasAttribute('data-jump')||el.hasAttribute('data-show-preview')||el.hasAttribute('data-appearance-navigation');
+   const navigation=el.hasAttribute('data-appearance-tab')||el.hasAttribute('data-cancel-preview')||el.hasAttribute('data-preview-size')||el.hasAttribute('data-demo-module')||el.hasAttribute('data-jump')||el.hasAttribute('data-show-preview')||el.hasAttribute('data-appearance-navigation');
    el.disabled=busy||(!editable&&!navigation)||(el.hasAttribute('data-remove-image')&&!values[el.dataset.removeImage]);
   });
   host.querySelectorAll('[data-preset],[data-login-preset],[data-my-style],[data-style-name]').forEach(preset=>preset.disabled=busy||!editable);
