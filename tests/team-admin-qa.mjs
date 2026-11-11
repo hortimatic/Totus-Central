@@ -21,7 +21,8 @@ async function scenario({action='set_password',callerRole='admin',memberRole='ad
  const auth={getUser:async()=>({data:{user:{email:'caller@qa.invalid'}}}),resetPasswordForEmail:async()=>({error:null}),admin:{
   listUsers:async({page})=>{pages.push(page);return {data:{users:paginated&&page===1?Array.from({length:1000},(_,i)=>({id:`other-${i}`,email:`other-${i}@qa.invalid`})):existing?[{id:'target-id',email:member.email,email_confirmed_at:'2026-01-01',deleted_at:authDeleted?'2026-01-02':null}]:[]},error:null}},
   updateUserById:async(id,value)=>{updates.push({id,value});return {error:null}},
-  createUser:async()=>({data:{user:{id:'new-target-id'}},error:null})
+  createUser:async()=>({data:{user:{id:'new-target-id',email:member.email}},error:null}),
+  inviteUserByEmail:async email=>({data:{user:{id:'invited-target-id',email}},error:null})
  }};
  const env={SUPABASE_URL:'https://qa.invalid',SUPABASE_ANON_KEY:'test-public',SUPABASE_SERVICE_ROLE_KEY:'test-secret'};
  vm.runInNewContext(source,{createClient:()=>({auth,from}),Deno:{env:{get:k=>env[k]},serve:h=>{handler=h}},Response,Request,console});
@@ -45,6 +46,11 @@ const ficha=created.writes.find(w=>w.table==='team_members').value;
 assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager');assert.equal(ficha.store,'QA centre');assert.equal(ficha.employee_notes,'QA notes');
 assert(!('avatar_url' in ficha),'Ordinary invitations and creation must not clear existing photo fields');
 
+const invited=await scenario({action:'invite',existing:false});
+assert.equal(invited.status,200,'Invitación de usuario nuevo conserva el circuito legítimo');
+const invitedProfile=invited.writes.find(w=>w.table==='profiles')?.value;
+assert.equal(invitedProfile?.id,'invited-target-id');
+assert.equal(invitedProfile?.active,true);
 const createdProfile=created.writes.find(w=>w.table==='profiles')?.value;
 assert.equal(createdProfile?.id,'new-target-id','El alta enlaza el ID Auth real, no crea otra identidad');
 assert.equal(createdProfile?.role,'gerente');
