@@ -45,9 +45,14 @@ Deno.serve(async(req:Request)=>{
    const user=identity||await findAuthUser(email);
    if(!user)return; // Invitations may not yet have a usable Auth identity.
    if(!user.id||cleanEmail(user.email)!==email)throw new Error('La identidad Auth no coincide con el usuario del equipo.');
-   const {data:record,error:readError}=await admin.from('profiles').select('id,email').eq('id',user.id).maybeSingle();
+   const {data:record,error:readError}=await admin.from('profiles').select('id,email,active,role').eq('id',user.id).maybeSingle();
    if(readError)throw readError;
    if(record?.email&&cleanEmail(record.email)!==email)throw new Error('El perfil Auth pertenece a otra cuenta.');
+   // A pending provisioning profile can be reconciled by an authorized admin;
+   // a deliberately disabled profile with a real role must not be reactivated
+   // as a side effect of changing the display name or permissions.
+   if(active&&record?.active===false&&record.role!=='pendiente')
+    throw new Error('El perfil fue desactivado expresamente. Revisa la cuenta antes de reactivarla.');
    const {error:writeError}=await admin.from('profiles').upsert({id:user.id,email,full_name:fullName,role,active},{onConflict:'id'});
    if(writeError)throw writeError;
    const {data:checked,error:checkError}=await admin.from('profiles').select('id,email,full_name,role,active').eq('id',user.id).maybeSingle();
