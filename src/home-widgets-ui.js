@@ -440,7 +440,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    if(actions)widgetView.append(actions);
   }else widgetView.innerHTML='<div class="home-panel-intro"><strong>Selecciona un widget</strong><p>Pulsa el menú de una tarjeta para configurar sus opciones y tamaño.</p><button class="btn secondary" type="button" data-home-command="panel-library">Añadir widgets</button></div>';
   const stylesView=document.createElement('section');stylesView.className='home-editor-view';stylesView.dataset.editorView='styles';
-  const rows=styleItems.map(t=>'<article class="home-style-row"><div><strong>'+esc(t.name)+'</strong><small>'+esc(t.author||'Equipo')+(t.mine?' · Mi estilo':'')+'</small></div><div class="home-style-row-actions"><button type="button" data-home-command="style-apply" data-id="'+esc(t.id)+'" '+(!can('inicio','edit')?'disabled title="Sin permiso de edición"':'')+'>Aplicar</button>'+(t.mine?'<button type="button" data-home-command="style-remove" data-id="'+esc(t.id)+'" aria-label="Retirar '+esc(t.name)+'">Retirar</button>':'')+'</div></article>').join('');
+  const rows=styleItems.map(t=>'<article class="home-style-row"><div><strong>'+esc(t.name)+'</strong><small>'+esc(t.author||'Equipo')+(t.mine?' · Mi estilo':'')+'</small></div><div class="home-style-row-actions"><button type="button" data-home-command="style-apply" data-id="'+esc(t.id)+'" '+(!can('inicio','view')?'disabled title="Sin permiso de lectura"':'')+'>Aplicar</button>'+(t.mine?'<button type="button" data-home-command="style-remove" data-id="'+esc(t.id)+'" aria-label="Retirar '+esc(t.name)+'">Retirar</button>':'')+'</div></article>').join('');
   stylesView.innerHTML='<div class="home-panel-intro"><strong>Estilos compartidos del equipo</strong><p>Guarda una distribución con nombre para que otros usuarios puedan aplicarla. No se comparten fechas, búsquedas personales, clientes ni datos comerciales; cada usuario conserva su diseño propio.</p></div>'+
   '<div class="home-style-publish"><label>Nombre del estilo<input type="text" data-home-style-name maxlength="60" placeholder="Ej. Apertura de tiendas"></label>'+
   '<button class="btn primary" type="button" data-home-command="style-publish" '+(stylesBusy||!can('inicio','edit')?'disabled':'')+'>Guardar y compartir</button>'+
@@ -497,7 +497,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;void loadStyles()}}
  }
  async function applyStyle(id){
-  if(stylesBusy||!live()||!edit||!can('inicio','edit')||!styleItems.some(t=>t.id===id))return;
+  if(stylesBusy||!live()||!edit||!can('inicio','view')||!styleItems.some(t=>t.id===id))return;
   if(!confirm('¿Aplicar este estilo a tu Inicio? No se guardará hasta que pulses «Guardar cambios». Puedes cancelar para recuperar tu distribución.'))return;
   stylesBusy=true;renderDrawer();
   const session=owner,epoch=token;
