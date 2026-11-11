@@ -18,11 +18,21 @@ try{
  const __homeStyles=[];window.__homeStyles=__homeStyles;
  const rpc=async (name,args={})=>{
   if(name==='totus_home_styles'){
-   if(args.p_action==='list')return {data:{items:__homeStyles},error:null};
+   if(args.p_action==='list')return {data:{items:__homeStyles.map(({layout,...row})=>row)},error:null};
    if(args.p_action==='publish'&&args.p_expected_revision===__homePrefs.revision&&__homePrefs.layout){
     const id='11111111-1111-4111-8111-111111111111';
-    __homeStyles.push({id,name:args.p_name,author:'QA',mine:true});
+    __homeStyles.push({id,name:args.p_name,author:'QA',mine:true,layout:structuredClone(__homePrefs.layout)});
     return {data:{id,published:true},error:null};
+   }
+   if(args.p_action==='read'){
+    const style=__homeStyles.find(x=>x.id===args.p_template_id);
+    return style?{data:{...structuredClone(style)},error:null}:{data:null,error:{message:'Plantilla no disponible'}};
+   }
+   if(args.p_action==='remove'){
+    const i=__homeStyles.findIndex(x=>x.id===args.p_template_id);
+    if(i<0)return {data:null,error:{message:'Solo puedes retirar una plantilla propia'}};
+    const [style]=__homeStyles.splice(i,1);
+    return {data:{removed:true,id:style.id},error:null};
    }
    return {data:null,error:{message:'No se publicó el estilo'}};
   }
