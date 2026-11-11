@@ -366,6 +366,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  }
  function renderDrawer(){
   const drawer=root?.querySelector('[data-home-drawer]');if(!drawer)return;
+  const toolbar=root.querySelector('.home-dashboard-toolbar');
+  if(toolbar){const bottom=toolbar.getBoundingClientRect().bottom;const top=Math.min(Math.max(72,Math.ceil(bottom)+10),Math.max(72,window.innerHeight-200));root.style.setProperty('--home-editor-top',top+'px');}
   const w=find(selected),available=Object.values(HOME_WIDGET_CATALOG).filter(def=>permitted({type:def.type},can));
   const categories=[...new Set(available.map(def=>def.category))].sort((x,y)=>x.localeCompare(y,'es'));
   const activeCategory=categories.includes(drawer.dataset.category)?drawer.dataset.category:'all';
