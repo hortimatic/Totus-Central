@@ -556,3 +556,18 @@
 .dashboard-page .home-editor-footer .home-inspector-actions button[data-home-command="remove"]{grid-column:span 2}
 .dashboard-page .home-editor-footer .home-inspector-actions button[data-home-command="hide"]{grid-column:span 1}
 .dashboard-page .home-editor-widget-switcher{display:block!important;margin:0 0 14px!important}
+
+/* Bound the actual floating inspector height: large fieldsets must scroll inside,
+   never force the footer below the viewport. */
+.dashboard-page .home-widgets-drawer{
+ height:calc(100dvh - 86px)!important;
+ min-height:0!important;
+ max-height:calc(100dvh - 86px)!important;
+}
+@media(max-width:800px){
+ .dashboard-page .home-widgets-drawer{
+  height:calc(100dvh - 56px)!important;
+  max-height:calc(100dvh - 56px)!important;
+  min-height:0!important
+ }
+}
