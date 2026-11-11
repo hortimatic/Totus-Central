@@ -13,6 +13,14 @@ export const APPEARANCE_FIELDS={
   theme:choice('Tema','light','light:Claro|dark:Oscuro'),
   primary:color('Color principal','#2563eb'),secondary:color('Color secundario','#d6a447'),accent:color('Color de acento','#0ea5e9'),
   bg:color('Fondo general','#f5f7fb'),surface:color('Superficies','#ffffff'),card:color('Tarjetas','#ffffff'),text:color('Texto','#0f172a'),muted:color('Texto secundario','#64748b'),
+  headingText:color('Títulos de tarjetas y secciones','#0f172a'),labelText:color('Etiquetas de formularios','#596579'),
+  topbarBackground:color('Fondo de cabecera','#ffffff'),topbarText:color('Texto de cabecera','#0f172a'),
+  inputBackground:color('Fondo de campos de formulario','#ffffff'),inputText:color('Texto de campos de formulario','#0f172a'),
+  tableHeadBackground:color('Fondo de encabezados de tablas','#f7f9fc'),tableHeadText:color('Texto de encabezados de tablas','#647085'),
+  tableRowBackground:color('Fondo de filas de tablas','#ffffff'),
+  secondaryButtonBackground:color('Fondo de botones secundarios','#ffffff'),secondaryButtonText:color('Texto de botones secundarios','#0f172a'),
+  noteBackground:color('Fondo de avisos informativos','#f6f8fb'),noteText:color('Texto de avisos informativos','#5d6777'),
+  filterBackground:color('Fondo de filtros','#fbfcff'),modalBackground:color('Fondo de ventanas y cuadros','#ffffff'),
   density:choice('Densidad','comfortable','compact:Compacta|comfortable:Cómoda|wide:Amplia'),
   shadow:choice('Sombras','soft','none:Sin sombra|soft:Suaves|strong:Intensas'),
   navigationOrder:text('Orden de módulos','',500),navigationCollapsed:text('Secciones plegadas','',100),navigationBackground:color('Fondo de navegación','#0b1228'),navigationText:color('Texto de navegación','#cbd5e1'),navigationSectionText:color('Títulos de sección','#94a3b8'),navigationActive:color('Módulo seleccionado','#00aac6'),
@@ -41,10 +49,23 @@ export const APPEARANCE_FIELDS={
   customBackgroundData:image('Subir fondo de acceso'),loginHelpText:text('Ayuda de acceso','Entra con tu correo y contraseña.',180),loginRecoveryText:text('Texto de recuperación','He olvidado mi contraseña',80)
  }
 };
+// Fresh visual fields retain the established look for accounts saved before this expansion.
+export const APPEARANCE_EXTENDED_KEYS=['headingText','labelText','topbarBackground','topbarText','inputBackground','inputText','tableHeadBackground','tableHeadText','tableRowBackground','secondaryButtonBackground','secondaryButtonText','noteBackground','noteText','filterBackground','modalBackground'];
+export function appearanceExtendedDefaults(theme='light',values={}){
+ const dark=theme==='dark',ink=values.text||(dark?'#e8f5ff':'#0f172a'),surface=values.surface||(dark?'#0b1729':'#ffffff'),card=values.card||(dark?'#0f1d33':'#ffffff');
+ return {
+  headingText:ink,labelText:dark?ink:'#596579',topbarBackground:surface,topbarText:ink,
+  inputBackground:dark?card:'#ffffff',inputText:ink,
+  tableHeadBackground:dark?card:'#f7f9fc',tableHeadText:dark?ink:'#647085',tableRowBackground:dark?surface:'#ffffff',
+  secondaryButtonBackground:dark?card:surface,secondaryButtonText:ink,
+  noteBackground:dark?card:'#f6f8fb',noteText:dark?ink:'#5d6777',
+  filterBackground:dark?surface:'#fbfcff',modalBackground:surface
+ };
+}
 export function appearanceValues(section,input={}){
  const schema=APPEARANCE_FIELDS[section];if(!schema)throw Error('Sección de apariencia no válida.');
  return Object.fromEntries(Object.entries(schema).map(([key,f])=>{
-  let value=input?.[key]??f.value;
+  let value=input?.[key]??(section==='interfaz'&&APPEARANCE_EXTENDED_KEYS.includes(key)?appearanceExtendedDefaults(input?.theme,input)[key]:f.value);
   if(f.type==='range')value=Number.isFinite(Number(value))?Math.max(f.min,Math.min(f.max,Number(value))):f.value;
   else if(f.type==='select')value=f.options.some(([v])=>v===value)?value:f.value;
   else if(f.type==='color')value=/^#[0-9a-f]{6}$/i.test(value)?value:f.value;
@@ -65,7 +86,7 @@ export function contrastText(color){
 }
 export function appearanceVariables(input){
  const c=appearanceValues('interfaz',input),shadow={none:'none',soft:'0 8px 30px #0f172a14',strong:'0 14px 35px #0f172a38'};
- return {'--nav-bg':c.navigationBackground,'--nav-ink':c.navigationText,'--nav-section-ink':c.navigationSectionText,'--nav-active':c.navigationActive,'--appearance-nav-active-ink':contrastText(c.navigationActive),'--bg':c.bg,'--panel':c.card,'--ink':c.text,'--muted':c.muted,'--accent':c.primary,'--accent2':c.secondary,'--appearance-accent':c.accent,'--appearance-surface':c.surface,'--line':c.borderColor+Math.round(c.borderStrength/24*255).toString(16).padStart(2,'0'),'--shadow':[shadow[c.shadow]==='none'?'':shadow[c.shadow],c.cardGlow?'0 0 '+c.cardGlow+'px '+c.glowColor+'70':''].filter(Boolean).join(',')||'none','--r':c.radius+'px','--sidebar':c.sidebarWidth+'px','--appearance-header':c.topbarHeight+'px','--appearance-font':c.fontSize+'px','--appearance-pad':c.pagePad+'px','--appearance-gap':c.gap+'px','--appearance-button-radius':(c.buttonStyle==='soft'?Math.min(10,c.buttonRadius):c.buttonRadius)+'px','--appearance-card-pad':c.cardPadding+'px','--appearance-row-height':c.tableRowHeight+'px','--appearance-border-width':c.borderWidth+'px','--appearance-glow':c.glowColor+'80','--appearance-button-glow':c.buttonGlow+'px','--appearance-button-ink':contrastText(c.primary),'--appearance-hover-ink':contrastText(c.secondary),'--appearance-logo-height':c.logoHeight+'px','--appearance-bg-image':c.backgroundMode==='image'&&c.customBackgroundData?'linear-gradient('+c.bg+Math.round(c.backgroundDim*2.55).toString(16).padStart(2,'0')+','+c.bg+Math.round(c.backgroundDim*2.55).toString(16).padStart(2,'0')+'),url("'+c.customBackgroundData+'")':'none','--appearance-density':({compact:'.8',comfortable:'1',wide:'1.2'})[c.density]};
+ return {'--nav-bg':c.navigationBackground,'--nav-ink':c.navigationText,'--nav-section-ink':c.navigationSectionText,'--nav-active':c.navigationActive,'--appearance-nav-active-ink':contrastText(c.navigationActive),'--bg':c.bg,'--panel':c.card,'--ink':c.text,'--muted':c.muted,'--accent':c.primary,'--accent2':c.secondary,'--appearance-accent':c.accent,'--appearance-surface':c.surface,'--line':c.borderColor+Math.round(c.borderStrength/24*255).toString(16).padStart(2,'0'),'--shadow':[shadow[c.shadow]==='none'?'':shadow[c.shadow],c.cardGlow?'0 0 '+c.cardGlow+'px '+c.glowColor+'70':''].filter(Boolean).join(',')||'none','--r':c.radius+'px','--sidebar':c.sidebarWidth+'px','--appearance-header':c.topbarHeight+'px','--appearance-font':c.fontSize+'px','--appearance-pad':c.pagePad+'px','--appearance-gap':c.gap+'px','--appearance-button-radius':(c.buttonStyle==='soft'?Math.min(10,c.buttonRadius):c.buttonRadius)+'px','--appearance-card-pad':c.cardPadding+'px','--appearance-row-height':c.tableRowHeight+'px','--appearance-border-width':c.borderWidth+'px','--appearance-glow':c.glowColor+'80','--appearance-button-glow':c.buttonGlow+'px','--appearance-button-ink':contrastText(c.primary),'--appearance-hover-ink':contrastText(c.secondary),'--appearance-logo-height':c.logoHeight+'px','--appearance-bg-image':c.backgroundMode==='image'&&c.customBackgroundData?'linear-gradient('+c.bg+Math.round(c.backgroundDim*2.55).toString(16).padStart(2,'0')+','+c.bg+Math.round(c.backgroundDim*2.55).toString(16).padStart(2,'0')+'),url("'+c.customBackgroundData+'")':'none','--appearance-heading-ink':c.headingText,'--appearance-label-ink':c.labelText,'--appearance-topbar-bg':c.topbarBackground,'--appearance-topbar-ink':c.topbarText,'--appearance-input-bg':c.inputBackground,'--appearance-input-ink':c.inputText,'--appearance-table-head-bg':c.tableHeadBackground,'--appearance-table-head-ink':c.tableHeadText,'--appearance-table-row-bg':c.tableRowBackground,'--appearance-secondary-bg':c.secondaryButtonBackground,'--appearance-secondary-ink':c.secondaryButtonText,'--appearance-note-bg':c.noteBackground,'--appearance-note-ink':c.noteText,'--appearance-filter-bg':c.filterBackground,'--appearance-modal-bg':c.modalBackground,'--appearance-density':({compact:'.8',comfortable:'1',wide:'1.2'})[c.density]};
 }
 export const LOGIN_BACKGROUNDS={
  'dark-gradient':'radial-gradient(at 15% 10%,#1959ad,transparent 55%),linear-gradient(135deg,#071122,#14233d)',
