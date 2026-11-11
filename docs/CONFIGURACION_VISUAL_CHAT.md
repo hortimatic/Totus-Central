@@ -48,3 +48,15 @@ Pruebas SQL aisladas: anonimato restringido a la apariencia de Login, conservaci
 - Las acciones de cada mensaje de Chat están juntas, sin el desplegable Más. Aparecen al pasar el ratón o enfocar el mensaje; en pantallas táctiles permanecen accesibles.
 - Prueba adicional con dos cuentas ficticias: guardar nombre, color y logo, recargar la aplicación real, cambiar de cuenta y comprobar independencia, persistencia y permisos del Login. La prueba SQL aislada también cubre revisiones antiguas, acceso denegado y conservación de los demás ajustes.
 - Se limita la imagen del Login a su altura configurada, evitando que su tamaño natural tape el formulario; se comprueba en seis anchos de pantalla.
+
+
+## Revisión en curso · 11/11/2026 · PR #179 (no publicada)
+
+- Objetivo: ampliar el editor visual existente sin alterar permisos, campos fiscales ni comportamiento funcional. El trabajo se mantiene en `feat/interface-preview-modules-20261111`, PR en borrador contra `totus-central`.
+- Vista previa: simulador de Inicio, Cajas, Gastos e Informes con cabecera, navegación, pestañas, formularios, tablas, tarjetas y datos ficticios. Seleccionar módulos no guarda preferencias. La cabecera y la anchura de la navegación responden a las variables personales.
+- Contraste: en el modo oscuro se propagan colores personales a controles neutros, cabecera, pestañas, formularios, tablas y texto. El color propio de tarjeta no debe sustituirse por el de superficies. El texto del menú activo elige blanco o negro según su color de fondo.
+- Menú: botones de subir/bajar y mover a principio/final de la sección. Se conserva la cadena `navigationOrder` y no se permite reordenar entre grupos; no cambia el esquema SQL.
+- Pruebas añadidas: vista previa y no persistencia a 1440/390, contraste de modo oscuro y fondo de tarjetas, ordenación por secciones a 390/1017, luminancia de selección. Son pruebas escritas; **no se darán por superadas hasta que el CI y la revisión de navegador terminen**.
+- El CI 43060526537 falló durante instalación del navegador por error DNS de repositorios Ubuntu, antes de ejecutar pruebas de navegador; no evidencia un fallo o éxito funcional. Se exige una ejecución posterior completa.
+- Pendiente: comprobar la batería del último commit, diffs y visual a 390/768/1440, actualización frente a los commits nuevos de otros compañeros, validación del titular y publicación controlada. Una vez fusionado y verificado, retirar la rama de trabajo, nunca antes.
+- No se han escrito registros contables, de stock, usuarios ni preferencias de producción; Supabase y OneDrive solo se consultaron durante el arranque.
