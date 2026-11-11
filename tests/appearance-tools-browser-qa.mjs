@@ -39,6 +39,15 @@ try{
   assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Browsing preview never saves');
  }
  await page.setViewportSize({width:1440,height:1000});
+ await page.locator('[data-preview-expand]').click();
+ assert.equal(await page.locator('.appearance-preview-card.is-expanded').count(),1,'Expanded preview uses viewport workbench');
+ assert.equal(await page.locator('[data-preview-expand]').getAttribute('aria-pressed'),'true');
+ await page.locator('[data-demo-module=productos]').click();
+ await page.locator('[data-demo-tab=documentos]').click();
+ assert.equal(await page.locator('[data-demo-view=productos] [data-demo-panel=documentos]').isVisible(),true);
+ await page.locator('[data-preview-expand]').click();
+ assert.equal(await page.locator('.appearance-preview-card.is-expanded').count(),0,'Preview can return to normal layout');
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
  // Contrast smoke test: dark appearance must carry foreground and backgrounds to neutral module controls.
  const dark=await page.evaluate(async()=>{
   const {appearanceVariables}=await import('../src/appearance-core.js');
