@@ -15,7 +15,17 @@ try{
  assert(source.includes(marker),'El mock debe exponer el contrato RPC conocido');
  const pref=`const __homePrefs={revision:0,layout:null};
  window.__homePrefs=__homePrefs;
+ const __homeStyles=[];window.__homeStyles=__homeStyles;
  const rpc=async (name,args={})=>{
+  if(name==='totus_home_styles'){
+   if(args.p_action==='list')return {data:{items:__homeStyles},error:null};
+   if(args.p_action==='publish'&&args.p_expected_revision===__homePrefs.revision&&__homePrefs.layout){
+    const id='11111111-1111-4111-8111-111111111111';
+    __homeStyles.push({id,name:args.p_name,author:'QA',mine:true});
+    return {data:{id,published:true},error:null};
+   }
+   return {data:null,error:{message:'No se publicó el estilo'}};
+  }
   if(name==='totus_home_dashboard'){
    if(args.p_action==='read')return {data:{...__homePrefs},error:null};
    if(args.p_action==='save'&&args.p_expected_revision===__homePrefs.revision){
@@ -75,6 +85,15 @@ try{
  assert.equal(await page.locator('.home-widget-grid').evaluate(el=>getComputedStyle(el).gap),'20px','Separación general aplicada a las tarjetas');
  assert.equal(await page.locator('.home-widget-grid').evaluate(el=>el.style.maxWidth),'1600px','Máximo ancho aplicado al tablero');
  assert.equal(await page.locator('.dashboard-page').getAttribute('data-home-canvas-background'),'soft','Fondo suave aplicado');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ await page.waitForFunction(()=>document.querySelector('[data-home-command="style-publish"]')?.disabled===false);
+ await page.locator('[data-home-style-name]').fill('Inicio del equipo QA');
+ await page.locator('[data-home-command="style-publish"]').click();
+ await page.waitForFunction(()=>window.__homeStyles?.length===1&&window.__homePrefs?.revision===1);
+ assert.equal(await page.evaluate(()=>window.__homeStyles[0].name),'Inicio del equipo QA','Compartir conserva el nombre elegido');
+ assert.equal(await page.locator('[data-home-command="edit"]').innerText(),'Cancelar edición','Guardar y compartir mantiene el editor');
+ assert.deepEqual(await page.evaluate(()=>window.__homePrefs.layout.settings),{gap:'20',width:'1600',density:'compact',background:'soft'},'Un clic guarda el diseño antes de compartir');
+
  assert.equal(await page.locator('[data-home-widget="income"] .home-widget-body').evaluate(el=>getComputedStyle(el).paddingTop),'9px','Densidad compacta aplicada a las tarjetas sin cambiar Mi interfaz');
 
  await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
@@ -149,7 +168,7 @@ try{
  assert((await page.locator('[data-home-type="expenses.pending"]').innerText()).includes('Proveedor pendiente fiscal QA'),'Los gastos pagados también pueden requerir revisión fiscal');
  assert.equal(await fiscalWidget.locator('[data-home-command="open-expense"][data-expense="qa-fiscal-review"]').count(),1,'Se puede abrir la ficha fiscal concreta');
  await page.locator('[data-home-command="save"]').click();
- await page.waitForFunction(()=>window.__homePrefs?.revision===1);
+ await page.waitForFunction(()=>window.__homePrefs?.revision===2);
  assert.deepEqual(await page.evaluate(()=>window.__homePrefs.layout.settings),{gap:'20',width:'1600',density:'compact',background:'soft'},'Las preferencias generales quedan guardadas en cuenta');
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3);
  await page.locator('#nav [data-route="cajas"]').click();
