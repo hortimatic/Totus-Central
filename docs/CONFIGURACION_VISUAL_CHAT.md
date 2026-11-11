@@ -60,3 +60,12 @@ Pruebas SQL aisladas: anonimato restringido a la apariencia de Login, conservaci
 - El CI 43060526537 falló durante instalación del navegador por error DNS de repositorios Ubuntu, antes de ejecutar pruebas de navegador; no evidencia un fallo o éxito funcional. Se exige una ejecución posterior completa.
 - Pendiente: comprobar la batería del último commit, diffs y visual a 390/768/1440, actualización frente a los commits nuevos de otros compañeros, validación del titular y publicación controlada. Una vez fusionado y verificado, retirar la rama de trabajo, nunca antes.
 - No se han escrito registros contables, de stock, usuarios ni preferencias de producción; Supabase y OneDrive solo se consultaron durante el arranque.
+
+
+### Ampliación del mismo PR · 11/11/2026
+
+- Se incorpora un verificador visual de contraste en `src/appearance-contrast.js`. Compara texto principal/secundario con tarjetas y superficies, y texto/secciones con el fondo del menú. Aplica el umbral 4,5:1 a esos pares: no sustituye una auditoría WCAG completa ni evalúa imágenes o overlays.
+- El botón «Corregir contraste de textos en la vista previa» propone colores neutros de alto contraste únicamente para los campos de texto existentes. Los fondos, las tarjetas, los colores corporativos y las preferencias guardadas no se modifican hasta pulsar guardar. Si hay fondos incompatibles entre sí, no promete corregirlos todos automáticamente: el aviso permanece cuando el contraste no alcanza el umbral.
+- «Restablecer orden de módulos» recupera el orden inicial dentro de las secciones sin restablecer colores ni otras preferencias. Reutiliza `navigationOrder` y su contrato ya validado.
+- Se añaden pruebas unitarias del contraste y de conservación de colores, y recorridos de navegador sobre el aviso, la corrección/descarte y la restauración del orden. No se introducen columnas, migraciones ni nuevas claves de configuración: ampliar los colores configurables con campos adicionales exige revisar primero el contrato de Supabase.
+- Los cambios siguen en PR #179 y no se han integrado en producción. Consultar la ejecución del último commit antes de actualizar el estado de aceptación.
