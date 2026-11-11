@@ -63,7 +63,7 @@ try{for(const width of [390,1440]){
  await page.locator('#appearanceRoot [type=submit]').click();
  await page.locator('[data-appearance-status]').filter({hasText:'Configuración guardada'}).waitFor();
  await page.reload();await mount(page,'b'+width);
- assert.equal(await page.locator('[name=primary]').inputValue(),'#334455','Receiver's applied style survives a full reload');
+ assert.equal(await page.locator('[name=primary]').inputValue(),'#334455',"Receiver's applied style survives a full reload");
  assert.equal(cloud.get('b'+width).active.primary,'#334455');
  assert.equal(cloud.get('a'+width).book.items[0].config.primary,'#334455','Sender library stays untouched');
  assert.equal(cloud.get('a'+width).active.primary,'#aabbcc','Sender applied style stays independent');
