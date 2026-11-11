@@ -399,3 +399,15 @@
  padding:5px 8px;border:1px solid var(--line,#dce5ee);
  border-radius:7px;background:var(--panel,#fff);color:var(--ink,#172033);font-size:12px
 }
+
+/* Stitch Inicio: cash-opening cards inherit Mi interfaz contrast in both themes.
+   The legacy global .opening-card used a fixed pale background, making dark
+   theme text virtually invisible. Keep all existing drawer values and actions. */
+.dashboard-page .home-widget-body .opening-card{
+ background:var(--panel,#fff);
+ color:var(--ink,#172033);
+ border:1px solid var(--line,#dce5ee);
+}
+.dashboard-page .home-widget-body .opening-card h3,
+.dashboard-page .home-widget-body .opening-card strong{color:var(--ink,#172033)}
+.dashboard-page .home-widget-body .opening-card p{color:var(--muted,#607187)}
