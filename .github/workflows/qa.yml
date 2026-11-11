@@ -5,6 +5,19 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  appearance-colors-browser-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install chromium
+      - name: Check actual appearance CSS colors on three screen sizes
+        run: node tests/appearance-element-colors-browser-qa.mjs
+      - name: Check style sharing with two simulated accounts
+        run: node tests/interface-styles-browser-qa.mjs
   appearance-element-colors-database:
     runs-on: ubuntu-24.04
     services:
