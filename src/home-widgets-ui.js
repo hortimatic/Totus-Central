@@ -288,7 +288,7 @@ function configureOrderColumns(host,w){
  }
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
- let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
+ let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
@@ -361,31 +361,127 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   grid.style.setProperty('--home-card-padding',settings.density==='compact'?'9px':settings.density==='comfortable'?'18px':'var(--appearance-card-pad,12px)');
   root.dataset.homeCanvasBackground=settings.background;
   root.dataset.homeCanvasDensity=settings.density;
-  const toggle=root.querySelector('[data-home-command="edit"]');if(toggle)toggle.textContent=edit?'Salir de edición':'Personalizar inicio';
+  const toggle=root.querySelector('[data-home-command="edit"]');if(toggle)toggle.textContent=edit?'Cancelar edición':'Personalizar inicio';
   renderDrawer();
  }
  function renderDrawer(){
   const drawer=root?.querySelector('[data-home-drawer]');if(!drawer)return;
+  // Keep the active property and scroll position when a change re-renders
+  // the inspector. Users should not have to find their place after every edit.
+  const previousView=drawer.dataset.activePanel;
+  const previousScroll=drawer.querySelector('.home-editor-panel-body')?.scrollTop||0;
+  const active=drawer.contains(document.activeElement)?document.activeElement:null;
+  const focusAttr=['data-home-config','data-home-general','data-home-category','data-home-switch-widget','data-home-search']
+   .find(key=>active?.hasAttribute(key));
+  const focusValue=focusAttr?active.getAttribute(focusAttr):null;
+  const toolbar=root.querySelector('.home-dashboard-toolbar');
+  if(toolbar){const bottom=toolbar.getBoundingClientRect().bottom;const top=Math.min(Math.max(72,Math.ceil(bottom)+10),Math.max(72,window.innerHeight-200));root.style.setProperty('--home-editor-top',top+'px');}
   const w=find(selected),available=Object.values(HOME_WIDGET_CATALOG).filter(def=>permitted({type:def.type},can));
   const categories=[...new Set(available.map(def=>def.category))].sort((x,y)=>x.localeCompare(y,'es'));
   const activeCategory=categories.includes(drawer.dataset.category)?drawer.dataset.category:'all';
   const canvas=homeCanvasSettings(model.settings);
-  drawer.hidden=!edit;
-  if(!edit)return;
+  drawer.hidden=!edit||panelView==='closed';
+  if(drawer.hidden){drawer.replaceChildren();return;}
   const hiddenWidgets=model.widgets.filter(x=>x.hidden);
   drawer.innerHTML=`<div class="home-library-heading"><h3>Biblioteca de widgets</h3><button data-home-command="exit">✕</button></div><p class="small muted">Añade paneles por módulo y configura cada instancia. Los colores, bordes y efectos se heredan de Mi interfaz.</p><details class="home-board-settings" open><summary>⚙ Diseño general del tablero</summary><div class="home-board-settings-fields"><label>Separación entre widgets<select data-home-general="gap">${[['inherit','Heredar de Mi interfaz'],['8','Muy compacta · 8 px'],['12','Compacta · 12 px'],['16','Equilibrada · 16 px'],['20','Amplia · 20 px'],['24','Muy amplia · 24 px']].map(([value,label])=>`<option value="${value}" ${canvas.gap===value?'selected':''}>${label}</option>`).join('')}</select></label><label>Anchura del tablero<select data-home-general="width">${[['fluid','Todo el espacio disponible'],['1440','Máximo 1440 px'],['1600','Máximo 1600 px'],['1920','Máximo 1920 px']].map(([value,label])=>`<option value="${value}" ${canvas.width===value?'selected':''}>${label}</option>`).join('')}</select></label><label>Densidad interior<select data-home-general="density">${[['inherit','Heredar de Mi interfaz'],['compact','Compacta'],['comfortable','Cómoda']].map(([value,label])=>`<option value="${value}" ${canvas.density===value?'selected':''}>${label}</option>`).join('')}</select></label><label>Fondo de la zona<select data-home-general="background">${[['inherit','Mismo fondo que Inicio'],['soft','Zona suave, con separación visual']].map(([value,label])=>`<option value="${value}" ${canvas.background===value?'selected':''}>${label}</option>`).join('')}</select></label><p class="small muted">Se guarda para tu usuario; no cambia los colores ni las preferencias de tus compañeros.</p></div></details><label>Buscar widgets<input type="search" data-home-search placeholder="Buscar por módulo o nombre" value="${esc(drawer.dataset.search||'')}"></label><label>Módulo<select data-home-category><option value="all">Todos los módulos (${available.length})</option>${categories.map(category=>`<option value="${esc(category)}" ${activeCategory===category?'selected':''}>${esc(category)} (${available.filter(x=>x.category===category).length})</option>`).join('')}</select></label><div class="home-library-items">${available.filter(x=>(activeCategory==='all'||x.category===activeCategory)&&(x.title+' '+x.category).toLocaleLowerCase('es').includes(String(drawer.dataset.search||'').toLocaleLowerCase('es'))).map(x=>`<div class="home-library-item"><span><b>${esc(x.title)}</b><small>${esc(x.category)}</small></span><button aria-label="Añadir ${esc(x.title)}" data-home-command="add" data-type="${esc(x.type)}" ${nonClonable.has(x.type)&&model.widgets.some(w=>w.type===x.type)?'disabled title="Widget único: ya está en tu diseño"':''}>＋</button></div>`).join('')}</div>${hiddenWidgets.length?`<details class="home-hidden-widgets"><summary>Widgets ocultos (${hiddenWidgets.length})</summary>${hiddenWidgets.map(x=>`<div class="home-library-item"><b>${esc(x.title)}</b><button type="button" data-home-command="show" data-id="${esc(x.id)}">Mostrar</button></div>`).join('')}</details>`:''}${w?`<div class="home-widget-inspector"><h3>Configurar widget</h3><p class="small">${esc(w.title)}</p>${(w.type.startsWith('prestashop.')||['cash.openings','cash.withdrawals','cash.history','expenses.pending'].includes(w.type))?`<label>Tienda<select data-home-config="store" data-id="${esc(w.id)}"><option value="all" ${safeStore(w.scope.store)==='all'?'selected':''}>Todas las tiendas</option>${PRESTASHOP_STORES.map(s=>`<option value="${s.key}" ${s.key===w.scope.store?'selected':''}>${s.name}</option>`).join('')}</select></label>`:''}${['prestashop.summary','prestashop.orders','prestashop.top'].includes(w.type)?`<label>Desde<input type="date" data-home-config="from" data-id="${esc(w.id)}" value="${dateRange(w).from}"></label><label>Hasta<input type="date" data-home-config="to" data-id="${esc(w.id)}" value="${dateRange(w).to}"></label>`:''}${prestashopInspector(w)}<label>Anchura<select data-home-config="width" data-id="${esc(w.id)}">${allowedWidths(w).map(x=>`<option value="${x}" ${x===w.layout.desktop.w?'selected':''}>${x} / 12 columnas</option>`).join('')}</select></label><label>Altura escritorio<select data-home-config="height" data-id="${esc(w.id)}">${[2,3,4,5,6,7,8,9,10,11,12].map(x=>`<option value="${x}" ${x===w.layout.desktop.h?'selected':''}>${x} unidades</option>`).join('')}</select></label><label>Anchura tablet<select data-home-config="tabletWidth" data-id="${esc(w.id)}">${[1,2,3,4,5,6].map(x=>`<option value="${x}" ${x===w.layout.tablet.w?'selected':''}>${x} / 6 columnas</option>`).join('')}</select></label><label>Altura tablet<select data-home-config="tabletHeight" data-id="${esc(w.id)}">${Array.from({length:15},(_,i)=>i+2).map(x=>`<option value="${x}" ${x===w.layout.tablet.h?'selected':''}>${x} unidades</option>`).join('')}</select></label><label>Altura móvil<select data-home-config="mobileHeight" data-id="${esc(w.id)}">${Array.from({length:17},(_,i)=>i+2).map(x=>`<option value="${x}" ${x===w.layout.mobile.h?'selected':''}>${x} unidades</option>`).join('')}</select></label><label>Mover a posición<select data-home-config="position" data-id="${esc(w.id)}">${model.widgets.map((v,i)=>`<option value="${i}" ${v.id===w.id?'selected':''}>${i+1}. ${esc(v.title)}</option>`).join('')}</select></label><div class="home-inspector-actions"><button data-home-command="up" data-id="${esc(w.id)}">↑ Subir</button><button data-home-command="down" data-id="${esc(w.id)}">↓ Bajar</button><button data-home-command="duplicate" data-id="${esc(w.id)}" ${nonClonable.has(w.type)?'disabled title="Formulario único: no se duplica"':''}>Duplicar</button><button data-home-command="hide" data-id="${esc(w.id)}">Ocultar</button><button data-home-command="remove" data-id="${esc(w.id)}">Quitar instancia</button></div></div>`:''}`;
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
+  organizeHomeEditor(drawer);
+  if(previousView===panelView){
+   const body=drawer.querySelector('.home-editor-panel-body');
+   if(body)body.scrollTop=previousScroll;
+   if(focusAttr)drawer.querySelector('['+focusAttr+'="'+CSS.escape(focusValue)+'"]')?.focus({preventScroll:true});
+  }
  }
+
+ function organizeHomeEditor(drawer){
+  const head=drawer.querySelector('.home-library-heading');
+  const desc=head?.nextElementSibling;
+  const board=drawer.querySelector('.home-board-settings');
+  const search=drawer.querySelector('[data-home-search]')?.closest('label');
+  const category=drawer.querySelector('[data-home-category]')?.closest('label');
+  const items=drawer.querySelector('.home-library-items');
+  const hidden=drawer.querySelector('.home-hidden-widgets');
+  const inspector=drawer.querySelector('.home-widget-inspector');
+  if(!head||!board||!items)return;
+  const title=head.querySelector('h3'),close=head.querySelector('button');
+  head.classList.add('home-editor-panel-head');
+  if(title){title.textContent=panelView==='library'?'Añadir widgets':panelView==='board'?'Diseño general':'Configurar widget';title.tabIndex=-1}
+  if(close){close.dataset.homeCommand='close-panel';close.setAttribute('aria-label','Cerrar inspector sin descartar cambios');close.title='Cerrar inspector';close.textContent='✕'}
+  if(desc)desc.remove();
+  const tabs=document.createElement('nav');
+  tabs.className='home-editor-tabs';tabs.setAttribute('aria-label','Herramientas del Inicio');
+  tabs.innerHTML=[['library','＋ Añadir'],['widget','▣ Widget'],['board','⚙ Tablero']].map(([key,label])=>'<button type="button" data-home-command="panel-'+key+'" aria-pressed="'+(panelView===key)+'" '+(panelView===key?'class="active"':'')+'>'+label+'</button>').join('');
+  const library=document.createElement('section');library.className='home-editor-view';library.dataset.editorView='library';
+  library.insertAdjacentHTML('afterbegin','<div class="home-panel-intro"><strong>Biblioteca de widgets</strong><p>Busca herramientas y añádelas al tablero. No afecta al trabajo de los demás usuarios.</p></div>');
+  for(const el of [search,category,items,hidden])if(el)library.append(el);
+  const boardView=document.createElement('section');boardView.className='home-editor-view';boardView.dataset.editorView='board';
+  boardView.insertAdjacentHTML('afterbegin','<div class="home-panel-intro"><strong>Distribución del tablero</strong><p>Elige la separación, anchura y densidad que prefieras. Los colores siguen dependiendo de Mi interfaz.</p></div>');
+  board.open=true;boardView.append(board);
+  const widgetView=document.createElement('section');widgetView.className='home-editor-view';widgetView.dataset.editorView='widget';
+  const w=find(selected);
+  if(inspector&&w){
+   const labels=[...inspector.querySelectorAll(':scope > label')];
+   const fieldsets=[...inspector.querySelectorAll(':scope > fieldset')];
+   const actions=inspector.querySelector('.home-inspector-actions');
+   const first=inspector.querySelector('h3'),description=first?.nextElementSibling;
+   const switcher=document.createElement('label');switcher.className='home-editor-widget-switcher';
+   switcher.innerHTML='<span>Widget seleccionado</span><select data-home-switch-widget aria-label="Cambiar widget en el inspector">'+model.widgets.filter(x=>!x.hidden&&permitted(x,can)).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===w.id?'selected':'')+'>'+esc(x.title)+'</option>').join('')+'</select>';
+   const intro=document.createElement('div');intro.className='home-panel-intro';
+   intro.innerHTML='<strong>'+esc(w.title)+'</strong><p>'+esc(HOME_WIDGET_CATALOG[w.type]?.category||'Widget')+' · Selecciona tamaño y opciones sin modificar el módulo original.</p>';
+   const presets=document.createElement('div');presets.className='home-editor-presets';
+   const widths=allowedWidths(w),defaultWidth=HOME_WIDGET_CATALOG[w.type].width;
+   const choices=[['compact','Compacto',widths[0]],['balanced','Estándar',defaultWidth],['wide','Ancho',widths.filter(x=>x<=9).at(-1)||widths.at(-1)],['full','Completo',widths.at(-1)]];
+   presets.innerHTML='<span class="home-editor-label">Tamaño rápido</span><div class="home-size-presets" role="group" aria-label="Tamaño de '+esc(w.title)+'">'+choices.map(([key,label,width])=>'<button type="button" data-home-command="preset-size" data-id="'+esc(w.id)+'" data-size="'+key+'" aria-pressed="'+(width===w.layout.desktop.w)+'" title="'+esc(label)+'">'+label+'<small>'+width+'/12</small></button>').join('')+'</div>';
+   const content=document.createElement('details');content.className='home-editor-section';content.open=true;
+   content.innerHTML='<summary>Contenido y datos</summary>';
+   const contentFields=document.createElement('div');contentFields.className='home-editor-fields';
+   const layout=document.createElement('details');layout.className='home-editor-section';layout.open=true;
+   layout.innerHTML='<summary>Posición y tamaño</summary>';
+   const sizeFields=document.createElement('div');sizeFields.className='home-editor-fields';
+   const advanced=document.createElement('details');advanced.className='home-editor-section home-editor-advanced';advanced.open=advancedOpen;advanced.innerHTML='<summary>Tableta, móvil y orden</summary>';
+   const advancedFields=document.createElement('div');advancedFields.className='home-editor-fields';
+   for(const label of labels){
+    const key=label.querySelector('[data-home-config]')?.dataset.homeConfig;
+    if(['width','height'].includes(key))sizeFields.append(label);
+    else if(['tabletWidth','tabletHeight','mobileHeight','position'].includes(key))advancedFields.append(label);
+    else contentFields.append(label);
+   }
+   for(const set of fieldsets)contentFields.append(set);
+   content.append(contentFields);
+   sizeFields.insertAdjacentHTML('beforeend','<p class="small muted">La altura se adapta al contenido: los datos nunca quedan recortados.</p>');
+   layout.append(sizeFields);
+   advanced.append(advancedFields);
+   widgetView.append(switcher,intro,presets,content,layout,advanced);
+   if(actions)widgetView.append(actions);
+  }else widgetView.innerHTML='<div class="home-panel-intro"><strong>Selecciona un widget</strong><p>Pulsa el menú de una tarjeta para configurar sus opciones y tamaño.</p><button class="btn secondary" type="button" data-home-command="panel-library">Añadir widgets</button></div>';
+  const body=document.createElement('div');body.className='home-editor-panel-body';
+  body.append(library,widgetView,boardView);
+  for(const section of body.children)section.hidden=section.dataset.editorView!==panelView;
+  drawer.replaceChildren(head,tabs,body);
+  const inspectorActions=widgetView.querySelector('.home-inspector-actions');
+  if(panelView==='widget'&&inspectorActions){
+   const footer=document.createElement('div');footer.className='home-editor-footer';
+   footer.append(inspectorActions);drawer.append(footer);
+  }
+  drawer.dataset.activePanel=panelView;
+  drawer.setAttribute('aria-label','Personalización del Inicio');
+  drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
+ }
+
  const makeId=()=>`hw-${crypto.randomUUID()}`;
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
-  if(action==='edit'){if(edit){if(changed()&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null}else{edit=true;selected=model.widgets[0]?.id||null}draw();return}
-  if(action==='exit'){if(changed()&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;draw();return}
-  if(action==='select'){selected=id;edit=true;draw();return}
-  if(action==='add'){const type=el.dataset.type;if(nonClonable.has(type)&&model.widgets.some(w=>w.type===type)){status('Ese widget contiene controles únicos y ya está añadido. Puedes moverlo o cambiar su tamaño.',true);return}const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};const newId=makeId();mutate(m=>addHomeWidget(m,type,newId,{scope}),newId);if(type==='prestashop.quality')void fetchCatalog(find(newId));else if(type.startsWith('prestashop.'))void fetchFor(find(newId));return}
+  if(['panel-library','panel-widget','panel-board'].includes(action)){if(!edit)return;panelView=action.slice(6);renderDrawer();return}
+   if(action==='close-panel'){panelView='closed';renderDrawer();return}
+   if(action==='preset-size'){const w=find(id);if(!edit||!w)return;const widths=allowedWidths(w),def=HOME_WIDGET_CATALOG[w.type];const options={compact:widths[0],balanced:def.width,wide:widths.filter(x=>x<=9).at(-1)||widths.at(-1),full:widths.at(-1)};const width=options[el.dataset.size];if(!widths.includes(width))return;mutate(m=>setHomeWidgetConfig(m,id,{layout:{desktop:{w:width}}}),id);panelView='widget';return}
+
+  if(action==='edit'){if(edit){if(changed()&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null;panelView='closed'}else{edit=true;selected=null;panelView='closed'}draw();return}
+  if(action==='exit'){if(changed()&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;panelView='closed';draw();return}
+  if(action==='select'){selected=id;edit=true;panelView='widget';advancedOpen=false;draw();return}
+  if(action==='add'){panelView='widget';const type=el.dataset.type;if(nonClonable.has(type)&&model.widgets.some(w=>w.type===type)){status('Ese widget contiene controles únicos y ya está añadido. Puedes moverlo o cambiar su tamaño.',true);return}const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};const newId=makeId();mutate(m=>addHomeWidget(m,type,newId,{scope}),newId);if(type==='prestashop.quality')void fetchCatalog(find(newId));else if(type.startsWith('prestashop.'))void fetchFor(find(newId));return}
   if(action==='duplicate'){const w=find(id);if(!w||nonClonable.has(w.type))return;const newId=makeId();mutate(m=>duplicateHomeWidget(m,id,newId),newId);return}
-  if(action==='hide'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}),model.widgets.find(x=>x.id!==id&&!x.hidden)?.id);return}
-  if(action==='show'){mutate(m=>setHomeWidgetConfig(m,id,{hidden:false}));selected=id;draw();return}
+  if(action==='hide'){panelView='library';mutate(m=>setHomeWidgetConfig(m,id,{hidden:true}),model.widgets.find(x=>x.id!==id&&!x.hidden)?.id);return}
+  if(action==='show'){panelView='widget';mutate(m=>setHomeWidgetConfig(m,id,{hidden:false}),id);return}
   if(action==='remove'){if(!confirm('¿Quitar este widget del Inicio? No se borrará ningún dato del módulo y podrás volver a añadirlo.'))return;mutate(m=>removeHomeWidget(m,id));return}
   if(action==='up'||action==='down'){mutate(m=>reorderHomeWidget(m,id,action));return}
   if(action==='reset'){if(!confirm('¿Restaurar la distribución inicial? Los cambios actuales quedarán pendientes de guardar y podrás descartarlos antes de confirmar.'))return;mutate(()=>createDefault());return}
@@ -417,11 +513,11 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const saved=await rpc('totus_home_dashboard',{p_action:'read',p_layout:null,p_expected_revision:null});
    if(!live()||owner!==own)return;
    remoteReady=true;if(saved?.layout?.schemaVersion===1){if(changed()){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
-  }catch(error){if(live())status('Disposición local predeterminada. Guardado entre dispositivos no disponible hasta instalar la migración.',true)}
+  }catch(error){if(live()){const message=String(error?.message||error||'Error no identificado').slice(0,160);status('No se han podido cargar las preferencias: '+message+'. Revisa con Administración el estado del perfil y los permisos. No se ha modificado tu diseño.',true)}}
  }
  async function save(){if(busy||!live()||!model)return;
   if(!changed()){status('No hay cambios del Inicio pendientes de guardar.');return}
-  if(!remoteReady){status('No se puede guardar: falta el servicio de preferencias del Inicio.',true);return}
+  if(!remoteReady){status('No se puede guardar: no se ha confirmado el acceso a las preferencias de esta cuenta. Revisa su perfil y permisos en Administración.',true);return}
   const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,settings:structuredClone(model.settings),widgets:structuredClone(model.widgets)};
   busy=true;
   try{
@@ -438,7 +534,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     status('Se verificó el guardado anterior, pero hay cambios nuevos pendientes de guardar.',true);
     return;
    }
-   edit=false;selected=null;draw();status('Tu Inicio se ha guardado y verificado en tu cuenta.');notify('Inicio personalizado guardado.');
+   edit=false;selected=null;panelView='closed';draw();status('Tu Inicio se ha guardado y verificado en tu cuenta.');notify('Inicio personalizado guardado.');
   }catch(error){
    if(live())status('Guardado sin confirmar: '+String(error.message||error)+'. Revisa el diseño antes de reintentar.',true);
   }finally{busy=false}
@@ -535,16 +631,16 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  function mount(target){
-  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;remoteReady=false;owner=state.user?.id;
+  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';advancedOpen=false;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
-  const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn primary" data-home-command="edit">Personalizar inicio</button><button class="btn secondary" data-home-command="save">Guardar cambios</button><button class="btn secondary" data-home-command="reset">Restaurar diseño</button></div>`;
+  const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn primary" data-home-command="edit">Personalizar inicio</button></div>`;
   const shell=document.createElement('div');shell.className='home-widget-shell';grid=document.createElement('div');grid.className='home-widget-grid';const drawer=document.createElement('aside');drawer.className='home-widgets-drawer';drawer.dataset.homeDrawer='';drawer.hidden=true;shell.append(grid,drawer);
   hero?.after(toolbar,shell);if(!hero)root.append(toolbar,shell);
   model=createDefault();original=structuredClone(model);
   // Source nodes are moved, never reimplemented; original data-action handlers stay intact.
-  root.addEventListener('click',e=>{const el=e.target.closest('[data-home-command]');if(!el||!root.contains(el))return;e.preventDefault();e.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el)},true);
-  root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
+  root.addEventListener('click',e=>{if(e.target.closest('.home-editor-advanced>summary'))advancedOpen=!advancedOpen;const el=e.target.closest('[data-home-command]');if(!el||!root.contains(el))return;e.preventDefault();e.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el)},true);
+  root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-switch-widget')){if(!edit||!model.widgets.some(w=>w.id===el.value&&!w.hidden&&permitted(w,can)))return;selected=el.value;panelView='widget';draw();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
    if(el.dataset.homeFilter){const key=el.dataset.homeFilter;let filters;
     if(key==='store'){
      model=setHomeWidgetConfig(model,w.id,{scope:{store:safeStore(el.value)},filters:{page:0}});
@@ -611,6 +707,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    activeResize=null;preview(p,{w:p.w,h:p.h});delete p.card.dataset.resizePreview;
   },true);
   root.addEventListener('keydown',e=>{
+   if(e.key==='Escape'&&edit&&panelView!=='closed'){panelView='closed';renderDrawer();e.preventDefault();return}
    const handle=e.target.closest('[data-home-resize]');if(!handle||!edit||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
    const w=find(handle.dataset.homeResize);if(!w)return;e.preventDefault();
    const mode=resizeMode(),limits=rangeFor(mode,w),dx=e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,dy=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0;

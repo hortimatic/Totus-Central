@@ -113,7 +113,13 @@ try{
  await orders.locator('[data-home-filter="query"]').fill('');
  await orders.locator('[data-home-filter="query"]').press('Tab');
  await page.locator('[data-home-command="edit"]').click();
- await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
+ const selectHomeWidget=async id=>{
+  const close=page.locator('[data-home-command="close-panel"]');
+  if(await close.count())await close.click();
+  await page.locator('[data-home-command="select"][data-id="'+id+'"]').click();
+ };
+ 
+ await selectHomeWidget('shop-h');
  await page.locator('[data-home-config="chartMode"]').selectOption('days');
  await page.locator('[data-home-config="chartMetric"]').selectOption('sales');
  assert((await page.locator('[data-home-widget="shop-h"] .home-ps-chart figcaption').innerText()).includes('Ventas válidas EUR'),'La gráfica de ventas lee importes EUR validados');
@@ -133,6 +139,7 @@ try{
  await page.locator('[data-home-config="chartMode"]').selectOption('hours');
  assert.equal(await page.locator('[data-home-widget="shop-h"] .home-chart-column').count(),24,'La gráfica de horas presenta 24 franjas');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-command="add"][data-type="prestashop.top"]').click();
  const productWidget=page.locator('[data-home-type="prestashop.top"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.top"] .home-products-table tbody tr').length===4);
@@ -142,6 +149,7 @@ try{
  await page.locator('[data-home-config="productView"]').selectOption('bars');
  assert.equal(await productWidget.locator('.home-products-bars').count(),2,'La vista barras funciona separada por tienda');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-command="add"][data-type="prestashop.quality"]').click();
  const quality=page.locator('[data-home-type="prestashop.quality"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.quality"] .home-quality-shop').length===2);
@@ -149,9 +157,9 @@ try{
  assert((await quality.innerText()).includes('Sin referencia'),'Calidad muestra problemas de productos consultados');
  await page.locator('[data-home-config="store"]').selectOption('hortimatic');
  assert.equal(await quality.locator('.home-quality-shop').count(),1,'La revisión de calidad permite filtrar por tienda');
- await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
+ await selectHomeWidget('shop-h');
  await page.getByText('3 avisos',{exact:true}).first().waitFor();
- await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await selectHomeWidget('orders');
  await page.locator('[data-home-config="tableDensity"]').selectOption('compact');
  assert.equal(await orders.locator('tbody td').first().evaluate(el=>getComputedStyle(el).paddingTop),'5px','La densidad elegida modifica realmente las filas');
  await page.locator('[data-home-command="column-up"][data-id="orders"][data-column="products"]').click();
@@ -180,7 +188,7 @@ try{
  await page.waitForFunction(()=>window.__homeSaved?.revision===1);
  await page.getByText('Tu Inicio se ha guardado y verificado en tu cuenta.',{exact:true}).waitFor();
  await page.locator('[data-home-command="edit"]').click();
- await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await selectHomeWidget('orders');
  await page.locator('[data-home-command="duplicate"][data-id="orders"]').click();
  const duplicated=page.locator('[data-home-type="prestashop.orders"]');
  assert.equal(await duplicated.count(),2,'Duplicación real de la tabla de pedidos');
@@ -188,7 +196,7 @@ try{
  assert(otherId&&otherId!=='orders','La tabla duplicada conserva identificador propio');
  await page.locator('[data-home-config="store"]').selectOption('newoldsmok');
  await page.waitForFunction(id=>[...document.querySelectorAll('[data-home-widget="'+id+'"] [data-home-command="open-order"]')].some(x=>x.dataset.order.startsWith('8')),otherId);
- await page.locator('[data-home-command="select"][data-id="orders"]').click();
+ await selectHomeWidget('orders');
  await page.locator('[data-home-config="store"]').selectOption('hortimatic');
  await page.waitForFunction(()=>[...document.querySelectorAll('[data-home-widget="orders"] [data-home-command="open-order"]')].some(x=>x.dataset.order.startsWith('7')));
  await other.locator('[data-home-filter="query"]').fill('QA-R18');
