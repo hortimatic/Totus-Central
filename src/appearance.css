@@ -272,3 +272,14 @@ html[data-appearance] .appearance-grid .field label{color:var(--ink)}
 .appearance-demo-dialog-content .btn{justify-self:start}
 .appearance-demo :is(.appearance-demo-nav,.appearance-demo-tab,.btn):focus-visible{outline:2px solid var(--appearance-accent);outline-offset:2px}
 @media(max-width:650px){.appearance-demo>aside{padding:6px}.appearance-demo-main>section{padding:6px}.appearance-demo-document{flex-direction:column;align-items:flex-start}.appearance-demo .data-table{min-width:290px}}
+
+
+/* Personal style exchange is opt-in: the user handles the code, never another account. */
+.appearance-style-share{display:grid;gap:9px;margin:12px 0;padding:16px;border:1px solid var(--line);border-radius:var(--r,12px);background:var(--appearance-surface,var(--panel));min-width:0}
+.appearance-style-share h3,.appearance-style-share p{margin:0}
+.appearance-style-share h3{font-size:1rem}
+.appearance-style-share label{display:grid;gap:7px;font-size:12px;font-weight:650;min-width:0}
+.appearance-style-share textarea{box-sizing:border-box;display:block;width:100%;max-width:100%;min-height:105px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--appearance-input-bg,var(--panel));color:var(--appearance-input-ink,var(--ink));font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}
+.appearance-style-share .inline-actions{display:flex;flex-wrap:wrap;gap:8px}
+.appearance-style-share .btn{white-space:normal;text-align:left}
+.appearance-style-share [data-style-share-status]{overflow-wrap:anywhere}
