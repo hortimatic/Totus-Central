@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 
 // Execute the actual Edge handler with isolated Auth/database adapters.
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/team-admin/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''));
-async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false,profileRole=null,profileActive=null}={}){
+async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false,profileRole=null,profileActive=null,requestedActive=false}={}){
  let handler;const writes=[],updates=[],pages=[],profiles=new Map();
  const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active,deleted_at:retired?'2026-01-01':null,purged_at:purged?'2026-01-02':null,auth_cleanup_pending:cleanup};
  const from=table=>{
@@ -26,7 +26,7 @@ async function scenario({action='set_password',callerRole='admin',memberRole='ad
  }};
  const env={SUPABASE_URL:'https://qa.invalid',SUPABASE_ANON_KEY:'test-public',SUPABASE_SERVICE_ROLE_KEY:'test-secret'};
  vm.runInNewContext(source,{createClient:()=>({auth,from}),Deno:{env:{get:k=>env[k]},serve:h=>{handler=h}},Response,Request,console});
- const response=await handler(new Request('https://qa.invalid/team-admin',{method:'POST',headers:{Authorization:'Bearer test-session','Content-Type':'application/json'},body:JSON.stringify({action,email:member.email,full_name:'Changed name',role:'gerente',password,phone:'600000000',job_title:'QA manager',store:'QA centre',employee_notes:'QA notes'})}));
+ const response=await handler(new Request('https://qa.invalid/team-admin',{method:'POST',headers:{Authorization:'Bearer test-session','Content-Type':'application/json'},body:JSON.stringify({action,email:member.email,full_name:'Changed name',role:'gerente',active:requestedActive,password,phone:'600000000',job_title:'QA manager',store:'QA centre',employee_notes:'QA notes'})}));
  return {status:response.status,body:await response.json(),writes,updates,pages};
 }
 for(const memberRole of ['admin','encargado']){
@@ -66,6 +66,10 @@ for(const action of ['update_member','set_active']){
 const expresslyDisabled=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'gerente'});
 assert.equal(expresslyDisabled.status,400,'Una cuenta Auth desactivada deliberadamente no se reactiva al guardar su nombre');
 assert.equal(expresslyDisabled.writes.filter(w=>w.table==='profiles').length,0,'No se toca un perfil desactivado intencionalmente');
+const explicitlyActivated=await scenario({action:'set_active',memberRole:'gerente',active:false,profileActive:false,profileRole:'gerente',requestedActive:true});
+assert.equal(explicitlyActivated.status,200,'Solo Activar en Administración puede reactivar un perfil desactivado');
+assert.equal(explicitlyActivated.writes.find(w=>w.table==='profiles')?.value.active,true);
+
 const newlyPending=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'pendiente'});
 assert.equal(newlyPending.status,200,'Administración sí reconcilia un perfil pendiente con el miembro activo');
 assert.equal(newlyPending.writes.find(w=>w.table==='profiles')?.value.active,true);
