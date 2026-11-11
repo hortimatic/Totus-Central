@@ -16,7 +16,14 @@ const rules=[
  ['muted','card','Texto secundario sobre tarjetas'],
  ['muted','surface','Texto secundario sobre superficies'],
  ['navigationText','navigationBackground','Texto del menú'],
- ['navigationSectionText','navigationBackground','Secciones del menú']
+ ['navigationSectionText','navigationBackground','Secciones del menú'],
+ ['headingText','card','Títulos de tarjetas'],
+ ['labelText','surface','Etiquetas de formularios'],
+ ['topbarText','topbarBackground','Texto de cabecera'],
+ ['inputText','inputBackground','Texto de formularios'],
+ ['tableHeadText','tableHeadBackground','Cabeceras de tablas'],
+ ['secondaryButtonText','secondaryButtonBackground','Botones secundarios'],
+ ['noteText','noteBackground','Avisos informativos']
 ];
 export function appearanceContrastChecks(values){
  return rules.map(([foreground,background,label])=>({
@@ -29,7 +36,14 @@ export function improveAppearanceContrast(values){
   ['text',['card','surface']],
   ['muted',['card','surface']],
   ['navigationText',['navigationBackground']],
-  ['navigationSectionText',['navigationBackground']]
+  ['navigationSectionText',['navigationBackground']],
+  ['headingText',['card']],
+  ['labelText',['surface']],
+  ['topbarText',['topbarBackground']],
+  ['inputText',['inputBackground']],
+  ['tableHeadText',['tableHeadBackground']],
+  ['secondaryButtonText',['secondaryButtonBackground']],
+  ['noteText',['noteBackground']]
  ];
  for(const [field,backgrounds] of corrections){
   const minimum=color=>Math.min(...backgrounds.map(key=>contrastRatio(color,next[key])));

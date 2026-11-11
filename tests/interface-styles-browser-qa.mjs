@@ -43,10 +43,34 @@ try{for(const width of [390,1440]){
  await page.locator('[name=primary]').fill('#334455');await page.locator('[data-style-action=replace]').click();await page.locator('[data-style-status]').filter({hasText:'Estilo guardado en tu cuenta'}).waitFor();assert.equal(cloud.get('a'+width).book.items[0].config.primary,'#334455');
  await page.screenshot({path:'artifacts/interface-styles/styles-'+width+'.png',fullPage:true});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'No horizontal overflow');
- await mount(page,'b'+width);assert.equal(await page.locator('[data-my-style] option').count(),1,'Other account cannot see styles');
+ await page.locator('[data-my-style]').selectOption({label:'Trabajo'});
+ await page.locator('[data-style-export]').click();
+ const sharedCode=await page.locator('[data-style-share-code]').inputValue();
+ assert.equal(JSON.parse(sharedCode).format,'totus-interface-style');
+ assert.equal(JSON.parse(sharedCode).config.primary,'#334455');
+ assert(!sharedCode.includes('customLogoData'),'A share code must exclude personal images');
+ assert(!sharedCode.includes('brandName'),'A share code must exclude personal identity');
+ await mount(page,'b'+width);assert.equal(await page.locator('[data-my-style] option').count(),1,'Other account cannot see private styles before import');
+ await page.locator('[data-style-share-code]').fill(sharedCode);
+ await page.locator('[data-style-import]').click();
+ await page.locator('[data-style-share-status]').filter({hasText:'Estilo recibido y guardado'}).waitFor();
+ assert.equal(cloud.get('b'+width).book.items[0].config.primary,'#334455','Receiver saves a private independent copy');
+ assert.equal(cloud.get('b'+width).active,undefined,'Receiving a style must not apply it automatically');
+ await page.reload();await mount(page,'b'+width);
+ await page.locator('[data-my-style]').selectOption({label:'Trabajo'});
+ await page.locator('[data-style-action=load]').click();
+ assert.equal(await page.locator('[name=primary]').inputValue(),'#334455','Shared colour survives recipient reload');
+ await page.locator('#appearanceRoot [type=submit]').click();
+ await page.locator('[data-appearance-status]').filter({hasText:'Configuración guardada'}).waitFor();
+ await page.reload();await mount(page,'b'+width);
+ assert.equal(await page.locator('[name=primary]').inputValue(),'#334455',"Receiver's applied style survives a full reload");
+ assert.equal(cloud.get('b'+width).active.primary,'#334455');
+ assert.equal(cloud.get('a'+width).book.items[0].config.primary,'#334455','Sender library stays untouched');
+ assert.equal(cloud.get('a'+width).active.primary,'#aabbcc','Sender applied style stays independent');
+
  await mount(page,'a'+width);await page.locator('[data-my-style]').selectOption({label:'Trabajo'});await page.locator('[data-style-action=remove]').click();await page.locator('[data-style-status]').filter({hasText:'Estilo eliminado'}).waitFor();assert.equal(cloud.get('a'+width).book.items.length,0);assert.equal(cloud.get('a'+width).active.primary,'#aabbcc','Removing a style preserves applied interface');
  // Changing session while a confirmation is open cannot write another account.
  await page.locator('[data-style-name]').fill('Temporal');await page.locator('[data-style-action=create]').click();await page.locator('[data-style-status]').filter({hasText:'Estilo guardado'}).waitFor();
  await page.evaluate(()=>{stylesQA.ui.dispose();stylesQA.owner='b';stylesQA.ui.mount(document.querySelector('#appearanceRoot'));});
- assert.deepEqual(errors,[]);await page.close();console.log('PASS styles '+width+': full initial reset, save without applying, reload, load/apply, rename, replace, remove, two accounts and layout');
+ assert.deepEqual(errors,[]);await page.close();console.log('PASS styles '+width+': personal save, reload, two accounts, safe share/import and unchanged applied interface');
 }}finally{await browser.close();await server?.close();}

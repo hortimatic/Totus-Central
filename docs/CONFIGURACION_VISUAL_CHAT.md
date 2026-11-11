@@ -69,3 +69,16 @@ Pruebas SQL aisladas: anonimato restringido a la apariencia de Login, conservaci
 - «Restablecer orden de módulos» recupera el orden inicial dentro de las secciones sin restablecer colores ni otras preferencias. Reutiliza `navigationOrder` y su contrato ya validado.
 - Se añaden pruebas unitarias del contraste y de conservación de colores, y recorridos de navegador sobre el aviso, la corrección/descarte y la restauración del orden. No se introducen columnas, migraciones ni nuevas claves de configuración: ampliar los colores configurables con campos adicionales exige revisar primero el contrato de Supabase.
 - Los cambios siguen en PR #179 y no se han integrado en producción. Consultar la ejecución del último commit antes de actualizar el estado de aceptación.
+
+
+## Nueva ampliación en revisión · 11/11/2026 · colores por elemento y simulación
+
+**Peticiones activas**
+1. Colores diferenciados para textos y cajas: 15 propiedades nuevas de cabeceras, títulos, etiquetas, formularios, tablas, botones secundarios, filtros, notas y ventanas. Archivos `src/appearance-core.js`, `src/appearance-ui.js`, `src/appearance.css`. Estado: código en rama, CI y contrato pendientes.
+2. Vista previa ampliada: ocho módulos de ejemplo (Inicio, Cajas, Gastos, Facturación, Productos, Tareas, Informes y Configuración), cada uno con Resumen, Formulario y Documentos, y simulaciones locales de filtros y ventanas. No hace RPC ni usa datos reales. Archivo `src/appearance-preview-lab.js`. Estado: código en rama, pruebas de navegador pendientes.
+3. Mejoras generales: agrupaciones de ajustes, contraste para nuevos pares de color y conservación de fondos de tarjetas y estados semánticos. Estado: código en rama, revisión visual pendiente.
+4. Guardar y compartir estilos: preserva la biblioteca personal existente, incorpora exportación/importación por código `totus-interface-style` v1. Excluye nombre, logotipo, imágenes, orden y módulo inicial; el destinatario debe importarlo y guardarlo expresamente en su propia cuenta. No es una publicación automática ni un catálogo global. Archivo `src/appearance-style-share.js`. Estado: código y pruebas automáticas pendientes de CI.
+
+**Contrato y seguridad.** La función viva `private.totus_validate_appearance(text,jsonb)` rechaza claves nuevas. Se preparó `supabase/review_patches/074_independent_interface_text_box_colors.sql` con ampliación aditiva estricta del allowlist, sin grants ni tablas nuevas, y ensayo `tests/appearance-element-colors-db-qa.sql` sobre PostgreSQL desechable. Antes de publicar requiere revisión técnica competente, aplicar primero el contrato de servidor y verificar aceptación y relectura con cuenta autorizada; no hacer escrituras de prueba en producción.
+
+**Base de partida:** `totus-central` commit `4ed895b5a1f9e10bb5ea6dbf46a4b7d2e23e75c7`, PR #179 publicado anteriormente. Rama actual: `feat/interface-independent-text-box-colors-20261111`. No fusionar ni desplegar automáticamente si falla algún recorrido, el contrato no está instalado o faltan verificaciones. Mantener los trabajos paralelos aislados.
