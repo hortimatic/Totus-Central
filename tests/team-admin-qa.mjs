@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 
 // Execute the actual Edge handler with isolated Auth/database adapters.
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/team-admin/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''));
-async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false}={}){
+async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false,profileRole=null,profileActive=null}={}){
  let handler;const writes=[],updates=[],pages=[],profiles=new Map();
  const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active,deleted_at:retired?'2026-01-01':null,purged_at:purged?'2026-01-02':null,auth_cleanup_pending:cleanup};
  const from=table=>{
@@ -14,7 +14,7 @@ async function scenario({action='set_password',callerRole='admin',memberRole='ad
    upsert(value){mutation=value;writes.push({table,value});if(table==='profiles')profiles.set(value.id,{...value});return query},
    insert(value){writes.push({table,value});return query},
    update(value){mutation=value;writes.push({table,value});return query},
-   maybeSingle(){const data=table==='profiles'?(profiles.get(filters.id)||{id:filters.id,email:member.email,full_name:member.full_name,role:member.role,active:member.active}):table==='ops_roles'?{code:'gerente'}:filters.email==='caller@qa.invalid'?{role:callerRole,active:true}:member;return Promise.resolve({data,error:null})},
+   maybeSingle(){const data=table==='profiles'?(profiles.get(filters.id)||{id:filters.id,email:member.email,full_name:member.full_name,role:profileRole??(member.active?member.role:'pendiente'),active:profileActive??member.active}):table==='ops_roles'?{code:'gerente'}:filters.email==='caller@qa.invalid'?{role:callerRole,active:true}:member;return Promise.resolve({data,error:null})},
    then(resolve,reject){return Promise.resolve({data:mutation,error:null,count:1}).then(resolve,reject)}};
   return query;
  };
@@ -63,6 +63,12 @@ for(const action of ['update_member','set_active']){
  assert.equal(profile?.role,'gerente');
  assert.equal(profile?.active,action==='update_member','set_active usa el estado solicitado (falso en esta prueba)');
 }
+const expresslyDisabled=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'gerente'});
+assert.equal(expresslyDisabled.status,400,'Una cuenta Auth desactivada deliberadamente no se reactiva al guardar su nombre');
+assert.equal(expresslyDisabled.writes.filter(w=>w.table==='profiles').length,0,'No se toca un perfil desactivado intencionalmente');
+const newlyPending=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'pendiente'});
+assert.equal(newlyPending.status,200,'Administración sí reconcilia un perfil pendiente con el miembro activo');
+assert.equal(newlyPending.writes.find(w=>w.table==='profiles')?.value.active,true);
 const missingAuth=await scenario({action:'update_member',existing:false});
 assert.equal(missingAuth.writes.filter(w=>w.table==='profiles').length,0,'Sin Auth no se crea una identidad ficticia');
 
