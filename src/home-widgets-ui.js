@@ -462,9 +462,77 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
  }
 
+
+ async function loadStyles(){
+  if(stylesBusy||!live()||!edit)return;
+  stylesBusy=true;stylesError='';renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const response=await rpc('totus_home_styles',{p_action:'list',p_template_id:null,p_name:null});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(!Array.isArray(response?.items))throw new Error('La respuesta del catálogo no tiene el formato esperado.');
+   styleItems=response.items.filter(t=>typeof t?.id==='string'&&typeof t?.name==='string').slice(0,100);
+  }catch(error){
+   if(live()&&session===owner&&epoch===token){
+    styleItems=[];
+    stylesError='Biblioteca de estilos no disponible: '+String(error?.message||error).slice(0,180)+'. El Inicio personal sigue funcionando.';
+   }
+  }finally{
+   if(live()&&session===owner&&epoch===token){stylesBusy=false;if(panelView==='styles')renderDrawer()}
+  }
+ }
+ async function publishStyle(){
+  if(stylesBusy||!live()||!edit||!can('inicio','edit'))return;
+  const name=root.querySelector('[data-home-style-name]')?.value?.trim()||'';
+  if(name.length<3||name.length>60){status('Pon un nombre entre 3 y 60 caracteres.',true);return}
+  if(changed()||!remoteReady){status('Guarda y verifica primero los cambios de tu propio Inicio antes de compartirlo.',true);return}
+  stylesBusy=true;renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const saved=await rpc('totus_home_styles',{p_action:'publish',p_template_id:null,p_name:name});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(!/^[\da-f-]{36}$/i.test(String(saved?.id||''))||saved.published!==true)throw Error('Publicación no confirmada');
+   status('Estilo «'+name+'» compartido con el equipo.');
+  }catch(error){if(live())status('No se pudo publicar el estilo: '+String(error?.message||error).slice(0,180),true)}
+  finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;void loadStyles()}}
+ }
+ async function applyStyle(id){
+  if(stylesBusy||!live()||!edit||!can('inicio','edit')||!styleItems.some(t=>t.id===id))return;
+  if(!confirm('¿Aplicar este estilo a tu Inicio? No se guardará hasta que pulses «Guardar cambios». Puedes cancelar para recuperar tu distribución.'))return;
+  stylesBusy=true;renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const result=await rpc('totus_home_styles',{p_action:'read',p_template_id:id,p_name:null});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(result?.id!==id)throw Error('La plantilla recibida no coincide con la seleccionada.');
+   const next=readHomeDashboard(result.layout);
+   model={...next,revision:model.revision};selected=null;panelView='closed';
+   draw();status('Estilo «'+String(result.name||'compartido').slice(0,60)+'» aplicado de forma provisional. Guarda para conservarlo o cancela para recuperar tu Inicio.');
+  }catch(error){if(live())status('No se pudo aplicar el estilo: '+String(error?.message||error).slice(0,180),true)}
+  finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;if(panelView==='styles')renderDrawer()}}
+ }
+ async function removeStyle(id){
+  if(stylesBusy||!live()||!edit||!can('inicio','edit')||!styleItems.some(t=>t.id===id&&t.mine))return;
+  if(!confirm('¿Retirar este estilo de la biblioteca compartida? No modifica los Inicios que ya lo hayan aplicado.'))return;
+  stylesBusy=true;renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const result=await rpc('totus_home_styles',{p_action:'remove',p_template_id:id,p_name:null});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(result?.removed!==true||result?.id!==id)throw Error('Retirada no confirmada.');
+   status('Estilo retirado de la biblioteca. Los demás diseños permanecen intactos.');
+  }catch(error){if(live())status('No se pudo retirar el estilo: '+String(error?.message||error).slice(0,180),true)}
+  finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;void loadStyles()}}
+ }
+
  const makeId=()=>`hw-${crypto.randomUUID()}`;
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
+  if(action==='style-refresh'){void loadStyles();return}
+  if(action==='style-publish'){void publishStyle();return}
+  if(action==='style-apply'){void applyStyle(id);return}
+  if(action==='style-remove'){void removeStyle(id);return}
+
   if(['panel-library','panel-widget','panel-board','panel-styles'].includes(action)){if(!edit)return;panelView=action.slice(6);renderDrawer();if(panelView==='styles')void loadStyles();return}
    if(action==='close-panel'){panelView='closed';renderDrawer();return}
    if(action==='preset-size'){const w=find(id);if(!edit||!w)return;const widths=allowedWidths(w),def=HOME_WIDGET_CATALOG[w.type];const options={compact:widths[0],balanced:def.width,wide:widths.filter(x=>x<=9).at(-1)||widths.at(-1),full:widths.at(-1)};const width=options[el.dataset.size];if(!widths.includes(width))return;mutate(m=>setHomeWidgetConfig(m,id,{layout:{desktop:{w:width}}}),id);panelView='widget';return}
