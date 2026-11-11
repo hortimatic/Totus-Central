@@ -6,15 +6,15 @@ import {stripTypeScriptTypes} from 'node:module';
 // Execute the actual Edge handler with isolated Auth/database adapters.
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/team-admin/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''));
 async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false}={}){
- let handler;const writes=[],updates=[],pages=[];
+ let handler;const writes=[],updates=[],pages=[],profiles=new Map();
  const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active,deleted_at:retired?'2026-01-01':null,purged_at:purged?'2026-01-02':null,auth_cleanup_pending:cleanup};
  const from=table=>{
   const filters={};let mutation;
   const query={select(){return query},eq(k,v){filters[k]=v;return query},
-   upsert(value){mutation=value;writes.push({table,value});return query},
+   upsert(value){mutation=value;writes.push({table,value});if(table==='profiles')profiles.set(value.id,{...value});return query},
    insert(value){writes.push({table,value});return query},
    update(value){mutation=value;writes.push({table,value});return query},
-   maybeSingle(){return Promise.resolve({data:table==='ops_roles'?{code:'gerente'}:filters.email==='caller@qa.invalid'?{role:callerRole,active:true}:member,error:null})},
+   maybeSingle(){const data=table==='profiles'?(profiles.get(filters.id)||{id:filters.id,email:member.email,full_name:member.full_name,role:member.role,active:member.active}):table==='ops_roles'?{code:'gerente'}:filters.email==='caller@qa.invalid'?{role:callerRole,active:true}:member;return Promise.resolve({data,error:null})},
    then(resolve,reject){return Promise.resolve({data:mutation,error:null,count:1}).then(resolve,reject)}};
   return query;
  };
