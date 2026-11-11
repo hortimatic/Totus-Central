@@ -77,9 +77,10 @@ begin
   return pg_catalog.jsonb_build_object('id',found_record.id,'name',found_record.name,'layout',found_record.layout,'mine',found_record.owner_id=uid);
  end if;
 
- if not private.totus_can('inicio','edit') then
-  raise exception 'Sin permiso para publicar o retirar plantillas' using errcode='42501';
- end if;
+ -- Publicar o retirar un estilo propio es una preferencia personal,
+ -- no una escritura de módulos de negocio. La sesión, el perfil y el
+ -- miembro activos, inicio.view y la autoría ya se verificaron arriba.
+ -- Mantener el bloqueo de perfiles realmente inactivos y la autoría.
  if p_action='remove' then
   if p_template_id is null or p_name is not null then raise exception 'Plantilla no indicada';end if;
   update private.totus_home_style_templates set deleted_at=pg_catalog.now()
