@@ -188,6 +188,27 @@ try{
  await page.locator('[data-home-type="expenses.pending"] [data-home-command="open-expense"][data-expense="qa-fiscal-review"]').click();
  await page.waitForFunction(async()=>{const {state}=await import('../src/state.js');return state.route==='gastos'&&state.views.gastos?.id==='qa-fiscal-review'},undefined,{timeout:18000});
 
+
+ // Apply a previously shared style only to this user's dashboard, then persist it.
+ await page.locator('#nav [data-route="inicio"]').click();
+ await page.locator('[data-home-widget="opening"]').waitFor();
+ await page.locator('[data-home-command="edit"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ await page.locator('[data-home-command="style-apply"]').waitFor();
+ await page.locator('[data-home-command="style-apply"]').click();
+ await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.summary"]').length===2);
+ assert.equal(await page.evaluate(()=>window.__homePrefs.revision),2,'Aplicar no modifica todavía el Inicio persistido');
+ await page.locator('[data-home-command="save"]').click();
+ await page.waitForFunction(()=>window.__homePrefs.revision===3);
+ assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'El Inicio adopta el estilo compartido tras guardar');
+ // An author can remove their template without changing the current layout.
+ await page.locator('[data-home-command="edit"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-styles"]').click();
+ await page.locator('[data-home-command="style-remove"]').waitFor();
+ await page.locator('[data-home-command="style-remove"]').click();
+ await page.waitForFunction(()=>window.__homeStyles.length===0);
+ assert.equal(await page.evaluate(()=>window.__homePrefs.revision),3,'Retirar estilo no modifica las preferencias del Inicio');
+
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{
