@@ -66,6 +66,7 @@ for(const action of ['update_member','set_active']){
 const expresslyDisabled=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'gerente'});
 assert.equal(expresslyDisabled.status,400,'Una cuenta Auth desactivada deliberadamente no se reactiva al guardar su nombre');
 assert.equal(expresslyDisabled.writes.filter(w=>w.table==='profiles').length,0,'No se toca un perfil desactivado intencionalmente');
+assert.equal(expresslyDisabled.writes.filter(w=>w.table==='team_members').length,0,'Un rechazo de perfil no deja cambios parciales en equipo');
 const explicitlyActivated=await scenario({action:'set_active',memberRole:'gerente',active:false,profileActive:false,profileRole:'gerente',requestedActive:true});
 assert.equal(explicitlyActivated.status,200,'Solo Activar en Administración puede reactivar un perfil desactivado');
 assert.equal(explicitlyActivated.writes.find(w=>w.table==='profiles')?.value.active,true);
