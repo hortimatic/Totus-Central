@@ -5,6 +5,44 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  appearance-colors-browser-smoke:
+    runs-on: ubuntu-24.04
+    env:
+      TOTUS_START_SERVER: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install chromium
+      - name: Check actual appearance CSS colors on three screen sizes
+        run: node tests/appearance-element-colors-browser-qa.mjs
+      - name: Check style sharing with two simulated accounts
+        run: node tests/interface-styles-browser-qa.mjs
+  appearance-element-colors-database:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: test-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated validator and roles
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA private; CREATE ROLE anon; CREATE ROLE authenticated;'
+      - name: Load production-equivalent validator baseline
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/061_personal_navigation_layout.sql
+      - name: Extend allowlist and verify repeatability
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/074_independent_interface_text_box_colors.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/074_independent_interface_text_box_colors.sql
+      - name: Verify new colours, legacy validation and no privilege expansion
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-element-colors-db-qa.sql
   home-widgets-functional-browser:
     runs-on: ubuntu-24.04
     env:
@@ -187,6 +225,7 @@ jobs:
       - run: node tests/personal-interface-qa.mjs
       - run: node tests/interface-styles-qa.mjs
       - run: node tests/appearance-qa.mjs
+      - run: node tests/appearance-style-share-qa.mjs
       - run: node tests/appearance-tools-qa.mjs
       - run: node tests/chat-personalization-qa.mjs
       - run: node tests/chat-alerts-qa.mjs
@@ -386,6 +425,7 @@ jobs:
       - run: node tests/appearance-panels-browser-qa.mjs
       - run: node tests/responsive-controls-browser-qa.mjs
       - run: node tests/appearance-tools-browser-qa.mjs
+      - run: node tests/appearance-element-colors-browser-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
       - run: node tests/appearance-pending-browser-qa.mjs

@@ -1,4 +1,4 @@
-import {interfaceStylesSettings,acceptInterfaceStyles} from './appearance-styles.js';
+import {interfaceStylesSettings,acceptInterfaceStyles,verifySavedInterfaceStyle} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
 import {prestashopInvoiceDraft,prestashopInvoiceLineAmounts} from './prestashop-invoice.js';
 import {createApiManager} from './api-manager.js';
@@ -120,7 +120,7 @@ function can(module,action='view'){if(module==='apis')return isAdmin()&&can('con
 const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state),saveStyle:async command=>{
  const owner=state.user?.id;if(!owner||!can('configuracion','view'))throw Error('No tienes acceso a tu configuración.');
  const saved=await rpc('totus_interface_styles',{p_action:command.action,p_id:command.id,p_name:command.name,p_config:command.config,p_expected_revision:command.revision});
- acceptInterfaceStyles(state,saved,owner);return saved;
+ verifySavedInterfaceStyle(saved,command);acceptInterfaceStyles(state,saved,owner);return saved;
 },settings:section=>section==='interfaz'?personalInterfaceSettings(state):state.data.settings,actor:()=>state.user?.id,canEdit:section=>can('configuracion',section==='interfaz'?'view':'edit'),confirm:confirmAction,save:async(section,config,revision)=>{
  const owner=state.user?.id;if(!owner||!can('configuracion',section==='interfaz'?'view':'edit'))throw Error('No tienes permiso para editar esta configuración.');
  if(section==='interfaz'){
