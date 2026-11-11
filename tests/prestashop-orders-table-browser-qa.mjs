@@ -1,11 +1,37 @@
 import assert from 'node:assert/strict';
-import {verifiedOrderCashBoxName} from '../src/prestashop-cash-box.js';
+import {verifiedOrderCashBoxName,cashBoxAttributionFromCatalogue} from '../src/prestashop-cash-box.js';
 const proof={id:'42',cash_box:{verified:true,store:'hortimatic',order_id:'42',drawer_id:'17',name:'Caja nueva - futuro'}};
 assert.equal(verifiedOrderCashBoxName(proof,'hortimatic'),'Caja nueva - futuro');
 assert.equal(verifiedOrderCashBoxName(proof,'newoldsmok'),null);
 assert.equal(verifiedOrderCashBoxName({...proof,cash_box:{...proof.cash_box,order_id:'43'}},'hortimatic'),null);
 assert.equal(verifiedOrderCashBoxName({...proof,cash_box:{...proof.cash_box,verified:false}},'hortimatic'),null);
 assert.equal(verifiedOrderCashBoxName({...proof,cash_box:{...proof.cash_box,name:'\u0000'}} ,'hortimatic'),null);
+// POS TPV: dynamic catalogue indexed by shop + opening ID, not hardcoded labels.
+// Simulated data only: the adapter and real source still require verification.
+const order={id:'101'};
+const links=[
+ {store:'hortimatic',order_id:'101',drawer_id:'2625',verified:true},
+ {store:'hortimatic',order_id:'101',drawer_id:'2625',verified:true}
+];
+const boxes=[
+ {store:'hortimatic',drawer_id:'2625',name:'Caja Vape'},
+ {store:'hortimatic',drawer_id:'2626',name:'Caja Head'},
+ {store:'newoldsmok',drawer_id:'2625',name:'Caja Alcalá'},
+ {store:'hortimatic',drawer_id:'3001',name:'Caja Nueva 2030'}
+];
+const match=(rows=links,openings=boxes,shop='hortimatic')=>cashBoxAttributionFromCatalogue(order,shop,rows,openings);
+assert.equal(verifiedOrderCashBoxName({...order,cash_box:match()},'hortimatic'),'Caja Vape');
+assert.equal(verifiedOrderCashBoxName({...order,cash_box:match([{...links[0],drawer_id:'3001'}])},'hortimatic'),'Caja Nueva 2030');
+assert.equal(match([],boxes),null,'online order without an attributed opening');
+assert.equal(match([...links,{...links[0],drawer_id:'2626'}],boxes),null,'different opening IDs are ambiguous');
+assert.equal(match([{...links[0],verified:false}],boxes),null,'unverified relation must fail');
+assert.equal(match([{...links[0],order_id:'102'}],boxes),null,'different order must fail');
+assert.equal(match(links,[...boxes,{...boxes[0],name:'other'}]),null,'duplicate catalogue ID must fail');
+assert.equal(match([{store:'newoldsmok',order_id:'101',drawer_id:'2625',verified:true}],boxes,'newoldsmok')?.name,'Caja Alcalá');
+assert.equal(match(links,boxes,'newoldsmok'),null,'cross-shop relation must not leak');
+assert.equal(match([{...links[0],drawer_id:'0'}],boxes),null,'unknown opening ID must fail');
+assert.equal(match(links,[{...boxes[0],name:'\u0000'}]),null,'invalid opening name must fail');
+
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
 const server=await startLocalServer();const {chromium}=await import('playwright');
