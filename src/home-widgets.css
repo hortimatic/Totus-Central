@@ -542,7 +542,7 @@
   top:var(--home-editor-top,108px)!important;bottom:0!important;right:0!important;left:0!important;
   width:100%!important;border-radius:14px 14px 0 0;max-height:calc(100dvh - 56px)!important
  }
- .dashboard-page.home-edit-mode .home-dashboard-toolbar{top:0}
+ .dashboard-page.home-edit-mode .home-dashboard-toolbar{position:static;top:auto}
  .dashboard-page .home-toolbar-actions .home-edit-tool{font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){
