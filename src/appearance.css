@@ -176,3 +176,6 @@ html[data-appearance=dark] :is(.btn.secondary,.close-btn,.icon-btn){background:v
 html[data-appearance=dark] :is(.note:not(.warn):not(.bad),.badge:not(.ok):not(.warn):not(.bad):not(.info)){background:var(--panel);color:var(--ink);border-color:var(--line)}
 html[data-appearance=dark] .summary-row{border-color:var(--line)}
 html[data-appearance] :is(.field input,.field select,.field textarea,.form-grid input,.form-grid select,.form-grid textarea):focus-visible{outline:2px solid var(--appearance-accent);outline-offset:1px}
+
+/* Scale the simulated sidebar to the configured width, without overflowing narrow previews. */
+.appearance-demo{grid-template-columns:clamp(98px,calc(var(--sidebar) * .45),165px) minmax(0,1fr)}
