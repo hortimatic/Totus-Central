@@ -140,11 +140,12 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
    const lib=document.createElement('div');lib.innerHTML=interfaceStyleLibrary({library:styles(),selected:selectedStyle,name:styleDraftName,esc});
    host.querySelector('.appearance-presets').after(lib.firstElementChild);
    const share=document.createElement('section');share.className='appearance-style-share';share.setAttribute('aria-label','Compartir estilos entre cuentas');
-   share.innerHTML='<h3>Compartir estilo con otro usuario</h3><p class="small muted">Copia un código y envíaselo al destinatario por el canal que tú elijas. No incluye nombre personal, fotos, logotipos ni orden de tus módulos. La otra cuenta debe importarlo y guardarlo voluntariamente.</p><div class="inline-actions"><button type="button" class="btn secondary" data-style-export>Preparar código del estilo seleccionado</button><button type="button" class="btn secondary" data-style-import>Importar en mi biblioteca</button></div><label>Estilo para compartir o importar<textarea rows="4" spellcheck="false" data-style-share-code data-draft-ignore placeholder="Selecciona un estilo para exportarlo, o pega aquí un código recibido."></textarea></label><p class="small" data-style-share-status role="status" aria-live="polite"></p>';
+   share.innerHTML='<h3>Compartir estilo con otro usuario</h3><p class="small muted">Copia un código y envíaselo al destinatario por el canal que tú elijas. No incluye nombre personal, fotos, logotipos ni orden de tus módulos. La otra cuenta debe importarlo y guardarlo voluntariamente.</p><div class="inline-actions"><button type="button" class="btn secondary" data-style-export>Preparar código del estilo seleccionado</button><button type="button" class="btn secondary" data-style-copy>Copiar código</button><button type="button" class="btn secondary" data-style-import>Importar en mi biblioteca</button></div><label>Estilo para compartir o importar<textarea rows="4" spellcheck="false" data-style-share-code data-draft-ignore placeholder="Selecciona un estilo para exportarlo, o pega aquí un código recibido."></textarea></label><p class="small" data-style-share-status role="status" aria-live="polite"></p>';
    host.querySelector('.appearance-style-library').after(share);
    const shareCode=share.querySelector('[data-style-share-code]'),shareStatus=share.querySelector('[data-style-share-status]');
    share.querySelector('[data-style-export]').disabled=!canEdit(section);
    share.querySelector('[data-style-import]').disabled=!canEdit(section);
+   share.querySelector('[data-style-copy]').disabled=!canEdit(section);
    share.querySelector('[data-style-export]').onclick=()=>{
     if(busy||!canEdit(section))return;
     const row=styles().items.find(item=>item.id===selectedStyle);
@@ -152,6 +153,12 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
     shareCode.value=exportSharedInterfaceStyle(row);
     shareCode.focus();shareCode.select();
     shareStatus.textContent='Código preparado y seleccionado. Cópialo para compartirlo; no se ha enviado a nadie.';
+   };
+   share.querySelector('[data-style-copy]').onclick=async()=>{
+    if(!canEdit(section)||busy)return;
+    if(!shareCode.value.trim()){shareStatus.textContent='Prepara primero un código o pega el que quieras copiar.';return;}
+    try{await navigator.clipboard.writeText(shareCode.value);shareStatus.textContent='Código copiado. Compártelo únicamente con quien tú decidas.';}
+    catch{shareCode.focus();shareCode.select();shareStatus.textContent='No se pudo acceder al portapapeles. El código está seleccionado para copiarlo manualmente.';}
    };
    share.querySelector('[data-style-import]').onclick=async()=>{
     if(busy||!canEdit(section))return;
