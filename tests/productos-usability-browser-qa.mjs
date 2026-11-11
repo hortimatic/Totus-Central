@@ -44,6 +44,10 @@ try{for(const width of [390,768,1024,1440]){
  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),1);
  assert.equal(await page.locator('.prd-catalog-table tbody').innerText().then(t=>t.includes('EXACT-9999')),true);
  await page.locator('[data-pr-search]').fill('');await page.locator('[data-pr-search]').blur();
+ // Clearing search starts a debounced catalogue refresh. Measure the restored
+ // row, not the temporary exact-search result that is about to be replaced.
+ await page.getByText('137 productos cargados · consulta completa',{exact:true}).waitFor();
+ await page.evaluate(()=>document.fonts.ready);
  const actionRow=page.locator('.prd-catalog-table tbody tr').first(),rowHeight=(await actionRow.boundingBox()).height;
  await actionRow.locator('.prd-row-menu summary').click();
  assert(await actionRow.locator('.prd-row-menu summary').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))<=14,'Row actions use compact text rather than the old giant ellipsis style');
