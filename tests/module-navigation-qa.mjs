@@ -8,6 +8,9 @@ for(const field of ['ctrlKey','metaKey','shiftKey','altKey'])assert(nativeModule
 assert(nativeModuleClick({button:1},{tagName:'A'}));assert(!nativeModuleClick({button:0},{tagName:'A'}));
 const tasks=[['settings'],['rolePermissions'],['userPermissions'],['team'],['profiles'],['stores'],['drawers'],['closings'],['closingDrawers'],['products'],['audit'],['backupRuns']];
 const closing=moduleReads(tasks,'cajas').map(([k])=>k);assert(closing.includes('closings')&&closing.includes('closingDrawers'));assert(!closing.includes('products')&&!closing.includes('audit')&&!closing.includes('backupRuns'));
+const apis=moduleReads(tasks,'apis').map(([key])=>key);
+assert(apis.includes('settings')&&apis.includes('team'),'API management receives shared context');
+assert(!apis.includes('closings')&&!apis.includes('products')&&!apis.includes('audit'),'API management does not load unrelated business data');
 assert.deepEqual(moduleReads(tasks),tasks);assert.deepEqual(moduleReads(tasks,'administracion'),tasks);assert.throws(()=>moduleReads(tasks,'unknown'));
 console.log('MODULE NAVIGATION QA: module URLs, native tab gestures and bounded module reads');
 

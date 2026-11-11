@@ -8,14 +8,14 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await page.locator('#nav [data-route]').first().waitFor();
  await page.evaluate(async()=>{
-  const {state}=await import('../src/state.js'),{renderers}=await import('../src/pages/main.js'),{applyInterfaceAppearance,createAppearanceUI}=await import('../src/appearance-ui.js'),{setOneDriveStatus}=await import('../src/onedrive-connection.js'),{connectionsHtml,mountConnectionsTabs}=await import('../src/connections-ui.js');
+  const {state}=await import('../src/state.js'),{renderers}=await import('../src/pages/main.js'),{applyInterfaceAppearance,createAppearanceUI}=await import('../src/appearance-ui.js'),{setOneDriveStatus}=await import('../src/onedrive-connection.js');
   state.data.storageUsage={status:'ok',total_bytes:1000,limit_bytes:100000,backup_bytes:2000,database_bytes:3000,observed_total_bytes:6000,all_buckets_bytes:3000,buckets:[],measured_at:new Date().toISOString()};
   state.data.brands=[{id:'qa-brand-1',name:'Marca ficticia',website:'',email:'',phone:''},{id:'qa-brand-2',name:'Segunda marca de prueba',website:'https://example.invalid/marca-con-direccion-larga',email:'',phone:''}];
   state.views.administracion.section='storage';
   setOneDriveStatus({configured:true,connected:true,credential_expires_at:'2027-04-18',quota:{used:1000,total:100000}});
-  window.panelRender=(route,config)=>{state.route=route;applyInterfaceAppearance(config);document.querySelector('#content').innerHTML=renderers[route]();if(route==='configuracion'){const host=document.querySelector('#appearanceRoot');createAppearanceUI({settings:()=>({appearance_config:config}),save:async()=>{},actor:()=>state.user.email,canEdit:()=>true,confirm:async()=>true}).mount(host);const page=document.querySelector('.appearance-page');page.insertAdjacentHTML('beforeend',connectionsHtml());mountConnectionsTabs(page,{appearance:host,connections:document.querySelector('#connectionsRoot'),guard:async()=>true,disposeTest:()=>{},mountTest:()=>{}});}};
+  window.panelRender=(route,config)=>{state.route=route;applyInterfaceAppearance(config);document.querySelector('#content').innerHTML=renderers[route]();if(route==='configuracion'){const host=document.querySelector('#appearanceRoot');createAppearanceUI({settings:()=>({appearance_config:config}),save:async()=>{},actor:()=>state.user.email,canEdit:()=>true,confirm:async()=>true}).mount(host);}};
  });
- const selectors={inicio:'.dashboard-hero,.store-status-card',fiscalidad:'.fiscal-page>section.card:first-of-type',informes:'.reports-page>section.card:first-of-type',administracion:'.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel',configuracion:'.configuration-sections,.appearance-tools'};
+ const selectors={inicio:'.dashboard-hero,.store-status-card',fiscalidad:'.fiscal-page>section.card:first-of-type',informes:'.reports-page>section.card:first-of-type',administracion:'.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel',configuracion:'.appearance-page>.card',apis:'[data-api-manager]'};
  for(const width of [1440,934,390]){
   await page.setViewportSize({width,height:900});
   for(const borderWidth of [0,3])for(const [route,selector] of Object.entries(selectors)){
