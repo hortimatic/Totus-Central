@@ -179,3 +179,12 @@ html[data-appearance] :is(.field input,.field select,.field textarea,.form-grid 
 
 /* Scale the simulated sidebar to the configured width, without overflowing narrow previews. */
 .appearance-demo{grid-template-columns:clamp(98px,calc(var(--sidebar) * .45),165px) minmax(0,1fr)}
+
+
+/* Navigation organiser: all controls remain reachable on narrow screens. */
+.nav-order-editor{display:grid;gap:8px;min-width:0}
+.nav-order-editor>[data-nav-row]{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);min-width:0}
+.nav-order-editor>[data-nav-row]>span:first-child{min-width:0;overflow-wrap:anywhere}
+.nav-order-actions{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;justify-content:flex-end;flex-shrink:0}
+.nav-order-actions .btn{padding:5px 8px;min-width:32px}
+@media(max-width:550px){.nav-order-editor>[data-nav-row]{align-items:flex-start;flex-wrap:wrap}.nav-order-actions{width:100%;justify-content:flex-start}}
