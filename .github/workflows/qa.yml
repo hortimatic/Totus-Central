@@ -89,6 +89,9 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261110162926_inicio_modular_personal_layout.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261110162926_inicio_modular_personal_layout.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/home-dashboard-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/home-style-templates-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261111143000_inicio_plantillas_compartidas.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/home-style-templates-db-qa.sql
   prestashop-permissions-database:
     runs-on: ubuntu-latest
     services:

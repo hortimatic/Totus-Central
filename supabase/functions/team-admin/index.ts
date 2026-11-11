@@ -37,7 +37,31 @@ Deno.serve(async(req:Request)=>{
   const countActiveAdmins=async()=>{const {count,error}=await admin.from('team_members').select('*',{count:'exact',head:true}).eq('role','admin').eq('active',true);if(error)throw error;return count||0}
   const audit=async(target:string,act:string,status:'ok'|'failed',detail='')=>{await admin.from('team_user_audit_log').insert({actor_email:callerEmail,target_email:target,action:act,status,detail})}
   const logEmail=async(target:string,type:string,status:'sent'|'failed',detail='')=>{await admin.from('team_email_log').insert({recipient_email:target,email_type:type,status,detail,requested_by:callerEmail})}
-  const ensureMember=async(email:string,fullName:string,role:string,active=true)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,...(recreatingPurged?{deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null}:{}),phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error}
+  // Administration has already verified the caller as an active administrator.
+  // A member update must also reconcile the matching Auth profile; otherwise
+  // Inicio rejects a person whose team membership is valid. Never change
+  // arbitrary accounts from public requests or copy identity from metadata.
+  const syncAuthProfile=async(email:string,fullName:string,role:string,active:boolean,identity?:{id:string,email?:string}|null,explicitActivation=false,preflightOnly=false)=>{
+   const user=identity||await findAuthUser(email);
+   if(!user)return; // Invitations may not yet have a usable Auth identity.
+   if(!user.id||cleanEmail(user.email)!==email)throw new Error('La identidad Auth no coincide con el usuario del equipo.');
+   const {data:record,error:readError}=await admin.from('profiles').select('id,email,active,role').eq('id',user.id).maybeSingle();
+   if(readError)throw readError;
+   if(record?.email&&cleanEmail(record.email)!==email)throw new Error('El perfil Auth pertenece a otra cuenta.');
+   // A pending provisioning profile can be reconciled by an authorized admin;
+   // a deliberately disabled profile with a real role must not be reactivated
+   // as a side effect of changing the display name or permissions.
+   if(active&&!explicitActivation&&record?.active===false&&record.role!=='pendiente')
+    throw new Error('El perfil fue desactivado expresamente. Revisa la cuenta antes de reactivarla.');
+   if(preflightOnly)return;
+   const {error:writeError}=await admin.from('profiles').upsert({id:user.id,email,full_name:fullName,role,active},{onConflict:'id'});
+   if(writeError)throw writeError;
+   const {data:checked,error:checkError}=await admin.from('profiles').select('id,email,full_name,role,active').eq('id',user.id).maybeSingle();
+   if(checkError)throw checkError;
+   if(checked?.id!==user.id||cleanEmail(checked.email)!==email||checked.role!==role||checked.active!==active||checked.full_name!==fullName)
+    throw new Error('No se ha verificado la actualización del perfil Auth.');
+  };
+  const ensureMember=async(email:string,fullName:string,role:string,active=true,identity?:{id:string,email?:string}|null)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,...(recreatingPurged?{deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null}:{}),phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error;await syncAuthProfile(email,fullName,role,active,identity)}
   const lastAdminGuard=async(email:string,nextRole?:string,nextActive?:boolean,deleting=false)=>{const {data:current}=await admin.from('team_members').select('email,role,active').eq('email',email).maybeSingle();if(!current?.active||current.role!=='admin')return;const loses=deleting||nextActive===false||(nextRole&&nextRole!=='admin');if(loses&&(await countActiveAdmins())<=1)throw new Error('No puedes dejar el sistema sin ningún administrador activo.')}
   const sendRecovery=async(email:string,source:string)=>{
     const {error}=await publicAuth.auth.resetPasswordForEmail(email,{redirectTo:APP_URL})
@@ -77,7 +101,7 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==='set_password')return json({error:'La cuenta no existe. Crea el usuario desde Nuevo usuario.'},404);
     const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{full_name:fullName,role}});if(error)throw error
-    try{await ensureMember(email,fullName,role,true)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
+    try{await ensureMember(email,fullName,role,true,data.user||null)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
     await audit(email,'user_created','ok','Cuenta creada directamente con contraseña')
     return json({ok:true,created:true,user_id:data.user?.id,message:'Usuario creado. Ya puede iniciar sesión.'})
    }catch(e){const msg=e instanceof Error?e.message:'Error creando usuario';await audit(email,action==='create_user'?'user_created':'password_assigned','failed',msg);return json({error:msg},400)}
@@ -102,7 +126,7 @@ Deno.serve(async(req:Request)=>{
       const {error}=await admin.auth.admin.deleteUser(existing.id);if(error)throw error;existing=null
     } else if(action==='invite'&&existing)return json({error:'Ya existe una invitación pendiente. Usa Reenviar invitación.'},409)
     const {data,error}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo:APP_URL,data:{full_name:fullName,role}});if(error)throw error
-    await ensureMember(email,fullName,role,true)
+    await ensureMember(email,fullName,role,true,data.user||null)
     const label=action==='resend_invite'?'Reenvío de invitación':'Invitación'
     await logEmail(email,label,'sent','Supabase aceptó la solicitud de envío')
     await audit(email,action,'ok','Solicitud de email aceptada por Supabase')
@@ -123,12 +147,12 @@ Deno.serve(async(req:Request)=>{
   if(action==='update_member'){
    const email=cleanEmail(body.email),fullName=cleanText(body.full_name),role=cleanText(body.role),active=body.active!==false
    if(!validEmail(email)||!fullName||!(await validRole(role)))return json({error:'Datos de usuario no válidos'},400)
-   try{await lastAdminGuard(email,role,active,false);const payload={full_name:fullName,role,active,phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()};const {error}=await admin.from('team_members').update(payload).eq('email',email);if(error)throw error;const existing=await findAuthUser(email);if(existing){const {error:aerr}=await admin.auth.admin.updateUserById(existing.id,{user_metadata:{full_name:fullName,role}});if(aerr)throw aerr}await audit(email,'member_updated','ok',`Rol: ${role}; activo: ${active}`);return json({ok:true,message:'Ficha de usuario actualizada.'})}catch(e){const msg=e instanceof Error?e.message:'Error actualizando usuario';await audit(email,'member_updated','failed',msg);return json({error:msg},400)}
+   try{await lastAdminGuard(email,role,active,false);const existing=await findAuthUser(email);if(existing)await syncAuthProfile(email,fullName,role,active,existing,false,true);const payload={full_name:fullName,role,active,phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()};const {error}=await admin.from('team_members').update(payload).eq('email',email);if(error)throw error;if(existing){const {error:aerr}=await admin.auth.admin.updateUserById(existing.id,{user_metadata:{full_name:fullName,role}});if(aerr)throw aerr;await syncAuthProfile(email,fullName,role,active,existing)}await audit(email,'member_updated','ok',`Rol: ${role}; activo: ${active}`);return json({ok:true,message:'Ficha de usuario actualizada.'})}catch(e){const msg=e instanceof Error?e.message:'Error actualizando usuario';await audit(email,'member_updated','failed',msg);return json({error:msg},400)}
   }
 
   if(action==='set_active'){
    const email=cleanEmail(body.email),active=!!body.active;if(!validEmail(email))return json({error:'Email no válido'},400);if(email===callerEmail&&!active)return json({error:'No puedes desactivar tu propia cuenta.'},400)
-   try{await lastAdminGuard(email,undefined,active,false);const {error}=await admin.from('team_members').update({active,updated_at:new Date().toISOString()}).eq('email',email);if(error)throw error;await audit(email,active?'user_activated':'user_deactivated','ok',active?'Acceso activado':'Acceso desactivado');return json({ok:true,message:active?'Usuario activado.':'Usuario desactivado.'})}catch(e){const msg=e instanceof Error?e.message:'Error cambiando estado';await audit(email,active?'user_activated':'user_deactivated','failed',msg);return json({error:msg},400)}
+   try{await lastAdminGuard(email,undefined,active,false);const {data:member,error:memberError}=await admin.from('team_members').select('full_name,role').eq('email',email).maybeSingle();if(memberError)throw memberError;if(!member)throw new Error('Usuario del equipo no encontrado.');const existing=await findAuthUser(email);if(existing)await syncAuthProfile(email,member.full_name,member.role,active,existing,active,true);const {error}=await admin.from('team_members').update({active,updated_at:new Date().toISOString()}).eq('email',email);if(error)throw error;if(existing)await syncAuthProfile(email,member.full_name,member.role,active,existing,active);await audit(email,active?'user_activated':'user_deactivated','ok',active?'Acceso activado':'Acceso desactivado');return json({ok:true,message:active?'Usuario activado.':'Usuario desactivado.'})}catch(e){const msg=e instanceof Error?e.message:'Error cambiando estado';await audit(email,active?'user_activated':'user_deactivated','failed',msg);return json({error:msg},400)}
   }
 
   if(action==='delete'||action==='hard_delete'){
