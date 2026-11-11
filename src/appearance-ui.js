@@ -73,17 +73,17 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
    ['Marca e identidad',['brandName','brandSubtitle','logoMode','customLogoData','logoHeight','theme']],
    ['Colores',['primary','secondary','accent','bg','surface','card','text','muted']],
    ['Fondo de la herramienta',['backgroundMode','customBackgroundData','backgroundDim']],
-   ['Barra de navegación y cabecera',['navigationMode','startModule','sidebarWidth','topbarHeight','navigationBackground','navigationText','navigationSectionText','navigationActive','navigationOrder','navigationCollapsed']],
+   ['Navegación y organización',['navigationMode','startModule','sidebarWidth','navigationBackground','navigationText','navigationSectionText','navigationActive','navigationOrder','navigationCollapsed']],
    ['Bordes y efectos',['borderColor','borderStrength','borderWidth','glowColor','cardGlow','buttonGlow','buttonFinish','hoverEffect']]
   ];
-  interfaceGroups.push(['Tamaños y distribución',Object.keys(APPEARANCE_FIELDS.interfaz).filter(key=>!interfaceGroups.some(([,keys])=>keys.includes(key)))]);
+  interfaceGroups.push(['Cabecera, tipografía y distribución',Object.keys(APPEARANCE_FIELDS.interfaz).filter(key=>!interfaceGroups.some(([,keys])=>keys.includes(key)))]);
   const groups=section==='interfaz'?interfaceGroups:[
    ['Marca e identidad',['loginBrandName','loginSubtitle','loginFont','loginLogoMode','loginLogoFrame','loginLogoWidth','loginLogoHeight','loginAlign','customLogoData']],
    ['Caja de acceso',['loginCardPreset','loginCardColor','loginCardOpacity','loginCardRadius','loginCardShadow','loginCardWidth','loginCardPadding']],
    ['Botón, bordes y brillos',['loginButtonMode','loginButtonColor','loginTextColor','loginBorderColor','loginBorderWidth','loginGlowColor','loginCardGlow','loginButtonGlow']],
    ['Fondo y ayuda',['loginBackground','customBackgroundData','loginBackgroundDim','loginHelpText','loginRecoveryText']]
   ];
-  return groups.map(([label,keys],index)=>'<details class="appearance-section" data-appearance-group="'+index+'" open><summary><span class="appearance-section-number">'+(index+1)+'</span>'+label+'</summary><fieldset class="form-grid" '+(canEdit(section)?'':'disabled')+'><legend class="sr-only">'+label+'</legend>'+keys.map(key=>field(key,APPEARANCE_FIELDS[section][key])).join('')+'</fieldset></details>').join('');
+  return groups.map(([label,keys],index)=>'<details class="appearance-section" data-appearance-group="'+index+'" open><summary><span class="appearance-section-number">'+(index+1)+'</span>'+label+'</summary>'+(section==='interfaz'&&index===5?'<div class="appearance-header-presets" role="group" aria-label="Altura y densidad de cabecera"><span>Distribución rápida de la cabecera:</span><button type="button" class="btn secondary" data-header-preset="compact">Compacta</button><button type="button" class="btn secondary" data-header-preset="standard">Equilibrada</button><button type="button" class="btn secondary" data-header-preset="wide">Amplia</button></div>':'')+'<fieldset class="form-grid" '+(canEdit(section)?'':'disabled')+'><legend class="sr-only">'+label+'</legend>'+keys.map(key=>field(key,APPEARANCE_FIELDS[section][key])).join('')+'</fieldset></details>').join('');
  }
  function paint(){
   const toolsQuery=host.dataset.appearanceSection===section?host.querySelector('[data-settings-search]')?.value||'':'';
@@ -104,6 +104,8 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
   host.querySelectorAll('[data-preview-size]').forEach(button=>button.onclick=()=>{previewSize=button.dataset.previewSize;host.querySelectorAll('[data-preview-size]').forEach(el=>el.setAttribute('aria-pressed',el===button));preview();});
   host.querySelectorAll('[data-demo-module]').forEach(button=>button.onclick=()=>{previewModule=button.dataset.demoModule;preview();});
   host.querySelector('form').oninput=preview;host.querySelector('form').onchange=event=>{if(section==='interfaz'&&event.target.name==='theme'){values=read();const palette=values.theme==='dark'?APPEARANCE_PRESETS.newoldsmok:APPEARANCE_PRESETS.totus;for(const key of ['bg','surface','card','text','muted'])values[key]=palette[key];paint();}else if(section==='login'&&event.target.name==='loginCardPreset'){values=read();if(values.loginCardPreset==='dark'){values.loginTextColor='#f8fafc';values.loginBorderColor='#334155';}else if(values.loginCardPreset==='light'||values.loginCardPreset==='solid'||values.loginCardPreset==='glass'){values.loginTextColor='#0f172a';values.loginBorderColor='#ffffff';}paint();}else preview();};
+  const headerPresets={compact:{topbarHeight:56,fontSize:13,density:'compact'},standard:{topbarHeight:68,fontSize:14,density:'comfortable'},wide:{topbarHeight:84,fontSize:16,density:'wide'}};
+  host.querySelectorAll('[data-header-preset]').forEach(button=>button.onclick=()=>{if(busy||!canEdit(section))return;values=appearanceValues('interfaz',{...read(),...headerPresets[button.dataset.headerPreset]});paint();});
   host.querySelectorAll('[data-appearance-tab]').forEach(button=>button.onclick=async()=>{const stamp=epoch;if(busy)return;if(dirty()&&!await confirm('¿Descartar los cambios de apariencia sin guardar?'))return;if(!active(stamp))return;section=button.dataset.appearanceTab;load();});
   host.querySelector('[data-defaults]').onclick=()=>{if(!canEdit(section)||busy)return;values=appearanceValues(section);paint();};
   host.querySelector('[data-cancel-preview]').onclick=()=>{if(!busy)load();};
