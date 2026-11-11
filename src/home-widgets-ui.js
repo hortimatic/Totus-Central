@@ -489,7 +489,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   stylesBusy=true;renderDrawer();
   const session=owner,epoch=token;
   try{
-   const saved=await rpc('totus_home_styles',{p_action:'publish',p_template_id:null,p_name:name});
+   const saved=await rpc('totus_home_styles',{p_action:'publish',p_template_id:null,p_name:name,p_expected_revision:Number(model.revision)});
    if(!live()||session!==owner||epoch!==token)return;
    if(!/^[\da-f-]{36}$/i.test(String(saved?.id||''))||saved.published!==true)throw Error('Publicación no confirmada');
    status('Estilo «'+name+'» compartido con el equipo.');
