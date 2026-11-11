@@ -14,6 +14,63 @@ try{
   q.ui=createAppearanceUI({settings:()=>q.row,actor:()=>q.owner,canEdit:()=>q.editable,confirm:async()=>true,save:async(section,config)=>{q.saves.push({section,config});q.row={...q.row,appearance_revision:q.row.appearance_revision+1,[section==='login'?'login_appearance':'appearance_config']:config};}});
   q.ui.mount(document.querySelector('#appearanceRoot'));
  });
+ for(const width of [1440,390]){
+  await page.setViewportSize({width,height:900});
+  for(const module of ['inicio','cajas','gastos','informes']){
+   await page.locator('[data-demo-module='+module+']').click();
+   assert.equal(await page.locator('[data-demo-view='+module+']').isVisible(),true,'Preview section '+module);
+   assert.equal(await page.locator('[data-demo-module='+module+']').getAttribute('aria-pressed'),'true');
+   assert.equal(await page.locator('[data-demo-view]:visible').count(),1,'Only one preview module visible');
+  }
+  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Browsing the preview must not mark preferences dirty');
+  assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Browsing preview never saves');
+ }
+ await page.setViewportSize({width:1440,height:1000});
+ // Contrast smoke test: dark appearance must carry foreground and backgrounds to neutral module controls.
+ const dark=await page.evaluate(async()=>{
+  const {appearanceVariables}=await import('../src/appearance-core.js');
+  const root=document.documentElement;
+  root.dataset.appearance='dark';
+  for(const [key,value] of Object.entries(appearanceVariables({theme:'dark',bg:'#07111f',surface:'#0b1729',card:'#12233b',text:'#f2f7ff',muted:'#a8c1d8'})))root.style.setProperty(key,value);
+  const fixture=document.createElement('div');fixture.id='appearance-dark-smoke';
+  fixture.innerHTML='<header class="topbar"><h1>Cabecera</h1><span class="eyebrow">Subtítulo</span></header><section class="card"><label class="field">Texto<input value="Campo"></label><div class="tabs"><button class="tab">Resumen</button></div><button class="btn secondary">Filtrar</button><div class="note">Nota neutral</div></section>';
+  document.body.append(fixture);
+  const selectors=['.topbar h1','.topbar .eyebrow','.card','.field','.field input','.tab','.btn.secondary','.note'];
+  const output=selectors.map(selector=>{const el=fixture.querySelector(selector),s=getComputedStyle(el);return {selector,color:s.color,background:s.backgroundColor};});
+  fixture.remove();root.removeAttribute('data-appearance');
+  for(const key of Object.keys(appearanceVariables({})))root.style.removeProperty(key);
+  return output;
+ });
+ assert.equal(dark.find(x=>x.selector==='.topbar h1').color,'rgb(242, 247, 255)','Dark topbar text follows appearance');
+ assert.equal(dark.find(x=>x.selector==='.card').background,'rgb(18, 35, 59)','Custom dark card color must not be replaced by surface color');
+ assert.equal(dark.find(x=>x.selector==='.field input').color,'rgb(242, 247, 255)','Dark input text follows appearance');
+ assert.equal(dark.find(x=>x.selector==='.btn.secondary').color,'rgb(242, 247, 255)','Dark secondary button text remains readable');
+ assert.equal(dark.find(x=>x.selector==='.note').color,'rgb(242, 247, 255)','Dark neutral note text remains readable');
+ await page.locator('[name=card]').fill('#ffffff');
+ await page.locator('[name=surface]').fill('#ffffff');
+ await page.locator('[name=text]').fill('#ffffff');
+ await page.locator('[name=muted]').fill('#dddddd');
+ await page.locator('[name=navigationBackground]').fill('#ffffff');
+ await page.locator('[name=navigationText]').fill('#ffffff');
+ await page.locator('[name=navigationSectionText]').fill('#dddddd');
+ assert.match(await page.locator('[data-contrast-result]').textContent(),/contraste insuficiente/i);
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Contrast audit must not persist anything');
+ await page.locator('[data-fix-contrast]').click();
+ assert.match(await page.locator('[data-contrast-result]').textContent(),/contraste.*correcto/i);
+ assert.notEqual(await page.locator('[name=text]').inputValue(),'#ffffff');
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Contrast correction stays only in preview until explicitly saved');
+ await page.locator('[data-cancel-preview]').click();
+ assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Discard restores the previously stored appearance');
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
+ await page.locator('[data-header-preset=compact]').click();
+ assert.equal(await page.locator('[name=topbarHeight]').inputValue(),'56');
+ assert.equal(await page.locator('[name=fontSize]').inputValue(),'13');
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Header shortcut is preview-only');
+ await page.locator('[data-header-preset=wide]').click();
+ assert.equal(await page.locator('[name=topbarHeight]').inputValue(),'84');
+ assert.equal(await page.locator('[name=density]').inputValue(),'wide');
+ await page.locator('[data-cancel-preview]').click();
+ assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Header shortcut can be discarded');
  await page.locator('[data-settings-search]').fill('navegacion');
  assert.equal(await page.locator('[data-appearance-group]:visible').count(),1);
  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Search does not change preferences');
