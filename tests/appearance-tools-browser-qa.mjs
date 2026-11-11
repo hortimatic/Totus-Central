@@ -14,6 +14,18 @@ try{
   q.ui=createAppearanceUI({settings:()=>q.row,actor:()=>q.owner,canEdit:()=>q.editable,confirm:async()=>true,save:async(section,config)=>{q.saves.push({section,config});q.row={...q.row,appearance_revision:q.row.appearance_revision+1,[section==='login'?'login_appearance':'appearance_config']:config};}});
   q.ui.mount(document.querySelector('#appearanceRoot'));
  });
+ for(const width of [1440,390]){
+  await page.setViewportSize({width,height:900});
+  for(const module of ['inicio','cajas','gastos','informes']){
+   await page.locator('[data-demo-module='+module+']').click();
+   assert.equal(await page.locator('[data-demo-view='+module+']').isVisible(),true,'Preview section '+module);
+   assert.equal(await page.locator('[data-demo-module='+module+']').getAttribute('aria-pressed'),'true');
+   assert.equal(await page.locator('[data-demo-view]:visible').count(),1,'Only one preview module visible');
+  }
+  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Browsing the preview must not mark preferences dirty');
+  assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Browsing preview never saves');
+ }
+ await page.setViewportSize({width:1440,height:1000});
  await page.locator('[data-settings-search]').fill('navegacion');
  assert.equal(await page.locator('[data-appearance-group]:visible').count(),1);
  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Search does not change preferences');
