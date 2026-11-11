@@ -192,3 +192,11 @@ html[data-appearance] :is(.field input,.field select,.field textarea,.form-grid 
 
 /* Selected menu text adapts to the user's chosen active background. */
 html[data-appearance] .sidebar .nav-btn.active{background:var(--nav-active);color:var(--appearance-nav-active-ink)}
+
+/* Local preview-only colour diagnostics; no changes to production surfaces. */
+.appearance-contrast-panel{display:grid;gap:7px;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;min-width:0}
+.appearance-contrast-panel h4{margin:0;font-size:13px}
+.appearance-contrast-panel p{margin:0;overflow-wrap:anywhere;font-size:12px}
+.appearance-contrast-panel [data-contrast-status=warning]{color:var(--ink);font-weight:650}
+.appearance-contrast-panel small{color:var(--muted);font-size:11px}
+.appearance-contrast-panel button{justify-self:start;white-space:normal;text-align:left}
