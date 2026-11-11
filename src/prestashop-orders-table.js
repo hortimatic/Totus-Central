@@ -7,7 +7,7 @@ export const ORDER_COLUMNS=Object.freeze([
  ['id','Pedido',110],['reference','Referencia',160],['images','Productos',150],
  ['customer','Cliente',140],['total','Total',125],['payment','Pago',150],
  ['state','Estado',150],['date','Fecha y hora',170],['invoice','Factura origen',135],
- ['employee','Atendido por',150],['time','Hora',100],['margin','Margen €',140],['shipping','Envío',120],['discount','Descuento',120]
+ ['employee','Atendido por',150],['cashbox','Caja',130],['time','Hora',100],['margin','Margen €',140],['shipping','Envío',120],['discount','Descuento',120]
 ]);
 const defaults=['id','reference','images','customer','total','payment','state','date','employee','margin'];
 const known=new Set(ORDER_COLUMNS.map(([key])=>key));
@@ -22,7 +22,7 @@ export function createOrdersTablePreferences(storage,owner,{cloud=null,onStatus=
  return {state,async load(){if(!cloud)return;const before=version;await queue;const saved=await cloud.load(owner);if(saved?.columns&&before===version){const recovered=createOrdersTablePreferences({getItem:()=>JSON.stringify(saved)},owner).state;Object.assign(state,recovered);local();}else if(!saved&&before===version&&state.views.length)this.save();},save(){++version;const ok=local();if(cloud){const snapshot=structuredClone(state);onStatus('Guardando la configuración en tu cuenta…');queue=queue.catch(()=>{}).then(()=>cloud.save(snapshot,owner)).then(()=>onStatus('Configuración guardada en tu cuenta.')).catch(()=>onStatus('Guardada en este equipo; sincronización pendiente.'));}return ok;},flush:()=>queue};
 }
 export function orderSortValue(row,key){
- return ({customer:row.customer_name||row.id_customer,employee:row.employee_name||'',time:String(row.date_add||'').split(' ')[1]||'',margin:row.margin_value??'',total:Number(row.total_paid_tax_incl),state:row.current_state,date:row.date_add,invoice:row.invoice_number,shipping:Number(row.total_shipping_tax_incl),discount:Number(row.total_discounts_tax_incl)})[key]??row[key]??'';
+ return ({customer:row.customer_name||row.id_customer,employee:row.employee_name||'',cashbox:row.cash_box_name||'',time:String(row.date_add||'').split(' ')[1]||'',margin:row.margin_value??'',total:Number(row.total_paid_tax_incl),state:row.current_state,date:row.date_add,invoice:row.invoice_number,shipping:Number(row.total_shipping_tax_incl),discount:Number(row.total_discounts_tax_incl)})[key]??row[key]??'';
 }
 export function sortOrderRows(rows,state){
  return [...rows].sort((a,b)=>{const left=orderSortValue(a,state.sort),right=orderSortValue(b,state.sort);return state.direction*(typeof left==='number'&&typeof right==='number'?left-right:String(left).localeCompare(String(right),'es',{numeric:true}));});
