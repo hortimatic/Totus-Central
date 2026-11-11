@@ -292,3 +292,15 @@ html[data-appearance] .appearance-grid .field label{color:var(--ink)}
 .appearance-preview-card.is-expanded .appearance-demo-main>section{padding:16px}
 .appearance-preview-card.is-expanded .appearance-demo .appearance-demo-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:600px){.appearance-preview-card.is-expanded{inset:3px;padding:8px}.appearance-preview-card.is-expanded .appearance-demo{grid-template-columns:105px minmax(0,1fr)}.appearance-preview-card.is-expanded .appearance-demo-main>section{padding:6px}}
+
+
+/* Specialised views reuse the same personal palette without touching their
+   business flows, validation states, compact layouts or explicit brand badges. */
+html[data-appearance] #app :is(.home-widget-header h3,.home-dashboard-toolbar strong,.home-top-products>header h4){color:var(--appearance-heading-ink)}
+html[data-appearance] #app :is(.home-orders-table th,.home-products-table th){background:var(--appearance-table-head-bg);color:var(--appearance-table-head-ink)}
+html[data-appearance] #app :is(.home-orders-table tbody td,.home-products-table tbody td){background:var(--appearance-table-row-bg)}
+html[data-appearance] #app #productosRoot .prd-stitch :is(h2,h3,h4,.text-headline-md,.text-headline-sm){color:var(--appearance-heading-ink)}
+html[data-appearance] #app #productosRoot .prd-stitch :is(.prd-fields label,.prd-field label,.prd-catalog-filters label){color:var(--appearance-label-ink)}
+html[data-appearance] #app #productosRoot .prd-stitch :is(.prd-fields input:not([type=checkbox]):not([type=radio]):not([type=color]),.prd-fields select,.prd-fields textarea,.prd-parallel-editors input:not([type=checkbox]):not([type=radio]),.prd-parallel-editors textarea){background:var(--appearance-input-bg);color:var(--appearance-input-ink)}
+html[data-appearance] #app #productosRoot .prd-stitch .prd-catalog-table th{background:var(--appearance-table-head-bg);color:var(--appearance-table-head-ink)}
+html[data-appearance] #app #productosRoot .prd-stitch .prd-catalog-table tbody td{background:var(--appearance-table-row-bg)}
