@@ -50,11 +50,11 @@ assert.equal(createdProfile?.id,'new-target-id','El alta enlaza el ID Auth real,
 assert.equal(createdProfile?.role,'gerente');
 assert.equal(createdProfile?.active,true,'El alta del miembro activo habilita su propio perfil');
 for(const action of ['update_member','set_active']){
- const fixed=await scenario({action,active:true});
+ const fixed=await scenario({action,memberRole:'gerente',active:true});
  assert.equal(fixed.status,200,'La administración puede conciliar perfil y equipo: '+action);
  const profile=fixed.writes.find(w=>w.table==='profiles')?.value;
  assert.equal(profile?.id,'target-id','Solo puede actualizar la identidad Auth correspondiente');
- assert.equal(profile?.role,action==='set_active'?'admin':'gerente');
+ assert.equal(profile?.role,'gerente');
  assert.equal(profile?.active,action==='update_member','set_active usa el estado solicitado (falso en esta prueba)');
 }
 const missingAuth=await scenario({action:'update_member',existing:false});
