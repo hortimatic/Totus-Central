@@ -409,6 +409,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const fieldsets=[...inspector.querySelectorAll(':scope > fieldset')];
    const actions=inspector.querySelector('.home-inspector-actions');
    const first=inspector.querySelector('h3'),description=first?.nextElementSibling;
+   const switcher=document.createElement('label');switcher.className='home-editor-widget-switcher';
+   switcher.innerHTML='<span>Widget seleccionado</span><select data-home-switch-widget aria-label="Cambiar widget en el inspector">'+model.widgets.filter(x=>!x.hidden&&permitted(x,can)).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===w.id?'selected':'')+'>'+esc(x.title)+'</option>').join('')+'</select>';
    const intro=document.createElement('div');intro.className='home-panel-intro';
    intro.innerHTML='<strong>'+esc(w.title)+'</strong><p>'+esc(HOME_WIDGET_CATALOG[w.type]?.category||'Widget')+' · Selecciona tamaño y opciones sin modificar el módulo original.</p>';
    const presets=document.createElement('div');presets.className='home-editor-presets';
@@ -434,7 +436,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    sizeFields.insertAdjacentHTML('beforeend','<p class="small muted">La altura se adapta al contenido: los datos nunca quedan recortados.</p>');
    layout.append(sizeFields);
    advanced.append(advancedFields);
-   widgetView.append(intro,presets,content,layout,advanced);
+   widgetView.append(switcher,intro,presets,content,layout,advanced);
    if(actions)widgetView.append(actions);
   }else widgetView.innerHTML='<div class="home-panel-intro"><strong>Selecciona un widget</strong><p>Pulsa el menú de una tarjeta para configurar sus opciones y tamaño.</p><button class="btn secondary" type="button" data-home-command="panel-library">Añadir widgets</button></div>';
   const body=document.createElement('div');body.className='home-editor-panel-body';
@@ -618,7 +620,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   model=createDefault();original=structuredClone(model);
   // Source nodes are moved, never reimplemented; original data-action handlers stay intact.
   root.addEventListener('click',e=>{const el=e.target.closest('[data-home-command]');if(!el||!root.contains(el))return;e.preventDefault();e.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el)},true);
-  root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
+  root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-switch-widget')){if(!edit||!model.widgets.some(w=>w.id===el.value&&!w.hidden&&permitted(w,can)))return;selected=el.value;panelView='widget';draw();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
    if(el.dataset.homeFilter){const key=el.dataset.homeFilter;let filters;
     if(key==='store'){
      model=setHomeWidgetConfig(model,w.id,{scope:{store:safeStore(el.value)},filters:{page:0}});
