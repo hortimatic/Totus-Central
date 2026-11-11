@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 
 // Execute the actual Edge handler with isolated Auth/database adapters.
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/team-admin/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''));
-async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false,profileRole=null,profileActive=null,requestedActive=false}={}){
+async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false,profileRole=null,profileActive=null,requestedActive=undefined}={}){
  let handler;const writes=[],updates=[],pages=[],profiles=new Map();
  const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active,deleted_at:retired?'2026-01-01':null,purged_at:purged?'2026-01-02':null,auth_cleanup_pending:cleanup};
  const from=table=>{
