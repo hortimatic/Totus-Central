@@ -96,16 +96,11 @@ try{
  assert(!(await shopCash.innerText()).includes('NewOldSmok'),'La vista filtrada no mezcla las tiendas');
  await page.locator('[data-home-config="store"]').selectOption('newoldsmok');
  assert.equal(await shopCash.locator('.home-opening-drawer').count(),1,'NewOldSmok muestra sus cajones reales');
- console.log('INSPECTOR_GEOMETRY',JSON.stringify(await page.locator('[data-home-command="remove"]').evaluate(el=>{
- const r=x=>{const b=x.getBoundingClientRect();return {x:b.x,y:b.y,w:b.width,h:b.height}};
- const d=el.closest('[data-home-drawer]');
- const p=el.closest('.home-editor-footer');
- return {button:r(el),footer:p&&r(p),drawer:d&&r(d),body:d&&r(d.querySelector('.home-editor-panel-body')),position:getComputedStyle(d).position,overflow:getComputedStyle(d).overflow,height:innerHeight,scrollY,top:getComputedStyle(d).top,bottom:getComputedStyle(d).bottom};
-})));
  await page.locator('[data-home-command="remove"]').click();
  await selectHomeWidget('shop-h');
  await page.locator('[data-home-config="width"]').selectOption('8');
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
+ await page.locator('.home-editor-advanced > summary').click();
  await page.locator('[data-home-config="tabletWidth"]').selectOption('4');
  await page.locator('[data-home-config="tabletHeight"]').selectOption('6');
  await page.locator('[data-home-config="mobileHeight"]').selectOption('7');
