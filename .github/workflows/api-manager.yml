@@ -58,7 +58,7 @@ jobs:
           psql -h localhost -U postgres -d prestashop_invoice_qa -v ON_ERROR_STOP=1 -f tests/prestashop-invoice-db-fixture.sql -f supabase/review_patches/062_prestashop_invoice_origin.sql -f tests/prestashop-invoice-db-qa.sql -f tests/prestashop-rounding-db-fixture.sql -f supabase/review_patches/063_prestashop_invoice_rounding.sql -f tests/prestashop-rounding-db-qa.sql
 
   interface-and-transport:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
