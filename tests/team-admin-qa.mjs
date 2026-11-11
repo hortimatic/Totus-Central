@@ -5,27 +5,28 @@ import {stripTypeScriptTypes} from 'node:module';
 
 // Execute the actual Edge handler with isolated Auth/database adapters.
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/team-admin/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''));
-async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false}={}){
- let handler;const writes=[],updates=[],pages=[];
+async function scenario({action='set_password',callerRole='admin',memberRole='admin',active=false,existing=true,paginated=false,password='fixture-only-password',retired=false,purged=false,cleanup=false,authDeleted=false,profileRole=null,profileActive=null,requestedActive=undefined}={}){
+ let handler;const writes=[],updates=[],pages=[],profiles=new Map();
  const member={email:'target@qa.invalid',full_name:'Target',role:memberRole,active,deleted_at:retired?'2026-01-01':null,purged_at:purged?'2026-01-02':null,auth_cleanup_pending:cleanup};
  const from=table=>{
   const filters={};let mutation;
   const query={select(){return query},eq(k,v){filters[k]=v;return query},
-   upsert(value){mutation=value;writes.push({table,value});return query},
+   upsert(value){mutation=value;writes.push({table,value});if(table==='profiles')profiles.set(value.id,{...value});return query},
    insert(value){writes.push({table,value});return query},
    update(value){mutation=value;writes.push({table,value});return query},
-   maybeSingle(){return Promise.resolve({data:table==='ops_roles'?{code:'gerente'}:filters.email==='caller@qa.invalid'?{role:callerRole,active:true}:member,error:null})},
+   maybeSingle(){const data=table==='profiles'?(profiles.get(filters.id)||{id:filters.id,email:member.email,full_name:member.full_name,role:profileRole??(member.active?member.role:'pendiente'),active:profileActive??member.active}):table==='ops_roles'?{code:'gerente'}:filters.email==='caller@qa.invalid'?{role:callerRole,active:true}:member;return Promise.resolve({data,error:null})},
    then(resolve,reject){return Promise.resolve({data:mutation,error:null,count:1}).then(resolve,reject)}};
   return query;
  };
  const auth={getUser:async()=>({data:{user:{email:'caller@qa.invalid'}}}),resetPasswordForEmail:async()=>({error:null}),admin:{
   listUsers:async({page})=>{pages.push(page);return {data:{users:paginated&&page===1?Array.from({length:1000},(_,i)=>({id:`other-${i}`,email:`other-${i}@qa.invalid`})):existing?[{id:'target-id',email:member.email,email_confirmed_at:'2026-01-01',deleted_at:authDeleted?'2026-01-02':null}]:[]},error:null}},
   updateUserById:async(id,value)=>{updates.push({id,value});return {error:null}},
-  createUser:async()=>({data:{user:{id:'new-target-id'}},error:null})
+  createUser:async()=>({data:{user:{id:'new-target-id',email:member.email}},error:null}),
+  inviteUserByEmail:async email=>({data:{user:{id:'invited-target-id',email}},error:null})
  }};
  const env={SUPABASE_URL:'https://qa.invalid',SUPABASE_ANON_KEY:'test-public',SUPABASE_SERVICE_ROLE_KEY:'test-secret'};
  vm.runInNewContext(source,{createClient:()=>({auth,from}),Deno:{env:{get:k=>env[k]},serve:h=>{handler=h}},Response,Request,console});
- const response=await handler(new Request('https://qa.invalid/team-admin',{method:'POST',headers:{Authorization:'Bearer test-session','Content-Type':'application/json'},body:JSON.stringify({action,email:member.email,full_name:'Changed name',role:'gerente',password,phone:'600000000',job_title:'QA manager',store:'QA centre',employee_notes:'QA notes'})}));
+ const response=await handler(new Request('https://qa.invalid/team-admin',{method:'POST',headers:{Authorization:'Bearer test-session','Content-Type':'application/json'},body:JSON.stringify({action,email:member.email,full_name:'Changed name',role:'gerente',active:requestedActive,password,phone:'600000000',job_title:'QA manager',store:'QA centre',employee_notes:'QA notes'})}));
  return {status:response.status,body:await response.json(),writes,updates,pages};
 }
 for(const memberRole of ['admin','encargado']){
@@ -44,6 +45,38 @@ const created=await scenario({action:'create_user',existing:false});assert.equal
 const ficha=created.writes.find(w=>w.table==='team_members').value;
 assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager');assert.equal(ficha.store,'QA centre');assert.equal(ficha.employee_notes,'QA notes');
 assert(!('avatar_url' in ficha),'Ordinary invitations and creation must not clear existing photo fields');
+
+const invited=await scenario({action:'invite',existing:false});
+assert.equal(invited.status,200,'Invitación de usuario nuevo conserva el circuito legítimo');
+const invitedProfile=invited.writes.find(w=>w.table==='profiles')?.value;
+assert.equal(invitedProfile?.id,'invited-target-id');
+assert.equal(invitedProfile?.active,true);
+const createdProfile=created.writes.find(w=>w.table==='profiles')?.value;
+assert.equal(createdProfile?.id,'new-target-id','El alta enlaza el ID Auth real, no crea otra identidad');
+assert.equal(createdProfile?.role,'gerente');
+assert.equal(createdProfile?.active,true,'El alta del miembro activo habilita su propio perfil');
+for(const action of ['update_member','set_active']){
+ const fixed=await scenario({action,memberRole:'gerente',active:true});
+ assert.equal(fixed.status,200,'La administración puede conciliar perfil y equipo: '+action);
+ const profile=fixed.writes.find(w=>w.table==='profiles')?.value;
+ assert.equal(profile?.id,'target-id','Solo puede actualizar la identidad Auth correspondiente');
+ assert.equal(profile?.role,'gerente');
+ assert.equal(profile?.active,action==='update_member','set_active usa el estado solicitado (falso en esta prueba)');
+}
+const expresslyDisabled=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'gerente'});
+assert.equal(expresslyDisabled.status,400,'Una cuenta Auth desactivada deliberadamente no se reactiva al guardar su nombre');
+assert.equal(expresslyDisabled.writes.filter(w=>w.table==='profiles').length,0,'No se toca un perfil desactivado intencionalmente');
+assert.equal(expresslyDisabled.writes.filter(w=>w.table==='team_members').length,0,'Un rechazo de perfil no deja cambios parciales en equipo');
+const explicitlyActivated=await scenario({action:'set_active',memberRole:'gerente',active:false,profileActive:false,profileRole:'gerente',requestedActive:true});
+assert.equal(explicitlyActivated.status,200,'Solo Activar en Administración puede reactivar un perfil desactivado');
+assert.equal(explicitlyActivated.writes.find(w=>w.table==='profiles')?.value.active,true);
+
+const newlyPending=await scenario({action:'update_member',memberRole:'gerente',active:true,profileActive:false,profileRole:'pendiente'});
+assert.equal(newlyPending.status,200,'Administración sí reconcilia un perfil pendiente con el miembro activo');
+assert.equal(newlyPending.writes.find(w=>w.table==='profiles')?.value.active,true);
+const missingAuth=await scenario({action:'update_member',existing:false});
+assert.equal(missingAuth.writes.filter(w=>w.table==='profiles').length,0,'Sin Auth no se crea una identidad ficticia');
+
 const denied=await scenario({callerRole:'gerente'});assert.equal(denied.status,403);assert.equal(denied.updates.length,0);assert.equal(denied.writes.length,0);
 for(const authDeleted of [false,true]){
  const recreated=await scenario({action:'create_user',retired:true,purged:true,existing:authDeleted,authDeleted});assert.equal(recreated.status,200);
