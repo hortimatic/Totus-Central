@@ -30,7 +30,7 @@ declare
  returned jsonb;
 begin
  layout='{"schemaVersion":1,"settings":{"gap":"12","density":"compact","width":"fluid","background":"inherit"},"widgets":[{"id":"income","type":"home.income","title":"Cliente PRIVADO ABC / datos sensibles","scope":{"store":"all"},"hidden":false,"filters":{"from":"2026-10-01","to":"2026-10-31","query":"CLIENTE PRIVADO","chartMetric":"orders"},"layout":{"desktop":{"x":0,"y":0,"w":3,"h":2},"tablet":{"order":0,"w":3,"h":2},"mobile":{"order":0,"h":3}}}]}';
- perform public.totus_home_dashboard('save',layout,0);
+ perform public.totus_home_dashboard('save',layout,(public.totus_home_dashboard('read',null,null)->>'revision')::integer);
  result:=public.totus_home_styles('publish',null,'Mi tablero de trabajo');
  template_id=(result->>'id')::uuid;
  perform public.qa_assert((result->>'published')='true','Publicación verificada');
@@ -75,12 +75,13 @@ select public.qa_assert(public.qa_style_rejected('list',null,null),'JWT correo d
 
 select set_config('request.jwt.claims','{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","email":"qa-one@example.invalid"}',false);
 do $test$
-declare id uuid;
+declare id uuid; before_revision integer;
 begin
+ before_revision:=(public.totus_home_dashboard('read',null,null)->>'revision')::integer;
  id:=(public.totus_home_styles('list',null,null)->'items'->0->>'id')::uuid;
  perform public.totus_home_styles('remove',id,null);
  perform public.qa_assert(jsonb_array_length(public.totus_home_styles('list',null,null)->'items')=0,'El dueño retira la plantilla');
  perform public.qa_assert(public.qa_style_rejected('read',id,null),'Plantilla retirada no se expone');
- perform public.qa_assert((public.totus_home_dashboard('read',null,null)->'revision')::int=1,'Retirar plantilla no modifica Inicio propio');
+ perform public.qa_assert((public.totus_home_dashboard('read',null,null)->>'revision')::int=before_revision,'Retirar plantilla no modifica Inicio propio');
 end$test$;
 reset role;
