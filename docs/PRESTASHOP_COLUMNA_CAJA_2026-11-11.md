@@ -29,4 +29,6 @@ El JavaScript nativo `tpvtiendaCaja.js` utiliza el recurso existente `modules/tp
 
 ### Pendiente real
 
+Una segunda prueba, también autorizada expresamente por Diego, utilizó la credencial del enlace nativo «TPV Tienda» de la misma sesión de NewOldSmok para la misma acción y apertura. Respondió igualmente HTTP 200 con `ERROR TOKEN`. Se detuvieron las pruebas de credenciales: no se han copiado cookies, automatizado inicios de sesión ni almacenado tokens administrativos. Las dos pruebas no demuestran que exista o no una API de servicio del fabricante; demuestran que esas credenciales visibles de navegación no bastan en las solicitudes ensayadas.
+
 Para completar el PR con actualización automática falta una vía de autenticación de servicio documentada y autorizada para esas dos acciones nativas, o un recurso oficial equivalente. La API de productos ya conectada no acredita ese acceso. Debe contrastarse también Hortimatic con su propia fuente y, por tienda, un pedido cobrado, cobro mixto y pedido online. No publicar esta preparación como una integración completa ni instalar módulos, persistir sesiones humanas o modificar las tiendas para sortear la falta de acceso.
