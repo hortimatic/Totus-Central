@@ -594,7 +594,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  }
  async function save(){if(busy||!live()||!model)return;
   if(!changed()){status('No hay cambios del Inicio pendientes de guardar.');return}
-  if(!remoteReady){status('No se puede guardar: falta el servicio de preferencias del Inicio.',true);return}
+  if(!remoteReady){status('No se puede guardar: no se ha confirmado el acceso a las preferencias de esta cuenta. Revisa su perfil y permisos en Administración.',true);return}
   const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,settings:structuredClone(model.settings),widgets:structuredClone(model.widgets)};
   busy=true;
   try{
