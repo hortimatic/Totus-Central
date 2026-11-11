@@ -3,6 +3,7 @@ import {navigationEditor,bindNavigationEditor} from './navigation-preferences.js
 import {installAppearanceTools} from './appearance-tools.js';
 import {appearanceContrastChecks,improveAppearanceContrast} from './appearance-contrast.js';
 import {renderAppearancePreview,updateAppearancePreview} from './appearance-preview-lab.js';
+import {exportSharedInterfaceStyle,applySharedInterfaceStyle} from './appearance-style-share.js';
 import {APPEARANCE_EXTENDED_KEYS,appearanceExtendedDefaults,APPEARANCE_FIELDS,APPEARANCE_PRESETS,appearanceValues,appearanceVariables,loginVariables} from './appearance-core.js';
 import {prepareChatBackground} from './chat-preferences.js';
 import {enhancePasswordVisibility} from './login-controls.js';
@@ -136,6 +137,40 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
   if(section==='interfaz'&&saveStyle){
    const lib=document.createElement('div');lib.innerHTML=interfaceStyleLibrary({library:styles(),selected:selectedStyle,name:styleDraftName,esc});
    host.querySelector('.appearance-presets').after(lib.firstElementChild);
+   const share=document.createElement('section');share.className='appearance-style-share';share.setAttribute('aria-label','Compartir estilos entre cuentas');
+   share.innerHTML='<h3>Compartir estilo con otro usuario</h3><p class="small muted">Copia un código y envíaselo al destinatario por el canal que tú elijas. No incluye nombre personal, fotos, logotipos ni orden de tus módulos. La otra cuenta debe importarlo y guardarlo voluntariamente.</p><div class="inline-actions"><button type="button" class="btn secondary" data-style-export>Preparar código del estilo seleccionado</button><button type="button" class="btn secondary" data-style-import>Importar en mi biblioteca</button></div><label>Estilo para compartir o importar<textarea rows="4" spellcheck="false" data-style-share-code data-draft-ignore placeholder="Selecciona un estilo para exportarlo, o pega aquí un código recibido."></textarea></label><p class="small" data-style-share-status role="status" aria-live="polite"></p>';
+   host.querySelector('.appearance-style-library').after(share);
+   const shareCode=share.querySelector('[data-style-share-code]'),shareStatus=share.querySelector('[data-style-share-status]');
+   share.querySelector('[data-style-export]').disabled=!canEdit(section);
+   share.querySelector('[data-style-import]').disabled=!canEdit(section);
+   share.querySelector('[data-style-export]').onclick=()=>{
+    if(busy||!canEdit(section))return;
+    const row=styles().items.find(item=>item.id===selectedStyle);
+    if(!row){shareStatus.textContent='Selecciona antes un estilo guardado en tu biblioteca.';return;}
+    shareCode.value=exportSharedInterfaceStyle(row);
+    shareCode.focus();shareCode.select();
+    shareStatus.textContent='Código preparado y seleccionado. Cópialo para compartirlo; no se ha enviado a nadie.';
+   };
+   share.querySelector('[data-style-import]').onclick=async()=>{
+    if(busy||!canEdit(section))return;
+    const stamp=epoch;
+    let imported;
+    try{imported=applySharedInterfaceStyle(read(),shareCode.value);}catch(error){shareStatus.textContent=error.message;return;}
+    const used=new Set((styles().items||[]).map(item=>item.name.toLocaleLowerCase('es')));
+    let label=imported.name;if(used.has(label.toLocaleLowerCase('es')))label=(imported.name.slice(0,46)+' · importado').slice(0,60);
+    if(used.has(label.toLocaleLowerCase('es'))){shareStatus.textContent='Ya tienes un estilo con ese nombre. Renombra primero el existente.';return;}
+    if(!await confirm('¿Guardar «'+label+'» en tu biblioteca personal? No se aplicará a tu interfaz hasta que lo elijas.'))return;
+    if(!active(stamp))return;
+    busy=true;syncControls();
+    try{
+     const result=await saveStyle({action:'create',id:crypto.randomUUID(),name:label,config:imported.config,revision:styles().revision||0});
+     if(!active(stamp))return;
+     selectedStyle=result.changed_id||'';styleDraftName=label;paint();
+     host.querySelector('[data-style-share-status]').textContent='Estilo recibido y guardado en tu biblioteca. Pulsa Cargar en vista previa y Aplicar y guardar para utilizarlo.';
+    }catch(error){if(active(stamp))shareStatus.textContent=error.message;}
+    finally{if(active(stamp)){busy=false;syncControls();}}
+   };
+
    const select=host.querySelector('[data-my-style]'),name=host.querySelector('[data-style-name]');
    select.onchange=()=>{selectedStyle=select.value;styleDraftName=styles().items.find(s=>s.id===selectedStyle)?.name||'';name.value=styleDraftName;syncControls();};
    name.oninput=()=>{styleDraftName=name.value;};
