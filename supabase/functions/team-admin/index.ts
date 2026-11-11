@@ -50,6 +50,10 @@ Deno.serve(async(req:Request)=>{
    if(record?.email&&cleanEmail(record.email)!==email)throw new Error('El perfil Auth pertenece a otra cuenta.');
    const {error:writeError}=await admin.from('profiles').upsert({id:user.id,email,full_name:fullName,role,active},{onConflict:'id'});
    if(writeError)throw writeError;
+   const {data:checked,error:checkError}=await admin.from('profiles').select('id,email,full_name,role,active').eq('id',user.id).maybeSingle();
+   if(checkError)throw checkError;
+   if(checked?.id!==user.id||cleanEmail(checked.email)!==email||checked.role!==role||checked.active!==active||checked.full_name!==fullName)
+    throw new Error('No se ha verificado la actualización del perfil Auth.');
   };
   const ensureMember=async(email:string,fullName:string,role:string,active=true,identity?:{id:string,email?:string}|null)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,...(recreatingPurged?{deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null}:{}),phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error;await syncAuthProfile(email,fullName,role,active,identity)}
   const lastAdminGuard=async(email:string,nextRole?:string,nextActive?:boolean,deleting=false)=>{const {data:current}=await admin.from('team_members').select('email,role,active').eq('email',email).maybeSingle();if(!current?.active||current.role!=='admin')return;const loses=deleting||nextActive===false||(nextRole&&nextRole!=='admin');if(loses&&(await countActiveAdmins())<=1)throw new Error('No puedes dejar el sistema sin ningún administrador activo.')}
