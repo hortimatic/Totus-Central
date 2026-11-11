@@ -1,10 +1,10 @@
 -- QA: executable after fixture, personal-dashboard migration and styles migration.
 select public.qa_assert(
- not has_function_privilege('anon','public.totus_home_styles(text,uuid,text)','execute'),
+ not has_function_privilege('anon','public.totus_home_styles(text,uuid,text,integer)','execute'),
  'Anónimo no puede ejecutar plantillas'
 );
 select public.qa_assert(
- has_function_privilege('authenticated','public.totus_home_styles(text,uuid,text)','execute'),
+ has_function_privilege('authenticated','public.totus_home_styles(text,uuid,text,integer)','execute'),
  'Autenticado puede llamar al RPC validado'
 );
 select public.qa_assert(
@@ -12,10 +12,10 @@ select public.qa_assert(
  'La biblioteca privada no admite acceso directo'
 );
 
-create or replace function public.qa_style_rejected(p_action text,p_id uuid,p_name text)
+create or replace function public.qa_style_rejected(p_action text,p_id uuid,p_name text,p_revision integer default null)
 returns boolean language plpgsql as $$
 begin
- perform public.totus_home_styles(p_action,p_id,p_name);
+ perform public.totus_home_styles(p_action,p_id,p_name,p_revision);
  return false;
 exception when others then return true;
 end$$;
@@ -31,7 +31,7 @@ declare
 begin
  layout='{"schemaVersion":1,"settings":{"gap":"12","density":"compact","width":"fluid","background":"inherit"},"widgets":[{"id":"income","type":"home.income","title":"Cliente PRIVADO ABC / datos sensibles","scope":{"store":"all"},"hidden":false,"filters":{"from":"2026-10-01","to":"2026-10-31","query":"CLIENTE PRIVADO","chartMetric":"orders"},"layout":{"desktop":{"x":0,"y":0,"w":3,"h":2},"tablet":{"order":0,"w":3,"h":2},"mobile":{"order":0,"h":3}}}]}';
  perform public.totus_home_dashboard('save',layout,(public.totus_home_dashboard('read',null,null)->>'revision')::integer);
- result:=public.totus_home_styles('publish',null,'Mi tablero de trabajo');
+ result:=public.totus_home_styles('publish',null,'Mi tablero de trabajo',(public.totus_home_dashboard('read',null,null)->>'revision')::integer);
  template_id=(result->>'id')::uuid;
  perform public.qa_assert((result->>'published')='true','Publicación verificada');
  returned:=public.totus_home_styles('read',template_id,null);
@@ -40,9 +40,10 @@ begin
  perform public.qa_assert(returned->'layout'->'widgets'->0->'filters'->>'query' is null,'Búsqueda privada NO compartida');
  perform public.qa_assert(returned->'layout'->'widgets'->0->>'title'='Ingresos del periodo','Título personalizado sensible NO compartido');
  perform public.qa_assert(returned->'layout'->'widgets'->0->'filters'->>'from' is null,'Fecha personal NO compartida');
- perform public.qa_assert(public.qa_style_rejected('publish',null,'Mi tablero de trabajo'),'Nombre repetido bloqueado');
- perform public.qa_assert(public.qa_style_rejected('publish',null,'a'),'Nombre demasiado corto bloqueado');
- perform public.qa_assert(public.qa_style_rejected('publish',null,'Nombre'||chr(10)||'malicioso'),'Control de texto bloqueado');
+ perform public.qa_assert(public.qa_style_rejected('publish',null,'Mi tablero de trabajo',(public.totus_home_dashboard('read',null,null)->>'revision')::integer),'Nombre repetido bloqueado');
+ perform public.qa_assert(public.qa_style_rejected('publish',null,'Diseño de sesión desactualizada',0),'Revisión antigua impide publicar el Inicio de otra sesión');
+ perform public.qa_assert(public.qa_style_rejected('publish',null,'a',(public.totus_home_dashboard('read',null,null)->>'revision')::integer),'Nombre demasiado corto bloqueado');
+ perform public.qa_assert(public.qa_style_rejected('publish',null,'Nombre'||chr(10)||'malicioso',(public.totus_home_dashboard('read',null,null)->>'revision')::integer),'Control de texto bloqueado');
  perform public.qa_assert(public.qa_style_rejected('remove',gen_random_uuid(),null),'No eliminar plantilla inexistente');
  perform public.qa_assert(public.qa_style_rejected('update',template_id,'Otra'),'No admitir acciones arbitrarias');
 end$test$;
