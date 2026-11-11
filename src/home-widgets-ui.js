@@ -377,6 +377,75 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
   organizeHomeEditor(drawer);
  }
+
+ function organizeHomeEditor(drawer){
+  const head=drawer.querySelector('.home-library-heading');
+  const desc=head?.nextElementSibling;
+  const board=drawer.querySelector('.home-board-settings');
+  const search=drawer.querySelector('[data-home-search]')?.closest('label');
+  const category=drawer.querySelector('[data-home-category]')?.closest('label');
+  const items=drawer.querySelector('.home-library-items');
+  const hidden=drawer.querySelector('.home-hidden-widgets');
+  const inspector=drawer.querySelector('.home-widget-inspector');
+  if(!head||!board||!items)return;
+  const title=head.querySelector('h3'),close=head.querySelector('button');
+  head.classList.add('home-editor-panel-head');
+  if(title){title.textContent=panelView==='library'?'Añadir widgets':panelView==='board'?'Diseño general':'Configurar widget';title.tabIndex=-1}
+  if(close){close.dataset.homeCommand='close-panel';close.setAttribute('aria-label','Cerrar inspector sin descartar cambios');close.title='Cerrar inspector';close.textContent='✕'}
+  if(desc)desc.remove();
+  const tabs=document.createElement('nav');
+  tabs.className='home-editor-tabs';tabs.setAttribute('aria-label','Herramientas del Inicio');
+  tabs.innerHTML=[['library','＋ Añadir'],['widget','▣ Widget'],['board','⚙ Tablero']].map(([key,label])=>'<button type="button" data-home-command="panel-'+key+'" aria-pressed="'+(panelView===key)+'" '+(panelView===key?'class="active"':'')+'>'+label+'</button>').join('');
+  const library=document.createElement('section');library.className='home-editor-view';library.dataset.editorView='library';
+  library.insertAdjacentHTML('afterbegin','<div class="home-panel-intro"><strong>Biblioteca de widgets</strong><p>Busca herramientas y añádelas al tablero. No afecta al trabajo de los demás usuarios.</p></div>');
+  for(const el of [search,category,items,hidden])if(el)library.append(el);
+  const boardView=document.createElement('section');boardView.className='home-editor-view';boardView.dataset.editorView='board';
+  boardView.insertAdjacentHTML('afterbegin','<div class="home-panel-intro"><strong>Distribución del tablero</strong><p>Elige la separación, anchura y densidad que prefieras. Los colores siguen dependiendo de Mi interfaz.</p></div>');
+  board.open=true;boardView.append(board);
+  const widgetView=document.createElement('section');widgetView.className='home-editor-view';widgetView.dataset.editorView='widget';
+  const w=find(selected);
+  if(inspector&&w){
+   const labels=[...inspector.querySelectorAll(':scope > label')];
+   const fieldsets=[...inspector.querySelectorAll(':scope > fieldset')];
+   const actions=inspector.querySelector('.home-inspector-actions');
+   const first=inspector.querySelector('h3'),description=first?.nextElementSibling;
+   const intro=document.createElement('div');intro.className='home-panel-intro';
+   intro.innerHTML='<strong>'+esc(w.title)+'</strong><p>'+esc(HOME_WIDGET_CATALOG[w.type]?.category||'Widget')+' · Selecciona tamaño y opciones sin modificar el módulo original.</p>';
+   const presets=document.createElement('div');presets.className='home-editor-presets';
+   const widths=allowedWidths(w),defaultWidth=HOME_WIDGET_CATALOG[w.type].width;
+   const choices=[['compact','Compacto',widths[0]],['balanced','Estándar',defaultWidth],['wide','Ancho',widths.filter(x=>x<=9).at(-1)||widths.at(-1)],['full','Completo',widths.at(-1)]];
+   presets.innerHTML='<span class="home-editor-label">Tamaño rápido</span><div class="home-size-presets" role="group" aria-label="Tamaño de '+esc(w.title)+'">'+choices.map(([key,label,width])=>'<button type="button" data-home-command="preset-size" data-id="'+esc(w.id)+'" data-size="'+key+'" aria-pressed="'+(width===w.layout.desktop.w)+'" title="'+esc(label)+'">'+label+'<small>'+width+'/12</small></button>').join('')+'</div>';
+   const content=document.createElement('details');content.className='home-editor-section';content.open=true;
+   content.innerHTML='<summary>Contenido y datos</summary>';
+   const contentFields=document.createElement('div');contentFields.className='home-editor-fields';
+   const layout=document.createElement('details');layout.className='home-editor-section';layout.open=true;
+   layout.innerHTML='<summary>Posición y tamaño</summary>';
+   const sizeFields=document.createElement('div');sizeFields.className='home-editor-fields';
+   const advanced=document.createElement('details');advanced.className='home-editor-section home-editor-advanced';advanced.innerHTML='<summary>Tableta, móvil y orden</summary>';
+   const advancedFields=document.createElement('div');advancedFields.className='home-editor-fields';
+   for(const label of labels){
+    const key=label.querySelector('[data-home-config]')?.dataset.homeConfig;
+    if(['width','height'].includes(key))sizeFields.append(label);
+    else if(['tabletWidth','tabletHeight','mobileHeight','position'].includes(key))advancedFields.append(label);
+    else contentFields.append(label);
+   }
+   for(const set of fieldsets)contentFields.append(set);
+   content.append(contentFields);
+   sizeFields.insertAdjacentHTML('beforeend','<p class="small muted">La altura se adapta al contenido: los datos nunca quedan recortados.</p>');
+   layout.append(sizeFields);
+   advanced.append(advancedFields);
+   widgetView.append(intro,presets,content,layout,advanced);
+   if(actions)widgetView.append(actions);
+  }else widgetView.innerHTML='<div class="home-panel-intro"><strong>Selecciona un widget</strong><p>Pulsa el menú de una tarjeta para configurar sus opciones y tamaño.</p><button class="btn secondary" type="button" data-home-command="panel-library">Añadir widgets</button></div>';
+  const body=document.createElement('div');body.className='home-editor-panel-body';
+  body.append(library,widgetView,boardView);
+  for(const section of body.children)section.hidden=section.dataset.editorView!==panelView;
+  drawer.replaceChildren(head,tabs,body);
+  drawer.dataset.activePanel=panelView;
+  drawer.setAttribute('aria-label','Personalización del Inicio');
+  drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
+ }
+
  const makeId=()=>`hw-${crypto.randomUUID()}`;
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
