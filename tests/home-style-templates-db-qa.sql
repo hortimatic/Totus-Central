@@ -57,13 +57,15 @@ do $test$
 declare
  id uuid;
  saved jsonb;
+ before_layout jsonb;
 begin
+ before_layout:=public.totus_home_dashboard('read',null,null);
  id:=(public.totus_home_styles('list',null,null)->'items'->0->>'id')::uuid;
  saved:=public.totus_home_styles('read',id,null);
  perform public.qa_assert(saved->>'name'='Mi tablero de trabajo','Otro usuario puede leer plantilla compartida');
  perform public.qa_assert((saved->>'mine')='false','La plantilla compartida mantiene autor');
  perform public.qa_assert(public.qa_style_rejected('remove',id,null),'Un usuario no puede retirar la plantilla ajena');
- perform public.qa_assert((public.totus_home_dashboard('read',null,null)->'layout') is null,'Leer plantilla no cambia el diseño ajeno');
+ perform public.qa_assert(public.totus_home_dashboard('read',null,null)=before_layout,'Leer plantilla no cambia el diseño ajeno');
 end$test$;
 
 select set_config('request.jwt.claims','{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","email":"qa-off@example.invalid"}',false);
