@@ -102,6 +102,7 @@ try{
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
  await page.locator('.home-editor-advanced > summary').click();
  await page.locator('[data-home-config="tabletWidth"]').selectOption('4');
+ assert.equal(await page.locator('.home-editor-advanced').getAttribute('open'),'','La configuración avanzada permanece desplegada al cambiar ancho');
  await page.locator('[data-home-config="tabletHeight"]').selectOption('6');
  await page.locator('[data-home-config="mobileHeight"]').selectOption('7');
  await page.setViewportSize({width:768,height:900});
