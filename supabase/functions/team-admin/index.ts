@@ -95,7 +95,7 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==='set_password')return json({error:'La cuenta no existe. Crea el usuario desde Nuevo usuario.'},404);
     const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{full_name:fullName,role}});if(error)throw error
-    try{await ensureMember(email,fullName,role,true,data.user?.id?{id:data.user.id,email}:null)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
+    try{await ensureMember(email,fullName,role,true,data.user||null)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
     await audit(email,'user_created','ok','Cuenta creada directamente con contraseña')
     return json({ok:true,created:true,user_id:data.user?.id,message:'Usuario creado. Ya puede iniciar sesión.'})
    }catch(e){const msg=e instanceof Error?e.message:'Error creando usuario';await audit(email,action==='create_user'?'user_created':'password_assigned','failed',msg);return json({error:msg},400)}
@@ -120,7 +120,7 @@ Deno.serve(async(req:Request)=>{
       const {error}=await admin.auth.admin.deleteUser(existing.id);if(error)throw error;existing=null
     } else if(action==='invite'&&existing)return json({error:'Ya existe una invitación pendiente. Usa Reenviar invitación.'},409)
     const {data,error}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo:APP_URL,data:{full_name:fullName,role}});if(error)throw error
-    await ensureMember(email,fullName,role,true,data.user?.id?{id:data.user.id,email}:null)
+    await ensureMember(email,fullName,role,true,data.user||null)
     const label=action==='resend_invite'?'Reenvío de invitación':'Invitación'
     await logEmail(email,label,'sent','Supabase aceptó la solicitud de envío')
     await audit(email,action,'ok','Solicitud de email aceptada por Supabase')
