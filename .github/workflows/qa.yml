@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 jobs:
   home-widgets-functional-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TOTUS_START_SERVER: '1'
     steps:
@@ -171,7 +171,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/060_audit_database_hardening.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/audit-hardening-db-qa.sql
   qa:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
