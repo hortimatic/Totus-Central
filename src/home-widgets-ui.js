@@ -288,7 +288,7 @@ function configureOrderColumns(host,w){
  }
 }
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
- let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
+ let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
@@ -390,12 +390,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(!head||!board||!items)return;
   const title=head.querySelector('h3'),close=head.querySelector('button');
   head.classList.add('home-editor-panel-head');
-  if(title){title.textContent=panelView==='library'?'Añadir widgets':panelView==='board'?'Diseño general':'Configurar widget';title.tabIndex=-1}
+  if(title){title.textContent=panelView==='library'?'Añadir widgets':panelView==='board'?'Diseño general':panelView==='styles'?'Estilos compartidos':'Configurar widget';title.tabIndex=-1}
   if(close){close.dataset.homeCommand='close-panel';close.setAttribute('aria-label','Cerrar inspector sin descartar cambios');close.title='Cerrar inspector';close.textContent='✕'}
   if(desc)desc.remove();
   const tabs=document.createElement('nav');
   tabs.className='home-editor-tabs';tabs.setAttribute('aria-label','Herramientas del Inicio');
-  tabs.innerHTML=[['library','＋ Añadir'],['widget','▣ Widget'],['board','⚙ Tablero']].map(([key,label])=>'<button type="button" data-home-command="panel-'+key+'" aria-pressed="'+(panelView===key)+'" '+(panelView===key?'class="active"':'')+'>'+label+'</button>').join('');
+  tabs.innerHTML=[['library','＋ Añadir'],['widget','▣ Widget'],['board','⚙ Tablero'],['styles','☆ Estilos']].map(([key,label])=>'<button type="button" data-home-command="panel-'+key+'" aria-pressed="'+(panelView===key)+'" '+(panelView===key?'class="active"':'')+'>'+label+'</button>').join('');
   const library=document.createElement('section');library.className='home-editor-view';library.dataset.editorView='library';
   library.insertAdjacentHTML('afterbegin','<div class="home-panel-intro"><strong>Biblioteca de widgets</strong><p>Busca herramientas y añádelas al tablero. No afecta al trabajo de los demás usuarios.</p></div>');
   for(const el of [search,category,items,hidden])if(el)library.append(el);
@@ -439,8 +439,17 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    widgetView.append(switcher,intro,presets,content,layout,advanced);
    if(actions)widgetView.append(actions);
   }else widgetView.innerHTML='<div class="home-panel-intro"><strong>Selecciona un widget</strong><p>Pulsa el menú de una tarjeta para configurar sus opciones y tamaño.</p><button class="btn secondary" type="button" data-home-command="panel-library">Añadir widgets</button></div>';
+  const stylesView=document.createElement('section');stylesView.className='home-editor-view';stylesView.dataset.editorView='styles';
+  const rows=styleItems.map(t=>'<article class="home-style-row"><div><strong>'+esc(t.name)+'</strong><small>'+esc(t.author||'Equipo')+(t.mine?' · Mi estilo':'')+'</small></div><div class="home-style-row-actions"><button type="button" data-home-command="style-apply" data-id="'+esc(t.id)+'" '+(!can('inicio','edit')?'disabled title="Sin permiso de edición"':'')+'>Aplicar</button>'+(t.mine?'<button type="button" data-home-command="style-remove" data-id="'+esc(t.id)+'" aria-label="Retirar '+esc(t.name)+'">Retirar</button>':'')+'</div></article>').join('');
+  stylesView.innerHTML='<div class="home-panel-intro"><strong>Estilos compartidos del equipo</strong><p>Guarda una distribución con nombre para que otros usuarios puedan aplicarla. No se comparten fechas, búsquedas personales, clientes ni datos comerciales; cada usuario conserva su diseño propio.</p></div>'+
+  '<div class="home-style-publish"><label>Nombre del estilo<input type="text" data-home-style-name maxlength="60" placeholder="Ej. Apertura de tiendas"></label>'+
+  '<button class="btn primary" type="button" data-home-command="style-publish" '+(stylesBusy||!can('inicio','edit')?'disabled':'')+'>Guardar y compartir</button>'+
+  '<small>Guarda primero los cambios de tu Inicio. Publicar copia su disposición, nunca modifica otros perfiles.</small></div>'+
+  '<div class="home-style-list-heading"><strong>Estilos disponibles ('+styleItems.length+')</strong><button type="button" data-home-command="style-refresh">Actualizar</button></div>'+
+  (stylesError?'<p class="home-error" role="alert">'+esc(stylesError)+'</p>':'')+
+  (stylesBusy?'<p class="small muted" role="status">Consultando estilos…</p>':rows||'<p class="small muted">No hay estilos compartidos disponibles.</p>');
   const body=document.createElement('div');body.className='home-editor-panel-body';
-  body.append(library,widgetView,boardView);
+  body.append(library,widgetView,boardView,stylesView);
   for(const section of body.children)section.hidden=section.dataset.editorView!==panelView;
   drawer.replaceChildren(head,tabs,body);
   const inspectorActions=widgetView.querySelector('.home-inspector-actions');
@@ -453,10 +462,78 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
  }
 
+
+ async function loadStyles(){
+  if(stylesBusy||!live()||!edit)return;
+  stylesBusy=true;stylesError='';renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const response=await rpc('totus_home_styles',{p_action:'list',p_template_id:null,p_name:null});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(!Array.isArray(response?.items))throw new Error('La respuesta del catálogo no tiene el formato esperado.');
+   styleItems=response.items.filter(t=>typeof t?.id==='string'&&typeof t?.name==='string').slice(0,100);
+  }catch(error){
+   if(live()&&session===owner&&epoch===token){
+    styleItems=[];
+    stylesError='Biblioteca de estilos no disponible: '+String(error?.message||error).slice(0,180)+'. El Inicio personal sigue funcionando.';
+   }
+  }finally{
+   if(live()&&session===owner&&epoch===token){stylesBusy=false;if(panelView==='styles')renderDrawer()}
+  }
+ }
+ async function publishStyle(){
+  if(stylesBusy||!live()||!edit||!can('inicio','edit'))return;
+  const name=root.querySelector('[data-home-style-name]')?.value?.trim()||'';
+  if(name.length<3||name.length>60){status('Pon un nombre entre 3 y 60 caracteres.',true);return}
+  if(changed()||!remoteReady){status('Guarda y verifica primero los cambios de tu propio Inicio antes de compartirlo.',true);return}
+  stylesBusy=true;renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const saved=await rpc('totus_home_styles',{p_action:'publish',p_template_id:null,p_name:name});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(!/^[\da-f-]{36}$/i.test(String(saved?.id||''))||saved.published!==true)throw Error('Publicación no confirmada');
+   status('Estilo «'+name+'» compartido con el equipo.');
+  }catch(error){if(live())status('No se pudo publicar el estilo: '+String(error?.message||error).slice(0,180),true)}
+  finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;void loadStyles()}}
+ }
+ async function applyStyle(id){
+  if(stylesBusy||!live()||!edit||!can('inicio','edit')||!styleItems.some(t=>t.id===id))return;
+  if(!confirm('¿Aplicar este estilo a tu Inicio? No se guardará hasta que pulses «Guardar cambios». Puedes cancelar para recuperar tu distribución.'))return;
+  stylesBusy=true;renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const result=await rpc('totus_home_styles',{p_action:'read',p_template_id:id,p_name:null});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(result?.id!==id)throw Error('La plantilla recibida no coincide con la seleccionada.');
+   const next=readHomeDashboard(result.layout);
+   model={...next,revision:model.revision};selected=null;panelView='closed';
+   draw();status('Estilo «'+String(result.name||'compartido').slice(0,60)+'» aplicado de forma provisional. Guarda para conservarlo o cancela para recuperar tu Inicio.');
+  }catch(error){if(live())status('No se pudo aplicar el estilo: '+String(error?.message||error).slice(0,180),true)}
+  finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;if(panelView==='styles')renderDrawer()}}
+ }
+ async function removeStyle(id){
+  if(stylesBusy||!live()||!edit||!can('inicio','edit')||!styleItems.some(t=>t.id===id&&t.mine))return;
+  if(!confirm('¿Retirar este estilo de la biblioteca compartida? No modifica los Inicios que ya lo hayan aplicado.'))return;
+  stylesBusy=true;renderDrawer();
+  const session=owner,epoch=token;
+  try{
+   const result=await rpc('totus_home_styles',{p_action:'remove',p_template_id:id,p_name:null});
+   if(!live()||session!==owner||epoch!==token)return;
+   if(result?.removed!==true||result?.id!==id)throw Error('Retirada no confirmada.');
+   status('Estilo retirado de la biblioteca. Los demás diseños permanecen intactos.');
+  }catch(error){if(live())status('No se pudo retirar el estilo: '+String(error?.message||error).slice(0,180),true)}
+  finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;void loadStyles()}}
+ }
+
  const makeId=()=>`hw-${crypto.randomUUID()}`;
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
-  if(['panel-library','panel-widget','panel-board'].includes(action)){if(!edit)return;panelView=action.slice(6);renderDrawer();return}
+  if(action==='style-refresh'){void loadStyles();return}
+  if(action==='style-publish'){void publishStyle();return}
+  if(action==='style-apply'){void applyStyle(id);return}
+  if(action==='style-remove'){void removeStyle(id);return}
+
+  if(['panel-library','panel-widget','panel-board','panel-styles'].includes(action)){if(!edit)return;panelView=action.slice(6);renderDrawer();if(panelView==='styles')void loadStyles();return}
    if(action==='close-panel'){panelView='closed';renderDrawer();return}
    if(action==='preset-size'){const w=find(id);if(!edit||!w)return;const widths=allowedWidths(w),def=HOME_WIDGET_CATALOG[w.type];const options={compact:widths[0],balanced:def.width,wide:widths.filter(x=>x<=9).at(-1)||widths.at(-1),full:widths.at(-1)};const width=options[el.dataset.size];if(!widths.includes(width))return;mutate(m=>setHomeWidgetConfig(m,id,{layout:{desktop:{w:width}}}),id);panelView='widget';return}
 
@@ -616,7 +693,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  function mount(target){
-  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';advancedOpen=false;remoteReady=false;owner=state.user?.id;
+  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
   const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn primary" data-home-command="edit">Personalizar inicio</button></div>`;
