@@ -16,3 +16,6 @@ assert(!appearanceVariables({shadow:'none',cardGlow:12})['--shadow'].startsWith(
 
 assert.equal(appearanceValues('interfaz',{startModule:'unknown',navigationMode:'bad'}).startModule,'inicio');
 assert.equal(appearanceValues('interfaz',{navigationMode:'compact'}).navigationMode,'compact');
+
+assert.equal(appearanceVariables({navigationActive:'#ffffff'})['--appearance-nav-active-ink'],'#000000');
+assert.equal(appearanceVariables({navigationActive:'#000000'})['--appearance-nav-active-ink'],'#ffffff');
