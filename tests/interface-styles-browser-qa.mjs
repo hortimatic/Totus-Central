@@ -60,7 +60,13 @@ try{for(const width of [390,1440]){
  await page.locator('[data-my-style]').selectOption({label:'Trabajo'});
  await page.locator('[data-style-action=load]').click();
  assert.equal(await page.locator('[name=primary]').inputValue(),'#334455','Shared colour survives recipient reload');
+ await page.locator('#appearanceRoot [type=submit]').click();
+ await page.locator('[data-appearance-status]').filter({hasText:'Configuración guardada'}).waitFor();
+ await page.reload();await mount(page,'b'+width);
+ assert.equal(await page.locator('[name=primary]').inputValue(),'#334455','Receiver's applied style survives a full reload');
+ assert.equal(cloud.get('b'+width).active.primary,'#334455');
  assert.equal(cloud.get('a'+width).book.items[0].config.primary,'#334455','Sender library stays untouched');
+ assert.equal(cloud.get('a'+width).active.primary,'#aabbcc','Sender applied style stays independent');
 
  await mount(page,'a'+width);await page.locator('[data-my-style]').selectOption({label:'Trabajo'});await page.locator('[data-style-action=remove]').click();await page.locator('[data-style-status]').filter({hasText:'Estilo eliminado'}).waitFor();assert.equal(cloud.get('a'+width).book.items.length,0);assert.equal(cloud.get('a'+width).active.primary,'#aabbcc','Removing a style preserves applied interface');
  // Changing session while a confirmation is open cannot write another account.
