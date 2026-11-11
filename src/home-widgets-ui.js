@@ -443,6 +443,11 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   body.append(library,widgetView,boardView);
   for(const section of body.children)section.hidden=section.dataset.editorView!==panelView;
   drawer.replaceChildren(head,tabs,body);
+  const inspectorActions=widgetView.querySelector('.home-inspector-actions');
+  if(panelView==='widget'&&inspectorActions){
+   const footer=document.createElement('div');footer.className='home-editor-footer';
+   footer.append(inspectorActions);drawer.append(footer);
+  }
   drawer.dataset.activePanel=panelView;
   drawer.setAttribute('aria-label','Personalización del Inicio');
   drawer.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
