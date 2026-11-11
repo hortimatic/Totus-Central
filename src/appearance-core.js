@@ -52,6 +52,7 @@ export const APPEARANCE_FIELDS={
 // Fresh visual fields retain the established look for accounts saved before this expansion.
 export const APPEARANCE_EXTENDED_KEYS=['headingText','labelText','topbarBackground','topbarText','inputBackground','inputText','tableHeadBackground','tableHeadText','tableRowBackground','secondaryButtonBackground','secondaryButtonText','noteBackground','noteText','filterBackground','modalBackground'];
 export function appearanceExtendedDefaults(theme='light',values={}){
+ values=values&&typeof values==='object'?values:{};
  const dark=theme==='dark',ink=values.text||(dark?'#e8f5ff':'#0f172a'),surface=values.surface||(dark?'#0b1729':'#ffffff'),card=values.card||(dark?'#0f1d33':'#ffffff');
  return {
   headingText:ink,labelText:dark?ink:'#596579',topbarBackground:surface,topbarText:ink,
