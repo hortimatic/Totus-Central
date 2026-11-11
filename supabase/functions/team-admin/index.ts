@@ -51,7 +51,7 @@ Deno.serve(async(req:Request)=>{
    const {error:writeError}=await admin.from('profiles').upsert({id:user.id,email,full_name:fullName,role,active},{onConflict:'id'});
    if(writeError)throw writeError;
   };
-  const ensureMember=async(email:string,fullName:string,role:string,active=true)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,...(recreatingPurged?{deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null}:{}),phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error;await syncAuthProfile(email,fullName,role,active)}
+  const ensureMember=async(email:string,fullName:string,role:string,active=true,identity?:{id:string,email?:string}|null)=>{const {error}=await admin.from('team_members').upsert({email,full_name:fullName,role,active,...(recreatingPurged?{deleted_at:null,purged_at:null,purge_auth_id:null,auth_cleanup_pending:false,avatar_url:null,avatar_path:null}:{}),phone:cleanText(body.phone)||null,job_title:cleanText(body.job_title)||null,store:cleanText(body.store)||null,employee_notes:cleanText(body.employee_notes)||null,updated_at:new Date().toISOString()},{onConflict:'email'});if(error)throw error;await syncAuthProfile(email,fullName,role,active,identity)}
   const lastAdminGuard=async(email:string,nextRole?:string,nextActive?:boolean,deleting=false)=>{const {data:current}=await admin.from('team_members').select('email,role,active').eq('email',email).maybeSingle();if(!current?.active||current.role!=='admin')return;const loses=deleting||nextActive===false||(nextRole&&nextRole!=='admin');if(loses&&(await countActiveAdmins())<=1)throw new Error('No puedes dejar el sistema sin ningún administrador activo.')}
   const sendRecovery=async(email:string,source:string)=>{
     const {error}=await publicAuth.auth.resetPasswordForEmail(email,{redirectTo:APP_URL})
@@ -91,7 +91,7 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==='set_password')return json({error:'La cuenta no existe. Crea el usuario desde Nuevo usuario.'},404);
     const {data,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{full_name:fullName,role}});if(error)throw error
-    try{await ensureMember(email,fullName,role,true)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
+    try{await ensureMember(email,fullName,role,true,data.user?.id?{id:data.user.id,email}:null)}catch(e){if(data.user?.id)await admin.auth.admin.deleteUser(data.user.id);throw e}
     await audit(email,'user_created','ok','Cuenta creada directamente con contraseña')
     return json({ok:true,created:true,user_id:data.user?.id,message:'Usuario creado. Ya puede iniciar sesión.'})
    }catch(e){const msg=e instanceof Error?e.message:'Error creando usuario';await audit(email,action==='create_user'?'user_created':'password_assigned','failed',msg);return json({error:msg},400)}
@@ -116,7 +116,7 @@ Deno.serve(async(req:Request)=>{
       const {error}=await admin.auth.admin.deleteUser(existing.id);if(error)throw error;existing=null
     } else if(action==='invite'&&existing)return json({error:'Ya existe una invitación pendiente. Usa Reenviar invitación.'},409)
     const {data,error}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo:APP_URL,data:{full_name:fullName,role}});if(error)throw error
-    await ensureMember(email,fullName,role,true)
+    await ensureMember(email,fullName,role,true,data.user?.id?{id:data.user.id,email}:null)
     const label=action==='resend_invite'?'Reenvío de invitación':'Invitación'
     await logEmail(email,label,'sent','Supabase aceptó la solicitud de envío')
     await audit(email,action,'ok','Solicitud de email aceptada por Supabase')
