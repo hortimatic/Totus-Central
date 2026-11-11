@@ -67,7 +67,7 @@ try{
  assert.equal(await page.locator('[data-home-style-name]').isVisible(),true,'El nombre del estilo se puede introducir');
  assert.equal(await page.locator('[data-home-command="style-publish"]').isVisible(),true,'Publicar plantilla tiene acción explícita');
  assert(Math.abs((await page.locator('.home-widget-grid').evaluate(el=>el.getBoundingClientRect().width))-originalWidth)<3,'Abrir estilos no estrecha tablero');
- await page.locator('[data-home-command="panel-board"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-board"]').click();
  await page.locator('[data-home-general="gap"]').selectOption('20');
  await page.locator('[data-home-general="width"]').selectOption('1600');
  await page.locator('[data-home-general="density"]').selectOption('compact');
