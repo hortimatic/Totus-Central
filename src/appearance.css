@@ -228,7 +228,7 @@ html[data-appearance] #app .data-table :is(th,thead){background:var(--appearance
 html[data-appearance] #app .data-table tbody tr:hover td{background:var(--panel)}
 html[data-appearance] #app .btn.secondary{background:var(--appearance-secondary-bg);color:var(--appearance-secondary-ink);border-color:var(--line)}
 html[data-appearance] #app .note:not(.warn):not(.bad){background:var(--appearance-note-bg);color:var(--appearance-note-ink);border-color:var(--line)}
-html[data-appearance] #app :is(.filters,.attachment-box){background:var(--appearance-filter-bg)}
+html[data-appearance] #app :is(.filters,.attachment-box):not(.emphasis-check){background:var(--appearance-filter-bg)}
 html[data-appearance] #app .table-wrap::before{background:var(--appearance-filter-bg)}
 html[data-appearance] #app :is(.modal,.modal-head){background:var(--appearance-modal-bg);color:var(--ink)}
 /* The editor's own input labels must remain legible even if the user picks a low-contrast label colour. */
