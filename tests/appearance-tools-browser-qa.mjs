@@ -16,12 +16,25 @@ try{
  });
  for(const width of [1440,390]){
   await page.setViewportSize({width,height:900});
-  for(const module of ['inicio','cajas','gastos','informes']){
+  for(const module of ['inicio','cajas','gastos','facturacion','productos','tareas','informes','configuracion']){
    await page.locator('[data-demo-module='+module+']').click();
    assert.equal(await page.locator('[data-demo-view='+module+']').isVisible(),true,'Preview section '+module);
    assert.equal(await page.locator('[data-demo-module='+module+']').getAttribute('aria-pressed'),'true');
    assert.equal(await page.locator('[data-demo-view]:visible').count(),1,'Only one preview module visible');
   }
+  await page.locator('[data-demo-module=productos]').click();
+  await page.locator('[data-demo-tab=detalle]').click();
+  assert.equal(await page.locator('[data-demo-view=productos] [data-demo-panel=detalle]').isVisible(),true);
+  assert.equal(await page.locator('[data-demo-view=productos] [data-demo-panel=resumen]').isVisible(),false);
+  assert.equal(await page.locator('[data-demo-view=productos] [data-demo-panel=detalle] input').count(),3);
+  await page.locator('[data-demo-open-dialog]:visible').first().click();
+  assert.equal(await page.locator('[data-demo-dialog]').isVisible(),true,'Simulated dialog opens without real actions');
+  await page.locator('[data-demo-close-dialog]').click();
+  assert.equal(await page.locator('[data-demo-dialog]').isVisible(),false);
+  await page.locator('[data-demo-tab=documentos]').click();
+  assert.match(await page.locator('[data-demo-panel=documentos]:visible').innerText(),/ficticio|simulado/i);
+  await page.locator('[data-demo-module=informes]').click();
+  assert.equal(await page.locator('[data-demo-tab=resumen]').getAttribute('aria-pressed'),'true','Switching modules returns to overview');
   assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Browsing the preview must not mark preferences dirty');
   assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Browsing preview never saves');
  }
@@ -46,6 +59,26 @@ try{
  assert.equal(dark.find(x=>x.selector==='.field input').color,'rgb(242, 247, 255)','Dark input text follows appearance');
  assert.equal(dark.find(x=>x.selector==='.btn.secondary').color,'rgb(242, 247, 255)','Dark secondary button text remains readable');
  assert.equal(dark.find(x=>x.selector==='.note').color,'rgb(242, 247, 255)','Dark neutral note text remains readable');
+ await page.locator('[name=topbarBackground]').fill('#123456');
+ await page.locator('[name=topbarText]').fill('#ffffff');
+ await page.locator('[name=tableHeadBackground]').fill('#293b4c');
+ await page.locator('[name=tableHeadText]').fill('#ffffff');
+ await page.locator('[name=secondaryButtonBackground]').fill('#345678');
+ await page.locator('[name=secondaryButtonText]').fill('#ffffff');
+ await page.locator('[name=noteBackground]').fill('#223344');
+ await page.locator('[name=noteText]').fill('#ffffff');
+ const palette=await page.evaluate(()=>{
+  const pane=document.querySelector('[data-appearance-preview]'),color=selector=>getComputedStyle(pane.querySelector(selector));
+  return {header:color('.appearance-demo-main header').backgroundColor,headerInk:color('[data-demo-heading]').color,table:color('.appearance-demo .data-table th').backgroundColor,tableInk:color('.appearance-demo .data-table th').color,note:color('.appearance-demo-samples .note').backgroundColor,noteInk:color('.appearance-demo-samples .note').color};
+ });
+ assert.equal(palette.header,'rgb(18, 52, 86)');
+ assert.equal(palette.headerInk,'rgb(255, 255, 255)');
+ assert.equal(palette.table,'rgb(41, 59, 76)');
+ assert.equal(palette.tableInk,'rgb(255, 255, 255)');
+ assert.equal(palette.note,'rgb(34, 51, 68)');
+ assert.equal(palette.noteInk,'rgb(255, 255, 255)');
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'New colours must remain draft');
+ await page.locator('[data-cancel-preview]').click();
  await page.locator('[name=card]').fill('#ffffff');
  await page.locator('[name=surface]').fill('#ffffff');
  await page.locator('[name=text]').fill('#ffffff');
