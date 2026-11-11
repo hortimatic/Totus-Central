@@ -62,6 +62,15 @@ try{
  await page.locator('[data-cancel-preview]').click();
  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Discard restores the previously stored appearance');
  assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
+ await page.locator('[data-header-preset=compact]').click();
+ assert.equal(await page.locator('[name=topbarHeight]').inputValue(),'56');
+ assert.equal(await page.locator('[name=fontSize]').inputValue(),'13');
+ assert.equal(await page.evaluate(()=>toolsQA.saves.length),0,'Header shortcut is preview-only');
+ await page.locator('[data-header-preset=wide]').click();
+ assert.equal(await page.locator('[name=topbarHeight]').inputValue(),'84');
+ assert.equal(await page.locator('[name=density]').inputValue(),'wide');
+ await page.locator('[data-cancel-preview]').click();
+ assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Header shortcut can be discarded');
  await page.locator('[data-settings-search]').fill('navegacion');
  assert.equal(await page.locator('[data-appearance-group]:visible').count(),1);
  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Search does not change preferences');
