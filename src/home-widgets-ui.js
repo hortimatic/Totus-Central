@@ -459,7 +459,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   stylesView.innerHTML='<div class="home-panel-intro"><strong>Estilos compartidos del equipo</strong><p>Guarda una distribución con nombre para que otros usuarios puedan aplicarla. No se comparten fechas, búsquedas personales, clientes ni datos comerciales; cada usuario conserva su diseño propio.</p></div>'+
   '<div class="home-style-publish"><label>Nombre del estilo<input type="text" data-home-style-name maxlength="60" placeholder="Ej. Apertura de tiendas"></label>'+
   '<button class="btn primary" type="button" data-home-command="style-publish" '+(stylesBusy||!can('inicio','view')?'disabled':'')+'>Guardar y compartir</button>'+
-  '<small>Guarda primero los cambios de tu Inicio. Publicar copia su disposición, nunca modifica otros perfiles.</small></div>'+
+  '<small>Si hay cambios pendientes, se guardan y verifican antes de compartir una copia. No cambia el Inicio de otros usuarios.</small></div>'+
   '<div class="home-style-list-heading"><strong>Estilos disponibles ('+styleItems.length+')</strong><button type="button" data-home-command="style-refresh">Actualizar</button></div>'+
   (stylesError?'<p class="home-error" role="alert">'+esc(stylesError)+'</p>':'')+
   (stylesBusy?'<p class="small muted" role="status">Consultando estilos…</p>':rows||'<p class="small muted">No hay estilos compartidos disponibles.</p>');
@@ -500,7 +500,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(stylesBusy||!live()||!edit||!can('inicio','view'))return;
   const name=root.querySelector('[data-home-style-name]')?.value?.trim()||'';
   if(name.length<3||name.length>60){status('Pon un nombre entre 3 y 60 caracteres.',true);return}
-  if(changed()||!remoteReady){status('Guarda y verifica primero los cambios de tu propio Inicio antes de compartirlo.',true);return}
+  if(!remoteReady){status('No se ha verificado el acceso a tu Inicio personal. Revisa el perfil en Administración.',true);return}
+   if(changed()&&!(await save(true)))return;
+   if(!live()||!edit||changed())return
   stylesBusy=true;renderDrawer();
   const session=owner,epoch=token;
   try{
@@ -592,28 +594,29 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    remoteReady=true;if(saved?.layout?.schemaVersion===1){if(changed()){status('Se ha recibido el diseño guardado mientras editabas. Revisa los cambios antes de guardar.',true);model.revision=saved.revision==null?null:String(saved.revision);return;}model=readHomeDashboard(saved.layout);model.revision=saved.revision==null?null:String(saved.revision);original=structuredClone(model);draw();for(const w of model.widgets)if(w.type.startsWith('prestashop.'))void fetchFor(w);}
   }catch(error){if(live()){const message=String(error?.message||error||'Error no identificado').slice(0,160);status('No se han podido cargar las preferencias: '+message+'. Revisa con Administración el estado del perfil y los permisos. No se ha modificado tu diseño.',true)}}
  }
- async function save(){if(busy||!live()||!model)return;
-  if(!changed()){status('No hay cambios del Inicio pendientes de guardar.');return}
-  if(!remoteReady){status('No se puede guardar: no se ha confirmado el acceso a las preferencias de esta cuenta. Revisa su perfil y permisos en Administración.',true);return}
+ async function save(keepEditorOpen=false){if(busy||!live()||!model)return false;
+  if(!changed()){status('No hay cambios del Inicio pendientes de guardar.');return true}
+  if(!remoteReady){status('No se puede guardar: no se ha confirmado el acceso a las preferencias de esta cuenta. Revisa su perfil y permisos en Administración.',true);return false}
   const own=owner,expected=Number(model.revision||0),snapshot={schemaVersion:1,settings:structuredClone(model.settings),widgets:structuredClone(model.widgets)};
   busy=true;
   try{
    const result=await rpc('totus_home_dashboard',{p_action:'save',p_layout:snapshot,p_expected_revision:expected});
-   if(!live()||owner!==own)return;
+   if(!live()||owner!==own)return false;
    if(!Number.isSafeInteger(Number(result?.revision))||Number(result.revision)!==expected+1)throw Error('La respuesta no acredita la revisión esperada.');
    const checked=await rpc('totus_home_dashboard',{p_action:'read',p_layout:null,p_expected_revision:null});
-   if(!live()||owner!==own)return;
+   if(!live()||owner!==own)return false;
    const persisted=readHomeDashboard(checked?.layout);
    if(Number(checked.revision)!==Number(result.revision)||JSON.stringify(persisted.widgets)!==JSON.stringify(snapshot.widgets)||JSON.stringify(persisted.settings)!==JSON.stringify(snapshot.settings))throw Error('La relectura no coincide con el diseño guardado.');
    model.revision=String(checked.revision);
    original={...structuredClone(snapshot),revision:model.revision};
    if(JSON.stringify(model.widgets)!==JSON.stringify(snapshot.widgets)||JSON.stringify(model.settings)!==JSON.stringify(snapshot.settings)){
     status('Se verificó el guardado anterior, pero hay cambios nuevos pendientes de guardar.',true);
-    return;
+    return false;
    }
-   edit=false;selected=null;panelView='closed';draw();status('Tu Inicio se ha guardado y verificado en tu cuenta.');notify('Inicio personalizado guardado.');
+   edit=keepEditorOpen;if(!keepEditorOpen){selected=null;panelView='closed'}draw();status('Tu Inicio se ha guardado y verificado en tu cuenta.');notify('Inicio personalizado guardado.');return true;
   }catch(error){
    if(live())status('Guardado sin confirmar: '+String(error.message||error)+'. Revisa el diseño antes de reintentar.',true);
+   return false;
   }finally{busy=false}
  }
  async function initConnections(){
