@@ -44,6 +44,22 @@ const created=await scenario({action:'create_user',existing:false});assert.equal
 const ficha=created.writes.find(w=>w.table==='team_members').value;
 assert.equal(ficha.phone,'600000000');assert.equal(ficha.job_title,'QA manager');assert.equal(ficha.store,'QA centre');assert.equal(ficha.employee_notes,'QA notes');
 assert(!('avatar_url' in ficha),'Ordinary invitations and creation must not clear existing photo fields');
+
+const createdProfile=created.writes.find(w=>w.table==='profiles')?.value;
+assert.equal(createdProfile?.id,'new-target-id','El alta enlaza el ID Auth real, no crea otra identidad');
+assert.equal(createdProfile?.role,'gerente');
+assert.equal(createdProfile?.active,true,'El alta del miembro activo habilita su propio perfil');
+for(const action of ['update_member','set_active']){
+ const fixed=await scenario({action,active:true});
+ assert.equal(fixed.status,200,'La administración puede conciliar perfil y equipo: '+action);
+ const profile=fixed.writes.find(w=>w.table==='profiles')?.value;
+ assert.equal(profile?.id,'target-id','Solo puede actualizar la identidad Auth correspondiente');
+ assert.equal(profile?.role,action==='set_active'?'admin':'gerente');
+ assert.equal(profile?.active,action==='update_member','set_active usa el estado solicitado (falso en esta prueba)');
+}
+const missingAuth=await scenario({action:'update_member',existing:false});
+assert.equal(missingAuth.writes.filter(w=>w.table==='profiles').length,0,'Sin Auth no se crea una identidad ficticia');
+
 const denied=await scenario({callerRole:'gerente'});assert.equal(denied.status,403);assert.equal(denied.updates.length,0);assert.equal(denied.writes.length,0);
 for(const authDeleted of [false,true]){
  const recreated=await scenario({action:'create_user',retired:true,purged:true,existing:authDeleted,authDeleted});assert.equal(recreated.status,200);
