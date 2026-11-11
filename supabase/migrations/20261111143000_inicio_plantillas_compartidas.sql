@@ -51,7 +51,7 @@ begin
   return pg_catalog.jsonb_build_object('items',coalesce((
    select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
     'id',s.id,'name',s.name,'mine',s.owner_id=uid,
-    'author',coalesce(pg_catalog.nullif(pg_catalog.btrim(p.full_name),''),'Equipo'),
+    'author',coalesce(nullif(pg_catalog.btrim(p.full_name),''),'Equipo'),
     'created_at',s.created_at
    ) order by s.created_at desc)
    from (
