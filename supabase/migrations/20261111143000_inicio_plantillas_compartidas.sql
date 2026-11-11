@@ -100,14 +100,43 @@ begin
  if saved is null or saved->>'schemaVersion'<>'1' or pg_catalog.jsonb_typeof(saved->'widgets')<>'array'
  then raise exception 'Guarda primero tu propio Inicio antes de publicar una plantilla';end if;
 
- -- Strip personal search, date, order and payment filters. Share appearance,
+ -- Strip personal search, dates, order, payment and free-form widget titles. Share appearance,
  -- widget choices, positions, titles and selected presentation options only.
  select pg_catalog.jsonb_build_object(
   'schemaVersion',1,
   'settings',coalesce(saved->'settings','{}'::jsonb),
   'widgets',coalesce((
    select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-    'id',w.item->'id','type',w.item->'type','title',w.item->'title',
+    'id',w.item->'id','type',w.item->'type','title',pg_catalog.to_jsonb(case w.item->>'type'
+     when 'cash.openings' then 'Dinero para abrir mañana'
+     when 'home.income' then 'Ingresos del periodo'
+     when 'home.expenses' then 'Gastos contables'
+     when 'home.result' then 'Ingresos menos gastos'
+     when 'home.internal' then 'Gastos internos'
+     when 'home.gain' then 'Ganancia comercial'
+     when 'home.activity' then 'Ventas y gastos del periodo'
+     when 'home.alerts' then 'Pendientes y avisos'
+     when 'home.shortcuts' then 'Acciones rápidas'
+     when 'cash.store' then 'Estado de tienda y cierres'
+     when 'cash.history' then 'Cierres recientes'
+     when 'cash.withdrawals' then 'Retiradas y efectivo'
+     when 'prestashop.summary' then 'Resumen PrestaShop'
+     when 'prestashop.orders' then 'Pedidos PrestaShop'
+     when 'prestashop.top' then 'Más vendidos'
+     when 'prestashop.quality' then 'Calidad de catálogo'
+     when 'expenses.quarter' then 'Gastos del trimestre'
+     when 'expenses.pending' then 'Pendientes de revisión'
+     when 'billing.pending' then 'Facturas y cobros'
+     when 'pricing.quick' then 'Consulta rápida de precio'
+     when 'documents.latest' then 'Documentos recientes'
+     when 'fiscal.forecast' then 'Previsión fiscal'
+     when 'reports.shortcut' then 'Informes y gestoría'
+     when 'tasks.today' then 'Tareas de hoy'
+     when 'system.status' then 'Estado del sistema'
+     when 'receptions.pending' then 'Recepciones por cotejar'
+     when 'products.pending' then 'Revisiones de productos'
+     when 'chat.alerts' then 'Avisos del equipo'
+     else 'Widget del Inicio' end),
     'scope',w.item->'scope','hidden',w.item->'hidden','layout',w.item->'layout',
     'filters',coalesce((
      select pg_catalog.jsonb_object_agg(f.key,f.value)
