@@ -48,3 +48,24 @@ Pruebas SQL aisladas: anonimato restringido a la apariencia de Login, conservaci
 - Las acciones de cada mensaje de Chat están juntas, sin el desplegable Más. Aparecen al pasar el ratón o enfocar el mensaje; en pantallas táctiles permanecen accesibles.
 - Prueba adicional con dos cuentas ficticias: guardar nombre, color y logo, recargar la aplicación real, cambiar de cuenta y comprobar independencia, persistencia y permisos del Login. La prueba SQL aislada también cubre revisiones antiguas, acceso denegado y conservación de los demás ajustes.
 - Se limita la imagen del Login a su altura configurada, evitando que su tamaño natural tape el formulario; se comprueba en seis anchos de pantalla.
+
+
+## Revisión en curso · 11/11/2026 · PR #179 (no publicada)
+
+- Objetivo: ampliar el editor visual existente sin alterar permisos, campos fiscales ni comportamiento funcional. El trabajo se mantiene en `feat/interface-preview-modules-20261111`, PR en borrador contra `totus-central`.
+- Vista previa: simulador de Inicio, Cajas, Gastos e Informes con cabecera, navegación, pestañas, formularios, tablas, tarjetas y datos ficticios. Seleccionar módulos no guarda preferencias. La cabecera y la anchura de la navegación responden a las variables personales.
+- Contraste: en el modo oscuro se propagan colores personales a controles neutros, cabecera, pestañas, formularios, tablas y texto. El color propio de tarjeta no debe sustituirse por el de superficies. El texto del menú activo elige blanco o negro según su color de fondo.
+- Menú: botones de subir/bajar y mover a principio/final de la sección. Se conserva la cadena `navigationOrder` y no se permite reordenar entre grupos; no cambia el esquema SQL.
+- Pruebas añadidas: vista previa y no persistencia a 1440/390, contraste de modo oscuro y fondo de tarjetas, ordenación por secciones a 390/1017, luminancia de selección. Son pruebas escritas; **no se darán por superadas hasta que el CI y la revisión de navegador terminen**.
+- El CI 43060526537 falló durante instalación del navegador por error DNS de repositorios Ubuntu, antes de ejecutar pruebas de navegador; no evidencia un fallo o éxito funcional. Se exige una ejecución posterior completa.
+- Pendiente: comprobar la batería del último commit, diffs y visual a 390/768/1440, actualización frente a los commits nuevos de otros compañeros, validación del titular y publicación controlada. Una vez fusionado y verificado, retirar la rama de trabajo, nunca antes.
+- No se han escrito registros contables, de stock, usuarios ni preferencias de producción; Supabase y OneDrive solo se consultaron durante el arranque.
+
+
+### Ampliación del mismo PR · 11/11/2026
+
+- Se incorpora un verificador visual de contraste en `src/appearance-contrast.js`. Compara texto principal/secundario con tarjetas y superficies, y texto/secciones con el fondo del menú. Aplica el umbral 4,5:1 a esos pares: no sustituye una auditoría WCAG completa ni evalúa imágenes o overlays.
+- El botón «Corregir contraste de textos en la vista previa» propone colores neutros de alto contraste únicamente para los campos de texto existentes. Los fondos, las tarjetas, los colores corporativos y las preferencias guardadas no se modifican hasta pulsar guardar. Si hay fondos incompatibles entre sí, no promete corregirlos todos automáticamente: el aviso permanece cuando el contraste no alcanza el umbral.
+- «Restablecer orden de módulos» recupera el orden inicial dentro de las secciones sin restablecer colores ni otras preferencias. Reutiliza `navigationOrder` y su contrato ya validado.
+- Se añaden pruebas unitarias del contraste y de conservación de colores, y recorridos de navegador sobre el aviso, la corrección/descarte y la restauración del orden. No se introducen columnas, migraciones ni nuevas claves de configuración: ampliar los colores configurables con campos adicionales exige revisar primero el contrato de Supabase.
+- Los cambios siguen en PR #179 y no se han integrado en producción. Consultar la ejecución del último commit antes de actualizar el estado de aceptación.

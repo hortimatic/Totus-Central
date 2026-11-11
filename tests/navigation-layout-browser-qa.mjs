@@ -12,6 +12,16 @@ try{
   });
   await page.locator('[data-nav-row=cajas] [data-nav-move="-1"]').click();
   assert.match(await page.locator('[name=navigationOrder]').inputValue(),/cajas,pricing/);
+  await page.locator('[data-nav-row=cajas] [data-nav-edge=last]').click();
+  const endOfGroup=await page.locator('[data-nav-row][data-nav-group="Operaciones tienda"]').last().getAttribute('data-nav-row');
+  assert.equal(endOfGroup,'cajas','One-click move to end remains inside section');
+  await page.locator('[data-nav-row=cajas] [data-nav-edge=first]').click();
+  const startOfGroup=await page.locator('[data-nav-row][data-nav-group="Operaciones tienda"]').first().getAttribute('data-nav-row');
+  assert.equal(startOfGroup,'cajas','One-click move to start remains inside section');
+  await page.locator('[data-nav-reset]').click();
+  assert.equal(await page.locator('[name=navigationOrder]').inputValue(),'','Reset navigation order only, in preview');
+  assert.equal(await page.locator('[data-nav-row][data-nav-group="Operaciones tienda"]').first().getAttribute('data-nav-row'),'pricing');
+  await page.locator('[data-nav-row=cajas] [data-nav-move="-1"]').click();
   await page.locator('[data-nav-collapsed=operations]').check();await page.locator('[name=navigationBackground]').fill('#102030');
   await page.getByRole('button',{name:'Aplicar y guardar mi interfaz',exact:true}).click();await page.getByText('Configuración guardada y aplicada.',{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>navQA.config.navigationCollapsed),'operations');assert.equal(await page.evaluate(()=>navQA.config.navigationBackground),'#102030');

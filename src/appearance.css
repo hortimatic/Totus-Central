@@ -123,3 +123,92 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 
 .appearance-style-library{margin:16px 0;padding:16px;border:var(--appearance-border-width,1px) solid var(--line);border-radius:var(--r,12px);background:var(--appearance-surface,var(--panel));min-width:0}
 .appearance-style-library h3{margin:0 0 6px;font-size:1rem}.appearance-style-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.appearance-style-fields label{display:grid;gap:6px;min-width:0}.appearance-style-fields :is(input,select){width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit}.appearance-style-library .inline-actions{gap:8px;flex-wrap:wrap}.appearance-style-library [data-style-status]{margin:10px 0 0}@media(max-width:600px){.appearance-style-fields{grid-template-columns:1fr}.appearance-style-library .btn{white-space:normal}}
+
+
+/* Representative, non-persistent module preview. Never mounts business forms or fetches records. */
+.appearance-demo{color:var(--ink);background:var(--bg)}
+.appearance-demo>aside{background:var(--nav-bg);color:var(--nav-ink);gap:7px}
+.appearance-demo-brand{display:flex;flex-direction:column;gap:4px;min-width:0}
+.appearance-demo-brand b{display:block;font-size:12px;overflow-wrap:anywhere}
+.appearance-demo-brand small{display:block;color:var(--nav-section-ink);font-size:10px}
+.appearance-demo-section{color:var(--nav-section-ink);font-size:9px;letter-spacing:.07em;margin-top:12px}
+.appearance-demo-nav{border:0;border-radius:7px;background:transparent;color:var(--nav-ink);font:inherit;font-size:11px;text-align:left;padding:9px 6px;cursor:pointer}
+.appearance-demo-nav[aria-pressed=true]{background:var(--nav-active);color:var(--appearance-nav-active-ink);font-weight:750}
+.appearance-demo-nav:focus-visible{outline:2px solid var(--appearance-accent);outline-offset:2px}
+.appearance-demo-main{min-width:0}
+.appearance-demo header{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ink);border-bottom:1px solid var(--line);font-weight:750;padding:12px;min-height:var(--appearance-header)}
+.appearance-demo-user{font-size:10px;font-weight:500;color:var(--muted);text-align:right}
+.appearance-demo section{min-width:0;align-content:start}
+.appearance-demo-tabs{display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}
+.appearance-demo-tabs span{padding:7px 9px}.appearance-demo-tabs .is-selected{color:var(--ink);border-bottom:2px solid var(--appearance-accent);font-weight:750}
+.appearance-demo-content[hidden]{display:none!important}
+.appearance-demo-content{display:grid;gap:var(--appearance-gap);min-width:0}
+.appearance-demo-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.appearance-demo-cards>.card{display:grid;gap:5px;min-width:0}
+.appearance-demo-cards strong{font-size:clamp(14px,2vw,20px);overflow-wrap:anywhere}
+.appearance-demo h4{margin:0 0 8px;font-size:13px}
+.appearance-demo p{font-size:11px}
+.appearance-demo-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.appearance-demo-fields label{display:grid;gap:4px;font-size:10px;color:var(--ink);min-width:0}
+.appearance-demo-fields :is(input,select){box-sizing:border-box;max-width:100%;min-width:0;padding:7px 5px;border:1px solid var(--line);border-radius:7px;background:var(--appearance-surface);color:var(--ink);font:inherit}
+.appearance-demo-actions{display:flex;flex-wrap:wrap;gap:8px}
+.appearance-demo .card,.appearance-demo .table-wrap{background:var(--panel);color:var(--ink)}
+.appearance-demo .data-table{color:var(--ink)}
+.appearance-preview[data-preview-size=mobile] .appearance-demo-user{display:none}
+.appearance-preview[data-preview-size=mobile] .appearance-demo-cards,.appearance-preview[data-preview-size=mobile] .appearance-demo-fields{grid-template-columns:1fr}
+.appearance-preview[data-preview-size=mobile] .appearance-demo>aside{padding:6px}
+.appearance-preview[data-preview-size=mobile] .appearance-demo-nav{font-size:9px;padding:7px 3px}
+
+
+/* Opt-in text and neutral control contrast across existing module surfaces.
+   Semantic warning/error colors remain owned by their components. */
+html[data-appearance] :is(.topbar,.topbar h1,.topbar .eyebrow,.field label,.form-grid>label,.section-head h2,.section-head h3,.record-toolbar h2){color:var(--ink)}
+html[data-appearance] :is(.topbar .eyebrow,.kpi small,.pagination,.metric-box span){color:var(--muted)}
+html[data-appearance] :is(.module-tabs,.tabs,.filters){color:var(--ink);border-color:var(--line)}
+html[data-appearance] :is(.tab,.module-tabs button){color:var(--muted)}
+html[data-appearance] :is(.tab.active,.module-tabs button.active){color:var(--accent)}
+html[data-appearance] :is(.data-table th,.data-table td){color:var(--ink);border-color:var(--line)}
+html[data-appearance] .data-table th{color:var(--muted)}
+html[data-appearance=dark] :is(.topbar,.table-wrap,.data-table,.modal,.modal-head,.module-tabs,.filters,.tabs,.attachment-box,.check-field:not(.emphasis-check),.file-picker){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.card,.kpi){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.data-table th,.data-table tr:hover td,.table-wrap::before){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.field input,.field select,.field textarea,.form-grid input,.form-grid select,.form-grid textarea,.search input){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.btn.secondary,.close-btn,.icon-btn){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.note:not(.warn):not(.bad),.badge:not(.ok):not(.warn):not(.bad):not(.info)){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] .summary-row{border-color:var(--line)}
+html[data-appearance] :is(.field input,.field select,.field textarea,.form-grid input,.form-grid select,.form-grid textarea):focus-visible{outline:2px solid var(--appearance-accent);outline-offset:1px}
+
+/* Scale the simulated sidebar to the configured width, without overflowing narrow previews. */
+.appearance-demo{grid-template-columns:clamp(98px,calc(var(--sidebar) * .45),165px) minmax(0,1fr)}
+
+
+/* Navigation organiser: all controls remain reachable on narrow screens. */
+.nav-order-editor{display:grid;gap:8px;min-width:0}
+.nav-order-editor>[data-nav-row]{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);min-width:0}
+.nav-order-editor>[data-nav-row]>span:first-child{min-width:0;overflow-wrap:anywhere}
+.nav-order-actions{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;justify-content:flex-end;flex-shrink:0}
+.nav-order-actions .btn{padding:5px 8px;min-width:32px}
+@media(max-width:550px){.nav-order-editor>[data-nav-row]{align-items:flex-start;flex-wrap:wrap}.nav-order-actions{width:100%;justify-content:flex-start}}
+
+/* Selected menu text adapts to the user's chosen active background. */
+html[data-appearance] .sidebar .nav-btn.active{background:var(--nav-active);color:var(--appearance-nav-active-ink)}
+
+/* Local preview-only colour diagnostics; no changes to production surfaces. */
+.appearance-contrast-panel{display:grid;gap:7px;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;min-width:0}
+.appearance-contrast-panel h4{margin:0;font-size:13px}
+.appearance-contrast-panel p{margin:0;overflow-wrap:anywhere;font-size:12px}
+.appearance-contrast-panel [data-contrast-status=warning]{color:var(--ink);font-weight:650}
+.appearance-contrast-panel small{color:var(--muted);font-size:11px}
+.appearance-contrast-panel button{justify-self:start;white-space:normal;text-align:left}
+
+
+/* Existing personal colours now reach secondary actions and neutral containers too. */
+html[data-appearance] #app .btn.secondary{background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance] #app .note:not(.warn):not(.bad){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance] #app .module-tabs{background:var(--appearance-surface);color:var(--ink)}
+html[data-appearance] #app :is(.filters,.attachment-box):not(.emphasis-check){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+
+/* Optional header layout shortcuts reuse the validated existing settings. */
+.appearance-header-presets{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:10px 12px}
+.appearance-header-presets span{font-size:12px;font-weight:650;margin-right:5px}
+.appearance-header-presets .btn{padding:7px 10px}

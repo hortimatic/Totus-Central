@@ -12,7 +12,7 @@ const byModule={
  facturacion:['invoices','invoiceLines','customers','series','templates','documents'],
  documentos:['documents','expenses','invoices','customers','suppliers','categories'],
  pricing:['brands','families','products','variants','providers','providerPrices','competitors','consultations'],
- prestashop:['documents','suppliers'],productos:[],cotejos:['documents','suppliers'],equipo:[],tareas:[],configuracion:[],automatizaciones:[]
+ prestashop:['documents','suppliers'],productos:[],cotejos:['documents','suppliers'],equipo:[],tareas:[],configuracion:[],automatizaciones:[],apis:[]
 };
 const common=['settings','rolePermissions','userPermissions','team','profiles','stores','drawers'];
 export function moduleReads(tasks,module){
