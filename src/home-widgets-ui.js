@@ -458,7 +458,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   const rows=styleItems.map(t=>'<article class="home-style-row"><div><strong>'+esc(t.name)+'</strong><small>'+esc(t.author||'Equipo')+(t.mine?' · Mi estilo':'')+'</small></div><div class="home-style-row-actions"><button type="button" data-home-command="style-apply" data-id="'+esc(t.id)+'" '+(!can('inicio','view')?'disabled title="Sin permiso de lectura"':'')+'>Aplicar</button>'+(t.mine?'<button type="button" data-home-command="style-remove" data-id="'+esc(t.id)+'" aria-label="Retirar '+esc(t.name)+'">Retirar</button>':'')+'</div></article>').join('');
   stylesView.innerHTML='<div class="home-panel-intro"><strong>Estilos compartidos del equipo</strong><p>Guarda una distribución con nombre para que otros usuarios puedan aplicarla. No se comparten fechas, búsquedas personales, clientes ni datos comerciales; cada usuario conserva su diseño propio.</p></div>'+
   '<div class="home-style-publish"><label>Nombre del estilo<input type="text" data-home-style-name maxlength="60" placeholder="Ej. Apertura de tiendas"></label>'+
-  '<button class="btn primary" type="button" data-home-command="style-publish" '+(stylesBusy||!can('inicio','edit')?'disabled':'')+'>Guardar y compartir</button>'+
+  '<button class="btn primary" type="button" data-home-command="style-publish" '+(stylesBusy||!can('inicio','view')?'disabled':'')+'>Guardar y compartir</button>'+
   '<small>Guarda primero los cambios de tu Inicio. Publicar copia su disposición, nunca modifica otros perfiles.</small></div>'+
   '<div class="home-style-list-heading"><strong>Estilos disponibles ('+styleItems.length+')</strong><button type="button" data-home-command="style-refresh">Actualizar</button></div>'+
   (stylesError?'<p class="home-error" role="alert">'+esc(stylesError)+'</p>':'')+
@@ -497,7 +497,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  async function publishStyle(){
-  if(stylesBusy||!live()||!edit||!can('inicio','edit'))return;
+  if(stylesBusy||!live()||!edit||!can('inicio','view'))return;
   const name=root.querySelector('[data-home-style-name]')?.value?.trim()||'';
   if(name.length<3||name.length>60){status('Pon un nombre entre 3 y 60 caracteres.',true);return}
   if(changed()||!remoteReady){status('Guarda y verifica primero los cambios de tu propio Inicio antes de compartirlo.',true);return}
@@ -527,7 +527,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   finally{if(live()&&session===owner&&epoch===token){stylesBusy=false;if(panelView==='styles')renderDrawer()}}
  }
  async function removeStyle(id){
-  if(stylesBusy||!live()||!edit||!can('inicio','edit')||!styleItems.some(t=>t.id===id&&t.mine))return;
+  if(stylesBusy||!live()||!edit||!can('inicio','view')||!styleItems.some(t=>t.id===id&&t.mine))return;
   if(!confirm('¿Retirar este estilo de la biblioteca compartida? No modifica los Inicios que ya lo hayan aplicado.'))return;
   stylesBusy=true;renderDrawer();
   const session=owner,epoch=token;
