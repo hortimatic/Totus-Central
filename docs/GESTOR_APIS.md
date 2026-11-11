@@ -1,7 +1,7 @@
 # Gestor de APIs y usuarios de conexión
 
 ## Uso
-1. Configuración → APIs → Nueva conexión. Indica nombre y protocolo; una API genérica necesita su destino HTTPS y autenticación.
+1. Sistema → APIs → Nueva conexión. Indica nombre y protocolo; una API genérica necesita su destino HTTPS y autenticación.
 2. Asigna un usuario activo. Para que una IA trabaje automáticamente, usa «Crear usuario de conexión» o la identidad técnica de Totus IA ya preparada. Elige su rol y ajusta sus permisos en Administración → Usuarios. No usa la contraseña de una persona.
 3. Guarda la clave en el campo privado. Vacío conserva la existente. La clave se cifra en Vault y nunca se devuelve al navegador. No la escribas en mensajes, URLs, GitHub ni fuentes del proyecto.
 4. Confirma la cuota gratuita o incluida que hayas comprobado. Totus no contrata planes ni cambia de proveedor cuando falla uno. Esta confirmación no sustituye comprobar las condiciones de cada proveedor.

@@ -12,7 +12,8 @@ const routes=[
  {route:'cotejos',sections:[null]},
  {route:'tareas',sections:[null]},
  {route:'equipo',sections:[null]},
- {route:'configuracion',attribute:'data-config-section',sections:['appearance','login','connections']},
+ {route:'configuracion',attribute:'data-appearance-tab',sections:['interfaz','login']},
+ {route:'apis',sections:[null]},
  {route:'fiscalidad',sections:[null]},
  {route:'informes',sections:[null]},
  {route:'administracion',action:'admin-section',sections:['usuarios','roles','negocio','fiscal','storage','backups','log']}

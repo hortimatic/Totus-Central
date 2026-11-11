@@ -197,3 +197,47 @@
 .account-panel [data-account-notes] textarea {width:100%;min-height:200px;resize:vertical;}
 .account-panel [data-notes-count] {font-size:11px;color:var(--muted);text-align:right;}
 @media(max-width:600px){.account-panel textarea,.account-task-filter input {font-size:16px;}.account-shortcuts>.btn {flex:1 1 100%;}}
+
+/* Totus navigation polish, retaining native groups, routes and personal theme. */
+@media screen {
+ .sidebar #nav{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,white 17%,transparent) transparent}
+ .sidebar #nav .nav-personal-group{min-width:0;padding:2px 0 8px}
+ .sidebar #nav .nav-personal-group>summary{
+  list-style:none;display:flex;align-items:center;justify-content:space-between;
+  min-height:34px;padding:8px 11px 7px;border-radius:8px;gap:8px;
+  font-size:11px;font-weight:750;letter-spacing:.055em;text-transform:uppercase;
+  color:color-mix(in srgb,var(--accent,#1463ce) 52%,#d4eaff);
+  cursor:pointer;user-select:none
+ }
+ .sidebar #nav .nav-personal-group>summary::-webkit-details-marker{display:none}
+ .sidebar #nav .nav-personal-group>summary::after{
+  content:'⌄';font-size:15px;line-height:1;display:inline-block;opacity:.75;
+  transform:rotate(-90deg);transition:transform .15s
+ }
+ .sidebar #nav .nav-personal-group[open]>summary::after{transform:rotate(0deg)}
+ .sidebar #nav .nav-personal-group>summary:hover{background:rgb(255 255 255 / 6%);color:#fff}
+ .sidebar #nav .nav-personal-group>summary:focus-visible{outline:2px solid #8fcaff;outline-offset:-2px}
+ .sidebar #nav .nav-personal-group>a.nav-btn{
+  min-width:0;min-height:38px;margin:2px 0 0;border-radius:9px;
+  padding:8px 11px;gap:11px;color:#c4d3e5;
+  font-weight:580;line-height:1.35;transition:background .14s ease,color .14s ease;
+  text-decoration:none
+ }
+ .sidebar #nav .nav-personal-group>a.nav-btn .nav-icon{opacity:.8}
+ .sidebar #nav .nav-personal-group>a.nav-btn:hover{
+  background:rgb(255 255 255 / 8%);color:#fff
+ }
+ .sidebar #nav .nav-personal-group>a.nav-btn.active{
+  background:color-mix(in srgb,var(--accent,#1463ce) 19%,var(--nav2,#1d304c));
+  color:#fff;box-shadow:inset 3px 0 color-mix(in srgb,var(--accent,#1463ce) 48%,#7ee6ef)
+ }
+ .sidebar #nav .nav-personal-group>a.nav-btn.active .nav-icon{opacity:1}
+}
+@media (max-width:800px){
+ .sidebar #nav .nav-personal-group>summary{min-height:38px}
+ .sidebar #nav .nav-personal-group>a.nav-btn{min-height:44px;font-size:14px}
+}
+@media (prefers-reduced-motion:reduce){
+ .sidebar #nav .nav-personal-group>summary::after,
+ .sidebar #nav .nav-personal-group>a.nav-btn{transition:none}
+}

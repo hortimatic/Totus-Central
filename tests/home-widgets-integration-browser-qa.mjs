@@ -58,7 +58,11 @@ try{
   assert.equal(box.overflow,'visible',id+' debe adaptar su contenido a la tarjeta');
   assert(box.content<=box.visible+2,id+' no recorta contenido ni crea barra vertical');
  }
+ const originalWidth=await page.locator('.home-widget-grid').evaluate(el=>el.getBoundingClientRect().width);
  await page.locator('[data-home-command="edit"]').click();
+ assert.equal(await page.locator('[data-home-drawer]').isVisible(),false,'Personalizar no abre panel invasivo');
+ assert(Math.abs((await page.locator('.home-widget-grid').evaluate(el=>el.getBoundingClientRect().width))-originalWidth)<3,'La edición no estrecha el tablero');
+ await page.locator('[data-home-command="panel-board"]').click();
  await page.locator('[data-home-general="gap"]').selectOption('20');
  await page.locator('[data-home-general="width"]').selectOption('1600');
  await page.locator('[data-home-general="density"]').selectOption('compact');
@@ -68,9 +72,18 @@ try{
  assert.equal(await page.locator('.dashboard-page').getAttribute('data-home-canvas-background'),'soft','Fondo suave aplicado');
  assert.equal(await page.locator('[data-home-widget="income"] .home-widget-body').evaluate(el=>getComputedStyle(el).paddingTop),'9px','Densidad compacta aplicada a las tarjetas sin cambiar Mi interfaz');
 
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  assert(await page.locator('[data-home-command="add"][data-type="pricing.quick"]').isDisabled(),'No se añade otro formulario de precio con IDs repetidos');
- await page.locator('[data-home-command="select"][data-id="activity"]').click();
+ const selectHomeWidget=async id=>{
+  const close=page.locator('[data-home-command="close-panel"]');
+  if(await close.count())await close.click();
+  await page.locator('[data-home-command="select"][data-id="'+id+'"]').click();
+ };
+ 
+ await selectHomeWidget('activity');
+ assert.equal(await page.locator('[data-home-drawer]').getAttribute('data-active-panel'),'widget','Seleccionar abre inspector contextual');
  assert(await page.locator('[data-home-command="duplicate"][data-id="activity"]').isDisabled(),'La gráfica con filtros vivos no se clona como formulario inerte');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-category]').selectOption('PrestaShop');
  assert.equal(await page.locator('[data-home-command="add"][data-type="expenses.pending"]').count(),0,'La biblioteca filtra tipos de otros módulos');
  assert(await page.locator('[data-home-command="add"][data-type="prestashop.orders"]').count()>0,'La biblioteca muestra widgets de PrestaShop');
@@ -84,10 +97,12 @@ try{
  await page.locator('[data-home-config="store"]').selectOption('newoldsmok');
  assert.equal(await shopCash.locator('.home-opening-drawer').count(),1,'NewOldSmok muestra sus cajones reales');
  await page.locator('[data-home-command="remove"]').click();
- await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
+ await selectHomeWidget('shop-h');
  await page.locator('[data-home-config="width"]').selectOption('8');
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
+ await page.locator('.home-editor-advanced > summary').click();
  await page.locator('[data-home-config="tabletWidth"]').selectOption('4');
+ assert.equal(await page.locator('.home-editor-advanced').getAttribute('open'),'','La configuración avanzada permanece desplegada al cambiar ancho');
  await page.locator('[data-home-config="tabletHeight"]').selectOption('6');
  await page.locator('[data-home-config="mobileHeight"]').selectOption('7');
  await page.setViewportSize({width:768,height:900});
@@ -113,6 +128,7 @@ try{
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Recuperación de ocultos');
  await page.locator('[data-home-command="remove"]').click();
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'Quitar una instancia no elimina las demás');
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-command="add"][data-type="prestashop.summary"]').click();
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),3,'Una instancia retirada puede volver a añadirse desde el catálogo');
  await page.evaluate(async()=>{
@@ -121,6 +137,7 @@ try{
   state.data.expenses.push(row);
   window.__mockDb.ops_expenses.push(row);
  });
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-command="add"][data-type="expenses.pending"]').click();
  const fiscalWidget=page.locator('[data-home-type="expenses.pending"]');
  await fiscalWidget.getByText(/gastos con revisión fiscal pendiente/).waitFor();
