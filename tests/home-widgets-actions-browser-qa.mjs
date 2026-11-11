@@ -133,7 +133,7 @@ try{
  await page.locator('[data-home-config="chartMode"]').selectOption('hours');
  assert.equal(await page.locator('[data-home-widget="shop-h"] .home-chart-column').count(),24,'La gráfica de horas presenta 24 franjas');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
- await page.locator('[data-home-command="panel-library"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-command="add"][data-type="prestashop.top"]').click();
  const productWidget=page.locator('[data-home-type="prestashop.top"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.top"] .home-products-table tbody tr').length===4);
@@ -143,7 +143,7 @@ try{
  await page.locator('[data-home-config="productView"]').selectOption('bars');
  assert.equal(await productWidget.locator('.home-products-bars').count(),2,'La vista barras funciona separada por tienda');
  await page.locator('[data-home-config="topLimit"]').selectOption('8');
- await page.locator('[data-home-command="panel-library"]').click();
+ await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  await page.locator('[data-home-command="add"][data-type="prestashop.quality"]').click();
  const quality=page.locator('[data-home-type="prestashop.quality"]');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-type="prestashop.quality"] .home-quality-shop').length===2);
