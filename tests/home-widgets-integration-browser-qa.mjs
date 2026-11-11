@@ -74,7 +74,13 @@ try{
 
  await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
  assert(await page.locator('[data-home-command="add"][data-type="pricing.quick"]').isDisabled(),'No se añade otro formulario de precio con IDs repetidos');
- await page.locator('[data-home-command="select"][data-id="activity"]').click();
+ const selectHomeWidget=async id=>{
+  const close=page.locator('[data-home-command="close-panel"]');
+  if(await close.count())await close.click();
+  await page.locator('[data-home-command="select"][data-id="'+id+'"]').click();
+ };
+ 
+ await selectHomeWidget('activity');
  assert.equal(await page.locator('[data-home-drawer]').getAttribute('data-active-panel'),'widget','Seleccionar abre inspector contextual');
  assert(await page.locator('[data-home-command="duplicate"][data-id="activity"]').isDisabled(),'La gráfica con filtros vivos no se clona como formulario inerte');
  await page.locator('.home-toolbar-actions [data-home-command="panel-library"]').click();
@@ -91,7 +97,7 @@ try{
  await page.locator('[data-home-config="store"]').selectOption('newoldsmok');
  assert.equal(await shopCash.locator('.home-opening-drawer').count(),1,'NewOldSmok muestra sus cajones reales');
  await page.locator('[data-home-command="remove"]').click();
- await page.locator('[data-home-command="select"][data-id="shop-h"]').click();
+ await selectHomeWidget('shop-h');
  await page.locator('[data-home-config="width"]').selectOption('8');
  assert((await page.locator('[data-home-widget="shop-h"]').getAttribute('style')).includes('--span: 8'),'El tamaño cambia a 8 columnas');
  await page.locator('[data-home-config="tabletWidth"]').selectOption('4');
