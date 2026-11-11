@@ -200,3 +200,10 @@ html[data-appearance] .sidebar .nav-btn.active{background:var(--nav-active);colo
 .appearance-contrast-panel [data-contrast-status=warning]{color:var(--ink);font-weight:650}
 .appearance-contrast-panel small{color:var(--muted);font-size:11px}
 .appearance-contrast-panel button{justify-self:start;white-space:normal;text-align:left}
+
+
+/* Existing personal colours now reach secondary actions and neutral containers too. */
+html[data-appearance] #app .btn.secondary{background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance] #app .note:not(.warn):not(.bad){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance] #app .module-tabs{background:var(--appearance-surface);color:var(--ink)}
+html[data-appearance] #app :is(.filters,.attachment-box):not(.emphasis-check){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
