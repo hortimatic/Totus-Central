@@ -7,6 +7,8 @@ on:
 jobs:
   appearance-colors-browser-smoke:
     runs-on: ubuntu-24.04
+    env:
+      TOTUS_START_SERVER: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
