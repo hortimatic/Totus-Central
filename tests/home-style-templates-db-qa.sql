@@ -49,8 +49,18 @@ begin
 end$test$;
 
 select public.qa_assert(jsonb_array_length(public.totus_home_styles('list',null,null)->'items')=1,'Biblioteca incluye diseño publicado');
+-- Un miembro activo con permiso de lectura puede publicar y retirar
+-- su propia preferencia visual, aun sin permiso de edición de negocios.
 select set_config('totus.qa_no_edit','yes',false);
-select public.qa_assert(public.qa_style_rejected('publish',null,'Publicación bloqueada'),'Permiso de edición necesario');
+do $test$
+declare id uuid; response jsonb;
+begin
+ response:=public.totus_home_styles('publish',null,'Estilo personal de lector',(public.totus_home_dashboard('read',null,null)->>'revision')::integer);
+ id:=(response->>'id')::uuid;
+ perform public.qa_assert((response->>'published')='true','Un lector activo puede compartir su propio estilo');
+ perform public.totus_home_styles('remove',id,null);
+ perform public.qa_assert(public.qa_style_rejected('read',id,null),'Un lector puede retirar solamente el estilo propio');
+end$test$;
 select set_config('totus.qa_no_edit','no',false);
 
 select set_config('request.jwt.claims','{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","email":"qa-two@example.invalid"}',false);
