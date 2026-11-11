@@ -207,6 +207,7 @@ jobs:
       - run: node tests/personal-interface-qa.mjs
       - run: node tests/interface-styles-qa.mjs
       - run: node tests/appearance-qa.mjs
+      - run: node tests/appearance-style-share-qa.mjs
       - run: node tests/appearance-tools-qa.mjs
       - run: node tests/chat-personalization-qa.mjs
       - run: node tests/chat-alerts-qa.mjs
