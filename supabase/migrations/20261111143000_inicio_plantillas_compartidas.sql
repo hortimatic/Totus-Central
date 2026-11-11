@@ -17,12 +17,14 @@ create unique index totus_home_style_owner_name_live
 create or replace function private.totus_home_styles(
  p_action text,
  p_template_id uuid default null,
- p_name text default null
+ p_name text default null,
+ p_expected_revision integer default null
 ) returns jsonb
 language plpgsql security definer set search_path = '' as $func$
 declare
  uid uuid := auth.uid();
  saved jsonb;
+ current_snapshot jsonb;
  clean jsonb;
  normalized_name text;
  saved_id uuid;
@@ -95,8 +97,12 @@ begin
  then raise exception 'El nombre debe tener entre 3 y 60 caracteres';end if;
  if (select pg_catalog.count(*) from private.totus_home_style_templates where owner_id=uid and deleted_at is null)>=20
  then raise exception 'Límite de 20 plantillas por usuario';end if;
- select p.ui_preferences->'home_dashboard'->'layout' into saved
- from public.profiles p where p.id=uid;
+ select p.ui_preferences->'home_dashboard' into current_snapshot
+ from public.profiles p where p.id=uid for share;
+ if p_expected_revision is null or current_snapshot is null
+  or (current_snapshot->>'revision')::integer is distinct from p_expected_revision
+ then raise exception 'El Inicio personal cambió en otra sesión. Recarga y verifica antes de compartir.' using errcode='40001';end if;
+ saved:=current_snapshot->'layout';
  if saved is null or saved->>'schemaVersion'<>'1' or pg_catalog.jsonb_typeof(saved->'widgets')<>'array'
  then raise exception 'Guarda primero tu propio Inicio antes de publicar una plantilla';end if;
 
@@ -156,17 +162,18 @@ exception when unique_violation then
  raise exception 'Ya tienes una plantilla publicada con ese nombre';
 end
 $func$;
-revoke all on function private.totus_home_styles(text,uuid,text) from public,anon,authenticated;
+revoke all on function private.totus_home_styles(text,uuid,text,integer) from public,anon,authenticated;
 
 -- Public authenticated entry mirrors the established Totus private-RPC bridge.
 -- All authorization, identity, ownership and payload restrictions are server-side.
 create or replace function public.totus_home_styles(
  p_action text,
  p_template_id uuid default null,
- p_name text default null
+ p_name text default null,
+ p_expected_revision integer default null
 ) returns jsonb
 language sql security definer set search_path = '' as $func$
- select private.totus_home_styles(p_action,p_template_id,p_name)
+ select private.totus_home_styles(p_action,p_template_id,p_name,p_expected_revision)
 $func$;
-revoke all on function public.totus_home_styles(text,uuid,text) from public,anon;
-grant execute on function public.totus_home_styles(text,uuid,text) to authenticated;
+revoke all on function public.totus_home_styles(text,uuid,text,integer) from public,anon;
+grant execute on function public.totus_home_styles(text,uuid,text,integer) to authenticated;
