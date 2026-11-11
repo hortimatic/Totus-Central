@@ -158,3 +158,21 @@ html[data-appearance=dark] .appearance-page>.card:first-child,html[data-appearan
 .appearance-preview[data-preview-size=mobile] .appearance-demo-cards,.appearance-preview[data-preview-size=mobile] .appearance-demo-fields{grid-template-columns:1fr}
 .appearance-preview[data-preview-size=mobile] .appearance-demo>aside{padding:6px}
 .appearance-preview[data-preview-size=mobile] .appearance-demo-nav{font-size:9px;padding:7px 3px}
+
+
+/* Opt-in text and neutral control contrast across existing module surfaces.
+   Semantic warning/error colors remain owned by their components. */
+html[data-appearance] :is(.topbar,.topbar h1,.topbar .eyebrow,.field label,.form-grid>label,.section-head h2,.section-head h3,.record-toolbar h2){color:var(--ink)}
+html[data-appearance] :is(.topbar .eyebrow,.kpi small,.pagination,.metric-box span){color:var(--muted)}
+html[data-appearance] :is(.module-tabs,.tabs,.filters){color:var(--ink);border-color:var(--line)}
+html[data-appearance] :is(.tab,.module-tabs button){color:var(--muted)}
+html[data-appearance] :is(.tab.active,.module-tabs button.active){color:var(--accent)}
+html[data-appearance] :is(.data-table th,.data-table td){color:var(--ink);border-color:var(--line)}
+html[data-appearance] .data-table th{color:var(--muted)}
+html[data-appearance=dark] :is(.topbar,.card,.kpi,.table-wrap,.data-table,.modal,.modal-head,.module-tabs,.filters,.tabs,.attachment-box,.check-field:not(.emphasis-check),.file-picker){background:var(--appearance-surface);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.data-table th,.data-table tr:hover td,.table-wrap::before){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.field input,.field select,.field textarea,.form-grid input,.form-grid select,.form-grid textarea,.search input){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.btn.secondary,.close-btn,.icon-btn){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] :is(.note:not(.warn):not(.bad),.badge:not(.ok):not(.warn):not(.bad):not(.info)){background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-appearance=dark] .summary-row{border-color:var(--line)}
+html[data-appearance] :is(.field input,.field select,.field textarea,.form-grid input,.form-grid select,.form-grid textarea):focus-visible{outline:2px solid var(--appearance-accent);outline-offset:1px}
