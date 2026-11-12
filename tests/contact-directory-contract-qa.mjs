@@ -19,12 +19,15 @@ test('customer fields are editable but passwords and session secrets can neither
  assert.throws(()=>directoryMutation({...q,action:'prestashop_directory_commit',confirmed:true,fingerprint:'wrong'}));
  assert.throws(()=>directoryMutation({...q,fields:{birthday:'2026-02-30'}}));
  assert.equal(directoryMutation({...q,fields:{birthday:'2024-02-29'}}).fields.birthday,'2024-02-29');
+ assert.throws(()=>directoryMutation({...q,fields:{firstname:'a'.repeat(256)}}));
+ assert.equal(directoryMutation({...q,fields:{firstname:'é'.repeat(255)}}).fields.firstname.length,255);
 });
 test('writes validate names, identifiers, fields and required data before any transport',()=>{
  const q={...identity,kind:'atributos',action:'prestashop_directory_prepare',resource:'product_option_values',operation:'create',request_id:uuid,fields:{name:'Azul',id_attribute_group:'2',color:'#0000ff'}};
  assert.equal(directoryMutation(q).fields.name,'Azul');assert.throws(()=>directoryMutation({...q,fields:{name:'Azul'}}));assert.throws(()=>directoryMutation({...q,fields:{...q.fields,id_attribute_group:'1|2'}}));
  assert.throws(()=>directoryMutation({...q,operation:'delete',record_id:'2'}));
  assert.throws(()=>directoryMutation({...q,kind:'proveedores',resource:'addresses',fields:{id_customer:'5'}}));
+ assert.throws(()=>directoryMutation({...q,kind:'clientes',resource:'addresses',operation:'update',record_id:'2',fields:{alias:'a'.repeat(33)}}));
 });
 test('directory drops unknown data and retains only typed native associations and languages',()=>{
  assert.deepEqual(directoryRows({manufacturers:[{id:'1',name:'Marca',meta_title:[{id:'1',value:'Título'}],extra:{secret:true}}]},'manufacturers',20),[{id:'1',name:'Marca',meta_title:[{id:'1',value:'Título'}]}]);

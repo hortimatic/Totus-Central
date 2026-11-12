@@ -45,3 +45,22 @@ Productos. El cliente no puede elegir otro módulo para ampliar sus permisos.
 
 Pruebas actuales: siete casos locales de contrato y transporte, con respuestas
 simuladas. No se consideran pruebas de sincronización completa ni de escritura.
+
+## Contraste con PrestaShop 1.7.8.11
+
+Revisado el código oficial de [Customer.php](https://github.com/PrestaShop/PrestaShop/blob/1.7.8.11/classes/Customer.php)
+y [Address.php](https://github.com/PrestaShop/PrestaShop/blob/1.7.8.11/classes/Address.php):
+
+- `Customer::addWs` y `updateWs` comprueban la existencia del correo; su rechazo
+  puede llegar como HTTP 500. No interpretar un 500 como prueba de ausencia ni
+  repetir un alta sin consultar antes su resultado.
+- La contraseña es obligatoria al crear clientes y utiliza `setWsPasswd`. Una
+  edición de datos comerciales debe conservarla exactamente; no regenerarla.
+- El borrado de clientes tiene efectos sobre direcciones y otras relaciones.
+  No tratarlo como una eliminación inocua de una fila local.
+- Las direcciones tienen titular y país; ciudad, alias y calle son obligatorios.
+  Respetar los tamaños nativos: alias 32, calle 128, ciudad 64, código postal 12,
+  teléfonos 32 y DNI 16 caracteres.
+
+Estas comprobaciones son estudio de código, no una prueba de alta real. Los
+límites de tamaño de Cliente/Dirección ya se validan y tienen pruebas locales; la integración de altas y ediciones sigue pendiente.

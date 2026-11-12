@@ -23,6 +23,8 @@ const readonly=new Set(['id','date_add','date_upd','id_shop','id_shop_group','de
 export const DIRECTORY_WRITABLE=Object.freeze(Object.fromEntries(['customers','addresses','suppliers','manufacturers','product_options','product_option_values','product_features','product_feature_values'].map(resource=>[resource,DIRECTORY_FIELDS[resource].filter(f=>!readonly.has(f))])));
 const id=/^[1-9]\d{0,14}$/,uuid=/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 const flag=new Set(['active','newsletter','optin','is_guest','show_public_prices','custom']);
+// Native limits from PrestaShop 1.7.8.11 Customer/Address definitions.
+const nativeLimits={customers:{firstname:255,lastname:255,email:255},addresses:{alias:32,company:255,firstname:255,lastname:255,address1:128,address2:128,postcode:12,city:64,other:300,phone:32,phone_mobile:32,dni:16}};
 export const DIRECTORY_LOCALIZED=new Set(['description','short_description','meta_title','meta_description','meta_keywords','public_name','value']);
 export const directoryLocalized=(resource,field)=>DIRECTORY_LOCALIZED.has(field)||(field==='name'&&['product_options','product_option_values','product_features'].includes(resource));
 export function directoryQuery(input){
@@ -52,7 +54,8 @@ export function directoryMutation(input){
  const fields={};
  for(const [field,raw]of Object.entries(input.fields)){
   if(!DIRECTORY_WRITABLE[resource].includes(field)||typeof raw!=='string'||raw.length>100000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(raw))throw Error('Campo no editable: '+field);
-  const value=raw.trim();if(flag.has(field)&&!['0','1'].includes(value))throw Error('Indicador no válido: '+field);
+  const value=raw.trim();if(nativeLimits[resource]?.[field]&&Array.from(value).length>nativeLimits[resource][field])throw Error('El campo '+field+' supera el tamaño permitido por PrestaShop.');
+  if(flag.has(field)&&!['0','1'].includes(value))throw Error('Indicador no válido: '+field);
   if(field.startsWith('id_')&&!/^(0|[1-9]\d{0,14})$/.test(value))throw Error('Relación no válida: '+field);
   if(['firstname','lastname','name','public_name','value','address1','city','alias'].includes(field)&&(!value||/[<>={}]/.test(value)))throw Error('Texto no válido: '+field);
   if(field==='email'&&!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value))throw Error('Email no válido.');
