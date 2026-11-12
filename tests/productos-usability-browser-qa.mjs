@@ -55,7 +55,7 @@ try{for(const width of [390,768,1024,1440]){
  const web=page.locator('.prd-catalog-table tbody tr').first().getByRole('link',{name:'Ver en la web ↗',exact:true});
  assert.match(await web.getAttribute('href'),/^https:\/\/hortimatic.com\/index.php\?controller=product&id_product=\d+$/);
  assert.equal(await web.getAttribute('target'),'_blank');assert.match(await web.getAttribute('rel'),/noopener/);
- const tabs=await page.getByRole('tab').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect()));assert(tabs.every((r,i)=>r.width>45&&(i===0||r.x>=tabs[i-1].right-1)),'Five tabs have usable, non-overlapping widths');
+ const tabs=await page.getByRole('tab').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect()));assert(tabs.every((r,i)=>r.width>45&&(i===0||r.x>=tabs[i-1].right-1)),'Six tabs have usable, non-overlapping widths');
  assert((await page.locator('.prd-v4-header').boundingBox()).height<90,'Compact workspace header');
  await page.screenshot({path:'qa-artifacts/productos-usability-catalog-'+width+'.png',fullPage:false});
  await page.getByRole('button',{name:'Buscar en Todas las marcas',exact:true}).click();
