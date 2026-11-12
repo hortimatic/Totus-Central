@@ -717,6 +717,8 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/038_personal_workspace.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-workspace-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/078_account_profile_notebook.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/account-profile-db-qa.sql
 
   cloudflare-agent:
     uses: ./.github/workflows/cloudflare-agent.yml
