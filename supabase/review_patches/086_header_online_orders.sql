@@ -1,6 +1,7 @@
 -- Reuse deliveries made by the existing scheduler: never infer online from payment.
 -- Preferences are personal; access still requires sales and channel membership.
 begin;
+create index if not exists totus_online_deliveries_recent_idx on private.totus_prestashop_deliveries(created_at desc);
 create or replace function public.totus_header_online_orders(p_action text default 'read',p_data jsonb default '{}') returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare prefs jsonb; config jsonb; uid uuid=auth.uid(); items jsonb; rules integer;

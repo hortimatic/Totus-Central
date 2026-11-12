@@ -9,7 +9,7 @@ export function calendarShift(anchor,view,step){
  return d.toISOString().slice(0,7)+'-'+String(Math.min(last,Number(anchor.slice(-2)))).padStart(2,'0');
 }
 export function createHomeTaskCalendar({rpc,actor,can,onOpen=()=>{}}){
- let host=null,owner=null,generation=0,view='month',anchor=taskToday(),data=null,key='',error='',busy=false,selectedUser='';
+ let host=null,owner=null,generation=0,view='month',anchor=taskToday(),data=null,key='',error='',busy=false,selectedUser='',followToday=true;
  const current=(el,n,who)=>host===el&&el.isConnected&&generation===n&&actor()===who;
  function render(){
   if(!host?.isConnected)return;
@@ -32,12 +32,14 @@ export function createHomeTaskCalendar({rpc,actor,can,onOpen=()=>{}}){
   }catch(e){if(current(el,n,who))error=e.message||'No se pudo consultar el calendario.';}
   finally{if(current(el,n,who)){busy=false;render();}}
  }
+ const visible=()=>{if(document.visibilityState==='visible'&&host&&followToday&&anchor!==taskToday()){anchor=taskToday();void refresh(true);}};
  function mount(el){
-  dispose();host=el;if(owner!==actor()){owner=actor();anchor=taskToday();view='month';data=null;key='';selectedUser='';}
-  host.onclick=e=>{const b=e.target.closest('[data-ht-action]');if(!b||b.disabled||!can())return;e.stopPropagation();const action=b.dataset.htAction;if(action==='open'){onOpen(anchor);return;}if(action==='refresh'){void refresh(true);return;}if(action==='view'){if(!['day','week','month'].includes(b.dataset.view))return;view=b.dataset.view;}if(action==='today')anchor=taskToday();if(action==='previous'||action==='next')anchor=calendarShift(anchor,view,action==='previous'?-1:1);if(action==='date')anchor=taskDate(b.dataset.date);void refresh();};
-  host.onchange=e=>{if(e.target.matches('[data-ht-user]')&&data?.can_select_users){selectedUser=e.target.value;render();return;}if(e.target.matches('[data-ht-date]')){try{anchor=taskDate(e.target.value);void refresh();}catch{error='Fecha no válida.';render();}}};
+  dispose();host=el;if(owner!==actor()){owner=actor();anchor=taskToday();view='month';data=null;key='';selectedUser='';followToday=true;}
+  if(followToday)anchor=taskToday();document.addEventListener('visibilitychange',visible);
+  host.onclick=e=>{const b=e.target.closest('[data-ht-action]');if(!b||b.disabled||!can())return;e.stopPropagation();const action=b.dataset.htAction;if(action==='open'){onOpen(anchor);return;}if(action==='refresh'){void refresh(true);return;}if(action==='view'){if(!['day','week','month'].includes(b.dataset.view))return;view=b.dataset.view;}if(action==='today'){followToday=true;anchor=taskToday();}if(action==='previous'||action==='next'){followToday=false;anchor=calendarShift(anchor,view,action==='previous'?-1:1);}if(action==='date'){followToday=false;anchor=taskDate(b.dataset.date);}void refresh();};
+  host.onchange=e=>{if(e.target.matches('[data-ht-user]')&&data?.can_select_users){selectedUser=e.target.value;render();return;}if(e.target.matches('[data-ht-date]')){try{followToday=false;anchor=taskDate(e.target.value);void refresh();}catch{error='Fecha no válida.';render();}}};
   render();void refresh();
  }
- function dispose(){generation++;if(host){host.onclick=null;host.onchange=null;}host=null;busy=false;}
+ function dispose(){document.removeEventListener('visibilitychange',visible);generation++;if(host){host.onclick=null;host.onchange=null;}host=null;busy=false;}
  return {mount,dispose,reset(){dispose();data=null;key='';owner=null;}};
 }

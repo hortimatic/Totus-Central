@@ -26,7 +26,7 @@ export function createContactDirectoryUI({rpc,invoke,actor,can,confirm=async()=>
   if(!valid()||source==='local')return;
   const host=root.querySelector('[data-directory-shop]'),view=directoryPage(rows,{search,active,page,layout,languageId});page=view.page;
   const selected=layout.columns,span=selected.length+2;
-  const baseWidth=key=>key==='actions'?236:key==='id'?88:['description','meta_description','address1'].includes(key)?250:key.includes('date')?160:170;
+  const baseWidth=key=>key==='actions'?236:key==='id'?88:key==='name'&&['marcas','proveedores'].includes(kind)?250:['description','meta_description','address1'].includes(key)?250:key.includes('date')?160:170;
   const width=key=>layout.widths[key]||baseWidth(key);
   const focus=host.contains(document.activeElement)&&document.activeElement.matches('[data-directory-search]')?{start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd}:null;
   host._directoryLogoError||host.addEventListener('error',host._directoryLogoError=event=>{const image=event.target;if(image instanceof HTMLImageElement&&image.closest('.directory-logo')){image.hidden=true;image.nextElementSibling.hidden=false;}},true);
