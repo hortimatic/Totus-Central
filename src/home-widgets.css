@@ -267,6 +267,15 @@
 .dashboard-page .home-period-nav small{color:var(--muted,#607187);font-size:11px;white-space:normal}
 .dashboard-page .home-period-dates{display:flex;flex-wrap:wrap;gap:7px;align-items:end}
 .dashboard-page .home-period-dates label{font-size:11px;display:flex;flex-direction:column;gap:3px}
+.dashboard-page .home-period-controls{align-items:end}
+.dashboard-page .home-period-dates{flex:1 1 280px;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr))}
+.dashboard-page .home-period-dates :is(input,select){width:100%;max-width:none;box-sizing:border-box;min-height:34px}
+.dashboard-page .home-period-mode{flex-basis:100%;font-size:11px;color:var(--muted)}
+.home-top-item{display:flex;align-items:center;gap:10px;min-width:0}
+.home-top-item img{width:48px;height:48px;object-fit:contain;flex:none;background:var(--panel,#fff);border-radius:6px}
+.home-top-item>span{min-width:0;overflow-wrap:anywhere}
+.home-top-item small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.home-ps-metric>button{font:inherit;font-size:11px;color:var(--accent);background:none;border:0;padding:5px 0;cursor:pointer;text-align:left}
 .dashboard-page .home-period-dates input{min-width:0;max-width:150px;padding:5px;border-radius:7px;border:1px solid var(--line,#dce5ee);background:var(--panel,#fff);color:var(--ink,#172033)}
 @container (max-width:750px){
  .home-ps-panels{grid-template-columns:minmax(0,1fr)!important}

@@ -34,13 +34,17 @@ try{
   fnMarker,
   " if(name==='totus-connections'){",
   "  const a=options?.body||{},shop=a.store,resource=a.resource,day=new Date().toISOString().slice(0,10);",
+  "  if(a.action==='prestashop_item_read'&&resource==='combinations')return {data:{ok:true,store:shop,item:{id:a.record_id,id_product:'11',wholesale_price:'4'}},error:null};",
   "  if(a.action!=='prestashop_read')return {data:{error:'Acción no simulada'},error:null};",
   "  let rows=[];",
   "  if(resource==='orders'&&a.page===0)rows=Array.from({length:24},(_,i)=>({",
   "   id:String((shop==='hortimatic'?7000:8000)+i),reference:'QA-R'+i,date_add:day+' 12:00:00',",
-  "   total_paid_tax_incl:'12.500000',total_paid_tax_excl:'10.330000',id_currency:'1',payment:'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
+  "   total_paid_tax_incl:'12.500000',total_paid_tax_excl:'10.330000',total_shipping_tax_excl:'0',total_wrapping_tax_excl:'0',id_currency:'1',payment:i%3===0?'Bizum':i%3===1?'Transferencia bancaria':'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
   "  }));",
   "  if(resource==='products'&&a.page===0)rows=[{id:'101',name:'QA Producto A',reference:'',ean13:'',weight:'0'},{id:'102',name:'QA Producto B',reference:'SKU102',ean13:'1234567890123',weight:'0.1'},{id:'103',name:'QA Producto C',reference:'SKU103',ean13:'1234567890123',weight:'0.2'}];",
+  "  if(resource==='products'&&a.product_ids)rows=a.product_ids.map(id=>({id,name:'QA Producto',wholesale_price:'3',id_default_image:'40'}));",
+  "  if(resource==='order_histories')rows=(a.order_ids||[]).map(id=>({id:String(200000+Number(id)),id_order:id,id_employee:'2',date_add:day+' 12:00:00'}));",
+  "  if(resource==='employees')rows=[{id:'2',firstname:'Persona',lastname:'QA'}];",
   "  if(resource==='currencies')rows=[{id:'1',iso_code:'EUR'}];",
   "  if(resource==='order_details')rows=(a.order_ids||[]).map(id=>({",
   "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_attribute_id:Number(id)%2?'10':'20',product_reference:Number(id)%2?'SKU-QA-10':'SKU-QA-0',product_name:Number(id)%2?'Producto QA 10 mg':'Producto QA 0 mg',product_quantity:'1',",
@@ -85,12 +89,18 @@ try{
  assert.equal(await summary.locator('[data-home-filter="to"]').count(),1,'Hasta personalizado');
  assert.equal(await page.locator('[data-home-widget="shop-n"] [data-home-command="period-custom"]').getAttribute('aria-pressed'),'true','Los periodos de las tiendas son independientes');
  const orders=page.locator('[data-home-widget="orders"]');
+ assert((await summary.locator('.home-ps-metrics').innerText()).includes('151,92'), 'Summary calculates shared commercial margin');
+ assert.equal(await summary.locator('.home-ps-top img').count(),2,'Each ranked variant has a product picture');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
  const today=new Date().toISOString().slice(0,10);
  await orders.locator('[data-home-filter="from"]').fill(today);
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
  assert.equal(await orders.locator('[data-home-filter="from"]').inputValue(),today,'El periodo se cambia desde la propia tabla');
  assert.equal(await orders.locator('.home-orders-table [data-home-command="open-order"]').count(),10);
+ const options=await orders.locator('[data-home-filter="payment"] option').allTextContents();
+ assert(options.includes('Bizum')&&options.includes('Transferencia bancaria'),'Payment filters use all native payment names');
+ assert((await orders.locator('tbody').innerText()).includes('Persona QA'),'Native initial registration employee is represented');
+ assert((await orders.locator('tbody').innerText()).includes('6,33'),'Each order displays its calculated margin');
  assert.equal(await orders.locator('.home-order-product-line').count(),10,'Los diez pedidos muestran sus productos recuperados por línea');
  assert((await orders.locator('.home-order-product-line').first().innerText()).includes('Producto QA'),'Las unidades y nombres proceden de order_details');
  assert((await orders.locator('thead th').allTextContents()).some(label=>label.trim()==='Atendido por'),'La columna de atención existe aunque esté fuera del viewport horizontal');

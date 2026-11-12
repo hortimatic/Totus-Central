@@ -16,7 +16,7 @@ jobs:
           node-version: 22
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install chromium
-      - name: Check actual appearance CSS colors on three screen sizes
+      - name: Check actual appearance CSS colors on five screen sizes
         run: node tests/appearance-element-colors-browser-qa.mjs
       - name: Check style sharing with two simulated accounts
         run: node tests/interface-styles-browser-qa.mjs
@@ -55,7 +55,9 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install chromium
       - name: Validate pure widget logic
-        run: node tests/home-widgets-core-qa.mjs
+        run: |
+          node tests/home-widgets-core-qa.mjs
+          node tests/home-order-enrichment-qa.mjs
       - name: Validate integration and layout with Playwright
         run: node tests/home-widgets-integration-browser-qa.mjs
       - name: Validate buttons, real filtering and navigation with Playwright
