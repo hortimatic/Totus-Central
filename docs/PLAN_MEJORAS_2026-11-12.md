@@ -6,26 +6,26 @@ Este registro recoge las 26 anotaciones de Diego. Pendiente significa pendiente:
 
 | Nº | Petición | Entrega verificable | Estado inicial |
 |---|---|---|---|
-| 1 | Color del reloj | Hereda Texto de cabecera de Interfaz y persiste tras recargar | Implementado/comprobado en local; sin publicar |
+| 1 | Color del reloj | Hereda Texto de cabecera de Interfaz y persiste tras recargar | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 2 | Clientes por tienda | Lectura completa, tabla configurable, ficha editable, direcciones, pedidos, gasto y margen, publicación y relectura | Pendiente |
 | 3 | Proveedores por tienda | Mismo patrón; separar proveedor comercial PrestaShop del fiscal de Totus sin perder relaciones | Pendiente |
 | 4 | Navegación | Secciones coherentes conservando orden y preferencias personales existentes | Pendiente |
-| 5 | Atributos por tienda | Pestaña propia, grupos y valores, asociados, crear/editar/eliminar y releer | Pendiente |
+| 5 | Atributos por tienda | Pestaña propia, grupos y valores, asociados, crear/editar/eliminar y releer | Segundo bloque en preparación; alcance y límites en CATALOGO_ATRIBUTOS_MANUAL_2026-11-12.md |
 | 6 | Gastos recurrentes | Previsión, frecuencia, vencimientos, avisos configurables e historial sin duplicar gasto contabilizado | Pendiente |
 | 7 | Ventas | Módulo con resúmenes, pedidos, pagos, márgenes, filtros y avisos por tienda reutilizando Automatizaciones | Pendiente |
-| 8 | Margen en pedidos de Inicio | Cálculo compartido con Pedidos y ventas, cobertura y unidades coherentes | Implementado/comprobado en local; sin publicar |
+| 8 | Margen en pedidos de Inicio | Cálculo compartido con Pedidos y ventas, cobertura y unidades coherentes | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 9 | Atendido por en Inicio | Evidencia de pedido/empleado; no inferir por coincidencia de horario | Pendiente de fuente TPV |
-| 10 | Filtros de periodo | Alineados en móvil, tableta y escritorio sin desbordar | Implementado/comprobado en local; sin publicar |
-| 11 | Medios de pago | Mostrar todos los recibidos de la tienda, incluidos Bizum/transferencia cuando existan | Implementado/comprobado en local; sin publicar |
-| 12 | Margen comercial resumen | Reutilizar cálculo real, distinguir parcial, cero y falta de datos | Implementado/comprobado en local; sin publicar |
-| 13 | Calidad de catálogo Inicio | Mostrar cobertura, recuentos y acción útil para consultar incidencias | Pendiente |
-| 14 | Fecha automática | Periodos relativos actualizados; fechas elegidas manualmente conservadas | Implementado/comprobado en local; sin publicar |
-| 15 | Más vendidos | Foto, referencia, variante y unidades con enlace a ficha | Implementado/comprobado en local; sin publicar |
+| 10 | Filtros de periodo | Alineados en móvil, tableta y escritorio sin desbordar | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
+| 11 | Medios de pago | Mostrar todos los recibidos de la tienda, incluidos Bizum/transferencia cuando existan | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
+| 12 | Margen comercial resumen | Reutilizar cálculo real, distinguir parcial, cero y falta de datos | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
+| 13 | Calidad de catálogo Inicio | Mostrar cobertura, recuentos y acción útil para consultar incidencias | Segundo bloque en preparación; alcance y límites en CATALOGO_ATRIBUTOS_MANUAL_2026-11-12.md |
+| 14 | Fecha automática | Periodos relativos actualizados; fechas elegidas manualmente conservadas | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
+| 15 | Más vendidos | Foto, referencia, variante y unidades con enlace a ficha | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 16 | Gráfica | Separar margen comercial de ingresos menos gastos y beneficio neto | Pendiente |
-| 17 | Gestor de atributos | Sustituir modal confuso por navegación clara grupo → valores → productos | Pendiente |
-| 18 | Categorías | Árbol padre/hijos buscable, múltiples asociadas y principal explícita | Implementado/comprobado en local; sin publicar |
-| 19 | Calidad práctica | Filtros de incidencias que abren productos afectados y permiten corregir | Pendiente |
-| 20 | Avisos de catálogo | Totales, alcance y fecha de última lectura; no guiones sin explicación | Pendiente |
+| 17 | Gestor de atributos | Sustituir modal confuso por navegación clara grupo → valores → productos | Segundo bloque en preparación; alcance y límites en CATALOGO_ATRIBUTOS_MANUAL_2026-11-12.md |
+| 18 | Categorías | Árbol padre/hijos buscable, múltiples asociadas y principal explícita | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
+| 19 | Calidad práctica | Filtros de incidencias que abren productos afectados y permiten corregir | Segundo bloque en preparación; alcance y límites en CATALOGO_ATRIBUTOS_MANUAL_2026-11-12.md |
+| 20 | Avisos de catálogo | Totales, alcance y fecha de última lectura; no guiones sin explicación | Segundo bloque en preparación; alcance y límites en CATALOGO_ATRIBUTOS_MANUAL_2026-11-12.md |
 | 21 | Simetría Inicio | Tipografía, alturas y saltos de línea adaptados al contenedor | Pendiente |
 | 22 | Calendario tareas | Día/semana/mes integrado en el widget sin aumentar su ancho | Pendiente |
 | 23 | Proveedores duplicados | Unificar acceso solo después de sincronización y contraste de relaciones | Pendiente |

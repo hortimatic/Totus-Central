@@ -10,6 +10,8 @@ import {prestashopReadiness} from './prestashop-ui.js';
 import {enrichHomeOrderLines,homeOrderMargin,homeMarginTotal} from './home-order-enrichment.js';
 import {loadOrderSellers} from './prestashop-order-seller.js';
 import {sourceCents,catalogIssues} from './prestashop-insights.js';
+import {catalogQualityReport,qualityReadLabel} from './catalog-quality.js';
+import {prestashopProductImage} from './prestashop-readonly.js';
 import {archiveAccepted} from './historical-acceptance.js';
 
 const defaultSpecs=[
@@ -197,16 +199,14 @@ function prestashopProductsTable(w,data){
  }).join('');
  return '<div class="home-products-widget">'+periodControls(w)+sections+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar productos vendidos</button><button type="button" class="btn secondary" data-home-command="open-orders" data-id="'+esc(w.id)+'">Abrir pedidos originales</button></div></div>';
 }
-function prestashopCatalogQuality(w,data){
+function prestashopCatalogQuality(w,data,canOpen=false){
  const scope=safeStore(w.scope.store),shops=scope==='all'?PRESTASHOP_STORES.map(x=>x.key):[scope];
  return '<div class="home-catalog-quality">'+shops.map(shop=>{
   const current=data.get(shop);
   if(!current)return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p class="small muted">Sin consulta de catálogo. Pulsa Actualizar calidad.</p></section>';
   if(current.error)return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p role="alert">'+esc(current.error)+'</p></section>';
-  const issues=current.issues||[],rows=issues.filter(x=>x.issues.length>0);
-  const complete=current.complete,counts=[['Sin referencia',rows.filter(x=>x.issues.includes('Sin referencia')).length],['EAN por revisar',rows.filter(x=>x.issues.some(y=>y.includes('EAN'))).length],['Peso pendiente',rows.filter(x=>x.issues.some(y=>y.includes('Peso'))).length]];
-  const info=complete?'Catálogo consultado completo':'Consulta parcial: los totales no representan el catálogo completo';
-  return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p class="small muted">'+esc(info)+' · '+esc(String(current.rows.length))+' productos leídos</p><div class="home-quality-metrics">'+counts.map(([label,n])=>'<div><small>'+esc(label)+'</small><strong>'+esc(String(n))+(complete?'':' o más')+'</strong></div>').join('')+'</div><div class="home-quality-list">'+rows.slice(0,8).map(row=>'<div><span><b>'+esc(row.name||'Producto #'+row.id)+'</b><small>'+esc(row.reference||'Sin referencia')+'</small></span><small>'+esc(row.issues.join(' · '))+'</small></div>').join('')+(rows.length?'':'<p class="small muted">Sin incidencias en las fichas leídas.</p>')+'</div></section>';
+  const report=catalogQualityReport(current.rows,{complete:current.complete,readAt:current.readAt}),rows=report.rows.filter(x=>x.qualityChecks.length),labels=new Map(report.checks.map(c=>[c.id,c.label]));
+  return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p class="small muted">'+esc(qualityReadLabel(report))+'</p><p>'+report.affected+' fichas con avisos'+(report.complete?'':'; resultado parcial')+'. Una ficha puede tener varios avisos.</p><div class="home-quality-metrics">'+report.checks.map(c=>'<div title="'+esc(c.help)+'"><small>'+esc(c.label)+'</small><strong>'+c.count+'</strong></div>').join('')+'</div><div class="home-quality-list">'+rows.slice(0,8).map(row=>{const image=prestashopProductImage(shop,row.id_default_image);return '<article class="home-quality-product">'+(image?'<img src="'+esc(image)+'" alt="" loading="lazy">':'<span class="home-quality-no-photo">Sin foto</span>')+'<div><b>'+esc(row.name||'Producto #'+row.id)+'</b><small>#'+esc(row.id)+' · '+esc(row.reference||'Sin referencia')+'</small><small>'+esc(row.qualityChecks.map(id=>labels.get(id)).join(' · '))+'</small></div>'+(canOpen?'<button type="button" class="btn secondary" data-home-command="quality-product" data-shop="'+esc(shop)+'" data-product-id="'+esc(row.id)+'">Abrir ficha</button>':'')+'</article>';}).join('')+(rows.length>8?'<p class="small muted">Mostrando 8 de '+rows.length+' fichas con avisos. Abre Catálogo para recorrer el resto.</p>':rows.length?'':'<p class="small muted">Sin incidencias en las fichas leídas.</p>')+'</div></section>';
  }).join('')+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar calidad</button><button type="button" class="btn secondary" data-home-command="open-prestashop-tab" data-tab="catalog">Abrir catálogo</button></div></div>';
 }
 
@@ -278,7 +278,7 @@ function configureOrderColumns(host,w){
   HOME_ORDER_COLUMNS.filter(key=>!visible.includes(key)).forEach(key=>cells[HOME_ORDER_COLUMNS.indexOf(key)].remove());
  }
 }
-export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenExpense=()=>{}}){
+export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenProduct=null,onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
@@ -292,7 +292,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const freshWidget=(w)=>{
   if(w.type==='cash.openings'&&safeStore(w.scope.store)!=='all')return storeOpeningWidget(w);
   if(w.type==='prestashop.summary')return psSummary(w,dataFor(w),catalogData.get(safeStore(w.scope.store)));
-  if(w.type==='prestashop.quality')return prestashopCatalogQuality(w,catalogData);
+  if(w.type==='prestashop.quality')return prestashopCatalogQuality(w,catalogData,!!onOpenProduct&&can('productos','view'));
   if(w.type==='prestashop.orders')return psOrders(w,dataFor(w));
   if(w.type==='prestashop.top')return prestashopProductsTable(w,dataFor(w));
   if(w.type==='home.gain')return `<div class="home-gain-empty"><strong>Sin validar</strong><p>Ganancia comercial: ventas netas de producto menos su coste verificado en la fecha de venta. Los costes actuales de variaciones no acreditan la ganancia histórica.</p><button class="btn secondary" data-route="prestashop">Revisar costes y ventas</button></div>`;
@@ -568,6 +568,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    if(!PRESTASHOP_STORES.some(s=>s.key===shop)||!safeDate(date))return;
    void onOpenOrders({tab:'orders',store:shop,date});return;
   }
+  if(action==='quality-product'){const shop=el.dataset.shop,productId=el.dataset.productId;if(!can('productos','view')||!onOpenProduct||!catalogData.get(shop)?.rows.some(p=>String(p.id)===productId))return;void Promise.resolve(onOpenProduct({store:shop,id:productId})).catch(e=>notify(e.message||'No se pudo abrir la ficha.'));return;}
   if(action==='catalog-quality'){const w=find(id);if(w)void fetchCatalog(w,true);return;}
   if(action==='fetch'){const w=find(id);if(w?.type==='prestashop.quality')void fetchCatalog(w,true);else void fetchFor(w,true);return}
   if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
@@ -645,8 +646,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
       seen.add(id);rows.push(row);
      }
      more=result.possibly_more===true;page++;
-    }while(more&&page<20);
-    catalogData.set(shop,{rows,issues:catalogIssues(rows),complete:!more,checked:new Date().toLocaleString('es-ES')});
+    }while(more&&page<1000);
+    catalogData.set(shop,{rows,issues:catalogIssues(rows),complete:!more,readAt:new Date().toISOString(),checked:new Date().toLocaleString('es-ES',{timeZone:'Europe/Madrid'})});
     draw();
    }catch(error){if(live()&&epoch===token&&owner===owned){catalogData.set(shop,{error:String(error.message||error),rows:[],issues:[],complete:false});draw()}}
    })().finally(()=>catalogQueries.delete(shop));

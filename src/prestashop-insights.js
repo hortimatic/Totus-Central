@@ -1,4 +1,4 @@
-// Never infer profit from the purchase costs reported as unreliable by the owner.
+// Money from the source remains separate from catalogue-quality diagnostics.
 export function sourceCents(value){
  if(typeof value!=='string'||!/^\d{1,10}(?:\.\d{1,6})?$/.test(value))return null;
  const [whole,fraction='']=value.split('.');
@@ -17,8 +17,8 @@ export function orderInsights(rows){
  return {amount,valid,excluded,unknown,hours,average:valid?Math.round(amount/valid):null};
 }
 export function catalogIssues(rows){
- const ean=new Map();for(const r of rows)if(r.ean13)ean.set(r.ean13,(ean.get(r.ean13)||0)+1);
- return rows.map(r=>({...r,issues:[!String(r.reference||'').trim()?'Sin referencia':null,!String(r.ean13||'').trim()?'Sin EAN':!/^\d{13}$/.test(r.ean13)?'Revisar EAN':null,r.ean13&&ean.get(r.ean13)>1?'EAN repetido en la consulta':null,r.weight==null||r.weight===''?'Peso no informado':!Number.isFinite(Number(r.weight))||Number(r.weight)<=0?'Peso no positivo':null].filter(Boolean)}));
+ const ean=new Map();for(const r of rows){const key=String(r.ean13??'').trim();if(key)ean.set(key,(ean.get(key)||0)+1);}
+ return rows.map(r=>({...r,issues:[!String(r.reference||'').trim()?'Sin referencia':null,!String(r.ean13||'').trim()?'Sin EAN':!/^\d{13}$/.test(String(r.ean13).trim())?'Revisar EAN':null,r.ean13&&ean.get(String(r.ean13).trim())>1?'EAN repetido en la consulta':null,r.weight==null||String(r.weight).trim()===''?'Peso no informado':!Number.isFinite(Number(r.weight))||Number(r.weight)<=0?'Peso no positivo':null,!/^\d+$/.test(String(r.id_default_image??'').trim())||Number(r.id_default_image)<=0?'Sin portada':null].filter(Boolean)}));
 }
 export function paymentReclassification(original,{from,to,amount,reason}){
  const methods=['cash','card','bizum','other'];
