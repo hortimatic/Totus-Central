@@ -389,6 +389,7 @@ jobs:
       - run: node tests/productos-direct-save-browser-qa.mjs
       - run: node tests/catalog-quality-qa.mjs
       - run: node tests/catalogue-workspaces-browser-qa.mjs
+      - run: node tests/catalogue-workspaces-resilience-browser-qa.mjs
       - run: node tests/productos-masters-browser-qa.mjs
       - run: node tests/productos-copy-upload-browser-qa.mjs
       - run: node tests/prestashop-orders-table-browser-qa.mjs
