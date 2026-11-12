@@ -217,15 +217,20 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{},onB
     const related=async(resource,id)=>{try{if(!/^\d{1,15}$/.test(String(id||''))||String(id)==='0')return null;const value=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource,page:0,page_size:1,record_id:String(id)});if(!active())return null;if(!value?.ok||value.store!==shop||value.resource!==resource||!Array.isArray(value.rows)||value.rows.some(r=>String(r.id)!==String(id)))throw Error('El detalle del cliente no corresponde al pedido.');return value.rows[0]||null;}catch(e){if(active()){result.detailWarnings=(result.detailWarnings||[]).concat(resource+': '+(e.message||String(e)));}return null;}};
     for(const taxId of [...new Set(result.rows.flatMap(l=>l.associations?.taxes||[]))]){const key=shop+'|'+c.id+'|'+c.revision+'|'+taxId;if(!taxDefinitions.has(key)){const tax=await related('taxes',taxId);if(tax&&/^\d+(?:\.\d+)?$/.test(tax.rate||''))taxDefinitions.set(key,Number(tax.rate));}}
     result.rows=result.rows.map(l=>({...l,tax_rates:(l.associations?.taxes||[]).map(id=>taxDefinitions.get(shop+'|'+c.id+'|'+c.revision+'|'+id))}));
-    result.customer=await related('customers',order?.id_customer);result.invoiceAddress=await related('addresses',order?.id_address_invoice);result.deliveryAddress=String(order?.id_address_delivery)===String(order?.id_address_invoice)?result.invoiceAddress:await related('addresses',order?.id_address_delivery);
+    const sharedAddress=String(order?.id_address_delivery)===String(order?.id_address_invoice);
+    [result.customer,result.invoiceAddress,result.deliveryAddress]=await Promise.all([related('customers',order?.id_customer),related('addresses',order?.id_address_invoice),sharedAddress?Promise.resolve(null):related('addresses',order?.id_address_delivery)]);
+    if(sharedAddress)result.deliveryAddress=result.invoiceAddress;
     if(!active())return;
    }
    if(resource==='products')for(const p of response.rows)productCards.set(shop+'|'+c.id+'|'+c.revision+'|'+p.id,p);
    if(resource==='orders'){
-    for(const customerId of [...new Set(response.rows.map(row=>String(row.id_customer||'')).filter(id=>/^[1-9]\d{0,14}$/.test(id)))]){
-     const customerKey=shop+'|'+c.id+'|'+c.revision+'|'+customerId;if(customerCards.has(customerKey))continue;
-     try{const data=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'customers',record_id:customerId,page:0,page_size:1});if(!active()||shop!==store)return;const customer=data?.rows?.[0];if(data?.ok&&data.store===shop&&data.resource==='customers'&&String(customer?.id)===customerId)customerCards.set(customerKey,customer);}catch{if(!active()||shop!==store)return;}
-    }
+    const customerIds=[...new Set(response.rows.map(row=>String(row.id_customer||'')).filter(id=>/^[1-9]\d{0,14}$/.test(id)))].filter(customerId=>!customerCards.has(shop+'|'+c.id+'|'+c.revision+'|'+customerId));
+    await concurrentRead(customerIds,async customerId=>{
+     if(!active()||shop!==store||stopRequested)return;
+     const customerKey=shop+'|'+c.id+'|'+c.revision+'|'+customerId;
+     try{const data=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'customers',record_id:customerId,page:0,page_size:1});if(!active()||shop!==store)return;const customer=data?.rows?.[0];if(data?.ok&&data.store===shop&&data.resource==='customers'&&String(customer?.id)===customerId)customerCards.set(customerKey,customer);}catch{}
+    });
+    if(!active()||shop!==store)return;
     try{
      const employeeKey=shop+'|'+c.id+'|'+c.revision;
      if(!sellerEmployees.has(employeeKey))sellerEmployees.set(employeeKey,new Map());
