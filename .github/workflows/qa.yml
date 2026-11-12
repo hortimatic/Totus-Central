@@ -354,6 +354,8 @@ jobs:
       - run: node tests/annual-stress-qa.mjs
       - name: Start static server
         run: python3 -m http.server 4173 >/tmp/totus-http.log 2>&1 &
+      - run: node tests/home-commercial-calendar-qa.mjs
+      - run: node tests/home-commercial-calendar-browser-qa.mjs
       - run: node tests/home-widgets-core-qa.mjs
       - run: node tests/home-widgets-integration-browser-qa.mjs
       - run: node tests/home-widgets-actions-browser-qa.mjs

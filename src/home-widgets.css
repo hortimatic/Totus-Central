@@ -560,3 +560,31 @@
 .dashboard-page .home-quality-product :is(b,small){display:block;overflow-wrap:anywhere}.dashboard-page .home-quality-product small{font-size:11px;color:var(--muted);margin-top:4px}
 .dashboard-page .home-quality-product .btn{font-size:12px;min-height:32px;padding:6px 10px}
 @media(max-width:600px){.dashboard-page .home-quality-product{grid-template-columns:48px minmax(0,1fr)}.dashboard-page .home-quality-product>.btn{grid-column:2;justify-self:start}}
+.home-commercial-margin{display:grid;gap:8px;min-width:0}
+.home-commercial-margin p,.home-commercial-chart{margin:0}
+.home-commercial-total{font-size:19px;line-height:1.25;overflow-wrap:anywhere}
+.home-commercial-shops{display:grid;gap:5px;font-size:12px}
+.home-commercial-shops>div{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.home-commercial-chart{color:var(--accent);font-size:11px;min-width:0}
+.home-commercial-chart svg{display:block;width:100%;max-height:150px}
+.home-commercial-chart dl>div{display:flex;justify-content:space-between;gap:8px}
+.home-commercial-chart dd{margin:0}
+.home-task-calendar{display:grid;gap:8px;min-width:0;font-size:12px}
+.home-task-calendar p{margin:0;overflow-wrap:anywhere}
+.home-task-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.home-task-toolbar>div{display:flex;gap:4px;flex-wrap:wrap}
+.home-task-calendar button{font:inherit;min-height:28px;padding:4px 8px;border:1px solid var(--line);border-radius:var(--appearance-button-radius,6px);background:var(--panel);color:var(--ink);cursor:pointer}
+.home-task-calendar button[aria-pressed=true]{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel))}
+.home-task-date{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.home-task-date input{font:inherit;min-width:0;max-width:100%;padding:4px 6px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:5px}
+.home-task-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;text-align:center;min-width:0}
+.home-task-days.is-day{grid-template-columns:1fr}
+.home-task-days button{display:flex;align-items:center;justify-content:space-between;gap:2px;min-width:0;padding:4px;font-size:12px}
+.home-task-days button[aria-current=date]{font-weight:700}
+.home-task-days button>small{font-size:10px;color:var(--accent)}
+.home-task-agenda{border-top:1px solid var(--line);padding-top:7px;min-width:0}
+.home-task-agenda ul{list-style:none;padding:0;margin:7px 0;display:grid;gap:5px}
+.home-task-agenda li{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;overflow-wrap:anywhere}
+.home-task-agenda li>small{color:var(--muted)}
+.home-widget-body .kpi .kpi-caption{min-block-size:2.5em;align-items:flex-start;line-height:1.25}
+.home-widget-body .kpi>small{min-block-size:2.6em;line-height:1.3}
