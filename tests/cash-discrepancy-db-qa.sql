@@ -3,8 +3,8 @@ create role anon;create role authenticated;
 \i tests/closing-db-fixture.sql
 alter table public.ops_daily_closing_drawers add column reported_total_sales numeric;
 create function private.totus_claim_business_request(text,jsonb,jsonb) returns uuid language sql as $$select null::uuid$$;
-create function private.totus_finish_business_request(text,jsonb,uuid) returns void language sql as $select null::void$;
-create function private.totus_check_write_version(text,uuid,jsonb) returns void language sql as $$select$$;
+create function private.totus_finish_business_request(text,jsonb,uuid) returns void language plpgsql as $qa$begin return;end$qa$;
+create function private.totus_check_write_version(text,uuid,jsonb) returns void language plpgsql as $qa$begin return;end$qa$;
 \i supabase/review_patches/085_pending_cash_discrepancies.sql
 \i supabase/review_patches/085_pending_cash_discrepancies.sql
 begin;

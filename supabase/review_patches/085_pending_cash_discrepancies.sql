@@ -1,9 +1,11 @@
 -- Explicit unexplained physical cash, separate from sales and extraordinary cash.
 -- Positive = surplus; negative = shortage. Existing rows remain unchanged (zero).
 begin;
-do $begin
+do $before$
+begin
  if to_regprocedure('private.totus_recovery_schema_hash()') is not null then perform set_config('totus.cash_discrepancy_before_hash',private.totus_recovery_schema_hash(),true);end if;
-end$;
+end
+$before$;
 alter table public.ops_daily_closing_drawers add column if not exists cash_discrepancy numeric(14,2) not null default 0;
 alter table public.ops_daily_closing_drawers add column if not exists cash_discrepancy_reason text not null default '';
 CREATE OR REPLACE FUNCTION private.totus_prepare_drawer_sales(p_closing jsonb, p_drawers jsonb)
