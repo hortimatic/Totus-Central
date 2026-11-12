@@ -24,7 +24,7 @@ export const DIRECTORY_WRITABLE=Object.freeze(Object.fromEntries(['customers','a
 const id=/^[1-9]\d{0,14}$/,uuid=/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 const flag=new Set(['active','newsletter','optin','is_guest','show_public_prices','custom']);
 // Native limits from PrestaShop 1.7.8.11 Customer/Address definitions.
-const nativeLimits={customers:{firstname:255,lastname:255,email:255},addresses:{alias:32,company:255,firstname:255,lastname:255,address1:128,address2:128,postcode:12,city:64,other:300,phone:32,phone_mobile:32,dni:16}};
+const nativeLimits={suppliers:{name:64,meta_title:255,meta_description:512,meta_keywords:255},manufacturers:{name:64,meta_title:255,meta_description:512},product_options:{name:128,public_name:64},product_option_values:{name:128},product_features:{name:128},product_feature_values:{value:255},customers:{firstname:255,lastname:255,email:255},addresses:{alias:32,company:255,firstname:255,lastname:255,address1:128,address2:128,postcode:12,city:64,other:300,phone:32,phone_mobile:32,dni:16}};
 export const DIRECTORY_LOCALIZED=new Set(['description','short_description','meta_title','meta_description','meta_keywords','public_name','value']);
 export const directoryLocalized=(resource,field)=>DIRECTORY_LOCALIZED.has(field)||(field==='name'&&['product_options','product_option_values','product_features'].includes(resource));
 export function directoryQuery(input){
@@ -60,6 +60,7 @@ export function directoryMutation(input){
   if(flag.has(field)&&!['0','1'].includes(value))throw Error('Indicador no válido: '+field);
   if(field.startsWith('id_')&&!/^(0|[1-9]\d{0,14})$/.test(value))throw Error('Relación no válida: '+field);
   if(['firstname','lastname','name','public_name','value','address1','city','alias'].includes(field)&&(!value||/[<>={}]/.test(value)))throw Error('Texto no válido: '+field);
+  if(field==='name'&&['manufacturers','suppliers'].includes(resource)&&/[;#]/.test(value))throw Error('Nombre de catálogo no válido.');
   if(field==='email'&&!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value))throw Error('Email no válido.');
   if(field==='website'&&value&&!/^https?:\/\/[^\s<>]+$/i.test(value))throw Error('Web no válida.');
   if(field==='group_type'&&!['select','radio','color'].includes(value))throw Error('Tipo de atributo no válido.');

@@ -53,3 +53,7 @@ Terminar los circuitos de directorios y atributos; cerrar navegación, Ventas y 
 ## Fuentes y documentación
 
 Este documento está en docs del repositorio. No se ha verificado su carga en Fuentes del proyecto ChatGPT. Los documentos sincronizados de sources son de solo lectura y no se han modificado.
+
+## Correcciones adicionales de la revisión
+
+Se añadieron límites nativos de nombres y metadatos antes de enviar altas a las tiendas. También se corrigió el aviso posterior al guardado de atributos: una publicación verificada seguida de un fallo de refresco conserva y comunica el éxito de la escritura y el fallo de la lista por separado, sin repetir el alta. La simulación de ese fallo pasa en las cinco anchuras. Estas correcciones no cierran los pendientes de la matriz ni convierten el borrador en una publicación.

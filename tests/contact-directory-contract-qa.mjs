@@ -26,6 +26,10 @@ test('writes validate names, identifiers, fields and required data before any tr
  const q={...identity,kind:'atributos',action:'prestashop_directory_prepare',resource:'product_option_values',operation:'create',request_id:uuid,fields:{name:'Azul',id_attribute_group:'2',color:'#0000ff'}};
  assert.equal(directoryMutation(q).fields.name,'Azul');assert.throws(()=>directoryMutation({...q,fields:{name:'Azul'}}));assert.throws(()=>directoryMutation({...q,fields:{...q.fields,id_attribute_group:'1|2'}}));
  assert.throws(()=>directoryMutation({...q,operation:'delete',record_id:'2'}));
+ assert.throws(()=>directoryMutation({...q,fields:{...q.fields,name:'a'.repeat(129)}}));
+ assert.throws(()=>directoryMutation({...q,kind:'marcas',resource:'manufacturers',fields:{name:'a'.repeat(65)}}));
+ assert.throws(()=>directoryMutation({...q,kind:'marcas',resource:'manufacturers',fields:{name:'Marca#incorrecta'}}));
+ assert.equal(directoryMutation({...q,kind:'proveedores',resource:'suppliers',fields:{name:'Proveedor válido'}}).fields.name,'Proveedor válido');
  assert.throws(()=>directoryMutation({...q,kind:'proveedores',resource:'addresses',fields:{id_customer:'5'}}));
  assert.throws(()=>directoryMutation({...q,kind:'clientes',resource:'addresses',operation:'update',record_id:'2',fields:{alias:'a'.repeat(33)}}));
 });
