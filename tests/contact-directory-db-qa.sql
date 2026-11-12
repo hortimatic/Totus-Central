@@ -55,3 +55,16 @@ begin
  begin perform public.totus_directory_operation('uncertain','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',d);raise exception 'QA completed downgrade';exception when others then if sqlerrm='QA completed downgrade' then raise;end if;end;
 end$$;
 reset role;
+
+set role service_role;
+do $$declare d jsonb:=jsonb_build_object('actor_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','connection_id','11111111-1111-4111-8111-111111111111','revision',1,'signature',repeat('b',64),'resource','customers','operation','create','scope_hash',repeat('c',64),'baseline_ids',jsonb_build_array('8','9'));r jsonb;
+begin
+ r=public.totus_directory_operation('claim','dddddddd-dddd-4ddd-8ddd-dddddddddddd',d);
+ perform public.qa_directory_assert(r->>'status'='claimed','creation stores its preflight baseline');
+ r=public.totus_directory_operation('lookup','dddddddd-dddd-4ddd-8ddd-dddddddddddd',d);
+ perform public.qa_directory_assert(r->'baseline_ids'=jsonb_build_array('8','9'),'baseline survives later requests');
+ r=public.totus_directory_operation('claim','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',d);
+ perform public.qa_directory_assert(r->>'status'='in_progress','another request cannot create the same pending identity');
+ begin perform public.totus_directory_operation('claim','ffffffff-ffff-4fff-8fff-ffffffffffff',d||jsonb_build_object('baseline_ids',jsonb_build_array('-1')));raise exception 'QA invalid baseline';exception when others then if sqlerrm='QA invalid baseline' then raise;end if;end;
+end$$;
+reset role;

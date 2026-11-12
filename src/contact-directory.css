@@ -24,7 +24,7 @@
 .directory-resizer:focus,.directory-resizer:hover{background:var(--primary,#007cae);opacity:.55}
 .directory-table .is-compact td,.directory-table.is-compact td{padding-block:6px}
 .directory-row-actions{display:flex;gap:6px;flex-wrap:wrap}
-.directory-row-actions .btn{width:100%;font-size:.8rem;min-height:32px;padding:6px 9px}
+.directory-row-actions .btn{width:auto;font-size:.8rem;min-height:32px;padding:6px 9px}
 .directory-table-arrows{display:flex;justify-content:flex-end;align-items:center;gap:8px;position:sticky;bottom:8px;margin-top:10px;pointer-events:none}
 .directory-table-arrows>*{pointer-events:auto;background:var(--panel,#fff)}
 .directory-table-arrows>span{margin-right:auto;font-size:.83rem;padding:6px}
@@ -46,3 +46,6 @@
 @media(max-width:600px){.directory-main{padding:12px}.directory-heading{align-items:start}.directory-toolbar{grid-template-columns:minmax(0,1fr)}.directory-form-grid,.directory-column-list{grid-template-columns:minmax(0,1fr)}.directory-form-grid .is-wide{grid-column:auto}.directory-dialog{padding:14px}.directory-dialog footer{bottom:-14px}.directory-heading>.btn{flex-shrink:0}.directory-sources{gap:6px}}
 
 @media(max-width:600px){.directory-toolbar{grid-template-columns:minmax(0,1fr) 105px}.directory-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.directory-actions .btn{padding-inline:5px;font-size:.8rem}.directory-heading{margin-bottom:10px}.directory-heading p{font-size:.8rem}.directory-sources button{flex:1;padding-inline:7px}.directory-pagination{gap:8px}.directory-pagination label{display:flex;align-items:center;gap:5px;width:auto;white-space:nowrap}.directory-pagination select{width:65px}.directory-pagination input{width:55px}.directory-pagination>span{padding-block:4px}.directory-pagination .btn{min-height:32px;padding:5px 9px}}
+
+.directory-heading-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.directory-row-actions{align-items:center}.directory-row-actions [data-directory-record]{flex-basis:100%}
+@media(max-width:600px){.directory-heading{flex-wrap:wrap}.directory-heading-actions{width:100%;justify-content:flex-start}}

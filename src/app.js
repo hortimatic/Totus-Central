@@ -170,7 +170,7 @@ async function loadStockCatalog(storeId,references,valid){
  },active);
 }
 const automationsUI=createAutomationsUI({rpc,actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
-const directoryUI=createContactDirectoryUI({rpc,actor:()=>state.user?.id,can:(kind,action)=>can(kind,action),confirm:message=>confirmAction(message,{title:'Cambios sin publicar',acceptLabel:'Descartar y continuar'}),notify:message=>toast(message,'ok'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const directoryUI=createContactDirectoryUI({rpc,actor:()=>state.user?.id,can:(kind,action)=>can(kind,action),confirm:(message,options={})=>confirmAction(message,{title:'Cambios sin publicar',acceptLabel:'Descartar y continuar',...options}),notify:message=>toast(message,'ok'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const productosUI=createProductosUI({rpc,tableLayout:{load:owner=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:null}),save:(layout,owner)=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:layout})},actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),canCreate:()=>can('productos','create'),canDelete:()=>can('productos','delete'),canExport:()=>can('productos','export'),invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
  if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
@@ -453,7 +453,7 @@ async function refresh(message=''){
   applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
-  if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
+  if((preserveMainDraftOnRefresh&&hasFormDraft($('#content'))||directoryUI.hasDraft()&&can(state.route,'view'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
   if(isAuditPanelVisible())void refreshAuditPanel({afterCore:true});
  }
  catch(e){
@@ -3320,7 +3320,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();directoryUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');
