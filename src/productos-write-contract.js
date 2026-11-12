@@ -180,6 +180,13 @@ export function directorySchemaProjection(schema,resource){
  }
  if(fields.length<2)invalid('Esquema de directorio incompleto.');return '['+fields.join(',')+']';
 }
+// Compatibility with the official 1.7.8 Customer definition when its synopsis
+// renderer fails. Authentication fields remain in server XML only; they are
+// preserved verbatim, never accepted from or returned to a browser.
+export function legacyDirectoryPreservationProjection(version,resource){
+ if(!/^1\.7\.8(?:\.\d+)?$/.test(version||'')||resource!=='customers')return null;
+ return '[id,lastname,firstname,email,passwd,id_gender,birthday,newsletter,newsletter_date_add,ip_registration_newsletter,optin,website,company,siret,ape,outstanding_allow_amount,show_public_prices,id_risk,max_payment_days,active,deleted,note,is_guest,id_shop,id_shop_group,id_default_group,id_lang,date_add,date_upd,reset_password_token,reset_password_validity,groups[id]]';
+}
 export function directoryXmlLanguages(xml,resource,field){
  const node=direct(direct(tree(xml),nativeNodes[resource]),field);
  const ids=node.children.map(n=>n.name==='language'?n.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/)?.[2]:null);

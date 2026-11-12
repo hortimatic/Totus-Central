@@ -1,6 +1,6 @@
 import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
+import {directorySchemaProjection,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
 const numeric=field=>field.startsWith('id_')||['position','active','newsletter','optin','is_guest','show_public_prices','custom','max_payment_days','outstanding_allow_amount'].includes(field);
@@ -25,7 +25,10 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  if(q.operation==='delete')return (await import('./contact-directory-delete.js')).deleteDirectoryRecord({q,commit,signature,previous,journal,xml,list,send,url});
  // Never fall back to an update or a blind POST for an unknown operation.
  if(q.operation!=='update')throw Error('Esta operación de directorio todavía no está disponible.');
- const schema=await xml(url(q.resource,null,{schema:'synopsis'})),projection=directorySchemaProjection(schema,q.resource),target=url(q.resource,q.record_id,{display:projection});
+ const synopsis=await send(url(q.resource,null,{schema:'synopsis'}));let projection;
+ if(synopsis.status===500){projection=legacyDirectoryPreservationProjection(synopsis.headers.get('psws-version'),q.resource);await synopsis.body?.cancel();if(!projection)throw Error('No se pudo verificar el esquema de esta versión de la tienda.');}
+ else{if(!synopsis.ok){await synopsis.body?.cancel();throw Error('La tienda rechazó el esquema del directorio (HTTP '+synopsis.status+').');}projection=directorySchemaProjection(await boundedText(synopsis,2097152),q.resource);}
+ const target=url(q.resource,q.record_id,{display:projection});
  const original=await xml(target),fingerprint=await sha256Text(original);
  if(directoryXmlField(original,q.resource,'id')!==String(q.record_id))throw Error('La tienda devolvió otra ficha.');
  if(q.resource==='addresses'){

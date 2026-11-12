@@ -31,3 +31,9 @@ test('wrong store, changed record and missing journal reject before any PUT',asy
  f.setState('<prestashop><customer><id>4</id><firstname>Otra edición</firstname><lastname>Apellido</lastname><passwd>HASH_INTACTO</passwd><active>1</active></customer></prestashop>');
  await assert.rejects(writeContactDirectory(c,input,{request:f.request,journal:f.journal,resolve}));assert.equal(f.writes,0);
 });
+
+test('native 1.7.8 synopsis failure uses its official preservation contract only with verified version',async()=>{
+ const f=fixture();const request=async(url,init)=>new URL(url).searchParams.has('schema')?new Response('',{status:500,headers:{'psws-version':'1.7.8.11'}}):f.request(url,init);
+ const prepared=await writeContactDirectory(c,q,{request,resolve});assert(prepared.can_commit);const result=await writeContactDirectory(c,{...q,action:'prestashop_directory_commit',confirmed:true,fingerprint:prepared.fingerprint},{request,journal:f.journal,resolve});assert(result.verified);assert.equal(f.writes,1);
+ const unknown=async(url,init)=>new URL(url).searchParams.has('schema')?new Response('',{status:500,headers:{'psws-version':'8.2.8'}}):f.request(url,init);await assert.rejects(writeContactDirectory(c,q,{request:unknown,resolve}),/versión/);
+});
