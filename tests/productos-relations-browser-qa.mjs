@@ -32,9 +32,10 @@ try{
   await page.getByRole('button',{name:'Abrir ficha',exact:true}).click();
   await page.locator('[data-pr-section="organizacion"]').click();
   await page.getByRole('button',{name:'Editar categorías, marca, proveedor e impuestos'}).click();
-  assert.equal(await page.locator('[data-pr-category-row]').count(),20);
+  assert((await page.locator('[data-pr-category-row]').count())>20,'All source categories are available in the tree without loading a second page');
   await page.locator('[data-pr-category-search]').fill('Categoría 65');
-  assert.equal(await page.locator('[data-pr-category-row]').count(),1,'Search sees categories outside the first page');
+  assert.equal(await page.locator('[data-pr-org-category="65"]').count(),1,'Search sees categories anywhere in the tree');
+  assert((await page.locator('[data-pr-category-row]').count())<=2,'Only the match and its parent remain visible');
   await page.locator('[data-pr-org-category="65"]').check();
   await page.locator('[data-pr-org="id_category_default"][value="65"]').check();
   await page.getByRole('button',{name:'Crear característica',exact:true}).click();

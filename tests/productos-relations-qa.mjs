@@ -11,6 +11,12 @@ test('categories keep parent paths, primary and selection without Ctrl; cycles d
  assert.equal(categoryPaths(categories).find(row=>row.id==='5').path,'Tienda › Accesorios');
  const org={catalog:{categories,product_features:[],product_feature_values:[]},categories:['5'],fields:{id_category_default:'5'},features:[]};
  const html=productCategoryPicker(org);assert.match(html,/prd-category-primary-5/);assert.match(html,/Tienda › Accesorios/);assert.match(html,/type="radio"/);assert(!html.includes('multiple'));
+ assert.match(html,/data-pr-category-branch="2" open/,'Mother category expands selected descendants');
+ assert.equal((html.match(/id="prd-category-choice-5"/g)||[]).length,1,'No duplicate leaf in tree');
+ org.categoryQuery='Metal';const found=productCategoryPicker(org);
+ assert.match(found,/data-pr-category-branch="4" open/,'Search retains and expands ancestry');
+ assert(!found.includes('prd-category-choice-7'),'Unrelated cycle is excluded from search');
+ org.categoryQuery='';org.categoryExpanded={'2':false};assert.match(productCategoryPicker(org),/data-pr-category-branch="2" >/,'Explicit fold survives a rerender');
  const attrs=attributeGroupSelectors([{id:'1',name:'Color'}],[{id:'10',id_attribute_group:'1',name:'Azul'}],['10'],{rowId:'row'});assert.match(attrs,/value="10" selected/);assert(!attrs.includes('multiple'));assert.match(attrs,/Sin usar este atributo/);
  assert.match(featureValueSelectors(org,{canCreate:false}),/data-pr-action="feature-create" disabled/);
 });

@@ -3,9 +3,12 @@
 import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget,homeCanvasSettings,HOME_ORDER_COLUMNS} from './home-widgets-core.js';
 import {nextOpeningSummary} from './home-openings-view.js';
 import {state,getFilters} from './state.js';
-import {esc,money,isoToday} from './utils.js';
+import {esc,money} from './utils.js';
+import {homeToday as isoToday,minusDays,homeDateRange as dateRange,homePeriodBounds,shiftedHomePeriod as shiftedPeriod} from './home-period.js';
 import {storeConnection,PRESTASHOP_STORES} from './prestashop-readonly.js';
 import {prestashopReadiness} from './prestashop-ui.js';
+import {enrichHomeOrderLines,homeOrderMargin,homeMarginTotal} from './home-order-enrichment.js';
+import {loadOrderSellers} from './prestashop-order-seller.js';
 import {sourceCents,catalogIssues} from './prestashop-insights.js';
 import {archiveAccepted} from './historical-acceptance.js';
 
@@ -25,24 +28,12 @@ const nonClonable=new Set(['pricing.quick','home.activity','tasks.today','system
 const confirmDiscard=()=>typeof window==='undefined'||window.confirm('Hay cambios del Inicio sin guardar. ¿Descartarlos?');
 const safeStore=key=>PRESTASHOP_STORES.some(s=>s.key===key)?key:'all';
 const safeDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:'';
-const minusDays=(date,n)=>{const d=new Date(`${date}T12:00:00Z`);d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10)};
 const labelStore=k=>PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Todas las tiendas';
+const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows);return m.complete&&sourceComplete?money(m.value):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
+const orderMarginText=row=>Number.isFinite(row.margin_value)&&row.currency_code==='EUR'?money(row.margin_value):'Costes pendientes';
+const sellerText=row=>row.employee_name||'Sin vendedor vinculado';
 const metric=(label,value)=>`<div class="home-ps-metric"><small>${esc(label)}</small><strong>${esc(String(value))}</strong></div>`;
 const allowedWidths=w=>[3,4,5,6,7,8,9,10,11,12].filter(x=>x>=HOME_WIDGET_CATALOG[w.type].minWidth&&x<=HOME_WIDGET_CATALOG[w.type].maxWidth);
-const dateRange=w=>{const today=isoToday();return {from:safeDate(w.filters.from)||minusDays(today,6),to:safeDate(w.filters.to)||today};};
-
-const homePeriodBounds=(mode,anchor=isoToday())=>{
- const date=safeDate(anchor)||isoToday(),d=new Date(date+'T12:00:00Z');
- if(mode==='day')return {from:date,to:date};
- if(mode==='week'){const monday=minusDays(date,(d.getUTCDay()+6)%7);return {from:monday,to:minusDays(monday,-6)}}
- if(mode==='month'){const first=date.slice(0,7)+'-01',last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);return {from:first,to:last}}
- return {from:date,to:date};
-};
-const shiftedPeriod=(w,direction)=>{
- const mode=['day','week','month'].includes(w.filters.period)?w.filters.period:'day',date=safeDate(w.filters.to)||isoToday();
- if(mode==='month'){const d=new Date(date.slice(0,7)+'-15T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+direction);return homePeriodBounds('month',d.toISOString().slice(0,10))}
- return homePeriodBounds(mode,minusDays(date,-direction*(mode==='week'?7:1)));
-};
 function periodControls(w){
  const period=['day','week','month','custom'].includes(w.filters.period)?w.filters.period:'custom',dates=dateRange(w);
  const buttons=[['day','Día'],['week','Semana'],['month','Mes'],['custom','Personalizado']].map(([key,name])=>'<button type="button" data-home-command="period-'+key+'" data-id="'+esc(w.id)+'" aria-pressed="'+(key===period?'true':'false')+'">'+name+'</button>').join('');
@@ -55,7 +46,7 @@ function periodControls(w){
  '<label>Desde <input type="date" data-home-filter="from" data-id="'+esc(w.id)+'" value="'+esc(dates.from)+'"></label><label>Hasta <input type="date" data-home-filter="to" data-id="'+esc(w.id)+'" value="'+esc(dates.to)+'"></label>';
  return '<div class="home-period-controls" role="group" aria-label="Periodo de '+esc(w.title)+'"><div class="home-period-presets" aria-label="Seleccionar periodo">'+buttons+'</div>'+
  (period!=='custom'?'<div class="home-period-nav"><button type="button" data-home-command="period-prev" data-id="'+esc(w.id)+'" aria-label="Periodo anterior">‹</button><small>'+esc(dates.from)+' — '+esc(dates.to)+'</small><button type="button" data-home-command="period-next" data-id="'+esc(w.id)+'" aria-label="Periodo siguiente">›</button></div>':'')+
- '<div class="home-period-dates">'+storePicker+picker+metricPicker+'</div></div>';
+ '<div class="home-period-dates">'+storePicker+picker+metricPicker+'</div>'+(period!=='custom'?'<small class="home-period-mode">'+(w.filters.inheritPeriod!==false?'Periodo actual · se actualiza con la fecha':'Fecha elegida · pulsa '+({day:'Día',week:'Semana',month:'Mes'}[period])+' para volver al periodo actual')+'</small>':'')+'</div>';
 }
 
 const permitted=(w,can)=>w.type.startsWith('prestashop.')?can('prestashop','view'):
@@ -180,9 +171,9 @@ function psSummary(w,data,catalog){
  const countText=complete?count:'Parcial: '+count;
  const showMetrics=w.filters.showMetrics!==false,showTop=w.filters.showTop!==false;
  const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
- const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+metric('Catálogo',catalog?(catalog.complete?catalog.issues.filter(x=>x.issues.length).length+' avisos':'Parcial · '+catalog.issues.filter(x=>x.issues.length).length+' avisos'):'Sin consultar')+metric('Margen comercial','No validado')+'</div>':'';
+ const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+'<div class="home-ps-metric"><small>Calidad del catálogo</small><strong>'+esc(catalog?(catalog.complete?'':'Parcial · ')+catalog.issues.filter(x=>x.issues.length).length+' avisos':'Sin consulta')+'</strong><button type="button" data-home-command="catalog-quality" data-id="'+esc(w.id)+'">'+(catalog?'Actualizar calidad':'Consultar calidad')+'</button></div>'+metric('Margen comercial',marginText(r.rows,r.complete))+'</div>':'';
  const chart=prestashopChart(w,r);
- const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li>'+esc(p.name)+' <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
+ const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li><span class="home-top-item">'+(p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'')+'<span>'+esc(p.name)+'<small>'+esc(p.reference||'Sin referencia')+'</small></span></span> <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
  return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function prestashopProductsTable(w,data){
@@ -226,7 +217,7 @@ function compactOrderCard(row){
  const valid=String(row.valid)==='1'?'Válido':'No válido';
  return '<article class="home-order-card"><div class="home-order-card-head"><div><b>Pedido #'+esc(String(row.id))+'</b><small class="home-order-shop">'+esc(labelStore(row._shop))+'</small></div><strong>'+esc(total)+'</strong></div>'+
  '<div class="home-order-card-meta"><span>'+esc(String(row.date_add||'Fecha no informada'))+'</span><span>'+valid+'</span><span>'+esc(row.reference||'Sin referencia')+'</span></div>'+
- '<details class="home-order-card-details"><summary>Ver datos y productos</summary><dl><dt>Productos</dt><dd>'+products+'</dd><dt>Cliente</dt><dd>'+customer+'</dd><dt>Pago</dt><dd>'+esc(row.payment||'No informado')+'</dd><dt>Atendido por</dt><dd>No informado por la tienda</dd><dt>Margen</dt><dd>Sin validar</dd></dl></details>'+
+ '<details class="home-order-card-details"><summary>Ver datos y productos</summary><dl><dt>Productos</dt><dd>'+products+'</dd><dt>Cliente</dt><dd>'+customer+'</dd><dt>Pago</dt><dd>'+esc(row.payment||'No informado')+'</dd><dt>Atendido por</dt><dd>'+esc(sellerText(row))+'</dd><dt>Margen comercial</dt><dd>'+esc(orderMarginText(row))+'</dd></dl></details>'+
  '<div class="home-widget-actions"><button type="button" class="home-order-link" data-home-command="open-order" data-shop="'+esc(row._shop)+'" data-order="'+esc(String(row.id))+'" data-date="'+esc(String(row.date_add||'').slice(0,10))+'">Abrir pedido</button></div></article>';
 }
 
@@ -247,7 +238,7 @@ function psOrders(w,data){
  const partial=shops.some(s=>!data?.[s]||!data[s].complete||data[s].error);
  return `${periodControls(w)}<div class="home-order-toolbar"><label>Buscar <input type="search" data-home-filter="query" data-id="${esc(w.id)}" value="${esc(w.filters.query||'')}" placeholder="Nº o referencia" maxlength="80"></label><label>Estado <select data-home-filter="status" data-id="${esc(w.id)}"><option value="all">Todos</option><option value="valid" ${w.filters.status==='valid'?'selected':''}>Válidos</option><option value="invalid" ${w.filters.status==='invalid'?'selected':''}>No válidos</option></select></label><label>Pago <select data-home-filter="payment" data-id="${esc(w.id)}"><option value="all">Todos</option>${paymentOptions.map(p=>`<option value="${esc(p)}" ${w.filters.payment===p?'selected':''}>${esc(p)}</option>`).join('')}</select></label><label>Orden <select data-home-filter="sort" data-id="${esc(w.id)}"><option value="newest">Más recientes</option><option value="oldest" ${w.filters.sort==='oldest'?'selected':''}>Más antiguos</option></select></label><button type="button" data-home-command="fetch" data-id="${esc(w.id)}" class="btn secondary">Actualizar</button></div>
  ${errors.length?`<p class="home-error" role="alert">${esc(errors.join(' · '))}</p>`:''}${partial?'<p class="small muted">Consulta parcial o pendiente: el recuento no representa todas las ventas.</p>':''}
- <div class="home-orders-scroll" role="region" aria-label="Tabla de pedidos de PrestaShop; desplazamiento horizontal y vertical" tabindex="0" data-home-orders-viewport="${esc(w.id)}"><table class="data-table home-orders-table"><thead><tr><th>Pedido</th><th>Referencia</th><th>Productos</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Estado</th><th>Fecha y hora</th><th>Atendido por</th><th>Margen €</th></tr></thead><tbody>${visible.map(row=>`<tr><td><button type="button" class="home-order-link" data-home-command="open-order" data-shop="${esc(row._shop)}" data-order="${esc(String(row.id))}" data-date="${esc(String(row.date_add||'').slice(0,10))}">#${esc(row.id)}</button></td><td>${esc(row.reference||'—')}<small class="home-order-shop">${esc(labelStore(row._shop))}</small></td><td class="home-orders-products">${Array.isArray(row._products)&&row._products.length?row._products.slice(0,2).map(item=>`<span class="home-order-product-line" title="${esc(item.name)}">${esc(item.name)} · ${esc(String(item.qty))} uds</span>`).join('')+(row._products.length>2?`<small>+${row._products.length-2} líneas más</small>`:''):'<span class="small muted">Ver pedido para consultar productos</span>'}</td><td>${/^\d{1,15}$/.test(String(row.id_customer||''))&&Number(row.id_customer)>0?`ID cliente #${esc(String(row.id_customer))}`:'No informado'}</td><td>${row._currency==='EUR'&&cents(row.total_paid_tax_incl)!==null?money(cents(row.total_paid_tax_incl)/100):'Moneda sin verificar'}</td><td>${esc(row.payment||'—')}</td><td>${String(row.valid)==='1'?'Válido':'No válido'}</td><td>${esc(row.date_add||'')}</td><td>No informado por la tienda</td><td>Sin validar</td></tr>`).join('')||'<tr><td colspan="10">No hay pedidos para estos filtros.</td></tr>'}</tbody></table></div>
+ <div class="home-orders-scroll" role="region" aria-label="Tabla de pedidos de PrestaShop; desplazamiento horizontal y vertical" tabindex="0" data-home-orders-viewport="${esc(w.id)}"><table class="data-table home-orders-table"><thead><tr><th>Pedido</th><th>Referencia</th><th>Productos</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Estado</th><th>Fecha y hora</th><th>Atendido por</th><th>Margen €</th></tr></thead><tbody>${visible.map(row=>`<tr><td><button type="button" class="home-order-link" data-home-command="open-order" data-shop="${esc(row._shop)}" data-order="${esc(String(row.id))}" data-date="${esc(String(row.date_add||'').slice(0,10))}">#${esc(row.id)}</button></td><td>${esc(row.reference||'—')}<small class="home-order-shop">${esc(labelStore(row._shop))}</small></td><td class="home-orders-products">${Array.isArray(row._products)&&row._products.length?row._products.slice(0,2).map(item=>`<span class="home-order-product-line" title="${esc(item.name)}">${esc(item.name)} · ${esc(String(item.qty))} uds</span>`).join('')+(row._products.length>2?`<small>+${row._products.length-2} líneas más</small>`:''):'<span class="small muted">Ver pedido para consultar productos</span>'}</td><td>${/^\d{1,15}$/.test(String(row.id_customer||''))&&Number(row.id_customer)>0?`ID cliente #${esc(String(row.id_customer))}`:'No informado'}</td><td>${row._currency==='EUR'&&cents(row.total_paid_tax_incl)!==null?money(cents(row.total_paid_tax_incl)/100):'Moneda sin verificar'}</td><td>${esc(row.payment||'—')}</td><td>${String(row.valid)==='1'?'Válido':'No válido'}</td><td>${esc(row.date_add||'')}</td><td title="Empleado del registro inicial, cuando la tienda lo identifica.">${esc(sellerText(row))}</td><td title="Ventas netas de producto menos coste de catálogo; excluye envío y embalaje. No es beneficio neto.">${esc(orderMarginText(row))}</td></tr>`).join('')||'<tr><td colspan="10">No hay pedidos para estos filtros.</td></tr>'}</tbody></table></div>
  <div class="home-orders-cards" role="list" aria-label="Pedidos en fichas adaptativas">${visible.map(compactOrderCard).join('')}</div>
  <div class="home-order-footer"><label>Filas <select data-home-filter="pageSize" data-id="${esc(w.id)}">${[10,15,20].map(n=>`<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label><label>Página <input class="home-page-select" type="number" min="1" max="${pages}" step="1" inputmode="numeric" aria-label="Ir a página de pedidos" data-home-filter="page" data-id="${esc(w.id)}" value="${page+1}"></label><span>de ${pages}${partial?' · parcial':''}</span><button type="button" data-home-command="prev-page" data-id="${esc(w.id)}" ${page===0?'disabled':''}>‹</button><button type="button" data-home-command="next-page" data-id="${esc(w.id)}" ${page>=pages-1?'disabled':''}>›</button><button class="btn secondary" data-home-command="open-orders" data-id="${esc(w.id)}">Abrir pedidos</button></div>`;
 }
@@ -568,7 +559,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const w=find(id);if(!w||!['prestashop.summary','prestashop.orders','prestashop.top'].includes(w.type))return;
    const cmd=action.replace('period-',''),period=['prev','next'].includes(cmd)?(w.filters.period||'day'):cmd;
    const dates=cmd==='custom'?dateRange(w):['prev','next'].includes(cmd)?shiftedPeriod(w,cmd==='prev'?-1:1):homePeriodBounds(period);
-   model=setHomeWidgetConfig(model,id,{filters:{...dates,period,page:0}});draw();
+   model=setHomeWidgetConfig(model,id,{filters:{...dates,period,inheritPeriod:!['prev','next','custom'].includes(cmd),page:0}});draw();
    if(period!=='custom')void fetchFor(find(id));
    status('Periodo de consulta: '+dates.from+' a '+dates.to);return;
   }
@@ -577,6 +568,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    if(!PRESTASHOP_STORES.some(s=>s.key===shop)||!safeDate(date))return;
    void onOpenOrders({tab:'orders',store:shop,date});return;
   }
+  if(action==='catalog-quality'){const w=find(id);if(w)void fetchCatalog(w,true);return;}
   if(action==='fetch'){const w=find(id);if(w?.type==='prestashop.quality')void fetchCatalog(w,true);else void fetchFor(w,true);return}
   if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
   if(action==='open-orders'){void onOpenOrders({tab:'orders'});return}
@@ -687,7 +679,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     // The top product list is calculated only when every requested order and its
     // detail lines have been read. A partial result is never advertised as Top.
     let top=null,detailsByOrder=null,totalUnits=null;
-    if(!possiblyMore&&rows.length<=200){
+    if(!possiblyMore){
      try{
       const ids=rows.filter(o=>String(o.valid)==='1').map(o=>String(o.id));
       const ranking=new Map(),details=new Map(),lineIds=new Set(),coveredOrders=new Set();let complete=true,totalSoldUnits=0;
@@ -697,14 +689,30 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
         const detail=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'order_details',page:detailPage,page_size:100,order_ids:batch});
         if(!live()||token!==requestToken||owner!==owned)return;
         if(!detail?.ok||detail.store!==shop||detail.resource!=='order_details'||!Array.isArray(detail.rows)||detail.rows.some(l=>!batch.includes(String(l.id_order))))throw Error('Líneas de un pedido ajeno');
-        for(const line of detail.rows){const id=String(line.product_id||''),lid=String(line.id||''),qty=Number(line.product_quantity),attribute=String(line.product_attribute_id??'0');if(!/^\d{1,15}$/.test(id)||!/^\d{1,15}$/.test(lid)||!/^\d{1,15}$/.test(attribute)||lineIds.has(lid)||!Number.isSafeInteger(qty)||qty<=0){complete=false;break}lineIds.add(lid);const orderId=String(line.id_order),name=String(line.product_name||'Producto #'+id),group=id+':'+attribute;coveredOrders.add(orderId);const prev=ranking.get(group)||{name,qty:0,productId:id,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)};prev.qty+=qty;totalSoldUnits+=qty;ranking.set(group,prev);if(!details.has(orderId))details.set(orderId,[]);details.get(orderId).push({name,qty,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)})}
+        for(const line of detail.rows){const id=String(line.product_id||''),lid=String(line.id||''),qty=Number(line.product_quantity),attribute=String(line.product_attribute_id??'0');if(!/^\d{1,15}$/.test(id)||!/^\d{1,15}$/.test(lid)||!/^\d{1,15}$/.test(attribute)||lineIds.has(lid)||!Number.isSafeInteger(qty)||qty<=0){complete=false;break}lineIds.add(lid);const orderId=String(line.id_order),name=String(line.product_name||'Producto #'+id),group=id+':'+attribute;coveredOrders.add(orderId);const prev=ranking.get(group)||{name,qty:0,productId:id,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)};prev.qty+=qty;totalSoldUnits+=qty;ranking.set(group,prev);if(!details.has(orderId))details.set(orderId,[]);details.get(orderId).push({...line,name,qty,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)})}
         more=detail.possibly_more===true;detailPage++;
        }while(more&&detailPage<20);
        if(more||batch.some(id=>!coveredOrders.has(id))){complete=false;break}
       }
-      if(complete){top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,12);detailsByOrder=details;totalUnits=totalSoldUnits}
+      if(complete){
+       const current=()=>live()&&token===requestToken&&owner===owned;
+       const request=args=>invoke({store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args});
+       const enriched=await enrichHomeOrderLines({store:shop,lines:[...details.values()].flat(),invoke:request,current});
+       if(!current()||!enriched)return;
+       for(const order of rows){order.currency_code=currencies.get(String(order.id_currency))||null;order.margin_value=homeOrderMargin(order,details.get(String(order.id)),true).margin;}
+       for(const item of ranking.values()){const line=enriched.find(l=>String(l.product_id)===item.productId&&String(l.product_attribute_id||'0')===item.attributeId);item.image=line?.image||null;}
+       top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,12);detailsByOrder=details;totalUnits=totalSoldUnits;
+      }
      }catch{top=null}
     }
+    try{
+     const employees=new Map(),current=()=>live()&&token===requestToken&&owner===owned;
+     for(let start=0;start<rows.length;start+=25){
+      const sellers=await loadOrderSellers({orders:rows.slice(start,start+25),store:shop,employees,current,invoke:args=>invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args})});
+      if(!current())return;
+      for(const order of rows.slice(start,start+25)){const seller=sellers?.get(String(order.id));if(seller){order.employee_name=seller.name;order.employee_source=seller.source;}}
+     }
+    }catch{/* Missing registration is not evidence of the seller. */}
     ordersData.set(key,{shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,checked:new Date().toLocaleString('es-ES')});draw();
    }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});draw()}
    })().finally(()=>queries.delete(key));queries.set(key,task);
@@ -731,7 +739,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
      const value=key==='periodMonth'?el.value+'-01':el.value;
      if(!safeDate(value)){status('Fecha no válida',true);return}
      const dates=homePeriodBounds(mode,value);
-     model=setHomeWidgetConfig(model,w.id,{filters:{...dates,period:mode,page:0}});draw();
+     model=setHomeWidgetConfig(model,w.id,{filters:{...dates,period:mode,inheritPeriod:false,page:0}});draw();
      void fetchFor(find(w.id));status('Periodo de consulta: '+dates.from+' a '+dates.to);return;
     }if(key==='page'){const number=Number(el.value),limit=Number(el.max)||1;if(!Number.isSafeInteger(number)||number<1||number>limit){status('La página solicitada no existe.',true);return}filters={page:number-1}}else filters={[key]:el.value,page:0,...(['from','to'].includes(key)?{period:'custom'}:{})};const next=setHomeWidgetConfig(model,w.id,{filters});if((key==='from'||key==='to')&&dateRange(next.widgets.find(x=>x.id===w.id)).from>dateRange(next.widgets.find(x=>x.id===w.id)).to){status('La fecha final debe ser posterior o igual a la inicial.',true);return}model=next;draw();if(key==='from'||key==='to')void fetchFor(find(w.id));status('Filtros de consulta aplicados.');return}
    const key=el.dataset.homeConfig;

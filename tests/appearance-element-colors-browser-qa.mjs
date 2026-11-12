@@ -4,7 +4,7 @@ const server=await startLocalServer();
 const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
 try{
- for(const width of [390,768,1440]){
+ for(const width of [390,768,1017,1440,1920]){
   const page=await browser.newPage({viewport:{width,height:900}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto('http://127.0.0.1:4173/tests/chat-harness.html');
@@ -23,13 +23,15 @@ try{
    const root=document.documentElement;root.dataset.appearance='dark';
    for(const [key,value] of Object.entries(appearanceVariables(settings)))root.style.setProperty(key,value);
    const fixture=document.createElement('div');fixture.id='app';
-   fixture.innerHTML='<header class="topbar"><h1>Cabecera</h1></header><div class="card"><h3>Título de tarjeta</h3><div class="field"><label>Etiqueta</label><input value="Valor"></div><table class="data-table"><thead><tr><th>Encabezado</th></tr></thead><tbody><tr><td>Fila</td></tr></tbody></table><button class="btn secondary">Botón</button><div class="note">Nota neutra</div><div class="filters">Filtros</div><div class="modal">Ventana</div><section class="home-widget-header"><h3>Inicio</h3></section><table class="home-orders-table"><thead><tr><th>Pedidos</th></tr></thead></table><div id="productosRoot"><div class="prd-stitch"><h3>Producto</h3><div class="prd-fields"><label>Referencia</label><input value="PR-001"></div><table class="prd-catalog-table"><thead><tr><th>Nombre</th></tr></thead><tbody><tr><td>Producto ficticio</td></tr></tbody></table></div></div></div>';
+   fixture.innerHTML='<header class="topbar"><h1>Cabecera</h1><div id="headerTools" class="header-tools"><button><span class="header-clock"><b>12:30:45</b><small>jue, 12 nov</small></span></button></div></header><div class="card"><h3>Título de tarjeta</h3><div class="field"><label>Etiqueta</label><input value="Valor"></div><table class="data-table"><thead><tr><th>Encabezado</th></tr></thead><tbody><tr><td>Fila</td></tr></tbody></table><button class="btn secondary">Botón</button><div class="note">Nota neutra</div><div class="filters">Filtros</div><div class="modal">Ventana</div><section class="home-widget-header"><h3>Inicio</h3></section><table class="home-orders-table"><thead><tr><th>Pedidos</th></tr></thead></table><div id="productosRoot"><div class="prd-stitch"><h3>Producto</h3><div class="prd-fields"><label>Referencia</label><input value="PR-001"></div><table class="prd-catalog-table"><thead><tr><th>Nombre</th></tr></thead><tbody><tr><td>Producto ficticio</td></tr></tbody></table></div></div></div>';
    document.body.append(fixture);
    const color=selector=>{const style=getComputedStyle(fixture.querySelector(selector));return {text:style.color,bg:style.backgroundColor};};
-   return Object.fromEntries(['.topbar','.topbar h1','.card h3','.field label','.field input','.data-table th','.data-table td','.btn.secondary','.note','.filters','.modal','.home-widget-header h3','.home-orders-table th','#productosRoot .prd-stitch h3','#productosRoot .prd-fields input','#productosRoot .prd-catalog-table th'].map(selector=>[selector,color(selector)]));
+   return Object.fromEntries(['.topbar','.topbar h1','.header-clock b','.header-clock small','.card h3','.field label','.field input','.data-table th','.data-table td','.btn.secondary','.note','.filters','.modal','.home-widget-header h3','.home-orders-table th','#productosRoot .prd-stitch h3','#productosRoot .prd-fields input','#productosRoot .prd-catalog-table th'].map(selector=>[selector,color(selector)]));
   });
   assert.equal(values['.topbar'].bg,'rgb(17, 34, 51)','Header background');
   assert.equal(values['.topbar h1'].text,'rgb(255, 255, 255)','Header text');
+  assert.equal(values['.header-clock b'].text,'rgb(255, 255, 255)','Clock uses header palette');
+  assert.equal(values['.header-clock small'].text,'rgb(255, 255, 255)','Clock date uses header palette');
   assert.equal(values['.card h3'].text,'rgb(254, 220, 186)','Heading text');
   assert.equal(values['.field label'].text,'rgb(187, 204, 238)','Form label');
   assert.equal(values['.field input'].bg,'rgb(36, 54, 74)','Input background');
@@ -51,5 +53,5 @@ try{
   assert.deepEqual(errors,[]);
   await page.close();
  }
- console.log('Independent text and box colors: actual CSS cascade at 390/768/1440px PASS');
+ console.log('Independent text and box colors: actual CSS cascade at 390/768/1017/1440/1920px PASS');
 }finally{await browser.close();await server?.close();}

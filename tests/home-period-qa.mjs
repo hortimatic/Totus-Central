@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {homeToday,homeDateRange,homePeriodBounds,shiftedHomePeriod} from '../src/home-period.js';
+const stored={filters:{period:'day',from:'2026-11-10',to:'2026-11-10'}};
+assert.equal(homeToday(new Date('2026-11-11T23:30:00Z')),'2026-11-12','Madrid date changes before UTC');
+assert.deepEqual(homeDateRange(stored,'2026-11-12'),{from:'2026-11-12',to:'2026-11-12'},'Relative saved day follows current date');
+assert.deepEqual(homeDateRange({filters:{...stored.filters,inheritPeriod:false}},'2026-11-12'),{from:'2026-11-10',to:'2026-11-10'},'Manual date remains fixed');
+assert.deepEqual(homeDateRange({filters:{...stored.filters,period:'custom'}},'2026-11-12'),{from:'2026-11-10',to:'2026-11-10'});
+assert.deepEqual(homePeriodBounds('week','2026-11-12'),{from:'2026-11-09',to:'2026-11-15'});
+assert.deepEqual(homePeriodBounds('month','2028-02-15'),{from:'2028-02-01',to:'2028-02-29'});
+assert.deepEqual(shiftedHomePeriod(stored,-1,'2026-11-12'),{from:'2026-11-11',to:'2026-11-11'});
+assert.deepEqual(shiftedHomePeriod({filters:{period:'month'}},1,'2026-12-31'),{from:'2027-01-01',to:'2027-01-31'});
+console.log('Home periods: Madrid midnight, saved relative/manual dates, week, leap year and year rollover PASS');
