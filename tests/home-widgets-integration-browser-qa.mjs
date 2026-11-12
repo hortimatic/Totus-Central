@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
 
 const server=await startLocalServer();
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
 const page=await browser.newPage({viewport:{width:1440,height:960},locale:'es-ES'});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));

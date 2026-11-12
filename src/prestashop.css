@@ -127,3 +127,16 @@
 .prestashop-page .ps-order-totals>div{display:flex;align-items:center;flex-wrap:wrap;gap:10px 24px;padding:12px;border:1px solid var(--line);border-radius:var(--r,7px);flex:1 1 480px;min-width:0}
 .prestashop-page .ps-order-totals strong,.prestashop-page .ps-order-totals b{font-size:.95rem}
 .prestashop-page .ps-order-totals small{flex-basis:100%;color:var(--muted);line-height:1.4}
+.ps-quality-panel{min-width:0;display:grid;gap:12px}
+.ps-quality-panel .ps-panel-title{align-items:flex-start;gap:12px;flex-wrap:wrap}
+.ps-quality-panel .ps-panel-title p{margin:4px 0 0;font-size:.85rem;color:var(--muted)}
+.ps-quality-total{margin:0;font-size:.9rem}
+.ps-quality-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:10px}
+.ps-quality-check{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;text-align:left;padding:12px;border:var(--appearance-border-width,1px) solid var(--line);border-radius:var(--r,10px);background:var(--panel);color:var(--ink);font:inherit;min-width:0;cursor:pointer}
+.ps-quality-check strong{font-size:1.05rem;line-height:1.4;font-variant-numeric:tabular-nums}
+.ps-quality-check small{grid-column:1/-1;color:var(--muted);font-size:.78rem;line-height:1.45}
+.ps-quality-check:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ps-quality-check:hover:not(:disabled){border-color:var(--accent)}
+.ps-quality-check:disabled{cursor:default;opacity:.65}
+.ps-catalog>article>.btn{align-self:center;justify-self:end;white-space:nowrap}
+@media(max-width:600px){.ps-catalog>article>.btn{justify-self:start}.ps-quality-panel .ps-panel-title>.btn{width:100%}}

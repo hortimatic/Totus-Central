@@ -39,7 +39,7 @@
 #productosRoot .prd-professional .prd-v4-header .animate-pulse{animation:none}
 #productosRoot .prd-professional .prd-v4-header [title='Sincronizar']{display:flex;align-items:center}
 #productosRoot .prd-professional .prd-v4-nav{display:flex;align-items:center;padding:5px 8px;background:color-mix(in srgb,var(--panel,#fff) 94%,var(--accent,#006591));border-bottom:1px solid var(--line,#dbe4ef);min-width:0}
-#productosRoot .prd-professional .prd-v4-nav>div{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;gap:4px;min-width:0}
+#productosRoot .prd-professional .prd-v4-nav>div{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));width:100%;gap:4px;min-width:0}
 #productosRoot .prd-professional .prd-v4-nav .master-tab-btn{display:flex!important;flex-direction:row;align-items:center;justify-content:center;min-height:34px!important;max-height:none;padding:5px!important;gap:4px;border:1px solid transparent;background:transparent;color:var(--ink,#0b1c30);min-width:0}
 #productosRoot .prd-professional .master-tab-btn span:not(.material-symbols-outlined){font-size:12px;white-space:normal}
 #productosRoot .prd-professional .master-tab-btn[aria-selected=true]{background:var(--panel,#fff);border-color:var(--line,#dbe4ef);color:var(--accent,#006591);font-weight:650}

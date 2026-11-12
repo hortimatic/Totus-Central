@@ -14,6 +14,8 @@ export const PRESTASHOP_QUERY_RECIPES=Object.freeze([
  {id:'inventory_tax_cost',name:'Valoración de inventario con IVA y RE',group:'Inventario',needs:'Costes fiables e impuestos reales por producto; la valoración actual es provisional'},
  {id:'inventory_cost',name:'Valoración de inventario a coste',group:'Inventario',needs:'Costes fiables de producto y variante; no se utiliza el coste redondeado como real'},
  {id:'missing_reference',name:'Productos sin referencia',group:'Calidad',target:'catalog'},
+ {id:'missing_ean',name:'Productos sin EAN',group:'Calidad',target:'catalog',description:'EAN vacío en la ficha base; revisar sus combinaciones antes de corregir.'},
+ {id:'invalid_ean',name:'EAN de producto por revisar',group:'Calidad',target:'catalog',description:'La ficha contiene un EAN con un formato diferente de 13 dígitos.'},
  {id:'missing_weight',name:'Revisar peso del producto',group:'Calidad',target:'catalog',description:'Aviso a nivel de producto; hay que contrastarlo con sus combinaciones.'},
  {id:'missing_image',name:'Revisar imagen principal',group:'Calidad',target:'catalog'},
  {id:'duplicate_reference',name:'Referencias repetidas',group:'Calidad',target:'catalog'},
@@ -23,7 +25,7 @@ export const PRESTASHOP_QUERY_RECIPES=Object.freeze([
 const normalized=s=>String(s||'').trim().toLocaleLowerCase('es');
 export function recipeProducts(rows,recipe){
  const duplicates=field=>{const counts=new Map();for(const row of rows){const v=normalized(row[field]);if(v)counts.set(v,(counts.get(v)||0)+1);}return row=>!!normalized(row[field])&&counts.get(normalized(row[field]))>1;};
- const filter={zero_price:r=>r.price!=null&&r.price!==''&&Number(r.price)===0,missing_reference:r=>!normalized(r.reference),missing_weight:r=>r.weight==null||r.weight===''||!Number.isFinite(Number(r.weight))||Number(r.weight)<=0,missing_image:r=>!r.id_default_image||r.id_default_image==='0',duplicate_ean:duplicates('ean13'),duplicate_name:duplicates('name'),duplicate_reference:duplicates('reference'),suspicious_names:r=>/(copy of|copia de|copia|copy|test|prueba|duplicado)/i.test(r.name||'')}[recipe];
+ const filter={zero_price:r=>r.price!=null&&r.price!==''&&Number(r.price)===0,missing_reference:r=>!normalized(r.reference),missing_ean:r=>!normalized(r.ean13),invalid_ean:r=>!!normalized(r.ean13)&&!/^\d{13}$/.test(String(r.ean13).trim()),missing_weight:r=>r.weight==null||r.weight===''||!Number.isFinite(Number(r.weight))||Number(r.weight)<=0,missing_image:r=>!/^\d+$/.test(String(r.id_default_image??'').trim())||Number(r.id_default_image)<=0,duplicate_ean:duplicates('ean13'),duplicate_name:duplicates('name'),duplicate_reference:duplicates('reference'),suspicious_names:r=>/(copy of|copia de|copia|copy|test|prueba|duplicado)/i.test(r.name||'')}[recipe];
  return filter?rows.filter(filter):rows;
 }
 export function withinDailyWindow(timestamp,start,end){
