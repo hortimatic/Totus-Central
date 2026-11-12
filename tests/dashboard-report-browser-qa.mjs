@@ -1,7 +1,7 @@
 import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {chromium} from 'playwright';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 import JSZip from 'jszip';
 import XLSX from 'xlsx-js-style';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];

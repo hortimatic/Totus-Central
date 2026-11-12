@@ -7,7 +7,7 @@ export function createActivityLog({rpc,actor,onState=()=>{}}){
    while(pending.length){
     const event=pending[0];if(actor()!==event.owner){pending.shift();continue;}
     try{await rpc('totus_record_activity',event.args);}
-    catch{if(actor()===event.owner)onState('Hay actividad sin confirmar. Se reintentará mientras mantengas abierta la sesión.');return false;}
+    catch{if(actor()===event.owner)onState('Registro de actividad pendiente: '+pending.length+' '+(pending.length===1?'evento':'eventos')+'. No se ha confirmado el envío al historial de navegación. Se reintenta cada 30 segundos mientras la sesión está abierta; este aviso no confirma ni invalida el guardado de una ficha.');return false;}
     if(pending[0]===event)pending.shift();
    }
    if(!lost)onState('');return true;

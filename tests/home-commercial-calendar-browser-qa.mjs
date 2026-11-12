@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
-import {chromium} from 'playwright';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 const server=await startLocalServer(),browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})}),report=[];
 await mkdir('qa-artifacts/home-commercial-calendar',{recursive:true});
 try{for(const width of [390,768,1017,1440,1920]){
@@ -22,7 +22,7 @@ try{for(const width of [390,768,1017,1440,1920]){
  await idle();assert((await page.locator('[data-ht-action=date]').count())>=28);
  await page.getByRole('button',{name:'Día',exact:true}).click();await idle();assert.equal(await page.locator('[data-ht-action=date]').count(),1);
  await page.locator('[data-ht-date]').fill('2026-11-12');await page.locator('[data-ht-date]').blur();await idle();
- await page.getByText('Tarea completada',{exact:true}).waitFor();assert.equal(await page.locator('#calendar img').count(),0,'Task text is escaped');
+ await page.locator('.home-task-agenda').getByText('Tarea completada',{exact:true}).waitFor();assert.equal(await page.locator('#calendar img').count(),0,'Task text is escaped');
  await page.getByRole('button',{name:'Abrir Tareas',exact:true}).click();assert.deepEqual(await page.evaluate(()=>calendarQA.opened),['2026-11-12']);
  await page.getByRole('button',{name:'Semana',exact:true}).click();await idle();assert.equal(await page.locator('[data-ht-action=date]').count(),7);
  await page.getByRole('button',{name:'Mes',exact:true}).click();await idle();await page.locator('[data-ht-date]').fill('2024-01-31');await page.locator('[data-ht-date]').blur();await idle();await page.getByRole('button',{name:'Periodo siguiente',exact:true}).click();await idle();assert.equal(await page.locator('[data-ht-date]').inputValue(),'2024-02-29');

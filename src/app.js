@@ -93,7 +93,7 @@ async function resumeBusinessForm(route){
  setView(route,{mode:'record',id:result.id,...(route==='cajas'?{reconcileSource:false}:{}),...(doc?{docType:doc.document_type,invoiceKind:doc.invoice_kind,origin:doc.origin}:{})});
  await refresh('Guardado confirmado. No se ha creado otro registro.');return true;
 }
-const headerTools=createHeaderTools({rpc,can:module=>can(module,'view'),actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{await navigateModule(route,null,()=>{if(route==='tareas')pendingTaskDate=date;});}});
+const headerTools=createHeaderTools({rpc,onOpenOrder:async({store,order,date})=>{await navigateModule('ventas',null,()=>{const target=new URL(location.href);target.searchParams.set('ps_store',store);target.searchParams.set('ps_order',order);target.searchParams.set('ps_date',date);history.replaceState(null,'',target.href);});},can:module=>can(module,'view'),actor:()=>state.user?.email||'',onNavigate:async(route,date)=>{const entered=await navigateModule(route,null,()=>{if(route==='tareas')pendingTaskDate=date;});if(entered===false)return;if(route==='configuracion'&&date==='clock'&&!appearanceUI.hasDraft()){appearanceUI.showSection('interfaz');const field=document.getElementById('appearance-clockFontSize');const group=field?.closest('details');if(group){group.open=true;group.hidden=false;}field?.scrollIntoView({block:'center',behavior:'smooth'});field?.focus({preventScroll:true});}}});
 const tasks=createTasks({rpc,can:action=>can('tareas',action),actor:()=>String(state.user?.email||'').toLowerCase(),onError:m=>{toast(m,'bad');activityLog.record('tareas','error_operacion','tarea');},confirm:m=>confirmAction(m,{title:'Confirmar tarea',acceptLabel:'Continuar'}),onSource:async message=>{await navigateModule('equipo',null,()=>{pendingChatTarget=message;});}});
 function updateChatBadge(count){
  if(count!==null)chatUnread=Number(count)||0;
@@ -115,7 +115,8 @@ const titles={
  informes:['Gestión y análisis','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Comercio','PrestaShop'],productos:['Comercio','Productos'],configuracion:['Sistema','Configuración'],apis:['Sistema','APIs']
 };
 
-const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
+const activityNoticeHtml=message=>message?'<span>'+esc(message)+'</span><button type="button" class="btn secondary" data-action="retry-activity">Reintentar ahora</button>':'';
+const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{const first=message&&!state.data.activityLogError;state.data.activityLogError=message;if(first)toast('El historial de actividad está pendiente de envío. Puedes revisar el aviso y reintentar.','warn');const notice=document.querySelector('[data-activity-status]');if(notice){notice.innerHTML=activityNoticeHtml(message);notice.hidden=!message;}}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
 function can(module,action='view'){if(module==='apis')return isAdmin()&&can('configuracion','edit');if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
@@ -302,7 +303,7 @@ function render(){
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
  homeUI.dispose();
- $('#content').innerHTML='<div class="note warn activity-status" data-activity-status role="status"'+(state.data.activityLogError?'':' hidden')+'>'+esc(state.data.activityLogError||'')+'</div><div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
+ $('#content').innerHTML='<div class="note warn activity-status" data-activity-status role="status"'+(state.data.activityLogError?'':' hidden')+'>'+activityNoticeHtml(state.data.activityLogError||'')+'</div><div id="credentialNoticeHost"'+(maintenance?'':' hidden')+'>'+maintenance+'</div>'+renderer();
  const records={cajas:state.data.closings,gastos:state.data.expenses,facturacion:state.data.invoices};
  rememberWriteVersion($('#content > .page'),records[state.route]?.find(row=>row.id===getView(state.route).id));
  document.querySelectorAll('#content details[data-storage-detail]').forEach(el=>{el.open=openStorageDetails.includes(el.dataset.storageDetail);});
@@ -580,8 +581,8 @@ async function saveClosing(id='',status='borrador'){
    const read=suffix=>preview.drawers[index][DRAWER_FORM_FIELDS.find(([name])=>name===suffix)[1]];
    if(status==='cerrado'&&raw('Open').trim()===''){document.getElementById(`drOpen_${d}`)?.focus();throw new Error('Indica el dinero de apertura de cada caja; escribe 0 solo si confirmas que estaba vacía.');}
    if(status==='cerrado'&&raw('Close')==='')throw new Error('Falta el efectivo final de una caja.');
-   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),reported_total_sales:preview.references.values[index],notes:state.data.closingDrawers.find(x=>x.closing_id===id&&x.drawer_id===d)?.notes||''};
-   if(Object.entries(row).some(([k,v])=>k!=='drawer_id'&&k!=='notes'&&Number(v)<0))throw new Error('No se admiten importes negativos en Cajas.');
+   const row={drawer_id:d,opening_cash:read('Open'),closing_cash:read('Close'),card_sales:read('Card'),bizum_sales:read('Bizum'),online_sales:read('Online'),other_income:read('Other'),cash_withdrawals:read('Withdraw'),cash_expenses_declared:read('CashExpense'),cash_extra_in:read('ExtraIn'),cash_extra_out:read('ExtraOut'),cash_discrepancy:read('Discrepancy'),cash_discrepancy_reason:raw('DiscrepancyReason').trim(),reported_total_sales:preview.references.values[index],notes:state.data.closingDrawers.find(x=>x.closing_id===id&&x.drawer_id===d)?.notes||''};
+   if(Object.entries(row).some(([k,v])=>k!=='drawer_id'&&k!=='notes'&&k!=='cash_discrepancy'&&k!=='cash_discrepancy_reason'&&Number(v)<0))throw new Error('No se admiten importes negativos en Cajas.');
    return row;
  });
  if(status==='cerrado'){
@@ -590,20 +591,20 @@ async function saveClosing(id='',status='borrador'){
   if(mismatchedDrawer>=0)throw new Error('Las ventas de '+(state.data.drawers.find(d=>d.id===drawers[mismatchedDrawer].drawer_id)?.name||'una caja')+' no cuadran con sus cobros: diferencia '+money(preview.drawerDifferences[mismatchedDrawer])+'. Revisa esa caja.');
   if(preview.negativeDrawers.length)throw new Error('Hay una caja con ventas en efectivo negativas. Revisa su apertura, efectivo final y retiradas; no se compensa con la otra caja.');
   if(val('clReported').trim()==='')throw new Error('Indica el total de ventas antes de conciliar el cierre.');
-  const calculated=drawers.reduce((sum,d)=>sum+d.closing_cash+d.cash_withdrawals+d.cash_expenses_declared+d.cash_extra_out-d.cash_extra_in-d.opening_cash+d.card_sales+d.bizum_sales+d.online_sales+d.other_income,0);
+  const calculated=drawers.reduce((sum,d)=>sum+d.closing_cash+d.cash_withdrawals+d.cash_expenses_declared+d.cash_extra_out-d.cash_extra_in-d.opening_cash-Number(d.cash_discrepancy||0)+d.card_sales+d.bizum_sales+d.online_sales+d.other_income,0);
   const difference=Math.round(calculated*100)-Math.round(num('clReported')*100);
   if(Math.abs(difference)>1)throw new Error('El cierre no cuadra: diferencia '+money(difference/100)+'. Revisa Total ventas y los importes de cada caja.');
  }
  const payload={id:id||null,store_id:store,business_date:date,reported_total_sales:val('clReported')===''?null:num('clReported'),notes:val('clNotes').trim(),status,...expectedWriteVersion($('#content > .page'),id)};
  const savedId=await businessWriter.execute($('#content > .page'),'totus_save_closing',{p_closing:payload,p_drawers:drawers},'p_closing');
  setView('cajas',{mode:'record',id:savedId,reconcileSource:false,storeId:null,date:null});
- await refresh(status==='cerrado'?(reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
+ await refresh(status==='cerrado'?(drawers.some(d=>d.cash_discrepancy)?'Cierre guardado con descuadre pendiente de aclarar.':reconcilingSource?'Cierre conciliado, cerrado y cuadrado.':'Cierre cerrado y cuadrado.'):'Borrador guardado.');
 }
 async function reopenClosing(id){
  if(state.data.closingDrawers.some(d=>d.closing_id===id&&state.data.drawers.some(x=>x.id===d.drawer_id&&x.active===false)))throw new Error('Reactiva la caja en Administración → Negocio antes de reabrir este cierre. Sus importes se conservan.');
  if(!confirm('¿Reabrir este cierre para corregirlo? La acción quedará registrada.'))return;
  const row=state.data.closings.find(x=>x.id===id);if(!row)return;
- const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,reported_total_sales:x.reported_total_sales??null,notes:x.notes||''}));
+ const drawers=state.data.closingDrawers.filter(x=>x.closing_id===id).map(x=>({drawer_id:x.drawer_id,opening_cash:x.opening_cash,closing_cash:x.closing_cash,card_sales:x.card_sales,bizum_sales:x.bizum_sales,online_sales:x.online_sales,other_income:x.other_income,cash_withdrawals:x.cash_withdrawals,cash_expenses_declared:x.cash_expenses_declared,cash_extra_in:x.cash_extra_in,cash_extra_out:x.cash_extra_out,cash_discrepancy:x.cash_discrepancy||0,cash_discrepancy_reason:x.cash_discrepancy_reason||'',reported_total_sales:x.reported_total_sales??null,notes:x.notes||''}));
  await businessWriter.execute($('#content > .page'),'totus_save_closing',{p_closing:{id,store_id:row.store_id,business_date:row.business_date,reported_total_sales:row.reported_total_sales,notes:row.notes||'',status:'borrador',...expectedWriteVersion($('#content > .page'),id)},p_drawers:drawers},'p_closing');
  await refresh('Cierre reabierto.');
 }
@@ -1069,7 +1070,7 @@ function updateExpenseSummary(){
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=money(v)};
  set('exSumBase',base);set('exSumVat',vat);set('exSumRe',re);set('exSumWh',wh);set('exSumTotal',total);
 }
-function closingFormPreview(){return previewClosing([...document.querySelectorAll('.drawer-entry')].map(el=>Object.fromEntries([['drawer_id',el.dataset.drawerId],['reported_total_sales',input('drSales_'+el.dataset.drawerId)?.value??''],...DRAWER_FORM_FIELDS.map(([suffix,field])=>[field,input('dr'+suffix+'_'+el.dataset.drawerId)?.value??''])])),val('clReported'))}
+function closingFormPreview(){return previewClosing([...document.querySelectorAll('.drawer-entry')].map(el=>Object.fromEntries([['drawer_id',el.dataset.drawerId],['reported_total_sales',input('drSales_'+el.dataset.drawerId)?.value??''],['cash_discrepancy_reason',input('drDiscrepancyReason_'+el.dataset.drawerId)?.value??''],...DRAWER_FORM_FIELDS.map(([suffix,field])=>[field,input('dr'+suffix+'_'+el.dataset.drawerId)?.value??''])])),val('clReported'))}
 function updateClosingSummary(){
  const result=closingFormPreview(),t=input('clCalcTotal'),d=input('clDifference');
  const reported=input('clReported'),hint=input('clSalesHint');
@@ -1078,6 +1079,7 @@ function updateClosingSummary(){
   else{if(reported.readOnly){reported.readOnly=false;reported.value=reported.dataset.manualValue||'';}if(hint)hint.textContent='Indica las ventas de cada caja para sumar el total automáticamente, o conserva el total de tienda si no dispones de su reparto.';}
  }
  [...document.querySelectorAll('.drawer-entry')].forEach((el,index)=>{const target=input('drSalesDiff_'+el.dataset.drawerId);if(!target)return;const value=result.drawerDifferences?.[index];target.textContent=!result.valid?'Revisa los importes.':result.references.values[index]===null?'Sin ventas anotadas para esta caja':value===null?'Completa apertura y efectivo final para comprobar esta caja':'Diferencia con sus cobros: '+money(value);target.className='small '+(value!=null&&Math.abs(value)>.01?'danger-text':'muted');});
+ const pendingNote=input('clPendingDiscrepancy');if(pendingNote){const pending=(result.drawers||[]).filter(row=>row.cash_discrepancy);pendingNote.textContent=pending.length?'Descuadres pendientes: '+pending.map(row=>(state.data.drawers.find(d=>d.id===row.drawer_id)?.name||'Caja')+' '+(row.cash_discrepancy>0?'+':'')+money(row.cash_discrepancy)).join(' · ')+'. No se suman a las ventas.':'';}
  if(t)t.textContent=!result.valid?'—':result.complete?money(result.total):'Por completar';
  if(d){d.textContent=!result.valid?result.error:!result.complete?'Completa apertura y efectivo final de cada caja':result.negativeDrawers.length?'Revisa el efectivo de cada caja':result.difference==null?'Sin total para comparar':money(result.difference);d.className=!result.valid||result.negativeDrawers.length||Math.abs(result.difference||0)>.01?'danger-text':!result.complete||result.difference==null?'muted':'good-text'}
 }
@@ -2783,6 +2785,7 @@ document.addEventListener('click',async e=>{
   e.preventDefault();await navigateModule(route,el);return;
  }
  const a=el.dataset.action;if(!a)return;
+ if(a==='retry-activity'){el.disabled=true;try{await activityLog.retry();}finally{if(el.isConnected)el.disabled=false;}return;}
  if(a==='toggle-mobile-filters'){
   const panel=document.getElementById(el.getAttribute('aria-controls'));if(!panel)return;
   const expanded=el.getAttribute('aria-expanded')!=='true';el.setAttribute('aria-expanded',String(expanded));panel.classList.toggle('is-open',expanded);return;

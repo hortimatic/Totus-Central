@@ -15,7 +15,7 @@ try{
  const rpcMarker='const rpc=async (name,args={})=>{';
  const rpcInject=[
   rpcMarker,
-  " if(name==='totus_tasks_context'){window.__qaTaskCalls||=[];window.__qaTaskCalls.push(args);return {data:{rows:[{task_id:'task-qa',title:'Tarea del calendario QA',scheduled_on:args.p_from,state:'pending',description:'',priority:'normal'}],stores:[],people:[]},error:null};}",
+  " if(['totus_tasks_context','totus_home_tasks_context'].includes(name)){window.__qaTaskCalls||=[];window.__qaTaskCalls.push(args);return {data:{rows:[{task_id:'task-qa',title:'Tarea del calendario QA',scheduled_on:args.p_from,state:'pending',description:'',priority:'normal'}],stores:[],people:[]},error:null};}",
   " if(name==='totus_prestashop_context'){window.__qaHomeContextCalls=(window.__qaHomeContextCalls||0)+1;return {data:{connections:[",
   "  {protocol:'prestashop',name:'PrestaShop · Hortimatic',id:'ps-h',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true},",
   "  {protocol:'prestashop',name:'PrestaShop · NewOldSmok',id:'ps-n',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true}",
@@ -104,7 +104,7 @@ try{
  assert(options.includes('Bizum')&&options.includes('Transferencia bancaria'),'Payment filters use all native payment names');
  assert((await orders.locator('tbody').innerText()).includes('Persona QA'),'Native initial registration employee is represented');
  assert((await orders.locator('tbody').innerText()).includes('6,33'),'Each order displays its calculated margin');
- assert.equal(await orders.locator('.home-order-product-line').count(),10,'Los diez pedidos muestran sus productos recuperados por línea');
+ assert.equal(await orders.locator('.home-orders-table .home-order-product-line').count(),10,'Los diez pedidos muestran sus productos recuperados por línea');
  assert((await orders.locator('.home-order-product-line').first().innerText()).includes('Producto QA'),'Las unidades y nombres proceden de order_details');
  assert((await orders.locator('thead th').allTextContents()).some(label=>label.trim()==='Atendido por'),'La columna de atención existe aunque esté fuera del viewport horizontal');
  fs.mkdirSync('qa-artifacts/inicio',{recursive:true});
@@ -238,6 +238,7 @@ try{
  for(const width of [320,390,768,1024,1440,1920]){
   await page.setViewportSize({width,height:900});
   await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
+  if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2)){console.log('OVERFLOW',width,await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.right>innerWidth+2&&getComputedStyle(el).position!=='fixed';}).slice(0,18).map(el=>({tag:el.tagName,class:el.className,width:Math.round(el.getBoundingClientRect().width),right:Math.round(el.getBoundingClientRect().right),text:el.textContent.slice(0,65)}))));}
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Inicio sin desbordamientos a '+width+'px');
   if(width===390)await page.screenshot({path:'qa-artifacts/inicio/movil-390.png',fullPage:true});
  }

@@ -588,3 +588,16 @@
 .home-task-agenda li>small{color:var(--muted)}
 .home-widget-body .kpi .kpi-caption{min-block-size:2.5em;align-items:flex-start;line-height:1.25}
 .home-widget-body .kpi>small{min-block-size:2.6em;line-height:1.3}
+
+.activity-legend{display:flex;flex-wrap:wrap;gap:8px 16px;border:0;padding:0;margin:12px 0}.activity-legend legend{font-size:.84rem;margin-bottom:8px}.activity-legend label{display:inline-flex;gap:6px;align-items:center;font-size:.82rem;cursor:pointer}.activity-legend input{width:16px;height:16px;margin:0}.activity-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.activity-interactive:has([data-activity-toggle="sales"]:not(:checked)) [data-activity-series="sales"]{display:none}
+.activity-interactive:has([data-activity-toggle="fiscal"]:not(:checked)) [data-activity-series="fiscal"]{display:none}
+.activity-interactive:has([data-activity-toggle="internal"]:not(:checked)) [data-activity-series="internal"]{display:none}
+.activity-interactive:has([data-activity-toggle="balance"]:not(:checked)) [data-activity-series="balance"]{display:none}
+
+.home-task-owner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:.85rem}.home-task-owner label{display:flex;align-items:center;gap:6px;min-width:0}.home-task-owner select{max-width:100%;min-height:32px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:var(--r,6px)}
+.home-task-days button{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;border-radius:5px!important;min-height:68px;gap:3px;padding:5px;overflow:hidden;text-align:left;background:var(--panel);border:1px solid var(--line)}
+.home-task-days button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 12%,var(--panel));outline:1px solid var(--accent);outline-offset:-1px}.home-task-days button>small{font-size:9px}.home-task-cell-titles{display:grid;gap:3px;width:100%;font-size:10px;line-height:1.3}.home-task-cell-titles>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.home-task-agenda li{align-items:baseline;padding:7px;background:var(--panel);border-radius:5px}.home-task-agenda li>span{flex:1;min-width:100px;font-size:.85rem}
+@media(max-width:420px){.home-task-days button{min-height:56px;padding:3px}.home-task-cell-titles{font-size:9px}.home-task-days button>small{font-size:8px}}
+
+.home-order-product-line{display:flex!important;align-items:center;gap:8px;min-width:0;white-space:normal!important}.home-order-product-image{display:block;flex:0 0 50px;width:50px;height:58px;object-fit:contain;background:var(--panel,#fff);border-radius:5px}.home-order-card-products{display:grid;gap:6px;margin:10px 0;font-size:12px}.home-order-card-products .home-order-product-line>span{min-width:0;overflow-wrap:anywhere}

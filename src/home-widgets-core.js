@@ -40,7 +40,7 @@ const definitions = [
   ['chat.alerts','Chat','Avisos del equipo',6,4,4,12]
 ];
 export const HOME_WIDGET_CATALOG = Object.freeze(Object.fromEntries(definitions.map(([type,category,title,width,height,minWidth,maxWidth])=>[
-  type,Object.freeze({type,category,title,width,height,minWidth,maxWidth,minHeight:2,maxHeight:12})
+  type,Object.freeze({type,category,title,width,height,minWidth:1,maxWidth:12,minHeight:2,maxHeight:12})
 ])));
 const isObj = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const bounded = (x,min,max,def) => Number.isFinite(Number(x)) ? Math.max(min,Math.min(max,Math.round(Number(x)))) : def;

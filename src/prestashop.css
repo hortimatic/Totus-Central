@@ -140,3 +140,9 @@
 .ps-quality-check:disabled{cursor:default;opacity:.65}
 .ps-catalog>article>.btn{align-self:center;justify-self:end;white-space:nowrap}
 @media(max-width:600px){.ps-catalog>article>.btn{justify-self:start}.ps-quality-panel .ps-panel-title>.btn{width:100%}}
+
+/* Keep only the compact column arrows within reach while the page scrolls. */
+.ps-orders-table-navigation{position:sticky;top:calc(var(--appearance-header,70px) + 4px);z-index:5;justify-content:flex-end;pointer-events:none;min-height:36px}
+.ps-orders-table-navigation>*{pointer-events:auto;background:var(--panel,#fff)}
+.ps-orders-table-navigation>span{margin-right:auto;padding:5px 8px;border-radius:var(--r,6px)}
+.ps-orders-table-navigation>button{box-shadow:0 2px 6px #10203024}

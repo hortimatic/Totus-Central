@@ -225,6 +225,7 @@ export function issuedDocumentFileLocked(id,invoices=[]){
  */
 export function manualClosingReconciled(row){
  if(!row||row.entry_mode==='source_snapshot'||row.status!=='cerrado')return false;
+ try{if(JSON.parse(row.source_ref||'{}').pending_cash_discrepancies?.length)return false;}catch{};
  const valid=v=>v!==null&&v!==''&&v!==undefined&&Number.isFinite(Number(v));
  if(!valid(row.reported_total_sales)||!valid(row.cash_sales)||!valid(row.card_sales)||!valid(row.difference))return false;
  const amounts=['cash_sales','card_sales','bizum_sales','online_sales','other_income'].map(k=>Number(row[k]??0));
