@@ -168,7 +168,7 @@ jobs:
       - name: Initialize inactive language fixture through native PrestaShop class
         run: docker compose -f tests/prestashop-sandbox/docker-compose.yml exec -T prestashop php /tmp/ci-language-fixture.php
       - name: Test REAL POST and verification in isolated PrestaShop only
-        run: node --test tests/prestashop-sandbox/live-product-qa.mjs
+        run: node --test tests/prestashop-sandbox/live-product-qa.mjs tests/prestashop-sandbox/live-directory-qa.mjs
       - name: Remove disposable shop and database
         if: always()
         run: docker compose -f tests/prestashop-sandbox/docker-compose.yml down -v --remove-orphans
