@@ -50,6 +50,7 @@ try{for(const width of [390,768,1024,1440]){
  await page.evaluate(()=>document.fonts.ready);
  const actionRow=page.locator('.prd-catalog-table tbody tr').first(),rowHeight=(await actionRow.boundingBox()).height;
  await actionRow.locator('.prd-row-menu summary').click();
+ await page.waitForFunction(()=>document.querySelector('.prd-row-menu[open]>div')?.style.position==='fixed');
  assert(await actionRow.locator('.prd-row-menu summary').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))<=14,'Row actions use compact text rather than the old giant ellipsis style');
  assert(Math.abs((await actionRow.boundingBox()).height-rowHeight)<3,'Action menu floats without expanding the product row');
  const web=page.locator('.prd-catalog-table tbody tr').first().getByRole('link',{name:'Ver en la web ↗',exact:true});

@@ -243,7 +243,7 @@
 #productosRoot .prd-row-actions{white-space:nowrap;min-width:200px}
 #productosRoot .prd-row-menu{display:block;vertical-align:middle;margin:6px 0 0}
 #productosRoot .prd-row-menu summary{font-size:.82rem;width:100%;box-sizing:border-box;list-style:none;border:1px solid var(--line,#bec8d2);border-radius:6px}
-#productosRoot .prd-row-menu>div{z-index:80;display:grid;gap:4px;padding:8px;background:var(--panel,#fff);border:1px solid var(--line,#bec8d2);border-radius:8px;box-shadow:0 8px 30px #14284426;overflow:auto}
+#productosRoot .prd-row-menu>div{position:fixed;z-index:80;display:grid;gap:4px;padding:8px;background:var(--panel,#fff);border:1px solid var(--line,#bec8d2);border-radius:8px;box-shadow:0 8px 30px #14284426;overflow:auto}
 #productosRoot .prd-row-menu>div button{justify-content:flex-start;text-align:left}
 #productosRoot .prd-table-actions{display:flex;flex-wrap:wrap;max-width:290px;min-width:230px;gap:6px}
 #productosRoot .prd-table-actions label{font-size:11px}
