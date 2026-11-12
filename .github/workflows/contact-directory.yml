@@ -14,7 +14,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-transport-qa.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check --node-modules-dir=none supabase/functions/totus-connections/index.ts
+      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs
   directory-database:
     runs-on: ubuntu-latest
     services:

@@ -19,7 +19,7 @@ export const DIRECTORY_FIELDS=Object.freeze({
  order_details:['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','purchase_supplier_price','original_wholesale_price','total_price_tax_incl','total_price_tax_excl'],
  currencies:['id','iso_code','name'],countries:['id','iso_code','name','active'],states:['id','id_country','name','iso_code','active'],groups:['id','name','price_display_method'],languages:['id','iso_code','name','active']
 });
-const readonly=new Set(['id','date_add','date_upd','id_shop','id_shop_group','deleted']);
+const readonly=new Set(['id','date_add','date_upd','id_shop','id_shop_group','deleted','associations']);
 export const DIRECTORY_WRITABLE=Object.freeze(Object.fromEntries(['customers','addresses','suppliers','manufacturers','product_options','product_option_values','product_features','product_feature_values'].map(resource=>[resource,DIRECTORY_FIELDS[resource].filter(f=>!readonly.has(f))])));
 const id=/^[1-9]\d{0,14}$/,uuid=/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 const flag=new Set(['active','newsletter','optin','is_guest','show_public_prices','custom']);
