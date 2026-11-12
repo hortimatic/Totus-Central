@@ -184,7 +184,9 @@ export function directorySchemaProjection(schema,resource){
 // renderer fails. Authentication fields remain in server XML only; they are
 // preserved verbatim, never accepted from or returned to a browser.
 export function legacyDirectoryPreservationProjection(version,resource){
- if(!/^1\.7\.8(?:\.\d+)?$/.test(version||'')||resource!=='customers')return null;
+ if(!/^1\.7\.8(?:\.\d+)?$/.test(version||''))return null;
+ const native={manufacturers:'[id,name,active,date_add,date_upd,description,short_description,meta_title,meta_description,meta_keywords]',suppliers:'[id,name,active,date_add,date_upd,description,meta_title,meta_description,meta_keywords]',product_options:'[id,is_color_group,group_type,position,name,public_name,product_option_values[id]]'};
+ if(native[resource])return native[resource];if(resource!=='customers')return null;
  return '[id,lastname,firstname,email,passwd,id_gender,birthday,newsletter,newsletter_date_add,ip_registration_newsletter,optin,website,company,siret,ape,outstanding_allow_amount,show_public_prices,id_risk,max_payment_days,active,deleted,note,is_guest,id_shop,id_shop_group,id_default_group,id_lang,date_add,date_upd,reset_password_token,reset_password_validity,groups[id]]';
 }
 export function directoryXmlLanguages(xml,resource,field){
