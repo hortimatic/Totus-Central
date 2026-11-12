@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {startLocalServer} from './local-static-server.mjs';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 import fs from 'node:fs/promises';
 import {navigate} from './ui-navigation.mjs';
-const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+const server=await startLocalServer(),browser=await chromium.launch({headless:true,channel:process.env.TOTUS_BROWSER_CHANNEL||(process.platform==='win32'?'msedge':undefined)}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 const open=async section=>{await page.locator('[data-account-open]').click();await page.locator('[data-account-section="'+section+'"]').click();};
 const close=async()=>{await page.locator('#modalHost .close-btn').click();const discard=page.locator('[data-confirm=accept]');if(await discard.isVisible())await discard.click();};
@@ -70,4 +71,4 @@ try{
  assert.deepEqual(await page.evaluate(()=>accountRace.calls.map(call=>({name:call.name,target:call.args.p_user_id}))),[{name:'totus_admin_save_account',target:other},{name:'totus_admin_save_account',target:other}]);
  assert.deepEqual(errors,[]);
  console.log('PERSONAL WORKSPACE: own notes and escaping, fresh documents, task month/owner, report navigation, admin photo/notes, unchanged identity/roles, stale writes and four widths OK.');
-}catch(error){await page.screenshot({path:'artifacts/account-workspace/failure.png',fullPage:true});throw error;}finally{await browser.close();}
+}catch(error){await page.screenshot({path:'artifacts/account-workspace/failure.png',fullPage:true});throw error;}finally{await browser.close();await new Promise(resolve=>server?server.close(resolve):resolve());}

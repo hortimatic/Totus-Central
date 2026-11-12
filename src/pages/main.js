@@ -1,3 +1,4 @@
+import {directoryPageHtml} from '../contact-directory-ui.js';
 import {apiManagerHtml} from '../api-manager.js';
 import {automationsPage} from '../automations-ui.js';
 import {prestashopWorkspacePage} from '../prestashop-ui.js';
@@ -281,6 +282,7 @@ export function gastos(){
    const row=tax?taxExpenseRecord(tax):view.id?state.data.expenses.find(x=>x.id===view.id):null;
    return expenseRecordHtml(row);
  }
+ if(view.section==='recurrentes')return '<div class="page expense-page">'+expenseTabs('recurrentes')+'<section id="recurringExpensesRoot" class="directory-workspace" aria-label="Previsión de gastos"><p role="status">Cargando previsiones…</p></section></div>';
  if(view.section==='facturas')return expenseInvoiceSectionHtml();
  if(view.section==='proveedores')return expenseSuppliersHtml();
  const f=getFilters('gastos');
@@ -310,8 +312,8 @@ export function gastos(){
 function expenseTabs(section){
  return `<div class="tabs module-tabs expense-tabs" role="group" aria-label="Secciones de gastos">
   <button class="tab ${section==='registros'?'active':''}" data-action="expense-section" data-section="registros">Registros de gastos</button>
+  <button class="tab ${section==='recurrentes'?'active':''}" data-action="expense-section" data-section="recurrentes">Previsión y recurrentes</button>
   <button class="tab ${section==='facturas'?'active':''}" data-action="expense-section" data-section="facturas">Facturas y justificantes</button>
-  <button class="tab ${section==='proveedores'?'active':''}" data-action="expense-section" data-section="proveedores">Proveedores</button>
  </div>`;
 }
 function expenseSuppliersHtml(){
@@ -978,7 +980,7 @@ export function providerCost(row){
 
 
 function contactBrandsPage(){return '<div class="page contact-brands-page"><section class="card card-pad"><div class="section-head"><div><h2>Marcas</h2><p>Directorio compartido por las familias y los productos.</p></div>'+btn('+ Nueva marca','brand-new','primary')+'</div>'+table([{label:'Marca',html:b=>'<b>'+esc(b.name)+'</b>'},{label:'Contacto',html:b=>esc([b.website,b.email,b.phone].filter(Boolean).join(' · ')||'—')},{label:'Familias',html:b=>String(state.data.families.filter(f=>f.brand_id===b.id).length)},{label:'Acciones',html:b=>'<div class="inline-actions">'+btn('Editar','brand-edit','secondary','data-id="'+b.id+'"')+btn('Eliminar','brand-delete','danger','data-id="'+b.id+'"')+'</div>'}],state.data.brands,{emptyTitle:'Sin marcas'})+'</section></div>';}
-export const renderers={apis:()=>'<div class="page"><section id="connectionsRoot" aria-label="APIs y conexiones">'+apiManagerHtml()+'</section></div>',automatizaciones:automationsPage,prestashop:prestashopWorkspacePage,productos:productosWorkspacePage,clientes:()=>'<div class="page">'+customersSectionHtml()+'</div>',proveedores:expenseSuppliersHtml,marcas:contactBrandsPage,configuracion:appearancePage,tareas:()=>'<div class="page tasks-module-page"><section id="tasksRoot" aria-label="Tareas del equipo"><div class="card card-pad" role="status"><h2>Tareas del equipo</h2><p>Cargando el calendario y las tareas disponibles para tu cuenta…</p></div></section></div>',equipo:()=>'<div class="page chat-module-page"><section id="teamChatRoot" aria-label="Chat"><div class="card card-pad" role="status"><h2>Chat</h2><p>Cargando los canales disponibles para tu cuenta…</p></div></section></div>',cotejos:stockPage,inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
+export const renderers={apis:()=>'<div class="page"><section id="connectionsRoot" aria-label="APIs y conexiones">'+apiManagerHtml()+'</section></div>',automatizaciones:automationsPage,ventas:()=>'<div class="page prestashop-page sales-page"><section id="salesRoot" aria-label="Ventas"><h2>Ventas</h2><p role="status">Preparando consultas de pedidos, productos vendidos y márgenes por tienda…</p></section></div>',prestashop:prestashopWorkspacePage,productos:productosWorkspacePage,clientes:()=>'<div class="page">'+directoryPageHtml('clientes',customersSectionHtml())+'</div>',proveedores:()=>directoryPageHtml('proveedores',expenseSuppliersHtml()),marcas:()=>directoryPageHtml('marcas',contactBrandsPage()),configuracion:appearancePage,tareas:()=>'<div class="page tasks-module-page"><section id="tasksRoot" aria-label="Tareas del equipo"><div class="card card-pad" role="status"><h2>Tareas del equipo</h2><p>Cargando el calendario y las tareas disponibles para tu cuenta…</p></div></section></div>',equipo:()=>'<div class="page chat-module-page"><section id="teamChatRoot" aria-label="Chat"><div class="card card-pad" role="status"><h2>Chat</h2><p>Cargando los canales disponibles para tu cuenta…</p></div></section></div>',cotejos:stockPage,inicio,pricing,cajas,gastos,facturacion,documentos,fiscalidad,informes,administracion};
 
 export function openingDrawerCash(storeId,drawerId,targetDate=isoToday()){
  const drawer=state.data.drawers.find(x=>x.id===drawerId);

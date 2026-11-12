@@ -9,7 +9,8 @@ const source=readFileSync(file,'utf8')
  .replace("'../../../src/prestashop-readonly.js'",JSON.stringify(new URL('../src/prestashop-readonly.js',import.meta.url).href))
  .replace("'./prestashop.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/prestashop.js',import.meta.url).href))
  .replace("'./transport.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/transport.js',import.meta.url).href));
-const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const directoryResolved=source.replace(/(from\s*|import\()(['"])(\.[^'"]+)\2/g,(_,before,quote,path)=>before+quote+new URL(path,new URL('../supabase/functions/totus-connections/index.ts',import.meta.url)).href+quote);
+const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(directoryResolved)).toString('base64'));
 const id='11111111-1111-4111-8111-111111111111',callId='22222222-2222-4222-8222-222222222222',owner='33333333-3333-4333-8333-333333333333';
 const env={get:k=>({SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:'server-only'}[k])};
 const connection={id,name:'PrestaShop · Hortimatic',protocol:'prestashop',revision:3,verified_revision:3,endpoint:'https://example.com/api',auth_kind:'basic',secret:'fictional-value',free_confirmed:true,real_data_authorized:true,enabled:true};
@@ -21,7 +22,7 @@ function fixture({roleDenied=false,config=connection}={}){
   auth:{getUser:async()=>({data:{user:{id:owner,email:'admin@totuscentral.invalid'}}})},
   rpc:async(name,payload)=>{
    calls.push({name,payload,key});
-   if(name==='totus_api_manager'||name==='totus_prestashop_context')return roleDenied?{error:{message:'Solo administración con permiso de Configuración'}}:{data:{connections:[{id,revision:3}]}};
+   if(name==='totus_api_manager'||name==='totus_prestashop_context'||name==='totus_sales_context')return roleDenied?{error:{message:'Solo administración con permiso de Configuración'}}:{data:{connections:[{id,revision:3}]}};
    if(name==='totus_api_server')return {data:config};
    if(name==='totus_api_call')return {data:null};
    throw Error('Unexpected RPC '+name);
@@ -88,3 +89,5 @@ test('product search passes the real HTTP entry contract before native filtering
  let reached=false;const denied=await handle(req({...args,resource:'products',search:'Mario',search_field:'passwd'}),env,f.factory,async()=>{reached=true;throw Error('Unexpected request');});assert.equal(denied.status,400);assert.equal(reached,false);
  }finally{if(old===undefined)delete globalThis.Deno;else globalThis.Deno=old;}
 });
+
+test('Ventas uses its own context and cannot fall back to Products or PrestaShop grants',async()=>{const previous=globalThis.Deno;globalThis.Deno={resolveDns:async()=>['8.8.8.8']};try{for(const roleDenied of [false,true]){const f=fixture({roleDenied});let requested=0;const response=await handle(req({...args,action:'prestashop_sales_read'}),env,f.factory,async()=>{requested++;return Response.json({orders:[]});});assert.equal(response.status,roleDenied?400:200);assert(f.calls.some(c=>c.name==='totus_sales_context'));assert(!f.calls.some(c=>['totus_prestashop_context','totus_products_context'].includes(c.name)));if(roleDenied)assert.equal(requested,0);}const f=fixture();const response=await handle(req({...args,action:'prestashop_sales_read',resource:'stock_movements'}),env,f.factory,async()=>{throw Error('Provider must not be called');});assert.equal(response.status,400);assert.equal(f.calls.length,0);}finally{globalThis.Deno=previous;}});

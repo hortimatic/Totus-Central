@@ -1,12 +1,12 @@
 // Shared configuration and notification rules. No model calls or arbitrary actions.
 import {PRESTASHOP_QUERY_RECIPES,recipeProducts,detailedRecipe,withinDailyWindow} from './prestashop-queries.js';
 import {sourceCents} from './prestashop-insights.js';
-export const AUTOMATION_RECIPES=[{id:'reminder',name:'Recordatorio personalizado',target:'message'},{id:'online_orders',name:'Nuevos pedidos online',target:'orders'},{id:'sales_summary',name:'Resumen de ventas del periodo',target:'orders'},{id:'missing_ean',name:'Productos sin código EAN',target:'catalog'},...PRESTASHOP_QUERY_RECIPES.filter(r=>r.target)];
+export const AUTOMATION_RECIPES=[{id:'expense_due',name:'Vencimientos de gastos recurrentes',target:'expenses'},{id:'reminder',name:'Recordatorio personalizado',target:'message'},{id:'online_orders',name:'Nuevos pedidos online',target:'orders'},{id:'sales_summary',name:'Resumen de ventas del periodo',target:'orders'},{id:'missing_ean',name:'Productos sin código EAN',target:'catalog'},...PRESTASHOP_QUERY_RECIPES.filter(r=>r.target)];
 export const PRESTA_AUTOMATION_STORES=['hortimatic','newoldsmok'];
 const string=v=>String(v??'').trim();
 export function validatePrestaAutomation(raw){
  const recipe=raw.recipe||'online_orders',message=string(raw.message),name=string(raw.name),stores=Array.isArray(raw.stores)?[...new Set(raw.stores)]:[],modules={};
- if(name.length<3||name.length>100||(recipe!=='reminder'&&!stores.length)||stores.some(s=>!PRESTA_AUTOMATION_STORES.includes(s)))throw Error('Indica el nombre y al menos una tienda.');
+ if(name.length<3||name.length>100||(!['reminder','expense_due'].includes(recipe)&&!stores.length)||stores.some(s=>!PRESTA_AUTOMATION_STORES.includes(s)))throw Error('Indica el nombre y al menos una tienda.');
  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(string(raw.channel_id)))throw Error('Elige un canal de avisos.');
  if(![1,2,3,4,6,8,12,24].includes(Number(raw.interval_hours)))throw Error('Elige cada cuántas horas se comprueban los pedidos.');
  if(recipe==='reminder'&&(message.length<3||message.length>4000))throw Error('Escribe el aviso: entre 3 y 4000 caracteres.');
@@ -17,7 +17,7 @@ export function validatePrestaAutomation(raw){
  if(!['interval','daily','weekly'].includes(frequency)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(at_time)||!weekdays.length||weekdays.some(n=>!Number.isInteger(n)||n<0||n>6))throw Error('Revisa la frecuencia, hora y días de ejecución.');
  if(!Number.isSafeInteger(min_count)||min_count<0||min_count>1000000||!Number.isSafeInteger(period_days)||period_days<1||period_days>365)throw Error('Revisa el umbral y los días de consulta.');
  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end))throw Error('Revisa el tramo horario.');
- return {name,recipe,message,stores:recipe==='reminder'?[]:stores,min_count,period_days,daily_start:start,daily_end:end,frequency,at_time,weekdays,channel_id:string(raw.channel_id),interval_hours:Number(raw.interval_hours),online_modules:modules,enabled:raw.enabled===true,sharing_confirmed:raw.sharing_confirmed===true};
+ return {name,recipe,message,stores:['reminder','expense_due'].includes(recipe)?[]:stores,min_count,period_days,daily_start:start,daily_end:end,frequency,at_time,weekdays,channel_id:string(raw.channel_id),interval_hours:Number(raw.interval_hours),online_modules:modules,enabled:raw.enabled===true,sharing_confirmed:raw.sharing_confirmed===true};
 }
 export function onlineOrder(order,modules){
  return Array.isArray(modules)&&typeof order?.module==='string'&&modules.includes(order.module);

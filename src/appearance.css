@@ -309,3 +309,10 @@ html[data-appearance] #app #productosRoot .prd-stitch :is(.prd-fields label,.prd
 html[data-appearance] #app #productosRoot .prd-stitch :is(.prd-fields input:not([type=checkbox]):not([type=radio]):not([type=color]),.prd-fields select,.prd-fields textarea,.prd-parallel-editors input:not([type=checkbox]):not([type=radio]),.prd-parallel-editors textarea){background:var(--appearance-input-bg);color:var(--appearance-input-ink)}
 html[data-appearance] #app #productosRoot .prd-stitch .prd-catalog-table th{background:var(--appearance-table-head-bg);color:var(--appearance-table-head-ink)}
 html[data-appearance] #app #productosRoot .prd-stitch .prd-catalog-table tbody td{background:var(--appearance-table-row-bg)}
+
+html[data-appearance] .header-clock b{font-size:var(--appearance-clock-font,14px)}
+html[data-clock-layout="inline"] .header-clock{display:flex;align-items:center;gap:6px}
+html[data-clock-date="hide"] .header-clock small{display:none}
+html[data-calendar-density="compact"] .header-calendar{width:min(270px,calc(100vw - 24px));padding:10px}
+html[data-calendar-density="compact"] .header-calendar-grid button{min-height:26px;padding:4px}
+@media(max-width:480px){html[data-clock-layout="inline"] .header-clock{display:grid;gap:0}html[data-appearance] .header-clock b{font-size:min(var(--appearance-clock-font,14px),14px)}}

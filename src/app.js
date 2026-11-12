@@ -1,3 +1,5 @@
+import {createRecurringExpensesUI} from './recurring-expenses-ui.js';
+import {createContactDirectoryUI} from './contact-directory-ui.js';
 import {interfaceStylesSettings,acceptInterfaceStyles,verifySavedInterfaceStyle} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
 import {prestashopInvoiceDraft,prestashopInvoiceLineAmounts} from './prestashop-invoice.js';
@@ -107,10 +109,10 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
 }});
 const titles={
  clientes:['Contactos','Clientes'],proveedores:['Contactos','Proveedores'],marcas:['Contactos','Marcas'],
- equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
- inicio:['General','Inicio'],pricing:['Trabajo','Precio'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
- cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
- informes:['Control','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Operaciones tienda','PrestaShop'],productos:['Operaciones tienda','Productos'],configuracion:['Sistema','Configuración'],apis:['Sistema','APIs']
+ equipo:['Inicio y equipo','Chat'],tareas:['Inicio y equipo','Tareas'],
+ inicio:['Inicio y equipo','Inicio'],pricing:['Comercio','Precio'],ventas:['Comercio','Ventas'],cajas:['Gestión y análisis','Cajas'],gastos:['Gestión y análisis','Gastos'],
+ cotejos:['Gestión y análisis','Recepciones de mercancía'],facturacion:['Gestión y análisis','Facturación'],documentos:['Gestión y análisis','Documentos'],fiscalidad:['Gestión y análisis','Fiscalidad'],
+ informes:['Gestión y análisis','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Comercio','PrestaShop'],productos:['Comercio','Productos'],configuracion:['Sistema','Configuración'],apis:['Sistema','APIs']
 };
 
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
@@ -139,6 +141,14 @@ const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.prof
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
 const apiManager=createApiManager({rpc,actor:()=>state.user?.id,allowed:()=>isAdmin()&&can('configuracion','edit'),confirm:message=>confirmAction(message,{title:'Confirmar conexión',acceptLabel:'Continuar'}),onUsers:()=>navigateModule('administracion'),onChat:async email=>{const current=activeActor();const channel=await rpc('totus_chat_command',{p_action:'create_direct',p_data:{email}});if(!current())return;await navigateModule('equipo',null,()=>{pendingChatTarget={channel_id:channel.id,channelOnly:true};});},invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const prepareSalesInvoice=async source=>{
+ if(!source){await navigateModule('facturacion');return;}
+ const totusStore=state.data.stores.find(s=>s.name?.trim().toLowerCase()===source.store);
+ const draft=prestashopInvoiceDraft(source,totusStore?.id,isoToday());
+ modal('Preparar factura desde el pedido','<p><b>'+esc(source.store)+'</b> · Pedido #'+esc(source.order.id)+' · '+esc(source.order.reference||'Sin referencia')+'</p><p>'+draft.lines.length+' líneas · total original '+esc(money(Number(source.order.total_paid_tax_incl)))+'</p><p class="note">Se abrirá un borrador con las líneas y el origen. Selecciona el cliente real y revisa si el documento sustituye una factura simplificada. La numeración la asignará la serie de Totus al emitir; esta venta no se sumará otra vez a los cierres.</p><div class="form-actions"><button type="button" class="btn secondary" data-presta-cancel-billing>Cancelar</button><button type="button" class="btn primary" data-presta-open-billing>Preparar borrador en Facturación</button></div>');
+ document.querySelector('[data-presta-cancel-billing]').onclick=closeModal;
+ document.querySelector('[data-presta-open-billing]').onclick=async()=>{const owner=state.user?.id;closeModal();await navigateModule('facturacion');if(state.user?.id!==owner||state.route!=='facturacion')return;const existing=state.data.invoices.find(r=>r.document_type==='factura'&&r.invoice_kind==='invoice'&&r.purchase_order_ref===draft.purchase_order_ref);setView('facturacion',existing?{mode:'record',id:existing.id}:{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus',storeId:totusStore.id,prestashopDraft:draft});render();};
+};
 const prestashopUI=createPrestashopUI({rpc,canOpenProduct:()=>can('productos','view'),onProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},actor:()=>state.user?.id,allowed:()=>can('prestashop','view'),receiptsOnly:()=>!canUser(state.user,'prestashop','view',state.data.userPermissions||[])&&!(isAdmin()&&can('configuracion','edit')),renderReceipts:()=>stockPage(),prepareReceipts:async({store,reset})=>{const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;await stockAction(reset?'stock-from-prestashop':'stock-refresh',{dataset:{storeId}},{render:()=>{},createStoredDocument,previewDocument,fileSha256});},onManage:async()=>{if(state.route!=='apis')await navigateModule('apis');},loadReceipts:async shop=>{
  if(!can('documentos','view'))throw Error('Necesitas acceso a Documentos para consultar las recepciones.');
  const storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===shop)?.id;if(!storeId)throw Error('No se ha identificado la tienda de Totus.');
@@ -149,14 +159,9 @@ const prestashopUI=createPrestashopUI({rpc,canOpenProduct:()=>can('productos','v
  const owner=state.user?.id,storeId=state.data.stores.find(s=>s.name?.trim().toLowerCase()===store)?.id;
  await navigateModule('cotejos');if(state.user?.id!==owner||state.route!=='prestashop')return;
  await stockAction(id?'stock-open':'stock-from-prestashop',{dataset:{id,storeId}},{render,createStoredDocument,previewDocument,fileSha256});
-},onBilling:async source=>{
- if(!source){await navigateModule('facturacion');return;}
- const totusStore=state.data.stores.find(s=>s.name?.trim().toLowerCase()===source.store);
- const draft=prestashopInvoiceDraft(source,totusStore?.id,isoToday());
- modal('Preparar factura desde el pedido','<p><b>'+esc(source.store)+'</b> · Pedido #'+esc(source.order.id)+' · '+esc(source.order.reference||'Sin referencia')+'</p><p>'+draft.lines.length+' líneas · total original '+esc(money(Number(source.order.total_paid_tax_incl)))+'</p><p class="note">Se abrirá un borrador con las líneas y el origen. Selecciona el cliente real y revisa si el documento sustituye una factura simplificada. La numeración la asignará la serie de Totus al emitir; esta venta no se sumará otra vez a los cierres.</p><div class="form-actions"><button type="button" class="btn secondary" data-presta-cancel-billing>Cancelar</button><button type="button" class="btn primary" data-presta-open-billing>Preparar borrador en Facturación</button></div>');
- document.querySelector('[data-presta-cancel-billing]').onclick=closeModal;
- document.querySelector('[data-presta-open-billing]').onclick=async()=>{const owner=state.user?.id;closeModal();await navigateModule('facturacion');if(state.user?.id!==owner||state.route!=='facturacion')return;const existing=state.data.invoices.find(r=>r.document_type==='factura'&&r.invoice_kind==='invoice'&&r.purchase_order_ref===draft.purchase_order_ref);setView('facturacion',existing?{mode:'record',id:existing.id}:{mode:'record',id:null,docType:'factura',invoiceKind:'invoice',origin:'totus',storeId:totusStore.id,prestashopDraft:draft});render();};
-} ,invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+},onBilling:prepareSalesInvoice ,invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
+const salesUI=createPrestashopUI({salesOnly:true,rpc,actor:()=>state.user?.id,allowed:()=>can('ventas','view'),canOpenProduct:()=>can('productos','view'),onProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},onManage:()=>navigateModule('apis'),onBilling:prepareSalesInvoice,invoke:async body=>{if(body.action!=='prestashop_read')throw Error('Ventas solo permite consultar datos.');const result=await sb.functions.invoke('totus-connections',{body:{...body,action:'prestashop_sales_read'}});if(result.error||result.data?.error)throw Error(result.data?.error||result.error?.message||'No se pudo consultar la venta.');return result.data;}});
+const recurringExpensesUI=createRecurringExpensesUI({rpc,actor:()=>state.user?.id,can:action=>can('gastos',action),stores:()=>state.data.stores,suppliers:()=>state.data.suppliers,onAutomations:()=>navigateModule('automatizaciones'),notify:message=>toast(message,'ok')});
 async function loadStockCatalog(storeId,references,valid){
  if(!can('prestashop','view'))throw Error('Necesitas acceso a PrestaShop para verificar su catálogo.');
  const store=state.data.stores.find(s=>s.id===storeId)?.name?.trim().toLowerCase(),owner=state.user?.id;
@@ -169,6 +174,7 @@ async function loadStockCatalog(storeId,references,valid){
  },active);
 }
 const automationsUI=createAutomationsUI({rpc,actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
+const directoryUI=createContactDirectoryUI({rpc,actor:()=>state.user?.id,can:(kind,action)=>can(kind,action),confirm:(message,options={})=>confirmAction(message,{title:'Cambios sin publicar',acceptLabel:'Descartar y continuar',...options}),notify:message=>toast(message,'ok'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const productosUI=createProductosUI({rpc,tableLayout:{load:owner=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:null}),save:(layout,owner)=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:layout})},actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),canCreate:()=>can('productos','create'),canDelete:()=>can('productos','delete'),canExport:()=>can('productos','export'),invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
  if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}
@@ -291,7 +297,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones','apis'].includes(state.route)?state.route:'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();productosUI.dispose();automationsUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -316,7 +322,10 @@ function render(){
  captureFormDraft($('#content'));
  if(state.route==='inicio')homeUI.mount($('#content'));
  if(state.route==='prestashop')void prestashopUI.mount($('#prestashopRoot'));
+ if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
+ if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
+ if(['clientes','proveedores','marcas'].includes(state.route))void directoryUI.mount($('[data-directory-root]'));
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
  if(state.route==='apis')void apiManager.mount($('[data-api-manager]'));
@@ -329,8 +338,11 @@ let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=f
 const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
+ if(!modalOnly&&(directoryUI.isPublishing()||productosUI.isPublishing())){toast('Espera a que termine la publicación en la tienda.','bad');return false;}
+ if(!modalOnly&&directoryUI.hasDraft()){if(!await confirmAction('¿Salir sin publicar los cambios de la ficha?',{title:'Cambios sin publicar',acceptLabel:'Descartar y salir'}))return false;directoryUI.discardDraft();}
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
  if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
+ if(!modalOnly&&recurringExpensesUI.hasDraft()){if(!await confirmAction('¿Descartar la previsión sin guardar?',{title:'Cambios sin guardar',acceptLabel:'Descartar'}))return false;recurringExpensesUI.discardDraft();}
  if(!modalOnly&&state.route==='prestashop'&&prestashopUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla de automatización?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;prestashopUI.discardDraft();}
  if(!modalOnly&&state.route==='inicio'&&homeUI.hasUnsaved()&&!await confirmAction('¿Salir de Inicio sin guardar la nueva disposición de widgets?',{title:'Distribución sin guardar',acceptLabel:'Descartar cambios'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
@@ -353,7 +365,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||directoryUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
@@ -448,7 +460,7 @@ async function refresh(message=''){
   applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
   refreshMaintenanceNotice();
   if(message)toast(message,'ok');
-  if(preserveMainDraftOnRefresh&&hasFormDraft($('#content'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
+  if((preserveMainDraftOnRefresh&&hasFormDraft($('#content'))||directoryUI.hasDraft()&&can(state.route,'view'))){renderNav();hideForbiddenButtons()}else await timedStartup('pintado_inicio',()=>render())
   if(isAuditPanelVisible())void refreshAuditPanel({afterCore:true});
  }
  catch(e){
@@ -472,7 +484,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState({totusModuleNavigation:true},'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();productosUI.dispose();automationsUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -2845,12 +2857,12 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings-current'){await ensureExcel();if(!isCurrentLibraryActor())return;exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
   if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim(),supplierShowInactive:!!input('expenseSuppliersInactive')?.checked});render();return}
-  if(a==='expense-suppliers'){expenseSuppliersManager();return}
+  if(a==='expense-suppliers'){await navigateModule('proveedores');return}
   if(a==='expense-supplier-new'){expenseSupplierForm();return}
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-supplier-save'){await saveExpenseSupplier(el.dataset.id||'');return}
   if(a==='expense-supplier-delete'){await deleteExpenseSupplier(el.dataset.id);return}
-  if(a==='expense-section'){setView('gastos',{mode:'list',id:null,section:el.dataset.section||'registros'});render();return}
+  if(a==='expense-section'){if(el.dataset.section==='proveedores'){await navigateModule('proveedores');return;}setView('gastos',{mode:'list',id:null,section:el.dataset.section||'registros'});render();return}
   if(a==='expense-gestor-detail'){showExpenseGestorDetail(el.dataset.id);return}
   if(a==='expense-unlinked-open'){setRoute('documentos');setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='expense-file-preview'){await previewPendingExpenseFile();return}
@@ -3315,7 +3327,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');

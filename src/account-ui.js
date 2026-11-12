@@ -1,3 +1,5 @@
+import {ACCOUNT_PROFILE_FIELDS,accountProfileFields,accountNotebook} from './account-profile.js';
+import {mountAccountNotebook} from './account-notebook-ui.js';
 import {taskToday,TASK_STATES} from './tasks-core.js';
 import {esc,fmtDate} from './utils.js';
 import {modal,closeModal,btn} from './components.js';
@@ -5,7 +7,7 @@ import {prepareChatBackground} from './chat-preferences.js';
 
 export function accountValues(input={}){
  const photo=typeof input.photo==='string'&&input.photo.length<=350000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(input.photo)?input.photo:'';
- return {display_name:String(input.display_name||'').trim().slice(0,90),phone:String(input.phone||'').trim().slice(0,40),photo,notes:Array.from(String(input.notes||'')).slice(0,10000).join('')};
+ return {...accountProfileFields(input),notebook:accountNotebook(input.notebook||[]),display_name:String(input.display_name||'').trim().slice(0,90),phone:String(input.phone||'').trim().slice(0,40),photo,notes:Array.from(String(input.notes||'')).slice(0,10000).join('')};
 }
 const displayName=(values,user)=>values.display_name||user?.full_name||user?.email||'Mi cuenta';
 function badge(values,name){
@@ -52,8 +54,8 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
   const active=panel=>stamp===generation&&owner()===who&&panel?.isConnected&&(!managing||canManage());
   const shortcuts='<div class="account-shortcuts">'+(can('configuracion')?'<button type="button" class="btn secondary" data-account-route="configuracion">Personalizar mi interfaz</button>':'')+(can('equipo')?'<button type="button" class="btn secondary" data-account-route="equipo">Abrir Chat y sus avisos</button>':'')+'</div>';
   let body='';
-  if(section==='perfil')body='<form data-account-form data-draft-form><div class="account-photo-field"><span class="account-avatar account-avatar-large" data-account-avatar>'+badge(v,name)+'</span><label class="btn secondary">Cambiar foto<input type="file" data-account-photo accept="image/jpeg,image/png,image/webp"></label><button class="btn secondary" type="button" data-account-remove>Quitar foto</button><input name="photo" type="text" hidden value="'+esc(v.photo)+'"></div><div class="form-grid"><label>Nombre visible<input name="display_name" maxlength="90" value="'+esc(v.display_name||u.full_name||'')+'" autocomplete="name"></label><label>Teléfono de contacto<input name="phone" maxlength="40" value="'+esc(v.phone||u.phone||'')+'" autocomplete="tel"></label><label>Correo de acceso<input type="email" value="'+esc(u.email)+'" readonly></label><label>Rol asignado<input value="'+esc(u.role||'usuario')+'" readonly></label></div><p class="small muted">La foto y el nombre personalizan el perfil. El acceso y los permisos se gestionan desde Usuarios.</p><div class="form-actions"><button class="btn primary" type="submit">Guardar perfil</button></div></form>';
-  if(section==='notas')body='<form data-account-notes data-draft-form><label class="field">Notas de trabajo<textarea name="notes" maxlength="10000" rows="12" placeholder="Anotaciones de esta cuenta">'+esc(v.notes)+'</textarea></label><output data-notes-count>'+Array.from(v.notes).length+' / 10000</output><p class="small muted">Se guardan en el perfil y en sus copias. Administración y Gerencia pueden consultarlas. No sustituyen un gasto ni una tarea.</p><div class="form-actions"><button class="btn primary" type="submit">Guardar notas</button></div></form>';
+  if(section==='perfil')body='<form data-account-form data-draft-form><div class="account-photo-field"><span class="account-avatar account-avatar-large" data-account-avatar>'+badge(v,name)+'</span><label class="btn secondary">Cambiar foto<input type="file" data-account-photo accept="image/jpeg,image/png,image/webp"></label><button class="btn secondary" type="button" data-account-remove>Quitar foto</button><input name="photo" type="text" hidden value="'+esc(v.photo)+'"></div><div class="form-grid"><label>Nombre visible<input name="display_name" maxlength="90" value="'+esc(v.display_name||u.full_name||'')+'" autocomplete="name"></label><label>Teléfono de contacto<input name="phone" maxlength="40" value="'+esc(v.phone||u.phone||'')+'" autocomplete="tel"></label><label>Correo de acceso<input type="email" value="'+esc(u.email)+'" readonly></label><label>Rol asignado<input value="'+esc(u.role||'usuario')+'" readonly></label>'+Object.entries(ACCOUNT_PROFILE_FIELDS).map(([key,[label,max]])=>'<label>'+esc(label)+'<input name="'+key+'" maxlength="'+max+'" type="'+(key==='contact_email'?'email':key==='website'?'url':'text')+'" value="'+esc(v[key])+'"></label>').join('')+'</div><p class="small muted">La foto y el nombre personalizan el perfil. El acceso y los permisos se gestionan desde Usuarios.</p><div class="form-actions"><button class="btn primary" type="submit">Guardar perfil</button></div></form>';
+  if(section==='notas')body='<form data-account-notes data-draft-form><textarea name="notebook_state" hidden>'+esc(JSON.stringify(v.notebook))+'</textarea><div data-account-notebook></div><h3>Nota general anterior</h3><label class="field">Notas de trabajo<textarea name="notes" maxlength="10000" rows="4" placeholder="Anotaciones de esta cuenta">'+esc(v.notes)+'</textarea></label><output data-notes-count>'+Array.from(v.notes).length+' / 10000</output><p class="small muted">Se guardan en el perfil y en sus copias. Administración y Gerencia pueden consultarlas. No sustituyen un gasto ni una tarea.</p><div class="form-actions"><button class="btn primary" type="submit">Guardar notas</button></div></form>';
   if(section==='documentos')body='<p class="muted">Documentos subidos por esta cuenta y visibles con tus permisos actuales. Conservan su ubicación y sus vínculos con la contabilidad.</p><div data-account-documents role="status">Consultando documentos…</div><div class="account-shortcuts"><button type="button" class="btn secondary" data-account-route="documentos">Abrir Documentos</button></div>';
   if(section==='tareas')body='<div class="account-task-filter"><label>Mes de las tareas<input type="month" data-account-month value="'+taskToday().slice(0,7)+'" min="2020-01" max="2100-12"></label></div><div data-account-tasks role="status">Consultando tareas…</div>';
   if(section==='informes')body='<p class="muted">Los informes usan los datos actuales y tus permisos. Elige el mes, trimestre y tienda dentro de Informes; no se crean archivos duplicados en el perfil.</p><div class="account-shortcuts"><button type="button" class="btn primary" data-account-route="informes">Abrir informes y descargas</button></div>';
@@ -91,9 +93,9 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
    bindSave(form,()=>accountValues({...v,...Object.fromEntries(new FormData(form))}));
   }
   if(section==='notas'){
-   const form=panel.querySelector('[data-account-notes]');
+   const form=panel.querySelector('[data-account-notes]'),readNotebook=mountAccountNotebook(form,v.notebook);
    form.elements.notes.oninput=()=>{panel.querySelector('[data-notes-count]').textContent=Array.from(form.elements.notes.value).length+' / 10000';};
-   bindSave(form,()=>accountValues({...v,notes:form.elements.notes.value}));
+   bindSave(form,()=>accountValues({...v,notes:form.elements.notes.value,notebook:readNotebook()}));
   }
   if(section==='documentos'){
    const box=panel.querySelector('[data-account-documents]');

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
 const server=await startLocalServer();
-const {chromium}=await import('playwright');
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 const browser=await chromium.launch({headless:true,channel:process.env.TOTUS_BROWSER_CHANNEL||'msedge'}),report=[];
 await mkdir('qa-artifacts',{recursive:true});
 try{for(const width of [390,680,969,1280,1920,2560]){
@@ -27,7 +27,7 @@ try{for(const width of [390,680,969,1280,1920,2560]){
 
  const widths=()=>page.locator('th[data-pr-column-heading="image"]').evaluate(n=>n.getBoundingClientRect().width);
  const before=await widths(),handle=page.getByRole('separator',{name:'Ancho de Foto',exact:true});await handle.press('ArrowRight');assert(Math.abs(await widths()-before-10)<2,'Keyboard resizes only the chosen column');
- await handle.scrollIntoViewIfNeeded();const rect=await handle.boundingBox();assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle');await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width/2+60,rect.y+rect.height/2,{steps:6});await page.mouse.up();assert(Math.abs(await widths()-before-70)<2,'Pointer drag changes actual table width');
+ await handle.scrollIntoViewIfNeeded();const rect=await handle.boundingBox();assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle');await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width/2+60,rect.y+rect.height/2,{steps:6});await page.mouse.up();assert(Math.abs(await widths()-before-70)<2,'Pointer drag changes actual table width at '+width+'px: before='+before+', actual='+(await widths()));
  await page.waitForFunction(()=>tableQA.layoutSaves.length>=2);assert.equal(await page.evaluate(()=>tableQA.layout.widths.image),Math.round(before+70));
  await page.locator('.prd-columns summary').click();await page.getByRole('combobox',{name:'Posición de Ref.',exact:true}).selectOption({value:'1'});assert.deepEqual(await page.locator('th[data-pr-column-heading]').evaluateAll(ns=>ns.slice(0,3).map(n=>n.dataset.prColumnHeading)),['image','reference','name']);
  await page.getByRole('button',{name:'Mover Ref.',exact:true}).press('Alt+ArrowDown');assert.deepEqual(await page.locator('th[data-pr-column-heading]').evaluateAll(ns=>ns.slice(0,3).map(n=>n.dataset.prColumnHeading)),['image','name','reference']);

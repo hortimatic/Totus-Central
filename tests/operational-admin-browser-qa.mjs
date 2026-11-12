@@ -16,7 +16,7 @@ try{
  await nav('administracion');await page.locator('[data-action="user-permissions"][data-email="worker@qa.invalid"]').click();
  for(const module of ['equipo','tareas']){assert.equal(await page.locator('#perm_'+module+'_view').count(),1);await page.locator('#perm_'+module+'_create').uncheck();}
  assert.equal(await page.locator('#perm_automatizaciones_view').isChecked(),false);await page.locator('#perm_automatizaciones_view').check();await page.locator('#perm_automatizaciones_create').check();
- await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===15);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
+ await page.locator('#perm_configuracion_edit').check();await page.locator('[data-action="user-permissions-save"]').click();await page.waitForFunction(()=>window.__mockDb.ops_user_permissions.length===16);await page.getByText('Permisos actualizados.',{exact:true}).last().waitFor();
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='automatizaciones').can_create),true);assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='prestashop').can_view),false);
  assert.equal(await page.evaluate(()=>window.__mockDb.ops_user_permissions.find(p=>p.module==='configuracion').can_edit),true);
  await nav('cajas');await page.locator('[data-action="closing-edit"][data-id="'+fixture.id+'"]').click();await page.getByRole('button',{name:'Modificar cierre',exact:true}).click();

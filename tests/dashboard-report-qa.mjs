@@ -16,3 +16,5 @@ assert.deepEqual(normalizeReportOrder(['gestor','gestor','bad']),['gestor','inco
 assert.deepEqual(moveReportBlock(null,'income','up'),['income','internal','monthly','gestor','exports']);
 assert.deepEqual(moveReportBlock(null,'gestor','up'),['income','internal','gestor','monthly','exports']);
 console.log('DASHBOARD / REPORT QA: inclusive periods, three independent series, internal taxes, refunds, no income double-counting, outside-date linked originals, issued client invoices, missing attachments and layout normalization verified.');
+
+assert(activityChartHtml(jan).includes('Ingresos − gastos fiscalizables'));assert(activityChartHtml(jan).includes('no es el margen comercial'));assert.equal((activityChartHtml(jan).match(/<polyline /g)||[]).length,4);

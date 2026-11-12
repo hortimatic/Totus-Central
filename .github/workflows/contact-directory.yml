@@ -1,0 +1,97 @@
+name: Directorios de tiendas
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [feat/contactos-sincronizados-20261112]
+permissions:
+  contents: read
+jobs:
+  recurring-expenses-database:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scenario: [recurring-expenses-db-qa.sql, recurring-expense-alerts-db-qa.sql]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify expense permissions, history and scheduled notices
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/${{ matrix.scenario }}
+  sales-permissions:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify independent sales access in a disposable database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-permissions-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/064_prestashop_permissions.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/079_sales_permissions.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/079_sales_permissions.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/sales-permissions-db-qa.sql
+  directory-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check --node-modules-dir=none supabase/functions/totus-connections/index.ts
+      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-session-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs tests/contact-directory-create-qa.mjs tests/contact-directory-delete-qa.mjs tests/contact-directory-sales-qa.mjs tests/productos-catalog-invalidation-qa.mjs tests/account-profile-qa.mjs tests/recurring-expenses-qa.mjs
+  directory-browser:
+    runs-on: ubuntu-24.04
+    env:
+      TOTUS_START_SERVER: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install chromium
+      - run: |
+          node tests/contact-directory-browser-qa.mjs
+          node tests/contact-address-browser-qa.mjs
+          node tests/productos-attribute-editor-browser-qa.mjs
+          node tests/account-profile-browser-qa.mjs
+          node tests/sales-workspace-browser-qa.mjs
+          node tests/recurring-expenses-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: directory-browser-report
+          path: qa-artifacts/contact-directory
+  directory-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Permissions and operation journal in disposable database
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/contact-directory-db-qa.sql

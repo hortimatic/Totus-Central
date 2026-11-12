@@ -14,6 +14,7 @@ export function applyInterfaceAppearance(input){
  const root=document.documentElement,c=appearanceValues('interfaz',input),enabled=!!input&&Object.keys(input).length>0;
  if(enabled){root.dataset.appearanceHover=c.hoverEffect;root.dataset.appearanceFinish=c.buttonFinish;root.dataset.appearance=c.theme;style(root,appearanceVariables(c));}
  else{delete root.dataset.appearanceHover;delete root.dataset.appearanceFinish;delete root.dataset.appearance;for(const key of Object.keys(appearanceVariables({})))root.style.removeProperty(key);}
+ for(const key of ['clockLayout','clockSeconds','clockDate','clockFormat','clockAction','calendarDensity'])root.dataset[key]=c[key];
  const compact=enabled&&c.navigationMode==='compact';root.classList.toggle('navigation-compact',compact);
  const toggle=document.querySelector('.desktop-nav-collapse');if(toggle){toggle.setAttribute('aria-expanded',String(!compact));toggle.setAttribute('aria-label',compact?'Ampliar navegación':'Minimizar navegación');}
  const brand=document.querySelector('#app .sidebar>.brand');if(!brand)return;

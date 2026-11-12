@@ -1,11 +1,13 @@
 import {clickModuleLink} from './ui-navigation.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer();
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 import fs from 'node:fs/promises';
-import XLSX from 'xlsx-js-style';
+const {default:XLSX}=await import(process.env.TOTUS_XLSX_MODULE||'xlsx-js-style');
 
 await fs.mkdir('artifacts',{recursive:true});
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,channel:process.env.TOTUS_BROWSER_CHANNEL||undefined});
 const results=[];
 async function scenario(name,test){
  if(process.env.QA_CASE&&!name.includes(process.env.QA_CASE))return;
@@ -95,7 +97,7 @@ try{
  });
  await scenario('Proveedor: alta, edición, inactivo, búsqueda y protección de referencias',async p=>{
   await p.evaluate(async()=>{window.__mockDb.ops_suppliers=[];await(await import('../src/api.js')).loadCore()});
-  await nav(p);await p.locator('[data-section="proveedores"]').click();await p.locator('[data-action="expense-supplier-new"]').click();
+  await nav(p);await p.locator('[data-action="expense-suppliers"]').click();await p.locator('[data-action="expense-supplier-new"]').click();
   await p.locator('#esName').fill('Proveedor con todos los datos QA');await p.locator('#esTax').fill('QA-NIF');await p.locator('#esDocKind').selectOption('control_interno');await p.locator('#esVat').fill('101');await p.locator('[data-action="expense-supplier-save"]').click();assert.equal(await p.evaluate(()=>window.__mockDb.ops_suppliers.length),0);
   await p.locator('#esVat').fill('0');await p.locator('[data-action="expense-supplier-save"]').click();await p.getByText('Proveedor de gastos guardado.',{exact:true}).waitFor();
   await p.locator('[data-action="expense-supplier-edit"]').click();assert.equal(await p.locator('#esDocKind').inputValue(),'control_interno');await p.locator('#esActive').uncheck();await p.locator('[data-action="expense-supplier-save"]').click();await p.getByText('Proveedor de gastos guardado.',{exact:true}).last().waitFor();
@@ -103,7 +105,7 @@ try{
  });
  await scenario('Presentación: tres pestañas, ficha y proveedor entre 320 y 2560 px',async p=>{
   await seed(p);await nav(p);
-  for(const section of ['registros','facturas','proveedores']){
+  for(const section of ['registros','facturas','recurrentes']){
    await p.locator(`[data-action="expense-section"][data-section="${section}"]`).click();
    for(const width of [320,360,390,412,480,600,768,834,900,1024,1100,1280,1440,1600,1920,2200,2560]){
     await p.setViewportSize({width,height:1000});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),section+' page overflows at '+width+': '+JSON.stringify(await p.evaluate(()=>[...document.querySelectorAll('#content .card,#content .filters,#content .section-head,#content .kpis,#content .toolbar')].map(e=>({class:e.className,w:e.getBoundingClientRect().width,x:e.getBoundingClientRect().x,scroll:e.scrollWidth})))));
@@ -114,6 +116,6 @@ try{
   await p.screenshot({path:'artifacts/expense-integral-mobile.png',fullPage:true});
  });
 }finally{
- await fs.writeFile('artifacts/expense-integral-results.json',JSON.stringify(results,null,2));await browser.close();
+ await fs.writeFile('artifacts/expense-integral-results.json',JSON.stringify(results,null,2));await browser.close();await new Promise(resolve=>server?server.close(resolve):resolve());
 }
 assert(results.every(r=>r.ok),JSON.stringify(results.filter(r=>!r.ok),null,2));

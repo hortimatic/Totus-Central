@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
-const browser=await chromium.launch({headless:true});
+import {startLocalServer} from './local-static-server.mjs';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
+const server=await startLocalServer();
+const browser=await chromium.launch({headless:true,channel:process.env.TOTUS_BROWSER_CHANNEL||(process.platform==='win32'?'msedge':undefined)});
 try{
  for(const width of [1440,390,320]){
   const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/tests/header-tools-fixture.html',{waitUntil:'networkidle'});
   assert.equal(await page.locator('[data-clock]').innerText(),'13:00:00');
+  await page.addStyleTag({url:'http://127.0.0.1:4173/src/appearance.css'});
+  await page.evaluate(async()=>{const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({clockSeconds:'hide',clockDate:'hide',clockFormat:'12',clockLayout:'inline',clockFontSize:17,clockAction:'tasks',calendarDensity:'compact'});header.start();});
+  assert(!await page.locator('[data-clock]').innerText().then(t=>/13:00:00/.test(t)));assert.equal(await page.locator('#headerTools [data-clock-date]').isVisible(),false);await page.getByRole('button',{name:'Abrir tareas de hoy',exact:true}).click();assert.deepEqual(await page.evaluate(()=>headerCalls.pop()),['tareas','2026-10-26']);
+  await page.evaluate(async()=>{const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({});header.start();});
   assert.equal(await page.locator('[data-chat-count]').innerText(),'3');assert.equal(await page.locator('[data-task-count]').innerText(),'2');
   await page.locator('[data-header="calendar"]').click();assert.equal(await page.locator('[data-header="day"]').count(),31);
   assert.equal(await page.locator('[aria-current="date"]').getAttribute('data-date'),'2026-10-26');
@@ -24,4 +30,4 @@ try{
   assert.deepEqual(errors,[]);await page.close();
  }
  console.log('HEADER TOOLS: Madrid clock, pending tasks, unread chat, right alignment, month lengths, date navigation, Escape and lifecycle verified at desktop/mobile');
-}finally{await browser.close()}
+}finally{await browser.close();await new Promise(resolve=>server?server.close(resolve):resolve());}

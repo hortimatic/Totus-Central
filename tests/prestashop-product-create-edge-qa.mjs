@@ -16,7 +16,8 @@ for(const [relative,path] of [
 ]){
  code=code.replaceAll("'"+relative+"'",JSON.stringify(new URL(path,import.meta.url).href));
 }
-const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(code)).toString('base64'));
+const directoryResolved=code.replace(/(from\s*|import\()(['"])(\.[^'"]+)\2/g,(_,before,quote,path)=>before+quote+new URL(path,new URL('../supabase/functions/totus-connections/index.ts',import.meta.url)).href+quote);
+const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(directoryResolved)).toString('base64'));
 const id='11111111-1111-4111-8111-111111111111',call_id='22222222-2222-4222-8222-222222222222',
  user_id='33333333-3333-4333-8333-333333333333';
 const conf={id,name:'PrestaShop · Hortimatic',protocol:'prestashop',revision:2,verified_revision:2,enabled:true,

@@ -24,7 +24,8 @@ export function createHeaderTools({rpc,actor,can=()=>true,onNavigate,now=()=>new
  }
  function tick(){
   if(!host)return;
-  const date=now();host.querySelector('[data-clock]').textContent=date.toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour12:false});
+  const clockButton=host.querySelector('[data-header="calendar"]'),clockLabel=document.documentElement.dataset.clockAction==='tasks'?'Abrir tareas de hoy':'Abrir calendario';clockButton.setAttribute('aria-label',clockLabel);clockButton.title=clockLabel;
+  const date=now();host.querySelector('[data-clock]').textContent=date.toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour12:document.documentElement.dataset.clockFormat==='12',hour:'2-digit',minute:'2-digit',...(document.documentElement.dataset.clockSeconds==='hide'?{}:{second:'2-digit'})});
   host.querySelector('[data-clock-date]').textContent=date.toLocaleDateString('es-ES',{timeZone:'Europe/Madrid',weekday:'short',day:'numeric',month:'short'});
  }
  function calendar(){
@@ -49,6 +50,7 @@ export function createHeaderTools({rpc,actor,can=()=>true,onNavigate,now=()=>new
  function click(event){
   const b=event.target.closest('[data-header]');if(!b)return;
   const action=b.dataset.header;
+  if(action==='calendar'&&document.documentElement.dataset.clockAction==='tasks'){close();Promise.resolve(onNavigate('tareas',today())).catch(()=>{});return;}
   if(action==='calendar'){const panel=host.querySelector('[data-calendar]');panel.hidden=!panel.hidden;b.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)calendar();return;}
   if(action==='prev'||action==='next'){const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+(action==='next'?1:-1),1)).toISOString().slice(0,7);calendar();return;}
   if(action==='today'){month=today().slice(0,7);calendar();return;}

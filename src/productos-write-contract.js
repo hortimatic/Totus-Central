@@ -161,7 +161,62 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-const nativeNodes=Object.freeze({product_features:'product_feature',product_feature_values:'product_feature_value',manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+const nativeNodes=Object.freeze({customers:'customer',addresses:'address',product_features:'product_feature',product_feature_values:'product_feature_value',manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+// Internal XML utilities do not authorize requests. Products' public resource
+// allowlist is unchanged; the directory handler has its own scoped contract.
+export function directorySchemaProjection(schema,resource){
+ if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource))invalid('Directorio no permitido.');
+ const item=direct(tree(schema),nativeNodes[resource]),fields=['id'];
+ for(const node of item.children){
+  if(node.name==='id'||node.name==='associations'||/\breadOnly\s*=\s*(["'])true\1/i.test(node.attributes))continue;
+  if(!/^[a-z_][a-z0-9_]*$/.test(node.name))invalid('Campo de directorio no verificable.');fields.push(node.name);
+ }
+ const groups=item.children.find(n=>n.name==='associations');
+ for(const group of groups?.children||[]){
+  if(/\breadOnly\s*=\s*(["'])true\1/i.test(group.attributes))continue;
+  const keys=group.children[0]?.children.map(n=>n.name)||[];
+  if(!/^[a-z_][a-z0-9_]*$/.test(group.name)||!keys.length||keys.some(k=>!/^[a-z_][a-z0-9_]*$/.test(k)))invalid('Relación de directorio no verificable.');
+  fields.push(group.name+'['+[...new Set(keys)].join(',')+']');
+ }
+ if(fields.length<2)invalid('Esquema de directorio incompleto.');return '['+fields.join(',')+']';
+}
+// Compatibility with the official 1.7.8 Customer definition when its synopsis
+// renderer fails. Authentication fields remain in server XML only; they are
+// preserved verbatim, never accepted from or returned to a browser.
+export function legacyDirectoryPreservationProjection(version,resource){
+ if(!/^1\.7\.8(?:\.\d+)?$/.test(version||''))return null;
+ const native={manufacturers:'[id,name,active,date_add,date_upd,description,short_description,meta_title,meta_description,meta_keywords]',suppliers:'[id,name,active,date_add,date_upd,description,meta_title,meta_description,meta_keywords]',product_options:'[id,is_color_group,group_type,position,name,public_name,product_option_values[id]]'};
+ if(native[resource])return native[resource];if(resource!=='customers')return null;
+ return '[id,lastname,firstname,email,passwd,id_gender,birthday,newsletter,newsletter_date_add,ip_registration_newsletter,optin,website,company,siret,ape,outstanding_allow_amount,show_public_prices,id_risk,max_payment_days,active,deleted,note,is_guest,id_shop,id_shop_group,id_default_group,id_lang,date_add,date_upd,reset_password_token,reset_password_validity,groups[id]]';
+}
+export function directoryXmlLanguages(xml,resource,field){
+ const node=direct(direct(tree(xml),nativeNodes[resource]),field);
+ const ids=node.children.map(n=>n.name==='language'?n.attributes.match(/\bid\s*=\s*(["'])([1-9]\d{0,14})\1/)?.[2]:null);
+ if(!ids.length||ids.some(id=>!id)||new Set(ids).size!==ids.length)invalid('Idiomas del campo no verificables.');return ids;
+}
+export function directoryXmlField(xml,resource,field){
+ if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource)||!['id','id_customer','id_supplier','id_manufacturer','id_attribute_group','id_feature','deleted'].includes(field))invalid('Relación de directorio no admitida.');
+ return fieldText(xml,direct(tree(xml),nativeNodes[resource]),field);
+}
+export function directoryBlankXml(resource){
+ if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource))invalid('Alta de directorio no admitida.');
+ const name=nativeNodes[resource];return '<prestashop><'+name+'><id></id></'+name+'></prestashop>';
+}
+export function directoryCustomerGroups(xml){
+ const customer=direct(tree(xml),'customer'),associations=customer.children.find(n=>n.name==='associations'),groups=associations?.children.find(n=>n.name==='groups');
+ return (groups?.children||[]).map(group=>{if(group.name!=='group')invalid('Grupo de cliente no verificable.');const id=fieldText(xml,group,'id');if(!/^[1-9]\d{0,14}$/.test(id))invalid('Grupo de cliente no válido.');return id;});
+}
+export function ensureDirectoryCustomerGroup(xml,id){
+ if(!/^[1-9]\d{0,14}$/.test(String(id)))invalid('Grupo de cliente no válido.');
+ if(directoryCustomerGroups(xml).includes(String(id)))return xml;
+ const customer=direct(tree(xml),'customer'),associations=customer.children.find(n=>n.name==='associations'),groups=associations?.children.find(n=>n.name==='groups');
+ const value='<group><id>'+String(id)+'</id></group>';
+ const content=groups?(groups.selfClosing?'':xml.slice(groups.contentStart,groups.contentEnd))+value:'<groups>'+value+'</groups>';
+ if(groups)return xml.slice(0,groups.open)+'<groups>'+content+'</groups>'+xml.slice(groups.end);
+ if(associations&&!associations.selfClosing)return xml.slice(0,associations.contentEnd)+content+xml.slice(associations.contentEnd);
+ if(associations)return xml.slice(0,associations.open)+'<associations>'+content+'</associations>'+xml.slice(associations.end);
+ return xml.slice(0,customer.contentEnd)+'<associations>'+content+'</associations>'+xml.slice(customer.contentEnd);
+}
 // Native PUT nulls omitted optional fields. Derive the preservation read from
 // the shop's own schema, not just the fields this editor happens to expose.
 export function productPreservationProjection(schema){

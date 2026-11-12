@@ -55,3 +55,12 @@ SET @ci_feature_value=LAST_INSERT_ID();
 INSERT INTO ps_feature_value_lang(id_feature_value,id_lang,value) SELECT @ci_feature_value,id_lang,'CI Metal' FROM ps_lang;
 INSERT INTO ps_tag(id_lang,name) VALUES(1,'TOTUS CI Tag');
 
+
+-- Directory CRUD permissions only for this disposable CI account.
+INSERT INTO ps_webservice_permission(id_webservice_account,resource,method) VALUES
+(@account_id,'customers','GET'),(@account_id,'customers','POST'),(@account_id,'customers','PUT'),(@account_id,'customers','DELETE'),
+(@account_id,'addresses','GET'),(@account_id,'addresses','POST'),(@account_id,'addresses','PUT'),(@account_id,'addresses','DELETE'),
+(@account_id,'orders','GET'),(@account_id,'groups','GET'),(@account_id,'countries','GET'),(@account_id,'states','GET'),
+(@account_id,'manufacturers','DELETE'),(@account_id,'suppliers','DELETE'),
+(@account_id,'product_options','PUT'),(@account_id,'product_options','DELETE'),(@account_id,'product_option_values','PUT'),(@account_id,'product_option_values','DELETE'),
+(@account_id,'product_features','DELETE'),(@account_id,'product_feature_values','DELETE');

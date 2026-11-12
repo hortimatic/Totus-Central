@@ -3,6 +3,7 @@ import {boundedJson} from '../totus-connections/transport.js';
 import {readPrestashopPage} from '../totus-connections/prestashop.js';
 import {storeConnection} from '../../../src/prestashop-readonly.js';
 import {automationResult} from '../../../src/prestashop-automation-core.js';
+import {recurringExpenseNotice} from '../../../src/recurring-expenses.js';
 
 const checked=(r:any)=>{if(r.error)throw Error(r.error.message||'Operación rechazada.');return r.data;};
 export async function handle(req:Request,env=Deno.env,factory:any=createClient,request:any=fetch){
@@ -19,6 +20,12 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
    const text=String(claim.rule.message||'');if(text.length<3||text.length>4000)throw Error('Aviso no válido.');
    const sent=checked(await client.rpc('totus_prestashop_job_deliver',{p_job:job,p_store:'general',p_order:'report:'+claim.slot,p_body:claim.rule.name+'\n\n'+text}));
    checked(await client.rpc('totus_prestashop_job_finish',{p_job:job,p_status:'done',p_result:{notices:sent.duplicate?0:1,scanned:0}}));started=false;return respond({ok:true,job,notices:sent.duplicate?0:1});
+  }
+  if(claim.rule.recipe==='expense_due'){
+   const data=checked(await client.rpc('totus_recurring_expenses_for_job',{p_job:job}));
+   const result=recurringExpenseNotice(data.rows,{today:data.today,lookbackDays:claim.rule.period_days,name:claim.rule.name,minCount:claim.rule.min_count});let notices=0;
+   if(result.body){const sent=checked(await client.rpc('totus_prestashop_job_deliver',{p_job:job,p_store:'general',p_order:'report:'+claim.slot,p_body:result.body}));notices=sent.duplicate?0:1;}
+   checked(await client.rpc('totus_prestashop_job_finish',{p_job:job,p_status:'done',p_result:{notices,scanned:data.rows.length,count:result.count}}));started=false;return respond({ok:true,job,notices,count:result.count});
   }
   const deadline=Date.now()+45000,stats:any={stores:[],scanned:0,notices:0};
   for(const store of claim.rule.stores){

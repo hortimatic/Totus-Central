@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {chromium} from 'playwright';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
 import {startLocalServer} from './local-static-server.mjs';
 import {clickModuleLink} from './ui-navigation.mjs';
 

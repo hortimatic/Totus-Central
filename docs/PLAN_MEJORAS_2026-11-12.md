@@ -21,13 +21,13 @@ Este registro recoge las 26 anotaciones de Diego. Pendiente significa pendiente:
 | 13 | Calidad de catálogo Inicio | Mostrar cobertura, recuentos y acción útil para consultar incidencias | Publicado en PR #186 (35f85256); manual y pruebas simuladas incluidas |
 | 14 | Fecha automática | Periodos relativos actualizados; fechas elegidas manualmente conservadas | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 15 | Más vendidos | Foto, referencia, variante y unidades con enlace a ficha | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
-| 16 | Gráfica | Separar margen comercial de ingresos menos gastos y beneficio neto | Parcial nuevo bloque local: widget y gráfica propia de margen probados; serie sobre gráfica contable pendiente |
+| 16 | Gráfica | Separar margen comercial de ingresos menos gastos y beneficio neto | Parcial publicado en PR #188: widget y gráfica propia de margen; serie sobre gráfica contable pendiente |
 | 17 | Gestor de atributos | Sustituir modal confuso por navegación clara grupo → valores → productos | Parcial publicado en PR #186: consulta/edición/asociados; creación independiente y eliminación pendientes |
 | 18 | Categorías | Árbol padre/hijos buscable, múltiples asociadas y principal explícita | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 19 | Calidad práctica | Filtros de incidencias que abren productos afectados y permiten corregir | Publicado en PR #186 (35f85256); manual y pruebas simuladas incluidas |
 | 20 | Avisos de catálogo | Totales, alcance y fecha de última lectura; no guiones sin explicación | Publicado en PR #186 (35f85256); manual y pruebas simuladas incluidas |
-| 21 | Simetría Inicio | Tipografía, alturas y saltos de línea adaptados al contenedor | Alineación de títulos/subtítulos de indicadores implementada; regresión de Inicio superada en local, pendiente de publicar |
-| 22 | Calendario tareas | Día/semana/mes integrado en el widget sin aumentar su ancho | Calendario Día/Semana/Mes con apertura de fecha en Tareas probado en local; pendiente de publicar |
+| 21 | Simetría Inicio | Tipografía, alturas y saltos de línea adaptados al contenedor | Parcial publicado en PR #188: alineación de títulos/subtítulos; revisión del resto de tarjetas aún abierta |
+| 22 | Calendario tareas | Día/semana/mes integrado en el widget sin aumentar su ancho | Publicado en PR #188: calendario Día/Semana/Mes y apertura de fecha en Tareas; pruebas automatizadas en cinco anchuras |
 | 23 | Proveedores duplicados | Unificar acceso solo después de sincronización y contraste de relaciones | Pendiente |
 | 24 | Marcas por tienda | Tabla/configuración, asociados y edición/publicación/relectura | Pendiente |
 | 25 | Caja del pedido | Identidad tienda + apertura/cajón y relación exacta con pedido; PR #181 no terminado | Pendiente de acceso automático |
@@ -60,6 +60,20 @@ PR #186 publicado y contrastado con `build-info.json`, commit `35f852568022e585a
 
 Simulaciones adicionales: paginación completa de grupos, productos y combinaciones; solo lectura; fallo de actualización con caché fechada; rechazo de duplicados, páginas vacías incompletas y respuestas de otra tienda; descarte de respuestas tardías al cambiar tienda, cuenta o desmontar pantalla. No sustituyen una prueba de escritura real.
 
-Omisión funcional confirmada: el widget independiente `home.gain` todavía presenta «Sin validar» fijo. No debe darse por resuelto por haber publicado el margen de Pedidos o Resumen; su cálculo y la gráfica del punto 16 siguen pendientes.
+Omisión detectada tras #186 y corregida en #188: el widget `home.gain` ya calcula margen y muestra su gráfica propia. Sigue pendiente la serie sobre la gráfica contable original del punto 16.
 
 La ficha Mi cuenta ya dispone de datos, notas y apartados con pruebas propias; el punto 26 solicita su ampliación, no se considera cerrado solo por existir esos apartados. La lectura de clientes del conector actual es por ID y no permite declarar una sincronización completa.
+
+## Reanudación y cobertura íntegra
+
+Publicación #187 verificada en `564500ac8790c54f96c7bba3fd602bcb9316b049`. Publicación #188 verificada en `bef6e762e6266f153545436dd85c3a749328c320`; 19 trabajos de publicación correctos. Estas publicaciones no cierran el listado.
+
+Balance del listado: 12 puntos implementados/publicados (1, 8, 10, 11, 12, 13, 14, 15, 18, 19, 20, 22), cuatro parciales (5, 16, 17, 21) y diez pendientes (2, 3, 4, 6, 7, 9, 23, 24, 25, 26). El contrato local de contactos no cuenta como interfaz terminada ni sincronización publicada.
+
+Orden de terminación: Clientes/Proveedores/Marcas y atributos independientes; navegación y Ventas; gastos recurrentes; ampliación de Mi cuenta y controles de reloj/calendario; cierre de los parciales, fuentes de vendedor/cajón, eliminación contrastada de accesos duplicados, documentación y recorridos integrados. No retirar el proveedor de Gastos hasta conservar y contrastar sus relaciones.
+
+Ampliación importante recibida después: (27) diagnosticar y resolver HTTP 401 de la API de Hortimatic nueva; (28) incorporar una tienda conectada a los módulos con las mismas operaciones que las actuales. Deben desarrollarse después de los pendientes anteriores. El escrito general de infraestructura, altas/bajas, convivencia y sustitución de tiendas/cajas queda para tratar después de esos dos puntos. No cambiar ahora el control de Hortimatic 1.7 a la nueva tienda.
+
+## Contraste posterior de cumplimiento
+
+La revisión detallada está en `REVISION_CUMPLIMIENTO_2026-11-12.md`. El PR #189 sigue en borrador, sin publicar; los puntos 2/3/24 y la ampliación de 5/17 están en desarrollo, no terminados. Se detectó y corrigió la invalidación de metadatos tras modificar atributos. Permanecen pendientes los demás puntos identificados y los importantes 27/28. No se da por cerrado el plan ni se inicia la sustitución de Hortimatic 1.7.
