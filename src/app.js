@@ -332,7 +332,7 @@ let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=f
 const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
- if(!modalOnly&&directoryUI.isPublishing()){toast('Espera a que termine la publicación en la tienda.','bad');return false;}
+ if(!modalOnly&&(directoryUI.isPublishing()||productosUI.isPublishing())){toast('Espera a que termine la publicación en la tienda.','bad');return false;}
  if(!modalOnly&&directoryUI.hasDraft()){if(!await confirmAction('¿Salir sin publicar los cambios de la ficha?',{title:'Cambios sin publicar',acceptLabel:'Descartar y salir'}))return false;directoryUI.discardDraft();}
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
  if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
