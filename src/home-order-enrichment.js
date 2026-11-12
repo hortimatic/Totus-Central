@@ -25,11 +25,11 @@ export async function enrichHomeOrderLines({store,lines,invoke,current=()=>true}
     try{
      const r=await invoke({action:'prestashop_item_read',resource:'combinations',record_id:variantId});
      if(!current())return null;
-     variants.set(variantId,r?.ok&&String(r.item?.id_product)===String(line.product_id)?r.item:null);
+     variants.set(variantId,r?.ok&&String(r.item?.id)===variantId&&String(r.item?.id_product)===String(line.product_id)?r.item:null);
     }catch{if(!current())return null;variants.set(variantId,null);}
    }
    const variant=variants.get(variantId);
-   if(Number(variant?.wholesale_price)>0)cost=variant.wholesale_price;
+   if(String(variant?.id_product)===String(line.product_id)&&Number(variant?.wholesale_price)>0)cost=variant.wholesale_price;
   }
   if(cost!==null&&cost!==undefined&&String(cost).trim()!==''&&Number.isFinite(Number(cost))&&Number(cost)>=0)line.current_wholesale_price=String(cost);
   line.image=product?prestashopProductImage(store,product.id_default_image):null;

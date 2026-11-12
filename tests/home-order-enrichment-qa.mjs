@@ -18,6 +18,9 @@ const fallback=[{product_id:'10',product_attribute_id:'0',product_quantity:'1',p
 await enrichHomeOrderLines({store:'newoldsmok',lines:fallback,invoke:async()=>({ok:true,store:'hortimatic',resource:'products',rows:[{id:'10',wholesale_price:'99'}]})});
 assert.equal(homeOrderMargin(order,fallback).margin,26,'Foreign shop response ignored; recorded purchase cost remains available');
 assert.equal(fallback[0].image,null);
+const wrongVariant=[{product_id:'10',product_attribute_id:'20',product_quantity:'1',purchase_supplier_price:'2'}];
+await enrichHomeOrderLines({store:'hortimatic',lines:wrongVariant,invoke:async a=>a.resource==='products'?{ok:true,store:'hortimatic',resource:'products',rows:[]}:{ok:true,item:{id:'99',id_product:'10',wholesale_price:'99'}}});
+assert.equal(homeOrderMargin(order,wrongVariant).margin,26,'Response for another combination cannot replace the purchase cost');
 assert.equal(await enrichHomeOrderLines({store:'hortimatic',lines,invoke:()=>assert.fail('Cancelled operation'),current:()=>false}),null);
 assert.deepEqual(homeMarginTotal([{...order,margin_value:16},{...order,id:'2',margin_value:null},{...order,id:'3',valid:'0',margin_value:1000}]),{value:16,covered:1,total:2,complete:false});
 assert.deepEqual(homeMarginTotal([{...order,margin_value:0}]),{value:0,covered:1,total:1,complete:true},'Zero margin is a valid result');
