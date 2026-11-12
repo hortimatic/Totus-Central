@@ -22,7 +22,7 @@ function fixture({roleDenied=false,config=connection}={}){
   auth:{getUser:async()=>({data:{user:{id:owner,email:'admin@totuscentral.invalid'}}})},
   rpc:async(name,payload)=>{
    calls.push({name,payload,key});
-   if(name==='totus_api_manager'||name==='totus_prestashop_context')return roleDenied?{error:{message:'Solo administración con permiso de Configuración'}}:{data:{connections:[{id,revision:3}]}};
+   if(name==='totus_api_manager'||name==='totus_prestashop_context'||name==='totus_sales_context')return roleDenied?{error:{message:'Solo administración con permiso de Configuración'}}:{data:{connections:[{id,revision:3}]}};
    if(name==='totus_api_server')return {data:config};
    if(name==='totus_api_call')return {data:null};
    throw Error('Unexpected RPC '+name);
@@ -89,3 +89,5 @@ test('product search passes the real HTTP entry contract before native filtering
  let reached=false;const denied=await handle(req({...args,resource:'products',search:'Mario',search_field:'passwd'}),env,f.factory,async()=>{reached=true;throw Error('Unexpected request');});assert.equal(denied.status,400);assert.equal(reached,false);
  }finally{if(old===undefined)delete globalThis.Deno;else globalThis.Deno=old;}
 });
+
+test('Ventas uses its own context and cannot fall back to Products or PrestaShop grants',async()=>{const previous=globalThis.Deno;globalThis.Deno={resolveDns:async()=>['8.8.8.8']};try{for(const roleDenied of [false,true]){const f=fixture({roleDenied});let requested=0;const response=await handle(req({...args,action:'prestashop_sales_read'}),env,f.factory,async()=>{requested++;return Response.json({orders:[]});});assert.equal(response.status,roleDenied?400:200);assert(f.calls.some(c=>c.name==='totus_sales_context'));assert(!f.calls.some(c=>['totus_prestashop_context','totus_products_context'].includes(c.name)));if(roleDenied)assert.equal(requested,0);}const f=fixture();const response=await handle(req({...args,action:'prestashop_sales_read',resource:'stock_movements'}),env,f.factory,async()=>{throw Error('Provider must not be called');});assert.equal(response.status,400);assert.equal(f.calls.length,0);}finally{globalThis.Deno=previous;}});

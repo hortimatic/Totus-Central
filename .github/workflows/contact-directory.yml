@@ -7,6 +7,26 @@ on:
 permissions:
   contents: read
 jobs:
+  sales-permissions:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify independent sales access in a disposable database
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/prestashop-permissions-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/064_prestashop_permissions.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/079_sales_permissions.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/079_sales_permissions.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/sales-permissions-db-qa.sql
   directory-contracts:
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +54,7 @@ jobs:
           node tests/contact-directory-browser-qa.mjs
           node tests/productos-attribute-editor-browser-qa.mjs
           node tests/account-profile-browser-qa.mjs
+          node tests/sales-workspace-browser-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

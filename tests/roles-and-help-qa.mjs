@@ -6,7 +6,7 @@ import {state} from '../src/state.js';
 const admin={role:'admin',email:'admin@qa.invalid'};
 const manager={role:'gerente',email:'gerente@qa.invalid'};
 const staff={role:'encargado',email:'staff@qa.invalid'};
-assert.equal(PERMISSION_MODULES.length,15);
+assert.equal(PERMISSION_MODULES.length,16);
 assert.equal(defaultRolePermissions('encargado','gastos').delete,false);
 assert.equal(defaultRolePermissions('gerente','gastos').create,true);
 const baseline=defaultRolePermissions('gerente','gastos');
