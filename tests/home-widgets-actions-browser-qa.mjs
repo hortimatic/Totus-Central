@@ -5,7 +5,7 @@ import {startLocalServer} from './local-static-server.mjs';
 import {clickModuleLink} from './ui-navigation.mjs';
 
 const server=await startLocalServer();
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})});
 const page=await browser.newPage({viewport:{width:1440,height:960},locale:'es-ES'});
 const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
@@ -15,6 +15,7 @@ try{
  const rpcMarker='const rpc=async (name,args={})=>{';
  const rpcInject=[
   rpcMarker,
+  " if(name==='totus_tasks_context'){window.__qaTaskCalls||=[];window.__qaTaskCalls.push(args);return {data:{rows:[{task_id:'task-qa',title:'Tarea del calendario QA',scheduled_on:args.p_from,state:'pending',description:'',priority:'normal'}],stores:[],people:[]},error:null};}",
   " if(name==='totus_prestashop_context'){window.__qaHomeContextCalls=(window.__qaHomeContextCalls||0)+1;return {data:{connections:[",
   "  {protocol:'prestashop',name:'PrestaShop · Hortimatic',id:'ps-h',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true},",
   "  {protocol:'prestashop',name:'PrestaShop · NewOldSmok',id:'ps-n',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true}",
@@ -65,6 +66,8 @@ try{
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="shop-h"] .home-ps-metrics strong').length>=5);
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="shop-n"] .home-ps-metrics strong').length>=5);
  await page.getByText('300,00 €',{exact:true}).first().waitFor();
+ await page.locator('[data-home-widget="gain"] .home-commercial-total').filter({hasText:'303,84'}).waitFor();
+ assert.equal(await page.locator('[data-home-widget="gain"] .home-commercial-chart svg').count(),1);
  assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
@@ -238,6 +241,7 @@ try{
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Inicio sin desbordamientos a '+width+'px');
   if(width===390)await page.screenshot({path:'qa-artifacts/inicio/movil-390.png',fullPage:true});
  }
+ const taskWidget=page.locator('[data-home-widget="tasks"]');await taskWidget.getByRole('button',{name:'Día',exact:true}).click();await taskWidget.locator('[data-ht-date]').fill('2026-11-12');await taskWidget.locator('[data-ht-date]').blur();await taskWidget.getByRole('button',{name:'Abrir Tareas',exact:true}).click();await page.locator('.tasks-calendar.week').waitFor();assert.equal(await page.locator('.task-day').count(),7);assert(await page.evaluate(()=>window.__qaTaskCalls.some(a=>a.p_from==='2026-11-09'&&a.p_to==='2026-11-15')),'The calendar opens the selected date in Tasks');
  assert.deepEqual(errors,[],'Sin errores Javascript');
  console.log('HOME WIDGET ACTIONS PASS: tiendas, ventas, 10 pedidos, filtros, paginación, scroll, resize, guardado verificado, pedido detallado, caja y seis tamaños');
 }finally{

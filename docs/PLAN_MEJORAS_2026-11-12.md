@@ -21,13 +21,13 @@ Este registro recoge las 26 anotaciones de Diego. Pendiente significa pendiente:
 | 13 | Calidad de catálogo Inicio | Mostrar cobertura, recuentos y acción útil para consultar incidencias | Publicado en PR #186 (35f85256); manual y pruebas simuladas incluidas |
 | 14 | Fecha automática | Periodos relativos actualizados; fechas elegidas manualmente conservadas | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 15 | Más vendidos | Foto, referencia, variante y unidades con enlace a ficha | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
-| 16 | Gráfica | Separar margen comercial de ingresos menos gastos y beneficio neto | Pendiente |
+| 16 | Gráfica | Separar margen comercial de ingresos menos gastos y beneficio neto | Parcial nuevo bloque local: widget y gráfica propia de margen probados; serie sobre gráfica contable pendiente |
 | 17 | Gestor de atributos | Sustituir modal confuso por navegación clara grupo → valores → productos | Parcial publicado en PR #186: consulta/edición/asociados; creación independiente y eliminación pendientes |
 | 18 | Categorías | Árbol padre/hijos buscable, múltiples asociadas y principal explícita | Publicado en PR #185 (d0f8a087); no implica cierre de otros puntos |
 | 19 | Calidad práctica | Filtros de incidencias que abren productos afectados y permiten corregir | Publicado en PR #186 (35f85256); manual y pruebas simuladas incluidas |
 | 20 | Avisos de catálogo | Totales, alcance y fecha de última lectura; no guiones sin explicación | Publicado en PR #186 (35f85256); manual y pruebas simuladas incluidas |
-| 21 | Simetría Inicio | Tipografía, alturas y saltos de línea adaptados al contenedor | Pendiente |
-| 22 | Calendario tareas | Día/semana/mes integrado en el widget sin aumentar su ancho | Pendiente |
+| 21 | Simetría Inicio | Tipografía, alturas y saltos de línea adaptados al contenedor | Alineación de títulos/subtítulos de indicadores implementada; regresión de Inicio superada en local, pendiente de publicar |
+| 22 | Calendario tareas | Día/semana/mes integrado en el widget sin aumentar su ancho | Calendario Día/Semana/Mes con apertura de fecha en Tareas probado en local; pendiente de publicar |
 | 23 | Proveedores duplicados | Unificar acceso solo después de sincronización y contraste de relaciones | Pendiente |
 | 24 | Marcas por tienda | Tabla/configuración, asociados y edición/publicación/relectura | Pendiente |
 | 25 | Caja del pedido | Identidad tienda + apertura/cajón y relación exacta con pedido; PR #181 no terminado | Pendiente de acceso automático |
