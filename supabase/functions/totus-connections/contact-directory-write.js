@@ -1,16 +1,15 @@
-import {directoryMutation,directoryLocalized,DIRECTORY_KINDS} from '../../../src/contact-directory-contract.js';
+import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
-const nodes={customers:'customer',addresses:'address',manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',product_features:'product_feature',product_feature_values:'product_feature_value'};
 const numeric=field=>field.startsWith('id_')||['position','active','newsletter','optin','is_guest','show_public_prices','custom','max_payment_days','outstanding_allow_amount'].includes(field);
 const same=(field,a,b)=>a===b||numeric(field)&&a!==''&&b!==''&&Number.isFinite(Number(a))&&Number(a)===Number(b);
 
 // This module receives a connection only after authenticated directory/module
 // authorization. Its journal is server-only and stores no customer fields.
-export async function writeContactDirectory(connection,input,{request=fetch,resolve,journal}={}){
- const q=directoryMutation(input),commit=q.action==='prestashop_directory_commit',store=prestashopStore(q.store),node=nodes[q.resource];
+export async function writeContactDirectory(connection,input,{request=fetch,resolve,journal=/** @type {any} */(null)}={}){
+ const q=directoryMutation(input),commit=q.action==='prestashop_directory_commit',store=prestashopStore(q.store);
  if(!connection||storeConnection([connection],q.store)!==connection||connection.id!==q.id||connection.revision!==q.revision||!connection.enabled||connection.verified_revision!==q.revision||connection.real_data_authorized!==true)throw Error('Actualiza y verifica la conexión de esta tienda.');
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.pathname.replace(/\/$/,'')!=='/api'||base.search||base.hash)throw Error('La escritura exige la API oficial de la tienda elegida.');
@@ -60,6 +59,7 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  let status;
  try{const response=await send(target,'PUT',prepareProductStageXml(checked.patched,q.resource,{}, {},String(q.record_id)));status=response.status;await response.body?.cancel();}catch{await journal.uncertain(signature,String(q.record_id));throw Error('Resultado de publicación incierto. Actualiza esta misma ficha antes de reintentar.');}
  try{
+  if(status>=400&&status!==500)throw Error('La tienda rechazó la publicación.');
   const reread=await xml(target),result=selectedXmlValues(reread,q.resource,q.record_id,changes);
   if(result.changes.some(c=>!same(c.field,c.before,c.value)))throw Error('La relectura no coincide con los cambios publicados.');
   await journal.complete(signature,String(q.record_id));

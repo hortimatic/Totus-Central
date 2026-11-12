@@ -9,7 +9,7 @@ begin
  when 'proveedores' then array['id','name','active','description','meta_title','meta_description','meta_keywords','phone','phone_mobile','address1','address2','postcode','city','country','province','dni','vat_number','products','date_add','date_upd']
  when 'marcas' then array['id','name','active','description','short_description','meta_title','meta_description','meta_keywords','phone','phone_mobile','address1','address2','postcode','city','country','province','products','date_add','date_upd']
  when 'atributos' then array['id','name','public_name','group_type','color','position','values','products','parent','custom'] end;
- if valid is null or jsonb_typeof(p_layout) is distinct from 'object' or octet_length(p_layout::text)>16000 or exists(select 1 from jsonb_object_keys(p_layout)k where k not in ('columns','widths','pageSize','sort','direction','density')) then raise exception 'Distribución de directorio no válida.';end if;
+ if valid is null or jsonb_typeof(p_layout) is distinct from 'object' or octet_length(p_layout::text)>16000 or exists(select 1 from jsonb_object_keys(p_layout)k where k not in ('columns','widths','pageSize','sort','direction','density','source')) then raise exception 'Distribución de directorio no válida.';end if;
  if jsonb_typeof(p_layout->'columns') is distinct from 'array' or jsonb_array_length(p_layout->'columns') not between 1 and cardinality(valid) or not(p_layout->'columns' ? 'id') or exists(select 1 from jsonb_array_elements(p_layout->'columns')c where jsonb_typeof(c)<>'string' or not(c#>>'{}')=any(valid)) or (select count(distinct c) from jsonb_array_elements(p_layout->'columns')c)<>jsonb_array_length(p_layout->'columns') then raise exception 'Columnas de directorio no válidas.';end if;
  if jsonb_typeof(p_layout->'widths') is distinct from 'object' then raise exception 'Anchos no válidos.';end if;
  for pair in select * from jsonb_each(p_layout->'widths') loop
@@ -19,6 +19,7 @@ begin
  if p_layout ? 'sort' and (jsonb_typeof(p_layout->'sort')<>'string' or not(p_layout->>'sort')=any(valid)) then raise exception 'Orden no válido.';end if;
  if p_layout ? 'direction' and (jsonb_typeof(p_layout->'direction')<>'string' or p_layout->>'direction' not in ('asc','desc')) then raise exception 'Dirección no válida.';end if;
  if p_layout ? 'density' and (jsonb_typeof(p_layout->'density')<>'string' or p_layout->>'density' not in ('compact','normal')) then raise exception 'Densidad no válida.';end if;
+ if p_layout ? 'source' and (jsonb_typeof(p_layout->'source')<>'string' or p_layout->>'source' not in ('local','hortimatic','newoldsmok')) then raise exception 'Origen de tabla no válido.';end if;
  return p_layout;
 end $$;
 create or replace function public.totus_directory_table(p_kind text,p_layout jsonb default null) returns jsonb

@@ -18,7 +18,24 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check --node-modules-dir=none supabase/functions/totus-connections/index.ts
-      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs
+      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-session-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs
+  directory-browser:
+    runs-on: ubuntu-24.04
+    env:
+      TOTUS_START_SERVER: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install chromium
+      - run: node tests/contact-directory-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: directory-browser-report
+          path: qa-artifacts/contact-directory
   directory-database:
     runs-on: ubuntu-latest
     services:

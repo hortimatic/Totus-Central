@@ -14,7 +14,7 @@ export function directoryLayout(kind,input={}){
  const columns=Array.isArray(input.columns)?[...new Set(input.columns.filter(c=>valid.includes(c)))]:[...defaults[kind]];
  if(!columns.includes('id'))columns.unshift('id');
  const widths=Object.fromEntries(Object.entries(input.widths||{}).filter(([key,value])=>(valid.includes(key)||key==='actions')&&Number.isInteger(value)&&value>=80&&value<=640));
- return {columns,widths,pageSize:[0,10,20,50,100].includes(input.pageSize)?input.pageSize:20,sort:valid.includes(input.sort)?input.sort:'id',direction:input.direction==='desc'?'desc':'asc',density:input.density==='compact'?'compact':'normal'};
+ return {columns,widths,source:['local','hortimatic','newoldsmok'].includes(input.source)?input.source:'local',pageSize:[0,10,20,50,100].includes(input.pageSize)?input.pageSize:20,sort:valid.includes(input.sort)?input.sort:'id',direction:input.direction==='desc'?'desc':'asc',density:input.density==='compact'?'compact':'normal'};
 }
 export function directoryPage(rows,{search='',active='',page=1,layout,languageId}={}){
  const needle=String(search).trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');

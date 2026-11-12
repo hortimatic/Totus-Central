@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {startLocalServer} from './local-static-server.mjs';
+const {chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
+const server=await startLocalServer(),browser=await chromium.launch({headless:true,channel:process.env.TOTUS_BROWSER_CHANNEL||(process.platform==='win32'?'msedge':undefined)}),report=[];
+await mkdir('qa-artifacts/contact-directory',{recursive:true});
+try{for(const width of [390,768,1017,1440,1920]){
+ const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');await page.addStyleTag({url:'http://127.0.0.1:4173/src/contact-directory.css'});
+ await page.evaluate(async()=>{
+  const {createContactDirectoryUI,directoryPageHtml}=await import('../src/contact-directory-ui.js');
+  const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',q=window.directoryQA={calls:[],saved:null,rows:Array.from({length:137},(_,i)=>({id:String(i+1),firstname:i===136?'Único':'Cliente '+(i+1),lastname:'Apellido',email:'cliente'+i+'@example.invalid',active:'1',birthday:'0000-00-00'}))};
+  document.querySelector('#chatHarness').innerHTML=directoryPageHtml('clientes','<p>Clientes locales conservados</p>');
+  q.ui=createContactDirectoryUI({actor:()=>id,can:()=>true,confirm:async()=>true,notify:message=>q.notice=message,rpc:async(name,args)=>{if(name==='totus_directory_context')return {connections:[{id,name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]};if(name==='totus_directory_table'){if(args.p_layout)q.saved=structuredClone(args.p_layout);return q.saved;}if(name==='totus_directory_views')return [];throw Error(name);},invoke:async b=>{q.calls.push(structuredClone(b));const out={...b,ok:true};if(b.action==='prestashop_directory_read'){const rows=b.resource==='languages'?[{id:'2',iso_code:'es',active:'1'}]:b.record_id?q.rows.filter(r=>r.id===b.record_id):q.rows.slice(b.page*100,b.page*100+100);return {...out,rows,possibly_more:!b.record_id&&b.resource==='customers'&&b.page===0};}if(b.action==='prestashop_directory_prepare')return {...out,can_commit:true,fingerprint:'a'.repeat(64)};if(b.action==='prestashop_directory_commit'){Object.assign(q.rows.find(r=>r.id===b.record_id),b.fields);return {...out,verified:true,persisted:true};}throw Error(b.action);}});
+  await q.ui.mount(document.querySelector('[data-directory-root]'));
+ });
+ await page.getByRole('button',{name:'Hortimatic',exact:true}).click();await page.getByRole('status').filter({hasText:'137 registros · consulta completa'}).waitFor();
+ assert.equal(await page.locator('.directory-table tbody tr').count(),20);
+ await page.locator('[data-directory-search]').fill('unico');assert.equal(await page.locator('.directory-table tbody tr').count(),1);await page.getByRole('button',{name:'Limpiar',exact:true}).click();
+ await page.locator('[data-directory-size]').selectOption('50');assert.equal(await page.locator('.directory-table tbody tr').count(),50);
+ await page.locator('[data-directory-page]').fill('3');await page.locator('[data-directory-page]').blur();assert.equal(await page.locator('.directory-table tbody tr').count(),37);
+ await page.getByRole('button',{name:'Configurar columnas',exact:true}).click();await page.locator('[data-column=date_add]').check();await page.getByRole('button',{name:'Cerrar columnas',exact:true}).click();
+ assert(await page.locator('.directory-table th').filter({hasText:'Alta'}).count());
+ const resize=page.locator('[data-pr-resize-column=id]'),before=Number(await resize.getAttribute('aria-valuenow'));await resize.focus();await resize.press('ArrowRight');assert.equal(Number(await resize.getAttribute('aria-valuenow')),before+10);
+ await page.waitForFunction(()=>directoryQA.saved?.widths?.id>0);
+ await page.locator('[data-directory-page]').fill('1');await page.locator('[data-directory-page]').blur();
+ await page.locator('[data-directory-record="1"]').click();const dialog=page.getByRole('dialog');await dialog.locator('[name=firstname]').fill('Cliente editado');await dialog.getByRole('button',{name:'Publicar cambios en Hortimatic',exact:true}).click();
+ await page.waitForFunction(()=>directoryQA.notice?.includes('verificados'));assert.equal(await page.getByRole('dialog').count(),0);
+ const commits=await page.evaluate(()=>directoryQA.calls.filter(c=>c.action==='prestashop_directory_commit'));assert.equal(commits.length,1);assert.deepEqual(commits[0].fields,{firstname:'Cliente editado'});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'The page stays within the viewport; only the table scrolls horizontally');
+ await page.screenshot({path:'qa-artifacts/contact-directory/'+width+'.png',fullPage:false});assert.deepEqual(errors,[]);report.push({width,api:'simulated',passed:['137_rows_paginated','full_directory_search','page_size_and_number','columns','keyboard_resize_autosave','one_button_edit_publish_readback','unedited_zero_date_preserved','no_page_overflow']});await page.close();
+}console.log('Contact directory: complete search, pagination, saved columns, native-edit contract and responsive at five widths PASS; simulated API.');}
+finally{await browser.close();await server?.close();await writeFile('qa-artifacts/contact-directory/report.json',JSON.stringify(report,null,2));}
