@@ -18,7 +18,7 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check --node-modules-dir=none supabase/functions/totus-connections/index.ts
-      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-session-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs tests/contact-directory-create-qa.mjs tests/contact-directory-delete-qa.mjs tests/contact-directory-sales-qa.mjs
+      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-session-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs tests/contact-directory-create-qa.mjs tests/contact-directory-delete-qa.mjs tests/contact-directory-sales-qa.mjs tests/productos-catalog-invalidation-qa.mjs
   directory-browser:
     runs-on: ubuntu-24.04
     env:

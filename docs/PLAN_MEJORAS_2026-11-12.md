@@ -73,3 +73,7 @@ Balance del listado: 12 puntos implementados/publicados (1, 8, 10, 11, 12, 13, 1
 Orden de terminación: Clientes/Proveedores/Marcas y atributos independientes; navegación y Ventas; gastos recurrentes; ampliación de Mi cuenta y controles de reloj/calendario; cierre de los parciales, fuentes de vendedor/cajón, eliminación contrastada de accesos duplicados, documentación y recorridos integrados. No retirar el proveedor de Gastos hasta conservar y contrastar sus relaciones.
 
 Ampliación importante recibida después: (27) diagnosticar y resolver HTTP 401 de la API de Hortimatic nueva; (28) incorporar una tienda conectada a los módulos con las mismas operaciones que las actuales. Deben desarrollarse después de los pendientes anteriores. El escrito general de infraestructura, altas/bajas, convivencia y sustitución de tiendas/cajas queda para tratar después de esos dos puntos. No cambiar ahora el control de Hortimatic 1.7 a la nueva tienda.
+
+## Contraste posterior de cumplimiento
+
+La revisión detallada está en `REVISION_CUMPLIMIENTO_2026-11-12.md`. El PR #189 sigue en borrador, sin publicar; los puntos 2/3/24 y la ampliación de 5/17 están en desarrollo, no terminados. Se detectó y corrigió la invalidación de metadatos tras modificar atributos. Permanecen pendientes los demás puntos identificados y los importantes 27/28. No se da por cerrado el plan ni se inicia la sustitución de Hortimatic 1.7.
