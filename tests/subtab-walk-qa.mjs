@@ -1,3 +1,5 @@
+import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer();
 import {chromium} from 'playwright';
 import {navigate,clickModuleLink} from './ui-navigation.mjs';
 import fs from 'node:fs';
@@ -18,7 +20,7 @@ const routes=[
  {route:'informes',sections:[null]},
  {route:'administracion',action:'admin-section',sections:['usuarios','roles','negocio','fiscal','storage','backups','log']}
 ];
-const browser=await chromium.launch({headless:true}),errors=[],views=[],names=[];
+const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})}),errors=[],views=[],names=[];
 for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narrow',320]]){
  const page=await browser.newPage({viewport:{width,height:900},locale:'es-ES'});
  page.on('pageerror',e=>errors.push(size+' JavaScript: '+e.message));
@@ -44,7 +46,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
    const info=await page.evaluate(()=>{
     const root=document.querySelector('#content'),rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
     const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};
-    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&!el.dataset.prestashopAction&&!el.dataset.homeCommand&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,#connectionsRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
+    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&!el.dataset.prestashopAction&&!el.dataset.homeCommand&&!el.dataset.htAction&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,#connectionsRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
     const badControls=[],overlaps=[];
     for(const el of root.querySelectorAll('input,select,textarea')){
      if(!visible(el)||el.type==='hidden'||el.type==='file')continue;
@@ -82,6 +84,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
  await page.close();
 }
 await browser.close();
+await server?.close();
 fs.writeFileSync('artifacts/subtab-walk.json',JSON.stringify({screens:names,views,errors},null,2));
 console.log('SUBTAB WALK QA: '+views.length+' actual-click states; all module pages and administrative/billing/expense subtab panels at 1640,1180,390,320; '+errors.length+' failures');
 if(errors.length){console.error(errors.slice(0,32).join('\n'));process.exit(1)}
