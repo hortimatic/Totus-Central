@@ -9,7 +9,8 @@ const source=readFileSync(file,'utf8')
  .replace("'../../../src/prestashop-readonly.js'",JSON.stringify(new URL('../src/prestashop-readonly.js',import.meta.url).href))
  .replace("'./prestashop.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/prestashop.js',import.meta.url).href))
  .replace("'./transport.js'",JSON.stringify(new URL('../supabase/functions/totus-connections/transport.js',import.meta.url).href));
-const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const directoryResolved=source.replace(/(from\s*|import\()(['"])(\.[^'"]+)\2/g,(_,before,quote,path)=>before+quote+new URL(path,new URL('../supabase/functions/totus-connections/index.ts',import.meta.url)).href+quote);
+const {handle}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(directoryResolved)).toString('base64'));
 const id='11111111-1111-4111-8111-111111111111',callId='22222222-2222-4222-8222-222222222222',owner='33333333-3333-4333-8333-333333333333';
 const env={get:k=>({SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:'server-only'}[k])};
 const connection={id,name:'PrestaShop · Hortimatic',protocol:'prestashop',revision:3,verified_revision:3,endpoint:'https://example.com/api',auth_kind:'basic',secret:'fictional-value',free_confirmed:true,real_data_authorized:true,enabled:true};
