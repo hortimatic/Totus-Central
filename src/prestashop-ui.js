@@ -1,3 +1,4 @@
+import {concurrentRead} from './concurrent-read.js';
 import {catalogQualityPanel} from './catalog-quality-ui.js';
 import {catalogQualityReport} from './catalog-quality.js';
 import {createOrdersTablePreferences,sortOrderRows,renderOrdersTable,attachOrdersTable} from './prestashop-orders-table.js';
@@ -141,16 +142,25 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{},onB
  function dispose(){orderTableCleanup();orderControlsCleanup();generation++;root=null;requestDetail=null;busy=false;if(owner!==actor()){results.clear();flows=[];flowRemove=null;receiptReadyKey='';deepLinkKey='';receiptLists.clear();receiptQuery='';details.clear();customerCards.clear();sellerEmployees.clear();currencies.clear();opened.clear();productCards.clear();orderPreviews.clear();capabilities.clear();taxDefinitions.clear();detailAttempts.clear();connections=[];errors=[];filter=initialFilter();catalogFilter={query:'',category:'all',active:'all'};listPages.clear();density='comfortable';catalogMode='quality';recipe='';recipeGroup='all';recipeSearch='';tab='summary';store='hortimatic';status='Elige una tienda para comenzar.';}}
  async function mount(element){
   dispose();if(!element||!allowed())return;if(requestedTab){tab=requestedTab;requestedTab=null;}root=element;owner=actor();orderPreferences=createOrdersTablePreferences(localStorage,owner,{cloud:{load:key=>rpc('totus_orders_table_layout',{p_owner:key,p_layout:null}),save:(layout,key)=>rpc('totus_orders_table_layout',{p_owner:key,p_layout:layout})},onStatus:message=>{if(owned()){const label=root?.querySelector('[data-ps-order-layout-status]');if(label)label.textContent=message;}}});density=orderPreferences.state.density;for(const shop of PRESTASHOP_STORES)listPages.set(shop.key+'|orders',{size:orderPreferences.state.pageSize,page:0});selectedOrders.clear();const link=new URLSearchParams(location.search),linkKey=owner+'|'+link.get('ps_store')+'|'+link.get('ps_order')+'|'+link.get('ps_date');if(!receiptsOnly()&&deepLinkKey!==linkKey&&PRESTASHOP_STORES.some(s=>s.key===link.get('ps_store'))&&/^\d{1,15}$/.test(link.get('ps_order')||'')&&/^\d{4}-\d{2}-\d{2}$/.test(link.get('ps_date')||'')){store=link.get('ps_store');tab='orders';filter={...initialFilter(),from:link.get('ps_date'),to:link.get('ps_date'),query:link.get('ps_order')};opened.add(store+'|'+link.get('ps_order'));deepLinkKey=linkKey;}const epoch=generation,node=element,active=()=>owned()&&generation===epoch&&root===node;
-  async function refresh(){try{await orderPreferences.load();if(active()){density=orderPreferences.state.density;for(const shop of PRESTASHOP_STORES)listPages.set(shop.key+'|orders',{size:orderPreferences.state.pageSize,page:0});}}catch{}if(receiptsOnly()){connections=[];status='Recepciones · acceso con los permisos de Documentos.';return;}const response=await rpc(salesOnly?'totus_sales_context':'totus_prestashop_context',{});if(!active())return;connections=(response?.connections||[]).filter(c=>c.protocol==='prestashop');status='Diagnóstico actualizado. Una prueba de API no valida los cierres del TPV.';}
+  async function refresh(){
+   const receipts=receiptsOnly();
+   const [,response]=await Promise.all([orderPreferences.load().catch(()=>{}),receipts?Promise.resolve(null):rpc(salesOnly?'totus_sales_context':'totus_prestashop_context',{})]);
+   if(!active())return;
+   density=orderPreferences.state.density;for(const shop of PRESTASHOP_STORES)listPages.set(shop.key+'|orders',{size:orderPreferences.state.pageSize,page:0});
+   if(receipts){connections=[];status='Recepciones · acceso con los permisos de Documentos.';return;}
+   connections=(response?.connections||[]).filter(c=>c.protocol==='prestashop');status='Diagnóstico actualizado. Una prueba de API no valida los cierres del TPV.';
+  }
   async function applyCurrentCosts(c,shop,lines){
-   const variants=new Map();
+   const variants=new Map(),ids=[...new Set(lines.map(line=>String(line.product_attribute_id||'0')).filter(id=>/^[1-9]\d{0,14}$/.test(id)))];
+   await concurrentRead(ids,async variantId=>{
+    if(!active()||shop!==store||stopRequested)return;
+    try{const data=await invoke({action:'prestashop_item_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'combinations',record_id:variantId});if(!active()||shop!==store)return;variants.set(variantId,data?.ok?data.item:null);}catch{variants.set(variantId,null);}
+   });
+   if(!active()||shop!==store)return;
    for(const line of lines){
     const product=productCards.get(shop+'|'+c.id+'|'+c.revision+'|'+line.product_id);let cost=product?.wholesale_price;
-    const variantId=String(line.product_attribute_id||'0');
-    if(variantId!=='0'&&/^[1-9]\d{0,14}$/.test(variantId)){
-     if(!variants.has(variantId)){try{const data=await invoke({action:'prestashop_item_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'combinations',record_id:variantId});if(!active()||shop!==store)return;variants.set(variantId,data?.ok&&String(data.item?.id_product)===String(line.product_id)?data.item:null);}catch{variants.set(variantId,null);}}
-     const variant=variants.get(variantId);if(variant&&Number(variant.wholesale_price)>0)cost=variant.wholesale_price;
-    }
+    const variant=variants.get(String(line.product_attribute_id||'0'));
+    if(variant&&String(variant.id_product)===String(line.product_id)&&Number(variant.wholesale_price)>0)cost=variant.wholesale_price;
     if(cost!==null&&cost!==undefined&&String(cost).trim()!==''&&Number.isFinite(Number(cost))&&Number(cost)>=0){line.current_wholesale_price=String(cost);line.cost_basis='Catálogo PrestaShop consultado';}
    }
   }
@@ -207,15 +217,20 @@ export function createPrestashopUI({rpc,invoke,actor,allowed,onManage=()=>{},onB
     const related=async(resource,id)=>{try{if(!/^\d{1,15}$/.test(String(id||''))||String(id)==='0')return null;const value=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource,page:0,page_size:1,record_id:String(id)});if(!active())return null;if(!value?.ok||value.store!==shop||value.resource!==resource||!Array.isArray(value.rows)||value.rows.some(r=>String(r.id)!==String(id)))throw Error('El detalle del cliente no corresponde al pedido.');return value.rows[0]||null;}catch(e){if(active()){result.detailWarnings=(result.detailWarnings||[]).concat(resource+': '+(e.message||String(e)));}return null;}};
     for(const taxId of [...new Set(result.rows.flatMap(l=>l.associations?.taxes||[]))]){const key=shop+'|'+c.id+'|'+c.revision+'|'+taxId;if(!taxDefinitions.has(key)){const tax=await related('taxes',taxId);if(tax&&/^\d+(?:\.\d+)?$/.test(tax.rate||''))taxDefinitions.set(key,Number(tax.rate));}}
     result.rows=result.rows.map(l=>({...l,tax_rates:(l.associations?.taxes||[]).map(id=>taxDefinitions.get(shop+'|'+c.id+'|'+c.revision+'|'+id))}));
-    result.customer=await related('customers',order?.id_customer);result.invoiceAddress=await related('addresses',order?.id_address_invoice);result.deliveryAddress=String(order?.id_address_delivery)===String(order?.id_address_invoice)?result.invoiceAddress:await related('addresses',order?.id_address_delivery);
+    const sharedAddress=String(order?.id_address_delivery)===String(order?.id_address_invoice);
+    [result.customer,result.invoiceAddress,result.deliveryAddress]=await Promise.all([related('customers',order?.id_customer),related('addresses',order?.id_address_invoice),sharedAddress?Promise.resolve(null):related('addresses',order?.id_address_delivery)]);
+    if(sharedAddress)result.deliveryAddress=result.invoiceAddress;
     if(!active())return;
    }
    if(resource==='products')for(const p of response.rows)productCards.set(shop+'|'+c.id+'|'+c.revision+'|'+p.id,p);
    if(resource==='orders'){
-    for(const customerId of [...new Set(response.rows.map(row=>String(row.id_customer||'')).filter(id=>/^[1-9]\d{0,14}$/.test(id)))]){
-     const customerKey=shop+'|'+c.id+'|'+c.revision+'|'+customerId;if(customerCards.has(customerKey))continue;
-     try{const data=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'customers',record_id:customerId,page:0,page_size:1});if(!active()||shop!==store)return;const customer=data?.rows?.[0];if(data?.ok&&data.store===shop&&data.resource==='customers'&&String(customer?.id)===customerId)customerCards.set(customerKey,customer);}catch{if(!active()||shop!==store)return;}
-    }
+    const customerIds=[...new Set(response.rows.map(row=>String(row.id_customer||'')).filter(id=>/^[1-9]\d{0,14}$/.test(id)))].filter(customerId=>!customerCards.has(shop+'|'+c.id+'|'+c.revision+'|'+customerId));
+    await concurrentRead(customerIds,async customerId=>{
+     if(!active()||shop!==store||stopRequested)return;
+     const customerKey=shop+'|'+c.id+'|'+c.revision+'|'+customerId;
+     try{const data=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'customers',record_id:customerId,page:0,page_size:1});if(!active()||shop!==store)return;const customer=data?.rows?.[0];if(data?.ok&&data.store===shop&&data.resource==='customers'&&String(customer?.id)===customerId)customerCards.set(customerKey,customer);}catch{}
+    });
+    if(!active()||shop!==store)return;
     try{
      const employeeKey=shop+'|'+c.id+'|'+c.revision;
      if(!sellerEmployees.has(employeeKey))sellerEmployees.set(employeeKey,new Map());
