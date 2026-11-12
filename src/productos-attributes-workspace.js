@@ -15,7 +15,7 @@ export function createAttributesWorkspace({invoke,actor,contextKey,canEdit,canCr
    if(!current(el,generation,who))throw Error('La selección ha cambiado.');
    const response=await invoke(shop,'prestashop_read',{resource,page:p,page_size:100,sort:'oldest'});
    if(!current(el,generation,who))throw Error('La selección ha cambiado.');
-   if(response.resource!==resource||response.page!==p||!Array.isArray(response.rows))throw Error('Respuesta incompleta de '+resource+'.');
+   if(response?.ok!==true||response.store!==shop||response.resource!==resource||response.page!==p||!Array.isArray(response.rows))throw Error('Respuesta ajena o incompleta de '+resource+'.');
    for(const row of response.rows){const id=String(row.id);if(!/^[1-9]\d{0,14}$/.test(id)||seen.has(id))throw Error('Registros duplicados o sin ID en '+resource+'. Actualiza la consulta.');seen.add(id);rows.push(row);}
    if(response.possibly_more!==true)return rows;
    if(!response.rows.length)throw Error('Página incompleta de '+resource+'.');
