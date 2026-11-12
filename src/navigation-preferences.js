@@ -1,5 +1,5 @@
 import {ROUTES} from './config.js';
-export const NAV_GROUPS=[['general','General'],['operations','Operaciones tienda'],['contacts','Contactos'],['analysis','Análisis'],['system','Sistema']];
+export const NAV_GROUPS=[['general','Inicio y equipo'],['operations','Comercio'],['contacts','Contactos'],['analysis','Gestión y análisis'],['system','Sistema']];
 export function orderedRoutes(order='',routes=ROUTES){
  const requested=[...new Set(String(order).split(','))],rank=new Map(requested.map((id,i)=>[id,i]));
  return routes.slice().sort((a,b)=>NAV_GROUPS.findIndex(([,g])=>g===a.group)-NAV_GROUPS.findIndex(([,g])=>g===b.group)||(rank.get(a.id)??requested.length+ROUTES.findIndex(r=>r.id===a.id))-(rank.get(b.id)??requested.length+ROUTES.findIndex(r=>r.id===b.id)));

@@ -41,6 +41,11 @@ jobs:
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/074_independent_interface_text_box_colors.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/074_independent_interface_text_box_colors.sql
+      - name: Verify clock presentation preferences
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/080_header_clock_settings.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/080_header_clock_settings.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/header-clock-settings-db-qa.sql
       - name: Verify new colours, legacy validation and no privilege expansion
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/appearance-element-colors-db-qa.sql
   home-widgets-functional-browser:
