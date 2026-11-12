@@ -6,6 +6,15 @@ export const DOCUMENT_MIME_TYPES=[
 ];
 export const DOCUMENT_ACCEPT=DOCUMENT_EXTENSIONS.map(x=>'.'+x).join(',');
 
+// Windows may leave File.type empty (notably Markdown and CSV). Storage checks
+// content-type against the private bucket allow-list, so use the admitted
+// extension as the fallback instead of sending application/octet-stream.
+export function documentMimeType(file){
+ const supplied=String(file?.type||'').toLowerCase().split(';')[0].trim();
+ if(DOCUMENT_MIME_TYPES.includes(supplied))return supplied;
+ return ({pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',csv:'text/csv',txt:'text/plain',md:'text/markdown'})[fileExtension(file?.name)]||'application/octet-stream';
+}
+
 export function fileExtension(name=''){
  const m=String(name).toLowerCase().match(/\.([a-z0-9]+)$/);
  return m?m[1]:'';

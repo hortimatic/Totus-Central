@@ -1,4 +1,5 @@
 import {moduleReads} from './module-navigation.js';
+import {documentMimeType} from './file-utils.js';
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
 import {timedStartup} from './startup-timing.js';
@@ -74,7 +75,7 @@ export async function invokeRecovery(jobId,action='process',values={}){
  if(!response.ok)throw new Error(body.error||'No se pudo completar la recuperación. Consulta su estado antes de reintentar.');
  return body;
 }
-export async function upload(bucket,path,file){const owner=dataOwner(),epoch=storageSessionGeneration,r=await sb.storage.from(bucket).upload(path,file,{contentType:file.type,upsert:false});assert(r,'Subida');if(sameStorageSession(owner,epoch))invalidateStorageUsage();return r.data}
+export async function upload(bucket,path,file){const owner=dataOwner(),epoch=storageSessionGeneration,r=await sb.storage.from(bucket).upload(path,file,{contentType:bucket==='business-documents'?documentMimeType(file):file.type,upsert:false});assert(r,'Subida');if(sameStorageSession(owner,epoch))invalidateStorageUsage();return r.data}
 export async function completeDocumentRemoval(document){
  const owner=dataOwner(),epoch=storageSessionGeneration;
  const {data,error}=await sb.functions.invoke('totus-onedrive',{body:{action:'complete-document-removal',id:document.id,path:document.storage_path||'',sha256:document.sha256||''}});
