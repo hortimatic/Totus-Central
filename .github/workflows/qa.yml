@@ -686,6 +686,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tasks-recovery.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/tasks-recovery-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/recurring-expense-recovery-db-qa.sql
 
   assistant-connection:
     runs-on: ubuntu-latest

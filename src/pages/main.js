@@ -282,6 +282,7 @@ export function gastos(){
    const row=tax?taxExpenseRecord(tax):view.id?state.data.expenses.find(x=>x.id===view.id):null;
    return expenseRecordHtml(row);
  }
+ if(view.section==='recurrentes')return '<div class="page expense-page">'+expenseTabs('recurrentes')+'<section id="recurringExpensesRoot" class="directory-workspace" aria-label="Previsión de gastos"><p role="status">Cargando previsiones…</p></section></div>';
  if(view.section==='facturas')return expenseInvoiceSectionHtml();
  if(view.section==='proveedores')return expenseSuppliersHtml();
  const f=getFilters('gastos');
@@ -311,6 +312,7 @@ export function gastos(){
 function expenseTabs(section){
  return `<div class="tabs module-tabs expense-tabs" role="group" aria-label="Secciones de gastos">
   <button class="tab ${section==='registros'?'active':''}" data-action="expense-section" data-section="registros">Registros de gastos</button>
+  <button class="tab ${section==='recurrentes'?'active':''}" data-action="expense-section" data-section="recurrentes">Previsión y recurrentes</button>
   <button class="tab ${section==='facturas'?'active':''}" data-action="expense-section" data-section="facturas">Facturas y justificantes</button>
  </div>`;
 }

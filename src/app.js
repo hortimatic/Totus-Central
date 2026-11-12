@@ -1,3 +1,4 @@
+import {createRecurringExpensesUI} from './recurring-expenses-ui.js';
 import {createContactDirectoryUI} from './contact-directory-ui.js';
 import {interfaceStylesSettings,acceptInterfaceStyles,verifySavedInterfaceStyle} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
@@ -160,6 +161,7 @@ const prestashopUI=createPrestashopUI({rpc,canOpenProduct:()=>can('productos','v
  await stockAction(id?'stock-open':'stock-from-prestashop',{dataset:{id,storeId}},{render,createStoredDocument,previewDocument,fileSha256});
 },onBilling:prepareSalesInvoice ,invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const salesUI=createPrestashopUI({salesOnly:true,rpc,actor:()=>state.user?.id,allowed:()=>can('ventas','view'),canOpenProduct:()=>can('productos','view'),onProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},onManage:()=>navigateModule('apis'),onBilling:prepareSalesInvoice,invoke:async body=>{if(body.action!=='prestashop_read')throw Error('Ventas solo permite consultar datos.');const result=await sb.functions.invoke('totus-connections',{body:{...body,action:'prestashop_sales_read'}});if(result.error||result.data?.error)throw Error(result.data?.error||result.error?.message||'No se pudo consultar la venta.');return result.data;}});
+const recurringExpensesUI=createRecurringExpensesUI({rpc,actor:()=>state.user?.id,can:action=>can('gastos',action),stores:()=>state.data.stores,suppliers:()=>state.data.suppliers,onAutomations:()=>navigateModule('automatizaciones'),notify:message=>toast(message,'ok')});
 async function loadStockCatalog(storeId,references,valid){
  if(!can('prestashop','view'))throw Error('Necesitas acceso a PrestaShop para verificar su catálogo.');
  const store=state.data.stores.find(s=>s.id===storeId)?.name?.trim().toLowerCase(),owner=state.user?.id;
@@ -295,7 +297,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones','apis'].includes(state.route)?state.route:'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -321,6 +323,7 @@ function render(){
  if(state.route==='inicio')homeUI.mount($('#content'));
  if(state.route==='prestashop')void prestashopUI.mount($('#prestashopRoot'));
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
+ if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
  if(['clientes','proveedores','marcas'].includes(state.route))void directoryUI.mount($('[data-directory-root]'));
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
@@ -339,6 +342,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(!modalOnly&&directoryUI.hasDraft()){if(!await confirmAction('¿Salir sin publicar los cambios de la ficha?',{title:'Cambios sin publicar',acceptLabel:'Descartar y salir'}))return false;directoryUI.discardDraft();}
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
  if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
+ if(!modalOnly&&recurringExpensesUI.hasDraft()){if(!await confirmAction('¿Descartar la previsión sin guardar?',{title:'Cambios sin guardar',acceptLabel:'Descartar'}))return false;recurringExpensesUI.discardDraft();}
  if(!modalOnly&&state.route==='prestashop'&&prestashopUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla de automatización?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;prestashopUI.discardDraft();}
  if(!modalOnly&&state.route==='inicio'&&homeUI.hasUnsaved()&&!await confirmAction('¿Salir de Inicio sin guardar la nueva disposición de widgets?',{title:'Distribución sin guardar',acceptLabel:'Descartar cambios'}))return false;
  if(!modalOnly&&state.route==='configuracion'&&appearanceUI.hasDraft()&&!await confirmAction('¿Salir sin guardar los cambios de apariencia?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;
@@ -480,7 +484,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState({totusModuleNavigation:true},'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{

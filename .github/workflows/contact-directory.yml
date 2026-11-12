@@ -7,6 +7,24 @@ on:
 permissions:
   contents: read
 jobs:
+  recurring-expenses-database:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scenario: [recurring-expenses-db-qa.sql, recurring-expense-alerts-db-qa.sql]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify expense permissions, history and scheduled notices
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/${{ matrix.scenario }}
   sales-permissions:
     runs-on: ubuntu-latest
     services:
@@ -38,7 +56,7 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check --node-modules-dir=none supabase/functions/totus-connections/index.ts
-      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-session-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs tests/contact-directory-create-qa.mjs tests/contact-directory-delete-qa.mjs tests/contact-directory-sales-qa.mjs tests/productos-catalog-invalidation-qa.mjs tests/account-profile-qa.mjs
+      - run: node --test tests/contact-directory-contract-qa.mjs tests/contact-directory-core-qa.mjs tests/contact-directory-session-qa.mjs tests/contact-directory-transport-qa.mjs tests/contact-directory-xml-qa.mjs tests/contact-directory-write-qa.mjs tests/contact-directory-handler-qa.mjs tests/contact-directory-create-qa.mjs tests/contact-directory-delete-qa.mjs tests/contact-directory-sales-qa.mjs tests/productos-catalog-invalidation-qa.mjs tests/account-profile-qa.mjs tests/recurring-expenses-qa.mjs
   directory-browser:
     runs-on: ubuntu-24.04
     env:
@@ -56,6 +74,7 @@ jobs:
           node tests/productos-attribute-editor-browser-qa.mjs
           node tests/account-profile-browser-qa.mjs
           node tests/sales-workspace-browser-qa.mjs
+          node tests/recurring-expenses-browser-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import JSZip from 'jszip';
+const {default:JSZip}=await import(process.env.TOTUS_JSZIP_MODULE||'jszip');
 import {RECOVERY_TABLES,buildRecoveryArchive,readRecoveryArchive,prepareRecoveryPlan,archiveHash} from '../src/recovery-core.js';
 import {runApplicationRecovery} from '../src/recovery-runner.js';
 const jobId='11111111-1111-4111-8111-111111111111';

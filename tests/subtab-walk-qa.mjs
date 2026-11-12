@@ -8,7 +8,7 @@ const routes=[
  {route:'inicio',sections:[null]},
  {route:'pricing',sections:[null]},
  {route:'cajas',sections:[null]},
- {route:'gastos',action:'expense-section',sections:['registros','facturas']},
+ {route:'gastos',action:'expense-section',sections:['registros','facturas','recurrentes']},
  {route:'facturacion',action:'billing-section',sections:['documentos','clientes','plantillas','series']},
  {route:'documentos',sections:[null]},
  {route:'cotejos',sections:[null]},
