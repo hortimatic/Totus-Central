@@ -3,7 +3,8 @@
 import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget,homeCanvasSettings,HOME_ORDER_COLUMNS} from './home-widgets-core.js';
 import {nextOpeningSummary} from './home-openings-view.js';
 import {state,getFilters} from './state.js';
-import {esc,money,isoToday} from './utils.js';
+import {esc,money} from './utils.js';
+import {homeToday as isoToday,minusDays,homeDateRange as dateRange,homePeriodBounds,shiftedHomePeriod as shiftedPeriod} from './home-period.js';
 import {storeConnection,PRESTASHOP_STORES} from './prestashop-readonly.js';
 import {prestashopReadiness} from './prestashop-ui.js';
 import {enrichHomeOrderLines,homeOrderMargin,homeMarginTotal} from './home-order-enrichment.js';
@@ -27,27 +28,12 @@ const nonClonable=new Set(['pricing.quick','home.activity','tasks.today','system
 const confirmDiscard=()=>typeof window==='undefined'||window.confirm('Hay cambios del Inicio sin guardar. ¿Descartarlos?');
 const safeStore=key=>PRESTASHOP_STORES.some(s=>s.key===key)?key:'all';
 const safeDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:'';
-const minusDays=(date,n)=>{const d=new Date(`${date}T12:00:00Z`);d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10)};
 const labelStore=k=>PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Todas las tiendas';
 const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows);return m.complete&&sourceComplete?money(m.value):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
 const orderMarginText=row=>Number.isFinite(row.margin_value)&&row.currency_code==='EUR'?money(row.margin_value):'Costes pendientes';
 const sellerText=row=>row.employee_name||'Sin vendedor vinculado';
 const metric=(label,value)=>`<div class="home-ps-metric"><small>${esc(label)}</small><strong>${esc(String(value))}</strong></div>`;
 const allowedWidths=w=>[3,4,5,6,7,8,9,10,11,12].filter(x=>x>=HOME_WIDGET_CATALOG[w.type].minWidth&&x<=HOME_WIDGET_CATALOG[w.type].maxWidth);
-const dateRange=w=>{const today=isoToday();if(['day','week','month'].includes(w.filters.period)&&w.filters.inheritPeriod!==false)return homePeriodBounds(w.filters.period,today);return {from:safeDate(w.filters.from)||minusDays(today,6),to:safeDate(w.filters.to)||today};};
-
-const homePeriodBounds=(mode,anchor=isoToday())=>{
- const date=safeDate(anchor)||isoToday(),d=new Date(date+'T12:00:00Z');
- if(mode==='day')return {from:date,to:date};
- if(mode==='week'){const monday=minusDays(date,(d.getUTCDay()+6)%7);return {from:monday,to:minusDays(monday,-6)}}
- if(mode==='month'){const first=date.slice(0,7)+'-01',last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);return {from:first,to:last}}
- return {from:date,to:date};
-};
-const shiftedPeriod=(w,direction)=>{
- const mode=['day','week','month'].includes(w.filters.period)?w.filters.period:'day',date=dateRange(w).to;
- if(mode==='month'){const d=new Date(date.slice(0,7)+'-15T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+direction);return homePeriodBounds('month',d.toISOString().slice(0,10))}
- return homePeriodBounds(mode,minusDays(date,-direction*(mode==='week'?7:1)));
-};
 function periodControls(w){
  const period=['day','week','month','custom'].includes(w.filters.period)?w.filters.period:'custom',dates=dateRange(w);
  const buttons=[['day','Día'],['week','Semana'],['month','Mes'],['custom','Personalizado']].map(([key,name])=>'<button type="button" data-home-command="period-'+key+'" data-id="'+esc(w.id)+'" aria-pressed="'+(key===period?'true':'false')+'">'+name+'</button>').join('');

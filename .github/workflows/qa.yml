@@ -58,6 +58,7 @@ jobs:
         run: |
           node tests/home-widgets-core-qa.mjs
           node tests/home-order-enrichment-qa.mjs
+          node tests/home-period-qa.mjs
       - name: Validate integration and layout with Playwright
         run: node tests/home-widgets-integration-browser-qa.mjs
       - name: Validate buttons, real filtering and navigation with Playwright
