@@ -28,7 +28,9 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  const synopsis=await send(url(q.resource,null,{schema:'synopsis'}));let projection;
  if(synopsis.status===500){projection=legacyDirectoryPreservationProjection(synopsis.headers.get('psws-version'),q.resource);await synopsis.body?.cancel();if(!projection)throw Error('No se pudo verificar el esquema de esta versión de la tienda.');}
  else{if(!synopsis.ok){await synopsis.body?.cancel();throw Error('La tienda rechazó el esquema del directorio (HTTP '+synopsis.status+').');}projection=directorySchemaProjection(await boundedText(synopsis,2097152),q.resource);}
- const target=url(q.resource,q.record_id,{display:projection});
+ let languages=null;
+ if(['suppliers','manufacturers','product_options','product_option_values','product_features','product_feature_values'].includes(q.resource)){languages=await list('languages',{display:'[id,iso_code,active]'});if(!languages.length||languages.length>=100||!languages.some(l=>String(l.active)==='1'))throw Error('Inventario de idiomas incompleto.');}
+ const target=url(q.resource,q.record_id,{display:projection,...(languages?{language:'['+languages.map(l=>String(l.id)).join('|')+']'}:{})});
  const original=await xml(target),fingerprint=await sha256Text(original);
  if(directoryXmlField(original,q.resource,'id')!==String(q.record_id))throw Error('La tienda devolvió otra ficha.');
  if(q.resource==='addresses'){
@@ -37,7 +39,6 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
   for(const field of ['id_customer','id_supplier','id_manufacturer'])if(field!==own&&Number(directoryXmlField(original,q.resource,field)||0)>0)throw Error('La dirección pertenece a otro directorio.');
   for(const field of ['id_customer','id_supplier','id_manufacturer'])if(q.fields[field]!==undefined&&!same(field,directoryXmlField(original,q.resource,field),q.fields[field]))throw Error('No se puede trasladar una dirección a otro titular. Crea una dirección nueva.');
  }
- let languages=null;
  const changes=[];
  for(const [field,value]of Object.entries(q.fields)){
   if(directoryLocalized(q.resource,field)){
@@ -55,6 +56,7 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  }
  if(!commit)return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),fingerprint,changes:differences,can_commit:true,persisted:false};
  if(q.fingerprint!==fingerprint)throw Error('La ficha ha cambiado. Actualiza la revisión antes de publicar.');
+ if(q.resource==='addresses'&&differences.some(c=>c.changed)){for(const field of ['id_address_delivery','id_address_invoice']){const used=await list('orders',{['filter['+field+']']:'['+q.record_id+']'});if(used.length)throw Error('Esta dirección está conservada en pedidos existentes. Crea una dirección nueva y archiva la anterior para mantener sus documentos históricos.');}}
  if(!differences.some(c=>c.changed))return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),unchanged:true,verified:true,persisted:false};
  // Validate referenced entities in the same shop before applying any update.
  for(const [field,resource]of Object.entries({id_default_group:'groups',id_lang:'languages',id_country:'countries',id_state:'states',id_attribute_group:'product_options',id_feature:'product_features'}))if(Number(q.fields[field])>0){const rows=await list(resource,{'filter[id]':'['+q.fields[field]+']'});if(rows.length!==1||String(rows[0].id)!==q.fields[field])throw Error('Selecciona un registro existente de '+resource+' en esta tienda.');}

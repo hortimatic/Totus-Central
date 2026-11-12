@@ -14,6 +14,7 @@ export async function deleteDirectoryRecord({q,commit,signature,previous,journal
  if(q.resource==='addresses'){
   const field={clientes:'id_customer',proveedores:'id_supplier',marcas:'id_manufacturer'}[q.kind];
   if(!/^[1-9]\d*$/.test(directoryXmlField(original,q.resource,field)))throw Error('La dirección pertenece a otro directorio.');
+  for(const other of ['id_customer','id_supplier','id_manufacturer'])if(other!==field&&Number(directoryXmlField(original,q.resource,other)||0)>0)throw Error('La dirección pertenece a otro directorio.');
   if(directoryXmlField(original,q.resource,'deleted')==='1'){
    if(previous&&previous.status!=='completed')await journal.complete(signature,String(q.record_id));
    if(previous)return receipt({persisted:true,replayed:true,archived:true});
@@ -26,7 +27,7 @@ export async function deleteDirectoryRecord({q,commit,signature,previous,journal
  for(const [resource,field]of directChecks[q.resource]||[]){const related=await list(resource,{['filter['+field+']']:'['+q.record_id+']'});if(related.length)throw Error('No se elimina porque tiene '+({orders:'pedidos',products:'productos',product_suppliers:'referencias de proveedor en productos'}[resource]||'registros')+' asociados. Puedes archivarlo conservando su historial.');}
  if(['product_options','product_option_values','product_features','product_feature_values'].includes(q.resource)){
   const combinations=q.resource.startsWith('product_option'),resource=combinations?'combinations':'products',group=combinations?'product_option_values':'product_features',targets=new Set([String(q.record_id)]);
-  if(q.resource==='product_options'){targets.clear();let ended=false;for(let page=0;page<=1000;page++){const children=await list('product_option_values',{'filter[id_attribute_group]':'['+q.record_id+']'},page);for(const child of children)targets.add(String(child.id));if(children.length<100){ended=true;break;}}if(!ended)throw Error('No se pudo terminar de comprobar los valores del atributo.');}
+  if(q.resource==='product_options'){targets.clear();let ended=false;for(let page=0;page<=1000;page++){const children=await list('product_option_values',{'filter[id_attribute_group]':'['+q.record_id+']'},page);for(const child of children){if(targets.has(String(child.id)))throw Error('La consulta de valores repitió una página.');targets.add(String(child.id));}if(children.length<100){ended=true;break;}}if(!ended)throw Error('No se pudo terminar de comprobar los valores del atributo.');}
   const seen=new Set();let complete=false;
   for(let page=0;page<=1000;page++){
    const rows=await list(resource,{display:'[id,'+group+'[id'+(combinations?'':',id_feature_value')+']]'},page);

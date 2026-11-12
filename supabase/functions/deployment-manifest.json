@@ -127,7 +127,12 @@
         "supabase/functions/totus-connections/prestashop.js",
         "supabase/functions/totus-connections/transport.js",
         "supabase/functions/totus-connections/prestashop-product-remove.js",
-        "supabase/functions/totus-connections/prestashop-product-image-replace.js"
+        "supabase/functions/totus-connections/prestashop-product-image-replace.js",
+        "src/contact-directory-contract.js",
+        "supabase/functions/totus-connections/contact-directory.js",
+        "supabase/functions/totus-connections/contact-directory-write.js",
+        "supabase/functions/totus-connections/contact-directory-create.js",
+        "supabase/functions/totus-connections/contact-directory-delete.js"
       ]
     },
     {

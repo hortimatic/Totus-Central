@@ -32,7 +32,7 @@ export function createContactDirectoryUI({rpc,invoke,actor,can,confirm=async()=>
   if(focus){const field=host.querySelector('[data-directory-search]');field.focus({preventScroll:true});field.setSelectionRange(focus.start,focus.end);}
  }
  function cell(row,key){
-  const value=row[key];if(value==='')return '—';if(value===undefined||value===null)return ['orders','spent','margin','products','phone','address1','city','country','province'].includes(key)?'<span class="muted" title="Abre la ficha para consultar los datos asociados">Consultar ficha</span>':'—';
+  const value=row[key];if(value==='')return '—';if(value===undefined||value===null)return ['orders','spent','margin','products'].includes(key)?'<button type="button" class="directory-inline-link" data-directory-related="'+esc(row.id)+'" title="Consultar los registros asociados y calcular sus cifras en esta tienda">'+(key==='products'?'Consultar productos':key==='orders'?'Consultar pedidos':'Calcular')+'</button>':'—';
   if(['active','is_guest','newsletter','optin','custom'].includes(key))return '<span class="badge '+(String(value)==='1'?'ok':'')+'">'+(String(value)==='1'?'Sí':'No')+'</span>';
   return esc(directoryText(value,languageId));
  }

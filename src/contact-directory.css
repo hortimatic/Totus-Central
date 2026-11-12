@@ -49,3 +49,5 @@
 
 .directory-heading-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.directory-row-actions{align-items:center}.directory-row-actions [data-directory-record]{flex-basis:100%}
 @media(max-width:600px){.directory-heading{flex-wrap:wrap}.directory-heading-actions{width:100%;justify-content:flex-start}}
+
+.directory-inline-link{border:0;background:none;color:var(--primary,#007cae);font:inherit;padding:4px 0;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}

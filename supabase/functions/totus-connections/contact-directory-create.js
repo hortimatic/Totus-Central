@@ -23,7 +23,7 @@ export async function createDirectoryRecord({q,commit,signature,previous,journal
  }
  const fields=Object.fromEntries(Object.entries(q.fields).map(([field,value])=>[field,directoryLocalized(q.resource,field)?languageRows.map(l=>({language_id:String(l.id),value})):value]));
  async function verify(id){
-  const read=await xml(url(q.resource,id,{display:'[id,'+Object.keys(q.fields).join(',')+']'}));
+  const read=await xml(url(q.resource,id,{display:'[id,'+Object.keys(q.fields).join(',')+']',...(languageRows.length?{language:'['+languageRows.map(l=>String(l.id)).join('|')+']'}:{})}));
   if(directoryXmlField(read,q.resource,'id')!==String(id))throw Error('La tienda devolvió otra ficha.');
   const changes=[];for(const [field,value]of Object.entries(fields)){if(Array.isArray(value)){const ids=directoryXmlLanguages(read,q.resource,field);for(const t of value){if(!ids.includes(t.language_id))throw Error('Falta una traducción de la ficha creada.');changes.push({field,value:t.value,language_id:t.language_id});}}else changes.push({field,value});}
   const checked=selectedXmlValues(read,q.resource,id,changes);if(checked.changes.some(c=>!same(c.field,c.before,c.value)))throw Object.assign(Error('La ficha creada no coincide con los campos enviados.'),{code:'FIELDS_DIFFER'});
