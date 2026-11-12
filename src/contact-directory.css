@@ -55,3 +55,11 @@
 .prd-dialog-confirm{position:sticky;bottom:0;background:var(--panel,#fff);border:1px solid var(--line,#ccd5df);border-radius:var(--r,8px);padding:16px;box-shadow:0 -5px 20px #10203022;margin-top:12px}.prd-dialog-confirm p{margin-top:0}.prd-dialog-confirm .inline-actions{display:flex;justify-content:flex-end;gap:8px}
 
 .forecast-metrics{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.forecast-metrics>span{display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--appearance-filter-bg,#f1f6fa);border:1px solid var(--line,#ccd5df);border-radius:8px;font-size:.88rem}.forecast-metrics strong{font-size:1rem}.directory-address-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.directory-address-copy{display:flex;gap:8px;align-items:flex-start;margin:12px 0}
+
+/* Forecast filters follow their own balanced grid, independent of directory search. */
+[data-forecast-filter].directory-toolbar{grid-template-columns:minmax(200px,2fr) repeat(3,minmax(135px,1fr));align-items:end}
+[data-forecast-filter]>.check-field{display:flex;align-items:center;gap:8px;min-height:36px;grid-column:1/3}
+[data-forecast-filter]>.check-field input{width:18px;min-height:18px;height:18px;flex:none}
+[data-forecast-filter]>.directory-actions{grid-column:3/-1;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+@media(max-width:1000px){[data-forecast-filter].directory-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}[data-forecast-filter]>label:first-child{grid-column:1/-1}[data-forecast-filter]>.check-field{grid-column:auto}[data-forecast-filter]>.directory-actions{grid-column:1/-1}}
+@media(max-width:480px){[data-forecast-filter].directory-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}[data-forecast-filter]>label:nth-child(4),[data-forecast-filter]>.check-field{grid-column:1/-1}[data-forecast-filter]>.directory-actions{justify-content:flex-start}[data-forecast-filter]>.directory-actions .btn{padding:7px 10px}}
