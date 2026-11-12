@@ -70,6 +70,7 @@ jobs:
       - run: npx playwright install chromium
       - run: |
           node tests/contact-directory-browser-qa.mjs
+          node tests/contact-directory-speed-browser-qa.mjs
           node tests/contact-address-browser-qa.mjs
           node tests/productos-attribute-editor-browser-qa.mjs
           node tests/account-profile-browser-qa.mjs

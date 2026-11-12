@@ -4,7 +4,7 @@ import {storeConnection} from './prestashop-readonly.js';
 export function createDirectorySession({kind,actor,can,rpc,invoke,onProgress=()=>{}}){
  if(!DIRECTORY_KINDS[kind])throw Error('Directorio no válido.');
  let owner=null,store=null,connection=null,generation=0,busy=false;
- const cache=new Map(),intents=new Map();
+ const cache=new Map(),intents=new Map(),pending=new Map();
  const current=(who,n)=>owner===who&&actor()===who&&generation===n&&can('view');
  const ensure=(who,n)=>{if(!current(who,n))throw Error('La cuenta o la tienda ha cambiado. Abre de nuevo el directorio.');};
  async function enter(nextStore){
@@ -17,9 +17,18 @@ export function createDirectorySession({kind,actor,can,rpc,invoke,onProgress=()=
   connection=selected;return {...selected,store};
  }
  function requestIdentity(){if(!connection||actor()!==owner||!can('view'))throw Error('Actualiza la conexión del directorio.');return {kind,store,id:connection.id,revision:connection.revision};}
+ function peek(resource,filters={}){
+  requestIdentity();const key=owner+'|'+store+'|'+connection.id+'|'+connection.revision+'|'+resource+'|'+JSON.stringify(filters);
+  return cache.has(key)?structuredClone(cache.get(key)):null;
+ }
  async function read(resource,filters={},options={}){
   const identity=requestIdentity(),who=owner,n=generation,key=who+'|'+store+'|'+connection.id+'|'+connection.revision+'|'+resource+'|'+JSON.stringify(filters);
   if(options.cached&&cache.has(key))return structuredClone(cache.get(key));
+  const pendingKey=n+'|'+key;
+  if(pending.has(pendingKey))return structuredClone(await pending.get(pendingKey));
+  const task=readPages();pending.set(pendingKey,task);
+  try{return structuredClone(await task);}finally{if(pending.get(pendingKey)===task)pending.delete(pendingKey);}
+  async function readPages(){
   const rows=[],seen=new Set();
   for(let page=0;page<=1000;page++){
    ensure(who,n);const query=directoryQuery({action:'prestashop_directory_read',...identity,call_id:crypto.randomUUID(),resource,page,page_size:100,...filters});const result=await invoke(query);ensure(who,n);
@@ -29,6 +38,7 @@ export function createDirectorySession({kind,actor,can,rpc,invoke,onProgress=()=
    if(!result.possibly_more){const data={rows,complete:true,checked:new Date().toISOString(),store,resource};cache.set(key,structuredClone(data));return data;}
   }
   throw Error('La tienda no ha terminado de paginar el directorio. No se presenta como completo.');
+  }
  }
  async function publish(resource,recordId,fields,operation='update'){
   const permission={update:'edit',create:'create',delete:'delete'}[operation];
@@ -47,5 +57,5 @@ export function createDirectorySession({kind,actor,can,rpc,invoke,onProgress=()=
    intents.delete(key);return result;
   }finally{busy=false;}
  }
- return {enter,read,publish,get store(){return store;},get publishing(){return busy;},dispose(){generation++;connection=null;owner=null;store=null;},clearCache(){cache.clear();}};
+ return {enter,read,peek,publish,get store(){return store;},get publishing(){return busy;},dispose(){generation++;connection=null;owner=null;store=null;},clearCache(){cache.clear();}};
 }

@@ -1,3 +1,4 @@
+import {concurrentRead} from './concurrent-read.js';
 import {openContactAddresses} from './contact-address-ui.js';
 import {readDirectoryCustomerSales} from './contact-directory-sales.js';
 import {esc,csv,download} from './utils.js';
@@ -19,7 +20,7 @@ export function createContactDirectoryUI({rpc,invoke,actor,can,confirm=async()=>
  function status(text){message=text;const el=root?.querySelector('[data-directory-status]');if(el)el.textContent=text;}
  function saveLayout(){
   const who=owner,k=kind,data=structuredClone(layout);status('Guardando distribución…');
-  saveChain=saveChain.catch(()=>{}).then(async()=>{if(who!==actor())return;await rpc('totus_directory_table',{p_kind:k,p_layout:data});if(valid()&&kind===k)status('Distribución guardada en tu cuenta.');}).catch(error=>{if(valid())status('No se pudo guardar la distribución: '+error.message);});
+  saveChain=saveChain.catch(()=>{}).then(async()=>{if(who!==actor())return;await rpc('totus_directory_table',{p_kind:k,p_layout:data});if(valid()&&kind===k&&!busy)status('Distribución guardada en tu cuenta.');}).catch(error=>{if(valid())status('No se pudo guardar la distribución: '+error.message);});
  }
  function render(){
   if(!valid()||source==='local')return;
@@ -37,10 +38,36 @@ export function createContactDirectoryUI({rpc,invoke,actor,can,confirm=async()=>
   if(['active','is_guest','newsletter','optin','custom'].includes(key))return '<span class="badge '+(String(value)==='1'?'ok':'')+'">'+(String(value)==='1'?'Sí':'No')+'</span>';
   return esc(directoryText(value,languageId));
  }
- async function load(){
-  const n=++generation;busy=true;status('Consultando el directorio completo…');render();
-  try{const result=await session.read(primary());if(!valid()||n!==generation)return;rows=result.rows;render();let contactError='';try{const addresses=[];const filterKey={clientes:'customer_ids',proveedores:'supplier_ids',marcas:'manufacturer_ids'}[kind];if(filterKey){for(let offset=0;offset<rows.length;offset+=25){const batch=rows.slice(offset,offset+25).map(r=>String(r.id));const linked=await session.read('addresses',{[filterKey]:batch});if(!valid()||n!==generation)return;addresses.push(...linked.rows);}if(addresses.length){metadata.countries=(await session.read('countries',{}, {cached:true})).rows;const countryIds=[...new Set(addresses.map(a=>String(a.id_country)).filter(id=>/^[1-9]\d*$/.test(id)))];metadata.states=[];for(const country_id of countryIds){const regions=await session.read('states',{country_id},{cached:true});if(!valid()||n!==generation)return;metadata.states.push(...regions.rows);}}rows=joinDirectoryAddresses(kind,rows,addresses,{...metadata,languageId});}}catch(error){contactError=error.message;}if(!valid()||n!==generation)return;status(rows.length+' registros · consulta completa · '+new Date(result.checked).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})+(contactError?' · Contactos pendientes: '+contactError:''));}
-  catch(error){if(valid()&&n===generation)status(error.message);}
+ async function load(languageTask=null){
+  const n=++generation;busy=true;
+  const previous=session.peek(primary());
+  if(previous){rows=previous.rows;status('Datos guardados · '+new Date(previous.checked).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})+' · Actualizando…');}
+  else status('Consultando el directorio completo…');
+  render();
+  try{
+   const [result,inventory]=await Promise.all([session.read(primary()),languageTask]);
+   if(!valid()||n!==generation)return;
+   if(inventory)languageId=String((inventory.rows.find(l=>l.iso_code==='es'&&String(l.active)==='1')||inventory.rows.find(l=>String(l.active)==='1'))?.id||'');
+   rows=result.rows;render();let contactError='';
+   try{
+    const filterKey={clientes:'customer_ids',proveedores:'supplier_ids',marcas:'manufacturer_ids'}[kind];
+    if(filterKey){
+     const batches=[];for(let offset=0;offset<rows.length;offset+=25)batches.push(rows.slice(offset,offset+25).map(r=>String(r.id)));
+     const linked=await concurrentRead(batches,async batch=>{if(!valid()||n!==generation)throw Error('La vista ha cambiado.');return session.read('addresses',{[filterKey]:batch});});
+     if(!valid()||n!==generation)return;
+     const addresses=linked.flatMap(value=>value.rows);
+     if(addresses.length){
+      const countryIds=[...new Set(addresses.map(a=>String(a.id_country)).filter(id=>/^[1-9]\d*$/.test(id)))];
+      const [countries,regions]=await Promise.all([session.read('countries',{}, {cached:true}),concurrentRead(countryIds,country_id=>session.read('states',{country_id},{cached:true}))]);
+      if(!valid()||n!==generation)return;
+      metadata.countries=countries.rows;metadata.states=regions.flatMap(value=>value.rows);
+     }
+     rows=joinDirectoryAddresses(kind,rows,addresses,{...metadata,languageId});
+    }
+   }catch(error){contactError=error.message;}
+   if(!valid()||n!==generation)return;
+   status(rows.length+' registros · consulta completa · '+new Date(result.checked).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})+(contactError?' · Contactos pendientes: '+contactError:''));
+  }catch(error){if(valid()&&n===generation)status((previous?'Datos guardados visibles; no se pudo actualizar: ':'')+error.message);}
   finally{if(valid()&&n===generation){busy=false;render();}}
  }
  async function changeSource(next){
@@ -51,7 +78,7 @@ export function createContactDirectoryUI({rpc,invoke,actor,can,confirm=async()=>
   root.querySelector('[data-directory-local]').hidden=source!=='local';root.querySelector('[data-directory-shop]').hidden=source==='local';
   if(source==='local'){session?.dispose();return;}
   busy=true;message='Comprobando la conexión…';render();
-  try{await session.enter(source);if(!valid()||stamp!==generation)return;const inventory=await session.read('languages');if(!valid()||stamp!==generation)return;languageId=String((inventory.rows.find(l=>l.iso_code==='es'&&String(l.active)==='1')||inventory.rows.find(l=>String(l.active)==='1'))?.id||'');await load();}catch(error){if(valid()&&stamp===generation){busy=false;status(error.message);render();}}
+  try{await session.enter(source);if(!valid()||stamp!==generation)return;await load(session.read('languages',{}, {cached:true}));}catch(error){if(valid()&&stamp===generation){busy=false;status(error.message);render();}}
  }
  function columns(trigger){
   const dialog=document.createElement('dialog');dialog.className='directory-dialog directory-columns';
