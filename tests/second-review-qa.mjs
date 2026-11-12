@@ -41,7 +41,7 @@ try{
   assert(await page.locator('#modalHost .workbook-preview').isVisible());
   assert(await page.locator('#modalHost [style*="background:#4F81BD"]').count()>0,'Preview must preserve spreadsheet header colors');
   await page.locator('#modalHost .close-btn').click();
-  await nav('gastos');await page.locator('[data-action="expense-section"][data-section="proveedores"]').click();
+  await nav('proveedores');
   await page.locator('[data-action="expense-supplier-new"]').click();await page.locator('#esName').fill('Arrendador de pruebas');
   await page.locator('#esWh').fill('19');await page.locator('#esWhModel').selectOption('115');await page.locator('[data-action="expense-supplier-save"]').click();
   await page.locator('#modalHost .modal').waitFor({state:'hidden'});

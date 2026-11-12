@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,PRODUCT_WRITE_FIELDS} from '../src/productos-write-contract.js';
+import {ensureDirectoryCustomerGroup,directoryCustomerGroups,directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,PRODUCT_WRITE_FIELDS} from '../src/productos-write-contract.js';
 test('customer edits preserve credentials and unrelated values only inside server XML',()=>{
  const xml='<prestashop><customer><id>4</id><firstname>Antes</firstname><lastname>Apellido</lastname><passwd><![CDATA[HASH_NO_CAMBIAR]]></passwd><newsletter>1</newsletter><associations><groups><group><id>3</id></group></groups></associations></customer></prestashop>';
  const result=selectedXmlValues(xml,'customers','4',[{field:'firstname',value:'Después'}]);
@@ -20,3 +20,5 @@ test('localized directory updates retain the other shop languages',()=>{
  const changed=prepareProductStageXml(xml,'product_options',{name:[{language_id:'1',value:'Acabado'}]}, {},'2');
  assert(changed.includes('<language id="2">Colour</language>'));assert(changed.includes('Acabado'));
 });
+
+test('default customer groups are added without deleting existing membership or authentication',()=>{for(const middle of ['', '<associations/>','<associations><groups/></associations>','<associations><groups><group><id>3</id></group></groups></associations>']){const xml='<prestashop><customer><id>4</id><passwd>KEEP_HASH</passwd>'+middle+'</customer></prestashop>',result=ensureDirectoryCustomerGroup(xml,'2');assert(directoryCustomerGroups(result).includes('2'));if(middle.includes('<id>3</id>'))assert(directoryCustomerGroups(result).includes('3'));assert(result.includes('KEEP_HASH'));assert.equal(ensureDirectoryCustomerGroup(result,'2'),result);}});

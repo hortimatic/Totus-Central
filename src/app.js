@@ -2853,12 +2853,12 @@ document.addEventListener('click',async e=>{
   if(a==='export-closings-current'){await ensureExcel();if(!isCurrentLibraryActor())return;exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
   if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim(),supplierShowInactive:!!input('expenseSuppliersInactive')?.checked});render();return}
-  if(a==='expense-suppliers'){expenseSuppliersManager();return}
+  if(a==='expense-suppliers'){await navigateModule('proveedores');return}
   if(a==='expense-supplier-new'){expenseSupplierForm();return}
   if(a==='expense-supplier-edit'){expenseSupplierForm(state.data.suppliers.find(x=>x.id===el.dataset.id));return}
   if(a==='expense-supplier-save'){await saveExpenseSupplier(el.dataset.id||'');return}
   if(a==='expense-supplier-delete'){await deleteExpenseSupplier(el.dataset.id);return}
-  if(a==='expense-section'){setView('gastos',{mode:'list',id:null,section:el.dataset.section||'registros'});render();return}
+  if(a==='expense-section'){if(el.dataset.section==='proveedores'){await navigateModule('proveedores');return;}setView('gastos',{mode:'list',id:null,section:el.dataset.section||'registros'});render();return}
   if(a==='expense-gestor-detail'){showExpenseGestorDetail(el.dataset.id);return}
   if(a==='expense-unlinked-open'){setRoute('documentos');setView('documentos',{mode:'record',id:el.dataset.id});render();return}
   if(a==='expense-file-preview'){await previewPendingExpenseFile();return}

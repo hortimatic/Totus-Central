@@ -1,6 +1,6 @@
 import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {directorySchemaProjection,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
+import {directoryCustomerGroups,ensureDirectoryCustomerGroup,directorySchemaProjection,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
 const numeric=field=>field.startsWith('id_')||['position','active','newsletter','optin','is_guest','show_public_prices','custom','max_payment_days','outstanding_allow_amount'].includes(field);
@@ -48,16 +48,17 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
   }else changes.push({field,value});
  }
  const checked=selectedXmlValues(original,q.resource,q.record_id,changes);
+ const desiredGroup=q.resource==='customers'?q.fields.id_default_group:null,groupChanged=!!desiredGroup&&!directoryCustomerGroups(original).includes(desiredGroup);if(desiredGroup)checked.patched=ensureDirectoryCustomerGroup(checked.patched,desiredGroup);
  const differences=checked.changes.map(c=>({...c,changed:!same(c.field,c.before,c.value)}));
  if(previous){
-  if(differences.some(c=>c.changed))throw Error('Hay una publicación previa pendiente. Actualiza la ficha para consultar su resultado antes de repetirla.');
+  if(groupChanged||differences.some(c=>c.changed))throw Error('Hay una publicación previa pendiente. Actualiza la ficha para consultar su resultado antes de repetirla.');
   if(previous.status!=='completed')await journal.complete(signature,String(q.record_id));
   return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),persisted:true,verified:true,replayed:true};
  }
  if(!commit)return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),fingerprint,changes:differences,can_commit:true,persisted:false};
  if(q.fingerprint!==fingerprint)throw Error('La ficha ha cambiado. Actualiza la revisión antes de publicar.');
  if(q.resource==='addresses'&&differences.some(c=>c.changed)){for(const field of ['id_address_delivery','id_address_invoice']){const used=await list('orders',{['filter['+field+']']:'['+q.record_id+']'});if(used.length)throw Error('Esta dirección está conservada en pedidos existentes. Crea una dirección nueva y archiva la anterior para mantener sus documentos históricos.');}}
- if(!differences.some(c=>c.changed))return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),unchanged:true,verified:true,persisted:false};
+ if(!groupChanged&&!differences.some(c=>c.changed))return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),unchanged:true,verified:true,persisted:false};
  // Validate referenced entities in the same shop before applying any update.
  for(const [field,resource]of Object.entries({id_default_group:'groups',id_lang:'languages',id_country:'countries',id_state:'states',id_attribute_group:'product_options',id_feature:'product_features'}))if(Number(q.fields[field])>0){const rows=await list(resource,{'filter[id]':'['+q.fields[field]+']'});if(rows.length!==1||String(rows[0].id)!==q.fields[field])throw Error('Selecciona un registro existente de '+resource+' en esta tienda.');}
  if(await sha256Text(await xml(target))!==fingerprint)throw Error('La ficha cambió durante la revisión. No se ha escrito nada.');
@@ -67,7 +68,7 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  try{
   if(status>=400&&status!==500)throw Error('La tienda rechazó la publicación.');
   const reread=await xml(target),result=selectedXmlValues(reread,q.resource,q.record_id,changes);
-  if(result.changes.some(c=>!same(c.field,c.before,c.value)))throw Error('La relectura no coincide con los cambios publicados.');
+  if(desiredGroup&&!directoryCustomerGroups(reread).includes(desiredGroup)||result.changes.some(c=>!same(c.field,c.before,c.value)))throw Error('La relectura no coincide con los cambios publicados.');
   await journal.complete(signature,String(q.record_id));
   return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),persisted:true,verified:true,...(status>=400?{reconciled:true}:{}),request_id:q.request_id};
  }catch{await journal.uncertain(signature,String(q.record_id));throw Error('La tienda respondió HTTP '+status+' y no se pudo verificar la publicación. Actualiza la ficha; no se repetirá automáticamente.');}

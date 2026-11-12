@@ -202,6 +202,21 @@ export function directoryBlankXml(resource){
  if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource))invalid('Alta de directorio no admitida.');
  const name=nativeNodes[resource];return '<prestashop><'+name+'><id></id></'+name+'></prestashop>';
 }
+export function directoryCustomerGroups(xml){
+ const customer=direct(tree(xml),'customer'),associations=customer.children.find(n=>n.name==='associations'),groups=associations?.children.find(n=>n.name==='groups');
+ return (groups?.children||[]).map(group=>{if(group.name!=='group')invalid('Grupo de cliente no verificable.');const id=fieldText(xml,group,'id');if(!/^[1-9]\d{0,14}$/.test(id))invalid('Grupo de cliente no válido.');return id;});
+}
+export function ensureDirectoryCustomerGroup(xml,id){
+ if(!/^[1-9]\d{0,14}$/.test(String(id)))invalid('Grupo de cliente no válido.');
+ if(directoryCustomerGroups(xml).includes(String(id)))return xml;
+ const customer=direct(tree(xml),'customer'),associations=customer.children.find(n=>n.name==='associations'),groups=associations?.children.find(n=>n.name==='groups');
+ const value='<group><id>'+String(id)+'</id></group>';
+ const content=groups?(groups.selfClosing?'':xml.slice(groups.contentStart,groups.contentEnd))+value:'<groups>'+value+'</groups>';
+ if(groups)return xml.slice(0,groups.open)+'<groups>'+content+'</groups>'+xml.slice(groups.end);
+ if(associations&&!associations.selfClosing)return xml.slice(0,associations.contentEnd)+content+xml.slice(associations.contentEnd);
+ if(associations)return xml.slice(0,associations.open)+'<associations>'+content+'</associations>'+xml.slice(associations.end);
+ return xml.slice(0,customer.contentEnd)+'<associations>'+content+'</associations>'+xml.slice(customer.contentEnd);
+}
 // Native PUT nulls omitted optional fields. Derive the preservation read from
 // the shop's own schema, not just the fields this editor happens to expose.
 export function productPreservationProjection(schema){

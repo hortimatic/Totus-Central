@@ -12,7 +12,7 @@ async function publish(kind,resource,operation,fields={},recordId){
 }
 test('REAL isolated native customer, address, brand and attribute CRUD',async()=>{
  const suffix=Date.now();const customer=await publish('clientes','customers','create',{firstname:'Totus',lastname:'Directorio',email:'directory-'+suffix+'@example.invalid',active:'1'});
- await publish('clientes','customers','update',{firstname:'Nombre revisado'},customer.record_id);
+ await publish('clientes','customers','update',{firstname:'Nombre revisado',id_default_group:'2'},customer.record_id);
  const countries=await (await request('https://hortimatic.com/api/countries?output_format=JSON&display=[id]&limit=0,1',{headers:{authorization:'Basic '+btoa(key+':')}})).json();assert(countries.countries?.[0]?.id);
  const address=await publish('clientes','addresses','create',{id_customer:customer.record_id,id_country:String(countries.countries[0].id),firstname:'Totus',lastname:'Directorio',alias:'Trabajo '+suffix,address1:'Calle de prueba 1',city:'Madrid',postcode:'28001'});
  await publish('clientes','addresses','delete',{},address.record_id);await publish('clientes','customers','delete',{},customer.record_id);

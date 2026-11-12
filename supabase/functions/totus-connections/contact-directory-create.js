@@ -1,5 +1,5 @@
 import {directoryLocalized} from '../../../src/contact-directory-contract.js';
-import {directoryBlankXml,directoryXmlField,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,sha256Text} from '../../../src/productos-write-contract.js';
+import {ensureDirectoryCustomerGroup,directoryCustomerGroups,directoryBlankXml,directoryXmlField,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,sha256Text} from '../../../src/productos-write-contract.js';
 import {boundedText} from './transport.js';
 
 // Create against native resources only. Existing customers are never used as a
@@ -26,6 +26,7 @@ export async function createDirectoryRecord({q,commit,signature,previous,journal
   const read=await xml(url(q.resource,id,{display:'[id,'+Object.keys(q.fields).join(',')+']',...(languageRows.length?{language:'['+languageRows.map(l=>String(l.id)).join('|')+']'}:{})}));
   if(directoryXmlField(read,q.resource,'id')!==String(id))throw Error('La tienda devolvió otra ficha.');
   const changes=[];for(const [field,value]of Object.entries(fields)){if(Array.isArray(value)){const ids=directoryXmlLanguages(read,q.resource,field);for(const t of value){if(!ids.includes(t.language_id))throw Error('Falta una traducción de la ficha creada.');changes.push({field,value:t.value,language_id:t.language_id});}}else changes.push({field,value});}
+  if(q.resource==='customers'&&q.fields.id_default_group&&!directoryCustomerGroups(read).includes(q.fields.id_default_group))throw Object.assign(Error('El grupo del cliente no se ha guardado.'),{code:'FIELDS_DIFFER'});
   const checked=selectedXmlValues(read,q.resource,id,changes);if(checked.changes.some(c=>!same(c.field,c.before,c.value)))throw Object.assign(Error('La ficha creada no coincide con los campos enviados.'),{code:'FIELDS_DIFFER'});
   return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(id),persisted:true,verified:true,request_id:q.request_id};
  }
@@ -48,7 +49,7 @@ export async function createDirectoryRecord({q,commit,signature,previous,journal
  let createdId=null,status=null;
  try{
   const values={...fields};if(q.resource==='customers')values.passwd=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
-  const response=await send(url(q.resource),'POST',prepareProductStageXml(directoryBlankXml(q.resource),q.resource,values));status=response.status;
+  const response=await send(url(q.resource),'POST',(q.resource==='customers'&&q.fields.id_default_group?ensureDirectoryCustomerGroup(prepareProductStageXml(directoryBlankXml(q.resource),q.resource,values),q.fields.id_default_group):prepareProductStageXml(directoryBlankXml(q.resource),q.resource,values)));status=response.status;
   if(response.ok){const text=await boundedText(response,2097152);createdId=directoryXmlField(text,q.resource,'id');}else await response.body?.cancel();
  }catch{}
  try{

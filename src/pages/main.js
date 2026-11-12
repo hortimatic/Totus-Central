@@ -312,7 +312,6 @@ function expenseTabs(section){
  return `<div class="tabs module-tabs expense-tabs" role="group" aria-label="Secciones de gastos">
   <button class="tab ${section==='registros'?'active':''}" data-action="expense-section" data-section="registros">Registros de gastos</button>
   <button class="tab ${section==='facturas'?'active':''}" data-action="expense-section" data-section="facturas">Facturas y justificantes</button>
-  <button class="tab ${section==='proveedores'?'active':''}" data-action="expense-section" data-section="proveedores">Proveedores</button>
  </div>`;
 }
 function expenseSuppliersHtml(){
