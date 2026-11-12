@@ -30,3 +30,14 @@ export function directoryDiff(resource,before,after,languageId){
  const fields={};for(const field of allowed)if(Object.hasOwn(after,field)&&String(after[field])!==directoryText(before[field],languageId))fields[field]=String(after[field]);return fields;
 }
 export const directoryFields=resource=>(DIRECTORY_FIELDS[resource]||[]).filter(field=>DIRECTORY_WRITABLE[resource]?.includes(field));
+export function joinDirectoryAddresses(kind,rows,addresses,{countries=[],states=[],languageId=null}={}){
+ const parent={clientes:'id_customer',proveedores:'id_supplier',marcas:'id_manufacturer'}[kind];if(!parent)return rows;
+ const ids=new Set(rows.map(r=>String(r.id))),seen=new Set(),byOwner=new Map();
+ for(const address of addresses){const owner=String(address[parent]);if(!ids.has(owner)||seen.has(String(address.id)))throw Error('La relación de direcciones es incompleta o está duplicada.');seen.add(String(address.id));if(!byOwner.has(owner))byOwner.set(owner,[]);byOwner.get(owner).push(address);}
+ return rows.map(row=>{const all=byOwner.get(String(row.id))||[],visible=all.filter(a=>String(a.deleted)!=='1').sort((a,b)=>Number(a.id)-Number(b.id)),first=visible[0];
+  const contact=Object.fromEntries(['phone','phone_mobile','address1','address2','postcode','city','dni','vat_number'].map(field=>[field,String(first?.[field]||'')]));
+  contact.country=first?directoryText(countries.find(c=>String(c.id)===String(first.id_country))?.name,languageId)||'País #'+first.id_country:'';
+  contact.province=first&&Number(first.id_state)>0?directoryText(states.find(s=>String(s.id)===String(first.id_state))?.name,languageId)||'Provincia #'+first.id_state:'';
+  return {...row,...contact,__addresses:all,__address_count:visible.length,__address_label:first?'Primera dirección activa: '+(first.alias||'#'+first.id):'Sin direcciones activas'};
+ });
+}

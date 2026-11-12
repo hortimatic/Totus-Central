@@ -189,6 +189,10 @@ export function directoryXmlField(xml,resource,field){
  if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource)||!['id','id_customer','id_supplier','id_manufacturer','id_attribute_group','id_feature','deleted'].includes(field))invalid('Relación de directorio no admitida.');
  return fieldText(xml,direct(tree(xml),nativeNodes[resource]),field);
 }
+export function directoryBlankXml(resource){
+ if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource))invalid('Alta de directorio no admitida.');
+ const name=nativeNodes[resource];return '<prestashop><'+name+'><id></id></'+name+'></prestashop>';
+}
 // Native PUT nulls omitted optional fields. Derive the preservation read from
 // the shop's own schema, not just the fields this editor happens to expose.
 export function productPreservationProjection(schema){

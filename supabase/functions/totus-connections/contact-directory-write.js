@@ -1,10 +1,10 @@
 import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
 import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text} from '../../../src/productos-write-contract.js';
+import {directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
 const numeric=field=>field.startsWith('id_')||['position','active','newsletter','optin','is_guest','show_public_prices','custom','max_payment_days','outstanding_allow_amount'].includes(field);
-const same=(field,a,b)=>a===b||numeric(field)&&a!==''&&b!==''&&Number.isFinite(Number(a))&&Number(a)===Number(b);
+const same=(field,a,b)=>a===b||numeric(field)&&a!==''&&b!==''&&Number.isFinite(Number(a))&&Number(a)===Number(b)||['description','short_description'].includes(field)&&equivalentProductHTML(a,b);
 
 // This module receives a connection only after authenticated directory/module
 // authorization. Its journal is server-only and stores no customer fields.
@@ -18,10 +18,11 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  const url=(resource,id=null,params={})=>{const u=new URL(base);u.pathname='/api/'+resource+(id?'/'+id:'');for(const [k,v]of Object.entries(params))u.searchParams.set(k,v);return u;};
  async function send(u,method='GET',body){const target=await safeEndpoint(u.href,resolve);return request(target.href,{method,headers:{...headers,...(body?{'Content-Type':'application/xml; charset=utf-8'}:{})},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});}
  async function xml(u,{missing=false}={}){const r=await send(u);if(missing&&r.status===404){await r.body?.cancel();return null;}if(!r.ok){await r.body?.cancel();throw Error('La tienda rechazó la ficha del directorio (HTTP '+r.status+').');}if(/html/i.test(r.headers.get('content-type')||'')){await r.body?.cancel();throw Error('La tienda devolvió una página de acceso.');}return boundedText(r,2097152);}
- async function list(resource,params={},page=0){const r=await send(url(resource,null,{output_format:'JSON',display:'[id]',limit:page*100+',100',sort:'[id_ASC]',...params}));if(!r.ok){await r.body?.cancel();throw Error('No se pudo comprobar la relación '+resource+'.');}const value=await boundedJson(r),rows=Array.isArray(value)&&!value.length?[]:value?.[resource];if(!Array.isArray(rows)||rows.length>100||rows.some(row=>!/^\d+$/.test(String(row.id))))throw Error('Relación de directorio no verificable.');return rows;}
+ async function list(resource,params={},page=0){const r=await send(url(resource,null,{output_format:'JSON',display:'[id]',limit:page*100+',100',sort:'[id_ASC]',...params}));if(!r.ok){await r.body?.cancel();throw Error('No se pudo comprobar la relación '+resource+'.');}const value=await boundedJson(r),rows=Array.isArray(value)&&!value.length?[]:value?.[resource];if(!Array.isArray(rows)||rows.length>100||rows.some(row=>!(/^[1-9]\d{0,14}$/).test(String(row.id))))throw Error('Relación de directorio no verificable.');return rows;}
  const signature=await sha256Text(JSON.stringify({store:q.store,kind:q.kind,resource:q.resource,operation:q.operation,id:q.record_id||null,fields:Object.fromEntries(Object.entries(q.fields).sort(([a],[b])=>a.localeCompare(b)))}));
- const previous=commit?await journal.lookup(signature):null;
- // Creation and shared-value deletion are handled by dedicated native flows.
+ const previous=journal?await journal.lookup(signature):null;
+ if(q.operation==='create')return (await import('./contact-directory-create.js')).createDirectoryRecord({q,commit,signature,previous,journal,xml,list,send,url,same});
+ if(q.operation==='delete')return (await import('./contact-directory-delete.js')).deleteDirectoryRecord({q,commit,signature,previous,journal,xml,list,send,url});
  // Never fall back to an update or a blind POST for an unknown operation.
  if(q.operation!=='update')throw Error('Esta operación de directorio todavía no está disponible.');
  const schema=await xml(url(q.resource,null,{schema:'synopsis'})),projection=directorySchemaProjection(schema,q.resource),target=url(q.resource,q.record_id,{display:projection});

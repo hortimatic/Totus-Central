@@ -16,15 +16,17 @@ export async function readContactDirectory(connection,input,{request=fetch,resol
  url.searchParams.set('output_format','JSON');url.searchParams.set('display','['+fields.join(',')+']');
  url.searchParams.set('sort','[id_ASC]');url.searchParams.set('limit',q.page*q.page_size+','+q.page_size);
  if(q.record_id)url.searchParams.set('filter[id]','['+q.record_id+']');
- for(const [key,field]of [['customer_ids','id_customer'],['order_ids','id_order'],['product_ids',q.resource==='products'?'id':'id_product']])if(q[key])url.searchParams.set('filter['+field+']','['+q[key].join('|')+']');
+ for(const [key,field]of [['customer_ids','id_customer'],['supplier_ids','id_supplier'],['manufacturer_ids','id_manufacturer'],['order_ids','id_order'],['product_ids',q.resource==='products'?'id':'id_product']])if(q[key])url.searchParams.set('filter['+field+']','['+q[key].join('|')+']');
+ if(q.country_id)url.searchParams.set('filter[id_country]','['+q.country_id+']');
  for(const [key,field]of [['supplier_id','id_supplier'],['manufacturer_id','id_manufacturer']])if(q[key])url.searchParams.set('filter['+field+']','['+q[key]+']');
  const target=await safeEndpoint(url.href,resolve),response=await request(target.href,{method:'GET',headers:connectionHeaders(connection),redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
  if(!response.ok){await response.body?.cancel();throw Error('PrestaShop rechazó la consulta del directorio (HTTP '+response.status+').');}
  if(!/application\/json/i.test(response.headers.get('content-type')||'')){await response.body?.cancel();throw Error('La tienda no devolvió un directorio JSON.');}
  const rows=directoryRows(await boundedJson(response),q.resource,q.page_size);
  for(const row of rows){
+  if(q.country_id&&row.id_country!==String(q.country_id))throw Error('La provincia pertenece a otro país.');
   if(q.record_id&&row.id!==String(q.record_id))throw Error('La tienda devolvió otro registro.');
-  for(const [key,field]of [['customer_ids','id_customer'],['order_ids','id_order'],['product_ids',q.resource==='products'?'id':'id_product']])if(q[key]&&!q[key].includes(row[field]))throw Error('La tienda no respetó el filtro de relación.');
+  for(const [key,field]of [['customer_ids','id_customer'],['supplier_ids','id_supplier'],['manufacturer_ids','id_manufacturer'],['order_ids','id_order'],['product_ids',q.resource==='products'?'id':'id_product']])if(q[key]&&!q[key].includes(row[field]))throw Error('La tienda no respetó el filtro de relación.');
   for(const [key,field]of [['supplier_id','id_supplier'],['manufacturer_id','id_manufacturer']])if(q[key]&&row[field]!==String(q[key]))throw Error('La tienda no respetó el titular del directorio.');
  }
  return {ok:true,store:q.store,kind:q.kind,resource:q.resource,page:q.page,page_size:q.page_size,possibly_more:rows.length===q.page_size,rows};
