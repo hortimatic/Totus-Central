@@ -109,10 +109,10 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
 }});
 const titles={
  clientes:['Contactos','Clientes'],proveedores:['Contactos','Proveedores'],marcas:['Contactos','Marcas'],
- equipo:['Contactos','Chat'],tareas:['Trabajo','Tareas'],
- inicio:['General','Inicio'],pricing:['Trabajo','Precio'],cajas:['Trabajo','Cajas'],gastos:['Trabajo','Gastos'],
- cotejos:['Trabajo','Recepciones de mercancía'],facturacion:['Trabajo','Facturación'],documentos:['Trabajo','Documentos'],fiscalidad:['Control','Fiscalidad'],
- informes:['Control','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Operaciones tienda','PrestaShop'],productos:['Operaciones tienda','Productos'],configuracion:['Sistema','Configuración'],apis:['Sistema','APIs']
+ equipo:['Inicio y equipo','Chat'],tareas:['Inicio y equipo','Tareas'],
+ inicio:['Inicio y equipo','Inicio'],pricing:['Comercio','Precio'],ventas:['Comercio','Ventas'],cajas:['Gestión y análisis','Cajas'],gastos:['Gestión y análisis','Gastos'],
+ cotejos:['Gestión y análisis','Recepciones de mercancía'],facturacion:['Gestión y análisis','Facturación'],documentos:['Gestión y análisis','Documentos'],fiscalidad:['Gestión y análisis','Fiscalidad'],
+ informes:['Gestión y análisis','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Comercio','PrestaShop'],productos:['Comercio','Productos'],configuracion:['Sistema','Configuración'],apis:['Sistema','APIs']
 };
 
 const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'').toLowerCase(),onState:message=>{state.data.activityLogError=message;const notice=document.querySelector('[data-activity-status]');if(notice){notice.textContent=message;notice.hidden=!message;}}});
