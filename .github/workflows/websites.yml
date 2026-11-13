@@ -1,0 +1,50 @@
+name: Tiendas independientes
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: [feature/dynamic-websites-onboarding-20261113]
+permissions:
+  contents: read
+jobs:
+  website-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test tests/website-registry-qa.mjs tests/website-choices-qa.mjs tests/prestashop-product-create-edge-qa.mjs tests/prestashop-service-qa.mjs tests/contact-directory-session-qa.mjs tests/prestashop-alert-worker-qa.mjs
+  website-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: New website registration, stable identities and permissions
+        env:
+          PGPASSWORD: test-only
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/website-registry-db-fixture.sql -f supabase/migrations/20261113153207_independent_websites.sql -f tests/website-registry-db-qa.sql
+  website-browser:
+    runs-on: ubuntu-24.04
+    env:
+      TOTUS_START_SERVER: '1'
+      TOTUS_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/website-onboarding-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-website-browser-report
+          path: qa-artifacts/websites

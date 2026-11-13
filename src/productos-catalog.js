@@ -1,3 +1,4 @@
+import {prestashopStore,PRESTASHOP_STORES} from './prestashop-readonly.js';
 import {textValue,associationIds} from './productos-core.js';
 import {csvCell} from './utils.js';
 export const PRODUCT_COLUMNS=Object.freeze([
@@ -12,14 +13,16 @@ export function productColumns(value){const valid=new Set(PRODUCT_COLUMNS.map(c=
 export function catalogProductKey(product,fallbackStore='hortimatic'){
  return (product.__store||fallbackStore)+'|'+String(product.id);
 }
-export function productPhoto(item,store){
+export function productPhoto(item,store,registry=null){
  const id=String(item?.id_default_image||associationIds(item,'images')[0]||'');
- return /^[1-9]\d{0,14}$/.test(id)?'https://'+(store==='newoldsmok'?'newoldsmok.com':'hortimatic.com')+'/'+id+'-home_default/product.jpg':null;
+ if(registry)return /^[1-9]\d{0,14}$/.test(id)?registry.imageUrl(store,id):null;
+ return /^[1-9]\d{0,14}$/.test(id)?prestashopStore(store).origin+'/'+id+'-home_default/product.jpg':null;
 }
-export function productWebUrl(item,store){
+export function productWebUrl(item,store,registry=null){
  const id=String(item?.id||'');
- if(!/^[1-9]\d{0,14}$/.test(id)||!['hortimatic','newoldsmok'].includes(store))return null;
- return 'https://'+(store==='newoldsmok'?'newoldsmok.com':'hortimatic.com')+'/index.php?controller=product&id_product='+id;
+ if(registry)return /^[1-9]\d{0,14}$/.test(id)?registry.productUrl(store,id):null;
+ if(!/^[1-9]\d{0,14}$/.test(id)||!PRESTASHOP_STORES.some(s=>s.key===store))return null;
+ return prestashopStore(store).origin+'/index.php?controller=product&id_product='+id;
 }
 export function filterProductCatalog(rows,{query='',category='',brand='',active=''}={}){
  const q=query.trim().toLocaleLowerCase('es');

@@ -1,0 +1,34 @@
+select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',false);
+select set_config('qa.allow','yes',false);
+select set_config('qa.admin','yes',false);
+do $$declare context jsonb; w private.totus_websites; denied boolean=false;
+begin
+ context=public.totus_products_context('view');
+ assert jsonb_array_length(context->'websites')=3,'All three websites must be visible';
+ assert (select count(*)=2 from private.totus_websites where include_in_totals),'Migrated site must not duplicate totals';
+ assert context::text not like '%fictitious-only%','No secret may leave the server';
+ assert exists(select 1 from jsonb_array_elements(context->'connections') c where c->>'store_key'='hortimatic-2' and (c->>'configured')::boolean and not(c->>'enabled')::boolean),'Show the real readiness of the new site';
+ insert into private.totus_api_connections(id,name,protocol,endpoint,enabled,revision,verified_revision,real_data_authorized)
+ values('10000000-0000-4000-8000-000000000004','Cuarta web','prestashop','https://four.example/api/',true,1,1,true);
+ context=public.totus_sales_context();
+ assert jsonb_array_length(context->'websites')=4,'Adding a connection must register the fourth website without code';
+ select * into w from private.totus_websites where connection_id='10000000-0000-4000-8000-000000000004';
+ assert not w.include_in_totals,'New websites must explicitly opt into consolidated totals';
+ perform public.totus_websites('save',jsonb_build_object('key',w.key,'connection_id',w.connection_id,'expected_revision',w.revision,'name','Nombre nuevo','status','active','include_in_totals',false));
+ assert (select name='Nombre nuevo' and connection_id=w.connection_id from private.totus_websites where key=w.key),'A name change preserves identity';
+ begin perform public.totus_websites('save',jsonb_build_object('key',w.key,'connection_id',w.connection_id,'expected_revision',w.revision,'name','Obsoleto','status','active','include_in_totals',false));exception when others then denied=true;end;
+ assert denied,'Reject a stale configuration';
+ select * into w from private.totus_websites where key=w.key;
+ perform public.totus_websites('save',jsonb_build_object('key',w.key,'connection_id',w.connection_id,'expected_revision',w.revision,'name',w.name,'status','retired','include_in_totals',false));
+ assert jsonb_array_length(public.totus_sales_context()->'websites')=3,'Retirement removes selectors';
+ assert exists(select 1 from private.totus_websites where key=w.key and status='retired'),'Retirement preserves history identity';
+ assert jsonb_array_length(public.totus_websites('manage')->'websites')=4,'Administration can recover retired sites';
+ perform set_config('qa.allow','no',false);denied=false;
+ begin perform public.totus_products_context('view');exception when others then denied=true;end;
+ assert denied,'Existing Products permission gate must remain';
+ perform set_config('qa.admin','no',false);denied=false;
+ begin perform public.totus_websites('manage');exception when others then denied=true;end;
+ assert denied,'Website management remains administrative';
+ assert not has_function_privilege('anon','public.totus_websites(text,jsonb)','execute'),'No anonymous access';
+ assert not has_table_privilege('authenticated','private.totus_websites','select'),'No direct table access';
+end$$;

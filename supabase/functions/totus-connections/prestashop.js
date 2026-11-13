@@ -1,9 +1,9 @@
 import {readPrestashopCombinationXml} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
-import {prestashopStore,storeConnection,prestashopQuery,prestashopRows} from '../../../src/prestashop-readonly.js';
+import {prestashopConnectionStore,storeConnection,prestashopQuery,prestashopRows} from '../../../src/prestashop-readonly.js';
 // Credentials and requests remain on the server. Never accept a URL, SQL or field name from the browser.
 export async function readPrestashopPage(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store),page=prestashopQuery(input);
+ const store=prestashopConnectionStore(connection,input.store),page=prestashopQuery(input);
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('La conexión no corresponde a la tienda seleccionada.');
  if(connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('La conexión debe estar activada, verificada y autorizada para leer datos reales.');
  const base=new URL(connection.endpoint);
@@ -83,7 +83,7 @@ export function prestashopProductCapabilities(resources){
  return {permissions_complete:entries.every(entry=>entry.ready),verified_by_operation:false,entries};
 }
 export async function discoverPrestashop(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store);
+ const store=prestashopConnectionStore(connection,input.store);
  if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('La conexión debe estar activada, verificada y autorizada para esta tienda.');
  const base=new URL(connection.endpoint);if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice no válida.');base.pathname=base.pathname.replace(/\/$/,'')+'/';
  const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
@@ -96,7 +96,7 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
 // Detail uses an exact resource/ID, never an arbitrary URL or field expression.
 // This is intentionally read-only: writes require a separately audited contract.
 export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store);
+ const store=prestashopConnectionStore(connection,input.store);
  if(input.resource==='images'){
   if(!/^[1-9]\d{0,14}$/.test(String(input.product_id||''))||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Imagen de producto no válida.');
   const parent=await readPrestashopProductItem(connection,{...input,resource:'products',record_id:input.product_id},{request,resolve});

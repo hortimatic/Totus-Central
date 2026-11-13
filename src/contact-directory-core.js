@@ -1,3 +1,4 @@
+import {websiteKey} from './website-registry.js';
 import {DIRECTORY_FIELDS,DIRECTORY_WRITABLE} from './contact-directory-contract.js';
 export const DIRECTORY_LABELS={id:'ID',firstname:'Nombre',lastname:'Apellidos',email:'Email',name:'Nombre',company:'Empresa',active:'Activo',is_guest:'Invitado',newsletter:'Boletín',optin:'Publicidad',birthday:'Nacimiento',website:'Web',siret:'SIRET',ape:'APE',id_default_group:'Grupo',id_lang:'Idioma',id_gender:'Tratamiento',id_risk:'Riesgo',outstanding_allow_amount:'Crédito',show_public_prices:'Precios públicos',max_payment_days:'Días de pago',description:'Descripción',short_description:'Resumen',meta_title:'Título SEO',meta_description:'Descripción SEO',meta_keywords:'Palabras clave',date_add:'Alta',date_upd:'Actualización',phone:'Teléfono',phone_mobile:'Móvil',address1:'Dirección',address2:'Complemento',postcode:'C. postal',city:'Ciudad',country:'País',province:'Provincia',dni:'NIF/DNI',vat_number:'IVA/NIF',orders:'Pedidos',spent:'Ventas €',margin:'Margen €',products:'Productos',public_name:'Nombre público',group_type:'Tipo',color:'Color',position:'Posición',values:'Valores',parent:'Grupo',custom:'Personalizado',id_country:'País',id_state:'Provincia',alias:'Alias',other:'Indicaciones',value:'Valor',id_attribute_group:'Atributo',id_feature:'Característica'};
 export const DIRECTORY_RESOURCES={clientes:'customers',proveedores:'suppliers',marcas:'manufacturers',atributos:'product_options'};
@@ -14,7 +15,7 @@ export function directoryLayout(kind,input={}){
  const columns=Array.isArray(input.columns)?[...new Set(input.columns.filter(c=>valid.includes(c)))]:[...defaults[kind]];
  if(!columns.includes('id'))columns.unshift('id');
  const widths=Object.fromEntries(Object.entries(input.widths||{}).filter(([key,value])=>(valid.includes(key)||key==='actions')&&Number.isInteger(value)&&value>=80&&value<=640));
- return {columns,widths,source:['local','hortimatic','newoldsmok'].includes(input.source)?input.source:'local',pageSize:[0,10,20,50,100].includes(input.pageSize)?input.pageSize:20,sort:valid.includes(input.sort)?input.sort:'id',direction:input.direction==='desc'?'desc':'asc',density:input.density==='compact'?'compact':'normal'};
+ return {columns,widths,source:(input.source==='local'||websiteKey(input.source))?input.source:'local',pageSize:[0,10,20,50,100].includes(input.pageSize)?input.pageSize:20,sort:valid.includes(input.sort)?input.sort:'id',direction:input.direction==='desc'?'desc':'asc',density:input.density==='compact'?'compact':'normal'};
 }
 export function directoryPage(rows,{search='',active='',page=1,layout,languageId}={}){
  const needle=String(search).trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');

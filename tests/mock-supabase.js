@@ -356,6 +356,7 @@ const client={
   if(name==='totus_prestashop_automations')return {data:{rules:[],channels:[],runs:[]},error:null};
   if(name==='totus_recurring_expenses')return {data:{rows:db.ops_recurring_expenses||[]},error:null};
   if(name==='totus_recurring_expense_layout')return {data:args.p_layout||null,error:null};
+  if(name==='totus_websites')return {data:{connections:[]},error:null}; // Legacy fixture; four-site registry is covered by website-onboarding-browser-qa.
   if(name==='totus_sales_context')return {data:{connections:[]},error:null};
   if(name==='totus_api_manager'||name==='totus_prestashop_context')return {data:{connections:[],actors:db.team_members.map(m=>({email:m.email,name:m.full_name,role:m.role}))},error:null};
   if(name==='totus_business_write_contract')return databaseResult({data:{request_replay:1},error:null});

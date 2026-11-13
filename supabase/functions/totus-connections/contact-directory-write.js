@@ -1,5 +1,5 @@
 import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
-import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
+import {prestashopConnectionStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {directoryCustomerGroups,ensureDirectoryCustomerGroup,directorySchemaProjection,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
@@ -9,7 +9,7 @@ const same=(field,a,b)=>a===b||numeric(field)&&a!==''&&b!==''&&Number.isFinite(N
 // This module receives a connection only after authenticated directory/module
 // authorization. Its journal is server-only and stores no customer fields.
 export async function writeContactDirectory(connection,input,{request=fetch,resolve,journal=/** @type {any} */(null)}={}){
- const q=directoryMutation(input),commit=q.action==='prestashop_directory_commit',store=prestashopStore(q.store);
+ const q=directoryMutation(input),commit=q.action==='prestashop_directory_commit',store=prestashopConnectionStore(connection,q.store);
  if(!connection||storeConnection([connection],q.store)!==connection||connection.id!==q.id||connection.revision!==q.revision||!connection.enabled||connection.verified_revision!==q.revision||connection.real_data_authorized!==true)throw Error('Actualiza y verifica la conexión de esta tienda.');
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.pathname.replace(/\/$/,'')!=='/api'||base.search||base.hash)throw Error('La escritura exige la API oficial de la tienda elegida.');

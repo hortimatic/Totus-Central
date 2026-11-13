@@ -3,7 +3,7 @@ import {productGallery} from './productos-gallery.js';
 import {STITCH_VIEWS} from './productos-stitch-template.js';
 import {STITCH_V4_HEADER} from './productos-stitch-v4-template.js';
 import {PRODUCT_COLUMNS,productPhoto,productWebUrl,productColumnHeading,productColumnDefaultWidth} from './productos-catalog.js';
-import {PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,associationIds} from './productos-core.js';
+import {PRODUCT_STORES,PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,associationIds} from './productos-core.js';
 import {esc} from './utils.js';
 import {fieldHelp} from './components.js';
 
@@ -21,7 +21,7 @@ function action(node,name){node.type='button';node.dataset.prAction=name;return 
 function setText(node,value){if(node)node.textContent=String(value??'');}
 function serialize(node){for(const panel of node.querySelectorAll('.rounded-xl'))if(!panel.parentElement?.closest('.rounded-xl'))panel.classList.add('prd-panel');for(const select of node.querySelectorAll('select'))for(const option of select.options)option.toggleAttribute('selected',option.selected);const wrap=document.createElement('div');wrap.append(node);return wrap.innerHTML;}
 function label(button,value){const spans=button.querySelectorAll('span');setText(spans[1]||button,value);}
-function webLink(record,store,backendUrl=''){const backend=record?.id?(backendUrl?'<a class="prd-web-link prd-table-button" href="'+esc(backendUrl)+'" target="_blank" rel="noopener noreferrer" title="Abrir la ficha en la administración de esta tienda usando tu sesión de PrestaShop">Abrir en administración ↗</a>':'<button type="button" class="prd-table-button" data-pr-action="backend-config" data-pr-shop="'+store+'" data-pr-id="'+esc(record.id)+'" title="Vincular un enlace de tu sesión del catálogo de PrestaShop">Vincular administración</button>'):'';const url=productWebUrl(record,store);return url?'<a class="prd-web-link prd-table-button" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Abrir en '+(store==='hortimatic'?'Hortimatic':'NewOldSmok')+'. Un producto inactivo puede no estar disponible públicamente.">Ver en la web ↗</a>'+backend:'<span class="prd-web-unavailable">Sin enlace: producto aún no creado</span>';}
+function webLink(record,store,backendUrl=''){const backend=record?.id?(backendUrl?'<a class="prd-web-link prd-table-button" href="'+esc(backendUrl)+'" target="_blank" rel="noopener noreferrer" title="Abrir la ficha en la administración de esta tienda usando tu sesión de PrestaShop">Abrir en administración ↗</a>':'<button type="button" class="prd-table-button" data-pr-action="backend-config" data-pr-shop="'+store+'" data-pr-id="'+esc(record.id)+'" title="Vincular un enlace de tu sesión del catálogo de PrestaShop">Vincular administración</button>'):'';const url=productWebUrl(record,store);return url?'<a class="prd-web-link prd-table-button" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Abrir en '+(PRODUCT_STORES.find(s=>s.key===store)?.label||store)+'. Un producto inactivo puede no estar disponible públicamente.">Ver en la web ↗</a>'+backend:'<span class="prd-web-unavailable">Sin enlace: producto aún no creado</span>';}
 export function stitchHeader({store,mode,status,count,product,pending,connected,draftCount=0}){
  return compactStitchHeader({store,mode,status,count,product,pending,connected,draftCount});
 }
@@ -29,7 +29,7 @@ function compactStitchHeader({store,mode,status,count,product,pending,connected,
  const f=fragment(STITCH_V4_HEADER),header=f.querySelector('header'),nav=f.querySelector('nav');
  header.className='prd-v4-header';nav.className='prd-v4-nav';nav.id='master-tabs-bar';nav.setAttribute('aria-label','Secciones de Productos');nav.setAttribute('role','tablist');
  const select=f.querySelector('#v4-store-context');select.id='store-context-select';select.dataset.prStore='';select.setAttribute('aria-label','Tienda de trabajo');
- select.innerHTML='<option value="both">Ambas tiendas</option><option value="hortimatic">Hortimatic</option><option value="newoldsmok">NewOldSmok</option>';select.value=store;select.previousElementSibling?.remove();
+ select.replaceChildren(new Option('Todas las webs','both'),...PRODUCT_STORES.map(s=>new Option(s.label,s.key)));select.value=store;select.previousElementSibling?.remove();
  for(const n of header.querySelectorAll('span'))if(n.textContent==='v4.0')n.remove();
  const connection=[...header.querySelectorAll('span')].find(n=>n.textContent.includes('Conexión lista'));if(connection){const badge=connection.parentElement;badge.className='prd-v4-connection';badge.textContent=connected?'● Conectada':'○ Revisar';badge.title=connected?'Conexión API verificada':'Revisar la conexión API en Configuración';}
  for(const b of header.querySelectorAll('button')){if(b.title==='Sincronizar'){action(b,'catalog-load');b.setAttribute('aria-label','Actualizar catálogo');}else b.remove();}
@@ -49,7 +49,7 @@ export function stitchCatalog({backendLink=()=>'',canEdit=false,canDelete=canEdi
  setText(summarySpans[1],hasMore?'Catálogo por páginas:':'Catálogo consultado:');
  setText(summarySpans[2],rows.length+' referencias');
  // No demo totals, fabricated latency or claims of live synchronisation.
- setText(summarySpans[3],'de');setText(summarySpans[4],store==='both'?'Ambas tiendas':store==='hortimatic'?'Hortimatic':'NewOldSmok');
+ setText(summarySpans[3],'de');setText(summarySpans[4],store==='both'?'Todas las webs':PRODUCT_STORES.find(s=>s.key===store)?.label||store);
  const connection=summary.lastElementChild;setText(connection,ready?'Conexión verificada':'Conexión pendiente');
  const search=f.querySelector('#catalogo-search-input');search.value=query;search.setAttribute('value',query);search.dataset.prSearch='';
  const fillSelect=(select,key,items,title,current)=>{
@@ -59,7 +59,7 @@ export function stitchCatalog({backendLink=()=>'',canEdit=false,canDelete=canEdi
  fillSelect(f.querySelector('#catalogo-brand-filter'),'brand',brands,'Todas las marcas',filters.brand);
  fillSelect(f.querySelector('#catalogo-category-filter'),'category',categories,'Todas las categorías',filters.category);
  const selects=[...f.querySelectorAll('select')];
- const shop=selects[2];shop.dataset.prStore='';shop.replaceChildren(new Option('Hortimatic','hortimatic'),new Option('NewOldSmok','newoldsmok'),new Option('Ambas tiendas','both'));shop.value=store;shop.querySelector('[value="'+store+'"]')?.setAttribute('selected','');
+ const shop=selects[2];shop.dataset.prStore='';shop.replaceChildren(...PRODUCT_STORES.map(s=>new Option(s.label,s.key)),new Option('Todas las webs','both'));shop.value=store;shop.querySelector('[value="'+store+'"]')?.setAttribute('selected','');
  fillSelect(selects[3],'active',[['1','Activo'],['0','Inactivo']],'Todos los estados',filters.active);
  const tools=[...f.querySelectorAll('button')];
  const columnsButton=tools[0],details=document.createElement('details');details.className='prd-columns';
@@ -125,7 +125,7 @@ export function stitchFiche({galleryDraft={},record,backendUrl='',store,section,
  setText(f.querySelector('h2'),textValue(overrides.name??record.name)||'Nuevo producto');
  const heading=f.querySelector('h2').parentElement;
  const badges=heading.querySelectorAll('span');setText(badges[0],String(overrides.active??record.active)==='1'?'Activo en PrestaShop':'Inactivo en PrestaShop');setText(badges[1],record.id?'ID: '+record.id:'Borrador');
- setText(heading.nextElementSibling,(store==='hortimatic'?'Hortimatic':'NewOldSmok')+' · SKU: '+textValue(overrides.reference??record.reference)+' · EAN: '+textValue(overrides.ean13??record.ean13));
+ setText(heading.nextElementSibling,(PRODUCT_STORES.find(s=>s.key===store)?.label||store)+' · SKU: '+textValue(overrides.reference??record.reference)+' · EAN: '+textValue(overrides.ean13??record.ean13));
  heading.parentElement.insertAdjacentHTML('beforeend',webLink(record,store,backendUrl));
  for(const b of f.querySelectorAll('button')){
   if(/Guardar Borrador/i.test(b.textContent)){action(b,'draft-save');label(b,'Guardar borrador en Totus');b.title='Conserva los cambios en Totus. No modifica PrestaShop.';}
@@ -233,7 +233,7 @@ export function stitchFiche({galleryDraft={},record,backendUrl='',store,section,
  const thumbnailRail=thumbnailButtons[0]?.parentElement,thumbnailTemplate=thumbnailButtons[0]?.cloneNode(true);
  if(thumbnailRail&&thumbnailTemplate){thumbnailRail.replaceChildren();thumbnailRail.classList.add('flex-wrap');for(const [index,id]of images.entries()){const b=thumbnailTemplate.cloneNode(true);action(b,'photo-view');b.dataset.prPhoto=id;b.setAttribute('aria-label','Ver foto '+(index+1));const active=String(record.id_default_image||images[0])===id;b.classList.toggle('ring-2',active);b.classList.toggle('ring-primary',active);b.setAttribute('aria-pressed',String(active));const img=b.querySelector('img');img.src=productPhoto({id_default_image:id},store);img.alt='Imagen '+(index+1);img.classList.replace('object-cover','object-contain');img.removeAttribute('data-alt');thumbnailRail.append(b);}}
  for(const n of [...f.querySelectorAll('span,div')])if(!n.children.length&&/Foto Activa/.test(n.textContent)){n.dataset.prPhotoLabel='';setText(n,images.length?'Foto '+(Math.max(0,images.indexOf(String(record.id_default_image)))+1)+' de '+images.length:'Sin imágenes');}
- for(const n of [...f.querySelectorAll('span')])if(!n.children.length&&n.textContent.trim()==='Proveedor Oficial')setText(n,store==='hortimatic'?'Hortimatic':'NewOldSmok');
+ for(const n of [...f.querySelectorAll('span')])if(!n.children.length&&n.textContent.trim()==='Proveedor Oficial')setText(n,PRODUCT_STORES.find(s=>s.key===store)?.label||store);
  const price=f.querySelector('#sticky-pvp-display');setText(price,textValue(overrides.price??record.price)?new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(overrides.price??record.price)):'—');
  if(amounts?.gross!==null&&amounts?.gross!==undefined){setText(price,new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(amounts.gross));if(price?.previousElementSibling)setText(price.previousElementSibling,'PVP base IVA España:');}else if(price?.previousElementSibling)setText(price.previousElementSibling,'Precio base sin IVA:');
  const costText=textValue(overrides.wholesale_price??record.wholesale_price);setText(f.querySelector('#sticky-cost-display'),costText!==''&&Number.isFinite(Number(costText))?new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(costText)):'Sin coste');
@@ -253,15 +253,16 @@ export function stitchFiche({galleryDraft={},record,backendUrl='',store,section,
  return serialize(f);
 }
 
-export function stitchCopy({store,legacyHtml,record,targetRecord,copyImages=true,copyLocked=false,canUpload=false,copyCreated=false,copyPublished=false}){
+export function stitchCopy({store,destination=PRODUCT_STORES.find(s=>s.key!==store)?.key,legacyHtml,record,targetRecord,copyImages=true,copyLocked=false,canUpload=false,copyCreated=false,copyPublished=false}){
  const f=fragment(STITCH_VIEWS['tab-copiar']),view=f.firstElementChild,actual=fragment(legacyHtml);
  view.classList.remove('hidden');view.classList.add('flex','prd-copy-view');
- const source=store==='hortimatic'?'Hortimatic':'NewOldSmok',target=store==='hortimatic'?'NewOldSmok':'Hortimatic';
+ const source=PRODUCT_STORES.find(s=>s.key===store)?.label||store,target=PRODUCT_STORES.find(s=>s.key===destination)?.label||destination;
  const swap=f.querySelector('#btn-swap-stores');action(swap,'copy-reverse');swap.setAttribute('aria-label','Intercambiar tiendas de origen y destino');
  const buttons=[...view.querySelectorAll('button')];
  const all=buttons.find(b=>b.textContent.includes('Seleccionar Todo')),none=buttons.find(b=>b.textContent.includes('Deseleccionar'));
  if(all){action(all,'fields-all');all.parentElement.classList.add('prd-copy-primary-actions');}if(none)action(none,'fields-none');
- const imageChoice=document.createElement('label');imageChoice.className='prd-copy-image-choice';imageChoice.innerHTML='<input type="checkbox" data-pr-copy-option="images" data-pr-create-store="'+(store==='hortimatic'?'newoldsmok':'hortimatic')+'" '+(copyImages?'checked':'')+' '+(copyLocked?'disabled':'')+'> Copiar imágenes ('+associationIds(record,'images').length+')'+fieldHelp('Copiar imágenes','Seleccionar todo incluye las fotos. La copia sube cada imagen a la tienda destino y comprueba su ID nativo; la foto de origen no se considera una imagen ya copiada.');all?.after(imageChoice);
+ const destinationChoice=document.createElement('label');destinationChoice.className='prd-copy-destination';destinationChoice.textContent='Web de destino ';const destinationSelect=document.createElement('select');destinationSelect.dataset.prCopyDestination='';destinationSelect.disabled=copyLocked;destinationSelect.replaceChildren(...PRODUCT_STORES.map(s=>new Option(s.label+(s.key===store?' · duplicar aquí':''),s.key)));destinationSelect.value=destination;destinationChoice.append(destinationSelect);all?.before(destinationChoice);
+ const imageChoice=document.createElement('label');imageChoice.className='prd-copy-image-choice';imageChoice.innerHTML='<input type="checkbox" data-pr-copy-option="images" data-pr-create-store="'+(destination)+'" '+(copyImages?'checked':'')+' '+(copyLocked?'disabled':'')+'> Copiar imágenes ('+associationIds(record,'images').length+')'+fieldHelp('Copiar imágenes','Seleccionar todo incluye las fotos. La copia sube cada imagen a la tienda destino y comprueba su ID nativo; la foto de origen no se considera una imagen ya copiada.');all?.after(imageChoice);
  for(const b of buttons)if(/Copiar a Borrador|Revisar y Publicar/.test(b.textContent))action(b,'compare');
  const editors=[...actual.querySelectorAll('.prd-parallel-editors>fieldset')];
  f.querySelector('#panel-store-source')?.parentElement.classList.add('prd-copy-panels');
@@ -277,10 +278,10 @@ export function stitchCopy({store,legacyHtml,record,targetRecord,copyImages=true
   if(actualIdentity){const picture=actualIdentity.querySelector('img'),slot=identity.firstElementChild,description=identity.lastElementChild;slot.replaceChildren();if(picture){picture.className='prd-product-photo w-full h-full object-contain';slot.append(picture);}else slot.textContent='Sin foto';description.replaceChildren();const name=document.createElement('strong');name.className='font-headline-sm text-headline-sm text-on-surface';name.textContent=i&&!targetRecord?(editor.querySelector('[data-pr-target-field="name"]')?.value||textValue(record?.name)||'Nueva ficha'):actualIdentity.querySelector('strong')?.textContent||'Nueva ficha';const note=document.createElement('span');note.className='font-body-sm text-body-sm text-on-surface-variant';note.textContent=i?'Revisa los datos de destino antes de guardar.':'Datos leídos del origen. Selecciona qué copiar.';description.append(name,note);}
   identity.classList.add('prd-copy-identity');
   const previewImage=!!(i&&copyImages&&!associationIds(targetRecord,'images').length&&associationIds(record,'images').length);
-  const product=i?(previewImage?record:targetRecord):record,shop=i&&!previewImage?(store==='hortimatic'?'newoldsmok':'hortimatic'):store;
+  const product=i?(previewImage?record:targetRecord):record,shop=i&&!previewImage?(destination):store;
   if(previewImage){setText(badge,'Vista previa · pendiente de copiar');const slot=identity.firstElementChild;slot.replaceChildren();const image=document.createElement('img');image.className='prd-product-photo w-full h-full object-contain';image.src=productPhoto(record,store);image.alt=textValue(record.name)||'Vista previa de copia';slot.append(image);const note=identity.lastElementChild.querySelector('span');note.classList.add('prd-copy-photo-pending');note.textContent='Vista previa: fotos pendientes de guardar en '+target+'.';}
 
-  if(product){const gallery=document.createElement('div');gallery.className='prd-copy-gallery';for(const imageId of associationIds(product,'images')){if(!/^[1-9]\d{0,14}$/.test(String(imageId)))continue;const image=document.createElement('img');image.className='prd-product-photo';image.src='https://'+(shop==='hortimatic'?'hortimatic.com':'newoldsmok.com')+'/'+imageId+'-home_default/product.jpg';image.alt=textValue(product.name)||'Producto';gallery.append(image);}if(gallery.children.length)identity.lastElementChild.append(gallery);const facts=document.createElement('small');facts.textContent=(previewImage?'Vista previa del origen · ':'ID '+product.id+' · ')+(product.reference||'Sin referencia')+' · '+associationIds(product,'images').length+' fotos · '+associationIds(product,'combinations').length+' combinaciones';identity.lastElementChild.append(facts);}
+  if(product){const gallery=document.createElement('div');gallery.className='prd-copy-gallery';for(const imageId of associationIds(product,'images')){if(!/^[1-9]\d{0,14}$/.test(String(imageId)))continue;const image=document.createElement('img');image.className='prd-product-photo';image.src=PRODUCT_STORES.find(s=>s.key===shop).origin+'/'+imageId+'-home_default/product.jpg';image.alt=textValue(product.name)||'Producto';gallery.append(image);}if(gallery.children.length)identity.lastElementChild.append(gallery);const facts=document.createElement('small');facts.textContent=(previewImage?'Vista previa del origen · ':'ID '+product.id+' · ')+(product.reference||'Sin referencia')+' · '+associationIds(product,'images').length+' fotos · '+associationIds(product,'combinations').length+' combinaciones';identity.lastElementChild.append(facts);}
   const fieldsPanel=panel.children[2],rowTemplate=fieldsPanel.children[1].cloneNode(true),heading=fieldsPanel.firstElementChild.cloneNode(true);setText(heading,i?'Datos de destino':'Datos de origen');fieldsPanel.replaceChildren(heading);
   if(editor){
 
@@ -309,7 +310,7 @@ export function stitchCopy({store,legacyHtml,record,targetRecord,copyImages=true
  // Remove design-only database prefixes and sample direction badges, not controls.
  for(const node of [...view.querySelectorAll('span,small,code')])if(!node.children.length&&/PS_PREFIX:|ps_nos_|ps_hort_|Hortimatic 1\.7\.8\.11|#10482/.test(node.textContent))node.remove();
  const nav=actual.querySelector('.prd-parallel-tabs');if(nav){const variations=document.createElement('button');variations.type='button';variations.dataset.prAction='copy-variations';variations.textContent='Variaciones ('+associationIds(record,'combinations').length+')';view.firstElementChild.after(nav);}
- const destinations=actual.querySelector('.prd-targets');if(destinations)view.firstElementChild.append(destinations);
+ // The destination selector is the single source of truth for this copy.
  const preview=actual.querySelector('.prd-preview');if(preview)view.append(preview);
  return serialize(f);
 }

@@ -1,8 +1,6 @@
-// Read-only PrestaShop contracts. Store names are explicit: never infer a shop from a URL.
-export const PRESTASHOP_STORES=Object.freeze([
- {key:'hortimatic',name:'Hortimatic',connectionName:'PrestaShop · Hortimatic',origin:'https://hortimatic.com'},
- {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok',origin:'https://newoldsmok.com'}
-]);
+// Read-only contracts. Server identity is bound to a registered connection.
+import {WEBSITE_CHOICES as PRESTASHOP_STORES,connectionWebsite} from './website-registry.js';
+export {PRESTASHOP_STORES};
 export const PRESTASHOP_RESOURCES=Object.freeze({
  orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_wrapping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl','module']),
  order_states:Object.freeze(['id','name']),
@@ -34,13 +32,18 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity','out_of_stock','depends_on_stock','location']),
  stock_movements:Object.freeze(['id','id_product','id_product_attribute','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','id_order','id_supply_order'])
 });
-export function prestashopStore(key){const store=PRESTASHOP_STORES.find(s=>s.key===key);if(!store)throw Error('Tienda PrestaShop no admitida.');return store;}
-export function storeConnection(connections,key){
- const expected=prestashopStore(key).connectionName;
+export function prestashopStore(key,registry=null){if(registry)return registry.get(key);const store=PRESTASHOP_STORES.find(s=>s.key===key);if(!store)throw Error('Tienda PrestaShop no admitida.');return store;}
+export function storeConnection(connections,key,registry=null){
+ if(registry)return registry.connection(key,connections);
+ const bound=(Array.isArray(connections)?connections:[]).filter(c=>c?.protocol==='prestashop'&&c.store_key===key);
+ if((Array.isArray(connections)?connections:[]).some(c=>c?.store_key))return bound.length===1?bound[0]:null;
+ const expected=PRESTASHOP_STORES.find(site=>site.key===key)?.connectionName;
+ if(!expected)return null;
  const found=(Array.isArray(connections)?connections:[]).filter(c=>c?.protocol==='prestashop'&&c?.name===expected);
  if(found.length!==1)return null;
  return found[0];
 }
+export function prestashopConnectionStore(connection,key){return connection?.store_key?connectionWebsite(connection,key):prestashopStore(key);}
 export function prestashopPage(resource,page=0,pageSize=25){
  const fields=PRESTASHOP_RESOURCES[resource];
  if(!fields)throw Error('Recurso PrestaShop no permitido.');
@@ -101,4 +104,4 @@ export function prestashopRows(payload,resource,pageSize){
  return {rows,possibly_more:rows.length===pageSize};
 }
 
-export function prestashopProductImage(store,imageId){return /^\d+$/.test(String(imageId||''))&&String(imageId)!=='0'?prestashopStore(store).origin+'/'+imageId+'-home_default/product.jpg':null;}
+export function prestashopProductImage(store,imageId,registry=null){return /^\d+$/.test(String(imageId||''))&&String(imageId)!=='0'?prestashopStore(store,registry).origin+'/'+imageId+'-home_default/product.jpg':null;}

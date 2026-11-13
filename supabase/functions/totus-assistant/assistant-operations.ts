@@ -1,3 +1,4 @@
+import {websiteKey} from '../../../src/website-registry.js';
 // Explicit catalogue, executed with the caller's own Auth session, never service_role.
 // The existing business RPC remains responsible for permissions, revisions and audit.
 import {agentIdentity} from '../../../src/agent-identity.js';
@@ -66,7 +67,7 @@ export async function runOperation(client:any,payload:any,user:any){
  if(operation==='products'){
   if(!object(payload.args)||!productActions.has(payload.args.action))throw new Error('Acción de Productos no admitida; consulta el catálogo');
   const args=structuredClone(payload.args);
-  if(!['hortimatic','newoldsmok'].includes(args.store))throw new Error('Selecciona la tienda de destino');
+  if(!websiteKey(args.store))throw new Error('Selecciona la tienda de destino');
   // Invoke through the SAME authenticated session as the manual form. No keys,
   // arbitrary endpoint or privileged shortcut is provided to the assistant.
   const {data,error}=await client.functions.invoke('totus-connections',{body:args});

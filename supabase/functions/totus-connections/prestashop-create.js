@@ -1,14 +1,14 @@
 // Server-side-only PrestaShop product creation.
 // Real POST is gated: never enable until the persistent idempotency journal is deployed,
 // reviewed, and injected. Do not use this for an unapproved production test.
-import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
+import {prestashopConnectionStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {validateProductCreateRequest,prepareProductCreationXml,parseCreatedProductId,parsePrestashopResourceId,inspectProductReferenceListing,inspectReconciledNewProduct,productCreateLanguageIds,productLanguageIdsFromListing,minimalBlankProductSchema,sha256Text,LOCALIZED_PRODUCT_FIELDS,readPrestashopXmlField,productRedirectTarget} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
 import {discoverPrestashop} from './prestashop.js';
 export {validateProductCreateRequest} from '../../../src/productos-write-contract.js';
 
 export async function runPrestashopProductCreate(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
- const op=validateProductCreateRequest(input),store=prestashopStore(op.store);
+ const op=validateProductCreateRequest(input),store=prestashopConnectionStore(connection,op.store);
  if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||
   connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)
   throw Error('La conexión no corresponde a una tienda activa y verificada.');
@@ -135,7 +135,7 @@ export async function runPrestashopProductCreate(connection,input,{request=fetch
 // Read-only preparation: language IDs come from the destination's own Webservice.
 // It does not need or disclose any credentials on the client and never uses POST.
 export async function readPrestashopProductCreateProfile(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store);
+ const store=prestashopConnectionStore(connection,input.store);
  if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||
     connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)
   throw Error('La conexión no corresponde a la tienda activa y verificada.');
