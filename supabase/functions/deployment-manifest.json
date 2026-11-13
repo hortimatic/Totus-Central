@@ -74,7 +74,8 @@
         "supabase/functions/totus-assistant/assistant-attachments.ts",
         "supabase/functions/totus-assistant/assistant-chat.ts",
         "supabase/functions/totus-assistant/assistant-operations.ts",
-        "supabase/functions/totus-assistant/index.ts"
+        "supabase/functions/totus-assistant/index.ts",
+        "src/website-registry.js"
       ]
     },
     {
@@ -132,7 +133,8 @@
         "supabase/functions/totus-connections/contact-directory.js",
         "supabase/functions/totus-connections/contact-directory-write.js",
         "supabase/functions/totus-connections/contact-directory-create.js",
-        "supabase/functions/totus-connections/contact-directory-delete.js"
+        "supabase/functions/totus-connections/contact-directory-delete.js",
+        "src/website-registry.js"
       ]
     },
     {
@@ -150,7 +152,8 @@
         "supabase/functions/totus-ai/cloudflare.js",
         "supabase/functions/totus-connections/prestashop.js",
         "supabase/functions/totus-connections/transport.js",
-        "supabase/functions/totus-prestashop-alerts/index.ts"
+        "supabase/functions/totus-prestashop-alerts/index.ts",
+        "src/website-registry.js"
       ]
     }
   ]
