@@ -263,7 +263,7 @@ function renderNav(){
  const routes=orderedRoutes(config.navigationOrder).filter(r=>r.id!=='cotejos'&&routeAllowed(r));
  nav.innerHTML=NAV_GROUPS.map(([id,label])=>{
   const items=routes.filter(r=>r.group===label);if(!items.length)return '';
-  return '<details class="nav-personal-group" data-nav-section="'+id+'" '+(!collapsed.includes(id)?'open':'')+'><summary>'+esc(label)+'</summary>'+items.map(r=>`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" title="${esc(r.label)}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span><span class="nav-label">${esc(r.label)}</span>${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`).join('')+'</details>';
+  return '<details class="nav-personal-group" data-nav-section="'+id+'" '+(!collapsed.includes(id)?'open':'')+'><summary title="'+esc(label)+'">'+esc(label)+'</summary>'+items.map(r=>`<a href="${esc(moduleUrl(location.href,r.id))}" class="nav-btn ${state.route===r.id?'active':''}" data-route="${r.id}" title="${esc(r.label)}" ${state.route===r.id?'aria-current="page"':''}><span class="nav-icon">${interfaceIcon(r.id)}</span><span class="nav-label">${esc(r.label)}</span>${r.id==='equipo'?'<span id="teamChatUnread"'+(chatUnread?'':' hidden')+'>'+(chatUnread>99?'99+':chatUnread)+'</span>':''}</a>`).join('')+'</details>';
  }).join('');
  // Folding is immediately usable. The initial layout is saved with the user's interface form.
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;

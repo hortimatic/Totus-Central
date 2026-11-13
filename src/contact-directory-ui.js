@@ -36,7 +36,7 @@ export function createContactDirectoryUI({rpc,invoke,actor,can,confirm=async()=>
  }
  function cell(row,key){
   if(key==='name'&&['marcas','proveedores'].includes(kind)){
-   const domain=source==='hortimatic'?'hortimatic.com':'newoldsmok.com',folder=kind==='marcas'?'m':'s',id=String(row.id);
+   const domain=source==='hortimatic'?'hortimatic.com':'newoldsmok.com',folder=kind==='marcas'?'m':'su',id=String(row.id);
    const logo=/^[1-9][0-9]*$/.test(id)?'https://'+domain+'/img/'+folder+'/'+id+'.jpg':'';
    return '<span class="directory-identity">'+(logo?'<span class="directory-logo"><img src="'+esc(logo)+'" alt="Logo de '+esc(directoryText(row.name,languageId))+'" loading="lazy" decoding="async"><span class="directory-logo-fallback" hidden>Sin logo</span></span>':'')+'<span>'+esc(directoryText(row.name,languageId))+'</span></span>';
   }
