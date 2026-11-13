@@ -28,6 +28,7 @@ jobs:
   pending-cash-database:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         scenario: [cash-discrepancy-db-qa.sql, header-home-db-qa.sql, header-watch-db-qa.sql]
     services:
