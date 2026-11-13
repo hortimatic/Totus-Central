@@ -22,6 +22,14 @@ export function validatePrestaAutomation(raw){
 export function onlineOrder(order,modules){
  return Array.isArray(modules)&&typeof order?.module==='string'&&modules.includes(order.module);
 }
+// Header's dedicated destination uses the verified physical-store origins as
+// exclusions. A missing origin is unknown, never an online order. Manual/native
+// backoffice and POS modules are also excluded; payment labels are not evidence.
+export function headerOnlineOrder(order,offlineModules){
+ const source=string(order?.module);
+ return Boolean(source)&&Array.isArray(offlineModules)&&offlineModules.length>0
+  &&!offlineModules.includes(source)&&!/(?:tpv|pos|bo_order|manual)/i.test(source);
+}
 export function orderOriginSamples(store,rows){
  const groups=new Map();for(const row of rows){const module=string(row.module);if(!module)continue;let g=groups.get(module);if(!g)groups.set(module,g={store,module,payments:[],count:0,examples:[]});g.count++;if(row.payment&&!g.payments.includes(row.payment))g.payments.push(row.payment);if(g.examples.length<3)g.examples.push({id:string(row.id),reference:string(row.reference),date:string(row.date_add),total:string(row.total_paid_tax_incl)});}
  return [...groups.values()].sort((a,b)=>b.count-a.count);
@@ -47,7 +55,7 @@ export async function automationResult(rule,store,window,{read,onOrder=async()=>
  const detail=async(resource,id)=>{if(!/^\d{1,15}$/.test(String(id||'')))return {};const r=await read(resource,{page:0,page_size:1,record_id:String(id)});if(!r?.ok||r.store!==store||r.resource!==resource||!Array.isArray(r.rows)||r.rows.some(x=>String(x.id)!==String(id)))throw Error('Detalle de otro registro o tienda.');return r.rows[0]||{};};
  if(rule.recipe==='online_orders'){
   const orders=await scan('orders',{from:window.from,to:window.to,sort:'oldest'});let delivered=0,unknown=0;
-  for(const order of orders){if(!order.module){unknown++;continue;}if(!onlineOrder(order,rule.online_modules?.[store])||seen.includes(String(order.id)))continue;
+  for(const order of orders){if(!order.module){unknown++;continue;}if(!(rule.delivery_mode==='header'?headerOnlineOrder(order,rule.offline_modules?.[store]):onlineOrder(order,rule.online_modules?.[store]))||seen.includes(String(order.id)))continue;
    const lines=await scan('order_details',{order_id:String(order.id)}),customer=await detail('customers',order.id_customer),address=await detail('addresses',order.id_address_delivery),currency=await detail('currencies',order.id_currency),state=await detail('order_states',order.current_state);
    await onOrder(order,prestashopNotice({store,order,lines,customer,address,currency:currency.iso_code,stateName:state.name}));delivered++;
   }

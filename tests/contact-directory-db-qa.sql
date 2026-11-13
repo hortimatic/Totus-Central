@@ -7,7 +7,9 @@ insert into public.profiles values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','{"acc
 \i supabase/review_patches/077_directory_layout.sql
 create function public.qa_directory_assert(ok boolean,label text) returns void language plpgsql as $$begin if ok is not true then raise exception 'QA: %',label;end if;end$$;
 grant usage on schema public,private,auth to authenticated,service_role;
-grant select on private.totus_api_connections to service_role;
+grant select(id,enabled,real_data_authorized,revision,verified_revision,name) on private.totus_api_connections to service_role;
+\i supabase/review_patches/087_directory_journal_connection_metadata.sql
+\i supabase/review_patches/087_directory_journal_connection_metadata.sql
 grant execute on function auth.uid() to authenticated;
 set role authenticated;
 set qa.uid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

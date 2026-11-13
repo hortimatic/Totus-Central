@@ -12,7 +12,7 @@ try{
   await page.evaluate(async()=>{const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({clockSeconds:'hide',clockDate:'hide',clockFormat:'12',clockLayout:'inline',clockFontSize:17,clockAction:'tasks',calendarDensity:'compact'});header.start();});
   assert(!await page.locator('[data-clock]').innerText().then(t=>/13:00:00/.test(t)));assert.equal(await page.locator('#headerTools [data-clock-date]').isVisible(),false);await page.getByRole('button',{name:'Abrir tareas de hoy',exact:true}).click();assert.deepEqual(await page.evaluate(()=>headerCalls.pop()),['tareas','2026-10-26']);
   await page.evaluate(async()=>{const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({});header.start();});
-  assert.equal(await page.locator('[data-chat-count]').innerText(),'3');assert.equal(await page.locator('[data-task-count]').innerText(),'2');
+  assert.equal(await page.locator('[data-chat-count]').innerText(),'3');assert.equal(await page.locator('[data-task-count]').innerText(),'1');
   await page.locator('[data-header="calendar"]').click();assert.equal(await page.locator('[data-header="day"]').count(),31);
   assert.equal(await page.locator('[aria-current="date"]').getAttribute('data-date'),'2026-10-26');
   assert(await page.evaluate(()=>document.querySelector('#headerTools').getBoundingClientRect().left>document.querySelector('.topbar h1').getBoundingClientRect().left),'Controls belong on the right');

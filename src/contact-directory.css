@@ -63,3 +63,20 @@
 [data-forecast-filter]>.directory-actions{grid-column:3/-1;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 @media(max-width:1000px){[data-forecast-filter].directory-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}[data-forecast-filter]>label:first-child{grid-column:1/-1}[data-forecast-filter]>.check-field{grid-column:auto}[data-forecast-filter]>.directory-actions{grid-column:1/-1}}
 @media(max-width:480px){[data-forecast-filter].directory-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}[data-forecast-filter]>label:nth-child(4),[data-forecast-filter]>.check-field{grid-column:1/-1}[data-forecast-filter]>.directory-actions{justify-content:flex-start}[data-forecast-filter]>.directory-actions .btn{padding:7px 10px}}
+
+/* Identity remains legible on narrow panels and expands with desktop space. */
+.directory-table{min-width:100%}
+.directory-main{box-sizing:border-box;width:100%}
+.directory-heading>div:first-child{min-width:0}
+.directory-heading h2{overflow-wrap:anywhere}
+.directory-toolbar{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.directory-row-actions [data-directory-record]{flex-basis:auto}
+.directory-row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.directory-row-actions .btn{min-width:0;white-space:normal}
+.directory-identity{display:flex;gap:10px;align-items:center;min-width:0}
+.directory-logo{display:grid;place-items:center;flex:0 0 56px;width:56px;height:56px;background:var(--panel,#fff);border-radius:var(--r,8px);border:1px solid var(--line,#ccd5df)}
+.directory-logo img{display:block;width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box}
+.directory-logo img[hidden],.directory-logo-fallback[hidden]{display:none}
+.directory-logo-fallback{font-size:10px;text-align:center;color:var(--muted,#627184)}
+@media(min-width:1600px){.directory-toolbar{grid-template-columns:minmax(240px,2fr) minmax(140px,1fr) minmax(260px,2fr)}.directory-actions{grid-column:auto}}
+@media(max-width:600px){.directory-toolbar{grid-template-columns:minmax(0,1fr) minmax(90px,.5fr)}.directory-logo{flex-basis:48px;width:48px;height:48px}}

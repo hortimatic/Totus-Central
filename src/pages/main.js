@@ -4,7 +4,7 @@ import {automationsPage} from '../automations-ui.js';
 import {prestashopWorkspacePage} from '../prestashop-ui.js';
 import {productosWorkspacePage} from '../productos-ui.js';
 import {appearancePage} from '../appearance-ui.js';
-import {closingDrawerValue,incompleteClosing} from '../cash-closing.js';
+import {closingDrawerValue,incompleteClosing,drawerCashSales} from '../cash-closing.js';
 import {editableReferences,expenseStoreSelection,reportDiaryStores} from '../reference-options.js';
 import {EXPENSE_REPORT_GROUPS,categoryReportGroup,EXPENSE_REPORT_COLORS,expenseReportOverride} from '../expense-colors.js';
 import {filterAuditEvents,auditActionLabel} from '../audit-register.js';
@@ -79,9 +79,10 @@ function dailySalesByDrawer(row){
    if(match.length&&match.every(d=>d.al_fin!=null))sales=match.reduce((n,d)=>n+Number(d.al_fin),0);
   }else{
    const d=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
-   if(d&&closingDrawerValue(row,drawer.id,'opening_cash',d.opening_cash)!=null&&closingDrawerValue(row,drawer.id,'closing_cash',d.closing_cash)!=null)sales=Number(d.closing_cash||0)+Number(d.cash_withdrawals||0)+Number(d.cash_expenses_declared||0)+Number(d.cash_extra_out||0)-Number(d.opening_cash||0)-Number(d.cash_extra_in||0)+Number(d.card_sales||0)+Number(d.bizum_sales||0)+Number(d.online_sales||0)+Number(d.other_income||0);
+   if(d&&closingDrawerValue(row,drawer.id,'opening_cash',d.opening_cash)!=null&&closingDrawerValue(row,drawer.id,'closing_cash',d.closing_cash)!=null)sales=drawerCashSales(d)+Number(d.card_sales||0)+Number(d.bizum_sales||0)+Number(d.online_sales||0)+Number(d.other_income||0);
   }
-  return `<span>${esc(drawer.displayName||drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>`;
+  const pending=state.data.closingDrawers.find(x=>x.closing_id===row.id&&x.drawer_id===drawer.id);
+  return `<span>${esc(drawer.displayName||drawer.name)} <b>${sales==null?'Sin importe anotado':money(sales)}</b></span>${Number(pending?.cash_discrepancy)?`<span class="badge warn" title="${esc(pending.cash_discrepancy_reason||'Pendiente de aclarar')}">Descuadre pendiente: ${Number(pending.cash_discrepancy)>0?'+':''}${money(pending.cash_discrepancy)}</span>`:''}`;
  }).join('');
  const total=incompleteClosing(row)?null:row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?row.reported_total_sales:['cash_sales','card_sales','bizum_sales','online_sales','other_income'].reduce((n,key)=>n+Number(row[key]||0),0);
  const collections=row.entry_mode==='source_snapshot'&&!sourceClosingReconciled(row)?`<span>Tarjeta <b>${source?.card_sales==null?'Sin importe anotado':money(source.card_sales)}</b></span><span>Los cobros en efectivo no están separados en el registro anterior.</span>`:[['Efectivo','cash_sales'],['Tarjeta','card_sales'],['Bizum','bizum_sales'],['Internet','online_sales'],['Otros cobros','other_income']].map(([name,key])=>`<span>${name} <b>${money(row[key]||0)}</b></span>`).join('');
@@ -1013,6 +1014,10 @@ function drawerEditor(drawer,row,locked=false){
    ${formField('Gastos pagados en caja',`drCashExpense_${drawer.id}`,saved?.cash_expenses_declared??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Entradas extraordinarias',`drExtraIn_${drawer.id}`,saved?.cash_extra_in??'','number','step="0.01" '+(locked?'disabled':''))}
    ${formField('Salidas extraordinarias',`drExtraOut_${drawer.id}`,saved?.cash_extra_out??'','number','step="0.01" '+(locked?'disabled':''))}
+   <fieldset class="wide cash-discrepancy"><legend>Descuadre pendiente de aclarar</legend><p class="small muted">Si sobra efectivo sin una venta identificada, indica un importe positivo (por ejemplo, +4,70). Si falta, indica un importe negativo. No lo anotes como entrada extraordinaria ni como venta; conserva el efectivo físico real para la apertura siguiente. Para resolverlo, reabre este cierre, corrige la venta o el movimiento identificado y retira el descuadre.</p><div class="form-grid">
+   ${formField('Sobra (+) o falta (−)',`drDiscrepancy_${drawer.id}`,saved?.cash_discrepancy??'','number','step="0.01" '+(locked?'disabled':''))}
+   ${formField('Motivo pendiente de aclarar',`drDiscrepancyReason_${drawer.id}`,saved?.cash_discrepancy_reason??'','text','maxlength="1000" '+(locked?'disabled':''))}
+   </div></fieldset>
   </div>
  </section>`;
 }
@@ -1049,7 +1054,8 @@ export function closingRecordHtml(row=null){
     <section class="card card-pad sticky-summary">
      <h3>Resumen</h3>
      <div class="summary-row"><span>Total ventas</span><strong id="clCalcTotal">${money(calculated)}</strong></div>
-     <div class="summary-row"><span>Diferencia</span><strong id="clDifference" class="${Math.abs(Number(row?.difference||0))>.01?'danger-text':'good-text'}">${row?.reported_total_sales==null?'Sin total para comparar':money(row?.difference||0)}</strong></div>
+     <div class="summary-row"><span>Diferencia sin justificar</span><strong id="clDifference" class="${Math.abs(Number(row?.difference||0))>.01?'danger-text':'good-text'}">${row?.reported_total_sales==null?'Sin total para comparar':money(row?.difference||0)}</strong></div>
+     <p class="small" id="clPendingDiscrepancy" role="status"></p>
      <div class="note" style="margin-top:12px">Las ventas en efectivo se obtienen con el dinero que queda, más lo retirado y los gastos pagados en caja, menos el dinero con el que abriste. Las entradas y otras salidas se ajustan aparte. No confundas las ventas con lo que dejas para mañana.</div>
      <div class="stack" style="margin-top:14px">
       ${closingHasOrigin(row)?btn('Ver registro anterior','closing-view-source','secondary',`data-id="${row.id}"`):''}
