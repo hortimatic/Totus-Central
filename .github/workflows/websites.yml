@@ -29,7 +29,7 @@ jobs:
       - name: New website registration, stable identities and permissions
         env:
           PGPASSWORD: test-only
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/website-registry-db-fixture.sql -f supabase/migrations/20261113142717_independent_websites.sql -f tests/website-registry-db-qa.sql
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/website-registry-db-fixture.sql -f supabase/migrations/20261113153207_independent_websites.sql -f tests/website-registry-db-qa.sql
   website-browser:
     runs-on: ubuntu-24.04
     env:
