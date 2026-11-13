@@ -107,6 +107,21 @@ try{
  assert.equal(await orders.locator('.home-orders-table .home-order-product-line').count(),10,'Los diez pedidos muestran sus productos recuperados por línea');
  assert((await orders.locator('.home-order-product-line').first().innerText()).includes('Producto QA'),'Las unidades y nombres proceden de order_details');
  assert((await orders.locator('thead th').allTextContents()).some(label=>label.trim()==='Atendido por'),'La columna de atención existe aunque esté fuera del viewport horizontal');
+ // Regression: image and readable product text must not compete in a tiny equal-width column.
+ for(const width of [1017,1337,1920,2560]){
+  await page.setViewportSize({width,height:960});
+  const cell=orders.locator('.home-orders-products').first();
+  if(await cell.isVisible()){
+   const metrics=await cell.evaluate(el=>({width:el.getBoundingClientRect().width,text:el.querySelector('.home-order-product-line>span')?.getBoundingClientRect().width,viewport:el.closest('.home-orders-scroll').clientWidth,table:el.closest('table').getBoundingClientRect().width}));
+   assert(metrics.width>=290&&metrics.text>=220,'Product photo and text have independent readable space at '+width);
+   assert(metrics.table>=metrics.viewport,'The table scrolls rather than compressing all columns');
+   if(metrics.table>metrics.viewport+1){
+    await orders.locator('[data-home-command="scroll-right"]').click();
+    await page.waitForFunction(()=>document.querySelector('[data-home-orders-viewport="orders"]').scrollLeft>0);
+   }
+  }
+ }
+ await page.setViewportSize({width:1440,height:960});
  fs.mkdirSync('qa-artifacts/inicio',{recursive:true});
  await page.screenshot({path:'qa-artifacts/inicio/escritorio-1440.png',fullPage:true});
  const number=await orders.locator('.home-orders-table [data-home-command="open-order"]').first().getAttribute('data-order');
@@ -188,8 +203,8 @@ try{
  assert.equal(await orders.locator('.home-orders-cards').isVisible(),true,'Los pedidos pasan a fichas al estrechar el widget');
  assert.equal(await orders.locator('.home-orders-scroll').isVisible(),false,'No se mantiene tabla con scroll en modo compacto');
  const noScroll=await orders.locator('[data-home-orders-viewport]').evaluate(el=>({overflow:getComputedStyle(el).overflowX,overWidth:el.scrollWidth>el.clientWidth+2}));
- assert.equal(noScroll.overflow,'visible','La tabla nunca fuerza barra horizontal interior');
- assert.equal(noScroll.overWidth,false,'La tabla adapta sus columnas al contenedor');
+ assert.equal(noScroll.overflow,'auto','La tabla amplia conserva desplazamiento horizontal cuando se muestra');
+ assert.equal(await orders.locator('.home-orders-scroll').isVisible(),false,'En modo compacto no aparece ninguna barra de la tabla oculta');
  await page.locator('[data-home-config="store"]').selectOption('hortimatic');
  await page.waitForFunction(()=>document.querySelectorAll('[data-home-widget="orders"] tbody tr').length===10);
  assert(!(await orders.locator('tbody').innerText()).includes('NewOldSmok'),'El filtro de tienda se aplica realmente');

@@ -243,10 +243,10 @@
 .dashboard-page .home-order-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
 .dashboard-page .home-order-toolbar label{min-width:min(100%,125px);flex:1 1 125px}
 .dashboard-page .home-order-toolbar input,.dashboard-page .home-order-toolbar select{width:100%;box-sizing:border-box}
-.dashboard-page .home-orders-scroll{overflow:visible!important;max-height:none!important;scrollbar-gutter:auto;border:0}
-.dashboard-page .home-orders-table{width:100%;min-width:0;table-layout:fixed}
+.dashboard-page .home-orders-scroll{overflow-x:auto!important;overflow-y:visible;max-height:none!important;scrollbar-gutter:auto;scrollbar-width:none;border:0}
+.dashboard-page .home-orders-table{width:100%;min-width:var(--home-orders-width,1280px);table-layout:fixed}
 .dashboard-page .home-orders-table th,.dashboard-page .home-orders-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top;padding:9px 6px}
-.dashboard-page .home-order-product-line{white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+.dashboard-page .home-order-product-line{white-space:normal;overflow:visible;text-overflow:clip;max-width:none;margin-block:4px}.dashboard-page .home-order-product-line>span{flex:1;min-width:0;overflow-wrap:break-word;word-break:normal;line-height:1.45}
 .dashboard-page .home-orders-cards{display:none;gap:10px}
 .dashboard-page .home-order-card{border:1px solid var(--line,#dce5ee);border-radius:calc(var(--r,12px)*.8);padding:12px;background:color-mix(in srgb,var(--accent,#0284c7) 2%,var(--panel,#fff));min-width:0}
 .dashboard-page .home-order-card-head{display:flex;gap:10px;justify-content:space-between;align-items:start;flex-wrap:wrap}
@@ -596,3 +596,5 @@
 @media(max-width:420px){.home-task-days button{min-height:56px;padding:3px}.home-task-cell-titles{font-size:9px}.home-task-days button>small{font-size:8px}}
 
 .home-order-product-line{display:flex!important;align-items:center;gap:8px;min-width:0;white-space:normal!important}.home-order-product-image{display:block;flex:0 0 50px;width:50px;height:58px;object-fit:contain;background:var(--panel,#fff);border-radius:5px}.home-order-card-products{display:grid;gap:6px;margin:10px 0;font-size:12px}.home-order-card-products .home-order-product-line>span{min-width:0;overflow-wrap:anywhere}
+
+.dashboard-page .home-orders-scroll::-webkit-scrollbar{display:none}
