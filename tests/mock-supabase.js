@@ -356,6 +356,7 @@ const client={
   if(name==='totus_prestashop_automations')return {data:{rules:[],channels:[],runs:[]},error:null};
   if(name==='totus_recurring_expenses')return {data:{rows:db.ops_recurring_expenses||[]},error:null};
   if(name==='totus_recurring_expense_layout')return {data:args.p_layout||null,error:null};
+  if(name==='totus_websites')return {data:{websites:[['hortimatic','Hortimatic','11111111-1111-4111-8111-111111111111'],['newoldsmok','NewOldSmok','22222222-2222-4222-8222-222222222222']].map(([key,name,connection_id])=>({key,name,connection_id,origin:'https://'+key+'.com',status:'active',include_in_totals:true})),connections:[]},error:null};
   if(name==='totus_sales_context')return {data:{connections:[]},error:null};
   if(name==='totus_api_manager'||name==='totus_prestashop_context')return {data:{connections:[],actors:db.team_members.map(m=>({email:m.email,name:m.full_name,role:m.role}))},error:null};
   if(name==='totus_business_write_contract')return databaseResult({data:{request_replay:1},error:null});

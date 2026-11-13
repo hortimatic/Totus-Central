@@ -9,7 +9,7 @@ import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
 import {assertService,matchesSavedFields,verifiedWrite} from './write-safety.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let websiteOwner=null,websiteLoad=null;
-sb.auth.onAuthStateChange((_event,session)=>{if(websiteOwner!==session?.user?.id){websiteOwner=null;websiteLoad=null;resetWebsiteChoices();}});
+sb.auth?.onAuthStateChange?.((_event,session)=>{if(websiteOwner!==session?.user?.id){websiteOwner=null;websiteLoad=null;resetWebsiteChoices();}});
 const assert=assertService;
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
 export async function logout(){await sb.auth.signOut();resetWebsiteChoices()}
