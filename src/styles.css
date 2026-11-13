@@ -607,6 +607,10 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .activity-interactive .activity-legend legend{font-size:.84rem;margin-bottom:8px}
 .activity-interactive .activity-legend label{display:inline-flex;gap:6px;align-items:center;font-size:.82rem;cursor:pointer;min-height:32px}
 .activity-interactive .activity-legend input{width:20px;height:20px;min-width:20px;min-height:20px;margin:0}
+.header-watch{padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:10px}
+.header-watch>p{margin:6px 0}.header-watch details{margin:8px 0}.header-watch summary{cursor:pointer;font-size:.84rem;font-weight:600}
+.header-watch label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:7px 0;font-size:.84rem}
+.header-watch input:not([type=checkbox]){width:100%;min-width:0}.header-watch select,.header-watch input:not([type=checkbox]){font:inherit;padding:6px;border:1px solid var(--line);border-radius:5px;color:var(--ink);background:var(--panel)}
 .activity-interactive:has([data-activity-toggle="sales"]:not(:checked)) [data-activity-series="sales"],
 .activity-interactive:has([data-activity-toggle="fiscal"]:not(:checked)) [data-activity-series="fiscal"],
 .activity-interactive:has([data-activity-toggle="internal"]:not(:checked)) [data-activity-series="internal"],

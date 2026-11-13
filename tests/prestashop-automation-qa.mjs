@@ -1,6 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {validatePrestaAutomation,onlineOrder,prestashopNotice,automationResult} from '../src/prestashop-automation-core.js';
+import {validatePrestaAutomation,onlineOrder,headerOnlineOrder,prestashopNotice,automationResult} from '../src/prestashop-automation-core.js';
 const rule={name:'Pedidos web',recipe:'online_orders',stores:['hortimatic'],channel_id:'11111111-1111-4111-8111-111111111111',interval_hours:2,online_modules:{hortimatic:['webcheckout']},enabled:true,sharing_confirmed:true};
+test('header excludes verified POS and manual origins without relying on payment',()=>{
+ for(const module of ['tpvtienda','bo_order','custom_pos','manualorder',''])assert.equal(headerOnlineOrder({module,payment:'Tarjeta'},['tpvtienda','bo_order']),false,module);
+ for(const module of ['redsys','ps_wirepayment','bankwire','custom_web_checkout'])assert.equal(headerOnlineOrder({module,payment:'Efectivo'},['tpvtienda','bo_order']),true,module);
+ assert.equal(headerOnlineOrder({module:'redsys'},[]),false,'An unconfigured physical origin never guesses online');
+});
 test('general reminders have their own text and require no store, provider or AI',()=>{
  const result=validatePrestaAutomation({...rule,recipe:'reminder',stores:[],message:'Revisar los documentos pendientes'});assert.deepEqual(result.stores,[]);assert.equal(result.message,'Revisar los documentos pendientes');
  for(const message of ['', 'ab', 'x'.repeat(4001)])assert.throws(()=>validatePrestaAutomation({...rule,recipe:'reminder',message}));

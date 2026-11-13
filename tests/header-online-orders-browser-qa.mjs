@@ -14,6 +14,7 @@ try{for(const width of [320,390,768,1440,1920,2560]){
   const rows=['hortimatic','newoldsmok'].map((store,i)=>({store,order_id:String(i+1),body:'PEDIDO ONLINE · '+store+'\nFecha: 2026-11-13 12:00:00\nCliente: Persona QA\n1 × Producto QA <img src=x onerror=alert(1)>',created_at:'2026-11-13T12:00:00Z'}));
   const configs=new Map();q.ui=createHeaderTools({actor:()=>q.owner,can:module=>module==='ventas'?q.allowed:true,onNavigate:(...args)=>q.opened.push(args),onOpenOrder:args=>q.opened.push(args),rpc:async(name,args)=>{
    q.calls.push(name);if(name==='totus_home_tasks_context')return {rows:[{state:'pending',assigned_email:q.owner,title:'Preparar pedido QA'}]};
+   if(name==='totus_online_order_watch'){if(args.p_data)q.watch={...args.p_data,id:'watch',last_success_at:null};return {can_configure:true,watch:q.watch||null};}
    if(name!=='totus_header_online_orders')throw Error(name);if(q.hold)return new Promise(resolve=>q.release=()=>resolve({rows,config:{enabled:true,stores:['hortimatic','newoldsmok'],seen:[]},active_rules:1}));
    if(args.p_action==='save'){configs.set(q.owner,structuredClone(args.p_data));q.saved.push(args.p_data);}
    return {rows,config:configs.get(q.owner)||{enabled:true,stores:['hortimatic','newoldsmok'],seen:[]},active_rules:1};
@@ -25,6 +26,11 @@ try{for(const width of [320,390,768,1440,1920,2560]){
  await page.screenshot({path:'qa-artifacts/header-online-orders/notice-'+width+'.png',fullPage:true});
  assert((await panel.innerText()).includes('Persona QA'));assert.equal(await panel.locator('img').count(),0,'Notice content is escaped');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Header fits '+width);
+ await panel.getByRole('button',{name:'Activar avisos automáticos',exact:true}).click();await panel.getByRole('button',{name:'Pausar detección',exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>onlineQA.watch.interval_minutes),2);assert.deepEqual(await page.evaluate(()=>onlineQA.watch.stores),['hortimatic','newoldsmok']);
+ assert.deepEqual(await page.evaluate(()=>onlineQA.watch.offline_modules.hortimatic),['tpvtienda','bo_order']);
+ await panel.locator('[data-watch-settings]>summary').click();await panel.locator('[data-watch-minutes]').selectOption('5');await panel.getByRole('button',{name:'Guardar detección',exact:true}).click();await page.waitForFunction(()=>onlineQA.watch.interval_minutes===5);
+ assert.equal(await panel.locator('[data-watch-minutes]').inputValue(),'5');
  await panel.getByRole('button',{name:'Marcar leídos',exact:true}).click();await page.getByRole('button',{name:'Pedidos online: 0 sin leer',exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>onlineQA.saved.at(-1).seen.length),2);
  await panel.locator('[data-online-store=newoldsmok]').uncheck();await page.waitForFunction(()=>onlineQA.saved.at(-1).stores.length===1);
