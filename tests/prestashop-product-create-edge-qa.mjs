@@ -32,13 +32,15 @@ const req=(body,token=true)=>new Request('https://example.invalid',{method:'POST
 const environment=write=>({get:key=>({SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'public',
  SUPABASE_SERVICE_ROLE_KEY:'server-only',TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED:write?'1':''})[key]});
 const fixture=(opts={})=>{
+ const selectedStore=opts.store||'hortimatic',config={...conf,...opts.config};
+ const websites=opts.store?[{key:selectedStore,connection_id:id,name:'Nueva web',origin:new URL(config.endpoint).origin,status:opts.status||'active',include_in_totals:false}]:undefined;
  const calls=[],journal=new Map();let created=false;
  const factory=(_url,key)=>({
   auth:{getUser:async()=>({data:{user:{id:user_id,email:'admin@example.invalid'}}})},
   rpc:async(name,payload)=>{
    calls.push({type:'rpc',name,key,payload});
-   if(name==='totus_products_context')return (opts.denied||opts.allowedPermissions&&!opts.allowedPermissions.includes(payload.p_action))?{error:{message:'Permiso de administración necesario'}}:{data:{connections:[{id,revision:2}]}};
-   if(name==='totus_api_server')return {data:conf};
+   if(name==='totus_products_context')return (opts.denied||opts.allowedPermissions&&!opts.allowedPermissions.includes(payload.p_action))?{error:{message:'Permiso de administración necesario'}}:{data:{connections:[{id,revision:2}],...(websites?{websites}:{})}};
+   if(name==='totus_api_server')return {data:config};
    if(name==='totus_api_call')return {data:null};
    if(name==='totus_prestashop_product_step'||name==='totus_prestashop_existing_product_step'){
     assert.equal(key,'server-only');assert.equal(payload.p_data.actor_id,user_id);assert.equal(payload.p_data.product_id,'701');
@@ -52,7 +54,7 @@ const fixture=(opts={})=>{
     if(a==='lookup')return {data:journal.get(k)||null};
     if(a==='claim'){
      if(journal.has(k))return {data:{status:'pending'}};
-     journal.set(k,{status:'pending',signature:payload.p_data.signature,store:'hortimatic',reference:'PRUEBAS-DEMO'});
+     journal.set(k,{status:'pending',signature:payload.p_data.signature,store:selectedStore,reference:'PRUEBAS-DEMO'});
      return {data:{status:'claimed'}};
     }
     if(a==='complete'){
@@ -66,7 +68,7 @@ const fixture=(opts={})=>{
  });
  const request=async(url,opts2)=>{
   const u=new URL(url),method=opts2.method;calls.push({type:'http',method,path:u.pathname,search:u.search,body:opts2.body});
-  assert.equal(u.origin,'https://hortimatic.com');assert.ok(opts2.headers.Authorization.startsWith('Basic '));
+  assert.equal(u.origin,new URL(config.endpoint).origin);assert.ok(opts2.headers.Authorization.startsWith('Basic '));
   if(u.pathname==='/api/')return xml('<prestashop><api><products get="true" post="true" put="true"/></api></prestashop>');
   if(method==='POST'){created=true;return xml('<prestashop><product><id><![CDATA[701]]></id></product></prestashop>');}
   if(u.pathname==='/api/products/701')return xml(verified);
@@ -142,6 +144,19 @@ test('alta verificada por ruta completa utiliza diario idempotente y jamás llam
  assert.equal(f.calls.filter(x=>x.type==='http'&&x.method==='POST').length,1);
  assert.deepEqual(f.calls.filter(x=>x.name==='totus_prestashop_product_create_journal').map(x=>x.payload.p_action),['lookup','claim','complete']);
  assert(!JSON.stringify(result).includes('fake-key-not-real'));
+}));
+
+test('a newly registered fourth website completes the same create route without a hardcoded name or origin',()=>context(async()=>{
+ const store='web-four',f=fixture({store,config:{name:'Conexión con nombre libre',endpoint:'https://four.example/api/'}});
+ const values={...base,store,action:'prestashop_product_create_prepare',reference:'PRUEBAS-DEMO',price:'0.00',category_id:'33',translations:[{language_id:'1',name:'Pruebas',link_rewrite:'pruebas'}]};
+ const response=await handle(req(values),environment(true),f.factory,f.request),pre=await response.json();
+ assert.equal(response.status,200,JSON.stringify(pre));
+ const published=await handle(req({...values,action:'prestashop_product_create_commit',request_id:'44444444-4444-4444-8444-444444444444',confirmed:true,expected_fingerprint:pre.fingerprint}),environment(true),f.factory,f.request);
+ const result=await published.json();assert.equal(published.status,200,JSON.stringify(result));assert.equal(result.record_id,'701');assert.equal(result.verified,true);
+ assert.equal(f.calls.filter(c=>c.type==='http'&&c.method==='POST').length,1);
+ const wrong=await handle(req({...values,store:'web-other'}),environment(true),f.factory,f.request);assert.equal(wrong.status,400);
+ const disabled=fixture({store,status:'disabled',config:{endpoint:'https://four.example/api/'}});
+ assert.equal((await handle(req(values),environment(true),disabled.factory,disabled.request)).status,400);assert.equal(disabled.calls.some(c=>c.type==='http'),false);
 }));
 
 

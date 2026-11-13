@@ -1,8 +1,9 @@
+import {WEBSITE_CHOICES} from './website-registry.js';
 // Product photos stay recognizable in the grid, with one preview per workspace.
 export function attachProductPhotoPreviews(root){
  let preview=null,current=null,dialog=null,suppressFocus=false;
  const controller=new AbortController(),signal=controller.signal;
- const largeSource=img=>{try{const url=new URL(img.currentSrc||img.src);if(!['hortimatic.com','newoldsmok.com'].includes(url.hostname)||!/^\/\d+-[a-z_]+\/product\.jpg$/.test(url.pathname))return null;url.pathname=url.pathname.replace(/-home_default\//,'-large_default/');return url.href;}catch{return null;}};
+ const largeSource=img=>{try{const url=new URL(img.currentSrc||img.src);if(!WEBSITE_CHOICES.some(s=>new URL(s.origin).hostname===url.hostname)||!/^\/\d+-[a-z_]+\/product\.jpg$/.test(url.pathname))return null;url.pathname=url.pathname.replace(/-home_default\//,'-large_default/');return url.href;}catch{return null;}};
  const hide=()=>{preview?.remove();preview=null;current?.removeAttribute('aria-describedby');current=null;};
  const show=(img,anchor)=>{
   const src=largeSource(img);if(!src)return;hide();current=anchor;

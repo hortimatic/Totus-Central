@@ -1,4 +1,5 @@
 import {moduleReads} from './module-navigation.js';
+import {installWebsiteContext,resetWebsiteChoices} from './website-registry.js';
 import {documentMimeType} from './file-utils.js';
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
@@ -7,9 +8,11 @@ import {setRolePermissions} from './permissions.js';
 import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
 import {assertService,matchesSavedFields,verifiedWrite} from './write-safety.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let websiteOwner=null,websiteLoad=null;
+sb.auth.onAuthStateChange((_event,session)=>{if(websiteOwner!==session?.user?.id){websiteOwner=null;websiteLoad=null;resetWebsiteChoices();}});
 const assert=assertService;
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
-export async function logout(){await sb.auth.signOut()}
+export async function logout(){await sb.auth.signOut();resetWebsiteChoices()}
 export async function recover(email){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});assert(r,'Recuperación')}
 // Always sort by a unique key before paginating. This prevents missing
 // or duplicated rows when a date/other display sort contains ties.
@@ -65,7 +68,16 @@ export async function remove(table,id){
  if(!Array.isArray(r.data)||r.data.length!==1)throw new Error(`No se eliminó el registro de ${table}. Puede faltar permiso, estar ya borrado o tener referencias protegidas. Actualiza y comprueba su estado.`);
  return r.data[0];
 }
-export async function rpc(name,args={}){const r=await sb.rpc(name,args);assert(r,name);return r.data}
+export async function rpc(name,args={}){
+ const owner=state.session?.user?.id||state.user?.id||null,r=await sb.rpc(name,args);assert(r,name);
+ const current=()=>owner===(state.session?.user?.id||state.user?.id||null);
+ if(current()&&Array.isArray(r.data?.websites)){installWebsiteContext(r.data);websiteOwner=owner;}
+ else if(current()&&['totus_home_dashboard','totus_header_online_orders','totus_online_order_watch','totus_prestashop_automations'].includes(name)&&(websiteOwner!==owner||(name==='totus_home_dashboard'&&args?.p_action==='read'))){
+  if(!websiteLoad)websiteLoad=sb.rpc('totus_websites',{p_action:'list'}).finally(()=>{websiteLoad=null;});
+  const websites=await websiteLoad;assert(websites,'Tiendas conectadas');if(current()){installWebsiteContext(websites.data);websiteOwner=owner;}
+ }
+ return r.data;
+}
 export async function invokeTeam(payload){const s=(await sb.auth.getSession()).data.session;if(!s)throw new Error('Sesión no válida');const res=await fetch(`${SUPABASE_URL}/functions/v1/team-admin`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify(payload)});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||`Error ${res.status}`);return body}
 export async function invokeRecovery(jobId,action='process',values={}){
  const session=(await sb.auth.getSession()).data.session;

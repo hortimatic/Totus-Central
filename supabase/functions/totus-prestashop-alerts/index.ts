@@ -31,6 +31,7 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   for(const store of claim.rule.stores){
    const profile=storeConnection(claim.connections,store);if(!profile)throw Error('Falta una conexión única y verificada para '+store+'.');
    const connection=checked(await client.rpc('totus_api_server',{p_id:profile.id,p_revision:profile.revision}));
+   if(profile.store_key)Object.assign(connection,{store_key:profile.store_key,website_origin:profile.website_origin,website_name:profile.website_name});
    const read=async(resource:string,params:any)=>{
     if(Date.now()>deadline)throw Error('Tiempo de ejecución agotado; el siguiente intento conservará los avisos ya enviados.');
     const call=crypto.randomUUID();checked(await client.rpc('totus_api_call',{p_id:profile.id,p_revision:profile.revision,p_call:call}));
@@ -39,7 +40,7 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
      checked(await client.rpc('totus_api_call',{p_id:profile.id,p_revision:profile.revision,p_call:call,p_result:{ok:true,store,resource,page:params.page,rows_count:result.rows.length}}));return result;
     }catch(e){await client.rpc('totus_api_call',{p_id:profile.id,p_revision:profile.revision,p_call:call,p_result:{ok:false}});throw e;}
    };
-   const result=await automationResult(claim.rule,store,{from:claim.from,to:claim.to,report_from:claim.report_from},{read,seen:(claim.seen||[]).filter((s:any)=>s.store===store).map((s:any)=>s.id),onOrder:async(order:any,text:string)=>{const sent=checked(await client.rpc('totus_prestashop_job_deliver',{p_job:job,p_store:store,p_order:String(order.id),p_body:text}));if(!sent.duplicate)stats.notices++;}});
+   const result=await automationResult(claim.rule,store,{from:claim.from,to:claim.to,report_from:claim.report_from},{read,storeName:profile.website_name||store,seen:(claim.seen||[]).filter((s:any)=>s.store===store).map((s:any)=>s.id),onOrder:async(order:any,text:string)=>{const sent=checked(await client.rpc('totus_prestashop_job_deliver',{p_job:job,p_store:store,p_order:String(order.id),p_body:text}));if(!sent.duplicate)stats.notices++;}});
    if(result.body){const sent=checked(await client.rpc('totus_prestashop_job_deliver',{p_job:job,p_store:store,p_order:'report:'+claim.slot,p_body:result.body}));if(!sent.duplicate)stats.notices++;}
    stats.stores.push({store,count:result.count,unknown:result.unknown||0});stats.scanned+=result.scanned;
   }

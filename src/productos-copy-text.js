@@ -1,5 +1,6 @@
 import {LOCALIZED_PRODUCT_FIELDS} from './productos-write-contract.js';
-const shops={hortimatic:{label:'Hortimatic',host:'hortimatic.com',words:['hortimatic']},newoldsmok:{label:'NewOldSmok',host:'newoldsmok.com',words:['newoldsmok','new old smok','new-old-smok']}};
+import {WEBSITE_CHOICES} from './website-registry.js';
+const shops=new Proxy({}, {get:(_target,key)=>{const site=WEBSITE_CHOICES.find(s=>s.key===key);return site?{label:site.name,host:new URL(site.origin).host,words:key==='newoldsmok'?['newoldsmok','new old smok','new-old-smok']:[site.name]}:undefined;}});
 const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 export function adaptStoreText(value,source,target,{slug=false}={}){
  if(!shops[source]||!shops[target])throw Error('Tiendas de adaptación no válidas.');

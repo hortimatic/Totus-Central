@@ -30,9 +30,9 @@ const defaultSpecs=[
 // These panels own live form state or asynchronous DOM IDs and cannot safely be cloned.
 const nonClonable=new Set(['pricing.quick','home.activity','tasks.today','system.status','home.alerts']);
 const confirmDiscard=()=>typeof window==='undefined'||window.confirm('Hay cambios del Inicio sin guardar. ¿Descartarlos?');
-const safeStore=key=>PRESTASHOP_STORES.some(s=>s.key===key)?key:'all';
+const safeStore=key=>typeof key==='string'&&key&&key!=='all'?key:'all';
 const safeDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:'';
-const labelStore=k=>PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Todas las tiendas';
+const labelStore=k=>k==='all'?'Todas las tiendas':PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Web no disponible';
 const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows);return m.complete&&sourceComplete?money(m.value):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
 const orderMarginText=row=>Number.isFinite(row.margin_value)&&row.currency_code==='EUR'?money(row.margin_value):'Costes pendientes';
 const sellerText=row=>row.employee_name||'Sin vendedor vinculado';
@@ -182,7 +182,7 @@ function psSummary(w,data,catalog){
  return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function prestashopProductsTable(w,data){
- const shop=safeStore(w.scope.store),shops=shop==='all'?PRESTASHOP_STORES.map(s=>s.key):[shop];
+ const shop=safeStore(w.scope.store),shops=shop==='all'?PRESTASHOP_STORES.filter(s=>s.include_in_totals!==false).map(s=>s.key):[shop];
  const limit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
  const chart=w.filters.productView==='bars';
  const sections=shops.map(key=>{
@@ -203,7 +203,7 @@ function prestashopProductsTable(w,data){
  return '<div class="home-products-widget">'+periodControls(w)+sections+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar productos vendidos</button><button type="button" class="btn secondary" data-home-command="open-orders" data-id="'+esc(w.id)+'">Abrir pedidos originales</button></div></div>';
 }
 function prestashopCatalogQuality(w,data,canOpen=false){
- const scope=safeStore(w.scope.store),shops=scope==='all'?PRESTASHOP_STORES.map(x=>x.key):[scope];
+ const scope=safeStore(w.scope.store),shops=scope==='all'?PRESTASHOP_STORES.filter(s=>s.include_in_totals!==false).map(x=>x.key):[scope];
  return '<div class="home-catalog-quality">'+shops.map(shop=>{
   const current=data.get(shop);
   if(!current)return '<section class="home-quality-shop"><h4>'+esc(labelStore(shop))+'</h4><p class="small muted">Sin consulta de catálogo. Pulsa Actualizar calidad.</p></section>';
@@ -213,7 +213,7 @@ function prestashopCatalogQuality(w,data,canOpen=false){
  }).join('')+'<div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar calidad</button><button type="button" class="btn secondary" data-home-command="open-prestashop-tab" data-tab="catalog">Abrir catálogo</button></div></div>';
 }
 
-function homeOrderProductImage(item){const image=String(item.image||'');let url;try{url=new URL(image);}catch{return '';}return url.protocol==='https:'&&['hortimatic.com','newoldsmok.com'].includes(url.hostname)?'<img class="home-order-product-image" src="'+esc(url.href)+'" alt="'+esc(item.name||'Producto')+'" loading="lazy" decoding="async">':'';}
+function homeOrderProductImage(item){const image=String(item.image||'');let url;try{url=new URL(image);}catch{return '';}return url.protocol==='https:'&&PRESTASHOP_STORES.some(s=>new URL(s.origin).hostname===url.hostname)?'<img class="home-order-product-image" src="'+esc(url.href)+'" alt="'+esc(item.name||'Producto')+'" loading="lazy" decoding="async">':'';}
 function compactOrderCard(row){
  const total=row._currency==='EUR'&&cents(row.total_paid_tax_incl)!==null?money(cents(row.total_paid_tax_incl)/100):'Moneda sin verificar';
  const products=Array.isArray(row._products)&&row._products.length?row._products.map(p=>'<span class="home-order-product-line">'+homeOrderProductImage(p)+'<span>'+esc(p.name)+' · '+esc(String(p.qty))+' uds</span></span>').join(''):'Consulta el pedido original para ver productos';
@@ -226,7 +226,7 @@ function compactOrderCard(row){
 }
 
 function psOrders(w,data){
- const store=safeStore(w.scope.store);const shops=store==='all'?PRESTASHOP_STORES.map(s=>s.key):[store];
+ const store=safeStore(w.scope.store);const shops=store==='all'?PRESTASHOP_STORES.filter(s=>s.include_in_totals!==false).map(s=>s.key):[store];
  const responses=shops.map(s=>data?.[s]).filter(Boolean);const errors=responses.map(r=>r.error).filter(Boolean);
  if(!responses.length)return periodControls(w)+psPlaceholder(w);
  const allRows=responses.flatMap(r=>r.error?[]:r.rows.map(order=>({...order,_shop:r.shop,_currency:r.currencies.get(String(order.id_currency))||null,_products:r.detailsByOrder?.get(String(order.id))||null})));
@@ -298,8 +298,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const status=(message,warning=false)=>{const el=root?.querySelector('[data-home-status]');if(el){el.textContent=message;el.classList.toggle('home-error',warning)}};
  const layoutKey=w=>[safeStore(w.scope.store),...Object.values(dateRange(w))].join('|');
  const dataFor=w=>Object.fromEntries(PRESTA_SHOPS(w).map(k=>[k,ordersData.get(k+'|'+Object.values(dateRange(w)).join('|'))]));
- function PRESTA_SHOPS(w){return safeStore(w.scope.store)==='all'?PRESTASHOP_STORES.map(x=>x.key):[safeStore(w.scope.store)]}
+ function PRESTA_SHOPS(w){return safeStore(w.scope.store)==='all'?PRESTASHOP_STORES.filter(s=>s.include_in_totals!==false).map(x=>x.key):[safeStore(w.scope.store)]}
  const freshWidget=(w)=>{
+  if(usesShopData(w)&&safeStore(w.scope.store)!=='all'&&!PRESTASHOP_STORES.some(s=>s.key===w.scope.store))return '<p class="home-ps-message">Esta web ya no está disponible. Selecciona otra en la configuración del panel; sus datos no se mezclarán con otras tiendas.</p>';
   if(w.type==='cash.openings'&&safeStore(w.scope.store)!=='all')return storeOpeningWidget(w);
   if(w.type==='prestashop.summary')return psSummary(w,dataFor(w),catalogData.get(safeStore(w.scope.store)));
   if(w.type==='prestashop.quality')return prestashopCatalogQuality(w,catalogData,!!onOpenProduct&&can('productos','view'));
@@ -667,6 +668,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
  }
  async function fetchFor(w,force=false){
+  if(w&&safeStore(w.scope.store)!=='all'&&!PRESTASHOP_STORES.some(s=>s.key===w.scope.store))return;
   if(w?.type==='prestashop.quality')return fetchCatalog(w,force);
   if(!w||!usesShopData(w)||!can('prestashop','view')||!live())return;
   const {from,to}=dateRange(w);if(to<from){status('Fecha final anterior a la inicial.',true);return}

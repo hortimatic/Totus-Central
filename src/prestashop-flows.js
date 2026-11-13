@@ -1,8 +1,9 @@
+import {websiteKey} from './website-registry.js';
 import {PRESTASHOP_QUERY_RECIPES} from './prestashop-queries.js';
 const date=s=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;
 export function validatePrestashopFlow(raw){
  const flow={id:String(raw.id||''),name:String(raw.name||'').trim(),store:raw.store,recipe:raw.recipe,period:raw.period,start:raw.start||'00:00',end:raw.end||'23:59'};
- if(!/^[a-zA-Z0-9-]{1,80}$/.test(flow.id)||flow.name.length<3||flow.name.length>100||!['hortimatic','newoldsmok'].includes(flow.store)||!PRESTASHOP_QUERY_RECIPES.some(q=>q.id===flow.recipe&&q.target)||!['today','week','month'].includes(flow.period)||![flow.start,flow.end].every(s=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(s)))throw Error('Revisa el nombre, la tienda, la consulta, el periodo y las horas del flujo.');
+ if(!/^[a-zA-Z0-9-]{1,80}$/.test(flow.id)||flow.name.length<3||flow.name.length>100||!websiteKey(flow.store)||!PRESTASHOP_QUERY_RECIPES.some(q=>q.id===flow.recipe&&q.target)||!['today','week','month'].includes(flow.period)||![flow.start,flow.end].every(s=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(s)))throw Error('Revisa el nombre, la tienda, la consulta, el periodo y las horas del flujo.');
  return flow;
 }
 export function prestashopFlowRange(flow,today){

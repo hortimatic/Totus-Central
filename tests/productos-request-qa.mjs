@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {buildProductRequest,renderProductRequestForm} from '../src/productos-request.js';
 test('encargo desde URL conserva tienda, precios y medidas sin inventar datos ni imágenes',()=>{
  const result=buildProductRequest({operation:'url',store:'ambas',url:'https://proveedor.example/producto',cost:'3,90',sale:'12.00',weight:'0.2',images:'https://proveedor.example/a.png'});
- assert.match(result,/Hortimatic y NewOldSmok/);assert.match(result,/3,90/);assert.match(result,/state=1/);assert.match(result,/no generes imágenes/i);assert.match(result,/dos recorridos independientes/);
+ assert.match(result,/Hortimatic y NewOldSmok/);assert.match(result,/3,90/);assert.match(result,/state=1/);assert.match(result,/no generes imágenes/i);assert.match(result,/un recorrido independiente por cada web indicada/);
  assert.throws(()=>buildProductRequest({operation:'url',store:'hortimatic',url:'javascript:bad'}),/HTTPS/);
  assert.throws(()=>buildProductRequest({operation:'url',store:'hortimatic',url:'https://user:pass@example.com/a'}),/credenciales/);
  assert.throws(()=>buildProductRequest({operation:'url',store:'hortimatic',url:'https://proveedor.example/a',sale:'-1'}),/Precio/);

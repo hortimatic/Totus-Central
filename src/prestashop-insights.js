@@ -1,3 +1,4 @@
+import {websiteKey} from './website-registry.js';
 // Money from the source remains separate from catalogue-quality diagnostics.
 export function sourceCents(value){
  if(typeof value!=='string'||!/^\d{1,10}(?:\.\d{1,6})?$/.test(value))return null;
@@ -28,7 +29,7 @@ export function paymentReclassification(original,{from,to,amount,reason}){
  return {original:{...original},adjusted,reason:reason.trim(),total:methods.reduce((sum,k)=>sum+original[k],0),accounting_modified:false};
 }
 export function ticketSourceKey(store,order){
- if(!['hortimatic','newoldsmok'].includes(store)||!/^\d{1,15}$/.test(String(order?.id)))throw Error('Origen de pedido no válido.');
+ if(!websiteKey(store)||!/^\d{1,15}$/.test(String(order?.id)))throw Error('Origen de pedido no válido.');
  return 'prestashop:'+store+':order:'+order.id;
 }
 
