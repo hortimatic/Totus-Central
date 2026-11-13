@@ -364,6 +364,7 @@ jobs:
       - run: node tests/home-widgets-core-qa.mjs
       - run: node tests/home-widgets-integration-browser-qa.mjs
       - run: node tests/home-widgets-actions-browser-qa.mjs
+      - run: node tests/home-navigation-draft-browser-qa.mjs
       - run: node tests/office-lazy-browser-qa.mjs
       - run: node tests/office-lazy-flows-browser-qa.mjs
       - run: node tests/office-lazy-resilience-browser-qa.mjs
