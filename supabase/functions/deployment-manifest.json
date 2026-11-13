@@ -106,7 +106,8 @@
         "supabase/functions/totus-ai/tools.ts",
         "supabase/functions/totus-assistant/assistant-attachments.ts",
         "supabase/functions/totus-assistant/assistant-operations.ts",
-        "supabase/functions/totus-connections/transport.js"
+        "supabase/functions/totus-connections/transport.js",
+        "src/website-registry.js"
       ]
     },
     {

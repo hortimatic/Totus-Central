@@ -20,7 +20,7 @@ Un panel guardado de una web retirada muestra que ya no está disponible, en lug
 ## Alcance y diagnóstico
 El alta automática actual admite Webservice nativo en la raíz HTTPS /api/. Una clave incorrecta, permisos ausentes, recursos de terceros no publicados o autenticación bloqueada por el alojamiento requieren corregir la configuración de esa web: Totus no puede concederse permisos ni inventar datos. El registro común evita cambios de código para nuevas instalaciones compatibles; no convierte recursos privados de POSTPV en API nativa.
 
-HTTP 401 en Hortimatic 2.0: se ha verificado Webservice habilitado y clave activa; el modo CGI nativo está desactivado. Su cambio queda pendiente de aprobación expresa y prueba posterior. No dar la conexión por operativa hasta obtener respuesta correcta desde Totus.
+HTTP 401 en Hortimatic 2.0: se ha verificado Webservice habilitado y clave activa; el modo CGI nativo se ha activado con aprobación expresa y guardado correctamente. La prueba posterior desde Totus sigue devolviendo 401. No dar la conexión por operativa hasta obtener respuesta correcta desde Totus.
 
 ## Verificación de esta entrega
 - Pruebas unitarias: cuarta web, UUID exacto, URLs, caché, permisos, copia y encargos al asistente.
@@ -30,4 +30,4 @@ HTTP 401 en Hortimatic 2.0: se ha verificado Webservice habilitado y clave activ
 - La prueba real de Hortimatic 2.0 está pendiente del 401. No se ha cambiado el control de Hortimatic antigua.
 
 ## Despliegue
-Aplicar en orden 20261113142717_independent_websites y 20261113142930_dynamic_website_operations. Actualizar totus-connections, totus-assistant y totus-prestashop-alerts, conservando su autenticación actual. Publicar frontend solo después de las migraciones y servicios. Verificar los selectores y lecturas reales antes de cerrar la entrega.
+Aplicar en orden 20261113142717_independent_websites y 20261113142930_dynamic_website_operations. Actualizar totus-connections, totus-assistant, totus-ai y totus-prestashop-alerts, conservando su autenticación actual. Publicar frontend solo después de las migraciones y servicios. Verificar los selectores y lecturas reales antes de cerrar la entrega.
