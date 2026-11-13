@@ -603,6 +603,14 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .activity-legend{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:18px;font-size:13px}
 .activity-legend span{display:inline-flex;align-items:center;gap:7px}
 .activity-legend i{display:inline-block;width:12px;height:12px;border-radius:50%}
+.activity-interactive .activity-legend{display:flex;flex-wrap:wrap;gap:8px 16px;border:0;padding:0;margin:12px 0}
+.activity-interactive .activity-legend legend{font-size:.84rem;margin-bottom:8px}
+.activity-interactive .activity-legend label{display:inline-flex;gap:6px;align-items:center;font-size:.82rem;cursor:pointer;min-height:32px}
+.activity-interactive .activity-legend input{width:20px;height:20px;min-width:20px;min-height:20px;margin:0}
+.activity-interactive:has([data-activity-toggle="sales"]:not(:checked)) [data-activity-series="sales"],
+.activity-interactive:has([data-activity-toggle="fiscal"]:not(:checked)) [data-activity-series="fiscal"],
+.activity-interactive:has([data-activity-toggle="internal"]:not(:checked)) [data-activity-series="internal"],
+.activity-interactive:has([data-activity-toggle="balance"]:not(:checked)) [data-activity-series="balance"]{display:none}
 .activity-data{margin-top:12px}.activity-data summary{cursor:pointer;font-weight:600}.activity-data .table-wrap{max-height:320px;overflow:auto;margin-top:10px}
 .home-activity .filters{padding-inline:0}.home-period-kpis small{line-height:1.4}
 .report-order-hint,.report-block-controls{display:flex;align-items:center;justify-content:space-between;gap:12px}
