@@ -1,3 +1,4 @@
+import {withApplicationCors,APPLICATION_ORIGINS} from '../../../src/application-cors.js';
 import {createTeamChatFiles} from './team-chat-files.js';
 import {createDocumentRemovalWorker} from './document-removal-worker.js';
 import {importStockDocument} from './stock-import.js';
@@ -574,7 +575,7 @@ async function chatScoped(req:Request){
 const chatFiles=createTeamChatFiles({admin,scoped:chatScoped,check,token,root,ensurePath,graph,encodedPath,fileHash,headers});
 const backupDocumentLinks=createBackupDocumentLinks({admin,check,config,token,root,resolveExtra:(path:string)=>chatFiles.resolvePath(path,new Request(url),true)});
 const directBackup=createDirectBackupTransfer({admin,check,config,token,root,ensurePath,graph,encodedPath,fileHash});
-Deno.serve(async req=>{
+Deno.serve(withApplicationCors(async (req:Request)=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  try{
   const requestUrl=new URL(req.url);
@@ -583,7 +584,7 @@ Deno.serve(async req=>{
    return await callback(req);
   }
   if(req.method!=='POST')return json({error:'Método no permitido.'},405);
-  if(req.headers.get('origin')&&req.headers.get('origin')!==origin)return json({error:'Origen no autorizado.'},403);
+  if(req.headers.get('origin')&&!APPLICATION_ORIGINS.includes(req.headers.get('origin')!))return json({error:'Origen no autorizado.'},403);
   const body=await req.json().catch(()=>({})),action=String(body.action||'status');
   const jobKey=req.headers.get('x-totus-backup-job')||'';
   if(jobKey){
@@ -601,7 +602,8 @@ Deno.serve(async req=>{
    if(action==='backup-file-url')return json(await backupFileUrl(String(body.run_id||''),String(body.path||'')));
    const result=action==='mirror-backups'?await copyBackupBatches(body.full===true):await runDocumentMirror();
    if(action==='mirror-documents')await chatFiles.reconcilePending();
-   if(result.copied||result.cleanup?.archived)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:result.pending,retirados:result.cleanup?.archived||0}}),'No se pudo registrar el lote automático.');
+   const cleanup='cleanup' in result?result.cleanup:undefined,pending='pending' in result?result.pending:undefined;
+   if(result.copied||cleanup?.archived)check(await admin.from('ops_audit_log').insert({user_id:null,user_email:'Tarea automática',area:'administracion',action:action==='mirror-backups'?'onedrive_copia_seguridad_copiada':'onedrive_documentos_copiados',detail:{conexion:'OneDrive',copiados:result.copied,pendientes:pending,retirados:cleanup?.archived||0}}),'No se pudo registrar el lote automático.');
    return json(result);
   }
   if(action.startsWith('chat-file-'))return await chatFiles.handle(req,body);
@@ -664,4 +666,4 @@ Deno.serve(async req=>{
   const message=e instanceof Error?e.message:'No se pudo completar la conexión.';
   return json({error:message},message==='Acceso denegado.'?403:400);
  }
-});
+}));

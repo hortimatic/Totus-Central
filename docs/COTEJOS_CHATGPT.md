@@ -46,8 +46,8 @@ No leas secretos, no cambies Microsoft y no modifiques tablas contables ni Prest
 
 ### Leer una recepción
 Con el identificador que proporciona Diego:
-- Lee las tablas públicas ops_stock_receipts y ops_stock_sources mediante el conector SQL autorizado.
-- Es preferible llamar a public.totus_stock_context(p_id, p_actor_email). p_actor_email es la cuenta administradora activa que autoriza el trabajo; consúltala en team_members si no la conoces. No inventes una identidad.
+- Usa la operación autenticada de tu propia cuenta para llamar a public.totus_stock_context con p_id. La pasarela aporta p_actor_email desde la identidad verificada del agente; no elijas la cuenta de Diego ni otra cuenta de team_members.
+- Si este chat no dispone de esa operación, sigue docs/INICIO_CHATGPT_ACTUAL.md para comprobar su acceso. No sustituyas una sesión ausente por SQL privilegiado ni declares autorizado un actor por su nombre.
 - Devuelve la recepción, su revisión, documentos, texto extraído, cobertura de páginas y equivalencias confirmadas.
 - El campo graph_item_url apunta al identificador exacto del archivo en OneDrive. Úsalo con el conector de SharePoint/OneDrive para leer el original.
 - Nunca conviertas el identificador de OneDrive en un enlace público. No compartas direcciones temporales de descarga.

@@ -1,3 +1,4 @@
+import {withApplicationCors} from '../../../src/application-cors.js';
 import {createCloudBackupReader} from '../../../src/cloud-backup-reader.js';
 import {withRateLimitRetry,isRateLimited} from './rate-limit.js';
 import {createPartitionedBackup} from './partitioned-job.js';
@@ -99,7 +100,7 @@ async function cleanupUnusedFiles(){
     const path=folder+'/'+object.name;
     const base=backup?path.replace(/\.part-\d{4}$/,''):path;
     if(used.has(base)||used.has(path))continue;
-    const created=Date.parse(object.created_at||object.updated_at);
+    const created=Date.parse(object.created_at||object.updated_at||'');
     if(!Number.isFinite(created)||Date.now()-created<15*60*1000)continue;
     if(backup&&!/\.totusbackup(?:\.part-\d{4})?$/.test(path))continue;
     removals.push({bucket,path,bytes:Number(object.metadata.size)||0});
@@ -234,7 +235,7 @@ async function run(mode:string,req:Request){
    for(const item of prepared.sessions){if(typeof item.url!=='string'||new URL(item.url).protocol!=='https:')throw new Error('Destino de subida no válido.');sessions.set(item.path,item.url);}
   }
   const trustedHashes=new WeakMap<Uint8Array,string>();
-  const CloudBase=cloudBackupZip({path:pathname,write:async(path:string,bytes:Uint8Array)=>{
+  const CloudBase=cloudBackupZip({path:pathname,write:async(path:string,bytes:Uint8Array<ArrayBuffer>)=>{
    if(direct){
     const url=sessions.get(path);if(!url)throw new Error('La copia supera el inventario de subida preparado.');
     const sha256=await NativeBackupZip.archiveHash(bytes);
@@ -261,7 +262,7 @@ async function run(mode:string,req:Request){
    if(error||!data)throw new Error('No se pudo verificar un fragmento de la copia.');return data;
   }});
   class CloudZip extends CloudBase{
-   static archiveHash=async(value:any)=>value instanceof Uint8Array&&trustedHashes.has(value)?trustedHashes.get(value)!:archiveHash(value);
+   static override archiveHash=async(value:any)=>value instanceof Uint8Array&&trustedHashes.has(value)?trustedHashes.get(value)!:archiveHash(value);
   }
   await progress("Leyendo documentos y preparando archivo");let filesRead=0;
   const {bytes:archive,manifest}=await buildRecoveryArchive(snapshot,CloudZip,async(bucket:string,path:string)=>{
@@ -349,12 +350,13 @@ async function partitionedRun(mode:string,req:Request){
    await admin.from('ops_backup_runs').update({status:'failed',finished_at:new Date().toISOString(),error_message:String(error instanceof Error?error.message:typeof error==='object'&&error&&'message' in error?error.message:error).slice(0,1000)}).eq('id',id);throw error;
   }
  }
+ if(!job)throw new Error('No se confirmó el trabajo de la copia.');
  const at=new Date().toISOString(),lease=new Date(Date.now()+180000).toISOString();
  const claimed=await admin.from('ops_backup_work').update({lease_until:lease}).eq('run_id',job.run_id).or('lease_until.is.null,lease_until.lt.'+at).select('run_id').maybeSingle();
  if(claimed.error)throw claimed.error;if(!claimed.data)return {pending:true,id:job.run_id,reason:'El servidor está preparando un componente.'};
  let completed:any=null;
  try{
-  const writeComponent=async(path:string,bytes:Uint8Array,sha256:string)=>withRateLimitRetry(async()=>{
+  const writeComponent=async(path:string,bytes:Uint8Array<ArrayBuffer>,sha256:string)=>withRateLimitRetry(async()=>{
    // Retrying a stopped batch may find its immutable verified component already saved.
    const proof=await oneDriveAction(req,'verify-backup-file',{run_id:job.run_id,path,size:bytes.length,sha256}).catch(error=>{if(isRateLimited(error))throw error;return null;});
    if(proof?.verified===true)return;
@@ -402,6 +404,7 @@ async function partitionedRun(mode:string,req:Request){
    await admin.from('ops_backup_runs').update({error_message:'Preparando componentes: '+result.job.cursor+' de '+result.job.files.length+' archivos'}).eq('id',job.run_id).eq('status','running');
    return {pending:true,id:job.run_id,files_completed:result.job.cursor,files_total:result.job.files.length};
   }
+  if(!result.index||!('sha256' in result.index)||typeof result.index.sha256!=='string')throw new Error('La copia completa no incluye su índice verificado.');
   const {snapshot}=result.job;
   const indexBytes=new TextEncoder().encode(JSON.stringify(result.index));
   const saved=await admin.storage.from('business-backups').upload(result.job.path,new Blob([indexBytes]),{contentType:'application/json',upsert:true});if(saved.error)throw saved.error;
@@ -437,14 +440,15 @@ async function partitionedRun(mode:string,req:Request){
 async function capacityProbe(){
  const MB=1024*1024,path='simulaciones/capacidad-'+crypto.randomUUID()+'.totusbackup',payload=new Uint8Array(MB);
  crypto.getRandomValues(payload.subarray(0,65536));for(let i=65536;i<payload.length;i+=65536)payload.set(payload.subarray(0,65536),i);
- const paths=Array.from({length:112},(_,i)=>'simulation/'+i+'.bin'),database=Object.fromEntries(RECOVERY_TABLES.map((table:string)=>[table,[]]));
+ const paths=Array.from({length:112},(_,i)=>'simulation/'+i+'.bin'),database:Record<string,Record<string,unknown>[]>=Object.fromEntries(RECOVERY_TABLES.map((table:string)=>[table,[]]));
  database.ops_documents=paths.map((storage_path:string,i:number)=>({id:String(i),storage_path}));
  const snapshot={project_ref:'simulation',database_instance:'11111111-1111-4111-8111-111111111111',schema_hash:'a'.repeat(64),revision:'b'.repeat(64),created_at:new Date().toISOString(),identities:[],database,storage:{'business-documents':paths,'business-assets':[]}};
- let peakBuffer=0;const Base=cloudBackupZip({path,write:async(p:string,b:Uint8Array)=>{
+ let peakBuffer=0;const Base=cloudBackupZip({path,write:async(p:string,b:Uint8Array<ArrayBuffer>)=>{
   const result=await admin.storage.from('business-backups').upload(p,new Blob([b]),{contentType:'application/octet-stream',upsert:false});if(result.error)throw result.error;
  },read:async(p:string)=>{const result=await admin.storage.from('business-backups').download(p);if(result.error||!result.data)throw new Error('Falta un fragmento de simulación.');return result.data;}});
- class Zip extends Base{async flush(final=false){peakBuffer=Math.max(peakBuffer,this.pendingBytes);return super.flush(final)}}
+ class Zip extends Base{override async flush(final=false){peakBuffer=Math.max(peakBuffer,this.pendingBytes);return super.flush(final)}}
  const start=Date.now(),built=await buildRecoveryArchive(snapshot,Zip,async()=>payload);
+ if(!('sha256' in built.bytes)||typeof built.bytes.sha256!=='string')throw new Error('La simulación no incluye su huella.');
  return {created:true,simulation_path:path,simulated_originals:112,size_bytes:built.bytes.byteLength,sha256:built.bytes.sha256,maximum_buffer_bytes:peakBuffer,elapsed_ms:Date.now()-start};
 }
 async function verifyCapacityProbe(path:string){
@@ -456,7 +460,7 @@ async function verifyCapacityProbe(path:string){
  if(restored.manifest.storage['business-documents'].length!==112)throw new Error('Simulación incompleta.');
  const paths=[...index.parts.map((p:any)=>p.path),path],removed=await admin.storage.from('business-backups').remove(paths);
  if(removed.error)throw new Error('La simulación pasó, pero no se pudo retirar su archivo sintético.');
- return {verified:true,simulated_originals:112,size_bytes:bytes.length,removed_objects:paths.length,elapsed_ms:Date.now()-start};
+ return {verified:true,simulated_originals:112,size_bytes:bytes.byteLength,removed_objects:paths.length,elapsed_ms:Date.now()-start};
 }
 async function retireVerifiedBackupParts(req:Request,id:string){
  if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Referencia de copia no válida.');
@@ -595,7 +599,7 @@ async function mirrorAfterBackup(req:Request,runId?:string){
  }catch(error){return {enabled:true,warning:String(error instanceof Error?error.message:error)};}
 }
 
-Deno.serve(async(req)=>{
+Deno.serve(withApplicationCors(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
  try{
@@ -617,4 +621,4 @@ Deno.serve(async(req)=>{
   const onedrive=await mirrorAfterBackup(req,result.id);
   return reply({...result,onedrive});
  }catch(e){return reply({error:String(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?e.message:e)},500);}
-});
+}));

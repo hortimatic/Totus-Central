@@ -26,7 +26,8 @@
         "supabase/functions/totus-backup-run/index.ts",
         "supabase/functions/totus-backup-run/native-zip.js",
         "supabase/functions/totus-backup-run/partitioned-job.js",
-        "supabase/functions/totus-backup-run/rate-limit.js"
+        "supabase/functions/totus-backup-run/rate-limit.js",
+        "src/application-cors.js"
       ]
     },
     {
@@ -42,7 +43,8 @@
         "src/recovery-runner.js",
         "supabase/functions/totus-backup-run/native-zip.js",
         "supabase/functions/totus-recovery/chat-file-reader.js",
-        "supabase/functions/totus-recovery/index.ts"
+        "supabase/functions/totus-recovery/index.ts",
+        "src/application-cors.js"
       ]
     },
     {
@@ -62,7 +64,8 @@
         "supabase/functions/totus-onedrive/document-removal-worker.js",
         "supabase/functions/totus-onedrive/index.ts",
         "supabase/functions/totus-onedrive/stock-import.js",
-        "supabase/functions/totus-onedrive/team-chat-files.js"
+        "supabase/functions/totus-onedrive/team-chat-files.js",
+        "src/application-cors.js"
       ]
     },
     {
@@ -107,7 +110,8 @@
         "supabase/functions/totus-assistant/assistant-attachments.ts",
         "supabase/functions/totus-assistant/assistant-operations.ts",
         "supabase/functions/totus-connections/transport.js",
-        "src/website-registry.js"
+        "src/website-registry.js",
+        "src/application-cors.js"
       ]
     },
     {
@@ -135,7 +139,8 @@
         "supabase/functions/totus-connections/contact-directory-write.js",
         "supabase/functions/totus-connections/contact-directory-create.js",
         "supabase/functions/totus-connections/contact-directory-delete.js",
-        "src/website-registry.js"
+        "src/website-registry.js",
+        "src/application-cors.js"
       ]
     },
     {
