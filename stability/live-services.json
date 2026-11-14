@@ -1,12 +1,13 @@
 {
-  "capturedAt": "2026-11-14",
+  "capturedAt": "2026-11-15",
   "normalization": "LF",
   "services": [
     {
       "name": "totus-connections",
-      "version": 47,
+      "version": 49,
       "files": {
-        "supabase/functions/totus-connections/index.ts": "0f757a82be526b2f22203536801a4872ed922d7f90693b8e430c21ba11a3154b",
+        "supabase/functions/totus-connections/index.ts": "173a579a84cbbdd0fff9ef28edd21956fe93061a974a2d1fbc23f0333d6cd6c4",
+        "src/application-cors.js": "f160f0a4af3bca08e878398e36f629f920ce321f5e52685a47c1340fc2d088ed",
         "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1",
         "supabase/functions/totus-connections/github.js": "41f50f5d49b8f2fa61e7bd6d25585801984a5ece16e7c1d489aff180a8cd0102",
         "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
@@ -14,7 +15,7 @@
         "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
         "supabase/functions/totus-connections/prestashop.js": "101d56f5736f04bbfda187c702319abe462d84cb6ca7aeb289f1d4ec4eb7ed3c",
         "src/productos-write-contract.js": "43e3dbadd0415dd1ad00ad4403a22a997f047c08eee46477ee19d73e3fb665f4",
-        "src/prestashop-readonly.js": "0bbb4f851969fd6c8ed02d9eafc3a469744db42f980ce7b70f3122c16fc01c17",
+        "src/prestashop-readonly.js": "0438cf6b565a81e8a3a973f834acfc90808874aa9cdb4bc1d03ad172725273a1",
         "src/contact-directory-contract.js": "2b9263d77ab144de442d1bedfa80e015c8169dfc1661405483d391f381a2a989",
         "supabase/functions/totus-connections/prestashop-write.js": "2fc21383141d36c79ce1f128434816189877235a17044cce7d6b82b431ce855d",
         "supabase/functions/totus-connections/prestashop-create.js": "57f55245e2d15e30f95a1ba364e12f3a7bb19d7dbbf1189ada91256ae98e5543",
@@ -43,9 +44,10 @@
     },
     {
       "name": "totus-ai",
-      "version": 25,
+      "version": 26,
       "files": {
-        "supabase/functions/totus-ai/index.ts": "028827fabf4c55dc813336d0bfa14b428b54b42390c72785a6c1bf9a54e9a6c4",
+        "supabase/functions/totus-ai/index.ts": "868b5ce69945b5531135f3b2701fe26c59e341b5dd7f7454c4a7e6ef72a03127",
+        "src/application-cors.js": "f160f0a4af3bca08e878398e36f629f920ce321f5e52685a47c1340fc2d088ed",
         "src/chat-files.js": "1ef1fd940c7827cdcf4f10da65e8a4363a9eac8b796fa3ed4db4f2e1459cf7bd",
         "src/agent-delivery.js": "531cf837f341285b6ee82839e4ec9d3e5bd7c968fc95ea03a2886d78be7fcf49",
         "src/utils.js": "f14b66d9614e9f514f43cb79749df1af90750c44cf688718bff0e1e2fc5e2666",
@@ -88,6 +90,59 @@
         "src/prestashop-queries.js": "3d15c99179dbf32ef93cb875223b7fc8f11096b05ce49ea49bfe5013daa34d99",
         "src/prestashop-insights.js": "da3b6c5a941d2448991cd94892c1da0785dd0ba39a663fc9dc5e0c7067239bc5",
         "src/recurring-expenses.js": "54e210284913080a93b7f28ef25304178db76abcda08905018661460dea39d8d"
+      }
+    },
+    {
+      "name": "totus-backup-run",
+      "version": 61,
+      "files": {
+        "supabase/functions/totus-backup-run/index.ts": "20c92077f0335218f059b4bd964b37259ae80c6a773f1f6ed3f2b3e93b0fe597",
+        "src/application-cors.js": "f160f0a4af3bca08e878398e36f629f920ce321f5e52685a47c1340fc2d088ed",
+        "src/cloud-backup-reader.js": "22964a54eb0c0733ccc3098cc3cf1b0a4ece6057c29623f2b924d89ba6591234",
+        "supabase/functions/totus-backup-run/rate-limit.js": "2110a91807ebf6dabf6857716906c66d3ce257fe946ab77b104538e95dff01f4",
+        "supabase/functions/totus-backup-run/partitioned-job.js": "2f3c7cc77f1ebb024c77955708bbce49c1d821802cf69e46771212b92847ddb5",
+        "src/recovery-core.js": "e4a76fb6b068c134e0a58690675831c3a8572d5dcbbc3af5cbc10f98d0d790e2",
+        "src/backup-set.js": "e0174ea6a335d8f17305ec516b89b3960f8f58214ea190b736f05600bee08e3b",
+        "supabase/functions/totus-backup-run/native-zip.js": "f5fd0663b40fd2fd81e5cff42ef7b7c23abd836c803bdf1a00acf8bed575d9af",
+        "src/backup-transport.js": "4951cd7f7a4235884d9b9a77201f0584fbba7098ade7e77947a7090f89fd1f0a",
+        "src/backup-index.js": "1f23d12b5710dc84bdced537c8fa499b03802550de01f9ae22f12c77753a63cf",
+        "src/backup-retention.js": "f7bd36df95db6aa2925ad4536a09fa6f920f5ceb636e8049ccfe7134567604b3"
+      }
+    },
+    {
+      "name": "totus-recovery",
+      "version": 21,
+      "files": {
+        "supabase/functions/totus-recovery/index.ts": "459ff2cd77260c4d914aecb2bd514e4d41f7cee06ca1faee6539c27517651b4a",
+        "src/application-cors.js": "f160f0a4af3bca08e878398e36f629f920ce321f5e52685a47c1340fc2d088ed",
+        "supabase/functions/totus-recovery/chat-file-reader.js": "df63fe4caba200c3c32112cf82d841f22fae540b0d00d177e8aa9c5e29729e33",
+        "src/cloud-backup-reader.js": "22964a54eb0c0733ccc3098cc3cf1b0a4ece6057c29623f2b924d89ba6591234",
+        "src/backup-set.js": "e0174ea6a335d8f17305ec516b89b3960f8f58214ea190b736f05600bee08e3b",
+        "src/recovery-core.js": "e4a76fb6b068c134e0a58690675831c3a8572d5dcbbc3af5cbc10f98d0d790e2",
+        "supabase/functions/totus-backup-run/native-zip.js": "f5fd0663b40fd2fd81e5cff42ef7b7c23abd836c803bdf1a00acf8bed575d9af",
+        "src/backup-transport.js": "4951cd7f7a4235884d9b9a77201f0584fbba7098ade7e77947a7090f89fd1f0a",
+        "src/backup-index.js": "1f23d12b5710dc84bdced537c8fa499b03802550de01f9ae22f12c77753a63cf",
+        "src/recovery-runner.js": "3b8cd2a82a7a0e10f7039227847928f274ee1518996cc81c5d0768d1f0790ae8"
+      }
+    },
+    {
+      "name": "totus-onedrive",
+      "version": 39,
+      "files": {
+        "supabase/functions/totus-onedrive/index.ts": "cd2c6dd0269eab8602c17d757edd2fb41d48a4fe4ff2797823f8e23e4ce46a50",
+        "src/application-cors.js": "f160f0a4af3bca08e878398e36f629f920ce321f5e52685a47c1340fc2d088ed",
+        "supabase/functions/totus-onedrive/team-chat-files.js": "ae25dd93ee2efd2836461e3cd4e7c5b43235fbcfdccd0306405e0019aba80f9d",
+        "src/chat-files.js": "1ef1fd940c7827cdcf4f10da65e8a4363a9eac8b796fa3ed4db4f2e1459cf7bd",
+        "supabase/functions/totus-onedrive/document-removal-worker.js": "16a241b701bd735e11b9633a205e7256d26cf3048d37e358a6049cc892c588e7",
+        "supabase/functions/totus-onedrive/stock-import.js": "0f3e10696820a1258c3e68428d0a525aa713f098c589e82492bbc210dcc1fa34",
+        "src/connection-maintenance.js": "20032cc769a2d06c6ff2a228000b59668298909fb9412101aeb8239fb29ebc67",
+        "supabase/functions/totus-onedrive/credential-renewal.js": "2f6e2c021caff61c5b50705edfd4e14cf6986a706673d2629a20761987eed954",
+        "supabase/functions/totus-onedrive/backup-source-links.js": "211f2f6da2bec7ebbcb5f14b05b8f0967309e88274b69c372926a7ea267c8a28",
+        "src/backup-retention.js": "f7bd36df95db6aa2925ad4536a09fa6f920f5ceb636e8049ccfe7134567604b3",
+        "supabase/functions/totus-onedrive/backup-transfer.js": "494c74c91a7810933a6ba7bedd0be88bb0ad09e6fe2d8f3cc78746381470cbff",
+        "src/backup-set.js": "e0174ea6a335d8f17305ec516b89b3960f8f58214ea190b736f05600bee08e3b",
+        "src/recovery-core.js": "e4a76fb6b068c134e0a58690675831c3a8572d5dcbbc3af5cbc10f98d0d790e2",
+        "src/backup-index.js": "1f23d12b5710dc84bdced537c8fa499b03802550de01f9ae22f12c77753a63cf"
       }
     }
   ]

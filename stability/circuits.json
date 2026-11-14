@@ -240,6 +240,26 @@
         "idempotent upload",
         "recoverable backup"
       ]
+    },
+    {
+      "id": "application-origin",
+      "paths": [
+        "src/application-cors.js",
+        "supabase/functions/totus-connections/index.ts",
+        "supabase/functions/totus-ai/index.ts",
+        "supabase/functions/totus-backup-run/index.ts",
+        "supabase/functions/totus-recovery/index.ts",
+        "supabase/functions/totus-onedrive/index.ts"
+      ],
+      "tests": [
+        "tests/application-cors-qa.mjs"
+      ],
+      "invariants": [
+        "exact owned origins only",
+        "existing authentication retained",
+        "native server calls retained",
+        "stream and response preserved"
+      ]
     }
   ]
 }
