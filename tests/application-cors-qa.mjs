@@ -23,13 +23,17 @@ for(const origin of APPLICATION_ORIGINS){
  const response=await handle(new Request('https://example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer test-fixture'}}));
  assert.equal(await response.text(),'respuesta');
 }
-const before=calls;
 for(const origin of ['null','http://totuscentral.totuscode.com','https://totuscentral.totuscode.com.evil.invalid','https://evil.invalid','https://hortimatic.github.io.evil.invalid']){
  const response=await handle(new Request('https://example.invalid',{headers:{Origin:origin}}));
- assert.equal(response.status,403);
+ assert.equal(response.status,401);
  assert.equal(response.headers.get('Access-Control-Allow-Origin'),null);
 }
-assert.equal(calls,before,'Disallowed origins must not reach the business handler');
+// OneDrive receives Microsoft's validated form_post callback. It must retain its
+// own state validation and redirect; this wrapper must not intercept that flow.
+const callback=withApplicationCors(async()=>new Response(null,{status:303,headers:{Location:'https://hortimatic.github.io/Totus-Central/'}}));
+const redirect=await callback(new Request('https://example.invalid/callback',{method:'POST',headers:{Origin:'https://login.microsoftonline.com'}}));
+assert.equal(redirect.status,303);assert.equal(redirect.headers.get('Location'),'https://hortimatic.github.io/Totus-Central/');
+assert.equal(redirect.headers.get('Access-Control-Allow-Origin'),null);
 const native=await handle(new Request('https://example.invalid',{method:'POST'}));
 assert.equal(native.status,401,'No-Origin service calls still require authentication');
 const manifest=JSON.parse(fs.readFileSync('supabase/functions/deployment-manifest.json','utf8'));

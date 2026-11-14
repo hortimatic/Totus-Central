@@ -34,7 +34,7 @@ function readerFor(req:Request){
 }
 const download=async(bucket:string,path:string,req?:Request)=>{
  if(bucket==='business-documents'&&req){
-  const reader=createRecoveryDocumentReader({admin,oneDriveRequest:async body=>{
+  const reader=createRecoveryDocumentReader({admin,oneDriveRequest:async (body:Record<string,unknown>)=>{
    const response=await fetch(url+'/functions/v1/totus-onedrive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:req.headers.get('Authorization')||''},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
    const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo preparar un original para la recuperación.');return result;
   }});
@@ -124,7 +124,7 @@ Deno.serve(withApplicationCors(async (req:Request)=>{
   if(sourcePath===uploadedPath){
    const objects=checked(await admin.storage.from('business-backups').list(prefix,{limit:100,search:jobId+'.totusbackup'}),'No se pudo comprobar el tamaño de la copia');
    const sourceInfo=objects?.find(x=>x.name===jobId+'.totusbackup');
-   if(!sourceInfo||!Number.isFinite(Number(sourceInfo.metadata?.size))||Number(sourceInfo.metadata.size)>MAX_ARCHIVE_BYTES)return reply({error:'La copia no está disponible o supera el límite de carga'},400);
+   if(!sourceInfo||!Number.isFinite(Number(sourceInfo.metadata?.size))||Number(sourceInfo.metadata?.size)>MAX_ARCHIVE_BYTES)return reply({error:'La copia no está disponible o supera el límite de carga'},400);
   }else{
    const saved=checked(await admin.from('ops_backup_runs').select('id,archive_sha256').eq('status','success').eq('storage_path',sourcePath).maybeSingle(),'No se pudo comprobar la copia elegida');
    if(!saved?.archive_sha256)throw new Error('La copia elegida ya no está disponible.');sourceHash=saved.archive_sha256;

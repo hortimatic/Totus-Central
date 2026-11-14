@@ -20,3 +20,7 @@ Antes de cambiar, registrar el dominio de Pages, Site URL, retornos y registro D
 ## Alcance de las comprobaciones
 
 tests/application-cors-qa.mjs verifica orígenes exactos, OPTIONS, errores de autenticación, respuestas en flujo, llamadas sin Origin y dependencias del despliegue. Las comprobaciones reales de DNS, HTTPS y sesión deben anotarse por separado con fecha y versión. Una prueba local no acredita propagación DNS ni una sesión real.
+
+La capa CORS no sustituye la autenticación ni intercepta el callback form_post de Microsoft: los orígenes ajenos no reciben autorización de lectura CORS y el callback conserva su validación de estado. El servicio de OneDrive conserva además su comprobación explícita de origen para las operaciones ordinarias. Las pruebas del servicio real de recuperación confirman ambos orígenes y rechazan peticiones sin sesión antes de crear solicitudes.
+
+Al incorporar copias, OneDrive y recuperación al control completo de Deno se corrigieron incompatibilidades de tipos antiguas: buffers propios, resultados de copias completos, metadatos opcionales y retornos alternativos. No se omiten los errores del compilador. El tamaño de una copia fragmentada se lee de byteLength, disponible tanto en un buffer como en el lector por partes, en lugar de una propiedad length ausente en este último.

@@ -79,12 +79,19 @@ globalThis.Deno={env:{get:key=>key==='SUPABASE_URL'?'https://qa-project.supabase
 let code=await fs.readFile(new URL('../supabase/functions/totus-recovery/index.ts',import.meta.url),'utf8');
 code=code.replace(/import \{createClient\} from 'npm:[^']+';/,"const createClient=()=>globalThis.__recoveryHandlerClient;")
  .replace(/import \{NativeBackupZip as JSZip\} from '[^']+';/,'const JSZip=globalThis.__recoveryHandlerZip;');
-for(const file of ['recovery-core.js','recovery-runner.js','backup-transport.js','backup-set.js','cloud-backup-reader.js'])code=code.replace('../../../src/'+file,new URL('../src/'+file,import.meta.url).href);
+for(const file of ['application-cors.js','recovery-core.js','recovery-runner.js','backup-transport.js','backup-set.js','cloud-backup-reader.js'])code=code.replace('../../../src/'+file,new URL('../src/'+file,import.meta.url).href);
 code=code.replace('./chat-file-reader.js',new URL('../supabase/functions/totus-recovery/chat-file-reader.js',import.meta.url).href);
 await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(code)).toString('base64'));
 const reset=()=>{state={role:'admin',active:true,jobs:[],files:new Map([['business-documents/original/test.pdf',new Blob([original])]]),live:{untouched:true},commitCalls:0}};
 const request=(body={},token='valid',method='POST')=>handler(new Request('https://qa.invalid',{method,headers:token?{Authorization:'Bearer '+token}: {},...(method==='POST'?{body:JSON.stringify(body)}:{})}));
 reset();assert.equal((await request({},'', 'OPTIONS')).status,204);assert.equal((await request({},'','GET')).status,405);
+for(const origin of ['https://hortimatic.github.io','https://totuscentral.totuscode.com']){
+ const preflight=await handler(new Request('https://qa.invalid',{method:'OPTIONS',headers:{Origin:origin}}));
+ assert.equal(preflight.status,204);assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),origin);
+ const denied=await handler(new Request('https://qa.invalid',{method:'POST',headers:{Origin:origin},body:'{}'}));
+ assert.equal(denied.status,401);assert.equal(denied.headers.get('Access-Control-Allow-Origin'),origin);
+ assert.equal(state.jobs.length,0);
+}
 assert.equal((await request({},'')).status,401);assert.equal((await request({},'invalid')).status,401);
 state.role='staff';assert.equal((await request({job_id:jobId})).status,403);state.role='admin';state.active=false;assert.equal((await request({job_id:jobId})).status,403);state.active=true;
 assert.equal((await request({job_id:'../../other'})).status,400);

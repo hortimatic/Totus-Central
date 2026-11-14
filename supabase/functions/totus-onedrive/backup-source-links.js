@@ -1,5 +1,6 @@
 const HASH=/^[a-f0-9]{64}$/;
 const validPath=p=>typeof p==='string'&&p&&p.length<=1024&&!/[\\\x00-\x1f]/.test(p)&&p.split('/').every(s=>s&&s!=='.'&&s!=='..');
+/** @param {{admin:any,check:Function,config:Function,token:Function,root:Function,resolveExtra?:((path:string)=>Promise<any>)|null,fetchGraph?:typeof fetch}} options */
 export function createBackupDocumentLinks({admin,check,config,token,root,resolveExtra=null,fetchGraph=fetch}){
  return async function backupDocumentLinks(paths){
   if(!Array.isArray(paths)||paths.length>30||new Set(paths).size!==paths.length||paths.some(p=>!validPath(p)))throw new Error('Lote de documentos no válido.');
