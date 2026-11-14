@@ -5,9 +5,10 @@ const html=fs.readFileSync('index.html','utf8');
 const source=html.match(/<script>\s*(\/\* Identificar[\s\S]*?)<\/script>/)[1];
 const old='a'.repeat(40),latest='b'.repeat(40);
 async function check(loaded,build,fail=false){
-  const labels=Array.from({length:2},()=>({textContent:'',children:[],append(...items){this.children.push(...items)}}));
-  const document={querySelector:()=>({getAttribute:()=>`src/bootstrap.js${loaded?'?v='+loaded:''}`}),querySelectorAll:()=>labels,createElement:()=>({setAttribute(name,value){this[name]=value}})};
-  await vm.runInNewContext(source,{document,URL,location:{href:'https://example.com/Totus-Central/?keep=yes#recovery'},Date,fetch:async()=>{if(fail)throw Error('offline');return {ok:true,json:async()=>build}}});
+  const labels=Array.from({length:2},()=>({textContent:'',children:[],querySelector(){return null},append(...items){this.children.push(...items)}}));
+  const document={hidden:false,addEventListener(){},getElementById(){return null},body:{append(){}},querySelector:()=>({getAttribute:()=>`src/bootstrap.js${loaded?'?v='+loaded:''}`}),querySelectorAll:()=>labels,createElement:()=>({dataset:{},style:{},append(){},setAttribute(name,value){this[name]=value}})};
+  await vm.runInNewContext(source,{document,window:{addEventListener(){}},URL,location:{href:'https://example.com/Totus-Central/?keep=yes#recovery'},Date,fetch:async()=>{if(fail)throw Error('offline');return {ok:true,json:async()=>build}}});
+  await new Promise(resolve=>setImmediate(resolve));
   return labels;
 }
 for(const el of await check(old,{environment:'production',commit:old})){
