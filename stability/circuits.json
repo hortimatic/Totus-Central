@@ -12,7 +12,8 @@
       ],
       "tests": [
         "tests/session-startup-browser-qa.mjs",
-        "tests/access-recovery-browser-qa.mjs"
+        "tests/access-recovery-browser-qa.mjs",
+        "tests/release-notice-browser-qa.mjs"
       ],
       "invariants": [
         "login recoverable",

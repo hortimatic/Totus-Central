@@ -427,6 +427,7 @@ jobs:
       - run: node tests/table-view-profiles-browser-qa.mjs
       - run: node tests/productos-direct-save-browser-qa.mjs
       - run: node tests/productos-movements-browser-qa.mjs
+      - run: node tests/release-notice-browser-qa.mjs
       - run: node tests/catalog-quality-qa.mjs
       - run: node tests/catalogue-workspaces-browser-qa.mjs
       - run: node tests/catalogue-workspaces-resilience-browser-qa.mjs

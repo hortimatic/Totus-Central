@@ -1,0 +1,9 @@
+{
+  "service": "totus-connections",
+  "reason": "Leer movimientos nativos por stock sin retirar los contratos y dependencias ya desplegados en v45.",
+  "changedFiles": [
+    "src/prestashop-readonly.js",
+    "supabase/functions/totus-connections/prestashop.js",
+    "supabase/functions/totus-connections/index.ts"
+  ]
+}
