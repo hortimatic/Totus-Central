@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/product-movement-layout-db-fixture.sql
-      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261114192028_product_movement_layout.sql
+      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261114194904_product_movement_layout.sql
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/product-movement-layout-db-qa.sql
   appearance-colors-browser-smoke:
     runs-on: ubuntu-24.04
