@@ -310,7 +310,7 @@ export function stitchCopy({store,legacyHtml,record,targetRecord,copyImages=true
  for(const node of [...view.querySelectorAll('span,small,code')])if(!node.children.length&&/PS_PREFIX:|ps_nos_|ps_hort_|Hortimatic 1\.7\.8\.11|#10482/.test(node.textContent))node.remove();
  const nav=actual.querySelector('.prd-parallel-tabs');if(nav){const variations=document.createElement('button');variations.type='button';variations.dataset.prAction='copy-variations';variations.textContent='Variaciones ('+associationIds(record,'combinations').length+')';view.firstElementChild.after(nav);}
  // Copy has one explicit destination: the opposite store shown in its header.
-
+ if(!record?.id){const destinations=actual.querySelector('.prd-targets');if(destinations)view.firstElementChild.append(destinations);}
  const preview=actual.querySelector('.prd-preview');
  if(preview&&record?.id){
   for(const [index,plan] of [...preview.querySelectorAll('.prd-plan')].entries()){
