@@ -66,12 +66,16 @@
 <script type="module" src="src/bootstrap.js"></script>
 <script>
 /* Identificar el código cargado, incluso si el navegador conserva un HTML antiguo. */
-(async function(){
+(function(){
   const script=document.querySelector('script[type="module"][src*="src/bootstrap.js"]');
   const loaded=script?new URL(script.getAttribute('src'),location.href).searchParams.get('v'):null;
   const verified=/^[0-9a-f]{40}$/.test(loaded||'');
   const labels=document.querySelectorAll('.app-build');
   labels.forEach(el=>{el.textContent=verified?'· versión '+loaded.slice(0,8):'· versión local sin verificar'});
+  let lastCheck=0,checking=false,dismissed='';
+  async function check(){
+  if(checking||document.hidden||Date.now()-lastCheck<30000)return;
+  checking=true;lastCheck=Date.now();
   try{
     const response=await fetch('./build-info.json?fresh='+Date.now(),{cache:'no-store'});
     if(!response.ok)throw new Error('Publicación no verificada');
@@ -82,17 +86,31 @@
       target.searchParams.set('release',build.commit);
       target.searchParams.set('totus_refresh',String(Date.now()));
       labels.forEach(el=>{
+        if(el.querySelector('[data-release-link]'))return;
         const link=document.createElement('a');
+        link.dataset.releaseLink='';
         link.href=target.href;
         link.textContent='Actualizar';
         link.title='Hay una versión nueva. Guarda tu trabajo antes de actualizar.';
         link.setAttribute('aria-label','Cargar la nueva versión de Totus Central');
         el.append(' · ',link);
       });
+      if(dismissed!==build.commit&&!document.getElementById('releaseNotice')){
+        const notice=document.createElement('aside');notice.id='releaseNotice';notice.setAttribute('role','status');
+        notice.style.cssText='position:fixed;right:16px;bottom:16px;z-index:1000;max-width:min(420px,calc(100vw - 32px));padding:14px;border:1px solid var(--line,#8ba4bd);border-radius:var(--radius,12px);background:var(--surface,#fff);color:var(--text,#10283f);box-shadow:0 4px 20px #0002;font-size:14px';
+        const message=document.createElement('p');message.textContent='Hay una versión nueva de Totus. Guarda las ediciones pendientes antes de actualizar.';
+        const update=document.createElement('a');update.href=target.href;update.textContent='Actualizar Totus';update.className='btn secondary';
+        const close=document.createElement('button');close.type='button';close.textContent='Más tarde';close.className='btn secondary';close.onclick=()=>{dismissed=build.commit;notice.remove();};
+        notice.append(message,update,close);document.body.append(notice);
+      }
     }
   }catch{
     labels.forEach(el=>{el.title='No se ha podido comprobar si hay una versión nueva.'});
+  }finally{checking=false;}
   }
+  void check();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void check();});
+  window.addEventListener('totus:module-changed',()=>void check());
 })();
 </script>
 </body>

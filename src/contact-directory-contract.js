@@ -1,3 +1,4 @@
+import {websiteKey} from './website-registry.js';
 // Business fields only. Authentication/password/reset tokens are never returned.
 export const DIRECTORY_KINDS=Object.freeze({
  clientes:{title:'Clientes',module:'facturacion',resource:'customers',resources:['customers','addresses','orders','order_details','products','combinations','currencies','countries','states','groups','languages']},
@@ -29,7 +30,7 @@ export const DIRECTORY_LOCALIZED=new Set(['description','short_description','met
 export const directoryLocalized=(resource,field)=>DIRECTORY_LOCALIZED.has(field)||(field==='name'&&['product_options','product_option_values','product_features'].includes(resource));
 export function directoryQuery(input){
  if(input?.action!=='prestashop_directory_read')throw Error('Acción de lectura no válida.');
- if(!input||!DIRECTORY_KINDS[input.kind]||!['hortimatic','newoldsmok'].includes(input.store)||!DIRECTORY_KINDS[input.kind].resources.includes(input.resource))throw Error('Directorio o recurso no permitido.');
+ if(!input||!DIRECTORY_KINDS[input.kind]||!websiteKey(input.store)||!DIRECTORY_KINDS[input.kind].resources.includes(input.resource))throw Error('Directorio o recurso no permitido.');
  if(!uuid.test(input.id||'')||!uuid.test(input.call_id||'')||!Number.isSafeInteger(input.revision)||input.revision<1)throw Error('Identidad de conexión no válida.');
  if(!Number.isSafeInteger(input.page)||input.page<0||input.page>1000||!Number.isSafeInteger(input.page_size)||input.page_size<1||input.page_size>100)throw Error('Paginación de directorio no válida.');
  const allowed=new Set(['action','kind','store','id','call_id','revision','resource','page','page_size','record_id','customer_ids','order_ids','product_ids','supplier_id','manufacturer_id','supplier_ids','manufacturer_ids','country_id']);
@@ -48,7 +49,7 @@ export function directoryQuery(input){
 export function directoryMutation(input){
  if(!['prestashop_directory_prepare','prestashop_directory_commit'].includes(input?.action))throw Error('Acción de escritura no válida.');
  const k=DIRECTORY_KINDS[input?.kind],resource=input?.resource;
- if(!k||!['hortimatic','newoldsmok'].includes(input.store)||!k.resources.includes(resource)||!DIRECTORY_WRITABLE[resource])throw Error('Directorio de escritura no permitido.');
+ if(!k||!websiteKey(input.store)||!k.resources.includes(resource)||!DIRECTORY_WRITABLE[resource])throw Error('Directorio de escritura no permitido.');
  if(!uuid.test(input.id||'')||!uuid.test(input.call_id||'')||!uuid.test(input.request_id||'')||!Number.isSafeInteger(input.revision)||input.revision<1)throw Error('Solicitud sin identidad válida.');
  if(!['create','update','delete'].includes(input.operation)||input.operation!=='create'&&!id.test(String(input.record_id||''))||input.operation==='create'&&input.record_id!==undefined)throw Error('Operación o registro no válido.');
  const allowed=new Set(['action','kind','store','id','call_id','revision','resource','operation','record_id','request_id','fields','fingerprint','confirmed']);

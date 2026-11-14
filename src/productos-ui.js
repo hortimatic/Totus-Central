@@ -1,4 +1,5 @@
 import {openAttributeRecord} from './productos-attribute-editor.js';
+import {createProductMovementsUI} from './productos-movements-ui.js';
 import {normalizeProductImage} from './productos-image-editor.js';
 import {productCategoryPicker,featureValueSelectors,attributeGroupSelectors} from './productos-relations-ui.js';
 import {openTableViewProfiles} from './table-view-profiles.js';
@@ -13,7 +14,7 @@ import {attachProductPhotoPreviews} from './productos-photo-preview.js';
 import {enhanceProductSelects} from './productos-controls.js';
 import {createProductTableEditor} from './productos-table-editor.js';
 import {productGallery,moveProductPhoto,productGalleryDescription} from './productos-gallery.js';
-import {productDraftFacts} from './productos-drafts.js';
+import {productDraftFacts,productHasUnpublishedChanges} from './productos-drafts.js';
 import {productCountryTaxRate,productDisplayAmounts,productPriceForMargin,productPurchaseAmounts} from './productos-tax.js';
 import {stitchHeader,stitchCatalog,stitchFiche,stitchCopy,stitchRequest,stitchSaved,ensureStitchProductFonts} from './productos-stitch-view.js';
 import {PRODUCT_COLUMNS,DEFAULT_PRODUCT_COLUMNS,productColumns,productColumnWidths,moveProductColumn,catalogProductKey,productPhoto,filterProductCatalog,productCatalogCsv} from './productos-catalog.js';
@@ -60,6 +61,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
  const ready=shop=>{const c=connection(shop);return !!c&&c.enabled&&c.configured&&c.verified_revision===c.revision&&c.real_data_authorized===true;};
  const current=()=>!!root?.isConnected&&owner===actor()&&allowed()&&root.dataset.prEpoch===String(epoch);
  const stateSnapshot=()=>({store,mode,record:record?.id||null});
+ const movementsUI=createProductMovementsUI({invoke:(...args)=>invokeShop(...args),rpc,actor,canExport:()=>canExport()});
  const tableEditor=createProductTableEditor({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit,onSaved:(shop,item)=>{operationHistory.push({shop,kind:'Edición rápida',id:String(item.id),parent_id:String(item.id),at:new Date().toISOString(),request:tableEditor.rows.get(shop+'|'+item.id)?.request?.request_id||'',changes:tableEditor.rows.get(shop+'|'+item.id)?.prepared?.review||[]});const i=rows.findIndex(p=>catalogKey(p)===shop+'|'+item.id);if(i>=0)rows[i]={...item,__store:shop};if(store===shop&&String(record?.id)===String(item.id)){record=item;shopRecords.set(shop,item);}}});
  const createWizard=createProductWizard({invoke:(shop,action,args)=>invokeShop(shop,action,args),canEdit:()=>canEdit()||canCreate()||canDelete(),onProgress:async message=>{status=message;persistDraft();await storageQueue;if(storageError)throw storageError;if(current())render();}});
  const snapshotDraft=()=>({savedAt:Date.now(),draftPhotos,publicationScope,operationHistory,inlineStage,directLanguage,tableEdits:tableEditor.snapshot(),organization,galleryDraft,copyQueue,requestBrief,requestOutput,editorSection,catalogScope,store,mode,parallelSection,bulkField,bulkValue,bulkItems,bulkConfirm,record,variants,fields,overrides,variantFields,variantOverrides,targets,comparison,preview,targetOverrides,preflight,targetRaw,targetLanguages,targetIds,variantPreflight,shops:shopRecords,editRequests,editConfirm,wizard:createWizard.snapshot()});
@@ -92,6 +94,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   persistDraft();
  }
  function resetDraft(){
+  movementsUI.dispose();
   organization=null;galleryDraft={};draftPhotos=[];publicationScope='all';inlineStage=false;directLanguage='';operationHistory=[];shopRecords.clear();editRequests.clear();editConfirm.clear();bulkItems=[];bulkConfirm='';record=null;variants=[];fields=new Set();overrides={};variantFields.clear();variantOverrides.clear();selection.clear();targetOverrides.clear();targetRaw.clear();targetLanguages.clear();targetIds.clear();createWizard.reset();invalidate();
  }
  function sectionTitle(section){return ({general:'Información y descripción',precios:'Precios e impuestos',seo:'SEO',transporte:'Transporte',inventario:'Disponibilidad',organizacion:'Organización'})[section]||section;}
@@ -220,6 +223,9 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   const localized={...record,...Object.fromEntries(LOCALIZED_PRODUCT_FIELDS.map(field=>[field,localizedValue(record[field])]))};
   let html=stitchFiche({galleryDraft,record:localized,backendUrl:productBackofficeUrl(record,store,owner),store,section:editorSection,overrides,variants,variantOverrides,variantReviews:variantPreflight,metadata,fieldControl,priceHtml:priceStudy(),rawHtml:rawPanel(),organization,taxGroups:catalogMeta.get(store)?.taxGroups||[],brands:catalogBrands,categories:catalogCategories,stock:catalogStock.get(store+'|'+record.id)??null,amounts:productDisplayAmounts({...record,...overrides},productCountryTaxRate(record.id_tax_rules_group,catalogTaxContext))});
   const fragment=document.createElement('template');fragment.innerHTML=html;const panel=fragment.content.querySelector('.subtab-content:not(.hidden)');
+  const lastTab=fragment.content.querySelector('.subtab-btn:last-child');
+  if(lastTab){const movementTab=document.createElement('button');movementTab.type='button';movementTab.className=lastTab.className;movementTab.classList.toggle('bg-primary',editorSection==='movimientos');movementTab.classList.toggle('text-on-primary',editorSection==='movimientos');movementTab.classList.toggle('bg-surface-container',editorSection!=='movimientos');movementTab.classList.toggle('text-on-surface-variant',editorSection!=='movimientos');movementTab.dataset.prAction='editor-section';movementTab.dataset.prSection='movimientos';movementTab.textContent='Movimientos';movementTab.disabled=!record.id;movementTab.setAttribute('aria-current',editorSection==='movimientos'?'page':'false');lastTab.after(movementTab);}
+  if(editorSection==='movimientos'){fragment.content.querySelectorAll('.subtab-content').forEach(node=>{node.classList.add('hidden');node.classList.remove('flex');});const host=document.createElement('section');host.className='subtab-content flex flex-col gap-space-md';host.innerHTML='<div data-pr-movements-host></div>';fragment.content.querySelector('#sub-stock')?.parentElement.append(host);}
   fragment.content.querySelector('#tab-ficha')?.insertAdjacentHTML('afterbegin',directReview());
   if(panel&&inlineStage&&comparison.get(store)){const review=createWizard.renderInline(comparison.get(store),{...record,__sourceStore:store});if(review.includes('prd-publication-scope'))fragment.content.querySelector('.prd-direct-save')?.insertAdjacentHTML('afterend',review);else panel.insertAdjacentHTML('beforeend',review);}
   if(!record.id||draftPhotos.length){if(!record.id)for(const button of fragment.content.querySelectorAll('[data-pr-action="image-stages"]'))button.dataset.prAction='draft-pick-images';const photos=fragment.content.querySelector('#sub-imagenes');if(photos)photos.insertAdjacentHTML('afterbegin','<section class="prd-draft-photos"><p>Fotos preparadas: '+draftPhotos.length+'. Se subirán al publicar.</p><input type="file" accept="image/*" multiple hidden data-pr-draft-files><div class="prd-attribute-grid">'+draftPhotos.map((image,i)=>'<figure><img style="width:100px;height:100px;object-fit:contain" alt="Foto preparada '+(i+1)+'" src="data:image/png;base64,'+image.base64+'"><button type="button" data-pr-action="draft-photo-remove" data-pr-photo="'+i+'">Quitar</button></figure>').join('')+'</div></section>');}
@@ -350,6 +356,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   replacingDOM=true;try{root.innerHTML='<div class="prd-shell prd-stitch prd-professional">'+stitchHeader({store:catalogScope,mode,status,count:rows.length,product:text(record?.name),draftCount:savedDraftCards().length,pending,connected:catalogScope==='both'?PRODUCT_STORES.every(s=>ready(s.key)):ready(store)})+'<div class="prd-body">'+content+'</div></div>';}finally{replacingDOM=false;}
 
   const attributesHost=root.querySelector('[data-pr-attributes-host]');if(attributesHost)attributesUI.mount(attributesHost,store);
+  movementsUI.mount(root.querySelector('[data-pr-movements-host]'),{store,product:record,variants});
   for(const detail of root.querySelectorAll('.prd-variant'))if(opened.includes(detail.dataset.prVariant))detail.open=true;
   for(const detail of root.querySelectorAll('details[data-pr-copy-details]'))if(openCopyDetails.includes(detail.dataset.prCopyDetails))detail.open=true;
   if(columnsOpen&&root.querySelector('.prd-columns'))root.querySelector('.prd-columns').open=true;const columnSearchInput=root.querySelector('[data-pr-columns-search]');if(columnSearchInput){columnSearchInput.value=columnSearch;for(const label of root.querySelectorAll('[data-pr-column-option]'))label.hidden=!label.textContent.toLocaleLowerCase('es').includes(columnSearch.toLocaleLowerCase('es'));}
@@ -855,8 +862,9 @@ if(['Enter',' '].includes(e.key)&&e.target.matches('[data-pr-action="photo-zoom"
   if(!PRODUCT_STORES.some(s=>s.key===shop)||!/^[1-9]\d{0,14}$/.test(String(id)))throw Error('Producto o tienda no válidos.');
   requestedProduct={store:shop,id:String(id),owner:actor()};
  }
- function hasDraft(){return attributeEditorState.dirty||attributeEditorState.publishing||tableEditor.rows.size>0||!!record&&(fields.size>0||[...variantFields.values()].some(s=>s.size>0));}
+ function hasDraft(){return attributeEditorState.dirty||attributeEditorState.publishing||productHasUnpublishedChanges({record,overrides,variants,variantOverrides,mode,targetRaw,targets,tableEdits:tableEditor.rows,wizard:createWizard.snapshot(),draftPhotos});}
+ function isPublishing(){const wizard=createWizard.snapshot();return attributeEditorState.publishing||pending&&(wizard.attempted?.length>0||editRequests.size>0||[...tableEditor.rows.values()].some(row=>row.request)||(wizard.stages||[]).some(([,stage])=>stage.rows?.some(row=>row.attempted)));}
  function discardDraft(){standaloneAttributeEditor?.discard();for(const row of [...tableEditor.rows.values()])if(!row.request)tableEditor.discard(row.shop,row.id);if(record)draftsByProduct.delete(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'));draftsByShop.delete(store);resetDraft();status='Propuesta descartada.';if(current())render();}
- function dispose(){standaloneAttributeEditor?.discard();standaloneAttributeEditor=null;attributeEditorState={dirty:false,publishing:false};attributesUI.dispose();++prefetchVersion;clearTimeout(catalogSearchTimer);controlsCleanup();photoCleanup();layoutCleanup();persistDraft();storageReady=false;if(root){root.onclick=null;root.ondblclick=null;root.onchange=null;root.oninput=null;root.onkeydown=null;root.ondragover=null;root.ondrop=null;}root=null;owner=null;++epoch;pending=false;}
- return {mount,dispose,hasDraft,discardDraft,stateSnapshot,selectProduct,isPublishing:()=>attributeEditorState.publishing};
+ function dispose(){movementsUI.dispose();standaloneAttributeEditor?.discard();standaloneAttributeEditor=null;attributeEditorState={dirty:false,publishing:false};attributesUI.dispose();++prefetchVersion;clearTimeout(catalogSearchTimer);controlsCleanup();photoCleanup();layoutCleanup();persistDraft();storageReady=false;if(root){root.onclick=null;root.ondblclick=null;root.onchange=null;root.oninput=null;root.onkeydown=null;root.ondragover=null;root.ondrop=null;}root=null;owner=null;++epoch;pending=false;}
+ return {mount,dispose,hasDraft,discardDraft,stateSnapshot,selectProduct,isPublishing};
 }

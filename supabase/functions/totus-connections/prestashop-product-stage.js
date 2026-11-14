@@ -5,12 +5,12 @@ import {runProductRemoval,runWholeProductRemoval} from './prestashop-product-rem
 import {validateProductStage} from '../../../src/productos-stages-contract.js';
 import {inspectTransparentProductPng} from '../../../src/productos-png.js';
 import {prepareProductStageXml,inspectProductStageXml,minimalProductStageSchema,sha256Text,parsePrestashopResourceId,readPrestashopXmlField,productFinalizationFields,productLanguageIdsFromListing,inspectProductAssociationIds,LOCALIZED_PRODUCT_FIELDS,readPrestashopCombinationXml} from '../../../src/productos-write-contract.js';
-import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
+import {prestashopConnectionStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
 export {validateProductStage} from '../../../src/productos-stages-contract.js';
 
 export async function runPrestashopProductStage(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
- const op=validateProductStage(input),store=prestashopStore(op.store);
+ const op=validateProductStage(input),store=prestashopConnectionStore(connection,op.store);
  if(!connection||storeConnection([connection],op.store)!==connection||connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('Conexión de tienda no verificada.');
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.pathname.replace(/\/$/,'')!=='/api'||base.search||base.hash)throw Error('La etapa exige la API oficial de la tienda.');

@@ -11,8 +11,15 @@ Instrucción expresa de Diego, 8 de noviembre de 2026:
 - El módulo totusproductbridge ha sido retirado de Hortimatic por orden del usuario. No reinstalarlo. NewOldSmok no lo tiene instalado.
 - La aprobación anterior de instalación quedó revocada; no reutilizarla.
 
-## Trabajo pendiente
+## Protocolo obligatorio de estabilidad
 
-Continuar el módulo de Productos con el original de Stitch, conservando sus cinco pestañas y nueve apartados, y adaptar las operaciones a las capacidades nativas verificadas. El PR #144 todavía no está publicado. No publicar dependencias del complemento retirado ni declarar comprobaciones simuladas como resultados reales.
+- Partir de la rama publicada y comprobar el estado real de frontend, servicios y migraciones. No desplegar un servicio desde una rama antigua ni mezclar ampliaciones pendientes.
+- Consultar `stability/circuits.json` y ejecutar sus recorridos afectados. Una ampliación debe conservar creación, modificación, copia, lectura, permisos, recuperación de errores y configuración existentes.
+- Comprobar los paquetes completos con `tools/check-deployment-manifest.mjs`. Antes de sustituir servicios, comparar sus versiones y huellas con `stability/live-services.json` usando `tools/check-service-deployment.mjs`; declarar los archivos cambiados de forma explícita.
+- No confundir seleccionar/filtrar/navegar con editar. Tras guardar o publicar y releer, no dejar avisos falsos de pérdida de cambios. Conservar las solicitudes inciertas con el mismo identificador.
+- No retirar rutas, RPC, tablas, permisos ni contratos sin identificar todos sus consumidores y disponer de una transición comprobada. No borrar migraciones ni originales para limpiar duplicados.
+- Registrar por separado resultados simulados, nativos aislados y reales. Informar en el canal solicitado únicamente de lo publicado o verificado, identificando cualquier pendiente real.
+- Conservar el diseño de Stitch y las preferencias de interfaz. Revisar móvil y escritorio; no sustituir controles funcionales por adornos.
+- Seguir `docs/PROTOCOLO_ESTABILIDAD.md`. El PR #195 está publicado; las referencias históricas a PR anteriores no describen el estado actual.
 
 Los archivos de sources/ del proyecto sincronizado son referencias de solo lectura.

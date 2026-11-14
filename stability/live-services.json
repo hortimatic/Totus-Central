@@ -1,0 +1,94 @@
+{
+  "capturedAt": "2026-11-14",
+  "normalization": "LF",
+  "services": [
+    {
+      "name": "totus-connections",
+      "version": 45,
+      "files": {
+        "supabase/functions/totus-connections/index.ts": "c753e5e31e4d44942f0909e417d66704ff72a303f472d8bde18bcdb9d919fd80",
+        "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1",
+        "supabase/functions/totus-connections/github.js": "41f50f5d49b8f2fa61e7bd6d25585801984a5ece16e7c1d489aff180a8cd0102",
+        "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
+        "supabase/functions/totus-ai/cloudflare.js": "075fd3891dbd0c709821bf104c58440210375015b043cf2b626df207a4c05959",
+        "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
+        "supabase/functions/totus-connections/prestashop.js": "37eb2c3837a0baec62adb4eddfa1a988e03a23ec59e7aa33c0a3e40d060f4179",
+        "src/productos-write-contract.js": "43e3dbadd0415dd1ad00ad4403a22a997f047c08eee46477ee19d73e3fb665f4",
+        "src/prestashop-readonly.js": "8357615fc2132115ee7d5a849ea80d887f76a389e2b561d86bebebed8a10600b",
+        "src/contact-directory-contract.js": "2b9263d77ab144de442d1bedfa80e015c8169dfc1661405483d391f381a2a989",
+        "supabase/functions/totus-connections/prestashop-write.js": "2fc21383141d36c79ce1f128434816189877235a17044cce7d6b82b431ce855d",
+        "supabase/functions/totus-connections/prestashop-create.js": "57f55245e2d15e30f95a1ba364e12f3a7bb19d7dbbf1189ada91256ae98e5543",
+        "supabase/functions/totus-connections/prestashop-product-stage.js": "f39fa3d236902ea7a728ba40e7e9398fba953e46cd52fd9eafe86f950142016f",
+        "supabase/functions/totus-connections/prestashop-product-image-replace.js": "e61d7b40d406b84c461796dc1b94f32533b5b4536adb5d10ffc22f573929a20a",
+        "src/productos-png.js": "c9bf2a9c35df84bb2691828c60f17f9e0c37f8672090afd373ae4844a14516e0",
+        "supabase/functions/totus-connections/prestashop-product-remove.js": "6e0779fd2403e3a15345b8831f798410ef3255d824ab73b0418e923cfb1f367e",
+        "src/productos-stages-contract.js": "fb90ecd895ddbb90c9aaceafef745783f4492d511b5d876b09b8a49abebe737e",
+        "supabase/functions/totus-connections/contact-directory.js": "26886ca83d9713ab13549b0a21cd3c5f321c42ef9b9dab8acb6d5322ec1fd7fa",
+        "supabase/functions/totus-connections/contact-directory-write.js": "1fbfd1df2958ef6a52cf6b3a54e5bb745151aa7636e97303c526838e62fe0a76",
+        "supabase/functions/totus-connections/contact-directory-create.js": "ec8f99d556b69b271e8f97d43ba56dc85523a276759c9813e7dfdf2b287b5c99",
+        "supabase/functions/totus-connections/contact-directory-delete.js": "b22882ec9ce02f9a8cf17b4cd434340f419c924942dca03f49473d0cc3aba38f"
+      }
+    },
+    {
+      "name": "totus-assistant",
+      "version": 17,
+      "files": {
+        "supabase/functions/totus-assistant/index.ts": "8667877366f31f2598a78bb0a52c3315a59079a0b690c4b7f58644a61693a49b",
+        "supabase/functions/totus-assistant/assistant-attachments.ts": "94df4af6c8c418da23c133df6bb1e1e5157ce7b7ec3e20ff59753f5070d45675",
+        "supabase/functions/totus-assistant/assistant-chat.ts": "4d13acf387492cbb03976949aae29b2f0991e2a07adf61f75f3237d08648be35",
+        "src/agent-identity.js": "3b22ccc080335be413dec2111a31fb3f652cdb82e67a0fd64d5e2e184f64e159",
+        "supabase/functions/totus-assistant/assistant-operations.ts": "35f3ac29f65250994b517bfc040da9609e64d97525aa0751ba3c5ccecfaf0167",
+        "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1"
+      }
+    },
+    {
+      "name": "totus-ai",
+      "version": 25,
+      "files": {
+        "supabase/functions/totus-ai/index.ts": "028827fabf4c55dc813336d0bfa14b428b54b42390c72785a6c1bf9a54e9a6c4",
+        "src/chat-files.js": "1ef1fd940c7827cdcf4f10da65e8a4363a9eac8b796fa3ed4db4f2e1459cf7bd",
+        "src/agent-delivery.js": "531cf837f341285b6ee82839e4ec9d3e5bd7c968fc95ea03a2886d78be7fcf49",
+        "src/utils.js": "f14b66d9614e9f514f43cb79749df1af90750c44cf688718bff0e1e2fc5e2666",
+        "src/agent-conversation.js": "5bf557ece9476f798e993d034032f7b0d728ccefee044637099fc849a1993c9a",
+        "src/verified-extraction.js": "43b05106ce9ab4964a718da821048891de65bc1f28ac253c8e82729c535e9442",
+        "supabase/functions/totus-ai/providers.js": "f06cce4fda94ea46d3a377a924350ee681df44c53812f9fb3085976e70c40603",
+        "supabase/functions/totus-ai/cloudflare.js": "075fd3891dbd0c709821bf104c58440210375015b043cf2b626df207a4c05959",
+        "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
+        "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
+        "supabase/functions/totus-ai/tools.ts": "8fbf093164e3a8dc70792f945d6f69995541221529c4ee3ad9697bdfb832a6df",
+        "src/agent-reports.js": "c3b69b4630678c5b21aa5ba82750230c6ba132429eeaa3c3bd87628f6d3fc384",
+        "src/calculations.js": "1384cff92bc33e6501556025eafee9f635e59e5b93f5c3a3c2a78bf2ed7ba103",
+        "src/payment-information.js": "397577a70f84925300d8b0ee7b3cc4c60d44042756f87c55bc11c813e44ce62c",
+        "src/report-period.js": "c0ae435f1314c5506c3546d588dcc2512e71708d175c8cc2c5347aa124acdcaf",
+        "src/agent-workbooks.js": "372f78b8127e5b80c60c03993b8a3aee24cfa2d8c94a3fc9d19def354f721c1c",
+        "src/excel.js": "12d9cd89737d17258565519c08de24f16b5f2a6bb4ba8fef62e8d7c9a30dc745",
+        "src/expense-colors.js": "baa912511159d71e2e3c1606ee86db0f4b967379f4584f7a2c4667c2d836962c",
+        "src/historical-acceptance.js": "9a55e7e6b118ec7e30b7e2b89701301d5d89242467723de2aa9d1c3bb26490b6",
+        "src/cash-closing.js": "90d4b1cd4cf6a84ecf43775e64d2a677de53b60a5fa8457800039844a9ea571c",
+        "src/gestor-format.js": "56473d16882168eba9c66b08c7f1a9fd577c0797b0556184b52970cddf5cb62a",
+        "supabase/functions/totus-assistant/assistant-attachments.ts": "94df4af6c8c418da23c133df6bb1e1e5157ce7b7ec3e20ff59753f5070d45675",
+        "supabase/functions/totus-assistant/assistant-operations.ts": "35f3ac29f65250994b517bfc040da9609e64d97525aa0751ba3c5ccecfaf0167",
+        "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1",
+        "src/agent-identity.js": "3b22ccc080335be413dec2111a31fb3f652cdb82e67a0fd64d5e2e184f64e159"
+      }
+    },
+    {
+      "name": "totus-prestashop-alerts",
+      "version": 8,
+      "files": {
+        "supabase/functions/totus-prestashop-alerts/index.ts": "cd8cf3649c73861feb4abe83f49bc484289c69e7be56869b1b68087b0187774d",
+        "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
+        "supabase/functions/totus-ai/cloudflare.js": "075fd3891dbd0c709821bf104c58440210375015b043cf2b626df207a4c05959",
+        "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
+        "supabase/functions/totus-connections/prestashop.js": "37eb2c3837a0baec62adb4eddfa1a988e03a23ec59e7aa33c0a3e40d060f4179",
+        "src/productos-write-contract.js": "ef6707e6f7b7039b17557047879eff67c859ef44cd1503f19de9061fa6d12e75",
+        "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1",
+        "src/prestashop-readonly.js": "8357615fc2132115ee7d5a849ea80d887f76a389e2b561d86bebebed8a10600b",
+        "src/prestashop-automation-core.js": "bb7f31ae8826047483d790b1437ca19b8470108bfb8b435d4f425741c0078de5",
+        "src/prestashop-queries.js": "3d15c99179dbf32ef93cb875223b7fc8f11096b05ce49ea49bfe5013daa34d99",
+        "src/prestashop-insights.js": "da3b6c5a941d2448991cd94892c1da0785dd0ba39a663fc9dc5e0c7067239bc5",
+        "src/recurring-expenses.js": "54e210284913080a93b7f28ef25304178db76abcda08905018661460dea39d8d"
+      }
+    }
+  ]
+}

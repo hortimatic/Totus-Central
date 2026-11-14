@@ -1,4 +1,4 @@
-import {prestashopStore,storeConnection} from '../../../src/prestashop-readonly.js';
+import {prestashopConnectionStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {validateProductWriteRequest,selectedXmlValues,prepareProductStageXml,sha256Text,productLanguageIdsFromListing,productPreservationProjection,legacyProductPreservationProjection,productRedirectTarget,parsePrestashopResourceId,readPrestashopXmlField} from '../../../src/productos-write-contract.js';
 export {validateProductWriteRequest} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText} from './transport.js';
@@ -15,7 +15,7 @@ export async function readProductPreservationProjection(connection,{request=fetc
 // POST (new product), stock and associations intentionally remain unsupported.
 export async function runPrestashopProductWrite(connection,input,{request=fetch,resolve,env=Deno.env,journal=/** @type {any} */(null)}={}){
  const operation=validateProductWriteRequest(input);
- const store=prestashopStore(operation.store);
+ const store=prestashopConnectionStore(connection,operation.store);
  if(!connection||storeConnection([connection],operation.store)!==connection)throw Error('La conexión no corresponde a la tienda seleccionada.');
  if(connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)
   throw Error('La conexión no está activada, verificada y autorizada.');

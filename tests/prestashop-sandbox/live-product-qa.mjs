@@ -281,6 +281,10 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
   const masterOptions={...translationOptions,journal:masterJournal},review=await runPrestashopProductWrite(connection,masterEdit,masterOptions);assert.equal((await runPrestashopProductWrite(connection,{...masterEdit,action:'prestashop_product_commit',request_id:crypto.randomUUID(),expected_fingerprint:review.fingerprint,confirmed:true},masterOptions)).verified,true);
  }
  console.log('SANDBOX: marcas y proveedores nativos creados, renombrados y releídos; reintento sin duplicar POST.');
+ const movementStocks=await readPrestashopPage(connection,{store:'hortimatic',resource:'stock_availables',product_ids:[existing.product_id],page:0,page_size:100},{resolve,request:localOnlyRequest});
+ assert(movementStocks.rows.length,'Created product has native stock');
+ const nativeMovements=await readPrestashopPage(connection,{store:'hortimatic',resource:'stock_movements',stock_ids:movementStocks.rows.map(row=>String(row.id)),page:0,page_size:100},{resolve,request:localOnlyRequest});
+ assert(nativeMovements.rows.every(row=>movementStocks.rows.some(stock=>String(stock.id)===String(row.id_stock))),'Native movement response is scoped to verified stock');
  // This suite intentionally uses unmodified PrestaShop, without private resources.
  const nativeRoot=await localOnlyRequest('https://hortimatic.com/api/',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});assert(!String(await nativeRoot.text()).includes('totus_product_images'));
  for(const [kind,id]of [['remove_variation',existingDone.record_id],['remove_image',picture.record_id],['remove_image',secondPicture.record_id],['remove_product',existing.product_id]]){

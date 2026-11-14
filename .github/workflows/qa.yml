@@ -5,6 +5,36 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  stability-contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tests/stability-gate-qa.mjs
+      - run: node tests/service-deployment-guard-qa.mjs
+      - run: node tests/productos-dirty-state-qa.mjs
+      - run: node tests/productos-movements-qa.mjs
+      - run: node tools/stability-gate.mjs --baseline origin/totus-central
+  movement-layout-database:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: test-only
+    steps:
+      - uses: actions/checkout@v4
+      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/product-movement-layout-db-fixture.sql
+      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261114192028_product_movement_layout.sql
+      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/product-movement-layout-db-qa.sql
   appearance-colors-browser-smoke:
     runs-on: ubuntu-24.04
     env:
@@ -396,6 +426,7 @@ jobs:
       - run: node tests/productos-table-layout-browser-qa.mjs
       - run: node tests/table-view-profiles-browser-qa.mjs
       - run: node tests/productos-direct-save-browser-qa.mjs
+      - run: node tests/productos-movements-browser-qa.mjs
       - run: node tests/catalog-quality-qa.mjs
       - run: node tests/catalogue-workspaces-browser-qa.mjs
       - run: node tests/catalogue-workspaces-resilience-browser-qa.mjs
