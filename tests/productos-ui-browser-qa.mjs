@@ -154,6 +154,7 @@ try{
   await page.getByText(/Propuesta preparada para 1 tienda/).waitFor();
   assert.equal(await page.locator('.prd-plan').count(),1);
   assert.match(await page.locator('.prd-plan').innerText(),/Actualizar #55/);
+  await page.getByText('Ver los campos que se copiarán',{exact:true}).click();
   assert.match(await page.locator('.prd-plan').innerText(),/Nombre personalizado/);
   await page.getByRole('button',{name:'Validar variación'}).first().click();
   await page.getByText(/Variación #200 de newoldsmok comprobada/).waitFor();

@@ -252,7 +252,7 @@ jobs:
       - run: node --test tests/productos-core-qa.mjs tests/productos-table-editor-qa.mjs tests/productos-remove-product-qa.mjs
       - run: node --test tests/productos-write-qa.mjs tests/productos-html-readback-qa.mjs
       - run: node --test tests/productos-request-qa.mjs
-      - run: node --test tests/productos-create-qa.mjs
+      - run: node --test tests/productos-create-qa.mjs tests/productos-native-identifiers-qa.mjs
       - run: node --test tests/productos-create-ui-qa.mjs tests/productos-publication-ui-qa.mjs tests/productos-copy-text-qa.mjs tests/productos-copy-config-qa.mjs
       - run: node --test tests/productos-stages-qa.mjs tests/productos-attributes-qa.mjs tests/productos-masters-qa.mjs tests/productos-relations-qa.mjs
       - run: node --test tests/productos-catalog-qa.mjs tests/productos-image-copy-qa.mjs tests/productos-gallery-qa.mjs tests/productos-tax-qa.mjs tests/productos-existing-workspace-qa.mjs
