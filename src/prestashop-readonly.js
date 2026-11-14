@@ -94,8 +94,10 @@ export function prestashopRows(payload,resource,pageSize){
  if(!PRESTASHOP_RESOURCES[resource])throw Error('Recurso no permitido.');
  // PrestaShop 1.7 serializes an empty resource collection as the root [].
  // Do not treat missing objects, error envelopes or non-empty root arrays as empty.
- const values=Array.isArray(payload)&&payload.length===0?[]:payload?.[resource];
- if(!Array.isArray(values))throw Error('Respuesta PrestaShop no compatible con el recurso.');
+ const nativeAlias={stock_movements:'stock_mvts',stock_movement_reasons:'stock_mvt_reasons'}[resource];
+ if(nativeAlias&&payload?.[resource]!==undefined&&payload?.[nativeAlias]!==undefined)throw Error('Respuesta PrestaShop ambigua para '+resource+'.');
+ const values=Array.isArray(payload)&&payload.length===0?[]:payload?.[resource]??(nativeAlias?payload?.[nativeAlias]:undefined);
+ if(!Array.isArray(values)){const shape=payload&&typeof payload==='object'?Object.keys(payload).filter(k=>/^[a-z_]{1,40}$/i.test(k)).slice(0,6).join(', '):typeof payload;throw Error('Respuesta PrestaShop no compatible con '+resource+' (estructura: '+shape+').');}
  if(values.length>pageSize)throw Error('La API devolvió más filas de las solicitadas.');
  const fields=PRESTASHOP_RESOURCES[resource],seen=new Set();
  const rows=values.map(value=>{

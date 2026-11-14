@@ -1,6 +1,10 @@
 # Totus Central · entrada vigente para ChatGPT
 
-Vigente: 31/10/2026. Leer este documento desde la rama `totus-central` de GitHub al comenzar. Es la entrada actual; las fechas, propuestas y procedimientos anteriores conservados en el historial no prueban el estado instalado.
+Vigente: 14/11/2026. Leer este documento desde la rama `totus-central` de GitHub al comenzar. Es la entrada actual; las fechas, propuestas y procedimientos anteriores conservados en el historial no prueban el estado instalado.
+
+## Estabilidad antes de intervenir
+
+Leer `docs/PROTOCOLO_ESTABILIDAD.md` y el contraste `docs/MEJORAS_CANAL_20261114.md`. Comprobar la rama publicada y las versiones reales de los servicios: no desplegar fuentes de una rama anterior ni considerar terminadas las peticiones pendientes de ese registro. No activar Hortimatic 8 mientras Diego mantenga la pausa. Las fuentes del proyecto son fotografías de referencia.
 
 ## Servicios e identidad
 - Aplicación: https://hortimatic.github.io/Totus-Central/

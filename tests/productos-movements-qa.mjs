@@ -27,3 +27,5 @@ test('late results after leaving a product cannot become movements of another pr
  let release;const reader=createMovementReader(async()=>new Promise(resolve=>release=resolve));const pending=reader.open({store:'hortimatic',product});reader.cancel();release({rows:[stock],possibly_more:false});await assert.rejects(pending,/otra ficha/);
 });
 test('column preferences drop unknown fields and retain native record ID',()=>{assert.deepEqual(movementLayout({columns:['quantity','secret'],widths:{quantity:140,secret:999},size:'50'}),{columns:['quantity','id'],widths:{quantity:140},size:'50'});});
+
+ test('native legacy JSON stock_mvts is accepted only for the movement resource',async()=>{const {prestashopRows}=await import('../src/prestashop-readonly.js');const row={id:7,id_stock:501,physical_quantity:2,sign:-1};assert.equal(prestashopRows({stock_mvts:[row]},'stock_movements',20).rows[0].id_stock,'501');assert.throws(()=>prestashopRows({stock_mvts:[row]},'products',20));assert.throws(()=>prestashopRows({stock_mvts:[row],stock_movements:[row]},'stock_movements',20),/ambigua/);});

@@ -4,17 +4,17 @@
   "services": [
     {
       "name": "totus-connections",
-      "version": 45,
+      "version": 47,
       "files": {
-        "supabase/functions/totus-connections/index.ts": "c753e5e31e4d44942f0909e417d66704ff72a303f472d8bde18bcdb9d919fd80",
+        "supabase/functions/totus-connections/index.ts": "0f757a82be526b2f22203536801a4872ed922d7f90693b8e430c21ba11a3154b",
         "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1",
         "supabase/functions/totus-connections/github.js": "41f50f5d49b8f2fa61e7bd6d25585801984a5ece16e7c1d489aff180a8cd0102",
         "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
         "supabase/functions/totus-ai/cloudflare.js": "075fd3891dbd0c709821bf104c58440210375015b043cf2b626df207a4c05959",
         "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
-        "supabase/functions/totus-connections/prestashop.js": "37eb2c3837a0baec62adb4eddfa1a988e03a23ec59e7aa33c0a3e40d060f4179",
+        "supabase/functions/totus-connections/prestashop.js": "101d56f5736f04bbfda187c702319abe462d84cb6ca7aeb289f1d4ec4eb7ed3c",
         "src/productos-write-contract.js": "43e3dbadd0415dd1ad00ad4403a22a997f047c08eee46477ee19d73e3fb665f4",
-        "src/prestashop-readonly.js": "8357615fc2132115ee7d5a849ea80d887f76a389e2b561d86bebebed8a10600b",
+        "src/prestashop-readonly.js": "0bbb4f851969fd6c8ed02d9eafc3a469744db42f980ce7b70f3122c16fc01c17",
         "src/contact-directory-contract.js": "2b9263d77ab144de442d1bedfa80e015c8169dfc1661405483d391f381a2a989",
         "supabase/functions/totus-connections/prestashop-write.js": "2fc21383141d36c79ce1f128434816189877235a17044cce7d6b82b431ce855d",
         "supabase/functions/totus-connections/prestashop-create.js": "57f55245e2d15e30f95a1ba364e12f3a7bb19d7dbbf1189ada91256ae98e5543",
