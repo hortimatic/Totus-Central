@@ -58,8 +58,8 @@ export function validateProductStage(input){
   if(['price','weight','unit_price_impact'].includes(field)&&!(input.kind==='special_price'&&field==='price'&&value==='-1')&&!(input.kind==='variation'?signed:decimal).test(value))fail('Importe o impacto incorrecto para '+field+'.');
   if(['wholesale_price','product_supplier_price_te','reduction','ecotax'].includes(field)&&!decimal.test(value))fail('Importe incorrecto para '+field+'.');
   if(field==='reference'&&!/^[a-z0-9][a-z0-9._-]{2,63}$/i.test(value))fail('Referencia de variación no válida.');
-  if(field==='ean13'&&value!==''&&!/^\d{13}$/.test(value))fail('EAN incorrecto.');
-  if(field==='upc'&&value!==''&&!/^\d{12}$/.test(value))fail('UPC incorrecto.');
+  if(field==='ean13'&&!/^\d{0,13}$/.test(value))fail('EAN incorrecto.');
+  if(field==='upc'&&!/^\d{0,12}$/.test(value))fail('UPC incorrecto.');
   if(field==='visibility'&&!['both','catalog','search','none'].includes(value))fail('Visibilidad incorrecta.');
   if(field==='reduction_type'&&!['amount','percentage'].includes(value))fail('Tipo de descuento incorrecto.');
   if(['from','to'].includes(field)&&value!=='0000-00-00 00:00:00'&&(!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)||Number.isNaN(Date.parse(value.replace(' ','T')+'Z'))))fail('Periodo de precio especial incorrecto.');
