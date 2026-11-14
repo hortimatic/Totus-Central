@@ -321,6 +321,7 @@ function render(){
  if(input('exDocKind'))updateExpenseTaxTreatment();
  if(state.route==='cajas'&&document.querySelector('.drawer-entry'))updateClosingSummary();
  captureFormDraft($('#content'));
+ window.dispatchEvent(new Event('totus:module-changed'));
  if(state.route==='inicio')homeUI.mount($('#content'));
  if(state.route==='prestashop')void prestashopUI.mount($('#prestashopRoot'));
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
@@ -366,7 +367,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||directoryUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||productosUI.isPublishing()||directoryUI.isPublishing()||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||directoryUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){

@@ -64,3 +64,7 @@ INSERT INTO ps_webservice_permission(id_webservice_account,resource,method) VALU
 (@account_id,'manufacturers','DELETE'),(@account_id,'suppliers','DELETE'),
 (@account_id,'product_options','PUT'),(@account_id,'product_options','DELETE'),(@account_id,'product_option_values','PUT'),(@account_id,'product_option_values','DELETE'),
 (@account_id,'product_features','DELETE'),(@account_id,'product_feature_values','DELETE');
+
+-- Read-only movement resources for disposable native compatibility tests.
+INSERT INTO ps_webservice_permission(id_webservice_account,resource,method) VALUES
+(@account_id,'stock_movements','GET'),(@account_id,'stock_movement_reasons','GET');

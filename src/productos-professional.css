@@ -305,3 +305,21 @@
 .prd-copy-category-inline{display:grid;grid-template-columns:minmax(240px,1fr) auto;align-items:end;gap:12px;padding:16px;background:var(--surface,#fff);border:var(--border-width,1px) solid var(--line,#dce3eb);border-radius:var(--radius,12px)}
 .prd-copy-category-inline>.prd-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;min-width:0;margin:0}.prd-copy-category-inline b{grid-column:1}.prd-copy-category-inline .field-help{grid-column:2;grid-row:1}.prd-copy-category-inline select,.prd-copy-category-inline small,.prd-copy-category-inline>p{grid-column:1/-1;min-width:0;margin:0}.prd-copy-category-inline>button{align-self:center;white-space:normal}
 @media(max-width:720px){.prd-copy-category-inline{grid-template-columns:minmax(0,1fr)}.prd-copy-category-inline>button{justify-self:start}}
+
+/* Product movements share the existing table controls without a vertical sub-scroll. */
+#productosRoot .prd-movements{min-width:0;display:grid;gap:var(--space-sm,12px);padding:12px}
+#productosRoot .pm-filters{display:grid;grid-template-columns:minmax(130px,1fr) minmax(130px,1fr) minmax(180px,2fr) auto;gap:12px;align-items:end}
+#productosRoot .pm-filters label{display:grid;gap:6px;min-width:0}
+#productosRoot .pm-table-viewport{overflow-x:auto;min-width:0;max-width:100%}
+#productosRoot .pm-table{border-collapse:collapse;text-align:left;font-size:13px}
+#productosRoot .pm-table th{position:relative;padding:10px 22px 10px 10px;white-space:normal;background:var(--surface-container,#edf3f8);border-bottom:1px solid var(--line,#dbe4ef);font-weight:600}
+#productosRoot .pm-table td{padding:9px 10px;border-bottom:1px solid var(--line,#dbe4ef);overflow-wrap:anywhere;vertical-align:top}
+#productosRoot .pm-table tbody tr:hover{background:var(--surface-container-low,#f4f8fb)}
+#productosRoot .pm-table-navigation{position:sticky;top:calc(var(--header-height,72px) + 8px);z-index:4;justify-self:end;display:flex;gap:6px;pointer-events:none}
+#productosRoot .pm-table-navigation button{pointer-events:auto;min-width:38px;padding:6px 12px;background:var(--surface,#fff)}
+#productosRoot .prd-movements [data-pm-page]{width:80px}
+.pm-columns-dialog{width:min(540px,calc(100vw - 24px));max-height:85vh;overflow:auto}
+.pm-column-option{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 0}
+.pm-column-option label{display:flex;align-items:center;gap:8px}
+@media(max-width:900px){#productosRoot .pm-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){#productosRoot .pm-filters{grid-template-columns:minmax(0,1fr)}}

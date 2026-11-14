@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
-const source=readFileSync(new URL('../supabase/functions/totus-assistant/assistant-operations.ts',import.meta.url),'utf8').replace('../../../src/agent-identity.js',new URL('../src/agent-identity.js',import.meta.url).href);
+const source=readFileSync(new URL('../supabase/functions/totus-assistant/assistant-operations.ts',import.meta.url),'utf8').replace('../../../src/agent-identity.js',new URL('../src/agent-identity.js',import.meta.url).href).replace('../../../src/website-registry.js',new URL('../src/website-registry.js',import.meta.url).href);
 const {runOperation:executeOperation,operationCatalogue}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
 const runOperation=(client,payload,user)=>executeOperation(client,payload,{id:'verified-fixture-user',app_metadata:{totus_agent:true},...user});
 const request='11111111-1111-4111-8111-111111111111';

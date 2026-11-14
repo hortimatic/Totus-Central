@@ -1,8 +1,6 @@
-// Read-only PrestaShop contracts. Store names are explicit: never infer a shop from a URL.
-export const PRESTASHOP_STORES=Object.freeze([
- {key:'hortimatic',name:'Hortimatic',connectionName:'PrestaShop · Hortimatic',origin:'https://hortimatic.com'},
- {key:'newoldsmok',name:'NewOldSmok',connectionName:'PrestaShop · NewOldSmok',origin:'https://newoldsmok.com'}
-]);
+// Read-only contracts. Server identity is bound to a registered connection.
+import {WEBSITE_CHOICES as PRESTASHOP_STORES,connectionWebsite} from './website-registry.js';
+export {PRESTASHOP_STORES};
 export const PRESTASHOP_RESOURCES=Object.freeze({
  orders:Object.freeze(['id','reference','date_add','payment','total_paid_tax_incl','total_paid_tax_excl','current_state','valid','id_currency','id_customer','id_address_invoice','id_address_delivery','id_shop','invoice_number','invoice_date','total_shipping_tax_incl','total_shipping_tax_excl','total_wrapping_tax_excl','total_discounts_tax_incl','total_discounts_tax_excl','module']),
  order_states:Object.freeze(['id','name']),
@@ -32,15 +30,21 @@ export const PRESTASHOP_RESOURCES=Object.freeze({
  product_option_values:Object.freeze(['id','id_attribute_group','name','color','position']),
  order_details:Object.freeze(['id','id_order','product_id','product_attribute_id','product_name','product_reference','product_quantity','total_price_tax_incl','total_price_tax_excl','unit_price_tax_incl','unit_price_tax_excl','reduction_percent','purchase_supplier_price','original_wholesale_price','associations']),
  stock_availables:Object.freeze(['id','id_product','id_product_attribute','id_shop','quantity','out_of_stock','depends_on_stock','location']),
- stock_movements:Object.freeze(['id','id_product','id_product_attribute','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','id_order','id_supply_order'])
+ stock_movements:Object.freeze(['id','id_stock','id_stock_mvt_reason','physical_quantity','sign','date_add','id_employee','employee_firstname','employee_lastname','id_order','id_supply_order','price_te']),
+ stock_movement_reasons:Object.freeze(['id','name','sign'])
 });
-export function prestashopStore(key){const store=PRESTASHOP_STORES.find(s=>s.key===key);if(!store)throw Error('Tienda PrestaShop no admitida.');return store;}
-export function storeConnection(connections,key){
- const expected=prestashopStore(key).connectionName;
+export function prestashopStore(key,registry=null){if(registry)return registry.get(key);const store=PRESTASHOP_STORES.find(s=>s.key===key);if(!store)throw Error('Tienda PrestaShop no admitida.');return store;}
+export function storeConnection(connections,key,registry=null){
+ if(registry)return registry.connection(key,connections);
+ const bound=(Array.isArray(connections)?connections:[]).filter(c=>c?.protocol==='prestashop'&&c.store_key===key);
+ if((Array.isArray(connections)?connections:[]).some(c=>c?.store_key))return bound.length===1?bound[0]:null;
+ const expected=PRESTASHOP_STORES.find(site=>site.key===key)?.connectionName;
+ if(!expected)return null;
  const found=(Array.isArray(connections)?connections:[]).filter(c=>c?.protocol==='prestashop'&&c?.name===expected);
  if(found.length!==1)return null;
  return found[0];
 }
+export function prestashopConnectionStore(connection,key){return connection?.store_key?connectionWebsite(connection,key):prestashopStore(key);}
 export function prestashopPage(resource,page=0,pageSize=25){
  const fields=PRESTASHOP_RESOURCES[resource];
  if(!fields)throw Error('Recurso PrestaShop no permitido.');
@@ -61,6 +65,7 @@ export function prestashopQuery(input){
  if(['customers','addresses','currencies','taxes','order_states','employees'].includes(input.resource)&&!(input.resource==='currencies'&&input.record_id===undefined)){if(!/^\d{1,15}$/.test(String(input.record_id||'')))throw Error('Selecciona un registro de detalle.');out.recordId=String(input.record_id);}else if(input.record_id!==undefined)throw Error('El recurso no admite registro de detalle.');
  const ids=(value,max)=>{if(!Array.isArray(value)||!value.length||value.length>max||value.some(id=>!/^\d{1,15}$/.test(String(id)))||new Set(value.map(String)).size!==value.length)throw Error('Selección de registros no válida.');return value.map(String);};
  if(input.product_ids!==undefined){if(!['products','stock_availables','product_suppliers','specific_prices'].includes(input.resource))throw Error('La selección no corresponde al recurso.');out.productIds=ids(input.product_ids,100);}
+ if(input.stock_ids!==undefined){if(input.resource!=='stock_movements')throw Error('La selección de existencias solo admite movimientos.');out.stockIds=ids(input.stock_ids,100);if(out.stockIds.some(id=>!/^[1-9]\d{0,14}$/.test(id)))throw Error('Los movimientos requieren registros reales de existencias.');}
  if(input.search!==undefined||input.search_field!==undefined){
   if(input.resource!=='products'||!['name','reference','ean13'].includes(input.search_field)||typeof input.search!=='string'||!input.search.trim()||input.search.length>96||/[\[\]|%,\\\x00-\x1f]/.test(input.search)||input.references!==undefined||input.product_ids!==undefined)throw Error('Búsqueda de producto no válida.');
   out.search=input.search.trim();out.searchField=input.search_field;
@@ -89,8 +94,10 @@ export function prestashopRows(payload,resource,pageSize){
  if(!PRESTASHOP_RESOURCES[resource])throw Error('Recurso no permitido.');
  // PrestaShop 1.7 serializes an empty resource collection as the root [].
  // Do not treat missing objects, error envelopes or non-empty root arrays as empty.
- const values=Array.isArray(payload)&&payload.length===0?[]:payload?.[resource];
- if(!Array.isArray(values))throw Error('Respuesta PrestaShop no compatible con el recurso.');
+ const nativeAlias={stock_movements:'stock_mvts',stock_movement_reasons:'stock_mvt_reasons'}[resource];
+ if(nativeAlias&&payload?.[resource]!==undefined&&payload?.[nativeAlias]!==undefined)throw Error('Respuesta PrestaShop ambigua para '+resource+'.');
+ const values=Array.isArray(payload)&&payload.length===0?[]:payload?.[resource]??(nativeAlias?payload?.[nativeAlias]:undefined);
+ if(!Array.isArray(values)){const shape=payload&&typeof payload==='object'?Object.keys(payload).filter(k=>/^[a-z_]{1,40}$/i.test(k)).slice(0,6).join(', '):typeof payload;throw Error('Respuesta PrestaShop no compatible con '+resource+' (estructura: '+shape+').');}
  if(values.length>pageSize)throw Error('La API devolvió más filas de las solicitadas.');
  const fields=PRESTASHOP_RESOURCES[resource],seen=new Set();
  const rows=values.map(value=>{
@@ -101,4 +108,4 @@ export function prestashopRows(payload,resource,pageSize){
  return {rows,possibly_more:rows.length===pageSize};
 }
 
-export function prestashopProductImage(store,imageId){return /^\d+$/.test(String(imageId||''))&&String(imageId)!=='0'?prestashopStore(store).origin+'/'+imageId+'-home_default/product.jpg':null;}
+export function prestashopProductImage(store,imageId,registry=null){return /^\d+$/.test(String(imageId||''))&&String(imageId)!=='0'?prestashopStore(store,registry).origin+'/'+imageId+'-home_default/product.jpg':null;}

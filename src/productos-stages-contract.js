@@ -1,3 +1,4 @@
+import {websiteKey} from './website-registry.js';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const id=/^[1-9]\d{0,14}$/;
 const unsigned=/^\d{1,15}$/;
@@ -16,7 +17,7 @@ const required=Object.freeze({feature:['name'],feature_value:['id_feature','cust
 function fail(message){throw Error(message);}
 export function validateProductStage(input){
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['action','id','call_id','revision','store','parent_request_id','product_id','kind','step_key','fields','associations','image','record_id','expected_fingerprint','confirmed','existing_product'].includes(k)))fail('Solicitud de etapa no válida.');
- if(!['prestashop_product_step_prepare','prestashop_product_step_commit'].includes(input.action)||!uuid.test(input.id)||!uuid.test(input.call_id)||!uuid.test(input.parent_request_id)||!['hortimatic','newoldsmok'].includes(input.store)||!id.test(String(input.product_id))||!Number.isSafeInteger(input.revision)||input.revision<1||!Object.hasOwn(PRODUCT_STAGE_RESOURCES,input.kind)||!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(input.step_key||''))fail('Identidad de etapa no válida.');
+ if(!['prestashop_product_step_prepare','prestashop_product_step_commit'].includes(input.action)||!uuid.test(input.id)||!uuid.test(input.call_id)||!uuid.test(input.parent_request_id)||!websiteKey(input.store)||!id.test(String(input.product_id))||!Number.isSafeInteger(input.revision)||input.revision<1||!Object.hasOwn(PRODUCT_STAGE_RESOURCES,input.kind)||!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(input.step_key||''))fail('Identidad de etapa no válida.');
  const out={store:input.store,kind:input.kind,resource:PRODUCT_STAGE_RESOURCES[input.kind],product_id:String(input.product_id),parent_request_id:input.parent_request_id,stage:input.kind+'_'+input.step_key,fields:{},associations:{},commit:input.action.endsWith('_commit')};
  if(input.existing_product!==undefined){if(input.existing_product!==true)fail('El recorrido de producto existente debe seleccionarse expresamente.');out.existing_product=true;}
  if(input.record_id!==undefined){if(!id.test(String(input.record_id))||!['stock','finish','variation_edit','remove_product','remove_variation','remove_image','image_metadata','image_replace'].includes(input.kind))fail('Registro de etapa no admitido.');out.record_id=String(input.record_id);}

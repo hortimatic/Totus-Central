@@ -55,7 +55,7 @@ try{
   assert.equal(await page.locator('#store-context-select').inputValue(),'newoldsmok');
   assert.equal(await page.evaluate(()=>stitchQA.calls.filter(x=>x.action==='prestashop_item_read').at(-1).store),'newoldsmok');
   await page.locator('#subtabs-bar').waitFor().catch(async error=>{console.error(await page.locator('#productosRoot').innerText(),errors);throw error;});
-  assert.equal(await page.locator('#subtabs-bar button').count(),9);
+  assert.equal(await page.locator('#subtabs-bar button').count(),10,'The nine existing sections plus native Movimientos remain accessible');assert.equal(await page.locator('#subtabs-bar [data-pr-section=movimientos]').count(),1);
   const parity=[];
   for(const [current,original]of [['#sub-info [data-pr-value="name"]','#sub-info input:nth-of-type(1)'],['#sub-info [data-pr-value="reference"]','#sub-info input'],['#sub-desc [data-pr-value="description"]','#sub-desc textarea'],['#sub-seo [data-pr-value="meta_title"]','#sub-seo input'],['#sub-envio [data-pr-value="weight"]','#sub-envio input']]){
    const properties=['fontSize','fontFamily','lineHeight','backgroundColor','color','borderRadius','paddingTop','paddingBottom','paddingLeft','paddingRight'];

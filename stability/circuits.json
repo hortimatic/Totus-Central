@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "circuits": [
+    {
+      "id": "access",
+      "paths": [
+        "src/bootstrap",
+        "src/client",
+        "src/auth",
+        "src/app.js",
+        "supabase/functions/team-admin"
+      ],
+      "tests": [
+        "tests/session-startup-browser-qa.mjs",
+        "tests/access-recovery-browser-qa.mjs",
+        "tests/release-notice-browser-qa.mjs"
+      ],
+      "invariants": [
+        "login recoverable",
+        "no permissions widened"
+      ]
+    },
+    {
+      "id": "products",
+      "paths": [
+        "src/productos",
+        "src/website-registry",
+        "src/prestashop-readonly",
+        "supabase/functions/totus-connections",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/productos-direct-save-browser-qa.mjs",
+        "tests/productos-copy-upload-browser-qa.mjs",
+        "tests/productos-copy-complete-browser-qa.mjs",
+        "tests/productos-relations-browser-qa.mjs",
+        "tests/productos-movements-qa.mjs",
+        "tests/productos-dirty-state-qa.mjs",
+        "tests/productos-movements-browser-qa.mjs"
+      ],
+      "invariants": [
+        "create/edit/copy",
+        "photos and variants",
+        "same request recovery",
+        "leave after verified publication"
+      ]
+    },
+    {
+      "id": "sales",
+      "paths": [
+        "src/prestashop",
+        "src/website-registry",
+        "supabase/functions/totus-connections",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/prestashop-orders-table-browser-qa.mjs",
+        "tests/prestashop-payment-filter-browser-qa.mjs"
+      ],
+      "invariants": [
+        "correct shop",
+        "date/payment filters",
+        "margins and configurable table"
+      ]
+    },
+    {
+      "id": "receipts",
+      "paths": [
+        "src/stock",
+        "src/receipt",
+        "src/extraction",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/stock-rules-browser-qa.mjs",
+        "tests/stock-workflow-qa.mjs"
+      ],
+      "invariants": [
+        "read complete original",
+        "match quantities without AI",
+        "same request no duplicates"
+      ]
+    },
+    {
+      "id": "directories",
+      "paths": [
+        "src/contact-directory",
+        "src/directory",
+        "src/website-registry",
+        "supabase/functions/totus-connections/contact-directory",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/contact-directory-browser-qa.mjs"
+      ],
+      "invariants": [
+        "shop-specific clients/brands/suppliers",
+        "verified save",
+        "retain presentation"
+      ]
+    },
+    {
+      "id": "finance",
+      "paths": [
+        "src/cash",
+        "src/invoice",
+        "src/expense",
+        "src/calculations",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/closing-integral-browser-qa.mjs",
+        "tests/business-write-browser-qa.mjs"
+      ],
+      "invariants": [
+        "no double income",
+        "signed discrepancies",
+        "lost response recovery"
+      ]
+    },
+    {
+      "id": "chat",
+      "paths": [
+        "src/team-chat",
+        "src/chat",
+        "src/agent-identity",
+        "supabase/functions/totus-assistant",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/chat-integral-browser-qa.mjs"
+      ],
+      "invariants": [
+        "own identity",
+        "channel membership",
+        "files and retries"
+      ]
+    },
+    {
+      "id": "automation",
+      "paths": [
+        "src/prestashop",
+        "src/recurring",
+        "src/website-registry",
+        "supabase/functions/totus-prestashop-alerts",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/prestashop-automations-browser-qa.mjs"
+      ],
+      "invariants": [
+        "no duplicate notification",
+        "shop scope",
+        "pause without deletion"
+      ]
+    },
+    {
+      "id": "home",
+      "paths": [
+        "src/home",
+        "src/prestashop",
+        "src/website-registry",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/home-navigation-draft-browser-qa.mjs",
+        "tests/home-widgets-actions-browser-qa.mjs"
+      ],
+      "invariants": [
+        "no false dirty state",
+        "filter and resize",
+        "permission scoped tasks"
+      ]
+    },
+    {
+      "id": "appearance",
+      "paths": [
+        "src/appearance",
+        "src/interface",
+        "src/styles",
+        "src/account",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/account-workspace-browser-qa.mjs",
+        "tests/appearance-element-colors-browser-qa.mjs"
+      ],
+      "invariants": [
+        "preferences persist",
+        "mobile and desktop",
+        "private profile"
+      ]
+    },
+    {
+      "id": "storage",
+      "paths": [
+        "src/document",
+        "src/backup",
+        "src/recovery",
+        "supabase/functions/totus-onedrive",
+        "src/app.js"
+      ],
+      "tests": [
+        "tests/document-upload-browser-qa.mjs",
+        "tests/backup-qa.mjs"
+      ],
+      "invariants": [
+        "original retained",
+        "idempotent upload",
+        "recoverable backup"
+      ]
+    }
+  ]
+}

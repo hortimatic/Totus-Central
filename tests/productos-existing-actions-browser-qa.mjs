@@ -38,7 +38,7 @@ try{
   const info=page.locator('#sub-info .field-help').first();
   await info.locator('..').hover({position:{x:2,y:2}});assert.equal(await info.getAttribute('open'),null,'A field label does not open the information icon');
   await info.locator('summary').hover();await page.waitForFunction(()=>document.querySelector('#sub-info .field-help')?.open);await inside(info.locator('[role=note]'));await page.mouse.move(1,1);assert.equal(await info.getAttribute('open'),null);
-  const sectionButtons=await page.locator('#subtabs-bar button').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,right:r.right,height:r.height};}));assert.equal(sectionButtons.length,9);assert(sectionButtons.every(r=>r.x>=0&&r.right<=width+1&&r.height>=30),'All nine sections have aligned, usable controls');
+  const sectionButtons=await page.locator('#subtabs-bar button').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,right:r.right,height:r.height};}));assert.equal(sectionButtons.length,10);assert(sectionButtons.every(r=>r.x>=0&&r.right<=width+1&&r.height>=30),'All existing sections and Movimientos have aligned, usable controls');
   await page.locator('[data-pr-section="imagenes"]').click();
   await page.locator('[data-pr-action="photo-zoom"][data-pr-image="91"]').click();
   await inside(page.getByRole('dialog',{name:'Imagen del producto',exact:true}));

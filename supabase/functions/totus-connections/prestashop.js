@@ -1,9 +1,9 @@
 import {readPrestashopCombinationXml} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from './transport.js';
-import {prestashopStore,storeConnection,prestashopQuery,prestashopRows} from '../../../src/prestashop-readonly.js';
+import {prestashopConnectionStore,storeConnection,prestashopQuery,prestashopRows} from '../../../src/prestashop-readonly.js';
 // Credentials and requests remain on the server. Never accept a URL, SQL or field name from the browser.
 export async function readPrestashopPage(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store),page=prestashopQuery(input);
+ const store=prestashopConnectionStore(connection,input.store),page=prestashopQuery(input);
  if(!connection||storeConnection([connection],store.key)!==connection)throw Error('La conexión no corresponde a la tienda seleccionada.');
  if(connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('La conexión debe estar activada, verificada y autorizada para leer datos reales.');
  const base=new URL(connection.endpoint);
@@ -19,6 +19,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.recordId)base.searchParams.set('filter[id]','['+page.recordId+']');
  const productChildren=['stock_availables','product_suppliers','specific_prices'];
  if(page.productIds)base.searchParams.set(productChildren.includes(page.resource)?'filter[id_product]':'filter[id]','['+page.productIds.join('|')+']');
+ if(page.stockIds)base.searchParams.set('filter[id_stock]','['+page.stockIds.join('|')+']');
  if(page.search)base.searchParams.set('filter['+page.searchField+']','%['+page.search+']%');
  if(page.references)base.searchParams.set('filter[reference]','['+page.references.join('|')+']');
  if(page.orderIds)base.searchParams.set('filter[id_order]','['+page.orderIds.join('|')+']');
@@ -34,6 +35,7 @@ export async function readPrestashopPage(connection,input,{request=fetch,resolve
  if(page.recordId&&parsed.rows.some(row=>row.id!==page.recordId))throw Error('PrestaShop devolvió otro registro de detalle.');
  if(page.orderId&&parsed.rows.some(row=>row.id_order!==page.orderId))throw Error('PrestaShop devolvió líneas de otro pedido.');
  if(page.productIds&&parsed.rows.some(row=>!page.productIds.includes(productChildren.includes(page.resource)?row.id_product:row.id)))throw Error('Producto ajeno a la selección.');
+ if(page.stockIds&&parsed.rows.some(row=>!page.stockIds.includes(row.id_stock)))throw Error('Movimiento ajeno a las existencias seleccionadas.');
  if(page.references&&parsed.rows.some(row=>!page.references.some(ref=>ref.toUpperCase()===String(row.reference||'').toUpperCase())))throw Error('PrestaShop devolvió una referencia ajena a la selección.');
  if(page.orderIds&&parsed.rows.some(row=>!page.orderIds.includes(row.id_order)))throw Error('Línea ajena a los pedidos seleccionados.');
  return {ok:true,store:store.key,resource:page.resource,page:page.page,page_size:page.pageSize,...parsed};
@@ -83,7 +85,7 @@ export function prestashopProductCapabilities(resources){
  return {permissions_complete:entries.every(entry=>entry.ready),verified_by_operation:false,entries};
 }
 export async function discoverPrestashop(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store);
+ const store=prestashopConnectionStore(connection,input.store);
  if(!connection||storeConnection([connection],store.key)!==connection||connection.enabled!==true||connection.verified_revision!==connection.revision||connection.real_data_authorized!==true)throw Error('La conexión debe estar activada, verificada y autorizada para esta tienda.');
  const base=new URL(connection.endpoint);if(base.search||base.hash||!base.pathname.replace(/\/$/,'').endsWith('/api'))throw Error('Dirección Webservice no válida.');base.pathname=base.pathname.replace(/\/$/,'')+'/';
  const target=await safeEndpoint(base.href,resolve),response=await request(target.href,{method:'GET',headers:{...connectionHeaders(connection),Accept:'application/xml'},credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
@@ -96,7 +98,7 @@ export async function discoverPrestashop(connection,input,{request=fetch,resolve
 // Detail uses an exact resource/ID, never an arbitrary URL or field expression.
 // This is intentionally read-only: writes require a separately audited contract.
 export async function readPrestashopProductItem(connection,input,{request=fetch,resolve}={}){
- const store=prestashopStore(input.store);
+ const store=prestashopConnectionStore(connection,input.store);
  if(input.resource==='images'){
   if(!/^[1-9]\d{0,14}$/.test(String(input.product_id||''))||!/^[1-9]\d{0,14}$/.test(String(input.record_id||'')))throw Error('Imagen de producto no válida.');
   const parent=await readPrestashopProductItem(connection,{...input,resource:'products',record_id:input.product_id},{request,resolve});

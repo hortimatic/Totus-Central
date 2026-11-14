@@ -1,3 +1,4 @@
+import {websiteKey} from './website-registry.js';
 // Productos / PrestaShop 1.7: restrictive write contract.
 // Never accept XML, URLs, arbitrary paths, numeric relationships or shop IDs from the client.
 // The source XML comes exclusively from a freshly validated server-side GET.
@@ -44,8 +45,6 @@ function validateValue(field,value,resource){
  if(field==='link_rewrite'&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))invalid('URL amigable no válida.');
  if(field==='name'&&/[<>;=#{}]/.test(value))invalid('El nombre contiene caracteres que PrestaShop no admite: < > ; = # { }.');
  if(field==='value'&&/[<>={}]/.test(value))invalid('El valor de característica contiene caracteres no admitidos.');
- // PrestaShop 1.7.8.11 Validate::isEan13/isUpc accept numeric values up to
- // their field length. Preserve native identifiers exactly; never pad or move them.
  if(field==='ean13'&&!/^\d{0,13}$/.test(value))invalid('EAN admite hasta 13 dígitos, sin letras ni separadores.');
  if(field==='upc'&&!/^\d{0,12}$/.test(value))invalid('UPC admite hasta 12 dígitos, sin letras ni separadores.');
  // Native PrestaShop records can contain zero (including freshly created bases).
@@ -61,7 +60,7 @@ export function validateProductWriteRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
  const keys=new Set(['action','id','call_id','revision','store','resource','record_id','expected_product_id','changes','expected_fingerprint','request_id','confirmed','recover_unchanged']);
  if(Object.keys(input).some(k=>!keys.has(k)))invalid('Campos de solicitud no admitidos.');
- if(!['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)||!['hortimatic','newoldsmok'].includes(input.store)||
+ if(!['prestashop_product_prepare','prestashop_product_commit'].includes(input.action)||!websiteKey(input.store)||
   !Object.hasOwn(PRODUCT_WRITE_FIELDS,input.resource)||!integer.test(String(input.record_id??''))||!uuid.test(String(input.id??''))||!uuid.test(String(input.call_id??''))||
   !Number.isSafeInteger(input.revision)||input.revision<1)invalid();
  if(input.resource==='combinations'&&!integer.test(String(input.expected_product_id||'')))invalid('Falta el ID del producto al que pertenece la combinación.');
@@ -375,7 +374,7 @@ export function validateProductCreateRequest(input){
  if(!input||typeof input!=='object'||Array.isArray(input))invalid();
  const accepted=new Set(['action','id','call_id','revision','store','reference','price','category_id','translations','fields','relations','expected_fingerprint','request_id','confirmed','retry_absent']);
  if(Object.keys(input).some(key=>!accepted.has(key))||!['prestashop_product_create_prepare','prestashop_product_create_commit'].includes(input.action)||
- !['hortimatic','newoldsmok'].includes(input.store)||!uuid.test(String(input.id||''))||!uuid.test(String(input.call_id||''))||
+ !websiteKey(input.store)||!uuid.test(String(input.id||''))||!uuid.test(String(input.call_id||''))||
  !Number.isSafeInteger(input.revision)||input.revision<1||!integer.test(String(input.category_id||'')))invalid('Solicitud de alta de producto no válida.');
  if(typeof input.reference!=='string'||!/^[a-z0-9][a-z0-9._-]{2,63}$/i.test(input.reference))invalid('Referencia no válida para evitar duplicados.');
  validateValue('price',input.price,'products');
