@@ -7,7 +7,7 @@ try{
  const counts={};
  for(const route of ['productos-baseline','productos','ventas','equipo','gastos','inicio']){
   const baseline=route==='productos-baseline',target=baseline?'productos':route;
-  const page=await browser.newPage();if(baseline)await page.route('**/src/app.js',async request=>{const response=await request.fetch(),code=await response.text();assert(code.includes("await refresh('',{route:state.route});"));await request.fulfill({response,body:code.replace("await refresh('',{route:state.route});",'await refresh();')});});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage();if(baseline)await page.route('**/src/app.js',async request=>{const response=await request.fetch(),code=await response.text();assert(code.includes("await refresh('',{route:state.route,initialProfile:profile});"));await request.fulfill({response,body:code.replace("await refresh('',{route:state.route,initialProfile:profile});",'await refresh();')});});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/tests/mock-supabase.js',async request=>{
    const response=await request.fetch();let source=await response.text();
    const needle='then(ok,fail){return Promise.resolve(databaseResult(this.result())).then(ok,fail)}';

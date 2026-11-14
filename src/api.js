@@ -1,4 +1,5 @@
 import {moduleReads} from './module-navigation.js';
+import {readProfileDirectory} from './profile-directory.js';
 import {documentMimeType} from './file-utils.js';
 import {SUPABASE_URL,SUPABASE_KEY} from './config.js';
 import {state} from './state.js';
@@ -150,7 +151,7 @@ export async function reloadStorageUsage(){
   return state.data.storageUsage;
  }
 }
-export async function loadCore({route=null}={}){
+export async function loadCore({route=null,initialProfile=null}={}){
  const owner=dataOwner(),generation=++coreReadGeneration,current=()=>dataOwner()===owner&&generation===coreReadGeneration;
  const tasks=moduleReads([
  ['settings','ops_business_settings'],['backupConfig','ops_backup_config'],['backupRuns','ops_backup_runs','started_at','id,mode,period_key,status,started_at,finished_at,storage_path,size_bytes,rows_count,files_count,error_message,snapshot_revision,archive_sha256,storage_provider,supabase_parts_retired_at,archive_version:archive_manifest->version,archive_bundle_version:archive_manifest->bundle_version'],['recoveryJobs','ops_recovery_jobs','created_at'],['roles','ops_roles','sort_order'],['rolePermissions','ops_role_permissions'],['userPermissions','ops_user_permissions'],['team','team_members'],['profiles','profiles'],['stores','ops_stores'],['drawers','ops_cash_drawers'],['categories','ops_expense_categories'],['suppliers','ops_suppliers'],
@@ -167,7 +168,7 @@ export async function loadCore({route=null}={}){
  const worker=async()=>{
   while(current()&&!failure&&next<tasks.length){
    const index=next++,[,table,order,columns]=tasks[index];
-   try{results[index]=await timedStartup('core:'+table,()=>select(table,{order,ascending:false,columns}))}
+   try{results[index]=await timedStartup('core:'+table,()=>table==='profiles'?readProfileDirectory(select,state.user?.id,initialProfile):select(table,{order,ascending:false,columns}))}
    catch(error){failure||=error}
   }
  };
