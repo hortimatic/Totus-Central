@@ -9,14 +9,17 @@
         "src/auth",
         "src/app.js",
         "supabase/functions/team-admin",
-        "src/startup-timing.js"
+        "src/startup-timing.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/session-startup-browser-qa.mjs",
         "tests/access-recovery-browser-qa.mjs",
         "tests/release-notice-browser-qa.mjs",
         "tests/startup-scoped-browser-qa.mjs",
-        "tests/bootstrap-preload-browser-qa.mjs"
+        "tests/bootstrap-preload-browser-qa.mjs",
+        "tests/profile-directory-qa.mjs"
       ],
       "invariants": [
         "login recoverable",
@@ -30,7 +33,9 @@
         "src/website-registry",
         "src/prestashop-readonly",
         "supabase/functions/totus-connections",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/productos-direct-save-browser-qa.mjs",
@@ -54,7 +59,9 @@
         "src/prestashop",
         "src/website-registry",
         "supabase/functions/totus-connections",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/prestashop-orders-table-browser-qa.mjs",
@@ -72,7 +79,9 @@
         "src/stock",
         "src/receipt",
         "src/extraction",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/stock-rules-browser-qa.mjs",
@@ -91,7 +100,9 @@
         "src/directory",
         "src/website-registry",
         "supabase/functions/totus-connections/contact-directory",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/contact-directory-browser-qa.mjs"
@@ -109,7 +120,9 @@
         "src/invoice",
         "src/expense",
         "src/calculations",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/closing-integral-browser-qa.mjs",
@@ -128,7 +141,9 @@
         "src/chat",
         "src/agent-identity",
         "supabase/functions/totus-assistant",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/chat-integral-browser-qa.mjs"
@@ -146,7 +161,9 @@
         "src/recurring",
         "src/website-registry",
         "supabase/functions/totus-prestashop-alerts",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/prestashop-automations-browser-qa.mjs"
@@ -163,7 +180,9 @@
         "src/home",
         "src/prestashop",
         "src/website-registry",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/home-navigation-draft-browser-qa.mjs",
@@ -182,7 +201,9 @@
         "src/interface",
         "src/styles",
         "src/account",
-        "src/app.js"
+        "src/app.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/account-workspace-browser-qa.mjs",
@@ -203,7 +224,9 @@
         "supabase/functions/totus-onedrive",
         "src/app.js",
         "src/pages/main.js",
-        "src/storage-planning.js"
+        "src/storage-planning.js",
+        "src/profile-directory.js",
+        "src/api.js"
       ],
       "tests": [
         "tests/document-upload-browser-qa.mjs",

@@ -452,12 +452,12 @@ function refreshMaintenanceNotice(){
 }
 let refreshGeneration=0;
 const sessionViewOwner=()=>JSON.stringify([state.session?.user?.id||'',state.user?.email||'',state.user?.role||'']);
-async function refresh(message='',{route=null}={}){
+async function refresh(message='',{route=null,initialProfile=null}={}){
  if(!state.user)return;
  const owner=sessionViewOwner(),generation=++refreshGeneration,current=()=>sessionViewOwner()===owner&&generation===refreshGeneration;
  state.loading=true;
  try{
-  if(await timedStartup('carga_principal',()=>loadCore({route}))===false||!current())return;
+  if(await timedStartup('carga_principal',()=>loadCore({route,initialProfile}))===false||!current())return;
   applyInterfaceAppearance(personalInterfaceSettings(state).appearance_config);
   applyLoginAppearance($('#login'),state.data.settings?.login_appearance);
   refreshMaintenanceNotice();
@@ -3323,7 +3323,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  const internalReturn=history.state?.totusModuleNavigation===true;
  const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);
  if(internalReturn)history.replaceState(null,'',moduleUrl(location.href,state.route));
- await refresh('',{route:state.route});chatNotifier.start();headerTools.start();
+ await refresh('',{route:state.route,initialProfile:profile});chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
