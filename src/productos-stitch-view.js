@@ -309,8 +309,25 @@ export function stitchCopy({store,legacyHtml,record,targetRecord,copyImages=true
  // Remove design-only database prefixes and sample direction badges, not controls.
  for(const node of [...view.querySelectorAll('span,small,code')])if(!node.children.length&&/PS_PREFIX:|ps_nos_|ps_hort_|Hortimatic 1\.7\.8\.11|#10482/.test(node.textContent))node.remove();
  const nav=actual.querySelector('.prd-parallel-tabs');if(nav){const variations=document.createElement('button');variations.type='button';variations.dataset.prAction='copy-variations';variations.textContent='Variaciones ('+associationIds(record,'combinations').length+')';view.firstElementChild.after(nav);}
- const destinations=actual.querySelector('.prd-targets');if(destinations)view.firstElementChild.append(destinations);
- const preview=actual.querySelector('.prd-preview');if(preview)view.append(preview);
+ // Copy has one explicit destination: the opposite store shown in its header.
+
+ const preview=actual.querySelector('.prd-preview');
+ if(preview&&record?.id){
+  for(const [index,plan] of [...preview.querySelectorAll('.prd-plan')].entries()){
+   const changes=plan.querySelector(':scope>ul');
+   if(changes){const details=document.createElement('details');details.className='prd-copy-details';details.dataset.prCopyDetails='fields-'+index;const summary=document.createElement('summary');summary.textContent='Ver los campos que se copiarán';details.append(summary,changes);plan.append(details);}
+   const creation=plan.querySelector('.prd-creation');
+   if(creation){
+    const compact=document.createElement('section');compact.className='prd-copy-publish-review';compact.setAttribute('aria-label','Categoría y publicación de la copia');
+    const category=creation.querySelector('select[data-pr-create-field="category_id"]')?.closest('label');
+    if(category){category.querySelector('b').firstChild.textContent='Categoría de destino';const categoryBox=document.createElement('section');categoryBox.className='prd-copy-category-inline';categoryBox.setAttribute('aria-label','Categoría de destino y publicación');categoryBox.append(category);const publish=view.querySelector('[data-pr-action=copy-upload]');if(publish)categoryBox.append(publish);const hint=document.createElement('p');hint.className='small';hint.textContent='Elige la categoría y pulsa Copiar y publicar. Los idiomas, fotos y variaciones se resuelven en el mismo recorrido.';categoryBox.append(hint);view.firstElementChild.after(categoryBox);}
+    const help=document.createElement('p');help.className='small';help.textContent=category?'Elige dónde ubicarlo y pulsa «Copiar y publicar». Totus completa los idiomas, las imágenes y las variaciones seleccionadas.':'Pulsa «Copiar y publicar». Totus preparará los datos y te pedirá la categoría si no encuentra una correspondencia.';compact.append(help);
+    const advanced=document.createElement('details');advanced.className='prd-copy-details';advanced.dataset.prCopyDetails='advanced-'+index;const summary=document.createElement('summary');summary.textContent='Opciones avanzadas de copia';advanced.append(summary,creation);compact.append(advanced);plan.append(compact);
+   }
+   const xml=plan.querySelector(':scope>[data-pr-action="api-preview"]');if(xml?.disabled)xml.remove();
+  }
+ }
+ if(preview)view.append(preview);
  return serialize(f);
 }
 

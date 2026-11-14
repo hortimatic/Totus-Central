@@ -44,8 +44,10 @@ function validateValue(field,value,resource){
  if(field==='link_rewrite'&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))invalid('URL amigable no válida.');
  if(field==='name'&&/[<>;=#{}]/.test(value))invalid('El nombre contiene caracteres que PrestaShop no admite: < > ; = # { }.');
  if(field==='value'&&/[<>={}]/.test(value))invalid('El valor de característica contiene caracteres no admitidos.');
- if(field==='ean13'&&value!==''&&!/^\d{13}$/.test(value))invalid('EAN debe contener 13 dígitos.');
- if(field==='upc'&&value!==''&&!/^\d{12}$/.test(value))invalid('UPC debe contener 12 dígitos.');
+ // PrestaShop 1.7.8.11 Validate::isEan13/isUpc accept numeric values up to
+ // their field length. Preserve native identifiers exactly; never pad or move them.
+ if(field==='ean13'&&!/^\d{0,13}$/.test(value))invalid('EAN admite hasta 13 dígitos, sin letras ni separadores.');
+ if(field==='upc'&&!/^\d{0,12}$/.test(value))invalid('UPC admite hasta 12 dígitos, sin letras ni separadores.');
  // Native PrestaShop records can contain zero (including freshly created bases).
  // Preserve that unsigned value during a copy instead of inventing a minimum.
  if(field==='minimal_quantity'&&(!/^\d{1,7}$/.test(value)))invalid('La cantidad mínima debe ser un entero sin signo.');

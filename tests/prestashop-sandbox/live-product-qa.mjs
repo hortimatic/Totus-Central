@@ -75,7 +75,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
    call_id:'22222222-2222-4222-8222-222222222222',
    revision:2,store:'hortimatic',
    reference:'TOTUS-CI-PRUEBAS',
-   price:'1.00',category_id:'2',fields:[{field:'available_date',value:'0000-00-00'},{field:'minimal_quantity',value:'0'},{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
+   price:'1.00',category_id:'2',fields:[{field:'ean13',value:'762497004366'},{field:'upc',value:'00123456'},{field:'available_date',value:'0000-00-00'},{field:'minimal_quantity',value:'0'},{field:'redirect_type',value:'404'},{field:'id_type_redirected',value:'0'},{field:'wholesale_price',value:'0.39'},{field:'weight',value:'0.15'},{field:'unity',value:'l'},{field:'width',value:'0.35'},{field:'height',value:'0.24'},{field:'depth',value:'0.16'}],
    translations:profile.language_ids.map(id=>({language_id:id,name:id==='1'?'Pruebas CI':'Inactive language translation',link_rewrite:id==='1'?'pruebas-ci':'inactive-language-translation',description:'<p>Descripción de prueba aislada<br><img src="https://example.com/91-home_default/product.jpg" alt="Imagen de prueba" width="260"></p>',meta_title:'SEO de prueba'}))
  };
  const preflight=await runPrestashopProductCreate(connection,record,{request:localOnlyRequest,resolve,env:environment});
@@ -121,7 +121,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
   uncertain:async op=>{stageData.get(op.stage).status='uncertain';}};
  const optionResponse=await localOnlyRequest('https://hortimatic.com/api/product_option_values?output_format=JSON&display=[id]&sort=[id_DESC]&limit=0,1',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
  assert.equal(optionResponse.status,200);const option=(await optionResponse.json()).product_option_values[0];assert(option?.id);
- const stage={action:'prestashop_product_step_prepare',id:record.id,call_id:record.call_id,revision:2,store:'hortimatic',parent_request_id:request_id,product_id:result.record_id,kind:'variation',step_key:'ci_blue',fields:{reference:'TOTUS-CI-PRUEBAS-BLUE',price:'0.50',wholesale_price:'0.39',weight:'0.02',minimal_quantity:'1',default_on:'1'},associations:{product_option_values:[String(option.id)]}};
+ const stage={action:'prestashop_product_step_prepare',id:record.id,call_id:record.call_id,revision:2,store:'hortimatic',parent_request_id:request_id,product_id:result.record_id,kind:'variation',step_key:'ci_blue',fields:{ean13:'762497004366',upc:'00123456',reference:'TOTUS-CI-PRUEBAS-BLUE',price:'0.50',wholesale_price:'0.39',weight:'0.02',minimal_quantity:'1',default_on:'1'},associations:{product_option_values:[String(option.id)]}};
  const options={request:localOnlyRequest,resolve,env:environment,journal:stageJournal};
  const prep=await runPrestashopProductStage(connection,stage,options);
  const variation=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);

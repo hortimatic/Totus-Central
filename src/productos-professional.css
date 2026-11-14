@@ -296,3 +296,12 @@
 #productosRoot :is(.prd-publication-differences,.prd-operation-history) dd{margin:0;overflow-wrap:anywhere;max-height:140px;overflow:auto}
 
 #productosRoot .prd-row-main-actions [data-pr-action=catalog-publish]{grid-column:1/-1;background:var(--primary,#087ea4);color:var(--on-primary,#fff)}
+
+/* Copy: category first; native creation stages remain optional advanced controls. */
+.prd-copy-publish-review{display:grid;gap:var(--space-sm,12px);padding:var(--space-md,16px);border-top:var(--border-width,1px) solid var(--line,#dce3eb)}
+.prd-copy-publish-review>.prd-field{max-width:100%;min-width:0}.prd-copy-publish-review select{width:100%;min-width:0}
+.prd-copy-details{min-width:0;margin-block:8px}.prd-copy-details>summary{cursor:pointer;font:inherit;font-weight:600;padding:8px 0}.prd-copy-details>.prd-creation{margin-top:8px}
+
+.prd-copy-category-inline{display:grid;grid-template-columns:minmax(240px,1fr) auto;align-items:end;gap:12px;padding:16px;background:var(--surface,#fff);border:var(--border-width,1px) solid var(--line,#dce3eb);border-radius:var(--radius,12px)}
+.prd-copy-category-inline>.prd-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;min-width:0;margin:0}.prd-copy-category-inline b{grid-column:1}.prd-copy-category-inline .field-help{grid-column:2;grid-row:1}.prd-copy-category-inline select,.prd-copy-category-inline small,.prd-copy-category-inline>p{grid-column:1/-1;min-width:0;margin:0}.prd-copy-category-inline>button{align-self:center;white-space:normal}
+@media(max-width:720px){.prd-copy-category-inline{grid-template-columns:minmax(0,1fr)}.prd-copy-category-inline>button{justify-self:start}}
