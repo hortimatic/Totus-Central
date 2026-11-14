@@ -1,5 +1,7 @@
 # Recorrido de creación de productos desde Totus Central
 
+Vigente: 14/11/2026. Para la interfaz usar Publicar en PrestaShop o Copiar y publicar, según docs/RECORRIDOS_PRODUCTOS_CHATGPT.md. Las etapas siguientes son el contrato interno de la operación, no un recorrido adicional obligatorio para el usuario.
+
 ## Regla de identidad y tienda
 ChatGPT opera con su propia cuenta vinculada y los permisos asignados. La conexión de tienda es un servicio, no un usuario de chat. Cada operación indica tienda, conexión y revisión; los identificadores de relaciones nunca se trasladan entre tiendas.
 
@@ -11,7 +13,7 @@ ChatGPT opera con su propia cuenta vinculada y los permisos asignados. La conexi
 5. Enviar la creación una sola vez. Totus relee la referencia, textos, precio, categoría y campos solicitados antes de confirmar el ID. Una respuesta HTTP correcta no sustituye esta lectura.
 6. Si la respuesta es incierta: conservar identificador y referencia. Comprobar primero el resultado. Si existe y coincide, recuperarlo sin otro POST. Si no existe, solicitar recuperación explícita mediante retry_absent:true con una huella recién preparada. El servidor comprueba la ausencia dos veces, conserva identidad y referencia y registra las firmas anterior y nueva en el historial. Una reserva en curso, completada, con ID o de otra cuenta no se puede sustituir. No borrar diarios, cambiar de cuenta o inventar otra referencia para sortear este paso.
 7. Tras acreditar el ID, completar las etapas independientes: combinaciones con atributos de destino, imágenes proporcionadas, existencias, proveedores, precios y finalización. Cada etapa tiene identificador estable y lectura posterior; una etapa confirmada no vuelve a enviarse.
-8. Verificar el resultado final por lectura: nombre, idiomas, relaciones, cuatro combinaciones para esta prueba, imágenes cuando se aporten y existencias cero. Guardar state=1 y el tipo derivado de las combinaciones reales. Para estas muestras: active=0, available_for_order=0 y visibility=none. No publicar ni permitir compras sin otra instrucción.
+8. Verificar el resultado final por lectura: nombre, idiomas, relaciones, combinaciones solicitadas, imágenes aportadas y existencias autorizadas. Guardar state=1 y el tipo derivado de las combinaciones reales. Respetar el estado de publicación y compra indicado para cada encargo; no imponer a productos reales los valores de las antiguas muestras de prueba. Sin una instrucción de publicación, conservar el borrador inactivo. No inventar stock ni dar por creado un dato pendiente.
 9. Repetir el recorrido de forma independiente en la segunda tienda. No reutilizar sus IDs, idiomas, moneda, atributos ni huellas.
 
 ## Entrega exigida
