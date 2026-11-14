@@ -596,7 +596,7 @@ async function mirrorAfterBackup(req:Request,runId?:string){
  }catch(error){return {enabled:true,warning:String(error instanceof Error?error.message:error)};}
 }
 
-Deno.serve(withApplicationCors(async(req)=>{
+Deno.serve(withApplicationCors(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
  try{

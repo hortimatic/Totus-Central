@@ -82,7 +82,7 @@ async function inspectSavedCopy(backupId:string,req:Request){
  return {proof,archive};
 }
 
-Deno.serve(withApplicationCors(async req=>{
+Deno.serve(withApplicationCors(async (req:Request)=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
  if(req.method!=='POST')return reply({error:'Método no permitido'},405);
  let jobId='';

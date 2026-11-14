@@ -575,7 +575,7 @@ async function chatScoped(req:Request){
 const chatFiles=createTeamChatFiles({admin,scoped:chatScoped,check,token,root,ensurePath,graph,encodedPath,fileHash,headers});
 const backupDocumentLinks=createBackupDocumentLinks({admin,check,config,token,root,resolveExtra:(path:string)=>chatFiles.resolvePath(path,new Request(url),true)});
 const directBackup=createDirectBackupTransfer({admin,check,config,token,root,ensurePath,graph,encodedPath,fileHash});
-Deno.serve(withApplicationCors(async req=>{
+Deno.serve(withApplicationCors(async (req:Request)=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  try{
   const requestUrl=new URL(req.url);

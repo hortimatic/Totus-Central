@@ -104,4 +104,4 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
  }finally{if(scoped)await scoped.auth.signOut({scope:'local'}).catch(()=>{});}
 }
 const inputSafeStatus=(_req:Request)=>400;
-if(import.meta.main)Deno.serve(withApplicationCors(req=>handle(req)));
+if(import.meta.main)Deno.serve(withApplicationCors((req:Request)=>handle(req)));
