@@ -99,7 +99,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  assert.equal(calls.filter(x=>x.method==='POST').length,1,'Replay must never send a second POST.');
  const url=new URL('https://hortimatic.com/api/products');
  url.searchParams.set('filter[reference]','['+record.reference+']');
- url.searchParams.set('display','[id,reference,active,price,id_category_default,name,link_rewrite,redirect_type,id_type_redirected,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth,minimal_quantity,available_date]');
+ url.searchParams.set('display','[id,reference,ean13,upc,active,price,id_category_default,name,link_rewrite,redirect_type,id_type_redirected,wholesale_price,weight,description,meta_title,unit_price_ratio,unity,width,height,depth,minimal_quantity,available_date]');
  url.searchParams.set('language','['+profile.language_ids.join('|')+']');
  const readBack=await localOnlyRequest(url.href,{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/xml'}});
  assert.equal(readBack.status,200);
@@ -126,7 +126,7 @@ test('PrestaShop Flashlight 1.7.8.11: create inactive product, verify ID and no 
  const prep=await runPrestashopProductStage(connection,stage,options);
  const variation=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);
  assert.equal(variation.verified,true);
- const nativeCombination=await readPrestashopProductItem(connection,{store:'hortimatic',resource:'combinations',record_id:variation.record_id},{request:localOnlyRequest,resolve});assert.equal(nativeCombination.item.id_product,result.record_id);assert.equal(Number(nativeCombination.item.wholesale_price),0.39);
+ const nativeCombination=await readPrestashopProductItem(connection,{store:'hortimatic',resource:'combinations',record_id:variation.record_id},{request:localOnlyRequest,resolve});assert.equal(nativeCombination.item.id_product,result.record_id);assert.equal(Number(nativeCombination.item.wholesale_price),0.39);assert.equal(nativeCombination.item.ean13,'762497004366');assert.equal(nativeCombination.item.upc,'00123456');
  const replay=await runPrestashopProductStage(connection,{...stage,action:'prestashop_product_step_commit',confirmed:true,expected_fingerprint:prep.fingerprint},options);assert.equal(replay.reused,true);
  assert.equal(calls.filter(c=>c.method==='POST'&&c.path==='/api/combinations').length,1);
  const otherOptionsResponse=await localOnlyRequest('https://hortimatic.com/api/product_option_values?output_format=JSON&display=[id]&sort=[id_ASC]&limit=0,2',{method:'GET',headers:{Authorization:'Basic '+btoa(key+':'),Accept:'application/json'}});
