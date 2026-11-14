@@ -164,7 +164,7 @@ try{
  await page.locator('#chatBody').fill('Solicitud con original verificado');
  await page.locator('#chatFiles').setInputFiles({name:'Solicitud QA.txt',mimeType:'text/plain',buffer:Buffer.from('Contenido ficticio para ChatGPT')});
  await page.getByRole('button',{name:'Enviar',exact:true}).click();
- await page.waitForFunction(()=>qaChat.messages.some(m=>m.body==='Solicitud con original verificado'&&m.files?.every(f=>f.status==='ready')));
+ try{await page.waitForFunction(()=>qaChat.messages.some(m=>m.body==='Solicitud con original verificado'&&m.files?.every(f=>f.status==='ready')));}catch(error){console.error(JSON.stringify(await page.evaluate(()=>({messages:qaChat.messages.map(m=>({body:m.body,files:m.files?.map(f=>({status:f.status,name:f.original_name}))})),alerts:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent),draft:document.querySelector('#chatBody')?.value})),null,2));throw error;}
  const preparedId=await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Solicitud con original verificado').id);await chatClick(page,page.locator('[data-chat="agent-request"][data-id="'+preparedId+'"]'));await page.locator('dialog textarea').waitFor();assert((await page.locator('dialog textarea').inputValue()).includes(preparedId));await page.locator('dialog [data-chat-close]').click();
  assert(await page.evaluate(()=>qaChat.messages.find(m=>m.body==='Solicitud con original verificado').files.every(f=>f.status==='ready')));
  const readyDownload=page.waitForEvent('download');await page.locator('[data-chat="file-download"]').first().click();

@@ -6,6 +6,8 @@ Vigente: 14/11/2026. Leer este documento desde la rama `totus-central` de GitHub
 
 Leer `docs/PROTOCOLO_ESTABILIDAD.md` y el contraste `docs/MEJORAS_CANAL_20261114.md`. Comprobar la rama publicada y las versiones reales de los servicios: no desplegar fuentes de una rama anterior ni considerar terminadas las peticiones pendientes de ese registro. No activar Hortimatic 8 mientras Diego mantenga la pausa. Las fuentes del proyecto son fotografías de referencia.
 
+Consultar también docs/AUDITORIA_ESTABILIDAD_20261114.md para el alcance y las evidencias de la revisión de carga. No confundir pruebas ficticias con escrituras en producción.
+
 ## Servicios e identidad
 - Aplicación: https://hortimatic.github.io/Totus-Central/
 - Código y documentación: `hortimatic/Totus-Central`, rama `totus-central`.

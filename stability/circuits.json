@@ -8,12 +8,15 @@
         "src/client",
         "src/auth",
         "src/app.js",
-        "supabase/functions/team-admin"
+        "supabase/functions/team-admin",
+        "src/startup-timing.js"
       ],
       "tests": [
         "tests/session-startup-browser-qa.mjs",
         "tests/access-recovery-browser-qa.mjs",
-        "tests/release-notice-browser-qa.mjs"
+        "tests/release-notice-browser-qa.mjs",
+        "tests/startup-scoped-browser-qa.mjs",
+        "tests/bootstrap-preload-browser-qa.mjs"
       ],
       "invariants": [
         "login recoverable",
@@ -198,11 +201,16 @@
         "src/backup",
         "src/recovery",
         "supabase/functions/totus-onedrive",
-        "src/app.js"
+        "src/app.js",
+        "src/pages/main.js",
+        "src/storage-planning.js"
       ],
       "tests": [
         "tests/document-upload-browser-qa.mjs",
-        "tests/backup-qa.mjs"
+        "tests/backup-qa.mjs",
+        "tests/storage-live-qa.mjs",
+        "tests/storage-organization-qa.mjs",
+        "tests/storage-planning-qa.mjs"
       ],
       "invariants": [
         "original retained",

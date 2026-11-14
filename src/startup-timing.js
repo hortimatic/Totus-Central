@@ -21,7 +21,7 @@ export function beginStartupTiming(mode='sesion_recuperada'){
   entries.push({phase:'documento_a_inicio_js',ms:ms(origin),status:'ok'});
   const resources=performance.getEntriesByType?.('resource')||[];
   const known=[
-   ['biblioteca_supabase',/\/npm\/@supabase\/supabase-js@/],
+   ['biblioteca_supabase',/(?:\/npm\/@supabase\/supabase-js@|\/src\/vendor\/supabase\/supabase\.js(?:\?|$))/],
    ['biblioteca_excel',/\/npm\/xlsx-js-style@/],
    ['biblioteca_zip',/\/npm\/jszip@/],
    ['modulo_app',/\/src\/app\.js(?:\?|$)/]

@@ -70,7 +70,7 @@ No instalar módulos opcionales ni asumir que la adaptación de precio unitario 
 «Crea en Hortimatic y NewOldSmok el producto de [URL], con [datos propios]. Prepara dos fichas independientes adaptadas a cada tienda. No reutilices IDs ni huellas. No generes imágenes. Entrega los dos IDs, sus combinaciones y una tabla de etapas verificadas o pendientes.»
 
 ## 6. Estado de comprobación
-PR140 ya desplegado: recuperación corregida, inventario de idiomas coherente y nombres nativos validados. El formulario y el recorrido de producto existente se publican en una revisión posterior, con pruebas propias de contrato, identidad, PostgreSQL, navegador y Webservice nativo aislado. Las pruebas reales realizadas por ChatGPT en ambas tiendas deben adjuntarse a la entrega y no darse por aprobadas por este texto.
+Consultar el commit servido y docs/AUDITORIA_ESTABILIDAD_20261114.md. El recorrido de publicación directa y el formulario ya forman parte del código; el antiguo estado referido al PR #140 no describe la versión actual. Los ensayos ficticios, las pruebas nativas aisladas y las escrituras reales son evidencias diferentes. Una entrega debe indicar cuáles se ejecutaron, con sus ID y resultados, sin certificar todas las tiendas por un resultado de simulación.
 
 
 ## Actualización del recorrido de interfaz · 9 de noviembre de 2026

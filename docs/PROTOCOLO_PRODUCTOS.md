@@ -1,6 +1,6 @@
 # Productos · creación, copia y edición desde Totus Central
 
-Revisión: 07/11/2026 · PR #133. Este documento describe el contrato del cambio. La rama, las pruebas, la instalación del servicio y la comprobación en cada tienda son estados distintos; no afirmar que está publicado por existir este manual.
+Revisión operativa: 14/11/2026. El recorrido visible vigente se describe en docs/RECORRIDOS_PRODUCTOS_CHATGPT.md. Las validaciones internas y la recuperación no deben convertirse en pasos manuales adicionales para publicar. Código publicado, servicio activo y verificación real son estados distintos.
 
 ## Resultado solicitado y regla de trabajo
 
@@ -8,18 +8,16 @@ Dos fichas paralelas, Hortimatic y NewOldSmok. Abrir una ficha, elegir únicamen
 
 Orden: comprobar conexión e identidad; leer las fichas; preparar los campos; completar relaciones e idiomas del destino; validar; confirmar; guardar; releer. No modificar otros módulos, ventas, cierres ni contabilidad para completar un producto.
 
-## Interfaz manual
+## Interfaz manual vigente
 
-1. Abrir Productos y seleccionar la tienda. Las dos tarjetas identifican las fichas; «Comprobar correspondencia» busca una referencia exacta, sin elegir arbitrariamente entre duplicados.
-2. Abrir un producto o «Crear borrador nuevo». En «Fichas paralelas», ambas columnas comparten pestañas de Datos, Contenido, Precios, SEO, Transporte y Disponibilidad. La columna de origen tiene casillas de selección. La columna de destino permite completar los valores, incluido SEO propio. En pantalla estrecha se apilan sin desbordar.
-3. «Copiar y adaptar aquí» prepara la transferencia de los campos elegidos; no escribe. Revisar metatítulo, metadescripción, URL y enlaces de las descripciones. Una sustitución del nombre de la tienda no constituye un trabajo SEO completo.
-4. Buscar coincidencias. Una referencia existente propone actualizar esa ficha; no crear un duplicado. Si las referencias difieren, indicar el ID real de destino y releerlo.
-5. Para un alta: consultar idiomas y categorías del destino; seleccionar categoría predeterminada y categorías adicionales por nombre; elegir marca, proveedor, impuestos, etiquetas, características/materiales y relacionados desde los catálogos de esa tienda. La categoría padre forma parte de la jerarquía del catálogo; no se inventa ni se copia su ID desde otra tienda.
-6. Completar nombre y URL por idioma, textos y campos comerciales. Validar el alta, escribir CREAR y pulsar «Crear en PrestaShop (inactivo)». Se conserva la solicitud original y el ID asignado.
-7. Completar las etapas de imágenes, combinaciones, existencias, precios de proveedor y ofertas. Cada etapa tiene su validación, guardado y comprobación propios. Las combinaciones preparadas desde origen se conservan como borradores: hay que seleccionar sus atributos reales en destino.
-8. Preparar la descripción visual con imágenes ya guardadas en esa tienda, textos propios, especificaciones y contenido del producto. Revisar el HTML y cada idioma antes de publicar.
-9. En revisión final, seleccionar portada y combinación predeterminada cuando proceda. Activar y permitir compras son opciones separadas. No activar con etapas de la ficha pendientes.
-10. Para editar un producto o una combinación existente: seleccionar campos, validar contra su XML real, revisar diferencias, escribir GUARDAR y usar el botón de su ficha. La respuesta debe acreditar guardado y relectura; conservar la solicitud si hay incertidumbre.
+1. En Catálogo, buscar en el catálogo completo y seleccionar el producto de trabajo, o pulsar **Crear producto** para un alta nueva.
+2. En Producto, completar o modificar su ficha y las variaciones. Organización reúne categorías, marca, proveedor y características; Variaciones contiene atributos y valores de la tienda elegida. No reutilizar IDs entre webs.
+3. Revisar **Al publicar**: producto con variaciones e imágenes, o solo producto. Pulsar **Publicar en PrestaShop**. La aplicación realiza por debajo la validación, escritura y relectura. Si falta un dato concreto, completarlo sin repetir un alta ya iniciada.
+4. Para copiar, abrir Copiar, elegir origen y destino y seleccionar los datos, fotos y variaciones deseados. **Seleccionar todo** incluye las imágenes. Confirmar la categoría del destino si no existe correspondencia única y pulsar **Copiar y publicar en [tienda]**.
+5. Comprobar el ID y el resultado releído en destino. Las fotos se verifican en su galería y las combinaciones mediante sus atributos e imágenes asociadas. La ficha debe conservar los datos que no se seleccionaron para editar.
+6. Historial sirve para consultar y recuperar operaciones: no es un paso obligatorio para guardar desde Producto o Copiar. Una respuesta incierta se concilia con su misma solicitud, nunca duplicando el producto.
+
+Los apartados técnicos siguientes describen operaciones internas que también puede usar el asistente. No sustituyen este recorrido de un botón ni obligan a recorrer las antiguas etapas de interfaz.
 
 ## Campos cubiertos por el contrato
 

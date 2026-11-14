@@ -6,6 +6,7 @@ import {chromium} from 'playwright';
 const browser=await chromium.launch({headless:true}),page=await browser.newPage();const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try{
+ await page.context().addInitScript(()=>{const open=window.open;window.open=function(...args){const popup=open.apply(this,args);if(popup)popup.print=()=>{popup.__printRequested=true;};return popup;};});
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
  await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
  await page.locator('[data-action="admin-section"][data-section="negocio"]').click();
@@ -94,6 +95,7 @@ try{
  }
  const printReady=page.waitForEvent('popup');await page.locator('[data-action="report-gestor-source-print"]').click();
  const reportPrint=await printReady;await reportPrint.locator('table').first().waitFor();
+ await reportPrint.waitForFunction(()=>window.__printRequested===true);
  const printedPdf=await reportPrint.pdf({format:'A4',printBackground:true});assert.equal(printedPdf.subarray(0,5).toString(),'%PDF-');
  const {PDFDocument}=await import('pdf-lib');assert((await PDFDocument.load(printedPdf)).getPageCount()>0);await reportPrint.close();
  await page.locator('#reportPeriodYear').fill('2025');await page.locator('#reportPeriodQuarter').selectOption('2');
