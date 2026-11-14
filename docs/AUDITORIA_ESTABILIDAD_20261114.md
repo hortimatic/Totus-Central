@@ -8,6 +8,7 @@ Base publicada: a031dcc2d6b38d0e6a8826c4a5ba41fbe9480152. Esta revisión no inst
 - El HTML precarga app.js mientras descarga el SDK. Se comprueba que no evalúa el cliente antes de disponer del SDK, mantiene una única sesión y recupera la pantalla de acceso si falla la biblioteca. El preload lleva exactamente la misma versión que el import publicado.
 - El diagnóstico reconoce el SDK local actual, además de la URL histórica.
 - Almacenamiento admite referencias verificadas Free, Pro, Team y Enterprise; deja de rotular toda cuota como gratuita, no inventa libre global y conserva el límite interno de documentos separado del plan.
+- Se actualiza el protocolo principal de Productos para que no enseñe el antiguo recorrido manual por etapas: creación, edición y copia utilizan el botón de publicación; Historial conserva trazabilidad y recuperación.
 - La auditoría funcional incorpora los circuitos del registro de estabilidad. Usa un servidor ficticio compartido, no intenta abrir otro sobre el mismo puerto, y mantiene evidencia separada de producción.
 - La prueba de impresión comprueba la llamada de la aplicación y genera el PDF sin competir con el diálogo nativo de Edge. El fallo intermitente del ensayo de adjuntos no se presenta como reparación de producción: el recorrido aislado y el integral pasan sin cambiar el código del chat.
 

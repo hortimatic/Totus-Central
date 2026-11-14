@@ -1,7 +1,7 @@
 # Recepciones de mercancía · Totus Central
 
 ## Para Diego y su equipo
-1. Entra en https://hortimatic.github.io/Totus-Central/ → Recepciones.
+1. Entra en https://hortimatic.github.io/Totus-Central/ → PrestaShop → Recepciones y cotejo.
 2. Pulsa **Nueva recepción**, elige tienda y proveedor. Si falta, **+ Nuevo proveedor** lo crea en la lista común y lo deja seleccionado sin perder los archivos elegidos.
 3. Introduce referencia y fecha. Puedes seleccionar varios documentos en **Proveedor** y varios en **PrestaShop** en esa misma pantalla.
 4. Pulsa **Guardar recepción y documentos**. Si una subida falla, la recepción y los documentos correctos se conservan. Usa **Reintentar archivos pendientes**: no crees otro pedido. La cola vive solo en memoria del navegador; si cierras la pestaña tendrás que seleccionar otra vez los archivos pendientes.
