@@ -51,3 +51,6 @@ assert.equal(cloudPlan.reason,'archive','Remote capacity must never hide the rec
 const cloudTen=planStorage({usage:{...usage,documents_bytes:0,assets_bytes:MB,all_buckets_bytes:35*MB},reference,runs:cloudRuns,activeOriginalBytes:80*MB,keep:10,archiveLimit:Infinity});
 const cloudFive=planStorage({usage:{...usage,documents_bytes:0,assets_bytes:MB,all_buckets_bytes:35*MB},reference,runs:cloudRuns,activeOriginalBytes:80*MB,keep:5,archiveLimit:Infinity});
 assert.equal(cloudTen.days,cloudFive.days,'Increasing remote copies must not invent Supabase archive traffic or space');
+
+assert(planStorage({usage,reference:{...reference,plan:'Pro',files_limit_bytes:100*1024*MB},runs}).available,'Verified Pro reference must support planning');
+assert.equal(planStorage({usage,reference:{...reference,plan:'Unknown'},runs}).available,false,'Unknown plan cannot invent capacity');

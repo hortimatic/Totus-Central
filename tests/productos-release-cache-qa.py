@@ -25,6 +25,7 @@ with tempfile.TemporaryDirectory(prefix='release-cache-', dir=artifacts) as dire
                    env={**os.environ, 'GITHUB_SHA': sha}, check=True, capture_output=True)
     site = temp / '_site'
     assert f'href="src/productos.css?v={sha}"' in (site / 'index.html').read_text(encoding='utf-8')
+    assert f'rel="modulepreload" href="src/app.js?v={sha}"' in (site / 'index.html').read_text(encoding='utf-8')
     css = (site / 'src/productos.css').read_text(encoding='utf-8')
     for name in ['productos-professional.css', 'productos-photo-preview.css', 'productos-stitch.css']:
         assert f'./{name}?v={sha}' in css, f'{name} must refresh with the release'

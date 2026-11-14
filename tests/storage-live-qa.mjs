@@ -50,11 +50,15 @@ try{
  assert(text.includes('3,00 MB usados'),'Documentos y logos no se sumaron desde Storage real simulado: '+text.slice(0,350));
  assert(text.includes('1,00 MB')&&text.includes('Backups'),'Copias privadas no se muestran por separado');
  assert(text.includes('1 archivo(s)')&&!text.includes('1 copia(s)'),'Los objetos o partes de una copia no deben contarse como copias completas');
- assert(!text.includes('días aprox.')&&text.includes('Capacidad gratuita y ubicación de los datos'),'No debe inventar una previsión de crecimiento ni ocultar la ubicación de los datos');
+ assert(!text.includes('días aprox.')&&text.includes('Plan contratado y ubicación de los datos'),'No debe inventar una previsión de crecimiento ni ocultar la ubicación de los datos');
  assert(text.includes('484,00 MB')&&text.includes('otros proyectos'),'Debe separar el margen del proyecto de la capacidad compartida de archivos');
  assert(await page.locator('.storage-space-bar').count()===5,'Faltan barras de capacidad por tipo de almacenamiento');
  assert(text.includes('business-backups')&&text.includes('business-documents')&&text.includes('business-assets'),'No muestra la ubicación de cada grupo de archivos');
  assert((await page.locator('#storageBackupsCapacityBar').getAttribute('aria-label')).includes('1,00 MB usados; 3,00 MB de otros archivos; 1020,00 MB de margen'),'El margen de copias debe descontar todos los archivos del proyecto');
+ await page.evaluate(async()=>{const {state}=await import('../src/state.js');Object.assign(state.data.settings.storage_provider_reference,{plan:'Pro',database_limit_bytes:8*1073741824,files_limit_bytes:100*1073741824});});
+ await page.locator('[data-action="storage-refresh"]').click();
+ await page.waitForFunction(()=>document.querySelector('#content')?.textContent.includes('plan Pro'));
+ const proText=await page.locator('#content').innerText();assert(proText.includes('plan Pro')&&!proText.includes('Free · 0 €/mes'),'Paid plan must not retain Free limits');
  await page.locator('.storage-space-section').screenshot({path:'artifacts/storage-capacity-bars.png'});
  assert(text.includes('Cuánto puede durar el espacio')&&text.includes('9 meses')&&text.includes('0,33 MB/mes')&&text.includes('Sin plazo por cargar datos')&&text.includes('Plazo aún no calculable'),'No muestra la simulación con referencia de nueve meses');
  assert(text.includes('Se reserva espacio para terminar la nueva antes de borrar la más vieja')&&text.includes('no libera espacio'),'Falta explicar el margen de subida o la descarga sin borrado');

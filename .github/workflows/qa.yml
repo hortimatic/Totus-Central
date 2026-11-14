@@ -453,6 +453,8 @@ jobs:
       - run: node tests/session-startup-browser-qa.mjs
       - run: node tests/access-recovery-browser-qa.mjs
       - run: node tests/startup-timing-browser-qa.mjs
+      - run: node tests/startup-scoped-browser-qa.mjs
+      - run: node tests/bootstrap-preload-browser-qa.mjs
       - run: node tests/header-tools-browser-qa.mjs
       - run: node tests/pricing-variants-browser-qa.mjs
       - run: node tests/pricing-integral-browser-qa.mjs
