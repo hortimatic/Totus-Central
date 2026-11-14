@@ -1,3 +1,4 @@
+import {withApplicationCors} from '../../../src/application-cors.js';
 import {createRecoveryDocumentReader} from './chat-file-reader.js';
 import {createCloudBackupReader} from '../../../src/cloud-backup-reader.js';
 import {SET_FORMAT,SET_INDEX_BYTES} from '../../../src/backup-set.js';
@@ -81,7 +82,7 @@ async function inspectSavedCopy(backupId:string,req:Request){
  return {proof,archive};
 }
 
-Deno.serve(async req=>{
+Deno.serve(withApplicationCors(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
  if(req.method!=='POST')return reply({error:'Método no permitido'},405);
  let jobId='';
@@ -167,4 +168,4 @@ Deno.serve(async req=>{
   }});
   return reply({job_id:jobId,...result});
  }catch(e){return reply({error:String(e instanceof Error?e.message:e),job_id:jobId||undefined},500);}
-});
+}));

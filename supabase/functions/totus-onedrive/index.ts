@@ -1,3 +1,4 @@
+import {withApplicationCors} from '../../../src/application-cors.js';
 import {createTeamChatFiles} from './team-chat-files.js';
 import {createDocumentRemovalWorker} from './document-removal-worker.js';
 import {importStockDocument} from './stock-import.js';
@@ -574,7 +575,7 @@ async function chatScoped(req:Request){
 const chatFiles=createTeamChatFiles({admin,scoped:chatScoped,check,token,root,ensurePath,graph,encodedPath,fileHash,headers});
 const backupDocumentLinks=createBackupDocumentLinks({admin,check,config,token,root,resolveExtra:(path:string)=>chatFiles.resolvePath(path,new Request(url),true)});
 const directBackup=createDirectBackupTransfer({admin,check,config,token,root,ensurePath,graph,encodedPath,fileHash});
-Deno.serve(async req=>{
+Deno.serve(withApplicationCors(async req=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  try{
   const requestUrl=new URL(req.url);
@@ -664,4 +665,4 @@ Deno.serve(async req=>{
   const message=e instanceof Error?e.message:'No se pudo completar la conexión.';
   return json({error:message},message==='Acceso denegado.'?403:400);
  }
-});
+}));

@@ -1,3 +1,4 @@
+import {withApplicationCors} from '../../../src/application-cors.js';
 import {createCloudBackupReader} from '../../../src/cloud-backup-reader.js';
 import {withRateLimitRetry,isRateLimited} from './rate-limit.js';
 import {createPartitionedBackup} from './partitioned-job.js';
@@ -595,7 +596,7 @@ async function mirrorAfterBackup(req:Request,runId?:string){
  }catch(error){return {enabled:true,warning:String(error instanceof Error?error.message:error)};}
 }
 
-Deno.serve(async(req)=>{
+Deno.serve(withApplicationCors(async(req)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
  try{
@@ -617,4 +618,4 @@ Deno.serve(async(req)=>{
   const onedrive=await mirrorAfterBackup(req,result.id);
   return reply({...result,onedrive});
  }catch(e){return reply({error:String(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?e.message:e)},500);}
-});
+}));

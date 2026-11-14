@@ -1,3 +1,4 @@
+import {withApplicationCors} from '../../../src/application-cors.js';
 import {uploadChatFile} from '../../../src/chat-files.js';
 import {createDeliveryQueue,deliveryReply} from '../../../src/agent-delivery.js';
 import {agentRequest} from '../../../src/agent-conversation.js';
@@ -103,4 +104,4 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
  }finally{if(scoped)await scoped.auth.signOut({scope:'local'}).catch(()=>{});}
 }
 const inputSafeStatus=(_req:Request)=>400;
-if(import.meta.main)Deno.serve(req=>handle(req));
+if(import.meta.main)Deno.serve(withApplicationCors(req=>handle(req)));

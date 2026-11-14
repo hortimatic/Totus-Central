@@ -1,3 +1,4 @@
+import {withApplicationCors} from '../../../src/application-cors.js';
 import {websiteKey} from '../../../src/website-registry.js';
 import {readGithubFile} from './github.js';
 import {readPrestashopPage,discoverPrestashop,readPrestashopProductItem} from './prestashop.js';
@@ -91,4 +92,4 @@ export async function handle(req:Request,env=Deno.env,factory:any=createClient,r
   return respond(result);
  }catch(e){if(started&&admin){try{await admin.rpc('totus_api_call',{p_id:input.id,p_revision:input.revision,p_call:input.call_id,p_result:{ok:false,verification_failed:input.action==='test'}});}catch{}}return respond({error:e instanceof Error?e.message:'No se pudo probar la conexión.'},400);}
 }
-if(import.meta.main)Deno.serve(req=>handle(req));
+if(import.meta.main)Deno.serve(withApplicationCors(req=>handle(req)));
