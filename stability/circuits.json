@@ -115,6 +115,8 @@
     {
       "id": "directories",
       "paths": [
+        "supabase/migrations/20261115084252_directory_journal_website_metadata.sql",
+        "tests/contact-directory-db-qa.sql",
         "src/contact-directory",
         "src/directory",
         "src/website-registry",
