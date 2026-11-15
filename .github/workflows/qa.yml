@@ -42,6 +42,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/stability-gate-qa.mjs
+      - run: node tests/stability-runner-server-qa.mjs
       - run: node tests/service-deployment-guard-qa.mjs
       - run: node tests/profile-directory-qa.mjs
       - run: node tests/product-stock-summary-qa.mjs

@@ -366,6 +366,24 @@
         "product prepare/commit/readback with same request recovery",
         "no arbitrary SQL or secret exposure"
       ]
+    },
+    {
+      "id": "stability-tooling",
+      "paths": [
+        "tools/stability-gate.mjs",
+        "tests/local-static-server.mjs",
+        ".github/workflows/qa.yml",
+        "stability/circuits.json"
+      ],
+      "tests": [
+        "tests/stability-gate-qa.mjs",
+        "tests/stability-runner-server-qa.mjs"
+      ],
+      "invariants": [
+        "existing consumers and checks cannot disappear silently",
+        "isolated fixture server starts without hidden environment preparation",
+        "fixture server is closed after success or failure"
+      ]
     }
   ]
 }
