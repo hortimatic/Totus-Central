@@ -50,15 +50,18 @@ try{
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'Dos resúmenes separados');
  assert.equal(await page.locator('.dashboard-hero [data-action="closing-new"]').count(),1,'Mantiene la acción original de nuevo cierre en su cabecera');
  assert.equal(await page.locator('[data-home-widget="activity"] svg').count(),1,'Mantiene la gráfica y sus funciones');
+ assert.equal(await page.locator('[data-home-widget="result"] [data-financial-margin]').count(),1,'El margen aparece junto al resultado contable sin cambiar el diseño guardado');
  const cash=await page.locator('[data-home-widget="opening"]').innerText();
  for(const label of ['Vape','Head','NewOldSmok'])assert(cash.includes(label),'Conserva la caja '+label);
- for(const width of [320,390,768,1024,1440,1920]){
+ for(const width of [320,390,768,1024,1280,1366,1440,1600,1920,2560]){
   await page.setViewportSize({width,height:960});
   assert.equal(await page.getByRole('button',{name:'Personalizar inicio',exact:true}).innerText(),'⚙');
   for(const preset of await page.locator('.home-period-presets').all()){
    const rows=await preset.locator('button').evaluateAll(buttons=>buttons.map(b=>Math.round(b.getBoundingClientRect().top)));
-   assert.equal(new Set(rows).size,1,'Día/semana/mes/personalizado permanecen en una fila a '+width);
+   assert(new Set(rows).size<=2,'Los periodos mantienen una cuadrícula regular a '+width);
+   const clipped=await preset.locator('button').evaluateAll(buttons=>buttons.filter(b=>b.scrollWidth>b.clientWidth+2).map(b=>({text:b.textContent,width:b.clientWidth,scroll:b.scrollWidth})));assert.deepEqual(clipped,[],'Ningún periodo se recorta dentro de su tarjeta a '+width);
   }
+  const escaped=await page.locator('.home-period-dates label').evaluateAll(labels=>labels.filter(el=>{const r=el.getBoundingClientRect(),p=el.closest('.home-period-controls').getBoundingClientRect();return r.width&&(r.right>p.right+2||r.left<p.left-2);}).map(el=>el.textContent.trim()));assert.deepEqual(escaped,[],'Los filtros permanecen dentro de su tarjeta a '+width);
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
   if(width===390){

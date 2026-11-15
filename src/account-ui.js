@@ -99,11 +99,25 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
   }
   if(section==='documentos'){
    const box=panel.querySelector('[data-account-documents]');
-   try{
-    const rows=(readDocuments?await readDocuments(targetOwner):documents()).filter(d=>d.uploaded_by===targetOwner);
-    if(!active(panel))return;acceptDocuments(rows,who);
-    box.innerHTML=rows.length?'<div class="account-document-list">'+rows.map(d=>'<article><div><b>'+esc(d.original_name||'Documento')+'</b><small>'+esc(fmtDate(d.document_date||d.created_at))+'</small></div><div class="inline-actions">'+btn('Vista previa','document-preview','secondary','data-id="'+esc(d.id)+'"')+(can('documentos','export')?btn('Descargar','document-download','secondary','data-id="'+esc(d.id)+'"'):'')+'</div></article>').join('')+'</div>':'<div class="empty">No hay documentos subidos visibles para esta cuenta.</div>';
-   }catch(error){if(active(panel))box.innerHTML='<p class="note warn">No se pudieron consultar los documentos. Vuelve a abrir esta sección para reintentar.</p>';}
+   let page=1,size=20,query='',requestId=0,timer=null;
+   box.innerHTML='<div class="account-document-tools"><label>Buscar documento<input type="search" maxlength="160" data-account-doc-search data-draft-ignore></label><label>Mostrar<select data-account-doc-size data-draft-ignore>'+[10,20,50].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" class="btn secondary" data-account-doc-clear>Limpiar</button></div><p class="small muted" data-account-doc-status role="status"></p><div class="account-document-list"></div><div class="account-document-pagination"><button type="button" class="btn secondary" data-account-doc-prev>Anterior</button><button type="button" class="btn secondary" data-account-doc-next>Siguiente</button></div>';
+   const status=box.querySelector('[data-account-doc-status]'),list=box.querySelector('.account-document-list'),prev=box.querySelector('[data-account-doc-prev]'),next=box.querySelector('[data-account-doc-next]');
+   async function read(){
+    clearTimeout(timer);const id=++requestId,chosen={page,size,query};status.textContent='Consultando documentos…';prev.disabled=next.disabled=true;
+    try{
+     const local=()=>{const rows=documents().filter(d=>d.uploaded_by===targetOwner&&String(d.original_name||'').toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es')));return {rows:rows.slice((page-1)*size,page*size),hasMore:rows.length>page*size};};
+     const result=readDocuments?await readDocuments(targetOwner,chosen):local();
+     if(!active(panel)||id!==requestId)return;
+     const rows=result.rows;if(!Array.isArray(rows)||rows.length>chosen.size||rows.some(d=>d.uploaded_by!==targetOwner))throw Error('Respuesta ajena a esta cuenta');
+     acceptDocuments(rows,who);
+     list.innerHTML=rows.map(d=>'<article><div><b>'+esc(d.original_name||'Documento')+'</b><small>'+esc(fmtDate(d.document_date||d.created_at))+'</small></div><div class="inline-actions">'+btn('Vista previa','document-preview','secondary','data-id="'+esc(d.id)+'"')+(can('documentos','export')?btn('Descargar','document-download','secondary','data-id="'+esc(d.id)+'"'):'')+'</div></article>').join('')||'<p>No hay documentos para esta búsqueda.</p>';
+     status.textContent='Página '+page+' · '+rows.length+' documentos'+(result.hasMore?' · Hay más resultados':' · Fin de los resultados');prev.disabled=page===1;next.disabled=!result.hasMore;
+    }catch(error){if(active(panel)&&id===requestId){status.textContent='No se pudieron consultar los documentos. Pulsa Limpiar para reintentar.';list.replaceChildren();prev.disabled=page===1;}}
+   }
+   box.querySelector('[data-account-doc-search]').oninput=e=>{query=e.target.value;page=1;requestId++;clearTimeout(timer);timer=setTimeout(()=>{if(active(panel))void read();},250);};
+   box.querySelector('[data-account-doc-size]').onchange=e=>{size=Number(e.target.value);page=1;void read();};
+   box.querySelector('[data-account-doc-clear]').onclick=()=>{query='';page=1;box.querySelector('[data-account-doc-search]').value='';void read();};
+   prev.onclick=()=>{page--;void read();};next.onclick=()=>{page++;void read();};await read();
   }
   if(section==='tareas'){
    let taskRequest=0;

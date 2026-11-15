@@ -1,4 +1,6 @@
 import {createRecurringExpensesUI} from './recurring-expenses-ui.js';
+import {installSharedTableArrows} from './shared-table-controls.js';
+installSharedTableArrows(document,{owner:()=>state.user?.id});
 import {createContactDirectoryUI} from './contact-directory-ui.js';
 import {interfaceStylesSettings,acceptInterfaceStyles,verifySavedInterfaceStyle} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
@@ -58,7 +60,7 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,mar
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,PERMISSION_HELP,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,invalidateStorageUsage,resetStorageUsageSession,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
+import {sb,select,accountDocumentPage,login,logout,recover,loadCore,reloadStorageUsage,invalidateStorageUsage,resetStorageUsageSession,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash,homeStorageAlertHtml,homeStorageMetricsHtml} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
@@ -137,7 +139,7 @@ const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state)
 const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.profiles.find(p=>p.id===state.user?.id),documents:()=>state.data.documents,can,rpc,
  canManage:()=>isAdmin()&&can('administracion','edit'),
  accountTarget:id=>{const profile=state.data.profiles.find(p=>p.id===id),member=state.data.team.find(m=>m.email?.toLowerCase()===profile?.email?.toLowerCase());return profile&&member?{profile,user:{...member,id:profile.id}}:null;},
- readDocuments:target=>select('ops_documents',{order:'document_date',filter:q=>q.eq('uploaded_by',target)}),
+ readDocuments:accountDocumentPage,
  acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});
@@ -269,7 +271,7 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
-const homeUI=createHomeWidgetsUI({rpc,can,onOpenTasks:async date=>{if(!can('tareas','view'))return;await navigateModule('tareas');await tasks.openDate(date);},onOpenProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({tab='orders',store,order,date}={})=>{
+const homeUI=createHomeWidgetsUI({rpc,can,onOpenTasks:async (date,{create=false}={})=>{if(!can('tareas','view')||create&&!can('tareas','create'))return;await navigateModule('tareas');if(create)await tasks.createOnDate(date);else await tasks.openDate(date);},onOpenProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({tab='orders',store,order,date}={})=>{
  await navigateModule('prestashop',null,()=>{
   const target=new URL(location.href);
   for(const k of ['ps_store','ps_order','ps_date'])target.searchParams.delete(k);
@@ -327,7 +329,7 @@ function render(){
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
  if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
- if(['clientes','proveedores','marcas'].includes(state.route))void directoryUI.mount($('[data-directory-root]'));
+ if(['clientes','proveedores','marcas'].includes(state.route)||state.route==='facturacion'&&$('[data-directory-root]'))void directoryUI.mount($('[data-directory-root]'));
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
  if(state.route==='apis')void apiManager.mount($('[data-api-manager]'));

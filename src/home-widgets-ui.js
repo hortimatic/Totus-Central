@@ -12,7 +12,7 @@ import {loadOrderSellers} from './prestashop-order-seller.js';
 import {sourceCents,catalogIssues} from './prestashop-insights.js';
 import {catalogQualityReport,qualityReadLabel} from './catalog-quality.js';
 import {prestashopProductImage} from './prestashop-readonly.js';
-import {commercialMarginWidget} from './home-current-margin.js';
+import {commercialMarginWidget,commercialMarginCompact} from './home-current-margin.js';
 import {createHomeTaskCalendar} from './home-task-calendar.js';
 import {archiveAccepted} from './historical-acceptance.js';
 
@@ -44,7 +44,7 @@ function periodControls(w){
  const storeOptions=(w.type==='prestashop.summary'?PRESTASHOP_STORES:PRESTASHOP_STORES).map(s=>'<option value="'+esc(s.key)+'" '+(safeStore(w.scope.store)===s.key?'selected':'')+'>'+esc(s.name)+'</option>').join('');
  const allOption=w.type==='prestashop.summary'?'':'<option value="all" '+(safeStore(w.scope.store)==='all'?'selected':'')+'>Todas las tiendas</option>';
  const storePicker='<label>Tienda <select data-home-filter="store" data-id="'+esc(w.id)+'" aria-label="Tienda de consulta">'+allOption+storeOptions+'</select></label>';
- const metricPicker=w.type==='prestashop.summary'?'<label>Gráfica <select data-home-filter="chartMetric" data-id="'+esc(w.id)+'" aria-label="Métrica de la gráfica"><option value="orders" '+(w.filters.chartMetric!=='sales'?'selected':'')+'>Pedidos válidos</option><option value="sales" '+(w.filters.chartMetric==='sales'?'selected':'')+'>Ventas EUR</option></select></label>':w.type==='prestashop.top'?'<label>Vista <select data-home-filter="productView" data-id="'+esc(w.id)+'"><option value="table" '+(w.filters.productView!=='bars'?'selected':'')+'>Tabla</option><option value="bars" '+(w.filters.productView==='bars'?'selected':'')+'>Barras</option></select></label>':'';
+ const metricPicker=w.type==='prestashop.summary'?'<label>Mostrar en la gráfica <select data-home-filter="chartMetric" data-id="'+esc(w.id)+'" aria-label="Métrica de la gráfica" title="Cambia las barras entre número de pedidos válidos e importe vendido por hora o día. No cambia las cifras del resumen."><option value="orders" '+(w.filters.chartMetric!=='sales'?'selected':'')+'>Número de pedidos</option><option value="sales" '+(w.filters.chartMetric==='sales'?'selected':'')+'>Importe vendido (€)</option></select></label>':w.type==='prestashop.top'?'<label>Vista <select data-home-filter="productView" data-id="'+esc(w.id)+'"><option value="table" '+(w.filters.productView!=='bars'?'selected':'')+'>Tabla</option><option value="bars" '+(w.filters.productView==='bars'?'selected':'')+'>Barras</option></select></label>':'';
  const picker=period==='month'?'<label>Mes <input type="month" aria-label="Elegir mes" data-home-filter="periodMonth" data-id="'+esc(w.id)+'" value="'+esc(dates.to.slice(0,7))+'"></label>':
  period==='day'||period==='week'?'<label>Fecha <input type="date" aria-label="Elegir fecha" data-home-filter="periodDate" data-id="'+esc(w.id)+'" value="'+esc(dates.to)+'"></label>':
  '<label>Desde <input type="date" data-home-filter="from" data-id="'+esc(w.id)+'" value="'+esc(dates.from)+'"></label><label>Hasta <input type="date" data-home-filter="to" data-id="'+esc(w.id)+'" value="'+esc(dates.to)+'"></label>';
@@ -290,12 +290,14 @@ function configureOrderColumns(host,w){
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenProduct=null,onOpenTasks=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
+ let financialObserver=null;
+ const financialWidget=()=>{const f=getFilters('inicio'),name=state.data.stores.find(s=>s.id===f.store)?.name?.toLowerCase();return {id:'financial-margin',type:'home.gain',scope:{store:PRESTASHOP_STORES.some(s=>s.key===name)?name:'all'},filters:{from:f.from,to:f.to}};};
  const completedOrders=new Map();let completedOwner='';
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
  const changed=()=>!!model&&!!original&&(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)||JSON.stringify(model.settings)!==JSON.stringify(original.settings));
  const clones=new Map();
- const taskCalendar=createHomeTaskCalendar({rpc,actor:()=>state.user?.id,can:()=>can('tareas','view'),onOpen:onOpenTasks});
+ const taskCalendar=createHomeTaskCalendar({rpc,actor:()=>state.user?.id,can:()=>can('tareas','view'),onOpen:onOpenTasks,onCreate:date=>onOpenTasks(date,{create:true}),canCreate:()=>can('tareas','create')});
  const status=(message,warning=false)=>{const el=root?.querySelector('[data-home-status]');if(el){el.textContent=message;el.classList.toggle('home-error',warning)}};
  const layoutKey=w=>[safeStore(w.scope.store),...Object.values(dateRange(w))].join('|');
  const dataFor=w=>Object.fromEntries(PRESTA_SHOPS(w).map(k=>[k,ordersData.get(k+'|'+Object.values(dateRange(w)).join('|'))]));
@@ -335,6 +337,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(w.type==='cash.openings'){
    const summary=content.querySelector('.home-opening-summary');if(summary)summary.remove();content.insertAdjacentHTML('beforeend',openingStatus());
   }
+  if(w.type==='home.result'&&can('prestashop','view')){content.querySelector('[data-financial-margin]')?.remove();const slot=document.createElement('div');slot.dataset.financialMargin='';const fw=financialWidget();slot.innerHTML=commercialMarginCompact(dataFor(fw),dateRange(fw));content.append(slot);}
   return content;
  };
  function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&(w.id==='tasks'&&sources.has('tasks')||permitted(w,can)))}
@@ -366,6 +369,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   root.dataset.homeCanvasDensity=settings.density;
   const toggle=root.querySelector('[data-home-command="edit"]');if(toggle){toggle.textContent=edit?'Cancelar edición':'⚙';toggle.setAttribute('aria-label',edit?'Cancelar edición':'Personalizar inicio');toggle.title=edit?'Cancelar edición':'Personalizar inicio';}
   renderDrawer();
+  financialObserver?.disconnect();const slot=grid.querySelector('[data-financial-margin]');if(slot){financialObserver=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){financialObserver.disconnect();void fetchFor(financialWidget());}},{rootMargin:'100px'});financialObserver.observe(slot);}
  }
  function renderDrawer(){
   const drawer=root?.querySelector('[data-home-drawer]');if(!drawer)return;
@@ -583,6 +587,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }
   if(action==='quality-product'){const shop=el.dataset.shop,productId=el.dataset.productId;if(!can('productos','view')||!onOpenProduct||!catalogData.get(shop)?.rows.some(p=>String(p.id)===productId))return;void Promise.resolve(onOpenProduct({store:shop,id:productId})).catch(e=>notify(e.message||'No se pudo abrir la ficha.'));return;}
   if(action==='catalog-quality'){const w=find(id);if(w)void fetchCatalog(w,true);return;}
+  if(action==='financial-margin-refresh'){void fetchFor(financialWidget(),true);return;}
   if(action==='fetch'){const w=find(id);if(w?.type==='prestashop.quality')void fetchCatalog(w,true);else void fetchFor(w,true);return}
   if(action==='open-expense'){const expenseId=el.dataset.expense;if(!expenseId||!state.data.expenses.some(row=>String(row.id)===expenseId))return;void onOpenExpense({id:expenseId});return}
   if(action==='open-orders'){void onOpenOrders({tab:'orders'});return}
@@ -627,6 +632,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  }
  function refreshShopWidgets(){
   if(!live()||!model)return;
+  const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.innerHTML=commercialMarginCompact(dataFor(fw),dateRange(fw));
   for(const w of visibleOrder().filter(usesShopData)){
    const body=grid?.querySelector('[data-home-widget="'+CSS.escape(w.id)+'"] .home-widget-body');if(!body)continue;
    const active=body.contains(document.activeElement)?document.activeElement:null;
@@ -727,7 +733,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
        const request=args=>invoke({store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args});
        const enriched=await enrichHomeOrderLines({store:shop,lines:[...details.values()].flat(),invoke:request,current});
        if(!current()||!enriched)return;
-       for(const order of rows){order.currency_code=currencies.get(String(order.id_currency))||null;order.margin_value=homeOrderMargin(order,details.get(String(order.id)),true).margin;}
+       for(const order of rows){order.currency_code=currencies.get(String(order.id_currency))||null;const margin=homeOrderMargin(order,details.get(String(order.id)),true);order.margin_value=margin.margin;order.margin_revenue=margin.revenue;}
        for(const item of ranking.values()){const line=enriched.find(l=>String(l.product_id)===item.productId&&String(l.product_attribute_id||'0')===item.attributeId);item.image=line?.image||null;}
        top=[...ranking.values()].filter(x=>x.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,12);detailsByOrder=details;totalUnits=totalSoldUnits;
       }
@@ -877,5 +883,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(usesShopData(w))void fetchFor(w);
  }
- return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
+ return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}financialObserver?.disconnect();taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
 }

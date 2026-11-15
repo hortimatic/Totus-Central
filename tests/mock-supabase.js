@@ -59,6 +59,7 @@ class Query{
  upsert(v,{onConflict}={}){this.mode='upsert';this.value=v;this.conflictKeys=String(onConflict||'id').split(',');return this}
  delete(){this.mode='delete';return this}
  eq(k,v){this.filters.push([k,v,'eq']);return this}
+ ilike(k,v){this.filters.push([k,String(v).replace(/^%|%$/g,'').replace(/\\([\\%_])/g,'$1'),'ilike']);return this}
  neq(k,v){this.filters.push([k,v,'neq']);return this}
  gte(k,v){this.filters.push([k,v,'gte']);return this}
  is(k,v){this.filters.push([k,v,'is']);return this}
@@ -77,7 +78,7 @@ class Query{
     if(row.font_family!==undefined&&!['helvetica','times','courier'].includes(row.font_family))return {data:null,error:{message:'ops_document_templates_font_family_check'}};
    }
   }
-  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='gte'?r[k]>=v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
+  let matches=target.filter(r=>this.filters.every(([k,v,op])=>op==='ilike'?String(r[k]||'').toLocaleLowerCase('es').includes(v.toLocaleLowerCase('es')):op==='neq'?r[k]!==v:op==='gte'?r[k]>=v:op==='is'?(v===null?r[k]==null:r[k]===v):r[k]===v));
   if(this.mode==='insert'){
    if(window.__mockRejectInsertTable===this.table){
     window.__mockRejectInsertTable=null;

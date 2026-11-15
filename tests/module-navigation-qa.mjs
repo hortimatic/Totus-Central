@@ -4,7 +4,7 @@ const routes=[{id:'inicio'},{id:'gastos'}];
 const clean=new URL(moduleUrl('https://example.invalid/?v=old&utm_source=chatgpt.com&utm_campaign=x&ps_order=7&ps_store=hortimatic#retorno','inicio'));
 assert.equal(clean.searchParams.has('utm_source'),false);assert.equal(clean.searchParams.has('v'),false);assert.equal(clean.searchParams.get('ps_order'),'7');assert.equal(clean.searchParams.get('ps_store'),'hortimatic');assert.equal(clean.hash,'#retorno');
 const url=moduleUrl('https://example.invalid/Totus-Central/?release=abc','gastos');
-assert.equal(new URL(url).searchParams.get('release'),'abc');assert.equal(requestedModule(url,routes),'gastos');
+assert.equal(new URL(url).searchParams.has('release'),false);assert.equal(requestedModule(url,routes),'gastos');
 assert.equal(requestedModule('https://example.invalid/?module=unknown',routes),'inicio');
 for(const field of ['ctrlKey','metaKey','shiftKey','altKey'])assert(nativeModuleClick({button:0,[field]:true},{tagName:'A'}));
 assert(nativeModuleClick({button:1},{tagName:'A'}));assert(!nativeModuleClick({button:0},{tagName:'A'}));
@@ -22,3 +22,5 @@ assert.equal(requestedModule('https://example.invalid/',routes,'denied'),'inicio
 assert.equal(requestedModule('https://example.invalid/?module=gastos',routes,'inicio',true),'inicio','Internal navigation must not override the next startup');
 assert.equal(requestedModule('https://example.invalid/?module=inicio',routes,'gastos',true),'gastos','Respect the personal startup module');
 assert.equal(requestedModule('https://example.invalid/?module=gastos',routes,'inicio',false),'gastos','Keep explicit links usable');
+
+const refreshed=new URL(moduleUrl('https://example.invalid/?module=inicio&release=abc&totus_refresh=123&ps_order=7#retorno','inicio'));assert.equal(refreshed.search,'?module=inicio&ps_order=7');assert.equal(refreshed.hash,'#retorno');

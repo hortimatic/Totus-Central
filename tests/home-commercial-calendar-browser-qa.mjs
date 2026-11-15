@@ -10,8 +10,8 @@ try{for(const width of [390,768,1017,1440,1920]){
  await page.evaluate(async()=>{
   const {createHomeTaskCalendar}=await import('../src/home-task-calendar.js'),{commercialMarginWidget}=await import('../src/home-current-margin.js');
   document.querySelector('#chatHarness').innerHTML='<div class="home-widget-body"><div id="calendar"></div><div id="margin"></div></div>';
-  const q=window.calendarQA={owner:'A',calls:[],opened:[],error:false,hold:false,release:null};
-  q.ui=createHomeTaskCalendar({actor:()=>q.owner,can:()=>true,onOpen:date=>q.opened.push(date),rpc:async(name,args)=>{
+  const q=window.calendarQA={owner:'A',calls:[],opened:[],created:[],canCreate:true,error:false,hold:false,release:null};
+  q.ui=createHomeTaskCalendar({actor:()=>q.owner,can:()=>true,onOpen:date=>q.opened.push(date),onCreate:date=>q.created.push(date),canCreate:()=>q.canCreate,rpc:async(name,args)=>{
    q.calls.push({name,...args});if(q.error)throw Error('Red simulada no disponible');
    const response={rows:[{task_id:'1',title:'Revisar pedido <img onerror=alert(1)>',scheduled_on:args.p_from,state:'pending'},{task_id:'2',title:'Tarea completada',scheduled_on:args.p_from,state:'done'}]};
    if(q.hold)return new Promise(resolve=>{q.release=()=>resolve(response);});return response;
@@ -24,7 +24,8 @@ try{for(const width of [390,768,1017,1440,1920]){
  await page.locator('[data-ht-date]').fill('2026-11-12');await page.locator('[data-ht-date]').blur();await idle();
  await page.locator('.home-task-agenda').getByText('Tarea completada',{exact:true}).waitFor();assert.equal(await page.locator('#calendar img').count(),0,'Task text is escaped');
  await page.getByRole('button',{name:'Abrir Tareas',exact:true}).click();assert.deepEqual(await page.evaluate(()=>calendarQA.opened),['2026-11-12']);
- await page.getByRole('button',{name:'Semana',exact:true}).click();await idle();assert.equal(await page.locator('[data-ht-action=date]').count(),7);
+ await page.getByRole('button',{name:'Crear tarea',exact:true}).click();assert.deepEqual(await page.evaluate(()=>calendarQA.created),['2026-11-12']);await page.evaluate(()=>{calendarQA.canCreate=false;});
+ await page.getByRole('button',{name:'Semana',exact:true}).click();assert.equal(await page.getByRole('button',{name:'Crear tarea',exact:true}).count(),0);await idle();assert.equal(await page.locator('[data-ht-action=date]').count(),7);
  await page.getByRole('button',{name:'Mes',exact:true}).click();await idle();await page.locator('[data-ht-date]').fill('2024-01-31');await page.locator('[data-ht-date]').blur();await idle();await page.getByRole('button',{name:'Periodo siguiente',exact:true}).click();await idle();assert.equal(await page.locator('[data-ht-date]').inputValue(),'2024-02-29');
  await page.evaluate(()=>{calendarQA.error=true;});await page.getByRole('button',{name:'Actualizar',exact:true}).click();await idle();await page.getByRole('status').filter({hasText:'Red simulada no disponible'}).waitFor();
  await page.evaluate(()=>{calendarQA.error=false;calendarQA.hold=true;});await page.getByRole('button',{name:'Actualizar',exact:true}).click();await page.waitForFunction(()=>typeof calendarQA.release==='function');

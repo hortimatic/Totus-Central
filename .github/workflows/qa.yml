@@ -423,6 +423,7 @@ jobs:
       - run: node tests/stock-rules-browser-qa.mjs
       - run: node tests/prestashop-automations-browser-qa.mjs
       - run: node tests/productos-ui-browser-qa.mjs
+      - run: node tests/shared-table-controls-browser-qa.mjs
       - run: python3 tests/productos-release-cache-qa.py
       - run: node tests/productos-photo-preview-browser-qa.mjs
       - run: node tests/productos-gallery-fit-browser-qa.mjs
@@ -479,6 +480,7 @@ jobs:
       - run: node tests/responsive-controls-browser-qa.mjs
       - run: node tests/appearance-tools-browser-qa.mjs
       - run: node tests/appearance-element-colors-browser-qa.mjs
+      - run: node tests/account-document-page-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
       - run: node tests/appearance-pending-browser-qa.mjs
