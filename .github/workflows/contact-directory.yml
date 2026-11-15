@@ -90,6 +90,7 @@ jobs:
       - run: |
           node tests/header-online-orders-browser-qa.mjs
           node tests/contact-directory-browser-qa.mjs
+          node tests/combined-customers-browser-qa.mjs
           node tests/contact-directory-speed-browser-qa.mjs
           node tests/contact-address-browser-qa.mjs
           node tests/productos-attribute-editor-browser-qa.mjs

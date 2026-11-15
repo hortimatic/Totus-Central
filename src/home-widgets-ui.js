@@ -33,7 +33,7 @@ const confirmDiscard=()=>typeof window==='undefined'||window.confirm('Hay cambio
 const safeStore=key=>PRESTASHOP_STORES.some(s=>s.key===key)?key:'all';
 const safeDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:'';
 const labelStore=k=>PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Todas las tiendas';
-const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows);return m.complete&&sourceComplete?money(m.value):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
+const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows),valid=rows.filter(row=>String(row.valid)==='1'),revenue=valid.every(row=>Number.isFinite(row.margin_revenue))?valid.reduce((sum,row)=>sum+row.margin_revenue,0):null;return m.complete&&sourceComplete?money(m.value)+(revenue>0?' · '+(m.value/revenue*100).toLocaleString('es-ES',{maximumFractionDigits:1})+' %':''):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
 const orderMarginText=row=>Number.isFinite(row.margin_value)&&row.currency_code==='EUR'?money(row.margin_value):'Costes pendientes';
 const sellerText=row=>row.employee_name||'Sin vendedor vinculado';
 const metric=(label,value)=>`<div class="home-ps-metric"><small>${esc(label)}</small><strong>${esc(String(value))}</strong></div>`;
@@ -170,15 +170,14 @@ function prestashopChart(w,read){
 }
 function psSummary(w,data,catalog){
  const shop=safeStore(w.scope.store),r=data?.[shop];
- if(!r)return periodControls(w)+psPlaceholder(w);
- if(r.error)return periodControls(w)+'<div class="home-ps-message" role="alert">'+esc(r.error)+' <button data-home-command="fetch" data-id="'+esc(w.id)+'">Reintentar</button></div>';
+ if(!r||r.error){const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;return '<div class="home-ps-content" aria-busy="'+!r+'">'+periodControls(w)+(w.filters.showMetrics!==false?'<div class="home-ps-metrics">'+['Ventas','Pedidos válidos','Ticket medio','Calidad del catálogo','Margen comercial'].map(label=>metric(label,'—')).join('')+'</div>':'')+'<p class="home-ps-message" role="'+(r?.error?'alert':'status')+'">'+esc(r?.error||'Consultando los datos de esta tienda…')+'</p><div class="home-ps-panels has-chart-and-top">'+(w.filters.chartMode!=='off'?'<div class="home-summary-chart-placeholder" aria-hidden="true"></div>':'')+(w.filters.showTop!==false?'<section class="home-ps-products"><h4>Productos más vendidos</h4><div style="min-height:'+topLimit*66+'px" aria-hidden="true"></div></section>':'')+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">'+(r?.error?'Reintentar':'Actualizar')+'</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';}
  const {count,total,ticket,complete}=orderStats(r.rows,r.currencies,r.complete);
  const countText=complete?count:'Parcial: '+count;
  const showMetrics=w.filters.showMetrics!==false,showTop=w.filters.showTop!==false;
  const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
  const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+'<div class="home-ps-metric"><small>Calidad del catálogo</small><strong>'+esc(catalog?(catalog.complete?'':'Parcial · ')+catalog.issues.filter(x=>x.issues.length).length+' avisos':'Sin consulta')+'</strong><button type="button" data-home-command="catalog-quality" data-id="'+esc(w.id)+'">'+(catalog?'Actualizar calidad':'Consultar calidad')+'</button></div>'+metric('Margen comercial',marginText(r.rows,r.complete))+'</div>':'';
  const chart=prestashopChart(w,r);
- const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li><span class="home-top-item">'+(p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'')+'<span>'+esc(p.name)+'<small>'+esc(p.reference||'Sin referencia')+'</small></span></span> <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
+ const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li><span class="home-top-item">'+(p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'')+'<span><span class="home-top-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span><small>'+esc(p.reference||'Sin referencia')+'</small></span></span> <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
  return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+(r.refreshing?' · Última lectura guardada; actualizando…':'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function prestashopProductsTable(w,data){
@@ -290,7 +289,7 @@ function configureOrderColumns(host,w){
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenProduct=null,onOpenTasks=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
- let financialObserver=null;
+ let financialObserver=null;const readProgress=new Map();
  const financialWidget=()=>{const f=getFilters('inicio'),name=state.data.stores.find(s=>s.id===f.store)?.name?.toLowerCase();return {id:'financial-margin',type:'home.gain',scope:{store:PRESTASHOP_STORES.some(s=>s.key===name)?name:'all'},filters:{from:f.from,to:f.to}};};
  const completedOrders=new Map();let completedOwner='';
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
@@ -301,6 +300,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const status=(message,warning=false)=>{const el=root?.querySelector('[data-home-status]');if(el){el.textContent=message;el.classList.toggle('home-error',warning)}};
  const layoutKey=w=>[safeStore(w.scope.store),...Object.values(dateRange(w))].join('|');
  const dataFor=w=>Object.fromEntries(PRESTA_SHOPS(w).map(k=>[k,ordersData.get(k+'|'+Object.values(dateRange(w)).join('|'))]));
+ const financialData=w=>Object.fromEntries(Object.entries(dataFor(w)).map(([shop,read])=>{const progress=readProgress.get(shop+'|'+Object.values(dateRange(w)).join('|'));return [shop,progress?{rows:[],...read,loading:true,progress}:read];}));
  function PRESTA_SHOPS(w){return safeStore(w.scope.store)==='all'?PRESTASHOP_STORES.map(x=>x.key):[safeStore(w.scope.store)]}
  const freshWidget=(w)=>{
   if(w.type==='cash.openings'&&safeStore(w.scope.store)!=='all')return storeOpeningWidget(w);
@@ -337,7 +337,6 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(w.type==='cash.openings'){
    const summary=content.querySelector('.home-opening-summary');if(summary)summary.remove();content.insertAdjacentHTML('beforeend',openingStatus());
   }
-  if(w.type==='home.result'&&can('prestashop','view')){content.querySelector('[data-financial-margin]')?.remove();const slot=document.createElement('div');slot.dataset.financialMargin='';const fw=financialWidget();slot.innerHTML=commercialMarginCompact(dataFor(fw),dateRange(fw));content.append(slot);}
   return content;
  };
  function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&(w.id==='tasks'&&sources.has('tasks')||permitted(w,can)))}
@@ -358,6 +357,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    }else body.append(content);
    card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);const calendarHost=body.querySelector('[data-home-task-calendar]');if(calendarHost)taskCalendar.mount(calendarHost);
   }
+  const financialCards=[...grid.querySelectorAll('[data-home-widget]')].filter(card=>['home.income','home.expenses','home.result','home.internal'].includes(card.dataset.homeType));
+  if(financialCards.length&&can('prestashop','view')){const summary=document.createElement('section');summary.className='home-margin-strip';summary.dataset.financialMargin='';summary.setAttribute('aria-label','Margen comercial del periodo');const fw=financialWidget();summary.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));financialCards.at(-1).after(summary);}
   root.classList.toggle('home-edit-mode',edit);
   root.classList.toggle('home-widgets-dirty',changed());
   const settings=homeCanvasSettings(model.settings);
@@ -630,9 +631,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    return false;
   }finally{busy=false}
  }
+ function refreshFinancialMargin(){
+  if(!live())return;const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));
+ }
  function refreshShopWidgets(){
   if(!live()||!model)return;
-  const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.innerHTML=commercialMarginCompact(dataFor(fw),dateRange(fw));
+  refreshFinancialMargin();
   for(const w of visibleOrder().filter(usesShopData)){
    const body=grid?.querySelector('[data-home-widget="'+CSS.escape(w.id)+'"] .home-widget-body');if(!body)continue;
    const active=body.contains(document.activeElement)?document.activeElement:null;
@@ -692,7 +696,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   const stores=PRESTA_SHOPS(w);for(const shop of stores){const key=shop+'|'+from+'|'+to;
    if(!force&&ordersData.has(key))continue;if(queries.has(key))continue;
    const owned=owner,requestToken=token;
+   const progress=message=>{if(live()&&token===requestToken&&owner===owned){readProgress.set(key,message);refreshFinancialMargin();}};
    const task=(async()=>{try{
+    progress('Comprobando conexión…');
     const cs=await initConnections();if(!live()||token!==requestToken||owner!==owned)return;
     const c=storeConnection(cs,shop),ready=prestashopReadiness(c);if(!ready.ready)throw new Error(ready.reason);
     const cacheKey=JSON.stringify([key,c.id,c.revision]);
@@ -704,7 +710,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
      if(!result?.ok||result.store!==shop||result.resource!=='orders'||result.page!==page||!Array.isArray(result.rows))throw new Error('La respuesta de pedidos no corresponde a esta consulta.');
      for(const r of result.rows){if(ids.has(String(r.id)))throw new Error('Pedidos repetidos entre páginas; comprueba el origen.');ids.add(String(r.id));rows.push(r)}
      possiblyMore=result.possibly_more===true;page++;
+     progress(rows.length+' pedidos leídos…');
     }while(possiblyMore&&page<20);
+    progress('Consultando monedas y líneas de '+rows.length+' pedidos…');
     const currencies=new Map();for(const id of [...new Set(rows.map(r=>String(r.id_currency||'')))] ){
      if(!/^\d{1,15}$/.test(id))continue;
      try{const r=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'currencies',page:0,page_size:1,record_id:id});if(r?.ok&&r.store===shop&&r.resource==='currencies'&&String(r.rows?.[0]?.id)===id)currencies.set(id,r.rows[0].iso_code);}catch{}
@@ -731,6 +739,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
       if(complete){
        const current=()=>live()&&token===requestToken&&owner===owned;
        const request=args=>invoke({store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args});
+       progress('Calculando costes de productos y variaciones…');
        const enriched=await enrichHomeOrderLines({store:shop,lines:[...details.values()].flat(),invoke:request,current});
        if(!current()||!enriched)return;
        for(const order of rows){order.currency_code=currencies.get(String(order.id_currency))||null;const margin=homeOrderMargin(order,details.get(String(order.id)),true);order.margin_value=margin.margin;order.margin_revenue=margin.revenue;}
@@ -742,6 +751,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     try{
      const employees=new Map(),current=()=>live()&&token===requestToken&&owner===owned;
      for(let start=0;start<rows.length;start+=25){
+      progress('Verificando datos de pedidos: '+Math.min(start+25,rows.length)+'/'+rows.length+'…');
       const sellers=await loadOrderSellers({orders:rows.slice(start,start+25),store:shop,employees,current,invoke:args=>invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args})});
       if(!current())return;
       for(const order of rows.slice(start,start+25)){const seller=sellers?.get(String(order.id));if(seller){order.employee_name=seller.name;order.employee_source=seller.source;}}
@@ -753,12 +763,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     if(completedOrders.size>8)completedOrders.delete(completedOrders.keys().next().value);
     ordersData.set(key,result);refreshShopWidgets();
    }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});refreshShopWidgets()}
-   })().finally(()=>{if(queries.get(key)===task)queries.delete(key);});queries.set(key,task);
+   })().finally(()=>{if(queries.get(key)===task){queries.delete(key);readProgress.delete(key);refreshFinancialMargin();}});queries.set(key,task);
   }
  }
  function mount(target){
   const identity=JSON.stringify([state.user?.id,state.user?.role]);if(completedOwner!==identity){completedOrders.clear();completedOwner=identity;}
-  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
+  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();readProgress.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
   const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div class="home-toolbar-description"><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn secondary home-edit-tool" data-home-command="panel-styles">☆ Estilos compartidos</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn secondary home-settings-button" data-home-command="edit" aria-label="Personalizar inicio" title="Personalizar inicio">⚙</button></div>`;
@@ -883,5 +893,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(usesShopData(w))void fetchFor(w);
  }
- return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}financialObserver?.disconnect();taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
+ return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}financialObserver?.disconnect();taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();readProgress.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
 }

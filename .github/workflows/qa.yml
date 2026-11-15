@@ -5,6 +5,24 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  product-column-pointer:
+    runs-on: ubuntu-24.04
+    env:
+      TOTUS_START_SERVER: '1'
+      TOTUS_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install chromium
+      - run: node tests/productos-table-layout-browser-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: product-column-pointer
+          path: qa-artifacts/resize-failure-*.png
   stability-contracts:
     runs-on: ubuntu-24.04
     steps:
@@ -428,6 +446,8 @@ jobs:
       - run: node tests/productos-photo-preview-browser-qa.mjs
       - run: node tests/productos-gallery-fit-browser-qa.mjs
       - run: node tests/productos-table-browser-qa.mjs
+      - run: node tests/catalog-price-batch-qa.mjs
+      - run: node tests/catalog-price-batch-browser-qa.mjs
       - run: node tests/productos-table-layout-browser-qa.mjs
       - run: node tests/table-view-profiles-browser-qa.mjs
       - run: node tests/productos-direct-save-browser-qa.mjs

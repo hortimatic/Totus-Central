@@ -32,6 +32,7 @@
     {
       "id": "products",
       "paths": [
+        "src/catalog-price-batch.js",
         "src/productos",
         "src/website-registry",
         "src/prestashop-readonly",
@@ -53,7 +54,9 @@
         "tests/productos-movements-browser-qa.mjs",
         "tests/product-stock-summary-qa.mjs",
         "tests/read-pool-qa.mjs",
-        "tests/productos-ui-browser-qa.mjs"
+        "tests/productos-ui-browser-qa.mjs",
+        "tests/catalog-price-batch-qa.mjs",
+        "tests/catalog-price-batch-browser-qa.mjs"
       ],
       "invariants": [
         "create/edit/copy",
@@ -114,10 +117,14 @@
         "src/app.js",
         "src/profile-directory.js",
         "src/api.js",
-        "src/module-navigation.js"
+        "src/module-navigation.js",
+        "src/directory-snapshot.js"
       ],
       "tests": [
-        "tests/contact-directory-browser-qa.mjs"
+        "tests/contact-directory-browser-qa.mjs",
+        "tests/combined-customers-browser-qa.mjs",
+        "tests/contact-address-browser-qa.mjs",
+        "tests/contact-directory-speed-browser-qa.mjs"
       ],
       "invariants": [
         "shop-specific clients/brands/suppliers",
@@ -209,7 +216,9 @@
         "tests/dashboard-report-qa.mjs",
         "tests/home-commercial-calendar-qa.mjs",
         "tests/home-commercial-calendar-browser-qa.mjs",
-        "tests/home-order-enrichment-qa.mjs"
+        "tests/home-order-enrichment-qa.mjs",
+        "tests/header-tools-browser-qa.mjs",
+        "tests/header-online-orders-browser-qa.mjs"
       ],
       "invariants": [
         "no false dirty state",
@@ -289,6 +298,7 @@
     {
       "id": "shared-interface-controls",
       "paths": [
+        "src/api-manager.js",
         "src/shared-table-controls.js",
         "src/tasks-ui.js",
         "src/interface-controls.css",
@@ -297,6 +307,9 @@
         "src/account-ui.js"
       ],
       "tests": [
+        "tests/api-manager-browser-qa.mjs",
+        "tests/api-settings-browser-qa.mjs",
+        "tests/configuration-journeys-browser-qa.mjs",
         "tests/shared-table-controls-browser-qa.mjs",
         "tests/home-commercial-calendar-browser-qa.mjs",
         "tests/account-workspace-browser-qa.mjs",
@@ -309,6 +322,7 @@
         "tests/productos-ui-browser-qa.mjs",
         "tests/subtab-walk-qa.mjs",
         "tests/productos-table-browser-qa.mjs",
+        "tests/productos-table-layout-browser-qa.mjs",
         "tests/dashboard-report-browser-qa.mjs",
         "tests/account-document-page-qa.mjs"
       ],

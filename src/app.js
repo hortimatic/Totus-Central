@@ -329,6 +329,10 @@ function render(){
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
  if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
+ if(state.route==='pricing'&&$('#productosRoot')){
+  if(can('productos','view'))void productosUI.mount($('#productosRoot'));
+  else $('#productosRoot').innerHTML='<p role="status">Necesitas permiso de lectura de Productos para consultar los precios de la tienda.</p>';
+ }
  if(['clientes','proveedores','marcas'].includes(state.route)||state.route==='facturacion'&&$('[data-directory-root]'))void directoryUI.mount($('[data-directory-root]'));
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
@@ -339,13 +343,13 @@ function render(){
  }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
-const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!['equipo','configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)||root!==$('#content')));
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!(['equipo','configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)||state.route==='pricing'&&getView('pricing').section==='prestashop')||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
  if(!modalOnly&&(directoryUI.isPublishing()||productosUI.isPublishing())){toast('Espera a que termine la publicación en la tienda.','bad');return false;}
  if(!modalOnly&&directoryUI.hasDraft()){if(!await confirmAction('¿Salir sin publicar los cambios de la ficha?',{title:'Cambios sin publicar',acceptLabel:'Descartar y salir'}))return false;directoryUI.discardDraft();}
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
- if(!modalOnly&&state.route==='productos'&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
+ if(!modalOnly&&['productos','pricing'].includes(state.route)&&productosUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la selección y los cambios preparados del producto?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;productosUI.discardDraft();}
  if(!modalOnly&&recurringExpensesUI.hasDraft()){if(!await confirmAction('¿Descartar la previsión sin guardar?',{title:'Cambios sin guardar',acceptLabel:'Descartar'}))return false;recurringExpensesUI.discardDraft();}
  if(!modalOnly&&state.route==='prestashop'&&prestashopUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla de automatización?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;prestashopUI.discardDraft();}
  if(!modalOnly&&state.route==='inicio'&&homeUI.hasUnsaved()&&!await confirmAction('¿Salir de Inicio sin guardar la nueva disposición de widgets?',{title:'Distribución sin guardar',acceptLabel:'Descartar cambios'}))return false;
@@ -2839,6 +2843,7 @@ document.addEventListener('click',async e=>{
   if(a.endsWith('-clear')&&filterRoute[a.replace('-clear','')]){patchFilters(filterRoute[a.replace('-clear','')],{...monthRange(),store:'all',query:'',kind:'all',paid:'all',status:'all',type:'all',attachment:'all'});await refresh();return}
   if(a.endsWith('-apply')){applyFilter(a.replace('-apply',''));await refresh();return}
   if(a.endsWith('-month')){thisMonth(a.replace('-month',''));await refresh();return}
+  if(a==='pricing-source'){if(!['local','prestashop'].includes(el.dataset.source)||!await allowDiscardDrafts())return;setView('pricing',{section:el.dataset.source,mode:'list',id:null});render();return;}
   if(a==='pricing-search'){patchFilters('pricing',{query:val('pricingQuery').trim()});render();return}
   if(a==='home-price-save'){await saveHomePrice();return}
   if(a==='home-report-quarter'){homeReport('quarter');return}

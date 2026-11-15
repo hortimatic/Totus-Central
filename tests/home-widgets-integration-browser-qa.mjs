@@ -50,7 +50,8 @@ try{
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'Dos resúmenes separados');
  assert.equal(await page.locator('.dashboard-hero [data-action="closing-new"]').count(),1,'Mantiene la acción original de nuevo cierre en su cabecera');
  assert.equal(await page.locator('[data-home-widget="activity"] svg').count(),1,'Mantiene la gráfica y sus funciones');
- assert.equal(await page.locator('[data-home-widget="result"] [data-financial-margin]').count(),1,'El margen aparece junto al resultado contable sin cambiar el diseño guardado');
+ assert.equal(await page.locator('.home-margin-strip[data-financial-margin]').count(),1,'El margen tiene una franja propia sin alargar un KPI');
+ assert.equal(await page.locator('[data-home-widget="result"] [data-financial-margin]').count(),0,'El resultado contable conserva exclusivamente su contenido');
  const cash=await page.locator('[data-home-widget="opening"]').innerText();
  for(const label of ['Vape','Head','NewOldSmok'])assert(cash.includes(label),'Conserva la caja '+label);
  for(const width of [320,390,768,1024,1280,1366,1440,1600,1920,2560]){
@@ -64,6 +65,9 @@ try{
   const escaped=await page.locator('.home-period-dates label').evaluateAll(labels=>labels.filter(el=>{const r=el.getBoundingClientRect(),p=el.closest('.home-period-controls').getBoundingClientRect();return r.width&&(r.right>p.right+2||r.left<p.left-2);}).map(el=>el.textContent.trim()));assert.deepEqual(escaped,[],'Los filtros permanecen dentro de su tarjeta a '+width);
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
+  const kpis=await page.locator('[data-home-widget]').evaluateAll(cards=>cards.filter(card=>['home.income','home.expenses','home.result','home.internal'].includes(card.dataset.homeType)).map(card=>{const r=card.getBoundingClientRect();return {top:Math.round(r.top),height:r.height};}));
+  for(const top of new Set(kpis.map(card=>card.top))){const row=kpis.filter(card=>card.top===top);assert(Math.max(...row.map(card=>card.height))-Math.min(...row.map(card=>card.height))<2,'Los KPI de una fila mantienen la misma altura a '+width);}
+  const strip=await page.locator('.home-margin-strip').boundingBox(),board=await page.locator('.home-widget-grid').boundingBox();assert(Math.abs(strip.width-board.width)<2,'El margen ocupa una franja completa a '+width);
   if(width===390){
    const income=await page.locator('[data-home-widget="income"]').boundingBox(),expense=await page.locator('[data-home-widget="expense"]').boundingBox();
    assert(income&&expense&&Math.abs(income.y-expense.y)<24&&expense.x>income.x,'Stitch: los cuatro KPI usan composición móvil 2×2');

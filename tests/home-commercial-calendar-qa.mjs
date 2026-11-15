@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {commercialMarginSummary,commercialMarginWidget,commercialMarginChart,commercialMarginCompact} from '../src/home-current-margin.js';
+test('compact margin exposes loading and failures without inventing zero profit',()=>{
+ const range={from:'2026-11-01',to:'2026-11-30'};
+ const pending=commercialMarginCompact({hortimatic:{rows:[],loading:true,progress:'200 pedidos leídos…'}},range);
+ assert.match(pending,/Calculando margen/);assert.match(pending,/200 pedidos leídos/);assert.match(pending,/aria-busy="true"/);assert.match(pending,/disabled/);
+ const failed=commercialMarginCompact({hortimatic:{rows:[],error:'Sin acceso <script>'}},range);
+ assert.match(failed,/No se pudo completar/);assert.match(failed,/Sin acceso &lt;script&gt;/);assert.doesNotMatch(failed,/disabled/);
+});
 import {calendarRange,calendarShift} from '../src/home-task-calendar.js';
 const row=(margin_value,extra={})=>({id:'1',valid:'1',currency_code:'EUR',margin_value,date_add:'2026-11-12 12:00:00',...extra});
 test('commercial margin includes both stores without merging their local IDs and keeps negative margins',()=>{

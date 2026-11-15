@@ -69,7 +69,28 @@ try{
  await page.getByText('300,00 €',{exact:true}).first().waitFor();
  await page.locator('[data-home-widget="gain"] .home-commercial-total').filter({hasText:'303,84'}).waitFor();
  assert.equal(await page.locator('[data-home-widget="gain"] .home-commercial-chart svg').count(),1);
+ fs.mkdirSync('qa-artifacts/home-symmetry',{recursive:true});
+ for(const width of [905,1440,1920]){
+  await page.setViewportSize({width,height:1600});
+  const boxes=await page.locator('[data-home-widget="shop-h"],[data-home-widget="shop-n"]').evaluateAll(cards=>cards.map(card=>{const r=card.getBoundingClientRect(),button=card.querySelector('.home-widget-actions button').getBoundingClientRect();return {top:r.top,height:r.height,buttonTop:button.top};}));
+  if(Math.abs(boxes[0].top-boxes[1].top)<2){assert(Math.abs(boxes[0].height-boxes[1].height)<2,'Las dos tiendas terminan a la misma altura a '+width);assert(Math.abs(boxes[0].buttonTop-boxes[1].buttonTop)<2,'Los botones de ambas tiendas quedan alineados a '+width);}
+  for(const card of await page.locator('[data-home-type="prestashop.summary"]').all()){const metrics=await card.locator('.home-ps-metric').evaluateAll(items=>items.map(item=>{const r=item.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};}));assert(Math.abs(metrics[0].width-metrics[1].width)<2);assert(Math.abs(metrics[4].left-metrics[0].left)<2&&Math.abs(metrics[4].right-metrics[1].right)<2,'El quinto dato ocupa la fila completa');}
+  await page.locator('.topbar').evaluate(header=>header.style.visibility='hidden');
+  await page.locator('[data-home-widget="shop-h"]').screenshot({path:'qa-artifacts/home-symmetry/summary-'+width+'.png'});
+  await page.locator('.topbar').evaluate(header=>header.style.visibility='');
+ }
+ await page.setViewportSize({width:1440,height:960});
  assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
+ const financial=page.locator('[data-financial-margin]');await financial.scrollIntoViewIfNeeded();
+ await financial.locator('.home-financial-margin b').filter({hasText:'303,84'}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
+ await page.evaluate(()=>{window.__holdHomeOrders=true;window.__releaseHomeOrders=[];});
+ await financial.locator('button').click();await page.waitForFunction(()=>window.__releaseHomeOrders.length===2);
+ assert.equal(await financial.locator('button').isDisabled(),true,'Una consulta en curso no dispara duplicados');
+ assert.match(await financial.innerText(),/Comprobando conexión/);
+ await page.evaluate(()=>{window.__holdHomeOrders=false;window.__releaseHomeOrders.splice(0).forEach(resolve=>resolve());});
+ await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
+ assert.match(await financial.innerText(),/303,84/,'La lectura termina con el margen y conserva el resultado contable');
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
  assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');

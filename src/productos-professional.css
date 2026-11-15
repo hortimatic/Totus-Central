@@ -209,6 +209,10 @@
 /* Compact page controls share the same dimensions in catalogue and pickers. */
 #productosRoot .prd-professional [data-pr-page-number],#productosRoot .prd-professional [data-pr-picker-page]{display:inline-block;width:64px;min-width:64px;height:32px;padding:4px 7px;font-size:12px}
 #productosRoot .prd-professional [data-pr-page-size],#productosRoot .prd-professional [data-pr-picker-size]{width:auto;min-width:72px;height:32px;padding:4px 7px;font-size:12px}
+#productosRoot .prd-professional .prd-catalog-footer{display:flex;flex-wrap:wrap;gap:10px;align-items:center;min-width:0}
+#productosRoot .prd-professional .prd-catalog-footer>div{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+#productosRoot .prd-professional .prd-catalog-footer label{display:flex;align-items:center;gap:8px;min-width:80px;flex-shrink:0}
+@container products-catalog (max-width:420px){#productosRoot .prd-professional .prd-catalog-footer>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}#productosRoot .prd-professional .prd-catalog-footer label{grid-column:1/-1}}
 #productosRoot .prd-professional .prd-product-picker-pages{flex-wrap:wrap}
 #productosRoot .prd-professional .prd-product-picker-pages label{display:flex;align-items:center;gap:5px;font-size:12px}
 #productosRoot .prd-professional .prd-changes-guidance{padding:8px 0;gap:8px;flex-wrap:wrap;font-size:12px}

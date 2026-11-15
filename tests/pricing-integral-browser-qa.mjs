@@ -8,6 +8,12 @@ const attempt=async(name,run)=>{try{await run();results.push({name,ok:true})}cat
 async function fresh(){const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(5000);await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));return page}
 async function simple(page){await page.locator('[data-action="product-new"]').click();await page.locator('#prName').fill('Producto ficticio auditoria');await page.locator('#prSku').fill('QA-PR-INTEGRAL');await page.locator('#prPvp').fill('10');await page.locator('#prUnits').fill('20');await page.locator('#prInitialProviderName').fill('Proveedor ficticio');await page.locator('#prInitialCost').fill('4');await page.locator('[data-action="product-save"]').click();await page.getByText('Producto guardado.',{exact:true}).last().waitFor()}
 try{
+ await attempt('local record opens after the connected catalog was selected',async()=>{const p=await fresh();try{
+  await p.getByRole('button',{name:'Catálogo PrestaShop',exact:true}).click();await p.locator('#productosRoot').waitFor();
+  await p.evaluate(async()=>{const {setView}=await import('../src/state.js');setView('pricing',{mode:'record',id:null});});
+  await clickModuleLink(p,p.locator('#nav [data-route=inicio]'));await clickModuleLink(p,p.locator('#nav [data-route=pricing]'));
+  await p.locator('#prName').waitFor();assert.equal(await p.locator('#productosRoot').count(),0,'An explicit local record takes precedence over the last catalog tab');
+ }finally{await p.close();}});
  await attempt('changing the simulated variant does not prompt a save, while actual edits stay protected',async()=>{const p=await fresh();try{
   await simple(p);
   const before=await p.evaluate(async()=>{const db=window.__mockDb,product=db.products[0];product.product_type='variants';db.product_variants.push(...[10,20].map(mg=>({id:crypto.randomUUID(),product_id:product.id,sku:'QA-NIC-'+mg,name:mg+' mg/ml',nicotine_mg_ml:mg,volume_ml:10,cost_net:mg===10?3.2:3.7,pvp:mg===10?5.7:6.3,active:true})));await(await import('../src/api.js')).loadCore();return JSON.stringify(product)});

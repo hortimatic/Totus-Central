@@ -9,7 +9,7 @@ try{
   await page.setContent('<style>.table-wrap{width:100%;overflow:auto}table{width:2400px}td{width:400px}</style><section><div class="table-wrap"><table><tr><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td><td>F</td></tr></table></div></section>');
   await page.evaluate(async encoded=>{const module=await import('data:text/javascript;base64,'+encoded);window.stopArrows=module.installSharedTableArrows();},Buffer.from(source).toString('base64'));
   const left=page.getByRole('button',{name:'Recorrer columnas hacia la izquierda'}),right=page.getByRole('button',{name:'Recorrer columnas hacia la derecha'});
-  assert.equal(await left.isDisabled(),true);await right.click();await page.waitForFunction(()=>document.querySelector('.table-wrap').scrollLeft>100);assert.equal(await left.isDisabled(),false);
+  assert.equal(await left.isDisabled(),true);await right.click();await page.waitForFunction(()=>document.querySelector('.table-wrap').scrollLeft>100&&!document.querySelector('[data-tc-table-action=left]').disabled);assert.equal(await left.isDisabled(),false);
   await left.click();await page.waitForFunction(()=>document.querySelector('.table-wrap').scrollLeft===0);
   await page.evaluate(()=>document.querySelector('table').style.width='100%');await page.locator('.tc-table-arrows').waitFor({state:'hidden'});
   await page.evaluate(()=>window.stopArrows());assert.equal(await page.locator('.tc-table-arrows').count(),0);await page.close();

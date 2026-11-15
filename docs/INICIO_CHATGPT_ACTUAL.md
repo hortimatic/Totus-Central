@@ -1,15 +1,16 @@
 # Totus Central · entrada vigente para ChatGPT
 
-Vigente: 14/11/2026. Leer este documento desde la rama `totus-central` de GitHub al comenzar. Es la entrada actual; las fechas, propuestas y procedimientos anteriores conservados en el historial no prueban el estado instalado.
+Vigente: 15/11/2026. Leer este documento desde la rama `totus-central` de GitHub al comenzar. Es la entrada actual; las fechas, propuestas y procedimientos anteriores conservados en el historial no prueban el estado instalado. Contrastar siempre `build-info.json` del dominio y el estado del PR: una rama probada localmente aún puede estar sin publicar.
 
 ## Estabilidad antes de intervenir
 
 Leer `docs/PROTOCOLO_ESTABILIDAD.md` y el contraste `docs/MEJORAS_CANAL_20261114.md`. Comprobar la rama publicada y las versiones reales de los servicios: no desplegar fuentes de una rama anterior ni considerar terminadas las peticiones pendientes de ese registro. No activar Hortimatic 8 mientras Diego mantenga la pausa. Las fuentes del proyecto son fotografías de referencia.
 
 Consultar también docs/AUDITORIA_ESTABILIDAD_20261114.md para el alcance y las evidencias de la revisión de carga. No confundir pruebas ficticias con escrituras en producción.
+La revisión de interfaz, margen, clientes combinados y Precio del 15/11 consta en `docs/REVISION_UNIFICADA_20261115.md`. Mantiene separados los resultados locales, la publicación y los pendientes reales del canal.
 
 ## Servicios e identidad
-- Aplicación: https://hortimatic.github.io/Totus-Central/
+- Aplicación: https://totuscentral.totuscode.com/ (direcciones normales con `?module=nombre`; la identidad interna de compilación se conserva sin mantener parámetros técnicos en la barra).
 - Código y documentación: `hortimatic/Totus-Central`, rama `totus-central`.
 - Supabase: proyecto `awmojepsasikxocoeqtu`.
 - OneDrive privado: `Apps/Totus Central`. Datos relacionales en Supabase, originales y diez juegos de copia en OneDrive, código en GitHub. No mover o renombrar los archivos administrados por fuera del circuito de Totus.
