@@ -14,6 +14,7 @@ function check(route,scenario){
  const html=renderers[route]();
  assert.equal(typeof html,'string',route+' '+scenario+' not rendered');
  if(route==='configuracion')assert.ok(html.includes('id="appearanceRoot"'),'Configuration must expose its mounted interface editor');
+ else if(route==='totustpv')assert.ok(html.includes('id="totusTpvRoot"'),'TotusTPV must expose its mounted workspace');
  else assert.ok(html.length>150,route+' '+scenario+' is empty');
  for(const hit of html.matchAll(/data-action="([^"$]+)"/g))actions.add(hit[1]);
  cases++;
