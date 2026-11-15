@@ -1,4 +1,4 @@
-.directory-workspace{min-width:0;width:100%}
+.directory-workspace{min-width:0;width:100%;container-type:inline-size;container-name:directory-workspace}
 .directory-sources{display:flex;flex-wrap:wrap;gap:8px;margin-block:0 14px}
 .directory-sources button,.directory-workspace .btn{min-height:36px;padding:7px 12px;font-size:.88rem;line-height:1.3;border-radius:var(--r,8px)}
 .directory-sources button{border:1px solid var(--line,#ccd5df);background:var(--panel,#fff);color:var(--text,#19283a)}
@@ -80,3 +80,8 @@
 .directory-logo-fallback{font-size:10px;text-align:center;color:var(--muted,#627184)}
 @media(min-width:1600px){.directory-toolbar{grid-template-columns:minmax(240px,2fr) minmax(140px,1fr) minmax(260px,2fr)}.directory-actions{grid-column:auto}}
 @media(max-width:600px){.directory-toolbar{grid-template-columns:minmax(0,1fr) minmax(90px,.5fr)}.directory-logo{flex-basis:48px;width:48px;height:48px}}
+
+.directory-shop-label{display:block;margin-top:3px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.directory-sources:has([data-directory-source=both]){display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.directory-sources button{min-width:0;white-space:normal}
+@container directory-workspace (max-width:560px){.directory-sources:has([data-directory-source=both]){grid-template-columns:repeat(2,minmax(0,1fr))}}

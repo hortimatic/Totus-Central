@@ -114,10 +114,14 @@
         "src/app.js",
         "src/profile-directory.js",
         "src/api.js",
-        "src/module-navigation.js"
+        "src/module-navigation.js",
+        "src/directory-snapshot.js"
       ],
       "tests": [
-        "tests/contact-directory-browser-qa.mjs"
+        "tests/contact-directory-browser-qa.mjs",
+        "tests/combined-customers-browser-qa.mjs"
+        ,"tests/contact-address-browser-qa.mjs"
+        ,"tests/contact-directory-speed-browser-qa.mjs"
       ],
       "invariants": [
         "shop-specific clients/brands/suppliers",
@@ -289,6 +293,7 @@
     {
       "id": "shared-interface-controls",
       "paths": [
+        "src/api-manager.js",
         "src/shared-table-controls.js",
         "src/tasks-ui.js",
         "src/interface-controls.css",
@@ -297,6 +302,9 @@
         "src/account-ui.js"
       ],
       "tests": [
+        "tests/api-manager-browser-qa.mjs",
+        "tests/api-settings-browser-qa.mjs",
+        "tests/configuration-journeys-browser-qa.mjs",
         "tests/shared-table-controls-browser-qa.mjs",
         "tests/home-commercial-calendar-browser-qa.mjs",
         "tests/account-workspace-browser-qa.mjs",
