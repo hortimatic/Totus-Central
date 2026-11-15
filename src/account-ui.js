@@ -102,7 +102,17 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
    try{
     const rows=(readDocuments?await readDocuments(targetOwner):documents()).filter(d=>d.uploaded_by===targetOwner);
     if(!active(panel))return;acceptDocuments(rows,who);
-    box.innerHTML=rows.length?'<div class="account-document-list">'+rows.map(d=>'<article><div><b>'+esc(d.original_name||'Documento')+'</b><small>'+esc(fmtDate(d.document_date||d.created_at))+'</small></div><div class="inline-actions">'+btn('Vista previa','document-preview','secondary','data-id="'+esc(d.id)+'"')+(can('documentos','export')?btn('Descargar','document-download','secondary','data-id="'+esc(d.id)+'"'):'')+'</div></article>').join('')+'</div>':'<div class="empty">No hay documentos subidos visibles para esta cuenta.</div>';
+    let page=1,size=20,query='';
+    const draw=()=>{
+     const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+     const filtered=rows.filter(d=>normalize(d.original_name).includes(normalize(query))),pages=Math.max(1,Math.ceil(filtered.length/size));page=Math.max(1,Math.min(page,pages));
+     box.innerHTML='<div class="account-document-tools"><label>Buscar documento<input type="search" data-account-doc-search value="'+esc(query)+'" data-draft-ignore></label><label>Mostrar<select data-account-doc-size data-draft-ignore>'+[10,20,50].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" class="btn secondary" data-account-doc-clear>Limpiar</button></div><p class="small muted">'+filtered.length+' documentos · Página '+page+' de '+pages+'. No se duplican archivos ni se altera su autoría.</p><div class="account-document-list">'+filtered.slice((page-1)*size,page*size).map(d=>'<article><div><b>'+esc(d.original_name||'Documento')+'</b><small>'+esc(fmtDate(d.document_date||d.created_at))+'</small></div><div class="inline-actions">'+btn('Vista previa','document-preview','secondary','data-id="'+esc(d.id)+'"')+(can('documentos','export')?btn('Descargar','document-download','secondary','data-id="'+esc(d.id)+'"'):'')+'</div></article>').join('')+(filtered.length?'':'<p>No hay documentos para esta búsqueda.</p>')+'</div><div class="account-document-pagination"><button type="button" class="btn secondary" data-account-doc-prev '+(page===1?'disabled':'')+'>Anterior</button><button type="button" class="btn secondary" data-account-doc-next '+(page===pages?'disabled':'')+'>Siguiente</button></div>';
+     box.querySelector('[data-account-doc-search]').oninput=e=>{const pos=e.target.selectionStart;query=e.target.value;page=1;draw();const input=box.querySelector('[data-account-doc-search]');input.focus();input.setSelectionRange(pos,pos);};
+     box.querySelector('[data-account-doc-size]').onchange=e=>{size=Number(e.target.value);page=1;draw();};
+     box.querySelector('[data-account-doc-clear]').onclick=()=>{query='';page=1;draw();};
+     box.querySelector('[data-account-doc-prev]').onclick=()=>{page--;draw();};
+     box.querySelector('[data-account-doc-next]').onclick=()=>{page++;draw();};
+    };draw();
    }catch(error){if(active(panel))box.innerHTML='<p class="note warn">No se pudieron consultar los documentos. Vuelve a abrir esta sección para reintentar.</p>';}
   }
   if(section==='tareas'){

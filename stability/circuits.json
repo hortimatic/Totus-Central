@@ -285,6 +285,33 @@
         "native server calls retained",
         "stream and response preserved"
       ]
+    },
+    {
+      "id": "shared-interface-controls",
+      "paths": [
+        "src/shared-table-controls.js",
+        "src/tasks-ui.js",
+        "src/interface-controls.css",
+        "index.html"
+      ],
+      "tests": [
+        "tests/shared-table-controls-browser-qa.mjs",
+        "tests/home-commercial-calendar-browser-qa.mjs",
+        "tests/account-workspace-browser-qa.mjs",
+        "tests/tasks-browser-qa.mjs",
+        "tests/contact-directory-browser-qa.mjs",
+        "tests/team-chat-browser-qa.mjs",
+        "tests/modal-geometry-qa.mjs",
+        "tests/responsive-controls-browser-qa.mjs",
+        "tests/prestashop-orders-table-browser-qa.mjs",
+        "tests/productos-ui-browser-qa.mjs"
+      ],
+      "invariants": [
+        "presentation controls never write business records",
+        "existing native column preferences retain ownership",
+        "task creation retains permissions",
+        "document authorship retained"
+      ]
     }
   ]
 }

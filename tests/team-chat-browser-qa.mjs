@@ -309,6 +309,8 @@ try{
  assert.equal(await page.evaluate(()=>qaChat.channels.find(c=>c.id==='n').group_name),'NewOldSmok');
  await click('refresh');
  assert((await page.locator('.chat-channel').evaluateAll(nodes=>nodes.map(n=>n.dataset.id))).indexOf('n')<(await page.locator('.chat-channel').evaluateAll(nodes=>nodes.map(n=>n.dataset.id))).indexOf('h'),'Drag order survives reload');
+ await page.evaluate(async()=>{qaChat.channels.find(c=>c.id==='n').unread=3;qaChat.channels.find(c=>c.id==='n').last_seq=8;qaChat.channels.push({id:'not-member',name:'Canal ajeno',group_name:'General',unread:9,last_seq:90});chatController.dispose();await chatController.mount(document.querySelector('#chatHarness'));});
+ await chatAction(page,'read-all');await page.waitForFunction(()=>qaChat.channels.find(c=>c.id==='n').unread===0);assert.equal(await page.evaluate(()=>qaChat.calls.some(c=>c.name==='totus_chat_command'&&c.p.p_action==='read'&&c.p.p_data.channel_id==='not-member')),false,'Read-all does not acknowledge channels without membership');
  const geometry=[];
  for(const width of [1920,1440,1280,1024,900,768,700,390,320]){
   await page.setViewportSize({width,height:1000});

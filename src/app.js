@@ -1,4 +1,6 @@
 import {createRecurringExpensesUI} from './recurring-expenses-ui.js';
+import {installSharedTableArrows} from './shared-table-controls.js';
+installSharedTableArrows(document,{owner:()=>state.user?.id});
 import {createContactDirectoryUI} from './contact-directory-ui.js';
 import {interfaceStylesSettings,acceptInterfaceStyles,verifySavedInterfaceStyle} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
@@ -269,7 +271,7 @@ function renderNav(){
  nav.scrollTop=scrollTop;nav.scrollLeft=scrollLeft;
 }
 
-const homeUI=createHomeWidgetsUI({rpc,can,onOpenTasks:async date=>{if(!can('tareas','view'))return;await navigateModule('tareas');await tasks.openDate(date);},onOpenProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({tab='orders',store,order,date}={})=>{
+const homeUI=createHomeWidgetsUI({rpc,can,onOpenTasks:async (date,{create=false}={})=>{if(!can('tareas','view')||create&&!can('tareas','create'))return;await navigateModule('tareas');if(create)await tasks.createOnDate(date);else await tasks.openDate(date);},onOpenProduct:async target=>{if(!can('productos','view'))throw Error('No tienes acceso a Productos.');await navigateModule('productos',null,()=>productosUI.selectProduct(target));},notify:message=>toast(message,'ok'),onOpenExpense:async ({id})=>{await navigateModule('gastos',null,()=>setView('gastos',{mode:'record',id,taxPaymentId:null}));},onOpenOrders:async ({tab='orders',store,order,date}={})=>{
  await navigateModule('prestashop',null,()=>{
   const target=new URL(location.href);
   for(const k of ['ps_store','ps_order','ps_date'])target.searchParams.delete(k);
@@ -327,7 +329,7 @@ function render(){
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
  if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
- if(['clientes','proveedores','marcas'].includes(state.route))void directoryUI.mount($('[data-directory-root]'));
+ if(['clientes','proveedores','marcas'].includes(state.route)||state.route==='facturacion'&&$('[data-directory-root]'))void directoryUI.mount($('[data-directory-root]'));
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
  if(state.route==='apis')void apiManager.mount($('[data-api-manager]'));

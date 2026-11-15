@@ -389,8 +389,9 @@ await check('Facturación: crear borrador con líneas e importes',async()=>{
  await page.locator('#ivUnit_0').fill('50,00');
  await page.locator('[data-action="invoice-save"]').click();
  await page.waitForTimeout(100);
+ await page.waitForFunction(()=>window.__mockDb.ops_sales_invoices.length===1,null,{timeout:5000});
  const d=await db();
- assert(d.invoices.length===1,'Factura no guardada');
+ assert(d.invoices.length===1,'Factura no guardada: '+await page.locator('#toastHost').innerText()+' · '+await page.locator('#modalHost').innerText());
  assert(d.invoices[0].status==='borrador','Factura debe quedar en borrador');
  assert(Math.abs(d.invoices[0].total_amount-121)<0.01,'Factura total incorrecto');
  await page.locator('[data-action="invoice-back"]').first().click();
