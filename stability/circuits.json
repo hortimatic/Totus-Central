@@ -292,7 +292,9 @@
         "src/shared-table-controls.js",
         "src/tasks-ui.js",
         "src/interface-controls.css",
-        "index.html"
+        "index.html",
+        "src/account-document-page.js",
+        "src/account-ui.js"
       ],
       "tests": [
         "tests/shared-table-controls-browser-qa.mjs",
@@ -307,7 +309,8 @@
         "tests/productos-ui-browser-qa.mjs",
         "tests/subtab-walk-qa.mjs",
         "tests/productos-table-browser-qa.mjs",
-        "tests/dashboard-report-browser-qa.mjs"
+        "tests/dashboard-report-browser-qa.mjs",
+        "tests/account-document-page-qa.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",

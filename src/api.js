@@ -1,3 +1,4 @@
+import {readAccountDocumentPage} from './account-document-page.js';
 import {moduleReads} from './module-navigation.js';
 import {readProfileDirectory} from './profile-directory.js';
 import {documentMimeType} from './file-utils.js';
@@ -9,6 +10,7 @@ import {combineAuditEvents,mergeAuditRows} from './audit-register.js';
 import {assertService,matchesSavedFields,verifiedWrite} from './write-safety.js';
 export const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const assert=assertService;
+export const accountDocumentPage=(target,options)=>readAccountDocumentPage(sb,target,options);
 export async function login(email,password){const r=await sb.auth.signInWithPassword({email,password});assert(r,'Acceso');return r.data.session}
 export async function logout(){await sb.auth.signOut()}
 export async function recover(email){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});assert(r,'Recuperación')}

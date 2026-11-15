@@ -60,7 +60,7 @@ import {captureFormDraft,hasFormDraft,originalFormValue,setPristineFormValue,mar
 import {ROUTES,SUPABASE_URL} from './config.js';
 import {PERMISSION_MODULES,PERMISSION_ACTIONS,PERMISSION_HELP,permissionsFor,rolePermissions,canUser,setRolePermissions} from './permissions.js';
 import {state,isAdmin,isManager,getFilters,patchFilters,setRoute,getView,setView,resetView,resetSessionData} from './state.js';
-import {sb,select,login,logout,recover,loadCore,reloadStorageUsage,invalidateStorageUsage,resetStorageUsageSession,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
+import {sb,select,accountDocumentPage,login,logout,recover,loadCore,reloadStorageUsage,invalidateStorageUsage,resetStorageUsageSession,reloadAudit,invalidateAuditReads,rpc,insert,update,remove,invokeTeam,invokeRecovery,upload,signedUrl,downloadFile,removeFile,completeDocumentRemoval} from './api.js';
 import {renderers,productRecordHtml,invoiceLineRow,expenseLineRow,invoicePreview,sourceClosingRecordHtml,openingDrawerCash,homeStorageAlertHtml,homeStorageMetricsHtml} from './pages/main.js';
 import {setHeader,closeModal,confirmAction,toast,modal,btn,formField,selectField,table} from './components.js';
 import {$,monthRange,n,isoToday,fmtDate,fmtDateTime,esc,download,csv,money} from './utils.js';
@@ -139,7 +139,7 @@ const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state)
 const accountUI=createAccountUI({user:()=>state.user,profile:()=>state.data.profiles.find(p=>p.id===state.user?.id),documents:()=>state.data.documents,can,rpc,
  canManage:()=>isAdmin()&&can('administracion','edit'),
  accountTarget:id=>{const profile=state.data.profiles.find(p=>p.id===id),member=state.data.team.find(m=>m.email?.toLowerCase()===profile?.email?.toLowerCase());return profile&&member?{profile,user:{...member,id:profile.id}}:null;},
- readDocuments:target=>select('ops_documents',{order:'document_date',filter:q=>q.eq('uploaded_by',target)}),
+ readDocuments:accountDocumentPage,
  acceptDocuments:(rows,owner)=>{if(state.user?.id!==owner)return;const merged=new Map(state.data.documents.map(d=>[d.id,d]));for(const row of rows)merged.set(row.id,row);state.data.documents=[...merged.values()];},
  accept:(saved,owner,target=owner)=>{if(state.user?.id!==owner||target!==owner&&!isAdmin())return;const profile=state.data.profiles.find(p=>p.id===target);if(profile)profile.ui_preferences={...(profile.ui_preferences||{}),account:saved};},
  guard:()=>allowDiscardDrafts({modalOnly:true}),navigate:route=>navigateModule(route),notify:message=>toast(message,'ok')});

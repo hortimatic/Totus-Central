@@ -480,6 +480,7 @@ jobs:
       - run: node tests/responsive-controls-browser-qa.mjs
       - run: node tests/appearance-tools-browser-qa.mjs
       - run: node tests/appearance-element-colors-browser-qa.mjs
+      - run: node tests/account-document-page-qa.mjs
       - run: node tests/account-workspace-browser-qa.mjs
       - run: node tests/stitch-design-browser-qa.mjs
       - run: node tests/appearance-pending-browser-qa.mjs
