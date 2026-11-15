@@ -12,8 +12,12 @@ for(const [file,content] of Object.entries(cache)){
  if(duplicated.length)problems.push(file+': duplicate function '+[...new Set(duplicated)].join(','));
  for(const statement of content.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)){
   const target=path.posix.normalize(path.posix.join(path.posix.dirname(file),statement[2]));
-  if(!cache[target]){problems.push(file+': module does not exist '+target);continue}
-  const exported=cache[target];
+  // Server adapters may reuse a checked-in Edge Function helper outside src/.
+  // Validate that actual module and its exports rather than assuming src/ is
+  // the complete repository; traversal outside the repository remains invalid.
+  const inRepository=!path.posix.isAbsolute(target)&&!target.startsWith('../');
+  const exported=cache[target]??(inRepository&&target.endsWith('.js')&&fs.existsSync(target)?fs.readFileSync(target,'utf8'):null);
+  if(exported===null){problems.push(file+': module does not exist '+target);continue}
   for(const specifier of statement[1].split(',')){
    const name=specifier.trim().split(/\s+as\s+/)[0];
    if(!name)continue;
