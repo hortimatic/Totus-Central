@@ -6,7 +6,7 @@ import {createCheckoutService} from '../src/totustpv/checkout-service.js';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const scope={actorId:id(5),connectionId:id(1),connectionRevision:1,storeId:id(2),shopId:1,
-  drawerId:id(3),sessionId:id(4),currency:'EUR'};
+  drawerId:id(3),sessionId:id(4),currency:'EUR',environment:'qa'};
 let assertions=0;
 const check=(actual,expected)=>{assert.deepEqual(actual,expected);assertions++;};
 const denied=async(action,pattern)=>{await assert.rejects(action,pattern);assertions++;};
@@ -51,6 +51,11 @@ try {
  }
  await db.exec('set role service_role');
  check((await journal('open',id(4),{openingCents:10000})).status,'open');
+ await denied(()=>journal('open',id(45),{openingCents:10000},{...scope,environment:'production'}),/TPV_ENVIRONMENT_FORBIDDEN/);
+ await denied(()=>journal('get',id(6),{},Object.fromEntries(Object.entries(scope).filter(([key])=>key!=='environment'))),/TPV_ENVIRONMENT_FORBIDDEN/);
+ await asAdmin(`insert into public.ops_daily_closings(id) values('${id(55)}');`);
+ await denied(()=>asAdmin(`update private.totus_tpv_sessions set closing_id='${id(55)}' where id='${id(4)}';`),/check constraint/);
+ await db.exec('set role service_role');
  check((await journal('open',id(4),{openingCents:10000})).status,'open');
  await denied(()=>journal('open',id(4),{openingCents:9999}),/TPV_SESSION_ID_ALREADY_BOUND/);
  await denied(()=>journal('open',id(44),{openingCents:10000}),/unique constraint/);

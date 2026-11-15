@@ -3,6 +3,7 @@
  * arbitrary URL forwarding, PUT state recovery, SQL or automatic write retries.
  */
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from '../../../supabase/functions/totus-connections/transport.js';
+import {assertQaTarget} from './qa-policy.js';
 const positive = value => Number.isSafeInteger(value) && value > 0;
 const cents = value => Number.isSafeInteger(value) && value >= 0 && value <= 100_000_000_000;
 const requireValue = (condition, code) => { if (!condition) throw new Error(code); };
@@ -38,11 +39,12 @@ export function nativePaidOrderXml(expected, allowedPaymentModules) {
 
 export function createTpvNativeTransport(connection, scope, {
   request=fetch,resolve,allowOrderCreation=async()=>false,allowedPaymentModules=[],
-  nativeExtension=null,allowNativeQuote=async()=>false
+  nativeExtension=null,allowNativeQuote=async()=>false,qaPolicy=null
 }={}) {
   connection=structuredClone(connection);scope=structuredClone(scope);
   allowedPaymentModules=structuredClone(allowedPaymentModules);
   nativeExtension=structuredClone(nativeExtension);
+  qaPolicy=structuredClone(qaPolicy);
   requireValue(connection && connection.id === scope?.connectionId && connection.revision === scope.connectionRevision &&
     connection.enabled === true && connection.verified_revision === connection.revision &&
     connection.real_data_authorized === true && connection.protocol === 'prestashop' && positive(scope.shopId),
@@ -53,6 +55,9 @@ export function createTpvNativeTransport(connection, scope, {
   const headers=connectionHeaders(connection);
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
   async function call(resource,method,query={},body,nativePrices=false,nativeCommand=false) {
+    // Every mutation is QA-bound even when another server feature gate allows it.
+    // With a QA policy, reads are also confined to the same test installation.
+    if(method!=='GET'||qaPolicy)assertQaTarget(connection,scope,qaPolicy);
     requireValue(resources.test(resource)||(nativeCommand&&resource==='totus_tpv_quotes'&&method==='POST'), 'TPV_NATIVE_RESOURCE_FORBIDDEN');
     const url=new URL(base.href);url.pathname='/api/'+resource;
     url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop',String(scope.shopId));
@@ -83,6 +88,7 @@ export function createTpvNativeTransport(connection, scope, {
     await response.body?.cancel();throw new Error('TPV_NATIVE_RESPONSE_TYPE_INVALID');
   }
   return Object.freeze({
+    assertMutationTarget(){return assertQaTarget(connection,scope,qaPolicy);},
     read:(resource,query={})=>call(resource,'GET',query),
     async quoteOwnedCart({operationId,cartId}) {
       const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);

@@ -12,10 +12,10 @@ const button=(action,label,kind='secondary',disabled=false)=>`<button type="butt
  * No code in this browser module can import the privileged checkout adapters.
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
- onConfigure=null,canConfigure=()=>false}={}) {
+ onConfigure=null,canConfigure=()=>false,readSetup=null}={}) {
  let host=null,adapter=null,context=null,session=null,products=[],lines=[],search='',tab='sale',notice='',failure='',
   busy=false,payment=null,receipt=null,history=[],summary=null,generation=0,searchTimer=null,abort=null,
-  returnForm=null,paymentValues={},formValues={},formDirty=false,selectedStore='',selectedDrawer='',searchRevision=0;
+  returnForm=null,paymentValues={},formValues={},formDirty=false,selectedStore='',selectedDrawer='',searchRevision=0,setup=null;
  function allowed(){return actor()?.active!==false&&!!actor()?.id&&can('view');}
  function identity(){return `${actor()?.id||''}`;}
  let mountedActor='';
@@ -37,7 +37,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(!host)return;
   if(!adapter||!context){host.innerHTML=`<section class="card card-pad tpv-activation"><h3>Preparar TotusTPV</h3>
    <p>Las ventas reales todavía no están habilitadas. La conexión de venta debe verificar cálculo, pago, pedido y existencias antes de activar el cobro.</p>
-   <div class="inline-actions">${button('practice','Practicar sin ventas reales','primary')}${onConfigure&&canConfigure()?button('configure','Conexiones de tienda'):''}</div>
+   <div class="inline-actions">${readSetup?button('setup',busy?'Comprobando puesto…':'Comprobar puesto','secondary',busy):''}${button('practice','Practicar sin ventas reales','primary',busy)}${onConfigure&&canConfigure()?button('configure','Conexiones de tienda','secondary',busy):''}</div>
+   ${setup?setupHtml():''}
    <p class="muted">Usa artículos y cajas ficticios para aprender el recorrido. No modifica las tiendas ni los cierres de caja.</p>${failure?`<p role="alert">${esc(failure)}</p>`:''}</section>`;return;}
   const status=failure?`<p class="note bad" role="alert">${esc(failure)}</p>`:notice?`<p class="note" role="status">${esc(notice)}</p>`:'';
   host.innerHTML=`<div class="tpv-practice-banner"><strong>Modo práctica</strong><span>Datos ficticios · sin cobros ni pedidos en PrestaShop</span>${button('exit','Salir de práctica')}</div>
@@ -49,6 +50,11 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   reflectPaymentMethod();
   host.querySelectorAll('button,select,input').forEach(el=>{if(busy)el.disabled=true;});
  }
+ function setupHtml(){return `<section class="tpv-setup" aria-label="Estado del puesto"><h4>Webs y cajas registradas</h4>
+  ${setup.websites.map(row=>`<article><div><strong>${esc(row.websiteName)}</strong><small>${esc(row.origin||'Dirección de web no verificada')}</small></div>
+   <div><span>${row.connectionVerified?'API verificada':'API pendiente de verificación'}</span><small>${esc(row.storeName||'Sin establecimiento asignado')}</small>
+   <small>${row.storeId?(row.drawers.length?row.drawers.map(drawer=>esc(drawer.name)).join(' · '):'Sin cajas activas'):'Asigna primero su establecimiento en Conexiones.'}</small></div></article>`).join('')||'<p>No hay webs registradas disponibles para tu cuenta.</p>'}
+  <p class="small muted">Esta consulta no habilita ventas. La asignación del operador, el circuito de pedido y la sesión de caja siguen pendientes de comprobar.</p></section>`;}
  function openingHtml(){return `<section class="card card-pad tpv-opening"><h3>Abrir caja de práctica</h3><p>Indica el efectivo ficticio con el que empieza la sesión.</p>
   <form data-tpv-form="open"><label>Fondo inicial · €<input name="opening" inputmode="decimal" value="${esc(formValues.open?.opening??'100,00')}" required></label>
   <button class="btn primary" type="submit" ${can('create')?'':'disabled'}>Abrir caja de práctica</button></form></section>`;}
@@ -107,7 +113,13 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    returnForm={...await adapter.returnable({sessionId:session.id,saleId:target.dataset.tpvReturn}),operationId:crypto.randomUUID()};delete formValues.refund;});
   if(action==='cancel-return'){returnForm=null;delete formValues.refund;formDirty=Object.keys(formValues).length>0;render();return;}
   if(action==='configure'&&onConfigure&&canConfigure())return work(()=>onConfigure());
+  if(action==='setup'&&readSetup)return work(async()=>{const run=generation;setup=null;render();let observed;
+   try{observed=await readSetup();}catch(error){if(/^TPV_SETUP_/.test(error?.message||''))throw new Error('No se ha podido comprobar el puesto con la sesión y configuración actuales. Vuelve a intentarlo.');throw error;}
+   if(run!==generation||!host)return;guard();
+   if(observed?.mode!=='setup-read-only'||observed.checkoutEnabled!==false||!Array.isArray(observed.websites))throw new Error('No se ha podido comprobar la configuración del puesto.');
+   setup=observed;});
   if(action==='practice')return work(async()=>{
+   setup=null;
    adapter=bindPractice();context=await adapter.context();context.stores.sort((a,b)=>a.name.localeCompare(b.name,'es',{numeric:true}));context.drawers.sort((a,b)=>a.name.localeCompare(b.name,'es',{numeric:true}));
    session=context.sessions.find(s=>s.status==='open')||null;if(session)await reloadProducts();
   });
@@ -183,7 +195,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  function dispose(){generation++;searchRevision++;clearTimeout(searchTimer);abort?.abort();host=null;busy=false;}
  return {mount(root){dispose();host=root;mountedActor=identity();
    adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
-   formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;
+   formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;setup=null;
    if(!allowed()){host.innerHTML='<p role="alert">Necesitas acceso a Ventas y Cajas para usar TotusTPV.</p>';return;}
    abort=new AbortController();for(const [type,handler] of [['click',click],['submit',submit],['change',change],['input',input]])
     host.addEventListener(type,handler,{signal:abort.signal});render();},dispose,

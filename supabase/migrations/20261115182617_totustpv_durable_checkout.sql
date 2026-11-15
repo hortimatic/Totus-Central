@@ -5,6 +5,7 @@ set local lock_timeout='5s';
 set local statement_timeout='60s';
 
 create table private.totus_tpv_assignments (
+ environment text not null default 'qa' check(environment in ('qa','production')),
  actor_id uuid not null references public.profiles(id),
  connection_id uuid not null references private.totus_api_connections(id),
  website_key text not null references private.totus_websites(key),
@@ -15,9 +16,10 @@ create table private.totus_tpv_assignments (
  can_reconcile boolean not null default false,
  can_open boolean not null default false,
  active boolean not null default true,
- primary key(actor_id,connection_id,shop_id,drawer_id)
+ primary key(actor_id,connection_id,shop_id,drawer_id,environment)
 );
 create table private.totus_tpv_sessions (
+ environment text not null default 'qa' check(environment in ('qa','production')),
  id uuid primary key,
  connection_id uuid not null references private.totus_api_connections(id),
  store_id uuid not null references public.ops_stores(id),
@@ -30,10 +32,12 @@ create table private.totus_tpv_sessions (
  opened_at timestamptz not null default clock_timestamp(),
  closed_at timestamptz,
  closing_id uuid references public.ops_daily_closings(id),
+ check(environment='production' or closing_id is null),
  check((status='open' and closed_at is null) or (status='closed' and closed_at is not null))
 );
-create unique index totus_tpv_one_open_drawer on private.totus_tpv_sessions(drawer_id) where status='open';
+create unique index totus_tpv_one_open_drawer on private.totus_tpv_sessions(drawer_id,environment) where status='open';
 create table private.totus_tpv_operations (
+ environment text not null default 'qa' check(environment in ('qa','production')),
  id uuid primary key,
  connection_id uuid not null references private.totus_api_connections(id),
  connection_revision bigint not null check(connection_revision>0),
@@ -84,6 +88,9 @@ create function private.totus_tpv_authorize(p_scope jsonb,p_action text) returns
 language plpgsql security invoker set search_path='' as $$
 declare actor public.profiles; assignment private.totus_tpv_assignments; session private.totus_tpv_sessions;
 begin
+ -- This release is QA-only. Production activation requires a separate release,
+ -- not a caller flag or changing the hostname of an existing test operation.
+ if p_scope->>'environment' is distinct from 'qa' then raise exception 'TPV_ENVIRONMENT_FORBIDDEN';end if;
  if p_action not in ('sell','reconcile','open') then raise exception 'TPV_ACTION_INVALID';end if;
  select * into actor from public.profiles where id=(p_scope->>'actorId')::uuid and active;
  if not found then raise exception 'TPV_ACTOR_INACTIVE';end if;
@@ -95,7 +102,7 @@ begin
  join private.totus_websites w on w.key=a.website_key and w.connection_id=c.id
  join public.ops_stores s on s.id=a.store_id and s.active
  join public.ops_cash_drawers d on d.id=a.drawer_id and d.store_id=s.id and d.active
- where a.actor_id=actor.id and a.active and a.connection_id=(p_scope->>'connectionId')::uuid
+ where a.actor_id=actor.id and a.active and a.environment=p_scope->>'environment' and a.connection_id=(p_scope->>'connectionId')::uuid
  and a.shop_id=(p_scope->>'shopId')::bigint and a.store_id=(p_scope->>'storeId')::uuid
  and a.drawer_id=(p_scope->>'drawerId')::uuid and w.business_id=s.id and w.status='active'
  and c.enabled and c.real_data_authorized and c.protocol='prestashop'
@@ -108,6 +115,7 @@ begin
   if not found or session.store_id<>assignment.store_id or session.connection_id<>assignment.connection_id
   or session.shop_id<>assignment.shop_id or session.drawer_id<>assignment.drawer_id
   or session.currency is distinct from p_scope->>'currency'
+  or session.environment is distinct from p_scope->>'environment'
   or (p_action='sell' and session.status<>'open') then raise exception 'TPV_CASH_SESSION_MISMATCH';end if;
  end if;
 end $$;
@@ -118,7 +126,7 @@ language sql stable security invoker set search_path='' as $$
  'quoteExpiresAt',floor(extract(epoch from r.quote_expires_at)*1000)::bigint,'expected',r.expected,'payments',r.payments,
  'scope',jsonb_build_object('connectionId',r.connection_id,'connectionRevision',r.connection_revision,
  'storeId',r.store_id,'shopId',r.shop_id,'drawerId',r.drawer_id,'sessionId',r.session_id,
- 'currency',r.currency,'actorId',r.created_by))
+ 'currency',r.currency,'actorId',r.created_by,'environment',r.environment))
 $$;
 
 create function public.totus_tpv_journal(p_action text,p_operation_id uuid,p_scope jsonb,p_data jsonb default '{}') returns jsonb
@@ -136,13 +144,14 @@ begin
  if p_action='open' then
   if (p_data->>'openingCents')::numeric <> trunc((p_data->>'openingCents')::numeric)
    or coalesce(p_scope->>'currency','') !~ '^[A-Z]{3}$' then raise exception 'TPV_OPENING_INVALID';end if;
-  insert into private.totus_tpv_sessions(id,connection_id,store_id,shop_id,drawer_id,currency,opened_by,opening_cents)
-  values(p_operation_id,(p_scope->>'connectionId')::uuid,(p_scope->>'storeId')::uuid,
+  insert into private.totus_tpv_sessions(id,environment,connection_id,store_id,shop_id,drawer_id,currency,opened_by,opening_cents)
+  values(p_operation_id,p_scope->>'environment',(p_scope->>'connectionId')::uuid,(p_scope->>'storeId')::uuid,
    (p_scope->>'shopId')::bigint,(p_scope->>'drawerId')::uuid,p_scope->>'currency',
    (p_scope->>'actorId')::uuid,(p_data->>'openingCents')::bigint)
    on conflict(id) do nothing;
   select * into opened from private.totus_tpv_sessions where id=p_operation_id;
   if opened.connection_id is distinct from (p_scope->>'connectionId')::uuid
+   or opened.environment is distinct from p_scope->>'environment'
    or opened.store_id is distinct from (p_scope->>'storeId')::uuid
    or opened.shop_id is distinct from (p_scope->>'shopId')::bigint
    or opened.drawer_id is distinct from (p_scope->>'drawerId')::uuid
@@ -159,9 +168,9 @@ begin
    or p_data->'expected'->>'currency' is distinct from p_scope->>'currency'
    or (p_data->>'quoteExpiresAt')::numeric/1000<=extract(epoch from clock_timestamp())
   then raise exception 'TPV_PREPARED_SALE_INVALID';end if;
-  insert into private.totus_tpv_operations(id,connection_id,connection_revision,store_id,shop_id,drawer_id,
+  insert into private.totus_tpv_operations(id,environment,connection_id,connection_revision,store_id,shop_id,drawer_id,
     session_id,created_by,currency,cart_id,expected,quote_expires_at)
-  values(p_operation_id,(p_scope->>'connectionId')::uuid,(p_scope->>'connectionRevision')::bigint,
+  values(p_operation_id,p_scope->>'environment',(p_scope->>'connectionId')::uuid,(p_scope->>'connectionRevision')::bigint,
    (p_scope->>'storeId')::uuid,(p_scope->>'shopId')::bigint,(p_scope->>'drawerId')::uuid,
    (p_scope->>'sessionId')::uuid,(p_scope->>'actorId')::uuid,p_scope->>'currency',
    (p_data->'expected'->>'cartId')::bigint,p_data->'expected',
@@ -174,6 +183,7 @@ begin
   raise exception 'TPV_OPERATION_NOT_FOUND';
  end if;
  if r.connection_id<>(p_scope->>'connectionId')::uuid or r.store_id<>(p_scope->>'storeId')::uuid
+ or r.environment is distinct from p_scope->>'environment'
  or r.shop_id<>(p_scope->>'shopId')::bigint or r.drawer_id<>(p_scope->>'drawerId')::uuid
  or r.session_id<>(p_scope->>'sessionId')::uuid or r.currency<>p_scope->>'currency'
  then raise exception 'TPV_OPERATION_SCOPE_MISMATCH';end if;

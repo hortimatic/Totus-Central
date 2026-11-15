@@ -29,6 +29,7 @@ export function createOperatorPaymentVerifier({authorize,readPolicy}) {
   const policy=await readPolicy({scope:structuredClone(scope)});
   const preparedPolicy=expected.operatorPaymentPolicy;
   need(policy?.enabled===true&&positive(policy.revision)&&preparedPolicy?.revision===policy.revision&&
+   policy.environment===scope.environment&&preparedPolicy.environment===scope.environment&&
    policy.connectionId===scope.connectionId&&policy.shopId===scope.shopId&&policy.storeId===scope.storeId&&
    policy.currency===scope.currency,'TPV_PAYMENT_POLICY_STALE');
   need(new Set(requested.allocations.map(row=>row.method)).size===requested.allocations.length,

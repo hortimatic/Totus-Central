@@ -15,7 +15,7 @@ function fixture(patch={}) {
   'order_states/11':{order_state:{id:'11',paid:'1'}},'currencies/1':{currency:{id:'1',iso_code:'EUR'}},
   order_details:{order_details:[{id_order:'901',product_id:'101',product_attribute_id:'5',product_quantity:'1',unit_price_tax_incl:'8.010000',unit_price_tax_excl:'6.620000'}]},
   order_payments:{order_payments:[{id:'701',order_reference:'ABC123',id_currency:'1',amount:'8.010000'}]},...patch};
- const adapter=createNativeSaleAdapter({scope,transport:{read:async resource=>structuredClone(data[resource]),
+ const adapter=createNativeSaleAdapter({scope,transport:{assertMutationTarget:()=>true,read:async resource=>structuredClone(data[resource]),
   createOrderOnce:async()=>{posts++;return {orderId:901};}},verifyPrepared:async()=>({unchanged:true,cartId:701}),
   readInventoryEvidence:async()=>[{mode:'isolated-fixture',productId:101,attributeId:5,before:5,after:4,ambiguous:false}]});
  return {adapter,count:()=>posts};

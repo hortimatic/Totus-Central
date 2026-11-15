@@ -1,6 +1,6 @@
 # Estado de implementación de TotusTPV
 
-15/11/2026. Código local dentro del repositorio de Totus Central. No desplegado y sin nuevas ventas en las tiendas remotas. Las ventas nativas nuevas descritas abajo pertenecen únicamente al laboratorio local desechable.
+15/11/2026. Código local dentro del repositorio de Totus Central. No desplegado y sin nuevas ventas en las tiendas remotas. Las ventas nativas nuevas descritas abajo pertenecen únicamente al laboratorio local desechable. La separación de producción/preproducción y la condición previa al cambio de dominio están en [Entornos y transición](TOTUSTPV_ENTORNOS_Y_CAMBIO_DOMINIO.md).
 
 | Componente | Implementado y comprobado | Límite actual |
 |---|---|---|
@@ -29,7 +29,7 @@
 - Carrito: 8 casos con respuestas simuladas pasados, incluyendo su integración obligatoria en el adaptador de venta.
 - Adaptador nativo: 8 casos con respuestas simuladas pasados.
 - Evidencia de existencias: 3 casos con respuestas simuladas pasados.
-- Registro PostgreSQL: 54 comprobaciones pasadas en PGlite, incluyendo conexión del controlador con el RPC SQL real, rollback de confirmación/pagos y permisos denegados.
+- Registro PostgreSQL: 57 comprobaciones pasadas en PGlite, incluyendo conexión del controlador con el RPC SQL real, rollback de confirmación/pagos, permisos denegados y separación QA/producción.
 - El circuito de estabilidad ejecuta estas pruebas y conserva los controles existentes. PGlite es una dependencia de desarrollo fijada, no una dependencia de producción de Central ni de PrestaShop.
 
 También han pasado confirmación de pagos (5 casos), reparto nativo (2), contrato de cálculo (5), práctica (9) y el recorrido Playwright de venta/caja/devolución/recuperación en cuatro anchuras. Son pruebas simuladas de la aplicación, no ventas remotas.
@@ -71,6 +71,12 @@ una distribución compacta en móvil. No existe altura mínima artificial para l
 la pantalla. Los controles de práctica no llaman al servidor de ventas.
 
 La pantalla inicial bloquea ventas reales y ofrece práctica identificada como tal.
+`Comprobar puesto` consulta bajo la sesión actual el contexto de Ventas y las cajas
+activas mediante APIs existentes de Central. Distingue API verificada,
+establecimiento y cajas por ID; no infiere vínculos por nombre. La comprobación se
+solicita al pulsar, sin añadir consultas al arranque ni activar el checkout. Un
+error al actualizar retira el diagnóstico anterior; respuestas de otra cuenta o
+solicitud anterior no se muestran.
 El acceso a Conexiones sólo se muestra a quien ya puede entrar en APIs. No permite
 activar ventas ni instalar componentes desde un botón de demostración.
 
@@ -80,6 +86,14 @@ validación sin pérdida de campos, salida cancelada/aceptada, búsqueda sin avi
 de edición y cierre de sesión. Las anchuras verificadas son 390, 768, 1024 y
 1440 px. El circuito completo afectado terminó con 88 recorridos locales y cero
 fallos. Esto no acredita publicación ni una venta remota desde esa interfaz.
+
+La nueva lectura y la política de QA tienen pruebas propias: cinco casos de
+metadatos/sesión, seis de destino y transición, diagnóstico visual en tres
+anchuras, y regresión de pantalla/arranque. Se contrastó además la configuración
+registrada de Central con la sesión Auth propia verificada de Codex, mediante su
+trabajador normal: dos establecimientos, tres cajas activas y preproducción aún
+sin establecimiento asignado. Esta lectura no accedió a las APIs de las webs de
+producción ni cambió sus datos. No se ha desplegado una migración ni un servicio.
 
 ### Incidencia nativa anterior
 

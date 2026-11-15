@@ -39,7 +39,7 @@ export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInve
     typeof verifyPrepared==='function' && typeof readInventoryEvidence==='function','TPV_NATIVE_ADAPTER_REQUIRED');
   const inspectCart=createNativeCartPreflight({scope,transport});
   function sameScope(requested) {
-    requireValue(requested && ['connectionId','connectionRevision','storeId','shopId','currency'].every(key=>requested[key]===scope[key]),
+    requireValue(requested && ['connectionId','connectionRevision','storeId','shopId','currency','environment'].every(key=>requested[key]===scope[key]),
       'TPV_NATIVE_ORDER_SCOPE_MISMATCH');
   }
   async function ordersForCart({scope:requested,cartId}) {
@@ -96,6 +96,8 @@ export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInve
   }
   function validatePayments({scope:requested,expected,payments}) {
     sameScope(requested);
+    requireValue(typeof transport.assertMutationTarget==='function'&&transport.assertMutationTarget()===true,
+      'TPV_QA_POLICY_REQUIRED');
     requireValue(Array.isArray(payments)&&payments.length===1,'TPV_NATIVE_SPLIT_PAYMENT_UNSUPPORTED');
     requireValue(['cash','card'].includes(expected.nativePaymentMethod)&&payments[0].method===expected.nativePaymentMethod&&
       expected.nativePaymentLabels?.[payments[0].method]===expected.paymentLabel,'TPV_NATIVE_PAYMENT_MAPPING_REQUIRED');

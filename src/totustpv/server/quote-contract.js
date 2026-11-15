@@ -18,10 +18,10 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
  scope=structuredClone(scope);ownedCart=structuredClone(ownedCart);profile=structuredClone(profile);
  response=structuredClone(response);stockRecords=structuredClone(stockRecords);
  need(Number.isFinite(now)&&ownedCart?.id&&positive(ownedCart.cartId)&&ownedCart.actorId===scope?.actorId&&
-  ['connectionId','connectionRevision','storeId','shopId','drawerId','sessionId','currency'].every(key=>
+  ['connectionId','connectionRevision','storeId','shopId','drawerId','sessionId','currency','environment'].every(key=>
    ownedCart[key]===scope[key]),'TPV_CART_OWNERSHIP_REQUIRED');
  need(profile?.verified===true&&profile.nativeVersion==='8.2.8'&&
-  ['connectionId','connectionRevision','shopId','currency'].every(key=>profile[key]===scope[key])&&
+  ['connectionId','connectionRevision','shopId','currency','environment'].every(key=>profile[key]===scope[key])&&
   positive(profile.quoteLifetimeMs)&&profile.quoteLifetimeMs<=120000&&
   typeof profile.paymentModule==='string'&&/^[a-z][a-z0-9_]{1,63}$/.test(profile.paymentModule),
   'TPV_NATIVE_QUOTE_PROFILE_INVALID');

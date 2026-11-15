@@ -5,7 +5,7 @@
 const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const positive = value => Number.isSafeInteger(value) && value > 0;
 const requireValue = (condition, code) => { if (!condition) throw new Error(code); };
-const SCOPE_FIELDS = ['connectionId','connectionRevision','storeId','shopId','drawerId','sessionId','currency'];
+const SCOPE_FIELDS = ['connectionId','connectionRevision','storeId','shopId','drawerId','sessionId','currency','environment'];
 
 export function resolveCheckoutContext(selection, records) {
   requireValue(selection && records, 'TPV_CONTEXT_REQUIRED');
@@ -27,6 +27,10 @@ export function resolveCheckoutContext(selection, records) {
     authorization.session_id === session.id && authorization.sell === true, 'TPV_SELL_FORBIDDEN');
   const context = {actorId:actor.id, connectionId:connection.id, connectionRevision:connection.revision,
     storeId:store.id, shopId:website.shop_id, drawerId:drawer.id, sessionId:session.id, currency:session.currency};
+  if(session.environment!==undefined||selection.environment!==undefined){
+    requireValue(['qa','production'].includes(session.environment)&&selection.environment===session.environment,
+      'TPV_ENVIRONMENT_MISMATCH');context.environment=session.environment;
+  }
   requireValue(SCOPE_FIELDS.every(key => selection[key] === context[key]), 'TPV_CONTEXT_STALE');
   return Object.freeze(context);
 }

@@ -3,6 +3,7 @@
 .totus-tpv h3,.totus-tpv h4{margin:0;font-size:1.05rem}
 .totus-tpv .card-pad{padding:16px;min-height:0}
 .totus-tpv p{margin:8px 0;line-height:1.45}
+.tpv-setup{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}.tpv-setup article{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.tpv-setup article>div{min-width:0;overflow-wrap:anywhere}.tpv-setup small{display:block}
 .totus-tpv label{display:grid;gap:5px;min-width:0;font-size:.9rem}
 .totus-tpv input,.totus-tpv select{width:100%;min-width:0;box-sizing:border-box}
 .totus-tpv small{display:block;color:var(--muted);line-height:1.4}

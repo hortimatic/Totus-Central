@@ -19,6 +19,7 @@ import {createProductosUI} from './productos-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {createTpvWorkspace} from './totustpv/workspace.js';
+import {createTpvSetupReader} from './totustpv/setup-reader.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
 import {createChatPreferenceTransport} from './chat-preference-transport.js';
 import {createAppearanceUI,applyInterfaceAppearance,applyLoginAppearance} from './appearance-ui.js';
@@ -82,7 +83,10 @@ import {renderPdfPreview} from './pdf-preview.js';
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
 const businessWriter=createBusinessWriter({rpc});
 const mobileNavigation=createMobileNavigation();
+const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
+ readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),
+ readSetup:()=>totusTpvSetup.read(),
  confirm:message=>confirmAction(message,{title:'TotusTPV',acceptLabel:'Salir'}),
  onConfigure:()=>can('apis','view')?navigateModule('apis'):false,canConfigure:()=>can('apis','view')});
 // A delayed preview belongs to the account and rendered page that requested it.

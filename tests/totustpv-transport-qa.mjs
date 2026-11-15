@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTpvNativeTransport,nativePaidOrderXml} from '../src/totustpv/server/native-transport.js';
-const scope={connectionId:'00000000-0000-4000-8000-000000000001',actorId:'00000000-0000-4000-8000-000000000003',connectionRevision:1,storeId:'store-one',shopId:2};
+const scope={connectionId:'00000000-0000-4000-8000-000000000001',actorId:'00000000-0000-4000-8000-000000000003',connectionRevision:1,storeId:'store-one',shopId:2,environment:'qa'};
 const connection={id:scope.connectionId,revision:1,verified_revision:1,enabled:true,real_data_authorized:true,
  protocol:'prestashop',endpoint:'https://shop.example/api',website_origin:'https://shop.example',secret:'fixture-secret-not-real'};
 const expected={storeId:scope.storeId,shopId:2,cartId:701,customerId:501,invoiceAddressId:601,deliveryAddressId:601,
@@ -13,6 +13,9 @@ const priceContext={productId:101,attributeId:5,quantity:3,countryId:6,stateId:3
 function fixture(options={}) {
  const requests=[];
  const transport=createTpvNativeTransport({...connection,...options.connection},{...scope,...options.scope},{
+  qaPolicy:options.noQaPolicy?null:{stage:'preproduction',nativeVersion:'8.2.8',connectionId:scope.connectionId,
+   origin:'https://shop.example',protectedOrigins:['https://production.example'],
+   protectedConnectionIds:['00000000-0000-4000-8000-000000000099']},
   resolve:async()=>options.privateAddress?['127.0.0.1']:['93.184.216.34'],
   allowedPaymentModules:['ps_cashondelivery'],
   ...(options.extension?{nativeExtension:{verified:true,installationId:'00000000-0000-4000-8000-000000000002',
