@@ -31,3 +31,28 @@ test('Products forwards the bounded diagnostic from its own service instead of h
  const client={functions:{invoke:async()=>({data:null,error:{message:'Edge Function returned a non-2xx status code',context:new Response(JSON.stringify({error:'Traducción name del idioma 1 no coincide'}),{status:400})}})}};
  await assert.rejects(()=>runOperation(client,{operation:'products',args:{action:'prestashop_product_create_commit',store:'newoldsmok'}},{email:'chatgpt@totuscentral.invalid'}),/idioma 1/);
 });
+
+test('every advertised product stage retains its store, request and fingerprint through the conventional bridge',async()=>{
+ const calls=[],client={functions:{invoke:async(name,{body})=>{calls.push({name,body});return {data:{ok:true,store:body.store,persisted:false}};}}};
+ for(const action of operationCatalogue().product_actions){
+  const args={action,store:'newoldsmok',id:request,revision:4,call_id:request,request_id:request,parent_request_id:request,step_key:'image-1',fingerprint:'b'.repeat(64),resource:'products',record_id:'42'};
+  const original=structuredClone(args);const response=await runOperation(client,{operation:'products',args},{email:'configured-chatgpt@example.invalid'});
+  assert.equal(response.requires_readback,true);assert.deepEqual(calls.at(-1),{name:'totus-connections',body:original});assert.deepEqual(args,original);
+ }
+});
+
+test('receipt creation, source attachment, matching and revision checks use the same own RPC path',async()=>{
+ const calls=[],user={email:'configured-chatgpt@example.invalid'};
+ const client={rpc:async(name,args)=>{calls.push({name,args});if(name==='totus_stock_save_result'&&args.p_revision===1)return {error:{message:'Revisión antigua: vuelve a leer'}};return {data:{id:request,revision:2}};}};
+ for(const [name,args] of [
+  ['totus_stock_create',{p_store:request,p_supplier:'Proveedor ficticio',p_reference:'QA',p_date:'2026-11-15',p_notes:''}],
+  ['totus_stock_context',{p_id:request}],
+  ['totus_stock_add_source',{p_id:request,p_revision:1,p_document:request,p_kind:'supplier',p_text:'Original ficticio',p_extraction:{state:'ready'}}],
+  ['totus_stock_save_result',{p_id:request,p_revision:2,p_result:{complete:false,coverage:[],rows:[]}}]
+ ]){
+  const original=structuredClone(args);const result=await runOperation(client,{operation:'rpc',name,args},user);
+  assert.equal(result.requires_readback,true);assert.equal(calls.at(-1).args.p_actor_email,user.email);assert.deepEqual(args,original);
+ }
+ await assert.rejects(()=>runOperation(client,{operation:'rpc',name:'totus_stock_save_result',args:{p_id:request,p_revision:1,p_result:{}}},user),/Revisión antigua/);
+ assert.equal(calls.filter(c=>c.name==='totus_stock_save_result').length,2,'a stale reply does not invent another write');
+});

@@ -332,6 +332,36 @@
         "task creation retains permissions",
         "document authorship retained"
       ]
+    },
+    {
+      "id": "conventional-assistant",
+      "paths": [
+        "supabase/functions/totus-assistant",
+        "supabase/review_patches/033_agent_own_operations.sql",
+        "src/agent-identity.js",
+        "supabase/migrations/20261028200500_assistant_own_chat_operations.sql"
+      ],
+      "tests": [
+        "tests/assistant-own-auth.mjs",
+        "tests/codex-own-auth.mjs",
+        "tests/assistant-operations.mjs",
+        "tests/assistant-attachments.mjs",
+        "tests/assistant-chat.mjs",
+        "tests/agent-access-qa.mjs",
+        "tests/stock-workflow-qa.mjs",
+        "tests/productos-request-qa.mjs",
+        "tests/productos-write-qa.mjs",
+        "tests/productos-create-qa.mjs",
+        "tests/write-safety-qa.mjs"
+      ],
+      "invariants": [
+        "own verified active identity only",
+        "normal business RPC and RLS",
+        "expense tax/payment/document states independent",
+        "receipt original coverage and current revision",
+        "product prepare/commit/readback with same request recovery",
+        "no arbitrary SQL or secret exposure"
+      ]
     }
   ]
 }
