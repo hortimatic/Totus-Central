@@ -92,6 +92,9 @@
  #content .directory-heading{margin-bottom:10px}
  #content .directory-sources{margin-bottom:10px}
  #content .dashboard-page:not(.home-edit-mode) .home-widget-frame{min-height:0}
+ #content .dashboard-page:not(.home-edit-mode) .home-widget-grid>.home-widget-frame:not([data-home-type="prestashop.summary"]){align-self:start}
+ #content .dashboard-page:not(.home-edit-mode) .home-orders-scroll{max-height:420px!important;overflow-y:auto!important}
+ #content .dashboard-page:not(.home-edit-mode) .home-orders-cards{max-height:420px;overflow-y:auto;overscroll-behavior:contain}
  #content .home-widget-header{padding:7px 10px;min-height:34px}
  #content .home-widget-body{padding:min(var(--home-card-padding,var(--appearance-card-pad,12px)),10px)}
  #content .home-widget-body>:is(.card,.kpi,.opening-panel,.home-activity){border:0;box-shadow:none;border-radius:0;padding:0}
