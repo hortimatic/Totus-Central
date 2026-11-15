@@ -138,8 +138,8 @@
 
 /* Only the two arrows follow page scrolling; the range stays in its row. */
 #productosRoot .prd-professional .prd-table-navigation{padding-right:88px}
-#productosRoot .prd-professional .prd-table-arrows{position:sticky;top:calc(var(--appearance-header,64px) + 6px);z-index:24;display:flex;gap:4px;align-self:flex-end;margin:-38px 8px 6px 0;padding:2px;background:var(--panel,#fff);border:1px solid var(--line,#dbe4ef);border-radius:7px;box-shadow:0 2px 7px #10243818}
-#productosRoot .prd-professional .prd-table-arrows button{width:32px;min-height:28px;padding:2px}
+#productosRoot .prd-professional .prd-table-arrows{position:sticky;top:auto;bottom:8px;z-index:5;display:flex;justify-content:flex-end;gap:8px;margin:8px 0;padding:0;background:transparent;border:0;pointer-events:none}
+#productosRoot .prd-professional .prd-table-arrows button{pointer-events:auto;width:36px;min-height:36px;padding:0}
 #productosRoot .prd-professional .prd-copy-photo-pending{display:block;font-size:11px;color:var(--muted,#58677a)}
 
 /* Copy workspace format protocol: shared dimensions, spacing and type. */

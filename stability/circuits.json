@@ -305,7 +305,8 @@
         "tests/responsive-controls-browser-qa.mjs",
         "tests/prestashop-orders-table-browser-qa.mjs",
         "tests/productos-ui-browser-qa.mjs",
-        "tests/subtab-walk-qa.mjs"
+        "tests/subtab-walk-qa.mjs",
+        "tests/productos-table-browser-qa.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",
