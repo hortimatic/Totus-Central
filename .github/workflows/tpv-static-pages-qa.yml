@@ -1,0 +1,50 @@
+name: Totus TPV QA estático dentro de GitHub Pages existente
+on:
+  push:
+    branches: [feat/tpv-static-pages-qa-20261115]
+  pull_request:
+    paths:
+      - assets/tpv-qa/**
+      - tests/tpv-static-qa-playwright.py
+      - .github/workflows/tpv-static-pages-qa.yml
+permissions:
+  contents: read
+jobs:
+  isolated-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify independent static assets and non-Vercel architecture
+        run: |
+          test -f assets/tpv-qa/index.html
+          test -f assets/tpv-qa/assets/tpv-stitch.css
+          node --check assets/tpv-qa/assets/tpv-stitch-live.js
+          ! grep -q 'vercel.app' assets/tpv-qa/assets/tpv-stitch-live.js
+          grep -q 'functions/v1/tpv-pages-api' assets/tpv-qa/assets/tpv-stitch-live.js
+          grep -q 'href="./assets/tpv-stitch.css"' assets/tpv-qa/index.html
+          grep -q 'src="./assets/tpv-stitch-live.js"' assets/tpv-qa/index.html
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install real Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install chromium --with-deps
+      - name: Playwright checkout-safe real UI, mocked third-party API
+        run: |
+          mkdir -p /tmp/totus-pages/Totus-Central/assets
+          cp -a assets/tpv-qa /tmp/totus-pages/Totus-Central/assets/tpv-qa
+          python -m http.server 8766 --directory /tmp/totus-pages >/tmp/tpv-qa-host.log 2>&1 &
+          python tests/tpv-static-qa-playwright.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: totus-tpv-qa-pages-browser
+          path: artifacts/tpv-pages/
+          retention-days: 10
