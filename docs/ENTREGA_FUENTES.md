@@ -14,7 +14,7 @@
 No elimines las fuentes antiguas hasta verificar que puedes abrir los nuevos documentos. No copies claves ni contraseñas a Fuentes.
 
 ## Dónde está cada cosa
-- Web única: https://hortimatic.github.io/Totus-Central/
+- Web única: https://totuscentral.totuscode.com/ (el alojamiento de GitHub conserva su compatibilidad).
 - Código: hortimatic/Totus-Central, rama totus-central.
 - Supabase: awmojepsasikxocoeqtu, proyecto Totus Central. Registros, acceso, permisos y procesos.
 - OneDrive: Apps/Totus Central. Originales y copias verificadas.

@@ -1,3 +1,4 @@
+import {positionColumnPanel} from './column-settings.js';
 import {standardizeColumnPanels} from './column-settings.js';
 // Preserve the select as the form's source of truth; stage multi-selection
 // inside one keyboard-accessible dialog before dispatching the form change.
@@ -12,7 +13,7 @@ export function enhanceProductSelects(root){
  document.addEventListener('keydown',event=>{if(event.key==='Escape'||['PageDown','PageUp','Home','End'].includes(event.key)&&!event.target?.matches?.('input,textarea,select'))closeMenus();},{signal:controller.signal});
  window.addEventListener('resize',closeMenus,{signal:controller.signal});
  for(const menu of root.querySelectorAll('.prd-columns,.prd-row-menu')){
-  menu.addEventListener('toggle',()=>{if(!menu.open||!root.contains(menu))return;for(const other of root.querySelectorAll('.prd-columns[open],.prd-row-menu[open]'))if(other!==menu)other.open=false;const panel=menu.querySelector(':scope>div'),anchor=menu.querySelector('summary').getBoundingClientRect();if(panel){const width=Math.min(menu.matches('.prd-columns')?360:220,innerWidth-24);Object.assign(panel.style,{position:'fixed',width:width+'px',left:Math.max(12,Math.min(anchor.left,innerWidth-width-12))+'px',top:Math.min(anchor.bottom+6,Math.max(12,innerHeight-Math.min(panel.scrollHeight,480)-16))+'px',right:'auto',maxHeight:'min(75dvh,480px)'});}});
+  menu.addEventListener('toggle',()=>{if(!root.contains(menu))return;if(!menu.open){const panel=menu.querySelector(':scope>div');if(panel?.matches(':popover-open'))panel.hidePopover();return;}for(const other of root.querySelectorAll('.prd-columns[open],.prd-row-menu[open]'))if(other!==menu)other.open=false;const panel=menu.querySelector(':scope>div'),anchor=menu.querySelector('summary').getBoundingClientRect();if(panel&&menu.matches('.prd-columns')){positionColumnPanel(panel,anchor);}else if(panel){const width=Math.min(220,innerWidth-24);Object.assign(panel.style,{position:'fixed',width:width+'px',left:Math.max(12,Math.min(anchor.left,innerWidth-width-12))+'px',top:Math.min(anchor.bottom+6,Math.max(12,innerHeight-Math.min(panel.scrollHeight,480)-16))+'px',right:'auto',maxHeight:'min(75dvh,480px)'});}});
  }
  enhanceSearchableSelects(root);
  return ()=>controller.abort();

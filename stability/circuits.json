@@ -317,7 +317,8 @@
         "src/account-ui.js",
         "src/stitch-layout.js",
         "src/column-settings.js",
-        "src/state.js"
+        "src/state.js",
+        "tools/version-entry-assets.mjs"
       ],
       "tests": [
         "tests/api-manager-browser-qa.mjs",
@@ -343,7 +344,9 @@
         "tests/layout-audit.mjs",
         "tests/pricing-taxonomy-layout-qa.mjs",
         "tests/pricing-variants-browser-qa.mjs",
-        "tests/pricing-connected-browser-qa.mjs"
+        "tests/pricing-connected-browser-qa.mjs",
+        "tests/entry-assets-cache-browser-qa.mjs",
+        "tests/interface-consistency-browser-qa.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",

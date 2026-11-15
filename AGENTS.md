@@ -31,3 +31,7 @@ Los archivos de sources/ del proyecto sincronizado son referencias de solo lectu
 - Comparar acción, parámetros y contexto antes de retirar duplicados; conservar acciones distintas por tienda, fecha o registro.
 - Mantener búsqueda completa y orden alfabético de catálogos sin alterar el orden lógico de posiciones, frecuencias o estados. La búsqueda no es una edición del formulario.
 - Mantener rutas públicas españolas y entradas de publicación recargables; no cambiar los IDs internos de permisos para traducir una URL.
+- Versionar todas las hojas y scripts de entrada mediante `tools/version-entry-assets.mjs` antes de generar las rutas. Probar una actualización con caché conservada: un navegador limpio no detecta CSS antiguo reutilizado.
+- Medir la altura renderizada de los paneles de columnas con `positionColumnPanel`; no calcular su posición con una altura estimada diferente de su límite real.
+- Probar la densidad con estilos y tamaños guardados, además de la distribución predeterminada. Mantener una sola cabecera y un solo marco por indicador de Inicio.
+- Los lotes de precios y ofertas pertenecen a Precio; no reintroducir sus botones en la barra de Productos.
