@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {commercialMarginSummary,commercialMarginWidget,commercialMarginChart} from '../src/home-current-margin.js';
+import {commercialMarginSummary,commercialMarginWidget,commercialMarginChart,commercialMarginCompact} from '../src/home-current-margin.js';
 import {calendarRange,calendarShift} from '../src/home-task-calendar.js';
 const row=(margin_value,extra={})=>({id:'1',valid:'1',currency_code:'EUR',margin_value,date_add:'2026-11-12 12:00:00',...extra});
 test('commercial margin includes both stores without merging their local IDs and keeps negative margins',()=>{
@@ -26,3 +26,5 @@ test('day/week/month calendar handles leap years and month end without rolling i
  assert.deepEqual(calendarRange('2026-11-12','day'),{from:'2026-11-12',to:'2026-11-12'});assert.deepEqual(calendarRange('2026-11-12','week'),{from:'2026-11-09',to:'2026-11-15'});
  assert.equal(calendarShift('2024-01-31','month',1),'2024-02-29');assert.equal(calendarShift('2026-03-31','month',-1),'2026-02-28');assert.equal(calendarShift('2026-12-31','day',1),'2027-01-01');
 });
+
+test('compact accounting companion keeps period, negative margin and weighted percent separate',()=>{const html=commercialMarginCompact({hortimatic:{complete:true,rows:[row(5,{margin_revenue:20}),row(-1,{id:'2',margin_revenue:10})]}},{from:'2026-11-01',to:'2026-11-30'});assert.match(html,/4,00/);assert.match(html,/13,3 %/);assert.match(html,/2026-11-01/);assert.match(html,/Excluye gastos generales/);assert.match(commercialMarginCompact({hortimatic:{complete:false,rows:[row(5,{margin_revenue:20})]}},{from:'x',to:'y'}),/parcial/);});

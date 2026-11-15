@@ -50,6 +50,7 @@ try{
  assert.equal(await page.locator('[data-home-type="prestashop.summary"]').count(),2,'Dos resúmenes separados');
  assert.equal(await page.locator('.dashboard-hero [data-action="closing-new"]').count(),1,'Mantiene la acción original de nuevo cierre en su cabecera');
  assert.equal(await page.locator('[data-home-widget="activity"] svg').count(),1,'Mantiene la gráfica y sus funciones');
+ assert.equal(await page.locator('[data-home-widget="result"] [data-financial-margin]').count(),1,'El margen aparece junto al resultado contable sin cambiar el diseño guardado');
  const cash=await page.locator('[data-home-widget="opening"]').innerText();
  for(const label of ['Vape','Head','NewOldSmok'])assert(cash.includes(label),'Conserva la caja '+label);
  for(const width of [320,390,768,1024,1280,1366,1440,1600,1920,2560]){

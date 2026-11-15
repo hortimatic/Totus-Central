@@ -621,3 +621,5 @@
 .home-order-product-line{display:flex!important;align-items:center;gap:8px;min-width:0;white-space:normal!important}.home-order-product-image{display:block;flex:0 0 50px;width:50px;height:58px;object-fit:contain;background:var(--panel,#fff);border-radius:5px}.home-order-card-products{display:grid;gap:6px;margin:10px 0;font-size:12px}.home-order-card-products .home-order-product-line>span{min-width:0;overflow-wrap:anywhere}
 
 .dashboard-page .home-orders-scroll::-webkit-scrollbar{display:none}
+
+.home-financial-margin{display:grid;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);min-width:0}.home-financial-margin b{font-size:1rem}.home-financial-margin small{font-size:12px;overflow-wrap:anywhere}.home-financial-margin button{justify-self:start;min-height:32px;font-size:12px;padding:5px 9px}
