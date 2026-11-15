@@ -11,6 +11,7 @@ Esta revisión parte del código publicado `f0b9011a1b1e12c6ff1c2063ceed36a8ee20
 - Inicio conserva las columnas en la distribución del tablero de la cuenta. «Guardar distribución» utiliza el mismo guardado y verificación de «Guardar cambios»; no descarta las demás ediciones pendientes del tablero.
 - Las tablas generales conservan el identificador anterior por cuenta, módulo y cabeceras. Añaden vistas personales con nombre y guardado explícito, **en ese navegador**. No se anuncia sincronización entre dispositivos para estos controles.
 - Los controles de presentación llevan `data-draft-ignore`: no deben provocar un aviso de cambios contables sin guardar. No se manipulan tablas de líneas editables de formularios ni su contrato de columnas.
+- Las tablas dentro de una factura renderizada o de `data-tc-static-table` conservan el documento sin herramientas de interfaz añadidas. El barrido de emergentes detectó que insertar un panel de columnas en la vista previa escalada de una plantilla producía controles desplazados en móvil y tableta; se excluye ese documento, manteniendo los controles de las tablas de trabajo.
 
 ## Precio conectado
 

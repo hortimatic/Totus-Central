@@ -23,5 +23,10 @@ try{
  await page.reload();await install();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Estado','Nombre']);await page.getByLabel('Configurar columnas',{exact:true}).click();await page.getByRole('button',{name:'Restablecer columnas',exact:true}).click();await page.getByLabel('Vista guardada',{exact:true}).selectOption('Mi vista');assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Estado','Nombre']);await page.getByRole('button',{name:'Restablecer columnas',exact:true}).click();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Nombre','Precio','Estado']);
  await page.reload();await page.evaluate(()=>window.qaOwner='actor-B');await install();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Nombre','Precio','Estado']);
  await page.close();
- console.log('Shared controls: three widths, movement, boundaries, resize, persistent columns, account isolation and disposal passed.');
+ const preview=await browser.newPage();
+ await preview.setContent('<article class="invoice-preview"><div class="table-wrap"><table class="data-table"><thead><tr><th>Concepto</th><th>Total</th></tr></thead><tbody><tr><td>Ejemplo</td><td>121</td></tr></tbody></table></div></article>');
+ await preview.evaluate(async encoded=>{const module=await import('data:text/javascript;base64,'+encoded);window.stopPreviewTools=module.installSharedTableArrows(document,{owner:()=> 'actor-A'});},Buffer.from(source).toString('base64'));
+ await preview.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ assert.equal(await preview.locator('.tc-table-tools,.tc-table-arrows').count(),0);assert.deepEqual(await preview.locator('thead th').allTextContents(),['Concepto','Total']);await preview.close();
+ console.log('Shared controls: three widths, movement, boundaries, resize, persistent columns, account isolation, static invoice exclusion and disposal passed.');
 }finally{await browser.close();}

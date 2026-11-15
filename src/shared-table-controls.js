@@ -19,6 +19,9 @@ export function installSharedTableArrows(root=document,{owner=()=>null}={}){
   for(const [viewport,item] of entries)if(!viewport.isConnected){item.observer.disconnect();item.arrows.remove();item.columns?.remove();entries.delete(viewport);}
   for(const viewport of root.querySelectorAll(selector)){
    if(entries.has(viewport)||!viewport.querySelector('table'))continue;
+   // A rendered invoice is a document, including inside a scaled preview.
+   // Its layout must not acquire interactive table tools or personal columns.
+   if(viewport.closest('.invoice-preview,[data-tc-static-table]'))continue;
    // Existing controllers retain their handlers, selection counts and persistence.
    if(viewport.parentElement.querySelector('.directory-table-arrows,.ps-orders-table-navigation,.prd-table-navigation,.tc-table-arrows'))continue;
    const arrows=document.createElement('div');arrows.className='tc-table-arrows';arrows.setAttribute('role','group');arrows.setAttribute('aria-label','Recorrer columnas');
