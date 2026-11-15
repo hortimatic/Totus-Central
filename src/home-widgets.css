@@ -623,3 +623,5 @@
 .dashboard-page .home-orders-scroll::-webkit-scrollbar{display:none}
 
 .home-financial-margin{display:grid;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);min-width:0}.home-financial-margin b{font-size:1rem}.home-financial-margin small{font-size:12px;overflow-wrap:anywhere}.home-financial-margin button{justify-self:start;min-height:32px;font-size:12px;padding:5px 9px}
+
+.home-financial-margin-title{font-size:12px;font-weight:700}
