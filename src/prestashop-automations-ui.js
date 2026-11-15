@@ -8,7 +8,7 @@ const initial=()=>({name:'',message:'',recipe:'online_orders',stores:['hortimati
 const button=(label,action,extra='')=>`<button type="button" class="btn secondary" data-automation="${action}" ${extra}>${label}</button>`;
 const label=(title,help,field,visible=true)=>`<label ${visible?'':'hidden'}><span>${esc(title)} ${fieldHelp(title,help)}</span>${field}</label>`;
 const datetime=value=>value?new Date(value).toLocaleString('es-ES',{timeZone:'Europe/Madrid'}):'Sin ejecución';
-export function createPrestashopAutomations({rpc:requestRpc,read:requestRead,actor,can=()=>false,onConfigureBell=()=>{throw Error('La configuración de campana no está disponible en esta pantalla.');}}){
+export function createPrestashopAutomations({rpc:requestRpc,read:requestRead,actor,can=()=>false,confirm:confirmChanges=async message=>globalThis.confirm(message),onConfigureBell=()=>{throw Error('La configuración de campana no está disponible en esta pantalla.');}}){
  let root=null,owner=null,generation=0,data={rules:[],channels:[],runs:[]},draft=initial(),dirty=false,busy=false,error='',preview='',samples={},remove=null,pane='rules';
  const valid=()=>root?.isConnected&&owner===actor();
  const runRequests=new Map();let resultTimer=null;
@@ -51,8 +51,8 @@ export function createPrestashopAutomations({rpc:requestRpc,read:requestRead,act
  }
  async function perform(fn){if(busy)return;busy=true;error='';render();const epoch=generation;try{await fn();}catch(e){if(valid()&&epoch===generation)error=e.message||String(e);}finally{if(valid()&&epoch===generation){busy=false;settleRuns();render();scheduleResult();}}}
  async function action(type,id){
-  capture();if(type==='header'){await perform(async()=>{await Promise.resolve();await onConfigureBell();});return;}if(type==='pane'){if(pane==='editor'&&dirty){if(!confirm('¿Descartar los cambios sin guardar de esta regla?'))return;draft=initial();dirty=false;preview='';}pane=id;render();return;}const row=data.rules.find(r=>r.id===id);
-  if(['new','edit','copy'].includes(type)){if(dirty&&!confirm('¿Descartar los cambios sin guardar de esta regla?'))return;draft=row?{...structuredClone(row),daily_start:String(row.daily_start).slice(0,5),daily_end:String(row.daily_end).slice(0,5),at_time:String(row.at_time||'09:00').slice(0,5)}:initial();if(type==='copy'){delete draft.id;delete draft.revision;draft.name=draft.name.slice(0,90)+' · copia';draft.enabled=false;}draft.sharing_confirmed=false;preview='';dirty=false;pane='editor';render();return;}
+  capture();if(type==='header'){await perform(async()=>{await Promise.resolve();await onConfigureBell();});return;}if(type==='pane'){if(pane==='editor'&&dirty){if(!await confirmChanges('¿Descartar los cambios sin guardar de esta regla?'))return;draft=initial();dirty=false;preview='';}pane=id;render();return;}const row=data.rules.find(r=>r.id===id);
+  if(['new','edit','copy'].includes(type)){if(dirty&&!await confirmChanges('¿Descartar los cambios sin guardar de esta regla?'))return;draft=row?{...structuredClone(row),daily_start:String(row.daily_start).slice(0,5),daily_end:String(row.daily_end).slice(0,5),at_time:String(row.at_time||'09:00').slice(0,5)}:initial();if(type==='copy'){delete draft.id;delete draft.revision;draft.name=draft.name.slice(0,90)+' · copia';draft.enabled=false;}draft.sharing_confirmed=false;preview='';dirty=false;pane='editor';render();return;}
   if(type==='remove'&&remove!==id){remove=id;render();return;}
   await perform(async()=>{
    if(type==='refresh'){data=await rpc('totus_prestashop_automations',{p_action:'list'});return;}
