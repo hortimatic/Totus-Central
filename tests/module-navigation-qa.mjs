@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {moduleUrl,requestedModule,nativeModuleClick,moduleReads} from '../src/module-navigation.js';
 const routes=[{id:'inicio'},{id:'gastos'}];
+const clean=new URL(moduleUrl('https://example.invalid/?v=old&utm_source=chatgpt.com&utm_campaign=x&ps_order=7&ps_store=hortimatic#retorno','inicio'));
+assert.equal(clean.searchParams.has('utm_source'),false);assert.equal(clean.searchParams.has('v'),false);assert.equal(clean.searchParams.get('ps_order'),'7');assert.equal(clean.searchParams.get('ps_store'),'hortimatic');assert.equal(clean.hash,'#retorno');
 const url=moduleUrl('https://example.invalid/Totus-Central/?release=abc','gastos');
 assert.equal(new URL(url).searchParams.get('release'),'abc');assert.equal(requestedModule(url,routes),'gastos');
 assert.equal(requestedModule('https://example.invalid/?module=unknown',routes),'inicio');

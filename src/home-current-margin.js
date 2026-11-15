@@ -12,7 +12,8 @@ export function commercialMarginSummary(data,{from,to}={}){
   const amount=measured.reduce((n,r)=>n+signedCents(r.margin_value),0);
   const good=read.complete===true&&margin.complete&&measured.length===valid.length&&Number.isSafeInteger(cents+amount)&&!read.rows.some(r=>!['0','1'].includes(String(r.valid)));
   complete&&=good;covered+=measured.length;count+=margin.total;cents+=amount;
-  stores.push({shop,covered:measured.length,count:margin.total,amount:amount/100,complete:good,checked:read.checked});
+  const shopSeries=new Map();for(const row of measured){const date=String(row.date_add||'').slice(0,10);shopSeries.set(date,(shopSeries.get(date)||0)+signedCents(row.margin_value));}
+  stores.push({shop,covered:measured.length,count:margin.total,amount:amount/100,complete:good,checked:read.checked,series:[...shopSeries].map(([date,cents])=>({date,value:cents/100}))});
   for(const row of measured){const date=String(row.date_add||'').slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){complete=false;continue;}series.set(date,(series.get(date)||0)+signedCents(row.margin_value));}
  }
  if(!Object.keys(data).length)complete=false;
@@ -24,10 +25,11 @@ export function commercialMarginSummary(data,{from,to}={}){
 }
 export function commercialMarginChart(summary){
  if(!summary.complete||!summary.series.length)return '';
- const rows=summary.series,min=Math.min(0,...rows.map(x=>x.value)),max=Math.max(0,...rows.map(x=>x.value)),span=max-min||1;
+ const rows=summary.series,series=[{key:'margin-total',label:'Total',color:'#7c3aed',points:rows},...summary.stores.map((store,i)=>({key:'margin-shop-'+i,label:store.shop==='hortimatic'?'Hortimatic':store.shop==='newoldsmok'?'NewOldSmok':store.shop,color:['#0369a1','#db2777','#16a34a'][i%3],points:store.series||[]}))];
+ const values=series.flatMap(s=>s.points.map(p=>p.value)),min=Math.min(0,...values),max=Math.max(0,...values),span=max-min||1;
  const x=i=>24+(rows.length===1?236:i/(rows.length-1)*472),y=n=>140-(n-min)/span*120;
- const points=rows.map((r,i)=>x(i).toFixed(2)+','+y(r.value).toFixed(2)).join(' ');
- return '<figure class="home-commercial-chart" aria-label="Margen comercial por fecha"><figcaption>Margen por fecha · '+esc(rows[0].date)+' — '+esc(rows.at(-1).date)+'</figcaption><svg viewBox="0 0 520 160" role="img" aria-label="Margen comercial, incluidos valores negativos"><line x1="24" x2="496" y1="'+y(0)+'" y2="'+y(0)+'" stroke="currentColor" opacity=".3"/><polyline fill="none" stroke="currentColor" stroke-width="2" points="'+points+'"/>'+rows.map((r,i)=>'<circle cx="'+x(i)+'" cy="'+y(r.value)+'" r="3" fill="currentColor"><title>'+esc(r.date+' · '+money(r.value))+'</title></circle>').join('')+'</svg><details><summary>Ver cifras de la gráfica</summary><dl>'+rows.map(r=>'<div><dt>'+r.date+'</dt><dd>'+esc(money(r.value))+'</dd></div>').join('')+'</dl></details></figure>';
+ const lines=series.map(s=>{const values=new Map(s.points.map(p=>[p.date,p.value]));const points=rows.map((r,i)=>x(i).toFixed(2)+','+y(values.get(r.date)||0).toFixed(2)).join(' ');return '<g data-activity-series="'+s.key+'"><polyline fill="none" stroke="'+s.color+'" stroke-width="2" points="'+points+'"/>'+rows.map((r,i)=>'<circle cx="'+x(i)+'" cy="'+y(values.get(r.date)||0)+'" r="3" fill="'+s.color+'"><title>'+esc(s.label+' · '+r.date+' · '+money(values.get(r.date)||0))+'</title></circle>').join('')+'</g>';}).join('');
+ return '<figure class="home-commercial-chart activity-interactive" aria-label="Margen comercial por fecha"><figcaption>Margen por fecha · '+esc(rows[0].date)+' — '+esc(rows.at(-1).date)+'</figcaption><fieldset class="activity-legend"><legend>Comparar márgenes</legend>'+series.map(s=>'<label><input type="checkbox" checked data-draft-ignore data-activity-toggle="'+s.key+'"><i style="background:'+s.color+'"></i>'+esc(s.label)+'</label>').join('')+'</fieldset><svg viewBox="0 0 520 160" role="img" aria-label="Margen comercial, incluidos valores negativos"><line x1="24" x2="496" y1="'+y(0)+'" y2="'+y(0)+'" stroke="currentColor" opacity=".3"/>'+lines+'</svg><details><summary>Ver cifras de la gráfica</summary><dl>'+rows.map(r=>'<div><dt>'+r.date+'</dt><dd>'+esc(money(r.value))+'</dd></div>').join('')+'</dl></details></figure>';
 }
 export function commercialMarginWidget(data,{id,from,to}){
  const s=commercialMarginSummary(data,{from,to}),label=s.complete?money(s.amount):s.covered?money(s.amount)+' · parcial':'Pendiente de consulta o costes';

@@ -164,18 +164,21 @@ export async function loadCore({route=null,initialProfile=null}={}){
  // A single sign-in must not occupy dozens of database connections while a
  // maintenance lock is pending. Wait for the bounded in-flight reads to finish
  // and publish state only when every required table has loaded successfully.
- const results=new Array(tasks.length);let next=0,failure=null;
+ const readCount=tasks.length+1,results=new Array(readCount);let next=0,failure=null;
  const worker=async()=>{
-  while(current()&&!failure&&next<tasks.length){
-   const index=next++,[,table,order,columns]=tasks[index];
-   try{results[index]=await timedStartup('core:'+table,()=>table==='profiles'?readProfileDirectory(select,state.user?.id,initialProfile):select(table,{order,ascending:false,columns}))}
+  while(current()&&!failure&&next<readCount){
+   const index=next++;
+   try{
+    if(index===tasks.length)results[index]=await timedStartup('retiradas_documentales',()=>rpc('totus_pending_document_removals'));
+    else{const [,table,order,columns]=tasks[index];results[index]=await timedStartup('core:'+table,()=>table==='profiles'?readProfileDirectory(select,state.user?.id,initialProfile):select(table,{order,ascending:false,columns}));}
+   }
    catch(error){failure||=error}
   }
  };
- await Promise.all(Array.from({length:Math.min(4,tasks.length)},worker));
+ await Promise.all(Array.from({length:Math.min(4,readCount)},worker));
  if(!current())return false;
  if(failure)throw failure;
- const documentRemovals=await timedStartup('retiradas_documentales',()=>rpc('totus_pending_document_removals'));
+ const documentRemovals=results[tasks.length];
  if(!current())return false;
  if(!Array.isArray(documentRemovals))throw new Error('No se pudo comprobar el estado de las retiradas documentales.');
  tasks.forEach(([key],i)=>state.data[key]=results[i]);

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {productStockSummary} from '../src/product-stock-summary.js';
+const product={id:'42',id_shop_default:'1'},variants=[{id:'100'},{id:'101'}];
+const row=(id,quantity,extra={})=>({id_product:'42',id_product_attribute:String(id),id_shop:'1',quantity,...extra});
+assert.deepEqual(productStockSummary(product,variants,[row(0,9),row(100,4),row(101,5)]),{total:9,breakdown:[{id:'100',quantity:4},{id:'101',quantity:5}]});
+assert.equal(productStockSummary(product,[],[row(0,0)]).total,0);
+assert.equal(productStockSummary(product,variants,[row(100,-1),row(101,5)]).total,4);
+assert.equal(productStockSummary(product,variants,[row(100,4)]).total,null);
+assert.equal(productStockSummary(product,[],[row(0,'')]).total,null);
+assert.equal(productStockSummary(product,[],[row(0,'x')]).total,null);
+assert.equal(productStockSummary(product,[],[row(0,7,{id_shop:'2'})]).total,null);
+assert.equal(productStockSummary(product,[],[row(0,7,{id_product:'99'})]).total,null);
+assert.equal(productStockSummary(product,[],[row(0,7),row(0,8)]).total,null);
+console.log('Stock summary: native parent not double-counted; simple/variants, zero, negative, missing, invalid, other shop/product and ambiguity PASS.');

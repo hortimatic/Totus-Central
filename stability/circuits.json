@@ -35,7 +35,9 @@
         "supabase/functions/totus-connections",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/product-stock-summary.js",
+        "src/read-pool.js"
       ],
       "tests": [
         "tests/productos-direct-save-browser-qa.mjs",
@@ -44,7 +46,10 @@
         "tests/productos-relations-browser-qa.mjs",
         "tests/productos-movements-qa.mjs",
         "tests/productos-dirty-state-qa.mjs",
-        "tests/productos-movements-browser-qa.mjs"
+        "tests/productos-movements-browser-qa.mjs",
+        "tests/product-stock-summary-qa.mjs",
+        "tests/read-pool-qa.mjs",
+        "tests/productos-ui-browser-qa.mjs"
       ],
       "invariants": [
         "create/edit/copy",
@@ -186,7 +191,11 @@
       ],
       "tests": [
         "tests/home-navigation-draft-browser-qa.mjs",
-        "tests/home-widgets-actions-browser-qa.mjs"
+        "tests/home-widgets-actions-browser-qa.mjs",
+        "tests/home-widgets-integration-browser-qa.mjs",
+        "tests/dashboard-report-qa.mjs",
+        "tests/home-commercial-calendar-qa.mjs",
+        "tests/home-commercial-calendar-browser-qa.mjs"
       ],
       "invariants": [
         "no false dirty state",

@@ -12,7 +12,7 @@ import {discountScenarios} from '../pricing-discounts.js';
 import {draftVariantRow} from '../pricing-drafts.js';
 import {variantStudy,numericRange,formatVariantAttributes,pricingProviderCost,pricingCompetition} from '../pricing-core.js';
 import {stockPage} from '../stock-ui.js';
-import {activitySeries,activityChartHtml} from '../dashboard-activity.js';
+import {activitySeries,activityChartHtml,activityStoreComparisons} from '../dashboard-activity.js';
 import {normalizeReportOrder} from '../report-layout.js';
 import {taxExpenseRecord} from '../tax-expense.js';
 import {incomeBreakdown} from '../income-breakdown.js';
@@ -173,7 +173,7 @@ export function inicio(){
   <div class="dashboard-hero card card-pad"><div><div class="eyebrow">Inicio · ${fmtDate(today)}</div><h2>Totus Central</h2><p>Mesa de trabajo para consultar, registrar, revisar y decidir sin saltar entre pantallas innecesariamente.</p></div><div class="dashboard-hero-actions">${btn('Nuevo cierre','closing-new','primary')}${btn('Registrar gasto','expense-new','secondary')}${btn('Nueva factura','invoice-new','secondary')}${btn('Subir documento','document-new','secondary')}</div></div>
   <section class="card card-pad opening-panel"><h2>Dinero para abrir las cajas</h2><p>Lo que quedó en cada caja al cerrar. Comprueba la fecha y cuenta el efectivo antes de abrir.</p><div class="opening-grid">${openingCards}</div></section>
   <div class="kpis home-period-kpis">${kpi(activityFilter.from===month.from&&activityFilter.to===month.to?'Ingresos del mes':'Ingresos del periodo',money(activity.totals.sales),`${fmtDate(activityFilter.from)} → ${fmtDate(activityFilter.to)}`)}${kpi('Gastos contables',money(activity.totals.fiscal),'Gastos fiscalizables registrados')}${kpi('Ingresos menos gastos',money(activity.totals.sales-activity.totals.fiscal),'Antes de gastos internos; no es el saldo del banco')}${kpi('Gastos internos',money(activity.totals.internal),'Solo información · incluye impuestos pagados')}</div>
-  <section class="card card-pad home-activity"><div class="section-head"><div><h2>Ventas y gastos del periodo</h2><p>Elige las fechas y la tienda. La gráfica y los cuatro importes de arriba muestran el mismo periodo.</p></div></div>${dateFilters({...activityFilter,stores:activeStores},'inicio')}${activityChartHtml(activity)}</section>
+  <section class="card card-pad home-activity"><div class="section-head"><div><h2>Ventas y gastos del periodo</h2><p>Elige las fechas y la tienda. La gráfica y los cuatro importes de arriba muestran el mismo periodo.</p></div></div>${dateFilters({...activityFilter,stores:activeStores},'inicio')}${activityChartHtml(activity,{comparisons:activityStoreComparisons(state.data,activityFilter,activeStores)})}</section>
 
   <section class="home-zone"><div class="home-zone-head"><div><div class="eyebrow">Mesa de trabajo</div><h2>Operativa de hoy</h2><p>Cierres y control de gasto del trimestre.</p></div></div><div class="dashboard-store-grid">${storeCards}</div><div class="dashboard-grid">
    <article class="card card-pad"><div class="section-head"><div><h3>Gastos del ${quarter}T</h3><p>Total contabilizado e interno por establecimiento.</p></div>${btn('Nuevo gasto','expense-new','primary')}</div><div class="home-big-number">${money(sum(quarterExpenses,expenseCostAmount))}</div><div class="stack">${expenseByStore}</div></article>

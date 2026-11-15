@@ -238,7 +238,11 @@ export function stitchFiche({galleryDraft={},record,backendUrl='',store,section,
  if(amounts?.gross!==null&&amounts?.gross!==undefined){setText(price,new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(amounts.gross));if(price?.previousElementSibling)setText(price.previousElementSibling,'PVP base IVA España:');}else if(price?.previousElementSibling)setText(price.previousElementSibling,'Precio base sin IVA:');
  const costText=textValue(overrides.wholesale_price??record.wholesale_price);setText(f.querySelector('#sticky-cost-display'),costText!==''&&Number.isFinite(Number(costText))?new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(costText)):'Sin coste');
  setText(f.querySelector('#sticky-margin-display'),amounts?.marginPct!==null&&amounts?.marginPct!==undefined?amounts.marginPct.toFixed(1)+' % aprox.':'Sin coste verificado');
- const stockText=[...f.querySelectorAll('div,span')].find(n=>n.children.length===0&&n.textContent.includes('Stock Global Sumado:'));if(stockText){setText(stockText,'Existencias:');setText(stockText.nextElementSibling,stock===null?'Sin consultar':String(stock)+' unidades');}
+ const stockText=[...f.querySelectorAll('div,span')].find(n=>n.children.length===0&&n.textContent.includes('Stock Global Sumado:'));
+ if(stockText){
+  setText(stockText,'Existencias:');setText(stockText.nextElementSibling,stock===null?'No verificadas':String(stock)+' unidades');
+  if(variants.length){const breakdown=document.createElement('ul');breakdown.className='prd-stock-breakdown';breakdown.setAttribute('aria-label','Existencias por variación');for(const variant of variants){const item=document.createElement('li'),name=document.createElement('span'),amount=document.createElement('strong');name.textContent=(variant.__attributeNames||[]).join(' · ')||variant.reference||'Variación #'+variant.id;amount.textContent=variant.__stock?.quantity==null?'No verificadas':String(variant.__stock.quantity)+' uds';item.append(name,amount);breakdown.append(item);}stockText.parentElement.after(breakdown);}
+ }
  // Native organisation is handled through the existing validated destination mapper.
  const org=f.querySelector('#sub-organizacion');
  const categoryContainer=org.querySelector('.bg-surface-container-low'),categoryTemplate=categoryContainer.firstElementChild.cloneNode(true);

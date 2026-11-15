@@ -23,8 +23,12 @@ export function activitySeries(data,filters){
  for(const k of Object.keys(totals))totals[k]=Math.round((totals[k]+Number.EPSILON)*100)/100;
  return {points,totals,monthly};
 }
-export function activityChartHtml(series){
+export function activityStoreComparisons(data,filters,stores){
+ return stores.filter(s=>!filters.store||filters.store==='all'||filters.store===s.id).map((store,index)=>({key:'shop-sales-'+index,label:'Ventas · '+store.name,color:['#0369a1','#db2777','#16a34a','#d97706'][index%4],points:activitySeries(data,{...filters,store:store.id}).points}));
+}
+export function activityChartHtml(series,{comparisons=[]}={}){
  const {monthly}=series,points=series.points.map(p=>({...p,balance:Math.round((p.sales-p.fiscal+Number.EPSILON)*100)/100})),keys=[['sales','Ventas e ingresos','#2367d1'],['fiscal','Gastos de actividad','#14815b'],['internal','Gastos internos','#c66b08'],['balance','Ingresos menos gastos','#7c3aed']];
+ for(const comparison of comparisons){keys.push([comparison.key,comparison.label,comparison.color]);const own=new Map(comparison.points.map(p=>[p.key,p.sales]));for(const point of points)point[comparison.key]=own.get(point.key)??0;}
  const values=points.flatMap(p=>keys.map(([key])=>p[key])),min=Math.min(0,...values),max=Math.max(1,...values),span=max-min;
  const left=92,right=876,top=28,bottom=245,x=i=>left+(points.length===1?.5:i/(points.length-1))*(right-left),y=v=>bottom-(v-min)/span*(bottom-top);
  const grid=Array.from({length:5},(_,i)=>{const value=min+span*i/4,py=y(value);return '<line x1="'+left+'" x2="'+right+'" y1="'+py+'" y2="'+py+'" stroke="#e3e8ef"/><text x="'+(left-10)+'" y="'+(py+4)+'" text-anchor="end">'+esc(money(value))+'</text>'}).join('');

@@ -46,7 +46,7 @@ try{
      return {ok:true,store:body.store,resource:body.resource,record_id:body.record_id,item};
     }
     if(body.action==='prestashop_read'){
-     if(body.resource==='stock_availables')return {ok:true,store:body.store,resource:body.resource,page:body.page,possibly_more:false,rows:(body.product_ids||[]).flatMap(id=>[{id:'1001',id_product:id,id_product_attribute:'0',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''},{id:'1002',id_product:id,id_product_attribute:'801',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''}])};
+     if(body.resource==='stock_availables')return {ok:true,store:body.store,resource:body.resource,page:body.page,possibly_more:false,rows:(body.product_ids||[]).flatMap(id=>[...(String(id)==='42'?[{id:'1100',id_product:id,id_product_attribute:'100',id_shop:'1',quantity:'4'},{id:'1101',id_product:id,id_product_attribute:'101',id_shop:'1',quantity:'5'}]:[]),{id:'1001',id_product:id,id_product_attribute:'0',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''},{id:'1002',id_product:id,id_product_attribute:'801',id_shop:'1',quantity:'0',out_of_stock:'0',depends_on_stock:'0',location:''}])};
      if(body.resource==='categories')return {ok:true,store:body.store,resource:'categories',page:body.page,rows:[{id:'33',name:'Inicio'}],possibly_more:false};
      const catalogs={image_types:[{id:'1',name:'large_default',products:'1',width:'800',height:'800'}],product_options:[{id:'5',name:'Color',public_name:'Color'}],product_option_values:[{id:'10',id_attribute_group:'5',name:'Azul'}],suppliers:[{id:'2',name:'Proveedor de pruebas'}],currencies:[{id:'1',name:'Euro',iso_code:'EUR'}]};
      if(catalogs[body.resource])return {ok:true,store:body.store,resource:body.resource,rows:catalogs[body.resource],possibly_more:false};
@@ -93,6 +93,9 @@ try{
 
   await page.getByRole('button',{name:'Abrir ficha'}).click();
   await page.getByText(/2 combinaciones (?:leídas|releídas)/).waitFor();
+  assert.equal(await page.getByRole('list',{name:'Existencias por variación'}).count(),1);
+  assert.match(await page.getByRole('list',{name:'Existencias por variación'}).innerText(),/4 uds[\s\S]*5 uds/);
+  assert(await page.getByText('9 unidades',{exact:true}).isVisible(),'La ficha muestra el total de la lectura de variaciones, sin depender de la página de catálogo');
   assert.equal(await page.locator('#productosRoot script').count(),0);
   await page.locator('[data-pr-action="mode"][data-mode="comparar"]').click();
   await page.locator('[data-pr-action="fields-none"]').click();

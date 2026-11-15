@@ -17,8 +17,8 @@ try{
   rpcMarker,
   " if(['totus_tasks_context','totus_home_tasks_context'].includes(name)){window.__qaTaskCalls||=[];window.__qaTaskCalls.push(args);return {data:{rows:[{task_id:'task-qa',title:'Tarea del calendario QA',scheduled_on:args.p_from,state:'pending',description:'',priority:'normal'}],stores:[],people:[]},error:null};}",
   " if(name==='totus_prestashop_context'){window.__qaHomeContextCalls=(window.__qaHomeContextCalls||0)+1;return {data:{connections:[",
-  "  {protocol:'prestashop',name:'PrestaShop · Hortimatic',id:'ps-h',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true},",
-  "  {protocol:'prestashop',name:'PrestaShop · NewOldSmok',id:'ps-n',revision:1,verified_revision:1,configured:true,enabled:true,real_data_authorized:true}",
+  "  {protocol:'prestashop',name:'PrestaShop · Hortimatic',id:'ps-h',revision:(window.__contextRevision||1),verified_revision:(window.__contextRevision||1),configured:true,enabled:true,real_data_authorized:true},",
+  "  {protocol:'prestashop',name:'PrestaShop · NewOldSmok',id:'ps-n',revision:(window.__contextRevision||1),verified_revision:(window.__contextRevision||1),configured:true,enabled:true,real_data_authorized:true}",
   " ]},error:null};}",
   " if(name==='totus_home_dashboard'){",
   "  window.__homeSaved||={revision:0,layout:null};",
@@ -36,6 +36,7 @@ try{
   " if(name==='totus-connections'){",
   "  const a=options?.body||{},shop=a.store,resource=a.resource,day=new Date().toISOString().slice(0,10);",
   "  if(a.action==='prestashop_item_read'&&resource==='combinations')return {data:{ok:true,store:shop,item:{id:a.record_id,id_product:'11',wholesale_price:'4'}},error:null};",
+  "  if(resource==='orders'&&window.__holdHomeOrders)await new Promise(resolve=>(window.__releaseHomeOrders||=[]).push(resolve));",
   "  if(a.action!=='prestashop_read')return {data:{error:'Acción no simulada'},error:null};",
   "  let rows=[];",
   "  if(resource==='orders'&&a.page===0)rows=Array.from({length:24},(_,i)=>({",
@@ -257,6 +258,24 @@ try{
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Inicio sin desbordamientos a '+width+'px');
   if(width===390)await page.screenshot({path:'qa-artifacts/inicio/movil-390.png',fullPage:true});
  }
+ for(const selector of ['.home-activity [data-activity-toggle^="shop-sales-"]','[data-home-type="home.gain"] [data-activity-toggle^="margin-shop-"]']){
+  const switches=page.locator(selector);assert.equal(await switches.count(),2,'Cada tienda dispone de su propia serie');const control=switches.first(),key=await control.getAttribute('data-activity-toggle');
+  await control.uncheck();assert.equal(await page.locator('[data-activity-series="'+key+'"]').evaluate(el=>getComputedStyle(el).display),'none');await control.check();assert.notEqual(await page.locator('[data-activity-series="'+key+'"]').evaluate(el=>getComputedStyle(el).display),'none');
+ }
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
+ await page.evaluate(()=>window.__holdHomeOrders=true);
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
+ await page.getByText(/Última lectura guardada; actualizando/).first().waitFor();
+ assert(await page.locator('[data-home-widget="shop-h"] .home-ps-metrics').isVisible(),'El resumen previo se representa mientras se verifica una lectura nueva');
+ await page.evaluate(()=>{window.__holdHomeOrders=false;for(const release of window.__releaseHomeOrders||[])release();window.__releaseHomeOrders=[];});
+ await page.getByText(/Última lectura guardada; actualizando/).first().waitFor({state:'hidden'});
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
+ await page.evaluate(()=>{window.__holdHomeOrders=true;window.__contextRevision=2;});
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
+ await page.waitForFunction(()=>window.__releaseHomeOrders?.length>0);
+ assert.equal(await page.getByText(/Última lectura guardada; actualizando/).count(),0,'Una revisión distinta de conexión no reutiliza los datos de la anterior');
+ await page.evaluate(()=>{window.__holdHomeOrders=false;for(const release of window.__releaseHomeOrders||[])release();window.__releaseHomeOrders=[];});
+ await page.locator('[data-home-widget="shop-h"] .home-ps-metrics').waitFor();
  const taskWidget=page.locator('[data-home-widget="tasks"]');await taskWidget.getByRole('button',{name:'Día',exact:true}).click();await taskWidget.locator('[data-ht-date]').fill('2026-11-12');await taskWidget.locator('[data-ht-date]').blur();await taskWidget.getByRole('button',{name:'Abrir Tareas',exact:true}).click();await page.locator('.tasks-calendar.week').waitFor();assert.equal(await page.locator('.task-day').count(),7);assert(await page.evaluate(()=>window.__qaTaskCalls.some(a=>a.p_from==='2026-11-09'&&a.p_to==='2026-11-15')),'The calendar opens the selected date in Tasks');
  assert.deepEqual(errors,[],'Sin errores Javascript');
  console.log('HOME WIDGET ACTIONS PASS: tiendas, ventas, 10 pedidos, filtros, paginación, scroll, resize, guardado verificado, pedido detallado, caja y seis tamaños');

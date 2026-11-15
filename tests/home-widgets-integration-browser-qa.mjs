@@ -54,6 +54,11 @@ try{
  for(const label of ['Vape','Head','NewOldSmok'])assert(cash.includes(label),'Conserva la caja '+label);
  for(const width of [320,390,768,1024,1440,1920]){
   await page.setViewportSize({width,height:960});
+  assert.equal(await page.getByRole('button',{name:'Personalizar inicio',exact:true}).innerText(),'⚙');
+  for(const preset of await page.locator('.home-period-presets').all()){
+   const rows=await preset.locator('button').evaluateAll(buttons=>buttons.map(b=>Math.round(b.getBoundingClientRect().top)));
+   assert.equal(new Set(rows).size,1,'Día/semana/mes/personalizado permanecen en una fila a '+width);
+  }
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
   if(width===390){
