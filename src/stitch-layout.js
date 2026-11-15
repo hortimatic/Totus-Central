@@ -5,7 +5,7 @@ export function applyStitchLayout(root,route,title){
  if(!root)return;
  root.dataset.module=route;
  let page=root.querySelector(':scope > .page');
- const stock=root.querySelector(':scope > .stock-page');
+ const stock=root.querySelector(':scope > .stock-page,:scope > .directory-workspace');
  if(!page&&stock){page=document.createElement('div');page.className='page';stock.before(page);page.append(stock);}
  if(page&&!page.querySelector(':scope > .module-heading')){
   const heading=document.createElement('header');heading.className='module-heading';

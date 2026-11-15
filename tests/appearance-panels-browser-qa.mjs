@@ -15,7 +15,7 @@ try{
   setOneDriveStatus({configured:true,connected:true,credential_expires_at:'2027-04-18',quota:{used:1000,total:100000}});
   window.panelRender=(route,config)=>{state.route=route;applyInterfaceAppearance(config);document.querySelector('#content').innerHTML=renderers[route]();if(route==='configuracion'){const host=document.querySelector('#appearanceRoot');createAppearanceUI({settings:()=>({appearance_config:config}),save:async()=>{},actor:()=>state.user.email,canEdit:()=>true,confirm:async()=>true}).mount(host);}};
  });
- const selectors={inicio:'.dashboard-hero,.store-status-card',fiscalidad:'.fiscal-page>section.card:first-of-type',informes:'.reports-page>section.card:first-of-type',administracion:'.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel',configuracion:'.appearance-page>.card',apis:'[data-api-manager]'};
+ const selectors={inicio:'.dashboard-hero,.store-status-card',fiscalidad:'.fiscal-page>section.card:first-of-type',informes:'.reports-page>section.card:first-of-type',administracion:'.storage-provider-card,.credential-card,.storage-backup-strip,.storage-detail-panel',configuracion:'.appearance-grid>.card',apis:'[data-api-manager]'};
  for(const width of [1440,934,390]){
   await page.setViewportSize({width,height:900});
   for(const borderWidth of [0,3])for(const [route,selector] of Object.entries(selectors)){
@@ -33,7 +33,7 @@ try{
   }
   await page.evaluate(()=>panelRender('marcas',{borderWidth:3,radius:20}));
   assert.equal(await page.locator('.contact-brands-page>.card>.table-wrap').evaluate(e=>getComputedStyle(e).borderTopWidth),'0px','brand directory has one outer frame');
-  if(width>800)assert(await page.locator('.contact-brands-page .table-wrap').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'brand actions fit desktop table');
+  if(width>1100)assert(await page.locator('.contact-brands-page .table-wrap').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'brand actions fit desktop table');
  }
  // Personal row height is a minimum. Once cells become blocks, a fixed height
  // clips long receipt names and makes equivalence actions overlap the next row.

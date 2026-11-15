@@ -268,7 +268,7 @@ try{
  const id=await item.getAttribute('data-order'),store=await item.getAttribute('data-shop');
  await item.click();
  await page.locator('.ps-tabs [data-prestashop-action="tab"][data-tab="orders"][aria-pressed="true"]').waitFor({timeout:20000});
- const url=new URL(page.url());assert.equal(url.searchParams.get('ps_order'),id);assert.equal(url.searchParams.get('ps_store'),store);
+ const url=new URL(page.url());assert.equal(url.searchParams.has('ps_order'),false,'El contexto del pedido no ensucia la URL');assert.equal(url.searchParams.has('ps_store'),false);const link=await page.evaluate(()=>history.state.totusOrderLink);assert.equal(link.ps_order,id);assert.equal(link.ps_store,store);
  await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  await page.locator('.dashboard-hero [data-action="closing-new"]').click();
  await page.locator('#clStore').waitFor({timeout:16000});

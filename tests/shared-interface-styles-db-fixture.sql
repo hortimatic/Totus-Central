@@ -1,0 +1,11 @@
+create role anon nologin;
+create role authenticated nologin;
+create schema auth;
+create schema private;
+grant usage on schema auth,private to anon,authenticated;
+create function auth.uid() returns uuid language sql stable as $$select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid$$;
+create table public.profiles(id uuid primary key,ui_preferences jsonb default '{}'::jsonb,can_view boolean default true);
+insert into public.profiles(id,can_view) values('22222222-2222-4222-8222-222222222222',true),('33333333-3333-4333-8333-333333333333',true),('44444444-4444-4444-8444-444444444444',false);
+create function private.totus_can(text,text) returns boolean language sql stable security definer set search_path='' as $$select coalesce((select can_view from public.profiles where id=auth.uid()),false)$$;
+create function public.qa_assert(value boolean,message text) returns void language plpgsql as $$begin if value is distinct from true then raise exception '%',message;end if;end$$;
+create function public.qa_denied(command text,expected text) returns void language plpgsql as $$begin begin execute command;exception when others then if position(lower(expected) in lower(sqlerrm))>0 then return;end if;raise;end;raise exception 'Expected rejection: %',expected;end$$;

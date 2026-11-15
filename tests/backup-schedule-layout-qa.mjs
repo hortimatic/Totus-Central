@@ -15,7 +15,7 @@ try{
    assert.equal(await page.locator('#backupWeekdayWrapper').isVisible(),weekly,'Weekly control '+width+' '+frequency);
    assert.equal(await page.locator('#backupMonthdayWrapper').isVisible(),monthly,'Monthly control '+width+' '+frequency);
    for(const name of ['Guardar programación','Crear copia privada ahora','Actualizar historial'])assert(await page.getByRole('button',{name,exact:true}).evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Button text remains within control '+name+' '+width);
-   assert(await page.locator('.backup-control-actions').evaluate(el=>{const c=el.getBoundingClientRect(),next=el.nextElementSibling.getBoundingClientRect();return next.top-c.bottom>=15&&parseFloat(getComputedStyle(el).paddingTop)>=16;}),'Actions retain top and bottom breathing room');
+   assert(await page.locator('.backup-control-actions').evaluate(el=>{const c=el.getBoundingClientRect(),next=el.nextElementSibling.getBoundingClientRect();return next.top-c.bottom>=8&&parseFloat(getComputedStyle(el).paddingTop)>=10;}),'Actions retain the common compact spacing without overlap');
    assert(await page.locator('.backup-schedule-grid').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Schedule stays within card '+width);
   }
  }

@@ -12,6 +12,8 @@ async function account(index){
  });
  await page.route('**/tests/mock-supabase.js',async route=>{
   const response=await route.fetch();let source=await response.text();
+  // The account keeps its server role when clean navigation removes fixture query parameters.
+  source=source.replace("const role=new URLSearchParams(location.search).get('role')||'admin';","const role='encargado';");
   source=source.replace("const userId='cccccccc-cccc-4ccc-cccc-cccccccccccc';","const userId='"+id+"';");
   source=source.replace('window.__mockDb=db;',()=>"window.__mockDb=db;db.profiles[0].ui_preferences="+JSON.stringify({reports:['keep'],...(cloud.has(id)?{interface:cloud.get(id)}:{})})+';');
   source=source.replace('rpc:async(name,args)=>{',`rpc:async(name,args)=>{
@@ -39,7 +41,7 @@ try{
  await b.reload({waitUntil:'networkidle'});assert.equal(await b.locator('#app .sidebar>.brand b').textContent(),'Interfaz de Bruno');
  await a.reload({waitUntil:'networkidle'});assert.equal(await a.locator('#app .sidebar>.brand b').textContent(),'Interfaz de Ana');
  await go(a);await a.locator('[data-appearance-group="3"]').evaluate(el=>el.open=false);await a.locator('[data-jump="3"]').click();assert(await a.locator('[data-appearance-group="3"]').evaluate(el=>el.open),'Quick navigation opens its settings group');assert.equal(await a.locator('[name=borderColor]').inputValue(),'#dd1122');
- await a.locator('[data-appearance-tab=login]').click();assert(await a.locator('#appearanceRoot [type=submit]').isDisabled(),'Personal editing does not grant shared Login editing');
+ assert.equal(await a.evaluate(async()=>(await import('../src/state.js')).state.user.role),'encargado','Reload retains the fixture account role');await a.locator('[data-appearance-tab=login]').click();assert(await a.locator('#appearanceRoot [type=submit]').isDisabled(),'Personal editing does not grant shared Login editing');
  assert.deepEqual(await a.evaluate(()=>window.__mockDb.profiles[0].ui_preferences.reports),['keep']);
  assert.equal(await a.evaluate(()=>window.__mockDb.ops_business_settings[0].appearance_config),undefined,'No write to organization appearance');
  assert.deepEqual(errors,[]);console.log('Personal interface browser: real app boot, reload, two accounts, logo bytes, border, profile siblings and shared Login permissions OK');

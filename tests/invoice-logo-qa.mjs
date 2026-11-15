@@ -30,7 +30,7 @@ try {
   await page.locator('#tpName').fill('Plantilla prueba logo');
   await page.locator('#tpCode').fill('LOGOQA');
   assert.deepEqual(await page.locator('#tpStyle option').evaluateAll(els=>els.map(el=>el.value)),['brand','clean','compact'],'Los estilos deben coincidir con el CHECK real de Supabase');
-  assert.deepEqual(await page.locator('#tpFont option').evaluateAll(els=>els.map(el=>el.value)),['helvetica','courier','times'],'Las fuentes deben coincidir con el CHECK real de Supabase');
+  assert.deepEqual(await page.locator('#tpFont option').evaluateAll(els=>els.map(el=>el.value).sort()),['courier','helvetica','times'],'Las fuentes deben coincidir con el CHECK real de Supabase');
   await page.locator('#tpLogo').setInputFiles({name:'no-es-imagen.pdf',mimeType:'application/pdf',buffer:Buffer.from('fake')});
   await page.locator('#modalHost [data-action="template-save"]').click();
   await page.waitForTimeout(150);

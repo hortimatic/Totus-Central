@@ -42,6 +42,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
    if(section){
     const selector=mod.attribute?'#content '+(mod.scope||'')+'['+mod.attribute+'="'+section+'"]':'#content [data-action="'+mod.action+'"][data-section="'+section+'"]';const tab=page.locator(selector).first();
     if(!await tab.count()){errors.push(key+': missing subtab');continue}
+    if(mod.attribute==='data-directory-source'&&section==='local')await page.locator('.directory-internal-tools>summary').click();
     await tab.click();
     if(!await page.locator(selector+(mod.active?'['+mod.active+'="true"]':'.active')).count())
       errors.push(key+': subtab not active after clicking');
@@ -53,7 +54,7 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
    const info=await page.evaluate(()=>{
     const root=document.querySelector('#content'),rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
     const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return el.checkVisibility({checkVisibilityCSS:true})&&x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};
-    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&!el.dataset.route&&!(el.dataset.attrAction&&typeof el.closest('[data-pr-attributes-host]')?.onclick==='function')&&!el.dataset.prestashopAction&&!el.dataset.homeCommand&&!el.dataset.htAction&&!el.dataset.forecastAction&&!(el.dataset.tcTableAction&&typeof el.onclick==='function')&&!(el.dataset.prAction&&typeof el.closest('#productosRoot')?.onclick==='function')&&!(Object.keys(el.dataset).some(key=>key.startsWith('directory'))&&typeof el.closest('[data-directory-root]')?.onclick==='function')&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,#connectionsRoot,#automationsRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
+    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!(el.matches('.prd-select-trigger')&&typeof el.onclick==='function')&&!el.dataset.action&&!el.dataset.route&&!(el.dataset.attrAction&&typeof el.closest('[data-pr-attributes-host]')?.onclick==='function')&&!el.dataset.prestashopAction&&!el.dataset.homeCommand&&!el.dataset.htAction&&!el.dataset.forecastAction&&!(el.dataset.tcTableAction&&typeof el.onclick==='function')&&!(el.dataset.prAction&&typeof el.closest('#productosRoot')?.onclick==='function')&&!(Object.keys(el.dataset).some(key=>key.startsWith('directory'))&&typeof el.closest('[data-directory-root]')?.onclick==='function')&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,#connectionsRoot,#automationsRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
     const badControls=[],overlaps=[];
     for(const el of root.querySelectorAll('input,select,textarea')){
      if(!visible(el)||el.type==='hidden'||el.type==='file')continue;

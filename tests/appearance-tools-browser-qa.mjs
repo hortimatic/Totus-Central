@@ -113,14 +113,12 @@ try{
  assert.equal(await page.locator('[name=density]').inputValue(),'wide');
  await page.locator('[data-cancel-preview]').click();
  assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Header shortcut can be discarded');
- await page.locator('[data-settings-search]').fill('navegacion');
- assert.equal(await page.locator('[data-appearance-group]:visible').count(),1);
- assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Search does not change preferences');
- assert.equal(await page.evaluate(()=>new FormData(document.querySelector('.appearance-grid')).get('brandName')),'Marca propia','Filtered controls retain their values');
- await page.locator('[name=startModule]').selectOption('equipo');
- await page.locator('[data-settings-search]').fill('');assert.equal(await page.locator('[name=startModule]').inputValue(),'equipo');
- await page.locator('[data-settings-fold]').click();assert.equal(await page.locator('[data-appearance-group][open]').count(),0);
- await page.locator('[data-settings-expand]').click();assert.equal(await page.locator('[data-appearance-group][open]').count(),8);assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
+ assert.equal(await page.locator('.appearance-tools,[data-settings-search]').count(),0,'Redundant search and expand toolbar is removed');
+ await page.locator('[data-jump]').filter({hasText:'Navegación'}).click();
+ assert.equal(await page.evaluate(()=>toolsQA.ui.hasDraft()),false,'Section navigation does not change preferences');
+ assert.equal(await page.evaluate(()=>new FormData(document.querySelector('.appearance-grid')).get('brandName')),'Marca propia','Section navigation preserves field values');
+ await page.locator('[name=startModule]').selectOption('equipo');assert.equal(await page.locator('[name=startModule]').inputValue(),'equipo');
+ const section=page.locator('[data-appearance-group]').filter({has:page.locator('[name=startModule]')});await section.locator('summary').click();assert.equal(await section.getAttribute('open'),null);await section.locator('summary').click();assert.equal(await page.locator('[name=startModule]').inputValue(),'equipo');assert.equal(await page.evaluate(()=>toolsQA.saves.length),0);
  await page.locator('[data-appearance-tab=login]').click();
  await page.locator('[data-login-preset]').selectOption('night');await page.locator('[data-login-style]').click();
  assert.equal(await page.locator('[name=loginCardPreset]').inputValue(),'dark');assert.equal(await page.locator('[name=loginBrandName]').inputValue(),'Marca compartida');assert.equal(await page.locator('[data-login-preset]').inputValue(),'night');
@@ -133,7 +131,6 @@ try{
   await page.screenshot({path:'artifacts/appearance-tools/login-'+width+'.png',fullPage:true});
  }
  await page.evaluate(()=>{toolsQA.ui.dispose();toolsQA.owner='b';toolsQA.editable=false;toolsQA.ui.mount(document.querySelector('#appearanceRoot'));});
- assert.equal(await page.locator('[data-settings-search]').inputValue(),'');assert.equal(await page.locator('[data-login-style]').isDisabled(),true);assert.equal(await page.locator('[data-settings-expand]').isDisabled(),false);
- await page.locator('[data-settings-search]').fill('fondo');assert((await page.locator('[data-appearance-group]:visible').count())>0);assert.equal(await page.evaluate(()=>toolsQA.saves.length),1,'Read-only search cannot save shared Login');
+ assert.equal(await page.locator('[data-settings-search],[data-settings-expand]').count(),0);assert.equal(await page.locator('[data-login-style]').isDisabled(),true);assert((await page.locator('[data-appearance-group]:visible').count())>0);assert.equal(await page.evaluate(()=>toolsQA.saves.length),1,'Read-only navigation cannot save shared Login');
  assert.deepEqual(errors,[]);console.log('APPEARANCE TOOLS: search/folding without value loss, preset preview and save, branding, read-only permissions, account isolation and four widths OK.');
 }catch(error){await page.screenshot({path:'artifacts/appearance-tools/failure.png',fullPage:true});throw error;}finally{await browser.close();}

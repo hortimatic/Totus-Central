@@ -3,7 +3,7 @@ import {navigationEditor,bindNavigationEditor} from './navigation-preferences.js
 import {installAppearanceTools} from './appearance-tools.js';
 import {appearanceContrastChecks,improveAppearanceContrast} from './appearance-contrast.js';
 import {renderAppearancePreview,updateAppearancePreview} from './appearance-preview-lab.js';
-import {exportSharedInterfaceStyle,applySharedInterfaceStyle} from './appearance-style-share.js';
+import {exportSharedInterfaceStyle,applySharedInterfaceStyle,importSharedInterfaceStyle} from './appearance-style-share.js';
 import {APPEARANCE_EXTENDED_KEYS,appearanceExtendedDefaults,APPEARANCE_FIELDS,APPEARANCE_PRESETS,appearanceValues,appearanceVariables,loginVariables} from './appearance-core.js';
 import {prepareChatBackground} from './chat-preferences.js';
 import {enhancePasswordVisibility} from './login-controls.js';
@@ -32,8 +32,9 @@ export function applyLoginAppearance(root,input){
  const recover=root.querySelector('#recoverBtn,[data-login-recovery]');if(recover)recover.textContent=enabled?c.loginRecoveryText:'He olvidado mi contraseña';
 }
 const previewLogin=()=>'<div class="login-card"><div class="brand"><span class="brand-mark"><img src="'+asset('favicon.svg')+'" alt=""></span><div><b>Totus Central</b><small>Gestión diaria</small></div></div><h2>Acceso</h2><p></p><label>Correo<input disabled placeholder="tu@correo.es"></label><label>Contraseña<input disabled type="password" placeholder="••••••••"></label><button type="button" class="btn primary" disabled>Entrar</button><button type="button" class="btn link" data-login-recovery disabled>He olvidado mi contraseña</button></div>';
-export const appearancePage=()=>'<section class="page appearance-page"><div class="card card-pad"><h2>Configuración</h2><p class="muted">Tu Interfaz es personal y se guarda en tu cuenta. Login es la pantalla de acceso compartida. El fondo y los avisos de Chat se ajustan dentro de Chat.</p></div><div id="appearanceRoot"><p role="status">Preparando configuración…</p></div></section>';
-export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=()=>({revision:0,items:[]}),saveStyle}){
+export const appearancePage=()=>'<section class="page appearance-page"><div id="appearanceRoot"><p role="status">Preparando configuración…</p></div></section>';
+export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles:personalStyles=()=>({revision:0,items:[]}),loadSharedStyles=async()=>({items:[]}),saveStyle}){
+ let sharedItems=[];const styles=()=>{const own=personalStyles();return {...own,items:[...(own.items||[]).map(row=>({...row,mine:true})),...sharedItems].sort((a,b)=>a.name.localeCompare(b.name,'es',{numeric:true,sensitivity:'base'}))};};
  let previewSize='desktop',previewExpanded=false,previewModule='inicio',previewTab='resumen',selectedStyle='',styleDraftName='',initialPreset='';
  let host=null,owner=null,section='interfaz',values={},baseline='',busy=false,revision=0,epoch=0;
  const active=(stamp=epoch)=>!!host&&owner===actor()&&stamp===epoch;
@@ -49,7 +50,7 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
   });
   host.querySelectorAll('[data-preset],[data-login-preset],[data-my-style],[data-style-name]').forEach(preset=>preset.disabled=busy||!editable);
   host.querySelector('form')?.setAttribute('aria-busy',String(busy));
-  host.querySelectorAll('[data-style-action]').forEach(el=>{el.disabled=busy||!editable||(el.dataset.styleAction!=='create'&&!selectedStyle);});
+  host.querySelectorAll('[data-style-action]').forEach(el=>{const selected=styles().items.find(row=>row.id===selectedStyle);el.disabled=busy||!editable||(el.dataset.styleAction!=='create'&&!selectedStyle)||(['replace','rename','remove'].includes(el.dataset.styleAction)&&selected?.mine===false);});
  }
  function preview(){
   values=read();host.querySelectorAll('output[data-value]').forEach(el=>el.textContent=values[el.dataset.value]);
@@ -136,51 +137,10 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
    const note=document.createElement('p');note.className='note';note.textContent='Puedes consultar el Login. Para modificar esta pantalla compartida necesitas el permiso Editar en Configuración.';controls.querySelector('.section-head').after(note);
   }
   if(opened)host.querySelectorAll('[data-appearance-group]').forEach(el=>{if(opened.has(el.dataset.appearanceGroup))el.open=opened.get(el.dataset.appearanceGroup);});
-  installAppearanceTools(host,{section,editable:canEdit(section),query:toolsQuery,current:values,applyPreset:preset=>{if(busy||!canEdit(section))return;values=appearanceValues(section,{...read(),...preset});paint();}});
+  if(section==='login')installAppearanceTools(host,{section,showTools:false,editable:canEdit(section),query:toolsQuery,current:values,applyPreset:preset=>{if(busy||!canEdit(section))return;values=appearanceValues(section,{...read(),...preset});paint();}});
   if(section==='interfaz'&&saveStyle){
    const lib=document.createElement('div');lib.innerHTML=interfaceStyleLibrary({library:styles(),selected:selectedStyle,name:styleDraftName,esc});
    host.querySelector('.appearance-presets').after(lib.firstElementChild);
-   const share=document.createElement('section');share.className='appearance-style-share';share.setAttribute('aria-label','Compartir estilos entre cuentas');
-   share.innerHTML='<h3>Compartir estilo con otro usuario</h3><p class="small muted">Copia un código y envíaselo al destinatario por el canal que tú elijas. No incluye nombre personal, fotos, logotipos ni orden de tus módulos. La otra cuenta debe importarlo y guardarlo voluntariamente.</p><div class="inline-actions"><button type="button" class="btn secondary" data-style-export>Preparar código del estilo seleccionado</button><button type="button" class="btn secondary" data-style-copy>Copiar código</button><button type="button" class="btn secondary" data-style-import>Importar en mi biblioteca</button></div><label>Estilo para compartir o importar<textarea rows="4" spellcheck="false" data-style-share-code data-draft-ignore placeholder="Selecciona un estilo para exportarlo, o pega aquí un código recibido."></textarea></label><p class="small" data-style-share-status role="status" aria-live="polite"></p>';
-   host.querySelector('.appearance-style-library').after(share);
-   const shareCode=share.querySelector('[data-style-share-code]'),shareStatus=share.querySelector('[data-style-share-status]');
-   share.querySelector('[data-style-export]').disabled=!canEdit(section);
-   share.querySelector('[data-style-import]').disabled=!canEdit(section);
-   share.querySelector('[data-style-copy]').disabled=!canEdit(section);
-   share.querySelector('[data-style-export]').onclick=()=>{
-    if(busy||!canEdit(section))return;
-    const row=styles().items.find(item=>item.id===selectedStyle);
-    if(!row){shareStatus.textContent='Selecciona antes un estilo guardado en tu biblioteca.';return;}
-    shareCode.value=exportSharedInterfaceStyle(row);
-    shareCode.focus();shareCode.select();
-    shareStatus.textContent='Código preparado y seleccionado. Cópialo para compartirlo; no se ha enviado a nadie.';
-   };
-   share.querySelector('[data-style-copy]').onclick=async()=>{
-    if(!canEdit(section)||busy)return;
-    if(!shareCode.value.trim()){shareStatus.textContent='Prepara primero un código o pega el que quieras copiar.';return;}
-    try{await navigator.clipboard.writeText(shareCode.value);shareStatus.textContent='Código copiado. Compártelo únicamente con quien tú decidas.';}
-    catch{shareCode.focus();shareCode.select();shareStatus.textContent='No se pudo acceder al portapapeles. El código está seleccionado para copiarlo manualmente.';}
-   };
-   share.querySelector('[data-style-import]').onclick=async()=>{
-    if(busy||!canEdit(section))return;
-    const stamp=epoch;
-    let imported;
-    try{imported=applySharedInterfaceStyle(read(),shareCode.value);}catch(error){shareStatus.textContent=error.message;return;}
-    const used=new Set((styles().items||[]).map(item=>item.name.toLocaleLowerCase('es')));
-    let label=imported.name;if(used.has(label.toLocaleLowerCase('es')))label=(imported.name.slice(0,46)+' · importado').slice(0,60);
-    if(used.has(label.toLocaleLowerCase('es'))){shareStatus.textContent='Ya tienes un estilo con ese nombre. Renombra primero el existente.';return;}
-    if(!await confirm('¿Guardar «'+label+'» en tu biblioteca personal? No se aplicará a tu interfaz hasta que lo elijas.'))return;
-    if(!active(stamp))return;
-    busy=true;syncControls();
-    try{
-     const result=await saveStyle({action:'create',id:crypto.randomUUID(),name:label,config:imported.config,revision:styles().revision||0});
-     if(!active(stamp))return;
-     selectedStyle=result.changed_id||'';styleDraftName=label;paint();
-     host.querySelector('[data-style-share-status]').textContent='Estilo recibido y guardado en tu biblioteca. Pulsa Cargar en vista previa y Aplicar y guardar para utilizarlo.';
-    }catch(error){if(active(stamp))shareStatus.textContent=error.message;}
-    finally{if(active(stamp)){busy=false;syncControls();}}
-   };
-
    const select=host.querySelector('[data-my-style]'),name=host.querySelector('[data-style-name]');
    select.onchange=()=>{selectedStyle=select.value;styleDraftName=styles().items.find(s=>s.id===selectedStyle)?.name||'';name.value=styleDraftName;syncControls();};
    name.oninput=()=>{styleDraftName=name.value;};
@@ -189,8 +149,8 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
     if(busy||!canEdit(section))return;const stamp=epoch,action=button.dataset.styleAction,row=styles().items.find(s=>s.id===selectedStyle);
     values=read();
     try{
-     if(action==='load'){if(!row)throw Error('Selecciona un estilo guardado.');values=appearanceValues('interfaz',row.config);paint();host.querySelector('[data-style-status]').textContent='Estilo cargado en la vista previa. Pulsa Aplicar y guardar mi interfaz para utilizarlo.';return;}
-     if(action!=='create'&&!row)throw Error('Selecciona un estilo guardado.');
+     if(action==='load'){if(!row)throw Error('Selecciona un estilo guardado.');values=appearanceValues('interfaz',row.mine===false?{...read(),...row.config}:row.config);paint();host.querySelector('[data-style-status]').textContent='Estilo cargado en la vista previa. Pulsa Aplicar y guardar mi interfaz para utilizarlo.';return;}
+     if(action!=='create'&&!row)throw Error('Selecciona un estilo guardado.');if(['replace','rename','remove'].includes(action)&&row?.mine===false)throw Error('Solo su autor puede modificar este estilo. Puedes cargarlo y guardar tu propia copia.');
      const label=action==='remove'?null:styleName(name.value);
      if(['replace','remove'].includes(action)&&!await confirm(action==='remove'?'¿Eliminar el estilo «'+row.name+'» de tu biblioteca? Tu interfaz aplicada no cambia.':'¿Actualizar «'+row.name+'» con el diseño de la vista previa?'))return;
      if(!active(stamp))return;busy=true;syncControls();
@@ -206,5 +166,5 @@ export function createAppearanceUI({settings,save,actor,canEdit,confirm,styles=(
   preview();syncControls();
  }
  function load(){const row=settings(section)||{};revision=Number(row.appearance_revision||0);values=appearanceValues(section,row[section==='interfaz'?'appearance_config':'login_appearance']);baseline=JSON.stringify(values);paint();}
- return {mount(element){host=element;owner=actor();epoch++;busy=false;selectedStyle='';styleDraftName='';initialPreset='';host.dataset.appearanceSection='';load();},showSection(next){if(!['interfaz','login'].includes(next)||!host||busy)return;section=next;load();},hasDraft:dirty,dispose(){epoch++;host=null;owner=null;busy=false;}};
+ return {mount(element){host=element;owner=actor();epoch++;busy=false;selectedStyle='';styleDraftName='';initialPreset='';host.dataset.appearanceSection='';sharedItems=[];load();const stamp=epoch;void loadSharedStyles().then(result=>{if(!active(stamp))return;sharedItems=(result?.items||[]).map(row=>{const parsed=importSharedInterfaceStyle(JSON.stringify({format:'totus-interface-style',version:1,name:row.name,config:row.config}));return {id:String(row.id),name:parsed.name,author:String(row.author||'equipo').slice(0,80),config:parsed.config,mine:false};});const select=host.querySelector('[data-my-style]');if(select){select.replaceChildren(new Option('Selecciona un estilo',''),...styles().items.map(row=>new Option(row.name+(row.mine===false?' · '+(row.author||'equipo'):''),row.id)));select.value=selectedStyle;const output=host.querySelector('[data-style-status]');if(output)output.textContent=styles().items.length+' estilos disponibles.';syncControls();}}).catch(error=>{if(active(stamp)){const output=host.querySelector('[data-style-status]');if(output)output.textContent='No se pudo cargar la biblioteca del equipo: '+error.message;}});},showSection(next){if(!['interfaz','login'].includes(next)||!host||busy)return;section=next;load();},hasDraft:dirty,dispose(){epoch++;host=null;owner=null;busy=false;}};
 }

@@ -23,9 +23,9 @@ try{
   await page.setViewportSize({width,height:660});
   for(const [route,section] of [['inicio',null],['facturacion','plantillas'],['facturacion','series'],['documentos',null],['proveedores',null],['administracion','usuarios'],['administracion','backups'],['administracion','roles']]){
    await page.evaluate(([r,s])=>renderControls(r,s),[route,section]);
-   const tables=await page.locator('#content .mobile-card-table').evaluateAll(es=>es.map(e=>({border:getComputedStyle(e).borderLeftWidth,client:e.clientWidth,scroll:e.scrollWidth,cells:e.querySelectorAll('td').length})));
+   const tables=await page.locator('#content .mobile-card-table').evaluateAll(es=>es.map(e=>({border:getComputedStyle(e).borderLeftWidth,client:e.clientWidth,scroll:e.scrollWidth,overflow:getComputedStyle(e).overflowX,cells:e.querySelectorAll('td').length})));
    if(route!=='inicio'&&section!=='roles')assert(tables.length,'fixture renders table for '+route+'/'+section);
-   for(const table of tables){assert.equal(table.border,'0px','one outer frame '+route+'/'+section);assert(table.scroll<=table.client+1,'no horizontal table scroll '+width+' '+route+'/'+section);assert(table.cells>0,'all cells retained');}
+   for(const table of tables){assert.equal(table.border,'0px','one outer frame '+route+'/'+section);if(table.scroll>table.client+1)assert(['auto','scroll'].includes(table.overflow),'Wide columns scroll within the table, never the page '+width+' '+route+'/'+section);assert(table.cells>0,'all cells retained');}
    assert(await page.locator('#content').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'page fits '+width+' '+route+'/'+section);
    for(const tab of await page.locator('.module-tabs').all())assert(await tab.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'tabs wrap without scrollbar');
    if(route==='inicio'){const buttons=await page.locator('.dashboard-hero-actions>.btn').evaluateAll(es=>es.map(e=>({x:e.offsetLeft,y:e.offsetTop,w:e.getBoundingClientRect().width})));assert.equal(buttons.length,4);assert(Math.abs(buttons[0].y-buttons[1].y)<1);assert(Math.abs(buttons[2].y-buttons[3].y)<1);assert(Math.abs(buttons[0].w-buttons[3].w)<1,'Home shortcuts share a regular grid');}

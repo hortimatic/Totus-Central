@@ -715,6 +715,9 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_personal_interface_styles.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/067_personal_interface_styles.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/interface-styles-db-qa.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115110948_shared_interface_style_library.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115110948_shared_interface_style_library.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/shared-interface-styles-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/037_navigation_preferences.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/navigation-preferences-db-qa.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/review_patches/061_personal_navigation_layout.sql

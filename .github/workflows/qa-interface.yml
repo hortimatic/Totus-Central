@@ -1,0 +1,61 @@
+name: Verificar cambios de interfaz
+on:
+  workflow_call:
+  pull_request:
+    branches: [totus-central]
+  workflow_dispatch:
+jobs:
+  affected-interface:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Validate affected contracts and service boundaries
+        run: |
+          node tests/qa.mjs
+          node tests/module-navigation-qa.mjs
+          node tests/catalog-price-batch-qa.mjs
+          node tests/catalog-offer-batch-qa.mjs
+          node tests/home-order-enrichment-qa.mjs
+          node tests/appearance-style-share-qa.mjs
+          node tools/check-deployment-manifest.mjs
+          node tools/stability-gate.mjs --baseline origin/totus-central
+      - name: Start local app fixture server
+        run: node --input-type=module -e "await (await import('./tests/local-static-server.mjs')).startLocalServer({enabled:true})" >/tmp/totus-interface.log 2>&1 &
+      - name: Verify the modified user journeys
+        run: node tools/verify-interface-changes.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: affected-interface-${{ github.run_id }}
+          path: |
+            artifacts/interface-changes-results.json
+            artifacts/columns-catalog-*.png
+            artifacts/interface-styles/
+            qa-artifacts/
+          if-no-files-found: ignore
+  shared-styles-database:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the only additive database change
+        env:
+          PGPASSWORD: test-only
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/shared-interface-styles-db-fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115110948_shared_interface_style_library.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261115110948_shared_interface_style_library.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f tests/shared-interface-styles-db-qa.sql

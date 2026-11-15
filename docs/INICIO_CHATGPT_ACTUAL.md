@@ -4,6 +4,8 @@ Vigente: 15/11/2026. Leer este documento desde la rama `totus-central` de GitHub
 
 ## Estabilidad antes de intervenir
 
+La siguiente entrega de interfaz se detalla en [HOMOGENEIDAD_PRECIO_RUTAS_20261115.md](HOMOGENEIDAD_PRECIO_RUTAS_20261115.md): Precio para venta/coste/ofertas, paneles de columnas completos, selectores comunes, compactación y rutas españolas. Contrastar su publicación y la migración aditiva de lectura de estilos del equipo antes de considerarla instalada.
+
 Leer `docs/PROTOCOLO_ESTABILIDAD.md` y el contraste `docs/MEJORAS_CANAL_20261114.md`. Comprobar la rama publicada y las versiones reales de los servicios: no desplegar fuentes de una rama anterior ni considerar terminadas las peticiones pendientes de ese registro. No activar Hortimatic 8 mientras Diego mantenga la pausa. Las fuentes del proyecto son fotografías de referencia.
 
 Consultar también docs/AUDITORIA_ESTABILIDAD_20261114.md para el alcance y las evidencias de la revisión de carga. No confundir pruebas ficticias con escrituras en producción.

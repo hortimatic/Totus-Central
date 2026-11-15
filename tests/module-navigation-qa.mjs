@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import {moduleUrl,requestedModule,nativeModuleClick,moduleReads} from '../src/module-navigation.js';
+import {MODULE_PATHS,moduleNavigationState,moduleUrl,requestedModule,nativeModuleClick,moduleReads} from '../src/module-navigation.js';
 const routes=[{id:'inicio'},{id:'gastos'}];
 const clean=new URL(moduleUrl('https://example.invalid/?v=old&utm_source=chatgpt.com&utm_campaign=x&ps_order=7&ps_store=hortimatic#retorno','inicio'));
-assert.equal(clean.searchParams.has('utm_source'),false);assert.equal(clean.searchParams.has('v'),false);assert.equal(clean.searchParams.get('ps_order'),'7');assert.equal(clean.searchParams.get('ps_store'),'hortimatic');assert.equal(clean.hash,'#retorno');
+assert.equal(clean.searchParams.has('utm_source'),false);assert.equal(clean.searchParams.has('v'),false);assert.equal(clean.search,'');assert.equal(clean.hash,'');assert.equal(clean.pathname,'/inicio');
 const url=moduleUrl('https://example.invalid/Totus-Central/?release=abc','gastos');
 assert.equal(new URL(url).searchParams.has('release'),false);assert.equal(requestedModule(url,routes),'gastos');
 assert.equal(requestedModule('https://example.invalid/?module=unknown',routes),'inicio');
@@ -23,4 +23,9 @@ assert.equal(requestedModule('https://example.invalid/?module=gastos',routes,'in
 assert.equal(requestedModule('https://example.invalid/?module=inicio',routes,'gastos',true),'gastos','Respect the personal startup module');
 assert.equal(requestedModule('https://example.invalid/?module=gastos',routes,'inicio',false),'gastos','Keep explicit links usable');
 
-const refreshed=new URL(moduleUrl('https://example.invalid/?module=inicio&release=abc&totus_refresh=123&ps_order=7#retorno','inicio'));assert.equal(refreshed.search,'?module=inicio&ps_order=7');assert.equal(refreshed.hash,'#retorno');
+const refreshed=new URL(moduleUrl('https://example.invalid/?module=inicio&release=abc&totus_refresh=123&ps_order=7#retorno','inicio'));assert.equal(refreshed.search,'');assert.equal(refreshed.hash,'');assert.equal(refreshed.pathname,'/inicio');
+
+for(const [id,segment] of Object.entries(MODULE_PATHS)){const paths=[{id}];assert.equal(moduleUrl('https://totuscentral.totuscode.com/?module=pricing&ps_order=7',id),'https://totuscentral.totuscode.com/'+segment);assert.equal(requestedModule('https://totuscentral.totuscode.com/'+segment,paths),id);assert.equal(requestedModule('https://totuscentral.totuscode.com/'+segment+'/',paths),id);assert.equal(moduleUrl('https://example.invalid/Totus-Central/precio',id),'https://example.invalid/Totus-Central/'+segment);}
+assert.equal(requestedModule('https://example.invalid/?module=pricing',[{id:'pricing'}]),'pricing');
+const link='https://example.invalid/?module=ventas&ps_store=hortimatic&ps_order=46623&ps_date=2026-11-13';
+const context=moduleNavigationState(link,'ventas');assert.equal(context.totusOrderLink.ps_order,'46623');assert.equal(moduleUrl(link,'ventas'),'https://example.invalid/ventas');assert.deepEqual(moduleNavigationState(link,'tareas',context),{});

@@ -12,7 +12,8 @@ assert(app.includes('state.data.taxPayments.some(x=>x.document_id===id)'),'Tax p
 assert(app.includes("writeInvoicePrintWindow(w,html,row.display_number||'Documento')"),'Invoice printing must delegate its number to the shared renderer');
 assert(app.includes('<title>${esc(title)}</title>'),'Shared print renderer must escape invoice and template titles');
 assert(publish.includes('branches: [totus-central]'),'Only the renamed production branch may publish');
-assert(publish.includes('needs: verify')&&publish.includes('uses: ./.github/workflows/qa.yml'));
+assert(publish.includes('needs: verify')&&publish.includes('uses: ./.github/workflows/qa-interface.yml'),'Publication verifies the modified journeys before deployment');
+assert(fs.existsSync('.github/workflows/qa.yml'),'Full repository QA remains available separately');
 assert(publish.includes("location.search+location.hash"),'Legacy links must preserve authentication fragments');
 assert(!fs.existsSync('.github/workflows/publish-staging.yml'),'Only one publication workflow');
 assert(read('supabase/functions/team-admin/index.ts').includes("const APP_URL='https://hortimatic.github.io/Totus-Central/'"));

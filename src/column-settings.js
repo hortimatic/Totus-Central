@@ -6,3 +6,28 @@ export function columnSettingsRow({key,label,selected,locked=false,fixed=false,i
  return '<div class="tc-column-row prd-column-option '+escape(className)+'" data-column-key="'+escape(key)+'"'+attributes(row)+'><label><input type="checkbox" data-draft-ignore '+(selected?'checked ':'')+(locked?'disabled ':'')+attributes(check)+'><span>'+escape(label)+'</span></label>'+control+'</div>';
 }
 export function columnSettingsCaption(count){return '<span aria-hidden="true">⚙</span><span>Columnas</span><small>'+Number(count)+'</small>';}
+
+// Normalize the entire editor while preserving its native event handlers and
+// persistence adapter. No settings or permissions are inferred from presentation.
+export function standardizeColumnPanel(panel,{onClose=()=>{}}={}){
+ if(!panel||panel.querySelector(':scope>.tc-settings-header'))return;
+ const rows=[...panel.querySelectorAll('.tc-column-row')],search=panel.querySelector('input[type=search]')?.closest('label');
+ if(!rows.length||!search)return;
+ panel.dataset.tcSettings='';panel.classList.add('tc-settings-panel');
+ const original=[...panel.children],buttons=[...panel.querySelectorAll('button')];
+ const save=buttons.find(b=>b.textContent.trim()==='Guardar distribución'),reset=buttons.find(b=>b.textContent.trim()==='Restablecer columnas');
+ const statuses=[...panel.querySelectorAll('p[role=status]')];
+ const header=document.createElement('header');header.className='tc-settings-header';header.innerHTML='<strong>Configurar columnas</strong>';
+ const close=document.createElement('button');close.type='button';close.className='btn secondary';close.textContent='×';close.setAttribute('aria-label','Cerrar columnas');
+ close.onclick=()=>{const details=panel.closest('details.prd-columns');if(details)details.open=false;else if(panel.matches('[popover]'))panel.hidePopover();onClose();};
+ if(panel.closest('details.prd-columns')||panel.matches('[popover]'))header.append(close);
+ const help=document.createElement('p');help.className='tc-column-status';help.textContent='Elige las columnas visibles y su posición.';
+ const parent=rows[0].parentElement,list=parent!==panel&&rows.every(row=>row.parentElement===parent)?parent:document.createElement('div');list.classList.add('tc-settings-list','directory-column-list');list.append(...rows);
+ const footer=document.createElement('footer');footer.className='tc-settings-footer';for(const button of [save,reset])if(button){button.classList.add('btn','secondary');footer.append(button);}
+ const advanced=document.createElement('section');advanced.className='tc-settings-advanced';const summary=document.createElement('strong');summary.textContent='Vistas guardadas y opciones';advanced.append(summary);
+ search.classList.add('prd-column-search');search.remove();for(const status of statuses)status.remove();
+ for(const child of original){if(child===search||child===list||child===save||child===reset||child.matches('header,legend,p,.tc-column-row'))continue;for(const empty of [...child.querySelectorAll('div')].reverse())if(!empty.children.length&&!empty.textContent.trim())empty.remove();if(child.querySelector('input,select,button')||child.matches('label,button'))advanced.append(child);}
+ panel.replaceChildren(header,search,help,list,advanced,footer,...statuses);
+ if(advanced.children.length===1)advanced.hidden=true;
+}
+export function standardizeColumnPanels(root){for(const panel of root.querySelectorAll('.prd-columns>div,.tc-column-popover,.home-columns-inspector'))standardizeColumnPanel(panel);}

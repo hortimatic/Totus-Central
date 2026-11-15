@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>const entryUrl=new URL(location.href);if(entryUrl.searchParams.has('release')||entryUrl.searchParams.has('totus_refresh')){entryUrl.searchParams.delete('release');entryUrl.searchParams.delete('totus_refresh');history.replaceState(history.state,'',entryUrl.href);}</script>
 <meta name="theme-color" content="#101827">
 <title>Totus Central</title>
 <link rel="modulepreload" href="src/app.js">
@@ -70,7 +71,7 @@
 /* Identificar el código cargado, incluso si el navegador conserva un HTML antiguo. */
 (function(){
   const script=document.querySelector('script[type="module"][src*="src/bootstrap.js"]');
-  const loaded=script?new URL(script.getAttribute('src'),location.href).searchParams.get('v'):null;
+  const loaded=script?new URL(script.getAttribute('src'),document.baseURI).searchParams.get('v'):null;
   const verified=/^[0-9a-f]{40}$/.test(loaded||'');
   const labels=document.querySelectorAll('.app-build');
   labels.forEach(el=>{el.textContent=verified?'· versión '+loaded.slice(0,8):'· versión local sin verificar'});

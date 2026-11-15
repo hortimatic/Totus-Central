@@ -12,7 +12,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    uses: ./.github/workflows/qa.yml
+    # Diego requested publication after the affected journeys, with the full
+    # repository review kept separately. qa.yml remains intact and available.
+    uses: ./.github/workflows/qa-interface.yml
     permissions:
       contents: read
   publish:
@@ -76,6 +78,8 @@ jobs:
           assert not (legacy/'src').exists()
           assert not (root/'supabase').exists() and not (root/'tests').exists()
           PY
+      - name: Build directly accessible Spanish module routes
+        run: node tools/build-module-routes.mjs _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

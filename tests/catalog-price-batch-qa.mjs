@@ -11,3 +11,9 @@ test('price plans retain shop identity and exact six-decimal base arithmetic',()
 test('invalid, duplicate, excessive and imprecise selections fail before a write exists',()=>{
  for(const [rows,options] of [[[],{mode:'fixed',value:'1'}],[[row(),row()],{mode:'fixed',value:'1'}],[[row('1','')],{mode:'fixed',value:'1'}],[[row('1','1','unknown')],{mode:'fixed',value:'1'}],[[row()],{mode:'percent',value:'-100.1'}],[[row()],{mode:'fixed',value:'1.0000001'}],[[row()],{mode:'fixed',value:'1e3'}],[Array.from({length:201},(_,i)=>row(String(i+1))),{mode:'fixed',value:'1'}]])assert.throws(()=>catalogPriceBatchPlan(rows,options));
 });
+test('purchase-cost batches preserve sale price and exact decimal arithmetic',()=>{
+ const rows=[{...row(),wholesale_price:'3.200000'}];
+ const plan=catalogPriceBatchPlan(rows,{field:'wholesale_price',mode:'percent',value:'12.5'});
+ assert.equal(plan[0].field,'wholesale_price');assert.equal(plan[0].before,'3.200000');assert.equal(plan[0].after,'3.600000');assert.equal(rows[0].price,'10');
+ assert.throws(()=>catalogPriceBatchPlan(rows,{field:'active',mode:'fixed',value:'0'}));
+});

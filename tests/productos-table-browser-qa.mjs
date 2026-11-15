@@ -44,12 +44,12 @@ try{for(const width of [390,768,1440]){
  assert(endAction.left>=endAction.pinnedRight&&endAction.right<=endAction.viewportRight+1,'End exposes the final actions rather than the empty trailing gutter: '+JSON.stringify(endAction));
  assert.equal(await page.locator('.prd-catalog-table').evaluate(v=>[...v.querySelectorAll('th,td')].every(n=>getComputedStyle(n).position!=='sticky')&&getComputedStyle(v.querySelector('tbody tr'),'::after').content==='none'),true,'All columns scroll together without frozen identity columns');
  await page.evaluate(()=>{tableQA.filler=Array.from({length:25},(_,i)=>({...tableQA.item,id:String(900+i),reference:'SCROLL-'+i,name:'Producto de desplazamiento '+i}));});
- await page.getByRole('button',{name:'Actualizar catálogo',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.prd-catalog-table tbody tr').length===20);
+ await page.locator('[data-pr-action="catalog-load"]:visible').click();await page.waitForFunction(()=>document.querySelectorAll('.prd-catalog-table tbody tr').length===20);
  await page.evaluate(()=>window.scrollTo(0,document.querySelector('.prd-table-navigation').getBoundingClientRect().top+scrollY+450));
  const follow=await page.locator('.prd-table-arrows').boundingBox(),range=await page.locator('.prd-table-navigation').boundingBox();
  assert(follow.y>=0&&follow.y+follow.height<=900,'Only arrows follow the page scroll: '+JSON.stringify(follow));assert(range.y<0,'The slider row scrolls away normally');
  await page.getByRole('button',{name:'Ver columnas siguientes',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.prd-catalog-table').scrollLeft>0);
- await page.evaluate(()=>{tableQA.filler=[];});await page.getByRole('button',{name:'Actualizar catálogo',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.prd-catalog-table tbody tr').length===1);
+ await page.evaluate(()=>{tableQA.filler=[];});await page.locator('[data-pr-action="catalog-load"]:visible').click();await page.waitForFunction(()=>document.querySelectorAll('.prd-catalog-table tbody tr').length===1);
  await page.getByRole('button',{name:'Buscar en Todas las marcas',exact:true}).click();const filter=page.locator('[data-pr-select-search]').first();await filter.fill('Opción 12');assert.equal(await page.locator('.prd-select-option:visible').count(),1);await page.getByRole('button',{name:'Cerrar selector',exact:true}).click();
  await page.evaluate(async()=>{const {applyInterfaceAppearance}=await import('../src/appearance-ui.js');applyInterfaceAppearance({primary:'#8040c0',card:'#202530',text:'#ffffff',bg:'#10141a',radius:18,borderWidth:3},true);});
  assert.equal(await page.locator('.prd-stitch').evaluate(n=>getComputedStyle(n).color),'rgb(255, 255, 255)');

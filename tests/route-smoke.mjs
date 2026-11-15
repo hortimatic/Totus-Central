@@ -13,7 +13,8 @@ const actions=new Set();let cases=0;
 function check(route,scenario){
  const html=renderers[route]();
  assert.equal(typeof html,'string',route+' '+scenario+' not rendered');
- assert.ok(html.length>150,route+' '+scenario+' is empty');
+ if(route==='configuracion')assert.ok(html.includes('id="appearanceRoot"'),'Configuration must expose its mounted interface editor');
+ else assert.ok(html.length>150,route+' '+scenario+' is empty');
  for(const hit of html.matchAll(/data-action="([^"$]+)"/g))actions.add(hit[1]);
  cases++;
  return html;
