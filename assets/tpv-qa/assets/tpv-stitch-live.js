@@ -264,7 +264,7 @@
   });
 
   const getQuote = async (productId, attributeId, quantity) => {
-    const response=await apiFetch("price",{query:{productId,variantId,quantity}});
+    const response=await apiFetch("price",{query:{productId,variantId:attributeId,quantity}});
     const quote=await response.json();
     if (!response.ok || quote.source!=='PS8_NATIVE_PRICE_CALCULATION' ||
         quote.productId!==productId || quote.variantId!==attributeId ||
