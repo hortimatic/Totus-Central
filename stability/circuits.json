@@ -304,7 +304,8 @@
         "src/interface-controls.css",
         "index.html",
         "src/account-document-page.js",
-        "src/account-ui.js"
+        "src/account-ui.js",
+        "src/stitch-layout.js"
       ],
       "tests": [
         "tests/api-manager-browser-qa.mjs",
@@ -324,7 +325,9 @@
         "tests/productos-table-browser-qa.mjs",
         "tests/productos-table-layout-browser-qa.mjs",
         "tests/dashboard-report-browser-qa.mjs",
-        "tests/account-document-page-qa.mjs"
+        "tests/account-document-page-qa.mjs",
+        "tests/pricing-integral-browser-qa.mjs",
+        "tests/pricing-directory-browser-qa.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",

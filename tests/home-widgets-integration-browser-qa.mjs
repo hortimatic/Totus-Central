@@ -67,7 +67,7 @@ try{
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
   const kpis=await page.locator('[data-home-widget]').evaluateAll(cards=>cards.filter(card=>['home.income','home.expenses','home.result','home.internal'].includes(card.dataset.homeType)).map(card=>{const r=card.getBoundingClientRect();return {top:Math.round(r.top),height:r.height};}));
   for(const top of new Set(kpis.map(card=>card.top))){const row=kpis.filter(card=>card.top===top);assert(Math.max(...row.map(card=>card.height))-Math.min(...row.map(card=>card.height))<2,'Los KPI de una fila mantienen la misma altura a '+width);}
-  const strip=await page.locator('.home-margin-strip').boundingBox(),board=await page.locator('.home-widget-grid').boundingBox();assert(Math.abs(strip.width-board.width)<2,'El margen ocupa una franja completa a '+width);
+  const gain=await page.locator('.home-margin-strip').boundingBox(),peer=await page.locator('[data-home-widget=internal]').boundingBox();assert(Math.abs(gain.height-peer.height)<2,'Ganancia tiene la misma altura de tarjeta que Gastos internos a '+width+' '+JSON.stringify({gain,peer}));assert.equal(await page.locator('.home-financial-kpis>.home-widget-frame').count(),5);
   if(width===390){
    const income=await page.locator('[data-home-widget="income"]').boundingBox(),expense=await page.locator('[data-home-widget="expense"]').boundingBox();
    assert(income&&expense&&Math.abs(income.y-expense.y)<24&&expense.x>income.x,'Stitch: los cuatro KPI usan composición móvil 2×2');

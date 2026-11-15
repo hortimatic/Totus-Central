@@ -4,7 +4,7 @@ import {readPool} from './read-pool.js';
 
 // One bounded lookup per distinct product/combination, not per widget or order.
 // Missing catalogue data may fall back to the order's recorded purchase cost.
-export async function enrichHomeOrderLines({store,lines,invoke,current=()=>true}){
+export async function enrichHomeOrderLines({store,lines,invoke,current=()=>true,preferRecordedCosts=false}){
  const products=new Map(),variants=new Map();
  const ids=[...new Set(lines.map(l=>String(l.product_id)).filter(id=>/^[1-9]\d{0,14}$/.test(id)))];
  for(let offset=0;offset<ids.length;offset+=100){
@@ -16,7 +16,8 @@ export async function enrichHomeOrderLines({store,lines,invoke,current=()=>true}
    if(r?.ok&&r.store===store&&r.resource==='products'&&Array.isArray(r.rows)&&r.rows.every(p=>batch.includes(String(p.id))))for(const p of r.rows)products.set(String(p.id),p);
   }catch{if(!current())return null;}
  }
- const wanted=new Map();for(const line of lines){const id=String(line.product_attribute_id||'0');if(/^[1-9]\d{0,14}$/.test(id)&&!wanted.has(id))wanted.set(id,String(line.product_id));}
+ const recorded=line=>Number(line.purchase_supplier_price)>0?line.purchase_supplier_price:Number(line.original_wholesale_price)>0?line.original_wholesale_price:null;
+ const wanted=new Map();for(const line of lines){if(preferRecordedCosts&&recorded(line)!==null)continue;const id=String(line.product_attribute_id||'0');if(/^[1-9]\d{0,14}$/.test(id)&&!wanted.has(id))wanted.set(id,String(line.product_id));}
  try{await readPool([...wanted],async([variantId,productId])=>{
   try{const r=await invoke({action:'prestashop_item_read',resource:'combinations',record_id:variantId});if(!current())return;variants.set(variantId,r?.ok&&r.store===store&&String(r.item?.id)===variantId&&String(r.item?.id_product)===productId?r.item:null);}
   catch{if(current())variants.set(variantId,null);}
@@ -30,6 +31,7 @@ export async function enrichHomeOrderLines({store,lines,invoke,current=()=>true}
    const variant=variants.get(variantId);
    if(String(variant?.id_product)===String(line.product_id)&&Number(variant?.wholesale_price)>0)cost=variant.wholesale_price;
   }
+  if(preferRecordedCosts&&recorded(line)!==null)cost=recorded(line);
   if(cost!==null&&cost!==undefined&&String(cost).trim()!==''&&Number.isFinite(Number(cost))&&Number(cost)>=0)line.current_wholesale_price=String(cost);
   line.image=product?prestashopProductImage(store,product.id_default_image):null;
  }

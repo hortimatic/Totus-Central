@@ -4,9 +4,9 @@ import {commercialMarginSummary,commercialMarginWidget,commercialMarginChart,com
 test('compact margin exposes loading and failures without inventing zero profit',()=>{
  const range={from:'2026-11-01',to:'2026-11-30'};
  const pending=commercialMarginCompact({hortimatic:{rows:[],loading:true,progress:'200 pedidos leídos…'}},range);
- assert.match(pending,/Calculando margen/);assert.match(pending,/200 pedidos leídos/);assert.match(pending,/aria-busy="true"/);assert.match(pending,/disabled/);
+ assert.match(pending,/Calculando/);assert.match(pending,/200 pedidos leídos/);assert.match(pending,/aria-busy="true"/);assert.match(pending,/disabled/);
  const failed=commercialMarginCompact({hortimatic:{rows:[],error:'Sin acceso <script>'}},range);
- assert.match(failed,/No se pudo completar/);assert.match(failed,/Sin acceso &lt;script&gt;/);assert.doesNotMatch(failed,/disabled/);
+ assert.match(failed,/Consulta fallida/);assert.match(failed,/Sin acceso &lt;script&gt;/);assert.doesNotMatch(failed,/disabled/);
 });
 import {calendarRange,calendarShift} from '../src/home-task-calendar.js';
 const row=(margin_value,extra={})=>({id:'1',valid:'1',currency_code:'EUR',margin_value,date_add:'2026-11-12 12:00:00',...extra});
@@ -34,4 +34,4 @@ test('day/week/month calendar handles leap years and month end without rolling i
  assert.equal(calendarShift('2024-01-31','month',1),'2024-02-29');assert.equal(calendarShift('2026-03-31','month',-1),'2026-02-28');assert.equal(calendarShift('2026-12-31','day',1),'2027-01-01');
 });
 
-test('compact accounting companion keeps period, negative margin and weighted percent separate',()=>{const html=commercialMarginCompact({hortimatic:{complete:true,rows:[row(5,{margin_revenue:20}),row(-1,{id:'2',margin_revenue:10})]}},{from:'2026-11-01',to:'2026-11-30'});assert.match(html,/4,00/);assert.match(html,/13,3 %/);assert.match(html,/2026-11-01/);assert.match(html,/Excluye gastos generales/);assert.match(commercialMarginCompact({hortimatic:{complete:false,rows:[row(5,{margin_revenue:20})]}},{from:'x',to:'y'}),/parcial/);});
+test('gain card subtracts purchase VAT and RE from gross receipts and keeps losses',()=>{const range={from:'2026-11-01',to:'2026-11-30'},orders=[row(null,{total_paid_tax_incl:'20',total_paid_tax_excl:'20',total_shipping_tax_excl:'0',total_wrapping_tax_excl:'0'}),row(null,{id:'2',total_paid_tax_incl:'10',total_paid_tax_excl:'10',total_shipping_tax_excl:'0',total_wrapping_tax_excl:'0'})],detailsByOrder=new Map([['1',[{product_quantity:'1',current_wholesale_price:'10'}]],['2',[{product_quantity:'1',current_wholesale_price:'12'}]]]);const data={hortimatic:{complete:true,rows:orders,detailsByOrder}},settings={purchase_vat_rate:20,purchase_re_rate:5};const html=commercialMarginCompact(data,range,settings);assert.match(html,/2,50/);assert.match(html,/8,3 %/);assert.match(html,/IVA compra 20/);assert.match(html,/RE 5/);assert.match(html,/gastos generales/);assert.match(commercialMarginCompact(data,range,{}),/Pendiente de costes/);});

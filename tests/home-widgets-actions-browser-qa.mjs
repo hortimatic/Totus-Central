@@ -82,15 +82,15 @@ try{
  await page.setViewportSize({width:1440,height:960});
  assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
  const financial=page.locator('[data-financial-margin]');await financial.scrollIntoViewIfNeeded();
- await financial.locator('.home-financial-margin b').filter({hasText:'303,84'}).waitFor();
+ await financial.locator('.home-financial-margin b').filter({hasText:'357,60'}).waitFor();
  await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
  await page.evaluate(()=>{window.__holdHomeOrders=true;window.__releaseHomeOrders=[];});
  await financial.locator('button').click();await page.waitForFunction(()=>window.__releaseHomeOrders.length===2);
  assert.equal(await financial.locator('button').isDisabled(),true,'Una consulta en curso no dispara duplicados');
- assert.match(await financial.innerText(),/Comprobando conexión/);
+ await financial.locator('details summary').click();assert.match(await financial.innerText(),/Comprobando conexión/);
  await page.evaluate(()=>{window.__holdHomeOrders=false;window.__releaseHomeOrders.splice(0).forEach(resolve=>resolve());});
  await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
- assert.match(await financial.innerText(),/303,84/,'La lectura termina con el margen y conserva el resultado contable');
+ assert.match(await financial.innerText(),/357,60/,'La lectura termina con el margen y conserva el resultado contable');
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
  assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');
@@ -214,6 +214,7 @@ try{
  assert.equal(await orders.locator('tbody td').first().evaluate(el=>getComputedStyle(el).paddingTop),'5px','La densidad elegida modifica realmente las filas');
  await page.locator('[data-home-command="column-up"][data-id="orders"][data-column="products"]').click();
  assert.deepEqual((await orders.locator('thead th').allTextContents()).slice(0,3).map(x=>x.trim()),['Pedido','Productos','Referencia'],'Ordenar columnas cambia la tabla');
+ for(const width of [390,905,1920]){await page.setViewportSize({width,height:960});const rows=await page.locator('.home-column-item').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect(),c=n.querySelector('input').getBoundingClientRect();return {height:r.height,checkboxWidth:c.width,checkboxHeight:c.height};}));assert(rows.length>0);assert(rows.every(r=>r.height<=56&&r.checkboxWidth<=20&&r.checkboxHeight<=20),'Column inspector uses compact rows and checkboxes at '+width);}await page.setViewportSize({width:1440,height:960});
  await page.locator('[data-home-column="employee"]').uncheck();
  assert(!(await orders.locator('thead th').allTextContents()).includes('Atendido por'),'Ocultar columna no la elimina de otras tablas');
  await page.locator('[data-home-config="width"]').selectOption('8');
@@ -285,6 +286,10 @@ try{
  }
  await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.evaluate(()=>window.__holdHomeOrders=true);
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
+ assert.equal(await page.getByText(/Última lectura guardada; actualizando/).count(),0,'Una lectura reciente se reutiliza sin volver a bloquear Inicio');
+ await page.evaluate(()=>{window.__realDateNow=Date.now;Date.now=()=>window.__realDateNow()+121000;});
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  await page.getByText(/Última lectura guardada; actualizando/).first().waitFor();
  assert(await page.locator('[data-home-widget="shop-h"] .home-ps-metrics').isVisible(),'El resumen previo se representa mientras se verifica una lectura nueva');

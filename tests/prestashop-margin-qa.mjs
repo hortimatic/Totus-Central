@@ -14,3 +14,6 @@ console.log('Approximate margins: costs, quantities, fallback, VAT/shipping excl
 
 assert.equal(calculate(order,{rows:[{product_quantity:'2',current_wholesale_price:'3.90',purchase_supplier_price:'3'}]}).cost,7.8);
 assert.equal(calculate(order,{rows:[{product_quantity:'1',current_wholesale_price:'0'}]}).cost,0);
+
+const {approximateOrderGain}=await import('../src/prestashop-margin.js');
+const gain=approximateOrderGain({...order,total_paid_tax_incl:'20'},{rows:[{product_quantity:'1',current_wholesale_price:'10'}]},{vat:21,re:5.2});assert(Math.abs(gain.cost-12.62)<1e-9);assert(Math.abs(gain.margin-7.38)<1e-9);assert.equal(approximateOrderGain(order,detail,{vat:21,re:5.2}).complete,false);assert.equal(approximateOrderGain({...order,total_paid_tax_incl:'5'},detail,{vat:21,re:5.2}).margin<0,true);assert.equal(approximateOrderGain({...order,total_paid_tax_incl:'20'},detail,{vat:null,re:5.2}).complete,false);

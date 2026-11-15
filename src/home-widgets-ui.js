@@ -292,6 +292,11 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  let financialObserver=null;const readProgress=new Map();
  const financialWidget=()=>{const f=getFilters('inicio'),name=state.data.stores.find(s=>s.id===f.store)?.name?.toLowerCase();return {id:'financial-margin',type:'home.gain',scope:{store:PRESTASHOP_STORES.some(s=>s.key===name)?name:'all'},filters:{from:f.from,to:f.to}};};
  const completedOrders=new Map();let completedOwner='';
+ const rememberOrders=(key,result)=>{
+  if(result.rows.length>2000||[...(result.detailsByOrder?.values()||[])].reduce((n,lines)=>n+lines.length,0)>10000)return;
+  completedOrders.delete(key);completedOrders.set(key,result);
+  while(completedOrders.size>8||[...completedOrders.values()].reduce((n,r)=>n+r.rows.length,0)>4000||[...completedOrders.values()].reduce((n,r)=>n+[...(r.detailsByOrder?.values()||[])].reduce((m,lines)=>m+lines.length,0),0)>20000)completedOrders.delete(completedOrders.keys().next().value);
+ };
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
  const changed=()=>!!model&&!!original&&(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)||JSON.stringify(model.settings)!==JSON.stringify(original.settings));
@@ -358,7 +363,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);const calendarHost=body.querySelector('[data-home-task-calendar]');if(calendarHost)taskCalendar.mount(calendarHost);
   }
   const financialCards=[...grid.querySelectorAll('[data-home-widget]')].filter(card=>['home.income','home.expenses','home.result','home.internal'].includes(card.dataset.homeType));
-  if(financialCards.length&&can('prestashop','view')){const summary=document.createElement('section');summary.className='home-margin-strip';summary.dataset.financialMargin='';summary.setAttribute('aria-label','Margen comercial del periodo');const fw=financialWidget();summary.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));financialCards.at(-1).after(summary);}
+  if(financialCards.length&&can('prestashop','view')){const summary=document.createElement('section');summary.className='home-widget-frame home-margin-strip';summary.dataset.financialMargin='';summary.setAttribute('aria-label','Ganancia estimada del periodo');const fw=financialWidget();summary.innerHTML='<header class="home-widget-header"><h3>Ganancia de las ventas</h3></header><div class="home-widget-body home-margin-value">'+commercialMarginCompact(financialData(fw),dateRange(fw),state.data.settings)+'</div>';if(!edit){const group=document.createElement('div');group.className='home-financial-kpis';financialCards[0].before(group);group.append(...financialCards,summary);}else financialCards.at(-1).after(summary);}
   root.classList.toggle('home-edit-mode',edit);
   root.classList.toggle('home-widgets-dirty',changed());
   const settings=homeCanvasSettings(model.settings);
@@ -632,7 +637,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   }finally{busy=false}
  }
  function refreshFinancialMargin(){
-  if(!live())return;const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));
+  if(!live())return;const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.querySelector('.home-margin-value').innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw),state.data.settings);
  }
  function refreshShopWidgets(){
   if(!live()||!model)return;
@@ -702,7 +707,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     const cs=await initConnections();if(!live()||token!==requestToken||owner!==owned)return;
     const c=storeConnection(cs,shop),ready=prestashopReadiness(c);if(!ready.ready)throw new Error(ready.reason);
     const cacheKey=JSON.stringify([key,c.id,c.revision]);
-    if(!force&&completedOrders.has(cacheKey)){ordersData.set(key,{...completedOrders.get(cacheKey),refreshing:true});refreshShopWidgets();}
+    if(!force&&completedOrders.has(cacheKey)){const cached=completedOrders.get(cacheKey);if(!cached.gainOnly||w.type==='home.gain'){const fresh=Date.now()-cached.readAt<120000;ordersData.set(key,{...cached,refreshing:!fresh});refreshShopWidgets();if(fresh)return;}}
     const rows=[],ids=new Set();let page=0,possiblyMore=false;
     do{
      const result=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'orders',page,page_size:100,from:from+' 00:00:00',to:to+' 23:59:59',sort:'newest'});
@@ -740,7 +745,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
        const current=()=>live()&&token===requestToken&&owner===owned;
        const request=args=>invoke({store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args});
        progress('Calculando costes de productos y variaciones…');
-       const enriched=await enrichHomeOrderLines({store:shop,lines:[...details.values()].flat(),invoke:request,current});
+       const enriched=await enrichHomeOrderLines({store:shop,lines:[...details.values()].flat(),invoke:request,current,preferRecordedCosts:w.type==='home.gain'});
        if(!current()||!enriched)return;
        for(const order of rows){order.currency_code=currencies.get(String(order.id_currency))||null;const margin=homeOrderMargin(order,details.get(String(order.id)),true);order.margin_value=margin.margin;order.margin_revenue=margin.revenue;}
        for(const item of ranking.values()){const line=enriched.find(l=>String(l.product_id)===item.productId&&String(l.product_attribute_id||'0')===item.attributeId);item.image=line?.image||null;}
@@ -748,6 +753,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
       }
      }catch{top=null}
     }
+    // Publish verified costs immediately. Seller history is independent of gain.
+    const costResult={shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,readAt:Date.now(),gainOnly:true,checked:new Date().toLocaleString('es-ES')};ordersData.set(key,costResult);rememberOrders(cacheKey,costResult);refreshShopWidgets();
     try{
      const employees=new Map(),current=()=>live()&&token===requestToken&&owner===owned;
      for(let start=0;start<rows.length;start+=25){
@@ -757,10 +764,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
       for(const order of rows.slice(start,start+25)){const seller=sellers?.get(String(order.id));if(seller){order.employee_name=seller.name;order.employee_source=seller.source;}}
      }
     }catch{/* Missing registration is not evidence of the seller. */}
-    const result={shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,checked:new Date().toLocaleString('es-ES')};
-    completedOrders.delete(cacheKey);
-    if(rows.length<=250&&[...(detailsByOrder?.values()||[])].reduce((n,lines)=>n+lines.length,0)<=1500)completedOrders.set(cacheKey,result);
-    if(completedOrders.size>8)completedOrders.delete(completedOrders.keys().next().value);
+    const result={shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,readAt:Date.now(),checked:new Date().toLocaleString('es-ES')};
+    rememberOrders(cacheKey,result);
     ordersData.set(key,result);refreshShopWidgets();
    }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});refreshShopWidgets()}
    })().finally(()=>{if(queries.get(key)===task){queries.delete(key);readProgress.delete(key);refreshFinancialMargin();}});queries.set(key,task);
