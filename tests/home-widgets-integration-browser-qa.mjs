@@ -221,6 +221,10 @@ try{
  await page.waitForFunction(()=>window.__homeStyles.length===0);
  assert.equal(await page.evaluate(()=>window.__homePrefs.revision),3,'Retirar estilo no modifica las preferencias del Inicio');
 
+ // A custom financial position must not pull other cards across intervening widgets.
+ await selectHomeWidget('income');if(await page.locator('.home-editor-advanced').getAttribute('open')===null)await page.locator('.home-editor-advanced>summary').click();await page.locator('[data-home-config="position"]').selectOption('0');await page.locator('.home-toolbar-actions [data-home-command="save"]').click();await page.waitForFunction(()=>window.__homePrefs.revision===4);
+ const customOrder=await page.locator('[data-home-widget]').evaluateAll(cards=>cards.map(card=>card.dataset.homeWidget));assert(customOrder.indexOf('income')<customOrder.indexOf('opening')&&customOrder.indexOf('opening')<customOrder.indexOf('expense'),'Grouping equivalent cards cannot override the users saved non-contiguous positions');
+ await page.setViewportSize({width:1440,height:960});await page.locator('[data-home-command="edit"]').click();await selectHomeWidget('income');if(await page.locator('.home-editor-advanced').getAttribute('open')===null)await page.locator('.home-editor-advanced>summary').click();await page.locator('[data-home-config="position"]').selectOption('1');await page.locator('[data-home-config="width"]').selectOption('6');await page.locator('.home-toolbar-actions [data-home-command="save"]').click();await page.waitForFunction(()=>window.__homePrefs.revision===5);const customIncome=await page.locator('[data-home-widget="income"]').boundingBox(),customBoard=await page.locator('.home-widget-grid').boundingBox();assert(customIncome.width>customBoard.width*.45&&customIncome.width<customBoard.width*.55,'A saved six-column financial card retains its own width rather than being forced into the common row');
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{
