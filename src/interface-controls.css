@@ -245,3 +245,6 @@ html[data-appearance] #app #content .tc-settings-footer>button,.tc-settings-foot
 }
 
 @media screen{#content [data-pr-workspace=pricing] .prd-catalog-table button[data-pr-action=open-product]{white-space:nowrap;min-width:104px}}
+
+/* Dense conversation filters use the compact tab scale, preserving reading space. */
+@media screen and (min-width:601px){html[data-appearance] #app #content .team-chat .chat-view-tabs>.btn{min-height:25px;padding:3px 4px;font-size:10px;line-height:1.25}}
