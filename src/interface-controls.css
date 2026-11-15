@@ -161,7 +161,7 @@
  :is(#content,#modalHost) :is(p,label,.note,.small){line-height:1.4}
  :is(#content,#modalHost) :is(.form-grid,.directory-form-grid,.field)>label,:is(#content,#modalHost) :is(.form-grid,.directory-form-grid)>label{font-size:13px}
  :is(#content,#modalHost) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px;line-height:1.3}
- :is(#content,#modalHost) .btn{font-size:13px;min-height:40px;padding:7px 10px}
+ :is(#content,#modalHost) .btn{font-size:13px;min-height:44px;padding:7px 10px}
  #content .module-symbol{width:36px;height:36px}
  #content .module-heading{gap:8px}
  #content .kpi :is(strong,.value){font-size:20px}
@@ -183,4 +183,8 @@
  #content .mobile-card-table .data-table :is(th,td){display:table-cell!important;width:auto;min-width:0;max-width:none;padding:8px 10px;word-break:normal;overflow-wrap:break-word;vertical-align:middle}
  #content .mobile-card-table .data-table td::before{display:none!important}
  #content .mobile-card-table .data-table td[hidden],#content .mobile-card-table .data-table th[hidden]{display:none!important}
+}
+@media screen{
+ #content .home-widget-body[data-home-table-density="compact"] .home-orders-table :is(th,td){padding:5px 7px;font-size:10px}
+ #content .home-widget-body[data-home-table-density="comfortable"] .home-orders-table :is(th,td){padding:13px 14px;font-size:12px}
 }
