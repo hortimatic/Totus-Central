@@ -179,7 +179,7 @@ function psSummary(w,data,catalog){
  const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+'<div class="home-ps-metric"><small>Calidad del catálogo</small><strong>'+esc(catalog?(catalog.complete?'':'Parcial · ')+catalog.issues.filter(x=>x.issues.length).length+' avisos':'Sin consulta')+'</strong><button type="button" data-home-command="catalog-quality" data-id="'+esc(w.id)+'">'+(catalog?'Actualizar calidad':'Consultar calidad')+'</button></div>'+metric('Margen comercial',marginText(r.rows,r.complete))+'</div>':'';
  const chart=prestashopChart(w,r);
  const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li><span class="home-top-item">'+(p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'')+'<span>'+esc(p.name)+'<small>'+esc(p.reference||'Sin referencia')+'</small></span></span> <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
- return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
+ return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+(r.refreshing?' · Última lectura guardada; actualizando…':'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function prestashopProductsTable(w,data){
  const shop=safeStore(w.scope.store),shops=shop==='all'?PRESTASHOP_STORES.map(s=>s.key):[shop];
@@ -290,6 +290,7 @@ function configureOrderColumns(host,w){
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenProduct=null,onOpenTasks=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
+ const completedOrders=new Map();let completedOwner='';
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
  const find=id=>model?.widgets.find(w=>w.id===id);
  const changed=()=>!!model&&!!original&&(JSON.stringify(model.widgets)!==JSON.stringify(original.widgets)||JSON.stringify(model.settings)!==JSON.stringify(original.settings));
@@ -363,7 +364,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   grid.style.setProperty('--home-card-padding',settings.density==='compact'?'9px':settings.density==='comfortable'?'18px':'var(--appearance-card-pad,12px)');
   root.dataset.homeCanvasBackground=settings.background;
   root.dataset.homeCanvasDensity=settings.density;
-  const toggle=root.querySelector('[data-home-command="edit"]');if(toggle)toggle.textContent=edit?'Cancelar edición':'Personalizar inicio';
+  const toggle=root.querySelector('[data-home-command="edit"]');if(toggle){toggle.textContent=edit?'Cancelar edición':'⚙';toggle.setAttribute('aria-label',edit?'Cancelar edición':'Personalizar inicio');toggle.title=edit?'Cancelar edición':'Personalizar inicio';}
   renderDrawer();
  }
  function renderDrawer(){
@@ -624,6 +625,18 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    return false;
   }finally{busy=false}
  }
+ function refreshShopWidgets(){
+  if(!live()||!model)return;
+  for(const w of visibleOrder().filter(usesShopData)){
+   const body=grid?.querySelector('[data-home-widget="'+CSS.escape(w.id)+'"] .home-widget-body');if(!body)continue;
+   const active=body.contains(document.activeElement)?document.activeElement:null;
+   if(active?.matches('input,select,textarea')){active.addEventListener('blur',()=>queueMicrotask(()=>{if(live())refreshShopWidgets();}),{once:true});continue;}
+   const content=freshWidget(w);if(typeof content!=='string')continue;
+   body.innerHTML=content;
+   if(w.type==='prestashop.orders'){configureOrderColumns(body,w);body.dataset.homeTableDensity=w.filters.tableDensity||'normal';}
+   body.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
+  }
+ }
  async function initConnections(){
   if(connections)return connections;
   if(connectionsTask)return connectionsTask;
@@ -660,9 +673,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
      more=result.possibly_more===true;page++;
     }while(more&&page<1000);
     catalogData.set(shop,{rows,issues:catalogIssues(rows),complete:!more,readAt:new Date().toISOString(),checked:new Date().toLocaleString('es-ES',{timeZone:'Europe/Madrid'})});
-    draw();
-   }catch(error){if(live()&&epoch===token&&owner===owned){catalogData.set(shop,{error:String(error.message||error),rows:[],issues:[],complete:false});draw()}}
-   })().finally(()=>catalogQueries.delete(shop));
+    refreshShopWidgets();
+   }catch(error){if(live()&&epoch===token&&owner===owned){catalogData.set(shop,{error:String(error.message||error),rows:[],issues:[],complete:false});refreshShopWidgets()}}
+   })().finally(()=>{if(catalogQueries.get(shop)===task)catalogQueries.delete(shop);});
    catalogQueries.set(shop,task);
   }
  }
@@ -676,6 +689,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    const task=(async()=>{try{
     const cs=await initConnections();if(!live()||token!==requestToken||owner!==owned)return;
     const c=storeConnection(cs,shop),ready=prestashopReadiness(c);if(!ready.ready)throw new Error(ready.reason);
+    const cacheKey=JSON.stringify([key,c.id,c.revision]);
+    if(!force&&completedOrders.has(cacheKey)){ordersData.set(key,{...completedOrders.get(cacheKey),refreshing:true});refreshShopWidgets();}
     const rows=[],ids=new Set();let page=0,possiblyMore=false;
     do{
      const result=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'orders',page,page_size:100,from:from+' 00:00:00',to:to+' 23:59:59',sort:'newest'});
@@ -726,16 +741,21 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
       for(const order of rows.slice(start,start+25)){const seller=sellers?.get(String(order.id));if(seller){order.employee_name=seller.name;order.employee_source=seller.source;}}
      }
     }catch{/* Missing registration is not evidence of the seller. */}
-    ordersData.set(key,{shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,checked:new Date().toLocaleString('es-ES')});draw();
-   }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});draw()}
-   })().finally(()=>queries.delete(key));queries.set(key,task);
+    const result={shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,checked:new Date().toLocaleString('es-ES')};
+    completedOrders.delete(cacheKey);
+    if(rows.length<=250&&[...(detailsByOrder?.values()||[])].reduce((n,lines)=>n+lines.length,0)<=1500)completedOrders.set(cacheKey,result);
+    if(completedOrders.size>8)completedOrders.delete(completedOrders.keys().next().value);
+    ordersData.set(key,result);refreshShopWidgets();
+   }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});refreshShopWidgets()}
+   })().finally(()=>{if(queries.get(key)===task)queries.delete(key);});queries.set(key,task);
   }
  }
  function mount(target){
+  const identity=JSON.stringify([state.user?.id,state.user?.role]);if(completedOwner!==identity){completedOrders.clear();completedOwner=identity;}
   token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
-  const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn secondary home-edit-tool" data-home-command="panel-styles">☆ Estilos compartidos</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn primary" data-home-command="edit">Personalizar inicio</button></div>`;
+  const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div class="home-toolbar-description"><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn secondary home-edit-tool" data-home-command="panel-styles">☆ Estilos compartidos</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn secondary home-settings-button" data-home-command="edit" aria-label="Personalizar inicio" title="Personalizar inicio">⚙</button></div>`;
   const shell=document.createElement('div');shell.className='home-widget-shell';grid=document.createElement('div');grid.className='home-widget-grid';const drawer=document.createElement('aside');drawer.className='home-widgets-drawer';drawer.dataset.homeDrawer='';drawer.hidden=true;shell.append(grid,drawer);
   hero?.after(toolbar,shell);if(!hero)root.append(toolbar,shell);
   model=createDefault();original=structuredClone(model);
@@ -857,5 +877,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(usesShopData(w))void fetchFor(w);
  }
- return {mount,dispose(){taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
+ return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
 }

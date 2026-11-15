@@ -3144,6 +3144,7 @@ document.addEventListener('input',e=>{
 });
 
 document.addEventListener('change',async e=>{
+ if(e.target?.matches?.('[data-activity-toggle]')){const chart=e.target.closest('.activity-interactive');chart?.querySelectorAll('[data-activity-series="'+CSS.escape(e.target.dataset.activityToggle)+'"]').forEach(line=>line.style.display=e.target.checked?'':'none');return;}
  if(e.target?.id==='docFile'){updateDocumentFileSelection(e.target);return}
  if(e.target?.matches?.('.stock-file-field input[type=file]'))updateStockFileSelection(e.target);
  if(e.target?.id?.startsWith('tp')&&input('templateDraftPreview'))updateTemplateDraftPreview();
@@ -3321,13 +3322,14 @@ async function boot({fromLogin=false,timingRun=null}={}){
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  const internalReturn=history.state?.totusModuleNavigation===true;
- const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);
+ const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);history.replaceState(history.state,'',moduleUrl(location.href,state.route));
  if(internalReturn)history.replaceState(null,'',moduleUrl(location.href,state.route));
  await refresh('',{route:state.route,initialProfile:profile});chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}
  finally{finishStartupTiming(bootStatus,run);$('#login').classList.remove('checking-session')}
 }
 function clearSessionView(){
+ homeUI.dispose({clearCache:true});
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);

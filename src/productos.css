@@ -308,3 +308,8 @@
 
 #productosRoot .prd-stage-row[data-pr-save-state=saved]>header{color:#167047;border-bottom:1px solid #93c7ac;padding-bottom:8px}
 #productosRoot .prd-stage-row[data-pr-save-state=checking]>header{color:var(--muted,#58677a)}
+/* Read-only stock summary uses the same verified rows as the variant editor. */
+.prd-stock-breakdown{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;font-size:12px;line-height:1.4}
+.prd-stock-breakdown li{display:flex;justify-content:space-between;align-items:start;gap:12px;padding:4px 0;border-bottom:1px solid var(--line,#dce5ee)}
+.prd-stock-breakdown li span{min-width:0;overflow-wrap:anywhere}
+.prd-stock-breakdown strong{white-space:nowrap;font-variant-numeric:tabular-nums}

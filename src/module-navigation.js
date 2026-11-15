@@ -1,5 +1,5 @@
 // Navigation carries only a module name, never session data or credentials.
-export function moduleUrl(href,module){const url=new URL(href);url.searchParams.set('module',module);return url.href;}
+export function moduleUrl(href,module){const url=new URL(href);for(const key of [...url.searchParams.keys()])if(key==='v'||key.startsWith('utm_'))url.searchParams.delete(key);url.searchParams.set('module',module);return url.href;}
 export function requestedModule(href,routes,preferred='inicio',internalReturn=false){const url=new URL(href),id=!internalReturn&&url.searchParams.has('module')?url.searchParams.get('module'):preferred;return routes.some(r=>r.id===id)?id:'inicio';}
 export function nativeModuleClick(event,element){return element?.tagName==='A'&&(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey);}
 

@@ -11,7 +11,8 @@
         "supabase/functions/team-admin",
         "src/startup-timing.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/session-startup-browser-qa.mjs",
@@ -19,7 +20,9 @@
         "tests/release-notice-browser-qa.mjs",
         "tests/startup-scoped-browser-qa.mjs",
         "tests/bootstrap-preload-browser-qa.mjs",
-        "tests/profile-directory-qa.mjs"
+        "tests/profile-directory-qa.mjs",
+        "tests/module-navigation-qa.mjs",
+        "tests/module-navigation-browser-qa.mjs"
       ],
       "invariants": [
         "login recoverable",
@@ -35,7 +38,10 @@
         "supabase/functions/totus-connections",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/product-stock-summary.js",
+        "src/read-pool.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/productos-direct-save-browser-qa.mjs",
@@ -44,7 +50,10 @@
         "tests/productos-relations-browser-qa.mjs",
         "tests/productos-movements-qa.mjs",
         "tests/productos-dirty-state-qa.mjs",
-        "tests/productos-movements-browser-qa.mjs"
+        "tests/productos-movements-browser-qa.mjs",
+        "tests/product-stock-summary-qa.mjs",
+        "tests/read-pool-qa.mjs",
+        "tests/productos-ui-browser-qa.mjs"
       ],
       "invariants": [
         "create/edit/copy",
@@ -61,7 +70,8 @@
         "supabase/functions/totus-connections",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/prestashop-orders-table-browser-qa.mjs",
@@ -81,7 +91,8 @@
         "src/extraction",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/stock-rules-browser-qa.mjs",
@@ -102,7 +113,8 @@
         "supabase/functions/totus-connections/contact-directory",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/contact-directory-browser-qa.mjs"
@@ -122,7 +134,8 @@
         "src/calculations",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/closing-integral-browser-qa.mjs",
@@ -143,7 +156,8 @@
         "supabase/functions/totus-assistant",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/chat-integral-browser-qa.mjs"
@@ -163,7 +177,8 @@
         "supabase/functions/totus-prestashop-alerts",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/prestashop-automations-browser-qa.mjs"
@@ -182,11 +197,19 @@
         "src/website-registry",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/read-pool.js",
+        "src/module-navigation.js",
+        "src/dashboard-activity.js"
       ],
       "tests": [
         "tests/home-navigation-draft-browser-qa.mjs",
-        "tests/home-widgets-actions-browser-qa.mjs"
+        "tests/home-widgets-actions-browser-qa.mjs",
+        "tests/home-widgets-integration-browser-qa.mjs",
+        "tests/dashboard-report-qa.mjs",
+        "tests/home-commercial-calendar-qa.mjs",
+        "tests/home-commercial-calendar-browser-qa.mjs",
+        "tests/home-order-enrichment-qa.mjs"
       ],
       "invariants": [
         "no false dirty state",
@@ -203,7 +226,8 @@
         "src/account",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/account-workspace-browser-qa.mjs",
@@ -226,7 +250,8 @@
         "src/pages/main.js",
         "src/storage-planning.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/module-navigation.js"
       ],
       "tests": [
         "tests/document-upload-browser-qa.mjs",

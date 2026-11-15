@@ -17,6 +17,8 @@ jobs:
       - run: node tests/stability-gate-qa.mjs
       - run: node tests/service-deployment-guard-qa.mjs
       - run: node tests/profile-directory-qa.mjs
+      - run: node tests/product-stock-summary-qa.mjs
+      - run: node tests/read-pool-qa.mjs
       - run: node tests/application-cors-qa.mjs
       - run: node tests/productos-dirty-state-qa.mjs
       - run: node tests/productos-movements-qa.mjs

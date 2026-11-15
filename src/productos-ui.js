@@ -19,6 +19,8 @@ import {productCountryTaxRate,productDisplayAmounts,productPriceForMargin,produc
 import {stitchHeader,stitchCatalog,stitchFiche,stitchCopy,stitchRequest,stitchSaved,ensureStitchProductFonts} from './productos-stitch-view.js';
 import {PRODUCT_COLUMNS,DEFAULT_PRODUCT_COLUMNS,productColumns,productColumnWidths,moveProductColumn,catalogProductKey,productPhoto,filterProductCatalog,productCatalogCsv} from './productos-catalog.js';
 import {buildProductRequest,renderProductRequestForm} from './productos-request.js';
+import {productStockSummary} from './product-stock-summary.js';
+import {readPool} from './read-pool.js';
 import {PRODUCT_STORES,PRODUCT_SECTIONS,VARIANT_FIELDS,textValue,productInputValue,associationIds,normalizedProduct,matchExactReference,buildProductPlan,bulkVariantSelection,productCopyRedirect,matchVariantInStore} from './productos-core.js';
 import {storeConnection} from './prestashop-readonly.js';
 import {PRODUCT_WRITE_FIELDS,LOCALIZED_PRODUCT_FIELDS} from './productos-write-contract.js';
@@ -396,18 +398,21 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   return r.item;
  }
  async function combinations(shop,product){
+  catalogStock.delete(shop+'|'+product.id);
   const ids=associationIds(product,'combinations');
-  const list=[];
-  for(const id of ids){const item=await loadItem(shop,'combinations',id);
+  const readEpoch=epoch;
+  const list=await readPool(ids,async id=>{const item=await loadItem(shop,'combinations',id);
    if(String(item.id_product)!==String(product.id))throw Error('Combinación asociada a otro producto.');
-   list.push(item);
-  }
+   return item;
+  },{current:()=>current()&&epoch===readEpoch});let productStockRows=[];
   const wanted=new Set(list.flatMap(v=>associationIds(v,'product_option_values')));
   try{for(let page=0;[...wanted].some(id=>!attributeNames.has(shop+'|'+id));page++){const data=await invokeShop(shop,'prestashop_read',{resource:'product_option_values',page,page_size:100});for(const value of data.rows||[]){attributeNames.set(shop+'|'+value.id,textValue(value.name));attributeValues.set(shop+'|'+value.id,value);}if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Valores de atributos incompletos.');}}catch{/* Missing names are explicit; no substitutions. */}
   try{if(!attributeGroups.has(shop)){const groups=new Map();for(let page=0;;page++){const data=await invokeShop(shop,'prestashop_read',{resource:'product_options',page,page_size:100});for(const group of data.rows||[])groups.set(String(group.id),textValue(group.name));if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Grupos incompletos.');}attributeGroups.set(shop,groups);}}catch{/* Unknown groups do not authorize a match by attribute. */}
   for(const variant of list)variant.__attributes=associationIds(variant,'product_option_values').map(id=>{const value=attributeValues.get(shop+'|'+id);return {group:attributeGroups.get(shop)?.get(String(value?.id_attribute_group))||'',value:attributeNames.get(shop+'|'+id)||''};});
   for(const variant of list)variant.__attributeNames=associationIds(variant,'product_option_values').map(id=>attributeNames.get(shop+'|'+id)||'Atributo #'+id);
-  try{const stock=[];for(let page=0;;page++){const data=await invokeShop(shop,'prestashop_read',{resource:'stock_availables',product_ids:[String(product.id)],page,page_size:100});if(data.rows.some(row=>String(row.id_product)!==String(product.id)))throw Error('Existencias ajenas.');stock.push(...data.rows);if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Existencias incompletas.');}for(const variant of list){const matches=stock.filter(row=>String(row.id_product_attribute)===String(variant.id)&&(!product.id_shop_default||['0',String(product.id_shop_default)].includes(String(row.id_shop))));if(matches.length===1&&String(matches[0].quantity).trim()!==''&&Number.isFinite(Number(matches[0].quantity)))variant.__stock=matches[0];}}catch{/* A failed read is never zero. */}
+  try{const stock=productStockRows;for(let page=0;;page++){const data=await invokeShop(shop,'prestashop_read',{resource:'stock_availables',product_ids:[String(product.id)],page,page_size:100});if(data.rows.some(row=>String(row.id_product)!==String(product.id)))throw Error('Existencias ajenas.');stock.push(...data.rows);if(!data.possibly_more)break;if(!data.rows.length||page>=1000)throw Error('Existencias incompletas.');}for(const variant of list){const matches=stock.filter(row=>String(row.id_product_attribute)===String(variant.id)&&(!product.id_shop_default||['0',String(product.id_shop_default)].includes(String(row.id_shop))));if(matches.length===1&&String(matches[0].quantity).trim()!==''&&Number.isFinite(Number(matches[0].quantity)))variant.__stock=matches[0];}}catch{productStockRows=[];for(const variant of list)delete variant.__stock;/* A failed read is never zero. */}
+  const summary=productStockSummary(product,list,list.length?list.filter(v=>v.__stock).map(v=>v.__stock):productStockRows);
+  if(summary.total!==null)catalogStock.set(shop+'|'+product.id,summary.total);
   return list;
  }
  async function work(fn){

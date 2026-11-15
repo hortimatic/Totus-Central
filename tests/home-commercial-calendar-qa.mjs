@@ -6,6 +6,7 @@ const row=(margin_value,extra={})=>({id:'1',valid:'1',currency_code:'EUR',margin
 test('commercial margin includes both stores without merging their local IDs and keeps negative margins',()=>{
  const s=commercialMarginSummary({hortimatic:{complete:true,rows:[row(4.20),row(-2.10,{id:'2'})]},newoldsmok:{complete:true,rows:[row(1.20)]}},{from:'2026-11-11',to:'2026-11-12'});
  assert.equal(s.amount,3.30);assert.equal(s.count,3);assert.equal(s.covered,3);assert(s.complete);assert.deepEqual(s.series,[{date:'2026-11-11',value:0},{date:'2026-11-12',value:3.30}]);assert.match(commercialMarginChart(s),/polyline/);
+ assert.deepEqual(s.stores[0].series,[{date:'2026-11-12',value:2.1}]);assert.equal((commercialMarginChart(s).match(/<polyline /g)||[]).length,3);assert.match(commercialMarginChart(s),/Comparar márgenes/);
 });
 test('unknown costs, currency, status and incomplete pages do not become a complete total or graph',()=>{
  for(const read of [{complete:false,rows:[row(1)]},{complete:true,rows:[row(null)]},{complete:true,rows:[row(1,{currency_code:'USD'})]},{complete:true,rows:[row(1,{valid:undefined})]}]){const s=commercialMarginSummary({hortimatic:read});assert.equal(s.complete,false);assert.equal(commercialMarginChart(s),'');}
