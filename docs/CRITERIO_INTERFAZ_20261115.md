@@ -25,7 +25,7 @@ Una función equivalente debe utilizar los mismos controles, jerarquía y compor
 
 ## Comprobaciones
 
-Matriz local: 69 suites, todas correctas tras las correcciones. Incluye creación y modificación de productos, copia completa e imágenes, facturas, gastos, recepciones/cotejos, cierres, informes y descargas con datos ficticios. No confundir simulaciones con escrituras de producción. La geometría de ventanas contempla 52 sesiones en 320, 390, 768 y 1440 px; otros circuitos alcanzan 1920 px.
+Matriz local: 70 suites, todas correctas tras las correcciones. Incluye creación y modificación de productos, copia completa e imágenes, facturas, gastos, recepciones/cotejos, cierres, informes y descargas con datos ficticios. No confundir simulaciones con escrituras de producción. La geometría de ventanas contempla 52 sesiones en 320, 390, 768 y 1440 px; otros circuitos alcanzan 1920 px.
 
 Las pruebas específicas de controles verifican desplazamiento, límites, cambio de anchura del contenedor, persistencia de columnas, separación entre cuentas y eliminación de observadores. Las de tareas comprueban fecha seleccionada y permiso de creación; las del perfil comprueban 31 documentos sin lista infinita y búsqueda entre páginas; las de Chat excluyen del marcado un canal ajeno.
 
@@ -44,3 +44,5 @@ Offline y Totus TPV siguen siendo exclusivamente estudio de montaje y construcci
 ## Regresión responsive aportada después
 
 Se reprodujo en el dominio publicado el recorte interno de «Personalizado» en escritorio. La comprobación previa solo detectaba desbordamiento de página y no era suficiente. Se añade comprobación de recortes internos y límites de filtros en diez anchos: 320, 390, 768, 1024, 1280, 1366, 1440, 1600, 1920 y 2560 px. Las tarjetas ajustan sus filas por su propio ancho, no solo por el tamaño de la ventana; las estrechas usan una cuadrícula regular de periodos. Fechas y selectores ocupan su celda sin mínimos rígidos. Las gráficas horarias dejan de exigir 330/355 px y sus etiquetas extremas se alinean dentro del dibujo. Las fechas inicial y final de la gráfica de actividad ya no se centran sobre el borde del SVG.
+
+La matriz incluye ahora también `subtab-walk-qa`: 104 estados por clic real de módulos y pestañas, en 1640, 1180, 390 y 320 px, sin fallos. El detector distingue controles realmente enlazados a su controlador; el restablecimiento de columnas se comprueba además pulsando el botón y contrastando el resultado. El contrato mantiene los doce circuitos originales y permite añadir el circuito nuevo sin eliminar ninguno.

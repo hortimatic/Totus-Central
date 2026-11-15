@@ -20,7 +20,7 @@ try{
  await page.goto('https://qa.example.invalid/?module=prueba');await install();await page.getByLabel('Configurar columnas',{exact:true}).click();
  await page.getByLabel('Precio',{exact:true}).uncheck();await page.getByLabel('Posición de Estado').selectOption('0');
  assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Estado','Nombre']);
- await page.reload();await install();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Estado','Nombre']);
+ await page.reload();await install();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Estado','Nombre']);await page.getByLabel('Configurar columnas',{exact:true}).click();await page.getByRole('button',{name:'Restablecer columnas',exact:true}).click();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Nombre','Precio','Estado']);
  await page.reload();await page.evaluate(()=>window.qaOwner='actor-B');await install();assert.deepEqual(await page.locator('thead th:visible').allTextContents(),['Nombre','Precio','Estado']);
  await page.close();
  console.log('Shared controls: three widths, movement, boundaries, resize, persistent columns, account isolation and disposal passed.');
