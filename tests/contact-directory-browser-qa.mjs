@@ -31,5 +31,38 @@ try{for(const width of [390,768,1017,1440,1920]){
  await page.locator('[data-directory-related="1"]').first().click();await page.getByRole('dialog').getByRole('heading',{name:'Pedidos del cliente · #1',exact:true}).waitFor();await page.getByRole('button',{name:'Cerrar registros asociados',exact:true}).click();await page.locator('[data-directory-delete="1"]').click();await page.waitForFunction(()=>!directoryQA.rows.some(r=>r.id==='1'));
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'The page stays within the viewport; only the table scrolls horizontally');
  await page.screenshot({path:'qa-artifacts/contact-directory/'+width+'.png',fullPage:false});assert.deepEqual(errors,[]);report.push({width,api:'simulated',passed:['137_rows_paginated','full_directory_search','page_size_and_number','columns','keyboard_resize_autosave','one_button_edit_publish_readback','unedited_zero_date_preserved','create_from_form','customer_orders','delete_from_table','no_page_overflow']});await page.close();
-}console.log('Contact directory: complete search, pagination, saved columns, native-edit contract and responsive at five widths PASS; simulated API.');}
+}
+for(const [kind,resource,noun] of [['marcas','manufacturers','marca'],['proveedores','suppliers','proveedor']])for(const [store,label] of [['hortimatic','Hortimatic'],['newoldsmok','NewOldSmok']]){
+ const page=await browser.newPage({viewport:{width:977,height:641}});
+ await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');
+ await page.addStyleTag({url:'http://127.0.0.1:4173/src/contact-directory.css'});
+ await page.evaluate(async({kind,resource})=>{
+  const {createContactDirectoryUI,directoryPageHtml}=await import('../src/contact-directory-ui.js');
+  const owner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',q=window.masterQA={calls:[],rows:[],fail:true};
+  document.querySelector('#chatHarness').innerHTML=directoryPageHtml(kind,'Local');
+  q.ui=createContactDirectoryUI({actor:()=>owner,can:()=>true,notify:message=>q.notice=message,rpc:async name=>name==='totus_directory_context'?{connections:['Hortimatic','NewOldSmok'].map((name,i)=>({id:i?'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb':owner,name:'PrestaShop · '+name,protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}))}:name==='totus_directory_views'?[]:null,invoke:async b=>{
+   q.calls.push(structuredClone(b));
+   if(b.action.endsWith('_read'))return {...b,ok:true,rows:b.resource===resource?q.rows:b.resource==='languages'?[{id:'2',iso_code:'es',active:'1'}]:[],possibly_more:false};
+   if(b.action.endsWith('_prepare')){if(q.fail)throw Error('Permiso de escritura de la tienda no disponible');return {...b,ok:true,can_commit:true,fingerprint:'a'.repeat(64)};}
+   if(b.action.endsWith('_commit')){q.rows=[{id:'42',...b.fields}];return {...b,ok:true,record_id:'42',verified:true,persisted:true};}
+   throw Error(b.action);
+  }});await q.ui.mount(document.querySelector('[data-directory-root]'));
+ },{kind,resource});
+ await page.getByRole('button',{name:label,exact:true}).click();
+ await page.getByRole('button',{name:'Crear '+noun,exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ for(const field of ['name','description','meta_title','meta_description','meta_keywords',...(kind==='marcas'?['short_description']:[])])await dialog.locator('[name='+field+']').fill(field==='name'?'Ficha de prueba':'Contenido '+field);
+ const publish=dialog.getByRole('button',{name:'Publicar cambios en '+label,exact:true});await publish.click();
+ await dialog.locator('[data-editor-status]').filter({hasText:'Permiso de escritura'}).waitFor();
+ assert(await dialog.locator('[data-editor-status]').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),'Publication errors must be visible without searching below the fields');
+ assert.equal(await page.evaluate(()=>masterQA.calls.filter(c=>c.action.endsWith('_commit')).length),0);
+ await page.evaluate(()=>masterQA.fail=false);await publish.click();
+ await page.waitForFunction(()=>masterQA.notice?.includes('verificados')&&!document.querySelector('dialog'));
+ const calls=await page.evaluate(()=>masterQA.calls),commits=calls.filter(c=>c.action.endsWith('_commit')),prepares=calls.filter(c=>c.action.endsWith('_prepare'));
+ assert.equal(commits.length,1);assert.equal(commits[0].store,store);assert.equal(commits[0].resource,resource);assert.equal(commits[0].operation,'create');assert.equal(commits[0].fields.name,'Ficha de prueba');assert.equal(commits[0].fields.meta_title,'Contenido meta_title');assert.equal(prepares[0].request_id,prepares[1].request_id);
+ assert.equal(await page.getByRole('button',{name:'Vistas',exact:true}).count(),0);
+ await page.getByRole('button',{name:'Configurar columnas',exact:true}).click();await page.getByRole('button',{name:'Perfiles del equipo',exact:true}).click();
+ await page.getByRole('dialog').waitFor();await page.close();report.push({kind,store,api:'simulated',passed:['full_create_fields','selected_shop','visible_error','stable_retry','verified_publication','profiles_inside_columns']});
+}
+console.log('Contact directory: complete search, pagination, saved columns, native-edit contract and responsive at five widths; brand/supplier creation in both shops PASS; simulated API.');}
 finally{await browser.close();await server?.close();await writeFile('qa-artifacts/contact-directory/report.json',JSON.stringify(report,null,2));}

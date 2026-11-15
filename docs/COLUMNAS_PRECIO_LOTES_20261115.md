@@ -7,7 +7,7 @@ Esta revisión parte del código publicado `f0b9011a1b1e12c6ff1c2063ceed36a8ee20
 `src/column-settings.js` genera la fila común de selección y posición. Productos, pedidos PrestaShop, directorios, Inicio y tablas generales comparten geometría, casillas, etiquetas y controles. Las hojas de estilo antiguas de esas filas se retiran; no se cambia el dato comercial ni el permiso de edición.
 
 - Productos y pedidos conservan sus vistas personales, perfiles del equipo y persistencia existente. Pedidos conserva abierto el panel y la búsqueda después de ajustar una columna.
-- Directorios conserva el guardado en la cuenta y sus perfiles del equipo. Ofrece guardado explícito y muestra el resultado o error del servidor.
+- Directorios conserva el guardado en la cuenta y sus perfiles del equipo dentro de Columnas. Se retira el botón exterior «Vistas» de Clientes, Proveedores y Marcas. Ofrece guardado explícito y muestra el resultado o error del servidor.
 - Inicio conserva las columnas en la distribución del tablero de la cuenta. «Guardar distribución» utiliza el mismo guardado y verificación de «Guardar cambios»; no descarta las demás ediciones pendientes del tablero.
 - Las tablas generales conservan el identificador anterior por cuenta, módulo y cabeceras. Añaden vistas personales con nombre y guardado explícito, **en ese navegador**. No se anuncia sincronización entre dispositivos para estos controles.
 - Los controles de presentación llevan `data-draft-ignore`: no deben provocar un aviso de cambios contables sin guardar. No se manipulan tablas de líneas editables de formularios ni su contrato de columnas.
@@ -27,6 +27,14 @@ El formulario solicita descuento porcentual, cantidad mínima y fechas opcionale
 La publicación utiliza `prestashop_product_step_prepare/commit` ya instalados, con `existing_product=true`, padre y etapa estables, huella revisada y confirmación. Guarda el intento en el borrador de la cuenta **antes** de escribir. Una respuesta incierta detiene el lote; «Retomar ofertas pendientes» y «Comprobar y continuar» reutilizan la solicitud anterior. Cada oferta completada debe devolver persisted y verified, además del ID nativo. Un lote entre tiendas no es una transacción indivisible: se conservan las completadas y se informa de la pendiente. El resultado se incorpora al historial de operaciones de Totus.
 
 No se añaden módulos, servicios, cron, réplica de catálogo ni consumo de IA. Las fechas de oferta las aplica PrestaShop. No se modifican precios ni ofertas reales durante los ensayos ficticios.
+
+## Gestión desde Totus y destino de las escrituras
+
+El criterio de producto es gestionar desde Totus y utilizar PrestaShop para vender en la web. Las altas y modificaciones nativas de productos, combinaciones, atributos, marcas, proveedores, clientes, precios, ofertas y stock deben dirigirse a la tienda seleccionada. No basta con guardar un borrador de Totus: la confirmación exige respuesta persistida y relectura verificada de la API oficial. Mantener permisos, identificadores de solicitud y recuperación ante una respuesta incierta. No trasladar IDs entre tiendas ni anunciar éxito parcial como publicación completa.
+
+Esta regla no convierte los estudios de precios, tareas o registros contables locales en recursos de PrestaShop. Tampoco acredita que cada operación imaginable esté implementada: si la API instalada no permite alguna, debe mostrarse la limitación; no instalar módulos, modificar el núcleo ni simular sincronización para ocultarla.
+
+Los errores de publicación del formulario de directorios se muestran encima de los campos y se desplazan a la vista al fallar. Las pruebas cubren altas completas de marca y proveedor en ambas tiendas, destino, error visible, solicitud estable al reintentar y confirmación verificada. CI comprueba además POST/PUT/DELETE nativos en un PrestaShop desechable, incluyendo descripción y SEO. Estas pruebas no demuestran que se haya reproducido o resuelto por sí solo el caso «cocus» de la tienda real.
 
 ## Inicio y verificación
 
