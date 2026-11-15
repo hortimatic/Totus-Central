@@ -115,7 +115,7 @@ for(const [vpName,viewport] of viewports){
 {
  const page=await browser.newPage({locale:'es-ES',viewport:{width:390,height:844}});
  for(const [route,mode,id] of [['pricing','list','pqCost'],['gastos','record','exLineBase_0'],['facturacion','record','ivUnit_0']]){
-  const q=route==='pricing'?'?route=pricing':'?route='+route+'&mode='+mode+'&id=new';
+  const q=route==='pricing'?'?route=pricing&section=local':'?route='+route+'&mode='+mode+'&id=new';
   await page.goto(base+'/tests/ui-harness.html'+q,{waitUntil:'networkidle'});
   const input=page.locator('#'+id);
   if(await input.count()!==1){errors.push('Decimal: no existe '+id+' en '+route);continue}

@@ -25,6 +25,7 @@ for(const [size,width] of [['desktop',1440],['tablet',768],['mobile',390],['smal
  for(const scene of scenes){
   await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
   await clickModuleLink(page,page.locator('#nav [data-route="'+scene.route+'"]'));
+  if(scene.route==='pricing')await page.locator('[data-action=pricing-source][data-source=local]').click();
   if(scene.section){
    const tabAction=scene.route==='administracion'?'admin-section':'billing-section';
    await page.locator('[data-action="'+tabAction+'"][data-section="'+scene.section+'"]').first().click();

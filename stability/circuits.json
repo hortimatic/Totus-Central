@@ -42,7 +42,9 @@
         "src/api.js",
         "src/product-stock-summary.js",
         "src/read-pool.js",
-        "src/module-navigation.js"
+        "src/module-navigation.js",
+        "src/catalog-offer-batch.js",
+        "src/state.js"
       ],
       "tests": [
         "tests/productos-direct-save-browser-qa.mjs",
@@ -56,7 +58,10 @@
         "tests/read-pool-qa.mjs",
         "tests/productos-ui-browser-qa.mjs",
         "tests/catalog-price-batch-qa.mjs",
-        "tests/catalog-price-batch-browser-qa.mjs"
+        "tests/catalog-price-batch-browser-qa.mjs",
+        "tests/catalog-offer-batch-qa.mjs",
+        "tests/catalog-offer-batch-browser-qa.mjs",
+        "tests/pricing-connected-browser-qa.mjs"
       ],
       "invariants": [
         "create/edit/copy",
@@ -110,6 +115,8 @@
     {
       "id": "directories",
       "paths": [
+        "supabase/migrations/20261115084252_directory_journal_website_metadata.sql",
+        "tests/contact-directory-db-qa.sql",
         "src/contact-directory",
         "src/directory",
         "src/website-registry",
@@ -178,6 +185,9 @@
     {
       "id": "automation",
       "paths": [
+        "src/automations-ui.js",
+        "src/header-online-orders.js",
+        "src/header-tools.js",
         "src/prestashop",
         "src/recurring",
         "src/website-registry",
@@ -305,7 +315,9 @@
         "index.html",
         "src/account-document-page.js",
         "src/account-ui.js",
-        "src/stitch-layout.js"
+        "src/stitch-layout.js",
+        "src/column-settings.js",
+        "src/state.js"
       ],
       "tests": [
         "tests/api-manager-browser-qa.mjs",
@@ -328,7 +340,10 @@
         "tests/account-document-page-qa.mjs",
         "tests/pricing-integral-browser-qa.mjs",
         "tests/pricing-directory-browser-qa.mjs",
-        "tests/layout-audit.mjs"
+        "tests/layout-audit.mjs",
+        "tests/pricing-taxonomy-layout-qa.mjs",
+        "tests/pricing-variants-browser-qa.mjs",
+        "tests/pricing-connected-browser-qa.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",

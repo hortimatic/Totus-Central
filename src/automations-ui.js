@@ -1,9 +1,9 @@
 import {createPrestashopAutomations} from './prestashop-automations-ui.js';
 import {storeConnection} from './prestashop-readonly.js';
 export const automationsPage=()=>'<div class="page automations-page"><section id="automationsRoot" class="ps-workspace" aria-label="Automatizaciones"><div class="card card-pad" role="status"><h2>Automatizaciones y avisos</h2><p>Preparando las reglas, sus horarios y el historial disponible para tu cuenta…</p></div></section></div>';
-export function createAutomationsUI({rpc,actor,can,canReadStores,invoke}){
+export function createAutomationsUI({rpc,actor,can,canReadStores,invoke,onConfigureBell,confirm}){
  let connections=[],owner=null;
- const rules=createPrestashopAutomations({rpc,actor,can,read:async(store,resource,params)=>{
+ const rules=createPrestashopAutomations({rpc,actor,can,onConfigureBell,confirm,read:async(store,resource,params)=>{
   if(owner!==actor()||!canReadStores())throw Error('Necesitas permiso de consulta de PrestaShop para esta regla.');
   if(!connections.length){const result=await rpc('totus_prestashop_context',{});if(owner!==actor())throw Error('La sesión ha cambiado.');connections=result?.connections||[];}
   const connection=storeConnection(connections,store);if(!connection)throw Error('Configura una conexión única para esta tienda.');

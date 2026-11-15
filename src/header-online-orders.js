@@ -4,13 +4,13 @@ import {headerWatchHtml,headerWatchData} from './header-order-watch.js';
 // Header consumes the scheduler's confirmed online deliveries. No additional
 // catalogue polling and no classification based on the payment description.
 export function createOnlineOrderBell({rpc,actor,can,onNavigate,onOpenOrder}){
- let host=null,button=null,panel=null,owner='',epoch=0,timer=null,busy=false,data=null,error='',seenCount=null,watchState=null;
+ let host=null,button=null,panel=null,owner='',epoch=0,timer=null,busy=false,data=null,error='',seenCount=null,watchState=null,settingsRequested=false;
  const valid=(who,n)=>host?.isConnected&&actor()===who&&owner===who&&epoch===n;
  const key=row=>row.store+':'+row.order_id;
  const filtered=()=>data?.config?.enabled===false?[]:(data?.rows||[]).filter(row=>(data.config.stores||[]).includes(row.store));
  function render(){
   if(!host)return;
-  const rows=filtered(),seen=new Set(data?.config?.seen||[]),unread=rows.filter(r=>!seen.has(key(r))).length,settingsOpen=panel.querySelector('[data-watch-settings]')?.open;
+  const rows=filtered(),seen=new Set(data?.config?.seen||[]),unread=rows.filter(r=>!seen.has(key(r))).length,settingsOpen=settingsRequested||panel.querySelector('[data-watch-settings]')?.open;
   const watchInputs=[...panel.querySelectorAll('[data-watch-store],[data-watch-offline],[data-watch-minutes]')].map(el=>({key:el.dataset.watchStore?'[data-watch-store="'+el.dataset.watchStore+'"]':el.dataset.watchOffline?'[data-watch-offline="'+el.dataset.watchOffline+'"]':'[data-watch-minutes]',value:el.value,checked:el.checked}));
   button.hidden=!can('ventas');button.setAttribute('aria-label','Pedidos online: '+(data?unread+' sin leer':'consulta pendiente'));button.title=error||button.getAttribute('aria-label');
   button.innerHTML='<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="header-count '+(unread?'has-alert':'')+'">'+(data?(unread>99?'99+':unread):'—')+'</span>';
@@ -20,7 +20,7 @@ export function createOnlineOrderBell({rpc,actor,can,onNavigate,onOpenOrder}){
     const match=String(row.body||'').match(/Fecha: (\d{4}-\d{2}-\d{2})/),date=match?.[1]||'';
     return '<article class="header-order-notice '+(!seen.has(key(row))?'is-unread':'')+'"><strong>'+esc(row.store==='hortimatic'?'Hortimatic':'NewOldSmok')+' · Pedido #'+esc(row.order_id)+'</strong><pre>'+esc(row.body)+'</pre><button type="button" data-online="order" data-store="'+esc(row.store)+'" data-order="'+esc(row.order_id)+'" data-date="'+esc(date)+'" '+(!date?'disabled':'')+'>Ver pedido, datos e imágenes</button></article>';
    }).join('')+(data&&!rows.length?'<p>No hay avisos para las tiendas seleccionadas.</p>':'')+'</div>';
-  if(settingsOpen&&panel.querySelector('[data-watch-settings]'))panel.querySelector('[data-watch-settings]').open=true;
+  if(settingsOpen&&panel.querySelector('[data-watch-settings]')){const settings=panel.querySelector('[data-watch-settings]');settings.open=true;if(settingsRequested){settings.querySelector('summary')?.focus({preventScroll:true});settingsRequested=false;}}
   for(const input of watchInputs){const el=panel.querySelector(input.key);if(el){el.value=input.value;if(el.type==='checkbox')el.checked=input.checked;}}
  }
  async function refresh(){
@@ -52,5 +52,5 @@ export function createOnlineOrderBell({rpc,actor,can,onNavigate,onOpenOrder}){
    panel.onclick=e=>{const b=e.target.closest('[data-online]');if(!b||b.disabled)return;const action=b.dataset.online;if(action.startsWith('watch-')){void configureWatch(action);return;}if(action==='close'){close();return;}if(action==='refresh'){void refresh();return;}if(action==='seen'){void save({...data.config,seen:[...new Set([...(data.config.seen||[]),...filtered().map(key)])].slice(-500)});return;}if(action==='rules'){close();void onNavigate('automatizaciones');return;}if(action==='order'&&['hortimatic','newoldsmok'].includes(b.dataset.store)&&/^\d{1,15}$/.test(b.dataset.order)&&/^\d{4}-\d{2}-\d{2}$/.test(b.dataset.date)){close();void onOpenOrder({store:b.dataset.store,order:b.dataset.order,date:b.dataset.date});}};
    panel.onchange=e=>{if(!data||busy)return;if(e.target.matches('[data-online-config],[data-online-store]'))void save({...data.config,enabled:panel.querySelector('[data-online-config]').checked,stores:[...panel.querySelectorAll('[data-online-store]:checked')].map(el=>el.dataset.onlineStore)});};
    document.addEventListener('click',outside);document.addEventListener('keydown',keyboard);render();void refresh();timer=setInterval(()=>void refresh(),60000);
-  },refresh,refreshAccess(){if(!can('ventas')){data=null;watchState=null;if(button)button.hidden=true;close();}else if(host){button.hidden=false;void refresh();}},stop(){epoch++;clearInterval(timer);timer=null;document.removeEventListener('click',outside);document.removeEventListener('keydown',keyboard);button?.remove();panel?.remove();host=button=panel=null;owner='';data=null;watchState=null;error='';busy=false;seenCount=null;}};
+  },openSettings(){if(!host?.isConnected||!can('ventas'))throw Error('No tienes acceso a los avisos de pedidos.');if(watchState?.can_configure===false)throw Error('Administración configura la detección común de las tiendas.');settingsRequested=true;panel.hidden=false;button.setAttribute('aria-expanded','true');render();void refresh();},refresh,refreshAccess(){if(!can('ventas')){data=null;watchState=null;if(button)button.hidden=true;close();}else if(host){button.hidden=false;void refresh();}},stop(){epoch++;clearInterval(timer);timer=null;document.removeEventListener('click',outside);document.removeEventListener('keydown',keyboard);button?.remove();panel?.remove();host=button=panel=null;owner='';data=null;watchState=null;error='';busy=false;seenCount=null;settingsRequested=false;}};
 }

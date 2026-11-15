@@ -10,6 +10,32 @@ grant usage on schema public,private,auth to authenticated,service_role;
 grant select(id,enabled,real_data_authorized,revision,verified_revision,name) on private.totus_api_connections to service_role;
 \i supabase/review_patches/087_directory_journal_connection_metadata.sql
 \i supabase/review_patches/087_directory_journal_connection_metadata.sql
+
+-- Production's registry migration replaced the old connection-name check.
+-- Preserve that real SECURITY INVOKER path in this fixture; otherwise the
+-- missing registry privilege is invisible to all earlier journal assertions.
+create table private.totus_websites(connection_id uuid,status text,private_note text);
+insert into private.totus_websites values('11111111-1111-4111-8111-111111111111','active','not visible to the service');
+revoke all on private.totus_websites from public,anon,authenticated,service_role;
+do $$declare definition text:=pg_get_functiondef('public.totus_directory_operation(text,uuid,jsonb)'::regprocedure);
+begin
+ if strpos(definition,'x.name in (''PrestaShop · Hortimatic'',''PrestaShop · NewOldSmok'')')=0 then raise exception 'Unexpected legacy journal fixture';end if;
+ execute replace(definition,'x.name in (''PrestaShop · Hortimatic'',''PrestaShop · NewOldSmok'')','exists(select 1 from private.totus_websites w where w.connection_id=x.id and w.status=''active'')');
+end$$;
+set role service_role;
+do $$begin
+ begin
+  perform public.totus_directory_operation('lookup','99999999-9999-4999-8999-999999999999',jsonb_build_object('actor_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','connection_id','11111111-1111-4111-8111-111111111111','revision',1,'signature',repeat('d',64),'resource','manufacturers','operation','create'));
+  raise exception 'QA expected registry permission failure before repair';
+ exception when insufficient_privilege then null;end;
+end$$;
+reset role;
+\i supabase/migrations/20261115084252_directory_journal_website_metadata.sql
+\i supabase/migrations/20261115084252_directory_journal_website_metadata.sql
+select public.qa_directory_assert(has_column_privilege('service_role','private.totus_websites','connection_id','SELECT') and has_column_privilege('service_role','private.totus_websites','status','SELECT'),'server can verify registry metadata');
+select public.qa_directory_assert(not has_column_privilege('service_role','private.totus_websites','private_note','SELECT'),'no whole-table grant');
+select public.qa_directory_assert(not has_column_privilege('authenticated','private.totus_websites','status','SELECT') and not has_column_privilege('anon','private.totus_websites','status','SELECT'),'no browser registry grant');
+select public.qa_directory_assert(not (select prosecdef from pg_proc where oid='public.totus_directory_operation(text,uuid,jsonb)'::regprocedure),'journal stays SECURITY INVOKER');
 grant execute on function auth.uid() to authenticated;
 set role authenticated;
 set qa.uid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

@@ -638,7 +638,7 @@ await check('Descargas desde los botones reales de Cajas, Gastos e Informes',asy
  }
 });
 await check('Pricing: guardar consulta con histórico y producto independiente',async()=>{
- await nav('pricing');
+ await nav('pricing');await page.locator('#content[data-module=pricing]').waitFor();if(await page.locator('[data-action=pricing-source][data-source=local]').count())await page.locator('[data-action=pricing-source][data-source=local]').click();
  await page.locator('#pqQuery').fill('Líquido de prueba QA');
  await page.locator('#pqCost').fill('2,50');
  await page.locator('#pqPvp').fill('6,30');
@@ -683,7 +683,7 @@ await check('Pricing: guardar consulta con histórico y producto independiente',
  }));
  assert(converted.product,'No se convirtió la consulta correctamente');
  assert(converted.costs.some(x=>x.product_id===converted.product.id&&x.provider_id===providerId&&x.net_cost===2.5&&x.selected),'La conversión perdió proveedor o precio neto');
- await nav('pricing');
+ await nav('pricing');await page.locator('#content[data-module=pricing]').waitFor();if(await page.locator('[data-action=pricing-source][data-source=local]').count())await page.locator('[data-action=pricing-source][data-source=local]').click();
  if(await page.locator('[data-action="product-back"]').count())await page.locator('[data-action="product-back"]').first().click();
  await page.locator('[data-action="product-new"]').first().click();
  await page.locator('#prSku').fill('SKU-QA-001');

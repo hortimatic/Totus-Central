@@ -1,0 +1,8 @@
+// Shared presentation only. Each table retains its own persistence and permissions.
+const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const attributes=value=>Object.entries(value||{}).map(([key,value])=>value===false||value==null?'':' '+key+'="'+escape(value===true?'':value)+'"').join('');
+export function columnSettingsRow({key,label,selected,locked=false,fixed=false,index,count,check={},position={},grip={'data-tc-column-grip':key},up={'data-tc-column-step':-1},down={'data-tc-column-step':1},className='',row={}}){
+ const control=selected?'<span class="tc-column-move">'+(grip?'<button type="button" class="prd-column-grip" draggable="true" aria-label="Mover '+escape(label)+'"'+attributes(grip)+'>⠿</button>':'')+'<select data-draft-ignore aria-label="Posición de '+escape(label)+'"'+attributes(position)+'>'+Array.from({length:count},(_,n)=>'<option value="'+n+'" '+(index===n?'selected':'')+'>'+(n+1)+'</option>').join('')+'</select>'+(up?'<button type="button" aria-label="Subir '+escape(label)+'"'+attributes({...up,disabled:fixed||index===0})+'>↑</button>':'')+(down?'<button type="button" aria-label="Bajar '+escape(label)+'"'+attributes({...down,disabled:fixed||index===count-1})+'>↓</button>':'')+'</span>':'';
+ return '<div class="tc-column-row prd-column-option '+escape(className)+'" data-column-key="'+escape(key)+'"'+attributes(row)+'><label><input type="checkbox" data-draft-ignore '+(selected?'checked ':'')+(locked?'disabled ':'')+attributes(check)+'><span>'+escape(label)+'</span></label>'+control+'</div>';
+}
+export function columnSettingsCaption(count){return '<span aria-hidden="true">⚙</span><span>Columnas</span><small>'+Number(count)+'</small>';}

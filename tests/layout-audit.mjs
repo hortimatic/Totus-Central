@@ -5,7 +5,7 @@ const browser=await chromium.launch({headless:true});
 const failures=[],notices=[];
 const routes=['inicio','pricing','cajas','gastos','facturacion','documentos','fiscalidad','informes','administracion'];
 const pages=[
- ['inicio','?route=inicio'],['pricing','?route=pricing'],
+ ['inicio','?route=inicio'],['pricing','?route=pricing'],['pricing-studies','?route=pricing&section=local'],
  ['cajas-list','?route=cajas'],['cajas-form','?route=cajas&mode=record&id=new'],
  ['gastos-list','?route=gastos'],['gastos-form','?route=gastos&mode=record&id=new'],
  ['gastos-facturas','?route=gastos&section=facturas'],
@@ -26,7 +26,7 @@ for(const [viewportName,viewport] of [['wide',{width:1640,height:900}],['desktop
  for(const [view,query] of pages){
   const label=viewportName+'/'+view;
   await page.goto('http://127.0.0.1:4173/tests/ui-harness.html'+query,{waitUntil:'networkidle'});
-  if(view==='pricing'&&await page.locator('.pricing-reference-tools>summary').count())await page.locator('.pricing-reference-tools>summary').click();
+  if(view==='pricing-studies'&&await page.locator('.pricing-reference-tools>summary').count())await page.locator('.pricing-reference-tools>summary').click();
   if(view==='admin-storage'&&await page.locator('details.storage-technical').count())await page.locator('details.storage-technical > summary').click();
   const audit=await page.evaluate(()=>{
    const root=document.querySelector('#root');

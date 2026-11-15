@@ -176,7 +176,7 @@ async function loadStockCatalog(storeId,references,valid){
   if(response.error||response.data?.error)throw Error('No se pudo leer el catálogo de esta tienda.');return response.data;
  },active);
 }
-const automationsUI=createAutomationsUI({rpc,actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
+const automationsUI=createAutomationsUI({rpc,confirm:message=>confirmAction(message,{title:'Cambios sin guardar',acceptLabel:'Descartar cambios'}),onConfigureBell:()=>headerTools.openOnlineSettings(),actor:()=>state.user?.id,can:operation=>can('automatizaciones',operation),canReadStores:()=>can('prestashop','view'),invoke:async body=>{const response=await sb.functions.invoke('totus-connections',{body});if(response.error||response.data?.error)throw Error('No se pudo consultar la tienda. Revisa la conexión en APIs.');return response.data;}});
 const directoryUI=createContactDirectoryUI({rpc,actor:()=>state.user?.id,can:(kind,action)=>can(kind,action),confirm:(message,options={})=>confirmAction(message,{title:'Cambios sin publicar',acceptLabel:'Descartar y continuar',...options}),notify:message=>toast(message,'ok'),invoke:async body=>{const result=await sb.functions.invoke('totus-connections',{body});if(result.error){let detail;try{detail=await result.error.context?.json?.();}catch{}throw Error(detail?.error||result.error.message);}if(result.data?.error)throw Error(result.data.error);return result.data;}});
 const productosUI=createProductosUI({rpc,tableLayout:{load:owner=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:null}),save:(layout,owner)=>rpc('totus_products_table_layout',{p_owner:owner,p_layout:layout})},actor:()=>state.user?.id,allowed:()=>can('productos','view'),canEdit:()=>can('productos','edit'),canCreate:()=>can('productos','create'),canDelete:()=>can('productos','delete'),canExport:()=>can('productos','export'),invoke:async body=>{
  const result=await sb.functions.invoke('totus-connections',{body});
@@ -1000,7 +1000,7 @@ async function saveProduct(id='',next=false){
  const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
  const saved=savedResult.product;
  const siblings=next?state.data.products.filter(p=>p.family_id===saved.family_id):[],position=siblings.findIndex(p=>p.id===saved.id),following=position>=0?siblings[position+1]:null;
- if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh('Producto guardado.');
+ if(next&&!following)resetView('pricing');else setView('pricing',{section:'local',mode:'record',id:following?.id||saved.id});await refresh('Producto guardado.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
  try{
@@ -1422,7 +1422,7 @@ async function convertConsultation(id){
  const result=await rpc('totus_pricing_save_product',{p_product:{id:required('ccProductId','Identificador del producto'),is_new:true,consultation_id:id,name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,quick_competitor:c.competitor??null,quick_discount:c.discount??0,units_month:0,status:'PENDIENTE',notes:'Creado desde consulta: '+c.query},
  p_variants:[],p_provider:{id:providerId,name:state.data.providers.find(p=>p.id===providerId)?.name||'',net_cost:cost,provider_discount:0,shipping_unit:0}});
  const product=result.product;
- closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
+ closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{section:'local',mode:'record',id:product.id});setRoute('pricing');render();
 }
 
 async function reuseConsultation(id){
@@ -2978,8 +2978,8 @@ document.addEventListener('click',async e=>{
   if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
   if(a==='documents-zip'){await zipFilteredDocuments();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
-  if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
-  if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='product-new'){setView('pricing',{section:'local',mode:'record',id:null});render();return}
+  if(a==='product-edit'){setView('pricing',{section:'local',mode:'record',id:el.dataset.id});render();return}
   if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
   if(a==='product-draft-remove'){document.querySelector('.pricing-draft-variant[data-draft-id="'+el.dataset.draft+'"]')?.remove();updateProductStudy();return}

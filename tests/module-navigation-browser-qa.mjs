@@ -22,7 +22,7 @@ try{
   const href=await nav('gastos').getAttribute('href');assert.equal(new URL(href).searchParams.get('module'),'gastos');
   const other=await browser.newPage({viewport:{width,height:850}});await other.goto(href,{waitUntil:'networkidle'});assert.equal(await other.locator('#pageTitle').innerText(),'Gastos');assert.equal(await page.locator('#pageTitle').innerText(),'Cajas');await other.close();
   await page.evaluate(()=>{window.__mockDb.products.push({id:'nav-product-qa',name:'Actualizado desde otra sesión',type:'simple',active:true,updated_at:'2026-10-31T00:00:00Z'});});
-  await clickModuleLink(page,nav('pricing'));await page.getByText('Actualizado desde otra sesión',{exact:true}).waitFor();
+  await clickModuleLink(page,nav('pricing'));await page.locator('[data-action=pricing-source][data-source=local]').click();await page.getByText('Actualizado desde otra sesión',{exact:true}).waitFor();
   await page.locator('#pricingQuery').fill('Actualizado');await page.locator('#pricingQuery').press('Enter');
   await clickModuleLink(page,nav('cajas'));await page.locator('#pageTitle').filter({hasText:'Cajas'}).waitFor();
   await clickModuleLink(page,nav('pricing'));await page.locator('#pricingQuery').waitFor();assert.equal(await page.locator('#pricingQuery').inputValue(),'Actualizado');

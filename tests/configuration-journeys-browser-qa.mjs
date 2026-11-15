@@ -101,7 +101,7 @@ try{
  await page.locator('#reportPeriodYear').fill('2025');await page.locator('#reportPeriodQuarter').selectOption('2');
  await page.locator('[data-action="report-period-quarter"]').click();
  assert.equal(await page.locator('#informesFrom').inputValue(),'2025-04-01');assert.equal(await page.locator('#informesTo').inputValue(),'2025-06-30');
- await clickModuleLink(page,page.locator('#nav [data-route="gastos"]'));await page.locator('[data-action="expense-suppliers"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="proveedores"]'));
  await page.locator('[data-action="expense-supplier-new"]').click();await page.locator('#esName').fill('Proveedor ficticio para borrar');
  await page.locator('[data-action="expense-supplier-save"]').click();
  const supplierId=await page.evaluate(()=>window.__mockDb.ops_suppliers.find(s=>s.name==='Proveedor ficticio para borrar').id);

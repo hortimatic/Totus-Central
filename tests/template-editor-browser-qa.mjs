@@ -5,6 +5,7 @@ import {chromium} from 'playwright';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVQIHWPkcOthgAEmBiSAmwMAKxQA4q7yKTMAAAAASUVORK5CYII=','base64');
 const logo={name:'logo-editor.png',mimeType:'image/png',buffer:png};
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[];
+await page.context().addInitScript(()=>{window.print=()=>{window.__qaPrintRequested=true;};});
 page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
@@ -12,6 +13,8 @@ try{
  await clickModuleLink(page,page.locator('#nav [data-route="facturacion"]'));await page.locator('[data-action="billing-section"][data-section="plantillas"]').click();
  await page.locator('[data-action="template-edit"][data-id="'+id+'"]').click();
  await page.locator('#templateDraftPreview .invoice-preview').waitFor();
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ assert.equal(await page.locator('#templateDraftPreview .tc-table-tools,#templateDraftPreview .tc-table-arrows').count(),0,'The document preview must not acquire interactive table controls');
  const originals=await page.evaluate(()=>JSON.stringify(window.__mockDb.ops_document_templates));
  const values={tpName:'Plantilla completa QA',tpCode:'EDITOR_QA',tpPrimary:'#112233',tpSecondary:'#bb4422',tpTextColor:'#225533',tpLogoWidth:'24',tpInvoiceTitle:'FACTURA QA',tpProformaTitle:'PRESUPUESTO QA',tpHeader:'Cabecera primera línea\nCabecera segunda línea',tpFooter:'Pie primero\nPie segundo',tpNotes:'INTERNAL_DO_NOT_PRINT',tpTerms:'Pago en treinta días',tpBank:'Cuenta bancaria ficticia QA'};
  for(const [key,value] of Object.entries(values))await page.locator('#'+key).fill(value);
@@ -37,6 +40,7 @@ try{
  await popup.locator('img.invoice-logo').waitFor();await popup.waitForFunction(()=>document.querySelector('img')?.complete&&document.querySelector('img')?.naturalWidth===4);
  assert.match(await popup.locator('img.invoice-logo').getAttribute('src'),/^data:image\/png;base64,/,'Print must not depend on an editor blob URL that can be revoked');
  assert.match(await popup.locator('body').innerText(),/PRESUPUESTO QA/);assert(!(await popup.locator('body').innerText()).includes('INTERNAL_DO_NOT_PRINT'));
+ await popup.waitForFunction(()=>window.__qaPrintRequested===true);
  const pdf=await popup.pdf({format:'A4',printBackground:true});assert.equal(pdf.subarray(0,5).toString(),'%PDF-');await popup.close();
  for(const width of [1440,1017,768,390,320]){
   await page.setViewportSize({width,height:1000});

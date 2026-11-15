@@ -9,6 +9,9 @@ const pngA=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVR4
 const pngB=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVR4nGPcouHGAANMDEgANwcAOhYBKlK6+/kAAAAASUVORK5CYII=','base64');
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:1440,height:960},locale:'es-ES'});
+// Verify the application's print request separately from headless PDF export:
+// running both print jobs together races in Edge/Chromium.
+await page.context().addInitScript(()=>{window.print=()=>{window.__qaPrintRequested=true;};});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 page.setDefaultTimeout(7000);
@@ -109,6 +112,7 @@ try {
   assert((await popup.locator('body').innerText()).includes('Cliente ficticio'),'La factura para imprimir ha perdido su cliente');
   assert.equal(await popup.title(),unsafeNumber,'Invoice number must remain plain title text');
   assert.equal(await popup.evaluate(()=>window.__invoiceTitleInjected),undefined,'Invoice number must never execute markup');
+  await popup.waitForFunction(()=>window.__qaPrintRequested===true);
   const printed=await popup.pdf({format:'A4',printBackground:true});
   assert(printed.subarray(0,5).toString()==='%PDF-','No se genera un PDF de factura imprimible');
   assert(printed.length>4000,'El PDF de factura parece vacío');

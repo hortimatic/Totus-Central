@@ -82,7 +82,7 @@ try{
  await page.setViewportSize({width:1440,height:960});
  assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
  const financial=page.locator('[data-financial-margin]');await financial.scrollIntoViewIfNeeded();
- await financial.locator('.home-financial-margin b').filter({hasText:'357,60'}).waitFor();
+ await financial.locator('.home-financial-margin b').filter({hasText:'357,60'}).waitFor();assert.equal(await financial.locator('.home-gain-stores>div').count(),2);assert.match(await financial.locator('.home-gain-stores').innerText(),/Hortimatic/);assert.match(await financial.locator('.home-gain-stores').innerText(),/NewOldSmok/);const shopAmounts=await financial.locator('.home-gain-stores dd').allTextContents();assert(shopAmounts.every(v=>/€/.test(v)),'Cada tienda debe tener su ganancia calculada, no un cero inventado');
  await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
  await page.evaluate(()=>{window.__holdHomeOrders=true;window.__releaseHomeOrders=[];});
  await financial.locator('button').click();await page.waitForFunction(()=>window.__releaseHomeOrders.length===2);
