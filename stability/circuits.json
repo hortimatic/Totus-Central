@@ -119,9 +119,9 @@
       ],
       "tests": [
         "tests/contact-directory-browser-qa.mjs",
-        "tests/combined-customers-browser-qa.mjs"
-        ,"tests/contact-address-browser-qa.mjs"
-        ,"tests/contact-directory-speed-browser-qa.mjs"
+        "tests/combined-customers-browser-qa.mjs",
+        "tests/contact-address-browser-qa.mjs",
+        "tests/contact-directory-speed-browser-qa.mjs"
       ],
       "invariants": [
         "shop-specific clients/brands/suppliers",
@@ -317,6 +317,7 @@
         "tests/productos-ui-browser-qa.mjs",
         "tests/subtab-walk-qa.mjs",
         "tests/productos-table-browser-qa.mjs",
+        "tests/productos-table-layout-browser-qa.mjs",
         "tests/dashboard-report-browser-qa.mjs",
         "tests/account-document-page-qa.mjs"
       ],
