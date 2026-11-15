@@ -386,6 +386,19 @@
       ]
     },
     {
+      "id": "totustpv-foundation",
+      "paths": ["src/totustpv/", "tests/totustpv-model-qa.mjs", "tests/totustpv-checkout-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-native-adapter-qa.mjs", "tests/totustpv-inventory-qa.mjs", "supabase/migrations/20261115182617_totustpv_durable_checkout.sql"],
+      "tests": ["tests/totustpv-model-qa.mjs", "tests/totustpv-checkout-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-native-adapter-qa.mjs", "tests/totustpv-inventory-qa.mjs"],
+      "invariants": [
+        "Totus Central module without POSTPV or parallel authentication dependency",
+        "cash isolated by store drawer and session",
+        "uncertain remote order cannot be blindly resubmitted",
+        "confirmation requires remote payment state lines and stock readback",
+        "server-only PostgreSQL journal commits order confirmation and payment events atomically",
+        "one active physical drawer session and one remote cart dispatch across workers"
+      ]
+    },
+    {
       "id": "stability-tooling",
       "paths": [
         "tools/stability-gate.mjs",
