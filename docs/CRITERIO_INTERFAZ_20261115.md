@@ -40,3 +40,7 @@ PR #200 ya publicado en `3820e30770922ce24982d1e48ba8929bd489ca99`: verificados 
 - Precio conectado al catálogo y operaciones por familias según el registro previo; quedan fuera de este bloque común.
 
 Offline y Totus TPV siguen siendo exclusivamente estudio de montaje y construcción. No se implementan aquí, no se retira POSTPV y no se modifica PrestaShop ni sus servicios o permisos.
+
+## Regresión responsive aportada después
+
+Se reprodujo en el dominio publicado el recorte interno de «Personalizado» en escritorio. La comprobación previa solo detectaba desbordamiento de página y no era suficiente. Se añade comprobación de recortes internos y límites de filtros en diez anchos: 320, 390, 768, 1024, 1280, 1366, 1440, 1600, 1920 y 2560 px. Las tarjetas ajustan sus filas por su propio ancho, no solo por el tamaño de la ventana; las estrechas usan una cuadrícula regular de periodos. Fechas y selectores ocupan su celda sin mínimos rígidos. Las gráficas horarias dejan de exigir 330/355 px y sus etiquetas extremas se alinean dentro del dibujo. Las fechas inicial y final de la gráfica de actividad ya no se centran sobre el borde del SVG.

@@ -108,8 +108,8 @@
 .home-ps-chart figcaption{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;font-weight:650;color:var(--ink,#17253b)}
 .home-ps-chart figcaption strong{color:var(--accent,#2367d1);font-size:15px;font-variant-numeric:tabular-nums}
 .home-chart-plot{max-width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
-.home-chart-columns{min-width:355px;display:flex;align-items:stretch;height:146px;gap:3px}
-.home-chart-column{display:flex;flex:1;min-width:8px;align-items:center;flex-direction:column;position:relative;justify-content:flex-end}
+.home-chart-columns{min-width:0;width:100%;display:flex;align-items:stretch;height:146px;gap:3px}
+.home-chart-column{display:flex;flex:1;min-width:0;align-items:center;flex-direction:column;position:relative;justify-content:flex-end}
 .home-chart-column .home-chart-number{display:none}
 .home-chart-column .home-chart-track{flex:1;width:100%;position:relative;border-bottom:1px solid var(--line,#dbe4ef);background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),color-mix(in srgb,var(--accent,#2367d1) 10%,transparent) calc(25% - 1px),color-mix(in srgb,var(--accent,#2367d1) 10%,transparent) 25%);min-height:0}
 .home-chart-column .home-chart-bar{position:absolute;bottom:0;left:10%;right:10%;width:80%;display:block;background:linear-gradient(to top,var(--accent,#2367d1),color-mix(in srgb,var(--accent,#2367d1) 55%,var(--panel,#fff)));border-radius:3px 3px 0 0;transition:filter .15s ease,opacity .15s ease;min-height:0}
@@ -135,7 +135,7 @@
 .home-orders-table th:first-child{position:sticky;left:0;z-index:3;background:var(--panel,#fff)}
 .home-orders-table td:first-child{position:sticky;left:0;z-index:1;background:var(--panel,#fff)}
 .home-orders-table tbody tr:hover td{background:color-mix(in srgb,var(--accent,#2367d1) 5%,var(--panel,#fff))}
-@media(max-width:540px){.home-ps-panels{grid-template-columns:minmax(0,1fr)}.home-chart-columns{min-width:330px}.home-ps-chart{padding:10px}}
+@media(max-width:540px){.home-ps-panels{grid-template-columns:minmax(0,1fr)}.home-chart-columns{min-width:0}.home-ps-chart{padding:10px}}
 @media(prefers-reduced-motion:reduce){.home-chart-column .home-chart-bar{transition:none}}
 
 /* Density belongs to each orders widget; it never changes another table or Mi interfaz. */
@@ -271,13 +271,13 @@
 .dashboard-page .home-order-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .dashboard-page .home-period-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;margin:0 0 12px;min-width:0}
 .dashboard-page .home-period-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:3px;border:1px solid var(--line,#dce5ee);border-radius:9px;background:color-mix(in srgb,var(--accent,#0284c7) 4%,var(--panel,#fff));min-width:0}
-.dashboard-page .home-period-presets button{border:0;border-radius:6px;padding:6px 9px;min-height:32px;background:transparent;color:var(--ink,#172033);cursor:pointer;font:inherit;font-size:12px}
+.dashboard-page .home-period-presets button{min-width:0;white-space:normal;overflow-wrap:anywhere;border:0;border-radius:6px;padding:6px 9px;min-height:32px;background:transparent;color:var(--ink,#172033);cursor:pointer;font:inherit;font-size:12px}
 .dashboard-page .home-period-presets button[aria-pressed="true"]{background:var(--accent,#0284c7);color:#fff;font-weight:700}
 .dashboard-page .home-period-nav{display:flex;align-items:center;gap:4px;min-width:0}
 .dashboard-page .home-period-nav button{min-width:32px;min-height:32px;border-radius:7px;border:1px solid var(--line,#dce5ee);background:var(--panel,#fff);color:var(--ink,#172033);cursor:pointer}
-.dashboard-page .home-period-nav small{color:var(--muted,#607187);font-size:11px;white-space:normal}
+.dashboard-page .home-period-nav small{min-width:0;flex:1;text-align:center;overflow-wrap:anywhere;color:var(--muted,#607187);font-size:11px;white-space:normal}
 .dashboard-page .home-period-dates{display:flex;flex-wrap:wrap;gap:7px;align-items:end}
-.dashboard-page .home-period-dates label{font-size:11px;display:flex;flex-direction:column;gap:3px}
+.dashboard-page .home-period-dates label{min-width:0;font-size:11px;display:flex;flex-direction:column;gap:3px}
 .dashboard-page .home-period-controls{align-items:end}
 .dashboard-page .home-period-dates{grid-column:1/-1;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr))}
 .dashboard-page .home-period-dates :is(input,select){width:100%;max-width:none;box-sizing:border-box;min-height:34px}
@@ -287,7 +287,7 @@
 .home-top-item>span{min-width:0;overflow-wrap:anywhere}
 .home-top-item small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
 .home-ps-metric>button{font:inherit;font-size:11px;color:var(--accent);background:none;border:0;padding:5px 0;cursor:pointer;text-align:left}
-.dashboard-page .home-period-dates input{min-width:0;max-width:150px;padding:5px;border-radius:7px;border:1px solid var(--line,#dce5ee);background:var(--panel,#fff);color:var(--ink,#172033)}
+.dashboard-page .home-period-dates input{min-width:0;max-width:100%;padding:5px;border-radius:7px;border:1px solid var(--line,#dce5ee);background:var(--panel,#fff);color:var(--ink,#172033)}
 @container (max-width:750px){
  .home-ps-panels{grid-template-columns:minmax(0,1fr)!important}
  .home-ps-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
@@ -297,6 +297,18 @@
  .home-widget-body .home-order-toolbar label{flex:1 1 45%}
  .home-chart-columns{height:142px!important}
 }
+/* Periods respond to the card width, including half-width desktop widgets. */
+@container (max-width:760px){
+ .dashboard-page .home-period-controls{grid-template-columns:minmax(0,1fr)}
+ .dashboard-page .home-period-presets{grid-column:1/-1;width:100%;box-sizing:border-box}
+ .dashboard-page .home-period-nav{grid-column:1/-1;width:100%;justify-content:space-between}
+}
+@container (max-width:420px){
+ .dashboard-page .home-period-presets{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .dashboard-page .home-period-presets button{padding-inline:6px}
+}
+.home-chart-column:first-child small{align-self:flex-start}
+.home-chart-column:last-child small{align-self:flex-end}
 @container (max-width:480px){
  .home-ps-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .home-ps-metric strong{font-size:14px!important}
@@ -358,7 +370,7 @@
 @media(max-width:600px){.dashboard-page .home-widget-frame[data-home-type="home.gain"]{grid-column:1/-1}}
 
 .dashboard-page .home-period-dates select{
- min-width:130px;max-width:min(100%,210px);height:34px;
+ min-width:0;max-width:100%;height:34px;
  padding:5px 8px;border:1px solid var(--line,#dce5ee);
  border-radius:7px;background:var(--panel,#fff);color:var(--ink,#172033);font-size:12px
 }

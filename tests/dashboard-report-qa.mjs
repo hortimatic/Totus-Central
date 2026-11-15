@@ -20,4 +20,6 @@ assert.deepEqual(moveReportBlock(null,'income','up'),['income','internal','month
 assert.deepEqual(moveReportBlock(null,'gestor','up'),['income','internal','gestor','monthly','exports']);
 console.log('DASHBOARD / REPORT QA: inclusive periods, three independent series, internal taxes, refunds, no income double-counting, outside-date linked originals, issued client invoices, missing attachments and layout normalization verified.');
 
-assert(activityChartHtml(jan).includes('Ingresos menos gastos'));assert(activityChartHtml(jan).includes('no es el margen comercial'));assert.equal((activityChartHtml(jan).match(/<polyline /g)||[]).length,4);
+assert(activityChartHtml(jan).includes('y="274" text-anchor="start"'));assert(activityChartHtml(jan).includes('y="274" text-anchor="end"'));assert(activityChartHtml(jan).includes('Ingresos menos gastos'));assert(activityChartHtml(jan).includes('no es el margen comercial'));assert.equal((activityChartHtml(jan).match(/<polyline /g)||[]).length,4);
+
+assert(!activityChartHtml(jan,{comparisons:[{key:"shop",label:"<img src=x onerror=alert(1)>",color:"#0369a1",points:[]}]}).includes("<img"),"Shop labels are escaped in legends");
