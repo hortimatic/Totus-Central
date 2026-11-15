@@ -171,6 +171,7 @@
  #content .module-symbol{width:36px;height:36px}
  #content .module-heading{gap:8px}
  #content .kpi :is(strong,.value){font-size:20px}
+ #content .backup-page .kpi strong{font-size:18px}
  #content .home-widget-header h3{font-size:13px}
  :is(#content,#modalHost) :is(.modal-body,.modal-head,.directory-dialog){padding:12px}
  :is(#content,#modalHost) .directory-form-grid{gap:10px}
